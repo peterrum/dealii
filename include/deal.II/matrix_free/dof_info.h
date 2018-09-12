@@ -390,7 +390,7 @@ namespace internal
        * as interior (0), the faces decorated with as exterior (1), and the
        * cells (2) according to CellOrFaceAccess.
        */
-      std::vector<IndexStorageVariants> index_storage_variants[3];
+      std::vector<IndexStorageVariants> index_storage_variants[5];
 
       /**
        * Stores the rowstart indices of the compressed row storage in the @p
@@ -484,7 +484,7 @@ namespace internal
        * the indices for evaluation both the function values and the gradients
        * on the faces adjacent to the locally owned cells.
        */
-      std::array<std::shared_ptr<const Utilities::MPI::Partitioner>, 3>
+      std::array<std::shared_ptr<const Utilities::MPI::Partitioner>, 5>
         vector_partitioner_face_variants;
 
       /**

@@ -722,6 +722,7 @@ public:
      * exchange is reduced from `(k+1)^dim` to `(k+1)^(dim-1)`.
      */
     values,
+    values_cell,
 
     /**
      * The loop does involve FEFaceEvaluation access into neighbors by
@@ -734,6 +735,7 @@ public:
      * property, the full neighboring data is sent anyway.
      */
     gradients,
+    gradients_cell,
 
     /**
      * General setup where the user does not want to make a restriction. This
@@ -857,6 +859,22 @@ public:
             const InVector &src,
             const bool      zero_dst_vector = false) const;
 
+  template <typename CLASS, typename OutVector, typename InVector>
+  void
+  loop_cell_centric(void (CLASS::*cell_operation)(
+                      const MatrixFree &,
+                      OutVector &,
+                      const InVector &,
+                      const std::pair<unsigned int, unsigned int> &) const,
+                    const CLASS *           owning_class,
+                    OutVector &             dst,
+                    const InVector &        src,
+                    const bool              zero_dst_vector = false,
+                    const DataAccessOnFaces dst_vector_face_access =
+                      DataAccessOnFaces::unspecified,
+                    const DataAccessOnFaces src_vector_face_access =
+                      DataAccessOnFaces::unspecified) const;
+
   /**
    * Same as above, but for class member functions which are non-const.
    */
@@ -871,6 +889,22 @@ public:
             OutVector &     dst,
             const InVector &src,
             const bool      zero_dst_vector = false) const;
+
+  template <typename CLASS, typename OutVector, typename InVector>
+  void
+  loop_cell_centric(void (CLASS::*cell_operation)(
+                      const MatrixFree &,
+                      OutVector &,
+                      const InVector &,
+                      const std::pair<unsigned int, unsigned int> &),
+                    CLASS *                 owning_class,
+                    OutVector &             dst,
+                    const InVector &        src,
+                    const bool              zero_dst_vector = false,
+                    const DataAccessOnFaces dst_vector_face_access =
+                      DataAccessOnFaces::unspecified,
+                    const DataAccessOnFaces src_vector_face_access =
+                      DataAccessOnFaces::unspecified) const;
 
   /**
    * This function is similar to the cell_loop with an std::function object to
@@ -1783,6 +1817,9 @@ public:
     VectorizedArrayType::n_array_elements> &
   get_face_info(const unsigned int face_batch_number) const;
 
+  const Table<3, unsigned int> &
+  get_cell_and_face_to_plain_faces() const;
+
   /**
    * Obtains a scratch data object for internal use. Make sure to release it
    * afterwards by passing the pointer you obtain from this object to the
@@ -2494,6 +2531,16 @@ MatrixFree<dim, Number, VectorizedArrayType>::get_quadrature(
 
 
 template <int dim, typename Number, typename VectorizedArrayType>
+inline const Table<3, unsigned int> &
+MatrixFree<dim, Number, VectorizedArrayType>::get_cell_and_face_to_plain_faces()
+  const
+{
+  return face_info.cell_and_face_to_plain_faces;
+}
+
+
+
+template <int dim, typename Number, typename VectorizedArrayType>
 inline const Quadrature<dim - 1> &
 MatrixFree<dim, Number, VectorizedArrayType>::get_face_quadrature(
   const unsigned int quad_index,
@@ -2960,7 +3007,7 @@ namespace internal
         for (unsigned int c = 0; c < matrix_free.n_components(); ++c)
           AssertDimension(
             matrix_free.get_dof_info(c).vector_partitioner_face_variants.size(),
-            3);
+            5);
     }
 
 
@@ -3017,7 +3064,7 @@ namespace internal
     {
       AssertDimension(matrix_free.get_dof_info(mf_component)
                         .vector_partitioner_face_variants.size(),
-                      3);
+                      5);
       if (vector_face_access ==
           dealii::MatrixFree<dim, Number, VectorizedArrayType>::
             DataAccessOnFaces::none)
@@ -3028,9 +3075,21 @@ namespace internal
                  DataAccessOnFaces::values)
         return *matrix_free.get_dof_info(mf_component)
                   .vector_partitioner_face_variants[1];
-      else
+      else if (vector_face_access ==
+               dealii::MatrixFree<dim, Number, VectorizedArrayType>::
+                 DataAccessOnFaces::gradients)
         return *matrix_free.get_dof_info(mf_component)
                   .vector_partitioner_face_variants[2];
+      else if (vector_face_access ==
+               dealii::MatrixFree<dim, Number, VectorizedArrayType>::
+                 DataAccessOnFaces::values_cell)
+        return *matrix_free.get_dof_info(mf_component)
+                  .vector_partitioner_face_variants[3];
+      else /*if (vector_face_access ==
+               dealii::MatrixFree<dim,
+              Number>::DataAccessOnFaces::gradients_cell)*/
+        return *matrix_free.get_dof_info(mf_component)
+                  .vector_partitioner_face_variants[4];
     }
 
 
@@ -4704,6 +4763,52 @@ MatrixFree<dim, Number, VectorizedArrayType>::cell_loop(
   task_info.loop(worker);
 }
 
+template <int dim, typename Number, typename VectorizedArrayType>
+template <typename CLASS, typename OutVector, typename InVector>
+inline void
+MatrixFree<dim, Number, VectorizedArrayType>::loop_cell_centric(
+  void (CLASS::*function_pointer)(
+    const MatrixFree<dim, Number, VectorizedArrayType> &,
+    OutVector &,
+    const InVector &,
+    const std::pair<unsigned int, unsigned int> &) const,
+  const CLASS *           owning_class,
+  OutVector &             dst,
+  const InVector &        src,
+  const bool              zero_dst_vector,
+  const DataAccessOnFaces dst_vector_face_access,
+  const DataAccessOnFaces src_vector_face_access) const
+{
+  auto dst_vector_face_access_temp = dst_vector_face_access;
+  if (DataAccessOnFaces::gradients == dst_vector_face_access_temp)
+    dst_vector_face_access_temp = DataAccessOnFaces::gradients_cell;
+  else if (DataAccessOnFaces::values == dst_vector_face_access_temp)
+    dst_vector_face_access_temp = DataAccessOnFaces::values_cell;
+
+  auto src_vector_face_access_temp = src_vector_face_access;
+  if (DataAccessOnFaces::gradients == src_vector_face_access_temp)
+    src_vector_face_access_temp = DataAccessOnFaces::gradients_cell;
+  else if (DataAccessOnFaces::values == src_vector_face_access_temp)
+    src_vector_face_access_temp = DataAccessOnFaces::values_cell;
+
+  internal::MFWorker<MatrixFree<dim, Number, VectorizedArrayType>,
+                     InVector,
+                     OutVector,
+                     CLASS,
+                     true>
+    worker(*this,
+           src,
+           dst,
+           zero_dst_vector,
+           *owning_class,
+           function_pointer,
+           nullptr,
+           nullptr,
+           src_vector_face_access_temp,
+           dst_vector_face_access_temp);
+  task_info.loop(worker);
+}
+
 
 
 template <int dim, typename Number, typename VectorizedArrayType>
@@ -4820,6 +4925,52 @@ MatrixFree<dim, Number, VectorizedArrayType>::cell_loop(
            function_pointer,
            nullptr,
            nullptr);
+  task_info.loop(worker);
+}
+
+template <int dim, typename Number, typename VectorizedArrayType>
+template <typename CLASS, typename OutVector, typename InVector>
+inline void
+MatrixFree<dim, Number, VectorizedArrayType>::loop_cell_centric(
+  void (CLASS::*function_pointer)(
+    const MatrixFree<dim, Number, VectorizedArrayType> &,
+    OutVector &,
+    const InVector &,
+    const std::pair<unsigned int, unsigned int> &),
+  CLASS *                 owning_class,
+  OutVector &             dst,
+  const InVector &        src,
+  const bool              zero_dst_vector,
+  const DataAccessOnFaces dst_vector_face_access,
+  const DataAccessOnFaces src_vector_face_access) const
+{
+  auto dst_vector_face_access_temp = dst_vector_face_access;
+  if (DataAccessOnFaces::gradients == dst_vector_face_access_temp)
+    dst_vector_face_access_temp = DataAccessOnFaces::gradients_cell;
+  else if (DataAccessOnFaces::values == dst_vector_face_access_temp)
+    dst_vector_face_access_temp = DataAccessOnFaces::values_cell;
+
+  auto src_vector_face_access_temp = src_vector_face_access;
+  if (DataAccessOnFaces::gradients == src_vector_face_access_temp)
+    src_vector_face_access_temp = DataAccessOnFaces::gradients_cell;
+  else if (DataAccessOnFaces::values == src_vector_face_access_temp)
+    src_vector_face_access_temp = DataAccessOnFaces::values_cell;
+
+  internal::MFWorker<MatrixFree<dim, Number, VectorizedArrayType>,
+                     InVector,
+                     OutVector,
+                     CLASS,
+                     false>
+    worker(*this,
+           src,
+           dst,
+           zero_dst_vector,
+           *owning_class,
+           function_pointer,
+           nullptr,
+           nullptr,
+           src_vector_face_access_temp,
+           dst_vector_face_access_temp);
   task_info.loop(worker);
 }
 

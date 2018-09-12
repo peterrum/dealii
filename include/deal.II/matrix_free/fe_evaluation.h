@@ -863,6 +863,16 @@ protected:
   read_write_operation_global(const VectorOperation &operation,
                               VectorType *           vectors[]) const;
 
+public:
+  /**
+   * In the case of cell-loops, return the cell id of the vector lanes. In the
+   * case of face-loops, return the cell id of the cells on the correct side
+   * (positive or negative). This function also works for cell-based face-loops.
+   */
+  std::array<unsigned int, VectorizedArrayType::n_array_elements>
+  get_cell_ids() const;
+
+protected:
   /**
    * This is the general array for all data fields.
    */
@@ -3569,7 +3579,31 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
   Assert(matrix_info != nullptr, ExcNotImplemented());
   AssertDimension(array.size(),
                   matrix_info->get_task_info().cell_partition_data.back());
-  if (is_face)
+  if (is_face && this->face_vector_access_index == 2 && this->is_minus_face)
+    {
+      // cell-based face-loop: minus face
+      // simply return data of this macro cell
+      return array[cell];
+    }
+  else if (is_face && this->face_vector_access_index == 2 &&
+           !this->is_minus_face)
+    {
+      // cell-based face-loop: plus face
+      // requires a two step procedure
+      //   1) compute the indices of the cells on the positive side
+      const unsigned int v_len = VectorizedArrayType::n_array_elements;
+
+      std::array<unsigned int, VectorizedArrayType::n_array_elements> cells =
+        this->get_cell_ids();
+
+      //   2) gather values
+      VectorizedArrayType out = make_vectorized_array<Number>(Number(1.));
+      for (unsigned int i = 0; i < v_len; ++i)
+        if (cells[i] != numbers::invalid_unsigned_int)
+          out[i] = array[cells[i] / v_len][cells[i] % v_len];
+      return out;
+    }
+  else if (is_face)
     {
       VectorizedArrayType out = make_vectorized_array<Number>(Number(1.));
       const unsigned int *cells =
@@ -4147,7 +4181,62 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
     }
 }
 
+template <int dim,
+          int n_components_,
+          typename Number,
+          bool is_face,
+          typename VectorizedArrayType>
+std::array<unsigned int, VectorizedArrayType::n_array_elements>
+FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
+  get_cell_ids() const
+{
+  const unsigned int v_len = VectorizedArrayType::n_array_elements;
+  std::array<unsigned int, VectorizedArrayType::n_array_elements> cells;
 
+  // initialize array
+  for (unsigned int i = 0; i < v_len; ++i)
+    cells[i] = numbers::invalid_unsigned_int;
+
+  if (is_face &&
+      this->dof_access_index ==
+        internal::MatrixFreeFunctions::DoFInfo::dof_access_cell &&
+      this->is_interior_face == false)
+    {
+      // cell-based face-loop: plus face
+      for (unsigned int i = 0; i < v_len; i++)
+        {
+          // compute actual (non vectorized) cell ID
+          const unsigned int cell_this = this->cell * v_len + i;
+          // compute face ID
+          unsigned int fn =
+            this->matrix_info->get_cell_and_face_to_plain_faces()(this->cell,
+                                                                  this->face_no,
+                                                                  i);
+
+          if (fn == numbers::invalid_unsigned_int)
+            continue; // invalid face ID: no neighbor on boundary
+
+          // get cell ID on both sides of face
+          auto cell_m = this->matrix_info->get_face_info(fn / v_len)
+                          .cells_interior[fn % v_len];
+          auto cell_p = this->matrix_info->get_face_info(fn / v_len)
+                          .cells_exterior[fn % v_len];
+
+          // compare the IDs with the given cell ID
+          if (cell_m == cell_this)
+            cells[i] = cell_p; // neighbor has the other ID
+          else if (cell_p == cell_this)
+            cells[i] = cell_m;
+        }
+    }
+  else
+    {
+      for (unsigned int i = 0; i < v_len; ++i)
+        cells[i] = cell * v_len + i;
+    }
+
+  return cells;
+}
 
 template <int dim,
           int n_components_,
@@ -4209,6 +4298,8 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
       return;
     }
 
+  const auto cells = this->get_cell_ids();
+
   // More general case: Must go through the components one by one and apply
   // some transformations
   const unsigned int vectorization_populated =
@@ -4217,11 +4308,10 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
   unsigned int dof_indices[VectorizedArrayType::n_array_elements];
   for (unsigned int v = 0; v < vectorization_populated; ++v)
     dof_indices[v] =
-      dof_indices_cont[cell * VectorizedArrayType::n_array_elements + v] +
+      dof_indices_cont[cells[v]] +
       dof_info->component_dof_indices_offset[active_fe_index]
                                             [first_selected_component] *
-        dof_info->dof_indices_interleave_strides
-          [ind][cell * VectorizedArrayType::n_array_elements + v];
+        dof_info->dof_indices_interleave_strides[ind][cells[v]];
 
   for (unsigned int v = vectorization_populated;
        v < VectorizedArrayType::n_array_elements;
@@ -7313,13 +7403,17 @@ FEFaceEvaluation<dim,
   Assert(this->mapped_geometry == nullptr,
          ExcMessage("FEEvaluation was initialized without a matrix-free object."
                     " Integer indexing is not possible"));
-  Assert(this->is_interior_face == true,
-         ExcMessage(
-           "Cell-based FEFaceEvaluation::reinit only possible for the "
-           "interior face with second argument to constructor as true"));
   if (this->mapped_geometry != nullptr)
     return;
   Assert(this->matrix_info != nullptr, ExcNotInitialized());
+
+  if (this->is_minus_face == false)
+    {
+      this->face_no                  = face_number;
+      this->cell                     = cell_index;
+      this->face_vector_access_index = 2;
+      return;
+    }
 
   this->cell_type = this->matrix_info->get_mapping_info().cell_type[cell_index];
   this->cell      = cell_index;
@@ -7346,10 +7440,11 @@ FEFaceEvaluation<dim,
                             .normal_vectors[offsets];
   this->jacobian = &this->matrix_info->get_mapping_info()
                       .face_data_by_cells[this->quad_no]
-                      .jacobians[0][offsets];
-  this->normal_x_jacobian = &this->matrix_info->get_mapping_info()
-                               .face_data_by_cells[this->quad_no]
-                               .normals_times_jacobians[0][offsets];
+                      .jacobians[!this->is_interior_face][offsets];
+  this->normal_x_jacobian =
+    &this->matrix_info->get_mapping_info()
+       .face_data_by_cells[this->quad_no]
+       .normals_times_jacobians[!this->is_interior_face][offsets];
 
 #  ifdef DEBUG
   this->dof_values_initialized     = false;
