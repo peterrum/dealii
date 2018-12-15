@@ -24,6 +24,7 @@
 #include <deal.II/base/template_constraints.h>
 
 #include <deal.II/distributed/p4est_wrappers.h>
+#include <deal.II/base/timer.h>
 #include <deal.II/distributed/tria_base.h>
 
 #include <deal.II/grid/tria.h>
@@ -64,6 +65,8 @@ namespace internal
     {
       template <typename>
       class ParallelDistributed;
+      template <typename> 
+      class ParallelFullyDistributed;
     }
   } // namespace DoFHandlerImplementation
 } // namespace internal
@@ -1388,7 +1391,6 @@ namespace parallel
   } // namespace distributed
 } // namespace parallel
 
-
 #else // DEAL_II_WITH_P4EST
 
 namespace parallel
@@ -1421,6 +1423,181 @@ namespace parallel
 
 
 #endif
+
+
+
+class Part {
+public:
+    std::vector<int> local;
+    std::vector<int> ghost;
+    std::vector<int> ghost_rank;
+    std::vector<int> ghost_rank_mg;
+
+};
+
+namespace parallel {
+    namespace fullydistributed {
+        
+        class Graph {
+        public:
+            std::vector<int> xadj;
+            std::vector<int> adjncy;
+            int elements;
+            std::vector<int> parts;
+        };
+        
+        class PartitioningAlgorithm{
+            
+        public:
+            virtual void mesh_to_dual(std::vector<int>& eptr_in, 
+                                      std::vector<int>& eind_in, 
+                                      int ncommon_in, 
+                                      Graph& graph_out);
+            
+            virtual void partition(Graph& graph, int n_partitions, bool is_prepartitioned = false);
+            
+        };
+        
+        class MetisPartitioningAlgorithm : public PartitioningAlgorithm{
+            
+        public:
+            void mesh_to_dual(std::vector<int>& eptr_in, 
+                              std::vector<int>& eind_in, 
+                              int ncommon_in, 
+                              Graph& graph_out) override;
+            
+            void partition(Graph& graph, int n_partitions, bool is_prepartitioned = false) override;
+            
+        };
+        
+        enum PartitioningType { metis };
+        enum PartitioningGroup { single, fixed, shared };
+        
+        struct AdditionalData{
+            
+            AdditionalData() : partition_type(metis), partition_group(fixed), partition_group_size(4){}
+            
+            PartitioningType  partition_type;
+            PartitioningGroup partition_group;
+            unsigned int      partition_group_size;
+            
+        };
+
+        template <int dim, int spacedim = dim>
+        class Triangulation : public dealii::parallel::Triangulation<dim, spacedim> {
+        public:
+
+            typedef typename dealii::Triangulation<dim, spacedim>::cell_iterator cell_iterator;
+
+            typedef typename dealii::Triangulation<dim, spacedim>::active_cell_iterator active_cell_iterator;
+
+            typedef typename dealii::Triangulation<dim, spacedim>::CellStatus CellStatus;
+            
+            void reinit(unsigned int refinements2,
+                        std::function<void (dealii::Triangulation<dim> &) > func1,
+                        AdditionalData additional_data = AdditionalData());
+            
+            void reinit(std::vector<Part>& parts, 
+                        std::vector< CellData< dim >>& cells,
+                        std::vector< Point< spacedim >>& vertices, 
+                        std::vector< int>& boundary_ids,
+                        unsigned int refinements);
+            
+            void reinit(std::vector<Part>& parts, 
+                        std::map<int, std::pair<int, int>>& coarse_gid_to_lid, 
+                        std::map<int, std::pair<int, int>>& coarse_lid_to_gid, 
+                        std::vector< CellData< dim >>& cells,
+                        std::vector< Point< spacedim >>& vertices, 
+                        std::vector< int>& boundary_ids,
+                        unsigned int refinements);
+
+            void create_hierchy(std::vector<Graph>& graphs_out, 
+                               unsigned int refinements,  
+                               int p, std::vector<Part>& parts_rank);
+            
+            virtual void create_triangulation(const std::vector<Point<spacedim> > &vertices,
+                                              const std::vector<CellData<dim> > &cells,
+                                              const SubCellData &subcelldata) override;
+
+            Triangulation(MPI_Comm mpi_communicator);
+
+            Triangulation(MPI_Comm mpi_communicator, MPI_Comm mpi_communicator_coarse);
+
+            virtual ~Triangulation();
+
+            virtual void clear() override;
+
+            void copy_local_forest_to_triangulation();
+
+            virtual void execute_coarsening_and_refinement() override;
+
+            virtual bool prepare_coarsening_and_refinement() override;
+
+            virtual
+            bool has_hanging_nodes() const override;
+
+            virtual std::size_t memory_consumption() const override;
+
+            virtual std::size_t memory_consumption_p4est() const;
+
+            virtual void
+            add_periodicity(const std::vector<GridTools::PeriodicFacePair<cell_iterator> > &) override;
+            
+            virtual void update_number_cache () override;
+
+            enum Settings {
+                /**
+                 * Default settings, other options are disabled.
+                 */
+                default_setting = 0x0,
+                /**
+                 * If set, the deal.II mesh will be reconstructed from the coarse mesh
+                 * every time a repartitioning in p4est happens. This can be a bit more
+                 * expensive, but guarantees the same memory layout and therefore cell
+                 * ordering in the deal.II mesh. As assembly is done in the deal.II
+                 * cell ordering, this flag is required to get reproducible behaviour
+                 * after snapshot/resume.
+                 */
+                mesh_reconstruction_after_repartitioning = 0x1,
+                /**
+                 * This flags needs to be set to use the geometric multigrid
+                 * functionality. This option requires additional computation and
+                 * communication. Note: geometric multigrid is still a work in
+                 * progress.
+                 */
+                construct_multigrid_hierarchy = 0x2,
+                /**
+                 * Setting this flag will disable automatic repartitioning of the cells
+                 * after a refinement cycle. It can be executed manually by calling
+                 * repartition().
+                 */
+                no_automatic_repartitioning = 0x4
+            };
+
+
+        private:
+
+            /**
+             * store the Settings.
+             */
+            Settings settings;
+
+            template <typename> friend class dealii::internal::DoFHandlerImplementation::Policy::ParallelFullyDistributed;
+
+            template <int, int, class> friend class dealii::FETools::internal::ExtrapolateImplementation;
+
+        public:
+            std::vector<Part> parts;
+            std::map<int, std::pair<int, int>> coarse_gid_to_lid;
+            std::map<int, std::pair<int, int>> coarse_lid_to_gid;
+        private:
+            unsigned int ref_counter;
+            std::map<std::string, double> timings;
+            MPI_Comm mpi_communicator_coarse;
+        };
+
+    }
+}
 
 
 DEAL_II_NAMESPACE_CLOSE
