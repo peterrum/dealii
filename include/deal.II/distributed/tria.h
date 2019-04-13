@@ -1524,6 +1524,7 @@ namespace parallel
              std::vector<CellData<dim>> &  cells,
              std::vector<Point<spacedim>> &vertices,
              std::vector<int> &            boundary_ids,
+             std::vector<types::material_id> &   material_ids,
              unsigned int                  refinements);
 
       void
@@ -1533,6 +1534,7 @@ namespace parallel
              std::vector<CellData<dim>> &        cells,
              std::vector<Point<spacedim>> &      vertices,
              std::vector<int> &                  boundary_ids,
+             std::vector<types::material_id> &   material_ids,
              unsigned int                        refinements);
 
       void

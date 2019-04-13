@@ -5290,6 +5290,7 @@ namespace parallel
       std::vector<CellData<dim>>   cells;
       std::vector<Point<spacedim>> vertices;
       std::vector<int>             boundary_ids;
+      std::vector<types::material_id>     material_ids;
 
       // temporal data structures
       std::vector<int>    list_cell_local;
@@ -5463,6 +5464,7 @@ namespace parallel
               std::set<int>       vertex_map;
               std::vector<int>    list_cell;
               std::vector<int>    list_boundary_id;
+              std::vector<types::material_id> list_material_id;
               std::vector<double> list_vertex;
 
               // convert vector to set, such that we can search in the following
@@ -5494,6 +5496,7 @@ namespace parallel
                         list_boundary_id.push_back(
                           cell->face(i)->boundary_id());
                       }
+                    list_material_id.push_back(cell->material_id());
                   }
 
               // collect position of all vertices of partition
@@ -5509,18 +5512,22 @@ namespace parallel
                   list_cell_local   = list_cell;
                   list_vertex_local = list_vertex;
                   boundary_ids      = list_boundary_id;
+                  material_ids      = list_material_id;
                 }
               else
                 {
-                  int sizes[3] = {(int)list_cell.size(),
+                  int sizes[4] = {(int)list_cell.size(),
                                   (int)list_vertex.size(),
-                                  (int)list_boundary_id.size()};
-                  MPI_Send(sizes, 3, MPI_INT, p, 0, comm_shared);
+                                  (int)list_boundary_id.size(),
+                                  (int)list_material_id.size()};
+                  MPI_Send(sizes, 4, MPI_INT, p, 0, comm_shared);
                   MPI_Send(&list_cell[0], sizes[0], MPI_INT, p, 0, comm_shared);
                   MPI_Send(
                     &list_vertex[0], sizes[1], MPI_DOUBLE, p, 0, comm_shared);
                   MPI_Send(
                     &list_boundary_id[0], sizes[2], MPI_INT, p, 0, comm_shared);
+                  MPI_Send(
+                    &list_material_id[0], sizes[3], MPI_INT, p, 0, comm_shared);
                 }
             }
           timings["hierarchy"] = timer.wall_time();
@@ -5578,12 +5585,13 @@ namespace parallel
           // level
           {
             // receive sizes
-            int sizes[3];
-            MPI_Recv(sizes, 3, MPI_INT, 0, 0, comm_shared, MPI_STATUS_IGNORE);
+            int sizes[4];
+            MPI_Recv(sizes, 4, MPI_INT, 0, 0, comm_shared, MPI_STATUS_IGNORE);
             // allocate memory
             list_cell_local.resize(sizes[0]);
             list_vertex_local.resize(sizes[1]);
             boundary_ids.resize(sizes[2]);
+            material_ids.resize(sizes[3]);
             // receive actual indices
             MPI_Recv(&list_cell_local[0],
                      sizes[0],
@@ -5601,6 +5609,13 @@ namespace parallel
                      MPI_STATUS_IGNORE);
             MPI_Recv(&boundary_ids[0],
                      sizes[2],
+                     MPI_INT,
+                     0,
+                     0,
+                     comm_shared,
+                     MPI_STATUS_IGNORE);
+            MPI_Recv(&material_ids[0],
+                     sizes[3],
                      MPI_INT,
                      0,
                      0,
@@ -5631,7 +5646,7 @@ namespace parallel
       timer.restart();
       // save created data structures and create triangulation
       timings["overall_reinit_1"] = timer2.wall_time();
-      this->reinit(levels, cells, vertices, boundary_ids, refinements_final);
+      this->reinit(levels, cells, vertices, boundary_ids, material_ids, refinements_final);
 
       timings["reinit2"] = timer.wall_time();
 
@@ -5645,6 +5660,7 @@ namespace parallel
       std::vector<CellData<dim>> &  cells_global,
       std::vector<Point<spacedim>> &vertices,
       std::vector<int> &            boundary_ids,
+      std::vector<types::material_id> & material_ids,
       unsigned int                  refinements)
     {
       unsigned int rank =
@@ -5696,6 +5712,7 @@ namespace parallel
                    cells,
                    vertices,
                    boundary_ids,
+                    material_ids,
                    refinements);
     }
 
@@ -5708,6 +5725,7 @@ namespace parallel
       std::vector<CellData<dim>> &        cells,
       std::vector<Point<spacedim>> &      vertices,
       std::vector<int> &                  boundary_ids,
+      std::vector<types::material_id> & material_ids,
       unsigned int                        refinements)
     {
       // save data structures
@@ -5720,13 +5738,17 @@ namespace parallel
 
       // set boundary ids (TODO)
       int c = 0;
+      int d = 0;
       for (auto cell = this->begin_active(); cell != this->end(); ++cell)
+        {
+        cell->set_material_id(material_ids[d++]);
         for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell; i++)
           {
             unsigned int boundary_ind = boundary_ids[c++];
             if (boundary_ind != numbers::internal_face_boundary_id)
               cell->face(i)->set_boundary_id(boundary_ind);
           }
+        }
 
       // refine grid
       this->refine_global(refinements);
@@ -6012,6 +6034,12 @@ namespace parallel
                   }
               }
         }
+          for (auto cell = this->begin_active(); cell != this->end(); ++cell)
+            if ((cell->level() == (int)ref_counter))
+              {
+                cell->set_material_id(cell->parent()->material_id());
+              }
+      
     }
 
     template <int dim, int spacedim>
