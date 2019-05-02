@@ -6374,7 +6374,24 @@ namespace internal
 
 
         const DoFHandlerType *object = &dof_handler;
-        if (dynamic_cast<const DoFHandler<2, 2> *>(object))
+        if (dynamic_cast<const DoFHandler<1, 1> *>(object))
+          GridTools::exchange_cell_data_to_ghosts2<
+            std::vector<types::global_dof_index>,
+            DoFHandler<1, 1>>(
+            *((const DoFHandler<1, 1> *)object),
+            pack,
+            unpack,
+            [coarse_gid_to_lid, coarse_lid_to_gid](const auto id) mutable {
+              auto id_binary = id.template to_binary<1>();
+              id_binary[0]   = coarse_lid_to_gid[id_binary[0]].first;
+              return CellId(id_binary);
+            },
+            [coarse_gid_to_lid, coarse_lid_to_gid](const auto id) mutable {
+              auto id_binary = id.template to_binary<1>();
+              id_binary[0]   = coarse_gid_to_lid[id_binary[0]].first;
+              return CellId(id_binary);
+            });
+        else if (dynamic_cast<const DoFHandler<2, 2> *>(object))
           GridTools::exchange_cell_data_to_ghosts2<
             std::vector<types::global_dof_index>,
             DoFHandler<2, 2>>(

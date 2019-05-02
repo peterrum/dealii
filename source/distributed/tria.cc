@@ -5081,6 +5081,28 @@ namespace parallel
 {
   namespace fullydistributed
   {
+      
+      void
+      Graph::print(std::ostream &out)
+      {
+          
+          std::cout << std::endl;
+          std::cout << "Graph:" << std::endl;
+          for(auto i : xadj)
+              out << i << " ";
+          out << std::endl;
+          
+          for(auto i : adjncy)
+              out << i << " ";
+          out << std::endl;
+          
+          out << elements << std::endl;
+          
+          for(auto i : parts)
+              out << i << " ";
+          out << std::endl << std::endl;
+      }
+      
     void
     PartitioningAlgorithm::mesh_to_dual(std::vector<int> & /*eptr_in*/,
                                         std::vector<int> & /*eind_in*/,
@@ -5168,6 +5190,8 @@ namespace parallel
       std::vector<idx_t> xadj   = graph.xadj;
       std::vector<idx_t> adjncy = graph.adjncy;
       std::vector<idx_t> parts(graph.elements);
+      
+      int status = METIS_OK;
 
       if (n_partitions == 1)
         {
@@ -5186,7 +5210,7 @@ namespace parallel
               else
                 adjwgt[j] = 1;
 
-          METIS_PartGraphKway(&ne,
+          status = METIS_PartGraphRecursive(&ne,
                               &ncon,
                               &xadj[0],
                               &adjncy[0],
@@ -5202,7 +5226,14 @@ namespace parallel
         }
       else
         {
-          METIS_PartGraphKway(&ne,
+          idx_t options[METIS_NOPTIONS];
+          METIS_SetDefaultOptions(options);
+//          options[METIS_OPTION_MINCONN] = 1;
+//          options[METIS_OPTION_OBJTYPE] = METIS_OBJTYPE_VOL;
+//          options[METIS_OPTION_NCUTS] = 10;
+//          options[METIS_OPTION_UFACTOR] = 1;
+//          options[METIS_OPTION_DBGLVL] = 1;
+          status = METIS_PartGraphRecursive(&ne,
                               &ncon,
                               &xadj[0],
                               &adjncy[0],
@@ -5212,10 +5243,12 @@ namespace parallel
                               &nparts,
                               NULL,
                               NULL,
-                              NULL,
+                              options,
                               &edgecut,
                               &parts[0]);
         }
+      
+      AssertThrow(status == METIS_OK, ExcMessage("Partitioning with Metis was not successful."));
 
       graph.parts = parts;
 #else
@@ -5272,6 +5305,14 @@ namespace parallel
       int rank_shared;
       MPI_Comm_size(comm_shared, &size_shared);
       MPI_Comm_rank(comm_shared, &rank_shared);
+      
+      int size_groups;
+      {
+        MPI_Comm comm_group;
+        int color = (rank_shared==0);
+        MPI_Comm_split(comm_all, color, rank_all, &comm_group);
+        MPI_Comm_size(comm_group, &size_groups);
+      }
 
       // get global ranks of processes in shared communicator
       std::vector<int> ranks_shared(size_shared);
@@ -5378,7 +5419,7 @@ namespace parallel
                     GeometryInfo<dim>::vertices_per_face,
                     graph_face);
                   // perform pre-partitioning such that groups are kept together
-                  partitioner->partition(graph_face, size_shared, false);
+                  partitioner->partition(graph_face, size_groups, false);
                   // use pre-partitioning result as weight for actual
                   // partitioning
                   partitioner->partition(graph_face, size_all, true);
@@ -5734,8 +5775,10 @@ namespace parallel
       this->coarse_lid_to_gid = coarse_lid_to_gid;
 
       // create triangulation
+      AssertThrow(cells.size()>0, ExcMessage("There are processes without any cells."));
+      
       this->create_triangulation(vertices, cells, SubCellData());
-
+    
       // set boundary ids (TODO)
       int c = 0;
       int d = 0;

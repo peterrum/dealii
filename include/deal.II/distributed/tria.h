@@ -1446,6 +1446,9 @@ namespace parallel
       std::vector<int> adjncy;
       int              elements;
       std::vector<int> parts;
+      
+      void 
+      print(std::ostream &out);
     };
 
     class PartitioningAlgorithm
