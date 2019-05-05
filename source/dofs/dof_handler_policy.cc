@@ -54,6 +54,65 @@ DEAL_II_NAMESPACE_OPEN
 
 namespace internal
 {
+  namespace p4est
+  {
+    template <>
+    struct types<1>
+    {
+      using quadrant = int;
+    };
+
+    template <>
+    bool
+    quadrant_is_equal<1>(const typename types<1>::quadrant &q1,
+                         const typename types<1>::quadrant &q2)
+    {
+      return q1 == q2;
+    }
+
+    template <>
+    bool quadrant_is_ancestor<1>(types<1>::quadrant const &q1,
+                                 types<1>::quadrant const &q2)
+    {
+      int gen_1 = (q1 << 27) >> 27;
+      int gen_2 = (q2 << 27) >> 27;
+
+      if (gen_1 >= gen_2)
+        return false;
+
+      int val_1 = (q1 >> (31 - gen_1)) << (31 - gen_1);
+      int val_2 = (q2 >> (31 - gen_1)) << (31 - gen_1);
+
+
+      return val_1 == val_2;
+    }
+
+    template <>
+    void
+    init_quadrant_children<1>(
+      const typename types<1>::quadrant &p4est_cell,
+      typename types<1>::quadrant (
+        &p4est_children)[dealii::GeometryInfo<1>::max_children_per_cell])
+    {
+      int generation_parent = (p4est_cell << 27) >> 27;
+      int generation        = generation_parent + 1;
+
+      p4est_children[0] = (p4est_cell + 1) | (1 << (31 - generation));
+      p4est_children[1] = (p4est_cell + 1);
+    }
+
+    template <>
+    void init_coarse_quadrant<1>(typename types<1>::quadrant &quad)
+    {
+      quad = 0;
+    }
+
+
+  } // namespace p4est
+} // namespace internal
+
+namespace internal
+{
   namespace DoFHandlerImplementation
   {
     namespace Policy
@@ -6922,17 +6981,29 @@ namespace internal
           // Phase 1. Request all marked cells from corresponding owners. If we
           // managed to get every DoF, remove the user_flag, otherwise we
           // will request them again in the step below.
+          parallel::fullydistributed::Triangulation<1, 1> *tria1 =
+            dynamic_cast<parallel::fullydistributed::Triangulation<1, 1> *>(
+              triangulation);
+          dealii::DoFHandler<1, 1> *dof_handler_1 =
+            dynamic_cast<dealii::DoFHandler<1, 1> *>(&*dof_handler);
           parallel::fullydistributed::Triangulation<2, 2> *tria2 =
             dynamic_cast<parallel::fullydistributed::Triangulation<2, 2> *>(
               triangulation);
           dealii::DoFHandler<2, 2> *dof_handler_2 =
             dynamic_cast<dealii::DoFHandler<2, 2> *>(&*dof_handler);
+
           parallel::fullydistributed::Triangulation<3, 3> *tria3 =
             dynamic_cast<parallel::fullydistributed::Triangulation<3, 3> *>(
               triangulation);
           dealii::DoFHandler<3, 3> *dof_handler_3 =
             dynamic_cast<dealii::DoFHandler<3, 3> *>(&*dof_handler);
-          if (tria2 != nullptr && dof_handler_2 != nullptr)
+
+          if (tria1 != nullptr && dof_handler_1 != nullptr)
+            communicate_mg_ghost_cells_2(*tria1,
+                                         *dof_handler_1,
+                                         triangulation->coarse_gid_to_lid,
+                                         triangulation->coarse_lid_to_gid);
+          else if (tria2 != nullptr && dof_handler_2 != nullptr)
             communicate_mg_ghost_cells_2(*tria2,
                                          *dof_handler_2,
                                          triangulation->coarse_gid_to_lid,
@@ -6966,7 +7037,12 @@ namespace internal
 
           // Phase 2, only request the cells that were not completed
           // in Phase 1.
-          if (tria2 != nullptr && dof_handler_2 != nullptr)
+          if (tria1 != nullptr && dof_handler_1 != nullptr)
+            communicate_mg_ghost_cells_2(*tria1,
+                                         *dof_handler_1,
+                                         triangulation->coarse_gid_to_lid,
+                                         triangulation->coarse_lid_to_gid);
+          else if (tria2 != nullptr && dof_handler_2 != nullptr)
             communicate_mg_ghost_cells_2(*tria2,
                                          *dof_handler_2,
                                          triangulation->coarse_gid_to_lid,

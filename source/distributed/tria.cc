@@ -5365,12 +5365,61 @@ namespace parallel
 
               timer.restart();
               // Step 2: extract mesh from triangulation
+              std::map<unsigned int, unsigned int> periodic_map;
+              for (auto cell : tria.cell_iterators_on_level(ref))
+                {
+                  for (unsigned int i = 0;
+                       i < GeometryInfo<dim>::faces_per_cell;
+                       i++)
+                    {
+                      if (cell->has_periodic_neighbor(i))
+                        {
+                          auto face_t = cell->face(i);
+                          auto face_n = cell->periodic_neighbor(i)->face(
+                            cell->periodic_neighbor_face_no(i));
+                          for (unsigned int j = 0;
+                               j < GeometryInfo<dim>::vertices_per_face;
+                               j++)
+                            {
+                              auto         v_t  = face_t->vertex_index(j);
+                              auto         v_n  = face_n->vertex_index(j);
+                              unsigned int temp = std::min(v_t, v_n);
+                              {
+                                auto it = periodic_map.find(v_t);
+                                if (it != periodic_map.end())
+                                  temp = std::min(temp, it->second);
+                              }
+                              {
+                                auto it = periodic_map.find(v_n);
+                                if (it != periodic_map.end())
+                                  temp = std::min(temp, it->second);
+                              }
+                              periodic_map[v_t] = temp;
+                              periodic_map[v_n] = temp;
+                            }
+                        }
+                    }
+                }
+
+              for (auto p : periodic_map)
+                {
+                  if (p.first == p.second)
+                    continue;
+                  auto pp = periodic_map.find(p.second);
+                  if (pp->first == pp->second)
+                    continue;
+                  AssertThrow(false, ExcMessage("Map has to be compressed!"));
+                }
+
               std::map<unsigned int, unsigned int> temp_map;
               for (auto cell : tria.cell_iterators_on_level(ref))
                 for (unsigned int i = 0;
                      i < GeometryInfo<dim>::vertices_per_cell;
                      i++)
                   {
+                    auto pp = periodic_map.find(cell->vertex_index(i));
+                    if (pp != periodic_map.end() && (pp->first != pp->second))
+                      continue;
                     temp_map[cell->vertex_index(i)] = -1;
                   }
 
@@ -5383,7 +5432,16 @@ namespace parallel
                   for (unsigned int i = 0;
                        i < GeometryInfo<dim>::vertices_per_cell;
                        i++)
-                    eind.push_back(temp_map[cell->vertex_index(i)]);
+                    {
+                      if (temp_map.find(cell->vertex_index(i)) !=
+                          temp_map.end())
+                        eind.push_back(temp_map[cell->vertex_index(i)]);
+                      else
+                        {
+                          eind.push_back(
+                            temp_map[periodic_map[cell->vertex_index(i)]]);
+                        }
+                    }
                   eptr.push_back(GeometryInfo<dim>::vertices_per_cell +
                                  eptr.back());
                 }
@@ -6203,10 +6261,56 @@ namespace parallel
     template <int dim, int spacedim>
     void
     Triangulation<dim, spacedim>::add_periodicity(
-      const std::vector<GridTools::PeriodicFacePair<cell_iterator>> &)
+      const std::vector<GridTools::PeriodicFacePair<cell_iterator>>
+        &periodicity_vector)
     {
-      std::cout << "parallel::fullydistributed::Triangulation::add_periodicity"
-                << std::endl;
+      dealii::Triangulation<dim, spacedim>::add_periodicity(periodicity_vector);
+    }
+
+    template <int dim, int spacedim>
+    std::map<unsigned int, std::set<dealii::types::subdomain_id>>
+    Triangulation<dim, spacedim>::compute_vertices_with_ghost_neighbors() const
+    {
+      std::vector<bool> vertex_of_own_cell(this->n_vertices(), false);
+
+      for (const auto &cell : this->active_cell_iterators())
+        if (cell->is_locally_owned())
+          {
+            for (unsigned int v = 0; v < GeometryInfo<dim>::vertices_per_cell;
+                 ++v)
+              vertex_of_own_cell[cell->vertex_index(v)] = true;
+          }
+
+      std::map<unsigned int, std::set<dealii::types::subdomain_id>> result;
+      for (const auto &cell : this->active_cell_iterators())
+        if (cell->is_ghost())
+          {
+            const types::subdomain_id owner = cell->subdomain_id();
+            for (unsigned int v = 0; v < GeometryInfo<dim>::vertices_per_cell;
+                 ++v)
+              {
+                if (vertex_of_own_cell[cell->vertex_index(v)])
+                  result[cell->vertex_index(v)].insert(owner);
+              }
+
+            for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell; i++)
+              if (cell->has_periodic_neighbor(i) &&
+                  cell->periodic_neighbor(i)->active())
+                {
+                  auto face_i = cell->face(i);
+                  auto face_n = cell->periodic_neighbor(i)->face(
+                    cell->periodic_neighbor_face_no(i));
+                  for (unsigned int j = 0;
+                       j < GeometryInfo<dim>::vertices_per_face;
+                       j++)
+                    {
+                      result[face_i->vertex_index(j)].insert(owner);
+                      result[face_n->vertex_index(j)].insert(owner);
+                    }
+                }
+          }
+
+      return result;
     }
 
   } // namespace fullydistributed

@@ -1446,8 +1446,8 @@ namespace parallel
       std::vector<int> adjncy;
       int              elements;
       std::vector<int> parts;
-      
-      void 
+
+      void
       print(std::ostream &out);
     };
 
@@ -1523,12 +1523,12 @@ namespace parallel
              AdditionalData additional_data = AdditionalData());
 
       void
-      reinit(std::vector<Part> &           parts,
-             std::vector<CellData<dim>> &  cells,
-             std::vector<Point<spacedim>> &vertices,
-             std::vector<int> &            boundary_ids,
-             std::vector<types::material_id> &   material_ids,
-             unsigned int                  refinements);
+      reinit(std::vector<Part> &              parts,
+             std::vector<CellData<dim>> &     cells,
+             std::vector<Point<spacedim>> &   vertices,
+             std::vector<int> &               boundary_ids,
+             std::vector<types::material_id> &material_ids,
+             unsigned int                     refinements);
 
       void
       reinit(std::vector<Part> &                 parts,
@@ -1586,6 +1586,9 @@ namespace parallel
 
       virtual void
       update_number_cache() override;
+
+      virtual std::map<unsigned int, std::set<dealii::types::subdomain_id>>
+      compute_vertices_with_ghost_neighbors() const override;
 
       enum Settings
       {
