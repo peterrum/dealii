@@ -6273,6 +6273,79 @@ namespace parallel
     {
       std::vector<bool> vertex_of_own_cell(this->n_vertices(), false);
 
+      // collect nodes coinciding due to periodicity
+      std::map<unsigned int, unsigned int> periodic_map;
+      for (auto &cell : this->active_cell_iterators())
+        if (cell->is_locally_owned() || cell->is_ghost())
+          {
+            for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell; i++)
+              {
+                if (cell->has_periodic_neighbor(i) &&
+                    cell->periodic_neighbor(i)->active())
+                  {
+                    auto face_t = cell->face(i);
+                    auto face_n = cell->periodic_neighbor(i)->face(
+                      cell->periodic_neighbor_face_no(i));
+                    for (unsigned int j = 0;
+                         j < GeometryInfo<dim>::vertices_per_face;
+                         j++)
+                      {
+                        auto         v_t  = face_t->vertex_index(j);
+                        auto         v_n  = face_n->vertex_index(j);
+                        unsigned int temp = std::min(v_t, v_n);
+                        {
+                          auto it = periodic_map.find(v_t);
+                          if (it != periodic_map.end())
+                            temp = std::min(temp, it->second);
+                        }
+                        {
+                          auto it = periodic_map.find(v_n);
+                          if (it != periodic_map.end())
+                            temp = std::min(temp, it->second);
+                        }
+                        periodic_map[v_t] = temp;
+                        periodic_map[v_n] = temp;
+                      }
+                  }
+              }
+          }
+
+      // compress map
+      for (auto &p : periodic_map)
+        {
+          if (p.first == p.second)
+            continue;
+          unsigned int temp = p.second;
+          while (temp != periodic_map[temp])
+            temp = periodic_map[temp];
+          p.second = temp;
+        }
+
+      // check if map is actually compressed
+      for (auto p : periodic_map)
+        {
+          if (p.first == p.second)
+            continue;
+          auto pp = periodic_map.find(p.second);
+          if (pp->first == pp->second)
+            continue;
+          AssertThrow(false, ExcMessage("Map has to be compressed!"));
+        }
+
+      std::map<unsigned int, std::set<unsigned int>> sets;
+      for (auto p : periodic_map)
+        sets[p.second] = std::set<unsigned int>();
+
+      for (auto p : periodic_map)
+        sets[p.second].insert(p.first);
+
+      std::map<unsigned int, std::set<unsigned int>> sets2;
+      for (auto &s : sets)
+        {
+          for (auto &ss : s.second)
+            sets2[ss] = s.second;
+        }
+
       for (const auto &cell : this->active_cell_iterators())
         if (cell->is_locally_owned())
           {
@@ -6291,23 +6364,14 @@ namespace parallel
               {
                 if (vertex_of_own_cell[cell->vertex_index(v)])
                   result[cell->vertex_index(v)].insert(owner);
-              }
 
-            for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell; i++)
-              if (cell->has_periodic_neighbor(i) &&
-                  cell->periodic_neighbor(i)->active())
-                {
-                  auto face_i = cell->face(i);
-                  auto face_n = cell->periodic_neighbor(i)->face(
-                    cell->periodic_neighbor_face_no(i));
-                  for (unsigned int j = 0;
-                       j < GeometryInfo<dim>::vertices_per_face;
-                       j++)
-                    {
-                      result[face_i->vertex_index(j)].insert(owner);
-                      result[face_n->vertex_index(j)].insert(owner);
-                    }
-                }
+                // mark also nodes coinciding due to periodicity
+                auto t = sets2.find(cell->vertex_index(v));
+                if (t != sets2.end())
+                  for (auto i : t->second)
+                    if (vertex_of_own_cell[i])
+                      result[i].insert(owner);
+              }
           }
 
       return result;
