@@ -5312,6 +5312,18 @@ namespace parallel
         MPI_Comm_split(comm_all, color, rank_all, &comm_group);
         MPI_Comm_size(comm_group, &size_groups);
       }
+      
+      int size_node;
+      {
+        MPI_Comm comm_node;
+        MPI_Comm_split_type(comm_all,
+                            MPI_COMM_TYPE_SHARED,
+                            rank_all,
+                            MPI_INFO_NULL,
+                            &comm_node);
+        MPI_Comm_size(comm_node, &size_node);
+          
+      }
 
       // get global ranks of processes in shared communicator
       std::vector<int> ranks_shared(size_shared);
@@ -5476,7 +5488,8 @@ namespace parallel
                     GeometryInfo<dim>::vertices_per_face,
                     graph_face);
                   // perform pre-partitioning such that groups are kept together
-                  partitioner->partition(graph_face, size_groups, false);
+                  partitioner->partition(graph_face, size_node, false);
+                  partitioner->partition(graph_face, size_groups, true);
                   // use pre-partitioning result as weight for actual
                   // partitioning
                   partitioner->partition(graph_face, size_all, true);
