@@ -5094,6 +5094,10 @@ namespace parallel
         out << i << " ";
       out << std::endl;
 
+      for (auto i : weights)
+        out << i << " ";
+      out << std::endl;
+
       out << elements << std::endl;
 
       for (auto i : parts)
@@ -5312,17 +5316,21 @@ namespace parallel
         MPI_Comm_split(comm_all, color, rank_all, &comm_group);
         MPI_Comm_size(comm_group, &size_groups);
       }
-      
+
       int size_node;
       {
+        int      rank_node;
         MPI_Comm comm_node;
-        MPI_Comm_split_type(comm_all,
-                            MPI_COMM_TYPE_SHARED,
-                            rank_all,
-                            MPI_INFO_NULL,
-                            &comm_node);
-        MPI_Comm_size(comm_node, &size_node);
-          
+        MPI_Comm_split_type(
+          comm_all, MPI_COMM_TYPE_SHARED, rank_all, MPI_INFO_NULL, &comm_node);
+        MPI_Comm_rank(comm_node, &rank_node);
+
+        int      color = (rank_node == 0);
+        MPI_Comm comm_node_root;
+        MPI_Comm_split(comm_all, color, rank_all, &comm_node_root);
+        MPI_Comm_size(comm_node_root, &size_node);
+
+        MPI_Bcast(&size_node, 1, MPI_INT, 0, comm_all);
       }
 
       // get global ranks of processes in shared communicator
@@ -5488,11 +5496,93 @@ namespace parallel
                     GeometryInfo<dim>::vertices_per_face,
                     graph_face);
                   // perform pre-partitioning such that groups are kept together
-                  partitioner->partition(graph_face, size_node, false);
-                  partitioner->partition(graph_face, size_groups, true);
+                  // partitioner->partition(graph_face, size_node, false);
+                  // partitioner->partition(graph_face, size_groups, true);
                   // use pre-partitioning result as weight for actual
                   // partitioning
-                  partitioner->partition(graph_face, size_all, true);
+                  partitioner->partition(graph_face, size_all, false);
+
+                  auto compress = [](const Graph &graph_in) {
+                    Graph graph_out;
+
+                    auto n_parts = *std::max_element(graph_in.parts.begin(),
+                                                     graph_in.parts.end()) +
+                                   1;
+                    std::vector<std::map<unsigned int, unsigned int>> temp(
+                      n_parts);
+
+                    for (unsigned int i = 0; i < graph_in.xadj.size() - 1; i++)
+                      {
+                        for (int j = graph_in.xadj[i]; j < graph_in.xadj[i + 1];
+                             j++)
+                          temp[graph_in.parts[i]]
+                              [graph_in.parts[graph_in.adjncy[j]]] = 0;
+
+                        for (int j = graph_in.xadj[i]; j < graph_in.xadj[i + 1];
+                             j++)
+                          if (graph_in.weights.size() == 0)
+                            temp[graph_in.parts[i]]
+                                [graph_in.parts[graph_in.adjncy[j]]]++;
+                          else
+                            temp[graph_in.parts[i]]
+                                [graph_in.parts[graph_in.adjncy[j]]] +=
+                              graph_in.weights[j];
+                      }
+
+                    graph_out.elements = n_parts;
+
+                    graph_out.xadj.push_back(0);
+
+                    for (auto &t : temp)
+                      {
+                        graph_out.xadj.push_back(graph_out.xadj.back() +
+                                                 t.size());
+                        for (auto &tt : t)
+                          {
+                            graph_out.adjncy.push_back(tt.first);
+                            graph_out.weights.push_back(tt.second);
+                          }
+                      }
+
+                    return graph_out;
+                  };
+
+                  auto g1 = compress(graph_face);
+                  partitioner->partition(g1, size_groups, false);
+                  // std::cout << "G-";
+                  // g1.print(std::cout);
+
+                  auto g2 = compress(g1);
+                  partitioner->partition(g2, size_node, false);
+                  // std::cout << "N-";
+                  // g2.print(std::cout);
+
+
+                  // re-numerate ranks
+                  std::map<std::pair<unsigned int, unsigned int>,
+                           std::set<unsigned int>>
+                    sets;
+                  for (unsigned int i = 0; i < g1.parts.size(); i++)
+                    sets[{g2.parts[g1.parts[i]], g1.parts[i]}] =
+                      std::set<unsigned int>();
+
+                  for (unsigned int i = 0; i < g1.parts.size(); i++)
+                    sets[{g2.parts[g1.parts[i]], g1.parts[i]}].insert(i);
+
+                  unsigned int     k = 0;
+                  std::vector<int> re_order(g1.parts.size());
+                  for (auto &set : sets)
+                    for (auto s : set.second)
+                      re_order[s] = k++;
+
+                  // printf("OO:  ");
+                  // for (auto i : re_order)
+                  //  printf("%3d  ", i);
+                  // printf("\n");
+
+                  for (unsigned int i = 0; i < graph_face.parts.size(); i++)
+                    graph_face.parts[i] = re_order[graph_face.parts[i]];
+
                   // save partitioning
                   graph_vertex.parts      = graph_face.parts;
                   timings["partitioning"] = timer.wall_time();

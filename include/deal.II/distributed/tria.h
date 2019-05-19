@@ -1444,6 +1444,7 @@ namespace parallel
     public:
       std::vector<int> xadj;
       std::vector<int> adjncy;
+      std::vector<int> weights;
       int              elements;
       std::vector<int> parts;
 
