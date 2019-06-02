@@ -708,6 +708,11 @@ namespace Utilities
            const T &          object_to_send,
            const unsigned int root_process = 0);
 
+    std::vector<unsigned int>
+    compute_index_owner(const IndexSet &owned_dofs,
+                        const IndexSet &ghosted_dofs,
+                        const MPI_Comm &comm);
+
 #ifndef DOXYGEN
     // declaration for an internal function that lives in mpi.templates.h
     namespace internal

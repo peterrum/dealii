@@ -27,6 +27,7 @@
 
 #include <iostream>
 #include <numeric>
+#include <set>
 
 #ifdef DEAL_II_WITH_TRILINOS
 #  ifdef DEAL_II_WITH_MPI
@@ -812,7 +813,420 @@ namespace Utilities
 #endif
     }
 
+    namespace ComputeIndexOwner
+    {
+      struct Dictionary
+      {
+        unsigned int                          dofs_per_process;
+        std::vector<unsigned int>             array;
+        std::pair<unsigned int, unsigned int> local_range;
+        unsigned int                          local_size;
+        unsigned int                          size;
 
+        void
+        reinit(const IndexSet &owned_dofs, const MPI_Comm &comm)
+        {
+          unsigned int n_procs = n_mpi_processes(comm);
+          unsigned int my_rank = this_mpi_process(comm);
+
+          size               = owned_dofs.size();
+          dofs_per_process   = (size + n_procs - 1) / n_procs;
+          local_range.first  = std::min(dofs_per_process * my_rank, size);
+          local_range.second = std::min(dofs_per_process * (my_rank + 1), size);
+          local_size         = local_range.second - local_range.first;
+
+          array.resize(local_size);
+        }
+
+        unsigned int
+        dof_to_dict_rank(unsigned int i)
+        {
+          return i / dofs_per_process;
+        }
+      };
+
+      class StateMachine
+      {
+      public:
+        Dictionary dict;
+
+        StateMachine(MPI_Comm comm)
+          : comm(comm)
+        {}
+
+        void
+        run(std::vector<unsigned int> &array, const IndexSet &ghosted_dofs)
+        {
+          start_communication_with_dict(array, ghosted_dofs);
+
+          while (!check_own_state())
+            process_requests();
+
+          signal_finish();
+
+          while (!check_global_state())
+            process_requests();
+
+          end_communication_with_dict(array);
+        }
+
+      public:
+        static const unsigned int tag_setup    = 11;
+        static const unsigned int tag_request  = 12;
+        static const unsigned int tag_delivery = 13;
+
+      private:
+        MPI_Comm comm;
+
+        unsigned int relevant_procs_size;
+
+        // for sending request
+        std::vector<std::vector<std::pair<unsigned int, unsigned int>>>
+          send_buffers;
+
+        // for receiving answer to the request
+        std::vector<MPI_Request>               recv_requests;
+        std::vector<MPI_Status>                recv_statuss;
+        std::vector<std::vector<unsigned int>> recv_indices;
+        std::vector<std::vector<unsigned int>> recv_buffers;
+
+        // for sending answers
+        std::vector<std::vector<unsigned int>>    request_buffers;
+        std::vector<std::shared_ptr<MPI_Request>> request_requests;
+
+        // request for barrier
+        MPI_Request barrier_request;
+
+        bool
+        check_own_state()
+        {
+          int flag;
+          MPI_Testall(relevant_procs_size,
+                      &recv_requests[0],
+                      &flag,
+                      &recv_statuss[0]);
+          return flag;
+        }
+
+        void
+        signal_finish()
+        {
+          MPI_Ibarrier(comm, &barrier_request);
+        }
+
+        bool
+        check_global_state()
+        {
+          MPI_Status status;
+          int        flag;
+          MPI_Test(&barrier_request, &flag, &status);
+          return flag;
+        }
+
+        void
+        process_requests()
+        {
+          // check if there is a request pending
+          MPI_Status status;
+          int        flag;
+          MPI_Iprobe(MPI_ANY_SOURCE, tag_request, comm, &flag, &status);
+
+          if (flag) // request is pending
+            {
+              // get rank of requesting process
+              int other_rank = status.MPI_SOURCE;
+
+              // get size of of incoming message
+              int number_amount;
+              MPI_Get_count(&status, MPI_UNSIGNED, &number_amount);
+
+              // allocate memory for incoming message
+              std::vector<std::pair<unsigned int, unsigned int>> buffer_recv;
+              buffer_recv.resize(number_amount / 2);
+              MPI_Recv(&buffer_recv[0],
+                       number_amount,
+                       MPI_UNSIGNED,
+                       other_rank,
+                       tag_request,
+                       comm,
+                       &status);
+
+              // allocate memory for answer message
+              request_buffers.push_back({});
+              request_requests.emplace_back(new MPI_Request);
+
+              // process request
+              auto &request_buffer = request_buffers.back();
+              for (auto interval : buffer_recv)
+                for (unsigned int i = interval.first; i < interval.second; i++)
+                  request_buffer.push_back(
+                    dict.array[i - dict.local_range.first]);
+
+              // start to send answer back
+              MPI_Isend(&request_buffer[0],
+                        request_buffer.size(),
+                        MPI_UNSIGNED,
+                        other_rank,
+                        tag_delivery,
+                        comm,
+                        &*request_requests.back());
+            }
+        }
+
+        void
+        start_communication_with_dict(std::vector<unsigned int> &array,
+                                      const IndexSet &           ghosted_dofs)
+        {
+          unsigned int my_rank = this_mpi_process(comm);
+
+          // 1) collect relevant processes and process local dict entries
+          std::map<unsigned int, unsigned int> relevant_procs_map;
+          {
+            std::set<unsigned int> relevant_procs;
+            {
+              unsigned int c = 0;
+              for (auto i : ghosted_dofs)
+                {
+                  unsigned int other_rank = dict.dof_to_dict_rank(i);
+                  if (other_rank == my_rank)
+                    array[c] = dict.array[i - dict.local_range.first];
+                  else
+                    relevant_procs.insert(other_rank);
+                  c++;
+                }
+            }
+
+            {
+              unsigned int c = 0;
+              for (auto i : relevant_procs)
+                relevant_procs_map[i] = c++;
+            }
+          }
+
+          // 2) allocate memory
+          relevant_procs_size = relevant_procs_map.size();
+
+          recv_buffers.resize(relevant_procs_size);
+          recv_indices.resize(relevant_procs_size);
+          recv_requests.resize(relevant_procs_size);
+          recv_statuss.resize(relevant_procs_size);
+
+          send_buffers.resize(relevant_procs_size);
+
+          {
+            // 3) collect indices for each process
+            std::vector<std::vector<unsigned int>> temp(relevant_procs_size);
+
+            {
+              unsigned int c = 0;
+              for (auto i : ghosted_dofs)
+                {
+                  unsigned int other_rank = dict.dof_to_dict_rank(i);
+                  if (other_rank != my_rank)
+                    {
+                      recv_indices[relevant_procs_map[other_rank]].push_back(c);
+                      temp[relevant_procs_map[other_rank]].push_back(i);
+                    }
+                  c++;
+                }
+            }
+
+            // 4) send and receive
+            for (auto rank_pair : relevant_procs_map)
+              {
+                const unsigned int rank  = rank_pair.first;
+                const unsigned int index = relevant_procs_map[rank];
+
+                // create index set and compress data to be sent
+                auto &   indices_i = temp[index];
+                IndexSet is(dict.size);
+                is.add_indices(indices_i.begin(), indices_i.end());
+                is.compress();
+
+                // translate index set to a list of pairs
+                auto &send_buffer = send_buffers[index];
+                for (auto interval = is.begin_intervals();
+                     interval != is.end_intervals();
+                     interval++)
+                  send_buffer.push_back(std::pair<unsigned int, unsigned int>(
+                    *interval->begin(), interval->last() + 1));
+
+                // start to send data
+                MPI_Request request;
+                MPI_Isend(&send_buffer[0],
+                          send_buffer.size() * 2,
+                          MPI_UNSIGNED,
+                          rank,
+                          tag_request,
+                          comm,
+                          &request);
+
+                // start to receive data
+                auto &recv_buffer = recv_buffers[index];
+                recv_buffer.resize(indices_i.size());
+                MPI_Irecv(&recv_buffer[0],
+                          recv_buffer.size(),
+                          MPI_UNSIGNED,
+                          rank,
+                          tag_delivery,
+                          comm,
+                          &recv_requests[index]);
+              }
+          }
+        }
+
+        void
+        end_communication_with_dict(std::vector<unsigned int> &array)
+        {
+          for (unsigned i = 0; i < relevant_procs_size; i++)
+            for (unsigned j = 0; j < recv_indices[i].size(); j++)
+              array[recv_indices[i][j]] = recv_buffers[i][j];
+        }
+      };
+
+      void
+      setup_dictionary(Dictionary &    dict,
+                       const IndexSet &owned_dofs,
+                       const MPI_Comm &comm)
+      {
+        unsigned int my_rank = this_mpi_process(comm);
+
+        // 1) setup dictionary and allocate memory
+        dict.reinit(owned_dofs, comm);
+
+        unsigned int                         dic_local_rececived = 0;
+        std::map<unsigned int, unsigned int> relevant_procs_map;
+
+        // 2) collect relevant processes and process local dict entries
+        {
+          std::set<unsigned int> relevant_procs;
+          for (auto i : owned_dofs)
+            {
+              unsigned int other_rank = dict.dof_to_dict_rank(i);
+              if (other_rank == my_rank)
+                {
+                  dict.array[i - dict.local_range.first] = my_rank;
+                  dic_local_rececived++;
+                }
+              else
+                relevant_procs.insert(other_rank);
+            }
+
+          {
+            unsigned int c = 0;
+            for (auto i : relevant_procs)
+              relevant_procs_map[i] = c++;
+          }
+        }
+
+        const unsigned int relevant_procs_size = relevant_procs_map.size();
+        std::vector<std::vector<std::pair<unsigned int, unsigned int>>> buffers(
+          relevant_procs_size);
+        std::vector<MPI_Request> request(relevant_procs_size);
+
+        // 3) send messages with local dofs to the right dict process
+        {
+          std::vector<std::vector<unsigned int>> temp(relevant_procs_size);
+
+          // collect dofs of each dict process
+          for (auto i : owned_dofs)
+            {
+              unsigned int other_rank = dict.dof_to_dict_rank(i);
+              if (other_rank != my_rank)
+                temp[relevant_procs_map[other_rank]].push_back(i);
+            }
+
+          // send dofs to each process
+          for (auto rank_pair : relevant_procs_map)
+            {
+              int rank  = rank_pair.first;
+              int index = rank_pair.second;
+
+              // create index set and compress data to be sent
+              auto &   indices_i = temp[index];
+              IndexSet is(dict.size);
+              is.add_indices(indices_i.begin(), indices_i.end());
+              is.compress();
+
+              // translate index set to a list of pairs
+              auto &buffer = buffers[index];
+              for (auto interval = is.begin_intervals();
+                   interval != is.end_intervals();
+                   interval++)
+                buffer.push_back({*interval->begin(), interval->last() + 1});
+
+              // send data
+              MPI_Isend(&buffer[0],
+                        buffer.size() * 2,
+                        MPI_UNSIGNED,
+                        rank,
+                        StateMachine::tag_setup,
+                        comm,
+                        &request[index]);
+            }
+        }
+
+
+        // 4) receive messages until all dofs in dict are processed
+        while (dict.local_size != dic_local_rececived)
+          {
+            // wait for an incoming massage
+            MPI_Status status;
+            MPI_Probe(MPI_ANY_SOURCE, StateMachine::tag_setup, comm, &status);
+
+            // retrieve size of incoming massage
+            int number_amount;
+            MPI_Get_count(&status, MPI_UNSIGNED, &number_amount);
+
+            unsigned int other_rank = status.MPI_SOURCE;
+
+            // receive massage
+            std::vector<std::pair<unsigned int, unsigned int>> buffer(
+              number_amount / 2);
+            MPI_Recv(&buffer[0],
+                     number_amount,
+                     MPI_UNSIGNED,
+                     status.MPI_SOURCE,
+                     StateMachine::tag_setup,
+                     comm,
+                     &status);
+
+            // process message: loop over all intervals
+            for (auto interval : buffer)
+              for (unsigned int i = interval.first; i < interval.second; i++)
+                {
+                  dict.array[i - dict.local_range.first] = other_rank;
+                  dic_local_rececived++;
+                }
+          }
+
+        // 5) make sure that all messages have been sent
+        std::vector<MPI_Status> status(relevant_procs_size);
+        MPI_Waitall(relevant_procs_size, &request[0], &status[0]);
+      }
+
+
+    } // namespace ComputeIndexOwner
+
+
+    std::vector<unsigned int>
+    compute_index_owner(const IndexSet &owned_dofs,
+                        const IndexSet &ghosted_dofs,
+                        const MPI_Comm &comm)
+    {
+      using namespace ComputeIndexOwner;
+
+      StateMachine state_machine(comm);
+
+      // Step 1: setup dictionary
+      setup_dictionary(state_machine.dict, owned_dofs, comm);
+
+      // Step 2: read dictionary
+      std::vector<unsigned int> array(ghosted_dofs.n_elements());
+      state_machine.run(array, ghosted_dofs);
+
+      return array;
+    }
 
 #include "mpi.inst"
   } // end of namespace MPI
