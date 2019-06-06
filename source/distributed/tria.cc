@@ -5517,7 +5517,10 @@ namespace parallel
                              j++)
                           temp[graph_in.parts[i]]
                               [graph_in.parts[graph_in.adjncy[j]]] = 0;
-
+                    }
+                    
+                    for (unsigned int i = 0; i < graph_in.xadj.size() - 1; i++)
+                      {
                         for (int j = graph_in.xadj[i]; j < graph_in.xadj[i + 1];
                              j++)
                           if (graph_in.weights.size() == 0)
