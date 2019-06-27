@@ -5072,780 +5072,1074 @@ namespace parallel
 
 
 #ifdef DEAL_II_WITH_METIS
-    #include <metis.h>
+#  include <metis.h>
 #endif
-#include <set>
 #include <map>
+#include <set>
 
-namespace parallel {
-    namespace fullydistributed {
-        
-        void PartitioningAlgorithm::mesh_to_dual(std::vector<int>& /*eptr_in*/, std::vector<int>& /*eind_in*/, int /*ncommon_in*/, Graph& /*graph_out*/){}
-        
-        void PartitioningAlgorithm::partition(Graph& /*graph*/, int /*n_partitions*/, bool /*is_prepartitioned*/){}
-            
-        void MetisPartitioningAlgorithm::mesh_to_dual(std::vector<int>& eptr_in, std::vector<int>& eind_in, int ncommon_in, Graph& graph_out){
+namespace parallel
+{
+  namespace fullydistributed
+  {
+    void
+    PartitioningAlgorithm::mesh_to_dual(std::vector<int> & /*eptr_in*/,
+                                        std::vector<int> & /*eind_in*/,
+                                        int /*ncommon_in*/,
+                                        Graph & /*graph_out*/)
+    {}
+
+    void
+    PartitioningAlgorithm::partition(Graph & /*graph*/,
+                                     int /*n_partitions*/,
+                                     bool /*is_prepartitioned*/)
+    {}
+
+    void
+    MetisPartitioningAlgorithm::mesh_to_dual(std::vector<int> &eptr_in,
+                                             std::vector<int> &eind_in,
+                                             int               ncommon_in,
+                                             Graph &           graph_out)
+    {
 #ifdef DEAL_II_WITH_METIS
-            // extract relevant quantities
-            const unsigned int n_elements = eptr_in.size()-1;
-            const unsigned int n_nodes    = *std::max_element(eind_in.begin(), eind_in.end())+1;
+      // extract relevant quantities
+      const unsigned int n_elements = eptr_in.size() - 1;
+      const unsigned int n_nodes =
+        *std::max_element(eind_in.begin(), eind_in.end()) + 1;
 
-            // convert data type
-            idx_t numflag = 0;
-            idx_t ne = n_elements;
-            idx_t nn = n_nodes;
-            idx_t ncommon = ncommon_in;
-            std::vector<idx_t> eptr = eptr_in;
-            std::vector<idx_t> eind = eind_in;;
+      // convert data type
+      idx_t              numflag = 0;
+      idx_t              ne      = n_elements;
+      idx_t              nn      = n_nodes;
+      idx_t              ncommon = ncommon_in;
+      std::vector<idx_t> eptr    = eptr_in;
+      std::vector<idx_t> eind    = eind_in;
+      ;
 
-            // perform actual conversion from mesh to dual graph
-            idx_t* xadj;
-            idx_t* adjncy;
-            AssertThrow(METIS_MeshToDual(&ne, &nn, &eptr[0], &eind[0], &ncommon, &numflag, &xadj, &adjncy) == METIS_OK,
-                    ExcMessage("There has been problem during METIS_MeshToDual."));
+      // perform actual conversion from mesh to dual graph
+      idx_t *xadj;
+      idx_t *adjncy;
+      AssertThrow(
+        METIS_MeshToDual(
+          &ne, &nn, &eptr[0], &eind[0], &ncommon, &numflag, &xadj, &adjncy) ==
+          METIS_OK,
+        ExcMessage("There has been problem during METIS_MeshToDual."));
 
-            // convert result to the right format
-            auto & xadj_out = graph_out.xadj;
-            xadj_out.resize(n_elements+1);
-            for(unsigned int i = 0; i < n_elements+1; i++)
-                xadj_out[i]=xadj[i];
+      // convert result to the right format
+      auto &xadj_out = graph_out.xadj;
+      xadj_out.resize(n_elements + 1);
+      for (unsigned int i = 0; i < n_elements + 1; i++)
+        xadj_out[i] = xadj[i];
 
-            const unsigned int n_links = xadj[ne];
-            auto & adjncy_out = graph_out.adjncy;
-            adjncy_out.resize(n_links);
-            for(unsigned int i = 0; i < n_links; i++)
-                adjncy_out[i]=adjncy[i];
-            
-            graph_out.parts.resize(n_elements);
-            graph_out.elements = n_elements;
+      const unsigned int n_links    = xadj[ne];
+      auto &             adjncy_out = graph_out.adjncy;
+      adjncy_out.resize(n_links);
+      for (unsigned int i = 0; i < n_links; i++)
+        adjncy_out[i] = adjncy[i];
 
-            // delete temporal variables
-            AssertThrow(METIS_Free(xadj) == METIS_OK, ExcMessage("There has been problem during METIS_Free."));
-            AssertThrow(METIS_Free(adjncy) == METIS_OK, ExcMessage("There has been problem during METIS_Free."));
+      graph_out.parts.resize(n_elements);
+      graph_out.elements = n_elements;
+
+      // delete temporal variables
+      AssertThrow(METIS_Free(xadj) == METIS_OK,
+                  ExcMessage("There has been problem during METIS_Free."));
+      AssertThrow(METIS_Free(adjncy) == METIS_OK,
+                  ExcMessage("There has been problem during METIS_Free."));
 #else
-            AssertThrow(false, ExcMessage("deal.II hase not been compiled with Metis."));
-            (void)eptr_in;
-            (void)eind_in;
-            (void)ncommon_in;
-            (void)graph_out;
+      AssertThrow(false,
+                  ExcMessage("deal.II hase not been compiled with Metis."));
+      (void)eptr_in;
+      (void)eind_in;
+      (void)ncommon_in;
+      (void)graph_out;
 #endif
-        }
+    }
 
-        void MetisPartitioningAlgorithm::partition(Graph& graph, int n_partitions, bool is_prepartitioned){
+    void
+    MetisPartitioningAlgorithm::partition(Graph &graph,
+                                          int    n_partitions,
+                                          bool   is_prepartitioned)
+    {
 #ifdef DEAL_II_WITH_METIS
-            idx_t ne = graph.elements; 
-            idx_t ncon = 1; 
-            idx_t edgecut;
-            idx_t nparts = n_partitions;
-            
-            std::vector<idx_t> xadj   = graph.xadj;
-            std::vector<idx_t> adjncy = graph.adjncy;
-            std::vector<idx_t> parts(graph.elements);
-            
-            if(n_partitions == 1){
-                for(unsigned int i = 0; i < parts.size(); i++)
-                    parts[i] = 0;
-            } else if(is_prepartitioned){
-                std::vector<idx_t> adjwgt(adjncy.size());
-                
-                // check if edge is connecting 
-                for(unsigned int i = 0; i < xadj.size()-1; i++)
-                    for(int j = graph.xadj[i]; j < graph.xadj[i+1]; j++)
-                        if(graph.parts[i]==graph.parts[graph.adjncy[j]])
-                            adjwgt[j] = 10;
-                        else
-                            adjwgt[j] = 1;
-                
-                METIS_PartGraphKway(&ne, &ncon, &xadj[0], &adjncy[0],
-                    NULL, NULL, &adjwgt[0], &nparts, NULL, NULL, NULL, &edgecut, &parts[0]);
-            } else {
-                METIS_PartGraphKway(&ne, &ncon, &xadj[0], &adjncy[0],
-                    NULL, NULL, NULL, &nparts, NULL, NULL, NULL, &edgecut, &parts[0]);
-            }
-            
-            graph.parts = parts;
+      idx_t ne   = graph.elements;
+      idx_t ncon = 1;
+      idx_t edgecut;
+      idx_t nparts = n_partitions;
+
+      std::vector<idx_t> xadj   = graph.xadj;
+      std::vector<idx_t> adjncy = graph.adjncy;
+      std::vector<idx_t> parts(graph.elements);
+
+      if (n_partitions == 1)
+        {
+          for (unsigned int i = 0; i < parts.size(); i++)
+            parts[i] = 0;
+        }
+      else if (is_prepartitioned)
+        {
+          std::vector<idx_t> adjwgt(adjncy.size());
+
+          // check if edge is connecting
+          for (unsigned int i = 0; i < xadj.size() - 1; i++)
+            for (int j = graph.xadj[i]; j < graph.xadj[i + 1]; j++)
+              if (graph.parts[i] == graph.parts[graph.adjncy[j]])
+                adjwgt[j] = 10;
+              else
+                adjwgt[j] = 1;
+
+          METIS_PartGraphKway(&ne,
+                              &ncon,
+                              &xadj[0],
+                              &adjncy[0],
+                              NULL,
+                              NULL,
+                              &adjwgt[0],
+                              &nparts,
+                              NULL,
+                              NULL,
+                              NULL,
+                              &edgecut,
+                              &parts[0]);
+        }
+      else
+        {
+          METIS_PartGraphKway(&ne,
+                              &ncon,
+                              &xadj[0],
+                              &adjncy[0],
+                              NULL,
+                              NULL,
+                              NULL,
+                              &nparts,
+                              NULL,
+                              NULL,
+                              NULL,
+                              &edgecut,
+                              &parts[0]);
+        }
+
+      graph.parts = parts;
 #else
-            AssertThrow(false, ExcMessage("deal.II hase not been compiled with Metis."));
-            (void)graph;
-            (void)n_partitions;
+      AssertThrow(false,
+                  ExcMessage("deal.II hase not been compiled with Metis."));
+      (void)graph;
+      (void)n_partitions;
 #endif
+    }
+
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim, spacedim>::reinit(
+      unsigned int                                      refinements_final,
+      std::function<void(dealii::Triangulation<dim> &)> func1,
+      AdditionalData                                    additional_data)
+    {
+      Timer timer, timer2;
+      timer2.restart();
+
+      int rank_all, size_all;
+
+      // comm with all ranks sharing the triangulation
+      MPI_Comm comm_all = this->get_communicator();
+      MPI_Comm_rank(comm_all, &rank_all);
+      MPI_Comm_size(comm_all, &size_all);
+
+      // setup shared communicator
+      MPI_Comm comm_shared;
+      if (additional_data.partition_group == PartitioningGroup::shared)
+        {
+          MPI_Comm_split_type(comm_all,
+                              MPI_COMM_TYPE_SHARED,
+                              rank_all,
+                              MPI_INFO_NULL,
+                              &comm_shared);
         }
-        
-        template<int dim, int spacedim>
-        void Triangulation<dim, spacedim>::reinit(
-                unsigned int refinements_final,
-                std::function<void (dealii::Triangulation<dim>&) > func1,
-                AdditionalData additional_data) {
-                Timer timer, timer2;
-                timer2.restart();
-
-                int rank_all, size_all;
-
-                // comm with all ranks sharing the triangulation
-                MPI_Comm comm_all = this->get_communicator();
-                MPI_Comm_rank(comm_all, &rank_all);
-                MPI_Comm_size(comm_all, &size_all);
-
-                // setup shared communicator
-                MPI_Comm comm_shared;
-                if(additional_data.partition_group == PartitioningGroup::shared){
-                    MPI_Comm_split_type(comm_all, MPI_COMM_TYPE_SHARED, rank_all, MPI_INFO_NULL, &comm_shared);
-                } else if(additional_data.partition_group == PartitioningGroup::fixed || 
-                        additional_data.partition_group == PartitioningGroup::single){
-                    int color = rank_all / (additional_data.partition_group == PartitioningGroup::single ? 1 : additional_data.partition_group_size);
-                    MPI_Comm_split(comm_all, color, rank_all, &comm_shared);        
-                } else {
-                    AssertThrow(false, ExcMessage("No partitioner group type has been selected."));
-                }
-                
-                int size_shared;
-                int rank_shared;
-                MPI_Comm_size(comm_shared, &size_shared);
-                MPI_Comm_rank(comm_shared, &rank_shared);
-                
-                // get global ranks of processes in shared communicator
-                std::vector<int> ranks_shared(size_shared);
-                MPI_Allgather(&rank_all, 1, MPI_INT, &ranks_shared[0], 1, MPI_INT, comm_shared);
-                
-                int size_coarse;
-                MPI_Comm_size(this->mpi_communicator_coarse, &size_coarse);
-                MPI_Bcast(&size_coarse, 1, MPI_INT, 0, comm_all);
-                AssertThrow(size_coarse <= size_all, ExcMessage("No partitioner group type has been selected."));
-                const bool do_repartition = size_coarse != size_all;
-                
-                // data structures to be filled during this reinit
-                std::vector<Part> levels;
-                std::vector< CellData< dim >> cells;
-                std::vector< Point< spacedim >> vertices;
-                std::vector< int> boundary_ids;
-                
-                // temporal data structures
-                std::vector<int> list_cell_local;
-                std::vector<double> list_vertex_local;
-
-                if (rank_shared == 0) {
-                    timer.restart();
-                    // Step 1: create sequential triangulation (incl. refinements)
-                    dealii::Triangulation<dim> tria; func1(tria);
-                    timings["create_distributed_triangulation"] = timer.wall_time();
-                    
-                    // retrieve number of refinements from triangulation and send number of refinements
-                    unsigned int refinements = tria.n_global_levels()-1;
-                    MPI_Bcast(&refinements, 1, MPI_UNSIGNED, 0, comm_shared);
-                    levels.resize(refinements+1);
-                    
-                    AssertThrow(refinements<=refinements_final, ExcMessage("You have to refine more often!"));
-
-                    timings["create_mesh"]       = 0;
-                    timings["create_dual_graph"] = 0;
-                    // create a sparse graph ...
-                    std::vector<Graph> graphs(refinements + 1);
-                    // ... for each refinement level
-                    for (unsigned int ref = 0; ref <= refinements; ref++) {
-
-                        std::vector<int> eind, eptr;
-                        eptr.push_back(0);
-
-                        timer.restart();
-                        // Step 2: extract mesh from triangulation
-                        std::map<unsigned int, unsigned int> temp_map;
-                        for(auto cell : tria.cell_iterators_on_level(ref))
-                            for(unsigned int i = 0; i< GeometryInfo<dim>::vertices_per_cell; i++) {
-                                temp_map[cell->vertex_index(i)]=-1;
-                            }
-                        
-                        int c = 0;
-                        for(auto & m : temp_map)
-                            m.second = c++;
-                        
-                        for(auto cell : tria.cell_iterators_on_level(ref)){
-                            for(unsigned int i = 0; i< GeometryInfo<dim>::vertices_per_cell; i++) 
-                                eind.push_back(temp_map[cell->vertex_index(i)]);
-                            eptr.push_back(GeometryInfo<dim>::vertices_per_cell + eptr.back());
-                        }
-                        
-                        timings["create_mesh"] += timer.wall_time();
-
-                        auto & graph_vertex = graphs[ref];
-
-                        // select a partitioner
-                        std::shared_ptr<PartitioningAlgorithm> partitioner;
-                        
-                        if(additional_data.partition_type == PartitioningType::metis)
-                            partitioner.reset(new MetisPartitioningAlgorithm());
-                        else
-                            AssertThrow(false, ExcMessage("No partitioner has been selected."));
-                        
-                        timer.restart();
-                        // Step 3: create dual graph with connectivity on vertices
-                        partitioner->mesh_to_dual(eptr, eind, 1, graph_vertex);
-                        timings["create_dual_graph"] += timer.wall_time();
-
-                        if (ref == refinements){
-                            // Step 4a: perform partitioning on finest level
-                            timer.restart();
-                            // create dual graph with connectivity on faces
-                            Graph graph_face;
-                            partitioner->mesh_to_dual(eptr, eind, GeometryInfo<dim>::vertices_per_face, graph_face);
-                            // perform pre-partitioning such that groups are kept together
-                            partitioner->partition(graph_face, size_shared,false);
-                            // use pre-partitioning result as weight for actual partitioning
-                            partitioner->partition(graph_face, size_all,true);
-                            // save partitioning
-                            graph_vertex.parts = graph_face.parts;
-                            timings["partitioning"] = timer.wall_time();
-                        } else if (ref == 0 && do_repartition){
-                            // Step 4b: perform partitioning on coarest level
-                            timer.restart();
-                            // create dual graph with connectivity on faces
-                            Graph graph_face;
-                            partitioner->mesh_to_dual(eptr, eind, GeometryInfo<dim>::vertices_per_face, graph_face);
-                            // perform partitioning on this dual graph
-                            partitioner->partition(graph_face, size_coarse);
-                            // save partitioning
-                            graph_vertex.parts = graph_face.parts;
-                            timings["partitioning_coarse"] = timer.wall_time();
-                        }
-                    }
-
-                    timer.restart();
-                    // Step 4': determine partitioning on a non-fine level
-                    for (unsigned int ref = refinements; ref >= (unsigned int) (1+do_repartition); ref--) {
-                        auto & g_f = graphs[ref - 0];
-                        auto & g_c = graphs[ref - 1];
-
-                        for (int i = 0; i < g_c.elements; i++)
-                            g_c.parts[i] = g_f.parts[i * GeometryInfo<dim>::max_children_per_cell];
-                    }
-
-                    for (int p = 0; p < size_shared; p++) {
-                        // Step 5: determine local and ghost cells for each rank on each level
-                        std::vector<Part> parts;
-                        create_hierchy(graphs, refinements, ranks_shared[p], parts);
-                        
-                        // Step 6: send local and ghost cells (inkl. rank and mg-rank)
-                        for (unsigned int l = 0; l <= refinements; l++){
-                            // handle data structures of this rank extra
-                            if(p==0){
-                                levels[l] = parts[l];
-                            } else {
-                                auto & part = parts[l];
-                                int sizes[2] = {(int) part.local.size(), (int) part.ghost.size()};
-                                MPI_Send(sizes, 2, MPI_INT, p, 0, comm_shared);
-                                MPI_Send(&part.local[0], sizes[0], MPI_INT, p, 0, comm_shared);
-                                MPI_Send(&part.ghost[0], sizes[1], MPI_INT, p, 0, comm_shared);
-                                MPI_Send(&part.ghost_rank[0], sizes[1], MPI_INT, p, 0, comm_shared);
-                                MPI_Send(&part.ghost_rank_mg[0], sizes[1], MPI_INT, p, 0, comm_shared);
-                            }
-                        }
-                    
-                        // Step 7: collect definition of local cells and vertices on coarse level and send them away
-                        std::set<int>       vertex_map;
-                        std::vector<int>    list_cell;
-                        std::vector<int>    list_boundary_id;
-                        std::vector<double> list_vertex;
-
-                        // convert vector to set, such that we can search in the following faster
-                        auto & part = parts[0];
-                        std::set<int> parts_temp;
-                        for(auto i : part.local)
-                            parts_temp.insert(i);
-                        for(auto i : part.ghost)
-                            parts_temp.insert(i);
-
-                        // loop over all cells on partition and collect vertices
-                        int c=0;
-                        for(auto cell : tria.cell_iterators_on_level(0))
-                            if(parts_temp.find(c++) !=parts_temp.end()){
-                                for(unsigned int i = 0; i< GeometryInfo<dim>::vertices_per_cell; i++) {
-                                    auto vertex_index = cell->vertex_index(i);
-                                    list_cell.push_back(vertex_index);
-                                    vertex_map.insert(vertex_index);
-                                }
-                                for(unsigned int i = 0; i< GeometryInfo<dim>::faces_per_cell; i++) {
-                                    list_boundary_id.push_back(cell->face(i)->boundary_id());
-                                }
-                            }
-
-                        // collect position of all vertices of partition
-                        for(auto vertex : vertex_map){
-                            auto point = tria.get_vertices()[vertex];
-                            for(int i = 0; i < dim; i++)
-                                list_vertex.push_back(point[i]);
-                        }
-
-                        if(p==0){
-                            list_cell_local = list_cell;
-                            list_vertex_local = list_vertex;
-                            boundary_ids = list_boundary_id;
-                        } else {
-                            int sizes[3] = {(int) list_cell.size(), (int) list_vertex.size(), (int) list_boundary_id.size()};
-                            MPI_Send(sizes, 3, MPI_INT, p, 0, comm_shared);
-                            MPI_Send(&list_cell[0]       , sizes[0], MPI_INT   , p, 0, comm_shared);
-                            MPI_Send(&list_vertex[0]     , sizes[1], MPI_DOUBLE, p, 0, comm_shared);
-                            MPI_Send(&list_boundary_id[0], sizes[2], MPI_INT   , p, 0, comm_shared);
-                        }
-                    }
-                    timings["hierarchy"] = timer.wall_time();
-                } else { 
-                    // recv number of refinements
-                    unsigned int refinements;
-                    MPI_Bcast(&refinements, 1, MPI_UNSIGNED, 0, comm_shared);
-                    levels.resize(refinements+1);
-                    
-                   // Step 6: recv local and ghost cells to each rank on each level 
-                    for (unsigned int l = 0; l <= refinements; l++) {
-                        // receive sizes
-                        int sizes[2];
-                        MPI_Recv(sizes, 2, MPI_INT, 0, 0, comm_shared, MPI_STATUS_IGNORE);
-                        // allocate memory
-                        levels[l].local.resize(sizes[0]);
-                        levels[l].ghost.resize(sizes[1]);
-                        levels[l].ghost_rank.resize(sizes[1]);
-                        levels[l].ghost_rank_mg.resize(sizes[1]);
-                        // receive actual indices
-                        MPI_Recv(&levels[l].local[0], sizes[0], MPI_INT, 0, 0, comm_shared, MPI_STATUS_IGNORE);
-                        MPI_Recv(&levels[l].ghost[0], sizes[1], MPI_INT, 0, 0, comm_shared, MPI_STATUS_IGNORE);
-                        MPI_Recv(&levels[l].ghost_rank[0], sizes[1], MPI_INT, 0, 0, comm_shared, MPI_STATUS_IGNORE);
-                        MPI_Recv(&levels[l].ghost_rank_mg[0], sizes[1], MPI_INT, 0, 0, comm_shared, MPI_STATUS_IGNORE);
-                    }
-                    
-                    // Step 7: receive definition of local cells and vertices on coarse level
-                    {
-                        // receive sizes
-                        int sizes[3];
-                        MPI_Recv(sizes, 3, MPI_INT, 0, 0, comm_shared, MPI_STATUS_IGNORE);
-                        // allocate memory
-                        list_cell_local.resize(sizes[0]);
-                        list_vertex_local.resize(sizes[1]);
-                        boundary_ids.resize(sizes[2]);
-                        // receive actual indices
-                        MPI_Recv(&list_cell_local[0]  , sizes[0], MPI_INT   , 0, 0, comm_shared, MPI_STATUS_IGNORE);
-                        MPI_Recv(&list_vertex_local[0], sizes[1], MPI_DOUBLE, 0, 0, comm_shared, MPI_STATUS_IGNORE);
-                        MPI_Recv(&boundary_ids[0]     , sizes[2], MPI_INT   , 0, 0, comm_shared, MPI_STATUS_IGNORE);
-                    }
-                    
-                }
-                
-                timer.restart();
-                for(unsigned int i = 0; i < list_cell_local.size(); ){
-                    CellData<dim> cell;
-                    for(unsigned int j = 0; j < GeometryInfo<dim>::vertices_per_cell; j++)
-                        cell.vertices[j] = list_cell_local[i++];
-                    cells.push_back(cell);
-                }
-
-                for(unsigned int i= 0; i < list_vertex_local.size();){
-                    Point< spacedim > vertex;
-                    for(unsigned int j = 0; j < dim; j++)
-                        vertex[j] = list_vertex_local[i++];
-                    vertices.push_back(vertex);
-                }
-                timings["locals"] = timer.wall_time();
-                
-                timer.restart();
-                // save created data structures and create triangulation
-                timings["overall_reinit_1"] = timer2.wall_time();
-                this->reinit(levels, cells, vertices, boundary_ids, refinements_final);
-                
-                timings["reinit2"] = timer.wall_time();
-            
-                timings["overall_reinit_2"] = timer2.wall_time();
+      else if (additional_data.partition_group == PartitioningGroup::fixed ||
+               additional_data.partition_group == PartitioningGroup::single)
+        {
+          int color = rank_all / (additional_data.partition_group ==
+                                      PartitioningGroup::single ?
+                                    1 :
+                                    additional_data.partition_group_size);
+          MPI_Comm_split(comm_all, color, rank_all, &comm_shared);
         }
-        
-        template<int dim, int spacedim>
-        void Triangulation<dim, spacedim> ::reinit(std::vector<Part>& levels, 
-                                                   std::vector< CellData< dim >>& cells_global,
-                                                   std::vector< Point< spacedim >>& vertices, 
-                                                   std::vector< int>& boundary_ids,
-                                                   unsigned int refinements){
-            unsigned int rank = Utilities::MPI::this_mpi_process(this->get_communicator());
-
-            // data structures to be setup
-            std::map<int, std::pair<int, int>> coarse_gid_to_lid, coarse_lid_to_gid;
-            std::vector< CellData< dim >> cells;
-            
-            // step 1: setup gid<->lid translation 
-            // collect locally owned cells
-            for (auto i : levels[0].local)
-                coarse_gid_to_lid[i] = {-1, rank};
-            // collect ghost cells
-            for (unsigned int i = 0; i < levels[0].ghost.size(); i++)
-                coarse_gid_to_lid[levels[0].ghost[i]] = {-1, levels[0].ghost_rank[i]};
-            // reenumerate cells
-            int c = 0;
-            for (auto & i : coarse_gid_to_lid)
-                i.second.first = c++;
-            // create inverse function
-            for (auto & i : coarse_gid_to_lid)
-                coarse_lid_to_gid[i.second.first] = {i.first, i.second.second};
-            
-            // step 2: make definition of cells local
-            // collect all ids of all vertices
-            std::map<int, int>  vertex_map;
-            for(auto & cell : cells_global)
-                for(unsigned int i = 0; i< GeometryInfo<dim>::vertices_per_cell; i++)
-                    vertex_map[cell.vertices[i]]=-1;
-            // reenumerate vertices
-            int d = 0;
-            for(auto & vertex : vertex_map)
-                vertex.second = d++;
-            // create a new list of cells
-            for(auto & cell : cells_global){
-                auto cell_temp = cell;
-                for(unsigned int i = 0; i< GeometryInfo<dim>::vertices_per_cell; i++)
-                    cell_temp.vertices[i] = vertex_map[cell.vertices[i]];
-                cells.push_back(cell_temp);
-            }
-            
-            // save created data structures and create triangulation
-            this->reinit(levels, coarse_gid_to_lid, coarse_lid_to_gid, cells, vertices, boundary_ids, refinements);
-        }
-        
-        template<int dim, int spacedim>
-        void Triangulation<dim, spacedim> ::reinit(std::vector<Part>& parts, 
-                                                   std::map<int, std::pair<int, int>>& coarse_gid_to_lid, 
-                                                   std::map<int, std::pair<int, int>>& coarse_lid_to_gid, 
-                                                   std::vector< CellData< dim >>& cells,
-                                                   std::vector< Point< spacedim >>& vertices, 
-                                                   std::vector< int>& boundary_ids,
-                                                   unsigned int refinements){
-            // save data structures
-            this->parts             = parts;
-            this->coarse_gid_to_lid = coarse_gid_to_lid;
-            this->coarse_lid_to_gid = coarse_lid_to_gid;
-                                   
-            // create triangulation
-            this->create_triangulation(vertices, cells, SubCellData());
-            
-            // set boundary ids (TODO)
-            int c = 0;
-            for (auto cell = this->begin_active(); cell != this->end(); ++cell)
-                for(unsigned int i = 0; i< GeometryInfo<dim>::faces_per_cell; i++){
-                    unsigned int boundary_ind = boundary_ids[c++];
-                    if(boundary_ind != numbers::internal_face_boundary_id)
-                        cell->face(i)->set_boundary_id(boundary_ind);
-                }
-            
-            // refine grid
-            this->refine_global(refinements);
+      else
+        {
+          AssertThrow(
+            false, ExcMessage("No partitioner group type has been selected."));
         }
 
-        template<int dim, int spacedim>
-        void Triangulation<dim, spacedim> ::create_hierchy(std::vector<Graph>& graphs, 
-                                                          unsigned int refinements, 
-                                                          int rank, std::vector<Part>& parts) {
+      int size_shared;
+      int rank_shared;
+      MPI_Comm_size(comm_shared, &size_shared);
+      MPI_Comm_rank(comm_shared, &rank_shared);
 
-            const unsigned int stride = GeometryInfo<dim>::max_children_per_cell;
-            parts.resize(refinements+1);
+      // get global ranks of processes in shared communicator
+      std::vector<int> ranks_shared(size_shared);
+      MPI_Allgather(
+        &rank_all, 1, MPI_INT, &ranks_shared[0], 1, MPI_INT, comm_shared);
 
-            // loop over all levels and create hierarchy for the process with rank 
-            for (unsigned int level = refinements; level != numbers::invalid_unsigned_int; level--) {
-                // get reference to level-local data structures
-                auto & graph = graphs[level];
-                auto & part  = parts[level];
+      int size_coarse;
+      MPI_Comm_size(this->mpi_communicator_coarse, &size_coarse);
+      MPI_Bcast(&size_coarse, 1, MPI_INT, 0, comm_all);
+      AssertThrow(size_coarse <= size_all,
+                  ExcMessage("No partitioner group type has been selected."));
+      const bool do_repartition = size_coarse != size_all;
 
-                // collect local cells
-                for (unsigned int j = 0; j < graph.parts.size(); j++)
-                    if (rank == graph.parts[j]) // it is local
-                        part.local.push_back(j);
+      // data structures to be filled during this reinit
+      std::vector<Part>            levels;
+      std::vector<CellData<dim>>   cells;
+      std::vector<Point<spacedim>> vertices;
+      std::vector<int>             boundary_ids;
 
-                // collect relevant non-local cells
-                std::map<unsigned int, unsigned int> map;
-                // ... make sure that also the parents of the local cells of finer level ...
-                if (level != refinements)
-                    for (auto k : parts[level + 1].ghost)
-                        map[k / stride] = numbers::artificial_subdomain_id;
-                // ... and also the ghost cells are included
-                if (level != refinements)
-                    for (auto k : parts[level + 1].local)
-                        map[k / stride] = numbers::artificial_subdomain_id;
-                // ... and collect neighbors of all local cells
-                for (auto j : part.local)
-                    for (int k = graph.xadj[j]; k < graph.xadj[j + 1]; k++)
-                        map[graph.adjncy[k]] = 0;
+      // temporal data structures
+      std::vector<int>    list_cell_local;
+      std::vector<double> list_vertex_local;
 
-                // ... save only non-local cells
-                for (auto j : map)
-                    if (graph.parts[j.first] != rank) {
-                        part.ghost.push_back(j.first);
-                        part.ghost_rank.push_back(graph.parts[j.first]);
-                        part.ghost_rank_mg.push_back(j.second == numbers::artificial_subdomain_id ? numbers::artificial_subdomain_id : graph.parts[j.first]);
-                    }
-            }
-        }
+      if (rank_shared == 0)
+        {
+          timer.restart();
+          // Step 1: create sequential triangulation (incl. refinements)
+          dealii::Triangulation<dim> tria;
+          func1(tria);
+          timings["create_distributed_triangulation"] = timer.wall_time();
 
-        template<int dim, int spacedim>
-        void Triangulation<dim, spacedim> ::create_triangulation(const std::vector<Point<spacedim> > &vertices,
-                const std::vector<CellData<dim> > &cells,
-                const SubCellData &subcelldata) {
-            std::cout << "parallel::fullydistributed::Triangulation::create_triangulation()::start" << std::endl;
-            dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(vertices, cells, subcelldata);
-            
+          // retrieve number of refinements from triangulation and send number
+          // of refinements
+          unsigned int refinements = tria.n_global_levels() - 1;
+          MPI_Bcast(&refinements, 1, MPI_UNSIGNED, 0, comm_shared);
+          levels.resize(refinements + 1);
 
-            std::vector<int> lid_to_rank;
-            std::vector<int> lid_to_rank_mg;
+          AssertThrow(refinements <= refinements_final,
+                      ExcMessage("You have to refine more often!"));
+
+          timings["create_mesh"]       = 0;
+          timings["create_dual_graph"] = 0;
+          // create a sparse graph ...
+          std::vector<Graph> graphs(refinements + 1);
+          // ... for each refinement level
+          for (unsigned int ref = 0; ref <= refinements; ref++)
             {
-                // temporal data structure to collect data in an arbitrary order
-                std::map<int, int> gid_to_rank;
-                std::map<int, int> gid_to_rank_mg;
-                
-                for (auto i : parts[0].local){
-                    gid_to_rank[i]    = this->locally_owned_subdomain();
-                    gid_to_rank_mg[i] = this->locally_owned_subdomain();
+              std::vector<int> eind, eptr;
+              eptr.push_back(0);
+
+              timer.restart();
+              // Step 2: extract mesh from triangulation
+              std::map<unsigned int, unsigned int> temp_map;
+              for (auto cell : tria.cell_iterators_on_level(ref))
+                for (unsigned int i = 0;
+                     i < GeometryInfo<dim>::vertices_per_cell;
+                     i++)
+                  {
+                    temp_map[cell->vertex_index(i)] = -1;
+                  }
+
+              int c = 0;
+              for (auto &m : temp_map)
+                m.second = c++;
+
+              for (auto cell : tria.cell_iterators_on_level(ref))
+                {
+                  for (unsigned int i = 0;
+                       i < GeometryInfo<dim>::vertices_per_cell;
+                       i++)
+                    eind.push_back(temp_map[cell->vertex_index(i)]);
+                  eptr.push_back(GeometryInfo<dim>::vertices_per_cell +
+                                 eptr.back());
                 }
-                
-                // mark ghost cells with correct rank
-                for (unsigned int i = 0; i < parts[0].ghost.size(); i++){
-                    gid_to_rank[parts[0].ghost[i]]    = parts[0].ghost_rank[i];
-                    gid_to_rank_mg[parts[0].ghost[i]] = parts[0].ghost_rank_mg[i];
+
+              timings["create_mesh"] += timer.wall_time();
+
+              auto &graph_vertex = graphs[ref];
+
+              // select a partitioner
+              std::shared_ptr<PartitioningAlgorithm> partitioner;
+
+              if (additional_data.partition_type == PartitioningType::metis)
+                partitioner.reset(new MetisPartitioningAlgorithm());
+              else
+                AssertThrow(false,
+                            ExcMessage("No partitioner has been selected."));
+
+              timer.restart();
+              // Step 3: create dual graph with connectivity on vertices
+              partitioner->mesh_to_dual(eptr, eind, 1, graph_vertex);
+              timings["create_dual_graph"] += timer.wall_time();
+
+              if (ref == refinements)
+                {
+                  // Step 4a: perform partitioning on finest level
+                  timer.restart();
+                  // create dual graph with connectivity on faces
+                  Graph graph_face;
+                  partitioner->mesh_to_dual(
+                    eptr,
+                    eind,
+                    GeometryInfo<dim>::vertices_per_face,
+                    graph_face);
+                  // perform pre-partitioning such that groups are kept together
+                  partitioner->partition(graph_face, size_shared, false);
+                  // use pre-partitioning result as weight for actual
+                  // partitioning
+                  partitioner->partition(graph_face, size_all, true);
+                  // save partitioning
+                  graph_vertex.parts      = graph_face.parts;
+                  timings["partitioning"] = timer.wall_time();
                 }
-                
-                // convert map to a list, s.t.: index -> rank
-                for (auto & i : gid_to_rank)
-                    lid_to_rank.push_back(i.second);
-                for (auto & i : gid_to_rank_mg)
-                    lid_to_rank_mg.push_back(i.second);
+              else if (ref == 0 && do_repartition)
+                {
+                  // Step 4b: perform partitioning on coarest level
+                  timer.restart();
+                  // create dual graph with connectivity on faces
+                  Graph graph_face;
+                  partitioner->mesh_to_dual(
+                    eptr,
+                    eind,
+                    GeometryInfo<dim>::vertices_per_face,
+                    graph_face);
+                  // perform partitioning on this dual graph
+                  partitioner->partition(graph_face, size_coarse);
+                  // save partitioning
+                  graph_vertex.parts             = graph_face.parts;
+                  timings["partitioning_coarse"] = timer.wall_time();
+                }
             }
 
-            int c = 0;
-            for (auto cell = this->begin_active(); cell != this->end(); ++cell){
-//                cell->set_subdomain_id(this->coarse_lid_to_gid[c].second);
-//                cell->set_level_subdomain_id(this->coarse_lid_to_gid[c].second);
+          timer.restart();
+          // Step 4': determine partitioning on a non-fine level
+          for (unsigned int ref = refinements;
+               ref >= (unsigned int)(1 + do_repartition);
+               ref--)
+            {
+              auto &g_f = graphs[ref - 0];
+              auto &g_c = graphs[ref - 1];
+
+              for (int i = 0; i < g_c.elements; i++)
+                g_c.parts[i] =
+                  g_f.parts[i * GeometryInfo<dim>::max_children_per_cell];
+            }
+
+          for (int p = 0; p < size_shared; p++)
+            {
+              // Step 5: determine local and ghost cells for each rank on each
+              // level
+              std::vector<Part> parts;
+              create_hierchy(graphs, refinements, ranks_shared[p], parts);
+
+              // Step 6: send local and ghost cells (inkl. rank and mg-rank)
+              for (unsigned int l = 0; l <= refinements; l++)
+                {
+                  // handle data structures of this rank extra
+                  if (p == 0)
+                    {
+                      levels[l] = parts[l];
+                    }
+                  else
+                    {
+                      auto &part     = parts[l];
+                      int   sizes[2] = {(int)part.local.size(),
+                                      (int)part.ghost.size()};
+                      MPI_Send(sizes, 2, MPI_INT, p, 0, comm_shared);
+                      MPI_Send(
+                        &part.local[0], sizes[0], MPI_INT, p, 0, comm_shared);
+                      MPI_Send(
+                        &part.ghost[0], sizes[1], MPI_INT, p, 0, comm_shared);
+                      MPI_Send(&part.ghost_rank[0],
+                               sizes[1],
+                               MPI_INT,
+                               p,
+                               0,
+                               comm_shared);
+                      MPI_Send(&part.ghost_rank_mg[0],
+                               sizes[1],
+                               MPI_INT,
+                               p,
+                               0,
+                               comm_shared);
+                    }
+                }
+
+              // Step 7: collect definition of local cells and vertices on
+              // coarse level and send them away
+              std::set<int>       vertex_map;
+              std::vector<int>    list_cell;
+              std::vector<int>    list_boundary_id;
+              std::vector<double> list_vertex;
+
+              // convert vector to set, such that we can search in the following
+              // faster
+              auto &        part = parts[0];
+              std::set<int> parts_temp;
+              for (auto i : part.local)
+                parts_temp.insert(i);
+              for (auto i : part.ghost)
+                parts_temp.insert(i);
+
+              // loop over all cells on partition and collect vertices
+              int c = 0;
+              for (auto cell : tria.cell_iterators_on_level(0))
+                if (parts_temp.find(c++) != parts_temp.end())
+                  {
+                    for (unsigned int i = 0;
+                         i < GeometryInfo<dim>::vertices_per_cell;
+                         i++)
+                      {
+                        auto vertex_index = cell->vertex_index(i);
+                        list_cell.push_back(vertex_index);
+                        vertex_map.insert(vertex_index);
+                      }
+                    for (unsigned int i = 0;
+                         i < GeometryInfo<dim>::faces_per_cell;
+                         i++)
+                      {
+                        list_boundary_id.push_back(
+                          cell->face(i)->boundary_id());
+                      }
+                  }
+
+              // collect position of all vertices of partition
+              for (auto vertex : vertex_map)
+                {
+                  auto point = tria.get_vertices()[vertex];
+                  for (int i = 0; i < dim; i++)
+                    list_vertex.push_back(point[i]);
+                }
+
+              if (p == 0)
+                {
+                  list_cell_local   = list_cell;
+                  list_vertex_local = list_vertex;
+                  boundary_ids      = list_boundary_id;
+                }
+              else
+                {
+                  int sizes[3] = {(int)list_cell.size(),
+                                  (int)list_vertex.size(),
+                                  (int)list_boundary_id.size()};
+                  MPI_Send(sizes, 3, MPI_INT, p, 0, comm_shared);
+                  MPI_Send(&list_cell[0], sizes[0], MPI_INT, p, 0, comm_shared);
+                  MPI_Send(
+                    &list_vertex[0], sizes[1], MPI_DOUBLE, p, 0, comm_shared);
+                  MPI_Send(
+                    &list_boundary_id[0], sizes[2], MPI_INT, p, 0, comm_shared);
+                }
+            }
+          timings["hierarchy"] = timer.wall_time();
+        }
+      else
+        {
+          // recv number of refinements
+          unsigned int refinements;
+          MPI_Bcast(&refinements, 1, MPI_UNSIGNED, 0, comm_shared);
+          levels.resize(refinements + 1);
+
+          // Step 6: recv local and ghost cells to each rank on each level
+          for (unsigned int l = 0; l <= refinements; l++)
+            {
+              // receive sizes
+              int sizes[2];
+              MPI_Recv(sizes, 2, MPI_INT, 0, 0, comm_shared, MPI_STATUS_IGNORE);
+              // allocate memory
+              levels[l].local.resize(sizes[0]);
+              levels[l].ghost.resize(sizes[1]);
+              levels[l].ghost_rank.resize(sizes[1]);
+              levels[l].ghost_rank_mg.resize(sizes[1]);
+              // receive actual indices
+              MPI_Recv(&levels[l].local[0],
+                       sizes[0],
+                       MPI_INT,
+                       0,
+                       0,
+                       comm_shared,
+                       MPI_STATUS_IGNORE);
+              MPI_Recv(&levels[l].ghost[0],
+                       sizes[1],
+                       MPI_INT,
+                       0,
+                       0,
+                       comm_shared,
+                       MPI_STATUS_IGNORE);
+              MPI_Recv(&levels[l].ghost_rank[0],
+                       sizes[1],
+                       MPI_INT,
+                       0,
+                       0,
+                       comm_shared,
+                       MPI_STATUS_IGNORE);
+              MPI_Recv(&levels[l].ghost_rank_mg[0],
+                       sizes[1],
+                       MPI_INT,
+                       0,
+                       0,
+                       comm_shared,
+                       MPI_STATUS_IGNORE);
+            }
+
+          // Step 7: receive definition of local cells and vertices on coarse
+          // level
+          {
+            // receive sizes
+            int sizes[3];
+            MPI_Recv(sizes, 3, MPI_INT, 0, 0, comm_shared, MPI_STATUS_IGNORE);
+            // allocate memory
+            list_cell_local.resize(sizes[0]);
+            list_vertex_local.resize(sizes[1]);
+            boundary_ids.resize(sizes[2]);
+            // receive actual indices
+            MPI_Recv(&list_cell_local[0],
+                     sizes[0],
+                     MPI_INT,
+                     0,
+                     0,
+                     comm_shared,
+                     MPI_STATUS_IGNORE);
+            MPI_Recv(&list_vertex_local[0],
+                     sizes[1],
+                     MPI_DOUBLE,
+                     0,
+                     0,
+                     comm_shared,
+                     MPI_STATUS_IGNORE);
+            MPI_Recv(&boundary_ids[0],
+                     sizes[2],
+                     MPI_INT,
+                     0,
+                     0,
+                     comm_shared,
+                     MPI_STATUS_IGNORE);
+          }
+        }
+
+      timer.restart();
+      for (unsigned int i = 0; i < list_cell_local.size();)
+        {
+          CellData<dim> cell;
+          for (unsigned int j = 0; j < GeometryInfo<dim>::vertices_per_cell;
+               j++)
+            cell.vertices[j] = list_cell_local[i++];
+          cells.push_back(cell);
+        }
+
+      for (unsigned int i = 0; i < list_vertex_local.size();)
+        {
+          Point<spacedim> vertex;
+          for (unsigned int j = 0; j < dim; j++)
+            vertex[j] = list_vertex_local[i++];
+          vertices.push_back(vertex);
+        }
+      timings["locals"] = timer.wall_time();
+
+      timer.restart();
+      // save created data structures and create triangulation
+      timings["overall_reinit_1"] = timer2.wall_time();
+      this->reinit(levels, cells, vertices, boundary_ids, refinements_final);
+
+      timings["reinit2"] = timer.wall_time();
+
+      timings["overall_reinit_2"] = timer2.wall_time();
+    }
+
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim, spacedim>::reinit(
+      std::vector<Part> &           levels,
+      std::vector<CellData<dim>> &  cells_global,
+      std::vector<Point<spacedim>> &vertices,
+      std::vector<int> &            boundary_ids,
+      unsigned int                  refinements)
+    {
+      unsigned int rank =
+        Utilities::MPI::this_mpi_process(this->get_communicator());
+
+      // data structures to be setup
+      std::map<int, std::pair<int, int>> coarse_gid_to_lid, coarse_lid_to_gid;
+      std::vector<CellData<dim>>         cells;
+
+      // step 1: setup gid<->lid translation
+      // collect locally owned cells
+      for (auto i : levels[0].local)
+        coarse_gid_to_lid[i] = {-1, rank};
+      // collect ghost cells
+      for (unsigned int i = 0; i < levels[0].ghost.size(); i++)
+        coarse_gid_to_lid[levels[0].ghost[i]] = {-1, levels[0].ghost_rank[i]};
+      // reenumerate cells
+      int c = 0;
+      for (auto &i : coarse_gid_to_lid)
+        i.second.first = c++;
+      // create inverse function
+      for (auto &i : coarse_gid_to_lid)
+        coarse_lid_to_gid[i.second.first] = {i.first, i.second.second};
+
+      // step 2: make definition of cells local
+      // collect all ids of all vertices
+      std::map<int, int> vertex_map;
+      for (auto &cell : cells_global)
+        for (unsigned int i = 0; i < GeometryInfo<dim>::vertices_per_cell; i++)
+          vertex_map[cell.vertices[i]] = -1;
+      // reenumerate vertices
+      int d = 0;
+      for (auto &vertex : vertex_map)
+        vertex.second = d++;
+      // create a new list of cells
+      for (auto &cell : cells_global)
+        {
+          auto cell_temp = cell;
+          for (unsigned int i = 0; i < GeometryInfo<dim>::vertices_per_cell;
+               i++)
+            cell_temp.vertices[i] = vertex_map[cell.vertices[i]];
+          cells.push_back(cell_temp);
+        }
+
+      // save created data structures and create triangulation
+      this->reinit(levels,
+                   coarse_gid_to_lid,
+                   coarse_lid_to_gid,
+                   cells,
+                   vertices,
+                   boundary_ids,
+                   refinements);
+    }
+
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim, spacedim>::reinit(
+      std::vector<Part> &                 parts,
+      std::map<int, std::pair<int, int>> &coarse_gid_to_lid,
+      std::map<int, std::pair<int, int>> &coarse_lid_to_gid,
+      std::vector<CellData<dim>> &        cells,
+      std::vector<Point<spacedim>> &      vertices,
+      std::vector<int> &                  boundary_ids,
+      unsigned int                        refinements)
+    {
+      // save data structures
+      this->parts             = parts;
+      this->coarse_gid_to_lid = coarse_gid_to_lid;
+      this->coarse_lid_to_gid = coarse_lid_to_gid;
+
+      // create triangulation
+      this->create_triangulation(vertices, cells, SubCellData());
+
+      // set boundary ids (TODO)
+      int c = 0;
+      for (auto cell = this->begin_active(); cell != this->end(); ++cell)
+        for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell; i++)
+          {
+            unsigned int boundary_ind = boundary_ids[c++];
+            if (boundary_ind != numbers::internal_face_boundary_id)
+              cell->face(i)->set_boundary_id(boundary_ind);
+          }
+
+      // refine grid
+      this->refine_global(refinements);
+    }
+
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim, spacedim>::create_hierchy(std::vector<Graph> &graphs,
+                                                 unsigned int       refinements,
+                                                 int                rank,
+                                                 std::vector<Part> &parts)
+    {
+      const unsigned int stride = GeometryInfo<dim>::max_children_per_cell;
+      parts.resize(refinements + 1);
+
+      // loop over all levels and create hierarchy for the process with rank
+      for (unsigned int level = refinements;
+           level != numbers::invalid_unsigned_int;
+           level--)
+        {
+          // get reference to level-local data structures
+          auto &graph = graphs[level];
+          auto &part  = parts[level];
+
+          // collect local cells
+          for (unsigned int j = 0; j < graph.parts.size(); j++)
+            if (rank == graph.parts[j]) // it is local
+              part.local.push_back(j);
+
+          // collect relevant non-local cells
+          std::map<unsigned int, unsigned int> map;
+          // ... make sure that also the parents of the local cells of finer
+          // level ...
+          if (level != refinements)
+            for (auto k : parts[level + 1].ghost)
+              map[k / stride] = numbers::artificial_subdomain_id;
+          // ... and also the ghost cells are included
+          if (level != refinements)
+            for (auto k : parts[level + 1].local)
+              map[k / stride] = numbers::artificial_subdomain_id;
+          // ... and collect neighbors of all local cells
+          for (auto j : part.local)
+            for (int k = graph.xadj[j]; k < graph.xadj[j + 1]; k++)
+              map[graph.adjncy[k]] = 0;
+
+          // ... save only non-local cells
+          for (auto j : map)
+            if (graph.parts[j.first] != rank)
+              {
+                part.ghost.push_back(j.first);
+                part.ghost_rank.push_back(graph.parts[j.first]);
+                part.ghost_rank_mg.push_back(
+                  j.second == numbers::artificial_subdomain_id ?
+                    numbers::artificial_subdomain_id :
+                    graph.parts[j.first]);
+              }
+        }
+    }
+
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim, spacedim>::create_triangulation(
+      const std::vector<Point<spacedim>> &vertices,
+      const std::vector<CellData<dim>> &  cells,
+      const SubCellData &                 subcelldata)
+    {
+      std::cout
+        << "parallel::fullydistributed::Triangulation::create_triangulation()::start"
+        << std::endl;
+      dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
+        vertices, cells, subcelldata);
+
+
+      std::vector<int> lid_to_rank;
+      std::vector<int> lid_to_rank_mg;
+      {
+        // temporal data structure to collect data in an arbitrary order
+        std::map<int, int> gid_to_rank;
+        std::map<int, int> gid_to_rank_mg;
+
+        for (auto i : parts[0].local)
+          {
+            gid_to_rank[i]    = this->locally_owned_subdomain();
+            gid_to_rank_mg[i] = this->locally_owned_subdomain();
+          }
+
+        // mark ghost cells with correct rank
+        for (unsigned int i = 0; i < parts[0].ghost.size(); i++)
+          {
+            gid_to_rank[parts[0].ghost[i]]    = parts[0].ghost_rank[i];
+            gid_to_rank_mg[parts[0].ghost[i]] = parts[0].ghost_rank_mg[i];
+          }
+
+        // convert map to a list, s.t.: index -> rank
+        for (auto &i : gid_to_rank)
+          lid_to_rank.push_back(i.second);
+        for (auto &i : gid_to_rank_mg)
+          lid_to_rank_mg.push_back(i.second);
+      }
+
+      int c = 0;
+      for (auto cell = this->begin_active(); cell != this->end(); ++cell)
+        {
+          //                cell->set_subdomain_id(this->coarse_lid_to_gid[c].second);
+          //                cell->set_level_subdomain_id(this->coarse_lid_to_gid[c].second);
+          cell->set_subdomain_id(lid_to_rank[cell->index()]);
+          cell->set_level_subdomain_id(lid_to_rank_mg[cell->index()]);
+          c++;
+        }
+
+      this->update_number_cache();
+      std::cout
+        << "parallel::fullydistributed::Triangulation::create_triangulation()::end"
+        << std::endl;
+    }
+
+    template <int dim, int spacedim>
+    Triangulation<dim, spacedim>::Triangulation(MPI_Comm mpi_communicaton)
+      : Triangulation<dim, spacedim>(mpi_communicaton, mpi_communicaton)
+    {}
+
+    template <int dim, int spacedim>
+    Triangulation<dim, spacedim>::Triangulation(
+      MPI_Comm mpi_communicator,
+      MPI_Comm mpi_communicator_coarse)
+      : dealii::parallel::Triangulation<dim, spacedim>(
+          mpi_communicator,
+          static_cast<
+            typename dealii::Triangulation<dim, spacedim>::MeshSmoothing>(
+            dealii::Triangulation<dim>::none |
+            Triangulation<dim, spacedim>::limit_level_difference_at_vertices),
+          false)
+      , ref_counter(0)
+      , mpi_communicator_coarse(mpi_communicator_coarse)
+    {
+      std::cout << "parallel::fullydistributed::Triangulation::Triangulation()"
+                << std::endl;
+    }
+
+    template <int dim, int spacedim>
+    Triangulation<dim, spacedim>::~Triangulation()
+    {
+      for (auto value : timings)
+        std::cout << value.first << " " << value.second << std::endl;
+      std::cout << "parallel::fullydistributed::Triangulation::~Triangulation()"
+                << std::endl;
+    }
+
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim, spacedim>::clear()
+    {
+      std::cout << "parallel::fullydistributed::Triangulation::clear()"
+                << std::endl;
+    }
+
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim, spacedim>::update_number_cache()
+    {
+      parallel::Triangulation<dim, spacedim>::update_number_cache();
+
+      //            if (settings & construct_multigrid_hierarchy)
+      parallel::Triangulation<dim, spacedim>::fill_level_ghost_owners();
+    }
+
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim, spacedim>::copy_local_forest_to_triangulation()
+    {
+      // increase refinement counter
+      ref_counter++;
+
+      // number of direct children
+      const int n_children = GeometryInfo<dim>::max_children_per_cell;
+
+      // step 1: mark non-artificial cells for refinement
+      for (auto cell = this->begin_active(); cell != this->end(); ++cell)
+        if (!cell->is_artificial())
+          cell->set_refine_flag();
+
+      // step 2: perform refinement
+      dealii::Triangulation<dim, spacedim>::execute_coarsening_and_refinement();
+
+      // step 3: set subdomain_id of new cells
+      if ((ref_counter + 1) <= this->parts.size())
+        {
+          // create alias for coarse and fine level
+          auto &coarse_level = parts[ref_counter - 1];
+          auto &fine_level   = parts[ref_counter - 0];
+          // step 3a: create list (index -> rank) for simple use in 3b
+          std::vector<int> lid_to_rank;
+          std::vector<int> lid_to_rank_mg;
+          {
+            // temporal data structure to collect data in an arbitrary order
+            std::map<int, int> gid_to_rank;
+            std::map<int, int> gid_to_rank_mg;
+
+            // collect all cells on level and mark them artificial
+            for (auto i : coarse_level.local)
+              for (int j = 0; j < n_children; j++)
+                gid_to_rank[n_children * (i) + j] =
+                  numbers::artificial_subdomain_id;
+
+            for (auto i : coarse_level.ghost)
+              for (int j = 0; j < n_children; j++)
+                gid_to_rank[n_children * (i) + j] =
+                  numbers::artificial_subdomain_id;
+
+            // mark local cells with local rank
+            for (auto i : fine_level.local)
+              gid_to_rank[i] = this->locally_owned_subdomain();
+
+            gid_to_rank_mg = gid_to_rank;
+            // mark ghost cells with correct rank
+            for (unsigned int i = 0; i < fine_level.ghost.size(); i++)
+              {
+                gid_to_rank[fine_level.ghost[i]] = fine_level.ghost_rank[i];
+                gid_to_rank_mg[fine_level.ghost[i]] =
+                  fine_level.ghost_rank_mg[i];
+              }
+
+            // convert map to a list, s.t.: index -> rank
+            for (auto &i : gid_to_rank)
+              lid_to_rank.push_back(i.second);
+            for (auto &i : gid_to_rank_mg)
+              lid_to_rank_mg.push_back(i.second);
+          }
+
+          // step 3b: make sure that all cells are artificial
+          for (auto cell = this->begin_active(); cell != this->end(); ++cell)
+            {
+              cell->set_subdomain_id(dealii::numbers::artificial_subdomain_id);
+              cell->set_level_subdomain_id(
+                dealii::numbers::artificial_subdomain_id);
+            }
+
+          // step 3c: set actually subdomain_id
+          for (auto cell = this->begin_active(); cell != this->end(); ++cell)
+            if ((cell->level() == (int)ref_counter))
+              {
                 cell->set_subdomain_id(lid_to_rank[cell->index()]);
                 cell->set_level_subdomain_id(lid_to_rank_mg[cell->index()]);
-                c++;
-            }
-
-            this->update_number_cache();
-            std::cout << "parallel::fullydistributed::Triangulation::create_triangulation()::end" << std::endl;
+              }
         }
+      else
+        {
+          std::set<unsigned int> map;
+          for (auto cell = this->begin_active(); cell != this->end(); ++cell)
+            if ((cell->level() == (int)ref_counter))
+              {
+                cell->set_subdomain_id(cell->parent()->level_subdomain_id());
+                cell->set_level_subdomain_id(
+                  cell->parent()->level_subdomain_id());
+                if (cell->is_locally_owned())
+                  for (unsigned int i = 0;
+                       i < GeometryInfo<dim>::vertices_per_cell;
+                       i++)
+                    map.insert(cell->vertex_index(i));
+              }
 
-        template<int dim, int spacedim>
-        Triangulation<dim, spacedim> ::Triangulation(MPI_Comm mpi_communicaton) : 
-                            Triangulation<dim, spacedim>(mpi_communicaton, mpi_communicaton){}
-        
-        template<int dim, int spacedim>
-        Triangulation<dim, spacedim> ::Triangulation(MPI_Comm mpi_communicator, MPI_Comm mpi_communicator_coarse) : dealii::parallel::Triangulation<dim, spacedim>
-              (mpi_communicator,
-               static_cast<typename dealii::Triangulation<dim,spacedim>::MeshSmoothing> (dealii::Triangulation<dim>::none | Triangulation<dim,spacedim>::limit_level_difference_at_vertices),
-               false),
-            ref_counter(0),mpi_communicator_coarse(mpi_communicator_coarse) {
-            std::cout << "parallel::fullydistributed::Triangulation::Triangulation()" << std::endl;
-        }
-
-        template<int dim, int spacedim>
-        Triangulation<dim, spacedim>::~Triangulation() {
-            for(auto value : timings)
-                std::cout << value.first << " " << value.second << std::endl;
-            std::cout << "parallel::fullydistributed::Triangulation::~Triangulation()" << std::endl;
-        }
-
-        template<int dim, int spacedim>
-        void Triangulation<dim, spacedim>::clear() {
-            std::cout << "parallel::fullydistributed::Triangulation::clear()" << std::endl;
-        }
-        
-        template <int dim, int spacedim>
-        void Triangulation<dim,spacedim>::update_number_cache () {
-           parallel::Triangulation<dim,spacedim>::update_number_cache();
-
-//            if (settings & construct_multigrid_hierarchy)
-                parallel::Triangulation<dim,spacedim>::fill_level_ghost_owners();
-        }
-
-        template<int dim, int spacedim>
-        void Triangulation<dim, spacedim>::copy_local_forest_to_triangulation() {
-
-            // increase refinement counter
-            ref_counter++;
-
-            // number of direct children
-            const int n_children = GeometryInfo<dim>::max_children_per_cell;
-
-            // step 1: mark non-artificial cells for refinement
-            for (auto cell = this->begin_active(); cell != this->end(); ++cell)
-                if (!cell->is_artificial())
-                    cell->set_refine_flag();
-
-            // step 2: perform refinement
-            dealii::Triangulation<dim, spacedim>::execute_coarsening_and_refinement();
-
-            // step 3: set subdomain_id of new cells
-            if((ref_counter + 1) <= this->parts.size()){
-                // create alias for coarse and fine level
-                auto & coarse_level = parts[ref_counter - 1];
-                auto & fine_level = parts[ref_counter - 0];
-                // step 3a: create list (index -> rank) for simple use in 3b
-                std::vector<int> lid_to_rank;
-                std::vector<int> lid_to_rank_mg;
-                {
-                    // temporal data structure to collect data in an arbitrary order
-                    std::map<int, int> gid_to_rank;
-                    std::map<int, int> gid_to_rank_mg;
-
-                    // collect all cells on level and mark them artificial
-                    for (auto i : coarse_level.local)
-                        for (int j = 0; j < n_children; j++)
-                            gid_to_rank[n_children * (i) + j] = numbers::artificial_subdomain_id;
-
-                    for (auto i : coarse_level.ghost)
-                        for (int j = 0; j < n_children; j++)
-                            gid_to_rank[n_children * (i) + j] = numbers::artificial_subdomain_id;
-
-                    // mark local cells with local rank
-                    for (auto i : fine_level.local)
-                        gid_to_rank[i] = this->locally_owned_subdomain();
-
-                    gid_to_rank_mg = gid_to_rank;
-                    // mark ghost cells with correct rank
-                    for (unsigned int i = 0; i < fine_level.ghost.size(); i++){
-                        gid_to_rank[fine_level.ghost[i]]    = fine_level.ghost_rank[i];
-                        gid_to_rank_mg[fine_level.ghost[i]] = fine_level.ghost_rank_mg[i];
-                    }
-
-                    // convert map to a list, s.t.: index -> rank
-                    for (auto & i : gid_to_rank)
-                        lid_to_rank.push_back(i.second);
-                    for (auto & i : gid_to_rank_mg)
-                        lid_to_rank_mg.push_back(i.second);
-                }
-
-                // step 3b: make sure that all cells are artificial
-                for (auto cell = this->begin_active(); cell != this->end(); ++cell){
-                    cell->set_subdomain_id(dealii::numbers::artificial_subdomain_id);
-                    cell->set_level_subdomain_id(dealii::numbers::artificial_subdomain_id);
-                }
-                
-                // step 3c: set actually subdomain_id
-                for (auto cell = this->begin_active(); cell != this->end(); ++cell)
-                    if ((cell->level() == (int) ref_counter)){
-                        cell->set_subdomain_id(lid_to_rank[cell->index()]);
-                        cell->set_level_subdomain_id(lid_to_rank_mg[cell->index()]);
-                    }
-            } else {
-                std::set<unsigned int> map;
-                for (auto cell = this->begin_active(); cell != this->end(); ++cell)
-                    if ((cell->level() == (int) ref_counter)){
-                        cell->set_subdomain_id(cell->parent()->level_subdomain_id());
-                        cell->set_level_subdomain_id(cell->parent()->level_subdomain_id());
-                        if(cell->is_locally_owned())
-                            for(unsigned int i = 0; i< GeometryInfo<dim>::vertices_per_cell; i++)
-                                map.insert(cell->vertex_index(i));
-                }
-            
-                for (auto cell = this->begin_active(); cell != this->end(); ++cell)
-                    if ((cell->level() == (int) ref_counter)){
-                        if(!cell->is_locally_owned()){
-                            bool flag = false;
-                            for(unsigned int i = 0; i< GeometryInfo<dim>::vertices_per_cell; i++)
-                                if(map.find(cell->vertex_index(i))!=map.end()){
-                                    flag = true;
-                                    break;
-                                }
-                            if(!flag){
-                                cell->set_subdomain_id(dealii::numbers::artificial_subdomain_id);
-                                cell->set_level_subdomain_id(dealii::numbers::artificial_subdomain_id);
-                            }
+          for (auto cell = this->begin_active(); cell != this->end(); ++cell)
+            if ((cell->level() == (int)ref_counter))
+              {
+                if (!cell->is_locally_owned())
+                  {
+                    bool flag = false;
+                    for (unsigned int i = 0;
+                         i < GeometryInfo<dim>::vertices_per_cell;
+                         i++)
+                      if (map.find(cell->vertex_index(i)) != map.end())
+                        {
+                          flag = true;
+                          break;
                         }
-            }
+                    if (!flag)
+                      {
+                        cell->set_subdomain_id(
+                          dealii::numbers::artificial_subdomain_id);
+                        cell->set_level_subdomain_id(
+                          dealii::numbers::artificial_subdomain_id);
+                      }
+                  }
+              }
         }
-        }
-
-        template<int dim, int spacedim>
-        void Triangulation<dim, spacedim>::execute_coarsening_and_refinement() {
-            std::cout << "parallel::fullydistributed::Triangulation::execute_coarsening_and_refinement::start" << std::endl;
-
-            // signal that refinement is going to happen
-            this->signals.pre_distributed_refinement();
-
-            // now do the work we're supposed to do when we are in charge
-            this->prepare_coarsening_and_refinement();
-
-            // make sure all flags are cleared on cells we don't own, since nothing
-            // good can come of that if they are still around
-            for (auto cell = this->begin_active(); cell != this->end(); ++cell)
-                if (cell->is_ghost() || cell->is_artificial()) {
-                    cell->clear_refine_flag();
-                    cell->clear_coarsen_flag();
-                }
-
-            // TODO: removed stuff
-
-            // finally copy back from local part of tree to deal.II
-            // triangulation. before doing so, make sure there are no refine or
-            // coarsen flags pending
-            for (auto cell = this->begin_active(); cell != this->end(); ++cell) {
-                cell->clear_refine_flag();
-                cell->clear_coarsen_flag();
-            }
-
-            try {
-                copy_local_forest_to_triangulation();
-            } catch (const typename Triangulation<dim>::DistortedCellList &) {
-                // the underlying triangulation should not be checking for distorted
-                // cells
-                Assert(false, ExcInternalError());
-            }
-
-            this->update_number_cache();
-
-            // signal that refinement is finished,
-            // this is triggered before update_periodic_face_map
-            // to be consistent with the serial triangulation class
-            this->signals.post_distributed_refinement();
-
-            this->update_periodic_face_map();
-
-            std::cout << "parallel::fullydistributed::Triangulation::execute_coarsening_and_refinement::end" << std::endl;
-        }
-
-        template<int dim, int spacedim>
-        bool Triangulation<dim, spacedim>::prepare_coarsening_and_refinement() {
-            std::cout << "parallel::fullydistributed::Triangulation::prepare_coarsening_and_refinement" << std::endl;
-
-            std::vector<bool> flags_before[2];
-            this->save_coarsen_flags(flags_before[0]);
-            this->save_refine_flags(flags_before[1]);
-
-            this->dealii::Triangulation<dim, spacedim>::prepare_coarsening_and_refinement();
-            this->update_periodic_face_map();
-
-            // check if any of the refinement flags were changed during this
-            // function and return that value
-            std::vector<bool> flags_after[2];
-            this->save_coarsen_flags(flags_after[0]);
-            this->save_refine_flags(flags_after[1]);
-            return ((flags_before[0] != flags_after[0]) ||
-                    (flags_before[1] != flags_after[1]));
-
-        }
-
-        template<int dim, int spacedim>
-        bool Triangulation<dim, spacedim>::has_hanging_nodes() const {
-            std::cout << "parallel::fullydistributed::Triangulation::has_hanging_nodes" << std::endl;
-            return false;
-        }
-
-        template<int dim, int spacedim>
-        std::size_t Triangulation<dim, spacedim>::memory_consumption() const {
-            std::cout << "parallel::fullydistributed::Triangulation::memory_consumption" << std::endl;
-            return 0;
-        }
-
-        template<int dim, int spacedim>
-        std::size_t Triangulation<dim, spacedim>::memory_consumption_p4est() const {
-            std::cout << "parallel::fullydistributed::Triangulation::memory_consumption_p4est" << std::endl;
-            return 0;
-        }
-
-        template<int dim, int spacedim>
-        void Triangulation<dim, spacedim>::add_periodicity(const std::vector<GridTools::PeriodicFacePair<cell_iterator> > &) {
-            std::cout << "parallel::fullydistributed::Triangulation::add_periodicity" << std::endl;
-        }
-
     }
-}
+
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim, spacedim>::execute_coarsening_and_refinement()
+    {
+      std::cout
+        << "parallel::fullydistributed::Triangulation::execute_coarsening_and_refinement::start"
+        << std::endl;
+
+      // signal that refinement is going to happen
+      this->signals.pre_distributed_refinement();
+
+      // now do the work we're supposed to do when we are in charge
+      this->prepare_coarsening_and_refinement();
+
+      // make sure all flags are cleared on cells we don't own, since nothing
+      // good can come of that if they are still around
+      for (auto cell = this->begin_active(); cell != this->end(); ++cell)
+        if (cell->is_ghost() || cell->is_artificial())
+          {
+            cell->clear_refine_flag();
+            cell->clear_coarsen_flag();
+          }
+
+      // TODO: removed stuff
+
+      // finally copy back from local part of tree to deal.II
+      // triangulation. before doing so, make sure there are no refine or
+      // coarsen flags pending
+      for (auto cell = this->begin_active(); cell != this->end(); ++cell)
+        {
+          cell->clear_refine_flag();
+          cell->clear_coarsen_flag();
+        }
+
+      try
+        {
+          copy_local_forest_to_triangulation();
+        }
+      catch (const typename Triangulation<dim>::DistortedCellList &)
+        {
+          // the underlying triangulation should not be checking for distorted
+          // cells
+          Assert(false, ExcInternalError());
+        }
+
+      this->update_number_cache();
+
+      // signal that refinement is finished,
+      // this is triggered before update_periodic_face_map
+      // to be consistent with the serial triangulation class
+      this->signals.post_distributed_refinement();
+
+      this->update_periodic_face_map();
+
+      std::cout
+        << "parallel::fullydistributed::Triangulation::execute_coarsening_and_refinement::end"
+        << std::endl;
+    }
+
+    template <int dim, int spacedim>
+    bool
+    Triangulation<dim, spacedim>::prepare_coarsening_and_refinement()
+    {
+      std::cout
+        << "parallel::fullydistributed::Triangulation::prepare_coarsening_and_refinement"
+        << std::endl;
+
+      std::vector<bool> flags_before[2];
+      this->save_coarsen_flags(flags_before[0]);
+      this->save_refine_flags(flags_before[1]);
+
+      this
+        ->dealii::Triangulation<dim,
+                                spacedim>::prepare_coarsening_and_refinement();
+      this->update_periodic_face_map();
+
+      // check if any of the refinement flags were changed during this
+      // function and return that value
+      std::vector<bool> flags_after[2];
+      this->save_coarsen_flags(flags_after[0]);
+      this->save_refine_flags(flags_after[1]);
+      return ((flags_before[0] != flags_after[0]) ||
+              (flags_before[1] != flags_after[1]));
+    }
+
+    template <int dim, int spacedim>
+    bool
+    Triangulation<dim, spacedim>::has_hanging_nodes() const
+    {
+      std::cout
+        << "parallel::fullydistributed::Triangulation::has_hanging_nodes"
+        << std::endl;
+      return false;
+    }
+
+    template <int dim, int spacedim>
+    std::size_t
+    Triangulation<dim, spacedim>::memory_consumption() const
+    {
+      std::cout
+        << "parallel::fullydistributed::Triangulation::memory_consumption"
+        << std::endl;
+      return 0;
+    }
+
+    template <int dim, int spacedim>
+    std::size_t
+    Triangulation<dim, spacedim>::memory_consumption_p4est() const
+    {
+      std::cout
+        << "parallel::fullydistributed::Triangulation::memory_consumption_p4est"
+        << std::endl;
+      return 0;
+    }
+
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim, spacedim>::add_periodicity(
+      const std::vector<GridTools::PeriodicFacePair<cell_iterator>> &)
+    {
+      std::cout << "parallel::fullydistributed::Triangulation::add_periodicity"
+                << std::endl;
+    }
+
+  } // namespace fullydistributed
+} // namespace parallel
 
 
 
