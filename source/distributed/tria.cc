@@ -5081,28 +5081,26 @@ namespace parallel
 {
   namespace fullydistributed
   {
-      
-      void
-      Graph::print(std::ostream &out)
-      {
-          
-          std::cout << std::endl;
-          std::cout << "Graph:" << std::endl;
-          for(auto i : xadj)
-              out << i << " ";
-          out << std::endl;
-          
-          for(auto i : adjncy)
-              out << i << " ";
-          out << std::endl;
-          
-          out << elements << std::endl;
-          
-          for(auto i : parts)
-              out << i << " ";
-          out << std::endl << std::endl;
-      }
-      
+    void
+    Graph::print(std::ostream &out)
+    {
+      std::cout << std::endl;
+      std::cout << "Graph:" << std::endl;
+      for (auto i : xadj)
+        out << i << " ";
+      out << std::endl;
+
+      for (auto i : adjncy)
+        out << i << " ";
+      out << std::endl;
+
+      out << elements << std::endl;
+
+      for (auto i : parts)
+        out << i << " ";
+      out << std::endl << std::endl;
+    }
+
     void
     PartitioningAlgorithm::mesh_to_dual(std::vector<int> & /*eptr_in*/,
                                         std::vector<int> & /*eind_in*/,
@@ -5190,7 +5188,7 @@ namespace parallel
       std::vector<idx_t> xadj   = graph.xadj;
       std::vector<idx_t> adjncy = graph.adjncy;
       std::vector<idx_t> parts(graph.elements);
-      
+
       int status = METIS_OK;
 
       if (n_partitions == 1)
@@ -5211,44 +5209,45 @@ namespace parallel
                 adjwgt[j] = 1;
 
           status = METIS_PartGraphRecursive(&ne,
-                              &ncon,
-                              &xadj[0],
-                              &adjncy[0],
-                              NULL,
-                              NULL,
-                              &adjwgt[0],
-                              &nparts,
-                              NULL,
-                              NULL,
-                              NULL,
-                              &edgecut,
-                              &parts[0]);
+                                            &ncon,
+                                            &xadj[0],
+                                            &adjncy[0],
+                                            NULL,
+                                            NULL,
+                                            &adjwgt[0],
+                                            &nparts,
+                                            NULL,
+                                            NULL,
+                                            NULL,
+                                            &edgecut,
+                                            &parts[0]);
         }
       else
         {
           idx_t options[METIS_NOPTIONS];
           METIS_SetDefaultOptions(options);
-//          options[METIS_OPTION_MINCONN] = 1;
-//          options[METIS_OPTION_OBJTYPE] = METIS_OBJTYPE_VOL;
-//          options[METIS_OPTION_NCUTS] = 10;
-//          options[METIS_OPTION_UFACTOR] = 1;
-//          options[METIS_OPTION_DBGLVL] = 1;
+          //          options[METIS_OPTION_MINCONN] = 1;
+          //          options[METIS_OPTION_OBJTYPE] = METIS_OBJTYPE_VOL;
+          //          options[METIS_OPTION_NCUTS] = 10;
+          //          options[METIS_OPTION_UFACTOR] = 1;
+          //          options[METIS_OPTION_DBGLVL] = 1;
           status = METIS_PartGraphRecursive(&ne,
-                              &ncon,
-                              &xadj[0],
-                              &adjncy[0],
-                              NULL,
-                              NULL,
-                              NULL,
-                              &nparts,
-                              NULL,
-                              NULL,
-                              options,
-                              &edgecut,
-                              &parts[0]);
+                                            &ncon,
+                                            &xadj[0],
+                                            &adjncy[0],
+                                            NULL,
+                                            NULL,
+                                            NULL,
+                                            &nparts,
+                                            NULL,
+                                            NULL,
+                                            options,
+                                            &edgecut,
+                                            &parts[0]);
         }
-      
-      AssertThrow(status == METIS_OK, ExcMessage("Partitioning with Metis was not successful."));
+
+      AssertThrow(status == METIS_OK,
+                  ExcMessage("Partitioning with Metis was not successful."));
 
       graph.parts = parts;
 #else
@@ -5305,11 +5304,11 @@ namespace parallel
       int rank_shared;
       MPI_Comm_size(comm_shared, &size_shared);
       MPI_Comm_rank(comm_shared, &rank_shared);
-      
+
       int size_groups;
       {
         MPI_Comm comm_group;
-        int color = (rank_shared==0);
+        int      color = (rank_shared == 0);
         MPI_Comm_split(comm_all, color, rank_all, &comm_group);
         MPI_Comm_size(comm_group, &size_groups);
       }
@@ -5327,11 +5326,11 @@ namespace parallel
       const bool do_repartition = size_coarse != size_all;
 
       // data structures to be filled during this reinit
-      std::vector<Part>            levels;
-      std::vector<CellData<dim>>   cells;
-      std::vector<Point<spacedim>> vertices;
-      std::vector<int>             boundary_ids;
-      std::vector<types::material_id>     material_ids;
+      std::vector<Part>               levels;
+      std::vector<CellData<dim>>      cells;
+      std::vector<Point<spacedim>>    vertices;
+      std::vector<int>                boundary_ids;
+      std::vector<types::material_id> material_ids;
 
       // temporal data structures
       std::vector<int>    list_cell_local;
@@ -5502,11 +5501,11 @@ namespace parallel
 
               // Step 7: collect definition of local cells and vertices on
               // coarse level and send them away
-              std::set<int>       vertex_map;
-              std::vector<int>    list_cell;
-              std::vector<int>    list_boundary_id;
+              std::set<int>                   vertex_map;
+              std::vector<int>                list_cell;
+              std::vector<int>                list_boundary_id;
               std::vector<types::material_id> list_material_id;
-              std::vector<double> list_vertex;
+              std::vector<double>             list_vertex;
 
               // convert vector to set, such that we can search in the following
               // faster
@@ -5687,7 +5686,8 @@ namespace parallel
       timer.restart();
       // save created data structures and create triangulation
       timings["overall_reinit_1"] = timer2.wall_time();
-      this->reinit(levels, cells, vertices, boundary_ids, material_ids, refinements_final);
+      this->reinit(
+        levels, cells, vertices, boundary_ids, material_ids, refinements_final);
 
       timings["reinit2"] = timer.wall_time();
 
@@ -5697,12 +5697,12 @@ namespace parallel
     template <int dim, int spacedim>
     void
     Triangulation<dim, spacedim>::reinit(
-      std::vector<Part> &           levels,
-      std::vector<CellData<dim>> &  cells_global,
-      std::vector<Point<spacedim>> &vertices,
-      std::vector<int> &            boundary_ids,
-      std::vector<types::material_id> & material_ids,
-      unsigned int                  refinements)
+      std::vector<Part> &              levels,
+      std::vector<CellData<dim>> &     cells_global,
+      std::vector<Point<spacedim>> &   vertices,
+      std::vector<int> &               boundary_ids,
+      std::vector<types::material_id> &material_ids,
+      unsigned int                     refinements)
     {
       unsigned int rank =
         Utilities::MPI::this_mpi_process(this->get_communicator());
@@ -5753,7 +5753,7 @@ namespace parallel
                    cells,
                    vertices,
                    boundary_ids,
-                    material_ids,
+                   material_ids,
                    refinements);
     }
 
@@ -5766,7 +5766,7 @@ namespace parallel
       std::vector<CellData<dim>> &        cells,
       std::vector<Point<spacedim>> &      vertices,
       std::vector<int> &                  boundary_ids,
-      std::vector<types::material_id> & material_ids,
+      std::vector<types::material_id> &   material_ids,
       unsigned int                        refinements)
     {
       // save data structures
@@ -5775,22 +5775,23 @@ namespace parallel
       this->coarse_lid_to_gid = coarse_lid_to_gid;
 
       // create triangulation
-      AssertThrow(cells.size()>0, ExcMessage("There are processes without any cells."));
-      
+      AssertThrow(cells.size() > 0,
+                  ExcMessage("There are processes without any cells."));
+
       this->create_triangulation(vertices, cells, SubCellData());
-    
+
       // set boundary ids (TODO)
       int c = 0;
       int d = 0;
       for (auto cell = this->begin_active(); cell != this->end(); ++cell)
         {
-        cell->set_material_id(material_ids[d++]);
-        for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell; i++)
-          {
-            unsigned int boundary_ind = boundary_ids[c++];
-            if (boundary_ind != numbers::internal_face_boundary_id)
-              cell->face(i)->set_boundary_id(boundary_ind);
-          }
+          cell->set_material_id(material_ids[d++]);
+          for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell; i++)
+            {
+              unsigned int boundary_ind = boundary_ids[c++];
+              if (boundary_ind != numbers::internal_face_boundary_id)
+                cell->face(i)->set_boundary_id(boundary_ind);
+            }
         }
 
       // refine grid
@@ -6077,12 +6078,11 @@ namespace parallel
                   }
               }
         }
-          for (auto cell = this->begin_active(); cell != this->end(); ++cell)
-            if ((cell->level() == (int)ref_counter))
-              {
-                cell->set_material_id(cell->parent()->material_id());
-              }
-      
+      for (auto cell = this->begin_active(); cell != this->end(); ++cell)
+        if ((cell->level() == (int)ref_counter))
+          {
+            cell->set_material_id(cell->parent()->material_id());
+          }
     }
 
     template <int dim, int spacedim>
