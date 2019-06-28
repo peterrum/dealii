@@ -5517,8 +5517,8 @@ namespace parallel
                              j++)
                           temp[graph_in.parts[i]]
                               [graph_in.parts[graph_in.adjncy[j]]] = 0;
-                    }
-                    
+                      }
+
                     for (unsigned int i = 0; i < graph_in.xadj.size() - 1; i++)
                       {
                         for (int j = graph_in.xadj[i]; j < graph_in.xadj[i + 1];
@@ -5856,6 +5856,20 @@ namespace parallel
       timings["reinit2"] = timer.wall_time();
 
       timings["overall_reinit_2"] = timer2.wall_time();
+    }
+
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim, spacedim>::reinit(
+      unsigned int                                           refinements_final,
+      std::function<void(distributed::Triangulation<dim> &)> func1,
+      AdditionalData                                         additional_data)
+    {
+      (void)refinements_final;
+      (void)func1;
+      (void)additional_data;
+
+      AssertThrow(false, ExcNotImplemented());
     }
 
     template <int dim, int spacedim>

@@ -1524,6 +1524,11 @@ namespace parallel
              AdditionalData additional_data = AdditionalData());
 
       void
+      reinit(unsigned int refinements2,
+             std::function<void(distributed::Triangulation<dim> &)> func1,
+             AdditionalData additional_data = AdditionalData());
+
+      void
       reinit(std::vector<Part> &              parts,
              std::vector<CellData<dim>> &     cells,
              std::vector<Point<spacedim>> &   vertices,
