@@ -5835,6 +5835,7 @@ namespace parallel
           for (unsigned int j = 0; j < GeometryInfo<dim>::vertices_per_cell;
                j++)
             cell.vertices[j] = list_cell_local[i++];
+          //cell.material_id = material_ids[i];
           cells.push_back(cell);
         }
 
@@ -5851,26 +5852,26 @@ namespace parallel
       // save created data structures and create triangulation
       timings["overall_reinit_1"] = timer2.wall_time();
       this->reinit(
-        levels, cells, vertices, boundary_ids, material_ids, refinements_final);
+        levels, cells, vertices, boundary_ids, refinements_final);
 
       timings["reinit2"] = timer.wall_time();
 
       timings["overall_reinit_2"] = timer2.wall_time();
     }
 
-    template <int dim, int spacedim>
-    void
-    Triangulation<dim, spacedim>::reinit(
-      unsigned int                                           refinements_final,
-      std::function<void(distributed::Triangulation<dim> &)> func1,
-      AdditionalData                                         additional_data)
-    {
-      (void)refinements_final;
-      (void)func1;
-      (void)additional_data;
-
-      AssertThrow(false, ExcNotImplemented());
-    }
+//    template <int dim, int spacedim>
+//    void
+//    Triangulation<dim, spacedim>::reinit(
+//      unsigned int                                           refinements_final,
+//      std::function<void(distributed::Triangulation<dim> &)> func1,
+//      AdditionalData                                         additional_data)
+//    {
+//      (void)refinements_final;
+//      (void)func1;
+//      (void)additional_data;
+//
+//      AssertThrow(false, ExcNotImplemented());
+//    }
 
     template <int dim, int spacedim>
     void
@@ -5879,7 +5880,6 @@ namespace parallel
       std::vector<CellData<dim>> &     cells_global,
       std::vector<Point<spacedim>> &   vertices,
       std::vector<int> &               boundary_ids,
-      std::vector<types::material_id> &material_ids,
       unsigned int                     refinements)
     {
       unsigned int rank =
@@ -5925,32 +5925,32 @@ namespace parallel
         }
 
       // save created data structures and create triangulation
-      this->reinit(levels,
-                   coarse_gid_to_lid,
-                   coarse_lid_to_gid,
-                   cells,
+      this->reinit(cells,
                    vertices,
                    boundary_ids,
-                   material_ids,
+                   coarse_lid_to_gid,
+                   levels,
                    refinements);
     }
-
+    
     template <int dim, int spacedim>
     void
     Triangulation<dim, spacedim>::reinit(
-      std::vector<Part> &                 parts,
-      std::map<int, std::pair<int, int>> &coarse_gid_to_lid,
-      std::map<int, std::pair<int, int>> &coarse_lid_to_gid,
-      std::vector<CellData<dim>> &        cells,
-      std::vector<Point<spacedim>> &      vertices,
-      std::vector<int> &                  boundary_ids,
-      std::vector<types::material_id> &   material_ids,
-      unsigned int                        refinements)
+      const std::vector<CellData<dim>> &        cells,
+      const std::vector<Point<spacedim>> &      vertices,
+      const std::vector<int> &                  boundary_ids,
+      const std::map<int, std::pair<int, int>> &coarse_lid_to_gid,
+      const std::vector<Part> &                 parts,
+      const unsigned int                        refinements)
     {
       // save data structures
       this->parts             = parts;
-      this->coarse_gid_to_lid = coarse_gid_to_lid;
       this->coarse_lid_to_gid = coarse_lid_to_gid;
+      
+      std::map<int, std::pair<int, int>> coarse_gid_to_lid;
+      for (auto &i : coarse_lid_to_gid)
+        coarse_gid_to_lid[i.second.first] = {i.first, i.second.second};
+      this->coarse_gid_to_lid = coarse_gid_to_lid;
 
       // create triangulation
       AssertThrow(cells.size() > 0,
@@ -5960,10 +5960,8 @@ namespace parallel
 
       // set boundary ids (TODO)
       int c = 0;
-      int d = 0;
       for (auto cell = this->begin_active(); cell != this->end(); ++cell)
         {
-          cell->set_material_id(material_ids[d++]);
           for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell; i++)
             {
               unsigned int boundary_ind = boundary_ids[c++];
@@ -5974,6 +5972,17 @@ namespace parallel
 
       // refine grid
       this->refine_global(refinements);
+    }
+    
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim, spacedim>::reinit(ConstructionData<dim, spacedim> & construction_data)
+    {
+        this->reinit(construction_data.cells, 
+                     construction_data.vertices, 
+                     construction_data.boundary_ids, 
+                     construction_data.coarse_lid_to_gid,
+                     construction_data.parts, construction_data.parts.size()-1);
     }
 
     template <int dim, int spacedim>
@@ -6074,10 +6083,9 @@ namespace parallel
       int c = 0;
       for (auto cell = this->begin_active(); cell != this->end(); ++cell)
         {
-          //                cell->set_subdomain_id(this->coarse_lid_to_gid[c].second);
-          //                cell->set_level_subdomain_id(this->coarse_lid_to_gid[c].second);
           cell->set_subdomain_id(lid_to_rank[cell->index()]);
-          cell->set_level_subdomain_id(lid_to_rank_mg[cell->index()]);
+          if(settings & construct_multigrid_hierarchy)
+            cell->set_level_subdomain_id(lid_to_rank_mg[cell->index()]);
           c++;
         }
 
@@ -6088,21 +6096,26 @@ namespace parallel
     }
 
     template <int dim, int spacedim>
-    Triangulation<dim, spacedim>::Triangulation(MPI_Comm mpi_communicaton)
-      : Triangulation<dim, spacedim>(mpi_communicaton, mpi_communicaton)
+    Triangulation<dim, spacedim>::Triangulation(MPI_Comm mpi_communicaton, Settings settings_)
+      : Triangulation<dim, spacedim>(mpi_communicaton, mpi_communicaton, settings_)
     {}
 
     template <int dim, int spacedim>
     Triangulation<dim, spacedim>::Triangulation(
       MPI_Comm mpi_communicator,
-      MPI_Comm mpi_communicator_coarse)
+      MPI_Comm mpi_communicator_coarse, Settings settings_)
       : dealii::parallel::Triangulation<dim, spacedim>(
           mpi_communicator,
-          static_cast<
-            typename dealii::Triangulation<dim, spacedim>::MeshSmoothing>(
-            dealii::Triangulation<dim>::none |
-            Triangulation<dim, spacedim>::limit_level_difference_at_vertices),
+          (settings_ & construct_multigrid_hierarchy) ?
+            static_cast<
+              typename dealii::Triangulation<dim, spacedim>::MeshSmoothing>(
+              dealii::Triangulation<dim>::none |
+              Triangulation<dim, spacedim>::limit_level_difference_at_vertices) : 
+              static_cast<
+              typename dealii::Triangulation<dim, spacedim>::MeshSmoothing>(
+              dealii::Triangulation<dim>::none),
           false)
+      , settings(settings_)
       , ref_counter(0)
       , mpi_communicator_coarse(mpi_communicator_coarse)
     {
@@ -6133,8 +6146,8 @@ namespace parallel
     {
       parallel::Triangulation<dim, spacedim>::update_number_cache();
 
-      //            if (settings & construct_multigrid_hierarchy)
-      parallel::Triangulation<dim, spacedim>::fill_level_ghost_owners();
+      if(settings & construct_multigrid_hierarchy)
+        parallel::Triangulation<dim, spacedim>::fill_level_ghost_owners();
     }
 
     template <int dim, int spacedim>
@@ -6495,6 +6508,13 @@ namespace parallel
           }
 
       return result;
+    }
+    
+    template <int dim, int spacedim>
+    bool
+    Triangulation<dim, spacedim>::do_construct_multigrid_hierarchy() const
+    {
+      return (settings & construct_multigrid_hierarchy);
     }
 
   } // namespace fullydistributed

@@ -1503,6 +1503,16 @@ namespace parallel
       PartitioningGroup partition_group;
       unsigned int      partition_group_size;
     };
+    
+    template<int dim, int spacedim>
+    struct ConstructionData
+    {
+          std::vector<CellData<dim>>         cells;
+          std::vector<Point<spacedim>>            vertices;
+          std::vector<int>                   boundary_ids;
+          std::map<int, std::pair<int, int>> coarse_lid_to_gid;
+          std::vector<Part>                  parts;
+    };
 
     template <int dim, int spacedim = dim>
     class Triangulation : public dealii::parallel::Triangulation<dim, spacedim>
@@ -1523,28 +1533,28 @@ namespace parallel
              std::function<void(dealii::Triangulation<dim> &)> func1,
              AdditionalData additional_data = AdditionalData());
 
-      void
-      reinit(unsigned int refinements2,
-             std::function<void(distributed::Triangulation<dim> &)> func1,
-             AdditionalData additional_data = AdditionalData());
-
+//      void
+//      reinit(unsigned int refinements2,
+//             std::function<void(distributed::Triangulation<dim> &)> func1,
+//             AdditionalData additional_data = AdditionalData());
+      
       void
       reinit(std::vector<Part> &              parts,
              std::vector<CellData<dim>> &     cells,
              std::vector<Point<spacedim>> &   vertices,
              std::vector<int> &               boundary_ids,
-             std::vector<types::material_id> &material_ids,
              unsigned int                     refinements);
 
       void
-      reinit(std::vector<Part> &                 parts,
-             std::map<int, std::pair<int, int>> &coarse_gid_to_lid,
-             std::map<int, std::pair<int, int>> &coarse_lid_to_gid,
-             std::vector<CellData<dim>> &        cells,
-             std::vector<Point<spacedim>> &      vertices,
-             std::vector<int> &                  boundary_ids,
-             std::vector<types::material_id> &   material_ids,
-             unsigned int                        refinements);
+      reinit(const std::vector<CellData<dim>> &        cells,
+             const std::vector<Point<spacedim>> &      vertices,
+             const std::vector<int> &                  boundary_ids,
+             const std::map<int, std::pair<int, int>> &coarse_lid_to_gid,
+             const std::vector<Part> &                 parts,
+             const unsigned int                        refinements = 0);
+
+      void
+      reinit(ConstructionData<dim, spacedim> & construction_data);
 
       void
       create_hierchy(std::vector<Graph> &graphs_out,
@@ -1556,11 +1566,28 @@ namespace parallel
       create_triangulation(const std::vector<Point<spacedim>> &vertices,
                            const std::vector<CellData<dim>> &  cells,
                            const SubCellData &subcelldata) override;
+      
 
-      Triangulation(MPI_Comm mpi_communicator);
+      enum Settings
+      {
+        /**
+         * Default settings, other options are disabled.
+         */
+        default_setting = 0x0,
+        /**
+         * This flags needs to be set to use the geometric multigrid
+         * functionality. This option requires additional computation and
+         * communication. Note: geometric multigrid is still a work in
+         * progress.
+         */
+        construct_multigrid_hierarchy = 0x1
+      };
+      
+
+      Triangulation(MPI_Comm mpi_communicator, Settings settings_ = default_setting);
 
       Triangulation(MPI_Comm mpi_communicator,
-                    MPI_Comm mpi_communicator_coarse);
+                    MPI_Comm mpi_communicator_coarse, Settings settings_ = default_setting);
 
       virtual ~Triangulation();
 
@@ -1595,37 +1622,9 @@ namespace parallel
 
       virtual std::map<unsigned int, std::set<dealii::types::subdomain_id>>
       compute_vertices_with_ghost_neighbors() const override;
-
-      enum Settings
-      {
-        /**
-         * Default settings, other options are disabled.
-         */
-        default_setting = 0x0,
-        /**
-         * If set, the deal.II mesh will be reconstructed from the coarse mesh
-         * every time a repartitioning in p4est happens. This can be a bit more
-         * expensive, but guarantees the same memory layout and therefore cell
-         * ordering in the deal.II mesh. As assembly is done in the deal.II
-         * cell ordering, this flag is required to get reproducible behaviour
-         * after snapshot/resume.
-         */
-        mesh_reconstruction_after_repartitioning = 0x1,
-        /**
-         * This flags needs to be set to use the geometric multigrid
-         * functionality. This option requires additional computation and
-         * communication. Note: geometric multigrid is still a work in
-         * progress.
-         */
-        construct_multigrid_hierarchy = 0x2,
-        /**
-         * Setting this flag will disable automatic repartitioning of the cells
-         * after a refinement cycle. It can be executed manually by calling
-         * repartition().
-         */
-        no_automatic_repartitioning = 0x4
-      };
-
+      
+      bool
+      do_construct_multigrid_hierarchy() const;
 
     private:
       /**
