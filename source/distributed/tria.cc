@@ -6060,8 +6060,6 @@ bool parent(T c, T p){
               cell->face(i)->set_boundary_id(boundary_ind);
           }
         
-      
-        
       // 3) create all cell levels
       for(unsigned int ref_counter = 1; ref_counter < construction_data.parts.size(); ref_counter++)
       {
@@ -6094,25 +6092,25 @@ bool parent(T c, T p){
       
       
       // 4b) set actual (level_)subdomain_ids
-      for(unsigned int ref_counter = 1; ref_counter < construction_data.parts.size(); ref_counter++)
+      for(unsigned int ref_counter = 0; ref_counter < construction_data.parts.size(); ref_counter++)
       {
-        auto fine_cell      = this->begin(ref_counter);
-        auto fine_cell_info = this->parts[ref_counter].cells.begin();
-        for (; fine_cell_info != this->parts[ref_counter].cells.end(); ++fine_cell_info)
+        auto cell      = this->begin(ref_counter);
+        auto cell_info = this->parts[ref_counter].cells.begin();
+        for (; cell_info != this->parts[ref_counter].cells.end(); ++cell_info)
         {
-          
-          while(fine_cell_info->index != fine_cell->id().template to_binary<dim>() )
-            fine_cell++;
+          while(cell_info->index != cell->id().template to_binary<dim>() )
+            cell++;
         
-          if(fine_cell->active())
-            fine_cell->set_subdomain_id(fine_cell_info->subdomain_id);
+          if(cell->active())
+            cell->set_subdomain_id(cell_info->subdomain_id);
         
           if(settings & construct_multigrid_hierarchy)
-            fine_cell->set_level_subdomain_id(fine_cell_info->level_subdomain_id);
+            cell->set_level_subdomain_id(cell_info->level_subdomain_id);
         }
       }
       
       
+        
       // 5)
       update_number_cache();
     }
@@ -6373,9 +6371,9 @@ bool parent(T c, T p){
     bool
     Triangulation<dim, spacedim>::prepare_coarsening_and_refinement()
     {
-      std::cout
-        << "parallel::fullydistributed::Triangulation::prepare_coarsening_and_refinement"
-        << std::endl;
+      //std::cout
+      //  << "parallel::fullydistributed::Triangulation::prepare_coarsening_and_refinement"
+      //  << std::endl;
 
       std::vector<bool> flags_before[2];
       this->save_coarsen_flags(flags_before[0]);
