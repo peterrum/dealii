@@ -1424,7 +1424,15 @@ namespace parallel
 
 #endif
 
-
+struct Part_
+{
+    
+    Part_(CellId::binary_type index, unsigned int subdomain_id, unsigned int level_subdomain_id) : index(index), subdomain_id(subdomain_id), level_subdomain_id(level_subdomain_id) {};
+    
+    CellId::binary_type index;
+    unsigned int        subdomain_id;
+    unsigned int        level_subdomain_id;
+};
 
 class Part
 {
@@ -1433,6 +1441,9 @@ public:
   std::vector<int> ghost;
   std::vector<int> ghost_rank;
   std::vector<int> ghost_rank_mg;
+  
+  std::vector<Part_> cells;
+  
 };
 
 namespace parallel

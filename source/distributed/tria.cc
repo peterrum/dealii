@@ -5974,15 +5974,147 @@ namespace parallel
       this->refine_global(refinements);
     }
     
+    namespace internal
+    {
+        template<int dim, typename T>
+bool parent(T c, T p){
+            if(c[0] != p[0]) return false; // has same coarse cell
+            if((c[1]>>2)!=((p[1]>>2)+1)) return false; // level has one difference
+            
+            
+      const unsigned int n_child_indices = p[1] >> 2;
+      const unsigned int children_per_value = sizeof(CellId::binary_type::value_type) * 8 / dim;
+      unsigned int       child_level        = 0;
+      unsigned int       binary_entry       = 2;
+
+      // Loop until all child indices have been written
+      while(child_level < n_child_indices)
+      {
+        Assert(binary_entry < c.size(), ExcInternalError());
+
+        for(unsigned int j = 0; j < children_per_value; ++j)
+        {
+          // const unsigned int child_index =
+          //  static_cast<unsigned int>(child_indices[child_level]);
+          // Shift the child index to its position in the unsigned int and store
+          // it
+            if((((c[binary_entry] >> (j * dim))) & (GeometryInfo<dim>::max_children_per_cell - 1)) != 
+               (((p[binary_entry] >> (j * dim))) & (GeometryInfo<dim>::max_children_per_cell - 1)))
+                return false;
+          
+          
+          ++child_level;
+          if(child_level == n_child_indices)
+            break;
+        }
+        
+        ++binary_entry;
+      }
+            
+//            if(( *((long int*)(&c[2])) << (64 - dim* c[1])) != ( *((long int*)(&p[2])) << (64 - dim* c[1])) )
+//                return false;
+//            
+            return true;
+        }
+    }
+    
     template <int dim, int spacedim>
     void
     Triangulation<dim, spacedim>::reinit(ConstructionData<dim, spacedim> & construction_data)
     {
-        this->reinit(construction_data.cells, 
-                     construction_data.vertices, 
-                     construction_data.boundary_ids, 
-                     construction_data.coarse_lid_to_gid,
-                     construction_data.parts, construction_data.parts.size()-1);
+        
+      auto & boundary_ids = construction_data.boundary_ids;
+      auto & cells        = construction_data.cells;
+      auto & vertices     = construction_data.vertices;
+
+      AssertThrow(cells.size() > 0,
+                  ExcMessage("There are processes without any cells."));
+        
+
+      
+      // save data structures
+      this->parts             = construction_data.parts;
+      this->coarse_lid_to_gid = construction_data.coarse_lid_to_gid;
+      
+      std::map<int, std::pair<int, int>> coarse_gid_to_lid;
+      for (auto &i : coarse_lid_to_gid)
+        coarse_gid_to_lid[i.second.first] = {i.first, i.second.second};
+      this->coarse_gid_to_lid = coarse_gid_to_lid;
+
+      
+      
+      // 1) create coarse grid
+      SubCellData subcelldata;
+      dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
+        vertices, cells, subcelldata);
+
+      
+      
+      // 2) set boundary ids
+      int c = 0;
+      for (auto cell = this->begin_active(); cell != this->end(); ++cell)
+        for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell; i++)
+          {
+            unsigned int boundary_ind = boundary_ids[c++];
+            if (boundary_ind != numbers::internal_face_boundary_id)
+              cell->face(i)->set_boundary_id(boundary_ind);
+          }
+        
+      
+        
+      // 3) create all cell levels
+      for(unsigned int ref_counter = 1; ref_counter < construction_data.parts.size(); ref_counter++)
+      {
+        auto coarse_cell    = this->begin(ref_counter-1);
+        auto fine_cell_info = this->parts[ref_counter].cells.begin();
+      
+        for (; fine_cell_info != this->parts[ref_counter].cells.end(); ++fine_cell_info)
+        {
+          while(!internal::parent<dim>(fine_cell_info->index, coarse_cell->id().template to_binary<dim>()) )
+            coarse_cell++;
+        
+          coarse_cell->set_refine_flag();
+        }
+    
+        dealii::Triangulation<dim, spacedim>::execute_coarsening_and_refinement();
+      }
+        
+        
+        
+      // 4a) set all cells artificial
+      for(auto cell = this->begin(); cell != this->end(); cell++)
+      {
+        if(cell->active())
+          cell->set_subdomain_id(dealii::numbers::artificial_subdomain_id);
+          
+        if(settings & construct_multigrid_hierarchy)
+          cell->set_level_subdomain_id(dealii::numbers::artificial_subdomain_id);
+      }
+      
+      
+      
+      // 4b) set actual (level_)subdomain_ids
+      for(unsigned int ref_counter = 1; ref_counter < construction_data.parts.size(); ref_counter++)
+      {
+        auto fine_cell      = this->begin(ref_counter);
+        auto fine_cell_info = this->parts[ref_counter].cells.begin();
+        for (; fine_cell_info != this->parts[ref_counter].cells.end(); ++fine_cell_info)
+        {
+          
+          while(fine_cell_info->index != fine_cell->id().template to_binary<dim>() )
+            fine_cell++;
+        
+          if(fine_cell->active())
+            fine_cell->set_subdomain_id(fine_cell_info->subdomain_id);
+        
+          if(settings & construct_multigrid_hierarchy)
+            fine_cell->set_level_subdomain_id(fine_cell_info->level_subdomain_id);
+        }
+      }
+      
+      
+      // 5)
+      update_number_cache();
     }
 
     template <int dim, int spacedim>
@@ -6049,51 +6181,14 @@ namespace parallel
       std::cout
         << "parallel::fullydistributed::Triangulation::create_triangulation()::start"
         << std::endl;
+      
       dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
         vertices, cells, subcelldata);
-
-
-      std::vector<int> lid_to_rank;
-      std::vector<int> lid_to_rank_mg;
-      {
-        // temporal data structure to collect data in an arbitrary order
-        std::map<int, int> gid_to_rank;
-        std::map<int, int> gid_to_rank_mg;
-
-        for (auto i : parts[0].local)
-          {
-            gid_to_rank[i]    = this->locally_owned_subdomain();
-            gid_to_rank_mg[i] = this->locally_owned_subdomain();
-          }
-
-        // mark ghost cells with correct rank
-        for (unsigned int i = 0; i < parts[0].ghost.size(); i++)
-          {
-            gid_to_rank[parts[0].ghost[i]]    = parts[0].ghost_rank[i];
-            gid_to_rank_mg[parts[0].ghost[i]] = parts[0].ghost_rank_mg[i];
-          }
-
-        // convert map to a list, s.t.: index -> rank
-        for (auto &i : gid_to_rank)
-          lid_to_rank.push_back(i.second);
-        for (auto &i : gid_to_rank_mg)
-          lid_to_rank_mg.push_back(i.second);
-      }
-
-      int c = 0;
-      for (auto cell = this->begin_active(); cell != this->end(); ++cell)
-        {
-          cell->set_subdomain_id(lid_to_rank[cell->index()]);
-          if(settings & construct_multigrid_hierarchy)
-            cell->set_level_subdomain_id(lid_to_rank_mg[cell->index()]);
-          c++;
-        }
-
-      this->update_number_cache();
+      
       std::cout
         << "parallel::fullydistributed::Triangulation::create_triangulation()::end"
         << std::endl;
-    }
+  }
 
     template <int dim, int spacedim>
     Triangulation<dim, spacedim>::Triangulation(MPI_Comm mpi_communicaton, Settings settings_)
@@ -6154,126 +6249,65 @@ namespace parallel
     void
     Triangulation<dim, spacedim>::copy_local_forest_to_triangulation()
     {
-      // increase refinement counter
       ref_counter++;
 
-      // number of direct children
-      const int n_children = GeometryInfo<dim>::max_children_per_cell;
-
-      // step 1: mark non-artificial cells for refinement
-      for (auto cell = this->begin_active(); cell != this->end(); ++cell)
-        if (!cell->is_artificial())
-          cell->set_refine_flag();
-
-      // step 2: perform refinement
+      {
+        auto coarse_cell    = this->begin(ref_counter-1);
+        auto fine_cell_info = this->parts[ref_counter].cells.begin();
+        
+        for (; fine_cell_info != this->parts[ref_counter].cells.end(); ++fine_cell_info)
+        {
+          while(!internal::parent<dim>(fine_cell_info->index, coarse_cell->id().template to_binary<dim>()) )
+            coarse_cell++;
+          
+          coarse_cell->set_refine_flag();
+        }
+      }
+      
       dealii::Triangulation<dim, spacedim>::execute_coarsening_and_refinement();
+      
+//      {
+//          
+//        for(auto cell = this->begin_active(ref_counter); cell != this->end(); cell++)
+//        {
+//          cell->set_subdomain_id(dealii::numbers::artificial_subdomain_id);
+//          cell->set_level_subdomain_id(dealii::numbers::artificial_subdomain_id);
+//        }
+//      //std::cout << "C__" << std::endl;
+//        
+//        auto fine_cell      = this->begin(ref_counter);
+//        auto fine_cell_info = this->parts[ref_counter].cells.begin();
+//        for (; fine_cell_info != this->parts[ref_counter].cells.end(); ++fine_cell_info)
+//        {
+//            
+//          std::cout << "REQ " << std::endl << CellId(fine_cell_info->index) << std::endl;
+//            
+//          while(fine_cell_info->index != fine_cell->id().template to_binary<dim>() )
+//          {
+//              //std::cout << fine_cell->id() << std::endl;
+//            fine_cell++;
+//          }
+//          
+//          //std::cout << fine_cell->id() << std::endl;
+//          fine_cell->set_subdomain_id(fine_cell_info->subdomain_id);
+//          
+//          // level_subdomain_id
+//          if(settings & construct_multigrid_hierarchy)
+//            fine_cell->set_level_subdomain_id(fine_cell_info->level_subdomain_id);
+//        }
+//      }
+//      //std::cout << "D" << std::endl;
+//      
+//      int c = 0;
+//      for(auto cell = this->begin(); cell != this->end(); cell++)
+//      {
+//          std::cout << cell->id() << " " << cell->level_subdomain_id() << " ";
+//          if(cell->active())
+//            std::cout << cell->subdomain_id() << std::endl;
+//          c++;
+//      }
+//      std::cout << c << std::endl << std::endl;
 
-      // step 3: set subdomain_id of new cells
-      if ((ref_counter + 1) <= this->parts.size())
-        {
-          // create alias for coarse and fine level
-          auto &coarse_level = parts[ref_counter - 1];
-          auto &fine_level   = parts[ref_counter - 0];
-          // step 3a: create list (index -> rank) for simple use in 3b
-          std::vector<int> lid_to_rank;
-          std::vector<int> lid_to_rank_mg;
-          {
-            // temporal data structure to collect data in an arbitrary order
-            std::map<int, int> gid_to_rank;
-            std::map<int, int> gid_to_rank_mg;
-
-            // collect all cells on level and mark them artificial
-            for (auto i : coarse_level.local)
-              for (int j = 0; j < n_children; j++)
-                gid_to_rank[n_children * (i) + j] =
-                  numbers::artificial_subdomain_id;
-
-            for (auto i : coarse_level.ghost)
-              for (int j = 0; j < n_children; j++)
-                gid_to_rank[n_children * (i) + j] =
-                  numbers::artificial_subdomain_id;
-
-            // mark local cells with local rank
-            for (auto i : fine_level.local)
-              gid_to_rank[i] = this->locally_owned_subdomain();
-
-            gid_to_rank_mg = gid_to_rank;
-            // mark ghost cells with correct rank
-            for (unsigned int i = 0; i < fine_level.ghost.size(); i++)
-              {
-                gid_to_rank[fine_level.ghost[i]] = fine_level.ghost_rank[i];
-                gid_to_rank_mg[fine_level.ghost[i]] =
-                  fine_level.ghost_rank_mg[i];
-              }
-
-            // convert map to a list, s.t.: index -> rank
-            for (auto &i : gid_to_rank)
-              lid_to_rank.push_back(i.second);
-            for (auto &i : gid_to_rank_mg)
-              lid_to_rank_mg.push_back(i.second);
-          }
-
-          // step 3b: make sure that all cells are artificial
-          for (auto cell = this->begin_active(); cell != this->end(); ++cell)
-            {
-              cell->set_subdomain_id(dealii::numbers::artificial_subdomain_id);
-              cell->set_level_subdomain_id(
-                dealii::numbers::artificial_subdomain_id);
-            }
-
-          // step 3c: set actually subdomain_id
-          for (auto cell = this->begin_active(); cell != this->end(); ++cell)
-            if ((cell->level() == (int)ref_counter))
-              {
-                cell->set_subdomain_id(lid_to_rank[cell->index()]);
-                cell->set_level_subdomain_id(lid_to_rank_mg[cell->index()]);
-              }
-        }
-      else
-        {
-          std::set<unsigned int> map;
-          for (auto cell = this->begin_active(); cell != this->end(); ++cell)
-            if ((cell->level() == (int)ref_counter))
-              {
-                cell->set_subdomain_id(cell->parent()->level_subdomain_id());
-                cell->set_level_subdomain_id(
-                  cell->parent()->level_subdomain_id());
-                if (cell->is_locally_owned())
-                  for (unsigned int i = 0;
-                       i < GeometryInfo<dim>::vertices_per_cell;
-                       i++)
-                    map.insert(cell->vertex_index(i));
-              }
-
-          for (auto cell = this->begin_active(); cell != this->end(); ++cell)
-            if ((cell->level() == (int)ref_counter))
-              {
-                if (!cell->is_locally_owned())
-                  {
-                    bool flag = false;
-                    for (unsigned int i = 0;
-                         i < GeometryInfo<dim>::vertices_per_cell;
-                         i++)
-                      if (map.find(cell->vertex_index(i)) != map.end())
-                        {
-                          flag = true;
-                          break;
-                        }
-                    if (!flag)
-                      {
-                        cell->set_subdomain_id(
-                          dealii::numbers::artificial_subdomain_id);
-                        cell->set_level_subdomain_id(
-                          dealii::numbers::artificial_subdomain_id);
-                      }
-                  }
-              }
-        }
-      for (auto cell = this->begin_active(); cell != this->end(); ++cell)
-        if ((cell->level() == (int)ref_counter))
-          {
-            cell->set_material_id(cell->parent()->material_id());
-          }
     }
 
     template <int dim, int spacedim>
