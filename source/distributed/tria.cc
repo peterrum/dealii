@@ -6059,21 +6059,21 @@ bool parent(T c, T p){
             if (boundary_ind != numbers::internal_face_boundary_id)
               cell->face(i)->set_boundary_id(boundary_ind);
           }
-        
+
       // 3) create all cell levels
       for(unsigned int ref_counter = 1; ref_counter < construction_data.parts.size(); ref_counter++)
       {
         auto coarse_cell    = this->begin(ref_counter-1);
         auto fine_cell_info = this->parts[ref_counter].cells.begin();
-      
+          
         for (; fine_cell_info != this->parts[ref_counter].cells.end(); ++fine_cell_info)
         {
           while(!internal::parent<dim>(fine_cell_info->index, coarse_cell->id().template to_binary<dim>()) )
             coarse_cell++;
-        
+          
           coarse_cell->set_refine_flag();
-        }
-    
+          }
+        
         dealii::Triangulation<dim, spacedim>::execute_coarsening_and_refinement();
       }
         
@@ -6081,16 +6081,16 @@ bool parent(T c, T p){
         
       // 4a) set all cells artificial
       for(auto cell = this->begin(); cell != this->end(); cell++)
-      {
+        {
         if(cell->active())
           cell->set_subdomain_id(dealii::numbers::artificial_subdomain_id);
           
         if(settings & construct_multigrid_hierarchy)
           cell->set_level_subdomain_id(dealii::numbers::artificial_subdomain_id);
-      }
-      
-      
-      
+        }
+        
+        
+        
       // 4b) set actual (level_)subdomain_ids
       for(unsigned int ref_counter = 0; ref_counter < construction_data.parts.size(); ref_counter++)
       {
@@ -6108,8 +6108,8 @@ bool parent(T c, T p){
             cell->set_level_subdomain_id(cell_info->level_subdomain_id);
         }
       }
-      
-      
+        
+        
         
       // 5)
       update_number_cache();
