@@ -1427,6 +1427,8 @@ namespace parallel
 struct Part_
 {
     
+    Part_() {}
+    
     Part_(CellId::binary_type index, unsigned int subdomain_id, unsigned int level_subdomain_id) : index(index), subdomain_id(subdomain_id), level_subdomain_id(level_subdomain_id) {};
     
     CellId::binary_type index;
@@ -1437,11 +1439,6 @@ struct Part_
 class Part
 {
 public:
-  std::vector<int> local;
-  std::vector<int> ghost;
-  std::vector<int> ghost_rank;
-  std::vector<int> ghost_rank_mg;
-  
   std::vector<Part_> cells;
   
 };
@@ -1450,76 +1447,12 @@ namespace parallel
 {
   namespace fullydistributed
   {
-    class Graph
-    {
-    public:
-      std::vector<int> xadj;
-      std::vector<int> adjncy;
-      std::vector<int> weights;
-      int              elements;
-      std::vector<int> parts;
-
-      void
-      print(std::ostream &out);
-    };
-
-    class PartitioningAlgorithm
-    {
-    public:
-      virtual void
-      mesh_to_dual(std::vector<int> &eptr_in,
-                   std::vector<int> &eind_in,
-                   int               ncommon_in,
-                   Graph &           graph_out);
-
-      virtual void
-      partition(Graph &graph, int n_partitions, bool is_prepartitioned = false);
-    };
-
-    class MetisPartitioningAlgorithm : public PartitioningAlgorithm
-    {
-    public:
-      void
-      mesh_to_dual(std::vector<int> &eptr_in,
-                   std::vector<int> &eind_in,
-                   int               ncommon_in,
-                   Graph &           graph_out) override;
-
-      void
-      partition(Graph &graph,
-                int    n_partitions,
-                bool   is_prepartitioned = false) override;
-    };
-
-    enum PartitioningType
-    {
-      metis
-    };
-    enum PartitioningGroup
-    {
-      single,
-      fixed,
-      shared
-    };
-
-    struct AdditionalData
-    {
-      AdditionalData()
-        : partition_type(metis)
-        , partition_group(fixed)
-        , partition_group_size(4)
-      {}
-
-      PartitioningType  partition_type;
-      PartitioningGroup partition_group;
-      unsigned int      partition_group_size;
-    };
     
     template<int dim, int spacedim>
     struct ConstructionData
     {
           std::vector<CellData<dim>>         cells;
-          std::vector<Point<spacedim>>            vertices;
+          std::vector<Point<spacedim>>       vertices;
           std::vector<int>                   boundary_ids;
           std::map<int, std::pair<int, int>> coarse_lid_to_gid;
           std::vector<Part>                  parts;
@@ -1540,38 +1473,7 @@ namespace parallel
         typename dealii::Triangulation<dim, spacedim>::CellStatus CellStatus;
 
       void
-      reinit(unsigned int                                      refinements2,
-             std::function<void(dealii::Triangulation<dim> &)> func1,
-             AdditionalData additional_data = AdditionalData());
-
-//      void
-//      reinit(unsigned int refinements2,
-//             std::function<void(distributed::Triangulation<dim> &)> func1,
-//             AdditionalData additional_data = AdditionalData());
-      
-      void
-      reinit(std::vector<Part> &              parts,
-             std::vector<CellData<dim>> &     cells,
-             std::vector<Point<spacedim>> &   vertices,
-             std::vector<int> &               boundary_ids,
-             unsigned int                     refinements);
-
-      void
-      reinit(const std::vector<CellData<dim>> &        cells,
-             const std::vector<Point<spacedim>> &      vertices,
-             const std::vector<int> &                  boundary_ids,
-             const std::map<int, std::pair<int, int>> &coarse_lid_to_gid,
-             const std::vector<Part> &                 parts,
-             const unsigned int                        refinements = 0);
-
-      void
       reinit(ConstructionData<dim, spacedim> & construction_data);
-
-      void
-      create_hierchy(std::vector<Graph> &graphs_out,
-                     unsigned int        refinements,
-                     int                 p,
-                     std::vector<Part> & parts_rank);
 
       virtual void
       create_triangulation(const std::vector<Point<spacedim>> &vertices,
@@ -1636,7 +1538,10 @@ namespace parallel
       
       bool
       do_construct_multigrid_hierarchy() const;
-
+      
+      MPI_Comm
+      get_coarse_communicator() const;
+ 
     private:
       /**
        * store the Settings.
