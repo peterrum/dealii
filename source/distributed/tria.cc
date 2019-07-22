@@ -5083,80 +5083,88 @@ namespace parallel
   {
     namespace internal
     {
-        template<int dim, typename T>
-bool parent(T c, T p){
-            if(c[0] != p[0]) return false; // has same coarse cell
-            if((c[1]>>2)!=((p[1]>>2)+1)) return false; // level has one difference
-            
-            
-      const unsigned int n_child_indices = p[1] >> 2;
-      const unsigned int children_per_value = sizeof(CellId::binary_type::value_type) * 8 / dim;
-      unsigned int       child_level        = 0;
-      unsigned int       binary_entry       = 2;
-
-      // Loop until all child indices have been written
-      while(child_level < n_child_indices)
+      template <int dim, typename T>
+      bool
+      parent(T c, T p)
       {
-        Assert(binary_entry < c.size(), ExcInternalError());
+        if (c[0] != p[0])
+          return false; // has same coarse cell
+        if ((c[1] >> 2) != ((p[1] >> 2) + 1))
+          return false; // level has one difference
 
-        for(unsigned int j = 0; j < children_per_value; ++j)
-        {
-          // const unsigned int child_index =
-          //  static_cast<unsigned int>(child_indices[child_level]);
-          // Shift the child index to its position in the unsigned int and store
-          // it
-            if((((c[binary_entry] >> (j * dim))) & (GeometryInfo<dim>::max_children_per_cell - 1)) != 
-               (((p[binary_entry] >> (j * dim))) & (GeometryInfo<dim>::max_children_per_cell - 1)))
-                return false;
-          
-          
-          ++child_level;
-          if(child_level == n_child_indices)
-            break;
-        }
-        
-        ++binary_entry;
+
+        const unsigned int n_child_indices = p[1] >> 2;
+        const unsigned int children_per_value =
+          sizeof(CellId::binary_type::value_type) * 8 / dim;
+        unsigned int child_level  = 0;
+        unsigned int binary_entry = 2;
+
+        // Loop until all child indices have been written
+        while (child_level < n_child_indices)
+          {
+            Assert(binary_entry < c.size(), ExcInternalError());
+
+            for (unsigned int j = 0; j < children_per_value; ++j)
+              {
+                // const unsigned int child_index =
+                //  static_cast<unsigned int>(child_indices[child_level]);
+                // Shift the child index to its position in the unsigned int and
+                // store it
+                if ((((c[binary_entry] >> (j * dim))) &
+                     (GeometryInfo<dim>::max_children_per_cell - 1)) !=
+                    (((p[binary_entry] >> (j * dim))) &
+                     (GeometryInfo<dim>::max_children_per_cell - 1)))
+                  return false;
+
+
+                ++child_level;
+                if (child_level == n_child_indices)
+                  break;
+              }
+
+            ++binary_entry;
+          }
+
+        //            if(( *((long int*)(&c[2])) << (64 - dim* c[1])) != (
+        //            *((long int*)(&p[2])) << (64 - dim* c[1])) )
+        //                return false;
+        //
+        return true;
       }
-            
-//            if(( *((long int*)(&c[2])) << (64 - dim* c[1])) != ( *((long int*)(&p[2])) << (64 - dim* c[1])) )
-//                return false;
-//            
-            return true;
-        }
-    }
-    
+    } // namespace internal
+
     template <int dim, int spacedim>
     void
-    Triangulation<dim, spacedim>::reinit(ConstructionData<dim, spacedim> & construction_data)
+    Triangulation<dim, spacedim>::reinit(
+      ConstructionData<dim, spacedim> &construction_data)
     {
-        
-      auto & boundary_ids = construction_data.boundary_ids;
-      auto & cells        = construction_data.cells;
-      auto & vertices     = construction_data.vertices;
+      auto &boundary_ids = construction_data.boundary_ids;
+      auto &cells        = construction_data.cells;
+      auto &vertices     = construction_data.vertices;
 
       AssertThrow(cells.size() > 0,
                   ExcMessage("There are processes without any cells."));
-        
 
-      
+
+
       // save data structures
       this->parts             = construction_data.parts;
       this->coarse_lid_to_gid = construction_data.coarse_lid_to_gid;
-      
+
       std::map<int, std::pair<int, int>> coarse_gid_to_lid;
       for (auto &i : coarse_lid_to_gid)
         coarse_gid_to_lid[i.second.first] = {i.first, i.second.second};
       this->coarse_gid_to_lid = coarse_gid_to_lid;
 
-      
-      
+
+
       // 1) create coarse grid
       SubCellData subcelldata;
       dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
         vertices, cells, subcelldata);
 
-      
-      
+
+
       // 2) set boundary ids
       int c = 0;
       for (auto cell = this->begin_active(); cell != this->end(); ++cell)
@@ -5168,56 +5176,65 @@ bool parent(T c, T p){
           }
 
       // 3) create all cell levels
-      for(unsigned int ref_counter = 1; ref_counter < construction_data.parts.size(); ref_counter++)
-      {
-        auto coarse_cell    = this->begin(ref_counter-1);
-        auto fine_cell_info = this->parts[ref_counter].cells.begin();
-          
-        for (; fine_cell_info != this->parts[ref_counter].cells.end(); ++fine_cell_info)
+      for (unsigned int ref_counter = 1;
+           ref_counter < construction_data.parts.size();
+           ref_counter++)
         {
-          while(!internal::parent<dim>(fine_cell_info->index, coarse_cell->id().template to_binary<dim>()) )
-            coarse_cell++;
-          
-          coarse_cell->set_refine_flag();
-          }
-        
-        dealii::Triangulation<dim, spacedim>::execute_coarsening_and_refinement();
-      }
-        
-        
-        
+          auto coarse_cell    = this->begin(ref_counter - 1);
+          auto fine_cell_info = this->parts[ref_counter].cells.begin();
+
+          for (; fine_cell_info != this->parts[ref_counter].cells.end();
+               ++fine_cell_info)
+            {
+              while (!internal::parent<dim>(
+                fine_cell_info->index,
+                coarse_cell->id().template to_binary<dim>()))
+                coarse_cell++;
+
+              coarse_cell->set_refine_flag();
+            }
+
+          dealii::Triangulation<dim,
+                                spacedim>::execute_coarsening_and_refinement();
+        }
+
+
+
       // 4a) set all cells artificial
-      for(auto cell = this->begin(); cell != this->end(); cell++)
+      for (auto cell = this->begin(); cell != this->end(); cell++)
         {
-        if(cell->active())
-          cell->set_subdomain_id(dealii::numbers::artificial_subdomain_id);
-          
-        if(settings & construct_multigrid_hierarchy)
-          cell->set_level_subdomain_id(dealii::numbers::artificial_subdomain_id);
+          if (cell->active())
+            cell->set_subdomain_id(dealii::numbers::artificial_subdomain_id);
+
+          if (settings & construct_multigrid_hierarchy)
+            cell->set_level_subdomain_id(
+              dealii::numbers::artificial_subdomain_id);
         }
-        
-        
-        
+
+
+
       // 4b) set actual (level_)subdomain_ids
-      for(unsigned int ref_counter = 0; ref_counter < construction_data.parts.size(); ref_counter++)
-      {
-        auto cell      = this->begin(ref_counter);
-        auto cell_info = this->parts[ref_counter].cells.begin();
-        for (; cell_info != this->parts[ref_counter].cells.end(); ++cell_info)
+      for (unsigned int ref_counter = 0;
+           ref_counter < construction_data.parts.size();
+           ref_counter++)
         {
-          while(cell_info->index != cell->id().template to_binary<dim>() )
-            cell++;
-        
-          if(cell->active())
-            cell->set_subdomain_id(cell_info->subdomain_id);
-        
-          if(settings & construct_multigrid_hierarchy)
-            cell->set_level_subdomain_id(cell_info->level_subdomain_id);
+          auto cell      = this->begin(ref_counter);
+          auto cell_info = this->parts[ref_counter].cells.begin();
+          for (; cell_info != this->parts[ref_counter].cells.end(); ++cell_info)
+            {
+              while (cell_info->index != cell->id().template to_binary<dim>())
+                cell++;
+
+              if (cell->active())
+                cell->set_subdomain_id(cell_info->subdomain_id);
+
+              if (settings & construct_multigrid_hierarchy)
+                cell->set_level_subdomain_id(cell_info->level_subdomain_id);
+            }
         }
-      }
-        
-        
-        
+
+
+
       // 5)
       update_number_cache();
     }
@@ -5232,32 +5249,37 @@ bool parent(T c, T p){
       std::cout
         << "parallel::fullydistributed::Triangulation::create_triangulation()::start"
         << std::endl;
-      
+
       dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
         vertices, cells, subcelldata);
-      
+
       std::cout
         << "parallel::fullydistributed::Triangulation::create_triangulation()::end"
         << std::endl;
-  }
+    }
 
     template <int dim, int spacedim>
-    Triangulation<dim, spacedim>::Triangulation(MPI_Comm mpi_communicaton, Settings settings_)
-      : Triangulation<dim, spacedim>(mpi_communicaton, mpi_communicaton, settings_)
+    Triangulation<dim, spacedim>::Triangulation(MPI_Comm mpi_communicaton,
+                                                Settings settings_)
+      : Triangulation<dim, spacedim>(mpi_communicaton,
+                                     mpi_communicaton,
+                                     settings_)
     {}
 
     template <int dim, int spacedim>
     Triangulation<dim, spacedim>::Triangulation(
       MPI_Comm mpi_communicator,
-      MPI_Comm mpi_communicator_coarse, Settings settings_)
+      MPI_Comm mpi_communicator_coarse,
+      Settings settings_)
       : dealii::parallel::Triangulation<dim, spacedim>(
           mpi_communicator,
           (settings_ & construct_multigrid_hierarchy) ?
             static_cast<
               typename dealii::Triangulation<dim, spacedim>::MeshSmoothing>(
               dealii::Triangulation<dim>::none |
-              Triangulation<dim, spacedim>::limit_level_difference_at_vertices) : 
-              static_cast<
+              Triangulation<dim,
+                            spacedim>::limit_level_difference_at_vertices) :
+            static_cast<
               typename dealii::Triangulation<dim, spacedim>::MeshSmoothing>(
               dealii::Triangulation<dim>::none),
           false)
@@ -5292,7 +5314,7 @@ bool parent(T c, T p){
     {
       parallel::Triangulation<dim, spacedim>::update_number_cache();
 
-      if(settings & construct_multigrid_hierarchy)
+      if (settings & construct_multigrid_hierarchy)
         parallel::Triangulation<dim, spacedim>::fill_level_ghost_owners();
     }
 
@@ -5303,62 +5325,68 @@ bool parent(T c, T p){
       ref_counter++;
 
       {
-        auto coarse_cell    = this->begin(ref_counter-1);
+        auto coarse_cell    = this->begin(ref_counter - 1);
         auto fine_cell_info = this->parts[ref_counter].cells.begin();
-        
-        for (; fine_cell_info != this->parts[ref_counter].cells.end(); ++fine_cell_info)
-        {
-          while(!internal::parent<dim>(fine_cell_info->index, coarse_cell->id().template to_binary<dim>()) )
-            coarse_cell++;
-          
-          coarse_cell->set_refine_flag();
-        }
-      }
-      
-      dealii::Triangulation<dim, spacedim>::execute_coarsening_and_refinement();
-      
-//      {
-//          
-//        for(auto cell = this->begin_active(ref_counter); cell != this->end(); cell++)
-//        {
-//          cell->set_subdomain_id(dealii::numbers::artificial_subdomain_id);
-//          cell->set_level_subdomain_id(dealii::numbers::artificial_subdomain_id);
-//        }
-//      //std::cout << "C__" << std::endl;
-//        
-//        auto fine_cell      = this->begin(ref_counter);
-//        auto fine_cell_info = this->parts[ref_counter].cells.begin();
-//        for (; fine_cell_info != this->parts[ref_counter].cells.end(); ++fine_cell_info)
-//        {
-//            
-//          std::cout << "REQ " << std::endl << CellId(fine_cell_info->index) << std::endl;
-//            
-//          while(fine_cell_info->index != fine_cell->id().template to_binary<dim>() )
-//          {
-//              //std::cout << fine_cell->id() << std::endl;
-//            fine_cell++;
-//          }
-//          
-//          //std::cout << fine_cell->id() << std::endl;
-//          fine_cell->set_subdomain_id(fine_cell_info->subdomain_id);
-//          
-//          // level_subdomain_id
-//          if(settings & construct_multigrid_hierarchy)
-//            fine_cell->set_level_subdomain_id(fine_cell_info->level_subdomain_id);
-//        }
-//      }
-//      //std::cout << "D" << std::endl;
-//      
-//      int c = 0;
-//      for(auto cell = this->begin(); cell != this->end(); cell++)
-//      {
-//          std::cout << cell->id() << " " << cell->level_subdomain_id() << " ";
-//          if(cell->active())
-//            std::cout << cell->subdomain_id() << std::endl;
-//          c++;
-//      }
-//      std::cout << c << std::endl << std::endl;
 
+        for (; fine_cell_info != this->parts[ref_counter].cells.end();
+             ++fine_cell_info)
+          {
+            while (!internal::parent<dim>(
+              fine_cell_info->index,
+              coarse_cell->id().template to_binary<dim>()))
+              coarse_cell++;
+
+            coarse_cell->set_refine_flag();
+          }
+      }
+
+      dealii::Triangulation<dim, spacedim>::execute_coarsening_and_refinement();
+
+      //      {
+      //
+      //        for(auto cell = this->begin_active(ref_counter); cell !=
+      //        this->end(); cell++)
+      //        {
+      //          cell->set_subdomain_id(dealii::numbers::artificial_subdomain_id);
+      //          cell->set_level_subdomain_id(dealii::numbers::artificial_subdomain_id);
+      //        }
+      //      //std::cout << "C__" << std::endl;
+      //
+      //        auto fine_cell      = this->begin(ref_counter);
+      //        auto fine_cell_info = this->parts[ref_counter].cells.begin();
+      //        for (; fine_cell_info != this->parts[ref_counter].cells.end();
+      //        ++fine_cell_info)
+      //        {
+      //
+      //          std::cout << "REQ " << std::endl <<
+      //          CellId(fine_cell_info->index) << std::endl;
+      //
+      //          while(fine_cell_info->index != fine_cell->id().template
+      //          to_binary<dim>() )
+      //          {
+      //              //std::cout << fine_cell->id() << std::endl;
+      //            fine_cell++;
+      //          }
+      //
+      //          //std::cout << fine_cell->id() << std::endl;
+      //          fine_cell->set_subdomain_id(fine_cell_info->subdomain_id);
+      //
+      //          // level_subdomain_id
+      //          if(settings & construct_multigrid_hierarchy)
+      //            fine_cell->set_level_subdomain_id(fine_cell_info->level_subdomain_id);
+      //        }
+      //      }
+      //      //std::cout << "D" << std::endl;
+      //
+      //      int c = 0;
+      //      for(auto cell = this->begin(); cell != this->end(); cell++)
+      //      {
+      //          std::cout << cell->id() << " " << cell->level_subdomain_id()
+      //          << " "; if(cell->active())
+      //            std::cout << cell->subdomain_id() << std::endl;
+      //          c++;
+      //      }
+      //      std::cout << c << std::endl << std::endl;
     }
 
     template <int dim, int spacedim>
@@ -5424,8 +5452,9 @@ bool parent(T c, T p){
     bool
     Triangulation<dim, spacedim>::prepare_coarsening_and_refinement()
     {
-      //std::cout
-      //  << "parallel::fullydistributed::Triangulation::prepare_coarsening_and_refinement"
+      // std::cout
+      //  <<
+      //  "parallel::fullydistributed::Triangulation::prepare_coarsening_and_refinement"
       //  << std::endl;
 
       std::vector<bool> flags_before[2];
@@ -5594,19 +5623,19 @@ bool parent(T c, T p){
 
       return result;
     }
-    
+
     template <int dim, int spacedim>
     bool
     Triangulation<dim, spacedim>::do_construct_multigrid_hierarchy() const
     {
       return (settings & construct_multigrid_hierarchy);
     }
-    
+
     template <int dim, int spacedim>
-      MPI_Comm
-     Triangulation<dim, spacedim>::get_coarse_communicator() const
+    MPI_Comm
+    Triangulation<dim, spacedim>::get_coarse_communicator() const
     {
-        return mpi_communicator_coarse;
+      return mpi_communicator_coarse;
     }
 
   } // namespace fullydistributed

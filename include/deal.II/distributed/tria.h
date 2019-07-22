@@ -1426,36 +1426,39 @@ namespace parallel
 
 struct Part_
 {
-    
-    Part_() {}
-    
-    Part_(CellId::binary_type index, unsigned int subdomain_id, unsigned int level_subdomain_id) : index(index), subdomain_id(subdomain_id), level_subdomain_id(level_subdomain_id) {};
-    
-    CellId::binary_type index;
-    unsigned int        subdomain_id;
-    unsigned int        level_subdomain_id;
+  Part_()
+  {}
+
+  Part_(CellId::binary_type index,
+        unsigned int        subdomain_id,
+        unsigned int        level_subdomain_id)
+    : index(index)
+    , subdomain_id(subdomain_id)
+    , level_subdomain_id(level_subdomain_id){};
+
+  CellId::binary_type index;
+  unsigned int        subdomain_id;
+  unsigned int        level_subdomain_id;
 };
 
 class Part
 {
 public:
   std::vector<Part_> cells;
-  
 };
 
 namespace parallel
 {
   namespace fullydistributed
   {
-    
-    template<int dim, int spacedim>
+    template <int dim, int spacedim>
     struct ConstructionData
     {
-          std::vector<CellData<dim>>         cells;
-          std::vector<Point<spacedim>>       vertices;
-          std::vector<int>                   boundary_ids;
-          std::map<int, std::pair<int, int>> coarse_lid_to_gid;
-          std::vector<Part>                  parts;
+      std::vector<CellData<dim>>         cells;
+      std::vector<Point<spacedim>>       vertices;
+      std::vector<int>                   boundary_ids;
+      std::map<int, std::pair<int, int>> coarse_lid_to_gid;
+      std::vector<Part>                  parts;
     };
 
     template <int dim, int spacedim = dim>
@@ -1473,13 +1476,13 @@ namespace parallel
         typename dealii::Triangulation<dim, spacedim>::CellStatus CellStatus;
 
       void
-      reinit(ConstructionData<dim, spacedim> & construction_data);
+      reinit(ConstructionData<dim, spacedim> &construction_data);
 
       virtual void
       create_triangulation(const std::vector<Point<spacedim>> &vertices,
                            const std::vector<CellData<dim>> &  cells,
                            const SubCellData &subcelldata) override;
-      
+
 
       enum Settings
       {
@@ -1495,12 +1498,14 @@ namespace parallel
          */
         construct_multigrid_hierarchy = 0x1
       };
-      
 
-      Triangulation(MPI_Comm mpi_communicator, Settings settings_ = default_setting);
 
       Triangulation(MPI_Comm mpi_communicator,
-                    MPI_Comm mpi_communicator_coarse, Settings settings_ = default_setting);
+                    Settings settings_ = default_setting);
+
+      Triangulation(MPI_Comm mpi_communicator,
+                    MPI_Comm mpi_communicator_coarse,
+                    Settings settings_ = default_setting);
 
       virtual ~Triangulation();
 
@@ -1535,13 +1540,13 @@ namespace parallel
 
       virtual std::map<unsigned int, std::set<dealii::types::subdomain_id>>
       compute_vertices_with_ghost_neighbors() const override;
-      
+
       bool
       do_construct_multigrid_hierarchy() const;
-      
+
       MPI_Comm
       get_coarse_communicator() const;
- 
+
     private:
       /**
        * store the Settings.

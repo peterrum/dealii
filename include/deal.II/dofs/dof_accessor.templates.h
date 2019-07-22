@@ -1211,47 +1211,50 @@ namespace internal
                 dof_handler.get_fe(this_fe_index).dofs_per_vertex + 1);
           }
       }
-      
-//      template <int dim, int spacedim>
-//      static types::global_dof_index
-//      get_mg_vertex_dof_index(const dealii::DoFHandler<dim, spacedim> &dof_handler,
-//                           const unsigned int level,
-//                           const unsigned int vertex_index,
-//                           const unsigned int fe_index,
-//                           const unsigned int local_index)
-//      {
-//        (void)fe_index;
-//        Assert(
-//          (fe_index == dealii::DoFHandler<dim, spacedim>::default_fe_index),
-//          ExcMessage(
-//            "Only the default FE index is allowed for non-hp DoFHandler objects"));
-//        Assert(local_index < dof_handler.get_fe().dofs_per_vertex,
-//               ExcIndexRange(local_index,
-//                             0,
-//                             dof_handler.get_fe().dofs_per_vertex));
-//
-//        return dof_handler
-//          .mg_vertex_dofs[vertex_index * dof_handler.get_fe().dofs_per_vertex +
-//                       local_index];
-//      }
-//
-//
-//      template <int dim, int spacedim>
-//      static types::global_dof_index
-//      get_mg_vertex_dof_index(
-//        const dealii::hp::DoFHandler<dim, spacedim> &dof_handler,
-//        const unsigned int                           level,
-//        const unsigned int                           vertex_index,
-//        const unsigned int                           fe_index,
-//        const unsigned int                           local_index)
-//      {
-//        Assert(false, ExcNotImplemented());
-//        (void) dof_handler;
-//        (void) level;
-//        (void) vertex_index;
-//        (void) fe_index;
-//        (void) local_index;
-//      }
+
+      //      template <int dim, int spacedim>
+      //      static types::global_dof_index
+      //      get_mg_vertex_dof_index(const dealii::DoFHandler<dim, spacedim>
+      //      &dof_handler,
+      //                           const unsigned int level,
+      //                           const unsigned int vertex_index,
+      //                           const unsigned int fe_index,
+      //                           const unsigned int local_index)
+      //      {
+      //        (void)fe_index;
+      //        Assert(
+      //          (fe_index == dealii::DoFHandler<dim,
+      //          spacedim>::default_fe_index), ExcMessage(
+      //            "Only the default FE index is allowed for non-hp DoFHandler
+      //            objects"));
+      //        Assert(local_index < dof_handler.get_fe().dofs_per_vertex,
+      //               ExcIndexRange(local_index,
+      //                             0,
+      //                             dof_handler.get_fe().dofs_per_vertex));
+      //
+      //        return dof_handler
+      //          .mg_vertex_dofs[vertex_index *
+      //          dof_handler.get_fe().dofs_per_vertex +
+      //                       local_index];
+      //      }
+      //
+      //
+      //      template <int dim, int spacedim>
+      //      static types::global_dof_index
+      //      get_mg_vertex_dof_index(
+      //        const dealii::hp::DoFHandler<dim, spacedim> &dof_handler,
+      //        const unsigned int                           level,
+      //        const unsigned int                           vertex_index,
+      //        const unsigned int                           fe_index,
+      //        const unsigned int                           local_index)
+      //      {
+      //        Assert(false, ExcNotImplemented());
+      //        (void) dof_handler;
+      //        (void) level;
+      //        (void) vertex_index;
+      //        (void) fe_index;
+      //        (void) local_index;
+      //      }
 
 
       /**
@@ -2566,19 +2569,16 @@ template <template <int, int> class DoFHandlerType,
           bool level_dof_access>
 inline void
 DoFAccessor<0, DoFHandlerType<1, spacedim>, level_dof_access>::
-  get_mg_dof_indices(const int level,
+  get_mg_dof_indices(const int                             level,
                      std::vector<types::global_dof_index> &dof_indices,
                      const unsigned int                    fe_index) const
 {
   AssertThrow(fe_index == 0, ExcMessage("Unknown triangulation!"));
-    
+
   for (unsigned int i = 0; i < dof_indices.size(); ++i)
-    dof_indices[i] = dealii::internal::DoFAccessorImplementation::
-      Implementation::mg_vertex_dof_index(*dof_handler,
-                                          level,
-                                           this->global_vertex_index,
-                                           i);
-  
+    dof_indices[i] =
+      dealii::internal::DoFAccessorImplementation::Implementation::
+        mg_vertex_dof_index(*dof_handler, level, this->global_vertex_index, i);
 }
 
 
