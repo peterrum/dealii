@@ -5163,6 +5163,8 @@ namespace parallel
       dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
         vertices, cells, subcelldata);
 
+      for (auto c = this->begin(); c != this->end(); c++)
+        c->set_all_manifold_ids (c->material_id());
 
 
       // 2) set boundary ids
