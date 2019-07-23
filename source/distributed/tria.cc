@@ -5141,6 +5141,7 @@ namespace parallel
       auto &boundary_ids = construction_data.boundary_ids;
       auto &cells        = construction_data.cells;
       auto &vertices     = construction_data.vertices;
+      auto &parts        = construction_data.parts;
 
       AssertThrow(cells.size() > 0,
                   ExcMessage("There are processes without any cells."));
@@ -5148,12 +5149,11 @@ namespace parallel
 
 
       // save data structures
-      this->parts             = construction_data.parts;
       this->coarse_lid_to_gid = construction_data.coarse_lid_to_gid;
 
-      std::map<int, std::pair<int, int>> coarse_gid_to_lid;
+      std::map<int, int> coarse_gid_to_lid;
       for (auto &i : coarse_lid_to_gid)
-        coarse_gid_to_lid[i.second.first] = {i.first, i.second.second};
+        coarse_gid_to_lid[i.second] = i.first;
       this->coarse_gid_to_lid = coarse_gid_to_lid;
 
 
@@ -5177,13 +5177,13 @@ namespace parallel
 
       // 3) create all cell levels
       for (unsigned int ref_counter = 1;
-           ref_counter < construction_data.parts.size();
+           ref_counter < parts.size();
            ref_counter++)
         {
           auto coarse_cell    = this->begin(ref_counter - 1);
-          auto fine_cell_info = this->parts[ref_counter].cells.begin();
+          auto fine_cell_info = parts[ref_counter].cells.begin();
 
-          for (; fine_cell_info != this->parts[ref_counter].cells.end();
+          for (; fine_cell_info != parts[ref_counter].cells.end();
                ++fine_cell_info)
             {
               while (!internal::parent<dim>(
@@ -5215,12 +5215,12 @@ namespace parallel
 
       // 4b) set actual (level_)subdomain_ids
       for (unsigned int ref_counter = 0;
-           ref_counter < construction_data.parts.size();
+           ref_counter < parts.size();
            ref_counter++)
         {
           auto cell      = this->begin(ref_counter);
-          auto cell_info = this->parts[ref_counter].cells.begin();
-          for (; cell_info != this->parts[ref_counter].cells.end(); ++cell_info)
+          auto cell_info = parts[ref_counter].cells.begin();
+          for (; cell_info != parts[ref_counter].cells.end(); ++cell_info)
             {
               while (cell_info->index != cell->id().template to_binary<dim>())
                 cell++;
@@ -5284,28 +5284,19 @@ namespace parallel
               dealii::Triangulation<dim>::none),
           false)
       , settings(settings_)
-      , ref_counter(0)
       , mpi_communicator_coarse(mpi_communicator_coarse)
     {
-      std::cout << "parallel::fullydistributed::Triangulation::Triangulation()"
-                << std::endl;
     }
 
     template <int dim, int spacedim>
     Triangulation<dim, spacedim>::~Triangulation()
     {
-      for (auto value : timings)
-        std::cout << value.first << " " << value.second << std::endl;
-      std::cout << "parallel::fullydistributed::Triangulation::~Triangulation()"
-                << std::endl;
     }
 
     template <int dim, int spacedim>
     void
     Triangulation<dim, spacedim>::clear()
     {
-      std::cout << "parallel::fullydistributed::Triangulation::clear()"
-                << std::endl;
     }
 
     template <int dim, int spacedim>
@@ -5322,81 +5313,17 @@ namespace parallel
     void
     Triangulation<dim, spacedim>::copy_local_forest_to_triangulation()
     {
-      ref_counter++;
-
-      {
-        auto coarse_cell    = this->begin(ref_counter - 1);
-        auto fine_cell_info = this->parts[ref_counter].cells.begin();
-
-        for (; fine_cell_info != this->parts[ref_counter].cells.end();
-             ++fine_cell_info)
-          {
-            while (!internal::parent<dim>(
-              fine_cell_info->index,
-              coarse_cell->id().template to_binary<dim>()))
-              coarse_cell++;
-
-            coarse_cell->set_refine_flag();
-          }
-      }
+        
+      //Assert(false, ExcNotImplemented());
 
       dealii::Triangulation<dim, spacedim>::execute_coarsening_and_refinement();
 
-      //      {
-      //
-      //        for(auto cell = this->begin_active(ref_counter); cell !=
-      //        this->end(); cell++)
-      //        {
-      //          cell->set_subdomain_id(dealii::numbers::artificial_subdomain_id);
-      //          cell->set_level_subdomain_id(dealii::numbers::artificial_subdomain_id);
-      //        }
-      //      //std::cout << "C__" << std::endl;
-      //
-      //        auto fine_cell      = this->begin(ref_counter);
-      //        auto fine_cell_info = this->parts[ref_counter].cells.begin();
-      //        for (; fine_cell_info != this->parts[ref_counter].cells.end();
-      //        ++fine_cell_info)
-      //        {
-      //
-      //          std::cout << "REQ " << std::endl <<
-      //          CellId(fine_cell_info->index) << std::endl;
-      //
-      //          while(fine_cell_info->index != fine_cell->id().template
-      //          to_binary<dim>() )
-      //          {
-      //              //std::cout << fine_cell->id() << std::endl;
-      //            fine_cell++;
-      //          }
-      //
-      //          //std::cout << fine_cell->id() << std::endl;
-      //          fine_cell->set_subdomain_id(fine_cell_info->subdomain_id);
-      //
-      //          // level_subdomain_id
-      //          if(settings & construct_multigrid_hierarchy)
-      //            fine_cell->set_level_subdomain_id(fine_cell_info->level_subdomain_id);
-      //        }
-      //      }
-      //      //std::cout << "D" << std::endl;
-      //
-      //      int c = 0;
-      //      for(auto cell = this->begin(); cell != this->end(); cell++)
-      //      {
-      //          std::cout << cell->id() << " " << cell->level_subdomain_id()
-      //          << " "; if(cell->active())
-      //            std::cout << cell->subdomain_id() << std::endl;
-      //          c++;
-      //      }
-      //      std::cout << c << std::endl << std::endl;
     }
 
     template <int dim, int spacedim>
     void
     Triangulation<dim, spacedim>::execute_coarsening_and_refinement()
     {
-      std::cout
-        << "parallel::fullydistributed::Triangulation::execute_coarsening_and_refinement::start"
-        << std::endl;
-
       // signal that refinement is going to happen
       this->signals.pre_distributed_refinement();
 
@@ -5443,20 +5370,12 @@ namespace parallel
 
       this->update_periodic_face_map();
 
-      std::cout
-        << "parallel::fullydistributed::Triangulation::execute_coarsening_and_refinement::end"
-        << std::endl;
     }
 
     template <int dim, int spacedim>
     bool
     Triangulation<dim, spacedim>::prepare_coarsening_and_refinement()
     {
-      // std::cout
-      //  <<
-      //  "parallel::fullydistributed::Triangulation::prepare_coarsening_and_refinement"
-      //  << std::endl;
-
       std::vector<bool> flags_before[2];
       this->save_coarsen_flags(flags_before[0]);
       this->save_refine_flags(flags_before[1]);
@@ -5479,9 +5398,7 @@ namespace parallel
     bool
     Triangulation<dim, spacedim>::has_hanging_nodes() const
     {
-      std::cout
-        << "parallel::fullydistributed::Triangulation::has_hanging_nodes"
-        << std::endl;
+      Assert(false, ExcNotImplemented());
       return false;
     }
 
@@ -5489,9 +5406,7 @@ namespace parallel
     std::size_t
     Triangulation<dim, spacedim>::memory_consumption() const
     {
-      std::cout
-        << "parallel::fullydistributed::Triangulation::memory_consumption"
-        << std::endl;
+      Assert(false, ExcNotImplemented());
       return 0;
     }
 
@@ -5499,9 +5414,7 @@ namespace parallel
     std::size_t
     Triangulation<dim, spacedim>::memory_consumption_p4est() const
     {
-      std::cout
-        << "parallel::fullydistributed::Triangulation::memory_consumption_p4est"
-        << std::endl;
+      Assert(false, ExcNotImplemented());
       return 0;
     }
 
@@ -5636,6 +5549,20 @@ namespace parallel
     Triangulation<dim, spacedim>::get_coarse_communicator() const
     {
       return mpi_communicator_coarse;
+    }
+
+    template <int dim, int spacedim>
+    const std::map<int, int> &
+    Triangulation<dim, spacedim>::get_coarse_gid_to_lid() const
+    {
+      return coarse_gid_to_lid;
+    }
+
+    template <int dim, int spacedim>
+    const std::map<int, int> &
+    Triangulation<dim, spacedim>::get_coarse_lid_to_gid() const
+    {
+      return coarse_lid_to_gid;
     }
 
   } // namespace fullydistributed

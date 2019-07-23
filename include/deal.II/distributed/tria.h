@@ -1454,11 +1454,16 @@ namespace parallel
     template <int dim, int spacedim>
     struct ConstructionData
     {
-      std::vector<CellData<dim>>         cells;
-      std::vector<Point<spacedim>>       vertices;
-      std::vector<int>                   boundary_ids;
-      std::map<int, std::pair<int, int>> coarse_lid_to_gid;
-      std::vector<Part>                  parts;
+      // information describing the local part of the coarse grid
+      std::vector<CellData<dim>>      cells;
+      std::vector<Point<spacedim>>    vertices;
+      std::vector<types::boundary_id> boundary_ids;
+      
+      // information 
+      std::map<int, int> coarse_lid_to_gid;
+      
+      // information describing how to constuct the levels
+      std::vector<Part> parts;
     };
 
     template <int dim, int spacedim = dim>
@@ -1546,6 +1551,12 @@ namespace parallel
 
       MPI_Comm
       get_coarse_communicator() const;
+      
+      const std::map<int, int> &
+      get_coarse_lid_to_gid() const;
+      
+      const std::map<int, int> &
+      get_coarse_gid_to_lid() const;
 
     private:
       /**
@@ -1560,14 +1571,9 @@ namespace parallel
       template <int, int, class>
       friend class dealii::FETools::internal::ExtrapolateImplementation;
 
-    public:
-      std::vector<Part>                  parts;
-      std::map<int, std::pair<int, int>> coarse_gid_to_lid;
-      std::map<int, std::pair<int, int>> coarse_lid_to_gid;
+      std::map<int, int> coarse_gid_to_lid;
+      std::map<int, int> coarse_lid_to_gid;
 
-    private:
-      unsigned int                  ref_counter;
-      std::map<std::string, double> timings;
       MPI_Comm                      mpi_communicator_coarse;
     };
 
