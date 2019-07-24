@@ -5138,80 +5138,81 @@ namespace parallel
     Triangulation<dim, spacedim>::reinit(
       ConstructionData<dim, spacedim> &construction_data)
     {
-        
+      if (construction_data.cells.size() == 0)
+        {
+          Point<dim> p_1, p_2;
+          for (unsigned int i = 0; i < dim; ++i)
+            {
+              p_1(i) = 0;
+              p_2(i) = 1;
+            }
 
-      if(construction_data.cells.size() == 0)
-      {
-    Point<dim> p_1, p_2;
-    for (unsigned int i = 0; i < dim; ++i)
-      {
-        p_1(i) = 0;
-        p_2(i) = 1;
-      }
-          
-          
-    Point<spacedim> p1, p2;
-    for (unsigned int i = 0; i < dim; ++i)
-      {
-        p1(i) = std::min(p_1(i), p_2(i));
-        p2(i) = std::max(p_1(i), p_2(i));
-      }
 
-    std::vector<Point<spacedim>> vertices(GeometryInfo<dim>::vertices_per_cell);
-    switch (dim)
-      {
-        case 1:
-          vertices[0] = p1;
-          vertices[1] = p2;
-          break;
-        case 2:
-          vertices[0] = vertices[1] = p1;
-          vertices[2] = vertices[3] = p2;
+          Point<spacedim> p1, p2;
+          for (unsigned int i = 0; i < dim; ++i)
+            {
+              p1(i) = std::min(p_1(i), p_2(i));
+              p2(i) = std::max(p_1(i), p_2(i));
+            }
 
-          vertices[1](0) = p2(0);
-          vertices[2](0) = p1(0);
-          break;
-        case 3:
-          vertices[0] = vertices[1] = vertices[2] = vertices[3] = p1;
-          vertices[4] = vertices[5] = vertices[6] = vertices[7] = p2;
+          std::vector<Point<spacedim>> vertices(
+            GeometryInfo<dim>::vertices_per_cell);
+          switch (dim)
+            {
+              case 1:
+                vertices[0] = p1;
+                vertices[1] = p2;
+                break;
+              case 2:
+                vertices[0] = vertices[1] = p1;
+                vertices[2] = vertices[3] = p2;
 
-          vertices[1](0) = p2(0);
-          vertices[2](1) = p2(1);
-          vertices[3](0) = p2(0);
-          vertices[3](1) = p2(1);
+                vertices[1](0) = p2(0);
+                vertices[2](0) = p1(0);
+                break;
+              case 3:
+                vertices[0] = vertices[1] = vertices[2] = vertices[3] = p1;
+                vertices[4] = vertices[5] = vertices[6] = vertices[7] = p2;
 
-          vertices[4](0) = p1(0);
-          vertices[4](1) = p1(1);
-          vertices[5](1) = p1(1);
-          vertices[6](0) = p1(0);
-          
+                vertices[1](0) = p2(0);
+                vertices[2](1) = p2(1);
+                vertices[3](0) = p2(0);
+                vertices[3](1) = p2(1);
 
-          break;
-        default:
-          Assert(false, ExcNotImplemented());
+                vertices[4](0) = p1(0);
+                vertices[4](1) = p1(1);
+                vertices[5](1) = p1(1);
+                vertices[6](0) = p1(0);
 
-      }
-         // Prepare cell data
-         std::vector<CellData<dim>> cells(1);
-         for (unsigned int i = 0; i < GeometryInfo<dim>::vertices_per_cell; ++i)
-           cells[0].vertices[i] = i;
-         cells[0].material_id = 0;
-         SubCellData subcelldata;
-         dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(vertices, cells, subcelldata);
-         
-      for (auto cell = this->begin(); cell != this->end(); cell++)
-      {
-            cell->set_subdomain_id(dealii::numbers::artificial_subdomain_id);
-            cell->set_level_subdomain_id(dealii::numbers::artificial_subdomain_id);
-      }
-         
-         this->coarse_gid_to_lid.emplace(0,0);
-         this->coarse_lid_to_gid.emplace(0,0);
-          
+
+                break;
+              default:
+                Assert(false, ExcNotImplemented());
+            }
+          // Prepare cell data
+          std::vector<CellData<dim>> cells(1);
+          for (unsigned int i = 0; i < GeometryInfo<dim>::vertices_per_cell;
+               ++i)
+            cells[0].vertices[i] = i;
+          cells[0].material_id = 0;
+          SubCellData subcelldata;
+          dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
+            vertices, cells, subcelldata);
+
+          for (auto cell = this->begin(); cell != this->end(); cell++)
+            {
+              cell->set_subdomain_id(dealii::numbers::artificial_subdomain_id);
+              cell->set_level_subdomain_id(
+                dealii::numbers::artificial_subdomain_id);
+            }
+
+          this->coarse_gid_to_lid.emplace(0, 0);
+          this->coarse_lid_to_gid.emplace(0, 0);
+
           update_number_cache();
           return;
-      }
-      
+        }
+
       auto &boundary_ids = construction_data.boundary_ids;
       auto &cells        = construction_data.cells;
       auto &vertices     = construction_data.vertices;
@@ -5234,7 +5235,7 @@ namespace parallel
         vertices, cells, subcelldata);
 
       for (auto c = this->begin(); c != this->end(); c++)
-        c->set_all_manifold_ids (c->material_id());
+        c->set_all_manifold_ids(c->material_id());
 
 
       // 2) set boundary ids
@@ -5248,8 +5249,7 @@ namespace parallel
           }
 
       // 3) create all cell levels
-      for (unsigned int ref_counter = 1;
-           ref_counter < parts.size();
+      for (unsigned int ref_counter = 1; ref_counter < parts.size();
            ref_counter++)
         {
           auto coarse_cell    = this->begin(ref_counter - 1);
@@ -5286,8 +5286,7 @@ namespace parallel
 
 
       // 4b) set actual (level_)subdomain_ids
-      for (unsigned int ref_counter = 0;
-           ref_counter < parts.size();
+      for (unsigned int ref_counter = 0; ref_counter < parts.size();
            ref_counter++)
         {
           auto cell      = this->begin(ref_counter);
@@ -5357,42 +5356,37 @@ namespace parallel
           false)
       , settings(settings_)
       , mpi_communicator_coarse(mpi_communicator_coarse)
-    {
-    }
+    {}
 
     template <int dim, int spacedim>
     Triangulation<dim, spacedim>::~Triangulation()
-    {
-    }
+    {}
 
     template <int dim, int spacedim>
     void
     Triangulation<dim, spacedim>::clear()
-    {
-    }
+    {}
 
     template <int dim, int spacedim>
     void
     Triangulation<dim, spacedim>::update_number_cache()
     {
-      //std::cout << "A" << std::endl;
+      // std::cout << "A" << std::endl;
       parallel::Triangulation<dim, spacedim>::update_number_cache();
 
-      //std::cout << "B" << std::endl;
+      // std::cout << "B" << std::endl;
       if (settings & construct_multigrid_hierarchy)
         parallel::Triangulation<dim, spacedim>::fill_level_ghost_owners();
-      //std::cout << "C" << std::endl;
+      // std::cout << "C" << std::endl;
     }
 
     template <int dim, int spacedim>
     void
     Triangulation<dim, spacedim>::copy_local_forest_to_triangulation()
     {
-        
-      //Assert(false, ExcNotImplemented());
+      // Assert(false, ExcNotImplemented());
 
       dealii::Triangulation<dim, spacedim>::execute_coarsening_and_refinement();
-
     }
 
     template <int dim, int spacedim>
@@ -5444,7 +5438,6 @@ namespace parallel
       this->signals.post_distributed_refinement();
 
       this->update_periodic_face_map();
-
     }
 
     template <int dim, int spacedim>

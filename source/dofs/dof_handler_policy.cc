@@ -6093,8 +6093,8 @@ namespace internal
       void
       communicate_mg_ghost_cells_2(
         const typename parallel::fullydistributed::Triangulation<dim, spacedim>
-          &                                 tria,
-        DoFHandlerType &                    dof_handler,
+          &                       tria,
+        DoFHandlerType &          dof_handler,
         const std::map<int, int> &coarse_gid_to_lid,
         const std::map<int, int> &coarse_lid_to_gid)
       {
@@ -6123,7 +6123,9 @@ namespace internal
 
             find_marked_mg_ghost_cells_recursively_2<dim, spacedim>(
               tria,
-              coarse_lid_to_gid.at(cell->index()), // coarse_cell_to_p4est_tree_permutation[cell->index()],
+              coarse_lid_to_gid.at(
+                cell
+                  ->index()), // coarse_cell_to_p4est_tree_permutation[cell->index()],
               cell,
               p4est_coarse_cell,
               neighbor_cell_list);
@@ -6194,7 +6196,9 @@ namespace internal
                 typename DoFHandlerType::level_cell_iterator cell(
                   &dof_handler.get_triangulation(),
                   0,
-                  coarse_gid_to_lid.at(cell_data_transfer_buffer.tree_indices[c]), // p4est_tree_to_coarse_cell_permutation[cell_data_transfer_buffer.tree_indices[c]],
+                  coarse_gid_to_lid.at(
+                    cell_data_transfer_buffer.tree_indices
+                      [c]), // p4est_tree_to_coarse_cell_permutation[cell_data_transfer_buffer.tree_indices[c]],
                   &dof_handler);
 
                 typename dealii::internal::p4est::types<dim>::quadrant
@@ -6262,7 +6266,9 @@ namespace internal
                 typename DoFHandlerType::level_cell_iterator cell(
                   &tria,
                   0,
-                  coarse_gid_to_lid.at(cell_data_transfer_buffer.tree_indices[c]), // p4est_tree_to_coarse_cell_permutation[cell_data_transfer_buffer.tree_indices[c]],
+                  coarse_gid_to_lid.at(
+                    cell_data_transfer_buffer.tree_indices
+                      [c]), // p4est_tree_to_coarse_cell_permutation[cell_data_transfer_buffer.tree_indices[c]],
                   &dof_handler);
 
                 typename dealii::internal::p4est::types<dim>::quadrant
@@ -6302,7 +6308,7 @@ namespace internal
       template <class DoFHandlerType>
       void
       communicate_dof_indices_on_marked_cells2(
-        const DoFHandlerType &              dof_handler,
+        const DoFHandlerType &    dof_handler,
         const std::map<int, int> &coarse_gid_to_lid,
         const std::map<int, int> &coarse_lid_to_gid)
       {
@@ -6433,54 +6439,57 @@ namespace internal
         if (dynamic_cast<const DoFHandler<1, 1> *>(object))
           GridTools::exchange_cell_data_to_ghosts2<
             std::vector<types::global_dof_index>,
-            DoFHandler<1, 1>>(
-            *((const DoFHandler<1, 1> *)object),
-            pack,
-            unpack,
-            [&](const auto id) {
-              auto id_binary = id.template to_binary<1>();
-              id_binary[0]   = coarse_lid_to_gid.at(id_binary[0]);
-              return CellId(id_binary);
-            },
-            [&](const auto id) {
-              auto id_binary = id.template to_binary<1>();
-              id_binary[0]   = coarse_gid_to_lid.at(id_binary[0]);
-              return CellId(id_binary);
-            });
+            DoFHandler<1, 1>>(*((const DoFHandler<1, 1> *)object),
+                              pack,
+                              unpack,
+                              [&](const auto id) {
+                                auto id_binary = id.template to_binary<1>();
+                                id_binary[0] =
+                                  coarse_lid_to_gid.at(id_binary[0]);
+                                return CellId(id_binary);
+                              },
+                              [&](const auto id) {
+                                auto id_binary = id.template to_binary<1>();
+                                id_binary[0] =
+                                  coarse_gid_to_lid.at(id_binary[0]);
+                                return CellId(id_binary);
+                              });
         else if (dynamic_cast<const DoFHandler<2, 2> *>(object))
           GridTools::exchange_cell_data_to_ghosts2<
             std::vector<types::global_dof_index>,
-            DoFHandler<2, 2>>(
-            *((const DoFHandler<2, 2> *)object),
-            pack,
-            unpack,
-            [&](const auto id) {
-              auto id_binary = id.template to_binary<2>();
-              id_binary[0]   = coarse_lid_to_gid.at(id_binary[0]);
-              return CellId(id_binary);
-            },
-            [&](const auto id) {
-              auto id_binary = id.template to_binary<2>();
-              id_binary[0]   = coarse_gid_to_lid.at(id_binary[0]);
-              return CellId(id_binary);
-            });
+            DoFHandler<2, 2>>(*((const DoFHandler<2, 2> *)object),
+                              pack,
+                              unpack,
+                              [&](const auto id) {
+                                auto id_binary = id.template to_binary<2>();
+                                id_binary[0] =
+                                  coarse_lid_to_gid.at(id_binary[0]);
+                                return CellId(id_binary);
+                              },
+                              [&](const auto id) {
+                                auto id_binary = id.template to_binary<2>();
+                                id_binary[0] =
+                                  coarse_gid_to_lid.at(id_binary[0]);
+                                return CellId(id_binary);
+                              });
         else if (dynamic_cast<const DoFHandler<3, 3> *>(object))
           GridTools::exchange_cell_data_to_ghosts2<
             std::vector<types::global_dof_index>,
-            DoFHandler<3, 3>>(
-            *((const DoFHandler<3, 3> *)object),
-            pack,
-            unpack,
-            [&](const auto id) {
-              auto id_binary = id.template to_binary<3>();
-              id_binary[0]   = coarse_lid_to_gid.at(id_binary[0]);
-              return CellId(id_binary);
-            },
-            [&](const auto id) {
-              auto id_binary = id.template to_binary<3>();
-              id_binary[0]   = coarse_gid_to_lid.at(id_binary[0]);
-              return CellId(id_binary);
-            });
+            DoFHandler<3, 3>>(*((const DoFHandler<3, 3> *)object),
+                              pack,
+                              unpack,
+                              [&](const auto id) {
+                                auto id_binary = id.template to_binary<3>();
+                                id_binary[0] =
+                                  coarse_lid_to_gid.at(id_binary[0]);
+                                return CellId(id_binary);
+                              },
+                              [&](const auto id) {
+                                auto id_binary = id.template to_binary<3>();
+                                id_binary[0] =
+                                  coarse_gid_to_lid.at(id_binary[0]);
+                                return CellId(id_binary);
+                              });
         else
           AssertThrow(false, ExcMessage("Not implemented!"));
 
@@ -6993,20 +7002,23 @@ namespace internal
             dynamic_cast<dealii::DoFHandler<3, 3> *>(&*dof_handler);
 
           if (tria1 != nullptr && dof_handler_1 != nullptr)
-            communicate_mg_ghost_cells_2(*tria1,
-                                         *dof_handler_1,
-                                         triangulation->get_coarse_gid_to_lid(),
-                                         triangulation->get_coarse_lid_to_gid());
+            communicate_mg_ghost_cells_2(
+              *tria1,
+              *dof_handler_1,
+              triangulation->get_coarse_gid_to_lid(),
+              triangulation->get_coarse_lid_to_gid());
           else if (tria2 != nullptr && dof_handler_2 != nullptr)
-            communicate_mg_ghost_cells_2(*tria2,
-                                         *dof_handler_2,
-                                         triangulation->get_coarse_gid_to_lid(),
-                                         triangulation->get_coarse_lid_to_gid());
+            communicate_mg_ghost_cells_2(
+              *tria2,
+              *dof_handler_2,
+              triangulation->get_coarse_gid_to_lid(),
+              triangulation->get_coarse_lid_to_gid());
           else if (tria3 != nullptr && dof_handler_3 != nullptr)
-            communicate_mg_ghost_cells_2(*tria3,
-                                         *dof_handler_3,
-                                         triangulation->get_coarse_gid_to_lid(),
-                                         triangulation->get_coarse_lid_to_gid());
+            communicate_mg_ghost_cells_2(
+              *tria3,
+              *dof_handler_3,
+              triangulation->get_coarse_gid_to_lid(),
+              triangulation->get_coarse_lid_to_gid());
           else
             Assert(
               false,
@@ -7032,20 +7044,23 @@ namespace internal
           // Phase 2, only request the cells that were not completed
           // in Phase 1.
           if (tria1 != nullptr && dof_handler_1 != nullptr)
-            communicate_mg_ghost_cells_2(*tria1,
-                                         *dof_handler_1,
-                                         triangulation->get_coarse_gid_to_lid(),
-                                         triangulation->get_coarse_lid_to_gid());
+            communicate_mg_ghost_cells_2(
+              *tria1,
+              *dof_handler_1,
+              triangulation->get_coarse_gid_to_lid(),
+              triangulation->get_coarse_lid_to_gid());
           else if (tria2 != nullptr && dof_handler_2 != nullptr)
-            communicate_mg_ghost_cells_2(*tria2,
-                                         *dof_handler_2,
-                                         triangulation->get_coarse_gid_to_lid(),
-                                         triangulation->get_coarse_lid_to_gid());
+            communicate_mg_ghost_cells_2(
+              *tria2,
+              *dof_handler_2,
+              triangulation->get_coarse_gid_to_lid(),
+              triangulation->get_coarse_lid_to_gid());
           else if (tria3 != nullptr && dof_handler_3 != nullptr)
-            communicate_mg_ghost_cells_2(*tria3,
-                                         *dof_handler_3,
-                                         triangulation->get_coarse_gid_to_lid(),
-                                         triangulation->get_coarse_lid_to_gid());
+            communicate_mg_ghost_cells_2(
+              *tria3,
+              *dof_handler_3,
+              triangulation->get_coarse_gid_to_lid(),
+              triangulation->get_coarse_lid_to_gid());
           else
             Assert(
               false,

@@ -1974,39 +1974,42 @@ namespace GridTools
   template <int dim, int spacedim>
   void
   partition_multigrid_levels(Triangulation<dim, spacedim> &triangulation);
-  
-  
 
-enum PartitioningType
-{
-  metis
-};
-enum PartitioningGroup
-{
-  single,
-  fixed,
-  shared
-};
 
-struct AdditionalData
-{
-  AdditionalData() : partition_type(metis), partition_group(fixed), partition_group_size(4)
+
+  enum PartitioningType
   {
-  }
+    metis
+  };
+  enum PartitioningGroup
+  {
+    single,
+    fixed,
+    shared
+  };
 
-  PartitioningType  partition_type;
-  PartitioningGroup partition_group;
-  unsigned int      partition_group_size;
+  struct AdditionalData
+  {
+    AdditionalData()
+      : partition_type(metis)
+      , partition_group(fixed)
+      , partition_group_size(4)
+    {}
 
-  unsigned int size_all    = 1;
-  unsigned int size_groups = 1;
-  unsigned int size_node   = 1;
-};
+    PartitioningType  partition_type;
+    PartitioningGroup partition_group;
+    unsigned int      partition_group_size;
 
-template<int dim, int spacedim>
-void
-shared_partition_triangulation(dealii::Triangulation<dim, spacedim> & tria,
-                               AdditionalData additional_data = AdditionalData());
+    unsigned int size_all    = 1;
+    unsigned int size_groups = 1;
+    unsigned int size_node   = 1;
+  };
+
+  template <int dim, int spacedim>
+  void
+  shared_partition_triangulation(
+    dealii::Triangulation<dim, spacedim> &tria,
+    AdditionalData                        additional_data = AdditionalData());
 
   /**
    * For each active cell, return in the output array to which subdomain (as

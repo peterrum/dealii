@@ -1458,10 +1458,10 @@ namespace parallel
       std::vector<CellData<dim>>      cells;
       std::vector<Point<spacedim>>    vertices;
       std::vector<types::boundary_id> boundary_ids;
-      
-      // information 
+
+      // information
       std::map<int, int> coarse_lid_to_gid;
-      
+
       // information describing how to constuct the levels
       std::vector<Part> parts;
     };
@@ -1551,10 +1551,10 @@ namespace parallel
 
       MPI_Comm
       get_coarse_communicator() const;
-      
+
       const std::map<int, int> &
       get_coarse_lid_to_gid() const;
-      
+
       const std::map<int, int> &
       get_coarse_gid_to_lid() const;
 
@@ -1574,7 +1574,7 @@ namespace parallel
       std::map<int, int> coarse_gid_to_lid;
       std::map<int, int> coarse_lid_to_gid;
 
-      MPI_Comm                      mpi_communicator_coarse;
+      MPI_Comm mpi_communicator_coarse;
     };
 
   } // namespace fullydistributed
