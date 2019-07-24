@@ -6786,9 +6786,6 @@ namespace internal
                 &dof_handler->get_triangulation())));
         Assert(triangulation != nullptr, ExcInternalError());
 
-        std::cout << "ParallelFullyDistributed::distribute_mg_dofs"
-                  << std::endl;
-
         //        AssertThrow(
         //          (triangulation->settings &
         //          parallel::distributed::Triangulation< dim, spacedim

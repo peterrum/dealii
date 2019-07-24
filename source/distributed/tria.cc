@@ -5138,14 +5138,84 @@ namespace parallel
     Triangulation<dim, spacedim>::reinit(
       ConstructionData<dim, spacedim> &construction_data)
     {
+        
+
+      if(construction_data.cells.size() == 0)
+      {
+    Point<dim> p_1, p_2;
+    for (unsigned int i = 0; i < dim; ++i)
+      {
+        p_1(i) = 0;
+        p_2(i) = 1;
+      }
+          
+          
+    Point<spacedim> p1, p2;
+    for (unsigned int i = 0; i < dim; ++i)
+      {
+        p1(i) = std::min(p_1(i), p_2(i));
+        p2(i) = std::max(p_1(i), p_2(i));
+      }
+
+    std::vector<Point<spacedim>> vertices(GeometryInfo<dim>::vertices_per_cell);
+    switch (dim)
+      {
+        case 1:
+          vertices[0] = p1;
+          vertices[1] = p2;
+          break;
+        case 2:
+          vertices[0] = vertices[1] = p1;
+          vertices[2] = vertices[3] = p2;
+
+          vertices[1](0) = p2(0);
+          vertices[2](0) = p1(0);
+          break;
+        case 3:
+          vertices[0] = vertices[1] = vertices[2] = vertices[3] = p1;
+          vertices[4] = vertices[5] = vertices[6] = vertices[7] = p2;
+
+          vertices[1](0) = p2(0);
+          vertices[2](1) = p2(1);
+          vertices[3](0) = p2(0);
+          vertices[3](1) = p2(1);
+
+          vertices[4](0) = p1(0);
+          vertices[4](1) = p1(1);
+          vertices[5](1) = p1(1);
+          vertices[6](0) = p1(0);
+          
+
+          break;
+        default:
+          Assert(false, ExcNotImplemented());
+
+      }
+         // Prepare cell data
+         std::vector<CellData<dim>> cells(1);
+         for (unsigned int i = 0; i < GeometryInfo<dim>::vertices_per_cell; ++i)
+           cells[0].vertices[i] = i;
+         cells[0].material_id = 0;
+         SubCellData subcelldata;
+         dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(vertices, cells, subcelldata);
+         
+      for (auto cell = this->begin(); cell != this->end(); cell++)
+      {
+            cell->set_subdomain_id(dealii::numbers::artificial_subdomain_id);
+            cell->set_level_subdomain_id(dealii::numbers::artificial_subdomain_id);
+      }
+         
+         this->coarse_gid_to_lid.emplace(0,0);
+         this->coarse_lid_to_gid.emplace(0,0);
+          
+          update_number_cache();
+          return;
+      }
+      
       auto &boundary_ids = construction_data.boundary_ids;
       auto &cells        = construction_data.cells;
       auto &vertices     = construction_data.vertices;
       auto &parts        = construction_data.parts;
-
-      AssertThrow(cells.size() > 0,
-                  ExcMessage("There are processes without any cells."));
-
 
 
       // save data structures
@@ -5305,10 +5375,13 @@ namespace parallel
     void
     Triangulation<dim, spacedim>::update_number_cache()
     {
+      //std::cout << "A" << std::endl;
       parallel::Triangulation<dim, spacedim>::update_number_cache();
 
+      //std::cout << "B" << std::endl;
       if (settings & construct_multigrid_hierarchy)
         parallel::Triangulation<dim, spacedim>::fill_level_ghost_owners();
+      //std::cout << "C" << std::endl;
     }
 
     template <int dim, int spacedim>
