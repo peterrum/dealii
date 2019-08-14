@@ -13297,6 +13297,26 @@ Triangulation<dim, spacedim>::get_periodic_face_map() const
 
 
 template <int dim, int spacedim>
+unsigned int
+Triangulation<dim, spacedim>::translate_coarse_cell_id_to_coarse_cell_index(
+  const unsigned int coarse_cell_id) const
+{
+  return coarse_cell_id;
+}
+
+
+
+template <int dim, int spacedim>
+unsigned int
+Triangulation<dim, spacedim>::translate_coarse_cell_index_to_coarse_cell_id(
+  const unsigned int coarse_cell_index) const
+{
+  return coarse_cell_index;
+}
+
+
+
+template <int dim, int spacedim>
 void
 Triangulation<dim, spacedim>::execute_coarsening_and_refinement()
 {
