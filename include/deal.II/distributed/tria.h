@@ -245,7 +245,8 @@ namespace parallel
      * @ingroup distributed
      */
     template <int dim, int spacedim = dim>
-    class Triangulation : public dealii::parallel::Triangulation<dim, spacedim>
+    class Triangulation
+      : public dealii::parallel::DistributedTrinagulationBase<dim, spacedim>
     {
     public:
       /**
@@ -378,6 +379,9 @@ namespace parallel
        */
       virtual void
       clear() override;
+
+      bool
+      do_construct_multigrid_hierarchy() const override;
 
       /**
        * Implementation of the same function as in the base class.
@@ -1243,7 +1247,7 @@ namespace parallel
      */
     template <int spacedim>
     class Triangulation<1, spacedim>
-      : public dealii::parallel::Triangulation<1, spacedim>
+      : public dealii::parallel::DistributedTrinagulationBase<1, spacedim>
     {
     public:
       /**
@@ -1330,6 +1334,9 @@ namespace parallel
        */
       void
       save(const std::string &filename) const;
+
+      bool
+      do_construct_multigrid_hierarchy() const override;
 
       /**
        * This function is not implemented, but needs to be present for the

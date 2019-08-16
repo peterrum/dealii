@@ -1504,7 +1504,7 @@ namespace internal
           std::vector<bool> include_vertex(
             dof_handler.get_triangulation().n_vertices(), false);
           if (dynamic_cast<
-                const parallel::distributed::Triangulation<dim, spacedim> *>(
+                const parallel::DistributedTrinagulationBase<dim, spacedim> *>(
                 &dof_handler.get_triangulation()) != nullptr)
             for (const auto &cell : dof_handler.active_cell_iterators())
               if (cell->is_ghost())
@@ -3674,7 +3674,7 @@ namespace internal
         /**
          * level subdomain association. Similar to the above function only
          * for level meshes. This function assigns boundary dofs in
-         * the same way as parallel::distributed::Triangulation (proc with
+         * the same way as parallel::DistributedTrinagulationBase (proc with
          * smallest index) instead of the coin flip method above.
          */
         template <class DoFHandlerType>
@@ -4424,7 +4424,7 @@ namespace internal
         template <int dim, int spacedim>
         void
         get_mg_dofindices_recursively(
-          const parallel::distributed::Triangulation<dim, spacedim> &tria,
+          const parallel::DistributedTrinagulationBase<dim, spacedim> &tria,
           const typename dealii::internal::p4est::types<dim>::quadrant
             &p4est_cell,
           const typename DoFHandler<dim, spacedim>::level_cell_iterator
@@ -4478,7 +4478,7 @@ namespace internal
         template <int dim, int spacedim>
         void
         find_marked_mg_ghost_cells_recursively(
-          const typename parallel::distributed::Triangulation<dim, spacedim>
+          const typename parallel::DistributedTrinagulationBase<dim, spacedim>
             &                tria,
           const unsigned int tree_index,
           const typename DoFHandler<dim, spacedim>::level_cell_iterator
@@ -4523,7 +4523,7 @@ namespace internal
         template <int dim, int spacedim>
         void
         set_mg_dofindices_recursively(
-          const parallel::distributed::Triangulation<dim, spacedim> &tria,
+          const parallel::DistributedTrinagulationBase<dim, spacedim> &tria,
           const typename dealii::internal::p4est::types<dim>::quadrant
             &p4est_cell,
           const typename DoFHandler<dim, spacedim>::level_cell_iterator
@@ -4594,7 +4594,7 @@ namespace internal
         template <int dim, int spacedim, class DoFHandlerType>
         void
         communicate_mg_ghost_cells(
-          const typename parallel::distributed::Triangulation<dim, spacedim>
+          const typename parallel::DistributedTrinagulationBase<dim, spacedim>
             &             tria,
           DoFHandlerType &dof_handler)
         {
@@ -4996,7 +4996,7 @@ namespace internal
           // barrier is negligible compared to everything else we do
           // here
           if (const auto *triangulation = dynamic_cast<
-                const parallel::distributed::Triangulation<dim, spacedim> *>(
+                const parallel::DistributedTrinagulationBase<dim, spacedim> *>(
                 &dof_handler.get_triangulation()))
             {
               const int ierr = MPI_Barrier(triangulation->get_communicator());
@@ -5039,10 +5039,10 @@ namespace internal
         const unsigned int dim      = DoFHandlerType::dimension;
         const unsigned int spacedim = DoFHandlerType::space_dimension;
 
-        parallel::distributed::Triangulation<dim, spacedim> *triangulation =
-          (dynamic_cast<parallel::distributed::Triangulation<dim, spacedim> *>(
-            const_cast<dealii::Triangulation<dim, spacedim> *>(
-              &dof_handler->get_triangulation())));
+        parallel::DistributedTrinagulationBase<dim, spacedim> *triangulation =
+          (dynamic_cast<parallel::DistributedTrinagulationBase<dim, spacedim>
+                          *>(const_cast<dealii::Triangulation<dim, spacedim> *>(
+            &dof_handler->get_triangulation())));
         Assert(triangulation != nullptr, ExcInternalError());
 
         const types::subdomain_id subdomain_id =
@@ -5276,15 +5276,13 @@ namespace internal
         const unsigned int dim      = DoFHandlerType::dimension;
         const unsigned int spacedim = DoFHandlerType::space_dimension;
 
-        parallel::distributed::Triangulation<dim, spacedim> *triangulation =
-          (dynamic_cast<parallel::distributed::Triangulation<dim, spacedim> *>(
-            const_cast<dealii::Triangulation<dim, spacedim> *>(
-              &dof_handler->get_triangulation())));
+        parallel::DistributedTrinagulationBase<dim, spacedim> *triangulation =
+          (dynamic_cast<parallel::DistributedTrinagulationBase<dim, spacedim>
+                          *>(const_cast<dealii::Triangulation<dim, spacedim> *>(
+            &dof_handler->get_triangulation())));
         Assert(triangulation != nullptr, ExcInternalError());
 
-        AssertThrow((triangulation->settings &
-                     parallel::distributed::Triangulation<dim, spacedim>::
-                       construct_multigrid_hierarchy),
+        AssertThrow((triangulation->do_construct_multigrid_hierarchy()),
                     ExcMessage(
                       "Multigrid DoFs can only be distributed on a parallel "
                       "Triangulation if the flag construct_multigrid_hierarchy "
@@ -5505,10 +5503,10 @@ namespace internal
         const unsigned int dim      = DoFHandlerType::dimension;
         const unsigned int spacedim = DoFHandlerType::space_dimension;
 
-        parallel::distributed::Triangulation<dim, spacedim> *triangulation =
-          (dynamic_cast<parallel::distributed::Triangulation<dim, spacedim> *>(
-            const_cast<dealii::Triangulation<dim, spacedim> *>(
-              &dof_handler->get_triangulation())));
+        parallel::DistributedTrinagulationBase<dim, spacedim> *triangulation =
+          (dynamic_cast<parallel::DistributedTrinagulationBase<dim, spacedim>
+                          *>(const_cast<dealii::Triangulation<dim, spacedim> *>(
+            &dof_handler->get_triangulation())));
         Assert(triangulation != nullptr, ExcInternalError());
 
 

@@ -239,6 +239,25 @@ namespace parallel
     fill_level_ghost_owners();
   };
 
+
+  template <int dim, int spacedim = dim>
+  class DistributedTrinagulationBase
+    : public dealii::parallel::Triangulation<dim, spacedim>
+  {
+  public:
+    /**
+     * Constructor.
+     */
+    DistributedTrinagulationBase(
+      MPI_Comm mpi_communicator,
+      const typename dealii::Triangulation<dim, spacedim>::MeshSmoothing
+                 smooth_grid = (dealii::Triangulation<dim, spacedim>::none),
+      const bool check_for_distorted_cells = false);
+
+    virtual bool
+    do_construct_multigrid_hierarchy() const = 0;
+  };
+
 } // namespace parallel
 
 DEAL_II_NAMESPACE_CLOSE

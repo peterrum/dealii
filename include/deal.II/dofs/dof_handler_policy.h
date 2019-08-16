@@ -213,7 +213,7 @@ namespace internal
 
       /**
        * This class implements the policy for operations when we use a
-       * parallel::distributed::Triangulation object.
+       * parallel::DistributedTrinagulationBase object.
        */
       template <class DoFHandlerType>
       class ParallelDistributed

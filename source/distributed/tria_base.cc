@@ -391,6 +391,17 @@ namespace parallel
     return result;
   }
 
+  template <int dim, int spacedim>
+  DistributedTrinagulationBase<dim, spacedim>::DistributedTrinagulationBase(
+    MPI_Comm mpi_communicator,
+    const typename dealii::Triangulation<dim, spacedim>::MeshSmoothing
+               smooth_grid,
+    const bool check_for_distorted_cells)
+    : dealii::parallel::Triangulation<dim, spacedim>(mpi_communicator,
+                                                     smooth_grid,
+                                                     check_for_distorted_cells)
+  {}
+
 } // end namespace parallel
 
 

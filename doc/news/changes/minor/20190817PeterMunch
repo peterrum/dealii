@@ -1,0 +1,4 @@
+New: Intdroduce new class parallel::DistributedTrinagulationBase 
+between parallel::Triangulation and parallel::distributed::Triangulation.
+<br>
+(Peter Munch, 2019/08/17)
