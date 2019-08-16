@@ -3493,7 +3493,8 @@ public:
    * @return Index of the coarse cell.
    */
   virtual unsigned int
-  coarse_cell_id_to_coarse_cell_index(const unsigned int coarse_cell_id) const;
+  coarse_cell_id_to_coarse_cell_index(
+    const unsigned long int coarse_cell_id) const;
 
 
   /**
@@ -3505,7 +3506,7 @@ public:
    * @param coarse_cell_index Index of the coarse cell.
    * @return Id of the coarse cell.
    */
-  virtual unsigned int
+  virtual unsigned long int
   coarse_cell_index_to_coarse_cell_id(
     const unsigned int coarse_cell_index) const;
 
@@ -4312,7 +4313,7 @@ Triangulation<dim, spacedim>::load(Archive &ar, const unsigned int)
 template <int dim, int spacedim>
 inline unsigned int
 Triangulation<dim, spacedim>::coarse_cell_id_to_coarse_cell_index(
-  const unsigned int coarse_cell_id) const
+  const unsigned long int coarse_cell_id) const
 {
   return coarse_cell_id;
 }
@@ -4320,7 +4321,7 @@ Triangulation<dim, spacedim>::coarse_cell_id_to_coarse_cell_index(
 
 
 template <int dim, int spacedim>
-inline unsigned int
+inline long unsigned int
 Triangulation<dim, spacedim>::coarse_cell_index_to_coarse_cell_id(
   const unsigned int coarse_cell_index) const
 {
