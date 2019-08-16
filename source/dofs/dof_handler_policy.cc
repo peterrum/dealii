@@ -51,6 +51,64 @@
 
 DEAL_II_NAMESPACE_OPEN
 
+namespace internal
+{
+  namespace p4est
+  {
+    template <>
+    struct types<1>
+    {
+      using quadrant = int;
+    };
+
+    template <>
+    bool
+    quadrant_is_equal<1>(const typename types<1>::quadrant &q1,
+                         const typename types<1>::quadrant &q2)
+    {
+      return q1 == q2;
+    }
+
+    template <>
+    bool quadrant_is_ancestor<1>(types<1>::quadrant const &q1,
+                                 types<1>::quadrant const &q2)
+    {
+      int gen_1 = (q1 << 27) >> 27;
+      int gen_2 = (q2 << 27) >> 27;
+
+      if (gen_1 >= gen_2)
+        return false;
+
+      int val_1 = (q1 >> (31 - gen_1)) << (31 - gen_1);
+      int val_2 = (q2 >> (31 - gen_1)) << (31 - gen_1);
+
+
+      return val_1 == val_2;
+    }
+
+    template <>
+    void
+    init_quadrant_children<1>(
+      const typename types<1>::quadrant &p4est_cell,
+      typename types<1>::quadrant (
+        &p4est_children)[dealii::GeometryInfo<1>::max_children_per_cell])
+    {
+      int generation_parent = (p4est_cell << 27) >> 27;
+      int generation        = generation_parent + 1;
+
+      p4est_children[0] = (p4est_cell + 1) | (1 << (31 - generation));
+      p4est_children[1] = (p4est_cell + 1);
+    }
+
+    template <>
+    void init_coarse_quadrant<1>(typename types<1>::quadrant &quad)
+    {
+      quad = 0;
+    }
+
+
+  } // namespace p4est
+} // namespace internal
 
 namespace internal
 {
@@ -4741,28 +4799,6 @@ namespace internal
                                            MPI_STATUSES_IGNORE);
               AssertThrowMPI(ierr);
             }
-        }
-
-
-
-        template <int spacedim>
-        void
-        communicate_mg_ghost_cells(
-          const typename parallel::distributed::Triangulation<1, spacedim> &,
-          DoFHandler<1, spacedim> &)
-        {
-          Assert(false, ExcNotImplemented());
-        }
-
-
-
-        template <int spacedim>
-        void
-        communicate_mg_ghost_cells(
-          const typename parallel::distributed::Triangulation<1, spacedim> &,
-          hp::DoFHandler<1, spacedim> &)
-        {
-          Assert(false, ExcNotImplemented());
         }
 
 
