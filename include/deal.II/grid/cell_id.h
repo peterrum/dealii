@@ -158,6 +158,12 @@ public:
   void
   serialize(Archive &ar, const unsigned int version);
 
+  /**
+   * Return the id of the coarse cell.
+   */
+  unsigned int
+  get_coarse_cell_id() const;
+
 private:
   /**
    * The number of the coarse cell within whose tree the cell

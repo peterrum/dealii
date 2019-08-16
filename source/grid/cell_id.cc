@@ -169,6 +169,14 @@ CellId::to_cell(const Triangulation<dim, spacedim> &tria) const
   return cell;
 }
 
+
+
+unsigned int
+CellId::get_coarse_cell_id() const
+{
+  return coarse_cell_id;
+}
+
 // explicit instantiations
 #include "cell_id.inst"
 
