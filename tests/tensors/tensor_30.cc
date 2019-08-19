@@ -28,17 +28,18 @@
 using namespace dealii;
 
 template <int dim>
-void test ()
+void
+test()
 {
-  Tensor<3,dim> a;
-  Tensor<1,dim> b;
+  Tensor<3, dim> a;
+  Tensor<1, dim> b;
 
-  for (unsigned int i=0; i<dim; ++i)
-    for (unsigned int j=0; j<dim; ++j)
-      for (unsigned int k=0; k<dim; ++k)
-        a[i][j][k] = i+2*j+3*k;
+  for (unsigned int i = 0; i < dim; ++i)
+    for (unsigned int j = 0; j < dim; ++j)
+      for (unsigned int k = 0; k < dim; ++k)
+        a[i][j][k] = i + 2 * j + 3 * k;
 
-  for (unsigned int k=0; k<dim; ++k)
+  for (unsigned int k = 0; k < dim; ++k)
     b[k] = k;
 
   // Compute
@@ -54,9 +55,40 @@ void test ()
   //    [[3,4],[4,6]]
   // and in 3d is the 3x3 matrix
   //    [[15,21,27],[18,24,30],[21,27,33]]
-  Tensor<2,dim> c = a*b;
 
-  deallog << c << std::endl;
+  // v0: original implementation
+  {
+    Tensor<2, dim> c;
+    for (unsigned int i = 0; i < dim; ++i)
+      c += a[i] * b[i];
+    deallog << c << std::endl;
+  }
+
+  // v1: failing implementation
+  {
+    Tensor<2, dim> c = a * b;
+    deallog << c << std::endl;
+  }
+
+  // v2: switch arguments (same as v0)
+  {
+    Tensor<2, dim> c = b * a;
+    deallog << c << std::endl;
+  }
+
+  // v3: contract over 1st index (same as v0)
+  {
+    Tensor<2, dim> c;
+    contract(c, a, 1, b);
+    deallog << c << std::endl;
+  }
+
+  // v4: contract over 3rd index (same as v1)
+  {
+    Tensor<2, dim> c;
+    contract(c, a, 3, b);
+    deallog << c << std::endl;
+  }
 }
 
 
