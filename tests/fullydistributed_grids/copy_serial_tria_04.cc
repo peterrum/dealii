@@ -34,27 +34,32 @@
 
 using namespace dealii;
 
-template<int dim>
+template <int dim>
 void
 test(const int n_refinements, const int n_subdivisions, MPI_Comm comm)
 {
   const double left  = 0;
   const double right = 1;
 
-  auto add_periodicy = [&](dealii::Triangulation<dim> & tria, const int offset = 0) {
-    std::vector<GridTools::PeriodicFacePair<typename Triangulation<dim>::cell_iterator>>
+  auto add_periodicy = [&](dealii::Triangulation<dim> &tria,
+                           const int                   offset = 0) {
+    std::vector<
+      GridTools::PeriodicFacePair<typename Triangulation<dim>::cell_iterator>>
          periodic_faces;
     auto cell = tria.begin();
     auto endc = tria.end();
-    for(; cell != endc; ++cell)
-      for(unsigned int face_number = 0; face_number < GeometryInfo<dim>::faces_per_cell;
-          ++face_number)
-        if(std::fabs(cell->face(face_number)->center()(0) - left) < 1e-12)
+    for (; cell != endc; ++cell)
+      for (unsigned int face_number = 0;
+           face_number < GeometryInfo<dim>::faces_per_cell;
+           ++face_number)
+        if (std::fabs(cell->face(face_number)->center()(0) - left) < 1e-12)
           cell->face(face_number)->set_all_boundary_ids(0 + offset);
-        else if(std::fabs(cell->face(face_number)->center()(0) - right) < 1e-12)
+        else if (std::fabs(cell->face(face_number)->center()(0) - right) <
+                 1e-12)
           cell->face(face_number)->set_all_boundary_ids(1 + offset);
 
-    GridTools::collect_periodic_faces(tria, 0 + offset, 1 + offset, 0, periodic_faces);
+    GridTools::collect_periodic_faces(
+      tria, 0 + offset, 1 + offset, 0, periodic_faces);
 
     tria.add_periodicity(periodic_faces);
   };
@@ -75,7 +80,8 @@ test(const int n_refinements, const int n_subdivisions, MPI_Comm comm)
 
   // extract relevant information form serial triangulation
   auto construction_data =
-    parallel::fullydistributed::Utilities::copy_from_triangulation(basetria, tria_pft);
+    parallel::fullydistributed::Utilities::copy_from_triangulation(basetria,
+                                                                   tria_pft);
 
   // actually create triangulation
   tria_pft.reinit(construction_data);
@@ -90,16 +96,15 @@ main(int argc, char *argv[])
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    all;
 
-  const int dim            = 2;
-  const int n_refinements  = 4;
-  const int n_subdivisions = 8;
-  const MPI_Comm comm          = MPI_COMM_WORLD;
+  const int      dim            = 2;
+  const int      n_refinements  = 4;
+  const int      n_subdivisions = 8;
+  const MPI_Comm comm           = MPI_COMM_WORLD;
 
-    if(dim == 1)
-      test<1>(n_refinements, n_subdivisions, comm);
-    else if(dim == 2)
-      test<2>(n_refinements, n_subdivisions, comm);
-    else if(dim == 3)
-      test<3>(n_refinements, n_subdivisions, comm);
-    
+  if (dim == 1)
+    test<1>(n_refinements, n_subdivisions, comm);
+  else if (dim == 2)
+    test<2>(n_refinements, n_subdivisions, comm);
+  else if (dim == 3)
+    test<3>(n_refinements, n_subdivisions, comm);
 }

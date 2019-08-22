@@ -541,7 +541,7 @@ namespace parallel
                          coarse_lid_to_gid.end(),
                          coarse_cell_index,
                          [](const auto &pair, const auto &val) {
-                           return  pair.first < val;
+                           return pair.first < val;
                          });
       Assert(coarse_cell_id != coarse_lid_to_gid.cend(),
              ExcMessage("Coarse cell id not found!"));
