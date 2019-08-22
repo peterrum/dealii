@@ -155,8 +155,8 @@ namespace parallel
 
           // 3) setup dummy mapping between locally relevant coarse-grid cells
           //    and global cells
-          this->coarse_gid_to_lid.emplace(0, 0);
-          this->coarse_lid_to_gid.emplace(0, 0);
+          this->coarse_gid_to_lid.emplace_back(0, 0);
+          this->coarse_lid_to_gid.emplace_back(0, 0);
         }
       else
         {
@@ -166,14 +166,20 @@ namespace parallel
           auto &parts        = construction_data.parts;
 
 
-          // save data structures and ...
-          this->coarse_lid_to_gid = construction_data.coarse_lid_to_gid;
 
-          // ... create inverse map
+          // create inverse map
           std::map<int, int> coarse_gid_to_lid;
           for (auto &i : coarse_lid_to_gid)
             coarse_gid_to_lid[i.second] = i.first;
-          this->coarse_gid_to_lid = coarse_gid_to_lid;
+
+
+
+          // convert map to vector and save data structures
+          for (auto i : construction_data.coarse_lid_to_gid)
+            this->coarse_lid_to_gid.emplace_back(i);
+
+          for (auto i : coarse_gid_to_lid)
+            this->coarse_gid_to_lid.emplace_back(i);
 
 
 
@@ -533,10 +539,16 @@ namespace parallel
     Triangulation<dim, spacedim>::coarse_cell_id_to_coarse_cell_index(
       const types::coarse_cell_id coarse_cell_id) const
     {
-      auto coarse_cell_index = coarse_gid_to_lid.find(coarse_cell_id);
-      Assert(coarse_cell_index != coarse_gid_to_lid.end(),
+      auto coarse_cell_index =
+        std::lower_bound(coarse_gid_to_lid.begin(),
+                         coarse_gid_to_lid.end(),
+                         coarse_cell_id,
+                         [](const auto &pair, const auto &val) {
+                           return pair.first < val;
+                         });
+      Assert(coarse_cell_index != coarse_gid_to_lid.cend(),
              ExcMessage("Coarse cell index not found!"));
-      return coarse_cell_index->first;
+      return coarse_cell_index->second;
     }
 
 
@@ -546,8 +558,14 @@ namespace parallel
     Triangulation<dim, spacedim>::coarse_cell_index_to_coarse_cell_id(
       const unsigned int coarse_cell_index) const
     {
-      auto coarse_cell_id = coarse_lid_to_gid.find(coarse_cell_index);
-      Assert(coarse_cell_id != coarse_lid_to_gid.end(),
+      auto coarse_cell_id =
+        std::lower_bound(coarse_lid_to_gid.begin(),
+                         coarse_lid_to_gid.end(),
+                         coarse_cell_index,
+                         [](const auto &pair, const auto &val) {
+                           return  pair.first < val;
+                         });
+      Assert(coarse_cell_id != coarse_lid_to_gid.cend(),
              ExcMessage("Coarse cell id not found!"));
       return coarse_cell_id->second;
     }
