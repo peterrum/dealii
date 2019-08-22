@@ -229,8 +229,10 @@ namespace parallel
       template <int, int, class>
       friend class dealii::FETools::internal::ExtrapolateImplementation;
 
-      std::map<int, int> coarse_gid_to_lid;
-      std::map<int, int> coarse_lid_to_gid;
+      std::vector<std::pair<types::coarse_cell_id, unsigned int>>
+        coarse_gid_to_lid;
+      std::vector<std::pair<unsigned int, types::coarse_cell_id>>
+        coarse_lid_to_gid;
 
       MPI_Comm mpi_communicator_coarse;
     };
