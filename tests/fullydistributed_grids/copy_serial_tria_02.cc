@@ -39,7 +39,8 @@ void
 test(int n_refinements, const int n_subdivisions, MPI_Comm comm)
 {
   // create pdt
-  Triangulation<dim> basetria(Triangulation<dim>::limit_level_difference_at_vertices);
+  Triangulation<dim> basetria(
+    Triangulation<dim>::limit_level_difference_at_vertices);
   GridGenerator::subdivided_hyper_cube(basetria, n_subdivisions);
   basetria.refine_global(n_refinements);
 
@@ -50,11 +51,14 @@ test(int n_refinements, const int n_subdivisions, MPI_Comm comm)
 
   // create instance of pft
   parallel::fullydistributed::Triangulation<dim> tria_pft(
-    comm, parallel::fullydistributed::Triangulation<dim>::construct_multigrid_hierarchy);
+    comm,
+    parallel::fullydistributed::Triangulation<
+      dim>::construct_multigrid_hierarchy);
 
   // extract relevant information form serial triangulation
   auto construction_data =
-    parallel::fullydistributed::Utilities::copy_from_triangulation(basetria, tria_pft);
+    parallel::fullydistributed::Utilities::copy_from_triangulation(basetria,
+                                                                   tria_pft);
 
   // actually create triangulation
   tria_pft.reinit(construction_data);
@@ -72,16 +76,15 @@ main(int argc, char *argv[])
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    all;
 
-  const int dim            = 2;
-  const int n_refinements  = 4;
-  const int n_subdivisions = 8;
-  const MPI_Comm comm      = MPI_COMM_WORLD;
+  const int      dim            = 2;
+  const int      n_refinements  = 4;
+  const int      n_subdivisions = 8;
+  const MPI_Comm comm           = MPI_COMM_WORLD;
 
-  if(dim == 1)
+  if (dim == 1)
     test<1>(n_refinements, n_subdivisions, comm);
-  else if(dim == 2)
+  else if (dim == 2)
     test<2>(n_refinements, n_subdivisions, comm);
-  else if(dim == 3)
+  else if (dim == 3)
     test<3>(n_refinements, n_subdivisions, comm);
-    
 }

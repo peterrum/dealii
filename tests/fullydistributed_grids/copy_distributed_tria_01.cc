@@ -34,7 +34,7 @@
 
 using namespace dealii;
 
-template<int dim>
+template <int dim>
 void
 test(int n_refinements, MPI_Comm comm)
 {
@@ -51,7 +51,8 @@ test(int n_refinements, MPI_Comm comm)
 
   // extract relevant information form serial triangulation
   auto construction_data =
-    parallel::fullydistributed::Utilities::copy_from_triangulation(tria_pdt, tria_pft);
+    parallel::fullydistributed::Utilities::copy_from_triangulation(tria_pdt,
+                                                                   tria_pft);
 
   // actually create triangulation
   tria_pft.reinit(construction_data);
@@ -60,7 +61,6 @@ test(int n_refinements, MPI_Comm comm)
   FE_Q<dim>       fe(2);
   DoFHandler<dim> dof_handler(tria_pft);
   dof_handler.distribute_dofs(fe);
-
 }
 
 int
@@ -69,13 +69,12 @@ main(int argc, char *argv[])
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    all;
 
-  const int dim           = 2;
-  const int n_refinements = 8;
-  const MPI_Comm comm     = MPI_COMM_WORLD;
+  const int      dim           = 2;
+  const int      n_refinements = 8;
+  const MPI_Comm comm          = MPI_COMM_WORLD;
 
-    if(dim == 2)
-      test<2>(n_refinements, comm);
-    else if(dim == 3)
-      test<3>(n_refinements, comm);
-    
+  if (dim == 2)
+    test<2>(n_refinements, comm);
+  else if (dim == 3)
+    test<3>(n_refinements, comm);
 }

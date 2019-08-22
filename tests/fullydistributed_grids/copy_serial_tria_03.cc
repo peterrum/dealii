@@ -31,40 +31,42 @@
 #include <deal.II/grid/manifold_lib.h>
 #include <deal.II/grid/tria.h>
 
-
 #include "../tests.h"
 
 using namespace dealii;
 
-template<int dim>
+template <int dim>
 void
 test(int n_refinements, const int n_subdivisions, MPI_Comm comm)
 {
   // create pdt
-  Triangulation<dim> basetria(Triangulation<dim>::limit_level_difference_at_vertices);
+  Triangulation<dim> basetria(
+    Triangulation<dim>::limit_level_difference_at_vertices);
 
 
   const Point<dim> center(1, 0);
   const double     inner_radius = 0.5, outer_radius = 1.0;
-  GridGenerator::hyper_shell(basetria, center, inner_radius, outer_radius, n_subdivisions);
+  GridGenerator::hyper_shell(
+    basetria, center, inner_radius, outer_radius, n_subdivisions);
   // basetria.reset_all_manifolds ();
-  for(int step = 0; step < n_refinements; ++step)
-  {
-    for(auto & cell : basetria.active_cell_iterators())
+  for (int step = 0; step < n_refinements; ++step)
     {
-      // if(cell->is_locally_owned ())
-      for(unsigned int v = 0; v < GeometryInfo<2>::vertices_per_cell; ++v)
-      {
-        const double distance_from_center = center.distance(cell->vertex(v));
-        if(std::fabs(distance_from_center - inner_radius) < 1e-10)
+      for (auto &cell : basetria.active_cell_iterators())
         {
-          cell->set_refine_flag();
-          break;
+          // if(cell->is_locally_owned ())
+          for (unsigned int v = 0; v < GeometryInfo<2>::vertices_per_cell; ++v)
+            {
+              const double distance_from_center =
+                center.distance(cell->vertex(v));
+              if (std::fabs(distance_from_center - inner_radius) < 1e-10)
+                {
+                  cell->set_refine_flag();
+                  break;
+                }
+            }
         }
-      }
+      basetria.execute_coarsening_and_refinement();
     }
-    basetria.execute_coarsening_and_refinement();
-  }
 
   GridTools::partition_triangulation(Utilities::MPI::n_mpi_processes(comm),
                                      basetria,
@@ -74,13 +76,16 @@ test(int n_refinements, const int n_subdivisions, MPI_Comm comm)
 
   // create instance of pft
   parallel::fullydistributed::Triangulation<dim> tria_pft(
-    comm, parallel::fullydistributed::Triangulation<dim>::construct_multigrid_hierarchy);
+    comm,
+    parallel::fullydistributed::Triangulation<
+      dim>::construct_multigrid_hierarchy);
 
   tria_pft.set_manifold(0, SphericalManifold<dim>(center));
 
   // extract relevant information form pdt
   auto construction_data =
-    parallel::fullydistributed::Utilities::copy_from_triangulation(basetria, tria_pft);
+    parallel::fullydistributed::Utilities::copy_from_triangulation(basetria,
+                                                                   tria_pft);
 
   // actually create triangulation
   tria_pft.reinit(construction_data);
@@ -91,7 +96,6 @@ test(int n_refinements, const int n_subdivisions, MPI_Comm comm)
   DoFHandler<dim> dof_handler(tria_pft);
   dof_handler.distribute_dofs(fe);
   dof_handler.distribute_mg_dofs();
-
 }
 
 int
@@ -100,14 +104,13 @@ main(int argc, char *argv[])
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    all;
 
-  const int dim            = 2;
-  const int n_refinements  = 4;
-  const int n_subdivisions = 8;
-  const MPI_Comm comm      = MPI_COMM_WORLD;
+  const int      dim            = 2;
+  const int      n_refinements  = 4;
+  const int      n_subdivisions = 8;
+  const MPI_Comm comm           = MPI_COMM_WORLD;
 
-    if(dim == 2)
-      test<2>(n_refinements, n_subdivisions, comm);
-    else if(dim == 3)
-      test<3>(n_refinements, n_subdivisions, comm);
-    
+  if (dim == 2)
+    test<2>(n_refinements, n_subdivisions, comm);
+  else if (dim == 3)
+    test<3>(n_refinements, n_subdivisions, comm);
 }
