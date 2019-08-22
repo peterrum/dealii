@@ -196,8 +196,8 @@ namespace parallel
             // structures and collect all locally relevant vertices
             // for second sweep
             std::map<unsigned int, unsigned int> vertices_locally_relevant;
-            parts.push_back(Part());
-            Part &part = parts[0];
+            parts.push_back(std::vector<CellInfo>());
+            auto &part = parts[0];
 
             unsigned int cell_counter = 0;
             for (auto cell : tria.cell_iterators())
@@ -238,14 +238,14 @@ namespace parallel
                   id[2] = 0;
                   id[3] = 0;
 
-                  part.cells.emplace_back(id,
-                                          cell->subdomain_id(),
-                                          numbers::invalid_subdomain_id);
+                  part.emplace_back(id,
+                                    cell->subdomain_id(),
+                                    numbers::invalid_subdomain_id);
 
                   cell_counter++;
                 }
 
-            std::sort(part.cells.begin(), part.cells.end(), [](auto a, auto b) {
+            std::sort(part.begin(), part.end(), [](auto a, auto b) {
               return convert_binary_to_gid<dim>(a.index) <
                      convert_binary_to_gid<dim>(b.index);
             });
@@ -406,8 +406,8 @@ namespace parallel
                 };
 
 
-                parts.push_back(Part());
-                Part &part = parts.back();
+                parts.push_back(std::vector<CellInfo>());
+                auto &part = parts.back();
                 for (auto cell : tria.cell_iterators_on_level(level))
                   {
                     if (!(cell->user_flag_set()))
@@ -417,25 +417,23 @@ namespace parallel
                     id[0]   = coarse_gid_to_lid[id[0]];
 
                     if (cell->active() && is_locally_relevant_strong(cell))
-                      part.cells.emplace_back(id,
-                                              cell->subdomain_id(),
-                                              cell->level_subdomain_id());
+                      part.emplace_back(id,
+                                        cell->subdomain_id(),
+                                        cell->level_subdomain_id());
                     else if (is_locally_relevant(cell))
-                      part.cells.emplace_back(id,
-                                              numbers::artificial_subdomain_id,
-                                              cell->level_subdomain_id());
+                      part.emplace_back(id,
+                                        numbers::artificial_subdomain_id,
+                                        cell->level_subdomain_id());
                     else
-                      part.cells.emplace_back(id,
-                                              numbers::artificial_subdomain_id,
-                                              numbers::artificial_subdomain_id);
+                      part.emplace_back(id,
+                                        numbers::artificial_subdomain_id,
+                                        numbers::artificial_subdomain_id);
                   }
 
-                std::sort(part.cells.begin(),
-                          part.cells.end(),
-                          [](auto a, auto b) {
-                            return convert_binary_to_gid<dim>(a.index) <
-                                   convert_binary_to_gid<dim>(b.index);
-                          });
+                std::sort(part.begin(), part.end(), [](auto a, auto b) {
+                  return convert_binary_to_gid<dim>(a.index) <
+                         convert_binary_to_gid<dim>(b.index);
+                });
               }
           }
 

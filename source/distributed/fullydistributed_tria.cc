@@ -207,9 +207,9 @@ namespace parallel
                ref_counter++)
             {
               auto coarse_cell    = this->begin(ref_counter - 1);
-              auto fine_cell_info = parts[ref_counter].cells.begin();
+              auto fine_cell_info = parts[ref_counter].begin();
 
-              for (; fine_cell_info != parts[ref_counter].cells.end();
+              for (; fine_cell_info != parts[ref_counter].end();
                    ++fine_cell_info)
                 {
                   auto temp = fine_cell_info->index;
@@ -246,8 +246,8 @@ namespace parallel
                ref_counter++)
             {
               auto cell      = this->begin(ref_counter);
-              auto cell_info = parts[ref_counter].cells.begin();
-              for (; cell_info != parts[ref_counter].cells.end(); ++cell_info)
+              auto cell_info = parts[ref_counter].begin();
+              for (; cell_info != parts[ref_counter].end(); ++cell_info)
                 {
                   auto temp = cell_info->index;
                   temp[0]   = coarse_cell_index_to_coarse_cell_id(temp[0]);
@@ -317,19 +317,6 @@ namespace parallel
 
 
     template <int dim, int spacedim>
-    Triangulation<dim, spacedim>::~Triangulation()
-    {}
-
-
-
-    template <int dim, int spacedim>
-    void
-    Triangulation<dim, spacedim>::clear()
-    {}
-
-
-
-    template <int dim, int spacedim>
     void
     Triangulation<dim, spacedim>::update_number_cache()
     {
@@ -337,15 +324,6 @@ namespace parallel
 
       if (settings & construct_multigrid_hierarchy)
         parallel::Triangulation<dim, spacedim>::fill_level_ghost_owners();
-    }
-
-
-
-    template <int dim, int spacedim>
-    void
-    Triangulation<dim, spacedim>::copy_local_forest_to_triangulation()
-    {
-      Assert(false, ExcNotImplemented());
     }
 
 
