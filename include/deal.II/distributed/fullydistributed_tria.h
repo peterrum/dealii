@@ -82,33 +82,28 @@ namespace GridTools
   struct PeriodicFacePair;
 }
 
-struct Part_
-{
-  Part_()
-  {}
-
-  Part_(CellId::binary_type index,
-        unsigned int        subdomain_id,
-        unsigned int        level_subdomain_id)
-    : index(index)
-    , subdomain_id(subdomain_id)
-    , level_subdomain_id(level_subdomain_id){};
-
-  CellId::binary_type index;
-  unsigned int        subdomain_id;
-  unsigned int        level_subdomain_id;
-};
-
-class Part
-{
-public:
-  std::vector<Part_> cells;
-};
-
 namespace parallel
 {
   namespace fullydistributed
   {
+    struct CellInfo
+    {
+      CellInfo() = default;
+
+      CellInfo(CellId::binary_type index,
+               unsigned int        subdomain_id,
+               unsigned int        level_subdomain_id)
+        : index(index)
+        , subdomain_id(subdomain_id)
+        , level_subdomain_id(level_subdomain_id){};
+
+      CellId::binary_type index;
+      unsigned int        subdomain_id;
+      unsigned int        level_subdomain_id;
+    };
+
+
+
     template <int dim, int spacedim>
     struct ConstructionData
     {
@@ -121,8 +116,10 @@ namespace parallel
       std::map<int, int> coarse_lid_to_gid;
 
       // information describing how to constuct the levels
-      std::vector<Part> parts;
+      std::vector<std::vector<CellInfo>> parts;
     };
+
+
 
     template <int dim, int spacedim = dim>
     class Triangulation
@@ -171,13 +168,7 @@ namespace parallel
                     MPI_Comm mpi_communicator_coarse,
                     Settings settings_ = default_setting);
 
-      virtual ~Triangulation();
-
-      virtual void
-      clear() override;
-
-      void
-      copy_local_forest_to_triangulation();
+      virtual ~Triangulation() = default;
 
       virtual void
       execute_coarsening_and_refinement() override;
