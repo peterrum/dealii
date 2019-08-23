@@ -155,12 +155,12 @@ namespace parallel
       };
 
 
-      Triangulation(MPI_Comm mpi_communicator,
-                    Settings settings = default_setting);
+      explicit Triangulation(MPI_Comm mpi_communicator,
+                             Settings settings = default_setting);
 
-      Triangulation(MPI_Comm mpi_communicator,
-                    MPI_Comm mpi_communicator_coarse,
-                    Settings settings = default_setting);
+      explicit Triangulation(MPI_Comm mpi_communicator,
+                             MPI_Comm mpi_communicator_coarse,
+                             Settings settings = default_setting);
 
       virtual ~Triangulation() = default;
 
