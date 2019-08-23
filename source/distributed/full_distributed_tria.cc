@@ -151,7 +151,7 @@ namespace parallel
             vertices, cells, subcelldata);
 
           for (auto c = this->begin(); c != this->end(); c++)
-            c->set_all_manifold_ids(c->material_id());
+            c->set_all_manifold_ids(c->manifold_id());
 
 
           // 2) set boundary ids
@@ -196,9 +196,8 @@ namespace parallel
                 cell->set_subdomain_id(
                   dealii::numbers::artificial_subdomain_id);
 
-              if (settings & construct_multigrid_hierarchy)
-                cell->set_level_subdomain_id(
-                  dealii::numbers::artificial_subdomain_id);
+              cell->set_level_subdomain_id(
+                dealii::numbers::artificial_subdomain_id);
             }
 
 
