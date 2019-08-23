@@ -156,11 +156,11 @@ namespace parallel
 
 
       Triangulation(MPI_Comm mpi_communicator,
-                    Settings settings_ = default_setting);
+                    Settings settings = default_setting);
 
       Triangulation(MPI_Comm mpi_communicator,
                     MPI_Comm mpi_communicator_coarse,
-                    Settings settings_ = default_setting);
+                    Settings settings = default_setting);
 
       virtual ~Triangulation() = default;
 
