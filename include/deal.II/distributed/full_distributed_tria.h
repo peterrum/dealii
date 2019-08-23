@@ -158,10 +158,6 @@ namespace parallel
       explicit Triangulation(MPI_Comm mpi_communicator,
                              Settings settings = default_setting);
 
-      explicit Triangulation(MPI_Comm mpi_communicator,
-                             MPI_Comm mpi_communicator_coarse,
-                             Settings settings = default_setting);
-
       virtual ~Triangulation() = default;
 
       virtual void
@@ -190,9 +186,6 @@ namespace parallel
       bool
       is_multilevel_hierarchy_constructed() const override;
 
-      MPI_Comm
-      get_coarse_communicator() const;
-
       virtual unsigned int
       coarse_cell_id_to_coarse_cell_index(
         const types::coarse_cell_id coarse_cell_id) const override;
@@ -217,8 +210,6 @@ namespace parallel
       std::vector<std::pair<types::coarse_cell_id, unsigned int>>
                                          coarse_gid_to_lid;
       std::vector<types::coarse_cell_id> coarse_lid_to_gid;
-
-      MPI_Comm mpi_communicator_coarse;
     };
 
   } // namespace fullydistributed

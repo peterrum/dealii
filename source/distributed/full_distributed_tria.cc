@@ -243,20 +243,8 @@ namespace parallel
 
 
     template <int dim, int spacedim>
-    Triangulation<dim, spacedim>::Triangulation(MPI_Comm mpi_communicaton,
+    Triangulation<dim, spacedim>::Triangulation(MPI_Comm mpi_communicator,
                                                 Settings settings)
-      : Triangulation<dim, spacedim>(mpi_communicaton,
-                                     mpi_communicaton,
-                                     settings)
-    {}
-
-
-
-    template <int dim, int spacedim>
-    Triangulation<dim, spacedim>::Triangulation(
-      MPI_Comm mpi_communicator,
-      MPI_Comm mpi_communicator_coarse,
-      Settings settings)
       : parallel::DistributedTriangulationBase<dim, spacedim>(
           mpi_communicator,
           (settings & construct_multigrid_hierarchy) ?
@@ -270,7 +258,6 @@ namespace parallel
               dealii::Triangulation<dim>::none),
           false)
       , settings(settings)
-      , mpi_communicator_coarse(mpi_communicator_coarse)
     {}
 
 
@@ -458,15 +445,6 @@ namespace parallel
     Triangulation<dim, spacedim>::is_multilevel_hierarchy_constructed() const
     {
       return (settings & construct_multigrid_hierarchy);
-    }
-
-
-
-    template <int dim, int spacedim>
-    MPI_Comm
-    Triangulation<dim, spacedim>::get_coarse_communicator() const
-    {
-      return mpi_communicator_coarse;
     }
 
 
