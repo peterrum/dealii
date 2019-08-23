@@ -131,7 +131,7 @@ namespace parallel
         typename dealii::Triangulation<dim, spacedim>::CellStatus CellStatus;
 
       void
-      reinit(ConstructionData<dim, spacedim> &construction_data);
+      reinit(const ConstructionData<dim, spacedim> &construction_data);
 
       virtual void
       create_triangulation(const std::vector<Point<spacedim>> &vertices,

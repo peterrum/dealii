@@ -88,7 +88,7 @@ namespace parallel
     template <int dim, int spacedim>
     void
     Triangulation<dim, spacedim>::reinit(
-      ConstructionData<dim, spacedim> &construction_data)
+      const ConstructionData<dim, spacedim> &construction_data)
     {
       // check if there are locally relevant coarse-grid cells
       if (construction_data.cells.size() == 0) // no
