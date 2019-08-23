@@ -118,7 +118,7 @@ namespace parallel
           // 3) setup dummy mapping between locally relevant coarse-grid cells
           //    and global cells
           this->coarse_gid_to_lid.emplace_back(0, 0);
-          this->coarse_lid_to_gid.emplace_back(0, 0);
+          this->coarse_lid_to_gid.push_back(0);
         }
       else
         {
@@ -131,14 +131,14 @@ namespace parallel
 
           // create inverse map
           std::map<int, int> coarse_gid_to_lid;
-          for (auto &i : coarse_lid_to_gid)
+          for (auto &i : construction_data.coarse_lid_to_gid)
             coarse_gid_to_lid[i.second] = i.first;
 
 
 
           // convert map to vector and save data structures
           for (auto i : construction_data.coarse_lid_to_gid)
-            this->coarse_lid_to_gid.emplace_back(i);
+            this->coarse_lid_to_gid.push_back(i.second);
 
           for (auto i : coarse_gid_to_lid)
             this->coarse_gid_to_lid.emplace_back(i);
@@ -495,16 +495,7 @@ namespace parallel
     Triangulation<dim, spacedim>::coarse_cell_index_to_coarse_cell_id(
       const unsigned int coarse_cell_index) const
     {
-      auto coarse_cell_id =
-        std::lower_bound(coarse_lid_to_gid.begin(),
-                         coarse_lid_to_gid.end(),
-                         coarse_cell_index,
-                         [](const auto &pair, const auto &val) {
-                           return pair.first < val;
-                         });
-      Assert(coarse_cell_id != coarse_lid_to_gid.cend(),
-             ExcMessage("Coarse cell id not found!"));
-      return coarse_cell_id->second;
+      return coarse_lid_to_gid[coarse_cell_index];
     }
 
 
