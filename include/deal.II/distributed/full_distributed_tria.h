@@ -13,8 +13,8 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef dealii_fullydistributed_tria_h
-#define dealii_fullydistributed_tria_h
+#ifndef dealii_full_distributed_tria_h
+#define dealii_full_distributed_tria_h
 
 
 #include <deal.II/base/config.h>
@@ -43,17 +43,10 @@
 #  include <mpi.h>
 #endif
 
-#ifdef DEAL_II_WITH_P4EST
-#  include <p4est.h>
-#  include <p4est_connectivity.h>
-#  include <p4est_ghost.h>
-#  include <p8est.h>
-#  include <p8est_connectivity.h>
-#  include <p8est_ghost.h>
-#endif
-
 DEAL_II_NAMESPACE_OPEN
 
+// Forward declarations
+#ifndef DOXYGEN
 namespace internal
 {
   namespace DoFHandlerImplementation
@@ -81,6 +74,7 @@ namespace GridTools
   template <typename CellIterator>
   struct PeriodicFacePair;
 }
+#endif
 
 namespace parallel
 {

@@ -18,8 +18,8 @@
 
 #include <deal.II/base/mpi.h>
 
-#include <deal.II/distributed/fullydistributed_tria.h>
-#include <deal.II/distributed/fullydistributed_tria_util.h>
+#include <deal.II/distributed/full_distributed_tria.h>
+#include <deal.II/distributed/full_distributed_tria_util.h>
 #include <deal.II/distributed/shared_tria.h>
 #include <deal.II/distributed/tria.h>
 

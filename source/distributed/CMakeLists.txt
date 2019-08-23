@@ -19,7 +19,7 @@ SET(_unity_include_src
   grid_refinement.cc
   cell_weights.cc
   cell_data_transfer.cc
-  fullydistributed_tria.cc
+  full_distributed_tria.cc
   solution_transfer.cc
   tria.cc
   tria_base.cc
@@ -43,7 +43,7 @@ SET(_inst
   grid_refinement.inst.in
   cell_weights.inst.in
   cell_data_transfer.inst.in
-  fullydistributed_tria.inst.in
+  full_distributed_tria.inst.in
   solution_transfer.inst.in
   tria.inst.in
   shared_tria.inst.in

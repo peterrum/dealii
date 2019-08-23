@@ -13,13 +13,13 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef dealii_fullydistributed_tria_util_h
-#define dealii_fullydistributed_tria_util_h
+#ifndef dealii_full_distributed_tria_util.h
+#define dealii_full_distributed_tria_util .h
 
 #include <deal.II/base/geometry_info.h>
 #include <deal.II/base/mpi.h>
 
-#include <deal.II/distributed/fullydistributed_tria.h>
+#include <deal.II/distributed/full_distributed_tria.h>
 #include <deal.II/distributed/tria.h>
 
 #include <deal.II/dofs/dof_accessor.h>
