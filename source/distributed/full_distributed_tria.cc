@@ -38,6 +38,17 @@
 
 DEAL_II_NAMESPACE_OPEN
 
+// Forward declarations
+namespace GridGenerator
+{
+  template <int dim, int spacedim>
+  void
+  hyper_cube(Triangulation<dim, spacedim> &tria,
+             const double                  left,
+             const double                  right,
+             const bool                    colorize);
+} // namespace GridGenerator
+
 namespace parallel
 {
   namespace fullydistributed
@@ -91,59 +102,10 @@ namespace parallel
       const ConstructionData<dim, spacedim> &construction_data)
     {
       // check if there are locally relevant coarse-grid cells
-      if (construction_data.cells.size() == 0) // no
+      if (construction_data.cells.empty() == true) // no
         {
           // 1) create a dummy hypercube
-          Point<spacedim> p1, p2;
-          for (unsigned int i = 0; i < dim; ++i)
-            {
-              p1(i) = 0.0;
-              p2(i) = 1.0;
-            }
-
-          std::vector<Point<spacedim>> vertices(
-            GeometryInfo<dim>::vertices_per_cell);
-          switch (dim)
-            {
-              case 1:
-                vertices[0] = p1;
-                vertices[1] = p2;
-                break;
-              case 2:
-                vertices[0] = vertices[1] = p1;
-                vertices[2] = vertices[3] = p2;
-
-                vertices[1](0) = p2(0);
-                vertices[2](0) = p1(0);
-                break;
-              case 3:
-                vertices[0] = vertices[1] = vertices[2] = vertices[3] = p1;
-                vertices[4] = vertices[5] = vertices[6] = vertices[7] = p2;
-
-                vertices[1](0) = p2(0);
-                vertices[2](1) = p2(1);
-                vertices[3](0) = p2(0);
-                vertices[3](1) = p2(1);
-
-                vertices[4](0) = p1(0);
-                vertices[4](1) = p1(1);
-                vertices[5](1) = p1(1);
-                vertices[6](0) = p1(0);
-
-
-                break;
-              default:
-                Assert(false, ExcNotImplemented());
-            }
-
-          std::vector<CellData<dim>> cells(1);
-          for (unsigned int i = 0; i < GeometryInfo<dim>::vertices_per_cell;
-               ++i)
-            cells[0].vertices[i] = i;
-          cells[0].material_id = 0;
-          SubCellData subcelldata;
-          dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
-            vertices, cells, subcelldata);
+          GridGenerator::hyper_cube(*this, 0, 1, false);
 
           // 2) mark cell as artificial
           for (auto cell = this->begin(); cell != this->end(); cell++)
@@ -275,8 +237,6 @@ namespace parallel
       const std::vector<CellData<dim>> &  cells,
       const SubCellData &                 subcelldata)
     {
-      AssertThrow(false, ExcMessage("Use the reinit-method instead!"));
-
       dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
         vertices, cells, subcelldata);
     }
