@@ -14,27 +14,9 @@
 // ---------------------------------------------------------------------
 
 
-#include <deal.II/base/logstream.h>
 #include <deal.II/base/memory_consumption.h>
-#include <deal.II/base/utilities.h>
 
 #include <deal.II/distributed/full_distributed_tria.h>
-#include <deal.II/distributed/p4est_wrappers.h>
-
-#include <deal.II/grid/grid_tools.h>
-#include <deal.II/grid/tria.h>
-#include <deal.II/grid/tria_accessor.h>
-#include <deal.II/grid/tria_iterator.h>
-
-#include <deal.II/lac/dynamic_sparsity_pattern.h>
-#include <deal.II/lac/sparsity_tools.h>
-
-#include <algorithm>
-#include <fstream>
-#include <iostream>
-#include <numeric>
-#include <vector>
-
 
 DEAL_II_NAMESPACE_OPEN
 

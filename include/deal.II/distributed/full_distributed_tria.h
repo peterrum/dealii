@@ -19,24 +19,8 @@
 
 #include <deal.II/base/config.h>
 
-#include <deal.II/base/smartpointer.h>
-#include <deal.II/base/subscriptor.h>
-#include <deal.II/base/template_constraints.h>
-#include <deal.II/base/timer.h>
-
-#include <deal.II/distributed/p4est_wrappers.h>
 #include <deal.II/distributed/tria_base.h>
 
-#include <deal.II/grid/tria.h>
-
-#include <boost/range/iterator_range.hpp>
-
-#include <functional>
-#include <list>
-#include <set>
-#include <tuple>
-#include <type_traits>
-#include <utility>
 #include <vector>
 
 #ifdef DEAL_II_WITH_MPI
