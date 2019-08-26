@@ -69,15 +69,15 @@ namespace parallel
       CellInfo() = default;
 
       CellInfo(CellId::binary_type index,
-               unsigned int        subdomain_id,
-               unsigned int        level_subdomain_id)
+               types::subdomain_id subdomain_id,
+               types::subdomain_id level_subdomain_id)
         : index(index)
         , subdomain_id(subdomain_id)
         , level_subdomain_id(level_subdomain_id){};
 
       CellId::binary_type index;
-      unsigned int        subdomain_id;
-      unsigned int        level_subdomain_id;
+      types::subdomain_id subdomain_id;
+      types::subdomain_id level_subdomain_id;
     };
 
 
@@ -91,7 +91,7 @@ namespace parallel
       std::vector<types::boundary_id> boundary_ids;
 
       // information
-      std::map<int, int> coarse_lid_to_gid;
+      std::map<unsigned int, types::coarse_cell_id> coarse_lid_to_gid;
 
       // information describing how to constuct the levels
       std::vector<std::vector<CellInfo>> parts;
