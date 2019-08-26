@@ -64,10 +64,19 @@ namespace parallel
 {
   namespace fullydistributed
   {
+    /**
+     * Information needed for a cell.
+     */
     struct CellInfo
     {
+      /**
+       * Constructor.
+       */
       CellInfo() = default;
 
+      /**
+       * Constructor.
+       */
       CellInfo(CellId::binary_type index,
                types::subdomain_id subdomain_id,
                types::subdomain_id level_subdomain_id)
@@ -75,25 +84,66 @@ namespace parallel
         , subdomain_id(subdomain_id)
         , level_subdomain_id(level_subdomain_id){};
 
+      /**
+       * Unique CellID of the cell.
+       */
       CellId::binary_type index;
+
+      /**
+       * subdomain_id of the cell.
+       */
       types::subdomain_id subdomain_id;
+
+      /**
+       * level_subdomain_id of the cell.
+       */
       types::subdomain_id level_subdomain_id;
     };
 
 
 
+    /**
+     * Data to construct a parallel::fullydistributed::Triangulation.
+     */
     template <int dim, int spacedim>
     struct ConstructionData
     {
-      // information describing the local part of the coarse grid
-      std::vector<CellData<dim>>      cells;
-      std::vector<Point<spacedim>>    vertices;
+      /**
+       * Cells of the locally-relevant coarse-grid triangulation.
+       */
+      std::vector<CellData<dim>> cells;
+
+      /**
+       * Vertices of the locally-relevant coarse-grid triangulation.
+       */
+      std::vector<Point<spacedim>> vertices;
+
+      /**
+       * Boundary id of all faces of the locally-relevant coarse-grid
+       * triangulation.
+       */
       std::vector<types::boundary_id> boundary_ids;
 
-      // information
+      /**
+       * Material id of all faces of the locally-relevant coarse-grid
+       * triangulation.
+       */
+      std::vector<types::material_id> manifold_face_ids;
+
+      /**
+       * Material id of all vertices of the locally-relevant coarse-grid
+       * triangulation.
+       */
+      std::vector<types::material_id> manifold_vertex_ids;
+
+      /**
+       * Mapping from coarse-grid index to coarse-grid id.
+       */
       std::map<unsigned int, types::coarse_cell_id> coarse_lid_to_gid;
 
-      // information describing how to constuct the levels
+      /**
+       * CellInfo for each locally relevant cell on each level.
+       */
       std::vector<std::vector<CellInfo>> parts;
     };
 
