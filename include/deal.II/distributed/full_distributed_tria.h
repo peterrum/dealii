@@ -127,14 +127,22 @@ namespace parallel
       /**
        * Material id of all faces of the locally-relevant coarse-grid
        * triangulation.
+       *
+       * @note material_ids of cells are encoded in CellData.
        */
-      std::vector<types::material_id> manifold_face_ids;
+      std::vector<
+        std::array<types::material_id, GeometryInfo<spacedim>::quads_per_cell>>
+        manifold_quad_ids;
 
       /**
        * Material id of all vertices of the locally-relevant coarse-grid
        * triangulation.
+       *
+       * @note material_ids of cells are encoded in CellData.
        */
-      std::vector<types::material_id> manifold_vertex_ids;
+      std::vector<
+        std::array<types::material_id, GeometryInfo<spacedim>::lines_per_cell>>
+        manifold_line_ids;
 
       /**
        * Mapping from coarse-grid index to coarse-grid id.

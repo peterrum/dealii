@@ -132,8 +132,35 @@ namespace parallel
           dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
             vertices, cells, subcelldata);
 
-          for (auto c = this->begin(); c != this->end(); c++)
-            c->set_all_manifold_ids(c->manifold_id());
+          // for (auto c = this->begin(); c != this->end(); c++)
+          //  c->set_all_manifold_ids(c->manifold_id());
+
+          {
+            unsigned int c = 0;
+            for (auto cell = this->begin(); cell != this->end(); cell++)
+              {
+                Assert(c < construction_data.manifold_line_ids.size(),
+                       ExcMessage("Exceed index!"));
+
+                // c->set_all_manifold_ids(c->manifold_id());
+
+                if (spacedim == 3)
+                  for (unsigned int quad = 0;
+                       quad < GeometryInfo<spacedim>::quads_per_cell;
+                       quad++)
+                    cell->quad(quad)->set_manifold_id(
+                      construction_data.manifold_quad_ids[c][quad]);
+
+                if (spacedim >= 2)
+                  for (unsigned int line = 0;
+                       line < GeometryInfo<spacedim>::lines_per_cell;
+                       line++)
+                    cell->line(line)->set_manifold_id(
+                      construction_data.manifold_line_ids[c][line]);
+
+                c++;
+              }
+          }
 
 
           // 2) set boundary ids

@@ -231,6 +231,34 @@ namespace parallel
                   coarse_lid_to_gid[cell_counter] = convert_binary_to_gid<dim>(
                     cell->id().template to_binary<dim>());
 
+                  if (spacedim == 3)
+                    {
+                      std::array<types::material_id,
+                                 GeometryInfo<spacedim>::quads_per_cell>
+                        manifold_quad_ids;
+                      for (unsigned int quad = 0;
+                           quad < GeometryInfo<spacedim>::quads_per_cell;
+                           quad++)
+                        manifold_quad_ids[quad] =
+                          cell->quad(quad)->manifold_id();
+
+                      cd.manifold_quad_ids.push_back(manifold_quad_ids);
+                    }
+
+                  if (spacedim >= 2)
+                    {
+                      std::array<types::material_id,
+                                 GeometryInfo<spacedim>::lines_per_cell>
+                        manifold_line_ids;
+                      for (unsigned int line = 0;
+                           line < GeometryInfo<spacedim>::lines_per_cell;
+                           line++)
+                        manifold_line_ids[line] =
+                          cell->line(line)->manifold_id();
+
+                      cd.manifold_line_ids.push_back(manifold_line_ids);
+                    }
+
                   CellId::binary_type id;
                   id.fill(0);
                   id[0] = cell_counter;
@@ -339,6 +367,32 @@ namespace parallel
                 // e) save translation for corase grid: lid -> gid
                 coarse_lid_to_gid[cell_counter] = convert_binary_to_gid<dim>(
                   cell->id().template to_binary<dim>());
+
+                if (spacedim == 3)
+                  {
+                    std::array<types::material_id,
+                               GeometryInfo<spacedim>::quads_per_cell>
+                      manifold_quad_ids;
+                    for (unsigned int quad = 0;
+                         quad < GeometryInfo<spacedim>::quads_per_cell;
+                         quad++)
+                      manifold_quad_ids[quad] = cell->quad(quad)->manifold_id();
+
+                    cd.manifold_quad_ids.push_back(manifold_quad_ids);
+                  }
+
+                if (spacedim >= 2)
+                  {
+                    std::array<types::material_id,
+                               GeometryInfo<spacedim>::lines_per_cell>
+                      manifold_line_ids;
+                    for (unsigned int line = 0;
+                         line < GeometryInfo<spacedim>::lines_per_cell;
+                         line++)
+                      manifold_line_ids[line] = cell->line(line)->manifold_id();
+
+                    cd.manifold_line_ids.push_back(manifold_line_ids);
+                  }
 
                 cell_counter++;
               }
