@@ -123,7 +123,7 @@ namespace parallel
        * triangulation.
        */
       std::vector<
-        std::array<types::boundary_id, GeometryInfo<spacedim>::faces_per_cell>>
+        std::array<types::boundary_id, GeometryInfo<dim>::faces_per_cell>>
         boundary_ids;
 
       /**
@@ -133,7 +133,7 @@ namespace parallel
        * @note material_ids of cells are encoded in CellData.
        */
       std::vector<
-        std::array<types::material_id, GeometryInfo<spacedim>::quads_per_cell>>
+        std::array<types::material_id, GeometryInfo<dim>::quads_per_cell>>
         manifold_quad_ids;
 
       /**
@@ -143,7 +143,7 @@ namespace parallel
        * @note material_ids of cells are encoded in CellData.
        */
       std::vector<
-        std::array<types::material_id, GeometryInfo<spacedim>::lines_per_cell>>
+        std::array<types::material_id, GeometryInfo<dim>::lines_per_cell>>
         manifold_line_ids;
 
       /**
@@ -154,7 +154,7 @@ namespace parallel
       /**
        * CellInfo for each locally relevant cell on each level.
        */
-      std::vector<std::vector<CellInfo>> parts;
+      std::vector<std::vector<CellInfo>> cell_infos;
     };
 
 

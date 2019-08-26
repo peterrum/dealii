@@ -107,7 +107,7 @@ namespace parallel
           const auto &boundary_ids = construction_data.boundary_ids;
           const auto &cells        = construction_data.cells;
           const auto &vertices     = construction_data.vertices;
-          const auto &parts        = construction_data.parts;
+          const auto &cell_infos   = construction_data.cell_infos;
 
 
 
@@ -176,13 +176,13 @@ namespace parallel
             }
 
           // 3) create all cell levels
-          for (unsigned int ref_counter = 1; ref_counter < parts.size();
+          for (unsigned int ref_counter = 1; ref_counter < cell_infos.size();
                ref_counter++)
             {
               auto coarse_cell    = this->begin(ref_counter - 1);
-              auto fine_cell_info = parts[ref_counter].begin();
+              auto fine_cell_info = cell_infos[ref_counter].begin();
 
-              for (; fine_cell_info != parts[ref_counter].end();
+              for (; fine_cell_info != cell_infos[ref_counter].end();
                    ++fine_cell_info)
                 {
                   auto temp = fine_cell_info->index;
@@ -214,12 +214,12 @@ namespace parallel
 
 
           // 4b) set actual (level_)subdomain_ids
-          for (unsigned int ref_counter = 0; ref_counter < parts.size();
+          for (unsigned int ref_counter = 0; ref_counter < cell_infos.size();
                ref_counter++)
             {
               auto cell      = this->begin(ref_counter);
-              auto cell_info = parts[ref_counter].begin();
-              for (; cell_info != parts[ref_counter].end(); ++cell_info)
+              auto cell_info = cell_infos[ref_counter].begin();
+              for (; cell_info != cell_infos[ref_counter].end(); ++cell_info)
                 {
                   auto temp = cell_info->index;
                   temp[0]   = coarse_cell_index_to_coarse_cell_id(temp[0]);

@@ -144,7 +144,7 @@ namespace parallel
         auto &vertices          = cd.vertices;
         auto &boundary_ids      = cd.boundary_ids;
         auto &coarse_lid_to_gid = cd.coarse_lid_to_gid;
-        auto &parts             = cd.parts;
+        auto &cell_infos        = cd.cell_infos;
 
         auto add_vertices_of_cell_to_vertices_owned_by_loclly_owned_cells =
           [](auto &cell, auto &vertices_owned_by_loclly_owned_cells) mutable {
@@ -196,8 +196,8 @@ namespace parallel
             // structures and collect all locally relevant vertices
             // for second sweep
             std::map<unsigned int, unsigned int> vertices_locally_relevant;
-            parts.push_back(std::vector<CellInfo>());
-            auto &part = parts[0];
+            cell_infos.push_back(std::vector<CellInfo>());
+            auto &part = cell_infos[0];
 
             unsigned int cell_counter = 0;
             for (auto cell : tria.cell_iterators())
@@ -470,8 +470,8 @@ namespace parallel
                 };
 
 
-                parts.push_back(std::vector<CellInfo>());
-                auto &part = parts.back();
+                cell_infos.push_back(std::vector<CellInfo>());
+                auto &part = cell_infos.back();
                 for (auto cell : tria.cell_iterators_on_level(level))
                   {
                     if (!(cell->user_flag_set()))
