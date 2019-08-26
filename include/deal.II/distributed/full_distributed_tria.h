@@ -139,8 +139,8 @@ namespace parallel
       };
 
 
-      explicit Triangulation(MPI_Comm mpi_communicator,
-                             Settings settings = default_setting);
+      explicit Triangulation(MPI_Comm       mpi_communicator,
+                             const Settings settings = default_setting);
 
       virtual ~Triangulation() = default;
 
@@ -182,7 +182,7 @@ namespace parallel
       /**
        * store the Settings.
        */
-      Settings settings;
+      const Settings settings;
 
       template <typename>
       friend class dealii::internal::DoFHandlerImplementation::Policy::

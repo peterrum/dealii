@@ -104,15 +104,15 @@ namespace parallel
         }
       else
         {
-          auto &boundary_ids = construction_data.boundary_ids;
-          auto &cells        = construction_data.cells;
-          auto &vertices     = construction_data.vertices;
-          auto &parts        = construction_data.parts;
+          const auto &boundary_ids = construction_data.boundary_ids;
+          const auto &cells        = construction_data.cells;
+          const auto &vertices     = construction_data.vertices;
+          const auto &parts        = construction_data.parts;
 
 
 
           // create inverse map
-          std::map<int, int> coarse_gid_to_lid;
+          std::map<types::coarse_cell_id, unsigned int> coarse_gid_to_lid;
           for (auto &i : construction_data.coarse_lid_to_gid)
             coarse_gid_to_lid[i.second] = i.first;
 
@@ -128,7 +128,7 @@ namespace parallel
 
 
           // 1) create coarse grid
-          SubCellData subcelldata;
+          const SubCellData subcelldata;
           dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
             vertices, cells, subcelldata);
 
@@ -225,8 +225,8 @@ namespace parallel
 
 
     template <int dim, int spacedim>
-    Triangulation<dim, spacedim>::Triangulation(MPI_Comm mpi_communicator,
-                                                Settings settings)
+    Triangulation<dim, spacedim>::Triangulation(MPI_Comm       mpi_communicator,
+                                                const Settings settings)
       : parallel::DistributedTriangulationBase<dim, spacedim>(
           mpi_communicator,
           (settings & construct_multigrid_hierarchy) ?
