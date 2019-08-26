@@ -222,10 +222,15 @@ namespace parallel
                       numbers::invalid_unsigned_int;
 
                   // c) save boundary_ids of each face of this cell
+                  std::array<types::boundary_id,
+                             GeometryInfo<spacedim>::faces_per_cell>
+                    boundary_ids_cell;
                   for (unsigned int f = 0;
                        f < GeometryInfo<dim>::faces_per_cell;
                        f++)
-                    boundary_ids.push_back(cell->face(f)->boundary_id());
+                    boundary_ids_cell[f] = cell->face(f)->boundary_id();
+
+                  boundary_ids.push_back(boundary_ids_cell);
 
                   // e) save translation for corase grid: lid -> gid
                   coarse_lid_to_gid[cell_counter] = convert_binary_to_gid<dim>(
@@ -360,9 +365,14 @@ namespace parallel
                     numbers::invalid_unsigned_int;
 
                 // d) save boundary_ids of each face of this cell
+                std::array<types::boundary_id,
+                           GeometryInfo<spacedim>::faces_per_cell>
+                  boundary_ids_cell;
                 for (unsigned int f = 0; f < GeometryInfo<dim>::faces_per_cell;
                      f++)
-                  boundary_ids.push_back(cell->face(f)->boundary_id());
+                  boundary_ids_cell[f] = cell->face(f)->boundary_id();
+
+                boundary_ids.push_back(boundary_ids_cell);
 
                 // e) save translation for corase grid: lid -> gid
                 coarse_lid_to_gid[cell_counter] = convert_binary_to_gid<dim>(

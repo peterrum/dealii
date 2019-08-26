@@ -122,7 +122,9 @@ namespace parallel
        * Boundary id of all faces of the locally-relevant coarse-grid
        * triangulation.
        */
-      std::vector<types::boundary_id> boundary_ids;
+      std::vector<
+        std::array<types::boundary_id, GeometryInfo<spacedim>::faces_per_cell>>
+        boundary_ids;
 
       /**
        * Material id of all faces of the locally-relevant coarse-grid

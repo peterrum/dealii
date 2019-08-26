@@ -142,8 +142,6 @@ namespace parallel
                 Assert(c < construction_data.manifold_line_ids.size(),
                        ExcMessage("Exceed index!"));
 
-                // c->set_all_manifold_ids(c->manifold_id());
-
                 if (spacedim == 3)
                   for (unsigned int quad = 0;
                        quad < GeometryInfo<spacedim>::quads_per_cell;
@@ -166,12 +164,16 @@ namespace parallel
           // 2) set boundary ids
           int c = 0;
           for (auto cell = this->begin_active(); cell != this->end(); ++cell)
-            for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell; i++)
-              {
-                unsigned int boundary_ind = boundary_ids[c++];
-                if (boundary_ind != numbers::internal_face_boundary_id)
-                  cell->face(i)->set_boundary_id(boundary_ind);
-              }
+            {
+              for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell;
+                   i++)
+                {
+                  unsigned int boundary_ind = boundary_ids[c][i];
+                  if (boundary_ind != numbers::internal_face_boundary_id)
+                    cell->face(i)->set_boundary_id(boundary_ind);
+                }
+              c++;
+            }
 
           // 3) create all cell levels
           for (unsigned int ref_counter = 1; ref_counter < parts.size();
