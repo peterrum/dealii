@@ -39,7 +39,7 @@ namespace parallel
     {
       template <int dim>
       bool
-      parent(typename CellId::binary_type c, typename CellId::binary_type p)
+      parent(typename CellId::binary_type p, typename CellId::binary_type c)
       {
         if (c[0] != p[0])
           return false; // has same coarse cell
@@ -104,14 +104,11 @@ namespace parallel
         }
       else
         {
-          const auto &cells      = construction_data.cells;
-          const auto &vertices   = construction_data.vertices;
-          const auto &cell_infos = construction_data.cell_infos;
-
+          // 1) store `coarse-cell index to coarse-cell id`-mapping
           this->coarse_cell_index_to_coarse_cell_id_vector =
             construction_data.coarse_cell_index_to_coarse_cell_id;
 
-          // create inverse map
+          // 2) setup `coarse-cell id to coarse-cell index`-mapping
           std::map<types::coarse_cell_id, unsigned int>
             coarse_cell_id_to_coarse_cell_index_vector;
           for (unsigned int i = 0;
@@ -125,40 +122,50 @@ namespace parallel
 
 
 
-          // 1) create coarse grid
+          // 3) create coarse grid
           const SubCellData subcelldata;
           dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
-            vertices, cells, subcelldata);
+            construction_data.vertices, construction_data.cells, subcelldata);
 
 
 
-          // 3) create all cell levels
+          // 4) create all levels via a sequence of refinements
+          const auto &cell_infos = construction_data.cell_infos;
           for (unsigned int ref_counter = 0; ref_counter < cell_infos.size();
                ref_counter++)
             {
               // a) perform refinement
               if (ref_counter > 0)
                 {
+                  // find cells that should have children and mark them for
+                  // refinement
                   auto coarse_cell    = this->begin(ref_counter - 1);
                   auto fine_cell_info = cell_infos[ref_counter].begin();
 
+                  // loop over all cells on the next level
                   for (; fine_cell_info != cell_infos[ref_counter].end();
                        ++fine_cell_info)
                     {
+                      // translate cell index to cell id
                       auto temp = fine_cell_info->index;
                       temp[0]   = coarse_cell_index_to_coarse_cell_id(temp[0]);
+
+                      // find the parent of that cell
                       while (!internal::parent<dim>(
-                        temp, coarse_cell->id().template to_binary<dim>()))
+                        coarse_cell->id().template to_binary<dim>(), temp))
                         coarse_cell++;
 
+                      // set parent for refinement
                       coarse_cell->set_refine_flag();
                     }
 
+                  // execute refinement
                   dealii::Triangulation<dim, spacedim>::
                     execute_coarsening_and_refinement();
                 }
 
-              // b) set manifold ids
+              // b) set manifold ids (because new vertices have to be positioned
+              //    correctly)
               {
                 auto cell      = this->begin(ref_counter);
                 auto cell_info = cell_infos[ref_counter].begin();
