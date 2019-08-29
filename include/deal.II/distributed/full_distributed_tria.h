@@ -101,21 +101,25 @@ namespace parallel
       types::subdomain_id level_subdomain_id;
 
       /**
-       * Material id of the cell.
+       * Manifold id of the cell.
        */
       types::material_id manifold_id;
 
       /**
-       * Material id of all faces of the cell.
-       */
-      std::array<types::material_id, GeometryInfo<dim>::quads_per_cell>
-        manifold_quad_ids;
-
-      /**
-       * Material id of all vertices of the cell.
+       * Manifold id of all vertices of the cell.
+       *
+       * @note Only used for 2D and 3D.
        */
       std::array<types::material_id, GeometryInfo<dim>::lines_per_cell>
         manifold_line_ids;
+
+      /**
+       * Manifold id of all faces of the cell.
+       *
+       * @note Only used for 3D.
+       */
+      std::array<types::material_id, GeometryInfo<dim>::quads_per_cell>
+        manifold_quad_ids;
     };
 
 
