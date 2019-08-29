@@ -104,10 +104,9 @@ namespace parallel
         }
       else
         {
-          const auto &boundary_ids = construction_data.boundary_ids;
-          const auto &cells        = construction_data.cells;
-          const auto &vertices     = construction_data.vertices;
-          const auto &cell_infos   = construction_data.cell_infos;
+          const auto &cells      = construction_data.cells;
+          const auto &vertices   = construction_data.vertices;
+          const auto &cell_infos = construction_data.cell_infos;
 
 
 
@@ -132,19 +131,7 @@ namespace parallel
           dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
             vertices, cells, subcelldata);
 
-          // 2) set boundary ids
-          int c = 0;
-          for (auto cell = this->begin_active(); cell != this->end(); ++cell)
-            {
-              for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell;
-                   i++)
-                {
-                  unsigned int boundary_ind = boundary_ids[c][i];
-                  if (boundary_ind != numbers::internal_face_boundary_id)
-                    cell->face(i)->set_boundary_id(boundary_ind);
-                }
-              c++;
-            }
+
 
           // 3) create all cell levels
           for (unsigned int ref_counter = 0; ref_counter < cell_infos.size();
@@ -234,6 +221,9 @@ namespace parallel
 
                   if (settings & construct_multigrid_hierarchy)
                     cell->set_level_subdomain_id(cell_info->level_subdomain_id);
+
+                  for (auto pair : cell_info->boundary_ids)
+                    cell->face(pair.first)->set_boundary_id(pair.second);
                 }
             }
         }

@@ -76,16 +76,6 @@ namespace parallel
       CellInfo() = default;
 
       /**
-       * Constructor.
-       */
-      CellInfo(CellId::binary_type index,
-               types::subdomain_id subdomain_id,
-               types::subdomain_id level_subdomain_id)
-        : index(index)
-        , subdomain_id(subdomain_id)
-        , level_subdomain_id(level_subdomain_id){};
-
-      /**
        * Unique CellID of the cell.
        */
       CellId::binary_type index;
@@ -120,6 +110,12 @@ namespace parallel
        */
       std::array<types::material_id, GeometryInfo<dim>::quads_per_cell>
         manifold_quad_ids;
+
+      /**
+       * List of face number and boundary id of all non-internal faces of the
+       * cell.
+       */
+      std::vector<std::pair<unsigned int, types::boundary_id>> boundary_ids;
     };
 
 
@@ -139,14 +135,6 @@ namespace parallel
        * Vertices of the locally-relevant coarse-grid triangulation.
        */
       std::vector<Point<spacedim>> vertices;
-
-      /**
-       * Boundary id of all faces of the locally-relevant coarse-grid
-       * triangulation.
-       */
-      std::vector<
-        std::array<types::boundary_id, GeometryInfo<dim>::faces_per_cell>>
-        boundary_ids;
 
       /**
        * Mapping from coarse-grid index to coarse-grid id.

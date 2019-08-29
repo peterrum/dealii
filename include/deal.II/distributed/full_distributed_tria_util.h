@@ -142,7 +142,6 @@ namespace parallel
 
         auto &cells             = cd.cells;
         auto &vertices          = cd.vertices;
-        auto &boundary_ids      = cd.boundary_ids;
         auto &coarse_lid_to_gid = cd.coarse_lid_to_gid;
         auto &cell_infos        = cd.cell_infos;
 
@@ -221,22 +220,22 @@ namespace parallel
                     vertices_locally_relevant[cell->vertex_index(v)] =
                       numbers::invalid_unsigned_int;
 
+                  CellInfo<dim> cell_info;
+
                   // c) save boundary_ids of each face of this cell
-                  std::array<types::boundary_id,
-                             GeometryInfo<spacedim>::faces_per_cell>
-                    boundary_ids_cell;
                   for (unsigned int f = 0;
                        f < GeometryInfo<dim>::faces_per_cell;
                        f++)
-                    boundary_ids_cell[f] = cell->face(f)->boundary_id();
-
-                  boundary_ids.push_back(boundary_ids_cell);
+                    {
+                      types::boundary_id boundary_ind =
+                        cell->face(f)->boundary_id();
+                      if (boundary_ind != numbers::internal_face_boundary_id)
+                        cell_info.boundary_ids.emplace_back(f, boundary_ind);
+                    }
 
                   // e) save translation for corase grid: lid -> gid
                   coarse_lid_to_gid[cell_counter] = convert_binary_to_gid<dim>(
                     cell->id().template to_binary<dim>());
-
-                  CellInfo<dim> cell_info;
 
                   cell_info.manifold_id = cell->manifold_id();
 
@@ -360,16 +359,6 @@ namespace parallel
                   vertices_locally_relevant[cell->vertex_index(v)] =
                     numbers::invalid_unsigned_int;
 
-                // d) save boundary_ids of each face of this cell
-                std::array<types::boundary_id,
-                           GeometryInfo<spacedim>::faces_per_cell>
-                  boundary_ids_cell;
-                for (unsigned int f = 0; f < GeometryInfo<dim>::faces_per_cell;
-                     f++)
-                  boundary_ids_cell[f] = cell->face(f)->boundary_id();
-
-                boundary_ids.push_back(boundary_ids_cell);
-
                 // e) save translation for corase grid: lid -> gid
                 coarse_lid_to_gid[cell_counter] = convert_binary_to_gid<dim>(
                   cell->id().template to_binary<dim>());
@@ -451,6 +440,17 @@ namespace parallel
                     id[0]   = coarse_gid_to_lid[id[0]];
 
                     CellInfo<dim> cell_info;
+
+                    // d) save boundary_ids of each face of this cell
+                    for (unsigned int f = 0;
+                         f < GeometryInfo<dim>::faces_per_cell;
+                         f++)
+                      {
+                        types::boundary_id boundary_ind =
+                          cell->face(f)->boundary_id();
+                        if (boundary_ind != numbers::internal_face_boundary_id)
+                          cell_info.boundary_ids.emplace_back(f, boundary_ind);
+                      }
 
                     cell_info.manifold_id = cell->manifold_id();
 
