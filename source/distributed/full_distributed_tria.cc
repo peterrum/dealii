@@ -37,17 +37,21 @@ namespace parallel
   {
     namespace internal
     {
+      /**
+       * Check if `parent` is parent of `child`.
+       */
       template <int dim>
       bool
-      parent(typename CellId::binary_type p, typename CellId::binary_type c)
+      is_parent(typename CellId::binary_type parent,
+                typename CellId::binary_type child)
       {
-        if (c[0] != p[0])
+        if (child[0] != parent[0])
           return false; // has same coarse cell
-        if ((c[1] >> 2) != ((p[1] >> 2) + 1))
+        if ((child[1] >> 2) != ((parent[1] >> 2) + 1))
           return false; // level has one difference
 
 
-        const unsigned int n_child_indices = p[1] >> 2;
+        const unsigned int n_child_indices = parent[1] >> 2;
         const unsigned int children_per_value =
           sizeof(CellId::binary_type::value_type) * 8 / dim;
         unsigned int child_level  = 0;
@@ -56,13 +60,13 @@ namespace parallel
         // Loop until all child indices have been written
         while (child_level < n_child_indices)
           {
-            Assert(binary_entry < c.size(), ExcInternalError());
+            Assert(binary_entry < child.size(), ExcInternalError());
 
             for (unsigned int j = 0; j < children_per_value; ++j)
               {
-                if ((((c[binary_entry] >> (j * dim))) &
+                if ((((child[binary_entry] >> (j * dim))) &
                      (GeometryInfo<dim>::max_children_per_cell - 1)) !=
-                    (((p[binary_entry] >> (j * dim))) &
+                    (((parent[binary_entry] >> (j * dim))) &
                      (GeometryInfo<dim>::max_children_per_cell - 1)))
                   return false;
 
@@ -108,6 +112,8 @@ namespace parallel
           this->coarse_cell_index_to_coarse_cell_id_vector =
             construction_data.coarse_cell_index_to_coarse_cell_id;
 
+
+
           // 2) setup `coarse-cell id to coarse-cell index`-mapping
           std::map<types::coarse_cell_id, unsigned int>
             coarse_cell_id_to_coarse_cell_index_vector;
@@ -147,7 +153,7 @@ namespace parallel
                        ++fine_cell_info)
                     {
                       // find the parent of that cell
-                      while (!internal::parent<dim>(
+                      while (!internal::is_parent<dim>(
                         coarse_cell->id().template to_binary<dim>(),
                         fine_cell_info->id))
                         coarse_cell++;
@@ -205,7 +211,7 @@ namespace parallel
 
 
 
-          // 4b) set actual (level_)subdomain_ids
+          // 4b) set actual (level_)subdomain_ids as well as boundary ids
           for (unsigned int ref_counter = 0; ref_counter < cell_infos.size();
                ref_counter++)
             {
@@ -213,15 +219,19 @@ namespace parallel
               auto cell_info = cell_infos[ref_counter].begin();
               for (; cell_info != cell_infos[ref_counter].end(); ++cell_info)
                 {
+                  // find cell that has the correct
                   while (cell_info->id != cell->id().template to_binary<dim>())
                     cell++;
 
+                  // subdomain id
                   if (cell->active())
                     cell->set_subdomain_id(cell_info->subdomain_id);
 
+                  // level subdomain id
                   if (settings & construct_multigrid_hierarchy)
                     cell->set_level_subdomain_id(cell_info->level_subdomain_id);
 
+                  // boundary ids
                   for (auto pair : cell_info->boundary_ids)
                     cell->face(pair.first)->set_boundary_id(pair.second);
                 }
