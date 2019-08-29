@@ -146,13 +146,10 @@ namespace parallel
                   for (; fine_cell_info != cell_infos[ref_counter].end();
                        ++fine_cell_info)
                     {
-                      // translate cell index to cell id
-                      auto temp = fine_cell_info->index;
-                      temp[0]   = coarse_cell_index_to_coarse_cell_id(temp[0]);
-
                       // find the parent of that cell
                       while (!internal::parent<dim>(
-                        coarse_cell->id().template to_binary<dim>(), temp))
+                        coarse_cell->id().template to_binary<dim>(),
+                        fine_cell_info->index))
                         coarse_cell++;
 
                       // set parent for refinement
@@ -171,9 +168,8 @@ namespace parallel
                 auto cell_info = cell_infos[ref_counter].begin();
                 for (; cell_info != cell_infos[ref_counter].end(); ++cell_info)
                   {
-                    auto temp = cell_info->index;
-                    temp[0]   = coarse_cell_index_to_coarse_cell_id(temp[0]);
-                    while (temp != cell->id().template to_binary<dim>())
+                    while (cell_info->index !=
+                           cell->id().template to_binary<dim>())
                       cell++;
                     if (spacedim == 3)
                       for (unsigned int quad = 0;
@@ -217,9 +213,8 @@ namespace parallel
               auto cell_info = cell_infos[ref_counter].begin();
               for (; cell_info != cell_infos[ref_counter].end(); ++cell_info)
                 {
-                  auto temp = cell_info->index;
-                  temp[0]   = coarse_cell_index_to_coarse_cell_id(temp[0]);
-                  while (temp != cell->id().template to_binary<dim>())
+                  while (cell_info->index !=
+                         cell->id().template to_binary<dim>())
                     cell++;
 
                   if (cell->active())

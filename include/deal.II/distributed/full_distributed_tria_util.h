@@ -261,7 +261,7 @@ namespace parallel
 
                   CellId::binary_type id;
                   id.fill(0);
-                  id[0] = cell_counter;
+                  id[0] = coarse_cell_index_to_coarse_cell_id.back();
                   id[1] = dim;
                   id[2] = 0;
                   id[3] = 0;
@@ -275,9 +275,21 @@ namespace parallel
                   cell_counter++;
                 }
 
-            std::sort(part.begin(), part.end(), [](auto a, auto b) {
-              return convert_binary_to_gid<dim>(a.index) <
-                     convert_binary_to_gid<dim>(b.index);
+            std::map<int, int> coarse_cell_id_to_coarse_cell_index;
+            for (unsigned int i = 0;
+                 i < coarse_cell_index_to_coarse_cell_id.size();
+                 i++)
+              coarse_cell_id_to_coarse_cell_index
+                [coarse_cell_index_to_coarse_cell_id[i]] = i;
+
+            std::sort(part.begin(), part.end(), [&](auto a, auto b) {
+              auto a_index = a.index;
+              a_index[0]   = coarse_cell_id_to_coarse_cell_index.at(a_index[0]);
+              auto b_index = b.index;
+              b_index[0]   = coarse_cell_id_to_coarse_cell_index.at(b_index[0]);
+
+              return convert_binary_to_gid<dim>(a_index) <
+                     convert_binary_to_gid<dim>(b_index);
             });
 
             // 4) enumerate locally relevant
@@ -443,7 +455,7 @@ namespace parallel
                       continue;
 
                     auto id = cell->id().template to_binary<dim>();
-                    id[0]   = coarse_cell_id_to_coarse_cell_index[id[0]];
+                    // id[0]   = coarse_cell_id_to_coarse_cell_index[id[0]];
 
                     CellInfo<dim> cell_info;
 
@@ -504,9 +516,16 @@ namespace parallel
                     part.push_back(cell_info);
                   }
 
-                std::sort(part.begin(), part.end(), [](auto a, auto b) {
-                  return convert_binary_to_gid<dim>(a.index) <
-                         convert_binary_to_gid<dim>(b.index);
+                std::sort(part.begin(), part.end(), [&](auto a, auto b) {
+                  auto a_index = a.index;
+                  a_index[0] =
+                    coarse_cell_id_to_coarse_cell_index.at(a_index[0]);
+                  auto b_index = b.index;
+                  b_index[0] =
+                    coarse_cell_id_to_coarse_cell_index.at(b_index[0]);
+
+                  return convert_binary_to_gid<dim>(a_index) <
+                         convert_binary_to_gid<dim>(b_index);
                 });
               }
           }
