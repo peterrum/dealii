@@ -234,8 +234,8 @@ namespace parallel
                     }
 
                   // e) save translation for corase grid: lid -> gid
-                  coarse_lid_to_gid[cell_counter] = convert_binary_to_gid<dim>(
-                    cell->id().template to_binary<dim>());
+                  coarse_lid_to_gid.push_back(convert_binary_to_gid<dim>(
+                    cell->id().template to_binary<dim>()));
 
                   cell_info.manifold_id = cell->manifold_id();
 
@@ -360,8 +360,8 @@ namespace parallel
                     numbers::invalid_unsigned_int;
 
                 // e) save translation for corase grid: lid -> gid
-                coarse_lid_to_gid[cell_counter] = convert_binary_to_gid<dim>(
-                  cell->id().template to_binary<dim>());
+                coarse_lid_to_gid.push_back(convert_binary_to_gid<dim>(
+                  cell->id().template to_binary<dim>()));
 
                 cell_counter++;
               }
@@ -382,8 +382,8 @@ namespace parallel
 
 
             std::map<int, int> coarse_gid_to_lid;
-            for (auto i : coarse_lid_to_gid)
-              coarse_gid_to_lid[i.second] = i.first;
+            for (unsigned int i = 0; i < coarse_lid_to_gid.size(); i++)
+              coarse_gid_to_lid[coarse_lid_to_gid[i]] = i;
 
             for (unsigned int level = 0;
                  level < tria.get_triangulation().n_global_levels();
