@@ -140,10 +140,11 @@ namespace parallel
 
         ConstructionData<dim, spacedim> cd;
 
-        auto &cells             = cd.cells;
-        auto &vertices          = cd.vertices;
-        auto &coarse_lid_to_gid = cd.coarse_lid_to_gid;
-        auto &cell_infos        = cd.cell_infos;
+        auto &cells    = cd.cells;
+        auto &vertices = cd.vertices;
+        auto &coarse_cell_index_to_coarse_cell_id =
+          cd.coarse_cell_index_to_coarse_cell_id;
+        auto &cell_infos = cd.cell_infos;
 
         auto add_vertices_of_cell_to_vertices_owned_by_loclly_owned_cells =
           [](auto &cell, auto &vertices_owned_by_loclly_owned_cells) mutable {
@@ -234,8 +235,9 @@ namespace parallel
                     }
 
                   // e) save translation for corase grid: lid -> gid
-                  coarse_lid_to_gid.push_back(convert_binary_to_gid<dim>(
-                    cell->id().template to_binary<dim>()));
+                  coarse_cell_index_to_coarse_cell_id.push_back(
+                    convert_binary_to_gid<dim>(
+                      cell->id().template to_binary<dim>()));
 
                   cell_info.manifold_id = cell->manifold_id();
 
@@ -360,8 +362,9 @@ namespace parallel
                     numbers::invalid_unsigned_int;
 
                 // e) save translation for corase grid: lid -> gid
-                coarse_lid_to_gid.push_back(convert_binary_to_gid<dim>(
-                  cell->id().template to_binary<dim>()));
+                coarse_cell_index_to_coarse_cell_id.push_back(
+                  convert_binary_to_gid<dim>(
+                    cell->id().template to_binary<dim>()));
 
                 cell_counter++;
               }
@@ -381,9 +384,12 @@ namespace parallel
                 cell.vertices[v] = vertices_locally_relevant[cell.vertices[v]];
 
 
-            std::map<int, int> coarse_gid_to_lid;
-            for (unsigned int i = 0; i < coarse_lid_to_gid.size(); i++)
-              coarse_gid_to_lid[coarse_lid_to_gid[i]] = i;
+            std::map<int, int> coarse_cell_id_to_coarse_cell_index;
+            for (unsigned int i = 0;
+                 i < coarse_cell_index_to_coarse_cell_id.size();
+                 i++)
+              coarse_cell_id_to_coarse_cell_index
+                [coarse_cell_index_to_coarse_cell_id[i]] = i;
 
             for (unsigned int level = 0;
                  level < tria.get_triangulation().n_global_levels();
@@ -437,7 +443,7 @@ namespace parallel
                       continue;
 
                     auto id = cell->id().template to_binary<dim>();
-                    id[0]   = coarse_gid_to_lid[id[0]];
+                    id[0]   = coarse_cell_id_to_coarse_cell_index[id[0]];
 
                     CellInfo<dim> cell_info;
 

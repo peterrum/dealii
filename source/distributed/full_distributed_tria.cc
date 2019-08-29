@@ -108,14 +108,16 @@ namespace parallel
           const auto &vertices   = construction_data.vertices;
           const auto &cell_infos = construction_data.cell_infos;
 
-          this->coarse_lid_to_gid = construction_data.coarse_lid_to_gid;
+          this->coarse_lid_to_gid =
+            construction_data.coarse_cell_index_to_coarse_cell_id;
 
           // create inverse map
           std::map<types::coarse_cell_id, unsigned int> coarse_gid_to_lid;
           for (unsigned int i = 0;
-               i < construction_data.coarse_lid_to_gid.size();
+               i < construction_data.coarse_cell_index_to_coarse_cell_id.size();
                i++)
-            coarse_gid_to_lid[construction_data.coarse_lid_to_gid[i]] = i;
+            coarse_gid_to_lid[construction_data
+                                .coarse_cell_index_to_coarse_cell_id[i]] = i;
 
           for (auto i : coarse_gid_to_lid)
             this->coarse_gid_to_lid.emplace_back(i);

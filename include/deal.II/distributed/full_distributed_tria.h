@@ -139,7 +139,7 @@ namespace parallel
       /**
        * Mapping from coarse-grid index to coarse-grid id.
        */
-      std::vector<types::coarse_cell_id> coarse_lid_to_gid;
+      std::vector<types::coarse_cell_id> coarse_cell_index_to_coarse_cell_id;
 
       /**
        * CellInfo for each locally relevant cell on each level.
