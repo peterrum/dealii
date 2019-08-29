@@ -67,6 +67,7 @@ namespace parallel
     /**
      * Information needed for a cell.
      */
+    template <int dim>
     struct CellInfo
     {
       /**
@@ -98,6 +99,23 @@ namespace parallel
        * level_subdomain_id of the cell.
        */
       types::subdomain_id level_subdomain_id;
+
+      /**
+       * Material id of the cell.
+       */
+      types::material_id manifold_id;
+
+      /**
+       * Material id of all faces of the cell.
+       */
+      std::array<types::material_id, GeometryInfo<dim>::quads_per_cell>
+        manifold_quad_ids;
+
+      /**
+       * Material id of all vertices of the cell.
+       */
+      std::array<types::material_id, GeometryInfo<dim>::lines_per_cell>
+        manifold_line_ids;
     };
 
 
@@ -127,26 +145,6 @@ namespace parallel
         boundary_ids;
 
       /**
-       * Material id of all faces of the locally-relevant coarse-grid
-       * triangulation.
-       *
-       * @note material_ids of cells are encoded in CellData.
-       */
-      std::vector<
-        std::array<types::material_id, GeometryInfo<dim>::quads_per_cell>>
-        manifold_quad_ids;
-
-      /**
-       * Material id of all vertices of the locally-relevant coarse-grid
-       * triangulation.
-       *
-       * @note material_ids of cells are encoded in CellData.
-       */
-      std::vector<
-        std::array<types::material_id, GeometryInfo<dim>::lines_per_cell>>
-        manifold_line_ids;
-
-      /**
        * Mapping from coarse-grid index to coarse-grid id.
        */
       std::map<unsigned int, types::coarse_cell_id> coarse_lid_to_gid;
@@ -154,7 +152,7 @@ namespace parallel
       /**
        * CellInfo for each locally relevant cell on each level.
        */
-      std::vector<std::vector<CellInfo>> cell_infos;
+      std::vector<std::vector<CellInfo<dim>>> cell_infos;
     };
 
 

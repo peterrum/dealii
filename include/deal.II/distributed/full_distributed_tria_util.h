@@ -196,7 +196,7 @@ namespace parallel
             // structures and collect all locally relevant vertices
             // for second sweep
             std::map<unsigned int, unsigned int> vertices_locally_relevant;
-            cell_infos.push_back(std::vector<CellInfo>());
+            cell_infos.push_back(std::vector<CellInfo<dim>>());
             auto &part = cell_infos[0];
 
             unsigned int cell_counter = 0;
@@ -236,32 +236,26 @@ namespace parallel
                   coarse_lid_to_gid[cell_counter] = convert_binary_to_gid<dim>(
                     cell->id().template to_binary<dim>());
 
+                  CellInfo<dim> cell_info;
+
+                  cell_info.manifold_id = cell->manifold_id();
+
                   if (spacedim == 3)
                     {
-                      std::array<types::material_id,
-                                 GeometryInfo<spacedim>::quads_per_cell>
-                        manifold_quad_ids;
                       for (unsigned int quad = 0;
                            quad < GeometryInfo<spacedim>::quads_per_cell;
                            quad++)
-                        manifold_quad_ids[quad] =
+                        cell_info.manifold_quad_ids[quad] =
                           cell->quad(quad)->manifold_id();
-
-                      cd.manifold_quad_ids.push_back(manifold_quad_ids);
                     }
 
                   if (spacedim >= 2)
                     {
-                      std::array<types::material_id,
-                                 GeometryInfo<spacedim>::lines_per_cell>
-                        manifold_line_ids;
                       for (unsigned int line = 0;
                            line < GeometryInfo<spacedim>::lines_per_cell;
                            line++)
-                        manifold_line_ids[line] =
+                        cell_info.manifold_line_ids[line] =
                           cell->line(line)->manifold_id();
-
-                      cd.manifold_line_ids.push_back(manifold_line_ids);
                     }
 
                   CellId::binary_type id;
@@ -271,9 +265,11 @@ namespace parallel
                   id[2] = 0;
                   id[3] = 0;
 
-                  part.emplace_back(id,
-                                    cell->subdomain_id(),
-                                    numbers::invalid_subdomain_id);
+                  cell_info.index              = id;
+                  cell_info.subdomain_id       = cell->subdomain_id();
+                  cell_info.level_subdomain_id = numbers::invalid_subdomain_id;
+
+                  part.push_back(cell_info);
 
                   cell_counter++;
                 }
@@ -378,32 +374,6 @@ namespace parallel
                 coarse_lid_to_gid[cell_counter] = convert_binary_to_gid<dim>(
                   cell->id().template to_binary<dim>());
 
-                if (spacedim == 3)
-                  {
-                    std::array<types::material_id,
-                               GeometryInfo<spacedim>::quads_per_cell>
-                      manifold_quad_ids;
-                    for (unsigned int quad = 0;
-                         quad < GeometryInfo<spacedim>::quads_per_cell;
-                         quad++)
-                      manifold_quad_ids[quad] = cell->quad(quad)->manifold_id();
-
-                    cd.manifold_quad_ids.push_back(manifold_quad_ids);
-                  }
-
-                if (spacedim >= 2)
-                  {
-                    std::array<types::material_id,
-                               GeometryInfo<spacedim>::lines_per_cell>
-                      manifold_line_ids;
-                    for (unsigned int line = 0;
-                         line < GeometryInfo<spacedim>::lines_per_cell;
-                         line++)
-                      manifold_line_ids[line] = cell->line(line)->manifold_id();
-
-                    cd.manifold_line_ids.push_back(manifold_line_ids);
-                  }
-
                 cell_counter++;
               }
 
@@ -470,7 +440,7 @@ namespace parallel
                 };
 
 
-                cell_infos.push_back(std::vector<CellInfo>());
+                cell_infos.push_back(std::vector<CellInfo<dim>>());
                 auto &part = cell_infos.back();
                 for (auto cell : tria.cell_iterators_on_level(level))
                   {
@@ -480,18 +450,52 @@ namespace parallel
                     auto id = cell->id().template to_binary<dim>();
                     id[0]   = coarse_gid_to_lid[id[0]];
 
+                    CellInfo<dim> cell_info;
+
+                    cell_info.manifold_id = cell->manifold_id();
+
+                    if (spacedim == 3)
+                      {
+                        for (unsigned int quad = 0;
+                             quad < GeometryInfo<spacedim>::quads_per_cell;
+                             quad++)
+                          cell_info.manifold_quad_ids[quad] =
+                            cell->quad(quad)->manifold_id();
+                      }
+
+                    if (spacedim >= 2)
+                      {
+                        for (unsigned int line = 0;
+                             line < GeometryInfo<spacedim>::lines_per_cell;
+                             line++)
+                          cell_info.manifold_line_ids[line] =
+                            cell->line(line)->manifold_id();
+                      }
+
                     if (cell->active() && is_locally_relevant_strong(cell))
-                      part.emplace_back(id,
-                                        cell->subdomain_id(),
-                                        cell->level_subdomain_id());
+                      {
+                        cell_info.index        = id;
+                        cell_info.subdomain_id = cell->subdomain_id(),
+                        cell_info.level_subdomain_id =
+                          cell->level_subdomain_id();
+                      }
                     else if (is_locally_relevant(cell))
-                      part.emplace_back(id,
-                                        numbers::artificial_subdomain_id,
-                                        cell->level_subdomain_id());
+                      {
+                        cell_info.index = id;
+                        cell_info.subdomain_id =
+                          numbers::artificial_subdomain_id;
+                        cell_info.level_subdomain_id =
+                          cell->level_subdomain_id();
+                      }
                     else
-                      part.emplace_back(id,
-                                        numbers::artificial_subdomain_id,
-                                        numbers::artificial_subdomain_id);
+                      {
+                        cell_info.index = id;
+                        cell_info.subdomain_id =
+                          numbers::artificial_subdomain_id;
+                        cell_info.subdomain_id =
+                          numbers::artificial_subdomain_id;
+                      }
+                    part.push_back(cell_info);
                   }
 
                 std::sort(part.begin(), part.end(), [](auto a, auto b) {

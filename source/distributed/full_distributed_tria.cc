@@ -132,35 +132,6 @@ namespace parallel
           dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
             vertices, cells, subcelldata);
 
-          // for (auto c = this->begin(); c != this->end(); c++)
-          //  c->set_all_manifold_ids(c->manifold_id());
-
-          {
-            unsigned int c = 0;
-            for (auto cell = this->begin(); cell != this->end(); cell++)
-              {
-                Assert(c < construction_data.manifold_line_ids.size(),
-                       ExcMessage("Exceed index!"));
-
-                if (spacedim == 3)
-                  for (unsigned int quad = 0;
-                       quad < GeometryInfo<spacedim>::quads_per_cell;
-                       quad++)
-                    cell->quad(quad)->set_manifold_id(
-                      construction_data.manifold_quad_ids[c][quad]);
-
-                if (spacedim >= 2)
-                  for (unsigned int line = 0;
-                       line < GeometryInfo<spacedim>::lines_per_cell;
-                       line++)
-                    cell->line(line)->set_manifold_id(
-                      construction_data.manifold_line_ids[c][line]);
-
-                c++;
-              }
-          }
-
-
           // 2) set boundary ids
           int c = 0;
           for (auto cell = this->begin_active(); cell != this->end(); ++cell)
@@ -174,6 +145,33 @@ namespace parallel
                 }
               c++;
             }
+
+          {
+            auto cell      = this->begin(0);
+            auto cell_info = cell_infos[0].begin();
+            for (; cell_info != cell_infos[0].end(); ++cell_info)
+              {
+                auto temp = cell_info->index;
+                temp[0]   = coarse_cell_index_to_coarse_cell_id(temp[0]);
+                while (temp != cell->id().template to_binary<dim>())
+                  cell++;
+                if (spacedim == 3)
+                  for (unsigned int quad = 0;
+                       quad < GeometryInfo<spacedim>::quads_per_cell;
+                       quad++)
+                    cell->quad(quad)->set_manifold_id(
+                      cell_info->manifold_quad_ids[quad]);
+
+                if (spacedim >= 2)
+                  for (unsigned int line = 0;
+                       line < GeometryInfo<spacedim>::lines_per_cell;
+                       line++)
+                    cell->line(line)->set_manifold_id(
+                      cell_info->manifold_line_ids[line]);
+
+                cell->set_manifold_id(cell_info->manifold_id);
+              }
+          }
 
           // 3) create all cell levels
           for (unsigned int ref_counter = 1; ref_counter < cell_infos.size();
@@ -196,6 +194,31 @@ namespace parallel
 
               dealii::Triangulation<dim, spacedim>::
                 execute_coarsening_and_refinement();
+
+              auto cell      = this->begin(ref_counter);
+              auto cell_info = cell_infos[ref_counter].begin();
+              for (; cell_info != cell_infos[ref_counter].end(); ++cell_info)
+                {
+                  auto temp = cell_info->index;
+                  temp[0]   = coarse_cell_index_to_coarse_cell_id(temp[0]);
+                  while (temp != cell->id().template to_binary<dim>())
+                    cell++;
+                  if (spacedim == 3)
+                    for (unsigned int quad = 0;
+                         quad < GeometryInfo<spacedim>::quads_per_cell;
+                         quad++)
+                      cell->quad(quad)->set_manifold_id(
+                        cell_info->manifold_quad_ids[quad]);
+
+                  if (spacedim >= 2)
+                    for (unsigned int line = 0;
+                         line < GeometryInfo<spacedim>::lines_per_cell;
+                         line++)
+                      cell->line(line)->set_manifold_id(
+                        cell_info->manifold_line_ids[line]);
+
+                  cell->set_manifold_id(cell_info->manifold_id);
+                }
             }
 
 
