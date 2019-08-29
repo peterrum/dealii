@@ -239,6 +239,9 @@ namespace parallel
       const std::vector<CellData<dim>> &  cells,
       const SubCellData &                 subcelldata)
     {
+      AssertThrow(false,
+                  ExcMessage(
+                    "Use the function reinit() to create the triangulation!"));
       dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
         vertices, cells, subcelldata);
     }
@@ -318,17 +321,6 @@ namespace parallel
         MemoryConsumption::memory_consumption(
           coarse_cell_index_to_coarse_cell_id_vector);
       return mem;
-    }
-
-
-
-    template <int dim, int spacedim>
-    void
-    Triangulation<dim, spacedim>::add_periodicity(
-      const std::vector<GridTools::PeriodicFacePair<cell_iterator>>
-        &periodicity_vector)
-    {
-      dealii::Triangulation<dim, spacedim>::add_periodicity(periodicity_vector);
     }
 
 

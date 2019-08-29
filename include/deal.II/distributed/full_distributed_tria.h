@@ -148,7 +148,9 @@ namespace parallel
     };
 
 
-
+    /**
+     * A distributed triangulation with a distributed coarse grid.
+     */
     template <int dim, int spacedim = dim>
     class Triangulation
       : public parallel::DistributedTriangulationBase<dim, spacedim>
@@ -163,14 +165,6 @@ namespace parallel
 
       typedef
         typename dealii::Triangulation<dim, spacedim>::CellStatus CellStatus;
-
-      void
-      reinit(const ConstructionData<dim, spacedim> &construction_data);
-
-      virtual void
-      create_triangulation(const std::vector<Point<spacedim>> &vertices,
-                           const std::vector<CellData<dim>> &  cells,
-                           const SubCellData &subcelldata) override;
 
 
       enum Settings
@@ -189,35 +183,92 @@ namespace parallel
       };
 
 
+      /**
+       * Constructor.
+       *
+       * @param mpi_communicator denotes the MPI communicator to be used for the
+       *                         triangulation.
+       * @param settings See the description of the Settings enumerator.
+       */
       explicit Triangulation(MPI_Comm       mpi_communicator,
                              const Settings settings = default_setting);
 
+      /**
+       * Destructor.
+       */
       virtual ~Triangulation() = default;
 
+      /**
+       * Create a triangulation from the provided ConstructionData.
+       *
+       * @note The namespace dealii::fullydistributed::Util contains functions
+       *       to create ConstructionData.
+       *
+       * @note This is the function to be used instead of create_triangulation.
+       *
+       * @param construction_data
+       */
+      void
+      reinit(const ConstructionData<dim, spacedim> &construction_data);
+
+      /**
+       * @note Use the function reinit() instead of this function to create
+       *       the triangulation. ConstructionData contains inter alia
+       *       the vertices, the coarse cells and information related to
+       *       manifold.
+       */
+      virtual void
+      create_triangulation(const std::vector<Point<spacedim>> &vertices,
+                           const std::vector<CellData<dim>> &  cells,
+                           const SubCellData &subcelldata) override;
+
+      /**
+       * Coarsen and refine the mesh according to refinement and coarsening
+       * flags set.
+       *
+       * @note Not implemented yet.
+       */
       virtual void
       execute_coarsening_and_refinement() override;
 
+      /**
+       * Override the implementation of prepare_coarsening_and_refinement from
+       * the base class.
+       *
+       * @note Not implemented yet.
+       */
       virtual bool
       prepare_coarsening_and_refinement() override;
 
+      /**
+       * Return true if the triangulation has hanging nodes.
+       *
+       * @note Not implemented yet.
+       */
       virtual bool
       has_hanging_nodes() const override;
 
+      /**
+       * Return the local memory consumption in bytes.
+       */
       virtual std::size_t
       memory_consumption() const override;
 
-      virtual void
-      add_periodicity(
-        const std::vector<GridTools::PeriodicFacePair<cell_iterator>> &)
-        override;
-
+      /**
+       * Override the function to update the number cache so we can fill data
+       * like level_ghost_owners.
+       */
       virtual void
       update_number_cache() override;
 
+      /**
+       * This function determines the neighboring subdomains that are adjacent
+       *  to each vertex.
+       */
       virtual std::map<unsigned int, std::set<dealii::types::subdomain_id>>
       compute_vertices_with_ghost_neighbors() const override;
 
-      bool
+      virtual bool
       is_multilevel_hierarchy_constructed() const override;
 
       virtual unsigned int
@@ -234,17 +285,25 @@ namespace parallel
        */
       const Settings settings;
 
+      /**
+       * Sorted list coarse-cell ids (and their index).
+       */
+      std::vector<std::pair<types::coarse_cell_id, unsigned int>>
+        coarse_cell_id_to_coarse_cell_index_vector;
+
+      /**
+       * List of coarse-cell ids sorted according to their index.
+       */
+      std::vector<types::coarse_cell_id>
+        coarse_cell_index_to_coarse_cell_id_vector;
+
+
       template <typename>
       friend class dealii::internal::DoFHandlerImplementation::Policy::
         ParallelDistributed;
 
       template <int, int, class>
       friend class dealii::FETools::internal::ExtrapolateImplementation;
-
-      std::vector<std::pair<types::coarse_cell_id, unsigned int>>
-        coarse_cell_id_to_coarse_cell_index_vector;
-      std::vector<types::coarse_cell_id>
-        coarse_cell_index_to_coarse_cell_id_vector;
     };
 
   } // namespace fullydistributed
