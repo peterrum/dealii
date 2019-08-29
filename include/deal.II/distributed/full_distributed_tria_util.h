@@ -266,7 +266,7 @@ namespace parallel
                   id[2] = 0;
                   id[3] = 0;
 
-                  cell_info.index              = id;
+                  cell_info.id                 = id;
                   cell_info.subdomain_id       = cell->subdomain_id();
                   cell_info.level_subdomain_id = numbers::invalid_subdomain_id;
 
@@ -283,9 +283,9 @@ namespace parallel
                 [coarse_cell_index_to_coarse_cell_id[i]] = i;
 
             std::sort(part.begin(), part.end(), [&](auto a, auto b) {
-              auto a_index = a.index;
+              auto a_index = a.id;
               a_index[0]   = coarse_cell_id_to_coarse_cell_index.at(a_index[0]);
-              auto b_index = b.index;
+              auto b_index = b.id;
               b_index[0]   = coarse_cell_id_to_coarse_cell_index.at(b_index[0]);
 
               return convert_binary_to_gid<dim>(a_index) <
@@ -492,14 +492,14 @@ namespace parallel
 
                     if (cell->active() && is_locally_relevant_strong(cell))
                       {
-                        cell_info.index        = id;
+                        cell_info.id           = id;
                         cell_info.subdomain_id = cell->subdomain_id(),
                         cell_info.level_subdomain_id =
                           cell->level_subdomain_id();
                       }
                     else if (is_locally_relevant(cell))
                       {
-                        cell_info.index = id;
+                        cell_info.id = id;
                         cell_info.subdomain_id =
                           numbers::artificial_subdomain_id;
                         cell_info.level_subdomain_id =
@@ -507,7 +507,7 @@ namespace parallel
                       }
                     else
                       {
-                        cell_info.index = id;
+                        cell_info.id = id;
                         cell_info.subdomain_id =
                           numbers::artificial_subdomain_id;
                         cell_info.subdomain_id =
@@ -517,10 +517,10 @@ namespace parallel
                   }
 
                 std::sort(part.begin(), part.end(), [&](auto a, auto b) {
-                  auto a_index = a.index;
+                  auto a_index = a.id;
                   a_index[0] =
                     coarse_cell_id_to_coarse_cell_index.at(a_index[0]);
-                  auto b_index = b.index;
+                  auto b_index = b.id;
                   b_index[0] =
                     coarse_cell_id_to_coarse_cell_index.at(b_index[0]);
 

@@ -78,7 +78,7 @@ namespace parallel
       /**
        * Unique CellID of the cell.
        */
-      CellId::binary_type index;
+      CellId::binary_type id;
 
       /**
        * subdomain_id of the cell.
