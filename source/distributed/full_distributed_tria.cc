@@ -99,8 +99,8 @@ namespace parallel
 
           // 3) setup dummy mapping between locally relevant coarse-grid cells
           //    and global cells
-          this->coarse_gid_to_lid.emplace_back(0, 0);
-          this->coarse_lid_to_gid.push_back(0);
+          this->coarse_cell_id_to_coarse_cell_index_vector.emplace_back(0, 0);
+          this->coarse_cell_index_to_coarse_cell_id_vector.push_back(0);
         }
       else
         {
@@ -108,19 +108,20 @@ namespace parallel
           const auto &vertices   = construction_data.vertices;
           const auto &cell_infos = construction_data.cell_infos;
 
-          this->coarse_lid_to_gid =
+          this->coarse_cell_index_to_coarse_cell_id_vector =
             construction_data.coarse_cell_index_to_coarse_cell_id;
 
           // create inverse map
-          std::map<types::coarse_cell_id, unsigned int> coarse_gid_to_lid;
+          std::map<types::coarse_cell_id, unsigned int>
+            coarse_cell_id_to_coarse_cell_index_vector;
           for (unsigned int i = 0;
                i < construction_data.coarse_cell_index_to_coarse_cell_id.size();
                i++)
-            coarse_gid_to_lid[construction_data
-                                .coarse_cell_index_to_coarse_cell_id[i]] = i;
+            coarse_cell_id_to_coarse_cell_index_vector
+              [construction_data.coarse_cell_index_to_coarse_cell_id[i]] = i;
 
-          for (auto i : coarse_gid_to_lid)
-            this->coarse_gid_to_lid.emplace_back(i);
+          for (auto i : coarse_cell_id_to_coarse_cell_index_vector)
+            this->coarse_cell_id_to_coarse_cell_index_vector.emplace_back(i);
 
 
 
@@ -312,8 +313,10 @@ namespace parallel
       std::size_t mem =
         this->dealii::parallel::TriangulationBase<dim, spacedim>::
           memory_consumption() +
-        MemoryConsumption::memory_consumption(coarse_gid_to_lid) +
-        MemoryConsumption::memory_consumption(coarse_lid_to_gid);
+        MemoryConsumption::memory_consumption(
+          coarse_cell_id_to_coarse_cell_index_vector) +
+        MemoryConsumption::memory_consumption(
+          coarse_cell_index_to_coarse_cell_id_vector);
       return mem;
     }
 
@@ -457,13 +460,14 @@ namespace parallel
       const types::coarse_cell_id coarse_cell_id) const
     {
       auto coarse_cell_index =
-        std::lower_bound(coarse_gid_to_lid.begin(),
-                         coarse_gid_to_lid.end(),
+        std::lower_bound(coarse_cell_id_to_coarse_cell_index_vector.begin(),
+                         coarse_cell_id_to_coarse_cell_index_vector.end(),
                          coarse_cell_id,
                          [](const auto &pair, const auto &val) {
                            return pair.first < val;
                          });
-      Assert(coarse_cell_index != coarse_gid_to_lid.cend(),
+      Assert(coarse_cell_index !=
+               coarse_cell_id_to_coarse_cell_index_vector.cend(),
              ExcMessage("Coarse cell index not found!"));
       return coarse_cell_index->second;
     }
@@ -475,7 +479,7 @@ namespace parallel
     Triangulation<dim, spacedim>::coarse_cell_index_to_coarse_cell_id(
       const unsigned int coarse_cell_index) const
     {
-      return coarse_lid_to_gid[coarse_cell_index];
+      return coarse_cell_index_to_coarse_cell_id_vector[coarse_cell_index];
     }
 
 

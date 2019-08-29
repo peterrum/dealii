@@ -242,8 +242,9 @@ namespace parallel
       friend class dealii::FETools::internal::ExtrapolateImplementation;
 
       std::vector<std::pair<types::coarse_cell_id, unsigned int>>
-                                         coarse_gid_to_lid;
-      std::vector<types::coarse_cell_id> coarse_lid_to_gid;
+        coarse_cell_id_to_coarse_cell_index_vector;
+      std::vector<types::coarse_cell_id>
+        coarse_cell_index_to_coarse_cell_id_vector;
     };
 
   } // namespace fullydistributed
