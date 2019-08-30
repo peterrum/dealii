@@ -142,12 +142,12 @@ namespace parallel
       /**
        * Cells of the locally-relevant coarse-grid triangulation.
        */
-      std::vector<CellData<dim>> cells;
+      std::vector<CellData<dim>> coarse_cells;
 
       /**
        * Vertices of the locally-relevant coarse-grid triangulation.
        */
-      std::vector<Point<spacedim>> vertices;
+      std::vector<Point<spacedim>> coarse_cell_vertices;
 
       /**
        * Mapping from coarse-grid index to coarse-grid id.

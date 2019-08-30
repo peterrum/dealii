@@ -88,7 +88,7 @@ namespace parallel
       const ConstructionData<dim, spacedim> &construction_data)
     {
       // check if there are locally relevant coarse-grid cells
-      if (construction_data.cells.empty() == true) // no
+      if (construction_data.coarse_cell_vertices.empty() == true) // no
         {
           // 1) create a dummy hypercube
           GridGenerator::hyper_cube(*this, 0, 1, false);
@@ -131,7 +131,9 @@ namespace parallel
           // 3) create coarse grid
           const SubCellData subcelldata;
           dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
-            construction_data.vertices, construction_data.cells, subcelldata);
+            construction_data.coarse_cell_vertices,
+            construction_data.coarse_cells,
+            subcelldata);
 
 
 

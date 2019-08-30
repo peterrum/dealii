@@ -140,8 +140,8 @@ namespace parallel
 
         ConstructionData<dim, spacedim> cd;
 
-        auto &cells    = cd.cells;
-        auto &vertices = cd.vertices;
+        auto &cells    = cd.coarse_cells;
+        auto &vertices = cd.coarse_cell_vertices;
         auto &coarse_cell_index_to_coarse_cell_id =
           cd.coarse_cell_index_to_coarse_cell_id;
         auto &cell_infos = cd.cell_infos;
