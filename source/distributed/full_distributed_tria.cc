@@ -133,6 +133,13 @@ namespace parallel
             construction_data.coarse_cells,
             subcelldata);
 
+          Assert(this->n_cells() ==
+                   this->coarse_cell_id_to_coarse_cell_index_vector.size(),
+                 ExcMessage("Sizes do not match!"));
+          Assert(this->n_cells() ==
+                   this->coarse_cell_index_to_coarse_cell_id_vector.size(),
+                 ExcMessage("Sizes do not match!"));
+
           // 4) create all levels via a sequence of refinements
           const auto &cell_infos = construction_data.cell_infos;
           for (unsigned int level = 0; level < cell_infos.size(); level++)
