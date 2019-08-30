@@ -254,11 +254,13 @@ namespace parallel
       const std::vector<CellData<dim>> &  cells,
       const SubCellData &                 subcelldata)
     {
+      (void)vertices;
+      (void)cells;
+      (void)subcelldata;
+
       AssertThrow(false,
                   ExcMessage(
                     "Use the function reinit() to create the triangulation!"));
-      dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
-        vertices, cells, subcelldata);
     }
 
 
