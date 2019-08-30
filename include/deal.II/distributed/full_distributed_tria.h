@@ -62,10 +62,21 @@ namespace GridTools
 
 namespace parallel
 {
+  /**
+   * A namespace for the fully distributed Triangulation.
+   *
+   * @ingroup parallel
+   */
   namespace fullydistributed
   {
     /**
-     * Information needed for a cell.
+     * Information needed for each locally relevant cell, stored in
+     * ConstructionData and used during construction of a
+     * parallel::fullydistributed::Triangulation. This struct stores
+     * the cell id, the subdomain_id and the level_subdomain_id as well as
+     * information related to manifold_id and boundary_id.
+     *
+     * @author Peter Munch, 2019
      */
     template <int dim>
     struct CellInfo
@@ -96,7 +107,7 @@ namespace parallel
       types::material_id manifold_id;
 
       /**
-       * Manifold id of all vertices of the cell.
+       * Manifold id of all lines of the cell.
        *
        * @note Only used for 2D and 3D.
        */
@@ -121,7 +132,9 @@ namespace parallel
 
 
     /**
-     * Data to construct a parallel::fullydistributed::Triangulation.
+     * Data used to construct a parallel::fullydistributed::Triangulation.
+     *
+     * @author Peter Munch, 2019
      */
     template <int dim, int spacedim>
     struct ConstructionData
@@ -150,6 +163,8 @@ namespace parallel
 
     /**
      * A distributed triangulation with a distributed coarse grid.
+     *
+     * @author Peter Munch, 2019
      */
     template <int dim, int spacedim = dim>
     class Triangulation
@@ -176,8 +191,7 @@ namespace parallel
         /**
          * This flags needs to be set to use the geometric multigrid
          * functionality. This option requires additional computation and
-         * communication. Note: geometric multigrid is still a work in
-         * progress.
+         * communication.
          */
         construct_multigrid_hierarchy = 0x1
       };
@@ -212,10 +226,8 @@ namespace parallel
       reinit(const ConstructionData<dim, spacedim> &construction_data);
 
       /**
-       * @note Use the function reinit() instead of this function to create
-       *       the triangulation. ConstructionData contains inter alia
-       *       the vertices, the coarse cells and information related to
-       *       manifold.
+       * @note This function is not implemented for this class. Instead, use
+       *       the function reinit() to create the triangulation.
        */
       virtual void
       create_triangulation(const std::vector<Point<spacedim>> &vertices,
@@ -268,13 +280,22 @@ namespace parallel
       virtual std::map<unsigned int, std::set<dealii::types::subdomain_id>>
       compute_vertices_with_ghost_neighbors() const override;
 
+      /**
+       * @copydoc dealii::parallel::DistributedTriangulationBase::is_multilevel_hierarchy_constructed
+       */
       virtual bool
       is_multilevel_hierarchy_constructed() const override;
 
+      /**
+       * @copydoc dealii::coarse_cell_id_to_coarse_cell_index
+       */
       virtual unsigned int
       coarse_cell_id_to_coarse_cell_index(
         const types::coarse_cell_id coarse_cell_id) const override;
 
+      /**
+       * @copydoc dealii::coarse_cell_index_to_coarse_cell_id
+       */
       virtual types::coarse_cell_id
       coarse_cell_index_to_coarse_cell_id(
         const unsigned int coarse_cell_index) const override;
@@ -286,13 +307,13 @@ namespace parallel
       const Settings settings;
 
       /**
-       * Sorted list coarse-cell ids (and their index).
+       * Sorted list of pairs of coarse-cell ids and their indices.
        */
       std::vector<std::pair<types::coarse_cell_id, unsigned int>>
         coarse_cell_id_to_coarse_cell_index_vector;
 
       /**
-       * List of coarse-cell ids sorted according to their index.
+       * List of coarse-cell ids for each coarse cell (stored at cell->index()).
        */
       std::vector<types::coarse_cell_id>
         coarse_cell_index_to_coarse_cell_id_vector;
