@@ -371,6 +371,9 @@ namespace parallel
       std::vector<types::coarse_cell_id>
         coarse_cell_index_to_coarse_cell_id_vector;
 
+      bool create_triangulation_for_internal_usage;
+      bool prepare_coarsening_and_refinement_for_internal_usage;
+
 
       template <typename>
       friend class dealii::internal::DoFHandlerImplementation::Policy::
