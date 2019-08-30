@@ -200,7 +200,7 @@ namespace parallel
               return false;
             };
 
-            // 3) process all local and ghost cells: setup needed data
+            // 2) process all local and ghost cells: setup needed data
             // structures and collect all locally relevant vertices
             // for second sweep
             std::map<unsigned int, unsigned int> vertices_locally_relevant;
@@ -243,7 +243,7 @@ namespace parallel
                         cell_info.boundary_ids.emplace_back(f, boundary_ind);
                     }
 
-                  // e) compute a new coarse-cell id (by ignoring all parent
+                  // d) compute a new coarse-cell id (by ignoring all parent
                   // level)
                   types::coarse_cell_id new_coarse_cell_id =
                     convert_binary_to_gid<dim>(
@@ -257,28 +257,30 @@ namespace parallel
                   coarse_cell_index_to_coarse_cell_id.push_back(
                     new_coarse_cell_id);
 
+                  // e) store manifold id of cell
                   cell_info.manifold_id = cell->manifold_id();
 
-                  if (spacedim == 3)
-                    {
-                      for (unsigned int quad = 0;
-                           quad < GeometryInfo<spacedim>::quads_per_cell;
-                           quad++)
-                        cell_info.manifold_quad_ids[quad] =
-                          cell->quad(quad)->manifold_id();
-                    }
-
+                  // ... of lines
                   if (spacedim >= 2)
-                    {
-                      for (unsigned int line = 0;
-                           line < GeometryInfo<spacedim>::lines_per_cell;
-                           line++)
-                        cell_info.manifold_line_ids[line] =
-                          cell->line(line)->manifold_id();
-                    }
+                    for (unsigned int line = 0;
+                         line < GeometryInfo<spacedim>::lines_per_cell;
+                         line++)
+                      cell_info.manifold_line_ids[line] =
+                        cell->line(line)->manifold_id();
 
+                  // ... of hexes
+                  if (spacedim == 3)
+                    for (unsigned int quad = 0;
+                         quad < GeometryInfo<spacedim>::quads_per_cell;
+                         quad++)
+                      cell_info.manifold_quad_ids[quad] =
+                        cell->quad(quad)->manifold_id();
 
-                  cell_info.subdomain_id       = cell->subdomain_id();
+                  // f) store subdomain_id
+                  cell_info.subdomain_id = cell->subdomain_id();
+
+                  // g) store invalid level_subdomain_id (since multilevel
+                  //    hierarchy is not constructed)
                   cell_info.level_subdomain_id = numbers::invalid_subdomain_id;
 
                   part.push_back(cell_info);
@@ -286,6 +288,7 @@ namespace parallel
                   cell_counter++;
                 }
 
+            // sort cells according to their index
             std::map<int, int> coarse_cell_id_to_coarse_cell_index;
             for (unsigned int i = 0;
                  i < coarse_cell_index_to_coarse_cell_id.size();
@@ -303,7 +306,7 @@ namespace parallel
                      convert_binary_to_gid<dim>(b_index);
             });
 
-            // 4) enumerate locally relevant
+            // 3) enumerate locally relevant vertices
             unsigned int vertex_counter = 0;
             for (auto &vertex : vertices_locally_relevant)
               {
@@ -311,7 +314,7 @@ namespace parallel
                 vertex.second = vertex_counter++;
               }
 
-            // 5) correct vertices of cells (make them local)
+            // 4) correct vertices of cells (make them local)
             for (auto &cell : cells)
               for (unsigned int v = 0; v < GeometryInfo<dim>::vertices_per_cell;
                    v++)
