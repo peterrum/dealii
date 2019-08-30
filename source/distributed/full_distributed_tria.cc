@@ -304,8 +304,12 @@ namespace parallel
     bool
     Triangulation<dim, spacedim>::prepare_coarsening_and_refinement()
     {
-      AssertThrow(false, ExcNotImplemented());
-      return false;
+      // warning: this function should not be called on its own but has to be
+      // implemented since it is called by
+      // dealii::Triangulation<dim,
+      // spacedim>::execute_coarsening_and_refinement().
+      return dealii::Triangulation<dim, spacedim>::
+        prepare_coarsening_and_refinement();
     }
 
 
