@@ -114,8 +114,6 @@ namespace parallel
           this->coarse_cell_index_to_coarse_cell_id_vector =
             construction_data.coarse_cell_index_to_coarse_cell_id;
 
-
-
           // 2) setup `coarse-cell id to coarse-cell index`-mapping
           std::map<types::coarse_cell_id, unsigned int>
             coarse_cell_id_to_coarse_cell_index_vector;
@@ -128,16 +126,12 @@ namespace parallel
           for (auto i : coarse_cell_id_to_coarse_cell_index_vector)
             this->coarse_cell_id_to_coarse_cell_index_vector.emplace_back(i);
 
-
-
           // 3) create coarse grid
           const SubCellData subcelldata;
           dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
             construction_data.coarse_cell_vertices,
             construction_data.coarse_cells,
             subcelldata);
-
-
 
           // 4) create all levels via a sequence of refinements
           const auto &cell_infos = construction_data.cell_infos;
@@ -200,8 +194,6 @@ namespace parallel
               }
             }
 
-
-
           // 4a) set all cells artificial
           for (auto cell = this->begin(); cell != this->end(); cell++)
             {
@@ -212,8 +204,6 @@ namespace parallel
               cell->set_level_subdomain_id(
                 dealii::numbers::artificial_subdomain_id);
             }
-
-
 
           // 4b) set actual (level_)subdomain_ids as well as boundary ids
           for (unsigned int ref_counter = 0; ref_counter < cell_infos.size();
@@ -237,7 +227,11 @@ namespace parallel
 
                   // boundary ids
                   for (auto pair : cell_info->boundary_ids)
-                    cell->face(pair.first)->set_boundary_id(pair.second);
+                    {
+                      Assert(cell->at_boundary(pair.first),
+                             ExcMessage("Cell face is not on the boundary!"));
+                      cell->face(pair.first)->set_boundary_id(pair.second);
+                    }
                 }
             }
         }
@@ -311,6 +305,7 @@ namespace parallel
     Triangulation<dim, spacedim>::prepare_coarsening_and_refinement()
     {
       AssertThrow(false, ExcNotImplemented());
+      return false;
     }
 
 
