@@ -135,42 +135,14 @@ namespace parallel
 
           // 4) create all levels via a sequence of refinements
           const auto &cell_infos = construction_data.cell_infos;
-          for (unsigned int ref_counter = 0; ref_counter < cell_infos.size();
-               ref_counter++)
+          for (unsigned int level = 0; level < cell_infos.size(); level++)
             {
-              // a) perform refinement
-              if (ref_counter > 0)
-                {
-                  // find cells that should have children and mark them for
-                  // refinement
-                  auto coarse_cell    = this->begin(ref_counter - 1);
-                  auto fine_cell_info = cell_infos[ref_counter].begin();
-
-                  // loop over all cells on the next level
-                  for (; fine_cell_info != cell_infos[ref_counter].end();
-                       ++fine_cell_info)
-                    {
-                      // find the parent of that cell
-                      while (!internal::is_parent<dim>(
-                        coarse_cell->id().template to_binary<dim>(),
-                        fine_cell_info->id))
-                        coarse_cell++;
-
-                      // set parent for refinement
-                      coarse_cell->set_refine_flag();
-                    }
-
-                  // execute refinement
-                  dealii::Triangulation<dim, spacedim>::
-                    execute_coarsening_and_refinement();
-                }
-
-              // b) set manifold ids (because new vertices have to be positioned
-              //    correctly)
+              // a) set manifold ids here (because new vertices have to be
+              //    positioned correctly during each refinement step)
               {
-                auto cell      = this->begin(ref_counter);
-                auto cell_info = cell_infos[ref_counter].begin();
-                for (; cell_info != cell_infos[ref_counter].end(); ++cell_info)
+                auto cell      = this->begin(level);
+                auto cell_info = cell_infos[level].begin();
+                for (; cell_info != cell_infos[level].end(); ++cell_info)
                   {
                     while (cell_info->id !=
                            cell->id().template to_binary<dim>())
@@ -192,6 +164,33 @@ namespace parallel
                     cell->set_manifold_id(cell_info->manifold_id);
                   }
               }
+
+              // b) perform refinement on all levels but on the finest
+              if (level + 1 != cell_infos.size())
+                {
+                  // find cells that should have children and mark them for
+                  // refinement
+                  auto coarse_cell    = this->begin(level);
+                  auto fine_cell_info = cell_infos[level + 1].begin();
+
+                  // loop over all cells on the next level
+                  for (; fine_cell_info != cell_infos[level + 1].end();
+                       ++fine_cell_info)
+                    {
+                      // find the parent of that cell
+                      while (!internal::is_parent<dim>(
+                        coarse_cell->id().template to_binary<dim>(),
+                        fine_cell_info->id))
+                        coarse_cell++;
+
+                      // set parent for refinement
+                      coarse_cell->set_refine_flag();
+                    }
+
+                  // execute refinement
+                  dealii::Triangulation<dim, spacedim>::
+                    execute_coarsening_and_refinement();
+                }
             }
 
           // 4a) set all cells artificial
@@ -206,12 +205,11 @@ namespace parallel
             }
 
           // 4b) set actual (level_)subdomain_ids as well as boundary ids
-          for (unsigned int ref_counter = 0; ref_counter < cell_infos.size();
-               ref_counter++)
+          for (unsigned int level = 0; level < cell_infos.size(); level++)
             {
-              auto cell      = this->begin(ref_counter);
-              auto cell_info = cell_infos[ref_counter].begin();
-              for (; cell_info != cell_infos[ref_counter].end(); ++cell_info)
+              auto cell      = this->begin(level);
+              auto cell_info = cell_infos[level].begin();
+              for (; cell_info != cell_infos[level].end(); ++cell_info)
                 {
                   // find cell that has the correct
                   while (cell_info->id != cell->id().template to_binary<dim>())
