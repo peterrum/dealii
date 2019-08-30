@@ -172,7 +172,8 @@ namespace parallel
                 cell->vertex_index(v));
           };
 
-        if (!tria_pft.is_multilevel_hierarchy_constructed())
+        // check if multilevel hierarchy should be constructed
+        if (tria_pft.is_multilevel_hierarchy_constructed() == false)
           {
             // 2) collect vertices of active locally owned cells
             std::set<unsigned int> vertices_owned_by_loclly_owned_cells;
@@ -203,6 +204,9 @@ namespace parallel
             for (auto cell : tria.cell_iterators())
               if (cell->active() && is_locally_relevant(cell))
                 {
+                  // to be filled
+                  CellInfo<dim> cell_info;
+                  
                   // a) extract cell definition (with old numbering of
                   // vertices)
                   CellData<dim> cell_data;
@@ -221,8 +225,6 @@ namespace parallel
                     vertices_locally_relevant[cell->vertex_index(v)] =
                       numbers::invalid_unsigned_int;
 
-                  CellInfo<dim> cell_info;
-
                   // c) save boundary_ids of each face of this cell
                   for (unsigned int f = 0;
                        f < GeometryInfo<dim>::faces_per_cell;
@@ -234,10 +236,15 @@ namespace parallel
                         cell_info.boundary_ids.emplace_back(f, boundary_ind);
                     }
 
-                  // e) save translation for corase grid: lid -> gid
-                  coarse_cell_index_to_coarse_cell_id.push_back(
-                    convert_binary_to_gid<dim>(
-                      cell->id().template to_binary<dim>()));
+                  // e) compute a new coarse-cell id (by ignoring all parent level)
+                  types::coarse_cell_id new_coarse_cell_id = convert_binary_to_gid<dim>(
+                      cell->id().template to_binary<dim>());
+                  
+                  //    store the coarse cell id
+                  cell_info.id = CellId(new_coarse_cell_id, 0, NULL).template to_binary<dim>();
+                  
+                  //    save coarse_cell_index -> coarse_cell_id mapping 
+                  coarse_cell_index_to_coarse_cell_id.push_back(new_coarse_cell_id);
 
                   cell_info.manifold_id = cell->manifold_id();
 
@@ -259,14 +266,7 @@ namespace parallel
                           cell->line(line)->manifold_id();
                     }
 
-                  CellId::binary_type id;
-                  id.fill(0);
-                  id[0] = coarse_cell_index_to_coarse_cell_id.back();
-                  id[1] = dim;
-                  id[2] = 0;
-                  id[3] = 0;
-
-                  cell_info.id                 = id;
+                  
                   cell_info.subdomain_id       = cell->subdomain_id();
                   cell_info.level_subdomain_id = numbers::invalid_subdomain_id;
 
