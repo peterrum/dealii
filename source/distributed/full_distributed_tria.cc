@@ -107,8 +107,10 @@ namespace parallel
 
           // 3) setup dummy mapping between locally relevant coarse-grid cells
           //    and global cells
-          this->coarse_cell_id_to_coarse_cell_index_vector.emplace_back(0, 0);
-          this->coarse_cell_index_to_coarse_cell_id_vector.push_back(0);
+          this->coarse_cell_id_to_coarse_cell_index_vector.emplace_back(
+            numbers::invalid_coarse_cell_id, 0);
+          this->coarse_cell_index_to_coarse_cell_id_vector.push_back(
+            numbers::invalid_coarse_cell_id);
         }
       else
         {
@@ -496,7 +498,11 @@ namespace parallel
     Triangulation<dim, spacedim>::coarse_cell_index_to_coarse_cell_id(
       const unsigned int coarse_cell_index) const
     {
-      return coarse_cell_index_to_coarse_cell_id_vector[coarse_cell_index];
+      const auto coarse_cell_id =
+        coarse_cell_index_to_coarse_cell_id_vector[coarse_cell_index];
+      Assert(coarse_cell_id != numbers::invalid_coarse_cell_id,
+             ExcMessage("You are trying to access a dummy cell!"));
+      return coarse_cell_id;
     }
 
 
