@@ -87,6 +87,10 @@ namespace parallel
     Triangulation<dim, spacedim>::reinit(
       const ConstructionData<dim, spacedim> &construction_data)
     {
+      // clear internal data structures
+      this->coarse_cell_id_to_coarse_cell_index_vector.clear();
+      this->coarse_cell_index_to_coarse_cell_id_vector.clear();
+
       // check if there are locally relevant coarse-grid cells
       if (construction_data.coarse_cell_vertices.empty() == true)
         {
