@@ -299,7 +299,7 @@ namespace parallel
     void
     Triangulation<dim, spacedim>::execute_coarsening_and_refinement()
     {
-      Assert(false, ExcNotImplemented());
+      AssertThrow(false, ExcNotImplemented());
     }
 
 
@@ -308,8 +308,7 @@ namespace parallel
     bool
     Triangulation<dim, spacedim>::prepare_coarsening_and_refinement()
     {
-      return dealii::Triangulation<dim, spacedim>::
-        prepare_coarsening_and_refinement();
+      AssertThrow(false, ExcNotImplemented());
     }
 
 
@@ -318,7 +317,7 @@ namespace parallel
     bool
     Triangulation<dim, spacedim>::has_hanging_nodes() const
     {
-      Assert(false, ExcNotImplemented());
+      AssertThrow(false, ExcNotImplemented());
       return false;
     }
 
