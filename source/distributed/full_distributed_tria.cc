@@ -38,7 +38,7 @@ namespace parallel
     namespace internal
     {
       /**
-       * Check if `parent` is parent of `child`.
+       * Check if `parent` is the parent of `child`.
        */
       template <int dim>
       bool
@@ -88,18 +88,16 @@ namespace parallel
       const ConstructionData<dim, spacedim> &construction_data)
     {
       // check if there are locally relevant coarse-grid cells
-      if (construction_data.coarse_cell_vertices.empty() == true) // no
+      if (construction_data.coarse_cell_vertices.empty() == true)
         {
           // 1) create a dummy hypercube
           GridGenerator::hyper_cube(*this, 0, 1, false);
 
           // 2) mark cell as artificial
-          for (auto cell = this->begin(); cell != this->end(); cell++)
-            {
-              cell->set_subdomain_id(dealii::numbers::artificial_subdomain_id);
-              cell->set_level_subdomain_id(
-                dealii::numbers::artificial_subdomain_id);
-            }
+          auto cell = this->begin();
+          cell->set_subdomain_id(dealii::numbers::artificial_subdomain_id);
+          cell->set_level_subdomain_id(
+            dealii::numbers::artificial_subdomain_id);
 
           // 3) setup dummy mapping between locally relevant coarse-grid cells
           //    and global cells
