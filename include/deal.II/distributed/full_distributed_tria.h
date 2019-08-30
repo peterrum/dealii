@@ -371,7 +371,16 @@ namespace parallel
       std::vector<types::coarse_cell_id>
         coarse_cell_index_to_coarse_cell_id_vector;
 
+      /**
+       * Boolean indicating that the function create_triangulation() was called
+       * for internal usage.
+       */
       bool create_triangulation_for_internal_usage;
+
+      /**
+       * Boolean indicating that the function
+       * prepare_coarsening_and_refinement() was called for internal usage.
+       */
       bool prepare_coarsening_and_refinement_for_internal_usage;
 
 
