@@ -469,25 +469,16 @@ namespace parallel
                     }
 
                     // subdomain and level subdomain id
-                    if (cell->active() && is_locally_relevant(cell))
+                    cell_info.subdomain_id = numbers::artificial_subdomain_id;
+                    cell_info.level_subdomain_id =
+                      numbers::artificial_subdomain_id;
+
+                    if (is_locally_relevant(cell))
                       {
-                        cell_info.subdomain_id = cell->subdomain_id(),
                         cell_info.level_subdomain_id =
                           cell->level_subdomain_id();
-                      }
-                    else if (is_locally_relevant(cell))
-                      {
-                        cell_info.subdomain_id =
-                          numbers::artificial_subdomain_id;
-                        cell_info.level_subdomain_id =
-                          cell->level_subdomain_id();
-                      }
-                    else
-                      {
-                        cell_info.subdomain_id =
-                          numbers::artificial_subdomain_id;
-                        cell_info.subdomain_id =
-                          numbers::artificial_subdomain_id;
+                        if (cell->active())
+                          cell_info.subdomain_id = cell->subdomain_id();
                       }
 
                     level_cell_infos.push_back(cell_info);
