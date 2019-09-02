@@ -21,6 +21,7 @@
 #include <deal.II/base/config.h>
 
 #include <deal.II/base/data_out_base.h>
+#include <deal.II/base/mg_level_object.h>
 #include <deal.II/base/smartpointer.h>
 
 #include <deal.II/dofs/dof_handler.h>
@@ -852,6 +853,34 @@ public:
                   const DataPostprocessor<DoFHandlerType::space_dimension>
                     &data_postprocessor);
 
+
+  /**
+   * TODO
+   */
+  template <class VectorType>
+  void
+  add_mg_data_vector(
+    const DoFHandlerType &           dof_handler,
+    const MGLevelObject<VectorType> &data,
+    const std::vector<std::string> & names,
+    const std::vector<DataComponentInterpretation::DataComponentInterpretation>
+      &data_component_interpretation = std::vector<
+        DataComponentInterpretation::DataComponentInterpretation>());
+
+  /**
+   * Scalar version of the function above.
+   */
+  template <class VectorType>
+  void
+  add_mg_data_vector(const DoFHandlerType &           dof_handler,
+                     const MGLevelObject<VectorType> &data,
+                     const std::string &              name);
+
+
+
+  // TODO: cell data version
+
+
   /**
    * Release the pointers to the data vectors. This allows output of a new set
    * of vectors without supplying the DoF handler again. Therefore, the
@@ -996,6 +1025,11 @@ protected:
   // function.
   template <class, int, int>
   friend class DataOut_DoFData;
+
+  /**
+   */
+  template <int, class>
+  friend class MGDataOut;
 
 private:
   /**

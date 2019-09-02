@@ -231,18 +231,23 @@ namespace internal
               duplicate = true;
           if (duplicate == false)
             {
-              typename DoFHandlerType::active_cell_iterator dh_cell(
-                &cell->get_triangulation(),
-                cell->level(),
-                cell->index(),
-                dof_data[dataset]->dof_handler);
-              if (x_fe_values.empty())
+              if (cell->active())
                 {
-                  AssertIndexRange(face, GeometryInfo<dim>::faces_per_cell);
-                  x_fe_face_values[dataset]->reinit(dh_cell, face);
+                  typename DoFHandlerType::active_cell_iterator dh_cell(
+                    &cell->get_triangulation(),
+                    cell->level(),
+                    cell->index(),
+                    dof_data[dataset]->dof_handler);
+                  if (x_fe_values.empty())
+                    {
+                      AssertIndexRange(face, GeometryInfo<dim>::faces_per_cell);
+                      x_fe_face_values[dataset]->reinit(dh_cell, face);
+                    }
+                  else
+                    x_fe_values[dataset]->reinit(dh_cell);
                 }
               else
-                x_fe_values[dataset]->reinit(dh_cell);
+                x_fe_values[dataset]->reinit(cell);
             }
         }
       if (dof_data.empty())
@@ -973,6 +978,261 @@ namespace internal
       vector            = nullptr;
       this->dof_handler = nullptr;
     }
+
+
+
+    /**
+     * Like DataEntry, but used to look up data from multigrid computations.
+     * Data will use level-DoF indices to look up in a MGLevelObject<VectorType>
+     * given on the specific level instead of interpolating data to coarsers
+     * cells.
+     */
+    template <typename DoFHandlerType, typename VectorType>
+    class MGDataEntry : public DataEntryBase<DoFHandlerType>
+    {
+    public:
+      MGDataEntry(const DoFHandlerType *           dofs,
+                  const MGLevelObject<VectorType> *vectors,
+                  const std::vector<std::string> & names,
+                  const std::vector<
+                    DataComponentInterpretation::DataComponentInterpretation>
+                    &data_component_interpretation)
+        : DataEntryBase<DoFHandlerType>(dofs,
+                                        names,
+                                        data_component_interpretation)
+        , vectors(vectors)
+      {}
+
+      double // TODO
+      get_cell_data_value(const unsigned int cell_level,
+                          const unsigned int cell_index) const
+      {
+        Assert(false, ExcNotImplemented());
+
+        // cell_number is counting over all cells so compute the level and
+        // index from it
+        unsigned int idx = cell_index;
+        unsigned int lvl = vectors->min_level();
+        while ((*vectors)[lvl].size() <= idx)
+          {
+            idx -= (*vectors)[lvl].size();
+            ++lvl;
+          }
+        return get_vector_element((*vectors)[lvl], idx);
+      }
+
+
+      virtual double
+      get_cell_data_value(const unsigned int       cell_number,
+                          const ComponentExtractor extract_component) const
+      {
+        return 0.0;
+      }
+
+
+      virtual void
+      get_function_values(
+        const FEValuesBase<DoFHandlerType::dimension,
+                           DoFHandlerType::space_dimension> &fe_patch_values,
+        const ComponentExtractor                             extract_component,
+        std::vector<double> &patch_values) const;
+
+      /**
+       * Given a FEValuesBase object, extract the values on the present cell
+       * from the vector we actually store. This function does the same as the
+       * one above but for vector-valued finite elements.
+       */
+      virtual void
+      get_function_values(
+        const FEValuesBase<DoFHandlerType::dimension,
+                           DoFHandlerType::space_dimension> &fe_patch_values,
+        const ComponentExtractor                             extract_component,
+        std::vector<dealii::Vector<double>> &patch_values_system) const
+      {}
+
+      /**
+       * Given a FEValuesBase object, extract the gradients on the present
+       * cell from the vector we actually store.
+       */
+      virtual void
+      get_function_gradients(
+        const FEValuesBase<DoFHandlerType::dimension,
+                           DoFHandlerType::space_dimension> &fe_patch_values,
+        const ComponentExtractor                             extract_component,
+        std::vector<Tensor<1, DoFHandlerType::space_dimension>>
+          &patch_gradients) const
+      {}
+
+      /**
+       * Given a FEValuesBase object, extract the gradients on the present
+       * cell from the vector we actually store. This function does the same
+       * as the one above but for vector-valued finite elements.
+       */
+      virtual void
+      get_function_gradients(
+        const FEValuesBase<DoFHandlerType::dimension,
+                           DoFHandlerType::space_dimension> &fe_patch_values,
+        const ComponentExtractor                             extract_component,
+        std::vector<std::vector<Tensor<1, DoFHandlerType::space_dimension>>>
+          &patch_gradients_system) const
+      {}
+
+      /**
+       * Given a FEValuesBase object, extract the second derivatives on the
+       * present cell from the vector we actually store.
+       */
+      virtual void
+      get_function_hessians(
+        const FEValuesBase<DoFHandlerType::dimension,
+                           DoFHandlerType::space_dimension> &fe_patch_values,
+        const ComponentExtractor                             extract_component,
+        std::vector<Tensor<2, DoFHandlerType::space_dimension>> &patch_hessians)
+        const
+      {}
+
+      /**
+       * Given a FEValuesBase object, extract the second derivatives on the
+       * present cell from the vector we actually store. This function does
+       * the same as the one above but for vector-valued finite elements.
+       */
+      virtual void
+      get_function_hessians(
+        const FEValuesBase<DoFHandlerType::dimension,
+                           DoFHandlerType::space_dimension> &fe_patch_values,
+        const ComponentExtractor                             extract_component,
+        std::vector<std::vector<Tensor<2, DoFHandlerType::space_dimension>>>
+          &patch_hessians_system) const
+      {}
+
+      /**
+       * Return whether the data represented by (a derived class of) this object
+       * represents a complex-valued (as opposed to real-valued) information.
+       */
+      virtual bool
+      is_complex_valued() const
+      {
+        return false;
+      }
+
+      /**
+       * Clear all references to the vectors.
+       */
+      virtual void
+      clear()
+      {}
+
+      /**
+       * Determine an estimate for the memory consumption (in bytes) of this
+       * object.
+       */
+      virtual std::size_t
+      memory_consumption() const
+      {
+        return 0;
+      }
+
+    private:
+      const MGLevelObject<VectorType> *vectors;
+    };
+
+
+
+    template <typename VectorType>
+    struct temp_get_indices
+    {
+      static void
+      extract(std::vector<double> &                       values,
+              const VectorType &                          vector,
+              const std::vector<types::global_dof_index> &indices,
+              const ComponentExtractor                    extract_component);
+    };
+
+
+    template <typename VectorType>
+    void
+    temp_get_indices<VectorType>::extract(
+      std::vector<double> &                       values,
+      const VectorType &                          vector,
+      const std::vector<types::global_dof_index> &indices,
+      const ComponentExtractor                    extract_component)
+    {
+      for (unsigned int i = 0; i < values.size(); ++i)
+        values[i] = get_component(vector[indices[i]], extract_component);
+    }
+
+
+    //    template <>
+    //    void
+    //    temp_get_indices<Vector<std::complex<double>>>::extract(
+    //      std::vector<double> &               values,
+    //      const Vector<std::complex<double>> &vector,
+    //      const std::vector<unsigned int> &   indices)
+    //    {
+    //      Assert(false, ExcNotImplemented());
+    //      // TODO
+    //    }
+    //    template <>
+    //    void
+    //    temp_get_indices<Vector<std::complex<float>>>::extract(
+    //      std::vector<double> &               values,
+    //      const Vector<std::complex<float>> &vector,
+    //      const std::vector<unsigned int> &   indices)
+    //    {
+    //      Assert(false, ExcNotImplemented());
+    //      // TODO
+    //    }
+
+    template <>
+    inline void
+    temp_get_indices<LinearAlgebra::EpetraWrappers::Vector>::extract(
+      std::vector<double> &                        values,
+      const LinearAlgebra::EpetraWrappers::Vector &vector,
+      const std::vector<types::global_dof_index> & indices,
+      const ComponentExtractor /*extract_component*/)
+    {
+      // I don't have element access
+      Assert(false, ExcNotImplemented());
+      // TODO
+    }
+
+    template <typename DoFHandlerType, typename VectorType>
+    void
+    MGDataEntry<DoFHandlerType, VectorType>::get_function_values(
+      const FEValuesBase<DoFHandlerType::dimension,
+                         DoFHandlerType::space_dimension> &fe_patch_values,
+      const ComponentExtractor                             extract_component,
+      std::vector<double> &                                patch_values) const
+    {
+      (void)extract_component;
+      Assert(extract_component == ComponentExtractor::real_part,
+             ExcNotImplemented());
+
+      typename DoFHandlerType::level_cell_iterator dof_cell(
+        &fe_patch_values.get_cell()->get_triangulation(),
+        fe_patch_values.get_cell()->level(),
+        fe_patch_values.get_cell()->index(),
+        this->dof_handler);
+
+      const VectorType *vector = &((*vectors)[dof_cell->level()]);
+
+      const unsigned int dofs_per_cell =
+        this->dof_handler->get_fe()[0].dofs_per_cell;
+
+      std::vector<types::global_dof_index> dof_indices(dofs_per_cell);
+      dof_cell->get_mg_dof_indices(dof_indices);
+      std::vector<double> values(dofs_per_cell);
+      temp_get_indices<VectorType>::extract(values,
+                                            *vector,
+                                            dof_indices,
+                                            extract_component);
+
+      for (unsigned int i = 0; i < dofs_per_cell; ++i)
+        for (unsigned int q_point = 0; q_point < patch_values.size(); ++q_point)
+          patch_values[q_point] +=
+            values[i] * fe_patch_values.shape_value(i, q_point);
+    }
+
+
   } // namespace DataOutImplementation
 } // namespace internal
 
@@ -1170,11 +1430,11 @@ DataOut_DoFData<DoFHandlerType, patch_dim, patch_space_dim>::
       case type_dof_data:
         Assert(dof_handler != nullptr,
                Exceptions::DataOutImplementation::ExcNoDoFHandlerSelected());
-        Assert(data_vector.size() == dof_handler->n_dofs(),
+        /*Assert(data_vector.size() == dof_handler->n_dofs(),
                Exceptions::DataOutImplementation::ExcInvalidVectorSize(
                  data_vector.size(),
                  dof_handler->n_dofs(),
-                 triangulation->n_active_cells()));
+                 triangulation->n_active_cells()));*/
         Assert(deduced_names.size() == dof_handler->get_fe(0).n_components(),
                Exceptions::DataOutImplementation::ExcInvalidNumberOfNames(
                  deduced_names.size(), dof_handler->get_fe(0).n_components()));
@@ -1232,6 +1492,56 @@ DataOut_DoFData<DoFHandlerType, patch_dim, patch_space_dim>::
     }
   else
     cell_data.emplace_back(std::move(new_entry));
+}
+
+
+
+template <typename DoFHandlerType, int patch_dim, int patch_space_dim>
+template <class VectorType>
+void
+DataOut_DoFData<DoFHandlerType, patch_dim, patch_space_dim>::add_mg_data_vector(
+  const DoFHandlerType &           dof_handler,
+  const MGLevelObject<VectorType> &data,
+  const std::string &              name)
+{
+  // forward the call to the vector version:
+  std::vector<std::string> names(1, name);
+  add_mg_data_vector(dof_handler, data, names);
+}
+
+
+
+template <typename DoFHandlerType, int patch_dim, int patch_space_dim>
+template <class VectorType>
+void
+DataOut_DoFData<DoFHandlerType, patch_dim, patch_space_dim>::add_mg_data_vector(
+  const DoFHandlerType &           dof_handler,
+  const MGLevelObject<VectorType> &data,
+  const std::vector<std::string> & names,
+  const std::vector<DataComponentInterpretation::DataComponentInterpretation>
+    &data_component_interpretation_)
+{
+  if (triangulation == nullptr)
+    triangulation =
+      SmartPointer<const Triangulation<DoFHandlerType::dimension,
+                                       DoFHandlerType::space_dimension>>(
+        &dof_handler.get_triangulation(), typeid(*this).name());
+
+  Assert(&dof_handler.get_triangulation() == triangulation,
+         ExcMessage("The triangulation attached to the DoFHandler does not "
+                    "match with the one set previously"));
+
+  const std::vector<DataComponentInterpretation::DataComponentInterpretation>
+    &data_component_interpretation =
+      (data_component_interpretation_.size() != 0 ?
+         data_component_interpretation_ :
+         std::vector<DataComponentInterpretation::DataComponentInterpretation>(
+           names.size(), DataComponentInterpretation::component_is_scalar));
+
+  auto new_entry = std_cxx14::make_unique<
+    internal::DataOutImplementation::MGDataEntry<DoFHandlerType, VectorType>>(
+    &dof_handler, &data, names, data_component_interpretation);
+  dof_data.emplace_back(std::move(new_entry));
 }
 
 
