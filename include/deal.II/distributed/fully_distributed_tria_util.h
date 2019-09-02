@@ -146,8 +146,11 @@ namespace parallel
           cd.coarse_cell_index_to_coarse_cell_id;
         auto &cell_infos = cd.cell_infos;
 
+        // helper function, which collects all vertices belonging to a cell
+        // (also taking into account periodicity)
         auto add_vertices_of_cell_to_vertices_owned_by_loclly_owned_cells =
           [](auto &cell, auto &vertices_owned_by_loclly_owned_cells) mutable {
+            // add vertices belonging to a periodic neighbor
             for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell; i++)
               if (cell->has_periodic_neighbor(i))
                 {
@@ -165,7 +168,7 @@ namespace parallel
                     }
                 }
 
-
+            // add local vertices
             for (unsigned int v = 0; v < GeometryInfo<dim>::vertices_per_cell;
                  v++)
               vertices_owned_by_loclly_owned_cells.insert(
@@ -393,10 +396,14 @@ namespace parallel
             }
 
 
+            // 3) collect info of each cell
+            cell_infos.resize(tria.get_triangulation().n_global_levels());
+
             for (unsigned int level = 0;
                  level < tria.get_triangulation().n_global_levels();
                  level++)
               {
+                // collect local vertices on level
                 std::set<unsigned int> vertices_owned_by_loclly_owned_cells;
                 for (auto cell : tria.cell_iterators_on_level(level))
                   if (cell->level_subdomain_id() == my_rank ||
@@ -416,39 +423,19 @@ namespace parallel
                   return false;
                 };
 
-
-                std::set<unsigned int>
-                  vertices_owned_by_loclly_owned_cells_strong;
-                for (auto cell : tria.active_cell_iterators())
-                  if (cell->subdomain_id() == my_rank)
-                    add_vertices_of_cell_to_vertices_owned_by_loclly_owned_cells(
-                      cell, vertices_owned_by_loclly_owned_cells_strong);
-
-                // helper function to determine if cell is locally relevant
-                auto is_locally_relevant_strong = [&](auto &cell) {
-                  for (unsigned int v = 0;
-                       v < GeometryInfo<dim>::vertices_per_cell;
-                       v++)
-                    if (vertices_owned_by_loclly_owned_cells_strong.find(
-                          cell->vertex_index(v)) !=
-                        vertices_owned_by_loclly_owned_cells_strong.end())
-                      return true;
-                  return false;
-                };
-
-
-                cell_infos.push_back(std::vector<CellInfo<dim>>());
-                auto &part = cell_infos.back();
+                auto &level_cell_infos = cell_infos[level];
                 for (auto cell : tria.cell_iterators_on_level(level))
                   {
+                    // check if cell is locally relevant
                     if (!(cell->user_flag_set()))
                       continue;
 
-                    auto id = cell->id().template to_binary<dim>();
-
                     CellInfo<dim> cell_info;
 
-                    // d) save boundary_ids of each face of this cell
+                    // save coarse-cell id
+                    cell_info.id = cell->id().template to_binary<dim>();
+
+                    // save boundary_ids of each face of this cell
                     for (unsigned int f = 0;
                          f < GeometryInfo<dim>::faces_per_cell;
                          f++)
@@ -459,36 +446,37 @@ namespace parallel
                           cell_info.boundary_ids.emplace_back(f, boundary_ind);
                       }
 
-                    cell_info.manifold_id = cell->manifold_id();
+                    // save manifold id
+                    {
+                      // ... of cell
+                      cell_info.manifold_id = cell->manifold_id();
 
-                    if (spacedim == 3)
-                      {
-                        for (unsigned int quad = 0;
-                             quad < GeometryInfo<spacedim>::quads_per_cell;
-                             quad++)
-                          cell_info.manifold_quad_ids[quad] =
-                            cell->quad(quad)->manifold_id();
-                      }
-
-                    if (spacedim >= 2)
-                      {
+                      // ... of line
+                      if (spacedim >= 2)
                         for (unsigned int line = 0;
                              line < GeometryInfo<spacedim>::lines_per_cell;
                              line++)
                           cell_info.manifold_line_ids[line] =
                             cell->line(line)->manifold_id();
-                      }
 
-                    if (cell->active() && is_locally_relevant_strong(cell))
+                      // ... of hex
+                      if (spacedim == 3)
+                        for (unsigned int quad = 0;
+                             quad < GeometryInfo<spacedim>::quads_per_cell;
+                             quad++)
+                          cell_info.manifold_quad_ids[quad] =
+                            cell->quad(quad)->manifold_id();
+                    }
+
+                    // subdomain and level subdomain id
+                    if (cell->active() && is_locally_relevant(cell))
                       {
-                        cell_info.id           = id;
                         cell_info.subdomain_id = cell->subdomain_id(),
                         cell_info.level_subdomain_id =
                           cell->level_subdomain_id();
                       }
                     else if (is_locally_relevant(cell))
                       {
-                        cell_info.id = id;
                         cell_info.subdomain_id =
                           numbers::artificial_subdomain_id;
                         cell_info.level_subdomain_id =
@@ -496,20 +484,18 @@ namespace parallel
                       }
                     else
                       {
-                        cell_info.id = id;
                         cell_info.subdomain_id =
                           numbers::artificial_subdomain_id;
                         cell_info.subdomain_id =
                           numbers::artificial_subdomain_id;
                       }
-                    part.push_back(cell_info);
+
+                    level_cell_infos.push_back(cell_info);
                   }
               }
           }
 
-
-
-        // sort cells according to their index
+        // postprocessing: sort cells according to their index
         std::map<int, int> coarse_cell_id_to_coarse_cell_index;
         for (unsigned int i = 0; i < coarse_cell_index_to_coarse_cell_id.size();
              i++)
