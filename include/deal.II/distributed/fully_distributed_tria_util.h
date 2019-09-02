@@ -138,13 +138,13 @@ namespace parallel
                           "This type of triangulation is not supported!"));
           }
 
-        ConstructionData<dim, spacedim> cd;
+        ConstructionData<dim, spacedim> construction_data;
 
-        auto &cells    = cd.coarse_cells;
-        auto &vertices = cd.coarse_cell_vertices;
+        auto &cells    = construction_data.coarse_cells;
+        auto &vertices = construction_data.coarse_cell_vertices;
         auto &coarse_cell_index_to_coarse_cell_id =
-          cd.coarse_cell_index_to_coarse_cell_id;
-        auto &cell_infos = cd.cell_infos;
+          construction_data.coarse_cell_index_to_coarse_cell_id;
+        auto &cell_infos = construction_data.cell_infos;
 
         // helper function, which collects all vertices belonging to a cell
         // (also taking into account periodicity)
@@ -493,7 +493,7 @@ namespace parallel
           coarse_cell_id_to_coarse_cell_index
             [coarse_cell_index_to_coarse_cell_id[i]] = i;
 
-        for (auto &part : cd.cell_infos)
+        for (auto &part : construction_data.cell_infos)
           {
             std::sort(part.begin(), part.end(), [&](auto a, auto b) {
               auto a_index = a.id;
@@ -507,7 +507,7 @@ namespace parallel
           }
 
 
-        return cd;
+        return construction_data;
       }
     } // namespace Utilities
   }   // namespace fullydistributed
