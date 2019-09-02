@@ -288,24 +288,6 @@ namespace parallel
                   cell_counter++;
                 }
 
-            // sort cells according to their index
-            std::map<int, int> coarse_cell_id_to_coarse_cell_index;
-            for (unsigned int i = 0;
-                 i < coarse_cell_index_to_coarse_cell_id.size();
-                 i++)
-              coarse_cell_id_to_coarse_cell_index
-                [coarse_cell_index_to_coarse_cell_id[i]] = i;
-
-            std::sort(part.begin(), part.end(), [&](auto a, auto b) {
-              auto a_index = a.id;
-              a_index[0]   = coarse_cell_id_to_coarse_cell_index.at(a_index[0]);
-              auto b_index = b.id;
-              b_index[0]   = coarse_cell_id_to_coarse_cell_index.at(b_index[0]);
-
-              return convert_binary_to_gid<dim>(a_index) <
-                     convert_binary_to_gid<dim>(b_index);
-            });
-
             // 3) enumerate locally relevant vertices
             unsigned int vertex_counter = 0;
             for (auto &vertex : vertices_locally_relevant)
@@ -410,13 +392,6 @@ namespace parallel
                 cell.vertices[v] = vertices_locally_relevant[cell.vertices[v]];
 
 
-            std::map<int, int> coarse_cell_id_to_coarse_cell_index;
-            for (unsigned int i = 0;
-                 i < coarse_cell_index_to_coarse_cell_id.size();
-                 i++)
-              coarse_cell_id_to_coarse_cell_index
-                [coarse_cell_index_to_coarse_cell_id[i]] = i;
-
             for (unsigned int level = 0;
                  level < tria.get_triangulation().n_global_levels();
                  level++)
@@ -469,7 +444,6 @@ namespace parallel
                       continue;
 
                     auto id = cell->id().template to_binary<dim>();
-                    // id[0]   = coarse_cell_id_to_coarse_cell_index[id[0]];
 
                     CellInfo<dim> cell_info;
 
@@ -529,20 +503,31 @@ namespace parallel
                       }
                     part.push_back(cell_info);
                   }
-
-                std::sort(part.begin(), part.end(), [&](auto a, auto b) {
-                  auto a_index = a.id;
-                  a_index[0] =
-                    coarse_cell_id_to_coarse_cell_index.at(a_index[0]);
-                  auto b_index = b.id;
-                  b_index[0] =
-                    coarse_cell_id_to_coarse_cell_index.at(b_index[0]);
-
-                  return convert_binary_to_gid<dim>(a_index) <
-                         convert_binary_to_gid<dim>(b_index);
-                });
               }
           }
+
+
+
+        // sort cells according to their index
+        std::map<int, int> coarse_cell_id_to_coarse_cell_index;
+        for (unsigned int i = 0; i < coarse_cell_index_to_coarse_cell_id.size();
+             i++)
+          coarse_cell_id_to_coarse_cell_index
+            [coarse_cell_index_to_coarse_cell_id[i]] = i;
+
+        for (auto &part : cd.cell_infos)
+          {
+            std::sort(part.begin(), part.end(), [&](auto a, auto b) {
+              auto a_index = a.id;
+              a_index[0]   = coarse_cell_id_to_coarse_cell_index.at(a_index[0]);
+              auto b_index = b.id;
+              b_index[0]   = coarse_cell_id_to_coarse_cell_index.at(b_index[0]);
+
+              return convert_binary_to_gid<dim>(a_index) <
+                     convert_binary_to_gid<dim>(b_index);
+            });
+          }
+
 
         return cd;
       }
