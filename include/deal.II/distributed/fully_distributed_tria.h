@@ -271,7 +271,7 @@ namespace parallel
        *       to create ConstructionData.
        *
        * @note This is the function to be used instead of
-       * Triangulation::create_triangulation() for some of the other 
+       * Triangulation::create_triangulation() for some of the other
        * triangulations of deal.II.
        *
        * @param construction_data
@@ -280,7 +280,7 @@ namespace parallel
       reinit(const ConstructionData<dim, spacedim> &construction_data);
 
       /**
-       * @note This function is not implemented for this class  and throws 
+       * @note This function is not implemented for this class  and throws
        *       an assertion. Instead, use
        *       the function reinit() to create the triangulation.
        */
@@ -387,7 +387,7 @@ namespace parallel
 
       /**
        * Make the respective DoFHandler policy a friend.
-       */ 
+       */
       template <typename>
       friend class dealii::internal::DoFHandlerImplementation::Policy::
         ParallelDistributed;

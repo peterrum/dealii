@@ -33,9 +33,9 @@ namespace parallel
     {
       namespace
       {
-        template <typename CELL>
+        template <int dim, int spacedim>
         void
-        set_flag_reverse(CELL cell)
+        set_flag_reverse(TriaIterator<CellAccessor<dim, spacedim>> cell)
         {
           cell->set_user_flag();
           if (cell->level() != 0)
@@ -116,8 +116,10 @@ namespace parallel
                 my_rank == dealii::Utilities::MPI::this_mpi_process(comm))
               my_rank = dealii::Utilities::MPI::this_mpi_process(comm);
             else
-              AssertThrow(false,
-                          ExcMessage("PDT: y_rank has to equal global rank."));
+              AssertThrow(
+                false,
+                ExcMessage(
+                  "If parallel::distributed::Triangulation as source triangulation, my_rank has to equal global rank."));
           }
         else if (auto tria_serial =
                    dynamic_cast<const dealii::Triangulation<dim, spacedim> *>(
@@ -265,7 +267,7 @@ namespace parallel
                       cell_info.manifold_line_ids[line] =
                         cell->line(line)->manifold_id();
 
-                  // ... of hexes
+                  // ... of quads
                   if (spacedim == 3)
                     for (unsigned int quad = 0;
                          quad < GeometryInfo<spacedim>::quads_per_cell;
@@ -446,7 +448,7 @@ namespace parallel
                       // ... of cell
                       cell_info.manifold_id = cell->manifold_id();
 
-                      // ... of line
+                      // ... of lines
                       if (spacedim >= 2)
                         for (unsigned int line = 0;
                              line < GeometryInfo<spacedim>::lines_per_cell;
@@ -454,7 +456,7 @@ namespace parallel
                           cell_info.manifold_line_ids[line] =
                             cell->line(line)->manifold_id();
 
-                      // ... of hex
+                      // ... of quads
                       if (spacedim == 3)
                         for (unsigned int quad = 0;
                              quad < GeometryInfo<spacedim>::quads_per_cell;
