@@ -185,7 +185,7 @@ namespace parallel
      *
      * To be able to construct a fully partitioned triangulation that
      * distributes the coarse grid and gives flexibility regarding partitioning,
-     *  the following ingredients are required:
+     * the following ingredients are required:
      * - a locally relevant coarse-grid triangulation
      *   (vertices, cell definition; including a layer of ghost cells)
      * - a mapping of the locally relevant coarse-grid triangulation into the
@@ -249,7 +249,6 @@ namespace parallel
         construct_multigrid_hierarchy = 0x1
       };
 
-
       /**
        * Constructor.
        *
@@ -271,7 +270,9 @@ namespace parallel
        * @note The namespace dealii::fullydistributed::Util contains functions
        *       to create ConstructionData.
        *
-       * @note This is the function to be used instead of create_triangulation.
+       * @note This is the function to be used instead of
+       * Triangulation::create_triangulation() for some of the other 
+       * triangulations of deal.II.
        *
        * @param construction_data
        */
@@ -279,7 +280,8 @@ namespace parallel
       reinit(const ConstructionData<dim, spacedim> &construction_data);
 
       /**
-       * @note This function is not implemented for this class. Instead, use
+       * @note This function is not implemented for this class  and throws 
+       *       an assertion. Instead, use
        *       the function reinit() to create the triangulation.
        */
       virtual void
@@ -328,7 +330,7 @@ namespace parallel
 
       /**
        * This function determines the neighboring subdomains that are adjacent
-       *  to each vertex.
+       * to each vertex.
        */
       virtual std::map<unsigned int, std::set<dealii::types::subdomain_id>>
       compute_vertices_with_ghost_neighbors() const override;
@@ -383,7 +385,9 @@ namespace parallel
        */
       bool prepare_coarsening_and_refinement_for_internal_usage;
 
-
+      /**
+       * Make the respective DoFHandler policy a friend.
+       */ 
       template <typename>
       friend class dealii::internal::DoFHandlerImplementation::Policy::
         ParallelDistributed;
