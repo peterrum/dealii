@@ -212,7 +212,9 @@ namespace parallel
      *       any form of adaptivity, not even simple global refinements and
      *       coarsenings.
      *
-     * @note Currently only simple periodicity conditions are supported.
+     * @note Currently only simple periodicity conditions (i.e. without offsets
+     *       and rotation matrices - see also the documentation of
+     *       GridTools::collect_periodic_faces)) are supported.
      *
      * @author Peter Munch, 2019
      */
@@ -221,15 +223,14 @@ namespace parallel
       : public parallel::DistributedTriangulationBase<dim, spacedim>
     {
     public:
-      typedef typename dealii::Triangulation<dim, spacedim>::cell_iterator
-        cell_iterator;
+      using cell_iterator =
+        typename dealii::Triangulation<dim, spacedim>::cell_iterator;
 
-      typedef
-        typename dealii::Triangulation<dim, spacedim>::active_cell_iterator
-          active_cell_iterator;
+      using active_cell_iterator =
+        typename dealii::Triangulation<dim, spacedim>::active_cell_iterator;
 
-      typedef
-        typename dealii::Triangulation<dim, spacedim>::CellStatus CellStatus;
+      using CellStatus =
+        typename dealii::Triangulation<dim, spacedim>::CellStatus;
 
       /**
        * Configuration flags for fully distributed Triangulations to be set in
@@ -274,7 +275,7 @@ namespace parallel
        * Triangulation::create_triangulation() for some of the other
        * triangulations of deal.II.
        *
-       * @param construction_data
+       * @param construction_data The data needed for this process.
        */
       void
       reinit(const ConstructionData<dim, spacedim> &construction_data);

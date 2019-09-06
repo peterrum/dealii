@@ -406,6 +406,7 @@ namespace parallel
           p.second = temp;
         }
 
+#ifdef DEBUG
       // check if map is actually compressed
       for (auto p : periodic_map)
         {
@@ -416,6 +417,7 @@ namespace parallel
             continue;
           AssertThrow(false, ExcMessage("Map has to be compressed!"));
         }
+#endif
 
       std::map<unsigned int, std::set<unsigned int>> sets;
       for (auto p : periodic_map)
@@ -498,6 +500,10 @@ namespace parallel
     Triangulation<dim, spacedim>::coarse_cell_index_to_coarse_cell_id(
       const unsigned int coarse_cell_index) const
     {
+      Assert(
+        coarse_cell_index < coarse_cell_index_to_coarse_cell_id_vector.size(),
+        ExcMessage("You are trying to access a cell which does not exist!"));
+
       const auto coarse_cell_id =
         coarse_cell_index_to_coarse_cell_id_vector[coarse_cell_index];
       Assert(coarse_cell_id != numbers::invalid_coarse_cell_id,
