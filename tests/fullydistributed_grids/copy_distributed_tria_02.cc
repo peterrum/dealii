@@ -14,7 +14,7 @@
 // ---------------------------------------------------------------------
 
 
-// create a tria mesh and copy it
+// Create a distributed triangulation with multigrid levels and copy it.
 
 #include <deal.II/base/mpi.h>
 

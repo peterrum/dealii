@@ -14,7 +14,7 @@
 // ---------------------------------------------------------------------
 
 
-// create a tria mesh and copy it
+// Create a serial triangulation with periodic face in x-direction and copy it.
 
 #include <deal.II/base/mpi.h>
 

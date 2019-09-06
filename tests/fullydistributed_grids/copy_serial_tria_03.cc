@@ -14,7 +14,8 @@
 // ---------------------------------------------------------------------
 
 
-// create a tria mesh and copy it
+// Create a serial triangulation with manifold and hanging nodes levels and 
+// copy it.
 
 #include <deal.II/base/mpi.h>
 

@@ -14,7 +14,8 @@
 // ---------------------------------------------------------------------
 
 
-// create a tria mesh and copy it
+// Create a serial triangulation with a few cells (so that there are processes
+// which do not get any cells) and copy it.
 
 #include <deal.II/base/mpi.h>
 

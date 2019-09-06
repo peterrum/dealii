@@ -14,7 +14,7 @@
 // ---------------------------------------------------------------------
 
 
-// create a tria mesh and copy it
+// Create a serial triangulation and copy it.
 
 #include <deal.II/base/mpi.h>
 
