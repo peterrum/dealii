@@ -72,9 +72,6 @@ main(int argc, char *argv[])
   const int      n_refinements = 3;
   const MPI_Comm comm          = MPI_COMM_WORLD;
 
-  // deallog.push("1d");
-  // test<1>(n_refinements, comm);
-  // deallog.pop();
   deallog.push("2d");
   test<2>(n_refinements, comm);
   deallog.pop();

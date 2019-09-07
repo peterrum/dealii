@@ -30,7 +30,7 @@
 #include <deal.II/grid/grid_tools.h>
 #include <deal.II/grid/tria.h>
 
-#include "../tests.h"
+#include "./tests.h"
 
 using namespace dealii;
 
@@ -67,6 +67,10 @@ test(int n_refinements, const int n_subdivisions, MPI_Comm comm)
   DoFHandler<dim> dof_handler(tria_pft);
   dof_handler.distribute_dofs(fe);
   dof_handler.distribute_mg_dofs();
+
+  // print statistics
+  print_statistics(tria_pft, true);
+  print_statistics(dof_handler, true);
 }
 
 int
@@ -75,15 +79,29 @@ main(int argc, char *argv[])
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    all;
 
-  const int      dim            = 2;
-  const int      n_refinements  = 4;
-  const int      n_subdivisions = 8;
-  const MPI_Comm comm           = MPI_COMM_WORLD;
+  const MPI_Comm comm = MPI_COMM_WORLD;
 
-  if (dim == 1)
+
+  {
+    deallog.push("1d");
+    const int n_refinements  = 8;
+    const int n_subdivisions = 8;
     test<1>(n_refinements, n_subdivisions, comm);
-  else if (dim == 2)
+    deallog.pop();
+  }
+  {
+    deallog.push("2d");
+    const int n_refinements  = 4;
+    const int n_subdivisions = 8;
     test<2>(n_refinements, n_subdivisions, comm);
-  else if (dim == 3)
+    deallog.pop();
+  }
+
+  {
+    deallog.push("3d");
+    const int n_refinements  = 3;
+    const int n_subdivisions = 4;
     test<3>(n_refinements, n_subdivisions, comm);
+    deallog.pop();
+  }
 }
