@@ -17,6 +17,7 @@
 #include <deal.II/base/point.h>
 #include <deal.II/base/tensor.h>
 
+#include <deal.II/distributed/fully_distributed_tria.h>
 #include <deal.II/distributed/shared_tria.h>
 #include <deal.II/distributed/tria.h>
 
@@ -2063,8 +2064,22 @@ namespace GridTools
     Assert(0 <= direction && direction < space_dim,
            ExcIndexRange(direction, 0, space_dim));
 
-    // Assert(pairs1.size() == pairs2.size(),
-    //       ExcMessage("Unmatched faces on periodic boundaries"));
+#ifdef DEBUG
+    constexpr int dim      = CellIterator::AccessorType::dimension;
+    constexpr int spacedim = CellIterator::AccessorType::space_dimension;
+    // for parallel::fullydistributed::Triangulation there might be unmatched
+    // faces on periodic boundaries
+    if (!(((pairs1.size() > 0) &&
+           (dynamic_cast<
+              const parallel::fullydistributed::Triangulation<dim, spacedim> *>(
+              &pairs1.begin()->first->get_triangulation()) != nullptr)) ||
+          ((pairs2.size() > 0) &&
+           (dynamic_cast<
+              const parallel::fullydistributed::Triangulation<dim, spacedim> *>(
+              &pairs2.begin()->first->get_triangulation()) != nullptr))))
+      Assert(pairs1.size() == pairs2.size(),
+             ExcMessage("Unmatched faces on periodic boundaries"));
+#endif
 
     unsigned int n_matches = 0;
 

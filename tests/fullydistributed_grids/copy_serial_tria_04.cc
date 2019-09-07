@@ -41,8 +41,7 @@ test(const int n_refinements, const int n_subdivisions, MPI_Comm comm)
   const double left  = 0;
   const double right = 1;
 
-  auto add_periodicy = [&](dealii::Triangulation<dim> &tria,
-                           const int                   offset = 0) {
+  auto add_periodicy = [&](dealii::Triangulation<dim> &tria) {
     std::vector<
       GridTools::PeriodicFacePair<typename Triangulation<dim>::cell_iterator>>
          periodic_faces;
@@ -53,13 +52,12 @@ test(const int n_refinements, const int n_subdivisions, MPI_Comm comm)
            face_number < GeometryInfo<dim>::faces_per_cell;
            ++face_number)
         if (std::fabs(cell->face(face_number)->center()(0) - left) < 1e-12)
-          cell->face(face_number)->set_all_boundary_ids(0 + offset);
+          cell->face(face_number)->set_all_boundary_ids(1);
         else if (std::fabs(cell->face(face_number)->center()(0) - right) <
                  1e-12)
-          cell->face(face_number)->set_all_boundary_ids(1 + offset);
+          cell->face(face_number)->set_all_boundary_ids(2);
 
-    GridTools::collect_periodic_faces(
-      tria, 0 + offset, 1 + offset, 0, periodic_faces);
+    GridTools::collect_periodic_faces(tria, 1, 2, 0, periodic_faces);
 
     tria.add_periodicity(periodic_faces);
   };
@@ -74,7 +72,6 @@ test(const int n_refinements, const int n_subdivisions, MPI_Comm comm)
   GridTools::partition_triangulation_zorder(
     Utilities::MPI::n_mpi_processes(comm), basetria);
 
-
   // create instance of pft
   parallel::fullydistributed::Triangulation<dim> tria_pft(comm);
 
@@ -87,7 +84,7 @@ test(const int n_refinements, const int n_subdivisions, MPI_Comm comm)
   tria_pft.reinit(construction_data);
 
   // new: add periodicy on fullydistributed mesh (!!!)
-  add_periodicy(tria_pft, 2);
+  add_periodicy(tria_pft);
 }
 
 int
