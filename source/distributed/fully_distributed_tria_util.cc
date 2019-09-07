@@ -249,7 +249,7 @@ namespace parallel
                       cell->id().template to_binary<dim>());
 
                   //    store the coarse cell id
-                  cell_info.id = CellId(new_coarse_cell_id, 0, NULL)
+                  cell_info.id = CellId(new_coarse_cell_id, 0, nullptr)
                                    .template to_binary<dim>();
 
                   //    save coarse_cell_index -> coarse_cell_id mapping
