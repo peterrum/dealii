@@ -44,9 +44,8 @@ test(int n_refinements, const int n_subdivisions, MPI_Comm comm)
   GridGenerator::subdivided_hyper_cube(basetria, n_subdivisions);
   basetria.refine_global(n_refinements);
 
-  GridTools::partition_triangulation(Utilities::MPI::n_mpi_processes(comm),
-                                     basetria,
-                                     SparsityTools::Partitioner::metis);
+  GridTools::partition_triangulation_zorder(
+    Utilities::MPI::n_mpi_processes(comm), basetria);
   GridTools::partition_multigrid_levels(basetria);
 
   // create instance of pft

@@ -68,9 +68,8 @@ test(int n_refinements, const int n_subdivisions, MPI_Comm comm)
       basetria.execute_coarsening_and_refinement();
     }
 
-  GridTools::partition_triangulation(Utilities::MPI::n_mpi_processes(comm),
-                                     basetria,
-                                     SparsityTools::Partitioner::metis);
+  GridTools::partition_triangulation_zorder(
+    Utilities::MPI::n_mpi_processes(comm), basetria);
   // if(n_refinements!=0)
   GridTools::partition_multigrid_levels(basetria);
 

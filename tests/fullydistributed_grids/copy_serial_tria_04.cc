@@ -71,9 +71,8 @@ test(const int n_refinements, const int n_subdivisions, MPI_Comm comm)
   add_periodicy(basetria);
   basetria.refine_global(n_refinements);
 
-  GridTools::partition_triangulation(Utilities::MPI::n_mpi_processes(comm),
-                                     basetria,
-                                     SparsityTools::Partitioner::metis);
+  GridTools::partition_triangulation_zorder(
+    Utilities::MPI::n_mpi_processes(comm), basetria);
 
 
   // create instance of pft
