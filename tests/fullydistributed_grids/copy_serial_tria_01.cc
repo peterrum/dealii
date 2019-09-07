@@ -38,7 +38,7 @@ template <int dim>
 void
 test(int n_refinements, MPI_Comm comm)
 {
-  // create pdt
+  // create serial triangulation
   Triangulation<dim> basetria;
   GridGenerator::hyper_L(basetria);
   basetria.refine_global(n_refinements);

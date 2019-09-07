@@ -64,6 +64,7 @@ test(const int n_refinements, const int n_subdivisions, MPI_Comm comm)
     tria.add_periodicity(periodic_faces);
   };
 
+  // create serial triangulation
   Triangulation<dim> basetria;
   GridGenerator::subdivided_hyper_cube(basetria, n_subdivisions);
   // new: add periodicy on serial mesh
