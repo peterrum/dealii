@@ -304,7 +304,7 @@ namespace parallel
             // 1) collect locally relevant cells (set user_flag)
 
             // 1a) clear user_flags
-            for (auto cell : tria)
+            for (auto &cell : tria)
               cell.recursively_clear_user_flag();
 
             // 1b) loop over levels (from fine to coarse) and mark on each level
