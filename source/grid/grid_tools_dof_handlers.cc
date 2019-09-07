@@ -2065,20 +2065,22 @@ namespace GridTools
            ExcIndexRange(direction, 0, space_dim));
 
 #ifdef DEBUG
-    constexpr int dim      = CellIterator::AccessorType::dimension;
-    constexpr int spacedim = CellIterator::AccessorType::space_dimension;
-    // for parallel::fullydistributed::Triangulation there might be unmatched
-    // faces on periodic boundaries
-    if (!(((pairs1.size() > 0) &&
-           (dynamic_cast<
-              const parallel::fullydistributed::Triangulation<dim, spacedim> *>(
-              &pairs1.begin()->first->get_triangulation()) != nullptr)) ||
-          ((pairs2.size() > 0) &&
-           (dynamic_cast<
-              const parallel::fullydistributed::Triangulation<dim, spacedim> *>(
-              &pairs2.begin()->first->get_triangulation()) != nullptr))))
-      Assert(pairs1.size() == pairs2.size(),
-             ExcMessage("Unmatched faces on periodic boundaries"));
+    {
+      constexpr int dim      = CellIterator::AccessorType::dimension;
+      constexpr int spacedim = CellIterator::AccessorType::space_dimension;
+      // for parallel::fullydistributed::Triangulation there might be unmatched
+      // faces on periodic boundaries
+      if (!(((pairs1.size() > 0) &&
+             (dynamic_cast<const parallel::fullydistributed::
+                             Triangulation<dim, spacedim> *>(
+                &pairs1.begin()->first->get_triangulation()) != nullptr)) ||
+            ((pairs2.size() > 0) &&
+             (dynamic_cast<
+                const parallel::fullydistributed::Triangulation<dim, spacedim>
+                  *>(&pairs2.begin()->first->get_triangulation()) != nullptr))))
+        Assert(pairs1.size() == pairs2.size(),
+               ExcMessage("Unmatched faces on periodic boundaries"));
+    }
 #endif
 
     unsigned int n_matches = 0;
@@ -2115,9 +2117,22 @@ namespace GridTools
           }
       }
 
-    // Assure that all faces are matched
-    // AssertThrow(n_matches == pairs1.size() && pairs2.size() == 0,
-    //            ExcMessage("Unmatched faces on periodic boundaries"));
+    // Assure that all faces are matched if not
+    // parallel::fullydistributed::Triangulation is used
+    {
+      constexpr int dim      = CellIterator::AccessorType::dimension;
+      constexpr int spacedim = CellIterator::AccessorType::space_dimension;
+      if (!(((pairs1.size() > 0) &&
+             (dynamic_cast<const parallel::fullydistributed::
+                             Triangulation<dim, spacedim> *>(
+                &pairs1.begin()->first->get_triangulation()) != nullptr)) ||
+            ((pairs2.size() > 0) &&
+             (dynamic_cast<
+                const parallel::fullydistributed::Triangulation<dim, spacedim>
+                  *>(&pairs2.begin()->first->get_triangulation()) != nullptr))))
+        AssertThrow(n_matches == pairs1.size() && pairs2.size() == 0,
+                    ExcMessage("Unmatched faces on periodic boundaries"));
+    }
   }
 
 
@@ -2252,14 +2267,21 @@ namespace GridTools
           }
       }
 
-    // Assert(pairs1.size() == pairs2.size(),
-    //       ExcMessage("Unmatched faces on periodic boundaries"));
+    if (!(((pairs1.size() > 0) &&
+           (dynamic_cast<
+              const parallel::fullydistributed::Triangulation<dim, space_dim>
+                *>(&pairs1.begin()->first->get_triangulation()) != nullptr)) ||
+          ((pairs2.size() > 0) &&
+           (dynamic_cast<
+              const parallel::fullydistributed::Triangulation<dim, space_dim>
+                *>(&pairs2.begin()->first->get_triangulation()) != nullptr))))
+      Assert(pairs1.size() == pairs2.size(),
+             ExcMessage("Unmatched faces on periodic boundaries"));
 
-    // Assert(pairs1.size() > 0,
-    //       ExcMessage("No new periodic face pairs have been found. "
-    //                  "Are you sure that you've selected the correct boundary
-    //                  " "id's and that the coarsest level mesh is
-    //                  colorized?"));
+    Assert(pairs1.size() > 0,
+           ExcMessage("No new periodic face pairs have been found. "
+                      "Are you sure that you've selected the correct boundary "
+                      "id's and that the coarsest level mesh is colorized?"));
 
     // and call match_periodic_face_pairs that does the actual matching:
     match_periodic_face_pairs(
