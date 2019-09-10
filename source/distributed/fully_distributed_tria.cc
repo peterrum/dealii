@@ -82,6 +82,31 @@ namespace parallel
       }
     } // namespace internal
 
+
+
+    template <int dim, int spacedim>
+    Triangulation<dim, spacedim>::Triangulation(MPI_Comm       mpi_communicator,
+                                                const Settings settings)
+      : parallel::DistributedTriangulationBase<dim, spacedim>(
+          mpi_communicator,
+          (settings & construct_multigrid_hierarchy) ?
+            static_cast<
+              typename dealii::Triangulation<dim, spacedim>::MeshSmoothing>(
+              dealii::Triangulation<dim>::none |
+              Triangulation<dim,
+                            spacedim>::limit_level_difference_at_vertices) :
+            static_cast<
+              typename dealii::Triangulation<dim, spacedim>::MeshSmoothing>(
+              dealii::Triangulation<dim>::none),
+          false)
+      , settings(settings)
+      , currently_processing_create_triangulation_for_internal_usage(false)
+      , currently_processing_prepare_coarsening_and_refinement_for_internal_usage(
+          false)
+    {}
+
+
+
     template <int dim, int spacedim>
     void
     Triangulation<dim, spacedim>::create_triangulation(
@@ -270,29 +295,6 @@ namespace parallel
                                                                  cells,
                                                                  subcelldata);
     }
-
-
-
-    template <int dim, int spacedim>
-    Triangulation<dim, spacedim>::Triangulation(MPI_Comm       mpi_communicator,
-                                                const Settings settings)
-      : parallel::DistributedTriangulationBase<dim, spacedim>(
-          mpi_communicator,
-          (settings & construct_multigrid_hierarchy) ?
-            static_cast<
-              typename dealii::Triangulation<dim, spacedim>::MeshSmoothing>(
-              dealii::Triangulation<dim>::none |
-              Triangulation<dim,
-                            spacedim>::limit_level_difference_at_vertices) :
-            static_cast<
-              typename dealii::Triangulation<dim, spacedim>::MeshSmoothing>(
-              dealii::Triangulation<dim>::none),
-          false)
-      , settings(settings)
-      , currently_processing_create_triangulation_for_internal_usage(false)
-      , currently_processing_prepare_coarsening_and_refinement_for_internal_usage(
-          false)
-    {}
 
 
 
