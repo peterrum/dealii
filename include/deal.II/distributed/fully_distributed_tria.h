@@ -235,7 +235,7 @@ namespace parallel
       /**
        * Constructor.
        *
-       * @param mpi_communicator denotes the MPI communicator to be used for the
+       * @param mpi_communicator The MPI communicator to be used for the
        *                         triangulation.
        * @param settings See the description of the Settings enumerator.
        */
@@ -318,22 +318,13 @@ namespace parallel
       virtual std::map<unsigned int, std::set<dealii::types::subdomain_id>>
       compute_vertices_with_ghost_neighbors() const override;
 
-      /**
-       * @copydoc dealii::parallel::DistributedTriangulationBase::is_multilevel_hierarchy_constructed
-       */
       virtual bool
       is_multilevel_hierarchy_constructed() const override;
 
-      /**
-       * @copydoc dealii::coarse_cell_id_to_coarse_cell_index
-       */
       virtual unsigned int
       coarse_cell_id_to_coarse_cell_index(
         const types::coarse_cell_id coarse_cell_id) const override;
 
-      /**
-       * @copydoc dealii::coarse_cell_index_to_coarse_cell_id
-       */
       virtual types::coarse_cell_id
       coarse_cell_index_to_coarse_cell_id(
         const unsigned int coarse_cell_index) const override;
