@@ -129,7 +129,8 @@ namespace parallel
       std::vector<Point<spacedim>> coarse_cell_vertices;
 
       /**
-       * Mapping from coarse-grid index to coarse-grid id.
+       * List that for each locally-relevant coarse cell provides the 
+       * corresponding global @ref GlossCoarseCellId.
        */
       std::vector<types::coarse_cell_id> coarse_cell_index_to_coarse_cell_id;
 
