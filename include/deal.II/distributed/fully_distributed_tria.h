@@ -111,7 +111,7 @@ namespace parallel
 
 
     /**
-     * Data used to construct a fully distributed triangulation in 
+     * Data used to construct a fully distributed triangulation in
      * parallel::fullydistributed::Triangulation::reinit().
      *
      * @author Peter Munch, 2019
@@ -130,7 +130,7 @@ namespace parallel
       std::vector<Point<spacedim>> coarse_cell_vertices;
 
       /**
-       * List that for each locally-relevant coarse cell provides the 
+       * List that for each locally-relevant coarse cell provides the
        * corresponding global @ref GlossCoarseCellId.
        */
       std::vector<types::coarse_cell_id> coarse_cell_index_to_coarse_cell_id;
@@ -160,9 +160,10 @@ namespace parallel
      *   processes by simply partitioning a space-filling curve might not lead
      *   to an optimal result for triangulations that originate from large
      *   coarse grids: e.g. partitions that belong to the same process might
-     *   be discontinuous, leading to increased communication amount (within a
+     *   be discontinuous, leading to increased communication (within a
      *   node and beyond). Graph-based partitioning algorithms might be a sound
-     *   alternative.
+     *   alternative to the space filling curve used by
+     *   parallel::distributed::Triangulation.
      *
      * To be able to construct a fully partitioned triangulation that
      * distributes the coarse grid and gives flexibility regarding partitioning,
@@ -179,7 +180,7 @@ namespace parallel
      * parallel::fullydistributed::ConstructionData. The user has to fill this
      * data structure - in a pre-processing step - before actually creating the
      * triangulation. Predefined functions to create ConstructionData
-     * can be found in the namespace dealii::fullydistributed::Util.
+     * can be found in the namespace dealii::fullydistributed::Utilities.
      *
      * Once the ConstructionData `construction_data` has been constructed, the
      * triangulation `tria` can be created by calling
@@ -195,7 +196,7 @@ namespace parallel
      *
      * @note Currently only simple periodicity conditions (i.e. without offsets
      *       and rotation matrices - see also the documentation of
-     *       GridTools::collect_periodic_faces)) are supported.
+     *       GridTools::collect_periodic_faces()) are supported.
      *
      * @author Peter Munch, 2019
      */
