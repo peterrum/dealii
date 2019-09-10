@@ -111,7 +111,8 @@ namespace parallel
 
 
     /**
-     * Data used to construct a parallel::fullydistributed::Triangulation.
+     * Data used to construct a fully distributed triangulation in 
+     * parallel::fullydistributed::Triangulation::reinit().
      *
      * @author Peter Munch, 2019
      */
