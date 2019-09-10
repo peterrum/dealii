@@ -314,7 +314,7 @@ namespace parallel
     void
     Triangulation<dim, spacedim>::execute_coarsening_and_refinement()
     {
-      AssertThrow(false, ExcNotImplemented());
+      Assert(false, ExcNotImplemented());
     }
 
 
@@ -323,7 +323,7 @@ namespace parallel
     bool
     Triangulation<dim, spacedim>::prepare_coarsening_and_refinement()
     {
-      AssertThrow(
+      Assert(
         currently_processing_prepare_coarsening_and_refinement_for_internal_usage,
         ExcMessage("No coarsening and refinement is supported!"));
 
@@ -337,7 +337,7 @@ namespace parallel
     bool
     Triangulation<dim, spacedim>::has_hanging_nodes() const
     {
-      AssertThrow(false, ExcNotImplemented());
+      Assert(false, ExcNotImplemented());
       return false;
     }
 
@@ -347,7 +347,7 @@ namespace parallel
     std::size_t
     Triangulation<dim, spacedim>::memory_consumption() const
     {
-      std::size_t mem =
+      const std::size_t mem =
         this->dealii::parallel::TriangulationBase<dim, spacedim>::
           memory_consumption() +
         MemoryConsumption::memory_consumption(
