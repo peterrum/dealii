@@ -94,7 +94,7 @@ namespace parallel
         manifold_line_ids;
 
       /**
-       * Manifold id of all faces of the cell.
+       * Manifold id of all face quads of the cell.
        *
        * @note Only used for 3D.
        */
