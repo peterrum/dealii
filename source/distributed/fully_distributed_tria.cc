@@ -95,9 +95,9 @@ namespace parallel
       if (construction_data.coarse_cell_vertices.empty() == true)
         {
           // 1) create a dummy hypercube
-          create_triangulation_for_internal_usage = true;
+          currently_processing_create_triangulation_for_internal_usage = true;
           GridGenerator::hyper_cube(*this, 0, 1, false);
-          create_triangulation_for_internal_usage = false;
+          currently_processing_create_triangulation_for_internal_usage = false;
 
           // 2) mark cell as artificial
           auto cell = this->begin();
@@ -199,10 +199,12 @@ namespace parallel
                     }
 
                   // execute refinement
-                  prepare_coarsening_and_refinement_for_internal_usage = true;
+                  currently_processing_prepare_coarsening_and_refinement_for_internal_usage =
+                    true;
                   dealii::Triangulation<dim, spacedim>::
                     execute_coarsening_and_refinement();
-                  prepare_coarsening_and_refinement_for_internal_usage = false;
+                  currently_processing_prepare_coarsening_and_refinement_for_internal_usage =
+                    false;
                 }
             }
 
@@ -260,7 +262,7 @@ namespace parallel
       const SubCellData &                       subcelldata)
     {
       AssertThrow(
-        create_triangulation_for_internal_usage,
+        currently_processing_create_triangulation_for_internal_usage,
         ExcMessage(
           "Use the other create_triangulation() function to create the triangulation!"));
 
@@ -287,8 +289,9 @@ namespace parallel
               dealii::Triangulation<dim>::none),
           false)
       , settings(settings)
-      , create_triangulation_for_internal_usage(false)
-      , prepare_coarsening_and_refinement_for_internal_usage(false)
+      , currently_processing_create_triangulation_for_internal_usage(false)
+      , currently_processing_prepare_coarsening_and_refinement_for_internal_usage(
+          false)
     {}
 
 
@@ -318,8 +321,9 @@ namespace parallel
     bool
     Triangulation<dim, spacedim>::prepare_coarsening_and_refinement()
     {
-      AssertThrow(prepare_coarsening_and_refinement_for_internal_usage,
-                  ExcMessage("No coarsening and refinement is supported!"));
+      AssertThrow(
+        currently_processing_prepare_coarsening_and_refinement_for_internal_usage,
+        ExcMessage("No coarsening and refinement is supported!"));
 
       return dealii::Triangulation<dim, spacedim>::
         prepare_coarsening_and_refinement();

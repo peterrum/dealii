@@ -344,7 +344,8 @@ namespace parallel
         coarse_cell_id_to_coarse_cell_index_vector;
 
       /**
-       * List of coarse-cell ids for each coarse cell (stored at cell->index()).
+       * List of the coarse-cell id for each coarse cell (stored at
+       * cell->index()).
        */
       std::vector<types::coarse_cell_id>
         coarse_cell_index_to_coarse_cell_id_vector;
@@ -353,13 +354,14 @@ namespace parallel
        * Boolean indicating that the function create_triangulation() was called
        * for internal usage.
        */
-      bool create_triangulation_for_internal_usage;
+      bool currently_processing_create_triangulation_for_internal_usage;
 
       /**
        * Boolean indicating that the function
        * prepare_coarsening_and_refinement() was called for internal usage.
        */
-      bool prepare_coarsening_and_refinement_for_internal_usage;
+      bool
+        currently_processing_prepare_coarsening_and_refinement_for_internal_usage;
     };
 
   } // namespace fullydistributed
