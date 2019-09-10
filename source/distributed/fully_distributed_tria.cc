@@ -207,7 +207,8 @@ namespace parallel
                 }
             }
 
-          // 4a) set all cells artificial
+          // 4a) set all cells artificial (and set the actual
+          //     (level_)subdomain_ids in the next step)
           for (auto cell = this->begin(); cell != this->end(); ++cell)
             {
               if (cell->active())
@@ -484,7 +485,7 @@ namespace parallel
     Triangulation<dim, spacedim>::coarse_cell_id_to_coarse_cell_index(
       const types::coarse_cell_id coarse_cell_id) const
     {
-      auto coarse_cell_index =
+      const auto coarse_cell_index =
         std::lower_bound(coarse_cell_id_to_coarse_cell_index_vector.begin(),
                          coarse_cell_id_to_coarse_cell_index_vector.end(),
                          coarse_cell_id,
@@ -504,9 +505,11 @@ namespace parallel
     Triangulation<dim, spacedim>::coarse_cell_index_to_coarse_cell_id(
       const unsigned int coarse_cell_index) const
     {
-      Assert(
-        coarse_cell_index < coarse_cell_index_to_coarse_cell_id_vector.size(),
-        ExcMessage("You are trying to access a cell which does not exist!"));
+      Assert(coarse_cell_index <
+               coarse_cell_index_to_coarse_cell_id_vector.size(),
+             ExcIndexRange(coarse_cell_index,
+                           0,
+                           coarse_cell_index_to_coarse_cell_id_vector.size()));
 
       const auto coarse_cell_id =
         coarse_cell_index_to_coarse_cell_id_vector[coarse_cell_index];
