@@ -38,7 +38,7 @@ namespace parallel
     namespace internal
     {
       /**
-       * Check if `parent` is the parent of `child`.
+       * Check if `parent` is the direct parent of `child`.
        */
       template <int dim>
       bool
