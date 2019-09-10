@@ -31,27 +31,6 @@ DEAL_II_NAMESPACE_OPEN
 
 // Forward declarations
 #ifndef DOXYGEN
-namespace internal
-{
-  namespace DoFHandlerImplementation
-  {
-    namespace Policy
-    {
-      template <typename>
-      class ParallelDistributed;
-    } // namespace Policy
-  }   // namespace DoFHandlerImplementation
-} // namespace internal
-
-namespace FETools
-{
-  namespace internal
-  {
-    template <int, int, class>
-    class ExtrapolateImplementation;
-  }
-} // namespace FETools
-
 // forward declaration of the data type for periodic face pairs
 namespace GridTools
 {
@@ -385,16 +364,6 @@ namespace parallel
        * prepare_coarsening_and_refinement() was called for internal usage.
        */
       bool prepare_coarsening_and_refinement_for_internal_usage;
-
-      /**
-       * Make the respective DoFHandler policy a friend.
-       */
-      template <typename>
-      friend class dealii::internal::DoFHandlerImplementation::Policy::
-        ParallelDistributed;
-
-      template <int, int, class>
-      friend class dealii::FETools::internal::ExtrapolateImplementation;
     };
 
   } // namespace fullydistributed
