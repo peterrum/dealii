@@ -264,7 +264,7 @@ namespace parallel
       AssertThrow(
         currently_processing_create_triangulation_for_internal_usage,
         ExcMessage(
-          "Use the other create_triangulation() function to create the triangulation!"));
+          "Use the other create_triangulation() function to create triangulations of type parallel::fullydistributed::Triangulation.!"));
 
       dealii::Triangulation<dim, spacedim>::create_triangulation(vertices,
                                                                  cells,
