@@ -112,7 +112,7 @@ namespace parallel
 
     /**
      * Data used to construct a fully distributed triangulation in
-     * parallel::fullydistributed::Triangulation::reinit().
+     * parallel::fullydistributed::Triangulation::create_triangulation().
      *
      * @author Peter Munch, 2019
      */
@@ -184,7 +184,7 @@ namespace parallel
      *
      * Once the ConstructionData `construction_data` has been constructed, the
      * triangulation `tria` can be created by calling
-     * `tria.reinit(construction_data);`.
+     * `tria.create_triangulation(construction_data);`.
      *
      * @note This triangulation supports: 1D/2D/3D, hanging nodes,
      *       geometric multigrid, and periodicity.
@@ -260,12 +260,14 @@ namespace parallel
        * @param construction_data The data needed for this process.
        */
       void
-      reinit(const ConstructionData<dim, spacedim> &construction_data);
+      create_triangulation(
+        const ConstructionData<dim, spacedim> &construction_data);
 
       /**
        * @note This function is not implemented for this class  and throws
        *       an assertion. Instead, use
-       *       the function reinit() to create the triangulation.
+       *       the other create_triangulation() function to create the
+       * triangulation.
        */
       virtual void
       create_triangulation(const std::vector<Point<spacedim>> &      vertices,

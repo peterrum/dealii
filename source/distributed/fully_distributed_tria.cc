@@ -84,7 +84,7 @@ namespace parallel
 
     template <int dim, int spacedim>
     void
-    Triangulation<dim, spacedim>::reinit(
+    Triangulation<dim, spacedim>::create_triangulation(
       const ConstructionData<dim, spacedim> &construction_data)
     {
       // clear internal data structures
@@ -259,9 +259,10 @@ namespace parallel
       const std::vector<dealii::CellData<dim>> &cells,
       const SubCellData &                       subcelldata)
     {
-      AssertThrow(create_triangulation_for_internal_usage,
-                  ExcMessage(
-                    "Use the function reinit() to create the triangulation!"));
+      AssertThrow(
+        create_triangulation_for_internal_usage,
+        ExcMessage(
+          "Use the other create_triangulation() function to create the triangulation!"));
 
       dealii::Triangulation<dim, spacedim>::create_triangulation(vertices,
                                                                  cells,

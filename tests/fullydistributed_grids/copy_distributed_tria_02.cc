@@ -58,7 +58,7 @@ test(int n_refinements, const int n_subdivisions, MPI_Comm comm)
                                                                    tria_pft);
 
   // actually create triangulation
-  tria_pft.reinit(construction_data);
+  tria_pft.create_triangulation(construction_data);
 
   // test triangulation
   FE_Q<dim>       fe(2);
