@@ -204,18 +204,18 @@ namespace parallel
             // structures and collect all locally relevant vertices
             // for second sweep
             std::map<unsigned int, unsigned int> vertices_locally_relevant;
-            cell_infos.push_back(std::vector<CellInfo<dim>>());
+            cell_infos.push_back(std::vector<CellData<dim>>());
             auto &part = cell_infos[0];
 
             for (auto cell : tria.cell_iterators())
               if (cell->active() && is_locally_relevant(cell))
                 {
                   // to be filled
-                  CellInfo<dim> cell_info;
+                  CellData<dim> cell_info;
 
                   // a) extract cell definition (with old numbering of
                   // vertices)
-                  CellData<dim> cell_data;
+                  dealii::CellData<dim> cell_data;
                   cell_data.material_id = cell->material_id();
                   cell_data.manifold_id = cell->manifold_id();
                   for (unsigned int v = 0;
@@ -354,7 +354,7 @@ namespace parallel
                     continue;
 
                   // extract cell definition (with old numbering of vertices)
-                  CellData<dim> cell_data;
+                  dealii::CellData<dim> cell_data;
                   cell_data.material_id = cell->material_id();
                   cell_data.manifold_id = cell->manifold_id();
                   for (unsigned int v = 0;
@@ -427,7 +427,7 @@ namespace parallel
                     if (!(cell->user_flag_set()))
                       continue;
 
-                    CellInfo<dim> cell_info;
+                    CellData<dim> cell_info;
 
                     // save coarse-cell id
                     cell_info.id = cell->id().template to_binary<dim>();

@@ -255,9 +255,9 @@ namespace parallel
     template <int dim, int spacedim>
     void
     Triangulation<dim, spacedim>::create_triangulation(
-      const std::vector<Point<spacedim>> &vertices,
-      const std::vector<CellData<dim>> &  cells,
-      const SubCellData &                 subcelldata)
+      const std::vector<Point<spacedim>> &      vertices,
+      const std::vector<dealii::CellData<dim>> &cells,
+      const SubCellData &                       subcelldata)
     {
       AssertThrow(create_triangulation_for_internal_usage,
                   ExcMessage(

@@ -63,7 +63,7 @@ namespace GridTools
 namespace parallel
 {
   /**
-   * A namespace for the fully distributed Triangulation.
+   * A namespace for the fully distributed triangulation.
    *
    * @ingroup parallel
    */
@@ -79,12 +79,12 @@ namespace parallel
      * @author Peter Munch, 2019
      */
     template <int dim>
-    struct CellInfo
+    struct CellData
     {
       /**
        * Constructor.
        */
-      CellInfo() = default;
+      CellData() = default;
 
       /**
        * Unique CellID of the cell.
@@ -142,7 +142,7 @@ namespace parallel
       /**
        * Cells of the locally-relevant coarse-grid triangulation.
        */
-      std::vector<CellData<dim>> coarse_cells;
+      std::vector<dealii::CellData<dim>> coarse_cells;
 
       /**
        * Vertices of the locally-relevant coarse-grid triangulation.
@@ -155,9 +155,9 @@ namespace parallel
       std::vector<types::coarse_cell_id> coarse_cell_index_to_coarse_cell_id;
 
       /**
-       * CellInfo for each locally relevant cell on each level.
+       * CellData for each locally relevant cell on each level.
        */
-      std::vector<std::vector<CellInfo<dim>>> cell_infos;
+      std::vector<std::vector<CellData<dim>>> cell_infos;
     };
 
 
@@ -286,8 +286,8 @@ namespace parallel
        *       the function reinit() to create the triangulation.
        */
       virtual void
-      create_triangulation(const std::vector<Point<spacedim>> &vertices,
-                           const std::vector<CellData<dim>> &  cells,
+      create_triangulation(const std::vector<Point<spacedim>> &      vertices,
+                           const std::vector<dealii::CellData<dim>> &cells,
                            const SubCellData &subcelldata) override;
 
       /**
