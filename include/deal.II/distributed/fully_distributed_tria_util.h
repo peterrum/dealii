@@ -28,11 +28,12 @@ namespace parallel
     {
       /**
        * Construct parallel::fullydistributed::ConstructionData from a given
-       * partitioned triangulation tria and a specified process.
+       * partitioned triangulation `tria` and a specified process.
        * The input triangulation can be either
        * a serial triangulation of type dealii::Triangulation which has been
        * colored (subdomain_id and/or level_subdomain_id has been set) or a
-       * distributed triangulation of type dealii::distributed::Triangulation.
+       * distributed triangulation of type dealii::distributed::Triangulation,
+       * where the partitioning is adopted unaltered.
        *
        * @param tria Partitioned input triangulation.
        * @param tria_pft A parallel::fullydistributed::Triangulation to be
@@ -45,15 +46,16 @@ namespace parallel
        * @note Multilevel hierarchies are supported if it is enabled in
        *       parallel::fullydistributed::Triangulation.
        *
-       * @note Hanging nodes are supported. However, to be able to use this
+       * @note Hanging nodes in the input triangulation are supported. However,
+       *       to be able to use this
        *       feature, the user has to enable multilevel hierarchy support in
-       *       parallel::fullydistributed::Triangulation..
+       *       parallel::fullydistributed::Triangulation.
        *
        * @author Peter Munch, 2019
        */
       template <int dim, int spacedim = dim>
       ConstructionData<dim, spacedim>
-      copy_from_triangulation(
+      create_construction_data_from_triangulation(
         const dealii::Triangulation<dim, spacedim> &tria,
         const Triangulation<dim, spacedim> &        tria_pft,
         const unsigned int my_rank_in = numbers::invalid_unsigned_int);

@@ -50,9 +50,8 @@ test(int n_refinements, MPI_Comm comm)
   parallel::fullydistributed::Triangulation<dim> tria_pft(comm);
 
   // extract relevant information form serial triangulation
-  auto construction_data =
-    parallel::fullydistributed::Utilities::copy_from_triangulation(tria_pdt,
-                                                                   tria_pft);
+  auto construction_data = parallel::fullydistributed::Utilities::
+    create_construction_data_from_triangulation(tria_pdt, tria_pft);
 
   // actually create triangulation
   tria_pft.create_triangulation(construction_data);

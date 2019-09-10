@@ -56,9 +56,8 @@ test(int n_refinements, const int n_subdivisions, MPI_Comm comm)
       dim>::construct_multigrid_hierarchy);
 
   // extract relevant information form serial triangulation
-  auto construction_data =
-    parallel::fullydistributed::Utilities::copy_from_triangulation(basetria,
-                                                                   tria_pft);
+  auto construction_data = parallel::fullydistributed::Utilities::
+    create_construction_data_from_triangulation(basetria, tria_pft);
 
   // actually create triangulation
   tria_pft.create_triangulation(construction_data);

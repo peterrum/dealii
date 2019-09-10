@@ -90,9 +90,10 @@ namespace parallel
 
       template <int dim, int spacedim>
       ConstructionData<dim, spacedim>
-      copy_from_triangulation(const dealii::Triangulation<dim, spacedim> &tria,
-                              const Triangulation<dim, spacedim> &tria_pft,
-                              const unsigned int                  my_rank_in)
+      create_construction_data_from_triangulation(
+        const dealii::Triangulation<dim, spacedim> &tria,
+        const Triangulation<dim, spacedim> &        tria_pft,
+        const unsigned int                          my_rank_in)
       {
         const MPI_Comm comm = tria_pft.get_communicator();
 
