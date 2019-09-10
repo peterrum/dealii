@@ -18,22 +18,18 @@
 for (deal_II_dimension : DIMENSIONS)
   {
     namespace parallel
-    \
-    {
+    \{
       namespace fullydistributed
-      \
-      {
+      \{
         namespace Utilities
-        \
-        {
+        \{
           template ConstructionData<deal_II_dimension, deal_II_dimension>
           create_construction_data_from_triangulation(
             const dealii::Triangulation<deal_II_dimension, deal_II_dimension>
               &                                                        tria,
             const Triangulation<deal_II_dimension, deal_II_dimension> &tria_pft,
             const unsigned int my_rank_in = numbers::invalid_unsigned_int);
-          \
-        } // namespace Utilities\
-      \}// namespace fullydistributed\
-    \}// namespace parallel\
+        \}
+      \}
+    \}
   }

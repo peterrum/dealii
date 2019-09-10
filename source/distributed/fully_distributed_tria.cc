@@ -51,7 +51,7 @@ namespace parallel
           return false; // level has one difference
 
 
-        const unsigned int n_child_indices = parent[1] >> 2;
+        const unsigned int n_child_indices = (parent[1] >> 2);
         const unsigned int children_per_value =
           sizeof(CellId::binary_type::value_type) * 8 / dim;
         unsigned int child_level  = 0;
@@ -91,8 +91,8 @@ namespace parallel
       this->coarse_cell_id_to_coarse_cell_index_vector.clear();
       this->coarse_cell_index_to_coarse_cell_id_vector.clear();
 
-      // check if there are locally relevant coarse-grid cells
-      if (construction_data.coarse_cell_vertices.empty() == true)
+      // check if no locally relevant coarse-grid cells have been provided
+      if (construction_data.coarse_cell_vertices.empty())
         {
           // 1) create a dummy hypercube
           currently_processing_create_triangulation_for_internal_usage = true;
@@ -105,11 +105,11 @@ namespace parallel
           cell->set_level_subdomain_id(
             dealii::numbers::artificial_subdomain_id);
 
-          // 3) setup dummy mapping between locally relevant coarse-grid cells
+          // 3) set up dummy mapping between locally relevant coarse-grid cells
           //    and global cells
           this->coarse_cell_id_to_coarse_cell_index_vector.emplace_back(
             numbers::invalid_coarse_cell_id, 0);
-          this->coarse_cell_index_to_coarse_cell_id_vector.push_back(
+          this->coarse_cell_index_to_coarse_cell_id_vector.emplace_back(
             numbers::invalid_coarse_cell_id);
         }
       else
@@ -118,12 +118,12 @@ namespace parallel
           this->coarse_cell_index_to_coarse_cell_id_vector =
             construction_data.coarse_cell_index_to_coarse_cell_id;
 
-          // 2) setup `coarse-cell id to coarse-cell index`-mapping
+          // 2) set up `coarse-cell id to coarse-cell index`-mapping
           std::map<types::coarse_cell_id, unsigned int>
             coarse_cell_id_to_coarse_cell_index_vector;
           for (unsigned int i = 0;
                i < construction_data.coarse_cell_index_to_coarse_cell_id.size();
-               i++)
+               ++i)
             coarse_cell_id_to_coarse_cell_index_vector
               [construction_data.coarse_cell_index_to_coarse_cell_id[i]] = i;
 
@@ -131,22 +131,21 @@ namespace parallel
             this->coarse_cell_id_to_coarse_cell_index_vector.emplace_back(i);
 
           // 3) create coarse grid
-          const SubCellData subcelldata;
           dealii::parallel::Triangulation<dim, spacedim>::create_triangulation(
             construction_data.coarse_cell_vertices,
             construction_data.coarse_cells,
-            subcelldata);
+            SubCellData());
 
           Assert(this->n_cells() ==
                    this->coarse_cell_id_to_coarse_cell_index_vector.size(),
-                 ExcMessage("Sizes do not match!"));
+                 ExcInternalError());
           Assert(this->n_cells() ==
                    this->coarse_cell_index_to_coarse_cell_id_vector.size(),
-                 ExcMessage("Sizes do not match!"));
+                 ExcInternalError());
 
           // 4) create all levels via a sequence of refinements
           const auto &cell_infos = construction_data.cell_infos;
-          for (unsigned int level = 0; level < cell_infos.size(); level++)
+          for (unsigned int level = 0; level < cell_infos.size(); ++level)
             {
               // a) set manifold ids here (because new vertices have to be
               //    positioned correctly during each refinement step)
@@ -157,18 +156,18 @@ namespace parallel
                   {
                     while (cell_info->id !=
                            cell->id().template to_binary<dim>())
-                      cell++;
+                      ++cell;
                     if (spacedim == 3)
                       for (unsigned int quad = 0;
                            quad < GeometryInfo<spacedim>::quads_per_cell;
-                           quad++)
+                           ++quad)
                         cell->quad(quad)->set_manifold_id(
                           cell_info->manifold_quad_ids[quad]);
 
                     if (spacedim >= 2)
                       for (unsigned int line = 0;
                            line < GeometryInfo<spacedim>::lines_per_cell;
-                           line++)
+                           ++line)
                         cell->line(line)->set_manifold_id(
                           cell_info->manifold_line_ids[line]);
 
@@ -192,7 +191,7 @@ namespace parallel
                       while (!internal::is_parent<dim>(
                         coarse_cell->id().template to_binary<dim>(),
                         fine_cell_info->id))
-                        coarse_cell++;
+                        ++coarse_cell;
 
                       // set parent for refinement
                       coarse_cell->set_refine_flag();
@@ -209,7 +208,7 @@ namespace parallel
             }
 
           // 4a) set all cells artificial
-          for (auto cell = this->begin(); cell != this->end(); cell++)
+          for (auto cell = this->begin(); cell != this->end(); ++cell)
             {
               if (cell->active())
                 cell->set_subdomain_id(
@@ -220,15 +219,15 @@ namespace parallel
             }
 
           // 4b) set actual (level_)subdomain_ids as well as boundary ids
-          for (unsigned int level = 0; level < cell_infos.size(); level++)
+          for (unsigned int level = 0; level < cell_infos.size(); ++level)
             {
               auto cell      = this->begin(level);
               auto cell_info = cell_infos[level].begin();
               for (; cell_info != cell_infos[level].end(); ++cell_info)
                 {
-                  // find cell that has the correct
+                  // find cell that has the correct cell
                   while (cell_info->id != cell->id().template to_binary<dim>())
-                    cell++;
+                    ++cell;
 
                   // subdomain id
                   if (cell->active())
@@ -368,7 +367,7 @@ namespace parallel
       for (auto &cell : this->active_cell_iterators())
         if (cell->is_locally_owned() || cell->is_ghost())
           {
-            for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell; i++)
+            for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell; ++i)
               {
                 if (cell->has_periodic_neighbor(i) &&
                     cell->periodic_neighbor(i)->active())
@@ -378,7 +377,7 @@ namespace parallel
                       cell->periodic_neighbor_face_no(i));
                     for (unsigned int j = 0;
                          j < GeometryInfo<dim>::vertices_per_face;
-                         j++)
+                         ++j)
                       {
                         auto         v_t  = face_t->vertex_index(j);
                         auto         v_n  = face_n->vertex_index(j);
