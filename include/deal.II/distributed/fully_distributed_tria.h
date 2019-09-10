@@ -305,13 +305,6 @@ namespace parallel
       memory_consumption() const override;
 
       /**
-       * Override the function to update the number cache so we can fill data
-       * like level_ghost_owners.
-       */
-      virtual void
-      update_number_cache() override;
-
-      /**
        * This function determines the neighboring subdomains that are adjacent
        * to each vertex.
        */
@@ -330,6 +323,13 @@ namespace parallel
         const unsigned int coarse_cell_index) const override;
 
     private:
+      /**
+       * Override the function to update the number cache so we can fill data
+       * like @p level_ghost_owners.
+       */
+      virtual void
+      update_number_cache() override;
+
       /**
        * store the Settings.
        */
