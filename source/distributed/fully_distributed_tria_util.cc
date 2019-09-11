@@ -46,13 +46,20 @@ namespace parallel
         }
 
 
+        /**
+         * Convert the binary representation of a CellId to coarse-cell id as
+         * if the finest level were the coarsest level ("level coarse-grid id").
+         */
         template <int dim>
-        unsigned int
-        convert_binary_to_gid(
-          const std::array<unsigned int, 4> binary_representation)
+        types::coarse_cell_id
+        convert_cell_id_binary_type_to_level_coarse_cell_id(
+          const typename CellId::binary_type &binary_representation)
         {
-          const unsigned int coarse_cell_id = binary_representation[0];
+          // exploiting the structure of CellId::binary_type
+          // see also the documentation of CellId
 
+          // actual coarse-grid id
+          const unsigned int coarse_cell_id  = binary_representation[0];
           const unsigned int n_child_indices = binary_representation[1] >> 2;
 
           const unsigned int children_per_value =
@@ -60,8 +67,8 @@ namespace parallel
           unsigned int child_level  = 0;
           unsigned int binary_entry = 2;
 
+          // path to the get to the cell
           std::vector<unsigned int> cell_indices;
-
           while (child_level < n_child_indices)
             {
               Assert(binary_entry < binary_representation.size(),
@@ -80,13 +87,14 @@ namespace parallel
               ++binary_entry;
             }
 
-          unsigned int temp = coarse_cell_id;
+          // compute new coarse-grid id: c_{i+1} = c_{i}*2^dim + q;
+          types::coarse_cell_id level_coarse_cell_id = coarse_cell_id;
           for (auto i : cell_indices)
-            {
-              temp = temp * GeometryInfo<dim>::max_children_per_cell + i;
-            }
+            level_coarse_cell_id =
+              level_coarse_cell_id * GeometryInfo<dim>::max_children_per_cell +
+              i;
 
-          return temp;
+          return level_coarse_cell_id;
         }
       } // namespace
 
@@ -249,7 +257,7 @@ namespace parallel
                   // d) compute a new coarse-cell id (by ignoring all parent
                   // level)
                   types::coarse_cell_id new_coarse_cell_id =
-                    convert_binary_to_gid<dim>(
+                    convert_cell_id_binary_type_to_level_coarse_cell_id<dim>(
                       cell->id().template to_binary<dim>());
 
                   //    store the coarse cell id
@@ -486,27 +494,6 @@ namespace parallel
                   }
               }
           }
-
-        // postprocessing: sort cells according to their index
-        std::map<int, int> coarse_cell_id_to_coarse_cell_index;
-        for (unsigned int i = 0; i < coarse_cell_index_to_coarse_cell_id.size();
-             i++)
-          coarse_cell_id_to_coarse_cell_index
-            [coarse_cell_index_to_coarse_cell_id[i]] = i;
-
-        for (auto &part : construction_data.cell_infos)
-          {
-            std::sort(part.begin(), part.end(), [&](auto a, auto b) {
-              auto a_index = a.id;
-              a_index[0]   = coarse_cell_id_to_coarse_cell_index.at(a_index[0]);
-              auto b_index = b.id;
-              b_index[0]   = coarse_cell_id_to_coarse_cell_index.at(b_index[0]);
-
-              return convert_binary_to_gid<dim>(a_index) <
-                     convert_binary_to_gid<dim>(b_index);
-            });
-          }
-
 
         return construction_data;
       }

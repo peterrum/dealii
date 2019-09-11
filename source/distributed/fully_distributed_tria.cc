@@ -168,8 +168,36 @@ namespace parallel
                    this->coarse_cell_index_to_coarse_cell_id_vector.size(),
                  ExcInternalError());
 
+          // create a copy of cell_infos such that we can sort them
+          auto cell_infos = construction_data.cell_infos;
+
+          // sort cell_infos on each level separately
+          for (auto &cell_info : cell_infos)
+            std::sort(cell_info.begin(),
+                      cell_info.end(),
+                      [&](CellData<dim> a, CellData<dim> b) {
+                        const CellId a_id(a.id);
+                        const CellId b_id(b.id);
+
+                        const auto a_coarse_cell_index =
+                          this->coarse_cell_id_to_coarse_cell_index(
+                            a_id.get_coarse_cell_id());
+                        const auto b_coarse_cell_index =
+                          this->coarse_cell_id_to_coarse_cell_index(
+                            b_id.get_coarse_cell_id());
+
+                        // according to their coarse-cell index and if that is
+                        // same according to their cell id (the result is that
+                        // cells on each level are sorted according to their
+                        // index on that level - what we need in the following
+                        // operations)
+                        if (a_coarse_cell_index != b_coarse_cell_index)
+                          return a_coarse_cell_index < b_coarse_cell_index;
+                        else
+                          return a_id < b_id;
+                      });
+
           // 4) create all levels via a sequence of refinements
-          const auto &cell_infos = construction_data.cell_infos;
           for (unsigned int level = 0; level < cell_infos.size(); ++level)
             {
               // a) set manifold ids here (because new vertices have to be
