@@ -30,7 +30,7 @@
 #include <deal.II/grid/grid_tools.h>
 #include <deal.II/grid/tria.h>
 
-#include "../tests.h"
+#include "./tests.h"
 
 using namespace dealii;
 
@@ -60,6 +60,10 @@ test(int n_refinements, MPI_Comm comm)
   FE_Q<dim>       fe(2);
   DoFHandler<dim> dof_handler(tria_pft);
   dof_handler.distribute_dofs(fe);
+
+  // print statistics
+  print_statistics(tria_pft);
+  print_statistics(dof_handler);
 }
 
 int

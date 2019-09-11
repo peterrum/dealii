@@ -31,7 +31,7 @@
 #include <deal.II/grid/manifold_lib.h>
 #include <deal.II/grid/tria.h>
 
-#include "../tests.h"
+#include "./tests.h"
 
 using namespace dealii;
 
@@ -94,6 +94,10 @@ test(int n_refinements, const int n_subdivisions, MPI_Comm comm)
   DoFHandler<dim> dof_handler(tria_pft);
   dof_handler.distribute_dofs(fe);
   dof_handler.distribute_mg_dofs();
+
+  // print statistics
+  print_statistics(tria_pft, true);
+  print_statistics(dof_handler, true);
 }
 
 int
@@ -102,13 +106,14 @@ main(int argc, char *argv[])
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    all;
 
-  const int      dim            = 2;
-  const int      n_refinements  = 4;
-  const int      n_subdivisions = 8;
   const MPI_Comm comm           = MPI_COMM_WORLD;
 
-  if (dim == 2)
+  {
+    deallog.push("2d");
+    const int      n_refinements  = 4;
+    const int      n_subdivisions = 8;
     test<2>(n_refinements, n_subdivisions, comm);
-  else if (dim == 3)
-    test<3>(n_refinements, n_subdivisions, comm);
+    deallog.pop();
+  }
+  
 }
