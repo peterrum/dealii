@@ -33,13 +33,16 @@ namespace parallel
     {
       namespace
       {
+        /**
+         * Set the user_flag of a cell and of all its parent cells.
+         */
         template <int dim, int spacedim>
         void
-        set_flag_reverse(TriaIterator<CellAccessor<dim, spacedim>> cell)
+        set_user_flag_reverse(TriaIterator<CellAccessor<dim, spacedim>> cell)
         {
           cell->set_user_flag();
           if (cell->level() != 0)
-            set_flag_reverse(cell->parent());
+            set_user_flag_reverse(cell->parent());
         }
 
 
@@ -341,7 +344,7 @@ namespace parallel
                 // mark all locally relevant cells
                 for (auto cell : tria.cell_iterators_on_level(level))
                   if (is_locally_relevant(cell))
-                    set_flag_reverse(cell);
+                    set_user_flag_reverse(cell);
               }
 
             // 2) setup coarse-grid triangulation
