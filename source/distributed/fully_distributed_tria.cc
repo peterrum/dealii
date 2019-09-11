@@ -363,109 +363,118 @@ namespace parallel
     std::map<unsigned int, std::set<dealii::types::subdomain_id>>
     Triangulation<dim, spacedim>::compute_vertices_with_ghost_neighbors() const
     {
-      std::map<unsigned int, std::set<unsigned int>> sets2;
-
+      // 1) collect for each vertex on periodic faces all vertices it coincides
+      //    with
+      std::map<unsigned int, std::set<unsigned int>>
+        vertex_to_coinciding_vertices;
       {
-        // collect nodes coinciding due to periodicity
-        std::map<unsigned int, unsigned int> periodic_map;
+        // 1a) collect nodes coinciding due to periodicity
+        std::map<unsigned int, unsigned int> vertex_to_coinciding_vertex;
         for (auto &cell : this->active_cell_iterators())
           if (cell->is_locally_owned() || cell->is_ghost())
-            {
-              for (auto i = 0u; i < GeometryInfo<dim>::faces_per_cell; ++i)
+            for (auto i = 0u; i < GeometryInfo<dim>::faces_per_cell; ++i)
+              if (cell->has_periodic_neighbor(i) &&
+                  cell->periodic_neighbor(i)->active())
                 {
-                  if (cell->has_periodic_neighbor(i) &&
-                      cell->periodic_neighbor(i)->active())
+                  auto face_t = cell->face(i);
+                  auto face_n = cell->periodic_neighbor(i)->face(
+                    cell->periodic_neighbor_face_no(i));
+                  for (auto j = 0u; j < GeometryInfo<dim>::vertices_per_face;
+                       ++j)
                     {
-                      auto face_t = cell->face(i);
-                      auto face_n = cell->periodic_neighbor(i)->face(
-                        cell->periodic_neighbor_face_no(i));
-                      for (unsigned int j = 0;
-                           j < GeometryInfo<dim>::vertices_per_face;
-                           ++j)
-                        {
-                          auto         v_t  = face_t->vertex_index(j);
-                          auto         v_n  = face_n->vertex_index(j);
-                          unsigned int temp = std::min(v_t, v_n);
-                          {
-                            auto it = periodic_map.find(v_t);
-                            if (it != periodic_map.end())
-                              temp = std::min(temp, it->second);
-                          }
-                          {
-                            auto it = periodic_map.find(v_n);
-                            if (it != periodic_map.end())
-                              temp = std::min(temp, it->second);
-                          }
-                          periodic_map[v_t] = temp;
-                          periodic_map[v_n] = temp;
-                        }
+                      auto         v_t  = face_t->vertex_index(j);
+                      auto         v_n  = face_n->vertex_index(j);
+                      unsigned int temp = std::min(v_t, v_n);
+                      {
+                        auto it = vertex_to_coinciding_vertex.find(v_t);
+                        if (it != vertex_to_coinciding_vertex.end())
+                          temp = std::min(temp, it->second);
+                      }
+                      {
+                        auto it = vertex_to_coinciding_vertex.find(v_n);
+                        if (it != vertex_to_coinciding_vertex.end())
+                          temp = std::min(temp, it->second);
+                      }
+                      vertex_to_coinciding_vertex[v_t] = temp;
+                      vertex_to_coinciding_vertex[v_n] = temp;
                     }
                 }
-            }
 
-        // compress map
-        for (auto &p : periodic_map)
+        // 1b) compress map: let vertices point to the coinciding vertex with
+        //     the smallest index
+        for (auto &p : vertex_to_coinciding_vertex)
           {
             if (p.first == p.second)
               continue;
             unsigned int temp = p.second;
-            while (temp != periodic_map[temp])
-              temp = periodic_map[temp];
+            while (temp != vertex_to_coinciding_vertex[temp])
+              temp = vertex_to_coinciding_vertex[temp];
             p.second = temp;
           }
 
 #ifdef DEBUG
         // check if map is actually compressed
-        for (auto p : periodic_map)
+        for (auto p : vertex_to_coinciding_vertex)
           {
             if (p.first == p.second)
               continue;
-            auto pp = periodic_map.find(p.second);
+            auto pp = vertex_to_coinciding_vertex.find(p.second);
             if (pp->first == pp->second)
               continue;
             AssertThrow(false, ExcMessage("Map has to be compressed!"));
           }
 #endif
 
-        std::map<unsigned int, std::set<unsigned int>> sets;
-        for (auto p : periodic_map)
-          sets[p.second] = std::set<unsigned int>();
+        // 1c) create a map: smallest index of coinciding index -> all
+        // coinciding indices
+        std::map<unsigned int, std::set<unsigned int>>
+          smallest_coinciding_vertex_to_coinciding_vertices;
+        for (auto p : vertex_to_coinciding_vertex)
+          smallest_coinciding_vertex_to_coinciding_vertices[p.second] =
+            std::set<unsigned int>();
 
-        for (auto p : periodic_map)
-          sets[p.second].insert(p.first);
+        for (auto p : vertex_to_coinciding_vertex)
+          smallest_coinciding_vertex_to_coinciding_vertices[p.second].insert(
+            p.first);
 
-        for (auto &s : sets)
+        // 1d) create a map: vertex -> all coinciding indices
+        for (auto &s : smallest_coinciding_vertex_to_coinciding_vertices)
           for (auto &ss : s.second)
-            sets2[ss] = s.second;
+            vertex_to_coinciding_vertices[ss] = s.second;
       }
 
+      // 2) collect vertices belonging to local cells
       std::vector<bool> vertex_of_own_cell(this->n_vertices(), false);
-
       for (const auto &cell : this->active_cell_iterators())
         if (cell->is_locally_owned())
-          {
-            for (unsigned int v = 0; v < GeometryInfo<dim>::vertices_per_cell;
-                 ++v)
-              vertex_of_own_cell[cell->vertex_index(v)] = true;
-          }
+          for (auto v = 0u; v < GeometryInfo<dim>::vertices_per_cell; ++v)
+            vertex_of_own_cell[cell->vertex_index(v)] = true;
 
+      // 3) for for each vertex belonging to a locally owned cell all ghost
+      //    neighbors (including the periodic own)
       std::map<unsigned int, std::set<dealii::types::subdomain_id>> result;
+
+      // loop over all active ghost cells
       for (const auto &cell : this->active_cell_iterators())
         if (cell->is_ghost())
           {
-            const types::subdomain_id owner = cell->subdomain_id();
+            const auto owner = cell->subdomain_id();
+
+            // loop over all its vertices
             for (unsigned int v = 0; v < GeometryInfo<dim>::vertices_per_cell;
                  ++v)
               {
+                // set owner if vertex belongs to a local cell
                 if (vertex_of_own_cell[cell->vertex_index(v)])
                   result[cell->vertex_index(v)].insert(owner);
 
                 // mark also nodes coinciding due to periodicity
-                auto t = sets2.find(cell->vertex_index(v));
-                if (t != sets2.end())
-                  for (auto i : t->second)
-                    if (vertex_of_own_cell[i])
-                      result[i].insert(owner);
+                auto coinciding_vertices =
+                  vertex_to_coinciding_vertices.find(cell->vertex_index(v));
+                if (coinciding_vertices != vertex_to_coinciding_vertices.end())
+                  for (auto coinciding_vertex : coinciding_vertices->second)
+                    if (vertex_of_own_cell[coinciding_vertex])
+                      result[coinciding_vertex].insert(owner);
               }
           }
 
