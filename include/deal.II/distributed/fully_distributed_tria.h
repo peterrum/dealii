@@ -136,7 +136,9 @@ namespace parallel
       std::vector<types::coarse_cell_id> coarse_cell_index_to_coarse_cell_id;
 
       /**
-       * CellData for each locally relevant cell on each level.
+       * CellData for each locally relevant cell on each level. cell_infos[i]
+       * contains the CellData for each locally relevant cell on the ith
+       * level.
        */
       std::vector<std::vector<CellData<dim>>> cell_infos;
     };
@@ -155,7 +157,9 @@ namespace parallel
      *   parallel::distributed::Triangulation). Normally, a process only needs a
      *   small section of the global triangulation, i.e., a small section of the
      *   coarse grid such that a partitioning of the coarse grid is indeed
-     *   essential. We call cells needed by a process locally relevant cells.
+     *   essential. The cells stored on each process consist of the
+     *   @ref GlossLocallyOwnedCell "locally owned cells" and the
+     *   @ref GlossGhostCell "ghost cells".
      * - the distribution of the active cells - on the finest level - among all
      *   processes by simply partitioning a space-filling curve might not lead
      *   to an optimal result for triangulations that originate from large
@@ -189,10 +193,10 @@ namespace parallel
      * @note This triangulation supports: 1D/2D/3D, hanging nodes,
      *       geometric multigrid, and periodicity.
      *
-     * @note Currently no modifications of the triangulation is supported after
-     *       it has been created, i.e., this type of mesh does not support
-     *       any form of adaptivity, not even simple global refinements and
-     *       coarsenings.
+     * @note You can create a triangulation with hanging nodes and multigrid
+     *       levels with create_triangulation(). However, once it has been
+     *       created, it cannot be altered anymore, i.e. you cannot coarsen or
+     *       refine afterwards.
      *
      * @note Currently only simple periodicity conditions (i.e. without offsets
      *       and rotation matrices - see also the documentation of

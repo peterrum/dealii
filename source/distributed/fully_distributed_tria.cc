@@ -302,10 +302,10 @@ namespace parallel
     void
     Triangulation<dim, spacedim>::update_number_cache()
     {
-      parallel::Triangulation<dim, spacedim>::update_number_cache();
-
       if (settings & construct_multigrid_hierarchy)
         parallel::Triangulation<dim, spacedim>::fill_level_ghost_owners();
+
+      parallel::Triangulation<dim, spacedim>::update_number_cache();
     }
 
 
