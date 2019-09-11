@@ -106,14 +106,13 @@ main(int argc, char *argv[])
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    all;
 
-  const MPI_Comm comm           = MPI_COMM_WORLD;
+  const MPI_Comm comm = MPI_COMM_WORLD;
 
   {
     deallog.push("2d");
-    const int      n_refinements  = 4;
-    const int      n_subdivisions = 8;
+    const int n_refinements  = 4;
+    const int n_subdivisions = 8;
     test<2>(n_refinements, n_subdivisions, comm);
     deallog.pop();
   }
-  
 }

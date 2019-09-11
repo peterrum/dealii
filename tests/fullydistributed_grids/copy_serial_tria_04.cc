@@ -84,7 +84,7 @@ test(const int n_refinements, const int n_subdivisions, MPI_Comm comm)
 
   // new: add periodicy on fullydistributed mesh (!!!)
   add_periodicy(tria_pft);
-  
+
   // test triangulation
   FE_Q<dim>       fe(2);
   DoFHandler<dim> dof_handler(tria_pft);
@@ -101,28 +101,28 @@ main(int argc, char *argv[])
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    all;
 
-  const MPI_Comm comm           = MPI_COMM_WORLD;
+  const MPI_Comm comm = MPI_COMM_WORLD;
 
   {
     deallog.push("1d");
-    const int      n_refinements  = 4;
-    const int      n_subdivisions = 8;
+    const int n_refinements  = 4;
+    const int n_subdivisions = 8;
     test<1>(n_refinements, n_subdivisions, comm);
     deallog.pop();
   }
-  
+
   {
     deallog.push("2d");
-    const int      n_refinements  = 4;
-    const int      n_subdivisions = 8;
+    const int n_refinements  = 4;
+    const int n_subdivisions = 8;
     test<2>(n_refinements, n_subdivisions, comm);
     deallog.pop();
   }
-  
+
   {
     deallog.push("2d");
-    const int      n_refinements  = 3;
-    const int      n_subdivisions = 4;
+    const int n_refinements  = 3;
+    const int n_subdivisions = 4;
     test<3>(n_refinements, n_subdivisions, comm);
     deallog.pop();
   }

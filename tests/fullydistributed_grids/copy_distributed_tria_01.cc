@@ -60,7 +60,7 @@ test(int n_refinements, MPI_Comm comm)
   FE_Q<dim>       fe(2);
   DoFHandler<dim> dof_handler(tria_pft);
   dof_handler.distribute_dofs(fe);
-  
+
   // print statistics
   print_statistics(tria_pft);
   print_statistics(dof_handler);
@@ -72,19 +72,18 @@ main(int argc, char *argv[])
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    all;
 
-  const MPI_Comm comm          = MPI_COMM_WORLD;
+  const MPI_Comm comm = MPI_COMM_WORLD;
 
   {
     deallog.push("2d");
-    const int      n_refinements = 8;
+    const int n_refinements = 8;
     test<2>(n_refinements, comm);
     deallog.pop();
   }
   {
     deallog.push("3d");
-    const int      n_refinements = 4;
+    const int n_refinements = 4;
     test<3>(n_refinements, comm);
     deallog.pop();
   }
-
 }
