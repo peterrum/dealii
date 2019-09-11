@@ -1859,9 +1859,9 @@ namespace internal
           // nodes (for example a
           // ring of cells -- no end
           // points at all)
-          AssertThrow(((spacedim == 1) && (boundary_nodes == 2)) ||
-                        (spacedim > 1),
-                      ExcMessage("The Triangulation has too many end points"));
+          //AssertThrow(((spacedim == 1) && (boundary_nodes == 2)) ||
+          //              (spacedim > 1),
+          //            ExcMessage("The Triangulation has too many end points"));
         }
 
 
