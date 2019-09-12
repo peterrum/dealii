@@ -141,6 +141,18 @@ namespace parallel
        * level.
        */
       std::vector<std::vector<CellData<dim>>> cell_infos;
+
+      /**
+       * The MPI communicator used to create this struct. It will be compared
+       * to the communicator inside of parallel::fullydistributed::Triangulation
+       * and an assert is thrown if they do not match.
+       *
+       * @note Please note this is necessary since the communicator inside of
+       * parallel::TriangulationBase is const and cannot be changed after the
+       * constructor has been called.
+       *
+       */
+      MPI_Comm comm;
     };
 
 

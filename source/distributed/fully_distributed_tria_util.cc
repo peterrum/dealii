@@ -103,11 +103,10 @@ namespace parallel
       ConstructionData<dim, spacedim>
       create_construction_data_from_triangulation(
         const dealii::Triangulation<dim, spacedim> &tria,
-        const Triangulation<dim, spacedim> &        tria_pft,
-        const unsigned int                          my_rank_in)
+        const MPI_Comm                              comm,
+        const bool         construct_multilevel_hierarchy,
+        const unsigned int my_rank_in)
       {
-        const MPI_Comm comm = tria_pft.get_communicator();
-
         if (auto tria_pdt = dynamic_cast<
               const parallel::distributed::Triangulation<dim, spacedim> *>(
               &tria))
@@ -150,6 +149,9 @@ namespace parallel
 
         ConstructionData<dim, spacedim> construction_data;
 
+        // store the communicator
+        construction_data.comm = comm;
+
         // helper function, which collects all vertices belonging to a cell
         // (also taking into account periodicity)
         auto add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells =
@@ -181,7 +183,7 @@ namespace parallel
           };
 
         // check if multilevel hierarchy should be constructed
-        if (tria_pft.is_multilevel_hierarchy_constructed() == false)
+        if (construct_multilevel_hierarchy == false)
           {
             AssertThrow(
               tria.has_hanging_nodes() == false,

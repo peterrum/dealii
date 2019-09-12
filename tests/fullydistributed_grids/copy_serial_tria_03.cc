@@ -83,7 +83,7 @@ test(int n_refinements, const int n_subdivisions, MPI_Comm comm)
 
   // extract relevant information form pdt
   auto construction_data = parallel::fullydistributed::Utilities::
-    create_construction_data_from_triangulation(basetria, tria_pft);
+    create_construction_data_from_triangulation(basetria, comm);
 
   // actually create triangulation
   tria_pft.create_triangulation(construction_data);

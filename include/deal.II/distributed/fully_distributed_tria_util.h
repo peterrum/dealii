@@ -57,7 +57,8 @@ namespace parallel
       ConstructionData<dim, spacedim>
       create_construction_data_from_triangulation(
         const dealii::Triangulation<dim, spacedim> &tria,
-        const Triangulation<dim, spacedim> &        tria_pft,
+        const MPI_Comm                              comm,
+        const bool         construct_multilevel_hierarchy = false,
         const unsigned int my_rank_in = numbers::invalid_unsigned_int);
 
     } // namespace Utilities

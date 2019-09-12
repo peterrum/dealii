@@ -1849,7 +1849,6 @@ namespace internal
                       "of freedom at these vertices have the same "
                       "value, using the AffineConstraints class."));
               }
-
         }
 
 

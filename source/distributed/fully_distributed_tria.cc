@@ -112,6 +112,11 @@ namespace parallel
     Triangulation<dim, spacedim>::create_triangulation(
       const ConstructionData<dim, spacedim> &construction_data)
     {
+      // check if the communicator of this parallel triangulation has been used
+      // to construct the ConstructionData
+      Assert(construction_data.comm == this->mpi_communicator,
+             ExcMessage("MPI communicators do not match!"));
+
       // clear internal data structures
       this->coarse_cell_id_to_coarse_cell_index_vector.clear();
       this->coarse_cell_index_to_coarse_cell_id_vector.clear();
