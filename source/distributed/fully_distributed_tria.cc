@@ -85,21 +85,9 @@ namespace parallel
 
 
     template <int dim, int spacedim>
-    Triangulation<dim, spacedim>::Triangulation(MPI_Comm       mpi_communicator,
-                                                const Settings settings)
-      : parallel::DistributedTriangulationBase<dim, spacedim>(
-          mpi_communicator,
-          (settings & construct_multigrid_hierarchy) ?
-            static_cast<
-              typename dealii::Triangulation<dim, spacedim>::MeshSmoothing>(
-              dealii::Triangulation<dim>::none |
-              Triangulation<dim,
-                            spacedim>::limit_level_difference_at_vertices) :
-            static_cast<
-              typename dealii::Triangulation<dim, spacedim>::MeshSmoothing>(
-              dealii::Triangulation<dim>::none),
-          false)
-      , settings(settings)
+    Triangulation<dim, spacedim>::Triangulation(MPI_Comm mpi_communicator)
+      : parallel::DistributedTriangulationBase<dim, spacedim>(mpi_communicator)
+      , settings(Settings::default_setting)
       , currently_processing_create_triangulation_for_internal_usage(false)
       , currently_processing_prepare_coarsening_and_refinement_for_internal_usage(
           false)
@@ -116,6 +104,22 @@ namespace parallel
       // to construct the ConstructionData
       Assert(construction_data.comm == this->mpi_communicator,
              ExcMessage("MPI communicators do not match!"));
+
+      // store internally the settings
+      settings = construction_data.settings;
+
+      // set the smoothing properties
+      if (settings & construct_multigrid_hierarchy)
+        this->set_mesh_smoothing(
+          static_cast<
+            typename dealii::Triangulation<dim, spacedim>::MeshSmoothing>(
+            dealii::Triangulation<dim>::none |
+            Triangulation<dim, spacedim>::limit_level_difference_at_vertices));
+      else
+        this->set_mesh_smoothing(
+          static_cast<
+            typename dealii::Triangulation<dim, spacedim>::MeshSmoothing>(
+            dealii::Triangulation<dim>::none));
 
       // clear internal data structures
       this->coarse_cell_id_to_coarse_cell_index_vector.clear();

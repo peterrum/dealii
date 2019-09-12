@@ -50,14 +50,11 @@ test(int n_refinements, const int n_subdivisions, MPI_Comm comm)
   GridTools::partition_multigrid_levels(basetria);
 
   // create instance of pft
-  parallel::fullydistributed::Triangulation<dim> tria_pft(
-    comm,
-    parallel::fullydistributed::Triangulation<
-      dim>::construct_multigrid_hierarchy);
+  parallel::fullydistributed::Triangulation<dim> tria_pft(comm);
 
   // extract relevant information form serial triangulation
   auto construction_data = parallel::fullydistributed::Utilities::
-    create_construction_data_from_triangulation(basetria, comm);
+    create_construction_data_from_triangulation(basetria, comm, true);
 
   // actually create triangulation
   tria_pft.create_triangulation(construction_data);

@@ -49,6 +49,24 @@ namespace parallel
   namespace fullydistributed
   {
     /**
+     * Configuration flags for fully distributed Triangulations.
+     * Settings can be combined using bitwise OR.
+     */
+    enum Settings
+    {
+      /**
+       * Default settings, other options are disabled.
+       */
+      default_setting = 0x0,
+      /**
+       * This flags needs to be set to use the geometric multigrid
+       * functionality. This option requires additional computation and
+       * communication.
+       */
+      construct_multigrid_hierarchy = 0x1
+    };
+
+    /**
      * Information needed for each locally relevant cell, stored in
      * ConstructionData and used during construction of a
      * parallel::fullydistributed::Triangulation. This struct stores
@@ -153,6 +171,11 @@ namespace parallel
        *
        */
       MPI_Comm comm;
+
+      /**
+       * @note settings See the description of the Settings enumerator.
+       */
+      Settings settings;
     };
 
 
@@ -231,32 +254,12 @@ namespace parallel
         typename dealii::Triangulation<dim, spacedim>::CellStatus;
 
       /**
-       * Configuration flags for fully distributed Triangulations to be set in
-       * the constructor. Settings can be combined using bitwise OR.
-       */
-      enum Settings
-      {
-        /**
-         * Default settings, other options are disabled.
-         */
-        default_setting = 0x0,
-        /**
-         * This flags needs to be set to use the geometric multigrid
-         * functionality. This option requires additional computation and
-         * communication.
-         */
-        construct_multigrid_hierarchy = 0x1
-      };
-
-      /**
        * Constructor.
        *
        * @param mpi_communicator The MPI communicator to be used for the
        *                         triangulation.
-       * @param settings See the description of the Settings enumerator.
        */
-      explicit Triangulation(MPI_Comm       mpi_communicator,
-                             const Settings settings = default_setting);
+      explicit Triangulation(MPI_Comm mpi_communicator);
 
       /**
        * Destructor.
@@ -351,7 +354,7 @@ namespace parallel
       /**
        * store the Settings.
        */
-      const Settings settings;
+      Settings settings;
 
       /**
        * Sorted list of pairs of coarse-cell ids and their indices.

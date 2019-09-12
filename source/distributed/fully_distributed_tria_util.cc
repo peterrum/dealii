@@ -190,6 +190,9 @@ namespace parallel
               ExcMessage(
                 "Hanging nodes are only supported if multilevel hierarchy is constructed!"));
 
+            construction_data.settings =
+              fullydistributed::Settings::default_setting;
+
             // 1) collect vertices of active locally owned cells
             std::set<unsigned int> vertices_owned_by_locally_owned_cells;
             for (auto cell : tria.cell_iterators())
@@ -313,6 +316,9 @@ namespace parallel
           }
         else
           {
+            construction_data.settings =
+              fullydistributed::Settings::construct_multigrid_hierarchy;
+
             // 1) collect locally relevant cells (set user_flag)
             std::vector<bool> old_user_flags;
             tria.save_user_flags(old_user_flags);
