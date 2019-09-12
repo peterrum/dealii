@@ -196,25 +196,25 @@ namespace parallel
                   cell, vertices_owned_by_locally_owned_cells);
 
             // helper function to determine if cell is locally relevant
-            // (i.e. a cell which is connected via a vertex via a locally owned
+            // (i.e. a cell which is connected to a vertex via a locally owned
             // active cell)
-            auto is_locally_relevant = [&](auto &cell) {
-              for (unsigned int v = 0; v < GeometryInfo<dim>::vertices_per_cell;
-                   ++v)
-                if (vertices_owned_by_locally_owned_cells.find(
-                      cell->vertex_index(v)) !=
-                    vertices_owned_by_locally_owned_cells.end())
-                  return true;
-              return false;
-            };
+            auto is_locally_relevant =
+              [&](TriaIterator<CellAccessor<dim, spacedim>> &cell) {
+                for (unsigned int v = 0;
+                     v < GeometryInfo<dim>::vertices_per_cell;
+                     ++v)
+                  if (vertices_owned_by_locally_owned_cells.find(
+                        cell->vertex_index(v)) !=
+                      vertices_owned_by_locally_owned_cells.end())
+                    return true;
+                return false;
+              };
 
-            // 2) process all local and ghost cells: setup needed data
+            // 2) process all local and ghost cells: set up needed data
             // structures and collect all locally relevant vertices
             // for second sweep
             std::map<unsigned int, unsigned int> vertices_locally_relevant;
-            construction_data.cell_infos.push_back(
-              std::vector<CellData<dim>>());
-            auto &part = construction_data.cell_infos[0];
+            construction_data.cell_infos.resize(1);
 
             for (auto cell : tria.cell_iterators())
               if (cell->active() && is_locally_relevant(cell))
@@ -291,7 +291,7 @@ namespace parallel
                   //    hierarchy is not constructed)
                   cell_info.level_subdomain_id = numbers::invalid_subdomain_id;
 
-                  part.push_back(cell_info);
+                  construction_data.cell_infos[0].push_back(cell_info);
                 }
 
             // 3) enumerate locally relevant vertices
@@ -334,18 +334,19 @@ namespace parallel
                       cell, vertices_owned_by_locally_owned_cells);
 
                 // helper function to determine if cell is locally relevant
-                // (i.e. a cell which is connected via a vertex via a locally
+                // (i.e. a cell which is connected to a vertex via a locally
                 // owned cell)
-                auto is_locally_relevant = [&](auto &cell) {
-                  for (unsigned int v = 0;
-                       v < GeometryInfo<dim>::vertices_per_cell;
-                       ++v)
-                    if (vertices_owned_by_locally_owned_cells.find(
-                          cell->vertex_index(v)) !=
-                        vertices_owned_by_locally_owned_cells.end())
-                      return true;
-                  return false;
-                };
+                auto is_locally_relevant =
+                  [&](TriaIterator<CellAccessor<dim, spacedim>> &cell) {
+                    for (unsigned int v = 0;
+                         v < GeometryInfo<dim>::vertices_per_cell;
+                         ++v)
+                      if (vertices_owned_by_locally_owned_cells.find(
+                            cell->vertex_index(v)) !=
+                          vertices_owned_by_locally_owned_cells.end())
+                        return true;
+                    return false;
+                  };
 
                 // mark all locally relevant cells
                 for (auto cell : tria.cell_iterators_on_level(level))
@@ -353,7 +354,7 @@ namespace parallel
                     set_user_flag_reverse(cell);
               }
 
-            // 2) setup coarse-grid triangulation
+            // 2) set_up coarse-grid triangulation
             {
               std::map<unsigned int, unsigned int> vertices_locally_relevant;
 
@@ -421,16 +422,17 @@ namespace parallel
                       cell, vertices_owned_by_locally_owned_cells);
 
                 // helper function to determine if cell is locally relevant
-                auto is_locally_relevant = [&](auto &cell) {
-                  for (unsigned int v = 0;
-                       v < GeometryInfo<dim>::vertices_per_cell;
-                       ++v)
-                    if (vertices_owned_by_locally_owned_cells.find(
-                          cell->vertex_index(v)) !=
-                        vertices_owned_by_locally_owned_cells.end())
-                      return true;
-                  return false;
-                };
+                auto is_locally_relevant =
+                  [&](TriaIterator<CellAccessor<dim, spacedim>> &cell) {
+                    for (unsigned int v = 0;
+                         v < GeometryInfo<dim>::vertices_per_cell;
+                         ++v)
+                      if (vertices_owned_by_locally_owned_cells.find(
+                            cell->vertex_index(v)) !=
+                          vertices_owned_by_locally_owned_cells.end())
+                        return true;
+                    return false;
+                  };
 
                 auto &level_cell_infos = construction_data.cell_infos[level];
                 for (auto cell : tria.cell_iterators_on_level(level))
