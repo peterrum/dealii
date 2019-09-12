@@ -2267,6 +2267,8 @@ namespace GridTools
           }
       }
 
+    // Assure that all faces are matched if not
+    // parallel::fullydistributed::Triangulation is used
     if (!(((pairs1.size() > 0) &&
            (dynamic_cast<
               const parallel::fullydistributed::Triangulation<dim, space_dim>

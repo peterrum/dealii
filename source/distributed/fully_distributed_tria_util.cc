@@ -269,17 +269,17 @@ namespace parallel
                   cell_info.manifold_id = cell->manifold_id();
 
                   // ... of lines
-                  if (spacedim >= 2)
+                  if (dim >= 2)
                     for (unsigned int line = 0;
-                         line < GeometryInfo<spacedim>::lines_per_cell;
+                         line < GeometryInfo<dim>::lines_per_cell;
                          ++line)
                       cell_info.manifold_line_ids[line] =
                         cell->line(line)->manifold_id();
 
                   // ... of quads
-                  if (spacedim == 3)
+                  if (dim == 3)
                     for (unsigned int quad = 0;
-                         quad < GeometryInfo<spacedim>::quads_per_cell;
+                         quad < GeometryInfo<dim>::quads_per_cell;
                          ++quad)
                       cell_info.manifold_quad_ids[quad] =
                         cell->quad(quad)->manifold_id();
@@ -291,7 +291,7 @@ namespace parallel
                   //    hierarchy is not constructed)
                   cell_info.level_subdomain_id = numbers::invalid_subdomain_id;
 
-                  construction_data.cell_infos[0].push_back(cell_info);
+                  construction_data.cell_infos[0].emplace_back(cell_info);
                 }
 
             // 3) enumerate locally relevant vertices
@@ -312,10 +312,12 @@ namespace parallel
         else
           {
             // 1) collect locally relevant cells (set user_flag)
+            std::vector<bool> old_user_flags;
+            tria.save_user_flags(old_user_flags);
 
             // 1a) clear user_flags
-            for (auto &cell : tria)
-              cell.recursively_clear_user_flag();
+            const_cast<dealii::Triangulation<dim, spacedim> &>(tria)
+              .clear_user_flags();
 
             // 1b) loop over levels (from fine to coarse) and mark on each level
             //     the locally relevant cells
@@ -463,17 +465,17 @@ namespace parallel
                       cell_info.manifold_id = cell->manifold_id();
 
                       // ... of lines
-                      if (spacedim >= 2)
+                      if (dim >= 2)
                         for (unsigned int line = 0;
-                             line < GeometryInfo<spacedim>::lines_per_cell;
+                             line < GeometryInfo<dim>::lines_per_cell;
                              ++line)
                           cell_info.manifold_line_ids[line] =
                             cell->line(line)->manifold_id();
 
                       // ... of quads
-                      if (spacedim == 3)
+                      if (dim == 3)
                         for (unsigned int quad = 0;
-                             quad < GeometryInfo<spacedim>::quads_per_cell;
+                             quad < GeometryInfo<dim>::quads_per_cell;
                              ++quad)
                           cell_info.manifold_quad_ids[quad] =
                             cell->quad(quad)->manifold_id();
@@ -492,9 +494,12 @@ namespace parallel
                           cell_info.subdomain_id = cell->subdomain_id();
                       }
 
-                    level_cell_infos.push_back(cell_info);
+                    level_cell_infos.emplace_back(cell_info);
                   }
               }
+
+            const_cast<dealii::Triangulation<dim, spacedim> &>(tria)
+              .load_user_flags(old_user_flags);
           }
 
         return construction_data;
