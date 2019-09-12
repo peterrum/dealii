@@ -114,6 +114,8 @@ namespace parallel
           AssertThrow(comm == tria_pdt->get_communicator(),
                       ExcMessage("MPI communicators do not match."));
 
+        // First, figure out for what rank we are supposed to build the
+        // ConstructionData object
         unsigned int my_rank = my_rank_in;
         AssertThrow(my_rank == numbers::invalid_unsigned_int ||
                       my_rank < dealii::Utilities::MPI::n_mpi_processes(comm),
@@ -124,14 +126,13 @@ namespace parallel
               const parallel::distributed::Triangulation<dim, spacedim> *>(
               &tria))
           {
-            if (my_rank == numbers::invalid_unsigned_int ||
-                my_rank == dealii::Utilities::MPI::this_mpi_process(comm))
-              my_rank = dealii::Utilities::MPI::this_mpi_process(comm);
-            else
-              AssertThrow(
-                false,
-                ExcMessage(
-                  "If parallel::distributed::Triangulation as source triangulation, my_rank has to equal global rank."));
+            AssertThrow(
+              my_rank == numbers::invalid_unsigned_int ||
+                my_rank == dealii::Utilities::MPI::this_mpi_process(comm),
+              ExcMessage(
+                "If parallel::distributed::Triangulation as source triangulation, my_rank has to equal global rank."));
+
+            my_rank = dealii::Utilities::MPI::this_mpi_process(comm);
           }
         else if (auto tria_serial =
                    dynamic_cast<const dealii::Triangulation<dim, spacedim> *>(
