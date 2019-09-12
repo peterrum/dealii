@@ -156,26 +156,26 @@ namespace parallel
           [](TriaIterator<CellAccessor<dim, spacedim>> &cell,
              std::set<unsigned int> &vertices_owned_by_locally_owned_cells) {
             // add vertices belonging to a periodic neighbor
-            for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell; i++)
-              if (cell->has_periodic_neighbor(i))
+            for (unsigned int f = 0; f < GeometryInfo<dim>::faces_per_cell; ++f)
+              if (cell->has_periodic_neighbor(f))
                 {
-                  auto face_t = cell->face(i);
-                  auto face_n = cell->periodic_neighbor(i)->face(
-                    cell->periodic_neighbor_face_no(i));
-                  for (unsigned int j = 0;
-                       j < GeometryInfo<dim>::vertices_per_face;
-                       j++)
+                  auto face_t = cell->face(f);
+                  auto face_n = cell->periodic_neighbor(f)->face(
+                    cell->periodic_neighbor_face_no(f));
+                  for (unsigned int v = 0;
+                       v < GeometryInfo<dim>::vertices_per_face;
+                       ++v)
                     {
                       vertices_owned_by_locally_owned_cells.insert(
-                        face_t->vertex_index(j));
+                        face_t->vertex_index(v));
                       vertices_owned_by_locally_owned_cells.insert(
-                        face_n->vertex_index(j));
+                        face_n->vertex_index(v));
                     }
                 }
 
             // add local vertices
             for (unsigned int v = 0; v < GeometryInfo<dim>::vertices_per_cell;
-                 v++)
+                 ++v)
               vertices_owned_by_locally_owned_cells.insert(
                 cell->vertex_index(v));
           };
@@ -200,7 +200,7 @@ namespace parallel
             // active cell)
             auto is_locally_relevant = [&](auto &cell) {
               for (unsigned int v = 0; v < GeometryInfo<dim>::vertices_per_cell;
-                   v++)
+                   ++v)
                 if (vertices_owned_by_locally_owned_cells.find(
                       cell->vertex_index(v)) !=
                     vertices_owned_by_locally_owned_cells.end())
@@ -229,21 +229,21 @@ namespace parallel
                   cell_data.manifold_id = cell->manifold_id();
                   for (unsigned int v = 0;
                        v < GeometryInfo<dim>::vertices_per_cell;
-                       v++)
+                       ++v)
                     cell_data.vertices[v] = cell->vertex_index(v);
                   construction_data.coarse_cells.push_back(cell_data);
 
                   // b) save indices of each vertex of this cell
                   for (unsigned int v = 0;
                        v < GeometryInfo<dim>::vertices_per_cell;
-                       v++)
+                       ++v)
                     vertices_locally_relevant[cell->vertex_index(v)] =
                       numbers::invalid_unsigned_int;
 
                   // c) save boundary_ids of each face of this cell
                   for (unsigned int f = 0;
                        f < GeometryInfo<dim>::faces_per_cell;
-                       f++)
+                       ++f)
                     {
                       types::boundary_id boundary_ind =
                         cell->face(f)->boundary_id();
@@ -272,7 +272,7 @@ namespace parallel
                   if (spacedim >= 2)
                     for (unsigned int line = 0;
                          line < GeometryInfo<spacedim>::lines_per_cell;
-                         line++)
+                         ++line)
                       cell_info.manifold_line_ids[line] =
                         cell->line(line)->manifold_id();
 
@@ -280,7 +280,7 @@ namespace parallel
                   if (spacedim == 3)
                     for (unsigned int quad = 0;
                          quad < GeometryInfo<spacedim>::quads_per_cell;
-                         quad++)
+                         ++quad)
                       cell_info.manifold_quad_ids[quad] =
                         cell->quad(quad)->manifold_id();
 
@@ -306,7 +306,7 @@ namespace parallel
             // 4) correct vertices of cells (make them local)
             for (auto &cell : construction_data.coarse_cells)
               for (unsigned int v = 0; v < GeometryInfo<dim>::vertices_per_cell;
-                   v++)
+                   ++v)
                 cell.vertices[v] = vertices_locally_relevant[cell.vertices[v]];
           }
         else
@@ -339,7 +339,7 @@ namespace parallel
                 auto is_locally_relevant = [&](auto &cell) {
                   for (unsigned int v = 0;
                        v < GeometryInfo<dim>::vertices_per_cell;
-                       v++)
+                       ++v)
                     if (vertices_owned_by_locally_owned_cells.find(
                           cell->vertex_index(v)) !=
                         vertices_owned_by_locally_owned_cells.end())
@@ -369,14 +369,14 @@ namespace parallel
                   cell_data.manifold_id = cell->manifold_id();
                   for (unsigned int v = 0;
                        v < GeometryInfo<dim>::vertices_per_cell;
-                       v++)
+                       ++v)
                     cell_data.vertices[v] = cell->vertex_index(v);
                   construction_data.coarse_cells.push_back(cell_data);
 
                   // save indices of each vertex of this cell
                   for (unsigned int v = 0;
                        v < GeometryInfo<dim>::vertices_per_cell;
-                       v++)
+                       ++v)
                     vertices_locally_relevant[cell->vertex_index(v)] =
                       numbers::invalid_unsigned_int;
 
@@ -398,7 +398,7 @@ namespace parallel
               for (auto &cell : construction_data.coarse_cells)
                 for (unsigned int v = 0;
                      v < GeometryInfo<dim>::vertices_per_cell;
-                     v++)
+                     ++v)
                   cell.vertices[v] =
                     vertices_locally_relevant[cell.vertices[v]];
             }
@@ -410,7 +410,7 @@ namespace parallel
 
             for (unsigned int level = 0;
                  level < tria.get_triangulation().n_global_levels();
-                 level++)
+                 ++level)
               {
                 // collect local vertices on level
                 std::set<unsigned int> vertices_owned_by_locally_owned_cells;
@@ -424,7 +424,7 @@ namespace parallel
                 auto is_locally_relevant = [&](auto &cell) {
                   for (unsigned int v = 0;
                        v < GeometryInfo<dim>::vertices_per_cell;
-                       v++)
+                       ++v)
                     if (vertices_owned_by_locally_owned_cells.find(
                           cell->vertex_index(v)) !=
                         vertices_owned_by_locally_owned_cells.end())
@@ -447,7 +447,7 @@ namespace parallel
                     // save boundary_ids of each face of this cell
                     for (unsigned int f = 0;
                          f < GeometryInfo<dim>::faces_per_cell;
-                         f++)
+                         ++f)
                       {
                         types::boundary_id boundary_ind =
                           cell->face(f)->boundary_id();
@@ -464,7 +464,7 @@ namespace parallel
                       if (spacedim >= 2)
                         for (unsigned int line = 0;
                              line < GeometryInfo<spacedim>::lines_per_cell;
-                             line++)
+                             ++line)
                           cell_info.manifold_line_ids[line] =
                             cell->line(line)->manifold_id();
 
@@ -472,7 +472,7 @@ namespace parallel
                       if (spacedim == 3)
                         for (unsigned int quad = 0;
                              quad < GeometryInfo<spacedim>::quads_per_cell;
-                             quad++)
+                             ++quad)
                           cell_info.manifold_quad_ids[quad] =
                             cell->quad(quad)->manifold_id();
                     }
