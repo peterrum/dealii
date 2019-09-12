@@ -150,16 +150,11 @@ namespace parallel
 
         ConstructionData<dim, spacedim> construction_data;
 
-        auto &cells    = construction_data.coarse_cells;
-        auto &vertices = construction_data.coarse_cell_vertices;
-        auto &coarse_cell_index_to_coarse_cell_id =
-          construction_data.coarse_cell_index_to_coarse_cell_id;
-        auto &cell_infos = construction_data.cell_infos;
-
         // helper function, which collects all vertices belonging to a cell
         // (also taking into account periodicity)
-        auto add_vertices_of_cell_to_vertices_owned_by_loclly_owned_cells =
-          [](auto &cell, auto &vertices_owned_by_loclly_owned_cells) mutable {
+        auto add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells =
+          [](TriaIterator<CellAccessor<dim, spacedim>> &cell,
+             std::set<unsigned int> &vertices_owned_by_locally_owned_cells) {
             // add vertices belonging to a periodic neighbor
             for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell; i++)
               if (cell->has_periodic_neighbor(i))
@@ -171,9 +166,9 @@ namespace parallel
                        j < GeometryInfo<dim>::vertices_per_face;
                        j++)
                     {
-                      vertices_owned_by_loclly_owned_cells.insert(
+                      vertices_owned_by_locally_owned_cells.insert(
                         face_t->vertex_index(j));
-                      vertices_owned_by_loclly_owned_cells.insert(
+                      vertices_owned_by_locally_owned_cells.insert(
                         face_n->vertex_index(j));
                     }
                 }
@@ -181,7 +176,7 @@ namespace parallel
             // add local vertices
             for (unsigned int v = 0; v < GeometryInfo<dim>::vertices_per_cell;
                  v++)
-              vertices_owned_by_loclly_owned_cells.insert(
+              vertices_owned_by_locally_owned_cells.insert(
                 cell->vertex_index(v));
           };
 
@@ -194,11 +189,11 @@ namespace parallel
                 "Hanging nodes are only supported if multilevel hierarchy is constructed!"));
 
             // 1) collect vertices of active locally owned cells
-            std::set<unsigned int> vertices_owned_by_loclly_owned_cells;
+            std::set<unsigned int> vertices_owned_by_locally_owned_cells;
             for (auto cell : tria.cell_iterators())
               if (cell->active() && cell->subdomain_id() == my_rank)
-                add_vertices_of_cell_to_vertices_owned_by_loclly_owned_cells(
-                  cell, vertices_owned_by_loclly_owned_cells);
+                add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
+                  cell, vertices_owned_by_locally_owned_cells);
 
             // helper function to determine if cell is locally relevant
             // (i.e. a cell which is connected via a vertex via a locally owned
@@ -206,9 +201,9 @@ namespace parallel
             auto is_locally_relevant = [&](auto &cell) {
               for (unsigned int v = 0; v < GeometryInfo<dim>::vertices_per_cell;
                    v++)
-                if (vertices_owned_by_loclly_owned_cells.find(
+                if (vertices_owned_by_locally_owned_cells.find(
                       cell->vertex_index(v)) !=
-                    vertices_owned_by_loclly_owned_cells.end())
+                    vertices_owned_by_locally_owned_cells.end())
                   return true;
               return false;
             };
@@ -217,8 +212,9 @@ namespace parallel
             // structures and collect all locally relevant vertices
             // for second sweep
             std::map<unsigned int, unsigned int> vertices_locally_relevant;
-            cell_infos.push_back(std::vector<CellData<dim>>());
-            auto &part = cell_infos[0];
+            construction_data.cell_infos.push_back(
+              std::vector<CellData<dim>>());
+            auto &part = construction_data.cell_infos[0];
 
             for (auto cell : tria.cell_iterators())
               if (cell->active() && is_locally_relevant(cell))
@@ -235,7 +231,7 @@ namespace parallel
                        v < GeometryInfo<dim>::vertices_per_cell;
                        v++)
                     cell_data.vertices[v] = cell->vertex_index(v);
-                  cells.push_back(cell_data);
+                  construction_data.coarse_cells.push_back(cell_data);
 
                   // b) save indices of each vertex of this cell
                   for (unsigned int v = 0;
@@ -266,8 +262,8 @@ namespace parallel
                                    .template to_binary<dim>();
 
                   //    save coarse_cell_index -> coarse_cell_id mapping
-                  coarse_cell_index_to_coarse_cell_id.push_back(
-                    new_coarse_cell_id);
+                  construction_data.coarse_cell_index_to_coarse_cell_id
+                    .push_back(new_coarse_cell_id);
 
                   // e) store manifold id of cell
                   cell_info.manifold_id = cell->manifold_id();
@@ -302,12 +298,13 @@ namespace parallel
             unsigned int vertex_counter = 0;
             for (auto &vertex : vertices_locally_relevant)
               {
-                vertices.push_back(tria.get_vertices()[vertex.first]);
+                construction_data.coarse_cell_vertices.push_back(
+                  tria.get_vertices()[vertex.first]);
                 vertex.second = vertex_counter++;
               }
 
             // 4) correct vertices of cells (make them local)
-            for (auto &cell : cells)
+            for (auto &cell : construction_data.coarse_cells)
               for (unsigned int v = 0; v < GeometryInfo<dim>::vertices_per_cell;
                    v++)
                 cell.vertices[v] = vertices_locally_relevant[cell.vertices[v]];
@@ -329,12 +326,12 @@ namespace parallel
               {
                 // collect vertices connected to a (on any level) locally owned
                 // cell
-                std::set<unsigned int> vertices_owned_by_loclly_owned_cells;
+                std::set<unsigned int> vertices_owned_by_locally_owned_cells;
                 for (auto cell : tria.cell_iterators_on_level(level))
                   if (cell->level_subdomain_id() == my_rank ||
                       (cell->active() && cell->subdomain_id() == my_rank))
-                    add_vertices_of_cell_to_vertices_owned_by_loclly_owned_cells(
-                      cell, vertices_owned_by_loclly_owned_cells);
+                    add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
+                      cell, vertices_owned_by_locally_owned_cells);
 
                 // helper function to determine if cell is locally relevant
                 // (i.e. a cell which is connected via a vertex via a locally
@@ -343,9 +340,9 @@ namespace parallel
                   for (unsigned int v = 0;
                        v < GeometryInfo<dim>::vertices_per_cell;
                        v++)
-                    if (vertices_owned_by_loclly_owned_cells.find(
+                    if (vertices_owned_by_locally_owned_cells.find(
                           cell->vertex_index(v)) !=
-                        vertices_owned_by_loclly_owned_cells.end())
+                        vertices_owned_by_locally_owned_cells.end())
                       return true;
                   return false;
                 };
@@ -374,7 +371,7 @@ namespace parallel
                        v < GeometryInfo<dim>::vertices_per_cell;
                        v++)
                     cell_data.vertices[v] = cell->vertex_index(v);
-                  cells.push_back(cell_data);
+                  construction_data.coarse_cells.push_back(cell_data);
 
                   // save indices of each vertex of this cell
                   for (unsigned int v = 0;
@@ -384,20 +381,21 @@ namespace parallel
                       numbers::invalid_unsigned_int;
 
                   // save translation for corase grid: lid -> gid
-                  coarse_cell_index_to_coarse_cell_id.push_back(
-                    cell->id().get_coarse_cell_id());
+                  construction_data.coarse_cell_index_to_coarse_cell_id
+                    .push_back(cell->id().get_coarse_cell_id());
                 }
 
               // b) enumerate locally relevant vertices
               unsigned int vertex_counter = 0;
               for (auto &vertex : vertices_locally_relevant)
                 {
-                  vertices.push_back(tria.get_vertices()[vertex.first]);
+                  construction_data.coarse_cell_vertices.push_back(
+                    tria.get_vertices()[vertex.first]);
                   vertex.second = vertex_counter++;
                 }
 
               // c) correct vertices of cells (make them local)
-              for (auto &cell : cells)
+              for (auto &cell : construction_data.coarse_cells)
                 for (unsigned int v = 0;
                      v < GeometryInfo<dim>::vertices_per_cell;
                      v++)
@@ -407,33 +405,34 @@ namespace parallel
 
 
             // 3) collect info of each cell
-            cell_infos.resize(tria.get_triangulation().n_global_levels());
+            construction_data.cell_infos.resize(
+              tria.get_triangulation().n_global_levels());
 
             for (unsigned int level = 0;
                  level < tria.get_triangulation().n_global_levels();
                  level++)
               {
                 // collect local vertices on level
-                std::set<unsigned int> vertices_owned_by_loclly_owned_cells;
+                std::set<unsigned int> vertices_owned_by_locally_owned_cells;
                 for (auto cell : tria.cell_iterators_on_level(level))
                   if (cell->level_subdomain_id() == my_rank ||
                       (cell->active() && cell->subdomain_id() == my_rank))
-                    add_vertices_of_cell_to_vertices_owned_by_loclly_owned_cells(
-                      cell, vertices_owned_by_loclly_owned_cells);
+                    add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
+                      cell, vertices_owned_by_locally_owned_cells);
 
                 // helper function to determine if cell is locally relevant
                 auto is_locally_relevant = [&](auto &cell) {
                   for (unsigned int v = 0;
                        v < GeometryInfo<dim>::vertices_per_cell;
                        v++)
-                    if (vertices_owned_by_loclly_owned_cells.find(
+                    if (vertices_owned_by_locally_owned_cells.find(
                           cell->vertex_index(v)) !=
-                        vertices_owned_by_loclly_owned_cells.end())
+                        vertices_owned_by_locally_owned_cells.end())
                       return true;
                   return false;
                 };
 
-                auto &level_cell_infos = cell_infos[level];
+                auto &level_cell_infos = construction_data.cell_infos[level];
                 for (auto cell : tria.cell_iterators_on_level(level))
                   {
                     // check if cell is locally relevant
