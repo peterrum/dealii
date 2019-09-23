@@ -61,7 +61,7 @@ namespace CUDAWrappers
    * this class.
    *
    * This class implements a loop over all cells (cell_loop()). This loop is
-   * scheduled in such a way that cells that cells that share degrees of freedom
+   * scheduled in such a way that cells that share degrees of freedom
    * are not worked on simultaneously, which implies that it is possible to
    * write to vectors in parallel without having to explicitly synchronize
    * access to these vectors and matrices. This class does not implement any
