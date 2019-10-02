@@ -921,8 +921,8 @@ namespace CUDAWrappers
               bool flag = false;
                 
               for(unsigned int i = 0; i < GeometryInfo<dim>::vertices_per_cell; i++)
-                if(cell->vertex_index (i))
-                    flag = true;
+                if(ghost_vertices[cell->vertex_index (i)])
+                  flag = true;
               
               if(flag)
                 graph[1].emplace_back(cell);
@@ -1083,6 +1083,7 @@ namespace CUDAWrappers
         dst.get_partitioner().get() == partitioner.get())
       {
 
+#ifdef DEAL_II_COMPILER_CUDA_AWARE
         // Execute the loop on the cells
         if(use_ghost_coloring)
         {
@@ -1107,6 +1108,7 @@ namespace CUDAWrappers
           dst.compress_finish(VectorOperation::add);
         }
         else
+#endif
         {
           src.update_ghost_values();
           for (unsigned int i = 0; i < n_colors; ++i)
