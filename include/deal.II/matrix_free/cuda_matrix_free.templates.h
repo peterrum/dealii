@@ -1108,11 +1108,14 @@ namespace CUDAWrappers
         // Execute the loop on the cells
         if(use_ghost_coloring)
         {
+          cudaStream_t stream1;
+          cudaStreamCreate ( &stream1) ;  
+            
           src.update_ghost_values_start(0);
           
           for(unsigned int i = this->n_bin_interface; i < this->n_bin_interface + this->n_bin_inner / 2; i++)
             internal::apply_kernel_shmem<dim, Number, Functor>
-              <<<grid_dim[i], block_dim[i]>>>(func,
+              <<<grid_dim[i], block_dim[i], 0, stream1>>>(func,
                                               get_data(i),
                                               src.get_values(),
                                               dst.get_values());
@@ -1130,7 +1133,7 @@ namespace CUDAWrappers
           
           for(unsigned int i = this->n_bin_interface + this->n_bin_inner / 2; i < this->n_bin_interface + this->n_bin_inner;i++)
             internal::apply_kernel_shmem<dim, Number, Functor>
-              <<<grid_dim[i], block_dim[i]>>>(func,
+              <<<grid_dim[i], block_dim[i], 0, stream1>>>(func,
                                               get_data(i),
                                               src.get_values(),
                                               dst.get_values());
