@@ -1087,9 +1087,12 @@ namespace CUDAWrappers
         // Execute the loop on the cells
         if(use_ghost_coloring)
         {
+          cudaStream_t stream1;
+          cudaStreamCreate ( &stream1) ;  
+            
           src.update_ghost_values_start(0);
           internal::apply_kernel_shmem<dim, Number, Functor>
-            <<<grid_dim[0], block_dim[0]>>>(func,
+            <<<grid_dim[0], block_dim[0], 0, stream1>>>(func,
                                             get_data(0),
                                             src.get_values(),
                                             dst.get_values());
@@ -1101,7 +1104,7 @@ namespace CUDAWrappers
                                             dst.get_values());
           dst.compress_start(0, VectorOperation::add);
           internal::apply_kernel_shmem<dim, Number, Functor>
-            <<<grid_dim[2], block_dim[2]>>>(func,
+            <<<grid_dim[2], block_dim[2], 0, stream1>>>(func,
                                             get_data(2),
                                             src.get_values(),
                                             dst.get_values());
