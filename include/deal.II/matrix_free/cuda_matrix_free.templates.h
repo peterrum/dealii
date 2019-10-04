@@ -1109,6 +1109,8 @@ namespace CUDAWrappers
                                             src.get_values(),
                                             dst.get_values());
           dst.compress_finish(VectorOperation::add);
+          
+          cudaStreamDestroy(stream1);
         }
         else
 #endif
