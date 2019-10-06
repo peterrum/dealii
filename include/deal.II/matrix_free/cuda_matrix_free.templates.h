@@ -905,7 +905,13 @@ namespace CUDAWrappers
       {
         if(additional_data.use_ghost_coloring)
           {
-            graph.resize(3, std::vector<CellFilter>());
+            //graph.resize(33, std::vector<CellFilter>());
+            //
+            //unsigned int i = 0;
+            //for (auto cell = begin; cell != end; ++cell)
+            //  graph[(i++)/10000].emplace_back(cell);
+            //
+            graph.resize(5, std::vector<CellFilter>());
             
             std::vector<bool> ghost_vertices(dof_handler.get_triangulation ().n_vertices (), false);
             
@@ -914,8 +920,11 @@ namespace CUDAWrappers
                 for(unsigned int i = 0; i < GeometryInfo<dim>::vertices_per_cell; i++)
                   ghost_vertices[cell->vertex_index (i)] = true;
               
-            std::vector<dealii::FilteredIterator<dealii::TriaActiveIterator<dealii::DoFCellAccessor<dealii::DoFHandler<dim, dim>, false>>>> inner_cells;
+            //std::vector<dealii::FilteredIterator<dealii::TriaActiveIterator<dealii::DoFCellAccessor<dealii::DoFHandler<dim, dim>, false>>>> inner_cells;
               
+            std::vector<CellFilter> cells_interface;
+            std::vector<CellFilter> cells_inner;
+            
             for (auto cell = begin; cell != end; ++cell)
             {
               bool flag = false;
@@ -925,16 +934,27 @@ namespace CUDAWrappers
                   flag = true;
               
               if(flag)
-                graph[1].emplace_back(cell);
+                cells_interface.emplace_back(cell);
               else
-                inner_cells.emplace_back(cell);
+                cells_inner.emplace_back(cell);
             }
             
-            for(unsigned i = 0; i < inner_cells.size(); i++)
-                if(i < inner_cells.size() / 2)
-                  graph[0].emplace_back(inner_cells[i]);
-                else
-                  graph[2].emplace_back(inner_cells[i]);
+            const unsigned int size_bin = 10000;
+            
+            {
+                unsigned int n_bin_interface = (cells_interface.size() + size_bin) / size_bin;
+                unsigned int n_bin_inner    = (cells_inner.size() + size_bin) / size_bin;
+                graph.resize(n_bin_interface + n_bin_inner, std::vector<CellFilter>());
+                
+                for(unsigned int i = 0; i < cells_interface.size(); i++)
+                  graph[i/size_bin].emplace_back(cells_interface[i]);
+                
+                for(unsigned int i = 0; i < cells_inner.size(); i++)
+                  graph[n_bin_interface + i/size_bin].emplace_back(cells_inner[i]);
+                
+                this->n_bin_interface = n_bin_interface;
+                this->n_bin_inner     = n_bin_inner;
+            }
               
           }
         else if (additional_data.use_coloring)
@@ -954,6 +974,7 @@ namespace CUDAWrappers
               graph[0].emplace_back(cell);
           }
       }
+    
     n_colors = graph.size();
 
     helper.setup_color_arrays(n_colors);
@@ -1088,23 +1109,32 @@ namespace CUDAWrappers
         if(use_ghost_coloring)
         {
           src.update_ghost_values_start(0);
-          internal::apply_kernel_shmem<dim, Number, Functor>
-            <<<grid_dim[0], block_dim[0]>>>(func,
-                                            get_data(0),
-                                            src.get_values(),
-                                            dst.get_values());
+          
+          for(unsigned int i = this->n_bin_interface; i < this->n_bin_interface + this->n_bin_inner / 2; i++)
+            internal::apply_kernel_shmem<dim, Number, Functor>
+              <<<grid_dim[i], block_dim[i]>>>(func,
+                                              get_data(i),
+                                              src.get_values(),
+                                              dst.get_values());
+          
           src.update_ghost_values_finish();
-          internal::apply_kernel_shmem<dim, Number, Functor>
-            <<<grid_dim[1], block_dim[1]>>>(func,
-                                            get_data(1),
-                                            src.get_values(),
-                                            dst.get_values());
+          
+          for(unsigned int i = 0; i < this->n_bin_interface; i++)
+            internal::apply_kernel_shmem<dim, Number, Functor>
+              <<<grid_dim[i], block_dim[i]>>>(func,
+                                              get_data(i),
+                                              src.get_values(),
+                                              dst.get_values());
+          
           dst.compress_start(0, VectorOperation::add);
-          internal::apply_kernel_shmem<dim, Number, Functor>
-            <<<grid_dim[2], block_dim[2]>>>(func,
-                                            get_data(2),
-                                            src.get_values(),
-                                            dst.get_values());
+          
+          for(unsigned int i = this->n_bin_interface + this->n_bin_inner / 2; i < this->n_bin_interface + this->n_bin_inner;i++)
+            internal::apply_kernel_shmem<dim, Number, Functor>
+              <<<grid_dim[i], block_dim[i]>>>(func,
+                                              get_data(i),
+                                              src.get_values(),
+                                              dst.get_values());
+          
           dst.compress_finish(VectorOperation::add);
         }
         else

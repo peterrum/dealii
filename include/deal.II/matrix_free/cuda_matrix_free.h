@@ -106,19 +106,13 @@ namespace CUDAWrappers
         const UpdateFlags           mapping_update_flags   = update_gradients |
                                                  update_JxW_values,
         const bool use_coloring = false,
-        const bool use_ghost_coloring = false,
-        const bool n_colors     = 1)
+        const bool use_ghost_coloring = false)
         : parallelization_scheme(parallelization_scheme)
         , mapping_update_flags(mapping_update_flags)
         , use_coloring(use_coloring)
         , use_ghost_coloring(use_ghost_coloring)
-        , n_colors(n_colors)
       {}
 
-      /**
-       * Number of colors created by the graph coloring algorithm.
-       */
-      unsigned int n_colors;
       /**
        * Parallelization scheme used, parallelization over degrees of freedom or
        * over cells.
@@ -446,6 +440,9 @@ namespace CUDAWrappers
     bool use_coloring;
     
     bool use_ghost_coloring;
+    
+    unsigned int n_bin_interface;
+    unsigned int n_bin_inner;
 
     /**
      * Total number of degrees of freedom.
