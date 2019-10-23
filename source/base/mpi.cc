@@ -1447,8 +1447,9 @@ namespace Utilities
       // dictionary, the index set is statically repartitioned among the
       // processes again and extended with information with the actual owner
       // of that the index.
+      DuplicatedCommunicator duplicated_comm(comm);
       internal::ComputeIndexOwner::ConsensusAlgorithmPayload process(
-        owned_indices, indices_to_look_up, comm, owning_ranks);
+        owned_indices, indices_to_look_up, *duplicated_comm, owning_ranks);
 
       // Step 2: read dictionary
       // Communicate with the process who owns the index in the static
@@ -1457,7 +1458,7 @@ namespace Utilities
       ConsensusAlgorithmSelector<
         std::pair<types::global_dof_index, types::global_dof_index>,
         unsigned int>
-        consensus_algorithm(process, comm);
+        consensus_algorithm(process, *duplicated_comm);
       consensus_algorithm.run();
 
       return owning_ranks;

@@ -220,10 +220,11 @@ namespace Utilities
         ghost_indices_data.n_elements());
 
       // set up dictionary
+      DuplicatedCommunicator duplicated_communicator(communicator);
       internal::ComputeIndexOwner::ConsensusAlgorithmPayload process(
         locally_owned_range_data,
         ghost_indices_data,
-        communicator,
+        *duplicated_communicator,
         owning_ranks_of_ghosts,
         /* track origins of ghosts*/ true);
 
@@ -233,7 +234,7 @@ namespace Utilities
       ConsensusAlgorithmSelector<
         std::pair<types::global_dof_index, types::global_dof_index>,
         unsigned int>
-        consensus_algorithm(process, communicator);
+        consensus_algorithm(process, *duplicated_communicator);
       consensus_algorithm.run();
 
       {
