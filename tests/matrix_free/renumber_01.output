@@ -1,0 +1,481 @@
+
+DEAL:1d:first::
+DEAL:1d:first::DoFs per cell:
+DEAL:1d:first::    0    1    2
+DEAL:1d:first::    1    3    4
+DEAL:1d:first::    3    5    6
+DEAL:1d:first::    5    7    8
+DEAL:1d:first::
+DEAL:1d:first::New order:
+DEAL:1d:first::    0
+DEAL:1d:first::    1
+DEAL:1d:first::    2
+DEAL:1d:first::    3
+DEAL:1d:first::    4
+DEAL:1d:first::    5
+DEAL:1d:first::    6
+DEAL:1d:first::    7
+DEAL:1d:first::    8
+DEAL:1d:first::
+DEAL:1d:first::
+DEAL:1d:first::DoFs per cell:
+DEAL:1d:first::    0    1    2
+DEAL:1d:first::    1    3    4
+DEAL:1d:first::    3    5    6
+DEAL:1d:first::    5    7    8
+DEAL:1d:first::
+DEAL:1d:first::New order:
+DEAL:1d:first::    0
+DEAL:1d:first::    1
+DEAL:1d:first::    5
+DEAL:1d:first::    2
+DEAL:1d:first::    6
+DEAL:1d:first::    3
+DEAL:1d:first::    7
+DEAL:1d:first::    4
+DEAL:1d:first::    8
+DEAL:1d:first::
+DEAL:1d:last::
+DEAL:1d:last::DoFs per cell:
+DEAL:1d:last::    0    1    2
+DEAL:1d:last::    1    3    4
+DEAL:1d:last::    3    5    6
+DEAL:1d:last::    5    7    8
+DEAL:1d:last::
+DEAL:1d:last::New order:
+DEAL:1d:last::    0
+DEAL:1d:last::    3
+DEAL:1d:last::    2
+DEAL:1d:last::    6
+DEAL:1d:last::    5
+DEAL:1d:last::    9
+DEAL:1d:last::    8
+DEAL:1d:last::   10
+DEAL:1d:last::   11
+DEAL:1d:last::
+DEAL:1d:last::
+DEAL:1d:last::DoFs per cell:
+DEAL:1d:last::    0    1    2
+DEAL:1d:last::    1    3    4
+DEAL:1d:last::    3    5    6
+DEAL:1d:last::    5    7    8
+DEAL:1d:last::
+DEAL:1d:last::New order:
+DEAL:1d:last::    0
+DEAL:1d:last::    4
+DEAL:1d:last::    8
+DEAL:1d:last::    5
+DEAL:1d:last::    9
+DEAL:1d:last::    6
+DEAL:1d:last::   10
+DEAL:1d:last::    7
+DEAL:1d:last::   11
+DEAL:1d:last::
+DEAL:2d:first::
+DEAL:2d:first::DoFs per cell:
+DEAL:2d:first::    0    1    2    3    4    5    6    7    8
+DEAL:2d:first::    1    9    3   10    5   11   12   13   14
+DEAL:2d:first::    2    3   15   16   17   18    7   19   20
+DEAL:2d:first::    3   10   16   21   18   22   13   23   24
+DEAL:2d:first::    9   25   10   26   11   27   28   29   30
+DEAL:2d:first::   25   31   26   32   27   33   34   35   36
+DEAL:2d:first::   10   26   21   37   22   38   29   39   40
+DEAL:2d:first::   26   32   37   41   38   42   35   43   44
+DEAL:2d:first::   15   16   45   46   47   48   19   49   50
+DEAL:2d:first::   16   21   46   51   48   52   23   53   54
+DEAL:2d:first::   45   46   55   56   57   58   49   59   60
+DEAL:2d:first::   46   51   56   61   58   62   53   63   64
+DEAL:2d:first::   21   37   51   65   52   66   39   67   68
+DEAL:2d:first::   37   41   65   69   66   70   43   71   72
+DEAL:2d:first::   51   65   61   73   62   74   67   75   76
+DEAL:2d:first::   65   69   73   77   74   78   71   79   80
+DEAL:2d:first::
+DEAL:2d:first::New order:
+DEAL:2d:first::    0
+DEAL:2d:first::    1
+DEAL:2d:first::    2
+DEAL:2d:first::    3
+DEAL:2d:first::    4
+DEAL:2d:first::    5
+DEAL:2d:first::    6
+DEAL:2d:first::    7
+DEAL:2d:first::    8
+DEAL:2d:first::    9
+DEAL:2d:first::   10
+DEAL:2d:first::   11
+DEAL:2d:first::   12
+DEAL:2d:first::   13
+DEAL:2d:first::   14
+DEAL:2d:first::   15
+DEAL:2d:first::   16
+DEAL:2d:first::   17
+DEAL:2d:first::   18
+DEAL:2d:first::   19
+DEAL:2d:first::   20
+DEAL:2d:first::   21
+DEAL:2d:first::   22
+DEAL:2d:first::   23
+DEAL:2d:first::   24
+DEAL:2d:first::   25
+DEAL:2d:first::   26
+DEAL:2d:first::   27
+DEAL:2d:first::   28
+DEAL:2d:first::   29
+DEAL:2d:first::   30
+DEAL:2d:first::   31
+DEAL:2d:first::   32
+DEAL:2d:first::   33
+DEAL:2d:first::   34
+DEAL:2d:first::   35
+DEAL:2d:first::   36
+DEAL:2d:first::   37
+DEAL:2d:first::   38
+DEAL:2d:first::   39
+DEAL:2d:first::   40
+DEAL:2d:first::   41
+DEAL:2d:first::   42
+DEAL:2d:first::   43
+DEAL:2d:first::   44
+DEAL:2d:first::   45
+DEAL:2d:first::   46
+DEAL:2d:first::   47
+DEAL:2d:first::   48
+DEAL:2d:first::   49
+DEAL:2d:first::   50
+DEAL:2d:first::   51
+DEAL:2d:first::   52
+DEAL:2d:first::   53
+DEAL:2d:first::   54
+DEAL:2d:first::   55
+DEAL:2d:first::   56
+DEAL:2d:first::   57
+DEAL:2d:first::   58
+DEAL:2d:first::   59
+DEAL:2d:first::   60
+DEAL:2d:first::   61
+DEAL:2d:first::   62
+DEAL:2d:first::   63
+DEAL:2d:first::   64
+DEAL:2d:first::   65
+DEAL:2d:first::   66
+DEAL:2d:first::   67
+DEAL:2d:first::   68
+DEAL:2d:first::   69
+DEAL:2d:first::   70
+DEAL:2d:first::   71
+DEAL:2d:first::   72
+DEAL:2d:first::   73
+DEAL:2d:first::   74
+DEAL:2d:first::   75
+DEAL:2d:first::   76
+DEAL:2d:first::   77
+DEAL:2d:first::   78
+DEAL:2d:first::   79
+DEAL:2d:first::   80
+DEAL:2d:first::
+DEAL:2d:first::
+DEAL:2d:first::DoFs per cell:
+DEAL:2d:first::    0    1    2    3    4    5    6    7    8
+DEAL:2d:first::    1    9    3   10    5   11   12   13   14
+DEAL:2d:first::    2    3   15   16   17   18    7   19   20
+DEAL:2d:first::    3   10   16   21   18   22   13   23   24
+DEAL:2d:first::    9   25   10   26   11   27   28   29   30
+DEAL:2d:first::   25   31   26   32   27   33   34   35   36
+DEAL:2d:first::   10   26   21   37   22   38   29   39   40
+DEAL:2d:first::   26   32   37   41   38   42   35   43   44
+DEAL:2d:first::   15   16   45   46   47   48   19   49   50
+DEAL:2d:first::   16   21   46   51   48   52   23   53   54
+DEAL:2d:first::   45   46   55   56   57   58   49   59   60
+DEAL:2d:first::   46   51   56   61   58   62   53   63   64
+DEAL:2d:first::   21   37   51   65   52   66   39   67   68
+DEAL:2d:first::   37   41   65   69   66   70   43   71   72
+DEAL:2d:first::   51   65   61   73   62   74   67   75   76
+DEAL:2d:first::   65   69   73   77   74   78   71   79   80
+DEAL:2d:first::
+DEAL:2d:first::New order:
+DEAL:2d:first::    0
+DEAL:2d:first::    1
+DEAL:2d:first::    2
+DEAL:2d:first::    3
+DEAL:2d:first::    9
+DEAL:2d:first::   10
+DEAL:2d:first::   15
+DEAL:2d:first::   17
+DEAL:2d:first::   21
+DEAL:2d:first::    4
+DEAL:2d:first::    5
+DEAL:2d:first::   13
+DEAL:2d:first::   16
+DEAL:2d:first::   18
+DEAL:2d:first::   22
+DEAL:2d:first::    6
+DEAL:2d:first::    7
+DEAL:2d:first::   11
+DEAL:2d:first::   12
+DEAL:2d:first::   19
+DEAL:2d:first::   23
+DEAL:2d:first::    8
+DEAL:2d:first::   14
+DEAL:2d:first::   20
+DEAL:2d:first::   24
+DEAL:2d:first::   25
+DEAL:2d:first::   26
+DEAL:2d:first::   31
+DEAL:2d:first::   35
+DEAL:2d:first::   37
+DEAL:2d:first::   41
+DEAL:2d:first::   27
+DEAL:2d:first::   28
+DEAL:2d:first::   33
+DEAL:2d:first::   36
+DEAL:2d:first::   38
+DEAL:2d:first::   42
+DEAL:2d:first::   29
+DEAL:2d:first::   32
+DEAL:2d:first::   39
+DEAL:2d:first::   43
+DEAL:2d:first::   30
+DEAL:2d:first::   34
+DEAL:2d:first::   40
+DEAL:2d:first::   44
+DEAL:2d:first::   45
+DEAL:2d:first::   46
+DEAL:2d:first::   51
+DEAL:2d:first::   52
+DEAL:2d:first::   57
+DEAL:2d:first::   61
+DEAL:2d:first::   47
+DEAL:2d:first::   55
+DEAL:2d:first::   58
+DEAL:2d:first::   62
+DEAL:2d:first::   48
+DEAL:2d:first::   49
+DEAL:2d:first::   53
+DEAL:2d:first::   54
+DEAL:2d:first::   59
+DEAL:2d:first::   63
+DEAL:2d:first::   50
+DEAL:2d:first::   56
+DEAL:2d:first::   60
+DEAL:2d:first::   64
+DEAL:2d:first::   65
+DEAL:2d:first::   69
+DEAL:2d:first::   73
+DEAL:2d:first::   77
+DEAL:2d:first::   66
+DEAL:2d:first::   71
+DEAL:2d:first::   74
+DEAL:2d:first::   78
+DEAL:2d:first::   67
+DEAL:2d:first::   70
+DEAL:2d:first::   75
+DEAL:2d:first::   79
+DEAL:2d:first::   68
+DEAL:2d:first::   72
+DEAL:2d:first::   76
+DEAL:2d:first::   80
+DEAL:2d:first::
+DEAL:2d:last::
+DEAL:2d:last::DoFs per cell:
+DEAL:2d:last::    0    1    2    3    4    5    6    7    8
+DEAL:2d:last::    1    9    3   10    5   11   12   13   14
+DEAL:2d:last::    2    3   15   16   17   18    7   19   20
+DEAL:2d:last::    3   10   16   21   18   22   13   23   24
+DEAL:2d:last::    9   25   10   26   11   27   28   29   30
+DEAL:2d:last::   25   31   26   32   27   33   34   35   36
+DEAL:2d:last::   10   26   21   37   22   38   29   39   40
+DEAL:2d:last::   26   32   37   41   38   42   35   43   44
+DEAL:2d:last::   15   16   45   46   47   48   19   49   50
+DEAL:2d:last::   16   21   46   51   48   52   23   53   54
+DEAL:2d:last::   45   46   55   56   57   58   49   59   60
+DEAL:2d:last::   46   51   56   61   58   62   53   63   64
+DEAL:2d:last::   21   37   51   65   52   66   39   67   68
+DEAL:2d:last::   37   41   65   69   66   70   43   71   72
+DEAL:2d:last::   51   65   61   73   62   74   67   75   76
+DEAL:2d:last::   65   69   73   77   74   78   71   79   80
+DEAL:2d:last::
+DEAL:2d:last::New order:
+DEAL:2d:last::    0
+DEAL:2d:last::    9
+DEAL:2d:last::   18
+DEAL:2d:last::   27
+DEAL:2d:last::    4
+DEAL:2d:last::   13
+DEAL:2d:last::    6
+DEAL:2d:last::   24
+DEAL:2d:last::    8
+DEAL:2d:last::   36
+DEAL:2d:last::   54
+DEAL:2d:last::   40
+DEAL:2d:last::   15
+DEAL:2d:last::   33
+DEAL:2d:last::   17
+DEAL:2d:last::   72
+DEAL:2d:last::   81
+DEAL:2d:last::   22
+DEAL:2d:last::   31
+DEAL:2d:last::   78
+DEAL:2d:last::   26
+DEAL:2d:last::  108
+DEAL:2d:last::   58
+DEAL:2d:last::   87
+DEAL:2d:last::   35
+DEAL:2d:last::   45
+DEAL:2d:last::   63
+DEAL:2d:last::   49
+DEAL:2d:last::   42
+DEAL:2d:last::   60
+DEAL:2d:last::   44
+DEAL:2d:last::   46
+DEAL:2d:last::   64
+DEAL:2d:last::   50
+DEAL:2d:last::   51
+DEAL:2d:last::   69
+DEAL:2d:last::   53
+DEAL:2d:last::  117
+DEAL:2d:last::   67
+DEAL:2d:last::  114
+DEAL:2d:last::   62
+DEAL:2d:last::  118
+DEAL:2d:last::   68
+DEAL:2d:last::  123
+DEAL:2d:last::   71
+DEAL:2d:last::   90
+DEAL:2d:last::   99
+DEAL:2d:last::   76
+DEAL:2d:last::   85
+DEAL:2d:last::   96
+DEAL:2d:last::   80
+DEAL:2d:last::  126
+DEAL:2d:last::  112
+DEAL:2d:last::  105
+DEAL:2d:last::   89
+DEAL:2d:last::   92
+DEAL:2d:last::  101
+DEAL:2d:last::   94
+DEAL:2d:last::  103
+DEAL:2d:last::   97
+DEAL:2d:last::   98
+DEAL:2d:last::  128
+DEAL:2d:last::  130
+DEAL:2d:last::  106
+DEAL:2d:last::  107
+DEAL:2d:last::  135
+DEAL:2d:last::  121
+DEAL:2d:last::  132
+DEAL:2d:last::  116
+DEAL:2d:last::  136
+DEAL:2d:last::  122
+DEAL:2d:last::  141
+DEAL:2d:last::  125
+DEAL:2d:last::  137
+DEAL:2d:last::  139
+DEAL:2d:last::  133
+DEAL:2d:last::  134
+DEAL:2d:last::  138
+DEAL:2d:last::  140
+DEAL:2d:last::  142
+DEAL:2d:last::  143
+DEAL:2d:last::
+DEAL:2d:last::
+DEAL:2d:last::DoFs per cell:
+DEAL:2d:last::    0    1    2    3    4    5    6    7    8
+DEAL:2d:last::    1    9    3   10    5   11   12   13   14
+DEAL:2d:last::    2    3   15   16   17   18    7   19   20
+DEAL:2d:last::    3   10   16   21   18   22   13   23   24
+DEAL:2d:last::    9   25   10   26   11   27   28   29   30
+DEAL:2d:last::   25   31   26   32   27   33   34   35   36
+DEAL:2d:last::   10   26   21   37   22   38   29   39   40
+DEAL:2d:last::   26   32   37   41   38   42   35   43   44
+DEAL:2d:last::   15   16   45   46   47   48   19   49   50
+DEAL:2d:last::   16   21   46   51   48   52   23   53   54
+DEAL:2d:last::   45   46   55   56   57   58   49   59   60
+DEAL:2d:last::   46   51   56   61   58   62   53   63   64
+DEAL:2d:last::   21   37   51   65   52   66   39   67   68
+DEAL:2d:last::   37   41   65   69   66   70   43   71   72
+DEAL:2d:last::   51   65   61   73   62   74   67   75   76
+DEAL:2d:last::   65   69   73   77   74   78   71   79   80
+DEAL:2d:last::
+DEAL:2d:last::New order:
+DEAL:2d:last::    0
+DEAL:2d:last::    4
+DEAL:2d:last::    8
+DEAL:2d:last::   12
+DEAL:2d:last::   16
+DEAL:2d:last::   20
+DEAL:2d:last::   24
+DEAL:2d:last::   28
+DEAL:2d:last::   32
+DEAL:2d:last::   36
+DEAL:2d:last::   44
+DEAL:2d:last::   52
+DEAL:2d:last::   25
+DEAL:2d:last::   29
+DEAL:2d:last::   33
+DEAL:2d:last::   72
+DEAL:2d:last::   76
+DEAL:2d:last::   18
+DEAL:2d:last::   22
+DEAL:2d:last::   96
+DEAL:2d:last::   34
+DEAL:2d:last::  108
+DEAL:2d:last::   54
+DEAL:2d:last::   97
+DEAL:2d:last::   35
+DEAL:2d:last::   40
+DEAL:2d:last::   48
+DEAL:2d:last::   56
+DEAL:2d:last::   60
+DEAL:2d:last::   64
+DEAL:2d:last::   68
+DEAL:2d:last::   41
+DEAL:2d:last::   49
+DEAL:2d:last::   57
+DEAL:2d:last::   61
+DEAL:2d:last::   65
+DEAL:2d:last::   69
+DEAL:2d:last::  112
+DEAL:2d:last::   58
+DEAL:2d:last::  132
+DEAL:2d:last::   70
+DEAL:2d:last::  113
+DEAL:2d:last::   59
+DEAL:2d:last::  133
+DEAL:2d:last::   71
+DEAL:2d:last::   80
+DEAL:2d:last::   84
+DEAL:2d:last::   88
+DEAL:2d:last::   92
+DEAL:2d:last::  100
+DEAL:2d:last::  104
+DEAL:2d:last::  116
+DEAL:2d:last::  124
+DEAL:2d:last::  101
+DEAL:2d:last::  105
+DEAL:2d:last::   82
+DEAL:2d:last::   86
+DEAL:2d:last::   90
+DEAL:2d:last::   94
+DEAL:2d:last::  102
+DEAL:2d:last::  106
+DEAL:2d:last::  118
+DEAL:2d:last::  126
+DEAL:2d:last::  103
+DEAL:2d:last::  107
+DEAL:2d:last::  120
+DEAL:2d:last::  128
+DEAL:2d:last::  136
+DEAL:2d:last::  140
+DEAL:2d:last::  121
+DEAL:2d:last::  129
+DEAL:2d:last::  137
+DEAL:2d:last::  141
+DEAL:2d:last::  122
+DEAL:2d:last::  130
+DEAL:2d:last::  138
+DEAL:2d:last::  142
+DEAL:2d:last::  123
+DEAL:2d:last::  131
+DEAL:2d:last::  139
+DEAL:2d:last::  143
+DEAL:2d:last::
