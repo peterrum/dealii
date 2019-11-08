@@ -23,35 +23,49 @@ DEAL_II_NAMESPACE_OPEN
 
 namespace internal
 {
-  void
-  first_touch_renumber(
-    std::vector<unsigned int> &                         numbers_mf_order,
-    unsigned int &                                      counter_dof_numbers, //?
-    std::unordered_set<dealii::types::global_dof_index> set_dofs,            //?
-    const unsigned int &                                index_within_set)
+  class FirstTouch
   {
-    (void)set_dofs;
+  public:
+    static void
+    renumber(std::vector<unsigned int> &numbers_mf_order,
+             unsigned int &             counter_dof_numbers,               //?
+             std::unordered_set<dealii::types::global_dof_index> set_dofs, //?
+             const unsigned int &index_within_set)
+    {
+      (void)set_dofs;
 
-    if (index_within_set != dealii::numbers::invalid_unsigned_int &&
-        numbers_mf_order[index_within_set] ==
-          dealii::numbers::invalid_unsigned_int)
-      numbers_mf_order[index_within_set] = counter_dof_numbers++;
-  }
-
-  void
-  last_touch_renumber(
-    std::vector<unsigned int> &                         numbers_mf_order,
-    unsigned int &                                      counter_dof_numbers, //?
-    std::unordered_set<dealii::types::global_dof_index> set_dofs,            //?
-    const unsigned int &                                index_within_set)
-  {
-    if (index_within_set != dealii::numbers::invalid_unsigned_int &&
-        set_dofs.find(index_within_set) == set_dofs.end())
-      {
+      if (index_within_set != dealii::numbers::invalid_unsigned_int &&
+          numbers_mf_order[index_within_set] ==
+            dealii::numbers::invalid_unsigned_int)
         numbers_mf_order[index_within_set] = counter_dof_numbers++;
-        set_dofs.emplace(index_within_set);
-      }
-  }
+    }
+  };
+
+  class LastTouch
+  {
+  public:
+    static void
+    renumber(std::vector<unsigned int> &numbers_mf_order,
+             unsigned int &             counter_dof_numbers,               //?
+             std::unordered_set<dealii::types::global_dof_index> set_dofs, //?
+             const unsigned int &index_within_set)
+    {
+      if (index_within_set != dealii::numbers::invalid_unsigned_int &&
+          set_dofs.find(index_within_set) == set_dofs.end())
+        {
+          numbers_mf_order[index_within_set] = counter_dof_numbers++;
+          set_dofs.emplace(index_within_set);
+        }
+    }
+  };
+
+  class Assembly
+  {
+  public:
+    static void
+    renumber()
+    {}
+  };
 
 } // namespace internal
 
