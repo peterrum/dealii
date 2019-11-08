@@ -1,0 +1,121 @@
+
+DEAL:1d-f::
+DEAL:1d-f::DoFs per cell:
+DEAL:1d-f::    0    1
+DEAL:1d-f::    1    2
+DEAL:1d-f::    2    3
+DEAL:1d-f::    3    4
+DEAL:1d-f::
+DEAL:1d-f::New order:
+DEAL:1d-f::    0
+DEAL:1d-f::    1
+DEAL:1d-f::    2
+DEAL:1d-f::    3
+DEAL:1d-f::    4
+DEAL:1d-f::
+DEAL:1d-l::
+DEAL:1d-l::DoFs per cell:
+DEAL:1d-l::    0    1
+DEAL:1d-l::    1    2
+DEAL:1d-l::    2    3
+DEAL:1d-l::    3    4
+DEAL:1d-l::
+DEAL:1d-l::New order:
+DEAL:1d-l::    0
+DEAL:1d-l::    2
+DEAL:1d-l::    4
+DEAL:1d-l::    6
+DEAL:1d-l::    7
+DEAL:1d-l::
+DEAL:2d-f::
+DEAL:2d-f::DoFs per cell:
+DEAL:2d-f::    0    1    2    3
+DEAL:2d-f::    1    4    3    5
+DEAL:2d-f::    2    3    6    7
+DEAL:2d-f::    3    5    7    8
+DEAL:2d-f::    4    9    5   10
+DEAL:2d-f::    9   11   10   12
+DEAL:2d-f::    5   10    8   13
+DEAL:2d-f::   10   12   13   14
+DEAL:2d-f::    6    7   15   16
+DEAL:2d-f::    7    8   16   17
+DEAL:2d-f::   15   16   18   19
+DEAL:2d-f::   16   17   19   20
+DEAL:2d-f::    8   13   17   21
+DEAL:2d-f::   13   14   21   22
+DEAL:2d-f::   17   21   20   23
+DEAL:2d-f::   21   22   23   24
+DEAL:2d-f::
+DEAL:2d-f::New order:
+DEAL:2d-f::    0
+DEAL:2d-f::    1
+DEAL:2d-f::    2
+DEAL:2d-f::    3
+DEAL:2d-f::    4
+DEAL:2d-f::    5
+DEAL:2d-f::    6
+DEAL:2d-f::    7
+DEAL:2d-f::    8
+DEAL:2d-f::    9
+DEAL:2d-f::   10
+DEAL:2d-f::   11
+DEAL:2d-f::   12
+DEAL:2d-f::   13
+DEAL:2d-f::   14
+DEAL:2d-f::   15
+DEAL:2d-f::   16
+DEAL:2d-f::   17
+DEAL:2d-f::   18
+DEAL:2d-f::   19
+DEAL:2d-f::   20
+DEAL:2d-f::   21
+DEAL:2d-f::   22
+DEAL:2d-f::   23
+DEAL:2d-f::   24
+DEAL:2d-f::
+DEAL:2d-l::
+DEAL:2d-l::DoFs per cell:
+DEAL:2d-l::    0    1    2    3
+DEAL:2d-l::    1    4    3    5
+DEAL:2d-l::    2    3    6    7
+DEAL:2d-l::    3    5    7    8
+DEAL:2d-l::    4    9    5   10
+DEAL:2d-l::    9   11   10   12
+DEAL:2d-l::    5   10    8   13
+DEAL:2d-l::   10   12   13   14
+DEAL:2d-l::    6    7   15   16
+DEAL:2d-l::    7    8   16   17
+DEAL:2d-l::   15   16   18   19
+DEAL:2d-l::   16   17   19   20
+DEAL:2d-l::    8   13   17   21
+DEAL:2d-l::   13   14   21   22
+DEAL:2d-l::   17   21   20   23
+DEAL:2d-l::   21   22   23   24
+DEAL:2d-l::
+DEAL:2d-l::New order:
+DEAL:2d-l::    0
+DEAL:2d-l::    4
+DEAL:2d-l::    8
+DEAL:2d-l::   12
+DEAL:2d-l::   16
+DEAL:2d-l::   24
+DEAL:2d-l::   32
+DEAL:2d-l::   36
+DEAL:2d-l::   48
+DEAL:2d-l::   20
+DEAL:2d-l::   28
+DEAL:2d-l::   21
+DEAL:2d-l::   29
+DEAL:2d-l::   52
+DEAL:2d-l::   53
+DEAL:2d-l::   40
+DEAL:2d-l::   44
+DEAL:2d-l::   56
+DEAL:2d-l::   42
+DEAL:2d-l::   46
+DEAL:2d-l::   58
+DEAL:2d-l::   60
+DEAL:2d-l::   61
+DEAL:2d-l::   62
+DEAL:2d-l::   63
+DEAL:2d-l::
