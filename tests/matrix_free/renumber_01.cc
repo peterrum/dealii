@@ -35,63 +35,32 @@ template <int dim, unsigned int group_size, typename RunumberFunction>
 void
 do_test(const unsigned int fe_degree, RunumberFunction renumber_algo)
 {
+  // initialize system
   Triangulation<dim> tria;
   GridGenerator::hyper_cube(tria);
   tria.refine_global(2);
-
-  FE_Q<dim> fe(fe_degree);
-
+  FE_Q<dim>       fe(fe_degree);
   DoFHandler<dim> dof_handler(tria);
   dof_handler.distribute_dofs(fe);
 
-  const auto &local_dofs = dof_handler.locally_owned_dofs();
-
-
-  std::vector<unsigned int> new_iterator_order(
-    dof_handler.n_dofs(), dealii::numbers::invalid_unsigned_int);
-  unsigned int counter_dof_numbers = 0;
-
   deallog << std::endl << "DoFs per cell:" << std::endl;
-
-  auto cell = dof_handler.begin_active();
-
-  while (cell != dof_handler.end())
+  for (const auto cell : dof_handler.active_cell_iterators())
     {
-      std::vector<std::array<types::global_dof_index, group_size>>
-        dof_indices_grouped(fe.dofs_per_cell,
-                            {dealii::numbers::invalid_unsigned_int});
+      // get indices of this cell
+      std::vector<types::global_dof_index> dof_indices_local(fe.dofs_per_cell);
+      cell->get_dof_indices(dof_indices_local);
 
-      for (unsigned int v = 0; v < group_size && cell != dof_handler.end();
-           v++, cell++)
-        {
-          // get indices of this cell
-          std::vector<types::global_dof_index> dof_indices_local(
-            fe.dofs_per_cell);
-          cell->get_dof_indices(dof_indices_local);
-
-          // store indices vectorized
-          for (unsigned int i = 0; i < dof_indices_local.size(); i++)
-            dof_indices_grouped[i][v] = dof_indices_local[i];
-
-          // print indices for
-          for (const auto i : dof_indices_local)
-            deallog << std::right << std::setw(5) << i;
-          deallog << std::endl;
-        }
-
-      std::unordered_set<dealii::types::global_dof_index> set_dofs;
-
-      for (const auto dof_indices : dof_indices_grouped)
-        for (const auto dof_index : dof_indices)
-          renumber_algo.renumber(new_iterator_order,
-                                 counter_dof_numbers,
-                                 set_dofs,
-                                 local_dofs.is_element(dof_index) ?
-                                   local_dofs.index_within_set(dof_index) :
-                                   dealii::numbers::invalid_unsigned_int);
+      // print indices for
+      for (const auto i : dof_indices_local)
+        deallog << std::right << std::setw(5) << i;
+      deallog << std::endl;
     }
-  deallog << std::endl << "New order:" << std::endl;
 
+  const auto new_iterator_order =
+    internal::Assembly::renumber<group_size>(dof_handler, renumber_algo);
+
+
+  deallog << std::endl << "New order:" << std::endl;
   for (const auto i : new_iterator_order)
     deallog << std::right << std::setw(5) << i << std::endl;
   deallog << std::endl;
