@@ -2016,6 +2016,13 @@ namespace GridTools
   partition_triangulation_zorder(const unsigned int            n_partitions,
                                  Triangulation<dim, spacedim> &triangulation);
 
+  template <int dim, int spacedim>
+  void
+  multilevel_partition_triangulation(
+    const std::vector<unsigned int>  n_partitions,
+    Triangulation<dim, spacedim> &   triangulation,
+    const SparsityTools::Partitioner partitioner);
+
   /**
    * Partitions the cells of a multigrid hierarchy by assigning level subdomain
    * ids using the "youngest child" rule, that is, each cell in the hierarchy is

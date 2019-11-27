@@ -66,6 +66,10 @@
 #include <tuple>
 #include <unordered_map>
 
+#ifdef DEAL_II_WITH_METIS
+#  include <metis.h>
+#endif
+
 DEAL_II_NAMESPACE_OPEN
 
 
@@ -3135,6 +3139,208 @@ namespace GridTools
         }
     }
   }
+
+  namespace
+  {
+    class Graph
+    {
+    public:
+      std::vector<int> xadj;
+      std::vector<int> adjncy;
+      std::vector<int> weights;
+      int              elements;
+      std::vector<int> parts;
+    };
+
+
+
+    template <int dim, int spacedim>
+    Graph
+    create_mesh(const Triangulation<dim, spacedim> &triangulation)
+    {
+      Graph graph;
+      graph.xadj.push_back(0);
+
+      std::map<unsigned int, std::vector<unsigned int>>
+                                           coinciding_vertex_groups;
+      std::map<unsigned int, unsigned int> vertex_to_coinciding_vertex_group;
+
+      GridTools::collect_coinciding_vertices(triangulation,
+                                             coinciding_vertex_groups,
+                                             vertex_to_coinciding_vertex_group);
+
+      for (auto cell : triangulation.active_cell_iterators())
+        {
+          for (unsigned int v = 0; v < GeometryInfo<dim>::vertices_per_cell;
+               ++v)
+            {
+              auto coinciding_vertex_group =
+                vertex_to_coinciding_vertex_group.find(cell->vertex_index(v));
+              if (coinciding_vertex_group !=
+                  vertex_to_coinciding_vertex_group.end())
+                graph.adjncy.push_back(coinciding_vertex_group->second);
+              else
+                graph.adjncy.push_back(cell->vertex_index(v));
+            }
+          graph.xadj.push_back(graph.adjncy.size());
+        }
+
+      return graph;
+    }
+
+
+
+    Graph
+    mesh_to_dual_graph_metis(const Graph &      graph_in,
+                             const unsigned int n_common_in)
+    {
+      Graph graph_out;
+#ifdef DEAL_II_WITH_METIS
+      // extract relevant quantities
+      const unsigned int n_elements = graph_in.xadj.size() - 1;
+      const unsigned int n_nodes =
+        *std::max_element(graph_in.adjncy.begin(), graph_in.adjncy.end()) + 1;
+
+      // convert data type
+      idx_t              numflag = 0;
+      idx_t              ne      = n_elements;
+      idx_t              nn      = n_nodes;
+      idx_t              ncommon = n_common_in;
+      std::vector<idx_t> eptr    = graph_in.xadj;
+      std::vector<idx_t> eind    = graph_in.adjncy;
+      ;
+
+      // perform actual conversion from mesh to dual graph
+      idx_t *xadj;
+      idx_t *adjncy;
+      AssertThrow(
+        METIS_MeshToDual(
+          &ne, &nn, &eptr[0], &eind[0], &ncommon, &numflag, &xadj, &adjncy) ==
+          METIS_OK,
+        ExcMessage("There has been problem during METIS_MeshToDual."));
+
+      // convert result to the right format
+      graph_out.xadj.resize(n_elements + 1);
+      for (unsigned int i = 0; i < n_elements + 1; i++)
+        graph_out.xadj[i] = xadj[i];
+
+      const unsigned int n_links    = xadj[ne];
+      auto &             adjncy_out = graph_out.adjncy;
+      adjncy_out.resize(n_links);
+      for (unsigned int i = 0; i < n_links; i++)
+        adjncy_out[i] = adjncy[i];
+
+      graph_out.parts.resize(n_elements);
+      graph_out.elements = n_elements;
+
+      // delete temporal variables
+      AssertThrow(METIS_Free(xadj) == METIS_OK,
+                  ExcMessage("There has been problem during METIS_Free."));
+      AssertThrow(METIS_Free(adjncy) == METIS_OK,
+                  ExcMessage("There has been problem during METIS_Free."));
+#else
+      AssertThrow(false,
+                  ExcMessage("deal.II hase not been compiled with Metis."));
+      (void)graph_in;
+      (void)n_common_in;
+#endif
+
+      return graph_out;
+    }
+
+
+
+    Graph
+    mesh_to_dual_graph(const Graph &                    graph_in,
+                       const unsigned int               n_common,
+                       const SparsityTools::Partitioner partitioner)
+    {
+      if (partitioner == SparsityTools::Partitioner::metis)
+        return mesh_to_dual_graph_metis(graph_in, n_common);
+
+      AssertThrow(false, ExcMessage("Partitioner not known!"));
+
+      return graph_in;
+    }
+
+
+
+    void
+    partition(Graph &graph)
+    {
+      (void)graph;
+    }
+
+
+
+    void
+    sort(Graph &graph, const Graph &graph_compressed)
+    {
+      (void)graph;
+      (void)graph_compressed;
+    }
+
+
+
+    Graph
+    compress(const Graph &graph_in)
+    {
+      return graph_in;
+    }
+
+
+
+    void
+    multilevel_partition_triangulation(
+      Graph &                          graph,
+      const std::vector<unsigned int> &n_partitions)
+    {
+      // pre-partition graph
+      partition(graph);
+
+      if (n_partitions.size() > 1)
+        {
+          // compress graph according to the previously computed partition
+          Graph graph_compressed = compress(graph);
+
+          // partition coarser graph
+          multilevel_partition_triangulation(
+            graph,
+            std::vector<unsigned int>(n_partitions.begin() + 1,
+                                      n_partitions.end()));
+
+          // renumerate partitions on coarser graph accordint to partitions on
+          // coarser graph
+          sort(graph, graph_compressed);
+        }
+    }
+
+
+
+  } // namespace
+
+
+
+  template <int dim, int spacedim>
+  void
+  multilevel_partition_triangulation(
+    const std::vector<unsigned int>  n_partitions,
+    Triangulation<dim, spacedim> &   triangulation,
+    const SparsityTools::Partitioner partitioner)
+  {
+    // extract graph from triangulation
+    Graph graph = mesh_to_dual_graph(create_mesh(triangulation),
+                                     GeometryInfo<dim>::vertices_per_face,
+                                     partitioner);
+
+    // perform partitioning on graph
+    multilevel_partition_triangulation(graph, n_partitions);
+
+    // copy partioning to triangulation
+    for (auto cell : triangulation.active_cell_iterators())
+      cell->set_subdomain_id(graph.parts[cell->index()]);
+  }
+
 
 
   template <int dim, int spacedim>
