@@ -1024,8 +1024,13 @@ namespace internal
 
       virtual double
       get_cell_data_value(const unsigned int       cell_number,
-                          const ComponentExtractor extract_component) const
+                          const ComponentExtractor extract_component) const override
       {
+        Assert(false, ExcNotImplemented());
+        
+        (void) cell_number;
+        (void) extract_component;
+        
         return 0.0;
       }
 
@@ -1035,7 +1040,7 @@ namespace internal
         const FEValuesBase<DoFHandlerType::dimension,
                            DoFHandlerType::space_dimension> &fe_patch_values,
         const ComponentExtractor                             extract_component,
-        std::vector<double> &patch_values) const;
+        std::vector<double> &patch_values) const override;
 
       /**
        * Given a FEValuesBase object, extract the values on the present cell
@@ -1047,8 +1052,14 @@ namespace internal
         const FEValuesBase<DoFHandlerType::dimension,
                            DoFHandlerType::space_dimension> &fe_patch_values,
         const ComponentExtractor                             extract_component,
-        std::vector<dealii::Vector<double>> &patch_values_system) const
-      {}
+        std::vector<dealii::Vector<double>> &patch_values_system) const override
+      {
+        Assert(false, ExcNotImplemented());
+        
+        (void) fe_patch_values;
+        (void) extract_component;
+        (void) patch_values_system;
+      }
 
       /**
        * Given a FEValuesBase object, extract the gradients on the present
@@ -1060,8 +1071,14 @@ namespace internal
                            DoFHandlerType::space_dimension> &fe_patch_values,
         const ComponentExtractor                             extract_component,
         std::vector<Tensor<1, DoFHandlerType::space_dimension>>
-          &patch_gradients) const
-      {}
+          &patch_gradients) const override
+      {
+        Assert(false, ExcNotImplemented());
+        
+        (void) fe_patch_values;
+        (void) extract_component;
+        (void) patch_gradients;
+      }
 
       /**
        * Given a FEValuesBase object, extract the gradients on the present
@@ -1074,8 +1091,14 @@ namespace internal
                            DoFHandlerType::space_dimension> &fe_patch_values,
         const ComponentExtractor                             extract_component,
         std::vector<std::vector<Tensor<1, DoFHandlerType::space_dimension>>>
-          &patch_gradients_system) const
-      {}
+          &patch_gradients_system) const override
+      {
+        Assert(false, ExcNotImplemented());
+        
+        (void) fe_patch_values;
+        (void) extract_component;
+        (void) patch_gradients_system;
+      }
 
       /**
        * Given a FEValuesBase object, extract the second derivatives on the
@@ -1087,8 +1110,14 @@ namespace internal
                            DoFHandlerType::space_dimension> &fe_patch_values,
         const ComponentExtractor                             extract_component,
         std::vector<Tensor<2, DoFHandlerType::space_dimension>> &patch_hessians)
-        const
-      {}
+        const override
+      {
+        Assert(false, ExcNotImplemented());
+        
+        (void) fe_patch_values;
+        (void) extract_component;
+        (void) patch_hessians;
+      }
 
       /**
        * Given a FEValuesBase object, extract the second derivatives on the
@@ -1101,15 +1130,21 @@ namespace internal
                            DoFHandlerType::space_dimension> &fe_patch_values,
         const ComponentExtractor                             extract_component,
         std::vector<std::vector<Tensor<2, DoFHandlerType::space_dimension>>>
-          &patch_hessians_system) const
-      {}
+          &patch_hessians_system) const override
+      {
+        Assert(false, ExcNotImplemented());
+        
+        (void) fe_patch_values;
+        (void) extract_component;
+        (void) patch_hessians_system;
+      }
 
       /**
        * Return whether the data represented by (a derived class of) this object
        * represents a complex-valued (as opposed to real-valued) information.
        */
       virtual bool
-      is_complex_valued() const
+      is_complex_valued() const override
       {
         return false;
       }
@@ -1118,7 +1153,7 @@ namespace internal
        * Clear all references to the vectors.
        */
       virtual void
-      clear()
+      clear() override
       {}
 
       /**
@@ -1126,7 +1161,7 @@ namespace internal
        * object.
        */
       virtual std::size_t
-      memory_consumption() const
+      memory_consumption() const override
       {
         return 0;
       }
@@ -1192,7 +1227,10 @@ namespace internal
     {
       // I don't have element access
       Assert(false, ExcNotImplemented());
-      // TODO
+      
+      (void) values;
+      (void) vector;
+      (void) indices;
     }
 
     template <typename DoFHandlerType, typename VectorType>
@@ -1225,6 +1263,8 @@ namespace internal
                                             *vector,
                                             dof_indices,
                                             extract_component);
+
+      std::fill(patch_values.begin(), patch_values.end(), 0.0);
 
       for (unsigned int i = 0; i < dofs_per_cell; ++i)
         for (unsigned int q_point = 0; q_point < patch_values.size(); ++q_point)

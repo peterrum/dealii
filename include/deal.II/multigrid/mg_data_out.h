@@ -66,7 +66,9 @@ public:
   virtual typename DataOut<dim>::cell_iterator
   first_cell()
   {
+
     typename DataOut<dim>::cell_iterator cell = this->dofs->begin(level);
+
     while ((cell != this->dofs->end(level)) &&
            (cell->level_subdomain_id() != level_subdomain_id))
       ++cell;
