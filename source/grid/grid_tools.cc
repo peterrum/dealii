@@ -65,6 +65,7 @@
 #include <set>
 #include <tuple>
 #include <unordered_map>
+#include <vector>
 
 #ifdef DEAL_II_WITH_METIS
 #  include <metis.h>
@@ -3150,6 +3151,30 @@ namespace GridTools
       std::vector<int> weights;
       int              elements;
       std::vector<int> parts;
+      
+      void
+      print(std::ostream &out)
+      {
+        std::cout << std::endl;
+        std::cout << "Graph:" << std::endl;
+        for (auto i : xadj)
+          out << i << " ";
+        out << std::endl;
+  
+        for (auto i : adjncy)
+          out << i << " ";
+        out << std::endl;
+  
+        for (auto i : weights)
+          out << i << " ";
+        out << std::endl;
+  
+        out << elements << std::endl;
+  
+        for (auto i : parts)
+          out << i << " ";
+        out << std::endl << std::endl;
+      }
     };
 
 
@@ -3250,6 +3275,60 @@ namespace GridTools
 
 
 
+    void
+    partition_metis(Graph &graph, const unsigned int n_partitions)
+    {
+#ifdef DEAL_II_WITH_METIS
+      idx_t ne   = graph.elements;
+      idx_t ncon = 1;
+      idx_t edgecut;
+      idx_t nparts = n_partitions;
+
+      std::vector<idx_t> xadj   = graph.xadj;
+      std::vector<idx_t> adjncy = graph.adjncy;
+      std::vector<idx_t> parts(graph.elements);
+
+      int status = METIS_OK;
+
+      if (n_partitions == 1)
+        {
+          for (unsigned int i = 0; i < parts.size(); i++)
+            parts[i] = 0;
+        }
+      else
+        {
+          idx_t options[METIS_NOPTIONS];
+          METIS_SetDefaultOptions(options);
+          //options[METIS_OPTION_OBJTYPE] = METIS_OBJTYPE_VOL;
+          status = METIS_PartGraphKway(&ne,
+                                       &ncon,
+                                       &xadj[0],
+                                       &adjncy[0],
+                                       NULL,
+                                       NULL,
+                                       graph.weights.size() == 0 ? NULL : &graph.weights[0],
+                                       &nparts,
+                                       NULL,
+                                       NULL,
+                                       options,
+                                       &edgecut,
+                                       &parts[0]);
+        }
+
+      AssertThrow(status == METIS_OK,
+                  ExcMessage("Partitioning with Metis was not successful."));
+
+      graph.parts = parts;
+#else
+      AssertThrow(false,
+                  ExcMessage("deal.II hase not been compiled with Metis."));
+      (void)graph;
+      (void)n_partitions;
+#endif
+    }
+
+
+
     Graph
     mesh_to_dual_graph(const Graph &                    graph_in,
                        const unsigned int               n_common,
@@ -3266,9 +3345,14 @@ namespace GridTools
 
 
     void
-    partition(Graph &graph)
+    partition(Graph &                          graph,
+              const unsigned int               n_partitions,
+              const SparsityTools::Partitioner partitioner)
     {
-      (void)graph;
+      if (partitioner == SparsityTools::Partitioner::metis)
+        return partition_metis(graph, n_partitions);
+
+      AssertThrow(false, ExcMessage("Partitioner not known!"));
     }
 
 
@@ -3276,8 +3360,31 @@ namespace GridTools
     void
     sort(Graph &graph, const Graph &graph_compressed)
     {
-      (void)graph;
-      (void)graph_compressed;
+      std::vector<std::pair<unsigned int, unsigned int>> list;
+      list.reserve(graph.parts.size());
+
+      for (const auto i : graph.parts)
+        list.emplace_back(graph_compressed.parts[i], i);
+
+      std::sort(list.begin(), list.end());
+      list.erase(unique(list.begin(), list.end()), list.end());
+      
+      for(auto i : list)
+          std::cout << i.first << " " << i.second << std::endl;
+
+      for (unsigned int i = 0; i < list.size(); i++)
+        list[i].first = i;
+
+      std::sort(list.begin(), list.end(), [](const auto &a, const auto &b) {
+        return a.second < b.second;
+      });
+      
+      std::cout << std::endl;
+      for(auto i : list)
+          std::cout << i.first << " " << i.second << std::endl;
+
+      for (auto &i : graph.parts)
+        i = list[i].first;
     }
 
 
@@ -3285,7 +3392,66 @@ namespace GridTools
     Graph
     compress(const Graph &graph_in)
     {
-      return graph_in;
+      const unsigned int n_parts =
+        *std::max_element(graph_in.parts.begin(), graph_in.parts.end()) + 1;
+      std::vector<std::map<unsigned int, unsigned int>> temp(n_parts);
+      
+      Graph graph_out;
+      
+      for (unsigned int i = 0; i < graph_in.xadj.size() - 1; i++)
+      {
+        const unsigned int rank_a = graph_in.parts[i];   
+        for (int j = graph_in.xadj[i]; j < graph_in.xadj[i + 1]; j++)
+        {
+          const unsigned int rank_b = graph_in.parts[graph_in.adjncy[j]];
+          
+          if(rank_a==rank_b) continue;
+          
+          temp[rank_a][rank_b] = 0;
+        }
+      }
+      
+      for (unsigned int i = 0; i < graph_in.xadj.size() - 1; i++)
+      {
+        const unsigned int rank_a = graph_in.parts[i];   
+        for (int j = graph_in.xadj[i]; j < graph_in.xadj[i + 1]; j++)
+        {
+          const unsigned int rank_b = graph_in.parts[graph_in.adjncy[j]];
+          
+          if(rank_a==rank_b) continue;
+          
+          if (graph_in.weights.size() == 0)
+            temp[rank_a][rank_b]++;
+          else
+            temp[rank_a][rank_b]+=graph_in.weights[j];
+        }
+      }
+      
+      std::map<unsigned int, unsigned int> counts;
+      
+      for(auto & set : temp)
+        for(auto & i : set)
+            counts[i.second] = 0;
+      
+      unsigned int cc = 1;//counts.size();
+      for(auto & c : counts)
+          c.second = cc++;
+      
+      graph_out.xadj.push_back(0);
+      
+      for(auto & set : temp)
+      {
+        for(auto & i : set)
+        {
+          graph_out.adjncy.push_back(i.first);
+          graph_out.weights.push_back(counts[i.second]);
+        }
+        graph_out.xadj.push_back(graph_out.adjncy.size());
+      }
+      
+      graph_out.elements = n_parts;
+      
+      return graph_out;
     }
 
 
@@ -3293,10 +3459,11 @@ namespace GridTools
     void
     multilevel_partition_triangulation(
       Graph &                          graph,
-      const std::vector<unsigned int> &n_partitions)
+      const std::vector<unsigned int> &n_partitions,
+      const SparsityTools::Partitioner partitioner)
     {
       // pre-partition graph
-      partition(graph);
+      partition(graph, n_partitions[0], partitioner);
 
       if (n_partitions.size() > 1)
         {
@@ -3305,9 +3472,12 @@ namespace GridTools
 
           // partition coarser graph
           multilevel_partition_triangulation(
-            graph,
+            graph_compressed,
             std::vector<unsigned int>(n_partitions.begin() + 1,
-                                      n_partitions.end()));
+                                      n_partitions.end()),
+            partitioner);
+          
+          graph_compressed.print(std::cout);
 
           // renumerate partitions on coarser graph accordint to partitions on
           // coarser graph
@@ -3334,7 +3504,7 @@ namespace GridTools
                                      partitioner);
 
     // perform partitioning on graph
-    multilevel_partition_triangulation(graph, n_partitions);
+    multilevel_partition_triangulation(graph, n_partitions, partitioner);
 
     // copy partioning to triangulation
     for (auto cell : triangulation.active_cell_iterators())

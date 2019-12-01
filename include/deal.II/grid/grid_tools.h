@@ -2021,7 +2021,8 @@ namespace GridTools
   multilevel_partition_triangulation(
     const std::vector<unsigned int>  n_partitions,
     Triangulation<dim, spacedim> &   triangulation,
-    const SparsityTools::Partitioner partitioner);
+    const SparsityTools::Partitioner partitioner =
+                            SparsityTools::Partitioner::metis);
 
   /**
    * Partitions the cells of a multigrid hierarchy by assigning level subdomain
