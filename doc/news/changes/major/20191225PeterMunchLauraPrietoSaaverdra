@@ -1,0 +1,4 @@
+New: Add multigrid transfer operators polynomial and global coarsening. Latter is
+restricted to serial program execution.
+<br>
+(Peter Munch, Laura Prieto Saaverdra, 2019/12/25)
