@@ -24,16 +24,17 @@ template <int dim, int degree_fine, int degree_coarse, typename Number>
 class TransferP : public Transfer<dim, Number>
 {
 public:
+  template <typename MeshType>
   void
-  reinit(const DoFHandler<dim> &          dof_handler_fine,
-         const DoFHandler<dim> &          dof_handler_coarse,
+  reinit(const MeshType &                 dof_handler_fine,
+         const MeshType &                 dof_handler_coarse,
          const AffineConstraints<Number> &constraint_coarse)
   {
     AssertDimension(dof_handler_fine.get_triangulation().n_active_cells(),
                     dof_handler_coarse.get_triangulation().n_active_cells());
 
     auto process_cells = [&](const auto &fu) {
-      typename DoFHandler<dim>::active_cell_iterator     //
+      typename MeshType::active_cell_iterator            //
         cell_coarse = dof_handler_coarse.begin_active(), //
         end_coarse  = dof_handler_coarse.end(),          //
         cell_fine   = dof_handler_fine.begin_active();
@@ -47,21 +48,48 @@ public:
         }
     };
 
-    this->schemes.resize(1);
+    std::map<std::pair<unsigned int, unsigned int>, unsigned int>
+      fe_index_pairs;
+
+    process_cells([&](const auto &cell_coarse, const auto &cell_fine) {
+      fe_index_pairs.emplace(
+        std::pair<unsigned int, unsigned int>(cell_coarse->active_fe_index(),
+                                              cell_fine->active_fe_index()),
+        0);
+    });
+
+    unsigned int counter = 0;
+    for (auto &f : fe_index_pairs)
+      f.second = counter++;
+
+    AssertDimension(fe_index_pairs.size(), 1);
+
+    this->schemes.resize(fe_index_pairs.size());
     auto &scheme = this->schemes.front();
 
     // extract number of coarse cells
     {
-      scheme.n_cells_coarse = 0;
-      process_cells(
-        [&](const auto &, const auto &) { scheme.n_cells_coarse++; });
+      for (auto &scheme : this->schemes)
+        scheme.n_cells_coarse = 0;
+      process_cells([&](const auto &cell_coarse, const auto &cell_fine) {
+        this
+          ->schemes[fe_index_pairs[std::pair<unsigned int, unsigned int>(
+            cell_coarse->active_fe_index(), cell_fine->active_fe_index())]]
+          .n_cells_coarse++;
+      });
     }
 
-    scheme.n_cell_dofs_coarse = dof_handler_coarse.get_fe().dofs_per_cell;
-    scheme.n_cell_dofs_fine   = dof_handler_fine.get_fe().dofs_per_cell;
+    for (const auto fe_index_pair : fe_index_pairs)
+      {
+        this->schemes[fe_index_pair.second].n_cell_dofs_coarse =
+          dof_handler_coarse.get_fe(fe_index_pair.first.first).dofs_per_cell;
+        this->schemes[fe_index_pair.second].n_cell_dofs_fine =
+          dof_handler_fine.get_fe(fe_index_pair.first.second).dofs_per_cell;
 
-    scheme.fine_element_is_continuous =
-      dof_handler_fine.get_fe().dofs_per_vertex > 0;
+        this->schemes[fe_index_pair.second].fine_element_is_continuous =
+          dof_handler_fine.get_fe(fe_index_pair.first.second).dofs_per_vertex >
+          0;
+      }
 
     this->constraint_coarse.copy_from(constraint_coarse);
 
@@ -96,51 +124,94 @@ public:
     }
 
     {
-      scheme.level_dof_indices_fine.resize(scheme.n_cell_dofs_fine *
-                                           scheme.n_cells_coarse);
-      scheme.level_dof_indices_coarse.resize(scheme.n_cell_dofs_coarse *
-                                             scheme.n_cells_coarse);
+      std::vector<std::vector<unsigned int>> lexicographic_numbering_fine(
+        fe_index_pairs.size());
+      std::vector<std::vector<unsigned int>> lexicographic_numbering_coarse(
+        fe_index_pairs.size());
+      std::vector<std::vector<types::global_dof_index>>
+                                                        local_dof_indices_coarse(fe_index_pairs.size());
+      std::vector<std::vector<types::global_dof_index>> local_dof_indices_fine(
+        fe_index_pairs.size());
 
-      std::vector<types::global_dof_index> local_dof_indices_coarse(
-        scheme.n_cell_dofs_coarse);
-      std::vector<types::global_dof_index> local_dof_indices_fine(
-        scheme.n_cell_dofs_fine);
+      for (const auto fe_index_pair : fe_index_pairs)
+        {
+          local_dof_indices_coarse[fe_index_pair.second].resize(
+            this->schemes[fe_index_pair.second].n_cell_dofs_coarse);
+          local_dof_indices_fine[fe_index_pair.second].resize(
+            this->schemes[fe_index_pair.second].n_cell_dofs_fine);
 
-      // ----------------------- lexicographic_numbering -----------------------
-      std::vector<unsigned int> lexicographic_numbering_fine,
-        lexicographic_numbering_coarse;
-      {
-        const Quadrature<1> dummy_quadrature(
-          std::vector<Point<1>>(1, Point<1>()));
-        internal::MatrixFreeFunctions::ShapeInfo<Number> shape_info;
-        shape_info.reinit(dummy_quadrature, dof_handler_fine.get_fe(), 0);
-        lexicographic_numbering_fine = shape_info.lexicographic_numbering;
+          this->schemes[fe_index_pair.second].level_dof_indices_fine.resize(
+            this->schemes[fe_index_pair.second].n_cell_dofs_fine *
+            this->schemes[fe_index_pair.second].n_cells_coarse);
+          this->schemes[fe_index_pair.second].level_dof_indices_coarse.resize(
+            this->schemes[fe_index_pair.second].n_cell_dofs_coarse *
+            this->schemes[fe_index_pair.second].n_cells_coarse);
 
-        shape_info.reinit(dummy_quadrature, dof_handler_coarse.get_fe(), 0);
-        lexicographic_numbering_coarse = shape_info.lexicographic_numbering;
-      }
+
+          // ----------------------- lexicographic_numbering
+          // -----------------------
+          {
+            const Quadrature<1> dummy_quadrature(
+              std::vector<Point<1>>(1, Point<1>()));
+            internal::MatrixFreeFunctions::ShapeInfo<Number> shape_info;
+            shape_info.reinit(dummy_quadrature,
+                              dof_handler_fine.get_fe(
+                                fe_index_pair.first.second),
+                              0);
+            lexicographic_numbering_fine[fe_index_pair.second] =
+              shape_info.lexicographic_numbering;
+
+            shape_info.reinit(dummy_quadrature,
+                              dof_handler_coarse.get_fe(
+                                fe_index_pair.first.first),
+                              0);
+            lexicographic_numbering_coarse[fe_index_pair.second] =
+              shape_info.lexicographic_numbering;
+          }
+        }
 
       // ------------------------------- indices -------------------------------
-      unsigned int *level_dof_indices_coarse_ =
-        &scheme.level_dof_indices_coarse[0];
-      unsigned int *level_dof_indices_fine_ = &scheme.level_dof_indices_fine[0];
+      std::vector<unsigned int *> level_dof_indices_coarse_(
+        fe_index_pairs.size());
+      std::vector<unsigned int *> level_dof_indices_fine_(
+        fe_index_pairs.size());
+
+      for (unsigned int i = 0; i < fe_index_pairs.size(); i++)
+        {
+          level_dof_indices_coarse_[i] =
+            &this->schemes[i].level_dof_indices_coarse[0];
+          level_dof_indices_fine_[i] =
+            &this->schemes[i].level_dof_indices_fine[0];
+        }
 
       process_cells([&](const auto &cell_coarse, const auto &cell_fine) {
-        cell_coarse->get_dof_indices(local_dof_indices_coarse);
-        for (unsigned int i = 0; i < scheme.n_cell_dofs_coarse; i++)
-          level_dof_indices_coarse_[i] =
+        const auto fe_pair_no =
+          fe_index_pairs[std::pair<unsigned int, unsigned int>(
+            cell_coarse->active_fe_index(), cell_fine->active_fe_index())];
+
+        cell_coarse->get_dof_indices(local_dof_indices_coarse[fe_pair_no]);
+        for (unsigned int i = 0;
+             i < this->schemes[fe_pair_no].n_cell_dofs_coarse;
+             i++)
+          level_dof_indices_coarse_[fe_pair_no][i] =
             this->partitioner_coarse->global_to_local(
-              local_dof_indices_coarse[lexicographic_numbering_coarse[i]]);
+              local_dof_indices_coarse
+                [fe_pair_no][lexicographic_numbering_coarse[fe_pair_no][i]]);
 
 
-        cell_fine->get_dof_indices(local_dof_indices_fine);
-        for (unsigned int i = 0; i < scheme.n_cell_dofs_fine; i++)
-          level_dof_indices_fine_[i] = this->partitioner_fine->global_to_local(
-            local_dof_indices_fine[lexicographic_numbering_fine[i]]);
+        cell_fine->get_dof_indices(local_dof_indices_fine[fe_pair_no]);
+        for (unsigned int i = 0; i < this->schemes[fe_pair_no].n_cell_dofs_fine;
+             i++)
+          level_dof_indices_fine_[fe_pair_no][i] =
+            this->partitioner_fine->global_to_local(
+              local_dof_indices_fine
+                [fe_pair_no][lexicographic_numbering_fine[fe_pair_no][i]]);
 
 
-        level_dof_indices_coarse_ += scheme.n_cell_dofs_coarse;
-        level_dof_indices_fine_ += scheme.n_cell_dofs_fine;
+        level_dof_indices_coarse_[fe_pair_no] +=
+          this->schemes[fe_pair_no].n_cell_dofs_coarse;
+        level_dof_indices_fine_[fe_pair_no] +=
+          this->schemes[fe_pair_no].n_cell_dofs_fine;
       });
     }
 
