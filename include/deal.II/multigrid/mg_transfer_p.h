@@ -370,9 +370,7 @@ public:
              LinearAlgebra::distributed::Vector<Number> &      dst,
              const LinearAlgebra::distributed::Vector<Number> &src) const
   {
-    this->template do_prolongate_add<degree_fine, degree_coarse>(to_level,
-                                                                 dst,
-                                                                 src);
+    this->do_prolongate_add(to_level, dst, src);
   }
 
   void
@@ -392,9 +390,7 @@ public:
                    LinearAlgebra::distributed::Vector<Number> &      dst,
                    const LinearAlgebra::distributed::Vector<Number> &src) const
   {
-    this->template do_restrict_add<degree_fine, degree_coarse>(from_level,
-                                                               dst,
-                                                               src);
+    this->do_restrict_add(from_level, dst, src);
   }
 };
 
