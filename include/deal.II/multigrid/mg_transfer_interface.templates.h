@@ -63,25 +63,25 @@ public:
   bool
   do_run_degree(Fu &fu)
   {
-    if (n == 100 * degree + std::max(degree / 2, 1))
-      {
-        fu.template run<degree, std::max(degree / 2, 1)>();
-        return true;
-      }
-
-    if (n == 100 * (2 * degree + 1) + degree)
+    if (n == 100 * (2 * degree + 1) + degree) // h-MG
       {
         fu.template run<2 * degree + 1, degree>();
         return true;
       }
 
-    if (n == 100 * degree + std::max(degree - 1, 1))
+    if (n == 100 * degree + std::max(degree / 2, 1)) // p-MG: bisection
+      {
+        fu.template run<degree, std::max(degree / 2, 1)>();
+        return true;
+      }
+
+    if (n == 100 * degree + std::max(degree - 1, 1)) // p-MG: decrement by one
       {
         fu.template run<degree, std::max(degree - 1, 1)>();
         return true;
       }
 
-    if (n == 100 * degree + 1)
+    if (n == 100 * degree + 1) // p-MG: jump to 1
       {
         fu.template run<degree, 1>();
         return true;
