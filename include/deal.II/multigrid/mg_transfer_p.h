@@ -20,7 +20,7 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-template <int dim, int degree_fine, int degree_coarse, typename Number>
+template <int dim, typename Number>
 class TransferP : public Transfer<dim, Number>
 {
 public:

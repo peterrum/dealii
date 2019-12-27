@@ -42,13 +42,10 @@
 
 using namespace dealii;
 
-template <int dim, int fe_degree_fine, int fe_degree_coarse, typename Number>
+template <int dim, typename Number>
 void
 do_test(const FiniteElement<dim> &fe_fine, const FiniteElement<dim> &fe_coarse)
 {
-  AssertDimension(fe_fine.degree, fe_degree_fine);
-  AssertDimension(fe_coarse.degree, fe_degree_coarse);
-
   parallel::distributed::Triangulation<dim> tria(
     MPI_COMM_WORLD,
     Triangulation<dim>::limit_level_difference_at_vertices,
@@ -80,7 +77,7 @@ do_test(const FiniteElement<dim> &fe_fine, const FiniteElement<dim> &fe_coarse)
   constraint_fine.close();
 
   // setup transfer operator
-  TransferP<dim, fe_degree_fine, fe_degree_coarse, Number> transfer;
+  TransferP<dim, Number> transfer;
   transfer.reinit(dof_handler_fine,
                   dof_handler_coarse,
                   constraint_fine,
@@ -89,31 +86,31 @@ do_test(const FiniteElement<dim> &fe_fine, const FiniteElement<dim> &fe_coarse)
   test_transfer_operator(transfer, dof_handler_fine, dof_handler_coarse);
 }
 
-template <int dim, int fe_degree_fine, int fe_degree_coarse, typename Number>
+template <int dim, typename Number>
 void
-test()
+test(int fe_degree_fine, int fe_degree_coarse)
 {
   const auto str_fine   = std::to_string(fe_degree_fine);
   const auto str_coarse = std::to_string(fe_degree_coarse);
 
   {
     deallog.push("CG<2>(" + str_fine + ")<->CG<2>(" + str_coarse + ")");
-    do_test<dim, fe_degree_fine, fe_degree_coarse, Number>(
-      FE_Q<dim>(fe_degree_fine), FE_Q<dim>(fe_degree_coarse));
+    do_test<dim, Number>(FE_Q<dim>(fe_degree_fine),
+                         FE_Q<dim>(fe_degree_coarse));
     deallog.pop();
   }
 
   {
     deallog.push("DG<2>(" + str_fine + ")<->CG<2>(" + str_coarse + ")");
-    do_test<dim, fe_degree_fine, fe_degree_coarse, Number>(
-      FE_DGQ<dim>(fe_degree_fine), FE_Q<dim>(fe_degree_coarse));
+    do_test<dim, Number>(FE_DGQ<dim>(fe_degree_fine),
+                         FE_Q<dim>(fe_degree_coarse));
     deallog.pop();
   }
 
   {
     deallog.push("DG<2>(" + str_fine + ")<->DG<2>(" + str_coarse + ")");
-    do_test<dim, fe_degree_fine, fe_degree_coarse, Number>(
-      FE_DGQ<dim>(fe_degree_fine), FE_DGQ<dim>(fe_degree_coarse));
+    do_test<dim, Number>(FE_DGQ<dim>(fe_degree_fine),
+                         FE_DGQ<dim>(fe_degree_coarse));
     deallog.pop();
   }
 }
@@ -124,6 +121,6 @@ main(int argc, char **argv)
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    all;
 
-  test<2, 1, 1, double>();
-  test<2, 2, 1, double>();
+  test<2, double>(1, 1);
+  test<2, double>(2, 1);
 }
