@@ -302,28 +302,10 @@ public:
         LinearAlgebra::distributed::Vector<Number> touch_count;
         touch_count.reinit(this->partitioner_fine);
 
-        const Quadrature<1> dummy_quadrature(
-          std::vector<Point<1>>(1, Point<1>()));
-        internal::MatrixFreeFunctions::ShapeInfo<Number> shape_info;
-        shape_info.reinit(dummy_quadrature, dof_handler_fine.get_fe(), 0);
-
-        std::vector<Number> local_weights(scheme.n_cell_dofs_fine);
-
         unsigned int *level_dof_indices_fine_ =
           &scheme.level_dof_indices_fine[0];
 
         process_cells([&](const auto &, const auto &cell_fine) {
-          std::fill(local_weights.begin(), local_weights.end(), Number(1.));
-
-          for (unsigned int f = 0; f < GeometryInfo<dim>::faces_per_cell; f++)
-            if (!cell_fine->at_boundary(f))
-              if (cell_fine->level() > cell_fine->neighbor_level(f))
-                {
-                  auto &sh = shape_info.face_to_cell_index_nodal;
-                  for (unsigned int i = 0; i < sh.size()[1]; i++)
-                    local_weights[sh[f][i]] = Number(0.);
-                }
-
           for (unsigned int i = 0; i < scheme.n_cell_dofs_fine; i++)
             if (constraint_fine.is_constrained(
                   this->partitioner_fine->local_to_global(
@@ -340,21 +322,10 @@ public:
         level_dof_indices_fine_ = &scheme.level_dof_indices_fine[0];
 
         process_cells([&](const auto &, const auto &cell_fine) {
-          std::fill(local_weights.begin(), local_weights.end(), Number(1.));
-
-          for (unsigned int f = 0; f < GeometryInfo<dim>::faces_per_cell; f++)
-            if (!cell_fine->at_boundary(f))
-              if (cell_fine->level() > cell_fine->neighbor_level(f))
-                {
-                  auto &sh = shape_info.face_to_cell_index_nodal;
-                  for (unsigned int i = 0; i < sh.size()[1]; i++)
-                    local_weights[sh[f][i]] = Number(0.);
-                }
-
           for (unsigned int i = 0; i < scheme.n_cell_dofs_fine; i++)
             if (constraint_fine.is_constrained(
                   this->partitioner_fine->local_to_global(
-                    level_dof_indices_fine_[i])))
+                    level_dof_indices_fine_[i])) == true)
               weights_[i] = Number(0.);
             else
               weights_[i] = Number(1.) / touch_count.local_element(
