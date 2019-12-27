@@ -20,7 +20,7 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-template <int dim, int degree, typename Number>
+template <int dim, typename Number>
 class TransferA : public Transfer<dim, Number>
 {
 public:
@@ -177,8 +177,10 @@ public:
     {
       for (unsigned int c = 0; c < GeometryInfo<dim>::max_children_per_cell;
            c++)
-        // TODO: get degree from somewhere else
-        get_child_offset(c, degree + 1, degree, offsets[c]);
+        get_child_offset(c,
+                         dof_handler_fine.get_fe().degree + 1,
+                         dof_handler_fine.get_fe().degree,
+                         offsets[c]);
     }
 
 
