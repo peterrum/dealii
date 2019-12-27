@@ -28,6 +28,7 @@ public:
   void
   reinit(const MeshType &                 dof_handler_fine,
          const MeshType &                 dof_handler_coarse,
+         const AffineConstraints<Number> &constraint_fine,
          const AffineConstraints<Number> &constraint_coarse)
   {
     AssertDimension(dof_handler_fine.get_triangulation().n_active_cells(),
@@ -324,8 +325,10 @@ public:
                 }
 
           for (unsigned int i = 0; i < scheme.n_cell_dofs_fine; i++)
-            touch_count.local_element(level_dof_indices_fine_[i]) +=
-              local_weights[i];
+            if (constraint_fine.is_constrained(
+                  this->partitioner_fine->local_to_global(
+                    level_dof_indices_fine_[i])) == false)
+              touch_count.local_element(level_dof_indices_fine_[i]) += 1;
 
           level_dof_indices_fine_ += scheme.n_cell_dofs_fine;
         });
@@ -349,7 +352,9 @@ public:
                 }
 
           for (unsigned int i = 0; i < scheme.n_cell_dofs_fine; i++)
-            if (local_weights[i] == 0.0)
+            if (constraint_fine.is_constrained(
+                  this->partitioner_fine->local_to_global(
+                    level_dof_indices_fine_[i])))
               weights_[i] = Number(0.);
             else
               weights_[i] = Number(1.) / touch_count.local_element(
