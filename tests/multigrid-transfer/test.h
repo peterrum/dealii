@@ -22,16 +22,16 @@ using namespace dealii;
 
 
 
-template <int dim, typename Number>
+template <typename MeshType, typename Number>
 void
 initialize_dof_vector(LinearAlgebra::distributed::Vector<Number> &vec,
-                      const DoFHandler<dim> &                     dof_handler)
+                      const MeshType &                            dof_handler)
 {
   IndexSet locally_relevant_dofs;
   DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
 
-  const parallel::TriangulationBase<dim> *dist_tria =
-    dynamic_cast<const parallel::TriangulationBase<dim> *>(
+  const parallel::TriangulationBase<MeshType::dimension> *dist_tria =
+    dynamic_cast<const parallel::TriangulationBase<MeshType::dimension> *>(
       &(dof_handler.get_triangulation()));
 
   MPI_Comm comm =
@@ -42,11 +42,11 @@ initialize_dof_vector(LinearAlgebra::distributed::Vector<Number> &vec,
 
 
 
-template <int dim, typename Number>
+template <int dim, typename Number, typename MeshType>
 void
 test_transfer_operator(const Transfer<dim, Number> &transfer,
-                       const DoFHandler<dim> &      dof_handler_fine,
-                       const DoFHandler<dim> &      dof_handler_coarse)
+                       const MeshType &             dof_handler_fine,
+                       const MeshType &             dof_handler_coarse)
 {
   AffineConstraints<Number> constraint_fine;
   DoFTools::make_hanging_node_constraints(dof_handler_fine, constraint_fine);
