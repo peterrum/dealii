@@ -28,6 +28,10 @@ struct TransferScheme
   unsigned int n_cell_dofs_coarse;
   unsigned int n_cell_dofs_fine;
 
+  // cached values
+  unsigned int degree_coarse;
+  unsigned int degree_fine;
+
   bool                fine_element_is_continuous;
   std::vector<Number> weights;
 
@@ -122,7 +126,8 @@ protected:
             }
 
             // ---------------------------- coarse -----------------------------
-            if (scheme.n_cell_dofs_fine == scheme.n_cell_dofs_coarse) // TODO
+            if (scheme.degree_coarse == degree_coarse &&
+                scheme.degree_fine == degree_coarse)
               {
                 internal::FEEvaluationImplBasisChange<
                   internal::evaluate_general,
@@ -136,10 +141,8 @@ protected:
                              evaluation_data_coarse.begin(),
                              evaluation_data_fine.begin());
               }
-            else if (scheme.n_cell_dofs_coarse ==
-                       Utilities::pow(degree_coarse + 1, dim) &&
-                     scheme.n_cell_dofs_fine ==
-                       Utilities::pow(degree_fine + 1, dim))
+            else if (scheme.degree_coarse == degree_coarse &&
+                     scheme.degree_fine == degree_fine)
               {
                 internal::FEEvaluationImplBasisChange<
                   internal::evaluate_general,
@@ -250,7 +253,8 @@ protected:
               }
 
             // ------------------------------ fine -----------------------------
-            if (scheme.n_cell_dofs_fine == scheme.n_cell_dofs_coarse) // TODO
+            if (scheme.degree_coarse == degree_coarse &&
+                scheme.degree_fine == degree_coarse)
               {
                 internal::FEEvaluationImplBasisChange<
                   internal::evaluate_general,
@@ -265,10 +269,8 @@ protected:
                               evaluation_data_fine.begin(),
                               evaluation_data_coarse.begin());
               }
-            else if (scheme.n_cell_dofs_coarse ==
-                       Utilities::pow(degree_coarse + 1, dim) &&
-                     scheme.n_cell_dofs_fine ==
-                       Utilities::pow(degree_fine + 1, dim))
+            else if (scheme.degree_coarse == degree_coarse &&
+                     scheme.degree_fine == degree_fine)
               {
                 internal::FEEvaluationImplBasisChange<
                   internal::evaluate_general,
