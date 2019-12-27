@@ -121,10 +121,8 @@ protected:
                 }
             }
 
-            // ------------------------------ coarse
-            // -------------------------------
-            if (scheme.n_cell_dofs_fine ==
-                scheme.n_cell_dofs_coarse) // TODO: create jump table
+            // ---------------------------- coarse -----------------------------
+            if (scheme.n_cell_dofs_fine == scheme.n_cell_dofs_coarse) // TODO
               {
                 internal::FEEvaluationImplBasisChange<
                   internal::evaluate_general,
@@ -138,7 +136,10 @@ protected:
                              evaluation_data_coarse.begin(),
                              evaluation_data_fine.begin());
               }
-            else
+            else if (scheme.n_cell_dofs_coarse ==
+                       Utilities::pow(degree_coarse + 1, dim) &&
+                     scheme.n_cell_dofs_fine ==
+                       Utilities::pow(degree_fine + 1, dim))
               {
                 internal::FEEvaluationImplBasisChange<
                   internal::evaluate_general,
@@ -152,8 +153,9 @@ protected:
                              evaluation_data_coarse.begin(),
                              evaluation_data_fine.begin());
               }
-            // -------------------------------- fine
-            // -------------------------------
+            else
+              Assert(false, ExcNotInitialized());
+            // ------------------------------ fine -----------------------------
 
             if (scheme.fine_element_is_continuous)
               {
@@ -248,8 +250,7 @@ protected:
               }
 
             // ------------------------------ fine -----------------------------
-            if (scheme.n_cell_dofs_fine ==
-                scheme.n_cell_dofs_coarse) // TODO: create jump table
+            if (scheme.n_cell_dofs_fine == scheme.n_cell_dofs_coarse) // TODO
               {
                 internal::FEEvaluationImplBasisChange<
                   internal::evaluate_general,
@@ -264,7 +265,10 @@ protected:
                               evaluation_data_fine.begin(),
                               evaluation_data_coarse.begin());
               }
-            else
+            else if (scheme.n_cell_dofs_coarse ==
+                       Utilities::pow(degree_coarse + 1, dim) &&
+                     scheme.n_cell_dofs_fine ==
+                       Utilities::pow(degree_fine + 1, dim))
               {
                 internal::FEEvaluationImplBasisChange<
                   internal::evaluate_general,
@@ -279,6 +283,8 @@ protected:
                               evaluation_data_fine.begin(),
                               evaluation_data_coarse.begin());
               }
+            else
+              Assert(false, ExcNotInitialized());
             // ----------------------------- coarse ----------------------------
 
 

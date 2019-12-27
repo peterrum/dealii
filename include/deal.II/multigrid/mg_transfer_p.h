@@ -63,8 +63,6 @@ public:
     for (auto &f : fe_index_pairs)
       f.second = counter++;
 
-    AssertDimension(fe_index_pairs.size(), 1);
-
     this->schemes.resize(fe_index_pairs.size());
 
     // extract number of coarse cells
