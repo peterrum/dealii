@@ -292,47 +292,72 @@ public:
               matrix(renumbering_fine[j], renumbering_coarse[i]);
       }
 
-    auto &scheme = this->schemes.front();
-
     // -------------------------------- weights --------------------------------
     if (this->schemes.front().fine_element_is_continuous)
       {
-        scheme.weights.resize(scheme.n_cells_coarse * scheme.n_cell_dofs_fine);
+        for (auto &scheme : this->schemes)
+          scheme.weights.resize(scheme.n_cells_coarse *
+                                scheme.n_cell_dofs_fine);
 
         LinearAlgebra::distributed::Vector<Number> touch_count;
         touch_count.reinit(this->partitioner_fine);
 
-        unsigned int *level_dof_indices_fine_ =
-          &scheme.level_dof_indices_fine[0];
+        std::vector<unsigned int *> level_dof_indices_fine_(
+          fe_index_pairs.size());
+        std::vector<Number *> weights_(fe_index_pairs.size());
 
-        process_cells([&](const auto &, const auto &cell_fine) {
-          for (unsigned int i = 0; i < scheme.n_cell_dofs_fine; i++)
+        for (unsigned int i = 0; i < fe_index_pairs.size(); i++)
+          level_dof_indices_fine_[i] =
+            &this->schemes[i].level_dof_indices_fine[0];
+
+        process_cells([&](const auto &cell_coarse, const auto &cell_fine) {
+          const auto fe_pair_no =
+            fe_index_pairs[std::pair<unsigned int, unsigned int>(
+              cell_coarse->active_fe_index(), cell_fine->active_fe_index())];
+
+          for (unsigned int i = 0;
+               i < this->schemes[fe_pair_no].n_cell_dofs_fine;
+               i++)
             if (constraint_fine.is_constrained(
                   this->partitioner_fine->local_to_global(
-                    level_dof_indices_fine_[i])) == false)
-              touch_count.local_element(level_dof_indices_fine_[i]) += 1;
+                    level_dof_indices_fine_[fe_pair_no][i])) == false)
+              touch_count.local_element(
+                level_dof_indices_fine_[fe_pair_no][i]) += 1;
 
-          level_dof_indices_fine_ += scheme.n_cell_dofs_fine;
+          level_dof_indices_fine_[fe_pair_no] +=
+            this->schemes[fe_pair_no].n_cell_dofs_fine;
         });
 
         touch_count.compress(VectorOperation::add);
         touch_count.update_ghost_values();
 
-        Number *weights_        = &scheme.weights[0];
-        level_dof_indices_fine_ = &scheme.level_dof_indices_fine[0];
+        for (unsigned int i = 0; i < fe_index_pairs.size(); i++)
+          {
+            level_dof_indices_fine_[i] =
+              &this->schemes[i].level_dof_indices_fine[0];
+            weights_[i] = &this->schemes[i].weights[0];
+          }
 
-        process_cells([&](const auto &, const auto &cell_fine) {
-          for (unsigned int i = 0; i < scheme.n_cell_dofs_fine; i++)
+        process_cells([&](const auto &cell_coarse, const auto &cell_fine) {
+          const auto fe_pair_no =
+            fe_index_pairs[std::pair<unsigned int, unsigned int>(
+              cell_coarse->active_fe_index(), cell_fine->active_fe_index())];
+
+          for (unsigned int i = 0;
+               i < this->schemes[fe_pair_no].n_cell_dofs_fine;
+               i++)
             if (constraint_fine.is_constrained(
                   this->partitioner_fine->local_to_global(
-                    level_dof_indices_fine_[i])) == true)
-              weights_[i] = Number(0.);
+                    level_dof_indices_fine_[fe_pair_no][i])) == true)
+              weights_[fe_pair_no][i] = Number(0.);
             else
-              weights_[i] = Number(1.) / touch_count.local_element(
-                                           level_dof_indices_fine_[i]);
+              weights_[fe_pair_no][i] =
+                Number(1.) / touch_count.local_element(
+                               level_dof_indices_fine_[fe_pair_no][i]);
 
-          level_dof_indices_fine_ += scheme.n_cell_dofs_fine;
-          weights_ += scheme.n_cell_dofs_fine;
+          level_dof_indices_fine_[fe_pair_no] +=
+            this->schemes[fe_pair_no].n_cell_dofs_fine;
+          weights_[fe_pair_no] += this->schemes[fe_pair_no].n_cell_dofs_fine;
         });
       }
   }
