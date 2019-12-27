@@ -42,13 +42,10 @@
 
 using namespace dealii;
 
-template <int dim, int fe_degree, typename Number>
+template <int dim, typename Number>
 void
 do_test(const FiniteElement<dim> &fe_fine, const FiniteElement<dim> &fe_coarse)
 {
-  AssertDimension(fe_fine.degree, fe_degree);
-  AssertDimension(fe_coarse.degree, fe_degree);
-
   // create coarse grid
   Triangulation<dim> tria_coarse;
   {
@@ -89,36 +86,34 @@ do_test(const FiniteElement<dim> &fe_fine, const FiniteElement<dim> &fe_coarse)
   constraint_coarse.close();
 
   // setup transfer operator
-  TransferA<dim, fe_degree, Number> transfer;
+  TransferA<dim, Number> transfer;
   transfer.reinit(dof_handler_fine, dof_handler_coarse, constraint_coarse);
 
   test_transfer_operator(transfer, dof_handler_fine, dof_handler_coarse);
 }
 
-template <int dim, int fe_degree, typename Number>
+template <int dim, typename Number>
 void
-test()
+test(int fe_degree)
 {
   const auto str_fine   = std::to_string(fe_degree);
   const auto str_coarse = std::to_string(fe_degree);
 
   {
     deallog.push("CG<2>(" + str_fine + ")<->CG<2>(" + str_coarse + ")");
-    do_test<dim, fe_degree, double>(FE_Q<dim>(fe_degree), FE_Q<dim>(fe_degree));
+    do_test<dim, double>(FE_Q<dim>(fe_degree), FE_Q<dim>(fe_degree));
     deallog.pop();
   }
 
   {
     deallog.push("DG<2>(" + str_fine + ")<->CG<2>(" + str_coarse + ")");
-    do_test<dim, fe_degree, double>(FE_DGQ<dim>(fe_degree),
-                                    FE_Q<dim>(fe_degree));
+    do_test<dim, double>(FE_DGQ<dim>(fe_degree), FE_Q<dim>(fe_degree));
     deallog.pop();
   }
 
   {
     deallog.push("DG<2>(" + str_fine + ")<->DG<2>(" + str_coarse + ")");
-    do_test<dim, fe_degree, double>(FE_DGQ<dim>(fe_degree),
-                                    FE_DGQ<dim>(fe_degree));
+    do_test<dim, double>(FE_DGQ<dim>(fe_degree), FE_DGQ<dim>(fe_degree));
     deallog.pop();
   }
 }
@@ -129,6 +124,6 @@ main(int argc, char **argv)
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    all;
 
-  test<2, 1, double>();
+  test<2, double>(1);
   // test<2, 2, double>(); // TODO: not working -> segfault
 }
