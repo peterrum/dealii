@@ -149,6 +149,10 @@ public:
       dof_handler_coarse.get_fe().dofs_per_cell *
       GeometryInfo<dim>::max_children_per_cell;
 
+    this->schemes[0].degree_coarse   = this->schemes[0].degree_fine =
+      this->schemes[1].degree_coarse = dof_handler_coarse.get_fe().degree;
+    this->schemes[1].degree_fine = dof_handler_coarse.get_fe().degree * 2 + 1;
+
     this->schemes[0].fine_element_is_continuous =
       this->schemes[1].fine_element_is_continuous =
         dof_handler_fine.get_fe().dofs_per_vertex > 0;

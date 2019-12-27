@@ -84,6 +84,11 @@ public:
         this->schemes[fe_index_pair.second].n_cell_dofs_fine =
           dof_handler_fine.get_fe(fe_index_pair.first.second).dofs_per_cell;
 
+        this->schemes[fe_index_pair.second].degree_coarse =
+          dof_handler_coarse.get_fe(fe_index_pair.first.first).degree;
+        this->schemes[fe_index_pair.second].degree_fine =
+          dof_handler_fine.get_fe(fe_index_pair.first.second).degree;
+
         this->schemes[fe_index_pair.second].fine_element_is_continuous =
           dof_handler_fine.get_fe(fe_index_pair.first.second).dofs_per_vertex >
           0;
