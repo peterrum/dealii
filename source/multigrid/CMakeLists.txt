@@ -20,6 +20,7 @@ SET(_unity_include_src
   mg_level_global_transfer.cc
   mg_transfer_block.cc
   mg_transfer_component.cc
+  mg_transfer_interface.cc
   mg_transfer_internal.cc
   mg_transfer_prebuilt.cc
   multigrid.cc
