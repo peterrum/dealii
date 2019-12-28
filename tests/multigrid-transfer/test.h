@@ -40,6 +40,47 @@ initialize_dof_vector(LinearAlgebra::distributed::Vector<Number> &vec,
   vec.reinit(dof_handler.locally_owned_dofs(), locally_relevant_dofs, comm);
 }
 
+template <typename Number>
+void
+print(const LinearAlgebra::distributed::Vector<Number> &vec)
+{
+  for (const auto &v : vec)
+    deallog << v << " ";
+  deallog << std::endl;
+}
+
+template <typename Number>
+void
+print(const TransferScheme<Number> &scheme)
+{
+  deallog << "weights:" << std::endl;
+  for (const auto w : scheme.weights)
+    deallog << std::fixed << w << " ";
+  deallog << std::endl;
+
+  deallog << "level_dof_indices_fine:" << std::endl;
+  for (const auto w : scheme.level_dof_indices_fine)
+    deallog << w << " ";
+  deallog << std::endl;
+
+  deallog << "level_dof_indices_coarse:" << std::endl;
+  for (const auto w : scheme.level_dof_indices_coarse)
+    deallog << w << " ";
+  deallog << std::endl;
+
+  deallog << "prolongation_matrix_1d:" << std::endl;
+  for (const auto w : scheme.prolongation_matrix_1d)
+    deallog << std::fixed << w[0] << " ";
+  deallog << std::endl;
+}
+
+template <int dim, typename Number>
+void
+print(const Transfer<dim, Number> &transfer)
+{
+  for (const auto &scheme : transfer.schemes)
+    print(scheme);
+}
 
 
 template <int dim, typename Number, typename MeshType>
@@ -53,7 +94,7 @@ test_transfer_operator(const Transfer<dim, Number> &transfer,
   constraint_fine.close();
 
   // print internal information of transfer operator
-  transfer.print_internal();
+  print(transfer);
 
   // perform prolongation
   LinearAlgebra::distributed::Vector<Number> src, dst;
@@ -80,8 +121,8 @@ test_transfer_operator(const Transfer<dim, Number> &transfer,
     // print vectors
     if (true)
       {
-        src.print(deallog.get_file_stream());
-        dst.print(deallog.get_file_stream());
+        print(src);
+        print(dst);
       }
 
     // print full prolongation matrix
@@ -120,8 +161,8 @@ test_transfer_operator(const Transfer<dim, Number> &transfer,
     // print vectors
     if (true)
       {
-        dst.print(deallog.get_file_stream());
-        src.print(deallog.get_file_stream());
+        print(dst);
+        print(src);
       }
 
     // print full restriction matrix

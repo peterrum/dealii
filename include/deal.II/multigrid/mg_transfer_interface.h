@@ -44,7 +44,7 @@ struct TransferScheme
   std::vector<unsigned int> level_dof_indices_fine;
 
   void
-  print() const;
+  print(std::ostream &out) const;
 };
 
 template <int dim, typename Number>
@@ -53,7 +53,7 @@ class Transfer
 {
 public:
   void
-  print_internal() const;
+  print_internal(std::ostream &out) const;
 
   void
   prolongate(
