@@ -37,7 +37,7 @@
 #include <deal.II/matrix_free/matrix_free.h>
 
 #include <deal.II/multigrid/mg_constrained_dofs.h>
-#include <deal.II/multigrid/mg_transfer_p.h>
+#include <deal.II/multigrid/mg_transfer_interface_util.h>
 
 #include "test.h"
 
