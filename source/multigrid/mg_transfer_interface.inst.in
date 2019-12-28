@@ -13,10 +13,9 @@
 //
 // ---------------------------------------------------------------------
 
-#include <deal.II/multigrid/mg_transfer_interface.templates.h>
 
-DEAL_II_NAMESPACE_OPEN
 
-#include "mg_transfer_interface.inst"
-
-DEAL_II_NAMESPACE_CLOSE
+for (deal_II_dimension : DIMENSIONS; S1 : REAL_SCALARS)
+  {
+    template class Transfer<deal_II_dimension, S1>;
+  }
