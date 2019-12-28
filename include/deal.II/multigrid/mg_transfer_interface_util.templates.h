@@ -39,6 +39,7 @@ namespace MGTransferUtil
   setup_global_coarsening_transfer(
     const DoFHandler<dim> &          dof_handler_fine,
     const DoFHandler<dim> &          dof_handler_coarse,
+    const AffineConstraints<Number> &constraint_fine,
     const AffineConstraints<Number> &constraint_coarse,
     Transfer<dim, Number> &          transfer)
   {
@@ -380,49 +381,30 @@ namespace MGTransferUtil
         internal::MatrixFreeFunctions::ShapeInfo<Number> shape_info;
         shape_info.reinit(dummy_quadrature, dof_handler_fine.get_fe(), 0);
 
-        std::vector<Number> local_weights(transfer.schemes[0].n_cell_dofs_fine);
-
         unsigned int *level_dof_indices_fine_0 =
           &transfer.schemes[0].level_dof_indices_fine[0];
         unsigned int *level_dof_indices_fine_1 =
           &transfer.schemes[1].level_dof_indices_fine[0];
 
         process_cells(
-          [&](const auto &, const auto &cell_fine) {
-            std::fill(local_weights.begin(), local_weights.end(), Number(1.));
-
-            for (unsigned int f = 0; f < GeometryInfo<dim>::faces_per_cell; f++)
-              if (!cell_fine->at_boundary(f))
-                if (cell_fine->level() > cell_fine->neighbor_level(f))
-                  {
-                    auto &sh = shape_info.face_to_cell_index_nodal;
-                    for (unsigned int i = 0; i < sh.size()[1]; i++)
-                      local_weights[sh[f][i]] = Number(0.);
-                  }
-
+          [&](const auto &, const auto &) {
             for (unsigned int i = 0; i < transfer.schemes[0].n_cell_dofs_coarse;
                  i++)
-              touch_count.local_element(level_dof_indices_fine_0[i]) +=
-                local_weights[i];
+              if (constraint_fine.is_constrained(
+                    transfer.partitioner_fine->local_to_global(
+                      level_dof_indices_fine_0[i])) == false)
+                touch_count.local_element(level_dof_indices_fine_0[i]) += 1;
 
             level_dof_indices_fine_0 += transfer.schemes[0].n_cell_dofs_fine;
           },
-          [&](const auto &, const auto &cell_fine, const auto c) {
-            std::fill(local_weights.begin(), local_weights.end(), Number(1.));
-
-            for (unsigned int f = 0; f < GeometryInfo<dim>::faces_per_cell; f++)
-              if (!cell_fine->at_boundary(f))
-                if (cell_fine->level() > cell_fine->neighbor_level(f))
-                  {
-                    auto &sh = shape_info.face_to_cell_index_nodal;
-                    for (unsigned int i = 0; i < sh.size()[1]; i++)
-                      local_weights[sh[f][i]] = Number(0.);
-                  }
-
+          [&](const auto &, const auto &, const auto c) {
             for (unsigned int i = 0; i < transfer.schemes[1].n_cell_dofs_coarse;
                  i++)
-              touch_count.local_element(
-                level_dof_indices_fine_1[offsets[c][i]]) += local_weights[i];
+              if (constraint_fine.is_constrained(
+                    transfer.partitioner_fine->local_to_global(
+                      level_dof_indices_fine_1[offsets[c][i]])) == false)
+                touch_count.local_element(
+                  level_dof_indices_fine_1[offsets[c][i]]) += 1;
 
             // move pointers (only once at the end)
             if (c + 1 == GeometryInfo<dim>::max_children_per_cell)
@@ -440,21 +422,12 @@ namespace MGTransferUtil
           &transfer.schemes[1].level_dof_indices_fine[0];
 
         process_cells(
-          [&](const auto &, const auto &cell_fine) {
-            std::fill(local_weights.begin(), local_weights.end(), Number(1.));
-
-            for (unsigned int f = 0; f < GeometryInfo<dim>::faces_per_cell; f++)
-              if (!cell_fine->at_boundary(f))
-                if (cell_fine->level() > cell_fine->neighbor_level(f))
-                  {
-                    auto &sh = shape_info.face_to_cell_index_nodal;
-                    for (unsigned int i = 0; i < sh.size()[1]; i++)
-                      local_weights[sh[f][i]] = Number(0.);
-                  }
-
+          [&](const auto &, const auto &) {
             for (unsigned int i = 0; i < transfer.schemes[0].n_cell_dofs_fine;
                  i++)
-              if (local_weights[i] == 0.0)
+              if (constraint_fine.is_constrained(
+                    transfer.partitioner_fine->local_to_global(
+                      level_dof_indices_fine_0[i])) == true)
                 weights_0[i] = Number(0.);
               else
                 weights_0[i] = Number(1.) / touch_count.local_element(
@@ -463,21 +436,12 @@ namespace MGTransferUtil
             level_dof_indices_fine_0 += transfer.schemes[0].n_cell_dofs_fine;
             weights_0 += transfer.schemes[0].n_cell_dofs_fine;
           },
-          [&](const auto &, const auto &cell_fine, const auto c) {
-            std::fill(local_weights.begin(), local_weights.end(), Number(1.));
-
-            for (unsigned int f = 0; f < GeometryInfo<dim>::faces_per_cell; f++)
-              if (!cell_fine->at_boundary(f))
-                if (cell_fine->level() > cell_fine->neighbor_level(f))
-                  {
-                    auto &sh = shape_info.face_to_cell_index_nodal;
-                    for (unsigned int i = 0; i < sh.size()[1]; i++)
-                      local_weights[sh[f][i]] = Number(0.);
-                  }
-
+          [&](const auto &, const auto &, const auto c) {
             for (unsigned int i = 0; i < transfer.schemes[1].n_cell_dofs_coarse;
                  i++)
-              if (local_weights[i] == 0.0)
+              if (constraint_fine.is_constrained(
+                    transfer.partitioner_fine->local_to_global(
+                      level_dof_indices_fine_1[offsets[c][i]])) == true)
                 weights_1[offsets[c][i]] = Number(0.);
               else
                 weights_1[offsets[c][i]] =
