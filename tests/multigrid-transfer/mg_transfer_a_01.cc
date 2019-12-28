@@ -86,8 +86,11 @@ do_test(const FiniteElement<dim> &fe_fine, const FiniteElement<dim> &fe_coarse)
   constraint_coarse.close();
 
   // setup transfer operator
-  TransferA<dim, Number> transfer;
-  transfer.reinit(dof_handler_fine, dof_handler_coarse, constraint_coarse);
+  Transfer<dim, Number> transfer;
+  MGTransferUtil::setup_global_coarsening_transfer(dof_handler_fine,
+                                                   dof_handler_coarse,
+                                                   constraint_coarse,
+                                                   transfer);
 
   test_transfer_operator(transfer, dof_handler_fine, dof_handler_coarse);
 }

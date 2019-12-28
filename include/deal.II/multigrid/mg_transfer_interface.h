@@ -55,17 +55,17 @@ public:
   void
   print_internal() const;
 
-protected:
   void
-  do_prolongate_add(
+  prolongate(
     const unsigned int                                to_level,
     LinearAlgebra::distributed::Vector<Number> &      dst,
-    const LinearAlgebra::distributed::Vector<Number> &src) const;
+    const LinearAlgebra::distributed::Vector<Number> &src) const override;
 
   void
-  do_restrict_add(const unsigned int                                from_level,
-                  LinearAlgebra::distributed::Vector<Number> &      dst,
-                  const LinearAlgebra::distributed::Vector<Number> &src) const;
+  restrict_and_add(
+    const unsigned int                                from_level,
+    LinearAlgebra::distributed::Vector<Number> &      dst,
+    const LinearAlgebra::distributed::Vector<Number> &src) const override;
 
   std::vector<TransferScheme<Number>> schemes;
 

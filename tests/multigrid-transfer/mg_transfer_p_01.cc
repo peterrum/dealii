@@ -77,11 +77,12 @@ do_test(const FiniteElement<dim> &fe_fine, const FiniteElement<dim> &fe_coarse)
   constraint_fine.close();
 
   // setup transfer operator
-  TransferP<dim, Number> transfer;
-  transfer.reinit(dof_handler_fine,
-                  dof_handler_coarse,
-                  constraint_fine,
-                  constraint_coarse);
+  Transfer<dim, Number> transfer;
+  MGTransferUtil::setup_polynomial_transfer(dof_handler_fine,
+                                            dof_handler_coarse,
+                                            constraint_fine,
+                                            constraint_coarse,
+                                            transfer);
 
   test_transfer_operator(transfer, dof_handler_fine, dof_handler_coarse);
 }
