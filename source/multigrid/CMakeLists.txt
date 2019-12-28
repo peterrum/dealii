@@ -46,6 +46,7 @@ SET(_inst
   mg_tools.inst.in
   mg_transfer_block.inst.in
   mg_transfer_component.inst.in
+  mg_transfer_interface.inst.in
   mg_transfer_internal.inst.in
   mg_transfer_matrix_free.inst.in
   mg_transfer_prebuilt.inst.in
