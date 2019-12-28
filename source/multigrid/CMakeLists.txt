@@ -21,6 +21,7 @@ SET(_unity_include_src
   mg_transfer_block.cc
   mg_transfer_component.cc
   mg_transfer_interface.cc
+  mg_transfer_interface_util.cc
   mg_transfer_internal.cc
   mg_transfer_prebuilt.cc
   multigrid.cc
@@ -47,6 +48,7 @@ SET(_inst
   mg_transfer_block.inst.in
   mg_transfer_component.inst.in
   mg_transfer_interface.inst.in
+  mg_transfer_interface_util.inst.in
   mg_transfer_internal.inst.in
   mg_transfer_matrix_free.inst.in
   mg_transfer_prebuilt.inst.in
