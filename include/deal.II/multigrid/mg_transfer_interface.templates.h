@@ -197,7 +197,7 @@ Transfer<dim, Number>::print_internal() const
 
 template <int dim, typename Number>
 void
-Transfer<dim, Number>::do_prolongate_add(
+Transfer<dim, Number>::prolongate(
   const unsigned int                                to_level,
   LinearAlgebra::distributed::Vector<Number> &      dst,
   const LinearAlgebra::distributed::Vector<Number> &src) const
@@ -288,9 +288,11 @@ Transfer<dim, Number>::do_prolongate_add(
   dst.copy_locally_owned_data_from(this->vec_fine);
 }
 
+
+
 template <int dim, typename Number>
 void
-Transfer<dim, Number>::do_restrict_add(
+Transfer<dim, Number>::restrict_and_add(
   const unsigned int                                from_level,
   LinearAlgebra::distributed::Vector<Number> &      dst,
   const LinearAlgebra::distributed::Vector<Number> &src) const
