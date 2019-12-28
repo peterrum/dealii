@@ -85,10 +85,15 @@ do_test(const FiniteElement<dim> &fe_fine, const FiniteElement<dim> &fe_coarse)
                                           constraint_coarse);
   constraint_coarse.close();
 
+  AffineConstraints<Number> constraint_fine;
+  DoFTools::make_hanging_node_constraints(dof_handler_fine, constraint_fine);
+  constraint_coarse.close();
+
   // setup transfer operator
   Transfer<dim, Number> transfer;
   MGTransferUtil::setup_global_coarsening_transfer(dof_handler_fine,
                                                    dof_handler_coarse,
+                                                   constraint_fine,
                                                    constraint_coarse,
                                                    transfer);
 

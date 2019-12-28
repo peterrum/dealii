@@ -31,6 +31,7 @@ namespace MGTransferUtil
   setup_global_coarsening_transfer(
     const DoFHandler<dim> &          dof_handler_fine,
     const DoFHandler<dim> &          dof_handler_coarse,
+    const AffineConstraints<Number> &constraint_fine,
     const AffineConstraints<Number> &constraint_coarse,
     Transfer<dim, Number> &          transfer);
 
