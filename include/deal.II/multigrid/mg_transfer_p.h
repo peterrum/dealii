@@ -20,16 +20,15 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-template <int dim, typename Number>
-class TransferP : public Transfer<dim, Number>
+namespace MGTransferUtil
 {
-public:
-  template <typename MeshType>
+  template <int dim, typename Number, typename MeshType>
   void
-  reinit(const MeshType &                 dof_handler_fine,
-         const MeshType &                 dof_handler_coarse,
-         const AffineConstraints<Number> &constraint_fine,
-         const AffineConstraints<Number> &constraint_coarse)
+  setup_polynomial_transfer(const MeshType &                 dof_handler_fine,
+                            const MeshType &                 dof_handler_coarse,
+                            const AffineConstraints<Number> &constraint_fine,
+                            const AffineConstraints<Number> &constraint_coarse,
+                            Transfer<dim, Number> &          transfer)
   {
     AssertDimension(dof_handler_fine.get_triangulation().n_active_cells(),
                     dof_handler_coarse.get_triangulation().n_active_cells());
@@ -63,15 +62,15 @@ public:
     for (auto &f : fe_index_pairs)
       f.second = counter++;
 
-    this->schemes.resize(fe_index_pairs.size());
+    transfer.schemes.resize(fe_index_pairs.size());
 
     // extract number of coarse cells
     {
-      for (auto &scheme : this->schemes)
+      for (auto &scheme : transfer.schemes)
         scheme.n_cells_coarse = 0;
       process_cells([&](const auto &cell_coarse, const auto &cell_fine) {
-        this
-          ->schemes[fe_index_pairs[std::pair<unsigned int, unsigned int>(
+        transfer
+          .schemes[fe_index_pairs[std::pair<unsigned int, unsigned int>(
             cell_coarse->active_fe_index(), cell_fine->active_fe_index())]]
           .n_cells_coarse++;
       });
@@ -79,22 +78,22 @@ public:
 
     for (const auto fe_index_pair : fe_index_pairs)
       {
-        this->schemes[fe_index_pair.second].n_cell_dofs_coarse =
+        transfer.schemes[fe_index_pair.second].n_cell_dofs_coarse =
           dof_handler_coarse.get_fe(fe_index_pair.first.first).dofs_per_cell;
-        this->schemes[fe_index_pair.second].n_cell_dofs_fine =
+        transfer.schemes[fe_index_pair.second].n_cell_dofs_fine =
           dof_handler_fine.get_fe(fe_index_pair.first.second).dofs_per_cell;
 
-        this->schemes[fe_index_pair.second].degree_coarse =
+        transfer.schemes[fe_index_pair.second].degree_coarse =
           dof_handler_coarse.get_fe(fe_index_pair.first.first).degree;
-        this->schemes[fe_index_pair.second].degree_fine =
+        transfer.schemes[fe_index_pair.second].degree_fine =
           dof_handler_fine.get_fe(fe_index_pair.first.second).degree;
 
-        this->schemes[fe_index_pair.second].fine_element_is_continuous =
+        transfer.schemes[fe_index_pair.second].fine_element_is_continuous =
           dof_handler_fine.get_fe(fe_index_pair.first.second).dofs_per_vertex >
           0;
       }
 
-    this->constraint_coarse.copy_from(constraint_coarse);
+    transfer.constraint_coarse.copy_from(constraint_coarse);
 
     {
       const parallel::TriangulationBase<dim> *dist_tria =
@@ -109,20 +108,20 @@ public:
         DoFTools::extract_locally_relevant_dofs(dof_handler_fine,
                                                 locally_relevant_dofs);
 
-        this->partitioner_fine.reset(new Utilities::MPI::Partitioner(
+        transfer.partitioner_fine.reset(new Utilities::MPI::Partitioner(
           dof_handler_fine.locally_owned_dofs(), locally_relevant_dofs, comm));
-        this->vec_fine.reinit(this->partitioner_fine);
+        transfer.vec_fine.reinit(transfer.partitioner_fine);
       }
       {
         IndexSet locally_relevant_dofs;
         DoFTools::extract_locally_relevant_dofs(dof_handler_coarse,
                                                 locally_relevant_dofs);
 
-        this->partitioner_coarse.reset(new Utilities::MPI::Partitioner(
+        transfer.partitioner_coarse.reset(new Utilities::MPI::Partitioner(
           dof_handler_coarse.locally_owned_dofs(),
           locally_relevant_dofs,
           comm));
-        this->vec_coarse.reinit(this->partitioner_coarse);
+        transfer.vec_coarse.reinit(transfer.partitioner_coarse);
       }
     }
 
@@ -139,16 +138,17 @@ public:
       for (const auto fe_index_pair : fe_index_pairs)
         {
           local_dof_indices_coarse[fe_index_pair.second].resize(
-            this->schemes[fe_index_pair.second].n_cell_dofs_coarse);
+            transfer.schemes[fe_index_pair.second].n_cell_dofs_coarse);
           local_dof_indices_fine[fe_index_pair.second].resize(
-            this->schemes[fe_index_pair.second].n_cell_dofs_fine);
+            transfer.schemes[fe_index_pair.second].n_cell_dofs_fine);
 
-          this->schemes[fe_index_pair.second].level_dof_indices_fine.resize(
-            this->schemes[fe_index_pair.second].n_cell_dofs_fine *
-            this->schemes[fe_index_pair.second].n_cells_coarse);
-          this->schemes[fe_index_pair.second].level_dof_indices_coarse.resize(
-            this->schemes[fe_index_pair.second].n_cell_dofs_coarse *
-            this->schemes[fe_index_pair.second].n_cells_coarse);
+          transfer.schemes[fe_index_pair.second].level_dof_indices_fine.resize(
+            transfer.schemes[fe_index_pair.second].n_cell_dofs_fine *
+            transfer.schemes[fe_index_pair.second].n_cells_coarse);
+          transfer.schemes[fe_index_pair.second]
+            .level_dof_indices_coarse.resize(
+              transfer.schemes[fe_index_pair.second].n_cell_dofs_coarse *
+              transfer.schemes[fe_index_pair.second].n_cells_coarse);
 
 
           // ----------------------- lexicographic_numbering
@@ -182,9 +182,9 @@ public:
       for (unsigned int i = 0; i < fe_index_pairs.size(); i++)
         {
           level_dof_indices_coarse_[i] =
-            &this->schemes[i].level_dof_indices_coarse[0];
+            &transfer.schemes[i].level_dof_indices_coarse[0];
           level_dof_indices_fine_[i] =
-            &this->schemes[i].level_dof_indices_fine[0];
+            &transfer.schemes[i].level_dof_indices_fine[0];
         }
 
       process_cells([&](const auto &cell_coarse, const auto &cell_fine) {
@@ -194,27 +194,28 @@ public:
 
         cell_coarse->get_dof_indices(local_dof_indices_coarse[fe_pair_no]);
         for (unsigned int i = 0;
-             i < this->schemes[fe_pair_no].n_cell_dofs_coarse;
+             i < transfer.schemes[fe_pair_no].n_cell_dofs_coarse;
              i++)
           level_dof_indices_coarse_[fe_pair_no][i] =
-            this->partitioner_coarse->global_to_local(
+            transfer.partitioner_coarse->global_to_local(
               local_dof_indices_coarse
                 [fe_pair_no][lexicographic_numbering_coarse[fe_pair_no][i]]);
 
 
         cell_fine->get_dof_indices(local_dof_indices_fine[fe_pair_no]);
-        for (unsigned int i = 0; i < this->schemes[fe_pair_no].n_cell_dofs_fine;
+        for (unsigned int i = 0;
+             i < transfer.schemes[fe_pair_no].n_cell_dofs_fine;
              i++)
           level_dof_indices_fine_[fe_pair_no][i] =
-            this->partitioner_fine->global_to_local(
+            transfer.partitioner_fine->global_to_local(
               local_dof_indices_fine
                 [fe_pair_no][lexicographic_numbering_fine[fe_pair_no][i]]);
 
 
         level_dof_indices_coarse_[fe_pair_no] +=
-          this->schemes[fe_pair_no].n_cell_dofs_coarse;
+          transfer.schemes[fe_pair_no].n_cell_dofs_coarse;
         level_dof_indices_fine_[fe_pair_no] +=
-          this->schemes[fe_pair_no].n_cell_dofs_fine;
+          transfer.schemes[fe_pair_no].n_cell_dofs_fine;
       });
     }
 
@@ -286,24 +287,24 @@ public:
         FullMatrix<Number> matrix(fe_fine->dofs_per_cell,
                                   fe_coarse->dofs_per_cell);
         FETools::get_projection_matrix(*fe_coarse, *fe_fine, matrix);
-        this->schemes[fe_index_no].prolongation_matrix_1d.resize(
+        transfer.schemes[fe_index_no].prolongation_matrix_1d.resize(
           fe_fine->dofs_per_cell * fe_coarse->dofs_per_cell);
 
         for (unsigned int i = 0, k = 0; i < fe_coarse->dofs_per_cell; ++i)
           for (unsigned int j = 0; j < fe_fine->dofs_per_cell; ++j, ++k)
-            this->schemes[fe_index_no].prolongation_matrix_1d[k] =
+            transfer.schemes[fe_index_no].prolongation_matrix_1d[k] =
               matrix(renumbering_fine[j], renumbering_coarse[i]);
       }
 
     // -------------------------------- weights --------------------------------
-    if (this->schemes.front().fine_element_is_continuous)
+    if (transfer.schemes.front().fine_element_is_continuous)
       {
-        for (auto &scheme : this->schemes)
+        for (auto &scheme : transfer.schemes)
           scheme.weights.resize(scheme.n_cells_coarse *
                                 scheme.n_cell_dofs_fine);
 
         LinearAlgebra::distributed::Vector<Number> touch_count;
-        touch_count.reinit(this->partitioner_fine);
+        touch_count.reinit(transfer.partitioner_fine);
 
         std::vector<unsigned int *> level_dof_indices_fine_(
           fe_index_pairs.size());
@@ -311,7 +312,7 @@ public:
 
         for (unsigned int i = 0; i < fe_index_pairs.size(); i++)
           level_dof_indices_fine_[i] =
-            &this->schemes[i].level_dof_indices_fine[0];
+            &transfer.schemes[i].level_dof_indices_fine[0];
 
         process_cells([&](const auto &cell_coarse, const auto &cell_fine) {
           const auto fe_pair_no =
@@ -319,16 +320,16 @@ public:
               cell_coarse->active_fe_index(), cell_fine->active_fe_index())];
 
           for (unsigned int i = 0;
-               i < this->schemes[fe_pair_no].n_cell_dofs_fine;
+               i < transfer.schemes[fe_pair_no].n_cell_dofs_fine;
                i++)
             if (constraint_fine.is_constrained(
-                  this->partitioner_fine->local_to_global(
+                  transfer.partitioner_fine->local_to_global(
                     level_dof_indices_fine_[fe_pair_no][i])) == false)
               touch_count.local_element(
                 level_dof_indices_fine_[fe_pair_no][i]) += 1;
 
           level_dof_indices_fine_[fe_pair_no] +=
-            this->schemes[fe_pair_no].n_cell_dofs_fine;
+            transfer.schemes[fe_pair_no].n_cell_dofs_fine;
         });
 
         touch_count.compress(VectorOperation::add);
@@ -337,8 +338,8 @@ public:
         for (unsigned int i = 0; i < fe_index_pairs.size(); i++)
           {
             level_dof_indices_fine_[i] =
-              &this->schemes[i].level_dof_indices_fine[0];
-            weights_[i] = &this->schemes[i].weights[0];
+              &transfer.schemes[i].level_dof_indices_fine[0];
+            weights_[i] = &transfer.schemes[i].weights[0];
           }
 
         process_cells([&](const auto &cell_coarse, const auto &cell_fine) {
@@ -347,10 +348,10 @@ public:
               cell_coarse->active_fe_index(), cell_fine->active_fe_index())];
 
           for (unsigned int i = 0;
-               i < this->schemes[fe_pair_no].n_cell_dofs_fine;
+               i < transfer.schemes[fe_pair_no].n_cell_dofs_fine;
                i++)
             if (constraint_fine.is_constrained(
-                  this->partitioner_fine->local_to_global(
+                  transfer.partitioner_fine->local_to_global(
                     level_dof_indices_fine_[fe_pair_no][i])) == true)
               weights_[fe_pair_no][i] = Number(0.);
             else
@@ -359,40 +360,12 @@ public:
                                level_dof_indices_fine_[fe_pair_no][i]);
 
           level_dof_indices_fine_[fe_pair_no] +=
-            this->schemes[fe_pair_no].n_cell_dofs_fine;
-          weights_[fe_pair_no] += this->schemes[fe_pair_no].n_cell_dofs_fine;
+            transfer.schemes[fe_pair_no].n_cell_dofs_fine;
+          weights_[fe_pair_no] += transfer.schemes[fe_pair_no].n_cell_dofs_fine;
         });
       }
   }
-
-  void
-  prolongate(const unsigned int                                to_level,
-             LinearAlgebra::distributed::Vector<Number> &      dst,
-             const LinearAlgebra::distributed::Vector<Number> &src) const
-  {
-    this->do_prolongate_add(to_level, dst, src);
-  }
-
-  void
-  prolongate_add(const unsigned int                                to_level,
-                 LinearAlgebra::distributed::Vector<Number> &      dst,
-                 const LinearAlgebra::distributed::Vector<Number> &src) const
-  {
-    (void)to_level;
-    (void)dst;
-    (void)src;
-
-    Assert(false, ExcNotImplemented());
-  }
-
-  void
-  restrict_and_add(const unsigned int                                from_level,
-                   LinearAlgebra::distributed::Vector<Number> &      dst,
-                   const LinearAlgebra::distributed::Vector<Number> &src) const
-  {
-    this->do_restrict_add(from_level, dst, src);
-  }
-};
+} // namespace MGTransferUtil
 
 DEAL_II_NAMESPACE_CLOSE
 
