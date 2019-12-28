@@ -164,35 +164,35 @@ private:
 
 template <typename Number>
 void
-TransferScheme<Number>::print() const
+TransferScheme<Number>::print(std::ostream &out) const
 {
-  std::cout << "weights:" << std::endl;
+  out << "weights:" << std::endl;
   for (const auto w : weights)
-    std::cout << w << " ";
-  std::cout << std::endl;
+    out << w << " ";
+  out << std::endl;
 
-  std::cout << "level_dof_indices_fine:" << std::endl;
+  out << "level_dof_indices_fine:" << std::endl;
   for (const auto w : level_dof_indices_fine)
-    std::cout << w << " ";
-  std::cout << std::endl;
+    out << w << " ";
+  out << std::endl;
 
-  std::cout << "level_dof_indices_coarse:" << std::endl;
+  out << "level_dof_indices_coarse:" << std::endl;
   for (const auto w : level_dof_indices_coarse)
-    std::cout << w << " ";
-  std::cout << std::endl;
+    out << w << " ";
+  out << std::endl;
 
-  std::cout << "prolongation_matrix_1d:" << std::endl;
+  out << "prolongation_matrix_1d:" << std::endl;
   for (const auto w : prolongation_matrix_1d)
-    std::cout << w[0] << " ";
-  std::cout << std::endl;
+    out << w[0] << " ";
+  out << std::endl;
 }
 
 template <int dim, typename Number>
 void
-Transfer<dim, Number>::print_internal() const
+Transfer<dim, Number>::print_internal(std::ostream &out) const
 {
   for (const auto &scheme : schemes)
-    scheme.print();
+    scheme.print(out);
 }
 
 template <int dim, typename Number>
