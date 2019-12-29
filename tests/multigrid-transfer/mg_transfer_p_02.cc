@@ -47,10 +47,13 @@ template <int dim, typename Number>
 void
 do_test()
 {
-  // create triangulation
-  Triangulation<dim> tria;
-  GridGenerator::hyper_cube(tria);
-  tria.refine_global();
+  parallel::distributed::Triangulation<dim> tria(
+    MPI_COMM_WORLD,
+    Triangulation<dim>::limit_level_difference_at_vertices,
+    parallel::distributed::Triangulation<dim>::construct_multigrid_hierarchy);
+
+  // create grid
+  GridGenerator::subdivided_hyper_cube(tria, 2);
 
   // data structures needed on all levels
   hp::DoFHandler<dim>   dof_handler_fine(tria);
@@ -63,7 +66,8 @@ do_test()
 
     for (auto &cell : dof_handler_fine.active_cell_iterators())
       {
-        cell->set_active_fe_index(i);
+        if (cell->is_locally_owned())
+          cell->set_active_fe_index(i);
         fe_collection.push_back(FE_Q<dim>(i + 1));
         i++;
       }
@@ -73,10 +77,14 @@ do_test()
   {
     auto cell_other = dof_handler_fine.begin_active();
     for (auto &cell : dof_handler_coarse.active_cell_iterators())
-      cell->set_active_fe_index(
-        std::max(((cell_other++)->active_fe_index() + 1) / 2 /*bisection*/,
-                 1u) -
-        1);
+      {
+        if (cell->is_locally_owned())
+          cell->set_active_fe_index(
+            std::max(((cell_other)->active_fe_index() + 1) / 2 /*bisection*/,
+                     1u) -
+            1);
+        cell_other++;
+      }
   }
 
   // create dof_handler
