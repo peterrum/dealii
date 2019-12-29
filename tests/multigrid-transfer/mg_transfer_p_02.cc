@@ -39,6 +39,8 @@
 #include <deal.II/multigrid/mg_constrained_dofs.h>
 #include <deal.II/multigrid/mg_transfer_interface_util.h>
 
+#include <limits>
+
 #include "test.h"
 
 using namespace dealii;
@@ -60,55 +62,94 @@ do_test()
   hp::DoFHandler<dim>   dof_handler_coarse(tria);
   hp::FECollection<dim> fe_collection;
 
-  // set FEs on fine level
-  {
-    unsigned int i = 0;
 
-    for (auto &cell : dof_handler_fine.active_cell_iterators())
+  // loop over levels
+  for (unsigned int l = 0; l < std::numeric_limits<unsigned int>::max(); l++)
+    {
+      deallog.push("level" + std::to_string(l));
+
+      // set FEs on fine level
+      if (l == 0)
+        {
+          unsigned int i = 0;
+
+          for (auto &cell : dof_handler_fine.active_cell_iterators())
+            {
+              if (cell->is_locally_owned())
+                cell->set_active_fe_index(i);
+              fe_collection.push_back(FE_Q<dim>(i + 1));
+              i++;
+            }
+        }
+      else
+        {
+          for (auto &cell : dof_handler_fine.active_cell_iterators())
+            {
+              if (cell->is_locally_owned())
+                cell->set_active_fe_index(
+                  std::max(((cell)->active_fe_index() + 1) / 2 /*bisection*/,
+                           1u) -
+                  1);
+            }
+        }
+
+      // set FEs on coarse level
       {
-        if (cell->is_locally_owned())
-          cell->set_active_fe_index(i);
-        fe_collection.push_back(FE_Q<dim>(i + 1));
-        i++;
+        auto cell_other = dof_handler_fine.begin_active();
+        for (auto &cell : dof_handler_coarse.active_cell_iterators())
+          {
+            if (cell->is_locally_owned())
+              cell->set_active_fe_index(
+                std::max(((cell_other)->active_fe_index() + 1) /
+                           2 /*bisection*/,
+                         1u) -
+                1);
+            cell_other++;
+          }
       }
-  }
 
-  // set FEs on coarse level
-  {
-    auto cell_other = dof_handler_fine.begin_active();
-    for (auto &cell : dof_handler_coarse.active_cell_iterators())
+      // create dof_handler
+      dof_handler_fine.distribute_dofs(fe_collection);
+      dof_handler_coarse.distribute_dofs(fe_collection);
+
+      AffineConstraints<Number> constraint_coarse;
+      DoFTools::make_hanging_node_constraints(dof_handler_coarse,
+                                              constraint_coarse);
+      constraint_coarse.close();
+
+      AffineConstraints<Number> constraint_fine;
+      DoFTools::make_hanging_node_constraints(dof_handler_fine,
+                                              constraint_fine);
+      constraint_fine.close();
+
+      // setup transfer operator
+      Transfer<dim, Number> transfer;
+      MGTransferUtil::setup_polynomial_transfer(dof_handler_fine,
+                                                dof_handler_coarse,
+                                                constraint_fine,
+                                                constraint_coarse,
+                                                transfer);
+
+      test_transfer_operator(transfer, dof_handler_fine, dof_handler_coarse);
+
+      deallog.pop();
+
+      // break if all cells on coarse level have active_fe_index=0
       {
-        if (cell->is_locally_owned())
-          cell->set_active_fe_index(
-            std::max(((cell_other)->active_fe_index() + 1) / 2 /*bisection*/,
-                     1u) -
-            1);
-        cell_other++;
+        unsigned int min = 0;
+
+        for (auto &cell : dof_handler_coarse.active_cell_iterators())
+          {
+            if (cell->is_locally_owned())
+              min = std::max(min, cell->active_fe_index());
+          }
+
+        min = Utilities::MPI::max(min, MPI_COMM_WORLD);
+
+        if (min == 0)
+          break;
       }
-  }
-
-  // create dof_handler
-  dof_handler_fine.distribute_dofs(fe_collection);
-  dof_handler_coarse.distribute_dofs(fe_collection);
-
-  AffineConstraints<Number> constraint_coarse;
-  DoFTools::make_hanging_node_constraints(dof_handler_coarse,
-                                          constraint_coarse);
-  constraint_coarse.close();
-
-  AffineConstraints<Number> constraint_fine;
-  DoFTools::make_hanging_node_constraints(dof_handler_fine, constraint_fine);
-  constraint_fine.close();
-
-  // setup transfer operator
-  Transfer<dim, Number> transfer;
-  MGTransferUtil::setup_polynomial_transfer(dof_handler_fine,
-                                            dof_handler_coarse,
-                                            constraint_fine,
-                                            constraint_coarse,
-                                            transfer);
-
-  test_transfer_operator(transfer, dof_handler_fine, dof_handler_coarse);
+    }
 }
 
 template <int dim, typename Number>
