@@ -75,6 +75,12 @@ public:
         return true;
       }
 
+    if (n == 100 * degree + degree) // identity (nothing to do)
+      {
+        fu.template run<degree, degree>();
+        return true;
+      }
+
     if (n == 100 * degree + std::max(degree - 1, 1)) // p-MG: decrement by one
       {
         fu.template run<degree, std::max(degree - 1, 1)>();

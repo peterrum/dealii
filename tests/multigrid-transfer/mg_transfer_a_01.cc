@@ -133,5 +133,5 @@ main(int argc, char **argv)
   MPILogInitAll                    all;
 
   test<2, double>(1);
-  // test<2, 2, double>(); // TODO: not working -> segfault
+  test<2, double>(2);
 }
