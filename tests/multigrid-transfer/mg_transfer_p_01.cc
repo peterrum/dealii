@@ -14,7 +14,22 @@
 // ---------------------------------------------------------------------
 
 
-// Test p-transfer.
+/**
+ *
+ * Example:
+ *
+ * +--+--+------+      +--+--+------+
+ * |kf|kf|      |      |kc|kc|      |
+ * |--+--|  kf  |      |--+--|  kc  |
+ * |kf|kf|      |  0   |kc|kc|      |
+ * +--+--+------+  ->  +--+--+------+
+ * |kf|kf|      |      |kc|kc|      |
+ * |--+--|  kf  |      |--+--|  kc  |
+ * |kf|kf|      |      |kc|kc|      |
+ * +--+--+------+      +--+--+------+
+ *
+ *                 ... with fe_degree in the cells
+ */
 
 #include <deal.II/base/conditional_ostream.h>
 #include <deal.II/base/logstream.h>
