@@ -61,31 +61,30 @@ template <int dim, typename Number>
 void
 do_test(const FiniteElement<dim> &fe_fine, const FiniteElement<dim> &fe_coarse)
 {
+  auto create_fine_grid = [](Triangulation<dim> &tria) {
+    GridGenerator::hyper_cube(tria);
+    tria.refine_global();
+
+    for (auto &cell : tria.active_cell_iterators())
+      if (cell->active() && cell->center()[0] < 0.5)
+        cell->set_refine_flag();
+    tria.execute_coarsening_and_refinement();
+  };
+
+  auto execute_global_coarsening = [](Triangulation<dim> &tria) {
+    for (auto &cell : tria.active_cell_iterators())
+      cell->set_coarsen_flag();
+    tria.execute_coarsening_and_refinement();
+  };
+
   // create coarse grid
   Triangulation<dim> tria_coarse;
-  {
-    GridGenerator::hyper_cube(tria_coarse);
-    tria_coarse.refine_global();
-  }
+  create_fine_grid(tria_coarse);
+  execute_global_coarsening(tria_coarse);
 
   // create fine grid
   Triangulation<dim> tria_fine;
-  {
-    GridGenerator::hyper_cube(tria_fine);
-    if (true)
-      {
-        tria_fine.refine_global();
-
-        for (auto &cell : tria_fine.active_cell_iterators())
-          if (cell->active() && cell->center()[0] < 0.5)
-            cell->set_refine_flag();
-        tria_fine.execute_coarsening_and_refinement();
-      }
-    else
-      {
-        tria_fine.refine_global(2);
-      }
-  }
+  create_fine_grid(tria_fine);
 
   // setup dof-handlers
   DoFHandler<dim> dof_handler_fine(tria_fine);
