@@ -148,7 +148,6 @@ namespace MGTransferUtil
     };
 
     transfer.schemes.resize(2);
-    auto &scheme = transfer.schemes.front();
 
     AssertDimension(dof_handler_coarse.get_fe().dofs_per_cell,
                     dof_handler_fine.get_fe().dofs_per_cell);
@@ -271,9 +270,9 @@ namespace MGTransferUtil
             {
               cell_coarse->get_dof_indices(local_dof_indices);
               for (unsigned int i = 0;
-                   i < transfer.schemes[0].n_cell_dofs_coarse;
+                   i < transfer.schemes[1].n_cell_dofs_coarse;
                    i++)
-                level_dof_indices_coarse_1[offsets[c][i]] =
+                level_dof_indices_coarse_1[i] =
                   transfer.partitioner_coarse->global_to_local(
                     local_dof_indices[lexicographic_numbering[i]]);
             }
@@ -313,11 +312,12 @@ namespace MGTransferUtil
       const std::unique_ptr<FiniteElement<1>> fe(
         FETools::get_fe_by_name<1, 1>(fe_name));
 
-      scheme.prolongation_matrix_1d.resize(fe->dofs_per_cell *
-                                           fe->dofs_per_cell);
+      transfer.schemes[0].prolongation_matrix_1d.resize(fe->dofs_per_cell *
+                                                        fe->dofs_per_cell);
 
       for (unsigned int i = 0; i < fe->dofs_per_cell; i++)
-        scheme.prolongation_matrix_1d[i + i * fe->dofs_per_cell] = Number(1.0);
+        transfer.schemes[0].prolongation_matrix_1d[i + i * fe->dofs_per_cell] =
+          Number(1.0);
     }
 
     // ------------------------ prolongation matrix (1) ------------------------

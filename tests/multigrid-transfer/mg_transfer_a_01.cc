@@ -147,6 +147,6 @@ main(int argc, char **argv)
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    all;
 
-  test<2, double>(1);
-  test<2, double>(2);
+  for (unsigned int i = 1; i < 5; i++)
+    test<2, double>(i);
 }
