@@ -25,148 +25,120 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-
-class CellTransfer
+namespace
 {
-public:
-  CellTransfer(const unsigned int degree_fine, const unsigned int degree_coarse)
-    : n(100 * degree_fine + degree_coarse)
-  {}
-
-  template <typename Fu>
-  void
-  run(Fu &fu)
+  class CellTransfer
   {
-    if (do_run_degree<1>(fu))
-      return;
-    if (do_run_degree<2>(fu))
-      return;
-    if (do_run_degree<3>(fu))
-      return;
-    if (do_run_degree<4>(fu))
-      return;
-    if (do_run_degree<5>(fu))
-      return;
-    if (do_run_degree<6>(fu))
-      return;
-    if (do_run_degree<7>(fu))
-      return;
-    if (do_run_degree<8>(fu))
-      return;
-    if (do_run_degree<9>(fu))
-      return;
-    Assert(false,
-           ExcMessage("Transfer " + std::to_string(n) + " not instantiated!"));
-  }
+  public:
+    CellTransfer(const unsigned int degree_fine,
+                 const unsigned int degree_coarse)
+      : n(100 * degree_fine + degree_coarse)
+    {}
 
-  template <int degree, typename Fu>
-  bool
-  do_run_degree(Fu &fu)
-  {
-    if (n == 100 * (2 * degree + 1) + degree) // h-MG
-      {
+    template <typename Fu>
+    bool
+    run(Fu &fu)
+    {
+      return do_run_degree<1>(fu) || do_run_degree<2>(fu) ||
+             do_run_degree<3>(fu) || do_run_degree<4>(fu) ||
+             do_run_degree<5>(fu) || do_run_degree<6>(fu) ||
+             do_run_degree<7>(fu) || do_run_degree<8>(fu) ||
+             do_run_degree<9>(fu);
+    }
+
+    template <int degree, typename Fu>
+    bool
+    do_run_degree(Fu &fu)
+    {
+      if (n == 100 * (2 * degree + 1) + degree) // h-MG
         fu.template run<2 * degree + 1, degree>();
-        return true;
-      }
-
-    if (n == 100 * degree + std::max(degree / 2, 1)) // p-MG: bisection
-      {
+      else if (n == 100 * degree + std::max(degree / 2, 1)) // p-MG: bisection
         fu.template run<degree, std::max(degree / 2, 1)>();
-        return true;
-      }
-
-    if (n == 100 * degree + degree) // identity (nothing to do)
-      {
+      else if (n == 100 * degree + degree) // identity (nothing to do)
         fu.template run<degree, degree>();
-        return true;
-      }
-
-    if (n == 100 * degree + std::max(degree - 1, 1)) // p-MG: decrement by one
-      {
+      else if (n == 100 * degree + std::max(degree - 1, 1)) // p-MG: --
         fu.template run<degree, std::max(degree - 1, 1)>();
-        return true;
-      }
-
-    if (n == 100 * degree + 1) // p-MG: jump to 1
-      {
+      else if (n == 100 * degree + 1) // p-MG: jump to 1
         fu.template run<degree, 1>();
-        return true;
-      }
+      else
+        return false;
 
-    return false;
-  }
+      return true;
+    }
 
-  const int n;
-};
+    const int n;
+  };
 
-template <int dim, typename Number>
-class CellProlongator
-{
-public:
-  CellProlongator(const AlignedVector<Number> &prolongation_matrix_1d,
-                  const Number *               evaluation_data_coarse,
-                  Number *                     evaluation_data_fine)
-    : prolongation_matrix_1d(prolongation_matrix_1d)
-    , evaluation_data_coarse(evaluation_data_coarse)
-    , evaluation_data_fine(evaluation_data_fine)
-  {}
-
-  template <int degree_fine, int degree_coarse>
-  void
-  run()
+  template <int dim, typename Number>
+  class CellProlongator
   {
-    internal::FEEvaluationImplBasisChange<
-      internal::evaluate_general,
-      dim,
-      degree_coarse + 1,
-      degree_fine + 1,
-      1,
-      Number,
-      Number>::do_forward(prolongation_matrix_1d,
-                          evaluation_data_coarse,
-                          evaluation_data_fine);
-  }
+  public:
+    CellProlongator(const AlignedVector<Number> &prolongation_matrix_1d,
+                    const Number *               evaluation_data_coarse,
+                    Number *                     evaluation_data_fine)
+      : prolongation_matrix_1d(prolongation_matrix_1d)
+      , evaluation_data_coarse(evaluation_data_coarse)
+      , evaluation_data_fine(evaluation_data_fine)
+    {}
 
-private:
-  const AlignedVector<Number> &prolongation_matrix_1d;
-  const Number *               evaluation_data_coarse;
-  Number *                     evaluation_data_fine;
-};
+    template <int degree_fine, int degree_coarse>
+    void
+    run()
+    {
+      internal::FEEvaluationImplBasisChange<
+        internal::evaluate_general,
+        dim,
+        degree_coarse + 1,
+        degree_fine + 1,
+        1,
+        Number,
+        Number>::do_forward(prolongation_matrix_1d,
+                            evaluation_data_coarse,
+                            evaluation_data_fine);
+    }
 
-template <int dim, typename Number>
-class CellRestrictor
-{
-public:
-  CellRestrictor(const AlignedVector<Number> &prolongation_matrix_1d,
-                 Number *                     evaluation_data_fine,
-                 Number *                     evaluation_data_coarse)
-    : prolongation_matrix_1d(prolongation_matrix_1d)
-    , evaluation_data_fine(evaluation_data_fine)
-    , evaluation_data_coarse(evaluation_data_coarse)
-  {}
+  private:
+    const AlignedVector<Number> &prolongation_matrix_1d;
+    const Number *               evaluation_data_coarse;
+    Number *                     evaluation_data_fine;
+  };
 
-  template <int degree_fine, int degree_coarse>
-  void
-  run()
+  template <int dim, typename Number>
+  class CellRestrictor
   {
-    internal::FEEvaluationImplBasisChange<
-      internal::evaluate_general,
-      dim,
-      degree_coarse + 1,
-      degree_fine + 1,
-      1,
-      Number,
-      Number>::do_backward(prolongation_matrix_1d,
-                           false,
-                           evaluation_data_fine,
-                           evaluation_data_coarse);
-  }
+  public:
+    CellRestrictor(const AlignedVector<Number> &prolongation_matrix_1d,
+                   Number *                     evaluation_data_fine,
+                   Number *                     evaluation_data_coarse)
+      : prolongation_matrix_1d(prolongation_matrix_1d)
+      , evaluation_data_fine(evaluation_data_fine)
+      , evaluation_data_coarse(evaluation_data_coarse)
+    {}
 
-private:
-  const AlignedVector<Number> &prolongation_matrix_1d;
-  Number *                     evaluation_data_fine;
-  Number *                     evaluation_data_coarse;
-};
+    template <int degree_fine, int degree_coarse>
+    void
+    run()
+    {
+      internal::FEEvaluationImplBasisChange<
+        internal::evaluate_general,
+        dim,
+        degree_coarse + 1,
+        degree_fine + 1,
+        1,
+        Number,
+        Number>::do_backward(prolongation_matrix_1d,
+                             false,
+                             evaluation_data_fine,
+                             evaluation_data_coarse);
+    }
+
+  private:
+    const AlignedVector<Number> &prolongation_matrix_1d;
+    Number *                     evaluation_data_fine;
+    Number *                     evaluation_data_coarse;
+  };
+
+} // namespace
 
 template <typename Number>
 void
@@ -255,7 +227,12 @@ Transfer<dim, Number>::prolongate(
           }
 
           // ---------------------------- coarse -----------------------------
-          cell_transfer.run(cell_prolongator);
+          const auto ierr = cell_transfer.run(cell_prolongator);
+          Assert(ierr,
+                 ExcMessage("Restriction " +
+                            std::to_string(scheme.degree_fine) + " -> " +
+                            std::to_string(scheme.degree_coarse) +
+                            " not instantiated!"));
           // ------------------------------ fine -----------------------------
 
           if (scheme.fine_element_is_continuous)
@@ -357,7 +334,12 @@ Transfer<dim, Number>::restrict_and_add(
             }
 
           // ------------------------------ fine -----------------------------
-          cell_transfer.run(cell_restrictor);
+          const auto ierr = cell_transfer.run(cell_restrictor);
+          Assert(ierr,
+                 ExcMessage("Restriction " +
+                            std::to_string(scheme.degree_fine) + " -> " +
+                            std::to_string(scheme.degree_coarse) +
+                            " not instantiated!"));
           // ----------------------------- coarse ----------------------------
 
 
