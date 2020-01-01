@@ -137,6 +137,10 @@ main(int argc, char **argv)
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    all;
 
-  test<2, double>(1, 1);
-  test<2, double>(2, 1);
+  for (unsigned int fe_degree_fine = 1; fe_degree_fine < 5; fe_degree_fine++)
+    for (unsigned int fe_degree_coarse = 1; fe_degree_coarse < 5;
+         fe_degree_coarse++)
+      if (MGTransferUtil::polynomial_transfer_supported(fe_degree_fine,
+                                                        fe_degree_coarse))
+        test<2, double>(fe_degree_fine, fe_degree_coarse);
 }
