@@ -229,9 +229,9 @@ Transfer<dim, Number>::prolongate(
           // ---------------------------- coarse -----------------------------
           const auto ierr = cell_transfer.run(cell_prolongator);
           Assert(ierr,
-                 ExcMessage("Restriction " +
-                            std::to_string(scheme.degree_fine) + " -> " +
-                            std::to_string(scheme.degree_coarse) +
+                 ExcMessage("Prolongation " +
+                            std::to_string(scheme.degree_coarse) + " -> " +
+                            std::to_string(scheme.degree_fine) +
                             " not instantiated!"));
           // ------------------------------ fine -----------------------------
 
