@@ -34,11 +34,11 @@ DEAL_II_NAMESPACE_OPEN
 
 namespace MGTransferUtil
 {
-  template <int dim, typename Number>
+  template <int dim, typename Number, typename MeshType>
   void
   setup_global_coarsening_transfer(
-    const DoFHandler<dim> &          dof_handler_fine,
-    const DoFHandler<dim> &          dof_handler_coarse,
+    const MeshType &                 dof_handler_fine,
+    const MeshType &                 dof_handler_coarse,
     const AffineConstraints<Number> &constraint_fine,
     const AffineConstraints<Number> &constraint_coarse,
     Transfer<dim, Number> &          transfer)
@@ -87,7 +87,7 @@ namespace MGTransferUtil
                    cell_coarse->id().to_cell(triangulation_fine)->n_children();
                    c++)
                 {
-                  typename DoFHandler<dim>::cell_iterator cell_fine(
+                  typename MeshType::cell_iterator cell_fine(
                     *cell_coarse->id().to_cell(triangulation_fine)->child(c),
                     &dof_handler_fine);
                   fu_2(cell_coarse, cell_fine, c);
@@ -95,7 +95,7 @@ namespace MGTransferUtil
             }
           else
             {
-              typename DoFHandler<dim>::cell_iterator cell_fine(
+              typename MeshType::cell_iterator cell_fine(
                 *cell_coarse->id().to_cell(triangulation_fine),
                 &dof_handler_fine);
               fu_1(cell_coarse, cell_fine);
@@ -149,25 +149,25 @@ namespace MGTransferUtil
 
     transfer.schemes.resize(2);
 
-    AssertDimension(dof_handler_coarse.get_fe().dofs_per_cell,
-                    dof_handler_fine.get_fe().dofs_per_cell);
+    AssertDimension(dof_handler_coarse.get_fe(0).dofs_per_cell,
+                    dof_handler_fine.get_fe(0).dofs_per_cell);
 
     transfer.schemes[0].n_cell_dofs_coarse =
       transfer.schemes[0].n_cell_dofs_fine =
         transfer.schemes[1].n_cell_dofs_coarse =
-          dof_handler_coarse.get_fe().dofs_per_cell;
+          dof_handler_coarse.get_fe(0).dofs_per_cell;
     transfer.schemes[1].n_cell_dofs_fine =
-      dof_handler_coarse.get_fe().dofs_per_cell *
+      dof_handler_coarse.get_fe(0).dofs_per_cell *
       GeometryInfo<dim>::max_children_per_cell;
 
     transfer.schemes[0].degree_coarse   = transfer.schemes[0].degree_fine =
-      transfer.schemes[1].degree_coarse = dof_handler_coarse.get_fe().degree;
+      transfer.schemes[1].degree_coarse = dof_handler_coarse.get_fe(0).degree;
     transfer.schemes[1].degree_fine =
-      dof_handler_coarse.get_fe().degree * 2 + 1;
+      dof_handler_coarse.get_fe(0).degree * 2 + 1;
 
     transfer.schemes[0].fine_element_is_continuous =
       transfer.schemes[1].fine_element_is_continuous =
-        dof_handler_fine.get_fe().dofs_per_vertex > 0;
+        dof_handler_fine.get_fe(0).dofs_per_vertex > 0;
 
     // extract number of coarse cells
     {
@@ -190,8 +190,8 @@ namespace MGTransferUtil
       for (unsigned int c = 0; c < GeometryInfo<dim>::max_children_per_cell;
            c++)
         get_child_offset(c,
-                         dof_handler_fine.get_fe().degree + 1,
-                         dof_handler_fine.get_fe().degree,
+                         dof_handler_fine.get_fe(0).degree + 1,
+                         dof_handler_fine.get_fe(0).degree,
                          offsets[c]);
     }
 
@@ -220,7 +220,7 @@ namespace MGTransferUtil
         const Quadrature<1> dummy_quadrature(
           std::vector<Point<1>>(1, Point<1>()));
         internal::MatrixFreeFunctions::ShapeInfo<Number> shape_info;
-        shape_info.reinit(dummy_quadrature, dof_handler_fine.get_fe(), 0);
+        shape_info.reinit(dummy_quadrature, dof_handler_fine.get_fe(0), 0);
         lexicographic_numbering = shape_info.lexicographic_numbering;
       }
 
@@ -299,9 +299,9 @@ namespace MGTransferUtil
 
     // -------------- prolongation matrix (0) -> identity matrix ---------------
     {
-      AssertDimension(dof_handler_fine.get_fe().n_base_elements(), 1);
+      AssertDimension(dof_handler_fine.get_fe(0).n_base_elements(), 1);
       std::string fe_name =
-        dof_handler_fine.get_fe().base_element(0).get_name();
+        dof_handler_fine.get_fe(0).base_element(0).get_name();
       {
         const std::size_t template_starts = fe_name.find_first_of('<');
         Assert(fe_name[template_starts + 1] ==
@@ -322,9 +322,9 @@ namespace MGTransferUtil
 
     // ------------------------ prolongation matrix (1) ------------------------
     {
-      AssertDimension(dof_handler_fine.get_fe().n_base_elements(), 1);
+      AssertDimension(dof_handler_fine.get_fe(0).n_base_elements(), 1);
       std::string fe_name =
-        dof_handler_fine.get_fe().base_element(0).get_name();
+        dof_handler_fine.get_fe(0).base_element(0).get_name();
       {
         const std::size_t template_starts = fe_name.find_first_of('<');
         Assert(fe_name[template_starts + 1] ==
@@ -379,7 +379,7 @@ namespace MGTransferUtil
         const Quadrature<1> dummy_quadrature(
           std::vector<Point<1>>(1, Point<1>()));
         internal::MatrixFreeFunctions::ShapeInfo<Number> shape_info;
-        shape_info.reinit(dummy_quadrature, dof_handler_fine.get_fe(), 0);
+        shape_info.reinit(dummy_quadrature, dof_handler_fine.get_fe(0), 0);
 
         unsigned int *level_dof_indices_fine_0 =
           &transfer.schemes[0].level_dof_indices_fine[0];
