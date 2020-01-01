@@ -26,6 +26,10 @@ DEAL_II_NAMESPACE_OPEN
 
 namespace MGTransferUtil
 {
+  bool
+  polynomial_transfer_supported(const unsigned int fe_degree_fine,
+                                const unsigned int fe_degree_coarse);
+
   template <int dim, typename Number, typename MeshType>
   void
   setup_global_coarsening_transfer(

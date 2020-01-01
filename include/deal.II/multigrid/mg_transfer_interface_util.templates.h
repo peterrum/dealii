@@ -29,11 +29,34 @@
 #include <deal.II/matrix_free/fe_evaluation.h>
 
 #include <deal.II/multigrid/mg_transfer_interface.h>
+#include <deal.II/multigrid/mg_transfer_interface.templates.h>
 
 DEAL_II_NAMESPACE_OPEN
 
 namespace MGTransferUtil
 {
+  namespace
+  {
+    class CellProlongatorTest
+    {
+    public:
+      template <int degree_fine, int degree_coarse>
+      void
+      run()
+      {}
+    };
+  } // namespace
+
+  bool
+  polynomial_transfer_supported(const unsigned int fe_degree_fine,
+                                const unsigned int fe_degree_coarse)
+  {
+    CellTransfer        cell_transfer(fe_degree_fine, fe_degree_coarse);
+    CellProlongatorTest cell_transfer_test;
+
+    return cell_transfer.run(cell_transfer_test);
+  }
+
   template <int dim, typename Number, typename MeshType>
   void
   setup_global_coarsening_transfer(
