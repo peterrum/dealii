@@ -26,11 +26,11 @@ DEAL_II_NAMESPACE_OPEN
 
 namespace MGTransferUtil
 {
-  template <int dim, typename Number>
+  template <int dim, typename Number, typename MeshType>
   void
   setup_global_coarsening_transfer(
-    const DoFHandler<dim> &          dof_handler_fine,
-    const DoFHandler<dim> &          dof_handler_coarse,
+    const MeshType &                 dof_handler_fine,
+    const MeshType &                 dof_handler_coarse,
     const AffineConstraints<Number> &constraint_fine,
     const AffineConstraints<Number> &constraint_coarse,
     Transfer<dim, Number> &          transfer);
