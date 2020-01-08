@@ -126,7 +126,7 @@ test_transfer_operator(const Transfer<dim, Number> &transfer,
       }
 
     // print full prolongation matrix
-    if (false)
+    if (Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) == 1)
       {
         FullMatrix<Number> prolongation_matrix(dst.size(), src.size());
         for (unsigned int i = 0; i < src.size(); i++)
@@ -166,7 +166,7 @@ test_transfer_operator(const Transfer<dim, Number> &transfer,
       }
 
     // print full restriction matrix
-    if (false)
+    if (Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) == 1)
       {
         FullMatrix<Number> restriction_matrix(src.size(), dst.size());
         for (unsigned int i = 0; i < dst.size(); i++)
