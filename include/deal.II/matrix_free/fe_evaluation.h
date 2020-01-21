@@ -2528,6 +2528,17 @@ public:
                   const bool        evaluate_hessians = false);
 
   /**
+   * This call is equivalent to calling read_dof_values_plain() followed by
+   * evaluate(), but might internally use some additional optimizations.
+   */
+  template <typename VectorType>
+  void
+  gather_evaluate_plain(const VectorType &input_vector,
+                        const bool        evaluate_values,
+                        const bool        evaluate_gradients,
+                        const bool        evaluate_hessians = false);
+
+  /**
    * This function takes the values and/or gradients that are stored on
    * quadrature points, tests them by all the basis functions/gradients on the
    * cell and performs the cell integration. The two function arguments
@@ -7096,6 +7107,70 @@ FEEvaluation<
   else
     {
       this->read_dof_values(input_vector);
+      evaluate(this->begin_dof_values(),
+               evaluate_values,
+               evaluate_gradients,
+               evaluate_hessians);
+    }
+}
+
+
+
+template <int dim,
+          int fe_degree,
+          int n_q_points_1d,
+          int n_components_,
+          typename Number,
+          typename VectorizedArrayType>
+template <typename VectorType>
+inline void
+FEEvaluation<
+  dim,
+  fe_degree,
+  n_q_points_1d,
+  n_components_,
+  Number,
+  VectorizedArrayType>::gather_evaluate_plain(const VectorType &input_vector,
+                                              const bool        evaluate_values,
+                                              const bool evaluate_gradients,
+                                              const bool evaluate_hessians)
+{
+  // If the index storage is interleaved and contiguous and the vector storage
+  // has the correct alignment, we can directly pass the pointer into the
+  // vector to the evaluate() call, without reading the vector entries into a
+  // separate data field. This saves some operations.
+  if (std::is_same<typename VectorType::value_type, Number>::value &&
+      this->dof_info->index_storage_variants
+          [internal::MatrixFreeFunctions::DoFInfo::dof_access_cell]
+          [this->cell] == internal::MatrixFreeFunctions::DoFInfo::
+                            IndexStorageVariants::interleaved_contiguous &&
+      reinterpret_cast<std::size_t>(
+        input_vector.begin() +
+        this->dof_info->dof_indices_contiguous
+          [internal::MatrixFreeFunctions::DoFInfo::dof_access_cell]
+          [this->cell * VectorizedArrayType::n_array_elements]) %
+          sizeof(VectorizedArrayType) ==
+        0)
+    {
+      const VectorizedArrayType *vec_values =
+        reinterpret_cast<const VectorizedArrayType *>(
+          input_vector.begin() +
+          this->dof_info->dof_indices_contiguous
+            [internal::MatrixFreeFunctions::DoFInfo::dof_access_cell]
+            [this->cell * VectorizedArrayType::n_array_elements] +
+          this->dof_info
+              ->component_dof_indices_offset[this->active_fe_index]
+                                            [this->first_selected_component] *
+            VectorizedArrayType::n_array_elements);
+
+      evaluate(vec_values,
+               evaluate_values,
+               evaluate_gradients,
+               evaluate_hessians);
+    }
+  else
+    {
+      this->read_dof_values_plain(input_vector);
       evaluate(this->begin_dof_values(),
                evaluate_values,
                evaluate_gradients,
