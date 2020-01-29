@@ -213,10 +213,13 @@ namespace LinearAlgebra
           std::pair<types::global_dof_index, std::vector<unsigned int>>>
           local_ghost_faces_remote, local_ghost_faces_shared;
         {
-          IndexSet is_local_cells;
+          const auto n_total_cells = Utilties::MPI::sum(
+            static_cast<types::global_dof_index>(local_cells.size()));
+
+          IndexSet is_local_cells(n_total_cells);
           is_local_cells.add_indices(local_cells.begin(), local_cells.end());
 
-          IndexSet is_ghost_cells;
+          IndexSet is_ghost_cells(n_total_cells);
           for (const auto &ghost_faces : local_ghost_faces)
             is_ghost_cells.add_index(ghost_faces.first);
 
@@ -295,6 +298,22 @@ namespace LinearAlgebra
           for (const auto &ghost_faces :
                distributed_local_ghost_faces_remote_pairs_global[sm_rank])
             is_ghost_cells.add_index(ghost_faces.first);
+
+          std::vector<unsigned int> owning_ranks_of_ghosts(
+            is_ghost_cells.n_elements());
+
+          Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmPayload
+            process(is_local_cells,
+                    is_ghost_cells,
+                    comm,
+                    owning_ranks_of_ghosts,
+                    false);
+
+          Utilities::MPI::ConsensusAlgorithmSelector<
+            std::pair<types::global_dof_index, types::global_dof_index>,
+            unsigned int>
+            consensus_algorithm(process, comm);
+          consensus_algorithm.run();
         }
 
         // 6)

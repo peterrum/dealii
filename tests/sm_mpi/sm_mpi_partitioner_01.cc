@@ -16,21 +16,64 @@
 
 // Create a serial triangulation and copy it.
 
+#include <deal.II/distributed/tria.h>
+
+#include <deal.II/dofs/dof_handler.h>
+
+#include <deal.II/fe/fe_dgq.h>
+
+#include <deal.II/grid/grid_generator.h>
+
 #include <deal.II/lac/sm_mpi_vector.h>
 
 #include "../tests.h"
 
 using namespace dealii;
 
+template <int dim>
 void
-test(const MPI_Comm comm)
+test(const MPI_Comm comm, const unsigned int degree)
 {
-  LinearAlgebra::SharedMPI::Partitioner partitioner;
+  // 1) create triangulation
+  parallel::distributed::Triangulation<dim> tria(comm);
+  GridGenerator::subdivided_hyper_cube(tria, 2);
 
+  // 2) create dof_handler so that cells are enumerated globally uniquelly
+  DoFHandler<dim> dof_handler(tria);
+  dof_handler.distribute_dofs(FE_DGQ<dim>(0));
+
+  // 3) setup data structures for partitioner
   std::vector<types::global_dof_index> local_cells;
   std::vector<std::pair<types::global_dof_index, std::vector<unsigned int>>>
     local_ghost_faces;
 
+  for (const auto &cell : dof_handler.active_cell_iterators())
+    {
+      std::vector<types::global_dof_index> id(1);
+      cell->get_dof_indices(id);
+      if (cell->is_locally_owned()) // local cell
+        local_cells.emplace_back(id.front());
+      else // ghost cell
+        {
+          std::vector<unsigned int> faces;
+
+          for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell;
+               face++)
+            {
+              if (cell->at_boundary(face) ||
+                  !cell->neighbor(face)->is_locally_owned())
+                continue;
+
+              faces.push_back(face);
+            }
+
+          if (!faces.empty())
+            local_ghost_faces.emplace_back(id.front(), faces);
+        }
+    }
+
+  // 4) setup partitioner
+  LinearAlgebra::SharedMPI::Partitioner partitioner;
   partitioner.reinit(local_cells, local_ghost_faces, comm);
 }
 
@@ -42,5 +85,5 @@ main(int argc, char *argv[])
 
   const MPI_Comm comm = MPI_COMM_WORLD;
 
-  test(comm);
+  test<2>(comm, 1);
 }
