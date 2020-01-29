@@ -39,8 +39,14 @@ namespace LinearAlgebra
         MPI_Comm_rank(comm, &rank);
 
         MPI_Comm comm_shared;
+#ifdef MPI_SM_SIZE
+        // fix group size: only for testing
+        int color = rank / MPI_SM_SIZE;
+        MPI_Comm_split(comm, color, rank, &comm_shared);
+#else
         MPI_Comm_split_type(
           comm, MPI_COMM_TYPE_SHARED, rank, MPI_INFO_NULL, &comm_shared);
+#endif
 
         return comm_shared;
       }
@@ -213,8 +219,8 @@ namespace LinearAlgebra
           std::pair<types::global_dof_index, std::vector<unsigned int>>>
           local_ghost_faces_remote, local_ghost_faces_shared;
         {
-          const auto n_total_cells = Utilties::MPI::sum(
-            static_cast<types::global_dof_index>(local_cells.size()));
+          const auto n_total_cells = Utilities::MPI::sum(
+            static_cast<types::global_dof_index>(local_cells.size()), comm);
 
           IndexSet is_local_cells(n_total_cells);
           is_local_cells.add_indices(local_cells.begin(), local_cells.end());
@@ -250,6 +256,8 @@ namespace LinearAlgebra
               local_ghost_faces_remote.push_back(local_ghost_faces[i]);
             else
               local_ghost_faces_shared.push_back(local_ghost_faces[i]);
+          deallog << local_ghost_faces_remote.size() << " "
+                  << local_ghost_faces_shared.size() << std::endl;
         }
 
         // 3) merge local_ghost_faces_remote and sort -> ghost_faces_remote
@@ -262,11 +270,15 @@ namespace LinearAlgebra
             local_ghost_faces_remote_pairs_local.emplace_back(ghost_faces.first,
                                                               ghost_face);
 
+        deallog << local_ghost_faces_remote_pairs_local.size() << std::endl;
+
         // collect all on which are shared
         std::vector<std::pair<types::global_dof_index, unsigned int>>
           local_ghost_faces_remote_pairs_global =
             MPI_Allgather_Pairs(local_ghost_faces_remote_pairs_local,
                                 create_sm(comm));
+
+        deallog << local_ghost_faces_remote_pairs_global.size() << std::endl;
 
         // sort
         std::sort(local_ghost_faces_remote_pairs_global.begin(),
@@ -279,22 +291,37 @@ namespace LinearAlgebra
             std::vector<std::pair<types::global_dof_index, unsigned int>>>
             result(sm_procs.size());
 
-          unsigned int counter = 0;
+          unsigned int       counter = 0;
+          const unsigned int faces_per_process =
+            (local_ghost_faces_remote_pairs_global.size() + sm_procs.size() -
+             1) /
+            sm_procs.size();
           for (auto p : local_ghost_faces_remote_pairs_global)
-            result[(counter++) / (local_ghost_faces_remote_pairs_global.size() /
-                                    sm_procs.size() +
-                                  1)]
-              .push_back(p);
+            result[(counter++) / faces_per_process].push_back(p);
 
           return result;
         }();
 
+        deallog << "A"
+                << distributed_local_ghost_faces_remote_pairs_global.size()
+                << std::endl;
+
+        for (auto &i : distributed_local_ghost_faces_remote_pairs_global)
+          {
+            for (auto &j : i)
+              deallog << "(" << j.first << "," << j.second << ") ";
+            deallog << std::endl;
+          }
+
         // 5) re-determine owners remote ghost faces
         {
-          IndexSet is_local_cells;
+          const auto n_total_cells = Utilities::MPI::sum(
+            static_cast<types::global_dof_index>(local_cells.size()), comm);
+
+          IndexSet is_local_cells(n_total_cells);
           is_local_cells.add_indices(local_cells.begin(), local_cells.end());
 
-          IndexSet is_ghost_cells;
+          IndexSet is_ghost_cells(n_total_cells);
           for (const auto &ghost_faces :
                distributed_local_ghost_faces_remote_pairs_global[sm_rank])
             is_ghost_cells.add_index(ghost_faces.first);
@@ -314,6 +341,92 @@ namespace LinearAlgebra
             unsigned int>
             consensus_algorithm(process, comm);
           consensus_algorithm.run();
+
+          std::set<unsigned int> send_ranks_set;
+
+          for (const auto &i : owning_ranks_of_ghosts)
+            send_ranks_set.insert(i);
+
+          const std::vector<unsigned int> send_ranks(send_ranks_set.begin(),
+                                                     send_ranks_set.end());
+          const std::vector<unsigned int> recv_ranks =
+            Utilities::MPI::compute_point_to_point_communication_pattern(
+              comm, send_ranks);
+
+          std::vector<std::vector<
+            std::pair<types::global_dof_index, types::global_dof_index>>>
+            send_data(send_ranks.size());
+
+          std::vector<std::vector<
+            std::pair<types::global_dof_index, types::global_dof_index>>>
+            recv_data(recv_ranks.size());
+
+          unsigned int index      = 0;
+          unsigned int index_rank = numbers::invalid_unsigned_int;
+
+          for (const auto &ghost_faces :
+               distributed_local_ghost_faces_remote_pairs_global[sm_rank])
+            {
+              if (index_rank != ghost_faces.first)
+                {
+                  index_rank = ghost_faces.first;
+                  index      = std::distance(send_ranks.begin(),
+                                        std::find(send_ranks.begin(),
+                                                  send_ranks.end(),
+                                                  index_rank));
+                }
+              send_data[index].emplace_back(ghost_faces.first,
+                                            ghost_faces.second);
+            }
+
+          std::vector<MPI_Request> send_requests(send_ranks.size());
+
+          for (unsigned int i = 0; i < send_ranks.size(); i++)
+            {
+              types::global_dof_index dummy;
+              MPI_Isend(send_data[i].data(),
+                        2 * send_data[i].size(),
+                        Utilities::MPI::internal::mpi_type_id(&dummy),
+                        send_ranks[i],
+                        101,
+                        comm,
+                        &send_requests[i]);
+            }
+
+          for (unsigned int i = 0; i < recv_ranks.size(); i++)
+            {
+              MPI_Status status;
+              auto       ierr = MPI_Probe(MPI_ANY_SOURCE, 101, comm, &status);
+              AssertThrowMPI(ierr);
+
+              int len;
+
+              types::global_dof_index dummy;
+              MPI_Get_count(&status,
+                            Utilities::MPI::internal::mpi_type_id(&dummy),
+                            &len);
+
+              const unsigned int index =
+                std::distance(recv_ranks.begin(),
+                              std::find(recv_ranks.begin(),
+                                        recv_ranks.end(),
+                                        status.MPI_SOURCE));
+
+              recv_data[index].resize(len / 2);
+
+              ierr = MPI_Recv(recv_data[index].data(),
+                              len,
+                              Utilities::MPI::internal::mpi_type_id(&dummy),
+                              status.MPI_SOURCE,
+                              status.MPI_TAG,
+                              comm,
+                              &status);
+              AssertThrowMPI(ierr);
+            }
+
+          MPI_Waitall(send_requests.size(),
+                      send_requests.data(),
+                      MPI_STATUSES_IGNORE);
         }
 
         // 6)

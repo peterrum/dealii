@@ -16,6 +16,8 @@
 
 // Create a serial triangulation and copy it.
 
+#define MPI_SM_SIZE 2
+
 #include <deal.II/distributed/tria.h>
 
 #include <deal.II/dofs/dof_handler.h>
