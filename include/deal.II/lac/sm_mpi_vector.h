@@ -523,10 +523,6 @@ namespace LinearAlgebra
             std::pair<types::global_dof_index, types::global_dof_index>>>
             send_data(send_ranks.size());
 
-          std::vector<std::vector<
-            std::pair<types::global_dof_index, types::global_dof_index>>>
-            recv_data(recv_ranks.size());
-
           unsigned int index      = 0;
           unsigned int index_rank = numbers::invalid_unsigned_int;
 
@@ -559,28 +555,33 @@ namespace LinearAlgebra
                         &send_requests[i]);
             }
 
+          // process requests
           for (unsigned int i = 0; i < recv_ranks.size(); i++)
             {
+              // wait for any request
               MPI_Status status;
               auto       ierr = MPI_Probe(MPI_ANY_SOURCE, 101, comm, &status);
               AssertThrowMPI(ierr);
 
-              int len;
-
+              // determine number of ghost faces * 2 (since we are considering
+              // pairs)
+              int                     len;
               types::global_dof_index dummy;
               MPI_Get_count(&status,
                             Utilities::MPI::internal::mpi_type_id(&dummy),
                             &len);
 
-              const unsigned int index =
-                std::distance(recv_ranks.begin(),
-                              std::find(recv_ranks.begin(),
-                                        recv_ranks.end(),
-                                        status.MPI_SOURCE));
+              AssertThrow(len % 2 == 0,
+                          ExcMessage("Length " + std::to_string(len) +
+                                     " is not a multiple of two!"));
 
-              recv_data[index].resize(len / 2);
+              // allocate memory for the incoming vector
+              std::vector<
+                std::pair<types::global_dof_index, types::global_dof_index>>
+                recv_data(len / 2);
 
-              ierr = MPI_Recv(recv_data[index].data(),
+              // receive data
+              ierr = MPI_Recv(recv_data.data(),
                               len,
                               Utilities::MPI::internal::mpi_type_id(&dummy),
                               status.MPI_SOURCE,
@@ -588,8 +589,34 @@ namespace LinearAlgebra
                               comm,
                               &status);
               AssertThrowMPI(ierr);
+
+              // allocate memory for buffers
+              send_recv_buffer[status.MPI_SOURCE].resize(len / 2 *
+                                                           dofs_per_ghost,
+                                                         0);
+
+              // setup pack and unpack info
+              requests_from_relevant_precomp[status.MPI_SOURCE] = [&]() {
+                std::vector<std::array<unsigned int, 3>> temp(len / 2);
+                for (unsigned int i = 0; i < len / 2; i++)
+                  {
+                    const CellIdType   cell    = recv_data[i].first;
+                    const unsigned int face_no = recv_data[i].second;
+
+                    const auto ptr = this->maps.find(cell);
+                    AssertThrow(ptr != this->maps.end(),
+                                ExcMessage("Entry " + std::to_string(cell) +
+                                           " not found!"));
+
+                    temp[i] = std::array<unsigned int, 3>{ptr->second.first,
+                                                          ptr->second.second,
+                                                          face_no};
+                  }
+                return temp;
+              }();
             }
 
+          // make sure requests have been sent away
           MPI_Waitall(send_requests.size(),
                       send_requests.data(),
                       MPI_STATUSES_IGNORE);
