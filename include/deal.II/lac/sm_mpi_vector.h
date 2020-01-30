@@ -204,6 +204,8 @@ namespace LinearAlgebra
         const types::global_dof_index dofs_per_face =
           Utilities::pow(degree + 1, dim - 1);
 
+        _local_size = local_cells.size() * dofs_per_cell;
+
         // 1) determine if ghost faces or ghost cells are needed
         const types::global_dof_index dofs_per_ghost = [&]() {
           unsigned int result = dofs_per_face;
@@ -424,6 +426,10 @@ namespace LinearAlgebra
           return result;
         }();
 
+        this->_ghost_size =
+          distributed_local_ghost_faces_remote_pairs_global[sm_rank].size() *
+          dofs_per_ghost;
+
         this->maps_ghost = [&]() {
           std::map<std::pair<types::global_dof_index, unsigned int>,
                    std::pair<unsigned int, unsigned int>>
@@ -592,19 +598,53 @@ namespace LinearAlgebra
         // 6)
       }
 
+      std::size_t
+      local_size() const
+      {
+        return _local_size;
+      }
+
+      std::size_t
+      ghost_size() const
+      {
+        return _ghost_size;
+      }
+
     private:
-      // configuration parameters
+      // I) configuration parameters
       bool         do_buffering; // buffering vs. non-buffering modus
       unsigned int degree;       // to compute dofs per face/cell
       unsigned int dim;
 
-      // access cells and ghost faces
+
+
+      // II) access cells and ghost faces
       std::map<CellIdType, std::pair<RankType, LocalDoFType>> maps;
       std::map<FaceIdType, std::pair<RankType, LocalDoFType>> maps_ghost;
 
-      // information to pack/unpack buffers
 
-      // information needed during communication
+
+      // III) information to pack/unpack buffers
+
+      // rank -> vector(cell, face) but we precompute it to
+      // rank -> vector(sm rank, offset, face) so that we do not have access
+      // the map every time
+      std::map<unsigned int, std::vector<std::array<unsigned int, 3>>>
+        requests_from_relevant_precomp;
+
+      // the actual buffer
+      mutable std::map<int, std::vector<double>> send_recv_buffer;
+
+
+
+      // IV) information needed during communication
+
+      // rank -> pair(offset, size)
+      std::map<unsigned int, std::pair<unsigned int, unsigned int>>
+        receive_info;
+
+      std::size_t _local_size;
+      std::size_t _ghost_size;
     };
 
   } // namespace SharedMPI
