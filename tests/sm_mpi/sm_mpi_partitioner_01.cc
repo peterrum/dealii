@@ -40,6 +40,8 @@ test(const MPI_Comm comm, const unsigned int degree)
   parallel::distributed::Triangulation<dim> tria(comm);
   GridGenerator::subdivided_hyper_cube(tria, 2);
 
+  tria.refine_global(1);
+
   // 2) create dof_handler so that cells are enumerated globally uniquelly
   DoFHandler<dim> dof_handler(tria);
   dof_handler.distribute_dofs(FE_DGQ<dim>(0));
@@ -51,6 +53,9 @@ test(const MPI_Comm comm, const unsigned int degree)
 
   for (const auto &cell : dof_handler.active_cell_iterators())
     {
+      if (cell->is_artificial())
+        continue;
+
       std::vector<types::global_dof_index> id(1);
       cell->get_dof_indices(id);
       if (cell->is_locally_owned()) // local cell

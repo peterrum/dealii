@@ -195,6 +195,7 @@ namespace LinearAlgebra
              const MPI_Comm comm)
       {
         AssertThrow(local_cells.size() > 0, ExcMessage("No local cells!"));
+        AssertThrow(!this->do_buffering, ExcMessage("No buffering supported!"));
 
         // unknowns per ghost cell and ...
         const types::global_dof_index dofs_per_cell =
@@ -385,84 +386,101 @@ namespace LinearAlgebra
         }
 
         // 3) merge local_ghost_faces_remote and sort -> ghost_faces_remote
-        std::vector<std::pair<types::global_dof_index, unsigned int>>
-          local_ghost_faces_remote_pairs_local;
+        const auto local_ghost_faces_remote_pairs_global =
+          [&local_ghost_faces_remote, &comm]() {
+            std::vector<std::pair<types::global_dof_index, unsigned int>>
+              local_ghost_faces_remote_pairs_local;
 
-        // convert vector<pair<U, std::vector<V>>> ->.vector<std::pair<U, V>>>
-        for (const auto &ghost_faces : local_ghost_faces_remote)
-          for (const auto ghost_face : ghost_faces.second)
-            local_ghost_faces_remote_pairs_local.emplace_back(ghost_faces.first,
-                                                              ghost_face);
+            // convert vector<pair<U, std::vector<V>>> ->.vector<std::pair<U,
+            // V>>>
+            for (const auto &ghost_faces : local_ghost_faces_remote)
+              for (const auto ghost_face : ghost_faces.second)
+                local_ghost_faces_remote_pairs_local.emplace_back(
+                  ghost_faces.first, ghost_face);
 
-        deallog << local_ghost_faces_remote_pairs_local.size() << std::endl;
+            // collect all on which are shared
+            std::vector<std::pair<types::global_dof_index, unsigned int>>
+              local_ghost_faces_remote_pairs_global =
+                MPI_Allgather_Pairs(local_ghost_faces_remote_pairs_local,
+                                    create_sm(comm));
 
-        // collect all on which are shared
-        std::vector<std::pair<types::global_dof_index, unsigned int>>
-          local_ghost_faces_remote_pairs_global =
-            MPI_Allgather_Pairs(local_ghost_faces_remote_pairs_local,
-                                create_sm(comm));
+            // sort
+            std::sort(local_ghost_faces_remote_pairs_global.begin(),
+                      local_ghost_faces_remote_pairs_global.end());
 
-        deallog << local_ghost_faces_remote_pairs_global.size() << std::endl;
-
-        // sort
-        std::sort(local_ghost_faces_remote_pairs_global.begin(),
-                  local_ghost_faces_remote_pairs_global.end());
+            return local_ghost_faces_remote_pairs_global;
+          }();
 
 
-        // 4) distributed ghost_faces_remote
-        const auto distributed_local_ghost_faces_remote_pairs_global = [&]() {
-          std::vector<
-            std::vector<std::pair<types::global_dof_index, unsigned int>>>
-            result(sm_procs.size());
+        // 4) distributed ghost_faces_remote,
+        const auto distributed_local_ghost_faces_remote_pairs_global =
+          [&local_ghost_faces_remote_pairs_global, &sm_procs]() {
+            std::vector<
+              std::vector<std::pair<types::global_dof_index, unsigned int>>>
+              result(sm_procs.size());
 
-          unsigned int       counter = 0;
-          const unsigned int faces_per_process =
-            (local_ghost_faces_remote_pairs_global.size() + sm_procs.size() -
-             1) /
-            sm_procs.size();
-          for (auto p : local_ghost_faces_remote_pairs_global)
-            result[(counter++) / faces_per_process].push_back(p);
+            unsigned int       counter = 0;
+            const unsigned int faces_per_process =
+              (local_ghost_faces_remote_pairs_global.size() + sm_procs.size() -
+               1) /
+              sm_procs.size();
+            for (auto p : local_ghost_faces_remote_pairs_global)
+              result[(counter++) / faces_per_process].push_back(p);
 
-          return result;
-        }();
+            return result;
+          }();
 
+        // ... update ghost size, and
         this->_ghost_size =
           distributed_local_ghost_faces_remote_pairs_global[sm_rank].size() *
           dofs_per_ghost;
 
+        // ... update ghost map
         this->maps_ghost = [&]() {
+          // create map (cell, face_no) -> (sm rank, offset)
+          const auto maps_ghost_inverse =
+            [&distributed_local_ghost_faces_remote_pairs_global,
+             &dofs_per_ghost,
+             &dofs_per_cell,
+             &local_cells,
+             &sm_comm,
+             &sm_procs]() {
+              std::vector<unsigned int> offsets(sm_procs.size());
+
+              unsigned int my_offset = local_cells.size() * dofs_per_cell;
+
+              MPI_Allgather(&my_offset,
+                            1,
+                            Utilities::MPI::internal::mpi_type_id(&my_offset),
+                            offsets.data(),
+                            1,
+                            Utilities::MPI::internal::mpi_type_id(&my_offset),
+                            sm_comm);
+
+              std::map<std::pair<unsigned int, unsigned int>,
+                       std::pair<types::global_dof_index, unsigned int>>
+                maps_ghost_inverse;
+
+              for (unsigned int i = 0; i < sm_procs.size(); i++)
+                for (unsigned int j = 0;
+                     j < distributed_local_ghost_faces_remote_pairs_global[i]
+                           .size();
+                     j++)
+                  maps_ghost_inverse
+                    [distributed_local_ghost_faces_remote_pairs_global[i][j]] =
+                      {i, offsets[i] + j * dofs_per_ghost};
+
+              return maps_ghost_inverse;
+            }();
+
+          // create map (cell, face_no) -> (sm rank, offset) with only
+          // ghost faces needed for evaluation
           std::map<std::pair<types::global_dof_index, unsigned int>,
                    std::pair<unsigned int, unsigned int>>
             maps_ghost;
-
-          std::map<std::pair<unsigned int, unsigned int>,
-                   std::pair<types::global_dof_index, unsigned int>>
-            maps_ghost_inverse;
-
-          std::vector<unsigned int> offsets(sm_procs.size());
-
-          unsigned int my_offset = local_cells.size() * dofs_per_cell;
-
-          MPI_Allgather(&my_offset,
-                        1,
-                        Utilities::MPI::internal::mpi_type_id(&my_offset),
-                        offsets.data(),
-                        1,
-                        Utilities::MPI::internal::mpi_type_id(&my_offset),
-                        sm_comm);
-
-          for (unsigned int i = 0; i < sm_procs.size(); i++)
-            for (unsigned int j = 0;
-                 j <
-                 distributed_local_ghost_faces_remote_pairs_global[i].size();
-                 j++)
-              maps_ghost_inverse
-                [distributed_local_ghost_faces_remote_pairs_global[i][j]] = {
-                  i, offsets[i] + j * dofs_per_ghost};
-
           for (const auto &i : local_ghost_faces_remote)
             for (const auto &j : i.second)
-              maps_ghost[{i.first, j}] = maps_ghost_inverse[{i.first, j}];
+              maps_ghost[{i.first, j}] = maps_ghost_inverse.at({i.first, j});
 
           return maps_ghost;
         }();
