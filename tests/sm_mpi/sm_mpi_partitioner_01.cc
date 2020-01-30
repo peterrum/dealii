@@ -89,8 +89,13 @@ test(const MPI_Comm comm)
   partitioner.configure(false);
   partitioner.reinit(local_cells, local_ghost_faces, comm);
 
-  deallog << partitioner.local_size() << " " << partitioner.ghost_size()
-          << std::endl;
+  deallog << partitioner.local_size() << " " //
+          << partitioner.ghost_size() << std::endl;
+
+  Number *              data_this;
+  std::vector<double *> data_others;
+
+  partitioner.initialize_dof_vector(data_this, data_others, true);
 }
 
 int

@@ -230,6 +230,10 @@ namespace LinearAlgebra
                                   sm_procs.end(),
                                   Utilities::MPI::this_mpi_process(comm)));
 
+        this->sm_comm = sm_comm;
+        this->sm_rank = sm_rank;
+        this->sm_size = sm_procs.size();
+
         for (unsigned int i = 0; i < local_cells.size(); i++)
           this->maps[local_cells[i]] = {sm_rank, i * dofs_per_cell};
 
@@ -670,6 +674,43 @@ namespace LinearAlgebra
         // 6)
       }
 
+      void
+      initialize_dof_vector(double *&              data_this,
+                            std::vector<double *> &data_others,
+                            const bool             do_ghosts)
+      {
+        // TODO: remove
+        const int size_shared = sm_size;
+        const int rank_shared = sm_rank;
+
+        data_this = (double *)malloc(0);
+        data_others.resize(size_shared);
+
+        wins.emplace_back(new MPI_Win);
+
+        MPI_Info info;
+        MPI_Info_create(&info);
+        MPI_Info_set(info, "alloc_shared_noncontig", "true");
+
+        MPI_Win_allocate_shared((_local_size + (do_ghosts ? _ghost_size : 0)) *
+                                  sizeof(Number),
+                                sizeof(Number),
+                                info,
+                                sm_comm,
+                                data_this,
+                                wins.back().get());
+
+        for (int i = 0; i < size_shared; i++)
+          {
+            int      disp_unit;
+            MPI_Aint ssize;
+            MPI_Win_shared_query(
+              *wins.back(), i, &ssize, &disp_unit, &data_others[i]);
+          }
+
+        data_this = data_others[rank_shared];
+      }
+
       std::size_t
       local_size() const
       {
@@ -685,6 +726,13 @@ namespace LinearAlgebra
     private:
       // I) configuration parameters
       bool do_buffering; // buffering vs. non-buffering modus
+
+
+
+      MPI_Comm                              sm_comm;
+      unsigned int                          sm_size;
+      unsigned int                          sm_rank;
+      std::vector<std::shared_ptr<MPI_Win>> wins;
 
 
 
