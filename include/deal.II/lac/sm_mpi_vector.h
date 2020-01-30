@@ -22,6 +22,7 @@
 #include <deal.II/base/mpi.templates.h>
 #include <deal.II/base/mpi_compute_index_owner_internal.h>
 
+#include <map>
 #include <vector>
 
 DEAL_II_NAMESPACE_OPEN
@@ -207,12 +208,19 @@ namespace LinearAlgebra
           return Utilities::MPI::max(result, comm);
         }();
 
+        const auto sm_comm  = create_sm(comm);
         const auto sm_procs = procs_of_sm(comm);
         const auto sm_rank =
           std::distance(sm_procs.begin(),
                         std::find(sm_procs.begin(),
                                   sm_procs.end(),
                                   Utilities::MPI::this_mpi_process(comm)));
+
+        std::map<types::global_dof_index, std::pair<unsigned int, unsigned int>>
+          maps;
+
+        for (unsigned int i = 0; i < local_cells.size(); i++)
+          maps[local_cells[i]] = {sm_rank, i * dofs_per_cell};
 
         // 2) determine which ghost face is shared or remote
         std::vector<
@@ -249,15 +257,124 @@ namespace LinearAlgebra
             consensus_algorithm(process, comm);
           consensus_algorithm.run();
 
+          std::map<unsigned int, std::vector<types::global_dof_index>>
+            shared_procs_to_cells;
+
           for (unsigned int i = 0; i < owning_ranks_of_ghosts.size(); i++)
             if (std::find(sm_procs.begin(),
                           sm_procs.end(),
                           owning_ranks_of_ghosts[i]) == sm_procs.end())
               local_ghost_faces_remote.push_back(local_ghost_faces[i]);
             else
-              local_ghost_faces_shared.push_back(local_ghost_faces[i]);
-          deallog << local_ghost_faces_remote.size() << " "
-                  << local_ghost_faces_shared.size() << std::endl;
+              {
+                local_ghost_faces_shared.push_back(local_ghost_faces[i]);
+                shared_procs_to_cells[std::distance(
+                                        sm_procs.begin(),
+                                        std::find(sm_procs.begin(),
+                                                  sm_procs.end(),
+                                                  owning_ranks_of_ghosts[i]))]
+                  .emplace_back(local_ghost_faces[i].first);
+              }
+
+          // determine offsets -> maps
+          {
+            auto shared_procs_to_cells_ptr = shared_procs_to_cells.begin();
+            std::vector<MPI_Request> querry_request(
+              shared_procs_to_cells.size());
+            std::vector<MPI_Request> answer_request(
+              shared_procs_to_cells.size());
+
+            std::map<unsigned int, std::vector<types::global_dof_index>>
+              answer_buffer;
+            for (const auto &i : shared_procs_to_cells)
+              answer_buffer[i.first].resize(i.second.size());
+
+            std::map<unsigned int, std::vector<types::global_dof_index>>
+              shared_procs_to_offset;
+            for (const auto &i : shared_procs_to_cells)
+              shared_procs_to_offset[i.first].resize(i.second.size());
+
+            for (unsigned int i = 0; i < shared_procs_to_cells.size();
+                 i++, shared_procs_to_cells_ptr++)
+              {
+                types::global_dof_index dummy;
+                MPI_Isend(shared_procs_to_cells_ptr->second.data(),
+                          shared_procs_to_cells_ptr->second.size(),
+                          Utilities::MPI::internal::mpi_type_id(&dummy),
+                          shared_procs_to_cells_ptr->first,
+                          102,
+                          sm_comm,
+                          &querry_request[i]);
+              }
+
+            for (unsigned int i = 0; i < shared_procs_to_cells.size(); i++)
+              {
+                MPI_Status status;
+                auto ierr = MPI_Probe(MPI_ANY_SOURCE, 102, sm_comm, &status);
+                AssertThrowMPI(ierr);
+
+                types::global_dof_index dummy;
+                ierr = MPI_Recv(answer_buffer[status.MPI_SOURCE].data(),
+                                answer_buffer[status.MPI_SOURCE].size(),
+                                Utilities::MPI::internal::mpi_type_id(&dummy),
+                                status.MPI_SOURCE,
+                                102,
+                                sm_comm,
+                                &status);
+                AssertThrowMPI(ierr);
+
+                for (auto &i : answer_buffer[status.MPI_SOURCE])
+                  i = std::distance(local_cells.begin(),
+                                    std::find(local_cells.begin(),
+                                              local_cells.end(),
+                                              i));
+
+                MPI_Isend(answer_buffer[status.MPI_SOURCE].data(),
+                          answer_buffer[status.MPI_SOURCE].size(),
+                          Utilities::MPI::internal::mpi_type_id(&dummy),
+                          status.MPI_SOURCE,
+                          103,
+                          sm_comm,
+                          &answer_request[i]);
+              }
+
+            for (unsigned int i = 0; i < shared_procs_to_cells.size(); i++)
+              {
+                MPI_Status status;
+                auto ierr = MPI_Probe(MPI_ANY_SOURCE, 103, sm_comm, &status);
+                AssertThrowMPI(ierr);
+
+                types::global_dof_index dummy;
+                ierr =
+                  MPI_Recv(shared_procs_to_offset[status.MPI_SOURCE].data(),
+                           shared_procs_to_offset[status.MPI_SOURCE].size(),
+                           Utilities::MPI::internal::mpi_type_id(&dummy),
+                           status.MPI_SOURCE,
+                           103,
+                           sm_comm,
+                           &status);
+                AssertThrowMPI(ierr);
+
+                for (unsigned int i = 0;
+                     i < shared_procs_to_offset[status.MPI_SOURCE].size();
+                     i++)
+                  {
+                    const unsigned int cell =
+                      shared_procs_to_cells[status.MPI_SOURCE][i];
+                    const unsigned int offset =
+                      shared_procs_to_offset[status.MPI_SOURCE][i];
+
+                    maps[cell] = {status.MPI_SOURCE, offset * dofs_per_cell};
+                  }
+              }
+
+            MPI_Waitall(querry_request.size(),
+                        querry_request.data(),
+                        MPI_STATUSES_IGNORE);
+            MPI_Waitall(answer_request.size(),
+                        answer_request.data(),
+                        MPI_STATUSES_IGNORE);
+          }
         }
 
         // 3) merge local_ghost_faces_remote and sort -> ghost_faces_remote
