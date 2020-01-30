@@ -22,6 +22,8 @@
 #include <deal.II/base/mpi.templates.h>
 #include <deal.II/base/mpi_compute_index_owner_internal.h>
 
+#include <deal.II/lac/sm_mpi_vector_data_accessor.h>
+
 #include <stdlib.h>
 
 #include <map>
@@ -175,6 +177,8 @@ namespace LinearAlgebra
               typename VectorizedArrayType>
     class Partitioner
     {
+      using DA = DataAccessor<dim, degree, Number, VectorizedArrayType>;
+
     public:
       using RankType     = unsigned int;
       using LocalDoFType = unsigned int;
