@@ -22,6 +22,8 @@
 #include <deal.II/base/mpi.templates.h>
 #include <deal.II/base/mpi_compute_index_owner_internal.h>
 
+#include <stdlib.h>
+
 #include <map>
 #include <vector>
 
@@ -418,6 +420,44 @@ namespace LinearAlgebra
 
           return result;
         }();
+
+        const auto &maps_ghost = [&]() {
+          std::map<std::pair<types::global_dof_index, unsigned int>,
+                   std::pair<unsigned int, unsigned int>>
+            maps_ghost;
+
+          std::map<std::pair<unsigned int, unsigned int>,
+                   std::pair<types::global_dof_index, unsigned int>>
+            maps_ghost_inverse;
+
+          std::vector<unsigned int> offsets(sm_procs.size());
+
+          unsigned int my_offset = local_cells.size() * dofs_per_cell;
+
+          MPI_Allgather(&my_offset,
+                        1,
+                        Utilities::MPI::internal::mpi_type_id(&my_offset),
+                        offsets.data(),
+                        1,
+                        Utilities::MPI::internal::mpi_type_id(&my_offset),
+                        sm_comm);
+
+          for (unsigned int i = 0; i < sm_procs.size(); i++)
+            for (unsigned int j = 0;
+                 j <
+                 distributed_local_ghost_faces_remote_pairs_global[i].size();
+                 j++)
+              maps_ghost_inverse
+                [distributed_local_ghost_faces_remote_pairs_global[i][j]] = {
+                  i, offsets[i] + j * dofs_per_ghost};
+
+          for (const auto &i : local_ghost_faces_remote)
+            for (const auto &j : i.second)
+              maps_ghost[{i.first, j}] = maps_ghost_inverse[{i.first, j}];
+
+          return maps_ghost;
+        };
+
 
         deallog << "A"
                 << distributed_local_ghost_faces_remote_pairs_global.size()
