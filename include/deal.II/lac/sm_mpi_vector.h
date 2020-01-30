@@ -169,6 +169,10 @@ namespace LinearAlgebra
 
     } // namespace
 
+    template <int dim,
+              int degree,
+              typename Number,
+              typename VectorizedArrayType>
     class Partitioner
     {
     public:
@@ -178,13 +182,9 @@ namespace LinearAlgebra
       using FaceIdType   = std::pair<CellIdType, unsigned int>;
 
       void
-      configure(const bool         do_buffering,
-                const unsigned int degree,
-                const unsigned int dim)
+      configure(const bool do_buffering)
       {
         this->do_buffering = do_buffering;
-        this->degree       = degree;
-        this->dim          = dim;
       }
 
       void
@@ -680,9 +680,7 @@ namespace LinearAlgebra
 
     private:
       // I) configuration parameters
-      bool         do_buffering; // buffering vs. non-buffering modus
-      unsigned int degree;       // to compute dofs per face/cell
-      unsigned int dim;
+      bool do_buffering; // buffering vs. non-buffering modus
 
 
 

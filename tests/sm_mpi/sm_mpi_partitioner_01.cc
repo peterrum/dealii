@@ -32,9 +32,12 @@
 
 using namespace dealii;
 
-template <int dim>
+template <int dim,
+          int degree,
+          typename Number,
+          typename VectorizedArrayType = VectorizedArray<Number>>
 void
-test(const MPI_Comm comm, const unsigned int degree)
+test(const MPI_Comm comm)
 {
   // 1) create triangulation
   parallel::distributed::Triangulation<dim> tria(comm);
@@ -80,8 +83,10 @@ test(const MPI_Comm comm, const unsigned int degree)
     }
 
   // 4) setup partitioner
-  LinearAlgebra::SharedMPI::Partitioner partitioner;
-  partitioner.configure(false, 1, 2);
+  LinearAlgebra::SharedMPI::
+    Partitioner<dim, degree, Number, VectorizedArrayType>
+      partitioner;
+  partitioner.configure(false);
   partitioner.reinit(local_cells, local_ghost_faces, comm);
 
   deallog << partitioner.local_size() << " " << partitioner.ghost_size()
@@ -96,5 +101,5 @@ main(int argc, char *argv[])
 
   const MPI_Comm comm = MPI_COMM_WORLD;
 
-  test<2>(comm, 1);
+  test<2, 1, double>(comm);
 }
