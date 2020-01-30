@@ -479,34 +479,43 @@ namespace LinearAlgebra
             deallog << std::endl;
           }
 
-        // 5) re-determine owners remote ghost faces
+        // 5) setup communication patterns
         {
+          // determine of the owner of cells of remote ghost faces
           const auto n_total_cells = Utilities::MPI::sum(
             static_cast<types::global_dof_index>(local_cells.size()), comm);
 
+          // owned cells (TODO: generalize s.th. local_cells is also
+          // partitioned)
           IndexSet is_local_cells(n_total_cells);
           is_local_cells.add_indices(local_cells.begin(), local_cells.end());
 
+          // needed (ghost) cell
           IndexSet is_ghost_cells(n_total_cells);
           for (const auto &ghost_faces :
                distributed_local_ghost_faces_remote_pairs_global[sm_rank])
             is_ghost_cells.add_index(ghost_faces.first);
 
-          std::vector<unsigned int> owning_ranks_of_ghosts(
-            is_ghost_cells.n_elements());
+          // determine rank of (ghost) cells
+          const auto owning_ranks_of_ghosts = [&]() {
+            std::vector<unsigned int> owning_ranks_of_ghosts(
+              is_ghost_cells.n_elements());
 
-          Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmPayload
-            process(is_local_cells,
-                    is_ghost_cells,
-                    comm,
-                    owning_ranks_of_ghosts,
-                    false);
+            Utilities::MPI::internal::ComputeIndexOwner::
+              ConsensusAlgorithmPayload process(is_local_cells,
+                                                is_ghost_cells,
+                                                comm,
+                                                owning_ranks_of_ghosts,
+                                                false);
 
-          Utilities::MPI::ConsensusAlgorithmSelector<
-            std::pair<types::global_dof_index, types::global_dof_index>,
-            unsigned int>
-            consensus_algorithm(process, comm);
-          consensus_algorithm.run();
+            Utilities::MPI::ConsensusAlgorithmSelector<
+              std::pair<types::global_dof_index, types::global_dof_index>,
+              unsigned int>
+              consensus_algorithm(process, comm);
+            consensus_algorithm.run();
+
+            return owning_ranks_of_ghosts;
+          }();
 
           std::set<unsigned int> send_ranks_set;
 
@@ -515,24 +524,25 @@ namespace LinearAlgebra
 
           const std::vector<unsigned int> send_ranks(send_ranks_set.begin(),
                                                      send_ranks_set.end());
-          const std::vector<unsigned int> recv_ranks =
-            Utilities::MPI::compute_point_to_point_communication_pattern(
-              comm, send_ranks);
 
+          // collect ghost faces (separated for each target)
           std::vector<std::vector<
             std::pair<types::global_dof_index, types::global_dof_index>>>
             send_data(send_ranks.size());
 
           unsigned int index      = 0;
-          unsigned int index_rank = numbers::invalid_unsigned_int;
+          unsigned int index_cell = numbers::invalid_unsigned_int;
 
           for (const auto &ghost_faces :
                distributed_local_ghost_faces_remote_pairs_global[sm_rank])
             {
-              if (index_rank != ghost_faces.first)
+              if (index_cell != ghost_faces.first)
                 {
-                  index_rank = ghost_faces.first;
-                  index      = std::distance(send_ranks.begin(),
+                  index_cell = ghost_faces.first;
+                  const unsigned int index_rank =
+                    owning_ranks_of_ghosts[is_ghost_cells.index_within_set(
+                      ghost_faces.first)];
+                  index = std::distance(send_ranks.begin(),
                                         std::find(send_ranks.begin(),
                                                   send_ranks.end(),
                                                   index_rank));
@@ -541,6 +551,7 @@ namespace LinearAlgebra
                                             ghost_faces.second);
             }
 
+          // send ghost faces to the owners
           std::vector<MPI_Request> send_requests(send_ranks.size());
 
           for (unsigned int i = 0; i < send_ranks.size(); i++)
@@ -556,7 +567,11 @@ namespace LinearAlgebra
             }
 
           // process requests
-          for (unsigned int i = 0; i < recv_ranks.size(); i++)
+          for (unsigned int i = 0;
+               i < Utilities::MPI::compute_point_to_point_communication_pattern(
+                     comm, send_ranks)
+                     .size();
+               i++)
             {
               // wait for any request
               MPI_Status status;
