@@ -76,6 +76,7 @@ test(const MPI_Comm comm, const unsigned int degree)
 
   // 4) setup partitioner
   LinearAlgebra::SharedMPI::Partitioner partitioner;
+  partitioner.configure(false, 1, 2);
   partitioner.reinit(local_cells, local_ghost_faces, comm);
 }
 

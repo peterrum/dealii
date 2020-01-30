@@ -172,6 +172,11 @@ namespace LinearAlgebra
     class Partitioner
     {
     public:
+      using RankType     = unsigned int;
+      using LocalDoFType = unsigned int;
+      using CellIdType   = types::global_dof_index;
+      using FaceIdType   = std::pair<CellIdType, unsigned int>;
+
       void
       configure(const bool         do_buffering,
                 const unsigned int degree,
@@ -218,11 +223,8 @@ namespace LinearAlgebra
                                   sm_procs.end(),
                                   Utilities::MPI::this_mpi_process(comm)));
 
-        std::map<types::global_dof_index, std::pair<unsigned int, unsigned int>>
-          maps;
-
         for (unsigned int i = 0; i < local_cells.size(); i++)
-          maps[local_cells[i]] = {sm_rank, i * dofs_per_cell};
+          this->maps[local_cells[i]] = {sm_rank, i * dofs_per_cell};
 
         // 2) determine which ghost face is shared or remote
         std::vector<
@@ -366,7 +368,8 @@ namespace LinearAlgebra
                     const unsigned int offset =
                       shared_procs_to_offset[status.MPI_SOURCE][i];
 
-                    maps[cell] = {status.MPI_SOURCE, offset * dofs_per_cell};
+                    this->maps[cell] = {status.MPI_SOURCE,
+                                        offset * dofs_per_cell};
                   }
               }
 
@@ -421,7 +424,7 @@ namespace LinearAlgebra
           return result;
         }();
 
-        const auto &maps_ghost = [&]() {
+        this->maps_ghost = [&]() {
           std::map<std::pair<types::global_dof_index, unsigned int>,
                    std::pair<unsigned int, unsigned int>>
             maps_ghost;
@@ -456,7 +459,7 @@ namespace LinearAlgebra
               maps_ghost[{i.first, j}] = maps_ghost_inverse[{i.first, j}];
 
           return maps_ghost;
-        };
+        }();
 
 
         deallog << "A"
@@ -590,9 +593,18 @@ namespace LinearAlgebra
       }
 
     private:
-      bool         do_buffering;
-      unsigned int degree;
+      // configuration parameters
+      bool         do_buffering; // buffering vs. non-buffering modus
+      unsigned int degree;       // to compute dofs per face/cell
       unsigned int dim;
+
+      // access cells and ghost faces
+      std::map<CellIdType, std::pair<RankType, LocalDoFType>> maps;
+      std::map<FaceIdType, std::pair<RankType, LocalDoFType>> maps_ghost;
+
+      // information to pack/unpack buffers
+
+      // information needed during communication
     };
 
   } // namespace SharedMPI
