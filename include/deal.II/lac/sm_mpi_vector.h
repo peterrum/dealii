@@ -479,13 +479,16 @@ namespace LinearAlgebra
             deallog << std::endl;
           }
 
-        // 5) setup communication patterns
+        // 5) setup communication patterns:
+        //     - requests_from_relevant_precomp
+        //     - send_recv_buffer
+        //     - receive_info
         {
           // determine of the owner of cells of remote ghost faces
           const auto n_total_cells = Utilities::MPI::sum(
             static_cast<types::global_dof_index>(local_cells.size()), comm);
 
-          // owned cells (TODO: generalize s.th. local_cells is also
+          // owned cells (TODO: generalize so that local_cells is also
           // partitioned)
           IndexSet is_local_cells(n_total_cells);
           is_local_cells.add_indices(local_cells.begin(), local_cells.end());
@@ -517,39 +520,48 @@ namespace LinearAlgebra
             return owning_ranks_of_ghosts;
           }();
 
-          std::set<unsigned int> send_ranks_set;
+          // determine targets
+          const auto send_ranks = [&]() {
+            std::set<unsigned int> send_ranks_set;
 
-          for (const auto &i : owning_ranks_of_ghosts)
-            send_ranks_set.insert(i);
+            for (const auto &i : owning_ranks_of_ghosts)
+              send_ranks_set.insert(i);
 
-          const std::vector<unsigned int> send_ranks(send_ranks_set.begin(),
-                                                     send_ranks_set.end());
+            const std::vector<unsigned int> send_ranks(send_ranks_set.begin(),
+                                                       send_ranks_set.end());
+
+            return send_ranks;
+          }();
 
           // collect ghost faces (separated for each target)
-          std::vector<std::vector<
-            std::pair<types::global_dof_index, types::global_dof_index>>>
-            send_data(send_ranks.size());
+          const auto send_data = [&]() {
+            std::vector<std::vector<
+              std::pair<types::global_dof_index, types::global_dof_index>>>
+              send_data(send_ranks.size());
 
-          unsigned int index      = 0;
-          unsigned int index_cell = numbers::invalid_unsigned_int;
+            unsigned int index      = 0;
+            unsigned int index_cell = numbers::invalid_unsigned_int;
 
-          for (const auto &ghost_faces :
-               distributed_local_ghost_faces_remote_pairs_global[sm_rank])
-            {
-              if (index_cell != ghost_faces.first)
-                {
-                  index_cell = ghost_faces.first;
-                  const unsigned int index_rank =
-                    owning_ranks_of_ghosts[is_ghost_cells.index_within_set(
-                      ghost_faces.first)];
-                  index = std::distance(send_ranks.begin(),
-                                        std::find(send_ranks.begin(),
-                                                  send_ranks.end(),
-                                                  index_rank));
-                }
-              send_data[index].emplace_back(ghost_faces.first,
-                                            ghost_faces.second);
-            }
+            for (const auto &ghost_faces :
+                 distributed_local_ghost_faces_remote_pairs_global[sm_rank])
+              {
+                if (index_cell != ghost_faces.first)
+                  {
+                    index_cell = ghost_faces.first;
+                    const unsigned int index_rank =
+                      owning_ranks_of_ghosts[is_ghost_cells.index_within_set(
+                        ghost_faces.first)];
+                    index = std::distance(send_ranks.begin(),
+                                          std::find(send_ranks.begin(),
+                                                    send_ranks.end(),
+                                                    index_rank));
+                  }
+                send_data[index].emplace_back(ghost_faces.first,
+                                              ghost_faces.second);
+              }
+
+            return send_data;
+          }();
 
           // send ghost faces to the owners
           std::vector<MPI_Request> send_requests(send_ranks.size());
