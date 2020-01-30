@@ -467,23 +467,16 @@ namespace LinearAlgebra
           return maps_ghost;
         }();
 
-
-        deallog << "A"
-                << distributed_local_ghost_faces_remote_pairs_global.size()
-                << std::endl;
-
-        for (auto &i : distributed_local_ghost_faces_remote_pairs_global)
-          {
-            for (auto &j : i)
-              deallog << "(" << j.first << "," << j.second << ") ";
-            deallog << std::endl;
-          }
-
-        // 5) setup communication patterns:
-        //     - requests_from_relevant_precomp
-        //     - send_recv_buffer
-        //     - receive_info
-        {
+        // 5) setup communication patterns (during update_ghost_values &
+        // compress)
+        [&local_cells,
+         &distributed_local_ghost_faces_remote_pairs_global,
+         &sm_rank,
+         &comm,
+         &dofs_per_ghost](auto &      requests_from_relevant_precomp,
+                          auto &      send_recv_buffer,
+                          auto &      receive_info,
+                          const auto &maps) {
           // determine of the owner of cells of remote ghost faces
           const auto n_total_cells = Utilities::MPI::sum(
             static_cast<types::global_dof_index>(local_cells.size()), comm);
@@ -630,8 +623,8 @@ namespace LinearAlgebra
                     const CellIdType   cell    = recv_data[i].first;
                     const unsigned int face_no = recv_data[i].second;
 
-                    const auto ptr = this->maps.find(cell);
-                    AssertThrow(ptr != this->maps.end(),
+                    const auto ptr = maps.find(cell);
+                    AssertThrow(ptr != maps.end(),
                                 ExcMessage("Entry " + std::to_string(cell) +
                                            " not found!"));
 
@@ -647,7 +640,10 @@ namespace LinearAlgebra
           MPI_Waitall(send_requests.size(),
                       send_requests.data(),
                       MPI_STATUSES_IGNORE);
-        }
+        }(requests_from_relevant_precomp,
+          send_recv_buffer,
+          receive_info,
+          this->maps);
 
         // 6)
       }
