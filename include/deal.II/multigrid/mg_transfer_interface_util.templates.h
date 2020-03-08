@@ -556,12 +556,13 @@ namespace MGTransferUtil
 
     transfer.constraint_coarse.copy_from(constraint_coarse);
 
+    MPI_Comm comm;
     {
       const parallel::TriangulationBase<dim> *dist_tria =
         dynamic_cast<const parallel::TriangulationBase<dim> *>(
           &(dof_handler_coarse.get_triangulation()));
 
-      MPI_Comm comm =
+      comm =
         dist_tria != nullptr ? dist_tria->get_communicator() : MPI_COMM_SELF;
 
       {
@@ -758,7 +759,13 @@ namespace MGTransferUtil
       }
 
     // -------------------------------- weights --------------------------------
-    if (transfer.schemes.front().fine_element_is_continuous)
+    const bool fine_element_is_continuous = Utilities::MPI::max(
+      static_cast<unsigned int>(
+        transfer.schemes.size() > 0 ?
+          transfer.schemes.front().fine_element_is_continuous :
+          false),
+      comm);
+    if (fine_element_is_continuous)
       {
         for (auto &scheme : transfer.schemes)
           scheme.weights.resize(scheme.n_cells_coarse *
