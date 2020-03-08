@@ -265,7 +265,7 @@ Transfer<dim, Number>::prolongate(
   this->vec_coarse.zero_out_ghosts(); // clear ghost values; else compress in
                                       // do_restrict_add does not work
 
-  if (schemes.front().fine_element_is_continuous)
+  if (schemes.size() > 0 && schemes.front().fine_element_is_continuous)
     this->vec_fine.compress(VectorOperation::add);
 
   dst.copy_locally_owned_data_from(this->vec_fine);
@@ -361,7 +361,7 @@ Transfer<dim, Number>::restrict_and_add(
         }
     }
 
-  if (schemes.front().fine_element_is_continuous)
+  if (schemes.size() && schemes.front().fine_element_is_continuous)
     this->vec_coarse.compress(VectorOperation::add);
 
   dst.copy_locally_owned_data_from(this->vec_coarse);
