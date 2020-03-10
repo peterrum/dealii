@@ -1915,8 +1915,7 @@ namespace internal
       // correct (cell-local) ordering. The same
       // applies, if the face_rotation or
       // face_orientation is non-standard
-      for (unsigned int quad = 0; quad < GeometryInfo<3>::faces_per_cell;
-           ++quad)
+      for (unsigned int quad : GeometryInfo<3>::face_indices())
         for (unsigned int d = 0; d < dofs_per_quad; ++d)
           *next++ = accessor.quad(quad)->dof_index(
             accessor.get_fe(fe_index)
@@ -2915,8 +2914,7 @@ namespace internal
         // correct (cell-local) ordering. The same
         // applies, if the face_rotation or
         // face_orientation is non-standard
-        for (unsigned int quad = 0; quad < GeometryInfo<3>::faces_per_cell;
-             ++quad)
+        for (unsigned int quad : GeometryInfo<3>::face_indices())
           for (unsigned int d = 0; d < dofs_per_quad; ++d)
             *next++ = accessor.quad(quad)->dof_index(
               accessor.dof_handler->get_fe()
