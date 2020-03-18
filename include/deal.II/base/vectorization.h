@@ -169,6 +169,48 @@ public:
     return *this;
   }
 
+  /**
+   * This operator advances the iterator by @p offet lanes and returns a
+   * reference to <tt>*this</tt>.
+   */
+  VectorizedArrayIterator<T> &
+  operator+=(unsigned int offset)
+  {
+    lane += offset;
+    return *this;
+  }
+
+  /**
+   * Prefix <tt>--</tt> operator: <tt>--iterator</tt>. This operator advances
+   * the iterator to the previous lane and returns a reference to
+   * <tt>*this</tt>.
+   */
+  VectorizedArrayIterator<T> &
+  operator--()
+  {
+    lane--;
+    return *this;
+  }
+
+  /**
+   * Create new iterator, which is shifted by @p offset.
+   */
+  VectorizedArrayIterator<T>
+  operator+(const unsigned int &offset) const
+  {
+    return VectorizedArrayIterator<T>(*data, lane + offset);
+  }
+
+  /**
+   * Compute distance between this iterator and iterator @p other.
+   */
+  unsigned int
+  operator-(const VectorizedArrayIterator<T> &other) const
+  {
+    AssertIndexRange(other.lane, lane + 1);
+    return lane - other.lane;
+  }
+
 private:
   /**
    * Pointer to the actual VectorizedArray.
@@ -5438,6 +5480,19 @@ namespace std
   {
     return x.get_min(y);
   }
+
+
+
+  /**
+   * Iterator traits for VectorizedArrayIterator.
+   */
+  template <class T>
+  struct iterator_traits<dealii::VectorizedArrayIterator<T>>
+  {
+    using iterator_category = random_access_iterator_tag;
+    using value_type        = typename T::value_type;
+    using difference_type   = unsigned int;
+  };
 
 } // namespace std
 
