@@ -64,14 +64,14 @@ namespace MemorySpace
      * Copy the active data (values for Host and values_dev for CUDA) to @p begin.
      * If the data is on the device it is moved to the host.
      */
-    void
+    virtual void
     copy_to(Number *begin, std::size_t n_elements)
     {
       (void)begin;
       (void)n_elements;
     }
 
-    void
+    virtual void
     /**
      * Copy the data in @p begin to the active data of the structure (values for
      * Host and values_dev for CUDA). The pointer @p begin must be on the host.
@@ -85,7 +85,7 @@ namespace MemorySpace
     /**
      * Pointer to data on the host.
      */
-    std::unique_ptr<Number[], decltype(&std::free)> values;
+    std::unique_ptr<Number[], std::function<void(Number *&)>> values;
 
     /**
      * Pointer to data on the device.
@@ -117,19 +117,19 @@ namespace MemorySpace
       : values(nullptr, &std::free)
     {}
 
-    void
+    virtual void
     copy_to(Number *begin, std::size_t n_elements)
     {
       std::copy(values.get(), values.get() + n_elements, begin);
     }
 
-    void
+    virtual void
     copy_from(Number *begin, std::size_t n_elements)
     {
       std::copy(begin, begin + n_elements, values.get());
     }
 
-    std::unique_ptr<Number[], decltype(&std::free)> values;
+    std::unique_ptr<Number[], std::function<void(Number *&)>> values;
 
     // This is not used but it allows to simplify the code until we start using
     // CUDA-aware MPI.
@@ -157,7 +157,7 @@ namespace MemorySpace
       , values_dev(nullptr, Utilities::CUDA::delete_device_data<Number>)
     {}
 
-    void
+    virtual void
     copy_to(Number *begin, std::size_t n_elements)
     {
       const cudaError_t cuda_error_code =
@@ -168,7 +168,7 @@ namespace MemorySpace
       AssertCuda(cuda_error_code);
     }
 
-    void
+    virtual void
     copy_from(Number *begin, std::size_t n_elements)
     {
       const cudaError_t cuda_error_code =
@@ -179,8 +179,8 @@ namespace MemorySpace
       AssertCuda(cuda_error_code);
     }
 
-    std::unique_ptr<Number[], decltype(&std::free)> values;
-    std::unique_ptr<Number[], void (*)(Number *)>   values_dev;
+    std::unique_ptr<Number[], std::function<void(Number *&)>> values;
+    std::unique_ptr<Number[], void (*)(Number *)>             values_dev;
   };
 
 
