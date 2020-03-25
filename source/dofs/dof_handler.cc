@@ -39,20 +39,6 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-
-template <int dim, int spacedim>
-const unsigned int DoFHandler<dim, spacedim>::dimension;
-
-template <int dim, int spacedim>
-const unsigned int DoFHandler<dim, spacedim>::space_dimension;
-
-template <int dim, int spacedim>
-const types::global_dof_index DoFHandler<dim, spacedim>::invalid_dof_index;
-
-template <int dim, int spacedim>
-const unsigned int DoFHandler<dim, spacedim>::default_fe_index;
-
-
 // reference the invalid_dof_index variable explicitly to work around
 // a bug in the icc8 compiler
 namespace internal
@@ -835,6 +821,28 @@ namespace internal
 } // namespace internal
 
 
+template <int dim, int spacedim>
+const unsigned int DoFHandler<dim, spacedim>::dimension;
+
+template <int dim, int spacedim>
+const unsigned int DoFHandler<dim, spacedim>::space_dimension;
+
+template <int dim, int spacedim>
+const types::global_dof_index DoFHandler<dim, spacedim>::invalid_dof_index;
+
+template <int dim, int spacedim>
+const unsigned int DoFHandler<dim, spacedim>::default_fe_index;
+
+
+
+template <int dim, int spacedim>
+DoFHandler<dim, spacedim>::DoFHandler()
+  : tria(nullptr, typeid(*this).name())
+  , faces(nullptr)
+  , mg_faces(nullptr)
+{}
+
+
 
 template <int dim, int spacedim>
 DoFHandler<dim, spacedim>::DoFHandler(const Triangulation<dim, spacedim> &tria)
@@ -842,31 +850,8 @@ DoFHandler<dim, spacedim>::DoFHandler(const Triangulation<dim, spacedim> &tria)
   , faces(nullptr)
   , mg_faces(nullptr)
 {
-  // decide whether we need a sequential or a parallel distributed policy
-  if (dynamic_cast<const parallel::shared::Triangulation<dim, spacedim> *>(
-        &tria) != nullptr)
-    policy =
-      std_cxx14::make_unique<internal::DoFHandlerImplementation::Policy::
-                               ParallelShared<DoFHandler<dim, spacedim>>>(
-        *this);
-  else if (dynamic_cast<
-             const parallel::DistributedTriangulationBase<dim, spacedim> *>(
-             &tria) == nullptr)
-    policy =
-      std_cxx14::make_unique<internal::DoFHandlerImplementation::Policy::
-                               Sequential<DoFHandler<dim, spacedim>>>(*this);
-  else
-    policy =
-      std_cxx14::make_unique<internal::DoFHandlerImplementation::Policy::
-                               ParallelDistributed<DoFHandler<dim, spacedim>>>(
-        *this);
+  setup_policy();
 }
-
-
-template <int dim, int spacedim>
-DoFHandler<dim, spacedim>::DoFHandler()
-  : tria(nullptr, typeid(*this).name())
-{}
 
 
 template <int dim, int spacedim>
@@ -894,24 +879,7 @@ DoFHandler<dim, spacedim>::initialize(const Triangulation<dim, spacedim> &t,
   faces                      = nullptr;
   number_cache.n_global_dofs = 0;
 
-  // decide whether we need a sequential or a parallel distributed policy
-  if (dynamic_cast<const parallel::shared::Triangulation<dim, spacedim> *>(
-        &t) != nullptr)
-    policy =
-      std_cxx14::make_unique<internal::DoFHandlerImplementation::Policy::
-                               ParallelShared<DoFHandler<dim, spacedim>>>(
-        *this);
-  else if (dynamic_cast<
-             const parallel::DistributedTriangulationBase<dim, spacedim> *>(
-             &t) != nullptr)
-    policy =
-      std_cxx14::make_unique<internal::DoFHandlerImplementation::Policy::
-                               ParallelDistributed<DoFHandler<dim, spacedim>>>(
-        *this);
-  else
-    policy =
-      std_cxx14::make_unique<internal::DoFHandlerImplementation::Policy::
-                               Sequential<DoFHandler<dim, spacedim>>>(*this);
+  setup_policy();
 
   distribute_dofs(fe);
 }
@@ -1336,6 +1304,32 @@ DoFHandler<dim, spacedim>::distribute_dofs(
 {
   AssertThrow(false, ExcNotImplemented());
   (void)ff;
+}
+
+
+
+template <int dim, int spacedim>
+void
+DoFHandler<dim, spacedim>::setup_policy()
+{
+  // decide whether we need a sequential or a parallel distributed policy
+  if (dynamic_cast<const parallel::shared::Triangulation<dim, spacedim> *>(
+        &this->get_triangulation()) != nullptr)
+    policy =
+      std_cxx14::make_unique<internal::DoFHandlerImplementation::Policy::
+                               ParallelShared<DoFHandler<dim, spacedim>>>(
+        *this);
+  else if (dynamic_cast<
+             const parallel::DistributedTriangulationBase<dim, spacedim> *>(
+             &this->get_triangulation()) == nullptr)
+    policy =
+      std_cxx14::make_unique<internal::DoFHandlerImplementation::Policy::
+                               Sequential<DoFHandler<dim, spacedim>>>(*this);
+  else
+    policy =
+      std_cxx14::make_unique<internal::DoFHandlerImplementation::Policy::
+                               ParallelDistributed<DoFHandler<dim, spacedim>>>(
+        *this);
 }
 
 template <int dim, int spacedim>

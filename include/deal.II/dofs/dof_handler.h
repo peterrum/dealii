@@ -1383,6 +1383,13 @@ private:
                     PolicyBase<dim, spacedim>>
     policy;
 
+
+  /**
+   * Setup policy.
+   */
+  void
+  setup_policy();
+
   /**
    * A structure that contains all sorts of numbers that characterize the
    * degrees of freedom this object works on.
