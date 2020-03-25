@@ -1364,6 +1364,34 @@ namespace hp
   }
 
 
+  template <int dim, int spacedim>
+  typename DoFHandler<dim, spacedim>::level_cell_iterator
+  DoFHandler<dim, spacedim>::begin_mg(const unsigned int level) const
+  {
+    AssertThrow(false, ExcNotImplemented());
+    (void)level;
+    return this->begin();
+  }
+
+  template <int dim, int spacedim>
+  typename DoFHandler<dim, spacedim>::level_cell_iterator
+  DoFHandler<dim, spacedim>::end_mg(const unsigned int level) const
+  {
+    AssertThrow(false, ExcNotImplemented());
+    (void)level;
+
+    return this->end();
+  }
+
+  template <int dim, int spacedim>
+  typename DoFHandler<dim, spacedim>::level_cell_iterator
+  DoFHandler<dim, spacedim>::end_mg() const
+  {
+    AssertThrow(false, ExcNotImplemented());
+    return this->end();
+  }
+
+
 
   template <int dim, int spacedim>
   IteratorRange<typename DoFHandler<dim, spacedim>::cell_iterator>
@@ -1387,12 +1415,37 @@ namespace hp
 
 
   template <int dim, int spacedim>
+  IteratorRange<typename DoFHandler<dim, spacedim>::level_cell_iterator>
+  DoFHandler<dim, spacedim>::mg_cell_iterators() const
+  {
+    AssertThrow(false, ExcNotImplemented());
+    return IteratorRange<
+      typename DoFHandler<dim, spacedim>::level_cell_iterator>(begin_mg(),
+                                                               end_mg());
+  }
+
+
+
+  template <int dim, int spacedim>
   IteratorRange<typename DoFHandler<dim, spacedim>::cell_iterator>
   DoFHandler<dim, spacedim>::cell_iterators_on_level(
     const unsigned int level) const
   {
     return IteratorRange<typename DoFHandler<dim, spacedim>::cell_iterator>(
       begin(level), end(level));
+  }
+
+
+
+  template <int dim, int spacedim>
+  IteratorRange<typename DoFHandler<dim, spacedim>::level_cell_iterator>
+  DoFHandler<dim, spacedim>::mg_cell_iterators_on_level(
+    const unsigned int level) const
+  {
+    AssertThrow(false, ExcNotImplemented());
+    return IteratorRange<
+      typename DoFHandler<dim, spacedim>::level_cell_iterator>(begin_mg(level),
+                                                               end_mg(level));
   }
 
 
@@ -1454,6 +1507,14 @@ namespace hp
               }
         }
     return boundary_dofs.size();
+  }
+
+  template <int dim, int spacedim>
+  const BlockInfo &
+  DoFHandler<dim, spacedim>::block_info() const
+  {
+    AssertThrow(false, ExcNotImplemented());
+    return this->block_info_;
   }
 
 
@@ -1569,6 +1630,63 @@ namespace hp
 
   template <int dim, int spacedim>
   void
+  DoFHandler<dim, spacedim>::distribute_mg_dofs(
+    const FiniteElement<dim, spacedim> &fe)
+  {
+    AssertThrow(false, ExcNotImplemented());
+    (void)fe;
+  }
+
+
+
+  template <int dim, int spacedim>
+  void
+  DoFHandler<dim, spacedim>::distribute_mg_dofs()
+  {
+    AssertThrow(false, ExcNotImplemented());
+  }
+
+
+
+  template <int dim, int spacedim>
+  void
+  DoFHandler<dim, spacedim>::initialize(
+    const Triangulation<dim, spacedim> &tria,
+    const FiniteElement<dim, spacedim> &fe)
+  {
+    AssertThrow(false, ExcNotImplemented());
+    (void)tria;
+    (void)fe;
+  }
+
+
+
+  template <int dim, int spacedim>
+  bool
+  DoFHandler<dim, spacedim>::has_level_dofs() const
+  {
+    AssertThrow(false, ExcNotImplemented());
+    return false;
+  }
+
+  template <int dim, int spacedim>
+  bool
+  DoFHandler<dim, spacedim>::has_active_dofs() const
+  {
+    AssertThrow(false, ExcNotImplemented());
+    return false;
+  }
+
+  template <int dim, int spacedim>
+  void
+  DoFHandler<dim, spacedim>::initialize_local_block_info()
+  {
+    AssertThrow(false, ExcNotImplemented());
+  }
+
+
+  template <int dim, int spacedim>
+  void
   DoFHandler<dim, spacedim>::initialize(
     const Triangulation<dim, spacedim> &   tria,
     const hp::FECollection<dim, spacedim> &fe)
@@ -1589,6 +1707,15 @@ namespace hp
     create_active_fe_table();
 
     distribute_dofs(fe);
+  }
+
+
+
+  template <int dim, int spacedim>
+  void
+  DoFHandler<dim, spacedim>::set_fe(const FiniteElement<dim, spacedim> &fe)
+  {
+    (void)fe;
   }
 
 
@@ -1625,6 +1752,16 @@ namespace hp
         Assert(cell->active_fe_index() < fe_collection.size(),
                ExcInvalidFEIndex(cell->active_fe_index(),
                                  fe_collection.size()));
+  }
+
+
+
+  template <int dim, int spacedim>
+  void
+  DoFHandler<dim, spacedim>::distribute_dofs(
+    const FiniteElement<dim, spacedim> &fe)
+  {
+    (void)fe;
   }
 
 
@@ -1864,6 +2001,17 @@ namespace hp
           fe_collection);
       tg.join_all();
     }
+  }
+
+
+  template <int dim, int spacedim>
+  void
+  DoFHandler<dim, spacedim>::renumber_dofs(
+    const unsigned int                          level,
+    const std::vector<types::global_dof_index> &new_numbers)
+  {
+    (void)level;
+    (void)new_numbers;
   }
 
 

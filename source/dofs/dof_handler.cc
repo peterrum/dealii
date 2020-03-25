@@ -917,6 +917,17 @@ DoFHandler<dim, spacedim>::initialize(const Triangulation<dim, spacedim> &t,
 }
 
 
+template <int dim, int spacedim>
+void
+DoFHandler<dim, spacedim>::initialize(const Triangulation<dim, spacedim> &   t,
+                                      const hp::FECollection<dim, spacedim> &fe)
+{
+  (void)fe;
+  (void)t;
+  AssertThrow(false, ExcNotImplemented());
+}
+
+
 
 /*------------------------ Cell iterator functions ------------------------*/
 
@@ -1231,6 +1242,20 @@ DoFHandler<dim, spacedim>::memory_consumption() const
   return mem;
 }
 
+template <int dim, int spacedim>
+void
+DoFHandler<dim, spacedim>::prepare_for_serialization_of_active_fe_indices()
+{
+  AssertThrow(false, ExcNotImplemented());
+}
+
+template <int dim, int spacedim>
+void
+DoFHandler<dim, spacedim>::deserialize_active_fe_indices()
+{
+  AssertThrow(false, ExcNotImplemented());
+}
+
 
 
 template <int dim, int spacedim>
@@ -1241,6 +1266,16 @@ DoFHandler<dim, spacedim>::set_fe(const FiniteElement<dim, spacedim> &ff)
   // the exact same FiniteElement object.
   if (fe_collection.size() == 0 || fe_collection[0] != ff)
     fe_collection = hp::FECollection<dim, spacedim>(ff);
+}
+
+
+
+template <int dim, int spacedim>
+void
+DoFHandler<dim, spacedim>::set_fe(const hp::FECollection<dim, spacedim> &fe)
+{
+  AssertThrow(false, ExcNotImplemented());
+  (void)fe;
 }
 
 
@@ -1290,6 +1325,35 @@ DoFHandler<dim, spacedim>::distribute_dofs(
   if (dynamic_cast<const parallel::DistributedTriangulationBase<dim, spacedim>
                      *>(&*tria) == nullptr)
     block_info_object.initialize(*this, false, true);
+}
+
+
+
+template <int dim, int spacedim>
+void
+DoFHandler<dim, spacedim>::distribute_dofs(
+  const hp::FECollection<dim, spacedim> &ff)
+{
+  AssertThrow(false, ExcNotImplemented());
+  (void)ff;
+}
+
+template <int dim, int spacedim>
+void
+DoFHandler<dim, spacedim>::set_active_fe_indices(
+  const std::vector<unsigned int> &active_fe_indices)
+{
+  AssertThrow(false, ExcNotImplemented());
+  (void)active_fe_indices;
+}
+
+template <int dim, int spacedim>
+void
+DoFHandler<dim, spacedim>::get_active_fe_indices(
+  std::vector<unsigned int> &active_fe_indices) const
+{
+  AssertThrow(false, ExcNotImplemented());
+  (void)active_fe_indices;
 }
 
 

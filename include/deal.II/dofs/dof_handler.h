@@ -32,6 +32,7 @@
 #include <deal.II/dofs/deprecated_function_map.h>
 #include <deal.II/dofs/dof_accessor.h>
 #include <deal.II/dofs/dof_faces.h>
+#include <deal.II/dofs/dof_handler_base.h>
 #include <deal.II/dofs/dof_iterator_selector.h>
 #include <deal.II/dofs/dof_levels.h>
 #include <deal.II/dofs/number_cache.h>
@@ -202,12 +203,10 @@ namespace internal
  * @date 1998, 1999, 2000, 2012
  */
 template <int dim, int spacedim = dim>
-class DoFHandler : public Subscriptor
+class DoFHandler
+  : public DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>>
 {
-  using ActiveSelector = dealii::internal::DoFHandlerImplementation::
-    Iterators<DoFHandler<dim, spacedim>, false>;
-  using LevelSelector = dealii::internal::DoFHandlerImplementation::
-    Iterators<DoFHandler<dim, spacedim>, true>;
+  using Base = DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>>;
 
 public:
   /**
@@ -222,7 +221,7 @@ public:
    *
    * @ingroup Iterators
    */
-  using cell_accessor = typename ActiveSelector::CellAccessor;
+  using cell_accessor = typename Base::cell_accessor;
 
   /**
    * An alias that is used to identify iterators that point to faces.
@@ -236,7 +235,7 @@ public:
    *
    * @ingroup Iterators
    */
-  using face_accessor = typename ActiveSelector::FaceAccessor;
+  using face_accessor = typename Base::face_accessor;
 
   /**
    * An alias that defines an iterator over the (one-dimensional) lines
@@ -245,7 +244,7 @@ public:
    *
    * @ingroup Iterators
    */
-  using line_iterator = typename ActiveSelector::line_iterator;
+  using line_iterator = typename Base::line_iterator;
 
   /**
    * An alias that allows iterating over the <i>active</i> lines, i.e.,
@@ -260,7 +259,7 @@ public:
    *
    * @ingroup Iterators
    */
-  using active_line_iterator = typename ActiveSelector::active_line_iterator;
+  using active_line_iterator = typename Base::active_line_iterator;
 
   /**
    * An alias that defines an iterator over the (two-dimensional) quads
@@ -269,7 +268,7 @@ public:
    *
    * @ingroup Iterators
    */
-  using quad_iterator = typename ActiveSelector::quad_iterator;
+  using quad_iterator = typename Base::quad_iterator;
 
   /**
    * An alias that allows iterating over the <i>active</i> quads, i.e.,
@@ -284,7 +283,7 @@ public:
    *
    * @ingroup Iterators
    */
-  using active_quad_iterator = typename ActiveSelector::active_quad_iterator;
+  using active_quad_iterator = typename Base::active_quad_iterator;
 
   /**
    * An alias that defines an iterator over the (three-dimensional) hexes
@@ -293,7 +292,7 @@ public:
    *
    * @ingroup Iterators
    */
-  using hex_iterator = typename ActiveSelector::hex_iterator;
+  using hex_iterator = typename Base::hex_iterator;
 
   /**
    * An alias that allows iterating over the <i>active</i> hexes of a mesh.
@@ -304,7 +303,7 @@ public:
    *
    * @ingroup Iterators
    */
-  using active_hex_iterator = typename ActiveSelector::active_hex_iterator;
+  using active_hex_iterator = typename Base::active_hex_iterator;
 
   /**
    * An alias that is used to identify
@@ -326,7 +325,7 @@ public:
    *
    * @ingroup Iterators
    */
-  using active_cell_iterator = typename ActiveSelector::active_cell_iterator;
+  using active_cell_iterator = typename Base::active_cell_iterator;
 
   /**
    * An alias that is used to identify cell iterators. The concept of
@@ -354,7 +353,7 @@ public:
    *
    * @ingroup Iterators
    */
-  using cell_iterator = typename ActiveSelector::cell_iterator;
+  using cell_iterator = typename Base::cell_iterator;
 
   /**
    * An alias that is used to identify iterators that point to faces.
@@ -372,7 +371,7 @@ public:
    *
    * @ingroup Iterators
    */
-  using face_iterator = typename ActiveSelector::face_iterator;
+  using face_iterator = typename Base::face_iterator;
 
   /**
    * An alias that is used to identify iterators that point to active faces,
@@ -385,13 +384,13 @@ public:
    *
    * @ingroup Iterators
    */
-  using active_face_iterator = typename ActiveSelector::active_face_iterator;
+  using active_face_iterator = typename Base::active_face_iterator;
 
-  using level_cell_accessor = typename LevelSelector::CellAccessor;
-  using level_face_accessor = typename LevelSelector::FaceAccessor;
+  using level_cell_accessor = typename Base::level_cell_accessor;
+  using level_face_accessor = typename Base::level_face_accessor;
 
-  using level_cell_iterator = typename LevelSelector::cell_iterator;
-  using level_face_iterator = typename LevelSelector::face_iterator;
+  using level_cell_iterator = typename Base::level_cell_iterator;
+  using level_face_iterator = typename Base::level_face_iterator;
 
 
   /**
@@ -475,7 +474,15 @@ public:
    */
   void
   initialize(const Triangulation<dim, spacedim> &tria,
-             const FiniteElement<dim, spacedim> &fe);
+             const FiniteElement<dim, spacedim> &fe) override;
+
+  /**
+   * Assign a Triangulation and a FECollection to the DoFHandler and compute
+   * the distribution of degrees of freedom over the mesh.
+   */
+  void
+  initialize(const Triangulation<dim, spacedim> &   tria,
+             const hp::FECollection<dim, spacedim> &fe) override;
 
   /**
    * Assign a FiniteElement @p fe to this object.
@@ -499,7 +506,26 @@ public:
    * results. To restore consistency, call distribute_dofs().
    */
   virtual void
-  set_fe(const FiniteElement<dim, spacedim> &fe);
+  set_fe(const FiniteElement<dim, spacedim> &fe) override;
+
+  /**
+   * Assign a hp::FECollection @p fe to this object.
+   *
+   * In case a parallel::TriangulationBase is assigned to this object,
+   * the active_fe_indices will be exchanged between processors so that
+   * each one knows the indices on its own cells and all ghost cells.
+   *
+   * @note In accordance with dealii::DoFHandler::set_fe(),
+   * this function also makes a copy of the object given as argument.
+   *
+   * @warning This function only sets a hp::FECollection. Degrees of freedom
+   * have either not been distributed yet, or are distributed using a
+   * previously set collection. In both cases, accessing degrees of freedom
+   * will lead to invalid results. To restore consistency, call
+   * distribute_dofs().
+   */
+  virtual void
+  set_fe(const hp::FECollection<dim, spacedim> &fe) override;
 
   /**
    * Go through the triangulation and "distribute" the degrees of
@@ -531,7 +557,52 @@ public:
    * function set_fe().
    */
   virtual void
-  distribute_dofs(const FiniteElement<dim, spacedim> &fe);
+  distribute_dofs(const FiniteElement<dim, spacedim> &fe) override;
+
+  /**
+   * Go through the triangulation and "distribute" the degrees of
+   * freedom needed for the given finite element. "Distributing"
+   * degrees of freedom involves allocating memory to store the
+   * indices on all entities on which degrees of freedom can be
+   * located (e.g., vertices, edges, faces, etc.) and to then enumerate
+   * all degrees of freedom. In other words, while the mesh and the
+   * finite element object by themselves simply define a finite
+   * element space $V_h$, the process of distributing degrees of
+   * freedom makes sure that there is a basis for this space and that
+   * the shape functions of this basis are enumerated in an indexable,
+   * predictable way.
+   *
+   * The exact order in which degrees of freedom on a mesh are
+   * ordered, i.e., the order in which basis functions of the finite
+   * element space are enumerated, is something that deal.II treats as
+   * an implementation detail. By and large, degrees of freedom are
+   * enumerated in the same order in which we traverse cells, but you
+   * should not rely on any specific numbering. In contrast, if you
+   * want a particular ordering, use the functions in namespace
+   * DoFRenumbering.
+   *
+   * @note In accordance with dealii::DoFHandler::distribute_dofs(),
+   * this function also makes a copy of the object given as argument.
+   */
+  virtual void
+  distribute_dofs(const hp::FECollection<dim, spacedim> &fe) override;
+
+  /**
+   * Go through the triangulation and set the active FE indices of all
+   * active cells to the values given in @p active_fe_indices.
+   */
+  void
+  set_active_fe_indices(
+    const std::vector<unsigned int> &active_fe_indices) override;
+
+  /**
+   * Go through the triangulation and store the active FE indices of all
+   * active cells to the vector @p active_fe_indices. This vector is
+   * resized, if necessary.
+   */
+  void
+  get_active_fe_indices(
+    std::vector<unsigned int> &active_fe_indices) const override;
 
   /**
    * Distribute level degrees of freedom on each level for geometric
@@ -543,7 +614,7 @@ public:
    */
   DEAL_II_DEPRECATED
   virtual void
-  distribute_mg_dofs(const FiniteElement<dim, spacedim> &fe);
+  distribute_mg_dofs(const FiniteElement<dim, spacedim> &fe) override;
 
   /**
    * Distribute level degrees of freedom on each level for geometric
@@ -551,7 +622,7 @@ public:
    * before calling this function.
    */
   virtual void
-  distribute_mg_dofs();
+  distribute_mg_dofs() override;
 
   /**
    * This function returns whether this DoFHandler has DoFs distributed on
@@ -559,7 +630,7 @@ public:
    * called.
    */
   bool
-  has_level_dofs() const;
+  has_level_dofs() const override;
 
   /**
    * This function returns whether this DoFHandler has active DoFs. This is
@@ -576,7 +647,7 @@ public:
    * at least this one process has any degrees of freedom associated with it.
    */
   bool
-  has_active_dofs() const;
+  has_active_dofs() const override;
 
   /**
    * After distribute_dofs() with an FESystem element, the block structure of
@@ -585,13 +656,13 @@ public:
    * cell in the same object.
    */
   void
-  initialize_local_block_info();
+  initialize_local_block_info() override;
 
   /**
    * Clear all data of this object.
    */
   virtual void
-  clear();
+  clear() override;
 
   /**
    * Renumber degrees of freedom based on a list of new DoF indices for each
@@ -646,15 +717,17 @@ public:
    *   contiguous locally owned DoF indices.
    */
   void
-  renumber_dofs(const std::vector<types::global_dof_index> &new_numbers);
+  renumber_dofs(
+    const std::vector<types::global_dof_index> &new_numbers) override;
 
   /**
    * The same function as above, but renumber the degrees of freedom of a
    * single level of a multigrid hierarchy.
    */
   void
-  renumber_dofs(const unsigned int                          level,
-                const std::vector<types::global_dof_index> &new_numbers);
+  renumber_dofs(
+    const unsigned int                          level,
+    const std::vector<types::global_dof_index> &new_numbers) override;
 
   /**
    * Return the maximum number of degrees of freedom a degree of freedom in
@@ -685,7 +758,7 @@ public:
    * @ref Sparsity.
    */
   unsigned int
-  max_couplings_between_dofs() const;
+  max_couplings_between_dofs() const override;
 
   /**
    * Return the number of degrees of freedom located on the boundary another
@@ -700,7 +773,7 @@ public:
    * @ref Sparsity).
    */
   unsigned int
-  max_couplings_between_boundary_dofs() const;
+  max_couplings_between_boundary_dofs() const override;
 
   /*--------------------------------------*/
 
@@ -716,7 +789,7 @@ public:
    * Iterator to the first used cell on level @p level.
    */
   cell_iterator
-  begin(const unsigned int level = 0) const;
+  begin(const unsigned int level = 0) const override;
 
   /**
    * Iterator to the first active cell on level @p level. If the given level
@@ -735,21 +808,21 @@ public:
    * this level.
    */
   active_cell_iterator
-  begin_active(const unsigned int level = 0) const;
+  begin_active(const unsigned int level = 0) const override;
 
   /**
    * Iterator past the end; this iterator serves for comparisons of iterators
    * with past-the-end or before-the-beginning states.
    */
   cell_iterator
-  end() const;
+  end() const override;
 
   /**
    * Return an iterator which is the first iterator not on the given level. If
    * @p level is the last level, then this returns <tt>end()</tt>.
    */
   cell_iterator
-  end(const unsigned int level) const;
+  end(const unsigned int level) const override;
 
   /**
    * Return an active iterator which is the first active iterator not on the
@@ -757,7 +830,7 @@ public:
    * <tt>end()</tt>.
    */
   active_cell_iterator
-  end_active(const unsigned int level) const;
+  end_active(const unsigned int level) const override;
 
 
   /**
@@ -765,21 +838,21 @@ public:
    * level_cell_iterator that returns level dofs when dof_indices() is called.
    */
   level_cell_iterator
-  begin_mg(const unsigned int level = 0) const;
+  begin_mg(const unsigned int level = 0) const override;
 
   /**
    * Iterator past the last cell on level @p level. This returns a
    * level_cell_iterator that returns level dofs when dof_indices() is called.
    */
   level_cell_iterator
-  end_mg(const unsigned int level) const;
+  end_mg(const unsigned int level) const override;
 
   /**
    * Iterator past the end; this iterator serves for comparisons of iterators
    * with past-the-end or before-the-beginning states.
    */
   level_cell_iterator
-  end_mg() const;
+  end_mg() const override;
 
   /**
    * @name Cell iterator functions returning ranges of iterators
@@ -796,7 +869,7 @@ public:
    * @ingroup CPP11
    */
   IteratorRange<cell_iterator>
-  cell_iterators() const;
+  cell_iterators() const override;
 
   /**
    * Return an iterator range that contains all active cells that make up this
@@ -839,7 +912,7 @@ public:
    * @ingroup CPP11
    */
   IteratorRange<active_cell_iterator>
-  active_cell_iterators() const;
+  active_cell_iterators() const override;
 
   /**
    * Return an iterator range that contains all cells (active or not) that
@@ -853,7 +926,7 @@ public:
    * @ingroup CPP11
    */
   IteratorRange<level_cell_iterator>
-  mg_cell_iterators() const;
+  mg_cell_iterators() const override;
 
   /**
    * Return an iterator range that contains all cells (active or not) that
@@ -871,7 +944,7 @@ public:
    * @ingroup CPP11
    */
   IteratorRange<cell_iterator>
-  cell_iterators_on_level(const unsigned int level) const;
+  cell_iterators_on_level(const unsigned int level) const override;
 
   /**
    * Return an iterator range that contains all active cells that make up the
@@ -889,7 +962,7 @@ public:
    * @ingroup CPP11
    */
   IteratorRange<active_cell_iterator>
-  active_cell_iterators_on_level(const unsigned int level) const;
+  active_cell_iterators_on_level(const unsigned int level) const override;
 
   /**
    * Return an iterator range that contains all cells (active or not) that
@@ -908,7 +981,7 @@ public:
    *
    */
   IteratorRange<level_cell_iterator>
-  mg_cell_iterators_on_level(const unsigned int level) const;
+  mg_cell_iterators_on_level(const unsigned int level) const override;
 
   /*
    * @}
@@ -942,7 +1015,7 @@ public:
    * space.
    */
   types::global_dof_index
-  n_dofs() const;
+  n_dofs() const override;
 
   /**
    * The (global) number of multilevel degrees of freedom on a given level.
@@ -952,14 +1025,14 @@ public:
    * on this level.
    */
   types::global_dof_index
-  n_dofs(const unsigned int level) const;
+  n_dofs(const unsigned int level) const override;
 
   /**
    * Return the number of locally owned degrees of freedom located on the
    * boundary.
    */
   types::global_dof_index
-  n_boundary_dofs() const;
+  n_boundary_dofs() const override;
 
   /**
    * Return the number of locally owned degrees of freedom located on those
@@ -983,7 +1056,8 @@ public:
    * boundary which have a boundary indicator listed in the given set. The
    */
   types::global_dof_index
-  n_boundary_dofs(const std::set<types::boundary_id> &boundary_ids) const;
+  n_boundary_dofs(
+    const std::set<types::boundary_id> &boundary_ids) const override;
 
   /**
    * Access to an object informing of the block structure of the dof handler.
@@ -1001,7 +1075,7 @@ public:
    * initialize_local_block_info().
    */
   const BlockInfo &
-  block_info() const;
+  block_info() const override;
 
 
   /**
@@ -1023,8 +1097,8 @@ public:
    * cells owned by other processors may be theirs, and degrees of freedom on
    * ghost cells are also not necessarily included.
    */
-  unsigned int
-  n_locally_owned_dofs() const;
+  types::global_dof_index
+  n_locally_owned_dofs() const override;
 
   /**
    * Return an IndexSet describing the set of locally owned DoFs as a subset
@@ -1032,14 +1106,14 @@ public:
    * n_locally_owned_dofs().
    */
   const IndexSet &
-  locally_owned_dofs() const;
+  locally_owned_dofs() const override;
 
   /**
    * Return an IndexSet describing the set of locally owned DoFs used for the
    * given multigrid level as a subset of 0..n_dofs(level).
    */
   const IndexSet &
-  locally_owned_mg_dofs(const unsigned int level) const;
+  locally_owned_mg_dofs(const unsigned int level) const override;
 
   /**
    * Compute a vector with the locally owned DoFs of each processor.
@@ -1059,7 +1133,7 @@ public:
    * only on one MPI process.)
    */
   std::vector<IndexSet>
-  compute_locally_owned_dofs_per_processor() const;
+  compute_locally_owned_dofs_per_processor() const override;
 
   /**
    * Compute a vector with the number of degrees of freedom each
@@ -1082,7 +1156,7 @@ public:
    * this DoFHandler builds works only on one MPI process.)
    */
   std::vector<types::global_dof_index>
-  compute_n_locally_owned_dofs_per_processor() const;
+  compute_n_locally_owned_dofs_per_processor() const override;
 
   /**
    * Compute a vector with the locally owned DoFs of each processor on
@@ -1100,7 +1174,8 @@ public:
    * only on one MPI process.)
    */
   std::vector<IndexSet>
-  compute_locally_owned_mg_dofs_per_processor(const unsigned int level) const;
+  compute_locally_owned_mg_dofs_per_processor(
+    const unsigned int level) const override;
 
   /**
    * Return a vector that stores the locally owned DoFs of each processor.
@@ -1115,7 +1190,7 @@ public:
    * more processors.
    */
   DEAL_II_DEPRECATED const std::vector<IndexSet> &
-                           locally_owned_dofs_per_processor() const;
+                           locally_owned_dofs_per_processor() const override;
 
   /**
    * Return a vector that stores the number of degrees of freedom each
@@ -1133,7 +1208,7 @@ public:
    * more processors.
    */
   DEAL_II_DEPRECATED const std::vector<types::global_dof_index> &
-                           n_locally_owned_dofs_per_processor() const;
+                           n_locally_owned_dofs_per_processor() const override;
 
   /**
    * Return a vector that stores the locally owned DoFs of each processor on
@@ -1149,7 +1224,7 @@ public:
    * more processors.
    */
   DEAL_II_DEPRECATED const std::vector<IndexSet> &
-                           locally_owned_mg_dofs_per_processor(const unsigned int level) const;
+                           locally_owned_mg_dofs_per_processor(const unsigned int level) const override;
 
   /**
    * Return a constant reference to the selected finite element object.
@@ -1157,7 +1232,7 @@ public:
    * which is also the default value.
    */
   const FiniteElement<dim, spacedim> &
-  get_fe(const unsigned int index = 0) const;
+  get_fe(const unsigned int index = 0) const override;
 
   /**
    * Return a constant reference to the set of finite element objects that
@@ -1166,13 +1241,13 @@ public:
    * hp::FECollection.
    */
   const hp::FECollection<dim, spacedim> &
-  get_fe_collection() const;
+  get_fe_collection() const override;
 
   /**
    * Return a constant reference to the triangulation underlying this object.
    */
   const Triangulation<dim, spacedim> &
-  get_triangulation() const;
+  get_triangulation() const override;
 
   /**
    * Determine an estimate for the memory consumption (in bytes) of this
@@ -1183,7 +1258,44 @@ public:
    * object might be a derived class.
    */
   virtual std::size_t
-  memory_consumption() const;
+  memory_consumption() const override;
+
+  /**
+   * Whenever serialization with a parallel::distributed::Triangulation as the
+   * underlying triangulation is considered, we also need to consider storing
+   * the active_fe_indices on all active cells as well.
+   *
+   * This function registers that these indices are to be stored whenever the
+   * parallel::distributed::Triangulation::save() function is called on the
+   * underlying triangulation.
+   *
+   * @note Currently only implemented for triangulations of type
+   *   parallel::distributed::Triangulation. An assertion will be triggered if
+   *   a different type is registered.
+   *
+   * @see The documentation of parallel::distributed::SolutionTransfer has further
+   *   information on serialization.
+   */
+  void
+  prepare_for_serialization_of_active_fe_indices() override;
+
+  /**
+   * Whenever serialization with a parallel::distributed::Triangulation as the
+   * underlying triangulation is considered, we also need to consider storing
+   * the active_fe_indices on all active cells as well.
+   *
+   * This function deserializes and distributes the previously stored
+   * active_fe_indices on all active cells.
+   *
+   * @note Currently only implemented for triangulations of type
+   *   parallel::distributed::Triangulation. An assertion will be triggered if
+   *   a different type is registered.
+   *
+   * @see The documentation of parallel::distributed::SolutionTransfer has further
+   *   information on serialization.
+   */
+  void
+  deserialize_active_fe_indices() override;
 
   /**
    * Write the data of this object to a stream for the purpose of
@@ -1495,7 +1607,7 @@ DoFHandler<dim, spacedim>::n_dofs(const unsigned int level) const
 
 
 template <int dim, int spacedim>
-unsigned int
+types::global_dof_index
 DoFHandler<dim, spacedim>::n_locally_owned_dofs() const
 {
   return number_cache.n_locally_owned_dofs;
