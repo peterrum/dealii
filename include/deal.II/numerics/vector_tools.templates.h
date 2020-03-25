@@ -277,16 +277,21 @@ namespace VectorTools
               int spacedim,
               typename VectorType,
               template <int, int> class DoFHandlerType,
-              typename T>
+              typename T,
+              typename F>
     void
     interpolate(const Mapping<dim, spacedim> &       mapping,
                 const DoFHandlerType<dim, spacedim> &dof_handler,
                 T &                                  function,
                 VectorType &                         vec,
-                const ComponentMask &                component_mask)
+                const ComponentMask &                component_mask,
+                const F &                            ff)
     {
-      Assert(component_mask.represents_n_components(
-               dof_handler.get_fe().n_components()),
+#ifndef DEBUG
+      (void)ff;
+#endif
+
+      Assert(component_mask.represents_n_components(ff.n_components()),
              ExcMessage(
                "The number of components in the mask has to be either "
                "zero or equal to the number of components in the finite "
@@ -295,8 +300,7 @@ namespace VectorTools
       Assert(vec.size() == dof_handler.n_dofs(),
              ExcDimensionMismatch(vec.size(), dof_handler.n_dofs()));
 
-      Assert(component_mask.n_selected_components(
-               dof_handler.get_fe().n_components()) > 0,
+      Assert(component_mask.n_selected_components(ff.n_components()) > 0,
              ComponentMask::ExcNoComponentSelected());
 
       //
@@ -428,7 +432,7 @@ namespace VectorTools
 
           // Get all function values:
           Assert(n_components == function(cell)->n_components,
-                 ExcDimensionMismatch(dof_handler.get_fe().n_components(),
+                 ExcDimensionMismatch(ff.n_components(),
                                       function(cell)->n_components));
           function(cell)->vector_value_list(generalized_support_points,
                                             function_values);
@@ -537,6 +541,93 @@ namespace VectorTools
       vec.compress(VectorOperation::insert);
     }
 
+    template <int dim, int spacedim, typename VectorType, typename T>
+    void
+    interpolate(const Mapping<dim, spacedim> &   mapping,
+                const DoFHandler<dim, spacedim> &dof_handler,
+                T &                              function,
+                VectorType &                     vec,
+                const ComponentMask &            component_mask)
+    {
+      interpolate(mapping,
+                  dof_handler,
+                  function,
+                  vec,
+                  component_mask,
+                  dof_handler.get_fe());
+    }
+
+    template <int dim, int spacedim, typename VectorType, typename T>
+    void
+    interpolate(const Mapping<dim, spacedim> &       mapping,
+                const hp::DoFHandler<dim, spacedim> &dof_handler,
+                T &                                  function,
+                VectorType &                         vec,
+                const ComponentMask &                component_mask)
+    {
+      interpolate(mapping,
+                  dof_handler,
+                  function,
+                  vec,
+                  component_mask,
+                  dof_handler.get_fe_collection());
+    }
+
+
+
+    template <int dim, int spacedim, typename VectorType>
+    void
+    interpolate(
+      const Mapping<dim, spacedim> &                             mapping,
+      const DoFHandler<dim, spacedim> &                          dof_handler,
+      const Function<spacedim, typename VectorType::value_type> &function,
+      VectorType &                                               vec,
+      const ComponentMask &                                      component_mask)
+    {
+      Assert(dof_handler.get_fe().n_components() == function.n_components,
+             ExcDimensionMismatch(dof_handler.get_fe().n_components(),
+                                  function.n_components));
+
+      // Create a small lambda capture wrapping function and call the
+      // internal implementation
+      const auto function_map = [&function](
+        const typename DoFHandler<dim, spacedim>::active_cell_iterator &)
+        -> const Function<spacedim, typename VectorType::value_type> *
+      {
+        return &function;
+      };
+
+      interpolate(mapping, dof_handler, function_map, vec, component_mask);
+    }
+
+
+
+    template <int dim, int spacedim, typename VectorType>
+    void
+    interpolate(
+      const Mapping<dim, spacedim> &                             mapping,
+      const hp::DoFHandler<dim, spacedim> &                      dof_handler,
+      const Function<spacedim, typename VectorType::value_type> &function,
+      VectorType &                                               vec,
+      const ComponentMask &                                      component_mask)
+    {
+      Assert(
+        dof_handler.get_fe_collection().n_components() == function.n_components,
+        ExcDimensionMismatch(dof_handler.get_fe_collection().n_components(),
+                             function.n_components));
+
+      // Create a small lambda capture wrapping function and call the
+      // internal implementation
+      const auto function_map = [&function](
+        const typename hp::DoFHandler<dim, spacedim>::active_cell_iterator &)
+        -> const Function<spacedim, typename VectorType::value_type> *
+      {
+        return &function;
+      };
+
+      interpolate(mapping, dof_handler, function_map, vec, component_mask);
+    }
+
   } // namespace internal
 
 
@@ -553,21 +644,7 @@ namespace VectorTools
     VectorType &                                               vec,
     const ComponentMask &                                      component_mask)
   {
-    Assert(dof_handler.get_fe().n_components() == function.n_components,
-           ExcDimensionMismatch(dof_handler.get_fe().n_components(),
-                                function.n_components));
-
-    // Create a small lambda capture wrapping function and call the
-    // internal implementation
-    const auto function_map = [&function](
-      const typename DoFHandlerType<dim, spacedim>::active_cell_iterator &)
-      -> const Function<spacedim, typename VectorType::value_type> *
-    {
-      return &function;
-    };
-
-    internal::interpolate(
-      mapping, dof_handler, function_map, vec, component_mask);
+    internal::interpolate(mapping, dof_handler, function, vec, component_mask);
   }
 
 
