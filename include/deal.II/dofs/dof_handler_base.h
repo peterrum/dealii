@@ -132,6 +132,14 @@ public:
 
   static const unsigned int default_fe_index = 0;
 
+  DoFHandlerBase()
+    : tria(nullptr, typeid(*this).name())
+  {}
+
+  DoFHandlerBase(const Triangulation<dim, spacedim> &tria)
+    : tria(&tria, typeid(*this).name())
+  {}
+
   virtual void
   initialize(const Triangulation<dim, spacedim> &tria,
              const FiniteElement<dim, spacedim> &fe) = 0;
@@ -190,46 +198,46 @@ public:
   max_couplings_between_boundary_dofs() const = 0;
 
   virtual cell_iterator
-  begin(const unsigned int level = 0) const = 0;
+  begin(const unsigned int level = 0) const;
 
   virtual active_cell_iterator
-  begin_active(const unsigned int level = 0) const = 0;
+  begin_active(const unsigned int level = 0) const;
 
   virtual cell_iterator
-  end() const = 0;
+  end() const;
 
   virtual cell_iterator
-  end(const unsigned int level) const = 0;
+  end(const unsigned int level) const;
 
   virtual active_cell_iterator
-  end_active(const unsigned int level) const = 0;
+  end_active(const unsigned int level) const;
 
   virtual level_cell_iterator
-  begin_mg(const unsigned int level = 0) const = 0;
+  begin_mg(const unsigned int level = 0) const;
 
   virtual level_cell_iterator
-  end_mg(const unsigned int level) const = 0;
+  end_mg(const unsigned int level) const;
 
   virtual level_cell_iterator
-  end_mg() const = 0;
+  end_mg() const;
 
   virtual IteratorRange<cell_iterator>
-  cell_iterators() const = 0;
+  cell_iterators() const;
 
   virtual IteratorRange<active_cell_iterator>
-  active_cell_iterators() const = 0;
+  active_cell_iterators() const;
 
   virtual IteratorRange<level_cell_iterator>
-  mg_cell_iterators() const = 0;
+  mg_cell_iterators() const;
 
   virtual IteratorRange<cell_iterator>
-  cell_iterators_on_level(const unsigned int level) const = 0;
+  cell_iterators_on_level(const unsigned int level) const;
 
   virtual IteratorRange<active_cell_iterator>
-  active_cell_iterators_on_level(const unsigned int level) const = 0;
+  active_cell_iterators_on_level(const unsigned int level) const;
 
   virtual IteratorRange<level_cell_iterator>
-  mg_cell_iterators_on_level(const unsigned int level) const = 0;
+  mg_cell_iterators_on_level(const unsigned int level) const;
 
   virtual types::global_dof_index
   n_dofs() const = 0;
@@ -288,7 +296,7 @@ public:
   get_fe_collection() const = 0;
 
   virtual const Triangulation<dim, spacedim> &
-  get_triangulation() const = 0;
+  get_triangulation() const;
 
   virtual std::size_t
   memory_consumption() const = 0;
@@ -298,6 +306,10 @@ public:
 
   virtual void
   deserialize_active_fe_indices() = 0;
+
+protected:
+  SmartPointer<const Triangulation<dim, spacedim>, DoFHandler<dim, spacedim>>
+    tria;
 };
 
 DEAL_II_NAMESPACE_CLOSE

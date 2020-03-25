@@ -838,7 +838,7 @@ const unsigned int DoFHandler<dim, spacedim>::default_fe_index;
 
 template <int dim, int spacedim>
 DoFHandler<dim, spacedim>::DoFHandler()
-  : tria(nullptr, typeid(*this).name())
+  : Base()
   , faces(nullptr)
   , mg_faces(nullptr)
 {}
@@ -847,7 +847,7 @@ DoFHandler<dim, spacedim>::DoFHandler()
 
 template <int dim, int spacedim>
 DoFHandler<dim, spacedim>::DoFHandler(const Triangulation<dim, spacedim> &tria)
-  : tria(&tria, typeid(*this).name())
+  : Base(tria)
   , faces(nullptr)
   , mg_faces(nullptr)
 {
@@ -876,7 +876,7 @@ void
 DoFHandler<dim, spacedim>::initialize(const Triangulation<dim, spacedim> &t,
                                       const FiniteElement<dim, spacedim> &fe)
 {
-  tria                       = &t;
+  this->tria                 = &t;
   faces                      = nullptr;
   number_cache.n_global_dofs = 0;
 
@@ -895,175 +895,6 @@ DoFHandler<dim, spacedim>::initialize(const Triangulation<dim, spacedim> &   t,
   (void)t;
   AssertThrow(false, ExcNotImplemented());
 }
-
-
-
-/*------------------------ Cell iterator functions ------------------------*/
-
-template <int dim, int spacedim>
-typename DoFHandler<dim, spacedim>::cell_iterator
-DoFHandler<dim, spacedim>::begin(const unsigned int level) const
-{
-  typename Triangulation<dim, spacedim>::cell_iterator cell =
-    this->get_triangulation().begin(level);
-  if (cell == this->get_triangulation().end(level))
-    return end(level);
-  return cell_iterator(*cell, this);
-}
-
-
-
-template <int dim, int spacedim>
-typename DoFHandler<dim, spacedim>::active_cell_iterator
-DoFHandler<dim, spacedim>::begin_active(const unsigned int level) const
-{
-  // level is checked in begin
-  cell_iterator i = begin(level);
-  if (i.state() != IteratorState::valid)
-    return i;
-  while (i->has_children())
-    if ((++i).state() != IteratorState::valid)
-      return i;
-  return i;
-}
-
-
-
-template <int dim, int spacedim>
-typename DoFHandler<dim, spacedim>::cell_iterator
-DoFHandler<dim, spacedim>::end() const
-{
-  return cell_iterator(&this->get_triangulation(), -1, -1, this);
-}
-
-
-template <int dim, int spacedim>
-typename DoFHandler<dim, spacedim>::cell_iterator
-DoFHandler<dim, spacedim>::end(const unsigned int level) const
-{
-  typename Triangulation<dim, spacedim>::cell_iterator cell =
-    this->get_triangulation().end(level);
-  if (cell.state() != IteratorState::valid)
-    return end();
-  return cell_iterator(*cell, this);
-}
-
-
-template <int dim, int spacedim>
-typename DoFHandler<dim, spacedim>::active_cell_iterator
-DoFHandler<dim, spacedim>::end_active(const unsigned int level) const
-{
-  typename Triangulation<dim, spacedim>::cell_iterator cell =
-    this->get_triangulation().end_active(level);
-  if (cell.state() != IteratorState::valid)
-    return active_cell_iterator(end());
-  return active_cell_iterator(*cell, this);
-}
-
-
-
-template <int dim, int spacedim>
-typename DoFHandler<dim, spacedim>::level_cell_iterator
-DoFHandler<dim, spacedim>::begin_mg(const unsigned int level) const
-{
-  // Assert(this->has_level_dofs(), ExcMessage("You can only iterate over mg "
-  //     "levels if mg dofs got distributed."));
-  typename Triangulation<dim, spacedim>::cell_iterator cell =
-    this->get_triangulation().begin(level);
-  if (cell == this->get_triangulation().end(level))
-    return end_mg(level);
-  return level_cell_iterator(*cell, this);
-}
-
-
-template <int dim, int spacedim>
-typename DoFHandler<dim, spacedim>::level_cell_iterator
-DoFHandler<dim, spacedim>::end_mg(const unsigned int level) const
-{
-  // Assert(this->has_level_dofs(), ExcMessage("You can only iterate over mg "
-  //     "levels if mg dofs got distributed."));
-  typename Triangulation<dim, spacedim>::cell_iterator cell =
-    this->get_triangulation().end(level);
-  if (cell.state() != IteratorState::valid)
-    return end();
-  return level_cell_iterator(*cell, this);
-}
-
-
-template <int dim, int spacedim>
-typename DoFHandler<dim, spacedim>::level_cell_iterator
-DoFHandler<dim, spacedim>::end_mg() const
-{
-  return level_cell_iterator(&this->get_triangulation(), -1, -1, this);
-}
-
-
-
-template <int dim, int spacedim>
-IteratorRange<typename DoFHandler<dim, spacedim>::cell_iterator>
-DoFHandler<dim, spacedim>::cell_iterators() const
-{
-  return IteratorRange<typename DoFHandler<dim, spacedim>::cell_iterator>(
-    begin(), end());
-}
-
-
-template <int dim, int spacedim>
-IteratorRange<typename DoFHandler<dim, spacedim>::active_cell_iterator>
-DoFHandler<dim, spacedim>::active_cell_iterators() const
-{
-  return IteratorRange<
-    typename DoFHandler<dim, spacedim>::active_cell_iterator>(begin_active(),
-                                                              end());
-}
-
-
-
-template <int dim, int spacedim>
-IteratorRange<typename DoFHandler<dim, spacedim>::level_cell_iterator>
-DoFHandler<dim, spacedim>::mg_cell_iterators() const
-{
-  return IteratorRange<typename DoFHandler<dim, spacedim>::level_cell_iterator>(
-    begin_mg(), end_mg());
-}
-
-
-
-template <int dim, int spacedim>
-IteratorRange<typename DoFHandler<dim, spacedim>::cell_iterator>
-DoFHandler<dim, spacedim>::cell_iterators_on_level(
-  const unsigned int level) const
-{
-  return IteratorRange<typename DoFHandler<dim, spacedim>::cell_iterator>(
-    begin(level), end(level));
-}
-
-
-
-template <int dim, int spacedim>
-IteratorRange<typename DoFHandler<dim, spacedim>::active_cell_iterator>
-DoFHandler<dim, spacedim>::active_cell_iterators_on_level(
-  const unsigned int level) const
-{
-  return IteratorRange<
-    typename DoFHandler<dim, spacedim>::active_cell_iterator>(
-    begin_active(level), end_active(level));
-}
-
-
-
-template <int dim, int spacedim>
-IteratorRange<typename DoFHandler<dim, spacedim>::level_cell_iterator>
-DoFHandler<dim, spacedim>::mg_cell_iterators_on_level(
-  const unsigned int level) const
-{
-  return IteratorRange<typename DoFHandler<dim, spacedim>::level_cell_iterator>(
-    begin_mg(level), end_mg(level));
-}
-
-
-
-//---------------------------------------------------------------------------
 
 
 
@@ -1186,7 +1017,7 @@ std::size_t
 DoFHandler<dim, spacedim>::memory_consumption() const
 {
   std::size_t mem =
-    (MemoryConsumption::memory_consumption(tria) +
+    (MemoryConsumption::memory_consumption(this->tria) +
      MemoryConsumption::memory_consumption(fe_collection) +
      MemoryConsumption::memory_consumption(block_info_object) +
      MemoryConsumption::memory_consumption(levels) +
@@ -1233,11 +1064,11 @@ DoFHandler<dim, spacedim>::set_fe_impl(
   const hp::FECollection<dim, spacedim> &ff)
 {
   Assert(
-    tria != nullptr,
+    this->tria != nullptr,
     ExcMessage(
       "You need to set the Triangulation in the DoFHandler using initialize() or "
       "in the constructor before you can distribute DoFs."));
-  Assert(tria->n_levels() > 0,
+  Assert(this->tria->n_levels() > 0,
          ExcMessage("The Triangulation you are using is empty!"));
   Assert(ff.size() > 0, ExcMessage("The hp::FECollection given is empty!"));
 
@@ -1282,7 +1113,7 @@ DoFHandler<dim, spacedim>::distribute_dofs(
   // initialize the block info object only if this is a sequential
   // triangulation. it doesn't work correctly yet if it is parallel
   if (dynamic_cast<const parallel::DistributedTriangulationBase<dim, spacedim>
-                     *>(&*tria) == nullptr)
+                     *>(&*this->tria) == nullptr)
     block_info_object.initialize(*this, false, true);
 }
 
@@ -1352,7 +1183,7 @@ DoFHandler<dim, spacedim>::distribute_mg_dofs()
       "Distribute active DoFs using distribute_dofs() before calling distribute_mg_dofs()."));
 
   Assert(
-    ((tria->get_mesh_smoothing() &
+    ((this->tria->get_mesh_smoothing() &
       Triangulation<dim, spacedim>::limit_level_difference_at_vertices) !=
      Triangulation<dim, spacedim>::none),
     ExcMessage(
@@ -1368,7 +1199,7 @@ DoFHandler<dim, spacedim>::distribute_mg_dofs()
   // triangulation. it doesn't work
   // correctly yet if it is parallel
   if (dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
-        &*tria) == nullptr)
+        &*this->tria) == nullptr)
     block_info_object.initialize(*this, true, false);
 }
 
@@ -1420,7 +1251,7 @@ DoFHandler<dim, spacedim>::renumber_dofs(
 
 #ifdef DEBUG
   if (dynamic_cast<const parallel::shared::Triangulation<dim, spacedim> *>(
-        &*tria) != nullptr)
+        &*this->tria) != nullptr)
     {
       Assert(new_numbers.size() == n_dofs() ||
                new_numbers.size() == n_locally_owned_dofs(),
@@ -1428,7 +1259,7 @@ DoFHandler<dim, spacedim>::renumber_dofs(
     }
   else if (dynamic_cast<
              const parallel::DistributedTriangulationBase<dim, spacedim> *>(
-             &*tria) != nullptr)
+             &*this->tria) != nullptr)
     {
       AssertDimension(new_numbers.size(), n_locally_owned_dofs());
     }
@@ -1476,7 +1307,7 @@ DoFHandler<dim, spacedim>::renumber_dofs(
     mg_levels.size() > 0 && levels.size() > 0,
     ExcMessage(
       "You need to distribute active and level DoFs before you can renumber level DoFs."));
-  AssertIndexRange(level, get_triangulation().n_global_levels());
+  AssertIndexRange(level, this->get_triangulation().n_global_levels());
   AssertDimension(new_numbers.size(),
                   locally_owned_mg_dofs(level).n_elements());
 

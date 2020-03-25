@@ -663,212 +663,6 @@ namespace hp
     unsigned int
     max_couplings_between_boundary_dofs() const override;
 
-    /**
-     * @name Cell iterator functions
-     */
-    /*@{*/
-    /**
-     * Iterator to the first used cell on level @p level.
-     */
-    cell_iterator
-    begin(const unsigned int level = 0) const override;
-
-    /**
-     * Iterator to the first active cell on level @p level. If the given level
-     * does not contain any active cells (i.e., all cells on this level are
-     * further refined, then this function returns
-     * <code>end_active(level)</code> so that loops of the kind
-     * @code
-     *   for (cell=dof_handler.begin_active(level);
-     *        cell!=dof_handler.end_active(level);
-     *        ++cell)
-     *     {
-     *       ...
-     *     }
-     * @endcode
-     * have zero iterations, as may be expected if there are no active cells
-     * on this level.
-     */
-    active_cell_iterator
-    begin_active(const unsigned int level = 0) const override;
-
-    /**
-     * Iterator past the end; this iterator serves for comparisons of
-     * iterators with past-the-end or before-the-beginning states.
-     */
-    cell_iterator
-    end() const override;
-
-    /**
-     * Return an iterator which is the first iterator not on level. If @p
-     * level is the last level, then this returns <tt>end()</tt>.
-     */
-    cell_iterator
-    end(const unsigned int level) const override;
-
-    /**
-     * Return an active iterator which is the first active iterator not on the
-     * given level. If @p level is the last level, then this returns
-     * <tt>end()</tt>.
-     */
-    active_cell_iterator
-    end_active(const unsigned int level) const override;
-
-
-    /**
-     * Iterator to the first used cell on level @p level. This returns a
-     * level_cell_iterator that returns level dofs when dof_indices() is called.
-     */
-    level_cell_iterator
-    begin_mg(const unsigned int level = 0) const override;
-
-    /**
-     * Iterator past the last cell on level @p level. This returns a
-     * level_cell_iterator that returns level dofs when dof_indices() is called.
-     */
-    level_cell_iterator
-    end_mg(const unsigned int level) const override;
-
-    /**
-     * Iterator past the end; this iterator serves for comparisons of iterators
-     * with past-the-end or before-the-beginning states.
-     */
-    level_cell_iterator
-    end_mg() const override;
-
-    /**
-     * @name Cell iterator functions returning ranges of iterators
-     */
-
-    /**
-     * Return an iterator range that contains all cells (active or not) that
-     * make up this DoFHandler. Such a range is useful to initialize range-
-     * based for loops as supported by C++11. See the example in the
-     * documentation of active_cell_iterators().
-     *
-     * @return The half open range <code>[this->begin(), this->end())</code>
-     *
-     * @ingroup CPP11
-     */
-    IteratorRange<cell_iterator>
-    cell_iterators() const override;
-
-    /**
-     * Return an iterator range that contains all active cells that make up
-     * this DoFHandler. Such a range is useful to initialize range-based for
-     * loops as supported by C++11, see also
-     * @ref CPP11 "C++11 standard".
-     *
-     * Range-based for loops are useful in that they require much less code
-     * than traditional loops (see <a
-     * href="http://en.wikipedia.org/wiki/C%2B%2B11#Range-based_for_loop">here</a>
-     * for a discussion of how they work). An example is that without
-     * range-based for loops, one often writes code such as the following:
-     * @code
-     *   DoFHandler<dim> dof_handler;
-     *   ...
-     *   typename DoFHandler<dim>::active_cell_iterator
-     *     cell = dof_handler.begin_active(),
-     *     endc = dof_handler.end();
-     *   for (; cell!=endc; ++cell)
-     *     {
-     *       fe_values.reinit (cell);
-     *       ...do the local integration on 'cell'...;
-     *     }
-     * @endcode
-     * Using C++11's range-based for loops, this is now entirely equivalent to
-     * the following:
-     * @code
-     *   DoFHandler<dim> dof_handler;
-     *   ...
-     *   for (const auto &cell : dof_handler.active_cell_iterators())
-     *     {
-     *       fe_values.reinit (cell);
-     *       ...do the local integration on 'cell'...;
-     *     }
-     * @endcode
-     *
-     * @return The half open range <code>[this->begin_active(),
-     * this->end())</code>
-     *
-     * @ingroup CPP11
-     */
-    IteratorRange<active_cell_iterator>
-    active_cell_iterators() const override;
-
-    /**
-     * Return an iterator range that contains all cells (active or not) that
-     * make up this DoFHandler in their level-cell form. Such a range is useful
-     * to initialize range-based for loops as supported by C++11. See the
-     * example in the documentation of active_cell_iterators().
-     *
-     * @return The half open range <code>[this->begin_mg(),
-     * this->end_mg())</code>
-     *
-     * @ingroup CPP11
-     */
-    IteratorRange<level_cell_iterator>
-    mg_cell_iterators() const override;
-
-    /**
-     * Return an iterator range that contains all cells (active or not) that
-     * make up the given level of this DoFHandler. Such a range is useful to
-     * initialize range-based for loops as supported by C++11. See the example
-     * in the documentation of active_cell_iterators().
-     *
-     * @param[in] level A given level in the refinement hierarchy of this
-     * triangulation.
-     * @return The half open range <code>[this->begin(level),
-     * this->end(level))</code>
-     *
-     * @pre level must be less than this->n_levels().
-     *
-     * @ingroup CPP11
-     */
-    IteratorRange<cell_iterator>
-    cell_iterators_on_level(const unsigned int level) const override;
-
-    /**
-     * Return an iterator range that contains all active cells that make up
-     * the given level of this DoFHandler. Such a range is useful to
-     * initialize range-based for loops as supported by C++11. See the example
-     * in the documentation of active_cell_iterators().
-     *
-     * @param[in] level A given level in the refinement hierarchy of this
-     * triangulation.
-     * @return The half open range <code>[this->begin_active(level),
-     * this->end(level))</code>
-     *
-     * @pre level must be less than this->n_levels().
-     *
-     * @ingroup CPP11
-     */
-    IteratorRange<active_cell_iterator>
-    active_cell_iterators_on_level(const unsigned int level) const override;
-
-    /**
-     * Return an iterator range that contains all cells (active or not) that
-     * make up the given level of this DoFHandler in their level-cell form. Such
-     * a range is useful to initialize range-based for loops as supported by
-     * C++11. See the example in the documentation of active_cell_iterators().
-     *
-     * @param[in] level A given level in the refinement hierarchy of this
-     * triangulation.
-     * @return The half open range <code>[this->begin_mg(level),
-     * this->end_mg(level))</code>
-     *
-     * @pre level must be less than this->n_levels().
-     *
-     * @ingroup CPP11
-     *
-     */
-    IteratorRange<level_cell_iterator>
-    mg_cell_iterators_on_level(const unsigned int level) const override;
-
-    /*
-     * @}
-     */
-
     /*---------------------------------------*/
 
 
@@ -1121,13 +915,6 @@ namespace hp
     get_fe_collection() const override;
 
     /**
-     * Return a constant reference to the triangulation underlying this
-     * object.
-     */
-    const Triangulation<dim, spacedim> &
-    get_triangulation() const override;
-
-    /**
      * Determine an estimate for the memory consumption (in bytes) of this
      * object.
      *
@@ -1251,12 +1038,6 @@ namespace hp
                    << ", but this level is empty.");
 
   private:
-    /**
-     * Address of the triangulation to work on.
-     */
-    SmartPointer<const Triangulation<dim, spacedim>, DoFHandler<dim, spacedim>>
-      tria;
-
     /**
      * Store a copy of the finite element set given latest to distribute_dofs().
      */
@@ -1632,7 +1413,7 @@ namespace hp
     // write out the number of triangulation cells and later check during
     // loading that this number is indeed correct; same with something that
     // identifies the policy
-    const unsigned int n_cells = tria->n_cells();
+    const unsigned int n_cells = this->tria->n_cells();
     std::string policy_name    = dealii::internal::policy_to_string(*policy);
 
     ar &n_cells &policy_name;
@@ -1684,7 +1465,7 @@ namespace hp
     ar &n_cells &policy_name;
 
     AssertThrow(
-      n_cells == tria->n_cells(),
+      n_cells == this->tria->n_cells(),
       ExcMessage(
         "The object being loaded into does not match the triangulation "
         "that has been stored previously."));
@@ -1883,18 +1664,6 @@ namespace hp
            ExcMessage("No finite element collection is associated with "
                       "this DoFHandler"));
     return fe_collection;
-  }
-
-
-
-  template <int dim, int spacedim>
-  inline const Triangulation<dim, spacedim> &
-  DoFHandler<dim, spacedim>::get_triangulation() const
-  {
-    Assert(tria != nullptr,
-           ExcMessage("This DoFHandler object has not been associated "
-                      "with a triangulation."));
-    return *tria;
   }
 
 #endif

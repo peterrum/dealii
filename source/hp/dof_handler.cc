@@ -1271,7 +1271,7 @@ namespace hp
 
   template <int dim, int spacedim>
   DoFHandler<dim, spacedim>::DoFHandler()
-    : tria(nullptr, typeid(*this).name())
+    : Base()
     , faces(nullptr)
   {}
 
@@ -1280,7 +1280,7 @@ namespace hp
   template <int dim, int spacedim>
   DoFHandler<dim, spacedim>::DoFHandler(
     const Triangulation<dim, spacedim> &tria)
-    : tria(&tria, typeid(*this).name())
+    : Base(tria)
     , faces(nullptr)
   {
     setup_policy_and_listeners();
@@ -1305,163 +1305,6 @@ namespace hp
     // for clarity be explicit on which function is called
     DoFHandler<dim, spacedim>::clear();
   }
-
-
-
-  /*------------------------ Cell iterator functions ------------------------*/
-
-
-  template <int dim, int spacedim>
-  typename DoFHandler<dim, spacedim>::cell_iterator
-  DoFHandler<dim, spacedim>::begin(const unsigned int level) const
-  {
-    return cell_iterator(*this->get_triangulation().begin(level), this);
-  }
-
-
-
-  template <int dim, int spacedim>
-  typename DoFHandler<dim, spacedim>::active_cell_iterator
-  DoFHandler<dim, spacedim>::begin_active(const unsigned int level) const
-  {
-    // level is checked in begin
-    cell_iterator i = begin(level);
-    if (i.state() != IteratorState::valid)
-      return i;
-    while (i->has_children())
-      if ((++i).state() != IteratorState::valid)
-        return i;
-    return i;
-  }
-
-
-
-  template <int dim, int spacedim>
-  typename DoFHandler<dim, spacedim>::cell_iterator
-  DoFHandler<dim, spacedim>::end() const
-  {
-    return cell_iterator(&this->get_triangulation(), -1, -1, this);
-  }
-
-
-
-  template <int dim, int spacedim>
-  typename DoFHandler<dim, spacedim>::cell_iterator
-  DoFHandler<dim, spacedim>::end(const unsigned int level) const
-  {
-    return (level == this->get_triangulation().n_levels() - 1 ?
-              end() :
-              begin(level + 1));
-  }
-
-
-
-  template <int dim, int spacedim>
-  typename DoFHandler<dim, spacedim>::active_cell_iterator
-  DoFHandler<dim, spacedim>::end_active(const unsigned int level) const
-  {
-    return (level == this->get_triangulation().n_levels() - 1 ?
-              active_cell_iterator(end()) :
-              begin_active(level + 1));
-  }
-
-
-  template <int dim, int spacedim>
-  typename DoFHandler<dim, spacedim>::level_cell_iterator
-  DoFHandler<dim, spacedim>::begin_mg(const unsigned int level) const
-  {
-    AssertThrow(false, ExcNotImplemented());
-    (void)level;
-    return this->begin();
-  }
-
-  template <int dim, int spacedim>
-  typename DoFHandler<dim, spacedim>::level_cell_iterator
-  DoFHandler<dim, spacedim>::end_mg(const unsigned int level) const
-  {
-    AssertThrow(false, ExcNotImplemented());
-    (void)level;
-
-    return this->end();
-  }
-
-  template <int dim, int spacedim>
-  typename DoFHandler<dim, spacedim>::level_cell_iterator
-  DoFHandler<dim, spacedim>::end_mg() const
-  {
-    AssertThrow(false, ExcNotImplemented());
-    return this->end();
-  }
-
-
-
-  template <int dim, int spacedim>
-  IteratorRange<typename DoFHandler<dim, spacedim>::cell_iterator>
-  DoFHandler<dim, spacedim>::cell_iterators() const
-  {
-    return IteratorRange<typename DoFHandler<dim, spacedim>::cell_iterator>(
-      begin(), end());
-  }
-
-
-
-  template <int dim, int spacedim>
-  IteratorRange<typename DoFHandler<dim, spacedim>::active_cell_iterator>
-  DoFHandler<dim, spacedim>::active_cell_iterators() const
-  {
-    return IteratorRange<
-      typename DoFHandler<dim, spacedim>::active_cell_iterator>(begin_active(),
-                                                                end());
-  }
-
-
-
-  template <int dim, int spacedim>
-  IteratorRange<typename DoFHandler<dim, spacedim>::level_cell_iterator>
-  DoFHandler<dim, spacedim>::mg_cell_iterators() const
-  {
-    AssertThrow(false, ExcNotImplemented());
-    return IteratorRange<
-      typename DoFHandler<dim, spacedim>::level_cell_iterator>(begin_mg(),
-                                                               end_mg());
-  }
-
-
-
-  template <int dim, int spacedim>
-  IteratorRange<typename DoFHandler<dim, spacedim>::cell_iterator>
-  DoFHandler<dim, spacedim>::cell_iterators_on_level(
-    const unsigned int level) const
-  {
-    return IteratorRange<typename DoFHandler<dim, spacedim>::cell_iterator>(
-      begin(level), end(level));
-  }
-
-
-
-  template <int dim, int spacedim>
-  IteratorRange<typename DoFHandler<dim, spacedim>::level_cell_iterator>
-  DoFHandler<dim, spacedim>::mg_cell_iterators_on_level(
-    const unsigned int level) const
-  {
-    AssertThrow(false, ExcNotImplemented());
-    return IteratorRange<
-      typename DoFHandler<dim, spacedim>::level_cell_iterator>(begin_mg(level),
-                                                               end_mg(level));
-  }
-
-
-
-  template <int dim, int spacedim>
-  IteratorRange<typename DoFHandler<dim, spacedim>::active_cell_iterator>
-  DoFHandler<dim, spacedim>::active_cell_iterators_on_level(
-    const unsigned int level) const
-  {
-    return IteratorRange<
-      typename DoFHandler<dim, spacedim>::active_cell_iterator>(
-      begin_active(level), end_active(level));
-  }
-
 
 
   //------------------------------------------------------------------
@@ -1575,9 +1418,9 @@ namespace hp
   DoFHandler<dim, spacedim>::memory_consumption() const
   {
     std::size_t mem =
-      (MemoryConsumption::memory_consumption(tria) +
+      (MemoryConsumption::memory_consumption(this->tria) +
        MemoryConsumption::memory_consumption(fe_collection) +
-       MemoryConsumption::memory_consumption(tria) +
+       MemoryConsumption::memory_consumption(this->tria) +
        MemoryConsumption::memory_consumption(levels) +
        MemoryConsumption::memory_consumption(*faces) +
        MemoryConsumption::memory_consumption(number_cache) +
@@ -1597,16 +1440,17 @@ namespace hp
   DoFHandler<dim, spacedim>::set_active_fe_indices(
     const std::vector<unsigned int> &active_fe_indices)
   {
-    Assert(active_fe_indices.size() == get_triangulation().n_active_cells(),
+    Assert(active_fe_indices.size() ==
+             this->get_triangulation().n_active_cells(),
            ExcDimensionMismatch(active_fe_indices.size(),
-                                get_triangulation().n_active_cells()));
+                                this->get_triangulation().n_active_cells()));
 
     create_active_fe_table();
     // we could set the values directly, since they are stored as
     // protected data of this object, but for simplicity we use the
     // cell-wise access. this way we also have to pass some debug-mode
     // tests which we would have to duplicate ourselves otherwise
-    for (const auto &cell : active_cell_iterators())
+    for (const auto &cell : this->active_cell_iterators())
       if (cell->is_locally_owned())
         cell->set_active_fe_index(active_fe_indices[cell->active_cell_index()]);
   }
@@ -1618,12 +1462,12 @@ namespace hp
   DoFHandler<dim, spacedim>::get_active_fe_indices(
     std::vector<unsigned int> &active_fe_indices) const
   {
-    active_fe_indices.resize(get_triangulation().n_active_cells());
+    active_fe_indices.resize(this->get_triangulation().n_active_cells());
 
     // we could try to extract the values directly, since they are
     // stored as protected data of this object, but for simplicity we
     // use the cell-wise access.
-    for (const auto &cell : active_cell_iterators())
+    for (const auto &cell : this->active_cell_iterators())
       if (!cell->is_artificial())
         active_fe_indices[cell->active_cell_index()] = cell->active_fe_index();
   }
@@ -1719,11 +1563,11 @@ namespace hp
     const hp::FECollection<dim, spacedim> &ff)
   {
     Assert(
-      tria != nullptr,
+      this->tria != nullptr,
       ExcMessage(
         "You need to set the Triangulation in the DoFHandler using initialize() or "
         "in the constructor before you can distribute DoFs."));
-    Assert(tria->n_levels() > 0,
+    Assert(this->tria->n_levels() > 0,
            ExcMessage("The Triangulation you are using is empty!"));
     Assert(ff.size() > 0, ExcMessage("The hp::FECollection given is empty!"));
 
@@ -1741,7 +1585,7 @@ namespace hp
 
     // make sure that the fe collection is large enough to
     // cover all fe indices presently in use on the mesh
-    for (const auto &cell : active_cell_iterators())
+    for (const auto &cell : this->active_cell_iterators())
       if (!cell->is_artificial())
         Assert(cell->active_fe_index() < fe_collection.size(),
                ExcInvalidFEIndex(cell->active_fe_index(),
@@ -1775,7 +1619,7 @@ namespace hp
     std::vector<types::subdomain_id>                      saved_subdomain_ids;
     const parallel::shared::Triangulation<dim, spacedim> *shared_tria =
       (dynamic_cast<const parallel::shared::Triangulation<dim, spacedim> *>(
-        &get_triangulation()));
+        &this->get_triangulation()));
     if (shared_tria != nullptr && shared_tria->with_artificial_cells())
       {
         saved_subdomain_ids.resize(shared_tria->n_active_cells());
@@ -1806,8 +1650,8 @@ namespace hp
     // end of this function the Triangulation will be in the same
     // state as it was at the beginning of this function.
     std::vector<bool> user_flags;
-    tria->save_user_flags(user_flags);
-    const_cast<Triangulation<dim, spacedim> &>(*tria).clear_user_flags();
+    this->tria->save_user_flags(user_flags);
+    const_cast<Triangulation<dim, spacedim> &>(*this->tria).clear_user_flags();
 
 
     /////////////////////////////////
@@ -1829,8 +1673,8 @@ namespace hp
     }
 
     // finally restore the user flags
-    const_cast<Triangulation<dim, spacedim> &>(*tria).load_user_flags(
-      user_flags);
+    const_cast<Triangulation<dim, spacedim> &>(*this->tria)
+      .load_user_flags(user_flags);
   }
 
 
@@ -2060,7 +1904,7 @@ namespace hp
   DoFHandler<dim, spacedim>::create_active_fe_table()
   {
     // Create sufficiently many hp::DoFLevels.
-    while (levels.size() < tria->n_levels())
+    while (levels.size() < this->tria->n_levels())
       levels.emplace_back(new dealii::internal::hp::DoFLevel);
 
     // then make sure that on each level we have the appropriate size
@@ -2070,10 +1914,10 @@ namespace hp
         if (levels[level]->active_fe_indices.size() == 0 &&
             levels[level]->future_fe_indices.size() == 0)
           {
-            levels[level]->active_fe_indices.resize(tria->n_raw_cells(level),
-                                                    0);
+            levels[level]->active_fe_indices.resize(
+              this->tria->n_raw_cells(level), 0);
             levels[level]->future_fe_indices.resize(
-              tria->n_raw_cells(level),
+              this->tria->n_raw_cells(level),
               dealii::internal::hp::DoFLevel::invalid_active_fe_index);
           }
         else
@@ -2082,9 +1926,9 @@ namespace hp
             // they were just created, or the correct size. Other
             // sizes indicate that something went wrong.
             Assert(levels[level]->active_fe_indices.size() ==
-                       tria->n_raw_cells(level) &&
+                       this->tria->n_raw_cells(level) &&
                      levels[level]->future_fe_indices.size() ==
-                       tria->n_raw_cells(level),
+                       this->tria->n_raw_cells(level),
                    ExcInternalError());
           }
 
@@ -2115,21 +1959,21 @@ namespace hp
   {
     // Normally only one level is added, but if this Triangulation
     // is created by copy_triangulation, it can be more than one level.
-    while (levels.size() < tria->n_levels())
+    while (levels.size() < this->tria->n_levels())
       levels.emplace_back(new dealii::internal::hp::DoFLevel);
 
     // Coarsening can lead to the loss of levels. Hence remove them.
-    while (levels.size() > tria->n_levels())
+    while (levels.size() > this->tria->n_levels())
       {
         // drop the last element. that also releases the memory pointed to
         levels.pop_back();
       }
 
-    Assert(levels.size() == tria->n_levels(), ExcInternalError());
+    Assert(levels.size() == this->tria->n_levels(), ExcInternalError());
     for (unsigned int i = 0; i < levels.size(); ++i)
       {
         // Resize active_fe_indices vectors. Use zero indicator to extend.
-        levels[i]->active_fe_indices.resize(tria->n_raw_cells(i), 0);
+        levels[i]->active_fe_indices.resize(this->tria->n_raw_cells(i), 0);
 
         // Resize future_fe_indices vectors. Make sure that all
         // future_fe_indices have been cleared after refinement happened.
@@ -2137,7 +1981,7 @@ namespace hp
         // We have used future_fe_indices to update all active_fe_indices
         // before refinement happened, thus we are safe to clear them now.
         levels[i]->future_fe_indices.assign(
-          tria->n_raw_cells(i),
+          this->tria->n_raw_cells(i),
           dealii::internal::hp::DoFLevel::invalid_active_fe_index);
       }
   }
@@ -2188,9 +2032,10 @@ namespace hp
 
         // Gather all current future_fe_indices.
         active_fe_index_transfer->active_fe_indices.resize(
-          get_triangulation().n_active_cells(), numbers::invalid_unsigned_int);
+          this->get_triangulation().n_active_cells(),
+          numbers::invalid_unsigned_int);
 
-        for (const auto &cell : active_cell_iterators())
+        for (const auto &cell : this->active_cell_iterators())
           if (cell->is_locally_owned())
             active_fe_index_transfer
               ->active_fe_indices[cell->active_cell_index()] =
@@ -2262,7 +2107,8 @@ namespace hp
 
         // Unpack active_fe_indices.
         active_fe_index_transfer->active_fe_indices.resize(
-          get_triangulation().n_active_cells(), numbers::invalid_unsigned_int);
+          this->get_triangulation().n_active_cells(),
+          numbers::invalid_unsigned_int);
         active_fe_index_transfer->cell_data_transfer->unpack(
           active_fe_index_transfer->active_fe_indices);
 
@@ -2405,7 +2251,8 @@ namespace hp
 
         // Unpack active_fe_indices.
         active_fe_index_transfer->active_fe_indices.resize(
-          get_triangulation().n_active_cells(), numbers::invalid_unsigned_int);
+          this->get_triangulation().n_active_cells(),
+          numbers::invalid_unsigned_int);
         active_fe_index_transfer->cell_data_transfer->deserialize(
           active_fe_index_transfer->active_fe_indices);
 
