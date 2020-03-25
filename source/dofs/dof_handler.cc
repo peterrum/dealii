@@ -23,6 +23,7 @@
 #include <deal.II/dofs/dof_accessor.h>
 #include <deal.II/dofs/dof_faces.h>
 #include <deal.II/dofs/dof_handler.h>
+#include <deal.II/dofs/dof_handler_base.templates.h>
 #include <deal.II/dofs/dof_handler_policy.h>
 #include <deal.II/dofs/dof_levels.h>
 
@@ -1228,16 +1229,8 @@ DoFHandler<dim, spacedim>::deserialize_active_fe_indices()
 
 template <int dim, int spacedim>
 void
-DoFHandler<dim, spacedim>::set_fe(const FiniteElement<dim, spacedim> &fe)
-{
-  this->set_fe(hp::FECollection<dim, spacedim>(fe));
-}
-
-
-
-template <int dim, int spacedim>
-void
-DoFHandler<dim, spacedim>::set_fe(const hp::FECollection<dim, spacedim> &ff)
+DoFHandler<dim, spacedim>::set_fe_impl(
+  const hp::FECollection<dim, spacedim> &ff)
 {
   Assert(
     tria != nullptr,
@@ -1271,7 +1264,7 @@ DoFHandler<dim, spacedim>::distribute_dofs(
   const hp::FECollection<dim, spacedim> &ff)
 {
   // first, assign the finite_element
-  set_fe(ff);
+  this->set_fe(ff);
 
   // delete all levels and set them up newly. note that we still have to
   // allocate space for all degrees of freedom on this mesh (including ghost and

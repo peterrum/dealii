@@ -23,6 +23,7 @@
 #include <deal.II/distributed/tria.h>
 
 #include <deal.II/dofs/dof_accessor.h>
+#include <deal.II/dofs/dof_handler_base.templates.h>
 #include <deal.II/dofs/dof_handler_policy.h>
 
 #include <deal.II/fe/fe.h>
@@ -65,8 +66,6 @@ namespace parallel
     class Triangulation;
   }
 } // namespace parallel
-
-
 
 namespace internal
 {
@@ -1716,16 +1715,8 @@ namespace hp
 
   template <int dim, int spacedim>
   void
-  DoFHandler<dim, spacedim>::set_fe(const FiniteElement<dim, spacedim> &fe)
-  {
-    this->set_fe(hp::FECollection<dim, spacedim>(fe));
-  }
-
-
-
-  template <int dim, int spacedim>
-  void
-  DoFHandler<dim, spacedim>::set_fe(const hp::FECollection<dim, spacedim> &ff)
+  DoFHandler<dim, spacedim>::set_fe_impl(
+    const hp::FECollection<dim, spacedim> &ff)
   {
     Assert(
       tria != nullptr,
@@ -1775,7 +1766,7 @@ namespace hp
     const hp::FECollection<dim, spacedim> &ff)
   {
     // assign the fe_collection and initialize all active_fe_indices
-    set_fe(ff);
+    this->set_fe(ff);
 
     // If an underlying shared::Tria allows artificial cells,
     // then save the current set of subdomain ids, and set

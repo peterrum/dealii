@@ -140,10 +140,10 @@ public:
              const hp::FECollection<dim, spacedim> &fe) = 0;
 
   virtual void
-  set_fe(const FiniteElement<dim, spacedim> &fe) = 0;
+  set_fe(const FiniteElement<dim, spacedim> &fe);
 
   virtual void
-  set_fe(const hp::FECollection<dim, spacedim> &fe) = 0;
+  set_fe(const hp::FECollection<dim, spacedim> &fe);
 
   virtual void
   distribute_dofs(const FiniteElement<dim, spacedim> &fe) = 0;

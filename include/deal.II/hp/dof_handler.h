@@ -425,48 +425,8 @@ namespace hp
     initialize(const Triangulation<dim, spacedim> &   tria,
                const hp::FECollection<dim, spacedim> &fe) override;
 
-    /**
-     * Assign a FiniteElement @p fe to this object.
-     *
-     * @note This function makes a copy of the finite element given as
-     * argument, and stores it as a member variable. Consequently, it is
-     * possible to write code such as
-     * @code
-     *   dof_handler.set_fe(FE_Q<dim>(2));
-     * @endcode
-     * You can then access the finite element later on by calling
-     * DoFHandler::get_fe(). However, it is often more convenient to
-     * keep a named finite element object as a member variable in your
-     * main class and refer to it directly whenever you need to access
-     * properties of the finite element (such as
-     * FiniteElementData::dofs_per_cell). This is what all tutorial programs do.
-     *
-     * @warning This function only sets a FiniteElement. Degrees of freedom have
-     * either not been distributed yet, or are distributed using a previously
-     * set element. In both cases, accessing degrees of freedom will lead to
-     * invalid results. To restore consistency, call distribute_dofs().
-     */
     virtual void
-    set_fe(const FiniteElement<dim, spacedim> &fe) override;
-
-    /**
-     * Assign a hp::FECollection @p fe to this object.
-     *
-     * In case a parallel::TriangulationBase is assigned to this object,
-     * the active_fe_indices will be exchanged between processors so that
-     * each one knows the indices on its own cells and all ghost cells.
-     *
-     * @note In accordance with dealii::DoFHandler::set_fe(),
-     * this function also makes a copy of the object given as argument.
-     *
-     * @warning This function only sets a hp::FECollection. Degrees of freedom
-     * have either not been distributed yet, or are distributed using a
-     * previously set collection. In both cases, accessing degrees of freedom
-     * will lead to invalid results. To restore consistency, call
-     * distribute_dofs().
-     */
-    virtual void
-    set_fe(const hp::FECollection<dim, spacedim> &fe) override;
+    set_fe_impl(const hp::FECollection<dim, spacedim> &fe);
 
     /**
      * Go through the triangulation and "distribute" the degrees of
