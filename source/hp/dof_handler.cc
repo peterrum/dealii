@@ -1718,7 +1718,7 @@ namespace hp
   void
   DoFHandler<dim, spacedim>::set_fe(const FiniteElement<dim, spacedim> &fe)
   {
-    (void)fe;
+    this->set_fe(hp::FECollection<dim, spacedim>(fe));
   }
 
 
@@ -1764,7 +1764,7 @@ namespace hp
   DoFHandler<dim, spacedim>::distribute_dofs(
     const FiniteElement<dim, spacedim> &fe)
   {
-    (void)fe;
+    this->distribute_dofs(hp::FECollection<dim, spacedim>(fe));
   }
 
 

@@ -1228,22 +1228,29 @@ DoFHandler<dim, spacedim>::deserialize_active_fe_indices()
 
 template <int dim, int spacedim>
 void
-DoFHandler<dim, spacedim>::set_fe(const FiniteElement<dim, spacedim> &ff)
+DoFHandler<dim, spacedim>::set_fe(const FiniteElement<dim, spacedim> &fe)
 {
-  // Only recreate the FECollection if we don't already store
-  // the exact same FiniteElement object.
-  if (fe_collection.size() == 0 || fe_collection[0] != ff)
-    fe_collection = hp::FECollection<dim, spacedim>(ff);
+  this->set_fe(hp::FECollection<dim, spacedim>(fe));
 }
 
 
 
 template <int dim, int spacedim>
 void
-DoFHandler<dim, spacedim>::set_fe(const hp::FECollection<dim, spacedim> &fe)
+DoFHandler<dim, spacedim>::set_fe(const hp::FECollection<dim, spacedim> &ff)
 {
-  AssertThrow(false, ExcNotImplemented());
-  (void)fe;
+  Assert(
+    tria != nullptr,
+    ExcMessage(
+      "You need to set the Triangulation in the DoFHandler using initialize() or "
+      "in the constructor before you can distribute DoFs."));
+  Assert(tria->n_levels() > 0,
+         ExcMessage("The Triangulation you are using is empty!"));
+  Assert(ff.size() > 0, ExcMessage("The hp::FECollection given is empty!"));
+
+  // don't create a new object if the one we have is already appropriate
+  if (fe_collection != ff)
+    fe_collection = hp::FECollection<dim, spacedim>(ff);
 }
 
 
@@ -1253,46 +1260,7 @@ void
 DoFHandler<dim, spacedim>::distribute_dofs(
   const FiniteElement<dim, spacedim> &ff)
 {
-  Assert(
-    tria != nullptr,
-    ExcMessage(
-      "You need to set the Triangulation in the DoFHandler using initialize() or "
-      "in the constructor before you can distribute DoFs."));
-  Assert(tria->n_levels() > 0,
-         ExcMessage("The Triangulation you are using is empty!"));
-
-  // first, assign the finite_element
-  set_fe(ff);
-
-  // delete all levels and set them
-  // up newly. note that we still
-  // have to allocate space for all
-  // degrees of freedom on this mesh
-  // (including ghost and cells that
-  // are entirely stored on different
-  // processors), though we may not
-  // assign numbers to some of them
-  // (i.e. they will remain at
-  // invalid_dof_index). We need to
-  // allocate the space because we
-  // will want to be able to query
-  // the dof_indices on each cell,
-  // and simply be told that we don't
-  // know them on some cell (i.e. get
-  // back invalid_dof_index)
-  clear_space();
-  internal::DoFHandlerImplementation::Implementation::reserve_space(*this);
-
-  // hand things off to the policy
-  number_cache = policy->distribute_dofs();
-
-  // initialize the block info object
-  // only if this is a sequential
-  // triangulation. it doesn't work
-  // correctly yet if it is parallel
-  if (dynamic_cast<const parallel::DistributedTriangulationBase<dim, spacedim>
-                     *>(&*tria) == nullptr)
-    block_info_object.initialize(*this, false, true);
+  this->distribute_dofs(hp::FECollection<dim, spacedim>(ff));
 }
 
 
@@ -1302,8 +1270,27 @@ void
 DoFHandler<dim, spacedim>::distribute_dofs(
   const hp::FECollection<dim, spacedim> &ff)
 {
-  AssertThrow(false, ExcNotImplemented());
-  (void)ff;
+  // first, assign the finite_element
+  set_fe(ff);
+
+  // delete all levels and set them up newly. note that we still have to
+  // allocate space for all degrees of freedom on this mesh (including ghost and
+  // cells that are entirely stored on different processors), though we may not
+  // assign numbers to some of them (i.e. they will remain at
+  // invalid_dof_index). We need to allocate the space because we will want to
+  // be able to query the dof_indices on each cell, and simply be told that we
+  // don't know them on some cell (i.e. get back invalid_dof_index)
+  clear_space();
+  internal::DoFHandlerImplementation::Implementation::reserve_space(*this);
+
+  // hand things off to the policy
+  number_cache = policy->distribute_dofs();
+
+  // initialize the block info object only if this is a sequential
+  // triangulation. it doesn't work correctly yet if it is parallel
+  if (dynamic_cast<const parallel::DistributedTriangulationBase<dim, spacedim>
+                     *>(&*tria) == nullptr)
+    block_info_object.initialize(*this, false, true);
 }
 
 
