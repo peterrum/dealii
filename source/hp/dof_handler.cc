@@ -143,7 +143,7 @@ namespace internal
               }
 
             if (dim > 1)
-              dof_handler.faces =
+              dof_handler.faces_hp =
                 std_cxx14::make_unique<internal::hp::DoFIndicesOnFaces<dim>>();
           }
         }
@@ -368,19 +368,19 @@ namespace internal
           std::vector<unsigned int> &face_dof_offsets =
             (dim == 2 ?
                reinterpret_cast<dealii::internal::hp::DoFIndicesOnFaces<2> &>(
-                 *dof_handler.faces)
+                 *dof_handler.faces_hp)
                  .lines.dof_offsets :
                reinterpret_cast<dealii::internal::hp::DoFIndicesOnFaces<3> &>(
-                 *dof_handler.faces)
+                 *dof_handler.faces_hp)
                  .quads.dof_offsets);
 
           std::vector<types::global_dof_index> &face_dof_indices =
             (dim == 2 ?
                reinterpret_cast<dealii::internal::hp::DoFIndicesOnFaces<2> &>(
-                 *dof_handler.faces)
+                 *dof_handler.faces_hp)
                  .lines.dofs :
                reinterpret_cast<dealii::internal::hp::DoFIndicesOnFaces<3> &>(
-                 *dof_handler.faces)
+                 *dof_handler.faces_hp)
                  .quads.dofs);
 
           // FACE DOFS
@@ -793,7 +793,7 @@ namespace internal
             // plus dofs_per_line for this fe. in addition, we need
             // one slot as the end marker for the fe_indices. at the
             // same time already fill the line_dofs_offsets field
-            dof_handler.faces->lines.dof_offsets.resize(
+            dof_handler.faces_hp->lines.dof_offsets.resize(
               dof_handler.tria->n_raw_lines(), numbers::invalid_unsigned_int);
 
             unsigned int line_slots_needed = 0;
@@ -801,7 +801,7 @@ namespace internal
                  ++line)
               if (line_is_used[line] == true)
                 {
-                  dof_handler.faces->lines.dof_offsets[line] =
+                  dof_handler.faces_hp->lines.dof_offsets[line] =
                     line_slots_needed;
 
                   for (unsigned int fe = 0;
@@ -815,14 +815,14 @@ namespace internal
 
             // now allocate the space we have determined we need,
             // and set up the linked lists for each of the lines
-            dof_handler.faces->lines.dofs.resize(line_slots_needed,
-                                                 numbers::invalid_dof_index);
+            dof_handler.faces_hp->lines.dofs.resize(line_slots_needed,
+                                                    numbers::invalid_dof_index);
             for (unsigned int line = 0; line < dof_handler.tria->n_raw_lines();
                  ++line)
               if (line_is_used[line] == true)
                 {
                   unsigned int pointer =
-                    dof_handler.faces->lines.dof_offsets[line];
+                    dof_handler.faces_hp->lines.dof_offsets[line];
                   for (unsigned int fe = 0;
                        fe < dof_handler.fe_collection.size();
                        ++fe)
@@ -830,11 +830,11 @@ namespace internal
                       {
                         // if this line uses this fe, then set the
                         // fe_index and move the pointer ahead
-                        dof_handler.faces->lines.dofs[pointer] = fe;
+                        dof_handler.faces_hp->lines.dofs[pointer] = fe;
                         pointer += dof_handler.get_fe(fe).dofs_per_line + 1;
                       }
                   // finally place the end marker
-                  dof_handler.faces->lines.dofs[pointer] =
+                  dof_handler.faces_hp->lines.dofs[pointer] =
                     numbers::invalid_dof_index;
                 }
           }
@@ -1273,7 +1273,7 @@ namespace hp
   template <int dim, int spacedim>
   DoFHandler<dim, spacedim>::DoFHandler()
     : Base()
-    , faces(nullptr)
+    , faces_hp(nullptr)
   {}
 
 
@@ -1282,7 +1282,7 @@ namespace hp
   DoFHandler<dim, spacedim>::DoFHandler(
     const Triangulation<dim, spacedim> &tria)
     : Base(tria)
-    , faces(nullptr)
+    , faces_hp(nullptr)
   {
     setup_policy_and_listeners();
 
@@ -1321,13 +1321,13 @@ namespace hp
        MemoryConsumption::memory_consumption(this->fe_collection) +
        MemoryConsumption::memory_consumption(this->tria) +
        MemoryConsumption::memory_consumption(levels_hp) +
-       MemoryConsumption::memory_consumption(*faces) +
+       MemoryConsumption::memory_consumption(*faces_hp) +
        MemoryConsumption::memory_consumption(this->number_cache) +
        MemoryConsumption::memory_consumption(vertex_dofs) +
        MemoryConsumption::memory_consumption(vertex_dof_offsets));
     for (unsigned int i = 0; i < levels_hp.size(); ++i)
       mem += MemoryConsumption::memory_consumption(*levels_hp[i]);
-    mem += MemoryConsumption::memory_consumption(*faces);
+    mem += MemoryConsumption::memory_consumption(*faces_hp);
 
     return mem;
   }
@@ -2115,7 +2115,7 @@ namespace hp
   DoFHandler<dim, spacedim>::clear_space()
   {
     levels_hp.clear();
-    faces.reset();
+    faces_hp.reset();
 
     vertex_dofs        = std::vector<types::global_dof_index>();
     vertex_dof_offsets = std::vector<unsigned int>();

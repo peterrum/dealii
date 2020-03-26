@@ -476,7 +476,7 @@ namespace internal
                     const unsigned int                         local_index,
                     const std::integral_constant<int, 1> &)
       {
-        return dof_handler.faces->lines.get_dof_index(
+        return dof_handler.faces_hp->lines.get_dof_index(
           dof_handler, obj_index, fe_index, local_index, obj_level);
       }
 
@@ -491,12 +491,12 @@ namespace internal
                     const std::integral_constant<int, 1> &,
                     const types::global_dof_index global_index)
       {
-        dof_handler.faces->lines.set_dof_index(dof_handler,
-                                               obj_index,
-                                               fe_index,
-                                               local_index,
-                                               global_index,
-                                               obj_level);
+        dof_handler.faces_hp->lines.set_dof_index(dof_handler,
+                                                  obj_index,
+                                                  fe_index,
+                                                  local_index,
+                                                  global_index,
+                                                  obj_level);
       }
 
 
@@ -541,7 +541,7 @@ namespace internal
                     const unsigned int                         local_index,
                     const std::integral_constant<int, 1> &)
       {
-        return dof_handler.faces->lines.get_dof_index(
+        return dof_handler.faces_hp->lines.get_dof_index(
           dof_handler, obj_index, fe_index, local_index, obj_level);
       }
 
@@ -556,12 +556,12 @@ namespace internal
                     const std::integral_constant<int, 1> &,
                     const types::global_dof_index global_index)
       {
-        dof_handler.faces->lines.set_dof_index(dof_handler,
-                                               obj_index,
-                                               fe_index,
-                                               local_index,
-                                               global_index,
-                                               obj_level);
+        dof_handler.faces_hp->lines.set_dof_index(dof_handler,
+                                                  obj_index,
+                                                  fe_index,
+                                                  local_index,
+                                                  global_index,
+                                                  obj_level);
       }
 
 
@@ -574,7 +574,7 @@ namespace internal
                     const unsigned int                         local_index,
                     const std::integral_constant<int, 2> &)
       {
-        return dof_handler.faces->quads.get_dof_index(
+        return dof_handler.faces_hp->quads.get_dof_index(
           dof_handler, obj_index, fe_index, local_index, obj_level);
       }
 
@@ -589,12 +589,12 @@ namespace internal
                     const std::integral_constant<int, 2> &,
                     const types::global_dof_index global_index)
       {
-        dof_handler.faces->quads.set_dof_index(dof_handler,
-                                               obj_index,
-                                               fe_index,
-                                               local_index,
-                                               global_index,
-                                               obj_level);
+        dof_handler.faces_hp->quads.set_dof_index(dof_handler,
+                                                  obj_index,
+                                                  fe_index,
+                                                  local_index,
+                                                  global_index,
+                                                  obj_level);
       }
 
 
@@ -832,10 +832,10 @@ namespace internal
                          const unsigned int                         fe_index,
                          const std::integral_constant<int, 1> &)
       {
-        return dof_handler.faces->lines.fe_index_is_active(dof_handler,
-                                                           obj_index,
-                                                           fe_index,
-                                                           obj_level);
+        return dof_handler.faces_hp->lines.fe_index_is_active(dof_handler,
+                                                              obj_index,
+                                                              fe_index,
+                                                              obj_level);
       }
 
 
@@ -847,8 +847,8 @@ namespace internal
         const unsigned int obj_index,
         const std::integral_constant<int, 1> &)
       {
-        return dof_handler.faces->lines.n_active_fe_indices(dof_handler,
-                                                            obj_index);
+        return dof_handler.faces_hp->lines.n_active_fe_indices(dof_handler,
+                                                               obj_index);
       }
 
 
@@ -861,10 +861,10 @@ namespace internal
         const unsigned int                         n,
         const std::integral_constant<int, 1> &)
       {
-        return dof_handler.faces->lines.nth_active_fe_index(dof_handler,
-                                                            obj_level,
-                                                            obj_index,
-                                                            n);
+        return dof_handler.faces_hp->lines.nth_active_fe_index(dof_handler,
+                                                               obj_level,
+                                                               obj_index,
+                                                               n);
       }
 
 
@@ -920,10 +920,10 @@ namespace internal
                          const unsigned int                         fe_index,
                          const std::integral_constant<int, 1> &)
       {
-        return dof_handler.faces->lines.fe_index_is_active(dof_handler,
-                                                           obj_index,
-                                                           fe_index,
-                                                           obj_level);
+        return dof_handler.faces_hp->lines.fe_index_is_active(dof_handler,
+                                                              obj_index,
+                                                              fe_index,
+                                                              obj_level);
       }
 
 
@@ -935,8 +935,8 @@ namespace internal
         const unsigned int obj_index,
         const std::integral_constant<int, 1> &)
       {
-        return dof_handler.faces->lines.n_active_fe_indices(dof_handler,
-                                                            obj_index);
+        return dof_handler.faces_hp->lines.n_active_fe_indices(dof_handler,
+                                                               obj_index);
       }
 
 
@@ -950,10 +950,10 @@ namespace internal
         const unsigned int                         n,
         const std::integral_constant<int, 1> &)
       {
-        return dof_handler.faces->lines.nth_active_fe_index(dof_handler,
-                                                            obj_level,
-                                                            obj_index,
-                                                            n);
+        return dof_handler.faces_hp->lines.nth_active_fe_index(dof_handler,
+                                                               obj_level,
+                                                               obj_index,
+                                                               n);
       }
 
 
@@ -966,10 +966,10 @@ namespace internal
                          const unsigned int                         fe_index,
                          const std::integral_constant<int, 2> &)
       {
-        return dof_handler.faces->quads.fe_index_is_active(dof_handler,
-                                                           obj_index,
-                                                           fe_index,
-                                                           obj_level);
+        return dof_handler.faces_hp->quads.fe_index_is_active(dof_handler,
+                                                              obj_index,
+                                                              fe_index,
+                                                              obj_level);
       }
 
       template <int spacedim>
@@ -993,8 +993,8 @@ namespace internal
         const unsigned int obj_index,
         const std::integral_constant<int, 2> &)
       {
-        return dof_handler.faces->quads.n_active_fe_indices(dof_handler,
-                                                            obj_index);
+        return dof_handler.faces_hp->quads.n_active_fe_indices(dof_handler,
+                                                               obj_index);
       }
 
 
@@ -1008,10 +1008,10 @@ namespace internal
         const unsigned int                         n,
         const std::integral_constant<int, 2> &)
       {
-        return dof_handler.faces->quads.nth_active_fe_index(dof_handler,
-                                                            obj_level,
-                                                            obj_index,
-                                                            n);
+        return dof_handler.faces_hp->quads.nth_active_fe_index(dof_handler,
+                                                               obj_level,
+                                                               obj_index,
+                                                               n);
       }
 
 
