@@ -1321,7 +1321,7 @@ namespace hp
        MemoryConsumption::memory_consumption(this->tria) +
        MemoryConsumption::memory_consumption(levels) +
        MemoryConsumption::memory_consumption(*faces) +
-       MemoryConsumption::memory_consumption(number_cache) +
+       MemoryConsumption::memory_consumption(this->number_cache) +
        MemoryConsumption::memory_consumption(vertex_dofs) +
        MemoryConsumption::memory_consumption(vertex_dof_offsets));
     for (unsigned int i = 0; i < levels.size(); ++i)
@@ -1482,7 +1482,7 @@ namespace hp
     /////////////////////////////////
 
     // Now for the real work:
-    number_cache = this->policy->distribute_dofs();
+    this->number_cache = this->policy->distribute_dofs();
 
     /////////////////////////////////
 
@@ -1622,7 +1622,7 @@ namespace hp
     // [0...n_dofs()) into itself but
     // only globally, not on each
     // processor
-    if (n_locally_owned_dofs() == n_dofs())
+    if (n_locally_owned_dofs() == this->n_dofs())
       {
         std::vector<types::global_dof_index> tmp(new_numbers);
         std::sort(tmp.begin(), tmp.end());
@@ -1633,7 +1633,7 @@ namespace hp
       }
     else
       for (const auto new_number : new_numbers)
-        Assert(new_number < n_dofs(),
+        Assert(new_number < this->n_dofs(),
                ExcMessage(
                  "New DoF index is not less than the total number of dofs."));
 #endif
@@ -1652,7 +1652,7 @@ namespace hp
     }
 
     // do the renumbering
-    number_cache = this->policy->renumber_dofs(new_numbers);
+    this->number_cache = this->policy->renumber_dofs(new_numbers);
 
     // now re-compress the dof indices
     {

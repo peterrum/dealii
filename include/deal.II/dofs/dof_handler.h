@@ -160,12 +160,6 @@ public:
   max_couplings_between_boundary_dofs() const override;
 
   types::global_dof_index
-  n_dofs() const override;
-
-  types::global_dof_index
-  n_dofs(const unsigned int level) const override;
-
-  types::global_dof_index
   n_locally_owned_dofs() const override;
 
   const IndexSet &
@@ -235,11 +229,6 @@ public:
 private:
   void
   setup_policy();
-
-  dealii::internal::DoFHandlerImplementation::NumberCache number_cache;
-
-  std::vector<dealii::internal::DoFHandlerImplementation::NumberCache>
-    mg_number_cache;
 
   class MGVertexDoFs
   {
@@ -348,7 +337,7 @@ template <int dim, int spacedim>
 inline bool
 DoFHandler<dim, spacedim>::has_level_dofs() const
 {
-  return mg_number_cache.size() > 0;
+  return this->mg_number_cache.size() > 0;
 }
 
 
@@ -357,29 +346,7 @@ template <int dim, int spacedim>
 inline bool
 DoFHandler<dim, spacedim>::has_active_dofs() const
 {
-  return number_cache.n_global_dofs > 0;
-}
-
-
-
-template <int dim, int spacedim>
-inline types::global_dof_index
-DoFHandler<dim, spacedim>::n_dofs() const
-{
-  return number_cache.n_global_dofs;
-}
-
-
-
-template <int dim, int spacedim>
-inline types::global_dof_index
-DoFHandler<dim, spacedim>::n_dofs(const unsigned int level) const
-{
-  Assert(has_level_dofs(),
-         ExcMessage(
-           "n_dofs(level) can only be called after distribute_mg_dofs()"));
-  Assert(level < mg_number_cache.size(), ExcInvalidLevel(level));
-  return mg_number_cache[level].n_global_dofs;
+  return this->number_cache.n_global_dofs > 0;
 }
 
 
@@ -388,7 +355,7 @@ template <int dim, int spacedim>
 types::global_dof_index
 DoFHandler<dim, spacedim>::n_locally_owned_dofs() const
 {
-  return number_cache.n_locally_owned_dofs;
+  return this->number_cache.n_locally_owned_dofs;
 }
 
 
@@ -397,7 +364,7 @@ template <int dim, int spacedim>
 const IndexSet &
 DoFHandler<dim, spacedim>::locally_owned_dofs() const
 {
-  return number_cache.locally_owned_dofs;
+  return this->number_cache.locally_owned_dofs;
 }
 
 
@@ -410,10 +377,10 @@ DoFHandler<dim, spacedim>::locally_owned_mg_dofs(const unsigned int level) const
          ExcMessage("The given level index exceeds the number of levels "
                     "present in the triangulation"));
   Assert(
-    mg_number_cache.size() == this->get_triangulation().n_global_levels(),
+    this->mg_number_cache.size() == this->get_triangulation().n_global_levels(),
     ExcMessage(
       "The level dofs are not set up properly! Did you call distribute_mg_dofs()?"));
-  return mg_number_cache[level].locally_owned_dofs;
+  return this->mg_number_cache[level].locally_owned_dofs;
 }
 
 
@@ -422,15 +389,15 @@ template <int dim, int spacedim>
 const std::vector<types::global_dof_index> &
 DoFHandler<dim, spacedim>::n_locally_owned_dofs_per_processor() const
 {
-  if (number_cache.n_locally_owned_dofs_per_processor.empty() &&
-      number_cache.n_global_dofs > 0)
+  if (this->number_cache.n_locally_owned_dofs_per_processor.empty() &&
+      this->number_cache.n_global_dofs > 0)
     {
       const_cast<dealii::internal::DoFHandlerImplementation::NumberCache &>(
-        number_cache)
+        this->number_cache)
         .n_locally_owned_dofs_per_processor =
         compute_n_locally_owned_dofs_per_processor();
     }
-  return number_cache.n_locally_owned_dofs_per_processor;
+  return this->number_cache.n_locally_owned_dofs_per_processor;
 }
 
 
@@ -439,15 +406,15 @@ template <int dim, int spacedim>
 const std::vector<IndexSet> &
 DoFHandler<dim, spacedim>::locally_owned_dofs_per_processor() const
 {
-  if (number_cache.locally_owned_dofs_per_processor.empty() &&
-      number_cache.n_global_dofs > 0)
+  if (this->number_cache.locally_owned_dofs_per_processor.empty() &&
+      this->number_cache.n_global_dofs > 0)
     {
       const_cast<dealii::internal::DoFHandlerImplementation::NumberCache &>(
-        number_cache)
+        this->number_cache)
         .locally_owned_dofs_per_processor =
         compute_locally_owned_dofs_per_processor();
     }
-  return number_cache.locally_owned_dofs_per_processor;
+  return this->number_cache.locally_owned_dofs_per_processor;
 }
 
 
@@ -461,18 +428,18 @@ DoFHandler<dim, spacedim>::locally_owned_mg_dofs_per_processor(
          ExcMessage("The given level index exceeds the number of levels "
                     "present in the triangulation"));
   Assert(
-    mg_number_cache.size() == this->get_triangulation().n_global_levels(),
+    this->mg_number_cache.size() == this->get_triangulation().n_global_levels(),
     ExcMessage(
       "The level dofs are not set up properly! Did you call distribute_mg_dofs()?"));
-  if (mg_number_cache[level].locally_owned_dofs_per_processor.empty() &&
-      mg_number_cache[level].n_global_dofs > 0)
+  if (this->mg_number_cache[level].locally_owned_dofs_per_processor.empty() &&
+      this->mg_number_cache[level].n_global_dofs > 0)
     {
       const_cast<dealii::internal::DoFHandlerImplementation::NumberCache &>(
-        mg_number_cache[level])
+        this->mg_number_cache[level])
         .locally_owned_dofs_per_processor =
         compute_locally_owned_mg_dofs_per_processor(level);
     }
-  return mg_number_cache[level].locally_owned_dofs_per_processor;
+  return this->mg_number_cache[level].locally_owned_dofs_per_processor;
 }
 
 
@@ -485,10 +452,11 @@ DoFHandler<dim, spacedim>::compute_n_locally_owned_dofs_per_processor() const
     (dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
       &this->get_triangulation()));
   if (tr != nullptr)
-    return number_cache.get_n_locally_owned_dofs_per_processor(
+    return this->number_cache.get_n_locally_owned_dofs_per_processor(
       tr->get_communicator());
   else
-    return number_cache.get_n_locally_owned_dofs_per_processor(MPI_COMM_SELF);
+    return this->number_cache.get_n_locally_owned_dofs_per_processor(
+      MPI_COMM_SELF);
 }
 
 
@@ -501,10 +469,11 @@ DoFHandler<dim, spacedim>::compute_locally_owned_dofs_per_processor() const
     (dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
       &this->get_triangulation()));
   if (tr != nullptr)
-    return number_cache.get_locally_owned_dofs_per_processor(
+    return this->number_cache.get_locally_owned_dofs_per_processor(
       tr->get_communicator());
   else
-    return number_cache.get_locally_owned_dofs_per_processor(MPI_COMM_SELF);
+    return this->number_cache.get_locally_owned_dofs_per_processor(
+      MPI_COMM_SELF);
 }
 
 
@@ -518,17 +487,17 @@ DoFHandler<dim, spacedim>::compute_locally_owned_mg_dofs_per_processor(
          ExcMessage("The given level index exceeds the number of levels "
                     "present in the triangulation"));
   Assert(
-    mg_number_cache.size() == this->get_triangulation().n_global_levels(),
+    this->mg_number_cache.size() == this->get_triangulation().n_global_levels(),
     ExcMessage(
       "The level dofs are not set up properly! Did you call distribute_mg_dofs()?"));
   const parallel::TriangulationBase<dim, spacedim> *tr =
     (dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
       &this->get_triangulation()));
   if (tr != nullptr)
-    return mg_number_cache[level].get_locally_owned_dofs_per_processor(
+    return this->mg_number_cache[level].get_locally_owned_dofs_per_processor(
       tr->get_communicator());
   else
-    return mg_number_cache[level].get_locally_owned_dofs_per_processor(
+    return this->mg_number_cache[level].get_locally_owned_dofs_per_processor(
       MPI_COMM_SELF);
 }
 
@@ -558,7 +527,7 @@ DoFHandler<dim, spacedim>::save(Archive &ar, const unsigned int) const
 {
   ar & this->block_info_object;
   ar &vertex_dofs;
-  ar &number_cache;
+  ar & this->number_cache;
 
   // some versions of gcc have trouble with loading vectors of
   // std::unique_ptr objects because std::unique_ptr does not
@@ -595,7 +564,7 @@ DoFHandler<dim, spacedim>::load(Archive &ar, const unsigned int)
 {
   ar & this->block_info_object;
   ar &vertex_dofs;
-  ar &number_cache;
+  ar & this->number_cache;
 
   // boost::serialization can restore pointers just fine, but if the
   // pointer object still points to something useful, that object is not

@@ -244,10 +244,10 @@ public:
   mg_cell_iterators_on_level(const unsigned int level) const;
 
   virtual types::global_dof_index
-  n_dofs() const = 0;
+  n_dofs() const;
 
   virtual types::global_dof_index
-  n_dofs(const unsigned int level) const = 0;
+  n_dofs(const unsigned int level) const;
 
   types::global_dof_index
   n_boundary_dofs() const;
@@ -312,6 +312,10 @@ public:
 
   DeclException0(ExcNoFESelected);
   DeclException0(ExcInvalidBoundaryIndicator);
+  DeclException1(ExcInvalidLevel,
+                 int,
+                 << "The given level " << arg1
+                 << " is not in the valid range!");
 
 protected:
   BlockInfo block_info_object;
@@ -324,6 +328,11 @@ protected:
   std::unique_ptr<dealii::internal::DoFHandlerImplementation::Policy::
                     PolicyBase<dim, spacedim>>
     policy;
+
+  dealii::internal::DoFHandlerImplementation::NumberCache number_cache;
+
+  std::vector<dealii::internal::DoFHandlerImplementation::NumberCache>
+    mg_number_cache;
 };
 
 
@@ -479,6 +488,28 @@ DoFHandlerBase<dim, spacedim, T>::n_boundary_dofs(
 
   // then just hand everything over to the other function that does the work
   return n_boundary_dofs(boundary_ids_only);
+}
+
+
+
+template <int dim, int spacedim, typename T>
+inline types::global_dof_index
+DoFHandlerBase<dim, spacedim, T>::n_dofs() const
+{
+  return number_cache.n_global_dofs;
+}
+
+
+
+template <int dim, int spacedim, typename T>
+inline types::global_dof_index
+DoFHandlerBase<dim, spacedim, T>::n_dofs(const unsigned int level) const
+{
+  Assert(has_level_dofs(),
+         ExcMessage(
+           "n_dofs(level) can only be called after distribute_mg_dofs()"));
+  Assert(level < mg_number_cache.size(), ExcInvalidLevel(level));
+  return mg_number_cache[level].n_global_dofs;
 }
 
 DEAL_II_NAMESPACE_CLOSE

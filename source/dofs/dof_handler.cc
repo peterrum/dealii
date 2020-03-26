@@ -877,9 +877,9 @@ DoFHandler<dim, spacedim>::initialize_impl(
   const Triangulation<dim, spacedim> &   t,
   const hp::FECollection<dim, spacedim> &fe)
 {
-  this->tria                 = &t;
-  faces                      = nullptr;
-  number_cache.n_global_dofs = 0;
+  this->tria                       = &t;
+  faces                            = nullptr;
+  this->number_cache.n_global_dofs = 0;
 
   setup_policy();
 
@@ -898,8 +898,8 @@ DoFHandler<dim, spacedim>::memory_consumption() const
      MemoryConsumption::memory_consumption(this->block_info_object) +
      MemoryConsumption::memory_consumption(levels) +
      MemoryConsumption::memory_consumption(*faces) +
-     MemoryConsumption::memory_consumption(faces) + sizeof(number_cache) +
-     MemoryConsumption::memory_consumption(mg_number_cache) +
+     MemoryConsumption::memory_consumption(faces) + sizeof(this->number_cache) +
+     MemoryConsumption::memory_consumption(this->n_dofs()) +
      MemoryConsumption::memory_consumption(vertex_dofs));
   for (unsigned int i = 0; i < levels.size(); ++i)
     mem += MemoryConsumption::memory_consumption(*levels[i]);
@@ -974,7 +974,7 @@ DoFHandler<dim, spacedim>::distribute_dofs_impl(
   internal::DoFHandlerImplementation::Implementation::reserve_space(*this);
 
   // hand things off to the policy
-  number_cache = this->policy->distribute_dofs();
+  this->number_cache = this->policy->distribute_dofs();
 
   // initialize the block info object only if this is a sequential
   // triangulation. it doesn't work correctly yet if it is parallel
@@ -1048,7 +1048,7 @@ DoFHandler<dim, spacedim>::distribute_mg_dofs_impl()
   clear_mg_space();
 
   internal::DoFHandlerImplementation::Implementation::reserve_space_mg(*this);
-  mg_number_cache = this->policy->distribute_mg_dofs();
+  this->mg_number_cache = this->policy->distribute_mg_dofs();
 
   // initialize the block info object
   // only if this is a sequential
@@ -1072,7 +1072,7 @@ DoFHandler<dim, spacedim>::clear_mg_space()
 
   std::swap(mg_vertex_dofs, tmp);
 
-  mg_number_cache.clear();
+  this->mg_number_cache.clear();
 }
 
 
@@ -1109,7 +1109,7 @@ DoFHandler<dim, spacedim>::renumber_dofs(
   if (dynamic_cast<const parallel::shared::Triangulation<dim, spacedim> *>(
         &*this->tria) != nullptr)
     {
-      Assert(new_numbers.size() == n_dofs() ||
+      Assert(new_numbers.size() == this->n_dofs() ||
                new_numbers.size() == n_locally_owned_dofs(),
              ExcMessage("Incorrect size of the input array."));
     }
@@ -1121,7 +1121,7 @@ DoFHandler<dim, spacedim>::renumber_dofs(
     }
   else
     {
-      AssertDimension(new_numbers.size(), n_dofs());
+      AssertDimension(new_numbers.size(), this->n_dofs());
     }
 
   // assert that the new indices are
@@ -1133,7 +1133,7 @@ DoFHandler<dim, spacedim>::renumber_dofs(
   // [0...n_dofs()) into itself but
   // only globally, not on each
   // processor
-  if (n_locally_owned_dofs() == n_dofs())
+  if (n_locally_owned_dofs() == this->n_dofs())
     {
       std::vector<types::global_dof_index> tmp(new_numbers);
       std::sort(tmp.begin(), tmp.end());
@@ -1144,12 +1144,12 @@ DoFHandler<dim, spacedim>::renumber_dofs(
     }
   else
     for (const auto new_number : new_numbers)
-      Assert(new_number < n_dofs(),
+      Assert(new_number < this->n_dofs(),
              ExcMessage(
                "New DoF index is not less than the total number of dofs."));
 #endif
 
-  number_cache = this->policy->renumber_dofs(new_numbers);
+  this->number_cache = this->policy->renumber_dofs(new_numbers);
 }
 
 
@@ -1172,7 +1172,7 @@ DoFHandler<dim, spacedim>::renumber_dofs(
   // on a single processor. this doesn't need to hold in the case of a
   // parallel mesh since we map the interval [0...n_dofs(level)) into itself
   // but only globally, not on each processor
-  if (n_locally_owned_dofs() == n_dofs())
+  if (n_locally_owned_dofs() == this->n_dofs())
     {
       std::vector<types::global_dof_index> tmp(new_numbers);
       std::sort(tmp.begin(), tmp.end());
@@ -1183,12 +1183,13 @@ DoFHandler<dim, spacedim>::renumber_dofs(
     }
   else
     for (const auto new_number : new_numbers)
-      Assert(new_number < n_dofs(level),
+      Assert(new_number < this->n_dofs(level),
              ExcMessage(
                "New DoF index is not less than the total number of dofs."));
 #endif
 
-  mg_number_cache[level] = this->policy->renumber_mg_dofs(level, new_numbers);
+  this->mg_number_cache[level] =
+    this->policy->renumber_mg_dofs(level, new_numbers);
 }
 
 
@@ -1261,7 +1262,7 @@ DoFHandler<dim, spacedim>::clear_space()
   std::vector<types::global_dof_index> tmp;
   std::swap(vertex_dofs, tmp);
 
-  number_cache.clear();
+  this->number_cache.clear();
 }
 
 
