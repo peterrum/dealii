@@ -205,13 +205,7 @@ namespace hp
                    << ", but this level is empty.");
 
 
-    void
-    create_active_fe_table();
-
   private:
-    void
-    setup_policy_and_listeners();
-
     void
     clear_space();
 
@@ -229,26 +223,6 @@ namespace hp
                   const unsigned int            fe_index,
                   const unsigned int            local_index,
                   const types::global_dof_index global_index) const;
-    void
-    pre_refinement_action();
-
-    void
-    post_refinement_action();
-
-    void
-    pre_active_fe_index_transfer();
-
-    void
-    pre_distributed_active_fe_index_transfer();
-
-    void
-    post_active_fe_index_transfer();
-
-    void
-    post_distributed_active_fe_index_transfer();
-
-    void
-    post_distributed_serialization_of_active_fe_indices();
 
     // Make accessor objects friends.
     template <int, class, bool>

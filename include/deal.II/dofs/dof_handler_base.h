@@ -462,6 +462,35 @@ protected:
     std::unique_ptr<types::global_dof_index[]> indices;
   };
 
+  void
+  setup_policy();
+
+  void
+  setup_policy_and_listeners();
+
+  void
+  pre_refinement_action();
+
+  void
+  post_refinement_action();
+
+  void
+  pre_active_fe_index_transfer();
+
+  void
+  pre_distributed_active_fe_index_transfer();
+
+  void
+  post_active_fe_index_transfer();
+
+  void
+  post_distributed_active_fe_index_transfer();
+
+  void
+  post_distributed_serialization_of_active_fe_indices();
+
+  void
+  create_active_fe_table();
 
   std::vector<types::global_dof_index> vertex_dofs;
 
@@ -489,7 +518,32 @@ protected:
   std::unique_ptr<dealii::internal::hp::DoFIndicesOnFaces<dim>>
     faces_hp; // TODO: rename hp_faces
 
+
+  template <int, class, bool>
+  friend class dealii::DoFAccessor;
+  template <class, bool>
+  friend class dealii::DoFCellAccessor;
+  friend struct dealii::internal::DoFAccessorImplementation::Implementation;
+  friend struct dealii::internal::DoFCellAccessorImplementation::Implementation;
+
+  // Likewise for DoFLevel objects since they need to access the vertex dofs
+  // in the functions that set and retrieve vertex dof indices.
+  template <int>
+  friend class dealii::internal::hp::DoFIndicesOnFacesOrEdges;
   friend struct dealii::internal::hp::DoFHandlerImplementation::Implementation;
+  friend struct dealii::internal::DoFHandlerImplementation::Policy::
+    Implementation;
+
+  template <int, class, bool>
+  friend class DoFAccessor;
+  template <class, bool>
+  friend class DoFCellAccessor;
+  friend struct dealii::internal::DoFAccessorImplementation::Implementation;
+  friend struct dealii::internal::DoFCellAccessorImplementation::Implementation;
+
+  friend struct dealii::internal::DoFHandlerImplementation::Implementation;
+  friend struct dealii::internal::DoFHandlerImplementation::Policy::
+    Implementation;
 };
 
 
@@ -1259,7 +1313,7 @@ DoFHandlerBase<dim, spacedim, T>::set_active_fe_indices(
          ExcDimensionMismatch(active_fe_indices.size(),
                               this->get_triangulation().n_active_cells()));
 
-  static_cast<T *>(this)->create_active_fe_table();
+  this->create_active_fe_table();
   // we could set the values directly, since they are stored as
   // protected data of this object, but for simplicity we use the
   // cell-wise access. this way we also have to pass some debug-mode

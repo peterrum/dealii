@@ -175,13 +175,7 @@ public:
                  << ", but this level is empty.");
 
 
-  void
-  create_active_fe_table();
-
 private:
-  void
-  setup_policy();
-
   void
   clear_space();
 

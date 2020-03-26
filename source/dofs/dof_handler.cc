@@ -847,7 +847,7 @@ template <int dim, int spacedim>
 DoFHandler<dim, spacedim>::DoFHandler(const Triangulation<dim, spacedim> &tria)
   : Base(tria)
 {
-  setup_policy();
+  this->setup_policy();
 }
 
 
@@ -877,7 +877,7 @@ DoFHandler<dim, spacedim>::initialize_impl(
   this->faces                      = nullptr;
   this->number_cache.n_global_dofs = 0;
 
-  setup_policy();
+  this->setup_policy();
 
   this->distribute_dofs(fe);
 }
@@ -965,32 +965,6 @@ DoFHandler<dim, spacedim>::distribute_dofs_impl(
   if (dynamic_cast<const parallel::DistributedTriangulationBase<dim, spacedim>
                      *>(&*this->tria) == nullptr)
     this->block_info_object.initialize(*this, false, true);
-}
-
-
-
-template <int dim, int spacedim>
-void
-DoFHandler<dim, spacedim>::setup_policy()
-{
-  // decide whether we need a sequential or a parallel distributed policy
-  if (dynamic_cast<const parallel::shared::Triangulation<dim, spacedim> *>(
-        &this->get_triangulation()) != nullptr)
-    this->policy =
-      std_cxx14::make_unique<internal::DoFHandlerImplementation::Policy::
-                               ParallelShared<DoFHandler<dim, spacedim>>>(
-        *this);
-  else if (dynamic_cast<
-             const parallel::DistributedTriangulationBase<dim, spacedim> *>(
-             &this->get_triangulation()) == nullptr)
-    this->policy =
-      std_cxx14::make_unique<internal::DoFHandlerImplementation::Policy::
-                               Sequential<DoFHandler<dim, spacedim>>>(*this);
-  else
-    this->policy =
-      std_cxx14::make_unique<internal::DoFHandlerImplementation::Policy::
-                               ParallelDistributed<DoFHandler<dim, spacedim>>>(
-        *this);
 }
 
 
@@ -1205,15 +1179,6 @@ DoFHandler<dim, spacedim>::max_couplings_between_boundary_dofs() const
         Assert(false, ExcNotImplemented());
         return numbers::invalid_unsigned_int;
     }
-}
-
-
-
-template <int dim, int spacedim>
-void
-DoFHandler<dim, spacedim>::create_active_fe_table()
-{
-  AssertThrow(false, ExcNotImplemented());
 }
 
 
