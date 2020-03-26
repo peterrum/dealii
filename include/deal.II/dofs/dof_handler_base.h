@@ -140,33 +140,33 @@ public:
     : tria(&tria, typeid(*this).name())
   {}
 
-  virtual void
+  void
   initialize(const Triangulation<dim, spacedim> &tria,
              const FiniteElement<dim, spacedim> &fe);
-  virtual void
+  void
   initialize(const Triangulation<dim, spacedim> &   tria,
              const hp::FECollection<dim, spacedim> &fe);
 
-  virtual void
+  void
   set_fe(const FiniteElement<dim, spacedim> &fe);
 
-  virtual void
+  void
   set_fe(const hp::FECollection<dim, spacedim> &fe);
 
-  virtual void
+  void
   distribute_dofs(const FiniteElement<dim, spacedim> &fe);
 
-  virtual void
+  void
   distribute_dofs(const hp::FECollection<dim, spacedim> &fe);
 
-  virtual void
+  void
   set_active_fe_indices(const std::vector<unsigned int> &active_fe_indices);
 
-  virtual void
+  void
   get_active_fe_indices(std::vector<unsigned int> &active_fe_indices) const;
 
   DEAL_II_DEPRECATED
-  virtual void
+  void
   distribute_mg_dofs(const FiniteElement<dim, spacedim> &fe);
 
   DEAL_II_DEPRECATED
@@ -176,10 +176,10 @@ public:
   void
   distribute_mg_dofs();
 
-  virtual bool
+  bool
   has_level_dofs() const;
 
-  virtual bool
+  bool
   has_active_dofs() const;
 
   virtual void
@@ -201,52 +201,52 @@ public:
   virtual unsigned int
   max_couplings_between_boundary_dofs() const = 0;
 
-  virtual cell_iterator
+  cell_iterator
   begin(const unsigned int level = 0) const;
 
-  virtual active_cell_iterator
+  active_cell_iterator
   begin_active(const unsigned int level = 0) const;
 
-  virtual cell_iterator
+  cell_iterator
   end() const;
 
-  virtual cell_iterator
+  cell_iterator
   end(const unsigned int level) const;
 
-  virtual active_cell_iterator
+  active_cell_iterator
   end_active(const unsigned int level) const;
 
-  virtual level_cell_iterator
+  level_cell_iterator
   begin_mg(const unsigned int level = 0) const;
 
-  virtual level_cell_iterator
+  level_cell_iterator
   end_mg(const unsigned int level) const;
 
-  virtual level_cell_iterator
+  level_cell_iterator
   end_mg() const;
 
-  virtual IteratorRange<cell_iterator>
+  IteratorRange<cell_iterator>
   cell_iterators() const;
 
-  virtual IteratorRange<active_cell_iterator>
+  IteratorRange<active_cell_iterator>
   active_cell_iterators() const;
 
-  virtual IteratorRange<level_cell_iterator>
+  IteratorRange<level_cell_iterator>
   mg_cell_iterators() const;
 
-  virtual IteratorRange<cell_iterator>
+  IteratorRange<cell_iterator>
   cell_iterators_on_level(const unsigned int level) const;
 
-  virtual IteratorRange<active_cell_iterator>
+  IteratorRange<active_cell_iterator>
   active_cell_iterators_on_level(const unsigned int level) const;
 
-  virtual IteratorRange<level_cell_iterator>
+  IteratorRange<level_cell_iterator>
   mg_cell_iterators_on_level(const unsigned int level) const;
 
-  virtual types::global_dof_index
+  types::global_dof_index
   n_dofs() const;
 
-  virtual types::global_dof_index
+  types::global_dof_index
   n_dofs(const unsigned int level) const;
 
   types::global_dof_index
@@ -264,22 +264,22 @@ public:
   virtual const BlockInfo &
   block_info() const;
 
-  virtual types::global_dof_index
+  types::global_dof_index
   n_locally_owned_dofs() const;
 
-  virtual const IndexSet &
+  const IndexSet &
   locally_owned_dofs() const;
 
-  virtual const IndexSet &
+  const IndexSet &
   locally_owned_mg_dofs(const unsigned int level) const;
 
-  virtual std::vector<IndexSet>
+  std::vector<IndexSet>
   compute_locally_owned_dofs_per_processor() const;
 
-  virtual std::vector<types::global_dof_index>
+  std::vector<types::global_dof_index>
   compute_n_locally_owned_dofs_per_processor() const;
 
-  virtual std::vector<IndexSet>
+  std::vector<IndexSet>
   compute_locally_owned_mg_dofs_per_processor(const unsigned int level) const;
 
   DEAL_II_DEPRECATED virtual const std::vector<IndexSet> &
@@ -291,13 +291,13 @@ public:
   DEAL_II_DEPRECATED virtual const std::vector<IndexSet> &
   locally_owned_mg_dofs_per_processor(const unsigned int level) const;
 
-  virtual const FiniteElement<dim, spacedim> &
+  const FiniteElement<dim, spacedim> &
   get_fe(const unsigned int index = 0) const;
 
-  virtual const hp::FECollection<dim, spacedim> &
+  const hp::FECollection<dim, spacedim> &
   get_fe_collection() const;
 
-  virtual const Triangulation<dim, spacedim> &
+  const Triangulation<dim, spacedim> &
   get_triangulation() const;
 
   virtual std::size_t
@@ -682,6 +682,315 @@ DoFHandlerBase<dim, spacedim, T>::compute_locally_owned_mg_dofs_per_processor(
   else
     return this->mg_number_cache[level].get_locally_owned_dofs_per_processor(
       MPI_COMM_SELF);
+}
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::initialize(
+  const Triangulation<dim, spacedim> &tria,
+  const FiniteElement<dim, spacedim> &fe)
+{
+  this->initialize(tria, hp::FECollection<dim, spacedim>(fe));
+}
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::initialize(
+  const Triangulation<dim, spacedim> &   tria,
+  const hp::FECollection<dim, spacedim> &fe)
+{
+  static_cast<T *>(this)->initialize_impl(tria,
+                                          hp::FECollection<dim, spacedim>(fe));
+}
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::set_fe(const FiniteElement<dim, spacedim> &fe)
+{
+  this->set_fe(hp::FECollection<dim, spacedim>(fe));
+}
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::set_fe(
+  const hp::FECollection<dim, spacedim> &fe)
+{
+  static_cast<T *>(this)->set_fe_impl(hp::FECollection<dim, spacedim>(fe));
+}
+
+
+/*------------------------ Cell iterator functions ------------------------*/
+
+template <int dim, int spacedim, typename T>
+typename DoFHandlerBase<dim, spacedim, T>::cell_iterator
+DoFHandlerBase<dim, spacedim, T>::begin(const unsigned int level) const
+{
+  typename Triangulation<dim, spacedim>::cell_iterator cell =
+    this->get_triangulation().begin(level);
+  if (cell == this->get_triangulation().end(level))
+    return end(level);
+  return cell_iterator(*cell, static_cast<const T *>(this));
+}
+
+
+
+template <int dim, int spacedim, typename T>
+typename DoFHandlerBase<dim, spacedim, T>::active_cell_iterator
+DoFHandlerBase<dim, spacedim, T>::begin_active(const unsigned int level) const
+{
+  // level is checked in begin
+  cell_iterator i = begin(level);
+  if (i.state() != IteratorState::valid)
+    return i;
+  while (i->has_children())
+    if ((++i).state() != IteratorState::valid)
+      return i;
+  return i;
+}
+
+
+
+template <int dim, int spacedim, typename T>
+typename DoFHandlerBase<dim, spacedim, T>::cell_iterator
+DoFHandlerBase<dim, spacedim, T>::end() const
+{
+  return cell_iterator(&this->get_triangulation(),
+                       -1,
+                       -1,
+                       static_cast<const T *>(this));
+}
+
+
+template <int dim, int spacedim, typename T>
+typename DoFHandlerBase<dim, spacedim, T>::cell_iterator
+DoFHandlerBase<dim, spacedim, T>::end(const unsigned int level) const
+{
+  typename Triangulation<dim, spacedim>::cell_iterator cell =
+    this->get_triangulation().end(level);
+  if (cell.state() != IteratorState::valid)
+    return end();
+  return cell_iterator(*cell, static_cast<const T *>(this));
+}
+
+
+template <int dim, int spacedim, typename T>
+typename DoFHandlerBase<dim, spacedim, T>::active_cell_iterator
+DoFHandlerBase<dim, spacedim, T>::end_active(const unsigned int level) const
+{
+  typename Triangulation<dim, spacedim>::cell_iterator cell =
+    this->get_triangulation().end_active(level);
+  if (cell.state() != IteratorState::valid)
+    return active_cell_iterator(end());
+  return active_cell_iterator(*cell, static_cast<const T *>(this));
+}
+
+
+
+template <int dim, int spacedim, typename T>
+typename DoFHandlerBase<dim, spacedim, T>::level_cell_iterator
+DoFHandlerBase<dim, spacedim, T>::begin_mg(const unsigned int level) const
+{
+  // Assert(this->has_level_dofs(), ExcMessage("You can only iterate over mg "
+  //     "levels if mg dofs got distributed."));
+  typename Triangulation<dim, spacedim>::cell_iterator cell =
+    this->get_triangulation().begin(level);
+  if (cell == this->get_triangulation().end(level))
+    return end_mg(level);
+  return level_cell_iterator(*cell, static_cast<const T *>(this));
+}
+
+
+template <int dim, int spacedim, typename T>
+typename DoFHandlerBase<dim, spacedim, T>::level_cell_iterator
+DoFHandlerBase<dim, spacedim, T>::end_mg(const unsigned int level) const
+{
+  // Assert(this->has_level_dofs(), ExcMessage("You can only iterate over mg "
+  //     "levels if mg dofs got distributed."));
+  typename Triangulation<dim, spacedim>::cell_iterator cell =
+    this->get_triangulation().end(level);
+  if (cell.state() != IteratorState::valid)
+    return end();
+  return level_cell_iterator(*cell, static_cast<const T *>(this));
+}
+
+
+template <int dim, int spacedim, typename T>
+typename DoFHandlerBase<dim, spacedim, T>::level_cell_iterator
+DoFHandlerBase<dim, spacedim, T>::end_mg() const
+{
+  return level_cell_iterator(&this->get_triangulation(),
+                             -1,
+                             -1,
+                             static_cast<const T *>(this));
+}
+
+
+
+template <int dim, int spacedim, typename T>
+IteratorRange<typename DoFHandlerBase<dim, spacedim, T>::cell_iterator>
+DoFHandlerBase<dim, spacedim, T>::cell_iterators() const
+{
+  return IteratorRange<
+    typename DoFHandlerBase<dim, spacedim, T>::cell_iterator>(begin(), end());
+}
+
+
+template <int dim, int spacedim, typename T>
+IteratorRange<typename DoFHandlerBase<dim, spacedim, T>::active_cell_iterator>
+DoFHandlerBase<dim, spacedim, T>::active_cell_iterators() const
+{
+  return IteratorRange<
+    typename DoFHandlerBase<dim, spacedim, T>::active_cell_iterator>(
+    begin_active(), end());
+}
+
+
+
+template <int dim, int spacedim, typename T>
+IteratorRange<typename DoFHandlerBase<dim, spacedim, T>::level_cell_iterator>
+DoFHandlerBase<dim, spacedim, T>::mg_cell_iterators() const
+{
+  return IteratorRange<
+    typename DoFHandlerBase<dim, spacedim, T>::level_cell_iterator>(begin_mg(),
+                                                                    end_mg());
+}
+
+
+
+template <int dim, int spacedim, typename T>
+IteratorRange<typename DoFHandlerBase<dim, spacedim, T>::cell_iterator>
+DoFHandlerBase<dim, spacedim, T>::cell_iterators_on_level(
+  const unsigned int level) const
+{
+  return IteratorRange<
+    typename DoFHandlerBase<dim, spacedim, T>::cell_iterator>(begin(level),
+                                                              end(level));
+}
+
+
+
+template <int dim, int spacedim, typename T>
+IteratorRange<typename DoFHandlerBase<dim, spacedim, T>::active_cell_iterator>
+DoFHandlerBase<dim, spacedim, T>::active_cell_iterators_on_level(
+  const unsigned int level) const
+{
+  return IteratorRange<
+    typename DoFHandlerBase<dim, spacedim, T>::active_cell_iterator>(
+    begin_active(level), end_active(level));
+}
+
+
+
+template <int dim, int spacedim, typename T>
+IteratorRange<typename DoFHandlerBase<dim, spacedim, T>::level_cell_iterator>
+DoFHandlerBase<dim, spacedim, T>::mg_cell_iterators_on_level(
+  const unsigned int level) const
+{
+  return IteratorRange<
+    typename DoFHandlerBase<dim, spacedim, T>::level_cell_iterator>(
+    begin_mg(level), end_mg(level));
+}
+
+
+
+//---------------------------------------------------------------------------
+
+
+template <int dim, int spacedim, typename T>
+inline const Triangulation<dim, spacedim> &
+DoFHandlerBase<dim, spacedim, T>::get_triangulation() const
+{
+  Assert(tria != nullptr,
+         ExcMessage("This DoFHandler object has not been associated "
+                    "with a triangulation."));
+  return *tria;
+}
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::distribute_dofs(
+  const FiniteElement<dim, spacedim> &fe)
+{
+  this->distribute_dofs(hp::FECollection<dim, spacedim>(fe));
+}
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::distribute_dofs(
+  const hp::FECollection<dim, spacedim> &fe)
+{
+  static_cast<T *>(this)->distribute_dofs_impl(fe);
+}
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::distribute_mg_dofs(
+  const FiniteElement<dim, spacedim> &fe)
+{
+  (void)fe;
+  this->distribute_mg_dofs();
+}
+
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::distribute_mg_dofs(
+  const hp::FECollection<dim, spacedim> &fe)
+{
+  (void)fe;
+  this->distribute_mg_dofs();
+}
+
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::distribute_mg_dofs()
+{
+  static_cast<T *>(this)->distribute_mg_dofs_impl();
+}
+
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::set_active_fe_indices(
+  const std::vector<unsigned int> &active_fe_indices)
+{
+  Assert(active_fe_indices.size() == this->get_triangulation().n_active_cells(),
+         ExcDimensionMismatch(active_fe_indices.size(),
+                              this->get_triangulation().n_active_cells()));
+
+  static_cast<T *>(this)->create_active_fe_table();
+  // we could set the values directly, since they are stored as
+  // protected data of this object, but for simplicity we use the
+  // cell-wise access. this way we also have to pass some debug-mode
+  // tests which we would have to duplicate ourselves otherwise
+  for (const auto &cell : this->active_cell_iterators())
+    if (cell->is_locally_owned())
+      cell->set_active_fe_index(active_fe_indices[cell->active_cell_index()]);
+}
+
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::get_active_fe_indices(
+  std::vector<unsigned int> &active_fe_indices) const
+{
+  active_fe_indices.resize(this->get_triangulation().n_active_cells());
+
+  // we could try to extract the values directly, since they are
+  // stored as protected data of this object, but for simplicity we
+  // use the cell-wise access.
+  for (const auto &cell : this->active_cell_iterators())
+    if (!cell->is_artificial())
+      active_fe_indices[cell->active_cell_index()] = cell->active_fe_index();
 }
 
 DEAL_II_NAMESPACE_CLOSE

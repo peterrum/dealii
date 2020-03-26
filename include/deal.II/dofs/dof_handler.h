@@ -121,14 +121,6 @@ public:
   virtual void
   distribute_dofs_impl(const hp::FECollection<dim, spacedim> &fe);
 
-  void
-  set_active_fe_indices(
-    const std::vector<unsigned int> &active_fe_indices) override;
-
-  void
-  get_active_fe_indices(
-    std::vector<unsigned int> &active_fe_indices) const override;
-
   virtual void
   distribute_mg_dofs_impl();
 

@@ -1009,24 +1009,6 @@ DoFHandler<dim, spacedim>::setup_policy()
         *this);
 }
 
-template <int dim, int spacedim>
-void
-DoFHandler<dim, spacedim>::set_active_fe_indices(
-  const std::vector<unsigned int> &active_fe_indices)
-{
-  AssertThrow(false, ExcNotImplemented());
-  (void)active_fe_indices;
-}
-
-template <int dim, int spacedim>
-void
-DoFHandler<dim, spacedim>::get_active_fe_indices(
-  std::vector<unsigned int> &active_fe_indices) const
-{
-  AssertThrow(false, ExcNotImplemented());
-  (void)active_fe_indices;
-}
-
 
 
 template <int dim, int spacedim>
