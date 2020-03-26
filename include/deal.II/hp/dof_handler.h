@@ -208,133 +208,6 @@ namespace hp
 
   public:
     /**
-     * An alias that is used to identify cell iterators in DoFHandler objects.
-     * The concept of iterators is discussed at length in the
-     * @ref Iterators "iterators documentation module".
-     *
-     * The current alias works, in essence, like the corresponding
-     * Triangulation::cell_accessor alias. However, it also makes available
-     * the member functions of DoFCellAccessor, in addition to the ones
-     * already available through the CellAccessor class.
-     *
-     * @ingroup Iterators
-     */
-    using cell_accessor = typename Base::cell_accessor;
-
-    /**
-     * An alias that is used to identify iterators that point to faces.
-     * The concept of iterators is discussed at length in the
-     * @ref Iterators "iterators documentation module".
-     *
-     * The current alias works, in essence, like the corresponding
-     * Triangulation::face_accessor alias. However, it also makes available
-     * the member functions of DoFAccessor, in addition to the ones
-     * already available through the TriaAccessor class.
-     *
-     * @ingroup Iterators
-     */
-    using face_accessor = typename Base::face_accessor;
-
-    /**
-     * An alias that defines an iterator over the (one-dimensional) lines
-     * of a mesh. In one-dimensional meshes, these are the cells of the mesh,
-     * whereas in two-dimensional meshes the lines are the faces of cells.
-     *
-     * @ingroup Iterators
-     */
-    using line_iterator = typename Base::line_iterator;
-
-    /**
-     * An alias that allows iterating over the <i>active</i> lines, i.e.,
-     * that subset of lines that have no children. In one-dimensional meshes,
-     * these are the cells of the mesh, whereas in two-dimensional
-     * meshes the lines are the faces of cells.
-     *
-     * In two- or three-dimensional meshes, lines without children (i.e.,
-     * the active lines) are part of at least one active cell. Each such line
-     * may additionally be a child of a line of a coarser cell adjacent to a
-     * cell that is active. (This coarser neighbor would then also be active.)
-     *
-     * @ingroup Iterators
-     */
-    using active_line_iterator = typename Base::active_line_iterator;
-
-    /**
-     * An alias that defines an iterator over the (two-dimensional) quads
-     * of a mesh. In two-dimensional meshes, these are the cells of the mesh,
-     * whereas in three-dimensional meshes the quads are the faces of cells.
-     *
-     * @ingroup Iterators
-     */
-    using quad_iterator = typename Base::quad_iterator;
-
-    /**
-     * An alias that allows iterating over the <i>active</i> quads, i.e.,
-     * that subset of quads that have no children. In two-dimensional meshes,
-     * these are the cells of the mesh, whereas in three-dimensional
-     * meshes the quads are the faces of cells.
-     *
-     * In three-dimensional meshes, quads without children (i.e.,
-     * the active quads) are faces of at least one active cell. Each such quad
-     * may additionally be a child of a quad face of a coarser cell adjacent to
-     * a cell that is active. (This coarser neighbor would then also be active.)
-     *
-     * @ingroup Iterators
-     */
-    using active_quad_iterator = typename Base::active_quad_iterator;
-
-    /**
-     * An alias that defines an iterator over the (three-dimensional) hexes
-     * of a mesh. This iterator only makes sense in three-dimensional meshes,
-     * where hexes are the cells of the mesh.
-     *
-     * @ingroup Iterators
-     */
-    using hex_iterator = typename Base::hex_iterator;
-
-    /**
-     * An alias that allows iterating over the <i>active</i> hexes of a mesh.
-     * This iterator only makes sense in three-dimensional meshes,
-     * where hexes are the cells of the mesh. Consequently, in these
-     * three-dimensional meshes, this iterator is equivalent to the
-     * @p active_cell_iterator alias.
-     *
-     * @ingroup Iterators
-     */
-    using active_hex_iterator = typename Base::active_hex_iterator;
-
-    /**
-     * @copydoc ::DoFHandler::active_cell_iterator
-     * @ingroup Iterators
-     */
-    using active_cell_iterator = typename Base::active_cell_iterator;
-
-    using level_cell_iterator = typename Base::level_cell_iterator;
-
-    /**
-     * @copydoc ::DoFHandler::cell_iterator
-     * @ingroup Iterators
-     */
-    using cell_iterator = typename Base::cell_iterator;
-
-    /**
-     * @copydoc ::DoFHandler::face_iterator
-     * @ingroup Iterators
-     */
-    using face_iterator = typename Base::face_iterator;
-
-    /**
-     * @copydoc ::DoFHandler::active_face_iterator
-     * @ingroup Iterators
-     */
-    using active_face_iterator = typename Base::active_face_iterator;
-
-    using level_cell_accessor = typename Base::level_cell_accessor;
-    using level_face_accessor = typename Base::level_face_accessor;
-
-    using level_face_iterator = typename Base::level_face_iterator;
-
-    /**
      * Make the dimension available in function templates.
      */
     static const unsigned int dimension = dim;
@@ -1235,20 +1108,21 @@ namespace hp
        * Container to temporarily store the iterator and future active FE index
        * of cells that persist.
        */
-      std::map<const cell_iterator, const unsigned int>
+      std::map<const typename Base::cell_iterator, const unsigned int>
         persisting_cells_fe_index;
 
       /**
        * Container to temporarily store the iterator and future active FE index
        * of cells that will be refined.
        */
-      std::map<const cell_iterator, const unsigned int> refined_cells_fe_index;
+      std::map<const typename Base::cell_iterator, const unsigned int>
+        refined_cells_fe_index;
 
       /**
        * Container to temporarily store the iterator and future active FE index
        * of parent cells that will remain after coarsening.
        */
-      std::map<const cell_iterator, const unsigned int>
+      std::map<const typename Base::cell_iterator, const unsigned int>
         coarsened_cells_fe_index;
 
       /**
