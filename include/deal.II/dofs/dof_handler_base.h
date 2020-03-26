@@ -142,10 +142,10 @@ public:
 
   virtual void
   initialize(const Triangulation<dim, spacedim> &tria,
-             const FiniteElement<dim, spacedim> &fe) = 0;
+             const FiniteElement<dim, spacedim> &fe);
   virtual void
   initialize(const Triangulation<dim, spacedim> &   tria,
-             const hp::FECollection<dim, spacedim> &fe) = 0;
+             const hp::FECollection<dim, spacedim> &fe);
 
   virtual void
   set_fe(const FiniteElement<dim, spacedim> &fe);
@@ -154,10 +154,10 @@ public:
   set_fe(const hp::FECollection<dim, spacedim> &fe);
 
   virtual void
-  distribute_dofs(const FiniteElement<dim, spacedim> &fe) = 0;
+  distribute_dofs(const FiniteElement<dim, spacedim> &fe);
 
   virtual void
-  distribute_dofs(const hp::FECollection<dim, spacedim> &fe) = 0;
+  distribute_dofs(const hp::FECollection<dim, spacedim> &fe);
 
   virtual void
   set_active_fe_indices(const std::vector<unsigned int> &active_fe_indices) = 0;
@@ -167,10 +167,14 @@ public:
 
   DEAL_II_DEPRECATED
   virtual void
-  distribute_mg_dofs(const FiniteElement<dim, spacedim> &fe) = 0;
+  distribute_mg_dofs(const FiniteElement<dim, spacedim> &fe);
 
-  virtual void
-  distribute_mg_dofs() = 0;
+  DEAL_II_DEPRECATED
+  void
+  distribute_mg_dofs(const hp::FECollection<dim, spacedim> &fe);
+
+  void
+  distribute_mg_dofs();
 
   virtual bool
   has_level_dofs() const = 0;

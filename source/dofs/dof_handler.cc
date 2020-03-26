@@ -873,8 +873,9 @@ DoFHandler<dim, spacedim>::~DoFHandler()
 
 template <int dim, int spacedim>
 void
-DoFHandler<dim, spacedim>::initialize(const Triangulation<dim, spacedim> &t,
-                                      const FiniteElement<dim, spacedim> &fe)
+DoFHandler<dim, spacedim>::initialize_impl(
+  const Triangulation<dim, spacedim> &   t,
+  const hp::FECollection<dim, spacedim> &fe)
 {
   this->tria                 = &t;
   faces                      = nullptr;
@@ -882,18 +883,7 @@ DoFHandler<dim, spacedim>::initialize(const Triangulation<dim, spacedim> &t,
 
   setup_policy();
 
-  distribute_dofs(fe);
-}
-
-
-template <int dim, int spacedim>
-void
-DoFHandler<dim, spacedim>::initialize(const Triangulation<dim, spacedim> &   t,
-                                      const hp::FECollection<dim, spacedim> &fe)
-{
-  (void)fe;
-  (void)t;
-  AssertThrow(false, ExcNotImplemented());
+  this->distribute_dofs(fe);
 }
 
 
@@ -967,17 +957,7 @@ DoFHandler<dim, spacedim>::set_fe_impl(
 
 template <int dim, int spacedim>
 void
-DoFHandler<dim, spacedim>::distribute_dofs(
-  const FiniteElement<dim, spacedim> &ff)
-{
-  this->distribute_dofs(hp::FECollection<dim, spacedim>(ff));
-}
-
-
-
-template <int dim, int spacedim>
-void
-DoFHandler<dim, spacedim>::distribute_dofs(
+DoFHandler<dim, spacedim>::distribute_dofs_impl(
   const hp::FECollection<dim, spacedim> &ff)
 {
   // first, assign the finite_element
@@ -1051,17 +1031,7 @@ DoFHandler<dim, spacedim>::get_active_fe_indices(
 
 template <int dim, int spacedim>
 void
-DoFHandler<dim, spacedim>::distribute_mg_dofs(
-  const FiniteElement<dim, spacedim> &)
-{
-  this->distribute_mg_dofs();
-}
-
-
-
-template <int dim, int spacedim>
-void
-DoFHandler<dim, spacedim>::distribute_mg_dofs()
+DoFHandler<dim, spacedim>::distribute_mg_dofs_impl()
 {
   Assert(
     levels.size() > 0,

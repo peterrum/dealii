@@ -1374,33 +1374,9 @@ namespace hp
 
   template <int dim, int spacedim>
   void
-  DoFHandler<dim, spacedim>::distribute_mg_dofs(
-    const FiniteElement<dim, spacedim> &fe)
+  DoFHandler<dim, spacedim>::distribute_mg_dofs_impl()
   {
     AssertThrow(false, ExcNotImplemented());
-    (void)fe;
-  }
-
-
-
-  template <int dim, int spacedim>
-  void
-  DoFHandler<dim, spacedim>::distribute_mg_dofs()
-  {
-    AssertThrow(false, ExcNotImplemented());
-  }
-
-
-
-  template <int dim, int spacedim>
-  void
-  DoFHandler<dim, spacedim>::initialize(
-    const Triangulation<dim, spacedim> &tria,
-    const FiniteElement<dim, spacedim> &fe)
-  {
-    AssertThrow(false, ExcNotImplemented());
-    (void)tria;
-    (void)fe;
   }
 
 
@@ -1431,7 +1407,7 @@ namespace hp
 
   template <int dim, int spacedim>
   void
-  DoFHandler<dim, spacedim>::initialize(
+  DoFHandler<dim, spacedim>::initialize_impl(
     const Triangulation<dim, spacedim> &   tria,
     const hp::FECollection<dim, spacedim> &fe)
   {
@@ -1450,7 +1426,7 @@ namespace hp
 
     create_active_fe_table();
 
-    distribute_dofs(fe);
+    this->distribute_dofs(fe);
   }
 
 
@@ -1494,17 +1470,7 @@ namespace hp
 
   template <int dim, int spacedim>
   void
-  DoFHandler<dim, spacedim>::distribute_dofs(
-    const FiniteElement<dim, spacedim> &fe)
-  {
-    this->distribute_dofs(hp::FECollection<dim, spacedim>(fe));
-  }
-
-
-
-  template <int dim, int spacedim>
-  void
-  DoFHandler<dim, spacedim>::distribute_dofs(
+  DoFHandler<dim, spacedim>::distribute_dofs_impl(
     const hp::FECollection<dim, spacedim> &ff)
   {
     // assign the fe_collection and initialize all active_fe_indices

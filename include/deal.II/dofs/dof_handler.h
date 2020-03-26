@@ -112,21 +112,14 @@ public:
   operator=(const DoFHandler &) = delete;
 
   void
-  initialize(const Triangulation<dim, spacedim> &tria,
-             const FiniteElement<dim, spacedim> &fe) override;
-
-  void
-  initialize(const Triangulation<dim, spacedim> &   tria,
-             const hp::FECollection<dim, spacedim> &fe) override;
+  initialize_impl(const Triangulation<dim, spacedim> &   tria,
+                  const hp::FECollection<dim, spacedim> &fe);
 
   virtual void
   set_fe_impl(const hp::FECollection<dim, spacedim> &fe);
 
   virtual void
-  distribute_dofs(const FiniteElement<dim, spacedim> &fe) override;
-
-  virtual void
-  distribute_dofs(const hp::FECollection<dim, spacedim> &fe) override;
+  distribute_dofs_impl(const hp::FECollection<dim, spacedim> &fe);
 
   void
   set_active_fe_indices(
@@ -136,12 +129,8 @@ public:
   get_active_fe_indices(
     std::vector<unsigned int> &active_fe_indices) const override;
 
-  DEAL_II_DEPRECATED
   virtual void
-  distribute_mg_dofs(const FiniteElement<dim, spacedim> &fe) override;
-
-  virtual void
-  distribute_mg_dofs() override;
+  distribute_mg_dofs_impl();
 
   bool
   has_level_dofs() const override;

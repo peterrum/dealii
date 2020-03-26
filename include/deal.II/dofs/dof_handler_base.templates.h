@@ -23,6 +23,26 @@ DEAL_II_NAMESPACE_OPEN
 
 template <int dim, int spacedim, typename T>
 void
+DoFHandlerBase<dim, spacedim, T>::initialize(
+  const Triangulation<dim, spacedim> &tria,
+  const FiniteElement<dim, spacedim> &fe)
+{
+  this->initialize(tria, hp::FECollection<dim, spacedim>(fe));
+}
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::initialize(
+  const Triangulation<dim, spacedim> &   tria,
+  const hp::FECollection<dim, spacedim> &fe)
+{
+  static_cast<T *>(this)->initialize_impl(tria,
+                                          hp::FECollection<dim, spacedim>(fe));
+}
+
+
+template <int dim, int spacedim, typename T>
+void
 DoFHandlerBase<dim, spacedim, T>::set_fe(const FiniteElement<dim, spacedim> &fe)
 {
   this->set_fe(hp::FECollection<dim, spacedim>(fe));
@@ -222,6 +242,53 @@ DoFHandlerBase<dim, spacedim, T>::get_triangulation() const
          ExcMessage("This DoFHandler object has not been associated "
                     "with a triangulation."));
   return *tria;
+}
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::distribute_dofs(
+  const FiniteElement<dim, spacedim> &fe)
+{
+  this->distribute_dofs(hp::FECollection<dim, spacedim>(fe));
+}
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::distribute_dofs(
+  const hp::FECollection<dim, spacedim> &fe)
+{
+  static_cast<T *>(this)->distribute_dofs_impl(fe);
+}
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::distribute_mg_dofs(
+  const FiniteElement<dim, spacedim> &fe)
+{
+  (void)fe;
+  this->distribute_mg_dofs();
+}
+
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::distribute_mg_dofs(
+  const hp::FECollection<dim, spacedim> &fe)
+{
+  (void)fe;
+  this->distribute_mg_dofs();
+}
+
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::distribute_mg_dofs()
+{
+  static_cast<T *>(this)->distribute_mg_dofs_impl();
 }
 
 
