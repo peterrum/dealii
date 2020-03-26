@@ -140,6 +140,13 @@ namespace internal
 } // namespace internal
 #endif
 
+/**
+ * @author Wolfgang Bangerth, Markus Buerg, Timo Heister, Guido Kanschat, 1998, 1999, 2000, 2012
+ * @author Wolfgang Bangerth, 2003, 2004, 2017, 2018
+ * @author Oliver Kayser-Herold, 2003, 2004
+ * @author Marc Fehling, 2018
+ * @author Peter Munch, 2020
+ */
 template <int dim, int spacedim, typename T>
 class DoFHandlerBase : public Subscriptor
 {
