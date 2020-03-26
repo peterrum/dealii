@@ -256,7 +256,7 @@ namespace hp
     void
     post_distributed_serialization_of_active_fe_indices();
 
-    std::vector<std::unique_ptr<dealii::internal::hp::DoFLevel>> levels;
+    std::vector<std::unique_ptr<dealii::internal::hp::DoFLevel>> levels_hp;
 
     std::unique_ptr<dealii::internal::hp::DoFIndicesOnFaces<dim>> faces;
 
@@ -345,10 +345,10 @@ namespace hp
     // some versions of gcc have trouble with loading vectors of
     // std::unique_ptr objects because std::unique_ptr does not
     // have a copy constructor. do it one level at a time
-    const unsigned int n_levels = levels.size();
+    const unsigned int n_levels = levels_hp.size();
     ar &               n_levels;
     for (unsigned int i = 0; i < n_levels; ++i)
-      ar &levels[i];
+      ar &levels_hp[i];
 
     // boost dereferences a nullptr when serializing a nullptr
     // at least up to 1.65.1. This causes problems with clang-5.
@@ -383,7 +383,7 @@ namespace hp
     // pointer object still points to something useful, that object is not
     // destroyed and we end up with a memory leak. consequently, first delete
     // previous content before re-loading stuff
-    levels.clear();
+    levels_hp.clear();
     faces.reset();
 
     // some versions of gcc have trouble with loading vectors of
@@ -391,12 +391,12 @@ namespace hp
     // have a copy constructor. do it one level at a time
     unsigned int size;
     ar &         size;
-    levels.resize(size);
+    levels_hp.resize(size);
     for (unsigned int i = 0; i < size; ++i)
       {
         std::unique_ptr<dealii::internal::hp::DoFLevel> level;
         ar &                                            level;
-        levels[i] = std::move(level);
+        levels_hp[i] = std::move(level);
       }
 
     // Workaround for nullptr, see in save().
