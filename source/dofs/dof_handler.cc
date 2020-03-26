@@ -1110,14 +1110,14 @@ DoFHandler<dim, spacedim>::renumber_dofs(
         &*this->tria) != nullptr)
     {
       Assert(new_numbers.size() == this->n_dofs() ||
-               new_numbers.size() == n_locally_owned_dofs(),
+               new_numbers.size() == this->n_locally_owned_dofs(),
              ExcMessage("Incorrect size of the input array."));
     }
   else if (dynamic_cast<
              const parallel::DistributedTriangulationBase<dim, spacedim> *>(
              &*this->tria) != nullptr)
     {
-      AssertDimension(new_numbers.size(), n_locally_owned_dofs());
+      AssertDimension(new_numbers.size(), this->n_locally_owned_dofs());
     }
   else
     {
@@ -1133,7 +1133,7 @@ DoFHandler<dim, spacedim>::renumber_dofs(
   // [0...n_dofs()) into itself but
   // only globally, not on each
   // processor
-  if (n_locally_owned_dofs() == this->n_dofs())
+  if (this->n_locally_owned_dofs() == this->n_dofs())
     {
       std::vector<types::global_dof_index> tmp(new_numbers);
       std::sort(tmp.begin(), tmp.end());
@@ -1165,14 +1165,14 @@ DoFHandler<dim, spacedim>::renumber_dofs(
       "You need to distribute active and level DoFs before you can renumber level DoFs."));
   AssertIndexRange(level, this->get_triangulation().n_global_levels());
   AssertDimension(new_numbers.size(),
-                  locally_owned_mg_dofs(level).n_elements());
+                  this->locally_owned_mg_dofs(level).n_elements());
 
 #ifdef DEBUG
   // assert that the new indices are consecutively numbered if we are working
   // on a single processor. this doesn't need to hold in the case of a
   // parallel mesh since we map the interval [0...n_dofs(level)) into itself
   // but only globally, not on each processor
-  if (n_locally_owned_dofs() == this->n_dofs())
+  if (this->n_locally_owned_dofs() == this->n_dofs())
     {
       std::vector<types::global_dof_index> tmp(new_numbers);
       std::sort(tmp.begin(), tmp.end());

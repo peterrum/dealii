@@ -177,10 +177,10 @@ public:
   distribute_mg_dofs();
 
   virtual bool
-  has_level_dofs() const = 0;
+  has_level_dofs() const;
 
   virtual bool
-  has_active_dofs() const = 0;
+  has_active_dofs() const;
 
   virtual void
   initialize_local_block_info() = 0;
@@ -265,32 +265,31 @@ public:
   block_info() const;
 
   virtual types::global_dof_index
-  n_locally_owned_dofs() const = 0;
+  n_locally_owned_dofs() const;
 
   virtual const IndexSet &
-  locally_owned_dofs() const = 0;
+  locally_owned_dofs() const;
 
   virtual const IndexSet &
-  locally_owned_mg_dofs(const unsigned int level) const = 0;
+  locally_owned_mg_dofs(const unsigned int level) const;
 
   virtual std::vector<IndexSet>
-  compute_locally_owned_dofs_per_processor() const = 0;
+  compute_locally_owned_dofs_per_processor() const;
 
   virtual std::vector<types::global_dof_index>
-  compute_n_locally_owned_dofs_per_processor() const = 0;
+  compute_n_locally_owned_dofs_per_processor() const;
 
   virtual std::vector<IndexSet>
-  compute_locally_owned_mg_dofs_per_processor(
-    const unsigned int level) const = 0;
+  compute_locally_owned_mg_dofs_per_processor(const unsigned int level) const;
 
   DEAL_II_DEPRECATED virtual const std::vector<IndexSet> &
-  locally_owned_dofs_per_processor() const = 0;
+  locally_owned_dofs_per_processor() const;
 
   DEAL_II_DEPRECATED virtual const std::vector<types::global_dof_index> &
-  n_locally_owned_dofs_per_processor() const = 0;
+  n_locally_owned_dofs_per_processor() const;
 
   DEAL_II_DEPRECATED virtual const std::vector<IndexSet> &
-  locally_owned_mg_dofs_per_processor(const unsigned int level) const = 0;
+  locally_owned_mg_dofs_per_processor(const unsigned int level) const;
 
   virtual const FiniteElement<dim, spacedim> &
   get_fe(const unsigned int index = 0) const;
@@ -510,6 +509,179 @@ DoFHandlerBase<dim, spacedim, T>::n_dofs(const unsigned int level) const
            "n_dofs(level) can only be called after distribute_mg_dofs()"));
   Assert(level < mg_number_cache.size(), ExcInvalidLevel(level));
   return mg_number_cache[level].n_global_dofs;
+}
+
+
+
+template <int dim, int spacedim, typename T>
+inline bool
+DoFHandlerBase<dim, spacedim, T>::has_level_dofs() const
+{
+  return this->mg_number_cache.size() > 0;
+}
+
+
+
+template <int dim, int spacedim, typename T>
+inline bool
+DoFHandlerBase<dim, spacedim, T>::has_active_dofs() const
+{
+  return this->number_cache.n_global_dofs > 0;
+}
+
+
+
+template <int dim, int spacedim, typename T>
+types::global_dof_index
+DoFHandlerBase<dim, spacedim, T>::n_locally_owned_dofs() const
+{
+  return this->number_cache.n_locally_owned_dofs;
+}
+
+
+
+template <int dim, int spacedim, typename T>
+const IndexSet &
+DoFHandlerBase<dim, spacedim, T>::locally_owned_dofs() const
+{
+  return this->number_cache.locally_owned_dofs;
+}
+
+
+
+template <int dim, int spacedim, typename T>
+const IndexSet &
+DoFHandlerBase<dim, spacedim, T>::locally_owned_mg_dofs(
+  const unsigned int level) const
+{
+  Assert(level < this->get_triangulation().n_global_levels(),
+         ExcMessage("The given level index exceeds the number of levels "
+                    "present in the triangulation"));
+  Assert(
+    this->mg_number_cache.size() == this->get_triangulation().n_global_levels(),
+    ExcMessage(
+      "The level dofs are not set up properly! Did you call distribute_mg_dofs()?"));
+  return this->mg_number_cache[level].locally_owned_dofs;
+}
+
+
+
+template <int dim, int spacedim, typename T>
+const std::vector<types::global_dof_index> &
+DoFHandlerBase<dim, spacedim, T>::n_locally_owned_dofs_per_processor() const
+{
+  if (this->number_cache.n_locally_owned_dofs_per_processor.empty() &&
+      this->number_cache.n_global_dofs > 0)
+    {
+      const_cast<dealii::internal::DoFHandlerImplementation::NumberCache &>(
+        this->number_cache)
+        .n_locally_owned_dofs_per_processor =
+        compute_n_locally_owned_dofs_per_processor();
+    }
+  return this->number_cache.n_locally_owned_dofs_per_processor;
+}
+
+
+
+template <int dim, int spacedim, typename T>
+const std::vector<IndexSet> &
+DoFHandlerBase<dim, spacedim, T>::locally_owned_dofs_per_processor() const
+{
+  if (this->number_cache.locally_owned_dofs_per_processor.empty() &&
+      this->number_cache.n_global_dofs > 0)
+    {
+      const_cast<dealii::internal::DoFHandlerImplementation::NumberCache &>(
+        this->number_cache)
+        .locally_owned_dofs_per_processor =
+        compute_locally_owned_dofs_per_processor();
+    }
+  return this->number_cache.locally_owned_dofs_per_processor;
+}
+
+
+
+template <int dim, int spacedim, typename T>
+const std::vector<IndexSet> &
+DoFHandlerBase<dim, spacedim, T>::locally_owned_mg_dofs_per_processor(
+  const unsigned int level) const
+{
+  Assert(level < this->get_triangulation().n_global_levels(),
+         ExcMessage("The given level index exceeds the number of levels "
+                    "present in the triangulation"));
+  Assert(
+    this->mg_number_cache.size() == this->get_triangulation().n_global_levels(),
+    ExcMessage(
+      "The level dofs are not set up properly! Did you call distribute_mg_dofs()?"));
+  if (this->mg_number_cache[level].locally_owned_dofs_per_processor.empty() &&
+      this->mg_number_cache[level].n_global_dofs > 0)
+    {
+      const_cast<dealii::internal::DoFHandlerImplementation::NumberCache &>(
+        this->mg_number_cache[level])
+        .locally_owned_dofs_per_processor =
+        compute_locally_owned_mg_dofs_per_processor(level);
+    }
+  return this->mg_number_cache[level].locally_owned_dofs_per_processor;
+}
+
+
+
+template <int dim, int spacedim, typename T>
+std::vector<types::global_dof_index>
+DoFHandlerBase<dim, spacedim, T>::compute_n_locally_owned_dofs_per_processor()
+  const
+{
+  const parallel::TriangulationBase<dim, spacedim> *tr =
+    (dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
+      &this->get_triangulation()));
+  if (tr != nullptr)
+    return this->number_cache.get_n_locally_owned_dofs_per_processor(
+      tr->get_communicator());
+  else
+    return this->number_cache.get_n_locally_owned_dofs_per_processor(
+      MPI_COMM_SELF);
+}
+
+
+
+template <int dim, int spacedim, typename T>
+std::vector<IndexSet>
+DoFHandlerBase<dim, spacedim, T>::compute_locally_owned_dofs_per_processor()
+  const
+{
+  const parallel::TriangulationBase<dim, spacedim> *tr =
+    (dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
+      &this->get_triangulation()));
+  if (tr != nullptr)
+    return this->number_cache.get_locally_owned_dofs_per_processor(
+      tr->get_communicator());
+  else
+    return this->number_cache.get_locally_owned_dofs_per_processor(
+      MPI_COMM_SELF);
+}
+
+
+
+template <int dim, int spacedim, typename T>
+std::vector<IndexSet>
+DoFHandlerBase<dim, spacedim, T>::compute_locally_owned_mg_dofs_per_processor(
+  const unsigned int level) const
+{
+  Assert(level < this->get_triangulation().n_global_levels(),
+         ExcMessage("The given level index exceeds the number of levels "
+                    "present in the triangulation"));
+  Assert(
+    this->mg_number_cache.size() == this->get_triangulation().n_global_levels(),
+    ExcMessage(
+      "The level dofs are not set up properly! Did you call distribute_mg_dofs()?"));
+  const parallel::TriangulationBase<dim, spacedim> *tr =
+    (dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
+      &this->get_triangulation()));
+  if (tr != nullptr)
+    return this->mg_number_cache[level].get_locally_owned_dofs_per_processor(
+      tr->get_communicator());
+  else
+    return this->mg_number_cache[level].get_locally_owned_dofs_per_processor(
+      MPI_COMM_SELF);
 }
 
 DEAL_II_NAMESPACE_CLOSE

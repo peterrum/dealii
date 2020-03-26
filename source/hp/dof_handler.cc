@@ -1340,24 +1340,6 @@ namespace hp
     AssertThrow(false, ExcNotImplemented());
   }
 
-
-
-  template <int dim, int spacedim>
-  bool
-  DoFHandler<dim, spacedim>::has_level_dofs() const
-  {
-    AssertThrow(false, ExcNotImplemented());
-    return false;
-  }
-
-  template <int dim, int spacedim>
-  bool
-  DoFHandler<dim, spacedim>::has_active_dofs() const
-  {
-    AssertThrow(false, ExcNotImplemented());
-    return false;
-  }
-
   template <int dim, int spacedim>
   void
   DoFHandler<dim, spacedim>::initialize_local_block_info()
@@ -1610,7 +1592,7 @@ namespace hp
            ExcMessage(
              "You need to distribute DoFs before you can renumber them."));
 
-    AssertDimension(new_numbers.size(), n_locally_owned_dofs());
+    AssertDimension(new_numbers.size(), this->n_locally_owned_dofs());
 
 #ifdef DEBUG
     // assert that the new indices are
@@ -1622,7 +1604,7 @@ namespace hp
     // [0...n_dofs()) into itself but
     // only globally, not on each
     // processor
-    if (n_locally_owned_dofs() == this->n_dofs())
+    if (this->n_locally_owned_dofs() == this->n_dofs())
       {
         std::vector<types::global_dof_index> tmp(new_numbers);
         std::sort(tmp.begin(), tmp.end());
