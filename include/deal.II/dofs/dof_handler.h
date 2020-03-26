@@ -188,41 +188,6 @@ private:
   void
   setup_policy();
 
-  class MGVertexDoFs
-  {
-  public:
-    MGVertexDoFs();
-
-    void
-    init(const unsigned int coarsest_level,
-         const unsigned int finest_level,
-         const unsigned int dofs_per_vertex);
-
-    unsigned int
-    get_coarsest_level() const;
-
-    unsigned int
-    get_finest_level() const;
-
-    types::global_dof_index
-    get_index(const unsigned int level,
-              const unsigned int dof_number,
-              const unsigned int dofs_per_vertex) const;
-
-    void
-    set_index(const unsigned int            level,
-              const unsigned int            dof_number,
-              const unsigned int            dofs_per_vertex,
-              const types::global_dof_index index);
-
-  private:
-    unsigned int coarsest_level;
-
-    unsigned int finest_level;
-
-    std::unique_ptr<types::global_dof_index[]> indices;
-  };
-
   void
   clear_space();
 
@@ -243,24 +208,6 @@ private:
                 const unsigned int            fe_index,
                 const unsigned int            local_index,
                 const types::global_dof_index global_index) const;
-
-  std::vector<types::global_dof_index> vertex_dofs;
-
-  std::vector<MGVertexDoFs> mg_vertex_dofs;
-
-  std::vector<
-    std::unique_ptr<dealii::internal::DoFHandlerImplementation::DoFLevel<dim>>>
-    levels;
-
-  std::vector<
-    std::unique_ptr<dealii::internal::DoFHandlerImplementation::DoFLevel<dim>>>
-    mg_levels;
-
-  std::unique_ptr<dealii::internal::DoFHandlerImplementation::DoFFaces<dim>>
-    faces;
-
-  std::unique_ptr<dealii::internal::DoFHandlerImplementation::DoFFaces<dim>>
-    mg_faces;
 
   // Make accessor objects friends.
   template <int, class, bool>
@@ -313,24 +260,24 @@ void
 DoFHandler<dim, spacedim>::save(Archive &ar, const unsigned int) const
 {
   ar & this->block_info_object;
-  ar &vertex_dofs;
+  ar & this->vertex_dofs;
   ar & this->number_cache;
 
   // some versions of gcc have trouble with loading vectors of
   // std::unique_ptr objects because std::unique_ptr does not
   // have a copy constructor. do it one level at a time
-  unsigned int n_levels = levels.size();
+  unsigned int n_levels = this->levels.size();
   ar &         n_levels;
-  for (unsigned int i = 0; i < levels.size(); ++i)
-    ar &levels[i];
+  for (unsigned int i = 0; i < this->levels.size(); ++i)
+    ar & this->levels[i];
 
   // boost dereferences a nullptr when serializing a nullptr
   // at least up to 1.65.1. This causes problems with clang-5.
   // Therefore, work around it.
-  bool faces_is_nullptr = (faces.get() == nullptr);
+  bool faces_is_nullptr = (this->faces.get() == nullptr);
   ar & faces_is_nullptr;
   if (!faces_is_nullptr)
-    ar &faces;
+    ar & this->faces;
 
   // write out the number of triangulation cells and later check during
   // loading that this number is indeed correct; same with something that
@@ -350,34 +297,34 @@ void
 DoFHandler<dim, spacedim>::load(Archive &ar, const unsigned int)
 {
   ar & this->block_info_object;
-  ar &vertex_dofs;
+  ar & this->vertex_dofs;
   ar & this->number_cache;
 
   // boost::serialization can restore pointers just fine, but if the
   // pointer object still points to something useful, that object is not
   // destroyed and we end up with a memory leak. consequently, first delete
   // previous content before re-loading stuff
-  levels.clear();
-  faces.reset();
+  this->levels.clear();
+  this->faces.reset();
 
   // some versions of gcc have trouble with loading vectors of
   // std::unique_ptr objects because std::unique_ptr does not
   // have a copy constructor. do it one level at a time
   unsigned int size;
   ar &         size;
-  levels.resize(size);
-  for (unsigned int i = 0; i < levels.size(); ++i)
+  this->levels.resize(size);
+  for (unsigned int i = 0; i < this->levels.size(); ++i)
     {
       std::unique_ptr<internal::DoFHandlerImplementation::DoFLevel<dim>> level;
       ar &                                                               level;
-      levels[i] = std::move(level);
+      this->levels[i] = std::move(level);
     }
 
   // Workaround for nullptr, see in save().
   bool faces_is_nullptr = true;
   ar & faces_is_nullptr;
   if (!faces_is_nullptr)
-    ar &faces;
+    ar & this->faces;
 
   // these are the checks that correspond to the last block in the save()
   // function
@@ -403,35 +350,6 @@ DoFHandler<dim, spacedim>::load(Archive &ar, const unsigned int)
                 ") does not match the one that was associated with the "
                 "DoFHandler previously stored (" +
                 policy_name + ")."));
-}
-
-
-
-template <int dim, int spacedim>
-inline types::global_dof_index
-DoFHandler<dim, spacedim>::MGVertexDoFs::get_index(
-  const unsigned int level,
-  const unsigned int dof_number,
-  const unsigned int dofs_per_vertex) const
-{
-  Assert((level >= coarsest_level) && (level <= finest_level),
-         ExcInvalidLevel(level));
-  return indices[dofs_per_vertex * (level - coarsest_level) + dof_number];
-}
-
-
-
-template <int dim, int spacedim>
-inline void
-DoFHandler<dim, spacedim>::MGVertexDoFs::set_index(
-  const unsigned int            level,
-  const unsigned int            dof_number,
-  const unsigned int            dofs_per_vertex,
-  const types::global_dof_index index)
-{
-  Assert((level >= coarsest_level) && (level <= finest_level),
-         ExcInvalidLevel(level));
-  indices[dofs_per_vertex * (level - coarsest_level) + dof_number] = index;
 }
 
 

@@ -256,14 +256,6 @@ namespace hp
     void
     post_distributed_serialization_of_active_fe_indices();
 
-    std::vector<std::unique_ptr<dealii::internal::hp::DoFLevel>> levels_hp;
-
-    std::unique_ptr<dealii::internal::hp::DoFIndicesOnFaces<dim>> faces_hp;
-
-    std::vector<types::global_dof_index> vertex_dofs;
-
-    std::vector<unsigned int> vertex_dof_offsets;
-
     struct ActiveFEIndexTransfer
     {
       std::map<const typename Base::cell_iterator, const unsigned int>
@@ -337,26 +329,26 @@ namespace hp
   void
   DoFHandler<dim, spacedim>::save(Archive &ar, unsigned int) const
   {
-    ar &vertex_dofs;
-    ar &vertex_dof_offsets;
+    ar & this->vertex_dofs;
+    ar & this->vertex_dof_offsets;
     ar & this->number_cache;
     ar & this->mg_number_cache;
 
     // some versions of gcc have trouble with loading vectors of
     // std::unique_ptr objects because std::unique_ptr does not
     // have a copy constructor. do it one level at a time
-    const unsigned int n_levels = levels_hp.size();
+    const unsigned int n_levels = this->levels_hp.size();
     ar &               n_levels;
     for (unsigned int i = 0; i < n_levels; ++i)
-      ar &levels_hp[i];
+      ar & this->levels_hp[i];
 
     // boost dereferences a nullptr when serializing a nullptr
     // at least up to 1.65.1. This causes problems with clang-5.
     // Therefore, work around it.
-    bool faces_is_nullptr = (faces_hp.get() == nullptr);
+    bool faces_is_nullptr = (this->faces_hp.get() == nullptr);
     ar & faces_is_nullptr;
     if (!faces_is_nullptr)
-      ar &faces_hp;
+      ar & this->faces_hp;
 
     // write out the number of triangulation cells and later check during
     // loading that this number is indeed correct; same with something that
@@ -374,8 +366,8 @@ namespace hp
   void
   DoFHandler<dim, spacedim>::load(Archive &ar, unsigned int)
   {
-    ar &vertex_dofs;
-    ar &vertex_dof_offsets;
+    ar & this->vertex_dofs;
+    ar & this->vertex_dof_offsets;
     ar & this->number_cache;
     ar & this->mg_number_cache;
 
@@ -383,27 +375,27 @@ namespace hp
     // pointer object still points to something useful, that object is not
     // destroyed and we end up with a memory leak. consequently, first delete
     // previous content before re-loading stuff
-    levels_hp.clear();
-    faces_hp.reset();
+    this->levels_hp.clear();
+    this->faces_hp.reset();
 
     // some versions of gcc have trouble with loading vectors of
     // std::unique_ptr objects because std::unique_ptr does not
     // have a copy constructor. do it one level at a time
     unsigned int size;
     ar &         size;
-    levels_hp.resize(size);
+    this->levels_hp.resize(size);
     for (unsigned int i = 0; i < size; ++i)
       {
         std::unique_ptr<dealii::internal::hp::DoFLevel> level;
         ar &                                            level;
-        levels_hp[i] = std::move(level);
+        this->levels_hp[i] = std::move(level);
       }
 
     // Workaround for nullptr, see in save().
     bool faces_is_nullptr = true;
     ar & faces_is_nullptr;
     if (!faces_is_nullptr)
-      ar &faces_hp;
+      ar & this->faces_hp;
 
     // these are the checks that correspond to the last block in the save()
     // function

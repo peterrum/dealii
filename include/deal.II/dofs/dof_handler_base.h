@@ -25,6 +25,7 @@
 #include <deal.II/base/index_set.h>
 #include <deal.II/base/iterator_range.h>
 #include <deal.II/base/smartpointer.h>
+#include <deal.II/base/std_cxx14/memory.h>
 
 #include <deal.II/distributed/tria_base.h>
 
@@ -35,6 +36,8 @@
 #include <deal.II/dofs/dof_levels.h>
 #include <deal.II/dofs/number_cache.h>
 
+#include <deal.II/hp/dof_faces.h>
+#include <deal.II/hp/dof_level.h>
 #include <deal.II/hp/fe_collection.h>
 
 #include <boost/serialization/split_member.hpp>
@@ -134,10 +137,16 @@ public:
 
   DoFHandlerBase()
     : tria(nullptr, typeid(*this).name())
+    , faces(nullptr)
+    , mg_faces(nullptr)
+    , faces_hp(nullptr)
   {}
 
   DoFHandlerBase(const Triangulation<dim, spacedim> &tria)
     : tria(&tria, typeid(*this).name())
+    , faces(nullptr)
+    , mg_faces(nullptr)
+    , faces_hp(nullptr)
   {}
 
   void
@@ -332,6 +341,69 @@ protected:
 
   std::vector<dealii::internal::DoFHandlerImplementation::NumberCache>
     mg_number_cache;
+
+
+  class MGVertexDoFs
+  {
+  public:
+    MGVertexDoFs();
+
+    void
+    init(const unsigned int coarsest_level,
+         const unsigned int finest_level,
+         const unsigned int dofs_per_vertex);
+
+    unsigned int
+    get_coarsest_level() const;
+
+    unsigned int
+    get_finest_level() const;
+
+    types::global_dof_index
+    get_index(const unsigned int level,
+              const unsigned int dof_number,
+              const unsigned int dofs_per_vertex) const;
+
+    void
+    set_index(const unsigned int            level,
+              const unsigned int            dof_number,
+              const unsigned int            dofs_per_vertex,
+              const types::global_dof_index index);
+
+  private:
+    unsigned int coarsest_level;
+
+    unsigned int finest_level;
+
+    std::unique_ptr<types::global_dof_index[]> indices;
+  };
+
+
+  std::vector<types::global_dof_index> vertex_dofs;
+
+  std::vector<unsigned int> vertex_dof_offsets; // for hp
+
+  std::vector<MGVertexDoFs> mg_vertex_dofs;
+
+  std::vector<
+    std::unique_ptr<dealii::internal::DoFHandlerImplementation::DoFLevel<dim>>>
+    levels;
+
+  std::vector<
+    std::unique_ptr<dealii::internal::DoFHandlerImplementation::DoFLevel<dim>>>
+    mg_levels;
+
+  std::vector<std::unique_ptr<dealii::internal::hp::DoFLevel>>
+    levels_hp; // TODO: rename hp_levels
+
+  std::unique_ptr<dealii::internal::DoFHandlerImplementation::DoFFaces<dim>>
+    faces;
+
+  std::unique_ptr<dealii::internal::DoFHandlerImplementation::DoFFaces<dim>>
+    mg_faces;
+
+  std::unique_ptr<dealii::internal::hp::DoFIndicesOnFaces<dim>>
+    faces_hp; // TODO: rename hp_faces
 };
 
 
@@ -991,6 +1063,87 @@ DoFHandlerBase<dim, spacedim, T>::get_active_fe_indices(
   for (const auto &cell : this->active_cell_iterators())
     if (!cell->is_artificial())
       active_fe_indices[cell->active_cell_index()] = cell->active_fe_index();
+}
+
+
+
+template <int dim, int spacedim, typename T>
+inline types::global_dof_index
+DoFHandlerBase<dim, spacedim, T>::MGVertexDoFs::get_index(
+  const unsigned int level,
+  const unsigned int dof_number,
+  const unsigned int dofs_per_vertex) const
+{
+  Assert((level >= coarsest_level) && (level <= finest_level),
+         ExcInvalidLevel(level));
+  return indices[dofs_per_vertex * (level - coarsest_level) + dof_number];
+}
+
+
+
+template <int dim, int spacedim, typename T>
+inline void
+DoFHandlerBase<dim, spacedim, T>::MGVertexDoFs::set_index(
+  const unsigned int            level,
+  const unsigned int            dof_number,
+  const unsigned int            dofs_per_vertex,
+  const types::global_dof_index index)
+{
+  Assert((level >= coarsest_level) && (level <= finest_level),
+         ExcInvalidLevel(level));
+  indices[dofs_per_vertex * (level - coarsest_level) + dof_number] = index;
+}
+
+
+
+template <int dim, int spacedim, typename T>
+DoFHandlerBase<dim, spacedim, T>::MGVertexDoFs::MGVertexDoFs()
+  : coarsest_level(numbers::invalid_unsigned_int)
+  , finest_level(0)
+{}
+
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::MGVertexDoFs::init(
+  const unsigned int cl,
+  const unsigned int fl,
+  const unsigned int dofs_per_vertex)
+{
+  coarsest_level = cl;
+  finest_level   = fl;
+
+  if (coarsest_level <= finest_level)
+    {
+      const unsigned int n_levels  = finest_level - coarsest_level + 1;
+      const unsigned int n_indices = n_levels * dofs_per_vertex;
+
+      indices = std_cxx14::make_unique<types::global_dof_index[]>(n_indices);
+      std::fill(indices.get(),
+                indices.get() + n_indices,
+                numbers::invalid_dof_index);
+    }
+  else
+    indices.reset();
+}
+
+
+
+template <int dim, int spacedim, typename T>
+unsigned int
+DoFHandlerBase<dim, spacedim, T>::MGVertexDoFs::get_coarsest_level() const
+{
+  return coarsest_level;
+}
+
+
+
+template <int dim, int spacedim, typename T>
+unsigned int
+DoFHandlerBase<dim, spacedim, T>::MGVertexDoFs::get_finest_level() const
+{
+  return finest_level;
 }
 
 DEAL_II_NAMESPACE_CLOSE

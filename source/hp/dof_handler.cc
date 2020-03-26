@@ -1273,7 +1273,6 @@ namespace hp
   template <int dim, int spacedim>
   DoFHandler<dim, spacedim>::DoFHandler()
     : Base()
-    , faces_hp(nullptr)
   {}
 
 
@@ -1282,7 +1281,6 @@ namespace hp
   DoFHandler<dim, spacedim>::DoFHandler(
     const Triangulation<dim, spacedim> &tria)
     : Base(tria)
-    , faces_hp(nullptr)
   {
     setup_policy_and_listeners();
 
@@ -1320,14 +1318,14 @@ namespace hp
       (MemoryConsumption::memory_consumption(this->tria) +
        MemoryConsumption::memory_consumption(this->fe_collection) +
        MemoryConsumption::memory_consumption(this->tria) +
-       MemoryConsumption::memory_consumption(levels_hp) +
-       MemoryConsumption::memory_consumption(*faces_hp) +
+       MemoryConsumption::memory_consumption(this->levels_hp) +
+       MemoryConsumption::memory_consumption(*this->faces_hp) +
        MemoryConsumption::memory_consumption(this->number_cache) +
-       MemoryConsumption::memory_consumption(vertex_dofs) +
-       MemoryConsumption::memory_consumption(vertex_dof_offsets));
-    for (unsigned int i = 0; i < levels_hp.size(); ++i)
-      mem += MemoryConsumption::memory_consumption(*levels_hp[i]);
-    mem += MemoryConsumption::memory_consumption(*faces_hp);
+       MemoryConsumption::memory_consumption(this->vertex_dofs) +
+       MemoryConsumption::memory_consumption(this->vertex_dof_offsets));
+    for (unsigned int i = 0; i < this->levels_hp.size(); ++i)
+      mem += MemoryConsumption::memory_consumption(*this->levels_hp[i]);
+    mem += MemoryConsumption::memory_consumption(*this->faces_hp);
 
     return mem;
   }
@@ -1472,10 +1470,10 @@ namespace hp
     // do some housekeeping: compress indices
     {
       Threads::TaskGroup<> tg;
-      for (int level = levels_hp.size() - 1; level >= 0; --level)
+      for (int level = this->levels_hp.size() - 1; level >= 0; --level)
         tg += Threads::new_task(
           &dealii::internal::hp::DoFLevel::compress_data<dim, spacedim>,
-          *levels_hp[level],
+          *this->levels_hp[level],
           this->fe_collection);
       tg.join_all();
     }
@@ -1589,7 +1587,7 @@ namespace hp
   DoFHandler<dim, spacedim>::renumber_dofs(
     const std::vector<types::global_dof_index> &new_numbers)
   {
-    Assert(levels_hp.size() > 0,
+    Assert(this->levels_hp.size() > 0,
            ExcMessage(
              "You need to distribute DoFs before you can renumber them."));
 
@@ -1626,10 +1624,10 @@ namespace hp
     // with the most expensive levels (the highest ones)
     {
       Threads::TaskGroup<> tg;
-      for (int level = levels_hp.size() - 1; level >= 0; --level)
+      for (int level = this->levels_hp.size() - 1; level >= 0; --level)
         tg += Threads::new_task(
           &dealii::internal::hp::DoFLevel::uncompress_data<dim, spacedim>,
-          *levels_hp[level],
+          *this->levels_hp[level],
           this->fe_collection);
       tg.join_all();
     }
@@ -1640,10 +1638,10 @@ namespace hp
     // now re-compress the dof indices
     {
       Threads::TaskGroup<> tg;
-      for (int level = levels_hp.size() - 1; level >= 0; --level)
+      for (int level = this->levels_hp.size() - 1; level >= 0; --level)
         tg += Threads::new_task(
           &dealii::internal::hp::DoFLevel::compress_data<dim, spacedim>,
-          *levels_hp[level],
+          *this->levels_hp[level],
           this->fe_collection);
       tg.join_all();
     }
@@ -1712,19 +1710,19 @@ namespace hp
   DoFHandler<dim, spacedim>::create_active_fe_table()
   {
     // Create sufficiently many hp::DoFLevels.
-    while (levels_hp.size() < this->tria->n_levels())
-      levels_hp.emplace_back(new dealii::internal::hp::DoFLevel);
+    while (this->levels_hp.size() < this->tria->n_levels())
+      this->levels_hp.emplace_back(new dealii::internal::hp::DoFLevel);
 
     // then make sure that on each level we have the appropriate size
     // of active_fe_indices; preset them to zero, i.e. the default FE
-    for (unsigned int level = 0; level < levels_hp.size(); ++level)
+    for (unsigned int level = 0; level < this->levels_hp.size(); ++level)
       {
-        if (levels_hp[level]->active_fe_indices.size() == 0 &&
-            levels_hp[level]->future_fe_indices.size() == 0)
+        if (this->levels_hp[level]->active_fe_indices.size() == 0 &&
+            this->levels_hp[level]->future_fe_indices.size() == 0)
           {
-            levels_hp[level]->active_fe_indices.resize(
+            this->levels_hp[level]->active_fe_indices.resize(
               this->tria->n_raw_cells(level), 0);
-            levels_hp[level]->future_fe_indices.resize(
+            this->levels_hp[level]->future_fe_indices.resize(
               this->tria->n_raw_cells(level),
               dealii::internal::hp::DoFLevel::invalid_active_fe_index);
           }
@@ -1733,9 +1731,9 @@ namespace hp
             // Either the active_fe_indices have size zero because
             // they were just created, or the correct size. Other
             // sizes indicate that something went wrong.
-            Assert(levels_hp[level]->active_fe_indices.size() ==
+            Assert(this->levels_hp[level]->active_fe_indices.size() ==
                        this->tria->n_raw_cells(level) &&
-                     levels_hp[level]->future_fe_indices.size() ==
+                     this->levels_hp[level]->future_fe_indices.size() ==
                        this->tria->n_raw_cells(level),
                    ExcInternalError());
           }
@@ -1746,7 +1744,7 @@ namespace hp
         // importance because the current function is called at a
         // point where we have to recreate the dof_indices tables in
         // the levels anyway
-        levels_hp[level]->normalize_active_fe_indices();
+        this->levels_hp[level]->normalize_active_fe_indices();
       }
   }
 
@@ -1767,28 +1765,30 @@ namespace hp
   {
     // Normally only one level is added, but if this Triangulation
     // is created by copy_triangulation, it can be more than one level.
-    while (levels_hp.size() < this->tria->n_levels())
-      levels_hp.emplace_back(new dealii::internal::hp::DoFLevel);
+    while (this->levels_hp.size() < this->tria->n_levels())
+      this->levels_hp.emplace_back(new dealii::internal::hp::DoFLevel);
 
     // Coarsening can lead to the loss of levels. Hence remove them.
-    while (levels_hp.size() > this->tria->n_levels())
+    while (this->levels_hp.size() > this->tria->n_levels())
       {
         // drop the last element. that also releases the memory pointed to
-        levels_hp.pop_back();
+        this->levels_hp.pop_back();
       }
 
-    Assert(levels_hp.size() == this->tria->n_levels(), ExcInternalError());
-    for (unsigned int i = 0; i < levels_hp.size(); ++i)
+    Assert(this->levels_hp.size() == this->tria->n_levels(),
+           ExcInternalError());
+    for (unsigned int i = 0; i < this->levels_hp.size(); ++i)
       {
         // Resize active_fe_indices vectors. Use zero indicator to extend.
-        levels_hp[i]->active_fe_indices.resize(this->tria->n_raw_cells(i), 0);
+        this->levels_hp[i]->active_fe_indices.resize(this->tria->n_raw_cells(i),
+                                                     0);
 
         // Resize future_fe_indices vectors. Make sure that all
         // future_fe_indices have been cleared after refinement happened.
         //
         // We have used future_fe_indices to update all active_fe_indices
         // before refinement happened, thus we are safe to clear them now.
-        levels_hp[i]->future_fe_indices.assign(
+        this->levels_hp[i]->future_fe_indices.assign(
           this->tria->n_raw_cells(i),
           dealii::internal::hp::DoFLevel::invalid_active_fe_index);
       }
@@ -2114,11 +2114,11 @@ namespace hp
   void
   DoFHandler<dim, spacedim>::clear_space()
   {
-    levels_hp.clear();
-    faces_hp.reset();
+    this->levels_hp.clear();
+    this->faces_hp.reset();
 
-    vertex_dofs        = std::vector<types::global_dof_index>();
-    vertex_dof_offsets = std::vector<unsigned int>();
+    this->vertex_dofs        = std::vector<types::global_dof_index>();
+    this->vertex_dof_offsets = std::vector<unsigned int>();
   }
 } // namespace hp
 

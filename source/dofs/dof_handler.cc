@@ -839,8 +839,6 @@ const unsigned int DoFHandler<dim, spacedim>::default_fe_index;
 template <int dim, int spacedim>
 DoFHandler<dim, spacedim>::DoFHandler()
   : Base()
-  , faces(nullptr)
-  , mg_faces(nullptr)
 {}
 
 
@@ -848,8 +846,6 @@ DoFHandler<dim, spacedim>::DoFHandler()
 template <int dim, int spacedim>
 DoFHandler<dim, spacedim>::DoFHandler(const Triangulation<dim, spacedim> &tria)
   : Base(tria)
-  , faces(nullptr)
-  , mg_faces(nullptr)
 {
   setup_policy();
 }
@@ -878,7 +874,7 @@ DoFHandler<dim, spacedim>::initialize_impl(
   const hp::FECollection<dim, spacedim> &fe)
 {
   this->tria                       = &t;
-  faces                            = nullptr;
+  this->faces                      = nullptr;
   this->number_cache.n_global_dofs = 0;
 
   setup_policy();
@@ -896,24 +892,26 @@ DoFHandler<dim, spacedim>::memory_consumption() const
     (MemoryConsumption::memory_consumption(this->tria) +
      MemoryConsumption::memory_consumption(this->fe_collection) +
      MemoryConsumption::memory_consumption(this->block_info_object) +
-     MemoryConsumption::memory_consumption(levels) +
-     MemoryConsumption::memory_consumption(*faces) +
-     MemoryConsumption::memory_consumption(faces) + sizeof(this->number_cache) +
+     MemoryConsumption::memory_consumption(this->levels) +
+     MemoryConsumption::memory_consumption(*this->faces) +
+     MemoryConsumption::memory_consumption(this->faces) +
+     sizeof(this->number_cache) +
      MemoryConsumption::memory_consumption(this->n_dofs()) +
-     MemoryConsumption::memory_consumption(vertex_dofs));
-  for (unsigned int i = 0; i < levels.size(); ++i)
-    mem += MemoryConsumption::memory_consumption(*levels[i]);
+     MemoryConsumption::memory_consumption(this->vertex_dofs));
+  for (unsigned int i = 0; i < this->levels.size(); ++i)
+    mem += MemoryConsumption::memory_consumption(*this->levels[i]);
 
-  for (unsigned int level = 0; level < mg_levels.size(); ++level)
-    mem += mg_levels[level]->memory_consumption();
+  for (unsigned int level = 0; level < this->mg_levels.size(); ++level)
+    mem += this->mg_levels[level]->memory_consumption();
 
-  if (mg_faces != nullptr)
-    mem += MemoryConsumption::memory_consumption(*mg_faces);
+  if (this->mg_faces != nullptr)
+    mem += MemoryConsumption::memory_consumption(*this->mg_faces);
 
-  for (unsigned int i = 0; i < mg_vertex_dofs.size(); ++i)
-    mem += sizeof(MGVertexDoFs) + (1 + mg_vertex_dofs[i].get_finest_level() -
-                                   mg_vertex_dofs[i].get_coarsest_level()) *
-                                    sizeof(types::global_dof_index);
+  for (unsigned int i = 0; i < this->mg_vertex_dofs.size(); ++i)
+    mem += sizeof(typename Base::MGVertexDoFs) +
+           (1 + this->mg_vertex_dofs[i].get_finest_level() -
+            this->mg_vertex_dofs[i].get_coarsest_level()) *
+             sizeof(types::global_dof_index);
 
   return mem;
 }
@@ -1016,7 +1014,7 @@ void
 DoFHandler<dim, spacedim>::distribute_mg_dofs_impl()
 {
   Assert(
-    levels.size() > 0,
+    this->levels.size() > 0,
     ExcMessage(
       "Distribute active DoFs using distribute_dofs() before calling distribute_mg_dofs()."));
 
@@ -1047,12 +1045,12 @@ template <int dim, int spacedim>
 void
 DoFHandler<dim, spacedim>::clear_mg_space()
 {
-  mg_levels.clear();
-  mg_faces.reset();
+  this->mg_levels.clear();
+  this->mg_faces.reset();
 
-  std::vector<MGVertexDoFs> tmp;
+  std::vector<typename Base::MGVertexDoFs> tmp;
 
-  std::swap(mg_vertex_dofs, tmp);
+  std::swap(this->mg_vertex_dofs, tmp);
 
   this->mg_number_cache.clear();
 }
@@ -1083,7 +1081,7 @@ void
 DoFHandler<dim, spacedim>::renumber_dofs(
   const std::vector<types::global_dof_index> &new_numbers)
 {
-  Assert(levels.size() > 0,
+  Assert(this->levels.size() > 0,
          ExcMessage(
            "You need to distribute DoFs before you can renumber them."));
 
@@ -1142,7 +1140,7 @@ DoFHandler<dim, spacedim>::renumber_dofs(
   const std::vector<types::global_dof_index> &new_numbers)
 {
   Assert(
-    mg_levels.size() > 0 && levels.size() > 0,
+    this->mg_levels.size() > 0 && this->levels.size() > 0,
     ExcMessage(
       "You need to distribute active and level DoFs before you can renumber level DoFs."));
   AssertIndexRange(level, this->get_triangulation().n_global_levels());
@@ -1238,11 +1236,11 @@ template <int dim, int spacedim>
 void
 DoFHandler<dim, spacedim>::clear_space()
 {
-  levels.clear();
-  faces.reset();
+  this->levels.clear();
+  this->faces.reset();
 
   std::vector<types::global_dof_index> tmp;
-  std::swap(vertex_dofs, tmp);
+  std::swap(this->vertex_dofs, tmp);
 
   this->number_cache.clear();
 }
@@ -1288,58 +1286,6 @@ DoFHandler<dim, spacedim>::set_dof_index(
     local_index,
     global_index,
     std::integral_constant<int, structdim>());
-}
-
-
-
-template <int dim, int spacedim>
-DoFHandler<dim, spacedim>::MGVertexDoFs::MGVertexDoFs()
-  : coarsest_level(numbers::invalid_unsigned_int)
-  , finest_level(0)
-{}
-
-
-
-template <int dim, int spacedim>
-void
-DoFHandler<dim, spacedim>::MGVertexDoFs::init(
-  const unsigned int cl,
-  const unsigned int fl,
-  const unsigned int dofs_per_vertex)
-{
-  coarsest_level = cl;
-  finest_level   = fl;
-
-  if (coarsest_level <= finest_level)
-    {
-      const unsigned int n_levels  = finest_level - coarsest_level + 1;
-      const unsigned int n_indices = n_levels * dofs_per_vertex;
-
-      indices = std_cxx14::make_unique<types::global_dof_index[]>(n_indices);
-      std::fill(indices.get(),
-                indices.get() + n_indices,
-                numbers::invalid_dof_index);
-    }
-  else
-    indices.reset();
-}
-
-
-
-template <int dim, int spacedim>
-unsigned int
-DoFHandler<dim, spacedim>::MGVertexDoFs::get_coarsest_level() const
-{
-  return coarsest_level;
-}
-
-
-
-template <int dim, int spacedim>
-unsigned int
-DoFHandler<dim, spacedim>::MGVertexDoFs::get_finest_level() const
-{
-  return finest_level;
 }
 
 
