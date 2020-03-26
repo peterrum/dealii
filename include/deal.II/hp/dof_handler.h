@@ -575,38 +575,6 @@ namespace hp
     n_dofs(const unsigned int level) const override;
 
     /**
-     * Return the number of locally owned degrees of freedom located on the
-     * boundary.
-     */
-    types::global_dof_index
-    n_boundary_dofs() const override;
-
-    /**
-     * Return the number of degrees of freedom located on those parts of the
-     * boundary which have a boundary indicator listed in the given set. The
-     * reason that a @p map rather than a @p set is used is the same as
-     * described in the documentation of that variant of
-     * DoFTools::make_boundary_sparsity_pattern() that takes a map.
-     *
-     * There is, however, another overload of this function that takes
-     * a @p set argument (see below).
-     */
-    template <typename number>
-    types::global_dof_index
-    n_boundary_dofs(
-      const std::map<types::boundary_id, const Function<spacedim, number> *>
-        &boundary_ids) const;
-
-    /**
-     * Return the number of locally owned degrees of freedom located on those
-     * parts of the boundary which have a boundary indicator listed in the given
-     * set.
-     */
-    types::global_dof_index
-    n_boundary_dofs(
-      const std::set<types::boundary_id> &boundary_ids) const override;
-
-    /**
      * Return the number of degrees of freedom that belong to this process.
      *
      * If this is a sequential DoFHandler, then the result equals that produced
@@ -1128,69 +1096,13 @@ namespace hp
       Implementation;
   };
 
+} // namespace hp
 
 
 #ifndef DOXYGEN
 
-
-  /* ----------------------- Inline functions ----------------------------------
-   */
-
-
-  template <int dim, int spacedim>
-  template <typename number>
-  types::global_dof_index
-  DoFHandler<dim, spacedim>::n_boundary_dofs(
-    const std::map<types::boundary_id, const Function<spacedim, number> *>
-      &boundary_ids) const
-  {
-    // extract the set of boundary ids and forget about the function object
-    // pointers
-    std::set<types::boundary_id> boundary_ids_only;
-    for (typename std::map<types::boundary_id,
-                           const Function<spacedim, number> *>::const_iterator
-           p = boundary_ids.begin();
-         p != boundary_ids.end();
-         ++p)
-      boundary_ids_only.insert(p->first);
-
-    // then just hand everything over to the other function that does the work
-    return n_boundary_dofs(boundary_ids_only);
-  }
-
-
-
-  template <>
-  inline types::global_dof_index
-  DoFHandler<2, 3>::n_boundary_dofs() const
-  {
-    Assert(false, ExcNotImplemented());
-    return 0;
-  }
-
-
-
-  template <>
-  template <typename number>
-  inline types::global_dof_index
-  DoFHandler<2, 3>::n_boundary_dofs(
-    const std::map<types::boundary_id, const Function<3, number> *> &) const
-  {
-    Assert(false, ExcNotImplemented());
-    return 0;
-  }
-
-
-
-  template <>
-  inline types::global_dof_index
-  DoFHandler<2, 3>::n_boundary_dofs(const std::set<types::boundary_id> &) const
-  {
-    Assert(false, ExcNotImplemented());
-    return 0;
-  }
-}
-
+/* ----------------------- Inline functions ----------------------------------
+ */
 
 namespace internal
 {

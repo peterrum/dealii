@@ -42,6 +42,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <unordered_set>
 #include <vector>
 
 DEAL_II_NAMESPACE_OPEN
@@ -244,17 +245,17 @@ public:
   virtual types::global_dof_index
   n_dofs(const unsigned int level) const = 0;
 
-  virtual types::global_dof_index
-  n_boundary_dofs() const = 0;
+  types::global_dof_index
+  n_boundary_dofs() const;
 
-  // virtual template <typename number>
-  // types::global_dof_index
-  // n_boundary_dofs(
-  //  const std::map<types::boundary_id, const Function<spacedim, number> *>
-  //    &boundary_ids) const = 0;
+  template <typename number>
+  types::global_dof_index
+  n_boundary_dofs(
+    const std::map<types::boundary_id, const Function<spacedim, number> *>
+      &boundary_ids) const;
 
-  virtual types::global_dof_index
-  n_boundary_dofs(const std::set<types::boundary_id> &boundary_ids) const = 0;
+  types::global_dof_index
+  n_boundary_dofs(const std::set<types::boundary_id> &boundary_ids) const;
 
   virtual const BlockInfo &
   block_info() const;
@@ -305,6 +306,9 @@ public:
   virtual void
   deserialize_active_fe_indices() = 0;
 
+  DeclException0(ExcNoFESelected);
+  DeclException0(ExcInvalidBoundaryIndicator);
+
 protected:
   BlockInfo block_info_object;
 
@@ -351,6 +355,126 @@ DoFHandlerBase<dim, spacedim, T>::block_info() const
   Assert(T::is_hp_dof_handler == false, ExcNotImplemented());
 
   return block_info_object;
+}
+
+
+
+template <int dim, int spacedim, typename T>
+types::global_dof_index
+DoFHandlerBase<dim, spacedim, T>::n_boundary_dofs() const
+{
+  Assert(!(dim == 2 && spacedim == 3) || T::is_hp_dof_handler == false,
+         ExcNotImplemented());
+
+  Assert(this->fe_collection.size() > 0, ExcNoFESelected());
+
+  std::unordered_set<types::global_dof_index> boundary_dofs;
+  std::vector<types::global_dof_index>        dofs_on_face;
+  dofs_on_face.reserve(this->get_fe_collection().max_dofs_per_face());
+
+  const IndexSet &owned_dofs = locally_owned_dofs();
+
+  // loop over all faces to check whether they are at a
+  // boundary. note that we need not take special care of single
+  // lines in 3d (using @p{cell->has_boundary_lines}), since we do
+  // not support boundaries of dimension dim-2, and so every
+  // boundary line is also part of a boundary face.
+  for (const auto &cell : this->active_cell_iterators())
+    if (cell->is_locally_owned() && cell->at_boundary())
+      {
+        for (auto f : GeometryInfo<dim>::face_indices())
+          if (cell->at_boundary(f))
+            {
+              const unsigned int dofs_per_face = cell->get_fe().dofs_per_face;
+              dofs_on_face.resize(dofs_per_face);
+
+              cell->face(f)->get_dof_indices(dofs_on_face,
+                                             cell->active_fe_index());
+              for (unsigned int i = 0; i < dofs_per_face; ++i)
+                {
+                  const unsigned int global_idof_index = dofs_on_face[i];
+                  if (owned_dofs.is_element(global_idof_index))
+                    {
+                      boundary_dofs.insert(global_idof_index);
+                    }
+                }
+            }
+      }
+  return boundary_dofs.size();
+}
+
+
+
+template <int dim, int spacedim, typename T>
+types::global_dof_index
+DoFHandlerBase<dim, spacedim, T>::n_boundary_dofs(
+  const std::set<types::boundary_id> &boundary_ids) const
+{
+  Assert(!(dim == 2 && spacedim == 3) || T::is_hp_dof_handler == false,
+         ExcNotImplemented());
+
+  Assert(this->fe_collection.size() > 0, ExcNoFESelected());
+  Assert(boundary_ids.find(numbers::internal_face_boundary_id) ==
+           boundary_ids.end(),
+         ExcInvalidBoundaryIndicator());
+
+  // same as above, but with additional checks for set of boundary
+  // indicators
+  std::unordered_set<types::global_dof_index> boundary_dofs;
+  std::vector<types::global_dof_index>        dofs_on_face;
+  dofs_on_face.reserve(this->get_fe_collection().max_dofs_per_face());
+
+  const IndexSet &owned_dofs = locally_owned_dofs();
+
+  for (const auto &cell : this->active_cell_iterators())
+    if (cell->is_locally_owned() && cell->at_boundary())
+      {
+        for (auto f : GeometryInfo<dim>::face_indices())
+          if (cell->at_boundary(f) &&
+              (boundary_ids.find(cell->face(f)->boundary_id()) !=
+               boundary_ids.end()))
+            {
+              const unsigned int dofs_per_face = cell->get_fe().dofs_per_face;
+              dofs_on_face.resize(dofs_per_face);
+
+              cell->face(f)->get_dof_indices(dofs_on_face,
+                                             cell->active_fe_index());
+              for (unsigned int i = 0; i < dofs_per_face; ++i)
+                {
+                  const unsigned int global_idof_index = dofs_on_face[i];
+                  if (owned_dofs.is_element(global_idof_index))
+                    {
+                      boundary_dofs.insert(global_idof_index);
+                    }
+                }
+            }
+      }
+  return boundary_dofs.size();
+}
+
+
+template <int dim, int spacedim, typename T>
+template <typename number>
+types::global_dof_index
+DoFHandlerBase<dim, spacedim, T>::n_boundary_dofs(
+  const std::map<types::boundary_id, const Function<spacedim, number> *>
+    &boundary_ids) const
+{
+  Assert(!(dim == 2 && spacedim == 3) || T::is_hp_dof_handler == false,
+         ExcNotImplemented());
+
+  // extract the set of boundary ids and forget about the function object
+  // pointers
+  std::set<types::boundary_id> boundary_ids_only;
+  for (typename std::map<types::boundary_id,
+                         const Function<spacedim, number> *>::const_iterator p =
+         boundary_ids.begin();
+       p != boundary_ids.end();
+       ++p)
+    boundary_ids_only.insert(p->first);
+
+  // then just hand everything over to the other function that does the work
+  return n_boundary_dofs(boundary_ids_only);
 }
 
 DEAL_II_NAMESPACE_CLOSE
