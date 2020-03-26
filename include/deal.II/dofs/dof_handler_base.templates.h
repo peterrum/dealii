@@ -292,6 +292,44 @@ DoFHandlerBase<dim, spacedim, T>::distribute_mg_dofs()
 }
 
 
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::set_active_fe_indices(
+  const std::vector<unsigned int> &active_fe_indices)
+{
+  Assert(active_fe_indices.size() == this->get_triangulation().n_active_cells(),
+         ExcDimensionMismatch(active_fe_indices.size(),
+                              this->get_triangulation().n_active_cells()));
+
+  static_cast<T *>(this)->create_active_fe_table();
+  // we could set the values directly, since they are stored as
+  // protected data of this object, but for simplicity we use the
+  // cell-wise access. this way we also have to pass some debug-mode
+  // tests which we would have to duplicate ourselves otherwise
+  for (const auto &cell : this->active_cell_iterators())
+    if (cell->is_locally_owned())
+      cell->set_active_fe_index(active_fe_indices[cell->active_cell_index()]);
+}
+
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::get_active_fe_indices(
+  std::vector<unsigned int> &active_fe_indices) const
+{
+  active_fe_indices.resize(this->get_triangulation().n_active_cells());
+
+  // we could try to extract the values directly, since they are
+  // stored as protected data of this object, but for simplicity we
+  // use the cell-wise access.
+  for (const auto &cell : this->active_cell_iterators())
+    if (!cell->is_artificial())
+      active_fe_indices[cell->active_cell_index()] = cell->active_fe_index();
+}
+
+
 DEAL_II_NAMESPACE_CLOSE
 
 #endif

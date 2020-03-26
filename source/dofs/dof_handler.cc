@@ -1244,6 +1244,15 @@ DoFHandler<dim, spacedim>::max_couplings_between_boundary_dofs() const
 
 template <int dim, int spacedim>
 void
+DoFHandler<dim, spacedim>::create_active_fe_table()
+{
+  AssertThrow(false, ExcNotImplemented());
+}
+
+
+
+template <int dim, int spacedim>
+void
 DoFHandler<dim, spacedim>::clear_space()
 {
   levels.clear();

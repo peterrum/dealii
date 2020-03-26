@@ -1335,45 +1335,6 @@ namespace hp
 
   template <int dim, int spacedim>
   void
-  DoFHandler<dim, spacedim>::set_active_fe_indices(
-    const std::vector<unsigned int> &active_fe_indices)
-  {
-    Assert(active_fe_indices.size() ==
-             this->get_triangulation().n_active_cells(),
-           ExcDimensionMismatch(active_fe_indices.size(),
-                                this->get_triangulation().n_active_cells()));
-
-    create_active_fe_table();
-    // we could set the values directly, since they are stored as
-    // protected data of this object, but for simplicity we use the
-    // cell-wise access. this way we also have to pass some debug-mode
-    // tests which we would have to duplicate ourselves otherwise
-    for (const auto &cell : this->active_cell_iterators())
-      if (cell->is_locally_owned())
-        cell->set_active_fe_index(active_fe_indices[cell->active_cell_index()]);
-  }
-
-
-
-  template <int dim, int spacedim>
-  void
-  DoFHandler<dim, spacedim>::get_active_fe_indices(
-    std::vector<unsigned int> &active_fe_indices) const
-  {
-    active_fe_indices.resize(this->get_triangulation().n_active_cells());
-
-    // we could try to extract the values directly, since they are
-    // stored as protected data of this object, but for simplicity we
-    // use the cell-wise access.
-    for (const auto &cell : this->active_cell_iterators())
-      if (!cell->is_artificial())
-        active_fe_indices[cell->active_cell_index()] = cell->active_fe_index();
-  }
-
-
-
-  template <int dim, int spacedim>
-  void
   DoFHandler<dim, spacedim>::distribute_mg_dofs_impl()
   {
     AssertThrow(false, ExcNotImplemented());
@@ -1977,7 +1938,8 @@ namespace hp
           active_fe_index_transfer->active_fe_indices);
 
         // Update all locally owned active_fe_indices.
-        set_active_fe_indices(active_fe_index_transfer->active_fe_indices);
+        this->set_active_fe_indices(
+          active_fe_index_transfer->active_fe_indices);
 
         // Update active_fe_indices on ghost cells.
         dealii::internal::hp::DoFHandlerImplementation::Implementation::
@@ -2037,7 +1999,8 @@ namespace hp
         // active fe indices since ownership of cells may change.
 
         // Gather all current active_fe_indices
-        get_active_fe_indices(active_fe_index_transfer->active_fe_indices);
+        this->get_active_fe_indices(
+          active_fe_index_transfer->active_fe_indices);
 
         // Attach to transfer object
         active_fe_index_transfer->cell_data_transfer->prepare_for_serialization(
@@ -2121,7 +2084,8 @@ namespace hp
           active_fe_index_transfer->active_fe_indices);
 
         // Update all locally owned active_fe_indices.
-        set_active_fe_indices(active_fe_index_transfer->active_fe_indices);
+        this->set_active_fe_indices(
+          active_fe_index_transfer->active_fe_indices);
 
         // Update active_fe_indices on ghost cells.
         dealii::internal::hp::DoFHandlerImplementation::Implementation::

@@ -140,14 +140,6 @@ namespace hp
     virtual void
     distribute_dofs_impl(const hp::FECollection<dim, spacedim> &fe);
 
-    void
-    set_active_fe_indices(
-      const std::vector<unsigned int> &active_fe_indices) override;
-
-    void
-    get_active_fe_indices(
-      std::vector<unsigned int> &active_fe_indices) const override;
-
     virtual void
     distribute_mg_dofs_impl();
 
@@ -259,6 +251,10 @@ namespace hp
                    << "You tried to do something on level " << arg1
                    << ", but this level is empty.");
 
+
+    void
+    create_active_fe_table();
+
   private:
     void
     setup_policy_and_listeners();
@@ -280,10 +276,6 @@ namespace hp
                   const unsigned int            fe_index,
                   const unsigned int            local_index,
                   const types::global_dof_index global_index) const;
-
-    void
-    create_active_fe_table();
-
     void
     pre_refinement_action();
 

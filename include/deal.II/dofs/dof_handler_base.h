@@ -160,10 +160,10 @@ public:
   distribute_dofs(const hp::FECollection<dim, spacedim> &fe);
 
   virtual void
-  set_active_fe_indices(const std::vector<unsigned int> &active_fe_indices) = 0;
+  set_active_fe_indices(const std::vector<unsigned int> &active_fe_indices);
 
   virtual void
-  get_active_fe_indices(std::vector<unsigned int> &active_fe_indices) const = 0;
+  get_active_fe_indices(std::vector<unsigned int> &active_fe_indices) const;
 
   DEAL_II_DEPRECATED
   virtual void
