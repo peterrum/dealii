@@ -867,7 +867,7 @@ DoFHandler<dim, spacedim>::~DoFHandler()
   // also release the policy. this needs to happen before the
   // current object disappears because the policy objects
   // store references to the DoFhandler object they work on
-  policy.reset();
+  this->policy.reset();
 }
 
 
@@ -902,7 +902,7 @@ template <int dim, int spacedim>
 types::global_dof_index
 DoFHandler<dim, spacedim>::n_boundary_dofs() const
 {
-  const FiniteElement<dim, spacedim> &fe            = get_fe();
+  const FiniteElement<dim, spacedim> &fe            = this->get_fe();
   const unsigned int                  dofs_per_face = fe.n_dofs_per_face();
   std::vector<dealii::types::global_dof_index> dofs_on_face(dofs_per_face);
 
@@ -959,7 +959,7 @@ DoFHandler<dim, spacedim>::n_boundary_dofs(
            boundary_ids.end(),
          ExcInvalidBoundaryIndicator());
 
-  const FiniteElement<dim, spacedim> &fe            = get_fe();
+  const FiniteElement<dim, spacedim> &fe            = this->get_fe();
   const unsigned int                  dofs_per_face = fe.n_dofs_per_face();
   std::vector<dealii::types::global_dof_index> dofs_on_face(dofs_per_face);
 
@@ -1018,7 +1018,7 @@ DoFHandler<dim, spacedim>::memory_consumption() const
 {
   std::size_t mem =
     (MemoryConsumption::memory_consumption(this->tria) +
-     MemoryConsumption::memory_consumption(fe_collection) +
+     MemoryConsumption::memory_consumption(this->fe_collection) +
      MemoryConsumption::memory_consumption(block_info_object) +
      MemoryConsumption::memory_consumption(levels) +
      MemoryConsumption::memory_consumption(*faces) +
@@ -1073,8 +1073,8 @@ DoFHandler<dim, spacedim>::set_fe_impl(
   Assert(ff.size() > 0, ExcMessage("The hp::FECollection given is empty!"));
 
   // don't create a new object if the one we have is already appropriate
-  if (fe_collection != ff)
-    fe_collection = hp::FECollection<dim, spacedim>(ff);
+  if (this->fe_collection != ff)
+    this->fe_collection = hp::FECollection<dim, spacedim>(ff);
 }
 
 
@@ -1108,7 +1108,7 @@ DoFHandler<dim, spacedim>::distribute_dofs(
   internal::DoFHandlerImplementation::Implementation::reserve_space(*this);
 
   // hand things off to the policy
-  number_cache = policy->distribute_dofs();
+  number_cache = this->policy->distribute_dofs();
 
   // initialize the block info object only if this is a sequential
   // triangulation. it doesn't work correctly yet if it is parallel
@@ -1126,18 +1126,18 @@ DoFHandler<dim, spacedim>::setup_policy()
   // decide whether we need a sequential or a parallel distributed policy
   if (dynamic_cast<const parallel::shared::Triangulation<dim, spacedim> *>(
         &this->get_triangulation()) != nullptr)
-    policy =
+    this->policy =
       std_cxx14::make_unique<internal::DoFHandlerImplementation::Policy::
                                ParallelShared<DoFHandler<dim, spacedim>>>(
         *this);
   else if (dynamic_cast<
              const parallel::DistributedTriangulationBase<dim, spacedim> *>(
              &this->get_triangulation()) == nullptr)
-    policy =
+    this->policy =
       std_cxx14::make_unique<internal::DoFHandlerImplementation::Policy::
                                Sequential<DoFHandler<dim, spacedim>>>(*this);
   else
-    policy =
+    this->policy =
       std_cxx14::make_unique<internal::DoFHandlerImplementation::Policy::
                                ParallelDistributed<DoFHandler<dim, spacedim>>>(
         *this);
@@ -1192,7 +1192,7 @@ DoFHandler<dim, spacedim>::distribute_mg_dofs()
   clear_mg_space();
 
   internal::DoFHandlerImplementation::Implementation::reserve_space_mg(*this);
-  mg_number_cache = policy->distribute_mg_dofs();
+  mg_number_cache = this->policy->distribute_mg_dofs();
 
   // initialize the block info object
   // only if this is a sequential
@@ -1293,7 +1293,7 @@ DoFHandler<dim, spacedim>::renumber_dofs(
                "New DoF index is not less than the total number of dofs."));
 #endif
 
-  number_cache = policy->renumber_dofs(new_numbers);
+  number_cache = this->policy->renumber_dofs(new_numbers);
 }
 
 
@@ -1332,7 +1332,7 @@ DoFHandler<dim, spacedim>::renumber_dofs(
                "New DoF index is not less than the total number of dofs."));
 #endif
 
-  mg_number_cache[level] = policy->renumber_mg_dofs(level, new_numbers);
+  mg_number_cache[level] = this->policy->renumber_mg_dofs(level, new_numbers);
 }
 
 
@@ -1354,9 +1354,10 @@ DoFHandler<dim, spacedim>::max_couplings_between_boundary_dofs() const
   switch (dim)
     {
       case 1:
-        return get_fe().dofs_per_vertex;
+        return this->get_fe().dofs_per_vertex;
       case 2:
-        return (3 * get_fe().dofs_per_vertex + 2 * get_fe().dofs_per_line);
+        return (3 * this->get_fe().dofs_per_vertex +
+                2 * this->get_fe().dofs_per_line);
       case 3:
         // we need to take refinement of
         // one boundary face into
@@ -1374,8 +1375,9 @@ DoFHandler<dim, spacedim>::max_couplings_between_boundary_dofs() const
         // harm since the matrix will cry
         // foul if its requirements are
         // not satisfied
-        return (19 * get_fe().dofs_per_vertex + 28 * get_fe().dofs_per_line +
-                8 * get_fe().dofs_per_quad);
+        return (19 * this->get_fe().dofs_per_vertex +
+                28 * this->get_fe().dofs_per_line +
+                8 * this->get_fe().dofs_per_quad);
       default:
         Assert(false, ExcNotImplemented());
         return numbers::invalid_unsigned_int;

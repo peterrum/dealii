@@ -790,23 +790,6 @@ public:
                            locally_owned_mg_dofs_per_processor(const unsigned int level) const override;
 
   /**
-   * Return a constant reference to the selected finite element object.
-   * Since there is only one FiniteElement @p index must be equal to zero
-   * which is also the default value.
-   */
-  const FiniteElement<dim, spacedim> &
-  get_fe(const unsigned int index = 0) const override;
-
-  /**
-   * Return a constant reference to the set of finite element objects that
-   * are used by this @p DoFHandler. Since this object only contains one
-   * FiniteElement, only this one object is returned wrapped in a
-   * hp::FECollection.
-   */
-  const hp::FECollection<dim, spacedim> &
-  get_fe_collection() const override;
-
-  /**
    * Determine an estimate for the memory consumption (in bytes) of this
    * object.
    *
@@ -918,21 +901,6 @@ private:
    * An object containing information on the block structure.
    */
   BlockInfo block_info_object;
-
-  /**
-   * Store a hp::FECollection object containing the (one)
-   * FiniteElement this object is initialized with.
-   */
-  hp::FECollection<dim, spacedim> fe_collection;
-
-  /**
-   * An object that describes how degrees of freedom should be distributed and
-   * renumbered.
-   */
-  std::unique_ptr<dealii::internal::DoFHandlerImplementation::Policy::
-                    PolicyBase<dim, spacedim>>
-    policy;
-
 
   /**
    * Setup policy.
@@ -1314,32 +1282,6 @@ DoFHandler<dim, spacedim>::compute_locally_owned_mg_dofs_per_processor(
 
 
 template <int dim, int spacedim>
-inline const FiniteElement<dim, spacedim> &
-DoFHandler<dim, spacedim>::get_fe(const unsigned int index) const
-{
-  (void)index;
-  Assert(index == 0,
-         ExcMessage(
-           "There is only one FiniteElement stored. The index must be zero!"));
-  return get_fe_collection()[0];
-}
-
-
-
-template <int dim, int spacedim>
-inline const hp::FECollection<dim, spacedim> &
-DoFHandler<dim, spacedim>::get_fe_collection() const
-{
-  Assert(
-    fe_collection.size() > 0,
-    ExcMessage(
-      "You are trying to access the DoFHandler's FECollection object before it has been initialized."));
-  return fe_collection;
-}
-
-
-
-template <int dim, int spacedim>
 inline const BlockInfo &
 DoFHandler<dim, spacedim>::block_info() const
 {
@@ -1418,7 +1360,7 @@ DoFHandler<dim, spacedim>::save(Archive &ar, const unsigned int) const
   // identifies the FE and the policy
   unsigned int n_cells     = this->tria->n_cells();
   std::string  fe_name     = this->get_fe(0).get_name();
-  std::string  policy_name = internal::policy_to_string(*policy);
+  std::string  policy_name = internal::policy_to_string(*this->policy);
 
   ar &n_cells &fe_name &policy_name;
 }
@@ -1477,10 +1419,10 @@ DoFHandler<dim, spacedim>::load(Archive &ar, const unsigned int)
     ExcMessage(
       "The finite element associated with this DoFHandler does not match "
       "the one that was associated with the DoFHandler previously stored."));
-  AssertThrow(policy_name == internal::policy_to_string(*policy),
+  AssertThrow(policy_name == internal::policy_to_string(*this->policy),
               ExcMessage(
                 "The policy currently associated with this DoFHandler (" +
-                internal::policy_to_string(*policy) +
+                internal::policy_to_string(*this->policy) +
                 ") does not match the one that was associated with the "
                 "DoFHandler previously stored (" +
                 policy_name + ")."));

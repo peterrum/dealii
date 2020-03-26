@@ -1314,7 +1314,7 @@ namespace hp
   types::global_dof_index
   DoFHandler<dim, spacedim>::n_boundary_dofs() const
   {
-    Assert(fe_collection.size() > 0, ExcNoFESelected());
+    Assert(this->fe_collection.size() > 0, ExcNoFESelected());
 
     std::unordered_set<types::global_dof_index> boundary_dofs;
     std::vector<types::global_dof_index>        dofs_on_face;
@@ -1369,7 +1369,7 @@ namespace hp
   DoFHandler<dim, spacedim>::n_boundary_dofs(
     const std::set<types::boundary_id> &boundary_ids) const
   {
-    Assert(fe_collection.size() > 0, ExcNoFESelected());
+    Assert(this->fe_collection.size() > 0, ExcNoFESelected());
     Assert(boundary_ids.find(numbers::internal_face_boundary_id) ==
              boundary_ids.end(),
            ExcInvalidBoundaryIndicator());
@@ -1419,7 +1419,7 @@ namespace hp
   {
     std::size_t mem =
       (MemoryConsumption::memory_consumption(this->tria) +
-       MemoryConsumption::memory_consumption(fe_collection) +
+       MemoryConsumption::memory_consumption(this->fe_collection) +
        MemoryConsumption::memory_consumption(this->tria) +
        MemoryConsumption::memory_consumption(levels) +
        MemoryConsumption::memory_consumption(*faces) +
@@ -1572,8 +1572,8 @@ namespace hp
     Assert(ff.size() > 0, ExcMessage("The hp::FECollection given is empty!"));
 
     // don't create a new object if the one we have is already appropriate
-    if (fe_collection != ff)
-      fe_collection = hp::FECollection<dim, spacedim>(ff);
+    if (this->fe_collection != ff)
+      this->fe_collection = hp::FECollection<dim, spacedim>(ff);
 
     // ensure that the active_fe_indices vectors are initialized correctly
     create_active_fe_table();
@@ -1587,9 +1587,9 @@ namespace hp
     // cover all fe indices presently in use on the mesh
     for (const auto &cell : this->active_cell_iterators())
       if (!cell->is_artificial())
-        Assert(cell->active_fe_index() < fe_collection.size(),
+        Assert(cell->active_fe_index() < this->fe_collection.size(),
                ExcInvalidFEIndex(cell->active_fe_index(),
-                                 fe_collection.size()));
+                                 this->fe_collection.size()));
   }
 
 
@@ -1657,7 +1657,7 @@ namespace hp
     /////////////////////////////////
 
     // Now for the real work:
-    number_cache = policy->distribute_dofs();
+    number_cache = this->policy->distribute_dofs();
 
     /////////////////////////////////
 
@@ -1668,7 +1668,7 @@ namespace hp
         tg += Threads::new_task(
           &dealii::internal::hp::DoFLevel::compress_data<dim, spacedim>,
           *levels[level],
-          fe_collection);
+          this->fe_collection);
       tg.join_all();
     }
 
@@ -1697,7 +1697,7 @@ namespace hp
     if (dynamic_cast<const parallel::distributed::Triangulation<dim, spacedim>
                        *>(&this->get_triangulation()))
       {
-        policy = std_cxx14::make_unique<
+        this->policy = std_cxx14::make_unique<
           internal::DoFHandlerImplementation::Policy::ParallelDistributed<
             DoFHandler<dim, spacedim>>>(*this);
 
@@ -1731,7 +1731,7 @@ namespace hp
     else if (dynamic_cast<const parallel::shared::Triangulation<dim, spacedim>
                             *>(&this->get_triangulation()) != nullptr)
       {
-        policy =
+        this->policy =
           std_cxx14::make_unique<internal::DoFHandlerImplementation::Policy::
                                    ParallelShared<DoFHandler<dim, spacedim>>>(
             *this);
@@ -1751,7 +1751,7 @@ namespace hp
       }
     else
       {
-        policy =
+        this->policy =
           std_cxx14::make_unique<internal::DoFHandlerImplementation::Policy::
                                    Sequential<DoFHandler<dim, spacedim>>>(
             *this);
@@ -1822,12 +1822,12 @@ namespace hp
         tg += Threads::new_task(
           &dealii::internal::hp::DoFLevel::uncompress_data<dim, spacedim>,
           *levels[level],
-          fe_collection);
+          this->fe_collection);
       tg.join_all();
     }
 
     // do the renumbering
-    number_cache = policy->renumber_dofs(new_numbers);
+    number_cache = this->policy->renumber_dofs(new_numbers);
 
     // now re-compress the dof indices
     {
@@ -1836,7 +1836,7 @@ namespace hp
         tg += Threads::new_task(
           &dealii::internal::hp::DoFLevel::compress_data<dim, spacedim>,
           *levels[level],
-          fe_collection);
+          this->fe_collection);
       tg.join_all();
     }
   }
@@ -1858,7 +1858,7 @@ namespace hp
   unsigned int
   DoFHandler<dim, spacedim>::max_couplings_between_dofs() const
   {
-    Assert(fe_collection.size() > 0, ExcNoFESelected());
+    Assert(this->fe_collection.size() > 0, ExcNoFESelected());
     return dealii::internal::hp::DoFHandlerImplementation::Implementation::
       max_couplings_between_dofs(*this);
   }
@@ -1869,15 +1869,15 @@ namespace hp
   unsigned int
   DoFHandler<dim, spacedim>::max_couplings_between_boundary_dofs() const
   {
-    Assert(fe_collection.size() > 0, ExcNoFESelected());
+    Assert(this->fe_collection.size() > 0, ExcNoFESelected());
 
     switch (dim)
       {
         case 1:
-          return fe_collection.max_dofs_per_vertex();
+          return this->fe_collection.max_dofs_per_vertex();
         case 2:
-          return (3 * fe_collection.max_dofs_per_vertex() +
-                  2 * fe_collection.max_dofs_per_line());
+          return (3 * this->fe_collection.max_dofs_per_vertex() +
+                  2 * this->fe_collection.max_dofs_per_line());
         case 3:
           // we need to take refinement of one boundary face into
           // consideration here; in fact, this function returns what
@@ -1888,9 +1888,9 @@ namespace hp
           // time. fortunately, omitting it for now does no harm since
           // the matrix will cry foul if its requirements are not
           // satisfied
-          return (19 * fe_collection.max_dofs_per_vertex() +
-                  28 * fe_collection.max_dofs_per_line() +
-                  8 * fe_collection.max_dofs_per_quad());
+          return (19 * this->fe_collection.max_dofs_per_vertex() +
+                  28 * this->fe_collection.max_dofs_per_line() +
+                  8 * this->fe_collection.max_dofs_per_quad());
         default:
           Assert(false, ExcNotImplemented());
           return 0;
@@ -1994,7 +1994,7 @@ namespace hp
   {
     // Finite elements need to be assigned to each cell by calling
     // distribute_dofs() first to make this functionality available.
-    if (fe_collection.size() > 0)
+    if (this->fe_collection.size() > 0)
       {
         Assert(active_fe_index_transfer == nullptr, ExcInternalError());
 
@@ -2017,7 +2017,7 @@ namespace hp
 #else
     // Finite elements need to be assigned to each cell by calling
     // distribute_dofs() first to make this functionality available.
-    if (fe_collection.size() > 0)
+    if (this->fe_collection.size() > 0)
       {
         Assert(active_fe_index_transfer == nullptr, ExcInternalError());
 
@@ -2054,7 +2054,7 @@ namespace hp
           [this](const std::vector<unsigned int> &children_fe_indices) {
             return dealii::internal::hp::DoFHandlerImplementation::
               Implementation::determine_fe_from_children<dim, spacedim>(
-                children_fe_indices, fe_collection);
+                children_fe_indices, this->fe_collection);
           });
 
         active_fe_index_transfer->cell_data_transfer
@@ -2072,7 +2072,7 @@ namespace hp
   {
     // Finite elements need to be assigned to each cell by calling
     // distribute_dofs() first to make this functionality available.
-    if (fe_collection.size() > 0)
+    if (this->fe_collection.size() > 0)
       {
         Assert(active_fe_index_transfer != nullptr, ExcInternalError());
 
@@ -2101,7 +2101,7 @@ namespace hp
 #else
     // Finite elements need to be assigned to each cell by calling
     // distribute_dofs() first to make this functionality available.
-    if (fe_collection.size() > 0)
+    if (this->fe_collection.size() > 0)
       {
         Assert(active_fe_index_transfer != nullptr, ExcInternalError());
 
@@ -2146,7 +2146,7 @@ namespace hp
 
     // Finite elements need to be assigned to each cell by calling
     // distribute_dofs() first to make this functionality available.
-    if (fe_collection.size() > 0)
+    if (this->fe_collection.size() > 0)
       {
         Assert(active_fe_index_transfer == nullptr, ExcInternalError());
 
@@ -2166,7 +2166,7 @@ namespace hp
           [this](const std::vector<unsigned int> &children_fe_indices) {
             return dealii::internal::hp::DoFHandlerImplementation::
               Implementation::determine_fe_from_children<dim, spacedim>(
-                children_fe_indices, fe_collection);
+                children_fe_indices, this->fe_collection);
           });
 
         // If we work on a p::d::Triangulation, we have to transfer all
@@ -2195,7 +2195,7 @@ namespace hp
              "if deal.II was configured to use p4est, but cmake did not find a "
              "valid p4est library."));
 #else
-    if (fe_collection.size() > 0)
+    if (this->fe_collection.size() > 0)
       {
         Assert(active_fe_index_transfer != nullptr, ExcInternalError());
 
@@ -2226,7 +2226,7 @@ namespace hp
 
     // Finite elements need to be assigned to each cell by calling
     // distribute_dofs() first to make this functionality available.
-    if (fe_collection.size() > 0)
+    if (this->fe_collection.size() > 0)
       {
         Assert(active_fe_index_transfer == nullptr, ExcInternalError());
 
@@ -2246,7 +2246,7 @@ namespace hp
           [this](const std::vector<unsigned int> &children_fe_indices) {
             return dealii::internal::hp::DoFHandlerImplementation::
               Implementation::determine_fe_from_children<dim, spacedim>(
-                children_fe_indices, fe_collection);
+                children_fe_indices, this->fe_collection);
           });
 
         // Unpack active_fe_indices.

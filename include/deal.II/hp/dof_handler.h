@@ -774,20 +774,6 @@ namespace hp
                                const unsigned int level) const override;
 
     /**
-     * Return a constant reference to the indexth finite element object that is
-     * used by this @p DoFHandler.
-     */
-    const FiniteElement<dim, spacedim> &
-    get_fe(const unsigned int index) const override;
-
-    /**
-     * Return a constant reference to the set of finite element objects that
-     * are used by this @p DoFHandler.
-     */
-    const hp::FECollection<dim, spacedim> &
-    get_fe_collection() const override;
-
-    /**
      * Determine an estimate for the memory consumption (in bytes) of this
      * object.
      *
@@ -911,20 +897,6 @@ namespace hp
                    << ", but this level is empty.");
 
   private:
-    /**
-     * Store a copy of the finite element set given latest to distribute_dofs().
-     */
-    hp::FECollection<dim, spacedim> fe_collection;
-
-    /**
-     * An object that describes how degrees of freedom should be distributed and
-     * renumbered.
-     */
-    std::unique_ptr<dealii::internal::DoFHandlerImplementation::Policy::
-                      PolicyBase<dim, spacedim>>
-      policy;
-
-
     /**
      * Setup policy and listeners based on the underlying Triangulation.
      */
@@ -1288,7 +1260,7 @@ namespace hp
     // loading that this number is indeed correct; same with something that
     // identifies the policy
     const unsigned int n_cells = this->tria->n_cells();
-    std::string policy_name    = dealii::internal::policy_to_string(*policy);
+    std::string policy_name = dealii::internal::policy_to_string(*this->policy);
 
     ar &n_cells &policy_name;
   }
@@ -1343,13 +1315,13 @@ namespace hp
       ExcMessage(
         "The object being loaded into does not match the triangulation "
         "that has been stored previously."));
-    AssertThrow(policy_name == dealii::internal::policy_to_string(*policy),
-                ExcMessage(
-                  "The policy currently associated with this DoFHandler (" +
-                  dealii::internal::policy_to_string(*policy) +
-                  ") does not match the one that was associated with the "
-                  "DoFHandler previously stored (" +
-                  policy_name + ")."));
+    AssertThrow(
+      policy_name == dealii::internal::policy_to_string(*this->policy),
+      ExcMessage("The policy currently associated with this DoFHandler (" +
+                 dealii::internal::policy_to_string(*this->policy) +
+                 ") does not match the one that was associated with the "
+                 "DoFHandler previously stored (" +
+                 policy_name + ")."));
   }
 
   template <int dim, int spacedim>
@@ -1514,30 +1486,6 @@ namespace hp
     else
       return mg_number_cache[level].get_locally_owned_dofs_per_processor(
         MPI_COMM_SELF);
-  }
-
-
-
-  template <int dim, int spacedim>
-  inline const FiniteElement<dim, spacedim> &
-  DoFHandler<dim, spacedim>::get_fe(const unsigned int number) const
-  {
-    Assert(fe_collection.size() > 0,
-           ExcMessage("No finite element collection is associated with "
-                      "this DoFHandler"));
-    return fe_collection[number];
-  }
-
-
-
-  template <int dim, int spacedim>
-  inline const hp::FECollection<dim, spacedim> &
-  DoFHandler<dim, spacedim>::get_fe_collection() const
-  {
-    Assert(fe_collection.size() > 0,
-           ExcMessage("No finite element collection is associated with "
-                      "this DoFHandler"));
-    return fe_collection;
   }
 
 #endif

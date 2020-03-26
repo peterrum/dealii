@@ -290,10 +290,10 @@ public:
   locally_owned_mg_dofs_per_processor(const unsigned int level) const = 0;
 
   virtual const FiniteElement<dim, spacedim> &
-  get_fe(const unsigned int index = 0) const = 0;
+  get_fe(const unsigned int index = 0) const;
 
   virtual const hp::FECollection<dim, spacedim> &
-  get_fe_collection() const = 0;
+  get_fe_collection() const;
 
   virtual const Triangulation<dim, spacedim> &
   get_triangulation() const;
@@ -310,7 +310,37 @@ public:
 protected:
   SmartPointer<const Triangulation<dim, spacedim>, DoFHandler<dim, spacedim>>
     tria;
+
+  hp::FECollection<dim, spacedim> fe_collection;
+
+  std::unique_ptr<dealii::internal::DoFHandlerImplementation::Policy::
+                    PolicyBase<dim, spacedim>>
+    policy;
 };
+
+
+
+template <int dim, int spacedim, typename T>
+inline const FiniteElement<dim, spacedim> &
+DoFHandlerBase<dim, spacedim, T>::get_fe(const unsigned int number) const
+{
+  Assert(fe_collection.size() > 0,
+         ExcMessage("No finite element collection is associated with "
+                    "this DoFHandler"));
+  return fe_collection[number];
+}
+
+
+
+template <int dim, int spacedim, typename T>
+inline const hp::FECollection<dim, spacedim> &
+DoFHandlerBase<dim, spacedim, T>::get_fe_collection() const
+{
+  Assert(fe_collection.size() > 0,
+         ExcMessage("No finite element collection is associated with "
+                    "this DoFHandler"));
+  return fe_collection;
+}
 
 DEAL_II_NAMESPACE_CLOSE
 
