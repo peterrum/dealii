@@ -27,6 +27,8 @@
 #include <deal.II/base/smartpointer.h>
 #include <deal.II/base/std_cxx14/memory.h>
 
+#include <deal.II/distributed/cell_data_transfer.templates.h>
+#include <deal.II/distributed/shared_tria.h>
 #include <deal.II/distributed/tria_base.h>
 
 #include <deal.II/dofs/block_info.h>
@@ -71,6 +73,61 @@ namespace internal
     } // namespace Policy
   }   // namespace DoFHandlerImplementation
 
+  namespace DoFAccessorImplementation
+  {
+    struct Implementation;
+  }
+
+  namespace DoFCellAccessorImplementation
+  {
+    struct Implementation;
+  }
+} // namespace internal
+
+
+#endif
+
+// Forward declarations
+#ifndef DOXYGEN
+template <int dim, int spacedim>
+class Triangulation;
+
+namespace parallel
+{
+  namespace distributed
+  {
+    template <int dim, int spacedim, typename VectorType>
+    class CellDataTransfer;
+  }
+} // namespace parallel
+
+namespace internal
+{
+  namespace DoFHandlerImplementation
+  {
+    struct Implementation;
+
+    namespace Policy
+    {
+      template <int dim, int spacedim>
+      class PolicyBase;
+      struct Implementation;
+    } // namespace Policy
+  }   // namespace DoFHandlerImplementation
+
+  namespace hp
+  {
+    class DoFLevel;
+
+    namespace DoFHandlerImplementation
+    {
+      struct Implementation;
+    }
+  } // namespace hp
+} // namespace internal
+
+namespace internal
+{
   namespace DoFAccessorImplementation
   {
     struct Implementation;
@@ -312,11 +369,31 @@ public:
   virtual std::size_t
   memory_consumption() const = 0;
 
-  virtual void
-  prepare_for_serialization_of_active_fe_indices() = 0;
+  void
+  prepare_for_serialization_of_active_fe_indices();
 
-  virtual void
-  deserialize_active_fe_indices() = 0;
+  void
+  deserialize_active_fe_indices();
+
+  struct ActiveFEIndexTransfer
+  {
+    std::map<const cell_iterator, const unsigned int> persisting_cells_fe_index;
+
+    std::map<const cell_iterator, const unsigned int> refined_cells_fe_index;
+
+    std::map<const cell_iterator, const unsigned int> coarsened_cells_fe_index;
+
+    std::vector<unsigned int> active_fe_indices;
+
+    std::unique_ptr<
+      parallel::distributed::
+        CellDataTransfer<dim, spacedim, std::vector<unsigned int>>>
+      cell_data_transfer;
+  };
+
+  std::unique_ptr<ActiveFEIndexTransfer> active_fe_index_transfer;
+
+  std::vector<boost::signals2::connection> tria_listeners;
 
   DeclException0(ExcNoFESelected);
   DeclException0(ExcInvalidBoundaryIndicator);
@@ -404,9 +481,146 @@ protected:
 
   std::unique_ptr<dealii::internal::hp::DoFIndicesOnFaces<dim>>
     faces_hp; // TODO: rename hp_faces
+
+  friend struct dealii::internal::hp::DoFHandlerImplementation::Implementation;
 };
 
 
+namespace internal
+{
+  namespace hp
+  {
+    namespace DoFHandlerImplementation
+    {
+      /**
+       * A class with the same purpose as the similarly named class of the
+       * Triangulation class. See there for more information.
+       */
+      struct Implementation
+      {
+        template <int dim, int spacedim>
+        static void
+        ensure_absence_of_future_fe_indices(
+          DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
+            &dof_handler);
+
+
+
+        template <int dim, int spacedim>
+        static void
+        reserve_space_release_space(
+          DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
+            &dof_handler);
+
+
+
+        template <int dim, int spacedim>
+        static void
+        reserve_space_vertices(
+          DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
+            &dof_handler);
+
+
+
+        template <int dim, int spacedim>
+        static void
+        reserve_space_cells(
+          DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
+            &dof_handler);
+
+
+
+        template <int dim, int spacedim>
+        static void
+        reserve_space_faces(
+          DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
+            &dof_handler);
+
+
+
+        template <int spacedim>
+        static void reserve_space(
+          dealii::
+            DoFHandlerBase<1, spacedim, dealii::hp::DoFHandler<1, spacedim>>
+              &dof_handler);
+
+
+
+        template <int spacedim>
+        static void reserve_space(
+          dealii::
+            DoFHandlerBase<2, spacedim, dealii::hp::DoFHandler<2, spacedim>>
+              &dof_handler);
+
+
+
+        template <int spacedim>
+        static void reserve_space(
+          dealii::
+            DoFHandlerBase<3, spacedim, dealii::hp::DoFHandler<3, spacedim>>
+              &dof_handler);
+
+
+
+        template <int spacedim>
+        static unsigned int
+        max_couplings_between_dofs(
+          const dealii::
+            DoFHandlerBase<1, spacedim, dealii::hp::DoFHandler<1, spacedim>>
+              &dof_handler);
+
+
+
+        template <int spacedim>
+        static unsigned int
+        max_couplings_between_dofs(
+          const dealii::
+            DoFHandlerBase<2, spacedim, dealii::hp::DoFHandler<2, spacedim>>
+              &dof_handler);
+
+
+
+        template <int spacedim>
+        static unsigned int
+        max_couplings_between_dofs(
+          const dealii::
+            DoFHandlerBase<3, spacedim, dealii::hp::DoFHandler<3, spacedim>>
+              &dof_handler);
+
+
+
+        template <int dim, int spacedim>
+        static void
+        communicate_active_fe_indices(
+          DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
+            &dof_handler);
+
+
+
+        template <int dim, int spacedim>
+        static void
+        collect_fe_indices_on_cells_to_be_refined(
+          DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
+            &dof_handler);
+
+
+
+        template <int dim, int spacedim>
+        static void
+        distribute_fe_indices_on_refined_cells(
+          DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
+            &dof_handler);
+
+
+        template <int dim, int spacedim>
+        static unsigned int
+        determine_fe_from_children(
+          const std::vector<unsigned int> &        children_fe_indices,
+          dealii::hp::FECollection<dim, spacedim> &fe_collection);
+      };
+    } // namespace DoFHandlerImplementation
+  }   // namespace hp
+} // namespace internal
 
 template <int dim, int spacedim, typename T>
 inline const FiniteElement<dim, spacedim> &
@@ -1063,6 +1277,128 @@ DoFHandlerBase<dim, spacedim, T>::get_active_fe_indices(
   for (const auto &cell : this->active_cell_iterators())
     if (!cell->is_artificial())
       active_fe_indices[cell->active_cell_index()] = cell->active_fe_index();
+}
+
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::
+  prepare_for_serialization_of_active_fe_indices()
+{
+#ifndef DEAL_II_WITH_P4EST
+  Assert(false,
+         ExcMessage(
+           "You are attempting to use a functionality that is only available "
+           "if deal.II was configured to use p4est, but cmake did not find a "
+           "valid p4est library."));
+#else
+  Assert(
+    (dynamic_cast<const parallel::distributed::Triangulation<dim, spacedim> *>(
+       &this->get_triangulation()) != nullptr),
+    ExcMessage(
+      "This functionality requires a parallel::distributed::Triangulation object."));
+
+  // Finite elements need to be assigned to each cell by calling
+  // distribute_dofs() first to make this functionality available.
+  if (this->fe_collection.size() > 0)
+    {
+      Assert(active_fe_index_transfer == nullptr, ExcInternalError());
+
+      active_fe_index_transfer =
+        std_cxx14::make_unique<ActiveFEIndexTransfer>();
+
+      // Create transfer object and attach to it.
+      const auto *distributed_tria = dynamic_cast<
+        const parallel::distributed::Triangulation<dim, spacedim> *>(
+        &this->get_triangulation());
+
+      active_fe_index_transfer->cell_data_transfer = std_cxx14::make_unique<
+        parallel::distributed::
+          CellDataTransfer<dim, spacedim, std::vector<unsigned int>>>(
+        *distributed_tria,
+        /*transfer_variable_size_data=*/false,
+        [this](const std::vector<unsigned int> &children_fe_indices) {
+          return dealii::internal::hp::DoFHandlerImplementation::
+            Implementation::determine_fe_from_children<dim, spacedim>(
+              children_fe_indices, this->fe_collection);
+        });
+
+      // If we work on a p::d::Triangulation, we have to transfer all
+      // active fe indices since ownership of cells may change.
+
+      // Gather all current active_fe_indices
+      this->get_active_fe_indices(active_fe_index_transfer->active_fe_indices);
+
+      // Attach to transfer object
+      active_fe_index_transfer->cell_data_transfer->prepare_for_serialization(
+        active_fe_index_transfer->active_fe_indices);
+    }
+#endif
+}
+
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::deserialize_active_fe_indices()
+{
+#ifndef DEAL_II_WITH_P4EST
+  Assert(false,
+         ExcMessage(
+           "You are attempting to use a functionality that is only available "
+           "if deal.II was configured to use p4est, but cmake did not find a "
+           "valid p4est library."));
+#else
+  Assert(
+    (dynamic_cast<const parallel::distributed::Triangulation<dim, spacedim> *>(
+       &this->get_triangulation()) != nullptr),
+    ExcMessage(
+      "This functionality requires a parallel::distributed::Triangulation object."));
+
+  // Finite elements need to be assigned to each cell by calling
+  // distribute_dofs() first to make this functionality available.
+  if (this->fe_collection.size() > 0)
+    {
+      Assert(active_fe_index_transfer == nullptr, ExcInternalError());
+
+      active_fe_index_transfer =
+        std_cxx14::make_unique<ActiveFEIndexTransfer>();
+
+      // Create transfer object and attach to it.
+      const auto *distributed_tria = dynamic_cast<
+        const parallel::distributed::Triangulation<dim, spacedim> *>(
+        &this->get_triangulation());
+
+      active_fe_index_transfer->cell_data_transfer = std_cxx14::make_unique<
+        parallel::distributed::
+          CellDataTransfer<dim, spacedim, std::vector<unsigned int>>>(
+        *distributed_tria,
+        /*transfer_variable_size_data=*/false,
+        [this](const std::vector<unsigned int> &children_fe_indices) {
+          return dealii::internal::hp::DoFHandlerImplementation::
+            Implementation::determine_fe_from_children<dim, spacedim>(
+              children_fe_indices, this->fe_collection);
+        });
+
+      // Unpack active_fe_indices.
+      active_fe_index_transfer->active_fe_indices.resize(
+        this->get_triangulation().n_active_cells(),
+        numbers::invalid_unsigned_int);
+      active_fe_index_transfer->cell_data_transfer->deserialize(
+        active_fe_index_transfer->active_fe_indices);
+
+      // Update all locally owned active_fe_indices.
+      this->set_active_fe_indices(active_fe_index_transfer->active_fe_indices);
+
+      // Update active_fe_indices on ghost cells.
+      dealii::internal::hp::DoFHandlerImplementation::Implementation::
+        communicate_active_fe_indices(*this);
+
+      // Free memory.
+      active_fe_index_transfer.reset();
+    }
+#endif
 }
 
 

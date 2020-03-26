@@ -148,12 +148,6 @@ public:
   virtual std::size_t
   memory_consumption() const override;
 
-  void
-  prepare_for_serialization_of_active_fe_indices() override;
-
-  void
-  deserialize_active_fe_indices() override;
-
   template <class Archive>
   void
   save(Archive &ar, const unsigned int version) const;

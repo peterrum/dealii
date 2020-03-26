@@ -916,20 +916,6 @@ DoFHandler<dim, spacedim>::memory_consumption() const
   return mem;
 }
 
-template <int dim, int spacedim>
-void
-DoFHandler<dim, spacedim>::prepare_for_serialization_of_active_fe_indices()
-{
-  AssertThrow(false, ExcNotImplemented());
-}
-
-template <int dim, int spacedim>
-void
-DoFHandler<dim, spacedim>::deserialize_active_fe_indices()
-{
-  AssertThrow(false, ExcNotImplemented());
-}
-
 
 
 template <int dim, int spacedim>

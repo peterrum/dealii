@@ -167,12 +167,6 @@ namespace hp
     virtual std::size_t
     memory_consumption() const override;
 
-    void
-    prepare_for_serialization_of_active_fe_indices() override;
-
-    void
-    deserialize_active_fe_indices() override;
-
     template <class Archive>
     void
     save(Archive &ar, const unsigned int version) const;
@@ -255,29 +249,6 @@ namespace hp
 
     void
     post_distributed_serialization_of_active_fe_indices();
-
-    struct ActiveFEIndexTransfer
-    {
-      std::map<const typename Base::cell_iterator, const unsigned int>
-        persisting_cells_fe_index;
-
-      std::map<const typename Base::cell_iterator, const unsigned int>
-        refined_cells_fe_index;
-
-      std::map<const typename Base::cell_iterator, const unsigned int>
-        coarsened_cells_fe_index;
-
-      std::vector<unsigned int> active_fe_indices;
-
-      std::unique_ptr<
-        parallel::distributed::
-          CellDataTransfer<dim, spacedim, std::vector<unsigned int>>>
-        cell_data_transfer;
-    };
-
-    std::unique_ptr<ActiveFEIndexTransfer> active_fe_index_transfer;
-
-    std::vector<boost::signals2::connection> tria_listeners;
 
     // Make accessor objects friends.
     template <int, class, bool>
