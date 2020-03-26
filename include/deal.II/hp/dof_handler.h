@@ -607,24 +607,6 @@ namespace hp
       const std::set<types::boundary_id> &boundary_ids) const override;
 
     /**
-     * Access to an object informing of the block structure of the dof handler.
-     *
-     * If an FESystem is used in distribute_dofs(), degrees of freedom naturally
-     * split into several
-     * @ref GlossBlock "blocks".
-     * For each base element as many blocks appear as its multiplicity.
-     *
-     * At the end of distribute_dofs(), the number of degrees of freedom in each
-     * block is counted, and stored in a BlockInfo object, which can be accessed
-     * here. If you have previously called distribute_mg_dofs(), the same is
-     * done on each level of the multigrid hierarchy. Additionally, the block
-     * structure on each cell can be generated in this object by calling
-     * initialize_local_block_info().
-     */
-    const BlockInfo &
-    block_info() const override;
-
-    /**
      * Return the number of degrees of freedom that belong to this process.
      *
      * If this is a sequential DoFHandler, then the result equals that produced
@@ -1126,8 +1108,6 @@ namespace hp
      * triangulation to get information about when the triangulation changes.
      */
     std::vector<boost::signals2::connection> tria_listeners;
-
-    BlockInfo block_info_; // TODO
 
     // Make accessor objects friends.
     template <int, class, bool>

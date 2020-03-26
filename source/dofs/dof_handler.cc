@@ -1019,7 +1019,7 @@ DoFHandler<dim, spacedim>::memory_consumption() const
   std::size_t mem =
     (MemoryConsumption::memory_consumption(this->tria) +
      MemoryConsumption::memory_consumption(this->fe_collection) +
-     MemoryConsumption::memory_consumption(block_info_object) +
+     MemoryConsumption::memory_consumption(this->block_info_object) +
      MemoryConsumption::memory_consumption(levels) +
      MemoryConsumption::memory_consumption(*faces) +
      MemoryConsumption::memory_consumption(faces) + sizeof(number_cache) +
@@ -1114,7 +1114,7 @@ DoFHandler<dim, spacedim>::distribute_dofs(
   // triangulation. it doesn't work correctly yet if it is parallel
   if (dynamic_cast<const parallel::DistributedTriangulationBase<dim, spacedim>
                      *>(&*this->tria) == nullptr)
-    block_info_object.initialize(*this, false, true);
+    this->block_info_object.initialize(*this, false, true);
 }
 
 
@@ -1200,7 +1200,7 @@ DoFHandler<dim, spacedim>::distribute_mg_dofs()
   // correctly yet if it is parallel
   if (dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
         &*this->tria) == nullptr)
-    block_info_object.initialize(*this, true, false);
+    this->block_info_object.initialize(*this, true, false);
 }
 
 
@@ -1224,7 +1224,7 @@ template <int dim, int spacedim>
 void
 DoFHandler<dim, spacedim>::initialize_local_block_info()
 {
-  block_info_object.initialize_local(*this);
+  this->block_info_object.initialize_local(*this);
 }
 
 

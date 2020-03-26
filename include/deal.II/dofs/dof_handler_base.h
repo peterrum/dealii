@@ -257,8 +257,7 @@ public:
   n_boundary_dofs(const std::set<types::boundary_id> &boundary_ids) const = 0;
 
   virtual const BlockInfo &
-  block_info() const = 0;
-
+  block_info() const;
 
   virtual types::global_dof_index
   n_locally_owned_dofs() const = 0;
@@ -307,6 +306,8 @@ public:
   deserialize_active_fe_indices() = 0;
 
 protected:
+  BlockInfo block_info_object;
+
   SmartPointer<const Triangulation<dim, spacedim>, DoFHandler<dim, spacedim>>
     tria;
 
@@ -339,6 +340,17 @@ DoFHandlerBase<dim, spacedim, T>::get_fe_collection() const
          ExcMessage("No finite element collection is associated with "
                     "this DoFHandler"));
   return fe_collection;
+}
+
+
+
+template <int dim, int spacedim, typename T>
+inline const BlockInfo &
+DoFHandlerBase<dim, spacedim, T>::block_info() const
+{
+  Assert(T::is_hp_dof_handler == false, ExcNotImplemented());
+
+  return block_info_object;
 }
 
 DEAL_II_NAMESPACE_CLOSE

@@ -1354,14 +1354,6 @@ namespace hp
     return boundary_dofs.size();
   }
 
-  template <int dim, int spacedim>
-  const BlockInfo &
-  DoFHandler<dim, spacedim>::block_info() const
-  {
-    AssertThrow(false, ExcNotImplemented());
-    return this->block_info_;
-  }
-
 
 
   template <int dim, int spacedim>
