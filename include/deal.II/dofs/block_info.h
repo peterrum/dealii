@@ -31,11 +31,6 @@ DEAL_II_NAMESPACE_OPEN
 #ifndef DOXYGEN
 template <int dim, int spacedim>
 class DoFHandler;
-namespace hp
-{
-  template <int dim, int spacedim>
-  class DoFHandler;
-}
 #endif
 
 
