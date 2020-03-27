@@ -115,40 +115,6 @@ DoFHandler<dim, spacedim>::initialize_impl(
 
 
 template <int dim, int spacedim>
-std::size_t
-DoFHandler<dim, spacedim>::memory_consumption() const
-{
-  std::size_t mem =
-    (MemoryConsumption::memory_consumption(this->tria) +
-     MemoryConsumption::memory_consumption(this->fe_collection) +
-     MemoryConsumption::memory_consumption(this->block_info_object) +
-     MemoryConsumption::memory_consumption(this->levels) +
-     MemoryConsumption::memory_consumption(*this->faces) +
-     MemoryConsumption::memory_consumption(this->faces) +
-     sizeof(this->number_cache) +
-     MemoryConsumption::memory_consumption(this->n_dofs()) +
-     MemoryConsumption::memory_consumption(this->vertex_dofs));
-  for (unsigned int i = 0; i < this->levels.size(); ++i)
-    mem += MemoryConsumption::memory_consumption(*this->levels[i]);
-
-  for (unsigned int level = 0; level < this->mg_levels.size(); ++level)
-    mem += this->mg_levels[level]->memory_consumption();
-
-  if (this->mg_faces != nullptr)
-    mem += MemoryConsumption::memory_consumption(*this->mg_faces);
-
-  for (unsigned int i = 0; i < this->mg_vertex_dofs.size(); ++i)
-    mem += sizeof(typename Base::MGVertexDoFs) +
-           (1 + this->mg_vertex_dofs[i].get_finest_level() -
-            this->mg_vertex_dofs[i].get_coarsest_level()) *
-             sizeof(types::global_dof_index);
-
-  return mem;
-}
-
-
-
-template <int dim, int spacedim>
 void
 DoFHandler<dim, spacedim>::distribute_dofs_impl(
   const hp::FECollection<dim, spacedim> &ff)

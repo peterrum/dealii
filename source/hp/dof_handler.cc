@@ -122,28 +122,6 @@ namespace hp
 
 
   template <int dim, int spacedim>
-  std::size_t
-  DoFHandler<dim, spacedim>::memory_consumption() const
-  {
-    std::size_t mem =
-      (MemoryConsumption::memory_consumption(this->tria) +
-       MemoryConsumption::memory_consumption(this->fe_collection) +
-       MemoryConsumption::memory_consumption(this->tria) +
-       MemoryConsumption::memory_consumption(this->levels_hp) +
-       MemoryConsumption::memory_consumption(*this->faces_hp) +
-       MemoryConsumption::memory_consumption(this->number_cache) +
-       MemoryConsumption::memory_consumption(this->vertex_dofs) +
-       MemoryConsumption::memory_consumption(this->vertex_dof_offsets));
-    for (unsigned int i = 0; i < this->levels_hp.size(); ++i)
-      mem += MemoryConsumption::memory_consumption(*this->levels_hp[i]);
-    mem += MemoryConsumption::memory_consumption(*this->faces_hp);
-
-    return mem;
-  }
-
-
-
-  template <int dim, int spacedim>
   void
   DoFHandler<dim, spacedim>::distribute_mg_dofs_impl()
   {

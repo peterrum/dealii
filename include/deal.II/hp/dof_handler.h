@@ -161,9 +161,6 @@ namespace hp
     unsigned int
     max_couplings_between_boundary_dofs() const override;
 
-    virtual std::size_t
-    memory_consumption() const override;
-
     template <class Archive>
     void
     save(Archive &ar, const unsigned int version) const;
