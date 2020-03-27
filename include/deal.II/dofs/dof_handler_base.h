@@ -288,8 +288,8 @@ public:
   virtual unsigned int
   max_couplings_between_dofs() const = 0;
 
-  virtual unsigned int
-  max_couplings_between_boundary_dofs() const = 0;
+  unsigned int
+  max_couplings_between_boundary_dofs() const;
 
   cell_iterator
   begin(const unsigned int level = 0) const;
@@ -1410,8 +1410,35 @@ DoFHandlerBase<dim, spacedim, T>::initialize(
   const Triangulation<dim, spacedim> &   tria,
   const hp::FECollection<dim, spacedim> &fe)
 {
-  static_cast<T *>(this)->initialize_impl(tria,
-                                          hp::FECollection<dim, spacedim>(fe));
+  if (is_hp_dof_handler)
+    {
+      this->clear();
+
+      if (this->tria != &tria)
+        {
+          for (auto &connection : this->tria_listeners)
+            connection.disconnect();
+          this->tria_listeners.clear();
+
+          this->tria = &tria;
+
+          this->setup_policy_and_listeners();
+        }
+
+      this->create_active_fe_table();
+
+      this->distribute_dofs(fe);
+    }
+  else
+    {
+      this->tria                       = &tria;
+      this->faces                      = nullptr;
+      this->number_cache.n_global_dofs = 0;
+
+      this->setup_policy();
+
+      this->distribute_dofs(fe);
+    }
 }
 
 
@@ -1978,6 +2005,39 @@ DoFHandlerBase<dim, spacedim, T>::memory_consumption() const
                  sizeof(types::global_dof_index);
 
       return mem;
+    }
+}
+
+
+template <int dim, int spacedim, typename T>
+unsigned int
+DoFHandlerBase<dim, spacedim, T>::max_couplings_between_boundary_dofs() const
+{
+  Assert(this->fe_collection.size() > 0, ExcNoFESelected());
+
+  switch (dim)
+    {
+      case 1:
+        return this->fe_collection.max_dofs_per_vertex();
+      case 2:
+        return (3 * this->fe_collection.max_dofs_per_vertex() +
+                2 * this->fe_collection.max_dofs_per_line());
+      case 3:
+        // we need to take refinement of one boundary face into
+        // consideration here; in fact, this function returns what
+        // #max_coupling_between_dofs<2> returns
+        //
+        // we assume here, that only four faces meet at the boundary;
+        // this assumption is not justified and needs to be fixed some
+        // time. fortunately, omitting it for now does no harm since
+        // the matrix will cry foul if its requirements are not
+        // satisfied
+        return (19 * this->fe_collection.max_dofs_per_vertex() +
+                28 * this->fe_collection.max_dofs_per_line() +
+                8 * this->fe_collection.max_dofs_per_quad());
+      default:
+        Assert(false, ExcNotImplemented());
+        return 0;
     }
 }
 

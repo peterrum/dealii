@@ -136,31 +136,6 @@ namespace hp
   }
 
 
-  template <int dim, int spacedim>
-  void
-  DoFHandler<dim, spacedim>::initialize_impl(
-    const Triangulation<dim, spacedim> &   tria,
-    const hp::FECollection<dim, spacedim> &fe)
-  {
-    clear();
-
-    if (this->tria != &tria)
-      {
-        for (auto &connection : this->tria_listeners)
-          connection.disconnect();
-        this->tria_listeners.clear();
-
-        this->tria = &tria;
-
-        this->setup_policy_and_listeners();
-      }
-
-    this->create_active_fe_table();
-
-    this->distribute_dofs(fe);
-  }
-
-
 
   template <int dim, int spacedim>
   void
@@ -332,40 +307,6 @@ namespace hp
     Assert(this->fe_collection.size() > 0, ExcNoFESelected());
     return dealii::internal::hp::DoFHandlerImplementation::Implementation::
       max_couplings_between_dofs(*this);
-  }
-
-
-
-  template <int dim, int spacedim>
-  unsigned int
-  DoFHandler<dim, spacedim>::max_couplings_between_boundary_dofs() const
-  {
-    Assert(this->fe_collection.size() > 0, ExcNoFESelected());
-
-    switch (dim)
-      {
-        case 1:
-          return this->fe_collection.max_dofs_per_vertex();
-        case 2:
-          return (3 * this->fe_collection.max_dofs_per_vertex() +
-                  2 * this->fe_collection.max_dofs_per_line());
-        case 3:
-          // we need to take refinement of one boundary face into
-          // consideration here; in fact, this function returns what
-          // #max_coupling_between_dofs<2> returns
-          //
-          // we assume here, that only four faces meet at the boundary;
-          // this assumption is not justified and needs to be fixed some
-          // time. fortunately, omitting it for now does no harm since
-          // the matrix will cry foul if its requirements are not
-          // satisfied
-          return (19 * this->fe_collection.max_dofs_per_vertex() +
-                  28 * this->fe_collection.max_dofs_per_line() +
-                  8 * this->fe_collection.max_dofs_per_quad());
-        default:
-          Assert(false, ExcNotImplemented());
-          return 0;
-      }
   }
 
 

@@ -130,10 +130,6 @@ namespace hp
     DoFHandler &
     operator=(const DoFHandler &) = delete;
 
-    void
-    initialize_impl(const Triangulation<dim, spacedim> &   tria,
-                    const hp::FECollection<dim, spacedim> &fe);
-
     virtual void
     distribute_dofs_impl(const hp::FECollection<dim, spacedim> &fe);
 
@@ -157,9 +153,6 @@ namespace hp
 
     unsigned int
     max_couplings_between_dofs() const override;
-
-    unsigned int
-    max_couplings_between_boundary_dofs() const override;
 
     template <class Archive>
     void
