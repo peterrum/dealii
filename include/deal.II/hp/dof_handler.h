@@ -145,16 +145,6 @@ namespace hp
     unsigned int
     max_couplings_between_dofs() const override;
 
-    template <class Archive>
-    void
-    save(Archive &ar, const unsigned int version) const;
-
-    template <class Archive>
-    void
-    load(Archive &ar, const unsigned int version);
-
-    BOOST_SERIALIZATION_SPLIT_MEMBER()
-
     DeclException0(ExcNoFESelected);
 
   private:
@@ -204,105 +194,8 @@ namespace internal
 } // namespace internal
 
 
-namespace hp
-{
-  template <int dim, int spacedim>
-  template <class Archive>
-  void
-  DoFHandler<dim, spacedim>::save(Archive &ar, unsigned int) const
-  {
-    ar & this->vertex_dofs;
-    ar & this->vertex_dof_offsets;
-    ar & this->number_cache;
-    ar & this->mg_number_cache;
-
-    // some versions of gcc have trouble with loading vectors of
-    // std::unique_ptr objects because std::unique_ptr does not
-    // have a copy constructor. do it one level at a time
-    const unsigned int n_levels = this->levels_hp.size();
-    ar &               n_levels;
-    for (unsigned int i = 0; i < n_levels; ++i)
-      ar & this->levels_hp[i];
-
-    // boost dereferences a nullptr when serializing a nullptr
-    // at least up to 1.65.1. This causes problems with clang-5.
-    // Therefore, work around it.
-    bool faces_is_nullptr = (this->faces_hp.get() == nullptr);
-    ar & faces_is_nullptr;
-    if (!faces_is_nullptr)
-      ar & this->faces_hp;
-
-    // write out the number of triangulation cells and later check during
-    // loading that this number is indeed correct; same with something that
-    // identifies the policy
-    const unsigned int n_cells = this->tria->n_cells();
-    std::string policy_name = dealii::internal::policy_to_string(*this->policy);
-
-    ar &n_cells &policy_name;
-  }
-
-
-
-  template <int dim, int spacedim>
-  template <class Archive>
-  void
-  DoFHandler<dim, spacedim>::load(Archive &ar, unsigned int)
-  {
-    ar & this->vertex_dofs;
-    ar & this->vertex_dof_offsets;
-    ar & this->number_cache;
-    ar & this->mg_number_cache;
-
-    // boost::serialization can restore pointers just fine, but if the
-    // pointer object still points to something useful, that object is not
-    // destroyed and we end up with a memory leak. consequently, first delete
-    // previous content before re-loading stuff
-    this->levels_hp.clear();
-    this->faces_hp.reset();
-
-    // some versions of gcc have trouble with loading vectors of
-    // std::unique_ptr objects because std::unique_ptr does not
-    // have a copy constructor. do it one level at a time
-    unsigned int size;
-    ar &         size;
-    this->levels_hp.resize(size);
-    for (unsigned int i = 0; i < size; ++i)
-      {
-        std::unique_ptr<dealii::internal::hp::DoFLevel> level;
-        ar &                                            level;
-        this->levels_hp[i] = std::move(level);
-      }
-
-    // Workaround for nullptr, see in save().
-    bool faces_is_nullptr = true;
-    ar & faces_is_nullptr;
-    if (!faces_is_nullptr)
-      ar & this->faces_hp;
-
-    // these are the checks that correspond to the last block in the save()
-    // function
-    unsigned int n_cells;
-    std::string  policy_name;
-
-    ar &n_cells &policy_name;
-
-    AssertThrow(
-      n_cells == this->tria->n_cells(),
-      ExcMessage(
-        "The object being loaded into does not match the triangulation "
-        "that has been stored previously."));
-    AssertThrow(
-      policy_name == dealii::internal::policy_to_string(*this->policy),
-      ExcMessage("The policy currently associated with this DoFHandler (" +
-                 dealii::internal::policy_to_string(*this->policy) +
-                 ") does not match the one that was associated with the "
-                 "DoFHandler previously stored (" +
-                 policy_name + ")."));
-  }
-
 #endif
 
-} // namespace hp
 
 DEAL_II_NAMESPACE_CLOSE
 
