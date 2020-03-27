@@ -209,21 +209,6 @@ namespace hp
     void
     clear_space();
 
-    template <int structdim>
-    types::global_dof_index
-    get_dof_index(const unsigned int obj_level,
-                  const unsigned int obj_index,
-                  const unsigned int fe_index,
-                  const unsigned int local_index) const;
-
-    template <int structdim>
-    void
-    set_dof_index(const unsigned int            obj_level,
-                  const unsigned int            obj_index,
-                  const unsigned int            fe_index,
-                  const unsigned int            local_index,
-                  const types::global_dof_index global_index) const;
-
     // Make accessor objects friends.
     template <int, class, bool>
     friend class dealii::DoFAccessor;

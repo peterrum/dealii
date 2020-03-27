@@ -434,34 +434,6 @@ namespace hp
 
 
   template <int dim, int spacedim>
-  template <int structdim>
-  types::global_dof_index
-  DoFHandler<dim, spacedim>::get_dof_index(const unsigned int,
-                                           const unsigned int,
-                                           const unsigned int,
-                                           const unsigned int) const
-  {
-    Assert(false, ExcNotImplemented());
-    return numbers::invalid_dof_index;
-  }
-
-
-
-  template <int dim, int spacedim>
-  template <int structdim>
-  void
-  DoFHandler<dim, spacedim>::set_dof_index(const unsigned int,
-                                           const unsigned int,
-                                           const unsigned int,
-                                           const unsigned int,
-                                           const types::global_dof_index) const
-  {
-    Assert(false, ExcNotImplemented());
-  }
-
-
-
-  template <int dim, int spacedim>
   void
   DoFHandler<dim, spacedim>::clear_space()
   {
