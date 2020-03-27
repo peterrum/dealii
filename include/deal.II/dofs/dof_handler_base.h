@@ -269,8 +269,8 @@ public:
   bool
   has_active_dofs() const;
 
-  virtual void
-  initialize_local_block_info() = 0;
+  void
+  initialize_local_block_info();
 
   void
   clear();
@@ -622,59 +622,46 @@ namespace internal
 
 
 
-        template <int dim, int spacedim>
+        template <int dim, int spacedim, typename T>
         static void
         reserve_space_release_space(
-          DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
-            &dof_handler);
+          DoFHandlerBase<dim, spacedim, T> &dof_handler);
 
 
 
-        template <int dim, int spacedim>
+        template <int dim, int spacedim, typename T>
         static void
-        reserve_space_vertices(
-          DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
-            &dof_handler);
+        reserve_space_vertices(DoFHandlerBase<dim, spacedim, T> &dof_handler);
 
 
 
-        template <int dim, int spacedim>
+        template <int dim, int spacedim, typename T>
         static void
-        reserve_space_cells(
-          DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
-            &dof_handler);
+        reserve_space_cells(DoFHandlerBase<dim, spacedim, T> &dof_handler);
 
 
 
-        template <int dim, int spacedim>
+        template <int dim, int spacedim, typename T>
         static void
-        reserve_space_faces(
-          DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
-            &dof_handler);
+        reserve_space_faces(DoFHandlerBase<dim, spacedim, T> &dof_handler);
 
 
 
-        template <int spacedim>
-        static void reserve_space(
-          dealii::
-            DoFHandlerBase<1, spacedim, dealii::hp::DoFHandler<1, spacedim>>
-              &dof_handler);
+        template <int spacedim, typename T>
+        static void
+          reserve_space(dealii::DoFHandlerBase<1, spacedim, T> &dof_handler);
 
 
 
-        template <int spacedim>
-        static void reserve_space(
-          dealii::
-            DoFHandlerBase<2, spacedim, dealii::hp::DoFHandler<2, spacedim>>
-              &dof_handler);
+        template <int spacedim, typename T>
+        static void
+          reserve_space(dealii::DoFHandlerBase<2, spacedim, T> &dof_handler);
 
 
 
-        template <int spacedim>
-        static void reserve_space(
-          dealii::
-            DoFHandlerBase<3, spacedim, dealii::hp::DoFHandler<3, spacedim>>
-              &dof_handler);
+        template <int spacedim, typename T>
+        static void
+          reserve_space(dealii::DoFHandlerBase<3, spacedim, T> &dof_handler);
 
 
 
@@ -910,17 +897,14 @@ namespace internal
         return std::min(max_couplings, dof_handler.n_dofs());
       }
 
-      template <int spacedim>
-      static void reserve_space(
-        DoFHandlerBase<1, spacedim, DoFHandler<1, spacedim>> &dof_handler);
+      template <int spacedim, typename T>
+      static void reserve_space(DoFHandlerBase<1, spacedim, T> &dof_handler);
 
-      template <int spacedim>
-      static void reserve_space(
-        DoFHandlerBase<2, spacedim, DoFHandler<2, spacedim>> &dof_handler);
+      template <int spacedim, typename T>
+      static void reserve_space(DoFHandlerBase<2, spacedim, T> &dof_handler);
 
-      template <int spacedim>
-      static void reserve_space(
-        DoFHandlerBase<3, spacedim, DoFHandler<3, spacedim>> &dof_handler);
+      template <int spacedim, typename T>
+      static void reserve_space(DoFHandlerBase<3, spacedim, T> &dof_handler);
 
       template <int spacedim>
       static void reserve_space_mg(
@@ -1836,14 +1820,6 @@ DoFHandlerBase<dim, spacedim, T>::distribute_dofs(
   this->distribute_dofs(hp::FECollection<dim, spacedim>(fe));
 }
 
-template <int dim, int spacedim, typename T>
-void
-DoFHandlerBase<dim, spacedim, T>::distribute_dofs(
-  const hp::FECollection<dim, spacedim> &fe)
-{
-  static_cast<T *>(this)->distribute_dofs_impl(fe);
-}
-
 
 template <int dim, int spacedim, typename T>
 void
@@ -1863,15 +1839,6 @@ DoFHandlerBase<dim, spacedim, T>::distribute_mg_dofs(
 {
   (void)fe;
   this->distribute_mg_dofs();
-}
-
-
-
-template <int dim, int spacedim, typename T>
-void
-DoFHandlerBase<dim, spacedim, T>::distribute_mg_dofs()
-{
-  static_cast<T *>(this)->distribute_mg_dofs_impl();
 }
 
 

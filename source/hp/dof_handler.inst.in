@@ -65,6 +65,12 @@ for (deal_II_dimension : DIMENSIONS)
                    hp::DoFHandler<deal_II_dimension, deal_II_dimension>>::
       renumber_dofs(const unsigned int                          level,
                     const std::vector<types::global_dof_index> &new_numbers);
+    template void
+    DoFHandlerBase<deal_II_dimension,
+                   deal_II_dimension,
+                   hp::DoFHandler<deal_II_dimension, deal_II_dimension>>::
+      distribute_dofs(
+        const hp::FECollection<deal_II_dimension, deal_II_dimension> &ff);
 
 #if deal_II_dimension < 3
     template void
@@ -78,6 +84,12 @@ for (deal_II_dimension : DIMENSIONS)
                    hp::DoFHandler<deal_II_dimension, deal_II_dimension + 1>>::
       renumber_dofs(const unsigned int                          level,
                     const std::vector<types::global_dof_index> &new_numbers);
+    template void
+    DoFHandlerBase<deal_II_dimension,
+                   deal_II_dimension + 1,
+                   hp::DoFHandler<deal_II_dimension, deal_II_dimension + 1>>::
+      distribute_dofs(
+        const hp::FECollection<deal_II_dimension, deal_II_dimension + 1> &ff);
 #endif
 
 #if deal_II_dimension == 3
@@ -88,5 +100,8 @@ for (deal_II_dimension : DIMENSIONS)
     DoFHandlerBase<1, deal_II_dimension, hp::DoFHandler<1, deal_II_dimension>>::
       renumber_dofs(const unsigned int                          level,
                     const std::vector<types::global_dof_index> &new_numbers);
+    template void
+    DoFHandlerBase<1, deal_II_dimension, hp::DoFHandler<1, deal_II_dimension>>::
+      distribute_dofs(const hp::FECollection<1, deal_II_dimension> &ff);
 #endif
   }

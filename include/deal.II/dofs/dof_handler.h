@@ -102,15 +102,6 @@ public:
   DoFHandler &
   operator=(const DoFHandler &) = delete;
 
-  virtual void
-  distribute_dofs_impl(const hp::FECollection<dim, spacedim> &fe);
-
-  virtual void
-  distribute_mg_dofs_impl();
-
-  void
-  initialize_local_block_info() override;
-
 private:
   // Make accessor objects friends.
   template <int, class, bool>

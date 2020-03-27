@@ -64,11 +64,10 @@ namespace internal
        * Do that part of reserving space that pertains to releasing
        * the previously used memory.
        */
-      template <int dim, int spacedim>
+      template <int dim, int spacedim, typename T>
       void
       Implementation::reserve_space_release_space(
-        DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
-          &dof_handler)
+        DoFHandlerBase<dim, spacedim, T> &dof_handler)
       {
         // Release all space except the fields for active_fe_indices and
         // refinement flags which we have to back up before
@@ -87,8 +86,7 @@ namespace internal
 
           // delete all levels and set them up newly, since vectors
           // are troublesome if you want to change their size
-          static_cast<dealii::hp::DoFHandler<dim, spacedim> &>(dof_handler)
-            .clear_space();
+          dof_handler.clear_space();
 
           for (unsigned int level = 0; level < dof_handler.tria->n_levels();
                ++level)
@@ -113,11 +111,10 @@ namespace internal
        * Do that part of reserving space that pertains to vertices,
        * since this is the same in all space dimensions.
        */
-      template <int dim, int spacedim>
+      template <int dim, int spacedim, typename T>
       void
       Implementation::reserve_space_vertices(
-        DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
-          &dof_handler)
+        DoFHandlerBase<dim, spacedim, T> &dof_handler)
       {
         // The final step in all of the reserve_space() functions is to set
         // up vertex dof information. since vertices are sequentially
@@ -223,11 +220,10 @@ namespace internal
        * Do that part of reserving space that pertains to cells,
        * since this is the same in all space dimensions.
        */
-      template <int dim, int spacedim>
+      template <int dim, int spacedim, typename T>
       void
       Implementation::reserve_space_cells(
-        DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
-          &dof_handler)
+        DoFHandlerBase<dim, spacedim, T> &dof_handler)
       {
         // count how much space we need on each level for the cell
         // dofs and set the dof_*_offsets data. initially set the
@@ -321,11 +317,10 @@ namespace internal
        * Do that part of reserving space that pertains to faces,
        * since this is the same in all space dimensions.
        */
-      template <int dim, int spacedim>
+      template <int dim, int spacedim, typename T>
       void
       Implementation::reserve_space_faces(
-        DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
-          &dof_handler)
+        DoFHandlerBase<dim, spacedim, T> &dof_handler)
       {
         // make the code generic between lines and quads
         std::vector<unsigned int> &face_dof_offsets =
@@ -642,10 +637,9 @@ namespace internal
        * given element. The given element is that one which was
        * selected when calling @p distribute_dofs the last time.
        */
-      template <int spacedim>
+      template <int spacedim, typename T>
       void Implementation::reserve_space(
-        dealii::DoFHandlerBase<1, spacedim, dealii::hp::DoFHandler<1, spacedim>>
-          &dof_handler)
+        dealii::DoFHandlerBase<1, spacedim, T> &dof_handler)
       {
         const unsigned int dim = 1;
 
@@ -663,18 +657,17 @@ namespace internal
 
         Threads::TaskGroup<> tasks;
         tasks +=
-          Threads::new_task(&reserve_space_cells<1, spacedim>, dof_handler);
-        tasks +=
-          Threads::new_task(&reserve_space_vertices<1, spacedim>, dof_handler);
+          Threads::new_task(&reserve_space_cells<1, spacedim, T>, dof_handler);
+        tasks += Threads::new_task(&reserve_space_vertices<1, spacedim, T>,
+                                   dof_handler);
         tasks.join_all();
       }
 
 
 
-      template <int spacedim>
+      template <int spacedim, typename T>
       void Implementation::reserve_space(
-        dealii::DoFHandlerBase<2, spacedim, dealii::hp::DoFHandler<2, spacedim>>
-          &dof_handler)
+        dealii::DoFHandlerBase<2, spacedim, T> &dof_handler)
       {
         const unsigned int dim = 2;
 
@@ -692,20 +685,19 @@ namespace internal
 
         Threads::TaskGroup<> tasks;
         tasks +=
-          Threads::new_task(&reserve_space_cells<2, spacedim>, dof_handler);
+          Threads::new_task(&reserve_space_cells<2, spacedim, T>, dof_handler);
         tasks +=
-          Threads::new_task(&reserve_space_faces<2, spacedim>, dof_handler);
-        tasks +=
-          Threads::new_task(&reserve_space_vertices<2, spacedim>, dof_handler);
+          Threads::new_task(&reserve_space_faces<2, spacedim, T>, dof_handler);
+        tasks += Threads::new_task(&reserve_space_vertices<2, spacedim, T>,
+                                   dof_handler);
         tasks.join_all();
       }
 
 
 
-      template <int spacedim>
+      template <int spacedim, typename T>
       void Implementation::reserve_space(
-        dealii::DoFHandlerBase<3, spacedim, dealii::hp::DoFHandler<3, spacedim>>
-          &dof_handler)
+        dealii::DoFHandlerBase<3, spacedim, T> &dof_handler)
       {
         const unsigned int dim = 3;
 
@@ -723,11 +715,11 @@ namespace internal
 
         Threads::TaskGroup<> tasks;
         tasks +=
-          Threads::new_task(&reserve_space_cells<3, spacedim>, dof_handler);
+          Threads::new_task(&reserve_space_cells<3, spacedim, T>, dof_handler);
         tasks +=
-          Threads::new_task(&reserve_space_faces<3, spacedim>, dof_handler);
-        tasks +=
-          Threads::new_task(&reserve_space_vertices<3, spacedim>, dof_handler);
+          Threads::new_task(&reserve_space_faces<3, spacedim, T>, dof_handler);
+        tasks += Threads::new_task(&reserve_space_vertices<3, spacedim, T>,
+                                   dof_handler);
 
         // While the tasks above are running, we can turn to line dofs
 
@@ -1302,9 +1294,9 @@ namespace internal
      * was selected when calling
      * @p distribute_dofs the last time.
      */
-    template <int spacedim>
-    void Implementation::reserve_space(
-      DoFHandlerBase<1, spacedim, DoFHandler<1, spacedim>> &dof_handler)
+    template <int spacedim, typename T>
+    void
+      Implementation::reserve_space(DoFHandlerBase<1, spacedim, T> &dof_handler)
     {
       dof_handler.vertex_dofs.resize(dof_handler.tria->n_vertices() *
                                        dof_handler.get_fe().dofs_per_vertex,
@@ -1328,9 +1320,9 @@ namespace internal
     }
 
 
-    template <int spacedim>
-    void Implementation::reserve_space(
-      DoFHandlerBase<2, spacedim, DoFHandler<2, spacedim>> &dof_handler)
+    template <int spacedim, typename T>
+    void
+      Implementation::reserve_space(DoFHandlerBase<2, spacedim, T> &dof_handler)
     {
       dof_handler.vertex_dofs.resize(dof_handler.tria->n_vertices() *
                                        dof_handler.get_fe().dofs_per_vertex,
@@ -1365,9 +1357,9 @@ namespace internal
     }
 
 
-    template <int spacedim>
-    void Implementation::reserve_space(
-      DoFHandlerBase<3, spacedim, DoFHandler<3, spacedim>> &dof_handler)
+    template <int spacedim, typename T>
+    void
+      Implementation::reserve_space(DoFHandlerBase<3, spacedim, T> &dof_handler)
     {
       dof_handler.vertex_dofs.resize(dof_handler.tria->n_vertices() *
                                        dof_handler.get_fe().dofs_per_vertex,
@@ -2552,6 +2544,157 @@ DoFHandlerBase<dim, spacedim, T>::~DoFHandlerBase()
       // store references to the DoFhandler object they work on
       this->policy.reset();
     }
+}
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::initialize_local_block_info()
+{
+  AssertThrow(is_hp_dof_handler == false, ExcNotImplemented());
+
+  this->block_info_object.initialize_local(static_cast<T &>(*this));
+}
+
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::distribute_dofs(
+  const hp::FECollection<dim, spacedim> &ff)
+{
+  if (is_hp_dof_handler)
+    {
+      // assign the fe_collection and initialize all active_fe_indices
+      this->set_fe(ff);
+
+      // If an underlying shared::Tria allows artificial cells,
+      // then save the current set of subdomain ids, and set
+      // subdomain ids to the "true" owner of each cell. we later
+      // restore these flags
+      std::vector<types::subdomain_id>                      saved_subdomain_ids;
+      const parallel::shared::Triangulation<dim, spacedim> *shared_tria =
+        (dynamic_cast<const parallel::shared::Triangulation<dim, spacedim> *>(
+          &this->get_triangulation()));
+      if (shared_tria != nullptr && shared_tria->with_artificial_cells())
+        {
+          saved_subdomain_ids.resize(shared_tria->n_active_cells());
+
+          const std::vector<types::subdomain_id> &true_subdomain_ids =
+            shared_tria->get_true_subdomain_ids_of_cells();
+
+          for (const auto &cell : shared_tria->active_cell_iterators())
+            {
+              const unsigned int index   = cell->active_cell_index();
+              saved_subdomain_ids[index] = cell->subdomain_id();
+              cell->set_subdomain_id(true_subdomain_ids[index]);
+            }
+        }
+
+      // then allocate space for all the other tables
+      dealii::internal::hp::DoFHandlerImplementation::Implementation::
+        reserve_space(static_cast<T &>(*this));
+
+      // now undo the subdomain modification
+      if (shared_tria != nullptr && shared_tria->with_artificial_cells())
+        for (const auto &cell : shared_tria->active_cell_iterators())
+          cell->set_subdomain_id(
+            saved_subdomain_ids[cell->active_cell_index()]);
+
+
+      // Clear user flags because we will need them. But first we save
+      // them and make sure that we restore them later such that at the
+      // end of this function the Triangulation will be in the same
+      // state as it was at the beginning of this function.
+      std::vector<bool> user_flags;
+      this->tria->save_user_flags(user_flags);
+      const_cast<Triangulation<dim, spacedim> &>(*this->tria)
+        .clear_user_flags();
+
+
+      /////////////////////////////////
+
+      // Now for the real work:
+      this->number_cache = this->policy->distribute_dofs();
+
+      /////////////////////////////////
+
+      // do some housekeeping: compress indices
+      {
+        Threads::TaskGroup<> tg;
+        for (int level = this->levels_hp.size() - 1; level >= 0; --level)
+          tg += Threads::new_task(
+            &dealii::internal::hp::DoFLevel::compress_data<dim, spacedim>,
+            *this->levels_hp[level],
+            this->fe_collection);
+        tg.join_all();
+      }
+
+      // finally restore the user flags
+      const_cast<Triangulation<dim, spacedim> &>(*this->tria)
+        .load_user_flags(user_flags);
+    }
+  else
+    {
+      // first, assign the finite_element
+      this->set_fe(ff);
+
+      // delete all levels and set them up newly. note that we still have to
+      // allocate space for all degrees of freedom on this mesh (including ghost
+      // and cells that are entirely stored on different processors), though we
+      // may not assign numbers to some of them (i.e. they will remain at
+      // invalid_dof_index). We need to allocate the space because we will want
+      // to be able to query the dof_indices on each cell, and simply be told
+      // that we don't know them on some cell (i.e. get back invalid_dof_index)
+      this->clear_space();
+      internal::DoFHandlerImplementation::Implementation::reserve_space(
+        static_cast<T &>(*this));
+
+      // hand things off to the policy
+      this->number_cache = this->policy->distribute_dofs();
+
+      // initialize the block info object only if this is a sequential
+      // triangulation. it doesn't work correctly yet if it is parallel
+      if (dynamic_cast<
+            const parallel::DistributedTriangulationBase<dim, spacedim> *>(
+            &*this->tria) == nullptr)
+        this->block_info_object.initialize(static_cast<T &>(*this),
+                                           false,
+                                           true);
+    }
+}
+
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::distribute_mg_dofs()
+{
+  AssertThrow(is_hp_dof_handler == false, ExcNotImplemented());
+
+  Assert(
+    this->levels.size() > 0,
+    ExcMessage(
+      "Distribute active DoFs using distribute_dofs() before calling distribute_mg_dofs()."));
+
+  Assert(
+    ((this->tria->get_mesh_smoothing() &
+      Triangulation<dim, spacedim>::limit_level_difference_at_vertices) !=
+     Triangulation<dim, spacedim>::none),
+    ExcMessage(
+      "The mesh smoothing requirement 'limit_level_difference_at_vertices' has to be set for using multigrid!"));
+
+  this->clear_mg_space();
+
+  internal::DoFHandlerImplementation::Implementation::reserve_space_mg(*this);
+  this->mg_number_cache = this->policy->distribute_mg_dofs();
+
+  // initialize the block info object
+  // only if this is a sequential
+  // triangulation. it doesn't work
+  // correctly yet if it is parallel
+  if (dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
+        &*this->tria) == nullptr)
+    this->block_info_object.initialize(static_cast<T &>(*this), true, false);
 }
 
 
