@@ -285,8 +285,8 @@ public:
   renumber_dofs(const unsigned int                          level,
                 const std::vector<types::global_dof_index> &new_numbers);
 
-  virtual unsigned int
-  max_couplings_between_dofs() const = 0;
+  unsigned int
+  max_couplings_between_dofs() const;
 
   unsigned int
   max_couplings_between_boundary_dofs() const;
@@ -754,23 +754,160 @@ namespace internal
   {
     struct Implementation
     {
-      template <int spacedim>
+      template <int spacedim, typename T>
       static unsigned int
       max_couplings_between_dofs(
-        const DoFHandlerBase<1, spacedim, DoFHandler<1, spacedim>>
-          &dof_handler);
+        const DoFHandlerBase<1, spacedim, T> &dof_handler)
+      {
+        return std::min(static_cast<types::global_dof_index>(
+                          3 * dof_handler.get_fe().dofs_per_vertex +
+                          2 * dof_handler.get_fe().dofs_per_line),
+                        dof_handler.n_dofs());
+      }
 
-      template <int spacedim>
+      template <int spacedim, typename T>
       static unsigned int
       max_couplings_between_dofs(
-        const DoFHandlerBase<2, spacedim, DoFHandler<2, spacedim>>
-          &dof_handler);
+        const DoFHandlerBase<2, spacedim, T> &dof_handler)
+      {
+        // get these numbers by drawing pictures
+        // and counting...
+        // example:
+        //   |     |     |
+        // --x-----x--x--X--
+        //   |     |  |  |
+        //   |     x--x--x
+        //   |     |  |  |
+        // --x--x--*--x--x--
+        //   |  |  |     |
+        //   x--x--x     |
+        //   |  |  |     |
+        // --X--x--x-----x--
+        //   |     |     |
+        // x = vertices connected with center vertex *;
+        //   = total of 19
+        // (the X vertices are connected with * if
+        // the vertices adjacent to X are hanging
+        // nodes)
+        // count lines -> 28 (don't forget to count
+        // mother and children separately!)
+        types::global_dof_index max_couplings;
+        switch (dof_handler.tria->max_adjacent_cells())
+          {
+            case 4:
+              max_couplings = 19 * dof_handler.get_fe().dofs_per_vertex +
+                              28 * dof_handler.get_fe().dofs_per_line +
+                              8 * dof_handler.get_fe().dofs_per_quad;
+              break;
+            case 5:
+              max_couplings = 21 * dof_handler.get_fe().dofs_per_vertex +
+                              31 * dof_handler.get_fe().dofs_per_line +
+                              9 * dof_handler.get_fe().dofs_per_quad;
+              break;
+            case 6:
+              max_couplings = 28 * dof_handler.get_fe().dofs_per_vertex +
+                              42 * dof_handler.get_fe().dofs_per_line +
+                              12 * dof_handler.get_fe().dofs_per_quad;
+              break;
+            case 7:
+              max_couplings = 30 * dof_handler.get_fe().dofs_per_vertex +
+                              45 * dof_handler.get_fe().dofs_per_line +
+                              13 * dof_handler.get_fe().dofs_per_quad;
+              break;
+            case 8:
+              max_couplings = 37 * dof_handler.get_fe().dofs_per_vertex +
+                              56 * dof_handler.get_fe().dofs_per_line +
+                              16 * dof_handler.get_fe().dofs_per_quad;
+              break;
 
-      template <int spacedim>
+            // the following numbers are not based on actual counting but by
+            // extrapolating the number sequences from the previous ones (for
+            // example, for dofs_per_vertex, the sequence above is 19, 21, 28,
+            // 30, 37, and is continued as follows):
+            case 9:
+              max_couplings = 39 * dof_handler.get_fe().dofs_per_vertex +
+                              59 * dof_handler.get_fe().dofs_per_line +
+                              17 * dof_handler.get_fe().dofs_per_quad;
+              break;
+            case 10:
+              max_couplings = 46 * dof_handler.get_fe().dofs_per_vertex +
+                              70 * dof_handler.get_fe().dofs_per_line +
+                              20 * dof_handler.get_fe().dofs_per_quad;
+              break;
+            case 11:
+              max_couplings = 48 * dof_handler.get_fe().dofs_per_vertex +
+                              73 * dof_handler.get_fe().dofs_per_line +
+                              21 * dof_handler.get_fe().dofs_per_quad;
+              break;
+            case 12:
+              max_couplings = 55 * dof_handler.get_fe().dofs_per_vertex +
+                              84 * dof_handler.get_fe().dofs_per_line +
+                              24 * dof_handler.get_fe().dofs_per_quad;
+              break;
+            case 13:
+              max_couplings = 57 * dof_handler.get_fe().dofs_per_vertex +
+                              87 * dof_handler.get_fe().dofs_per_line +
+                              25 * dof_handler.get_fe().dofs_per_quad;
+              break;
+            case 14:
+              max_couplings = 63 * dof_handler.get_fe().dofs_per_vertex +
+                              98 * dof_handler.get_fe().dofs_per_line +
+                              28 * dof_handler.get_fe().dofs_per_quad;
+              break;
+            case 15:
+              max_couplings = 65 * dof_handler.get_fe().dofs_per_vertex +
+                              103 * dof_handler.get_fe().dofs_per_line +
+                              29 * dof_handler.get_fe().dofs_per_quad;
+              break;
+            case 16:
+              max_couplings = 72 * dof_handler.get_fe().dofs_per_vertex +
+                              114 * dof_handler.get_fe().dofs_per_line +
+                              32 * dof_handler.get_fe().dofs_per_quad;
+              break;
+
+            default:
+              Assert(false, ExcNotImplemented());
+              max_couplings = 0;
+          }
+        return std::min(max_couplings, dof_handler.n_dofs());
+      }
+
+      template <int spacedim, typename T>
       static unsigned int
       max_couplings_between_dofs(
-        const DoFHandlerBase<3, spacedim, DoFHandler<3, spacedim>>
-          &dof_handler);
+        const DoFHandlerBase<3, spacedim, T> &dof_handler)
+      {
+        // TODO:[?] Invent significantly better estimates than the ones in this
+        // function
+
+        // doing the same thing here is a
+        // rather complicated thing, compared
+        // to the 2d case, since it is hard
+        // to draw pictures with several
+        // refined hexahedra :-) so I
+        // presently only give a coarse
+        // estimate for the case that at most
+        // 8 hexes meet at each vertex
+        //
+        // can anyone give better estimate
+        // here?
+        const unsigned int max_adjacent_cells =
+          dof_handler.tria->max_adjacent_cells();
+
+        types::global_dof_index max_couplings;
+        if (max_adjacent_cells <= 8)
+          max_couplings = 7 * 7 * 7 * dof_handler.get_fe().dofs_per_vertex +
+                          7 * 6 * 7 * 3 * dof_handler.get_fe().dofs_per_line +
+                          9 * 4 * 7 * 3 * dof_handler.get_fe().dofs_per_quad +
+                          27 * dof_handler.get_fe().dofs_per_hex;
+        else
+          {
+            Assert(false, ExcNotImplemented());
+            max_couplings = 0;
+          }
+
+        return std::min(max_couplings, dof_handler.n_dofs());
+      }
 
       template <int spacedim>
       static void reserve_space(
@@ -2327,6 +2464,15 @@ DoFHandlerBase<dim, spacedim, T>::load(Archive &ar, const unsigned int)
                     "DoFHandler previously stored (" +
                     policy_name + ")."));
     }
+}
+
+template <int dim, int spacedim, typename T>
+unsigned int
+DoFHandlerBase<dim, spacedim, T>::max_couplings_between_dofs() const
+{
+  Assert(this->fe_collection.size() > 0, ExcNoFESelected());
+  return internal::DoFHandlerImplementation::Implementation::
+    max_couplings_between_dofs(*this);
 }
 
 DEAL_II_NAMESPACE_CLOSE

@@ -142,11 +142,6 @@ namespace hp
     virtual void
     clear() override;
 
-    unsigned int
-    max_couplings_between_dofs() const override;
-
-    DeclException0(ExcNoFESelected);
-
   private:
     void
     clear_space();

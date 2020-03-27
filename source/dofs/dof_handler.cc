@@ -180,16 +180,6 @@ DoFHandler<dim, spacedim>::clear()
 
 
 template <int dim, int spacedim>
-unsigned int
-DoFHandler<dim, spacedim>::max_couplings_between_dofs() const
-{
-  return internal::DoFHandlerImplementation::Implementation::
-    max_couplings_between_dofs(*this);
-}
-
-
-
-template <int dim, int spacedim>
 void
 DoFHandler<dim, spacedim>::clear_space()
 {

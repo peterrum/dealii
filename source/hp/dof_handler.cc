@@ -223,17 +223,6 @@ namespace hp
 
 
   template <int dim, int spacedim>
-  unsigned int
-  DoFHandler<dim, spacedim>::max_couplings_between_dofs() const
-  {
-    Assert(this->fe_collection.size() > 0, ExcNoFESelected());
-    return dealii::internal::hp::DoFHandlerImplementation::Implementation::
-      max_couplings_between_dofs(*this);
-  }
-
-
-
-  template <int dim, int spacedim>
   void
   DoFHandler<dim, spacedim>::clear_space()
   {

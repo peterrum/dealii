@@ -123,9 +123,6 @@ public:
   virtual void
   clear() override;
 
-  unsigned int
-  max_couplings_between_dofs() const override;
-
 private:
   void
   clear_space();
