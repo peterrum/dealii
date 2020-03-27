@@ -2517,6 +2517,171 @@ DoFHandlerBase<dim, spacedim, T>::create_active_fe_table()
 }
 
 
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::renumber_dofs(
+  const std::vector<types::global_dof_index> &new_numbers)
+{
+  if (is_hp_dof_handler)
+    {
+      Assert(this->levels_hp.size() > 0,
+             ExcMessage(
+               "You need to distribute DoFs before you can renumber them."));
+
+      AssertDimension(new_numbers.size(), this->n_locally_owned_dofs());
+
+#ifdef DEBUG
+      // assert that the new indices are
+      // consecutively numbered if we are
+      // working on a single
+      // processor. this doesn't need to
+      // hold in the case of a parallel
+      // mesh since we map the interval
+      // [0...n_dofs()) into itself but
+      // only globally, not on each
+      // processor
+      if (this->n_locally_owned_dofs() == this->n_dofs())
+        {
+          std::vector<types::global_dof_index> tmp(new_numbers);
+          std::sort(tmp.begin(), tmp.end());
+          std::vector<types::global_dof_index>::const_iterator p = tmp.begin();
+          types::global_dof_index                              i = 0;
+          for (; p != tmp.end(); ++p, ++i)
+            Assert(*p == i, ExcNewNumbersNotConsecutive(i));
+        }
+      else
+        for (const auto new_number : new_numbers)
+          Assert(new_number < this->n_dofs(),
+                 ExcMessage(
+                   "New DoF index is not less than the total number of dofs."));
+#endif
+
+      // uncompress the internal storage scheme of dofs on cells so that
+      // we can access dofs in turns. uncompress in parallel, starting
+      // with the most expensive levels (the highest ones)
+      {
+        Threads::TaskGroup<> tg;
+        for (int level = this->levels_hp.size() - 1; level >= 0; --level)
+          tg += Threads::new_task(
+            &dealii::internal::hp::DoFLevel::uncompress_data<dim, spacedim>,
+            *this->levels_hp[level],
+            this->fe_collection);
+        tg.join_all();
+      }
+
+      // do the renumbering
+      this->number_cache = this->policy->renumber_dofs(new_numbers);
+
+      // now re-compress the dof indices
+      {
+        Threads::TaskGroup<> tg;
+        for (int level = this->levels_hp.size() - 1; level >= 0; --level)
+          tg += Threads::new_task(
+            &dealii::internal::hp::DoFLevel::compress_data<dim, spacedim>,
+            *this->levels_hp[level],
+            this->fe_collection);
+        tg.join_all();
+      }
+    }
+  else
+    {
+      Assert(this->levels.size() > 0,
+             ExcMessage(
+               "You need to distribute DoFs before you can renumber them."));
+
+#ifdef DEBUG
+      if (dynamic_cast<const parallel::shared::Triangulation<dim, spacedim> *>(
+            &*this->tria) != nullptr)
+        {
+          Assert(new_numbers.size() == this->n_dofs() ||
+                   new_numbers.size() == this->n_locally_owned_dofs(),
+                 ExcMessage("Incorrect size of the input array."));
+        }
+      else if (dynamic_cast<
+                 const parallel::DistributedTriangulationBase<dim, spacedim> *>(
+                 &*this->tria) != nullptr)
+        {
+          AssertDimension(new_numbers.size(), this->n_locally_owned_dofs());
+        }
+      else
+        {
+          AssertDimension(new_numbers.size(), this->n_dofs());
+        }
+
+      // assert that the new indices are
+      // consecutively numbered if we are
+      // working on a single
+      // processor. this doesn't need to
+      // hold in the case of a parallel
+      // mesh since we map the interval
+      // [0...n_dofs()) into itself but
+      // only globally, not on each
+      // processor
+      if (this->n_locally_owned_dofs() == this->n_dofs())
+        {
+          std::vector<types::global_dof_index> tmp(new_numbers);
+          std::sort(tmp.begin(), tmp.end());
+          std::vector<types::global_dof_index>::const_iterator p = tmp.begin();
+          types::global_dof_index                              i = 0;
+          for (; p != tmp.end(); ++p, ++i)
+            Assert(*p == i, ExcNewNumbersNotConsecutive(i));
+        }
+      else
+        for (const auto new_number : new_numbers)
+          Assert(new_number < this->n_dofs(),
+                 ExcMessage(
+                   "New DoF index is not less than the total number of dofs."));
+#endif
+
+      this->number_cache = this->policy->renumber_dofs(new_numbers);
+    }
+}
+
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::renumber_dofs(
+  const unsigned int                          level,
+  const std::vector<types::global_dof_index> &new_numbers)
+{
+  AssertThrow(is_hp_dof_handler == false, ExcNotImplemented());
+
+  Assert(
+    this->mg_levels.size() > 0 && this->levels.size() > 0,
+    ExcMessage(
+      "You need to distribute active and level DoFs before you can renumber level DoFs."));
+  AssertIndexRange(level, this->get_triangulation().n_global_levels());
+  AssertDimension(new_numbers.size(),
+                  this->locally_owned_mg_dofs(level).n_elements());
+
+#ifdef DEBUG
+  // assert that the new indices are consecutively numbered if we are working
+  // on a single processor. this doesn't need to hold in the case of a
+  // parallel mesh since we map the interval [0...n_dofs(level)) into itself
+  // but only globally, not on each processor
+  if (this->n_locally_owned_dofs() == this->n_dofs())
+    {
+      std::vector<types::global_dof_index> tmp(new_numbers);
+      std::sort(tmp.begin(), tmp.end());
+      std::vector<types::global_dof_index>::const_iterator p = tmp.begin();
+      types::global_dof_index                              i = 0;
+      for (; p != tmp.end(); ++p, ++i)
+        Assert(*p == i, ExcNewNumbersNotConsecutive(i));
+    }
+  else
+    for (const auto new_number : new_numbers)
+      Assert(new_number < this->n_dofs(level),
+             ExcMessage(
+               "New DoF index is not less than the total number of dofs."));
+#endif
+
+  this->mg_number_cache[level] =
+    this->policy->renumber_mg_dofs(level, new_numbers);
+}
+
+
 DEAL_II_NAMESPACE_CLOSE
 
 #endif

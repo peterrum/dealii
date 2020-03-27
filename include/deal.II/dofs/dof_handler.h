@@ -123,15 +123,6 @@ public:
   virtual void
   clear() override;
 
-  void
-  renumber_dofs(
-    const std::vector<types::global_dof_index> &new_numbers) override;
-
-  void
-  renumber_dofs(
-    const unsigned int                          level,
-    const std::vector<types::global_dof_index> &new_numbers) override;
-
   unsigned int
   max_couplings_between_dofs() const override;
 
@@ -144,23 +135,6 @@ public:
   load(Archive &ar, const unsigned int version);
 
   BOOST_SERIALIZATION_SPLIT_MEMBER()
-
-  DeclException0(ExcGridsDoNotMatch);
-  DeclException0(ExcInvalidBoundaryIndicator);
-  DeclException1(ExcNewNumbersNotConsecutive,
-                 types::global_dof_index,
-                 << "The given list of new dof indices is not consecutive: "
-                 << "the index " << arg1 << " does not exist.");
-  DeclException1(ExcInvalidLevel,
-                 int,
-                 << "The given level " << arg1
-                 << " is not in the valid range!");
-  DeclException0(ExcFacesHaveNoLevel);
-  DeclException1(ExcEmptyLevel,
-                 int,
-                 << "You tried to do something on level " << arg1
-                 << ", but this level is empty.");
-
 
 private:
   void

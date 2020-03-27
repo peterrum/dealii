@@ -278,12 +278,12 @@ public:
   virtual void
   clear() = 0;
 
-  virtual void
-  renumber_dofs(const std::vector<types::global_dof_index> &new_numbers) = 0;
+  void
+  renumber_dofs(const std::vector<types::global_dof_index> &new_numbers);
 
-  virtual void
+  void
   renumber_dofs(const unsigned int                          level,
-                const std::vector<types::global_dof_index> &new_numbers) = 0;
+                const std::vector<types::global_dof_index> &new_numbers);
 
   virtual unsigned int
   max_couplings_between_dofs() const = 0;
@@ -425,6 +425,10 @@ public:
                  int,
                  << "The given level " << arg1
                  << " is not in the valid range!");
+  DeclException1(ExcNewNumbersNotConsecutive,
+                 types::global_dof_index,
+                 << "The given list of new dof indices is not consecutive: "
+                 << "the index " << arg1 << " does not exist.");
   DeclException2(ExcInvalidFEIndex,
                  int,
                  int,

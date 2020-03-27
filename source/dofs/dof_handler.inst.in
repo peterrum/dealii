@@ -37,13 +37,42 @@ for (deal_II_dimension : DIMENSIONS)
 
 
     template class DoFHandler<deal_II_dimension>;
+    template void
+    DoFHandlerBase<deal_II_dimension,
+                   deal_II_dimension,
+                   DoFHandler<deal_II_dimension, deal_II_dimension>>::
+      renumber_dofs(const std::vector<types::global_dof_index> &new_numbers);
+    template void
+    DoFHandlerBase<deal_II_dimension,
+                   deal_II_dimension,
+                   DoFHandler<deal_II_dimension, deal_II_dimension>>::
+      renumber_dofs(const unsigned int                          level,
+                    const std::vector<types::global_dof_index> &new_numbers);
 
 #if deal_II_dimension < 3
     template class DoFHandler<deal_II_dimension, deal_II_dimension + 1>;
+    template void
+    DoFHandlerBase<deal_II_dimension,
+                   deal_II_dimension + 1,
+                   DoFHandler<deal_II_dimension, deal_II_dimension + 1>>::
+      renumber_dofs(const std::vector<types::global_dof_index> &new_numbers);
+    template void
+    DoFHandlerBase<deal_II_dimension,
+                   deal_II_dimension + 1,
+                   DoFHandler<deal_II_dimension, deal_II_dimension + 1>>::
+      renumber_dofs(const unsigned int                          level,
+                    const std::vector<types::global_dof_index> &new_numbers);
 #endif
 
 #if deal_II_dimension == 3
     template class DoFHandler<1, deal_II_dimension>;
+    template void
+    DoFHandlerBase<1, deal_II_dimension, DoFHandler<1, deal_II_dimension>>::
+      renumber_dofs(const std::vector<types::global_dof_index> &new_numbers);
+    template void
+    DoFHandlerBase<1, deal_II_dimension, DoFHandler<1, deal_II_dimension>>::
+      renumber_dofs(const unsigned int                          level,
+                    const std::vector<types::global_dof_index> &new_numbers);
 
     template types::global_dof_index
     DoFHandlerBase<1, 3, DoFHandler<1, 3>>::get_dof_index<1>(

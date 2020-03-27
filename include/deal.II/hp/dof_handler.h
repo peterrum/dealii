@@ -142,15 +142,6 @@ namespace hp
     virtual void
     clear() override;
 
-    void
-    renumber_dofs(
-      const std::vector<types::global_dof_index> &new_numbers) override;
-
-    void
-    renumber_dofs(
-      const unsigned int                          level,
-      const std::vector<types::global_dof_index> &new_numbers) override;
-
     unsigned int
     max_couplings_between_dofs() const override;
 
@@ -165,32 +156,6 @@ namespace hp
     BOOST_SERIALIZATION_SPLIT_MEMBER()
 
     DeclException0(ExcNoFESelected);
-    DeclException0(ExcGridsDoNotMatch);
-    DeclException0(ExcInvalidBoundaryIndicator);
-    DeclException1(ExcMatrixHasWrongSize,
-                   int,
-                   << "The matrix has the wrong dimension " << arg1);
-    DeclException0(ExcFunctionNotUseful);
-    DeclException1(ExcNewNumbersNotConsecutive,
-                   types::global_dof_index,
-                   << "The given list of new dof indices is not consecutive: "
-                   << "the index " << arg1 << " does not exist.");
-    DeclException2(ExcInvalidFEIndex,
-                   int,
-                   int,
-                   << "The mesh contains a cell with an active_fe_index of "
-                   << arg1 << ", but the finite element collection only has "
-                   << arg2 << " elements");
-    DeclException1(ExcInvalidLevel,
-                   int,
-                   << "The given level " << arg1
-                   << " is not in the valid range!");
-    DeclException0(ExcFacesHaveNoLevel);
-    DeclException1(ExcEmptyLevel,
-                   int,
-                   << "You tried to do something on level " << arg1
-                   << ", but this level is empty.");
-
 
   private:
     void
