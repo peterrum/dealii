@@ -106,17 +106,10 @@ namespace hp
     using Base = DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>>;
 
   public:
-    static const unsigned int dimension = dim;
-
-    static const unsigned int space_dimension = spacedim;
-
-    static const bool is_hp_dof_handler = true;
-
-    DEAL_II_DEPRECATED
-    static const types::global_dof_index invalid_dof_index =
-      numbers::invalid_dof_index;
-
-    static const unsigned int default_fe_index = numbers::invalid_unsigned_int;
+    static const unsigned int dimension         = Base::dimension;
+    static const unsigned int space_dimension   = Base::space_dimension;
+    static const bool         is_hp_dof_handler = true; // TODO
+    static const unsigned int default_fe_index  = Base::default_fe_index;
 
 
     DoFHandler();
@@ -158,31 +151,6 @@ namespace hp
   };
 
 } // namespace hp
-
-
-#ifndef DOXYGEN
-
-/* ----------------------- Inline functions ----------------------------------
- */
-
-namespace internal
-{
-  /**
-   * Return a string representing the dynamic type of the given argument.
-   * This is basically the same what typeid(...).name() does, but it turns out
-   * this is broken on Intel 13+.
-   *
-   * Defined in source/dofs/dof_handler.cc.
-   */
-  template <int dim, int spacedim>
-  std::string
-  policy_to_string(const dealii::internal::DoFHandlerImplementation::Policy::
-                     PolicyBase<dim, spacedim> &policy);
-} // namespace internal
-
-
-#endif
-
 
 DEAL_II_NAMESPACE_CLOSE
 

@@ -193,11 +193,8 @@ public:
 
   static const bool is_hp_dof_handler = T::is_hp_dof_handler;
 
-  DEAL_II_DEPRECATED
-  static const types::global_dof_index invalid_dof_index =
-    numbers::invalid_dof_index;
-
-  static const unsigned int default_fe_index = 0;
+  static const unsigned int default_fe_index =
+    is_hp_dof_handler ? numbers::invalid_unsigned_int : 0;
 
   DoFHandlerBase()
     : tria(nullptr, typeid(*this).name())
