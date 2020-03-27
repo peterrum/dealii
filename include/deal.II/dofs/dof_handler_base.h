@@ -191,7 +191,7 @@ public:
 
   static const unsigned int space_dimension = spacedim;
 
-  static const bool is_hp_dof_handler = false;
+  static const bool is_hp_dof_handler = T::is_hp_dof_handler;
 
   DEAL_II_DEPRECATED
   static const types::global_dof_index invalid_dof_index =
@@ -211,7 +211,24 @@ public:
     , faces(nullptr)
     , mg_faces(nullptr)
     , faces_hp(nullptr)
-  {}
+  {
+    if (is_hp_dof_handler)
+      {
+        this->setup_policy_and_listeners();
+        this->create_active_fe_table();
+      }
+    else
+      {
+        this->setup_policy();
+      }
+  }
+
+  // DoFHandlerBase(const DoFHandlerBase &) = delete;
+  //
+  // DoFHandlerBase &
+  // operator=(const DoFHandlerBase &) = delete;
+
+  virtual ~DoFHandlerBase() = default;
 
   void
   initialize(const Triangulation<dim, spacedim> &tria,
@@ -577,11 +594,10 @@ namespace internal
        */
       struct Implementation
       {
-        template <int dim, int spacedim>
+        template <int dim, int spacedim, typename T>
         static void
         ensure_absence_of_future_fe_indices(
-          DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
-            &dof_handler);
+          DoFHandlerBase<dim, spacedim, T> &dof_handler);
 
 
 
@@ -671,24 +687,28 @@ namespace internal
         template <int dim, int spacedim>
         static void
         communicate_active_fe_indices(
+          DoFHandlerBase<dim, spacedim, dealii::DoFHandler<dim, spacedim>>
+            &dof_handler);
+
+        template <int dim, int spacedim>
+        static void
+        communicate_active_fe_indices(
           DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
             &dof_handler);
 
 
 
-        template <int dim, int spacedim>
+        template <int dim, int spacedim, typename T>
         static void
         collect_fe_indices_on_cells_to_be_refined(
-          DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
-            &dof_handler);
+          DoFHandlerBase<dim, spacedim, T> &dof_handler);
 
 
 
-        template <int dim, int spacedim>
+        template <int dim, int spacedim, typename T>
         static void
         distribute_fe_indices_on_refined_cells(
-          DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
-            &dof_handler);
+          DoFHandlerBase<dim, spacedim, T> &dof_handler);
 
 
         template <int dim, int spacedim>

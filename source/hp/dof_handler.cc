@@ -96,11 +96,7 @@ namespace hp
   DoFHandler<dim, spacedim>::DoFHandler(
     const Triangulation<dim, spacedim> &tria)
     : Base(tria)
-  {
-    this->setup_policy_and_listeners();
-
-    this->create_active_fe_table();
-  }
+  {}
 
 
 

@@ -78,9 +78,7 @@ DoFHandler<dim, spacedim>::DoFHandler()
 template <int dim, int spacedim>
 DoFHandler<dim, spacedim>::DoFHandler(const Triangulation<dim, spacedim> &tria)
   : Base(tria)
-{
-  this->setup_policy();
-}
+{}
 
 
 template <int dim, int spacedim>

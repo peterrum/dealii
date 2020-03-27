@@ -44,11 +44,10 @@ namespace internal
        * triangulation, since they are only available locally and will not be
        * communicated.
        */
-      template <int dim, int spacedim>
+      template <int dim, int spacedim, typename T>
       void
       Implementation::ensure_absence_of_future_fe_indices(
-        DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
-          &dof_handler)
+        DoFHandlerBase<dim, spacedim, T> &dof_handler)
       {
         (void)dof_handler;
         for (const auto &cell : dof_handler.active_cell_iterators())
@@ -945,6 +944,19 @@ namespace internal
 
 
 
+      template <int dim, int spacedim>
+      void
+      Implementation::communicate_active_fe_indices(
+        DoFHandlerBase<dim, spacedim, dealii::DoFHandler<dim, spacedim>>
+          &dof_handler)
+      {
+        // should only be entered for hp
+        AssertThrow(false, ExcNotImplemented());
+        (void)dof_handler;
+      }
+
+
+
       /**
        * Given a hp::DoFHandler object, make sure that the active_fe_indices
        * that a user has set for locally owned cells are communicated to all
@@ -1070,11 +1082,10 @@ namespace internal
        * active_fe_indices will be determined by the corresponding flags that
        * have been set on the relevant cells.
        */
-      template <int dim, int spacedim>
+      template <int dim, int spacedim, typename T>
       void
       Implementation::collect_fe_indices_on_cells_to_be_refined(
-        DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
-          &dof_handler)
+        DoFHandlerBase<dim, spacedim, T> &dof_handler)
       {
         const auto &fe_transfer = dof_handler.active_fe_index_transfer;
 
@@ -1153,11 +1164,10 @@ namespace internal
        * Distribute active finite element indices that have been previously
        * prepared in collect_fe_indices_on_cells_to_be_refined().
        */
-      template <int dim, int spacedim>
+      template <int dim, int spacedim, typename T>
       void
       Implementation::distribute_fe_indices_on_refined_cells(
-        DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
-          &dof_handler)
+        DoFHandlerBase<dim, spacedim, T> &dof_handler)
       {
         const auto &fe_transfer = dof_handler.active_fe_index_transfer;
 
