@@ -228,7 +228,7 @@ public:
   // DoFHandlerBase &
   // operator=(const DoFHandlerBase &) = delete;
 
-  virtual ~DoFHandlerBase() = default;
+  virtual ~DoFHandlerBase();
 
   void
   initialize(const Triangulation<dim, spacedim> &tria,
@@ -275,8 +275,8 @@ public:
   virtual void
   initialize_local_block_info() = 0;
 
-  virtual void
-  clear() = 0;
+  void
+  clear();
 
   void
   renumber_dofs(const std::vector<types::global_dof_index> &new_numbers);
@@ -462,6 +462,10 @@ protected:
 
   std::vector<dealii::internal::DoFHandlerImplementation::NumberCache>
     mg_number_cache;
+
+
+  void
+  clear_space();
 
 
   class MGVertexDoFs
@@ -2474,6 +2478,50 @@ DoFHandlerBase<dim, spacedim, T>::max_couplings_between_dofs() const
   return internal::DoFHandlerImplementation::Implementation::
     max_couplings_between_dofs(*this);
 }
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::clear_space()
+{
+  if (is_hp_dof_handler)
+    {
+      this->levels_hp.clear();
+      this->faces_hp.reset();
+
+      this->vertex_dofs        = std::vector<types::global_dof_index>();
+      this->vertex_dof_offsets = std::vector<unsigned int>();
+    }
+  else
+    {
+      this->levels.clear();
+      this->faces.reset();
+
+      std::vector<types::global_dof_index> tmp;
+      std::swap(this->vertex_dofs, tmp);
+
+      this->number_cache.clear();
+    }
+}
+
+
+template <int dim, int spacedim, typename T>
+void
+DoFHandlerBase<dim, spacedim, T>::clear()
+{
+  if (is_hp_dof_handler)
+    {
+      // release memory
+      this->clear_space();
+    }
+  else
+    {
+      // release memory
+      this->clear_space();
+      this->clear_mg_space();
+    }
+}
+
+
 
 DEAL_II_NAMESPACE_CLOSE
 

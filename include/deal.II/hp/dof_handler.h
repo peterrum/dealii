@@ -125,8 +125,6 @@ namespace hp
 
     DoFHandler(const DoFHandler &) = delete;
 
-    virtual ~DoFHandler() override;
-
     DoFHandler &
     operator=(const DoFHandler &) = delete;
 
@@ -139,13 +137,7 @@ namespace hp
     void
     initialize_local_block_info() override;
 
-    virtual void
-    clear() override;
-
   private:
-    void
-    clear_space();
-
     // Make accessor objects friends.
     template <int, class, bool>
     friend class dealii::DoFAccessor;

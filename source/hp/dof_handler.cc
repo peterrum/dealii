@@ -99,24 +99,6 @@ namespace hp
   {}
 
 
-
-  template <int dim, int spacedim>
-  DoFHandler<dim, spacedim>::~DoFHandler()
-  {
-    // unsubscribe as a listener to refinement of the underlying
-    // triangulation
-    for (auto &connection : this->tria_listeners)
-      connection.disconnect();
-    this->tria_listeners.clear();
-
-    // ...and release allocated memory
-    // virtual functions called in constructors and destructors never use the
-    // override in a derived class
-    // for clarity be explicit on which function is called
-    DoFHandler<dim, spacedim>::clear();
-  }
-
-
   //------------------------------------------------------------------
 
 
@@ -208,29 +190,6 @@ namespace hp
     // finally restore the user flags
     const_cast<Triangulation<dim, spacedim> &>(*this->tria)
       .load_user_flags(user_flags);
-  }
-
-
-
-  template <int dim, int spacedim>
-  void
-  DoFHandler<dim, spacedim>::clear()
-  {
-    // release memory
-    clear_space();
-  }
-
-
-
-  template <int dim, int spacedim>
-  void
-  DoFHandler<dim, spacedim>::clear_space()
-  {
-    this->levels_hp.clear();
-    this->faces_hp.reset();
-
-    this->vertex_dofs        = std::vector<types::global_dof_index>();
-    this->vertex_dof_offsets = std::vector<unsigned int>();
   }
 } // namespace hp
 

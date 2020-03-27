@@ -2522,6 +2522,38 @@ DoFHandlerBase<dim, spacedim, T>::renumber_dofs(
     this->policy->renumber_mg_dofs(level, new_numbers);
 }
 
+template <int dim, int spacedim, typename T>
+DoFHandlerBase<dim, spacedim, T>::~DoFHandlerBase()
+{
+  if (is_hp_dof_handler)
+    {
+      // unsubscribe as a listener to refinement of the underlying
+      // triangulation
+      for (auto &connection : this->tria_listeners)
+        connection.disconnect();
+      this->tria_listeners.clear();
+
+      // ...and release allocated memory
+      // virtual functions called in constructors and destructors never use the
+      // override in a derived class
+      // for clarity be explicit on which function is called
+      DoFHandlerBase<dim, spacedim, T>::clear();
+    }
+  else
+    {
+      // release allocated memory
+      // virtual functions called in constructors and destructors never use the
+      // override in a derived class
+      // for clarity be explicit on which function is called
+      DoFHandlerBase<dim, spacedim, T>::clear();
+
+      // also release the policy. this needs to happen before the
+      // current object disappears because the policy objects
+      // store references to the DoFhandler object they work on
+      this->policy.reset();
+    }
+}
+
 
 DEAL_II_NAMESPACE_CLOSE
 

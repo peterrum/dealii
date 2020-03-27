@@ -81,22 +81,6 @@ DoFHandler<dim, spacedim>::DoFHandler(const Triangulation<dim, spacedim> &tria)
 {}
 
 
-template <int dim, int spacedim>
-DoFHandler<dim, spacedim>::~DoFHandler()
-{
-  // release allocated memory
-  // virtual functions called in constructors and destructors never use the
-  // override in a derived class
-  // for clarity be explicit on which function is called
-  DoFHandler<dim, spacedim>::clear();
-
-  // also release the policy. this needs to happen before the
-  // current object disappears because the policy objects
-  // store references to the DoFhandler object they work on
-  this->policy.reset();
-}
-
-
 
 template <int dim, int spacedim>
 void
@@ -113,7 +97,7 @@ DoFHandler<dim, spacedim>::distribute_dofs_impl(
   // invalid_dof_index). We need to allocate the space because we will want to
   // be able to query the dof_indices on each cell, and simply be told that we
   // don't know them on some cell (i.e. get back invalid_dof_index)
-  clear_space();
+  this->clear_space();
   internal::DoFHandlerImplementation::Implementation::reserve_space(*this);
 
   // hand things off to the policy
@@ -164,32 +148,6 @@ void
 DoFHandler<dim, spacedim>::initialize_local_block_info()
 {
   this->block_info_object.initialize_local(*this);
-}
-
-
-
-template <int dim, int spacedim>
-void
-DoFHandler<dim, spacedim>::clear()
-{
-  // release memory
-  clear_space();
-  this->clear_mg_space();
-}
-
-
-
-template <int dim, int spacedim>
-void
-DoFHandler<dim, spacedim>::clear_space()
-{
-  this->levels.clear();
-  this->faces.reset();
-
-  std::vector<types::global_dof_index> tmp;
-  std::swap(this->vertex_dofs, tmp);
-
-  this->number_cache.clear();
 }
 
 

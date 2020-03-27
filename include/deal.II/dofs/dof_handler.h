@@ -106,8 +106,6 @@ public:
 
   DoFHandler(const DoFHandler &) = delete;
 
-  virtual ~DoFHandler() override;
-
   DoFHandler &
   operator=(const DoFHandler &) = delete;
 
@@ -120,13 +118,7 @@ public:
   void
   initialize_local_block_info() override;
 
-  virtual void
-  clear() override;
-
 private:
-  void
-  clear_space();
-
   // Make accessor objects friends.
   template <int, class, bool>
   friend class DoFAccessor;
