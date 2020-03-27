@@ -3935,7 +3935,7 @@ private:
 
   friend struct dealii::internal::TriaAccessorImplementation::Implementation;
 
-  friend class hp::DoFHandler<dim, spacedim>;
+  friend hp::DoFHandler<dim, spacedim>;
 
   friend struct dealii::internal::TriangulationImplementation::Implementation;
 

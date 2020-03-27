@@ -48,50 +48,12 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-// Forward declarations
-#ifndef DOXYGEN
-template <int dim, int spacedim>
-class FiniteElement;
-template <int dim, int spacedim>
-class Triangulation;
-
-namespace internal
-{
-  namespace DoFHandlerImplementation
-  {
-    struct Implementation;
-
-    namespace Policy
-    {
-      template <int dim, int spacedim>
-      class PolicyBase;
-      struct Implementation;
-    } // namespace Policy
-  }   // namespace DoFHandlerImplementation
-
-  namespace DoFAccessorImplementation
-  {
-    struct Implementation;
-  }
-
-  namespace DoFCellAccessorImplementation
-  {
-    struct Implementation;
-  }
-} // namespace internal
-#endif
-
 template <int dim, int spacedim = dim>
 class DoFHandler
   : public DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>>
 {
-  using Base = DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>>;
-
 public:
-  static const unsigned int dimension         = Base::dimension;
-  static const unsigned int space_dimension   = Base::space_dimension;
-  static const bool         is_hp_dof_handler = false; // TODO
-  static const unsigned int default_fe_index  = Base::default_fe_index;
+  static const bool is_hp_dof_handler = false;
 
   DoFHandler();
 
@@ -101,19 +63,6 @@ public:
 
   DoFHandler &
   operator=(const DoFHandler &) = delete;
-
-private:
-  // Make accessor objects friends.
-  template <int, class, bool>
-  friend class DoFAccessor;
-  template <class, bool>
-  friend class DoFCellAccessor;
-  friend struct dealii::internal::DoFAccessorImplementation::Implementation;
-  friend struct dealii::internal::DoFCellAccessorImplementation::Implementation;
-
-  friend struct dealii::internal::DoFHandlerImplementation::Implementation;
-  friend struct dealii::internal::DoFHandlerImplementation::Policy::
-    Implementation;
 };
 
 DEAL_II_NAMESPACE_CLOSE

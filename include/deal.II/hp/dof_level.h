@@ -374,7 +374,7 @@ namespace internal
       // class that needs to create these data structures.
       template <int, int>
       friend class dealii::hp::DoFHandler;
-      template <int, int, typename T>
+      template <int, int, bool is_hp>
       friend class dealii::DoFHandlerBase;
       friend struct dealii::internal::hp::DoFHandlerImplementation::
         Implementation;

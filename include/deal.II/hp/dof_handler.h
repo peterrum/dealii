@@ -43,74 +43,14 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-// Forward declarations
-#ifndef DOXYGEN
-template <int dim, int spacedim>
-class Triangulation;
-
-namespace parallel
-{
-  namespace distributed
-  {
-    template <int dim, int spacedim, typename VectorType>
-    class CellDataTransfer;
-  }
-} // namespace parallel
-
-namespace internal
-{
-  namespace DoFHandlerImplementation
-  {
-    struct Implementation;
-
-    namespace Policy
-    {
-      template <int dim, int spacedim>
-      class PolicyBase;
-      struct Implementation;
-    } // namespace Policy
-  }   // namespace DoFHandlerImplementation
-
-  namespace hp
-  {
-    class DoFLevel;
-
-    namespace DoFHandlerImplementation
-    {
-      struct Implementation;
-    }
-  } // namespace hp
-} // namespace internal
-
-namespace internal
-{
-  namespace DoFAccessorImplementation
-  {
-    struct Implementation;
-  }
-
-  namespace DoFCellAccessorImplementation
-  {
-    struct Implementation;
-  }
-} // namespace internal
-#endif
-
-
 namespace hp
 {
   template <int dim, int spacedim = dim>
   class DoFHandler
     : public DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>>
   {
-    using Base = DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>>;
-
   public:
-    static const unsigned int dimension         = Base::dimension;
-    static const unsigned int space_dimension   = Base::space_dimension;
-    static const bool         is_hp_dof_handler = true; // TODO
-    static const unsigned int default_fe_index  = Base::default_fe_index;
-
+    static const bool is_hp_dof_handler = true;
 
     DoFHandler();
 
@@ -120,25 +60,6 @@ namespace hp
 
     DoFHandler &
     operator=(const DoFHandler &) = delete;
-
-  private:
-    // Make accessor objects friends.
-    template <int, class, bool>
-    friend class dealii::DoFAccessor;
-    template <class, bool>
-    friend class dealii::DoFCellAccessor;
-    friend struct dealii::internal::DoFAccessorImplementation::Implementation;
-    friend struct dealii::internal::DoFCellAccessorImplementation::
-      Implementation;
-
-    // Likewise for DoFLevel objects since they need to access the vertex dofs
-    // in the functions that set and retrieve vertex dof indices.
-    template <int>
-    friend class dealii::internal::hp::DoFIndicesOnFacesOrEdges;
-    friend struct dealii::internal::hp::DoFHandlerImplementation::
-      Implementation;
-    friend struct dealii::internal::DoFHandlerImplementation::Policy::
-      Implementation;
   };
 
 } // namespace hp

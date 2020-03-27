@@ -14,221 +14,30 @@
 // ---------------------------------------------------------------------
 
 
-for (deal_II_dimension : DIMENSIONS)
+for (D1 : DIMENSIONS; D2 : DIMENSIONS)
   {
-    namespace internal
-    \{
-      template const types::global_dof_index *
-      dummy<deal_II_dimension, deal_II_dimension>();
-      template std::string
-      policy_to_string(
-        const dealii::internal::DoFHandlerImplementation::Policy::
-          PolicyBase<deal_II_dimension, deal_II_dimension> &);
-
-#if deal_II_dimension < 3
-      template const types::global_dof_index *
-      dummy<deal_II_dimension, deal_II_dimension + 1>();
-      template std::string
-      policy_to_string(
-        const dealii::internal::DoFHandlerImplementation::Policy::
-          PolicyBase<deal_II_dimension, deal_II_dimension + 1> &);
+#if D1 <= D2
+    template class DoFHandler<D1, D2>;
+    template class DoFHandlerBase<D1, D2, DoFHandler<D1, D2>>;
 #endif
-    \}
+  }
 
 
-    template class DoFHandler<deal_II_dimension>;
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension,
-                   DoFHandler<deal_II_dimension, deal_II_dimension>>::
-      renumber_dofs(const std::vector<types::global_dof_index> &new_numbers);
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension,
-                   DoFHandler<deal_II_dimension, deal_II_dimension>>::
-      renumber_dofs(const unsigned int                          level,
-                    const std::vector<types::global_dof_index> &new_numbers);
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension,
-                   DoFHandler<deal_II_dimension, deal_II_dimension>>::
-      distribute_dofs(
-        const hp::FECollection<deal_II_dimension, deal_II_dimension> &ff);
-    template void DoFHandlerBase<
-      deal_II_dimension,
-      deal_II_dimension,
-      DoFHandler<deal_II_dimension, deal_II_dimension>>::distribute_mg_dofs();
-
-#if deal_II_dimension < 3
-    template class DoFHandler<deal_II_dimension, deal_II_dimension + 1>;
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension + 1,
-                   DoFHandler<deal_II_dimension, deal_II_dimension + 1>>::
-      renumber_dofs(const std::vector<types::global_dof_index> &new_numbers);
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension + 1,
-                   DoFHandler<deal_II_dimension, deal_II_dimension + 1>>::
-      renumber_dofs(const unsigned int                          level,
-                    const std::vector<types::global_dof_index> &new_numbers);
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension + 1,
-                   DoFHandler<deal_II_dimension, deal_II_dimension + 1>>::
-      distribute_dofs(
-        const hp::FECollection<deal_II_dimension, deal_II_dimension + 1> &ff);
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension + 1,
-                   DoFHandler<deal_II_dimension,
-                              deal_II_dimension + 1>>::distribute_mg_dofs();
-#endif
-
-#if deal_II_dimension == 3
-    template class DoFHandler<1, deal_II_dimension>;
-    template void
-    DoFHandlerBase<1, deal_II_dimension, DoFHandler<1, deal_II_dimension>>::
-      renumber_dofs(const std::vector<types::global_dof_index> &new_numbers);
-    template void
-    DoFHandlerBase<1, deal_II_dimension, DoFHandler<1, deal_II_dimension>>::
-      renumber_dofs(const unsigned int                          level,
-                    const std::vector<types::global_dof_index> &new_numbers);
-    template void
-    DoFHandlerBase<1, deal_II_dimension, DoFHandler<1, deal_II_dimension>>::
-      distribute_dofs(const hp::FECollection<1, deal_II_dimension> &ff);
-    template void
-    DoFHandlerBase<1, deal_II_dimension, DoFHandler<1, deal_II_dimension>>::
-      distribute_mg_dofs();
-
+for (D1 : DIMENSIONS; D2 : DIMENSIONS; D3 : DIMENSIONS)
+  {
+#if D3 <= D1 && D1 <= D2
     template types::global_dof_index
-    DoFHandlerBase<1, 3, DoFHandler<1, 3>>::get_dof_index<1>(
+    DoFHandlerBase<D1, D2, DoFHandler<D1, D2>>::get_dof_index<D3>(
       const unsigned int obj_level,
       const unsigned int obj_index,
       const unsigned int fe_index,
       const unsigned int local_index) const;
-#endif
 
-    template types::global_dof_index
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension,
-                   DoFHandler<deal_II_dimension, deal_II_dimension>>::
-      get_dof_index<1>(const unsigned int obj_level,
-                       const unsigned int obj_index,
-                       const unsigned int fe_index,
-                       const unsigned int local_index) const;
-
-#if deal_II_dimension < 3
-    template types::global_dof_index
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension + 1,
-                   DoFHandler<deal_II_dimension, deal_II_dimension + 1>>::
-      get_dof_index<1>(const unsigned int obj_level,
-                       const unsigned int obj_index,
-                       const unsigned int fe_index,
-                       const unsigned int local_index) const;
-#endif
-
-#if deal_II_dimension >= 2
-    template types::global_dof_index
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension,
-                   DoFHandler<deal_II_dimension, deal_II_dimension>>::
-      get_dof_index<2>(const unsigned int obj_level,
-                       const unsigned int obj_index,
-                       const unsigned int fe_index,
-                       const unsigned int local_index) const;
-
-#  if deal_II_dimension < 3
-    template types::global_dof_index
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension + 1,
-                   DoFHandler<deal_II_dimension, deal_II_dimension + 1>>::
-      get_dof_index<2>(const unsigned int obj_level,
-                       const unsigned int obj_index,
-                       const unsigned int fe_index,
-                       const unsigned int local_index) const;
-#  endif
-
-#  if deal_II_dimension >= 3
-    template types::global_dof_index
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension,
-                   DoFHandler<deal_II_dimension, deal_II_dimension>>::
-      get_dof_index<3>(const unsigned int obj_level,
-                       const unsigned int obj_index,
-                       const unsigned int fe_index,
-                       const unsigned int local_index) const;
-#  endif
-#endif
-
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension,
-                   DoFHandler<deal_II_dimension, deal_II_dimension>>::
-      set_dof_index<1>(const unsigned int            obj_level,
-                       const unsigned int            obj_index,
-                       const unsigned int            fe_index,
-                       const unsigned int            local_index,
-                       const types::global_dof_index global_index) const;
-
-#if deal_II_dimension < 3
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension + 1,
-                   DoFHandler<deal_II_dimension, deal_II_dimension + 1>>::
-      set_dof_index<1>(const unsigned int            obj_level,
-                       const unsigned int            obj_index,
-                       const unsigned int            fe_index,
-                       const unsigned int            local_index,
-                       const types::global_dof_index global_index) const;
-#endif
-
-#if deal_II_dimension < 2
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension + 2,
-                   DoFHandler<deal_II_dimension, deal_II_dimension + 2>>::
-      set_dof_index<1>(const unsigned int            obj_level,
-                       const unsigned int            obj_index,
-                       const unsigned int            fe_index,
-                       const unsigned int            local_index,
-                       const types::global_dof_index global_index) const;
-#endif
-
-#if deal_II_dimension >= 2
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension,
-                   DoFHandler<deal_II_dimension, deal_II_dimension>>::
-      set_dof_index<2>(const unsigned int            obj_level,
-                       const unsigned int            obj_index,
-                       const unsigned int            fe_index,
-                       const unsigned int            local_index,
-                       const types::global_dof_index global_index) const;
-
-#  if deal_II_dimension < 3
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension + 1,
-                   DoFHandler<deal_II_dimension, deal_II_dimension + 1>>::
-      set_dof_index<2>(const unsigned int            obj_level,
-                       const unsigned int            obj_index,
-                       const unsigned int            fe_index,
-                       const unsigned int            local_index,
-                       const types::global_dof_index global_index) const;
-#  endif
-
-#  if deal_II_dimension >= 3
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension,
-                   DoFHandler<deal_II_dimension, deal_II_dimension>>::
-      set_dof_index<3>(const unsigned int            obj_level,
-                       const unsigned int            obj_index,
-                       const unsigned int            fe_index,
-                       const unsigned int            local_index,
-                       const types::global_dof_index global_index) const;
-#  endif
+    template void DoFHandlerBase<D1, D2, DoFHandler<D1, D2>>::set_dof_index<D3>(
+      const unsigned int            obj_level,
+      const unsigned int            obj_index,
+      const unsigned int            fe_index,
+      const unsigned int            local_index,
+      const types::global_dof_index global_index) const;
 #endif
   }

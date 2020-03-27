@@ -13,78 +13,17 @@
 //
 // ---------------------------------------------------------------------
 
-#include <deal.II/base/geometry_info.h>
-#include <deal.II/base/memory_consumption.h>
-#include <deal.II/base/std_cxx14/memory.h>
-#include <deal.II/base/thread_management.h>
-
-#include <deal.II/distributed/cell_data_transfer.templates.h>
-#include <deal.II/distributed/shared_tria.h>
-#include <deal.II/distributed/tria.h>
-
-#include <deal.II/dofs/dof_accessor.h>
 #include <deal.II/dofs/dof_handler_base.templates.h>
-#include <deal.II/dofs/dof_handler_policy.h>
 
-#include <deal.II/fe/fe.h>
-
-#include <deal.II/grid/grid_tools.h>
-#include <deal.II/grid/tria.h>
-#include <deal.II/grid/tria_accessor.h>
-#include <deal.II/grid/tria_iterator.h>
-#include <deal.II/grid/tria_levels.h>
-
-#include <deal.II/hp/dof_faces.h>
 #include <deal.II/hp/dof_handler.h>
-#include <deal.II/hp/dof_level.h>
-
-#include <boost/serialization/array.hpp>
-
-#include <algorithm>
-#include <functional>
-#include <set>
-#include <unordered_set>
 
 DEAL_II_NAMESPACE_OPEN
-
-// The following is necessary for compilation under Visual Studio which is
-// unable to correctly distinguish between dealii::DoFHandler and
-// dealii::hp::DoFHandler. Plus it makes code in dof_handler.cc easier to read.
-#if defined(_MSC_VER) && (_MSC_VER >= 1800)
-template <int dim, int spacedim>
-using HpDoFHandler = ::dealii::hp::DoFHandler<dim, spacedim>;
-#else
-// When using older Visual Studio or a different compiler just fall back.
-#  define HpDoFHandler DoFHandler
-#endif
-
-namespace parallel
-{
-  namespace distributed
-  {
-    template <int, int>
-    class Triangulation;
-  }
-} // namespace parallel
-
-
 
 namespace hp
 {
   template <int dim, int spacedim>
-  const unsigned int DoFHandler<dim, spacedim>::dimension;
-
-  template <int dim, int spacedim>
-  const unsigned int DoFHandler<dim, spacedim>::space_dimension;
-
-  template <int dim, int spacedim>
-  const unsigned int DoFHandler<dim, spacedim>::default_fe_index;
-
-
-
-  template <int dim, int spacedim>
   DoFHandler<dim, spacedim>::DoFHandler()
-    : Base()
+    : DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>>()
   {}
 
 
@@ -92,12 +31,9 @@ namespace hp
   template <int dim, int spacedim>
   DoFHandler<dim, spacedim>::DoFHandler(
     const Triangulation<dim, spacedim> &tria)
-    : Base(tria)
+    : DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>>(tria)
   {}
-
 } // namespace hp
-
-
 
 /*-------------- Explicit Instantiations -------------------------------*/
 #include "dof_handler.inst"

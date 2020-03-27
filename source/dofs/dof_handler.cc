@@ -13,70 +13,22 @@
 //
 // ---------------------------------------------------------------------
 
-#include <deal.II/base/geometry_info.h>
-#include <deal.II/base/memory_consumption.h>
-#include <deal.II/base/std_cxx14/memory.h>
-
-#include <deal.II/distributed/shared_tria.h>
-#include <deal.II/distributed/tria.h>
-
-#include <deal.II/dofs/dof_accessor.h>
-#include <deal.II/dofs/dof_faces.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_handler_base.templates.h>
-#include <deal.II/dofs/dof_handler_policy.h>
-#include <deal.II/dofs/dof_levels.h>
-
-#include <deal.II/fe/fe.h>
-
-#include <deal.II/grid/tria.h>
-#include <deal.II/grid/tria_accessor.h>
-#include <deal.II/grid/tria_iterator.h>
-#include <deal.II/grid/tria_levels.h>
-
-#include <algorithm>
-#include <set>
-#include <unordered_set>
 
 DEAL_II_NAMESPACE_OPEN
 
-// reference the invalid_dof_index variable explicitly to work around
-// a bug in the icc8 compiler
-namespace internal
-{
-  template <int dim, int spacedim>
-  const types::global_dof_index *
-  dummy()
-  {
-    return &dealii::numbers::invalid_dof_index;
-  }
-} // namespace internal
-
-
-
-template <int dim, int spacedim>
-const unsigned int DoFHandler<dim, spacedim>::dimension;
-
-template <int dim, int spacedim>
-const unsigned int DoFHandler<dim, spacedim>::space_dimension;
-
-template <int dim, int spacedim>
-const unsigned int DoFHandler<dim, spacedim>::default_fe_index;
-
-
-
 template <int dim, int spacedim>
 DoFHandler<dim, spacedim>::DoFHandler()
-  : Base()
+  : DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>>()
 {}
 
 
 
 template <int dim, int spacedim>
 DoFHandler<dim, spacedim>::DoFHandler(const Triangulation<dim, spacedim> &tria)
-  : Base(tria)
+  : DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>>(tria)
 {}
-
 
 /*-------------- Explicit Instantiations -------------------------------*/
 #include "dof_handler.inst"

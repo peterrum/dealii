@@ -13,95 +13,34 @@
 //
 // ---------------------------------------------------------------------
 
-for (deal_II_dimension : DIMENSIONS)
+for (D1 : DIMENSIONS; D2 : DIMENSIONS)
   {
+#if D1 <= D2
     namespace hp
     \{
-      template class DoFHandler<deal_II_dimension>;
-
-#if deal_II_dimension != 3
-      template class DoFHandler<deal_II_dimension, deal_II_dimension + 1>;
-
-
-
-#  if deal_II_dimension >= 2
-
-#  endif
-#endif
-
-#if deal_II_dimension == 3
-      template class DoFHandler<1, 3>;
-
-
-#endif
-
-
-#if deal_II_dimension >= 2
-
-#  if deal_II_dimension >= 3
-#  endif
-#endif
-
-
-#if deal_II_dimension >= 2
-
-#  if deal_II_dimension >= 3
-#  endif
-#endif
+      template class DoFHandler<D1, D2>;
     \}
+
+    template class DoFHandlerBase<D1, D2, hp::DoFHandler<D1, D2>>;
+#endif
   }
 
 
-for (deal_II_dimension : DIMENSIONS)
+for (D1 : DIMENSIONS; D2 : DIMENSIONS; D3 : DIMENSIONS)
   {
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension,
-                   hp::DoFHandler<deal_II_dimension, deal_II_dimension>>::
-      renumber_dofs(const std::vector<types::global_dof_index> &new_numbers);
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension,
-                   hp::DoFHandler<deal_II_dimension, deal_II_dimension>>::
-      renumber_dofs(const unsigned int                          level,
-                    const std::vector<types::global_dof_index> &new_numbers);
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension,
-                   hp::DoFHandler<deal_II_dimension, deal_II_dimension>>::
-      distribute_dofs(
-        const hp::FECollection<deal_II_dimension, deal_II_dimension> &ff);
+#if D3 <= D1 && D1 <= D2
+    template types::global_dof_index
+    DoFHandlerBase<D1, D2, hp::DoFHandler<D1, D2>>::get_dof_index<D3>(
+      const unsigned int obj_level,
+      const unsigned int obj_index,
+      const unsigned int fe_index,
+      const unsigned int local_index) const;
 
-#if deal_II_dimension < 3
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension + 1,
-                   hp::DoFHandler<deal_II_dimension, deal_II_dimension + 1>>::
-      renumber_dofs(const std::vector<types::global_dof_index> &new_numbers);
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension + 1,
-                   hp::DoFHandler<deal_II_dimension, deal_II_dimension + 1>>::
-      renumber_dofs(const unsigned int                          level,
-                    const std::vector<types::global_dof_index> &new_numbers);
-    template void
-    DoFHandlerBase<deal_II_dimension,
-                   deal_II_dimension + 1,
-                   hp::DoFHandler<deal_II_dimension, deal_II_dimension + 1>>::
-      distribute_dofs(
-        const hp::FECollection<deal_II_dimension, deal_II_dimension + 1> &ff);
-#endif
-
-#if deal_II_dimension == 3
-    template void
-    DoFHandlerBase<1, deal_II_dimension, hp::DoFHandler<1, deal_II_dimension>>::
-      renumber_dofs(const std::vector<types::global_dof_index> &new_numbers);
-    template void
-    DoFHandlerBase<1, deal_II_dimension, hp::DoFHandler<1, deal_II_dimension>>::
-      renumber_dofs(const unsigned int                          level,
-                    const std::vector<types::global_dof_index> &new_numbers);
-    template void
-    DoFHandlerBase<1, deal_II_dimension, hp::DoFHandler<1, deal_II_dimension>>::
-      distribute_dofs(const hp::FECollection<1, deal_II_dimension> &ff);
+    template void DoFHandlerBase<D1, D2, hp::DoFHandler<D1, D2>>::set_dof_index<
+      D3>(const unsigned int            obj_level,
+          const unsigned int            obj_index,
+          const unsigned int            fe_index,
+          const unsigned int            local_index,
+          const types::global_dof_index global_index) const;
 #endif
   }
