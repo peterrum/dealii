@@ -186,43 +186,6 @@ namespace hp
 
   template <int dim, int spacedim>
   void
-  DoFHandler<dim, spacedim>::set_fe_impl(
-    const hp::FECollection<dim, spacedim> &ff)
-  {
-    Assert(
-      this->tria != nullptr,
-      ExcMessage(
-        "You need to set the Triangulation in the DoFHandler using initialize() or "
-        "in the constructor before you can distribute DoFs."));
-    Assert(this->tria->n_levels() > 0,
-           ExcMessage("The Triangulation you are using is empty!"));
-    Assert(ff.size() > 0, ExcMessage("The hp::FECollection given is empty!"));
-
-    // don't create a new object if the one we have is already appropriate
-    if (this->fe_collection != ff)
-      this->fe_collection = hp::FECollection<dim, spacedim>(ff);
-
-    // ensure that the active_fe_indices vectors are initialized correctly
-    this->create_active_fe_table();
-
-    // make sure every processor knows the active_fe_indices
-    // on both its own cells and all ghost cells
-    dealii::internal::hp::DoFHandlerImplementation::Implementation::
-      communicate_active_fe_indices(*this);
-
-    // make sure that the fe collection is large enough to
-    // cover all fe indices presently in use on the mesh
-    for (const auto &cell : this->active_cell_iterators())
-      if (!cell->is_artificial())
-        Assert(cell->active_fe_index() < this->fe_collection.size(),
-               ExcInvalidFEIndex(cell->active_fe_index(),
-                                 this->fe_collection.size()));
-  }
-
-
-
-  template <int dim, int spacedim>
-  void
   DoFHandler<dim, spacedim>::distribute_dofs_impl(
     const hp::FECollection<dim, spacedim> &ff)
   {

@@ -150,27 +150,6 @@ DoFHandler<dim, spacedim>::memory_consumption() const
 
 template <int dim, int spacedim>
 void
-DoFHandler<dim, spacedim>::set_fe_impl(
-  const hp::FECollection<dim, spacedim> &ff)
-{
-  Assert(
-    this->tria != nullptr,
-    ExcMessage(
-      "You need to set the Triangulation in the DoFHandler using initialize() or "
-      "in the constructor before you can distribute DoFs."));
-  Assert(this->tria->n_levels() > 0,
-         ExcMessage("The Triangulation you are using is empty!"));
-  Assert(ff.size() > 0, ExcMessage("The hp::FECollection given is empty!"));
-
-  // don't create a new object if the one we have is already appropriate
-  if (this->fe_collection != ff)
-    this->fe_collection = hp::FECollection<dim, spacedim>(ff);
-}
-
-
-
-template <int dim, int spacedim>
-void
 DoFHandler<dim, spacedim>::distribute_dofs_impl(
   const hp::FECollection<dim, spacedim> &ff)
 {

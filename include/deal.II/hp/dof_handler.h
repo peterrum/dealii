@@ -135,9 +135,6 @@ namespace hp
                     const hp::FECollection<dim, spacedim> &fe);
 
     virtual void
-    set_fe_impl(const hp::FECollection<dim, spacedim> &fe);
-
-    virtual void
     distribute_dofs_impl(const hp::FECollection<dim, spacedim> &fe);
 
     virtual void
