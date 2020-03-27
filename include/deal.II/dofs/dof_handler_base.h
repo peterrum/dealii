@@ -748,8 +748,8 @@ namespace internal
         const DoFHandlerBase<1, spacedim, T> &dof_handler)
       {
         return std::min(static_cast<types::global_dof_index>(
-                          3 * dof_handler.get_fe().dofs_per_vertex +
-                          2 * dof_handler.get_fe().dofs_per_line),
+                          3 * dof_handler.fe_collection.max_dofs_per_vertex() +
+                          2 * dof_handler.fe_collection.max_dofs_per_line()),
                         dof_handler.n_dofs());
       }
 
@@ -783,29 +783,34 @@ namespace internal
         switch (dof_handler.tria->max_adjacent_cells())
           {
             case 4:
-              max_couplings = 19 * dof_handler.get_fe().dofs_per_vertex +
-                              28 * dof_handler.get_fe().dofs_per_line +
-                              8 * dof_handler.get_fe().dofs_per_quad;
+              max_couplings =
+                19 * dof_handler.fe_collection.max_dofs_per_vertex() +
+                28 * dof_handler.fe_collection.max_dofs_per_line() +
+                8 * dof_handler.fe_collection.max_dofs_per_quad();
               break;
             case 5:
-              max_couplings = 21 * dof_handler.get_fe().dofs_per_vertex +
-                              31 * dof_handler.get_fe().dofs_per_line +
-                              9 * dof_handler.get_fe().dofs_per_quad;
+              max_couplings =
+                21 * dof_handler.fe_collection.max_dofs_per_vertex() +
+                31 * dof_handler.fe_collection.max_dofs_per_line() +
+                9 * dof_handler.fe_collection.max_dofs_per_quad();
               break;
             case 6:
-              max_couplings = 28 * dof_handler.get_fe().dofs_per_vertex +
-                              42 * dof_handler.get_fe().dofs_per_line +
-                              12 * dof_handler.get_fe().dofs_per_quad;
+              max_couplings =
+                28 * dof_handler.fe_collection.max_dofs_per_vertex() +
+                42 * dof_handler.fe_collection.max_dofs_per_line() +
+                12 * dof_handler.fe_collection.max_dofs_per_quad();
               break;
             case 7:
-              max_couplings = 30 * dof_handler.get_fe().dofs_per_vertex +
-                              45 * dof_handler.get_fe().dofs_per_line +
-                              13 * dof_handler.get_fe().dofs_per_quad;
+              max_couplings =
+                30 * dof_handler.fe_collection.max_dofs_per_vertex() +
+                45 * dof_handler.fe_collection.max_dofs_per_line() +
+                13 * dof_handler.fe_collection.max_dofs_per_quad();
               break;
             case 8:
-              max_couplings = 37 * dof_handler.get_fe().dofs_per_vertex +
-                              56 * dof_handler.get_fe().dofs_per_line +
-                              16 * dof_handler.get_fe().dofs_per_quad;
+              max_couplings =
+                37 * dof_handler.fe_collection.max_dofs_per_vertex() +
+                56 * dof_handler.fe_collection.max_dofs_per_line() +
+                16 * dof_handler.fe_collection.max_dofs_per_quad();
               break;
 
             // the following numbers are not based on actual counting but by
@@ -813,44 +818,52 @@ namespace internal
             // example, for dofs_per_vertex, the sequence above is 19, 21, 28,
             // 30, 37, and is continued as follows):
             case 9:
-              max_couplings = 39 * dof_handler.get_fe().dofs_per_vertex +
-                              59 * dof_handler.get_fe().dofs_per_line +
-                              17 * dof_handler.get_fe().dofs_per_quad;
+              max_couplings =
+                39 * dof_handler.fe_collection.max_dofs_per_vertex() +
+                59 * dof_handler.fe_collection.max_dofs_per_line() +
+                17 * dof_handler.fe_collection.max_dofs_per_quad();
               break;
             case 10:
-              max_couplings = 46 * dof_handler.get_fe().dofs_per_vertex +
-                              70 * dof_handler.get_fe().dofs_per_line +
-                              20 * dof_handler.get_fe().dofs_per_quad;
+              max_couplings =
+                46 * dof_handler.fe_collection.max_dofs_per_vertex() +
+                70 * dof_handler.fe_collection.max_dofs_per_line() +
+                20 * dof_handler.fe_collection.max_dofs_per_quad();
               break;
             case 11:
-              max_couplings = 48 * dof_handler.get_fe().dofs_per_vertex +
-                              73 * dof_handler.get_fe().dofs_per_line +
-                              21 * dof_handler.get_fe().dofs_per_quad;
+              max_couplings =
+                48 * dof_handler.fe_collection.max_dofs_per_vertex() +
+                73 * dof_handler.fe_collection.max_dofs_per_line() +
+                21 * dof_handler.fe_collection.max_dofs_per_quad();
               break;
             case 12:
-              max_couplings = 55 * dof_handler.get_fe().dofs_per_vertex +
-                              84 * dof_handler.get_fe().dofs_per_line +
-                              24 * dof_handler.get_fe().dofs_per_quad;
+              max_couplings =
+                55 * dof_handler.fe_collection.max_dofs_per_vertex() +
+                84 * dof_handler.fe_collection.max_dofs_per_line() +
+                24 * dof_handler.fe_collection.max_dofs_per_quad();
               break;
             case 13:
-              max_couplings = 57 * dof_handler.get_fe().dofs_per_vertex +
-                              87 * dof_handler.get_fe().dofs_per_line +
-                              25 * dof_handler.get_fe().dofs_per_quad;
+              max_couplings =
+                57 * dof_handler.fe_collection.max_dofs_per_vertex() +
+                87 * dof_handler.fe_collection.max_dofs_per_line() +
+                25 * dof_handler.fe_collection.max_dofs_per_quad();
               break;
             case 14:
-              max_couplings = 63 * dof_handler.get_fe().dofs_per_vertex +
-                              98 * dof_handler.get_fe().dofs_per_line +
-                              28 * dof_handler.get_fe().dofs_per_quad;
+              max_couplings =
+                63 * dof_handler.fe_collection.max_dofs_per_vertex() +
+                98 * dof_handler.fe_collection.max_dofs_per_line() +
+                28 * dof_handler.fe_collection.max_dofs_per_quad();
               break;
             case 15:
-              max_couplings = 65 * dof_handler.get_fe().dofs_per_vertex +
-                              103 * dof_handler.get_fe().dofs_per_line +
-                              29 * dof_handler.get_fe().dofs_per_quad;
+              max_couplings =
+                65 * dof_handler.fe_collection.max_dofs_per_vertex() +
+                103 * dof_handler.fe_collection.max_dofs_per_line() +
+                29 * dof_handler.fe_collection.max_dofs_per_quad();
               break;
             case 16:
-              max_couplings = 72 * dof_handler.get_fe().dofs_per_vertex +
-                              114 * dof_handler.get_fe().dofs_per_line +
-                              32 * dof_handler.get_fe().dofs_per_quad;
+              max_couplings =
+                72 * dof_handler.fe_collection.max_dofs_per_vertex() +
+                114 * dof_handler.fe_collection.max_dofs_per_line() +
+                32 * dof_handler.fe_collection.max_dofs_per_quad();
               break;
 
             default:
@@ -884,10 +897,11 @@ namespace internal
 
         types::global_dof_index max_couplings;
         if (max_adjacent_cells <= 8)
-          max_couplings = 7 * 7 * 7 * dof_handler.get_fe().dofs_per_vertex +
-                          7 * 6 * 7 * 3 * dof_handler.get_fe().dofs_per_line +
-                          9 * 4 * 7 * 3 * dof_handler.get_fe().dofs_per_quad +
-                          27 * dof_handler.get_fe().dofs_per_hex;
+          max_couplings =
+            7 * 7 * 7 * dof_handler.fe_collection.max_dofs_per_vertex() +
+            7 * 6 * 7 * 3 * dof_handler.fe_collection.max_dofs_per_line() +
+            9 * 4 * 7 * 3 * dof_handler.fe_collection.max_dofs_per_quad() +
+            27 * dof_handler.fe_collection.max_dofs_per_hex();
         else
           {
             Assert(false, ExcNotImplemented());
