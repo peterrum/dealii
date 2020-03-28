@@ -409,13 +409,16 @@ public:
   set_fe(const hp::FECollection<dim, spacedim> &fe);
 
   /**
-   * TODO
+   * Go through the triangulation and set the active FE indices of all
+   * active cells to the values given in @p active_fe_indices.
    */
   void
   set_active_fe_indices(const std::vector<unsigned int> &active_fe_indices);
 
   /**
-   * TODO
+   * Go through the triangulation and store the active FE indices of all
+   * active cells to the vector @p active_fe_indices. This vector is
+   * resized, if necessary.
    */
   void
   get_active_fe_indices(std::vector<unsigned int> &active_fe_indices) const;
