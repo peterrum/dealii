@@ -1103,6 +1103,43 @@ public:
   get_triangulation() const;
 
   /**
+   * Whenever serialization with a parallel::distributed::Triangulation as the
+   * underlying triangulation is considered, we also need to consider storing
+   * the active_fe_indices on all active cells as well.
+   *
+   * This function registers that these indices are to be stored whenever the
+   * parallel::distributed::Triangulation::save() function is called on the
+   * underlying triangulation.
+   *
+   * @note Currently only implemented for triangulations of type
+   *   parallel::distributed::Triangulation. An assertion will be triggered if
+   *   a different type is registered.
+   *
+   * @see The documentation of parallel::distributed::SolutionTransfer has further
+   *   information on serialization.
+   */
+  void
+  prepare_for_serialization_of_active_fe_indices();
+
+  /**
+   * Whenever serialization with a parallel::distributed::Triangulation as the
+   * underlying triangulation is considered, we also need to consider storing
+   * the active_fe_indices on all active cells as well.
+   *
+   * This function deserializes and distributes the previously stored
+   * active_fe_indices on all active cells.
+   *
+   * @note Currently only implemented for triangulations of type
+   *   parallel::distributed::Triangulation. An assertion will be triggered if
+   *   a different type is registered.
+   *
+   * @see The documentation of parallel::distributed::SolutionTransfer has further
+   *   information on serialization.
+   */
+  void
+  deserialize_active_fe_indices();
+
+  /**
    * Determine an estimate for the memory consumption (in bytes) of this
    * object.
    *
@@ -1406,43 +1443,6 @@ private:
                 const unsigned int            fe_index,
                 const unsigned int            local_index,
                 const types::global_dof_index global_index) const;
-
-  /**
-   * Whenever serialization with a parallel::distributed::Triangulation as the
-   * underlying triangulation is considered, we also need to consider storing
-   * the active_fe_indices on all active cells as well.
-   *
-   * This function registers that these indices are to be stored whenever the
-   * parallel::distributed::Triangulation::save() function is called on the
-   * underlying triangulation.
-   *
-   * @note Currently only implemented for triangulations of type
-   *   parallel::distributed::Triangulation. An assertion will be triggered if
-   *   a different type is registered.
-   *
-   * @see The documentation of parallel::distributed::SolutionTransfer has further
-   *   information on serialization.
-   */
-  void
-  prepare_for_serialization_of_active_fe_indices();
-
-  /**
-   * Whenever serialization with a parallel::distributed::Triangulation as the
-   * underlying triangulation is considered, we also need to consider storing
-   * the active_fe_indices on all active cells as well.
-   *
-   * This function deserializes and distributes the previously stored
-   * active_fe_indices on all active cells.
-   *
-   * @note Currently only implemented for triangulations of type
-   *   parallel::distributed::Triangulation. An assertion will be triggered if
-   *   a different type is registered.
-   *
-   * @see The documentation of parallel::distributed::SolutionTransfer has further
-   *   information on serialization.
-   */
-  void
-  deserialize_active_fe_indices();
 
   /**
    * Setup DoFHandler policy.
