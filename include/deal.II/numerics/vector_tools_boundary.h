@@ -33,8 +33,6 @@ template <int dim, typename Number>
 class Function;
 namespace hp
 {
-  template <int dim, int spacedim>
-  class DoFHandler;
   template <int dim>
   class QCollection;
 } // namespace hp
@@ -117,7 +115,7 @@ namespace VectorTools
   void
   interpolate_boundary_values(
     const hp::MappingCollection<dim, spacedim> &mapping,
-    const hp::DoFHandler<dim, spacedim> &       dof,
+    const DoFHandler<dim, spacedim> &           dof,
     const std::map<types::boundary_id, const Function<spacedim, number> *>
       &                                        function_map,
     std::map<types::global_dof_index, number> &boundary_values,
@@ -425,7 +423,7 @@ namespace VectorTools
   void
   project_boundary_values(
     const hp::MappingCollection<dim, spacedim> &mapping,
-    const hp::DoFHandler<dim, spacedim> &       dof,
+    const DoFHandler<dim, spacedim> &           dof,
     const std::map<types::boundary_id, const Function<spacedim, number> *>
       &                                        boundary_functions,
     const hp::QCollection<dim - 1> &           q,
@@ -439,7 +437,7 @@ namespace VectorTools
   template <int dim, int spacedim, typename number>
   void
   project_boundary_values(
-    const hp::DoFHandler<dim, spacedim> &dof,
+    const DoFHandler<dim, spacedim> &dof,
     const std::map<types::boundary_id, const Function<spacedim, number> *>
       &                                        boundary_function,
     const hp::QCollection<dim - 1> &           q,
@@ -593,7 +591,7 @@ namespace VectorTools
   template <int dim>
   DEAL_II_DEPRECATED void
   project_boundary_values_curl_conforming(
-    const hp::DoFHandler<dim, dim> &       dof_handler,
+    const DoFHandler<dim, dim> &           dof_handler,
     const unsigned int                     first_vector_component,
     const Function<dim, double> &          boundary_function,
     const types::boundary_id               boundary_component,
@@ -609,7 +607,7 @@ namespace VectorTools
    * L2-projection method used has been taken from the paper "Electromagnetic
    * scattering simulation using an H (curl) conforming hp finite element
    * method in three dimensions" by PD Ledger, K Morgan and O Hassan ( Int. J.
-   * Num. Meth. Fluids, Volume 53, Issue 8, pages 1267-1296).
+   * Num. Meth. Fluids, Volume 53, Issue 8, pages 1267–1296).
    *
    * This function will compute constraints that correspond to Dirichlet
    * boundary conditions of the form
@@ -704,7 +702,8 @@ namespace VectorTools
     const Function<dim, number> &boundary_function,
     const types::boundary_id     boundary_component,
     AffineConstraints<number> &  constraints,
-    const Mapping<dim> &         mapping = StaticMappingQ1<dim>::mapping);
+    const Mapping<dim>
+      &mapping /*= StaticMappingQ1<dim>::mapping*/); // TODO[peterrum]
 
 
   /**
@@ -716,13 +715,13 @@ namespace VectorTools
   template <int dim, typename number>
   void
   project_boundary_values_curl_conforming_l2(
-    const hp::DoFHandler<dim, dim> &       dof_handler,
+    const DoFHandler<dim, dim> &                dof_handler,
     const unsigned int                     first_vector_component,
     const Function<dim, number> &          boundary_function,
     const types::boundary_id               boundary_component,
     AffineConstraints<number> &            constraints,
-    const hp::MappingCollection<dim, dim> &mapping_collection =
-      hp::StaticMappingQ1<dim>::mapping_collection);
+    const hp::MappingCollection<dim, dim> &mapping_collection /*=
+      hp::StaticMappingQ1<dim>::mapping_collection*/); // TODO[peterrum]
 
 
   /**
@@ -779,7 +778,7 @@ namespace VectorTools
     const Function<dim, double> &boundary_function,
     const types::boundary_id     boundary_component,
     AffineConstraints<double> &  constraints,
-    const Mapping<dim> &         mapping = StaticMappingQ1<dim>::mapping);
+    const Mapping<dim> &         mapping);
 
   /**
    * Same as above for the hp-namespace.
@@ -792,13 +791,12 @@ namespace VectorTools
   template <int dim>
   void
   project_boundary_values_div_conforming(
-    const hp::DoFHandler<dim, dim> &       dof_handler,
+    const DoFHandler<dim, dim> &           dof_handler,
     const unsigned int                     first_vector_component,
     const Function<dim, double> &          boundary_function,
     const types::boundary_id               boundary_component,
     AffineConstraints<double> &            constraints,
-    const hp::MappingCollection<dim, dim> &mapping_collection =
-      hp::StaticMappingQ1<dim>::mapping_collection);
+    const hp::MappingCollection<dim, dim> &mapping_collection);
 
   // @}
 } // namespace VectorTools
