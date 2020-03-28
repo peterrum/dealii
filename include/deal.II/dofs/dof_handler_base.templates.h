@@ -1064,7 +1064,40 @@ namespace internal
   template <int dim, int spacedim>
   std::string
   policy_to_string(const dealii::internal::DoFHandlerImplementation::Policy::
-                     PolicyBase<dim, spacedim> &policy);
+                     PolicyBase<dim, spacedim> &policy)
+  {
+    std::string policy_name;
+    if (dynamic_cast<const typename dealii::internal::DoFHandlerImplementation::
+                       Policy::Sequential<dealii::DoFHandler<dim, spacedim>> *>(
+          &policy) ||
+        dynamic_cast<
+          const typename dealii::internal::DoFHandlerImplementation::Policy::
+            Sequential<dealii::hp::DoFHandler<dim, spacedim>> *>(&policy))
+      policy_name = "Policy::Sequential<";
+    else if (dynamic_cast<
+               const typename dealii::internal::DoFHandlerImplementation::
+                 Policy::ParallelDistributed<dealii::DoFHandler<dim, spacedim>>
+                   *>(&policy) ||
+             dynamic_cast<
+               const typename dealii::internal::DoFHandlerImplementation::
+                 Policy::ParallelDistributed<
+                   dealii::hp::DoFHandler<dim, spacedim>> *>(&policy))
+      policy_name = "Policy::ParallelDistributed<";
+    else if (dynamic_cast<
+               const typename dealii::internal::DoFHandlerImplementation::
+                 Policy::ParallelShared<dealii::DoFHandler<dim, spacedim>> *>(
+               &policy) ||
+             dynamic_cast<const typename dealii::internal::
+                            DoFHandlerImplementation::Policy::ParallelShared<
+                              dealii::hp::DoFHandler<dim, spacedim>> *>(
+               &policy))
+      policy_name = "Policy::ParallelShared<";
+    else
+      AssertThrow(false, ExcNotImplemented());
+    policy_name += Utilities::int_to_string(dim) + "," +
+                   Utilities::int_to_string(spacedim) + ">";
+    return policy_name;
+  }
 
 
   namespace DoFHandlerImplementation

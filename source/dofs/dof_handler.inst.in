@@ -19,6 +19,10 @@ for (D1 : DIMENSIONS; D2 : DIMENSIONS)
 #if D1 <= D2
     template class DoFHandler<D1, D2>;
     template class DoFHandlerBase<D1, D2, DoFHandler<D1, D2>>;
+    template std::string internal::policy_to_string(
+      const dealii::internal::DoFHandlerImplementation::Policy::PolicyBase<D1,
+                                                                           D2>
+        &policy);
 #endif
   }
 
