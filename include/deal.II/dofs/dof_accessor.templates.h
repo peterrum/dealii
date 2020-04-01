@@ -246,18 +246,17 @@ namespace internal
       /**
        * Implementations of the get_dof_index/set_dof_index functions.
        */
-      template <int spacedim>
+      template <int dim, int spacedim, int d>
       static types::global_dof_index
-      get_dof_index(const dealii::DoFHandler<1, spacedim> &dof_handler,
-                    const unsigned int                     obj_level,
-                    const unsigned int                     obj_index,
-                    const unsigned int                     fe_index,
-                    const unsigned int                     local_index,
-                    std::integral_constant<int, 1>)
+      get_dof_index(const dealii::DoFHandler<dim, spacedim> &dof_handler,
+                    const unsigned int                       obj_level,
+                    const unsigned int                       obj_index,
+                    const unsigned int                       fe_index,
+                    const unsigned int                       local_index,
+                    std::integral_constant<int, d>)
       {
         (void)fe_index;
 
-        const unsigned int d = 1;
         return dof_handler
           .new_dofs[obj_level][d]
                    [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
@@ -265,222 +264,23 @@ namespace internal
       }
 
 
-      template <int spacedim>
+      template <int dim, int spacedim, int d>
       static void
-      set_dof_index(const dealii::DoFHandler<1, spacedim> &dof_handler,
-                    const unsigned int                     obj_level,
-                    const unsigned int                     obj_index,
-                    const unsigned int                     fe_index,
-                    const unsigned int                     local_index,
-                    std::integral_constant<int, 1>,
+      set_dof_index(const dealii::DoFHandler<dim, spacedim> &dof_handler,
+                    const unsigned int                       obj_level,
+                    const unsigned int                       obj_index,
+                    const unsigned int                       fe_index,
+                    const unsigned int                       local_index,
+                    std::integral_constant<int, d>,
                     const types::global_dof_index global_index)
       {
         (void)fe_index;
 
-        const unsigned int d = 1;
         dof_handler.new_dofs[obj_level][d]
                             [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
                              local_index] = global_index;
       }
 
-
-      template <int spacedim>
-      static types::global_dof_index
-      get_dof_index(const dealii::DoFHandler<2, spacedim> &dof_handler,
-                    const unsigned int                     obj_level,
-                    const unsigned int                     obj_index,
-                    const unsigned int                     fe_index,
-                    const unsigned int                     local_index,
-                    std::integral_constant<int, 1>)
-      {
-        (void)fe_index;
-        Assert(obj_level == 0, ExcInternalError());
-        // faces have no levels
-        const unsigned int d = 1;
-        return dof_handler
-          .new_dofs[obj_level][d]
-                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                    local_index];
-      }
-
-
-      template <int spacedim>
-      static void
-      set_dof_index(const dealii::DoFHandler<2, spacedim> &dof_handler,
-                    const unsigned int                     obj_level,
-                    const unsigned int                     obj_index,
-                    const unsigned int                     fe_index,
-                    const unsigned int                     local_index,
-                    std::integral_constant<int, 1>,
-                    const types::global_dof_index global_index)
-      {
-        (void)obj_level;
-        (void)fe_index;
-        // faces have no levels
-        Assert(obj_level == 0, ExcInternalError());
-        const unsigned int d = 1;
-        dof_handler.new_dofs[obj_level][d]
-                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                             local_index] = global_index;
-      }
-
-
-      template <int spacedim>
-      static types::global_dof_index
-      get_dof_index(const dealii::DoFHandler<2, spacedim> &dof_handler,
-                    const unsigned int                     obj_level,
-                    const unsigned int                     obj_index,
-                    const unsigned int                     fe_index,
-                    const unsigned int                     local_index,
-                    std::integral_constant<int, 2>)
-      {
-        (void)fe_index;
-
-        const unsigned int d = 2;
-        return dof_handler
-          .new_dofs[obj_level][d]
-                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                    local_index];
-      }
-
-
-      template <int spacedim>
-      static void
-      set_dof_index(const dealii::DoFHandler<2, spacedim> &dof_handler,
-                    const unsigned int                     obj_level,
-                    const unsigned int                     obj_index,
-                    const unsigned int                     fe_index,
-                    const unsigned int                     local_index,
-                    std::integral_constant<int, 2>,
-                    const types::global_dof_index global_index)
-      {
-        (void)fe_index;
-
-        const unsigned int d = 2;
-        dof_handler.new_dofs[obj_level][d]
-                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                             local_index] = global_index;
-      }
-
-
-      template <int spacedim>
-      static types::global_dof_index
-      get_dof_index(const dealii::DoFHandler<3, spacedim> &dof_handler,
-                    const unsigned int                     obj_level,
-                    const unsigned int                     obj_index,
-                    const unsigned int                     fe_index,
-                    const unsigned int                     local_index,
-                    std::integral_constant<int, 1>)
-      {
-        (void)fe_index;
-        // faces have no levels
-        Assert(obj_level == 0, ExcInternalError());
-        const unsigned int d = 1;
-        return dof_handler
-          .new_dofs[obj_level][d]
-                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                    local_index];
-      }
-
-
-      template <int spacedim>
-      static void
-      set_dof_index(const dealii::DoFHandler<3, spacedim> &dof_handler,
-                    const unsigned int                     obj_level,
-                    const unsigned int                     obj_index,
-                    const unsigned int                     fe_index,
-                    const unsigned int                     local_index,
-                    std::integral_constant<int, 1>,
-                    const types::global_dof_index global_index)
-      {
-        (void)fe_index;
-        // faces have no levels
-        Assert(obj_level == 0, ExcInternalError());
-        const unsigned int d = 1;
-        dof_handler.new_dofs[obj_level][d]
-                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                             local_index] = global_index;
-      }
-
-
-
-      template <int spacedim>
-      static types::global_dof_index
-      get_dof_index(const dealii::DoFHandler<3, spacedim> &dof_handler,
-                    const unsigned int                     obj_level,
-                    const unsigned int                     obj_index,
-                    const unsigned int                     fe_index,
-                    const unsigned int                     local_index,
-                    std::integral_constant<int, 2>)
-      {
-        (void)fe_index;
-        // faces have no levels
-        Assert(obj_level == 0, ExcInternalError());
-        const unsigned int d = 2;
-        return dof_handler
-          .new_dofs[obj_level][d]
-                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                    local_index];
-      }
-
-
-      template <int spacedim>
-      static void
-      set_dof_index(const dealii::DoFHandler<3, spacedim> &dof_handler,
-                    const unsigned int                     obj_level,
-                    const unsigned int                     obj_index,
-                    const unsigned int                     fe_index,
-                    const unsigned int                     local_index,
-                    std::integral_constant<int, 2>,
-                    const types::global_dof_index global_index)
-      {
-        (void)fe_index;
-        // faces have no levels
-        Assert(obj_level == 0, ExcInternalError());
-        const unsigned int d = 2;
-        dof_handler.new_dofs[obj_level][d]
-                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                             local_index] = global_index;
-      }
-
-
-
-      template <int spacedim>
-      static types::global_dof_index
-      get_dof_index(const dealii::DoFHandler<3, spacedim> &dof_handler,
-                    const unsigned int                     obj_level,
-                    const unsigned int                     obj_index,
-                    const unsigned int                     fe_index,
-                    const unsigned int                     local_index,
-                    std::integral_constant<int, 3>)
-      {
-        (void)fe_index;
-
-        const unsigned int d = 3;
-        return dof_handler
-          .new_dofs[obj_level][d]
-                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                    local_index];
-      }
-
-
-      template <int spacedim>
-      static void
-      set_dof_index(const dealii::DoFHandler<3, spacedim> &dof_handler,
-                    const unsigned int                     obj_level,
-                    const unsigned int                     obj_index,
-                    const unsigned int                     fe_index,
-                    const unsigned int                     local_index,
-                    std::integral_constant<int, 3>,
-                    const types::global_dof_index global_index)
-      {
-        (void)fe_index;
-
-        const unsigned int d = 3;
-        dof_handler.new_dofs[obj_level][d]
-                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                             local_index] = global_index;
-      }
 
 
       template <int spacedim>
