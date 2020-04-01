@@ -255,7 +255,7 @@ namespace internal
       template <int spacedim, typename T>
       static void reserve_space(DoFHandlerBase<1, spacedim, T> &dof_handler)
       {
-        dof_handler.vertex_dofs.resize(dof_handler.tria->n_vertices() *
+        dof_handler.new_dofs[0].resize(dof_handler.tria->n_vertices() *
                                          dof_handler.get_fe().dofs_per_vertex,
                                        numbers::invalid_dof_index);
 
@@ -283,7 +283,7 @@ namespace internal
       template <int spacedim, typename T>
       static void reserve_space(DoFHandlerBase<2, spacedim, T> &dof_handler)
       {
-        dof_handler.vertex_dofs.resize(dof_handler.tria->n_vertices() *
+        dof_handler.new_dofs[0].resize(dof_handler.tria->n_vertices() *
                                          dof_handler.get_fe().dofs_per_vertex,
                                        numbers::invalid_dof_index);
 
@@ -326,7 +326,7 @@ namespace internal
       template <int spacedim, typename T>
       static void reserve_space(DoFHandlerBase<3, spacedim, T> &dof_handler)
       {
-        dof_handler.vertex_dofs.resize(dof_handler.tria->n_vertices() *
+        dof_handler.new_dofs[0].resize(dof_handler.tria->n_vertices() *
                                          dof_handler.get_fe().dofs_per_vertex,
                                        numbers::invalid_dof_index);
 
@@ -1124,7 +1124,7 @@ namespace internal
 
           // now allocate the space we have determined we need, and
           // set up the linked lists for each of the vertices
-          dof_handler.vertex_dofs.resize(vertex_slots_needed,
+          dof_handler.new_dofs[0].resize(vertex_slots_needed,
                                          numbers::invalid_dof_index);
           for (unsigned int v = 0; v < dof_handler.tria->n_vertices(); ++v)
             if (dof_handler.tria->vertex_used(v) == true)
@@ -1139,12 +1139,12 @@ namespace internal
                       {
                         // if this vertex uses this fe, then set the
                         // fe_index and move the pointer ahead
-                        dof_handler.vertex_dofs[current_index] = fe;
+                        dof_handler.new_dofs[0][current_index] = fe;
                         current_index +=
                           dof_handler.get_fe(fe).dofs_per_vertex + 1;
                       }
                   // finally place the end marker
-                  dof_handler.vertex_dofs[current_index] =
+                  dof_handler.new_dofs[0][current_index] =
                     numbers::invalid_dof_index;
                 }
         }
@@ -2470,7 +2470,7 @@ DoFHandlerBase<dim, spacedim, T>::memory_consumption() const
          MemoryConsumption::memory_consumption(this->levels_hp) +
          MemoryConsumption::memory_consumption(*this->faces_hp) +
          MemoryConsumption::memory_consumption(this->number_cache) +
-         MemoryConsumption::memory_consumption(this->vertex_dofs) +
+         // MemoryConsumption::memory_consumption(this->vertex_dofs) +
          MemoryConsumption::memory_consumption(this->vertex_dof_offsets));
       for (unsigned int i = 0; i < this->levels_hp.size(); ++i)
         mem += MemoryConsumption::memory_consumption(*this->levels_hp[i]);
@@ -2488,8 +2488,9 @@ DoFHandlerBase<dim, spacedim, T>::memory_consumption() const
          // MemoryConsumption::memory_consumption(*this->faces) +
          // MemoryConsumption::memory_consumption(this->faces) +
          sizeof(this->number_cache) +
-         MemoryConsumption::memory_consumption(this->n_dofs()) +
-         MemoryConsumption::memory_consumption(this->vertex_dofs));
+         MemoryConsumption::memory_consumption(this->n_dofs())
+         // + MemoryConsumption::memory_consumption(this->vertex_dofs)
+        );
       for (unsigned int i = 0; i < this->levels.size(); ++i)
         mem += MemoryConsumption::memory_consumption(*this->levels[i]);
 
@@ -2775,7 +2776,8 @@ DoFHandlerBase<dim, spacedim, T>::clear_space()
       this->levels_hp.clear();
       this->faces_hp.reset();
 
-      this->vertex_dofs        = std::vector<types::global_dof_index>();
+      // this->vertex_dofs        = std::vector<types::global_dof_index>();
+      new_dofs[0].clear();
       this->vertex_dof_offsets = std::vector<unsigned int>();
     }
   else
@@ -2801,8 +2803,8 @@ DoFHandlerBase<dim, spacedim, T>::clear_space()
       for (auto &i : new_dofs_ptr)
         i.clear();
 
-      std::vector<types::global_dof_index> tmp;
-      std::swap(this->vertex_dofs, tmp);
+      // std::vector<types::global_dof_index> tmp;
+      // std::swap(this->vertex_dofs, tmp);
 
       this->number_cache.clear();
     }

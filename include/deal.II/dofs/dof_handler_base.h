@@ -1365,7 +1365,7 @@ private:
   /**
    * Array to store the indices for degrees of freedom located at vertices.
    */
-  std::vector<types::global_dof_index> vertex_dofs;
+  // std::vector<types::global_dof_index> vertex_dofs;
 
   /**
    * For each vertex in the triangulation, store the offset within the
@@ -1892,7 +1892,8 @@ DoFHandlerBase<dim, spacedim, T>::save(Archive &ar, const unsigned int) const
 {
   if (is_hp_dof_handler)
     {
-      ar & this->vertex_dofs;
+      // ar & this->vertex_dofs;
+      ar & this->new_dofs[0];
       ar & this->vertex_dof_offsets;
       ar & this->number_cache;
       ar & this->mg_number_cache;
@@ -1925,7 +1926,7 @@ DoFHandlerBase<dim, spacedim, T>::save(Archive &ar, const unsigned int) const
   else
     {
       ar & this->block_info_object;
-      ar & this->vertex_dofs;
+      // ar & this->vertex_dofs;
       ar & this->number_cache;
 
       // some versions of gcc have trouble with loading vectors of
@@ -1959,7 +1960,8 @@ DoFHandlerBase<dim, spacedim, T>::load(Archive &ar, const unsigned int)
 {
   if (is_hp_dof_handler)
     {
-      ar & this->vertex_dofs;
+      // ar & this->vertex_dofs;
+      ar & this->new_dofs[0];
       ar & this->vertex_dof_offsets;
       ar & this->number_cache;
       ar & this->mg_number_cache;
@@ -2013,7 +2015,7 @@ DoFHandlerBase<dim, spacedim, T>::load(Archive &ar, const unsigned int)
   else
     {
       ar & this->block_info_object;
-      ar & this->vertex_dofs;
+      // ar & this->vertex_dofs;
       ar & this->number_cache;
 
       // boost::serialization can restore pointers just fine, but if the
