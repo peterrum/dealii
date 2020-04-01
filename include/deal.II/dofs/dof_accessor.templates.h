@@ -274,12 +274,11 @@ namespace internal
                     std::integral_constant<int, 1>)
       {
         (void)obj_level;
+        (void)fe_index;
         // faces have no levels
-        Assert(obj_level == 0, ExcInternalError());
-        return dof_handler.faces->lines.get_dof_index(dof_handler,
-                                                      obj_index,
-                                                      fe_index,
-                                                      local_index);
+        const unsigned int d = 1;
+        return dof_handler
+          .new_dofs[d][dof_handler.new_dofs_ptr[d][obj_index] + local_index];
       }
 
 
@@ -294,10 +293,13 @@ namespace internal
                     const types::global_dof_index global_index)
       {
         (void)obj_level;
+        (void)fe_index;
         // faces have no levels
         Assert(obj_level == 0, ExcInternalError());
-        dof_handler.faces->lines.set_dof_index(
-          dof_handler, obj_index, fe_index, local_index, global_index);
+        const unsigned int d = 1;
+        dof_handler
+          .new_dofs[d][dof_handler.new_dofs_ptr[d][obj_index] + local_index] =
+          global_index;
       }
 
 
@@ -340,12 +342,12 @@ namespace internal
                     std::integral_constant<int, 1>)
       {
         (void)obj_level;
+        (void)fe_index;
         // faces have no levels
         Assert(obj_level == 0, ExcInternalError());
-        return dof_handler.faces->lines.get_dof_index(dof_handler,
-                                                      obj_index,
-                                                      fe_index,
-                                                      local_index);
+        const unsigned int d = 1;
+        return dof_handler
+          .new_dofs[d][dof_handler.new_dofs_ptr[d][obj_index] + local_index];
       }
 
 
@@ -360,10 +362,13 @@ namespace internal
                     const types::global_dof_index global_index)
       {
         (void)obj_level;
+        (void)fe_index;
         // faces have no levels
         Assert(obj_level == 0, ExcInternalError());
-        dof_handler.faces->lines.set_dof_index(
-          dof_handler, obj_index, fe_index, local_index, global_index);
+        const unsigned int d = 1;
+        dof_handler
+          .new_dofs[d][dof_handler.new_dofs_ptr[d][obj_index] + local_index] =
+          global_index;
       }
 
 
@@ -378,12 +383,12 @@ namespace internal
                     std::integral_constant<int, 2>)
       {
         (void)obj_level;
+        (void)fe_index;
         // faces have no levels
         Assert(obj_level == 0, ExcInternalError());
-        return dof_handler.faces->quads.get_dof_index(dof_handler,
-                                                      obj_index,
-                                                      fe_index,
-                                                      local_index);
+        const unsigned int d = 2;
+        return dof_handler
+          .new_dofs[d][dof_handler.new_dofs_ptr[d][obj_index] + local_index];
       }
 
 
@@ -398,10 +403,13 @@ namespace internal
                     const types::global_dof_index global_index)
       {
         (void)obj_level;
+        (void)fe_index;
         // faces have no levels
         Assert(obj_level == 0, ExcInternalError());
-        dof_handler.faces->quads.set_dof_index(
-          dof_handler, obj_index, fe_index, local_index, global_index);
+        const unsigned int d = 2;
+        dof_handler
+          .new_dofs[d][dof_handler.new_dofs_ptr[d][obj_index] + local_index] =
+          global_index;
       }
 
 

@@ -2110,64 +2110,19 @@ namespace internal
          *
          * See renumber_dofs() for the meaning of the arguments.
          */
-        template <int spacedim>
-        static void
-        renumber_face_dofs(
-          const std::vector<types::global_dof_index> & /*new_numbers*/,
-          const IndexSet & /*indices_we_care_about*/,
-          DoFHandler<1, spacedim> & /*dof_handler*/)
-        {
-          // nothing to do in 1d since there are no separate faces
-        }
-
-
-
-        template <int spacedim>
+        template <int dim, int spacedim>
         static void
         renumber_face_dofs(
           const std::vector<types::global_dof_index> &new_numbers,
           const IndexSet &                            indices_we_care_about,
-          DoFHandler<2, spacedim> &                   dof_handler)
+          DoFHandler<dim, spacedim> &                 dof_handler)
         {
-          // treat dofs on lines
-          for (std::vector<types::global_dof_index>::iterator i =
-                 dof_handler.faces->lines.dofs.begin();
-               i != dof_handler.faces->lines.dofs.end();
-               ++i)
-            if (*i != numbers::invalid_dof_index)
-              *i = ((indices_we_care_about.size() == 0) ?
-                      new_numbers[*i] :
-                      new_numbers[indices_we_care_about.index_within_set(*i)]);
-        }
-
-
-
-        template <int spacedim>
-        static void
-        renumber_face_dofs(
-          const std::vector<types::global_dof_index> &new_numbers,
-          const IndexSet &                            indices_we_care_about,
-          DoFHandler<3, spacedim> &                   dof_handler)
-        {
-          // treat dofs on lines
-          for (std::vector<types::global_dof_index>::iterator i =
-                 dof_handler.faces->lines.dofs.begin();
-               i != dof_handler.faces->lines.dofs.end();
-               ++i)
-            if (*i != numbers::invalid_dof_index)
-              *i = ((indices_we_care_about.size() == 0) ?
-                      new_numbers[*i] :
-                      new_numbers[indices_we_care_about.index_within_set(*i)]);
-
-          // treat dofs on quads
-          for (std::vector<types::global_dof_index>::iterator i =
-                 dof_handler.faces->quads.dofs.begin();
-               i != dof_handler.faces->quads.dofs.end();
-               ++i)
-            if (*i != numbers::invalid_dof_index)
-              *i = ((indices_we_care_about.size() == 0) ?
-                      new_numbers[*i] :
-                      new_numbers[indices_we_care_about.index_within_set(*i)]);
+          for (unsigned int d = 1; d < dim; d++)
+            for (auto &i : dof_handler.new_dofs[d])
+              if (i != numbers::invalid_dof_index)
+                i = ((indices_we_care_about.size() == 0) ?
+                       new_numbers[i] :
+                       new_numbers[indices_we_care_about.index_within_set(i)]);
         }
 
 
