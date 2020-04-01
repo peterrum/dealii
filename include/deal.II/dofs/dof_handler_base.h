@@ -1269,18 +1269,43 @@ private:
   };
 
   /**
-   * TODO
+   * Whenever the underlying triangulation changes by either
+   * h/p refinement/coarsening and serialization, the active_fe_index of cells
+   * needs to be transferred. This structure stores all temporary information
+   * required during that process.
    */
   struct ActiveFEIndexTransfer
   {
+    /**
+     * Container to temporarily store the iterator and future active FE index
+     * of cells that persist.
+     */
     std::map<const cell_iterator, const unsigned int> persisting_cells_fe_index;
 
+    /**
+     * Container to temporarily store the iterator and future active FE index
+     * of cells that will be refined.
+     */
     std::map<const cell_iterator, const unsigned int> refined_cells_fe_index;
 
+    /**
+     * Container to temporarily store the iterator and future active FE index
+     * of parent cells that will remain after coarsening.
+     */
     std::map<const cell_iterator, const unsigned int> coarsened_cells_fe_index;
 
+    /**
+     * Container to temporarily store the active_fe_index of every locally
+     * owned cell for transfer across parallel::distributed::Triangulation
+     * objects.
+     */
     std::vector<unsigned int> active_fe_indices;
 
+    /**
+     * Helper object to transfer all active_fe_indices on
+     * parallel::distributed::Triangulation objects during
+     * refinement/coarsening and serialization.
+     */
     std::unique_ptr<
       parallel::distributed::
         CellDataTransfer<dim, spacedim, std::vector<unsigned int>>>
@@ -1334,6 +1359,16 @@ private:
   std::vector<types::global_dof_index> vertex_dofs;
 
   /**
+   * For each vertex in the triangulation, store the offset within the
+   * vertex_dofs array where the dofs for this vertex start.
+   *
+   * As for that array, the format is the same as described in the
+   * documentation of hp::DoFLevel.
+   *
+   * Access to this field is generally through the
+   * Accessor::get_vertex_dof_index() and Accessor::set_vertex_dof_index()
+   * functions, encapsulating the actual data format used to the present
+   * class.
    */
   std::vector<unsigned int> vertex_dof_offsets; // for hp
 
