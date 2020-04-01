@@ -273,12 +273,14 @@ namespace internal
                     const unsigned int                     local_index,
                     std::integral_constant<int, 1>)
       {
-        (void)obj_level;
         (void)fe_index;
+        Assert(obj_level == 0, ExcInternalError());
         // faces have no levels
         const unsigned int d = 1;
         return dof_handler
-          .new_dofs[d][dof_handler.new_dofs_ptr[d][obj_index] + local_index];
+          .new_dofs[obj_level][d]
+                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                    local_index];
       }
 
 
@@ -297,9 +299,9 @@ namespace internal
         // faces have no levels
         Assert(obj_level == 0, ExcInternalError());
         const unsigned int d = 1;
-        dof_handler
-          .new_dofs[d][dof_handler.new_dofs_ptr[d][obj_index] + local_index] =
-          global_index;
+        dof_handler.new_dofs[obj_level][d]
+                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                             local_index] = global_index;
       }
 
 
@@ -341,13 +343,14 @@ namespace internal
                     const unsigned int                     local_index,
                     std::integral_constant<int, 1>)
       {
-        (void)obj_level;
         (void)fe_index;
         // faces have no levels
         Assert(obj_level == 0, ExcInternalError());
         const unsigned int d = 1;
         return dof_handler
-          .new_dofs[d][dof_handler.new_dofs_ptr[d][obj_index] + local_index];
+          .new_dofs[obj_level][d]
+                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                    local_index];
       }
 
 
@@ -361,14 +364,13 @@ namespace internal
                     std::integral_constant<int, 1>,
                     const types::global_dof_index global_index)
       {
-        (void)obj_level;
         (void)fe_index;
         // faces have no levels
         Assert(obj_level == 0, ExcInternalError());
         const unsigned int d = 1;
-        dof_handler
-          .new_dofs[d][dof_handler.new_dofs_ptr[d][obj_index] + local_index] =
-          global_index;
+        dof_handler.new_dofs[obj_level][d]
+                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                             local_index] = global_index;
       }
 
 
@@ -382,13 +384,14 @@ namespace internal
                     const unsigned int                     local_index,
                     std::integral_constant<int, 2>)
       {
-        (void)obj_level;
         (void)fe_index;
         // faces have no levels
         Assert(obj_level == 0, ExcInternalError());
         const unsigned int d = 2;
         return dof_handler
-          .new_dofs[d][dof_handler.new_dofs_ptr[d][obj_index] + local_index];
+          .new_dofs[obj_level][d]
+                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                    local_index];
       }
 
 
@@ -402,14 +405,13 @@ namespace internal
                     std::integral_constant<int, 2>,
                     const types::global_dof_index global_index)
       {
-        (void)obj_level;
         (void)fe_index;
         // faces have no levels
         Assert(obj_level == 0, ExcInternalError());
         const unsigned int d = 2;
-        dof_handler
-          .new_dofs[d][dof_handler.new_dofs_ptr[d][obj_index] + local_index] =
-          global_index;
+        dof_handler.new_dofs[obj_level][d]
+                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                             local_index] = global_index;
       }
 
 
@@ -1073,8 +1075,8 @@ namespace internal
         AssertIndexRange(local_index, dof_handler.get_fe().dofs_per_vertex);
 
         dof_handler
-          .new_dofs[0][vertex_index * dof_handler.get_fe().dofs_per_vertex +
-                       local_index] = global_index;
+          .new_dofs[0][0][vertex_index * dof_handler.get_fe().dofs_per_vertex +
+                          local_index] = global_index;
       }
 
 
@@ -1111,10 +1113,10 @@ namespace internal
         const unsigned int starting_offset =
           dof_handler.vertex_dof_offsets[vertex_index];
         types::global_dof_index *pointer =
-          &dof_handler.new_dofs[0][starting_offset];
+          &dof_handler.new_dofs[0][0][starting_offset];
         while (true)
           {
-            Assert(pointer <= &dof_handler.new_dofs[0].back(),
+            Assert(pointer <= &dof_handler.new_dofs[0][0].back(),
                    ExcInternalError());
 
             // a fe index is always small
@@ -1160,8 +1162,8 @@ namespace internal
         AssertIndexRange(local_index, dof_handler.get_fe().dofs_per_vertex);
 
         return dof_handler
-          .new_dofs[0][vertex_index * dof_handler.get_fe().dofs_per_vertex +
-                       local_index];
+          .new_dofs[0][0][vertex_index * dof_handler.get_fe().dofs_per_vertex +
+                          local_index];
       }
 
 
@@ -1198,10 +1200,10 @@ namespace internal
         const unsigned int starting_offset =
           dof_handler.vertex_dof_offsets[vertex_index];
         const types::global_dof_index *pointer =
-          &dof_handler.new_dofs[0][starting_offset];
+          &dof_handler.new_dofs[0][0][starting_offset];
         while (true)
           {
-            Assert(pointer <= &dof_handler.new_dofs[0].back(),
+            Assert(pointer <= &dof_handler.new_dofs[0][0].back(),
                    ExcInternalError());
 
             Assert((*pointer) <
@@ -1248,14 +1250,14 @@ namespace internal
         const unsigned int starting_offset =
           dof_handler.vertex_dof_offsets[vertex_index];
         const types::global_dof_index *pointer =
-          &dof_handler.new_dofs[0][starting_offset];
+          &dof_handler.new_dofs[0][0][starting_offset];
 
         Assert(*pointer != numbers::invalid_dof_index, ExcInternalError());
 
         unsigned int counter = 0;
         while (true)
           {
-            Assert(pointer <= &dof_handler.new_dofs[0].back(),
+            Assert(pointer <= &dof_handler.new_dofs[0][0].back(),
                    ExcInternalError());
 
             const types::global_dof_index this_fe_index = *pointer;
@@ -1302,14 +1304,14 @@ namespace internal
         const unsigned int starting_offset =
           dof_handler.vertex_dof_offsets[vertex_index];
         const types::global_dof_index *pointer =
-          &dof_handler.new_dofs[0][starting_offset];
+          &dof_handler.new_dofs[0][0][starting_offset];
 
         Assert(*pointer != numbers::invalid_dof_index, ExcInternalError());
 
         unsigned int counter = 0;
         while (true)
           {
-            Assert(pointer <= &dof_handler.new_dofs[0].back(),
+            Assert(pointer <= &dof_handler.new_dofs[0][0].back(),
                    ExcInternalError());
 
             Assert((*pointer) < std::numeric_limits<unsigned int>::max(),
@@ -1388,13 +1390,13 @@ namespace internal
         const unsigned int starting_offset =
           dof_handler.vertex_dof_offsets[vertex_index];
         const types::global_dof_index *pointer =
-          &dof_handler.new_dofs[0][starting_offset];
+          &dof_handler.new_dofs[0][0][starting_offset];
 
         Assert(*pointer != numbers::invalid_dof_index, ExcInternalError());
 
         while (true)
           {
-            Assert(pointer <= &dof_handler.new_dofs[0].back(),
+            Assert(pointer <= &dof_handler.new_dofs[0][0].back(),
                    ExcInternalError());
 
             Assert((*pointer) <

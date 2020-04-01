@@ -1359,8 +1359,9 @@ private:
   mutable std::vector<std::vector<types::global_dof_index>> new_cell_dofs_cache;
   mutable std::vector<std::vector<unsigned int>> new_cell_dofs_cache_ptr;
 
-  mutable std::array<std::vector<types::global_dof_index>, dim> new_dofs;
-  mutable std::array<std::vector<unsigned int>, dim>            new_dofs_ptr;
+  mutable std::vector<std::array<std::vector<types::global_dof_index>, dim>>
+                                                                  new_dofs;
+  mutable std::vector<std::array<std::vector<unsigned int>, dim>> new_dofs_ptr;
 
   /**
    * Array to store the indices for degrees of freedom located at vertices.
@@ -1893,7 +1894,7 @@ DoFHandlerBase<dim, spacedim, T>::save(Archive &ar, const unsigned int) const
   if (is_hp_dof_handler)
     {
       // ar & this->vertex_dofs;
-      ar & this->new_dofs[0];
+      ar & this->new_dofs[0][0];
       ar & this->vertex_dof_offsets;
       ar & this->number_cache;
       ar & this->mg_number_cache;
@@ -1961,7 +1962,7 @@ DoFHandlerBase<dim, spacedim, T>::load(Archive &ar, const unsigned int)
   if (is_hp_dof_handler)
     {
       // ar & this->vertex_dofs;
-      ar & this->new_dofs[0];
+      ar & this->new_dofs[0][0];
       ar & this->vertex_dof_offsets;
       ar & this->number_cache;
       ar & this->mg_number_cache;
@@ -2024,11 +2025,9 @@ DoFHandlerBase<dim, spacedim, T>::load(Archive &ar, const unsigned int)
       // previous content before re-loading stuff
       this->levels.clear();
 
-      for (auto &i : new_dofs)
-        i.clear();
+      new_dofs.clear();
 
-      for (auto &i : new_dofs_ptr)
-        i.clear();
+      new_dofs_ptr.clear();
 
       // some versions of gcc have trouble with loading vectors of
       // std::unique_ptr objects because std::unique_ptr does not

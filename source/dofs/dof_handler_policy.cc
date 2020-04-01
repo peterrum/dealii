@@ -2056,8 +2056,8 @@ namespace internal
           // may be invalid_dof_index, namely when the appropriate
           // vertex/line/etc is unused
           for (std::vector<types::global_dof_index>::iterator i =
-                 dof_handler.new_dofs[0].begin();
-               i != dof_handler.new_dofs[0].end();
+                 dof_handler.new_dofs[0][0].begin();
+               i != dof_handler.new_dofs[0][0].end();
                ++i)
             if (*i != numbers::invalid_dof_index)
               *i = (indices_we_care_about.size() == 0) ?
@@ -2067,7 +2067,7 @@ namespace internal
               // if index is invalid_dof_index: check if this one
               // really is unused
               Assert(dof_handler.get_triangulation().vertex_used(
-                       (i - dof_handler.new_dofs[0].begin()) /
+                       (i - dof_handler.new_dofs[0][0].begin()) /
                        dof_handler.get_fe().dofs_per_vertex) == false,
                      ExcInternalError());
         }
@@ -2118,7 +2118,7 @@ namespace internal
           DoFHandler<dim, spacedim> &                 dof_handler)
         {
           for (unsigned int d = 1; d < dim; d++)
-            for (auto &i : dof_handler.new_dofs[d])
+            for (auto &i : dof_handler.new_dofs[0][d])
               if (i != numbers::invalid_dof_index)
                 i = ((indices_we_care_about.size() == 0) ?
                        new_numbers[i] :
