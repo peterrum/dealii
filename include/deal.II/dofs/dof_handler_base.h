@@ -1359,9 +1359,10 @@ private:
   mutable std::vector<std::vector<types::global_dof_index>> new_cell_dofs_cache;
   mutable std::vector<std::vector<unsigned int>> new_cell_dofs_cache_ptr;
 
-  mutable std::vector<std::array<std::vector<types::global_dof_index>, dim>>
-                                                                  new_dofs;
-  mutable std::vector<std::array<std::vector<unsigned int>, dim>> new_dofs_ptr;
+  mutable std::vector<std::array<std::vector<types::global_dof_index>, dim + 1>>
+    new_dofs;
+  mutable std::vector<std::array<std::vector<unsigned int>, dim + 1>>
+    new_dofs_ptr;
 
   /**
    * Array to store the indices for degrees of freedom located at vertices.
@@ -1392,9 +1393,9 @@ private:
    * Space to store the DoF numbers for the different levels. Analogous to the
    * <tt>levels[]</tt> tree of the Triangulation objects.
    */
-  std::vector<
-    std::unique_ptr<dealii::internal::DoFHandlerImplementation::DoFLevel<dim>>>
-    levels;
+  // std::vector<
+  //  std::unique_ptr<dealii::internal::DoFHandlerImplementation::DoFLevel<dim>>>
+  //  levels;
 
   /**
    * Space to store the DoF numbers for the different multigrid levels.
@@ -1933,13 +1934,16 @@ DoFHandlerBase<dim, spacedim, T>::save(Archive &ar, const unsigned int) const
       // some versions of gcc have trouble with loading vectors of
       // std::unique_ptr objects because std::unique_ptr does not
       // have a copy constructor. do it one level at a time
-      unsigned int n_levels = this->levels.size();
-      ar &         n_levels;
-      for (unsigned int i = 0; i < this->levels.size(); ++i)
-        ar & this->levels[i];
+      // unsigned int n_levels = this->levels.size();
+      // ar &         n_levels;
+      // for (unsigned int i = 0; i < this->levels.size(); ++i)
+      //  ar & this->levels[i];
 
       ar & this->new_dofs;
       ar & this->new_dofs_ptr;
+
+      ar & this->new_cell_dofs_cache;
+      ar & this->new_cell_dofs_cache_ptr;
 
       // write out the number of triangulation cells and later check during
       // loading that this number is indeed correct; same with something that
@@ -2023,7 +2027,7 @@ DoFHandlerBase<dim, spacedim, T>::load(Archive &ar, const unsigned int)
       // pointer object still points to something useful, that object is not
       // destroyed and we end up with a memory leak. consequently, first delete
       // previous content before re-loading stuff
-      this->levels.clear();
+      // this->levels.clear();
 
       new_dofs.clear();
 
@@ -2032,19 +2036,22 @@ DoFHandlerBase<dim, spacedim, T>::load(Archive &ar, const unsigned int)
       // some versions of gcc have trouble with loading vectors of
       // std::unique_ptr objects because std::unique_ptr does not
       // have a copy constructor. do it one level at a time
-      unsigned int size;
-      ar &         size;
-      this->levels.resize(size);
-      for (unsigned int i = 0; i < this->levels.size(); ++i)
-        {
-          std::unique_ptr<internal::DoFHandlerImplementation::DoFLevel<dim>>
-              level;
-          ar &level;
-          this->levels[i] = std::move(level);
-        }
+      // unsigned int size;
+      // ar &         size;
+      // this->levels.resize(size);
+      // for (unsigned int i = 0; i < this->levels.size(); ++i)
+      //  {
+      //    std::unique_ptr<internal::DoFHandlerImplementation::DoFLevel<dim>>
+      //        level;
+      //    ar &level;
+      //    this->levels[i] = std::move(level);
+      //  }
 
       ar & this->new_dofs;
       ar & this->new_dofs_ptr;
+
+      ar & this->new_cell_dofs_cache;
+      ar & this->new_cell_dofs_cache_ptr;
 
       // these are the checks that correspond to the last block in the save()
       // function

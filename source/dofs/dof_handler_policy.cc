@@ -2088,17 +2088,13 @@ namespace internal
           const IndexSet &                            indices_we_care_about,
           DoFHandler<dim, spacedim> &                 dof_handler)
         {
-          for (unsigned int level = 0; level < dof_handler.levels.size();
+          for (unsigned int level = 0; level < dof_handler.new_dofs.size();
                ++level)
-            for (std::vector<types::global_dof_index>::iterator i =
-                   dof_handler.levels[level]->dof_object.dofs.begin();
-                 i != dof_handler.levels[level]->dof_object.dofs.end();
-                 ++i)
-              if (*i != numbers::invalid_dof_index)
-                *i =
-                  ((indices_we_care_about.size() == 0) ?
-                     new_numbers[*i] :
-                     new_numbers[indices_we_care_about.index_within_set(*i)]);
+            for (auto &i : dof_handler.new_dofs[level][dim])
+              if (i != numbers::invalid_dof_index)
+                i = ((indices_we_care_about.size() == 0) ?
+                       new_numbers[i] :
+                       new_numbers[indices_we_care_about.index_within_set(i)]);
         }
 
 

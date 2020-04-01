@@ -219,17 +219,28 @@ namespace internal
     struct Implementation
     {
       template <int dim, int spacedim>
-      static std::vector<std::unique_ptr<
-        dealii::internal::DoFHandlerImplementation::DoFLevel<dim>>> &
-      get_level_object(dealii::DoFHandler<dim, spacedim> *dof_handler)
+      static const types::global_dof_index *
+      get_level_object(dealii::DoFHandler<dim, spacedim> *dof_handler,
+                       const unsigned int                 present_level,
+                       const unsigned int                 present_index,
+                       const unsigned int                 dofs_per_cell)
       {
-        return dof_handler->levels;
+        (void)dofs_per_cell;
+
+        return &dof_handler
+                  ->new_cell_dofs_cache[present_level]
+                                       [dof_handler->new_cell_dofs_cache_ptr
+                                          [present_level][present_index]];
       }
       template <int dim, int spacedim>
-      static std::vector<std::unique_ptr<dealii::internal::hp::DoFLevel>> &
-      get_level_object(dealii::hp::DoFHandler<dim, spacedim> *dof_handler)
+      static const types::global_dof_index *
+      get_level_object(dealii::hp::DoFHandler<dim, spacedim> *dof_handler,
+                       const unsigned int                     present_level,
+                       const unsigned int                     present_index,
+                       const unsigned int                     dofs_per_cell)
       {
-        return dof_handler->levels_hp;
+        return dof_handler->levels_hp[present_level]->get_cell_cache_start(
+          present_index, dofs_per_cell);
       }
 
       /**
@@ -244,8 +255,13 @@ namespace internal
                     const unsigned int                     local_index,
                     std::integral_constant<int, 1>)
       {
-        return dof_handler.levels[obj_level]->dof_object.get_dof_index(
-          dof_handler, obj_index, fe_index, local_index);
+        (void)fe_index;
+
+        const unsigned int d = 1;
+        return dof_handler
+          .new_dofs[obj_level][d]
+                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                    local_index];
       }
 
 
@@ -259,8 +275,12 @@ namespace internal
                     std::integral_constant<int, 1>,
                     const types::global_dof_index global_index)
       {
-        dof_handler.levels[obj_level]->dof_object.set_dof_index(
-          dof_handler, obj_index, fe_index, local_index, global_index);
+        (void)fe_index;
+
+        const unsigned int d = 1;
+        dof_handler.new_dofs[obj_level][d]
+                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                             local_index] = global_index;
       }
 
 
@@ -314,8 +334,13 @@ namespace internal
                     const unsigned int                     local_index,
                     std::integral_constant<int, 2>)
       {
-        return dof_handler.levels[obj_level]->dof_object.get_dof_index(
-          dof_handler, obj_index, fe_index, local_index);
+        (void)fe_index;
+
+        const unsigned int d = 2;
+        return dof_handler
+          .new_dofs[obj_level][d]
+                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                    local_index];
       }
 
 
@@ -329,8 +354,12 @@ namespace internal
                     std::integral_constant<int, 2>,
                     const types::global_dof_index global_index)
       {
-        dof_handler.levels[obj_level]->dof_object.set_dof_index(
-          dof_handler, obj_index, fe_index, local_index, global_index);
+        (void)fe_index;
+
+        const unsigned int d = 2;
+        dof_handler.new_dofs[obj_level][d]
+                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                             local_index] = global_index;
       }
 
 
@@ -425,8 +454,13 @@ namespace internal
                     const unsigned int                     local_index,
                     std::integral_constant<int, 3>)
       {
-        return dof_handler.levels[obj_level]->dof_object.get_dof_index(
-          dof_handler, obj_index, fe_index, local_index);
+        (void)fe_index;
+
+        const unsigned int d = 3;
+        return dof_handler
+          .new_dofs[obj_level][d]
+                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                    local_index];
       }
 
 
@@ -440,8 +474,12 @@ namespace internal
                     std::integral_constant<int, 3>,
                     const types::global_dof_index global_index)
       {
-        dof_handler.levels[obj_level]->dof_object.set_dof_index(
-          dof_handler, obj_index, fe_index, local_index, global_index);
+        (void)fe_index;
+
+        const unsigned int d = 3;
+        dof_handler.new_dofs[obj_level][d]
+                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                             local_index] = global_index;
       }
 
 
@@ -2800,14 +2838,17 @@ namespace internal
         // writing to the last element of
         // this cell
         Assert(accessor.present_index * dofs_per_cell + dofs_per_cell <=
-                 accessor.dof_handler->levels[accessor.present_level]
-                   ->cell_dof_indices_cache.size(),
+                 accessor.dof_handler
+                   ->new_cell_dofs_cache[accessor.present_level]
+                   .size(),
                ExcInternalError());
 
         std::vector<types::global_dof_index>::iterator next =
-          (accessor.dof_handler->levels[accessor.present_level]
-             ->cell_dof_indices_cache.begin() +
-           accessor.present_index * dofs_per_cell);
+          (accessor.dof_handler->new_cell_dofs_cache[accessor.present_level]
+             .begin() +
+           accessor.dof_handler
+             ->new_cell_dofs_cache_ptr[accessor.present_level]
+                                      [accessor.present_index]);
 
         for (unsigned int vertex : GeometryInfo<1>::vertex_indices())
           for (unsigned int d = 0; d < dofs_per_vertex; ++d)
@@ -2846,14 +2887,17 @@ namespace internal
         // writing to the last element of
         // this cell
         Assert(accessor.present_index * dofs_per_cell + dofs_per_cell <=
-                 accessor.dof_handler->levels[accessor.present_level]
-                   ->cell_dof_indices_cache.size(),
+                 accessor.dof_handler
+                   ->new_cell_dofs_cache[accessor.present_level]
+                   .size(),
                ExcInternalError());
 
         std::vector<types::global_dof_index>::iterator next =
-          (accessor.dof_handler->levels[accessor.present_level]
-             ->cell_dof_indices_cache.begin() +
-           accessor.present_index * dofs_per_cell);
+          (accessor.dof_handler->new_cell_dofs_cache[accessor.present_level]
+             .begin() +
+           accessor.dof_handler
+             ->new_cell_dofs_cache_ptr[accessor.present_level]
+                                      [accessor.present_index]);
 
         for (unsigned int vertex : GeometryInfo<2>::vertex_indices())
           for (unsigned int d = 0; d < dofs_per_vertex; ++d)
@@ -2896,14 +2940,17 @@ namespace internal
         // writing to the last element of
         // this cell
         Assert(accessor.present_index * dofs_per_cell + dofs_per_cell <=
-                 accessor.dof_handler->levels[accessor.present_level]
-                   ->cell_dof_indices_cache.size(),
+                 accessor.dof_handler
+                   ->new_cell_dofs_cache[accessor.present_level]
+                   .size(),
                ExcInternalError());
 
         std::vector<types::global_dof_index>::iterator next =
-          (accessor.dof_handler->levels[accessor.present_level]
-             ->cell_dof_indices_cache.begin() +
-           accessor.present_index * dofs_per_cell);
+          (accessor.dof_handler->new_cell_dofs_cache[accessor.present_level]
+             .begin() +
+           accessor.dof_handler
+             ->new_cell_dofs_cache_ptr[accessor.present_level]
+                                      [accessor.present_index]);
 
         for (unsigned int vertex : GeometryInfo<3>::vertex_indices())
           for (unsigned int d = 0; d < dofs_per_vertex; ++d)
@@ -3334,8 +3381,9 @@ namespace internal
         const unsigned int n_dofs = local_source_end - local_source_begin;
 
         types::global_dof_index *dofs =
-          &accessor.dof_handler->levels[accessor.level()]
-             ->cell_dof_indices_cache[accessor.present_index * n_dofs];
+          &accessor.dof_handler->new_cell_dofs_cache
+             [accessor.level()][accessor.dof_handler->new_cell_dofs_cache_ptr
+                                  [accessor.level()][accessor.present_index]];
 
         // distribute cell vector
         global_destination.add(n_dofs, dofs, local_source_begin);
@@ -3415,8 +3463,9 @@ namespace internal
         const unsigned int n_dofs = local_source_end - local_source_begin;
 
         types::global_dof_index *dofs =
-          &accessor.dof_handler->levels[accessor.level()]
-             ->cell_dof_indices_cache[accessor.present_index * n_dofs];
+          &accessor.dof_handler->new_cell_dofs_cache
+             [accessor.level()][accessor.dof_handler->new_cell_dofs_cache_ptr
+                                  [accessor.level()][accessor.present_index]];
 
         // distribute cell vector
         constraints.distribute_local_to_global(local_source_begin,
@@ -3504,8 +3553,9 @@ namespace internal
         const unsigned int n_dofs = local_source.m();
 
         types::global_dof_index *dofs =
-          &accessor.dof_handler->levels[accessor.level()]
-             ->cell_dof_indices_cache[accessor.present_index * n_dofs];
+          &accessor.dof_handler->new_cell_dofs_cache
+             [accessor.level()][accessor.dof_handler->new_cell_dofs_cache_ptr
+                                  [accessor.level()][accessor.present_index]];
 
         // distribute cell matrix
         for (unsigned int i = 0; i < n_dofs; ++i)
@@ -3599,8 +3649,9 @@ namespace internal
 
         const unsigned int       n_dofs = accessor.get_fe().dofs_per_cell;
         types::global_dof_index *dofs =
-          &accessor.dof_handler->levels[accessor.level()]
-             ->cell_dof_indices_cache[accessor.present_index * n_dofs];
+          &accessor.dof_handler->new_cell_dofs_cache
+             [accessor.level()][accessor.dof_handler->new_cell_dofs_cache_ptr
+                                  [accessor.level()][accessor.present_index]];
 
         // distribute cell matrices
         for (unsigned int i = 0; i < n_dofs; ++i)
@@ -3858,8 +3909,10 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::get_dof_indices(
     {
       const types::global_dof_index *cache =
         dealii::internal::DoFAccessorImplementation::Implementation::
-          get_level_object(this->dof_handler)[this->present_level]
-            ->get_cell_cache_start(this->present_index, dofs_per_cell);
+          get_level_object(this->dof_handler,
+                           this->present_level,
+                           this->present_index,
+                           dofs_per_cell);
       for (unsigned int i = 0; i < dofs_per_cell; ++i, ++cache)
         dof_indices[i] = *cache;
     }
@@ -3936,9 +3989,10 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::get_dof_values(
 
   const types::global_dof_index *cache =
     dealii::internal::DoFAccessorImplementation::Implementation::
-      get_level_object(this->dof_handler)[this->present_level]
-        ->get_cell_cache_start(this->present_index,
-                               this->get_fe().dofs_per_cell);
+      get_level_object(this->dof_handler,
+                       this->present_level,
+                       this->present_index,
+                       this->get_fe().dofs_per_cell);
   dealii::internal::DoFAccessorImplementation::Implementation::
     extract_subvector_to(values,
                          cache,
@@ -3969,8 +4023,11 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::get_dof_values(
 
 
   const types::global_dof_index *cache =
-    this->dof_handler->levels[this->present_level]->get_cell_cache_start(
-      this->present_index, this->get_fe().dofs_per_cell);
+    dealii::internal::DoFAccessorImplementation::Implementation::
+      get_level_object(this->dof_handler,
+                       this->present_level,
+                       this->present_index,
+                       this->get_fe().dofs_per_cell);
 
   constraints.get_dof_values(values,
                              *cache,
@@ -4001,9 +4058,10 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::set_dof_values(
   Assert(this->dof_handler != nullptr, typename BaseClass::ExcInvalidObject());
   const types::global_dof_index *cache =
     dealii::internal::DoFAccessorImplementation::Implementation::
-      get_level_object(this->dof_handler)[this->present_level]
-        ->get_cell_cache_start(this->present_index,
-                               this->get_fe().dofs_per_cell);
+      get_level_object(this->dof_handler,
+                       this->present_level,
+                       this->present_index,
+                       this->get_fe().dofs_per_cell);
 
   for (unsigned int i = 0; i < this->get_fe().dofs_per_cell; ++i, ++cache)
     internal::ElementAccess<OutputVector>::set(local_values(i), *cache, values);

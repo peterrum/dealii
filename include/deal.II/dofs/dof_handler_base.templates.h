@@ -261,18 +261,29 @@ namespace internal
 
         for (unsigned int i = 0; i < dof_handler.tria->n_levels(); ++i)
           {
-            dof_handler.levels.emplace_back(
-              new internal::DoFHandlerImplementation::DoFLevel<1>);
-
-            dof_handler.levels.back()->dof_object.dofs.resize(
+            dof_handler.new_dofs[i][1].resize(
               dof_handler.tria->n_raw_cells(i) *
                 dof_handler.get_fe().dofs_per_line,
               numbers::invalid_dof_index);
 
-            dof_handler.levels.back()->cell_dof_indices_cache.resize(
+            dof_handler.new_dofs_ptr[i][1].reserve(
+              dof_handler.tria->n_raw_cells(i) + 1);
+            for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
+                 j++)
+              dof_handler.new_dofs_ptr[i][1].push_back(
+                j * dof_handler.get_fe().dofs_per_line);
+
+            dof_handler.new_cell_dofs_cache[i].resize(
               dof_handler.tria->n_raw_cells(i) *
                 dof_handler.get_fe().dofs_per_cell,
               numbers::invalid_dof_index);
+
+            dof_handler.new_cell_dofs_cache_ptr[i].reserve(
+              dof_handler.tria->n_raw_cells(i) + 1);
+            for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
+                 j++)
+              dof_handler.new_cell_dofs_cache_ptr[i].push_back(
+                j * dof_handler.get_fe().dofs_per_cell);
           }
 
         dof_handler.new_dofs[0][0].resize(
@@ -289,18 +300,29 @@ namespace internal
 
         for (unsigned int i = 0; i < dof_handler.tria->n_levels(); ++i)
           {
-            dof_handler.levels.emplace_back(
-              new internal::DoFHandlerImplementation::DoFLevel<2>);
-
-            dof_handler.levels.back()->dof_object.dofs.resize(
+            dof_handler.new_dofs[i][2].resize(
               dof_handler.tria->n_raw_cells(i) *
                 dof_handler.get_fe().dofs_per_quad,
               numbers::invalid_dof_index);
 
-            dof_handler.levels.back()->cell_dof_indices_cache.resize(
+            dof_handler.new_dofs_ptr[i][2].reserve(
+              dof_handler.tria->n_raw_cells(i) + 1);
+            for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
+                 j++)
+              dof_handler.new_dofs_ptr[i][2].push_back(
+                j * dof_handler.get_fe().dofs_per_quad);
+
+            dof_handler.new_cell_dofs_cache[i].resize(
               dof_handler.tria->n_raw_cells(i) *
                 dof_handler.get_fe().dofs_per_cell,
               numbers::invalid_dof_index);
+
+            dof_handler.new_cell_dofs_cache_ptr[i].reserve(
+              dof_handler.tria->n_raw_cells(i) + 1);
+            for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
+                 j++)
+              dof_handler.new_cell_dofs_cache_ptr[i].push_back(
+                j * dof_handler.get_fe().dofs_per_cell);
           }
 
         dof_handler.new_dofs[0][0].resize(
@@ -333,18 +355,29 @@ namespace internal
 
         for (unsigned int i = 0; i < dof_handler.tria->n_levels(); ++i)
           {
-            dof_handler.levels.emplace_back(
-              new internal::DoFHandlerImplementation::DoFLevel<3>);
-
-            dof_handler.levels.back()->dof_object.dofs.resize(
+            dof_handler.new_dofs[i][3].resize(
               dof_handler.tria->n_raw_cells(i) *
                 dof_handler.get_fe().dofs_per_hex,
               numbers::invalid_dof_index);
 
-            dof_handler.levels.back()->cell_dof_indices_cache.resize(
+            dof_handler.new_dofs_ptr[i][3].reserve(
+              dof_handler.tria->n_raw_cells(i) + 1);
+            for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
+                 j++)
+              dof_handler.new_dofs_ptr[i][3].push_back(
+                j * dof_handler.get_fe().dofs_per_hex);
+
+            dof_handler.new_cell_dofs_cache[i].resize(
               dof_handler.tria->n_raw_cells(i) *
                 dof_handler.get_fe().dofs_per_cell,
               numbers::invalid_dof_index);
+
+            dof_handler.new_cell_dofs_cache_ptr[i].reserve(
+              dof_handler.tria->n_raw_cells(i) + 1);
+            for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
+                 j++)
+              dof_handler.new_cell_dofs_cache_ptr[i].push_back(
+                j * dof_handler.get_fe().dofs_per_cell);
           }
 
         dof_handler.new_dofs[0][0].resize(
@@ -2487,15 +2520,15 @@ DoFHandlerBase<dim, spacedim, T>::memory_consumption() const
         (MemoryConsumption::memory_consumption(this->tria) +
          MemoryConsumption::memory_consumption(this->fe_collection) +
          MemoryConsumption::memory_consumption(this->block_info_object) +
-         MemoryConsumption::memory_consumption(this->levels) +
+         // MemoryConsumption::memory_consumption(this->levels) +
          // MemoryConsumption::memory_consumption(*this->faces) +
          // MemoryConsumption::memory_consumption(this->faces) +
          sizeof(this->number_cache) +
          MemoryConsumption::memory_consumption(this->n_dofs())
          // + MemoryConsumption::memory_consumption(this->vertex_dofs)
         );
-      for (unsigned int i = 0; i < this->levels.size(); ++i)
-        mem += MemoryConsumption::memory_consumption(*this->levels[i]);
+      // for (unsigned int i = 0; i < this->levels.size(); ++i)
+      //  mem += MemoryConsumption::memory_consumption(*this->levels[i]);
 
       for (unsigned int level = 0; level < this->mg_levels.size(); ++level)
         mem += this->mg_levels[level]->memory_consumption();
@@ -2579,11 +2612,12 @@ void
 DoFHandlerBase<dim, spacedim, T>::distribute_dofs(
   const hp::FECollection<dim, spacedim> &ff)
 {
-  new_dofs.resize(this->tria->n_levels());
-  new_dofs_ptr.resize(this->tria->n_levels());
-
   if (is_hp_dof_handler)
     {
+      new_dofs.resize(this->tria->n_levels());
+      new_dofs_ptr.resize(this->tria->n_levels());
+      new_cell_dofs_cache.resize(this->tria->n_levels());
+      new_cell_dofs_cache_ptr.resize(this->tria->n_levels());
       // assign the fe_collection and initialize all active_fe_indices
       this->set_fe(ff);
 
@@ -2666,6 +2700,10 @@ DoFHandlerBase<dim, spacedim, T>::distribute_dofs(
       // to be able to query the dof_indices on each cell, and simply be told
       // that we don't know them on some cell (i.e. get back invalid_dof_index)
       this->clear_space();
+      new_dofs.resize(this->tria->n_levels());
+      new_dofs_ptr.resize(this->tria->n_levels());
+      new_cell_dofs_cache.resize(this->tria->n_levels());
+      new_cell_dofs_cache_ptr.resize(this->tria->n_levels());
       internal::DoFHandlerImplementation::Implementation::reserve_space(
         static_cast<T &>(*this));
 
@@ -2692,7 +2730,7 @@ DoFHandlerBase<dim, spacedim, T>::distribute_mg_dofs()
   AssertThrow(is_hp_dof_handler == false, ExcNotImplemented());
 
   Assert(
-    this->levels.size() > 0,
+    this->new_dofs.size() > 0,
     ExcMessage(
       "Distribute active DoFs using distribute_dofs() before calling distribute_mg_dofs()."));
 
@@ -2788,20 +2826,15 @@ DoFHandlerBase<dim, spacedim, T>::clear_space()
     }
   else
     {
-      this->levels.clear();
-
-
       for (auto &i : new_cell_dofs)
         i.clear();
 
       for (auto &i : new_cell_dofs_ptr)
         i.clear();
 
-      for (auto &i : new_cell_dofs_cache)
-        i.clear();
+      new_cell_dofs_cache.clear();
 
-      for (auto &i : new_cell_dofs_cache_ptr)
-        i.clear();
+      new_cell_dofs_cache_ptr.clear();
 
       new_dofs.clear();
 
@@ -2900,7 +2933,7 @@ DoFHandlerBase<dim, spacedim, T>::renumber_dofs(
     }
   else
     {
-      Assert(this->levels.size() > 0,
+      Assert(this->new_dofs.size() > 0,
              ExcMessage(
                "You need to distribute DoFs before you can renumber them."));
 
@@ -2963,7 +2996,7 @@ DoFHandlerBase<dim, spacedim, T>::renumber_dofs(
   AssertThrow(is_hp_dof_handler == false, ExcNotImplemented());
 
   Assert(
-    this->mg_levels.size() > 0 && this->levels.size() > 0,
+    this->mg_levels.size() > 0 && this->new_dofs.size() > 0,
     ExcMessage(
       "You need to distribute active and level DoFs before you can renumber level DoFs."));
   AssertIndexRange(level, this->get_triangulation().n_global_levels());
