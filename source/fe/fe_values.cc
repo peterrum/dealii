@@ -4944,7 +4944,7 @@ FESubfaceValues<dim, spacedim>::reinit(
   const unsigned int subface_no)
 {
   // assert that the finite elements passed to the constructor and
-  // used by the hp::DoFHandler used by this cell, are the same
+  // used by the hp__DoFHandler used by this cell, are the same
   Assert(static_cast<const FiniteElementData<dim> &>(*this->fe) ==
            static_cast<const FiniteElementData<dim> &>(
              cell->get_dof_handler().get_fe(cell->active_fe_index())),

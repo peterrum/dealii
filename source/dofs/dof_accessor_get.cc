@@ -68,7 +68,7 @@ DoFCellAccessor<DoFHandlerType, lda>::get_interpolated_dof_values(
         {
           // well, here we need to first get the values from the current
           // cell and then interpolate it to the element requested. this
-          // can clearly only happen for hp::DoFHandler objects
+          // can clearly only happen for hp__DoFHandler objects
           const unsigned int dofs_per_cell = this->get_fe().dofs_per_cell;
           if (dofs_per_cell == 0)
             {
@@ -105,7 +105,7 @@ DoFCellAccessor<DoFHandlerType, lda>::get_interpolated_dof_values(
                (fe_index != DoFHandlerType::default_fe_index),
              ExcMessage(
                "You cannot call this function on non-active cells "
-               "of hp::DoFHandler objects unless you provide an explicit "
+               "of hp__DoFHandler objects unless you provide an explicit "
                "finite element index because they do not have naturally "
                "associated finite element spaces associated: degrees "
                "of freedom are only distributed on active cells for which "

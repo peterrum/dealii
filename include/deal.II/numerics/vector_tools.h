@@ -603,12 +603,12 @@ namespace VectorTools
    * continuous again.
    *
    * The template argument <code>DoFHandlerType</code> may either be of type
-   * DoFHandler or hp::DoFHandler.
+   * DoFHandler or hp__DoFHandler.
    *
    * See the general documentation of this namespace for further information.
    *
    * @todo The @p mapping argument should be replaced by a
-   * hp::MappingCollection in case of a hp::DoFHandler.
+   * hp::MappingCollection in case of a hp__DoFHandler.
    */
   template <int dim,
             int spacedim,
@@ -913,7 +913,7 @@ namespace VectorTools
           const bool                 project_to_boundary_first = false);
 
   /**
-   * Same as above, but for arguments of type hp::DoFHandler, hp::QCollection,
+   * Same as above, but for arguments of type hp__DoFHandler, hp::QCollection,
    * and hp::MappingCollection.
    */
   template <int dim, typename VectorType, int spacedim>
@@ -1106,7 +1106,7 @@ namespace VectorTools
 
   /**
    * Like the previous function, but take a mapping collection to go with the
-   * hp::DoFHandler object.
+   * hp__DoFHandler object.
    */
   template <int dim, int spacedim, typename number>
   void
@@ -1414,7 +1414,7 @@ namespace VectorTools
     std::vector<unsigned int>                  component_mapping = {});
 
   /**
-   * Same as above, but for objects of type hp::DoFHandler
+   * Same as above, but for objects of type hp__DoFHandler
    */
   template <int dim, int spacedim, typename number>
   void
@@ -2278,7 +2278,7 @@ namespace VectorTools
 
   /**
    * Like the previous set of functions, but for hp objects. The function uses
-   * an implied default $Q_1$ mapping object. Note that if your hp::DoFHandler
+   * an implied default $Q_1$ mapping object. Note that if your hp__DoFHandler
    * uses any active fe index other than zero, then you need to call the
    * function above that provides a mapping object for each active fe index.
    */
@@ -2339,7 +2339,7 @@ namespace VectorTools
 
   /**
    * Like the previous set of functions, but for hp objects. The function uses
-   * an implied default $Q_1$ mapping object. Note that if your hp::DoFHandler
+   * an implied default $Q_1$ mapping object. Note that if your hp__DoFHandler
    * uses any active fe index other than zero, then you need to call the
    * function above that provides a mapping object for each active fe index.
    */
@@ -2624,7 +2624,7 @@ namespace VectorTools
   /**
    * Same as above for hp.
    *
-   * @deprecated Use integrate_difference(const hp::MappingCollection<dim, spacedim> &, const hp::DoFHandler<dim, spacedim> &, const InVector &, const Function<spacedim, typename InVector::value_type> &, OutVector &, const hp::QCollection<dim> &, const NormType &, const Function<spacedim, double> *, const double) instead.
+   * @deprecated Use integrate_difference(const hp::MappingCollection<dim, spacedim> &, const hp__DoFHandler<dim, spacedim> &, const InVector &, const Function<spacedim, typename InVector::value_type> &, OutVector &, const hp::QCollection<dim> &, const NormType &, const Function<spacedim, double> *, const double) instead.
    */
   template <int dim, class InVector, class OutVector, int spacedim>
   DEAL_II_DEPRECATED typename std::enable_if<
@@ -2643,7 +2643,7 @@ namespace VectorTools
    * Call the integrate_difference() function, see above, with
    * <tt>mapping=MappingQGeneric@<dim@>(1)</tt>.
    *
-   * @deprecated Use integrate_difference(const hp::DoFHandler<dim, spacedim> &, const InVector &, const Function<spacedim, typename InVector::value_type> &, OutVector &, const hp::QCollection<dim> &, const NormType &, const Function<spacedim, double> *, const double) instead.
+   * @deprecated Use integrate_difference(const hp__DoFHandler<dim, spacedim> &, const InVector &, const Function<spacedim, typename InVector::value_type> &, OutVector &, const hp::QCollection<dim> &, const NormType &, const Function<spacedim, double> *, const double) instead.
    */
   template <int dim, class InVector, class OutVector, int spacedim>
   DEAL_II_DEPRECATED typename std::enable_if<

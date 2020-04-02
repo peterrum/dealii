@@ -96,7 +96,7 @@ inline DoFAccessor<structdim, DoFHandlerType, level_dof_access>::DoFAccessor(
            "You are trying to assign iterators that are incompatible. "
            "Reasons for incompatibility are that they point to different "
            "types of DoFHandlers (e.g., dealii::DoFHandler and "
-           "dealii::hp::DoFHandler) or that they refer to objects of "
+           "dealii::hp__DoFHandler) or that they refer to objects of "
            "different dimensionality (e.g., assigning a line iterator "
            "to a quad iterator)."));
 }
@@ -2592,7 +2592,7 @@ namespace internal
     {
       /**
        * Implement the updating of the cache. Currently not implemented for
-       * hp::DoFHandler objects.
+       * hp__DoFHandler objects.
        */
       template <int spacedim, bool level_dof_access>
       static void
@@ -3863,7 +3863,7 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::get_fe() const
                                            DoFHandlerType::space_dimension> *>(
        this->dof_handler) != nullptr) ||
       this->is_active(),
-    ExcMessage("In hp::DoFHandler objects, finite elements are only associated "
+    ExcMessage("In hp__DoFHandler objects, finite elements are only associated "
                "with active cells. Consequently, you can not ask for the "
                "active finite element on cells with children."));
 
@@ -3942,7 +3942,7 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::get_future_fe() const
                                            DoFHandlerType::space_dimension> *>(
        this->dof_handler) != nullptr) ||
       this->is_active(),
-    ExcMessage("In hp::DoFHandler objects, finite elements are only associated "
+    ExcMessage("In hp__DoFHandler objects, finite elements are only associated "
                "with active cells. Consequently, you can not ask for the "
                "future finite element on cells with children."));
 

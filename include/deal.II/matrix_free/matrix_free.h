@@ -147,7 +147,7 @@ public:
    * the indices are to be used. If the level is set to
    * numbers::invalid_unsigned_int, the active cells are traversed, and
    * otherwise the cells in the given level. This option has no effect in case
-   * a DoFHandler or hp::DoFHandler is given.
+   * a DoFHandler or hp__DoFHandler is given.
    *
    * The parameter @p initialize_plain_indices indicates whether the DoFInfo
    * class should also allow for access to vectors without resolving
@@ -1648,7 +1648,7 @@ public:
    * call this function with a template parameter different than the default
    * one, you will need to use the `template` before the function call, i.e.,
    * you will have something like `matrix_free.template
-   * get_dof_handler<hp::DoFHandler<dim>>()`.
+   * get_dof_handler<hp__DoFHandler<dim>>()`.
    */
   template <typename DoFHandlerType = DoFHandler<dim>>
   const DoFHandlerType &
@@ -1699,7 +1699,7 @@ public:
   /**
    * This returns the cell iterator in deal.II speak to a given cell in the
    * renumbering of this structure. This function returns an exception in case
-   * the structure was not constructed based on an hp::DoFHandler.
+   * the structure was not constructed based on an hp__DoFHandler.
    *
    * Note that the cell iterators in deal.II go through cells differently to
    * what the cell loop of this class does. This is because several cells are
@@ -1995,7 +1995,7 @@ private:
     const AdditionalData &                                 additional_data);
 
   /**
-   * Same as before but for hp::DoFHandler instead of generic DoFHandler type.
+   * Same as before but for hp__DoFHandler instead of generic DoFHandler type.
    */
   template <typename number2>
   void
@@ -2029,7 +2029,7 @@ private:
     const AdditionalData &                      additional_data);
 
   /**
-   * Initializes the DoFHandlers based on a hp::DoFHandler<dim> argument.
+   * Initializes the DoFHandlers based on a hp__DoFHandler<dim> argument.
    */
   void
   initialize_dof_handlers(
@@ -2065,7 +2065,7 @@ private:
        */
       usual,
       /**
-       * Use hp::DoFHandler.
+       * Use hp__DoFHandler.
        */
       hp
     } active_dof_handler;

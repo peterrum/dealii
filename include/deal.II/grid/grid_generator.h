@@ -2069,7 +2069,7 @@ namespace GridGenerator
    * @ref ConceptMeshType "MeshType concept".
    * The map that is returned will be between cell iterators pointing into the
    * container describing the surface mesh and face iterators of the volume
-   * mesh container. If MeshType is DoFHandler or hp::DoFHandler, then the
+   * mesh container. If MeshType is DoFHandler or hp__DoFHandler, then the
    * function will re-build the triangulation underlying the second argument
    * and return a map between appropriate iterators into the MeshType
    * arguments. However, the function will not actually distribute degrees of

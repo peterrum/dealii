@@ -35,7 +35,7 @@ DEAL_II_NAMESPACE_OPEN
  * describe a field that is extended by zero to a part of the domain where we
  * don't need it.  Thus a triangulation may be divided into two regions: an
  * active region where normal elements are used, and an inactive region where
- * FE_Nothing elements are used.  The hp::DoFHandler will therefore assign no
+ * FE_Nothing elements are used.  The hp__DoFHandler will therefore assign no
  * degrees of freedom to the FE_Nothing cells, and this subregion is therefore
  * implicitly deleted from the computation. step-10 and step-46 show use cases
  * for this element. An interesting application for this element is also

@@ -132,7 +132,7 @@ namespace internal
 
 /**
  * A class that gives access to the degrees of freedom stored in a DoFHandler
- * or hp::DoFHandler object. Accessors are used to access the data that
+ * or hp__DoFHandler object. Accessors are used to access the data that
  * pertains to edges, faces, and cells of a triangulation. The concept is
  * explained in more detail in connection to
  * @ref Iterators.
@@ -143,7 +143,7 @@ namespace internal
  * template argument of this class determines the dimensionality of the object
  * under consideration: 1 for lines, 2 for quads, and 3 for hexes. The second
  * argument denotes the type of DoF handler we should work on. It can either
- * be ::DoFHandler or hp::DoFHandler.  From the second template argument we
+ * be ::DoFHandler or hp__DoFHandler.  From the second template argument we
  * also deduce the dimension of the Triangulation this object refers to as
  * well as the dimension of the space into which it is embedded. Finally, the
  * template argument <code>level_dof_access</code> governs the behavior of the
@@ -153,7 +153,7 @@ namespace internal
  * <h3>Alias</h3>
  *
  * Usage is best to happen through the alias to the various kinds of
- * iterators provided by the DoFHandler and hp::DoFHandler classes, since they
+ * iterators provided by the DoFHandler and hp__DoFHandler classes, since they
  * are more secure to changes in the class naming and template interface as
  * well as providing easier typing (much less complicated names!).
  *
@@ -189,7 +189,7 @@ namespace internal
  *   represents. For example, points have @p structdim equal to zero,
  *   edges have @p structdim equal to one, etc.
  * @tparam DoFHandlerType The type of the DoF handler into which accessor
- *   of this type point. This is either the DoFHandler or hp::DoFHandler
+ *   of this type point. This is either the DoFHandler or hp__DoFHandler
  *   class. See also the
  *   @ref ConceptDoFHandlerType "DoFHandlerType concept".
  * @tparam level_dof_access If @p false, then the accessor simply represents
@@ -253,7 +253,7 @@ public:
 
   /**
    * Constructor that generates an access that points to a particular cell or
-   * face or edge in a DoFHandler or hp::DoFHandler.
+   * face or edge in a DoFHandler or hp__DoFHandler.
    *
    * @param tria The triangulation into which this accessor points.
    * @param level The level within the mesh hierarchy of the object pointed
@@ -262,7 +262,7 @@ public:
    *   which do not have a level.
    * @param index The index of the object pointed to within the specified
    *   refinement level.
-   * @param dof_handler A pointer to the DoFHandler or hp::DoFHandler object
+   * @param dof_handler A pointer to the DoFHandler or hp__DoFHandler object
    *   to which the accessor shall refer. This DoFHandler object must of
    *   course be built on the same triangulation as the one specified in
    *   the first argument.
@@ -408,7 +408,7 @@ public:
    * ::DoFHandler class, this value must be equal to its default value since
    * that class only supports the same finite element on all cells anyway.
    *
-   * However, for hp objects (i.e. the hp::DoFHandler class), different finite
+   * However, for hp objects (i.e. the hp__DoFHandler class), different finite
    * element objects may be used on different cells. On faces between two
    * cells, as well as vertices, there may therefore be two sets of degrees of
    * freedom, one for each of the finite elements used on the adjacent cells.
@@ -458,7 +458,7 @@ public:
    * ::DoFHandler class, this value must be equal to its default value since
    * that class only supports the same finite element on all cells anyway.
    *
-   * However, for hp objects (i.e. the hp::DoFHandler class), different finite
+   * However, for hp objects (i.e. the hp__DoFHandler class), different finite
    * element objects may be used on different cells. On faces between two
    * cells, as well as vertices, there may therefore be two sets of degrees of
    * freedom, one for each of the finite elements used on the adjacent cells.
@@ -492,7 +492,7 @@ public:
    * ::DoFHandler class, this value must be equal to its default value since
    * that class only supports the same finite element on all cells anyway.
    *
-   * However, for hp objects (i.e. the hp::DoFHandler class), different finite
+   * However, for hp objects (i.e. the hp__DoFHandler class), different finite
    * element objects may be used on different cells. On faces between two
    * cells, as well as vertices, there may therefore be two sets of degrees of
    * freedom, one for each of the finite elements used on the adjacent cells.
@@ -538,7 +538,7 @@ public:
    * Return the number of finite elements that are active on a given object.
    *
    * For non-hp DoFHandler objects, the answer is of course always one.
-   * However, for hp::DoFHandler objects, this isn't the case: If this is a
+   * However, for hp__DoFHandler objects, this isn't the case: If this is a
    * cell, the answer is of course one. If it is a face, the answer may be one
    * or two, depending on whether the two adjacent cells use the same finite
    * element or not. If it is an edge in 3d, the possible return value may be
@@ -679,7 +679,7 @@ protected:
    * ::DoFHandler class, this value must be equal to its default value since
    * that class only supports the same finite element on all cells anyway.
    *
-   * However, for hp objects (i.e. the hp::DoFHandler class), different finite
+   * However, for hp objects (i.e. the hp__DoFHandler class), different finite
    * element objects may be used on different cells. On faces between two
    * cells, as well as vertices, there may therefore be two sets of degrees of
    * freedom, one for each of the finite elements used on the adjacent cells.
@@ -707,7 +707,7 @@ protected:
    * ::DoFHandler class, this value must be equal to its default value since
    * that class only supports the same finite element on all cells anyway.
    *
-   * However, for hp objects (i.e. the hp::DoFHandler class), different finite
+   * However, for hp objects (i.e. the hp__DoFHandler class), different finite
    * element objects may be used on different cells. On faces between two
    * cells, as well as vertices, there may therefore be two sets of degrees of
    * freedom, one for each of the finite elements used on the adjacent cells.
@@ -961,7 +961,7 @@ public:
    * ::DoFHandler class, this value must be equal to its default value since
    * that class only supports the same finite element on all cells anyway.
    *
-   * However, for hp objects (i.e. the hp::DoFHandler class), different finite
+   * However, for hp objects (i.e. the hp__DoFHandler class), different finite
    * element objects may be used on different cells. On faces between two
    * cells, as well as vertices, there may therefore be two sets of degrees of
    * freedom, one for each of the finite elements used on the adjacent cells.
@@ -1001,7 +1001,7 @@ public:
    * ::DoFHandler class, this value must be equal to its default value since
    * that class only supports the same finite element on all cells anyway.
    *
-   * However, for hp objects (i.e. the hp::DoFHandler class), different finite
+   * However, for hp objects (i.e. the hp__DoFHandler class), different finite
    * element objects may be used on different cells. On faces between two
    * cells, as well as vertices, there may therefore be two sets of degrees of
    * freedom, one for each of the finite elements used on the adjacent cells.
@@ -1023,7 +1023,7 @@ public:
    * ::DoFHandler class, this value must be equal to its default value since
    * that class only supports the same finite element on all cells anyway.
    *
-   * However, for hp objects (i.e. the hp::DoFHandler class), different finite
+   * However, for hp objects (i.e. the hp__DoFHandler class), different finite
    * element objects may be used on different cells. On faces between two
    * cells, as well as vertices, there may therefore be two sets of degrees of
    * freedom, one for each of the finite elements used on the adjacent cells.
@@ -1165,7 +1165,7 @@ protected:
    * ::DoFHandler class, this value must be equal to its default value since
    * that class only supports the same finite element on all cells anyway.
    *
-   * However, for hp objects (i.e. the hp::DoFHandler class), different finite
+   * However, for hp objects (i.e. the hp__DoFHandler class), different finite
    * element objects may be used on different cells. On faces between two
    * cells, as well as vertices, there may therefore be two sets of degrees of
    * freedom, one for each of the finite elements used on the adjacent cells.
@@ -1188,7 +1188,7 @@ protected:
    * ::DoFHandler class, this value must be equal to its default value since
    * that class only supports the same finite element on all cells anyway.
    *
-   * However, for hp objects (i.e. the hp::DoFHandler class), different finite
+   * However, for hp objects (i.e. the hp__DoFHandler class), different finite
    * element objects may be used on different cells. On faces between two
    * cells, as well as vertices, there may therefore be two sets of degrees of
    * freedom, one for each of the finite elements used on the adjacent cells.
@@ -1611,7 +1611,7 @@ public:
    * we use the restriction matrices provided by the finite element class to
    * compute the interpolation from the children to the present cell.
    *
-   * If the cell is part of a hp::DoFHandler object, cells only have an
+   * If the cell is part of a hp__DoFHandler object, cells only have an
    * associated finite element space if they are active. However, this
    * function is supposed to also provide information on inactive cells with
    * children. Consequently, it carries a third argument that can be used in
@@ -1620,7 +1620,7 @@ public:
    * finite element function from the <code>values</code> vector on this cell
    * and interpolates it onto the space described by the
    * <code>fe_index</code>th element of the hp::FECollection associated with
-   * the hp::DoFHandler of which this cell is a part of. If the cell is not
+   * the hp__DoFHandler of which this cell is a part of. If the cell is not
    * active, then we first perform this interpolation on all of its terminal
    * children and then interpolate this function down to the cell requested
    * keeping the function space the same.
@@ -1663,7 +1663,7 @@ public:
    * the children of this cell. These requirements are not taken care of and
    * must be enforced by the user afterward.
    *
-   * If the cell is part of a hp::DoFHandler object, cells only have an
+   * If the cell is part of a hp__DoFHandler object, cells only have an
    * associated finite element space if they are active. However, this
    * function is supposed to also work on inactive cells with children.
    * Consequently, it carries a third argument that can be used in the hp
@@ -1671,7 +1671,7 @@ public:
    * interpret the input vector of this function in. If the cell is active,
    * this function then interpolates the input vector interpreted as an
    * element of the space described by the <code>fe_index</code>th element of
-   * the hp::FECollection associated with the hp::DoFHandler of which this
+   * the hp::FECollection associated with the hp__DoFHandler of which this
    * cell is a part of, and interpolates it into the space that is associated
    * with this cell. On the other hand, if the cell is not active, then we
    * first perform this interpolation from this cell to its children using the
@@ -1857,8 +1857,8 @@ public:
    * handlers, this may change from cell to cell.
    *
    * @note Since degrees of freedom only exist on active cells for
-   * hp::DoFHandler (i.e., there is currently no implementation of multilevel
-   * hp::DoFHandler objects), it does not make sense to query the finite
+   * hp__DoFHandler (i.e., there is currently no implementation of multilevel
+   * hp__DoFHandler objects), it does not make sense to query the finite
    * element on non-active cells since they do not have finite element spaces
    * associated with them without having any degrees of freedom. Consequently,
    * this function will produce an exception when called on non-active cells.
@@ -1870,11 +1870,11 @@ public:
   /**
    * Return the index inside the hp::FECollection of the FiniteElement used
    * for this cell. This function is only useful if the DoF handler object
-   * associated with the current cell is an hp::DoFHandler.
+   * associated with the current cell is an hp__DoFHandler.
    *
    * @note Since degrees of freedom only exist on active cells for
-   * hp::DoFHandler (i.e., there is currently no implementation of multilevel
-   * hp::DoFHandler objects), it does not make sense to query active FE
+   * hp__DoFHandler (i.e., there is currently no implementation of multilevel
+   * hp__DoFHandler objects), it does not make sense to query active FE
    * indices on non-active cells since they do not have finite element spaces
    * associated with them without having any degrees of freedom. Consequently,
    * this function will produce an exception when called on non-active cells.
@@ -1885,11 +1885,11 @@ public:
    * owned or ghost cells. No information is available on artificial cells.
    * Furthermore, @p active_fe_index information is only exchanged from locally
    * owned cells on one processor to other processors where they may be
-   * ghost cells, during the call to hp::DoFHandler::set_fe() and
-   * hp::DoFHandler::distribute_dofs(). Be aware that if you call
+   * ghost cells, during the call to hp__DoFHandler::set_fe() and
+   * hp__DoFHandler::distribute_dofs(). Be aware that if you call
    * set_active_fe_index() on a cell after calling one of these functions, then
    * this information will not be propagated to other processors who may have
-   * this cell as a ghost cell. See the documentation of hp::DoFHandler for more
+   * this cell as a ghost cell. See the documentation of hp__DoFHandler for more
    * information.
    */
   unsigned int
@@ -1899,11 +1899,11 @@ public:
    * Set the index of the FiniteElement used for this cell. This determines
    * which element in an hp::FECollection to use. This function is only useful
    * if the DoF handler object associated with the current cell is an
-   * hp::DoFHandler.
+   * hp__DoFHandler.
    *
    * @note Since degrees of freedom only exist on active cells for
-   * hp::DoFHandler (i.e., there is currently no implementation of multilevel
-   * hp::DoFHandler objects), it does not make sense to assign active FE
+   * hp__DoFHandler (i.e., there is currently no implementation of multilevel
+   * hp__DoFHandler objects), it does not make sense to assign active FE
    * indices to non-active cells since they do not have finite element spaces
    * associated with them without having any degrees of freedom. Consequently,
    * this function will produce an exception when called on non-active cells.
@@ -1919,7 +1919,7 @@ public:
    * one can only set @p active_fe_index information on locally owned
    * cells, and this information is then mirrored to all processors that
    * have this cell as a ghost cell -- see the documentation of the
-   * hp::DoFHandler class.
+   * hp__DoFHandler class.
    */
   void
   set_active_fe_index(const unsigned int i) const;
@@ -1965,8 +1965,8 @@ public:
    * may change from cell to cell.
    *
    * @note Since degrees of freedom only exist on active cells for
-   * hp::DoFHandler (i.e., there is currently no implementation of multilevel
-   * hp::DoFHandler objects), it does not make sense to query the finite
+   * hp__DoFHandler (i.e., there is currently no implementation of multilevel
+   * hp__DoFHandler objects), it does not make sense to query the finite
    * element on non-active cells since they do not have finite element spaces
    * associated with them without having any degrees of freedom. Consequently,
    * this function will produce an exception when called on non-active cells.
@@ -1983,8 +1983,8 @@ public:
    * which case the fe_index of the active finite element will be returned.
    *
    * @note Since degrees of freedom only exist on active cells for
-   * hp::DoFHandler (i.e., there is currently no implementation of multilevel
-   * hp::DoFHandler objects), it does not make sense to query future FE
+   * hp__DoFHandler (i.e., there is currently no implementation of multilevel
+   * hp__DoFHandler objects), it does not make sense to query future FE
    * indices on non-active cells since they do not have finite element spaces
    * associated with them without having any degrees of freedom. Consequently,
    * this function will produce an exception when called on non-active cells.

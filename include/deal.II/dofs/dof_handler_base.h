@@ -322,7 +322,7 @@ public:
    * the present class only supports the same finite element to be used on all
    * cells, the index of the finite element needs to be the same on all cells
    * anyway, and by convention we pick zero for this value. The situation is
-   * different for hp objects (i.e. the hp::DoFHandler class) where different
+   * different for hp objects (i.e. the hp__DoFHandler class) where different
    * finite element indices may be used on different cells, and the default
    * index there corresponds to an invalid value.
    */

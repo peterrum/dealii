@@ -75,7 +75,7 @@ namespace hp
    *
    * The typical workflow for using this class is to create a mesh, assign an
    * active FE index to every active cell, calls
-   * hp::DoFHandler::distribute_dofs(), and then assemble a linear system and
+   * hp__DoFHandler::distribute_dofs(), and then assemble a linear system and
    * solve a problem on this finite element space. However, one can skip
    * assigning active FE indices upon mesh refinement in certain
    * circumstances. In particular, the following rules apply:
@@ -105,7 +105,7 @@ namespace hp
    *
    * Ghost cells do acquire the information what element
    * is active on them, however: whenever
-   * you call hp::DoFHandler::distribute_dofs(), all processors that
+   * you call hp__DoFHandler::distribute_dofs(), all processors that
    * participate in the parallel mesh exchange information in such a way
    * that the active FE index on ghost cells equals the active FE index
    * that was set on that processor that owned that particular ghost cell.
@@ -124,7 +124,7 @@ namespace hp
    * of each cell will be automatically transferred.
    *
    * However, using a parallel::distributed::Triangulation with an
-   * hp::DoFHandler requires additional attention during serialization, since no
+   * hp__DoFHandler requires additional attention during serialization, since no
    * information on active FE indices will be automatically transferred. This
    * has to be done manually using the
    * prepare_for_serialization_of_active_fe_indices() and

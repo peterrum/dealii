@@ -95,7 +95,7 @@ DoFCellAccessor<DoFHandlerType, lda>::set_dof_values_by_interpolation(
                (fe_index != DoFHandlerType::default_fe_index),
              ExcMessage(
                "You cannot call this function on non-active cells "
-               "of hp::DoFHandler objects unless you provide an explicit "
+               "of hp__DoFHandler objects unless you provide an explicit "
                "finite element index because they do not have naturally "
                "associated finite element spaces associated: degrees "
                "of freedom are only distributed on active cells for which "

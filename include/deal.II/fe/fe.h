@@ -826,7 +826,7 @@ public:
    * This operator returns a reference to the present object if the argument
    * given equals to zero. While this does not seem particularly useful, it is
    * helpful in writing code that works with both ::DoFHandler and the hp
-   * version hp::DoFHandler, since one can then write code like this:
+   * version hp__DoFHandler, since one can then write code like this:
    * @code
    * dofs_per_cell =
    *   dof_handler->get_fe()[cell->active_fe_index()].dofs_per_cell;
@@ -834,7 +834,7 @@ public:
    *
    * This code doesn't work in both situations without the present operator
    * because DoFHandler::get_fe() returns a finite element, whereas
-   * hp::DoFHandler::get_fe() returns a collection of finite elements that
+   * hp__DoFHandler::get_fe() returns a collection of finite elements that
    * doesn't offer a <code>dofs_per_cell</code> member variable: one first has
    * to select which finite element to work on, which is done using the
    * operator[]. Fortunately, <code>cell-@>active_fe_index()</code> also works

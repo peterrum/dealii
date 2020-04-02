@@ -92,7 +92,7 @@ namespace hp
  * level.
  *
  * @todo Extend the functions local() and renumber() to the concept to
- * hp::DoFHandler.
+ * hp__DoFHandler.
  *
  * @ingroup dofs
  * @author Guido Kanschat, 2009
