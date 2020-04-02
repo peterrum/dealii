@@ -1217,12 +1217,9 @@ namespace internal
 
               types::global_dof_index next_free_dof = 0;
               types::global_dof_index cache_size    = 0;
-              typename DoFHandlerBase<dim,
-                                      spacedim,
-                                      dealii::hp::DoFHandler<dim, spacedim>>::
-                active_cell_iterator cell = dof_handler.begin_active(level),
-                                     endc = dof_handler.end_active(level);
-              for (; cell != endc; ++cell)
+
+              for (auto cell :
+                   dof_handler.active_cell_iterators_on_level(level))
                 if (cell->is_active() && !cell->is_artificial())
                   {
                     dof_handler.levels_hp[level]->dof_offsets[cell->index()] =
@@ -1615,13 +1612,9 @@ namespace internal
         static void
           reserve_space(dealii::DoFHandlerBase<1, spacedim, T> &dof_handler)
         {
-          const unsigned int dim = 1;
-
           Assert(dof_handler.fe_collection.size() > 0,
-                 (typename dealii::DoFHandlerBase<
-                   dim,
-                   spacedim,
-                   dealii::hp::DoFHandler<dim, spacedim>>::ExcNoFESelected()));
+                 (typename dealii::DoFHandlerBase<1, spacedim, T>::
+                    ExcNoFESelected()));
           Assert(dof_handler.tria->n_levels() > 0,
                  ExcMessage("The current Triangulation must not be empty."));
           Assert(dof_handler.tria->n_levels() == dof_handler.levels_hp.size(),
@@ -1643,13 +1636,9 @@ namespace internal
         static void
           reserve_space(dealii::DoFHandlerBase<2, spacedim, T> &dof_handler)
         {
-          const unsigned int dim = 2;
-
           Assert(dof_handler.fe_collection.size() > 0,
-                 (typename dealii::DoFHandlerBase<
-                   dim,
-                   spacedim,
-                   dealii::hp::DoFHandler<dim, spacedim>>::ExcNoFESelected()));
+                 (typename dealii::DoFHandlerBase<1, spacedim, T>::
+                    ExcNoFESelected()));
           Assert(dof_handler.tria->n_levels() > 0,
                  ExcMessage("The current Triangulation must not be empty."));
           Assert(dof_handler.tria->n_levels() == dof_handler.levels_hp.size(),
@@ -1676,10 +1665,8 @@ namespace internal
           const unsigned int dim = 3;
 
           Assert(dof_handler.fe_collection.size() > 0,
-                 (typename dealii::DoFHandlerBase<
-                   dim,
-                   spacedim,
-                   dealii::hp::DoFHandler<dim, spacedim>>::ExcNoFESelected()));
+                 (typename dealii::DoFHandlerBase<1, spacedim, T>::
+                    ExcNoFESelected()));
           Assert(dof_handler.tria->n_levels() > 0,
                  ExcMessage("The current Triangulation must not be empty."));
           Assert(dof_handler.tria->n_levels() == dof_handler.levels_hp.size(),
