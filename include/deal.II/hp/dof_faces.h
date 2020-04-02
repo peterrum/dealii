@@ -25,6 +25,12 @@
 
 DEAL_II_NAMESPACE_OPEN
 
+// Forward declarations
+#ifndef DOXYGEN
+template <int dim, int spacedim>
+class DoFHandler;
+#endif
+
 namespace internal
 {
   namespace hp
@@ -189,6 +195,13 @@ namespace internal
         const unsigned int                           obj_index,
         const unsigned int                           fe_index,
         const unsigned int                           obj_level) const;
+
+      template <int dim, int spacedim>
+      bool
+      fe_index_is_active(const dealii::DoFHandler<dim, spacedim> &dof_handler,
+                         const unsigned int                       obj_index,
+                         const unsigned int                       fe_index,
+                         const unsigned int obj_level) const;
 
       /**
        * Determine an estimate for the memory consumption (in bytes) of this
@@ -586,6 +599,21 @@ namespace internal
                        .template n_dofs_per_object<structdim>() +
                      1;
         }
+    }
+
+
+
+    template <int structdim>
+    template <int dim, int spacedim>
+    inline bool
+    DoFIndicesOnFacesOrEdges<structdim>::fe_index_is_active(
+      const dealii::DoFHandler<dim, spacedim> &,
+      const unsigned int,
+      const unsigned int,
+      const unsigned int) const
+    {
+      Assert(false, ExcMessage("REMOVE!"));
+      return true;
     }
 
 

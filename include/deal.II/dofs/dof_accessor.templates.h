@@ -510,19 +510,19 @@ namespace internal
         return dof_handler.mg_vertex_dofs[vertex_index].set_index(
           level, i, dof_handler.get_fe().dofs_per_vertex, index);
       }
-
-
-
-      template <int structdim, int dim, int spacedim>
-      static bool
-      fe_index_is_active(const dealii::DoFHandler<dim, spacedim> &,
-                         const unsigned int,
-                         const unsigned int,
-                         const unsigned int fe_index,
-                         const std::integral_constant<int, structdim> &)
-      {
-        return (fe_index == 0);
-      }
+      //
+      //
+      //
+      //      template <int structdim, int dim, int spacedim>
+      //      static bool
+      //      fe_index_is_active(const dealii::DoFHandler<dim, spacedim> &,
+      //                         const unsigned int,
+      //                         const unsigned int,
+      //                         const unsigned int fe_index,
+      //                         const std::integral_constant<int, structdim> &)
+      //      {
+      //        return (fe_index == 0);
+      //      }
 
 
 
@@ -611,14 +611,17 @@ namespace internal
       }
 
 
-      template <int spacedim>
+      template <int spacedim, template <int, int> class DoFHandlerType>
       static bool
-      fe_index_is_active(const dealii::hp::DoFHandler<1, spacedim> &dof_handler,
-                         const unsigned int                         obj_level,
-                         const unsigned int                         obj_index,
-                         const unsigned int                         fe_index,
+      fe_index_is_active(const DoFHandlerType<1, spacedim> &dof_handler,
+                         const unsigned int                 obj_level,
+                         const unsigned int                 obj_index,
+                         const unsigned int                 fe_index,
                          const std::integral_constant<int, 1> &)
       {
+        if (dof_handler.is_hp_dof_handler == false)
+          return (fe_index == 0);
+
         return dof_handler.levels_hp[obj_level]->fe_index_is_active(obj_index,
                                                                     fe_index);
       }
@@ -653,14 +656,17 @@ namespace internal
       }
 
 
-      template <int spacedim>
+      template <int spacedim, template <int, int> class DoFHandlerType>
       static bool
-      fe_index_is_active(const dealii::hp::DoFHandler<2, spacedim> &dof_handler,
-                         const unsigned int                         obj_level,
-                         const unsigned int                         obj_index,
-                         const unsigned int                         fe_index,
+      fe_index_is_active(const DoFHandlerType<2, spacedim> &dof_handler,
+                         const unsigned int                 obj_level,
+                         const unsigned int                 obj_index,
+                         const unsigned int                 fe_index,
                          const std::integral_constant<int, 1> &)
       {
+        if (dof_handler.is_hp_dof_handler == false)
+          return (fe_index == 0);
+
         return dof_handler.faces_hp->lines.fe_index_is_active(dof_handler,
                                                               obj_index,
                                                               fe_index,
@@ -698,14 +704,17 @@ namespace internal
 
 
 
-      template <int spacedim>
+      template <int spacedim, template <int, int> class DoFHandlerType>
       static bool
-      fe_index_is_active(const dealii::hp::DoFHandler<2, spacedim> &dof_handler,
-                         const unsigned int                         obj_level,
-                         const unsigned int                         obj_index,
-                         const unsigned int                         fe_index,
+      fe_index_is_active(const DoFHandlerType<2, spacedim> &dof_handler,
+                         const unsigned int                 obj_level,
+                         const unsigned int                 obj_index,
+                         const unsigned int                 fe_index,
                          const std::integral_constant<int, 2> &)
       {
+        if (dof_handler.is_hp_dof_handler == false)
+          return (fe_index == 0);
+
         return dof_handler.levels_hp[obj_level]->fe_index_is_active(obj_index,
                                                                     fe_index);
       }
@@ -741,14 +750,17 @@ namespace internal
 
 
 
-      template <int spacedim>
+      template <int spacedim, template <int, int> class DoFHandlerType>
       static bool
-      fe_index_is_active(const dealii::hp::DoFHandler<3, spacedim> &dof_handler,
-                         const unsigned int                         obj_level,
-                         const unsigned int                         obj_index,
-                         const unsigned int                         fe_index,
+      fe_index_is_active(const DoFHandlerType<3, spacedim> &dof_handler,
+                         const unsigned int                 obj_level,
+                         const unsigned int                 obj_index,
+                         const unsigned int                 fe_index,
                          const std::integral_constant<int, 1> &)
       {
+        if (dof_handler.is_hp_dof_handler == false)
+          return (fe_index == 0);
+
         return dof_handler.faces_hp->lines.fe_index_is_active(dof_handler,
                                                               obj_index,
                                                               fe_index,
@@ -787,28 +799,34 @@ namespace internal
 
 
 
-      template <int spacedim>
+      template <int spacedim, template <int, int> class DoFHandlerType>
       static bool
-      fe_index_is_active(const dealii::hp::DoFHandler<3, spacedim> &dof_handler,
-                         const unsigned int                         obj_level,
-                         const unsigned int                         obj_index,
-                         const unsigned int                         fe_index,
+      fe_index_is_active(const DoFHandlerType<3, spacedim> &dof_handler,
+                         const unsigned int                 obj_level,
+                         const unsigned int                 obj_index,
+                         const unsigned int                 fe_index,
                          const std::integral_constant<int, 2> &)
       {
+        if (dof_handler.is_hp_dof_handler == false)
+          return (fe_index == 0);
+
         return dof_handler.faces_hp->quads.fe_index_is_active(dof_handler,
                                                               obj_index,
                                                               fe_index,
                                                               obj_level);
       }
 
-      template <int spacedim>
+      template <int spacedim, template <int, int> class DoFHandlerType>
       static bool
-      fe_index_is_active(const dealii::hp::DoFHandler<3, spacedim> &dof_handler,
-                         const unsigned int                         obj_level,
-                         const unsigned int                         obj_index,
-                         const unsigned int                         fe_index,
+      fe_index_is_active(const DoFHandlerType<3, spacedim> &dof_handler,
+                         const unsigned int                 obj_level,
+                         const unsigned int                 obj_index,
+                         const unsigned int                 fe_index,
                          const std::integral_constant<int, 3> &)
       {
+        if (dof_handler.is_hp_dof_handler == false)
+          return (fe_index == 0);
+
         return dof_handler.levels_hp[obj_level]->fe_index_is_active(obj_index,
                                                                     fe_index);
       }
