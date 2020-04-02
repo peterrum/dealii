@@ -478,56 +478,37 @@ namespace internal
       }
 
 
-      template <int dim, int spacedim>
+      template <typename DoFHandlerType>
       static types::global_dof_index
-      mg_vertex_dof_index(const dealii::DoFHandler<dim, spacedim> &dof_handler,
-                          const int                                level,
-                          const unsigned int                       vertex_index,
-                          const unsigned int                       i)
+      mg_vertex_dof_index(const DoFHandlerType &dof_handler,
+                          const int             level,
+                          const unsigned int    vertex_index,
+                          const unsigned int    i)
       {
+        Assert(DoFHandlerType::is_hp_dof_handler == false,
+               ExcMessage(
+                 "hp__DoFHandler does not implement multilevel DoFs."));
+
         return dof_handler.mg_vertex_dofs[vertex_index].get_index(
           level, i, dof_handler.get_fe().dofs_per_vertex);
       }
 
 
-      template <int dim, int spacedim>
-      static types::global_dof_index
-      mg_vertex_dof_index(const dealii::hp::DoFHandler<dim, spacedim> &,
-                          const int,
-                          const unsigned int,
-                          const unsigned int)
-      {
-        Assert(false,
-               ExcMessage(
-                 "hp::DoFHandler does not implement multilevel DoFs."));
-        return numbers::invalid_dof_index;
-      }
 
-
-      template <int dim, int spacedim>
+      template <typename DoFHandlerType>
       static void
-      set_mg_vertex_dof_index(dealii::DoFHandler<dim, spacedim> &dof_handler,
-                              const int                          level,
-                              const unsigned int                 vertex_index,
-                              const unsigned int                 i,
-                              types::global_dof_index            index)
+      set_mg_vertex_dof_index(DoFHandlerType &        dof_handler,
+                              const int               level,
+                              const unsigned int      vertex_index,
+                              const unsigned int      i,
+                              types::global_dof_index index)
       {
+        Assert(DoFHandlerType::is_hp_dof_handler == false,
+               ExcMessage(
+                 "hp__DoFHandler does not implement multilevel DoFs."));
+
         return dof_handler.mg_vertex_dofs[vertex_index].set_index(
           level, i, dof_handler.get_fe().dofs_per_vertex, index);
-      }
-
-
-      template <int dim, int spacedim>
-      static void
-      set_mg_vertex_dof_index(dealii::hp::DoFHandler<dim, spacedim> &,
-                              const int,
-                              const unsigned int,
-                              const unsigned int,
-                              types::global_dof_index)
-      {
-        Assert(false,
-               ExcMessage(
-                 "hp::DoFHandler does not implement multilevel DoFs."));
       }
 
 
@@ -1591,11 +1572,11 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::mg_vertex_dof_index(
   AssertIndexRange(vertex, GeometryInfo<structdim>::vertices_per_cell);
   AssertIndexRange(i, this->dof_handler->get_fe(fe_index).dofs_per_vertex);
 
-  return dealii::internal::DoFAccessorImplementation::Implementation::
-    mg_vertex_dof_index(*this->dof_handler,
-                        level,
-                        this->vertex_index(vertex),
-                        i);
+  Assert(DoFHandlerType::is_hp_dof_handler == false,
+         ExcMessage("hp__DoFHandler does not implement multilevel DoFs."));
+
+  return this->dof_handler->mg_vertex_dofs[this->vertex_index(vertex)]
+    .get_index(level, i, this->dof_handler->get_fe().dofs_per_vertex);
 }
 
 
@@ -1627,9 +1608,11 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::
   AssertIndexRange(vertex, GeometryInfo<structdim>::vertices_per_cell);
   AssertIndexRange(i, this->dof_handler->get_fe(fe_index).dofs_per_vertex);
 
-  return dealii::internal::DoFAccessorImplementation::Implementation::
-    set_mg_vertex_dof_index(
-      *this->dof_handler, level, this->vertex_index(vertex), i, index);
+  Assert(DoFHandlerType::is_hp_dof_handler == false,
+         ExcMessage("hp__DoFHandler does not implement multilevel DoFs."));
+
+  this->dof_handler->mg_vertex_dofs[this->vertex_index(vertex)].set_index(
+    level, i, this->dof_handler->get_fe().dofs_per_vertex, index);
 }
 
 
