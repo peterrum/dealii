@@ -48,6 +48,8 @@ template <typename T>
 void
 verify(const T &t1, T &t2)
 {
+  compare(t1, t2);
+
   // save data to archive
   std::ostringstream oss;
   {

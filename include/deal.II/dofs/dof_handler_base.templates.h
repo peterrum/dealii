@@ -1057,6 +1057,13 @@ namespace internal
             // are troublesome if you want to change their size
             dof_handler.clear_space();
 
+            dof_handler.new_dofs.resize(dof_handler.tria->n_levels());
+            dof_handler.new_dofs_ptr.resize(dof_handler.tria->n_levels());
+            dof_handler.new_cell_dofs_cache.resize(
+              dof_handler.tria->n_levels());
+            dof_handler.new_cell_dofs_cache_ptr.resize(
+              dof_handler.tria->n_levels());
+
             for (unsigned int level = 0; level < dof_handler.tria->n_levels();
                  ++level)
               {
@@ -1195,6 +1202,7 @@ namespace internal
         static void
         reserve_space_cells(DoFHandlerBase<dim, spacedim, T> &dof_handler)
         {
+          (void)dof_handler;
           // count how much space we need on each level for the cell
           // dofs and set the dof_*_offsets data. initially set the
           // latter to an invalid index, and only later set it to
@@ -1206,11 +1214,11 @@ namespace internal
           for (unsigned int level = 0; level < dof_handler.tria->n_levels();
                ++level)
             {
-              dof_handler.levels_hp[level]->dof_offsets =
+              dof_handler.new_dofs_ptr[level][dim] =
                 std::vector<DoFLevel::offset_type>(
                   dof_handler.tria->n_raw_cells(level),
                   static_cast<DoFLevel::offset_type>(-1));
-              dof_handler.levels_hp[level]->cell_cache_offsets =
+              dof_handler.new_cell_dofs_cache_ptr[level] =
                 std::vector<DoFLevel::offset_type>(
                   dof_handler.tria->n_raw_cells(level),
                   static_cast<DoFLevel::offset_type>(-1));
@@ -1222,61 +1230,68 @@ namespace internal
                    dof_handler.active_cell_iterators_on_level(level))
                 if (cell->is_active() && !cell->is_artificial())
                   {
-                    dof_handler.levels_hp[level]->dof_offsets[cell->index()] =
+                    dof_handler.new_dofs_ptr[level][dim][cell->index()] =
                       next_free_dof;
                     next_free_dof +=
                       cell->get_fe().template n_dofs_per_object<dim>();
 
-                    dof_handler.levels_hp[level]
-                      ->cell_cache_offsets[cell->index()] = cache_size;
+                    dof_handler.new_cell_dofs_cache_ptr[level][cell->index()] =
+                      cache_size;
                     cache_size += cell->get_fe().dofs_per_cell;
                   }
 
-              dof_handler.levels_hp[level]->dof_indices =
+              dof_handler.new_dofs[level][dim] =
                 std::vector<types::global_dof_index>(
                   next_free_dof, numbers::invalid_dof_index);
-              dof_handler.levels_hp[level]->cell_dof_indices_cache =
+              dof_handler.new_cell_dofs_cache[level] =
                 std::vector<types::global_dof_index>(
                   cache_size, numbers::invalid_dof_index);
             }
-
-            // safety check: make sure that the number of DoFs we
-            // allocated is actually correct (above we have also set the
-            // dof_*_offsets field, so we couldn't use this simpler
-            // algorithm)
-#ifdef DEBUG
-          for (unsigned int level = 0; level < dof_handler.tria->n_levels();
-               ++level)
-            {
-              types::global_dof_index counter = 0;
-              for (const auto &cell :
-                   dof_handler.active_cell_iterators_on_level(level))
-                if (cell->is_active() && !cell->is_artificial())
-                  counter += cell->get_fe().template n_dofs_per_object<dim>();
-
-              Assert(dof_handler.levels_hp[level]->dof_indices.size() ==
-                       counter,
-                     ExcInternalError());
-
-              // also check that the number of unassigned slots in the
-              // dof_offsets equals the number of cells on that level minus the
-              // number of active, non-artificial cells (because these are
-              // exactly the cells on which we do something)
-              unsigned int n_active_non_artificial_cells = 0;
-              for (const auto &cell :
-                   dof_handler.active_cell_iterators_on_level(level))
-                if (cell->is_active() && !cell->is_artificial())
-                  ++n_active_non_artificial_cells;
-
-              Assert(static_cast<unsigned int>(std::count(
-                       dof_handler.levels_hp[level]->dof_offsets.begin(),
-                       dof_handler.levels_hp[level]->dof_offsets.end(),
-                       static_cast<DoFLevel::offset_type>(-1))) ==
-                       dof_handler.tria->n_raw_cells(level) -
-                         n_active_non_artificial_cells,
-                     ExcInternalError());
-            }
-#endif
+          //
+          //            // safety check: make sure that the number of DoFs we
+          //            // allocated is actually correct (above we have also set
+          //            the
+          //            // dof_*_offsets field, so we couldn't use this simpler
+          //            // algorithm)
+          //#ifdef DEBUG
+          //          for (unsigned int level = 0; level <
+          //          dof_handler.tria->n_levels();
+          //               ++level)
+          //            {
+          //              types::global_dof_index counter = 0;
+          //              for (const auto &cell :
+          //                   dof_handler.active_cell_iterators_on_level(level))
+          //                if (cell->is_active() && !cell->is_artificial())
+          //                  counter += cell->get_fe().template
+          //                  n_dofs_per_object<dim>();
+          //
+          //              Assert(dof_handler.levels_hp[level]->dof_indices.size()
+          //              ==
+          //                       counter,
+          //                     ExcInternalError());
+          //
+          //              // also check that the number of unassigned slots in
+          //              the
+          //              // dof_offsets equals the number of cells on that
+          //              level minus the
+          //              // number of active, non-artificial cells (because
+          //              these are
+          //              // exactly the cells on which we do something)
+          //              unsigned int n_active_non_artificial_cells = 0;
+          //              for (const auto &cell :
+          //                   dof_handler.active_cell_iterators_on_level(level))
+          //                if (cell->is_active() && !cell->is_artificial())
+          //                  ++n_active_non_artificial_cells;
+          //
+          //              Assert(static_cast<unsigned int>(std::count(
+          //                       dof_handler.levels_hp[level]->dof_offsets.begin(),
+          //                       dof_handler.levels_hp[level]->dof_offsets.end(),
+          //                       static_cast<DoFLevel::offset_type>(-1))) ==
+          //                       dof_handler.tria->n_raw_cells(level) -
+          //                         n_active_non_artificial_cells,
+          //                     ExcInternalError());
+          //            }
+          //#endif
         }
 
 
@@ -2660,15 +2675,15 @@ DoFHandlerBase<dim, spacedim, T>::distribute_dofs(
       /////////////////////////////////
 
       // do some housekeeping: compress indices
-      {
-        Threads::TaskGroup<> tg;
-        for (int level = this->levels_hp.size() - 1; level >= 0; --level)
-          tg += Threads::new_task(
-            &dealii::internal::hp::DoFLevel::compress_data<dim, spacedim>,
-            *this->levels_hp[level],
-            this->fe_collection);
-        tg.join_all();
-      }
+      //{
+      //  Threads::TaskGroup<> tg;
+      //  for (int level = this->levels_hp.size() - 1; level >= 0; --level)
+      //    tg += Threads::new_task(
+      //      &dealii::internal::hp::DoFLevel::compress_data<dim, spacedim>,
+      //      *this->levels_hp[level],
+      //      this->fe_collection);
+      //  tg.join_all();
+      //}
 
       // finally restore the user flags
       const_cast<Triangulation<dim, spacedim> &>(*this->tria)
@@ -2802,6 +2817,14 @@ template <int dim, int spacedim, typename T>
 void
 DoFHandlerBase<dim, spacedim, T>::clear_space()
 {
+  new_cell_dofs_cache.clear();
+
+  new_cell_dofs_cache_ptr.clear();
+
+  new_dofs.clear();
+
+  new_dofs_ptr.clear();
+
   if (is_hp_dof_handler)
     {
       this->levels_hp.clear();
@@ -2813,20 +2836,6 @@ DoFHandlerBase<dim, spacedim, T>::clear_space()
     }
   else
     {
-      for (auto &i : new_cell_dofs)
-        i.clear();
-
-      for (auto &i : new_cell_dofs_ptr)
-        i.clear();
-
-      new_cell_dofs_cache.clear();
-
-      new_cell_dofs_cache_ptr.clear();
-
-      new_dofs.clear();
-
-      new_dofs_ptr.clear();
-
       // std::vector<types::global_dof_index> tmp;
       // std::swap(this->vertex_dofs, tmp);
 
@@ -2894,29 +2903,29 @@ DoFHandlerBase<dim, spacedim, T>::renumber_dofs(
       // uncompress the internal storage scheme of dofs on cells so that
       // we can access dofs in turns. uncompress in parallel, starting
       // with the most expensive levels (the highest ones)
-      {
-        Threads::TaskGroup<> tg;
-        for (int level = this->levels_hp.size() - 1; level >= 0; --level)
-          tg += Threads::new_task(
-            &dealii::internal::hp::DoFLevel::uncompress_data<dim, spacedim>,
-            *this->levels_hp[level],
-            this->fe_collection);
-        tg.join_all();
-      }
+      //{
+      //  Threads::TaskGroup<> tg;
+      //  for (int level = this->levels_hp.size() - 1; level >= 0; --level)
+      //    tg += Threads::new_task(
+      //      &dealii::internal::hp::DoFLevel::uncompress_data<dim, spacedim>,
+      //      *this->levels_hp[level],
+      //      this->fe_collection);
+      //  tg.join_all();
+      //}
 
       // do the renumbering
       this->number_cache = this->policy->renumber_dofs(new_numbers);
 
       // now re-compress the dof indices
-      {
-        Threads::TaskGroup<> tg;
-        for (int level = this->levels_hp.size() - 1; level >= 0; --level)
-          tg += Threads::new_task(
-            &dealii::internal::hp::DoFLevel::compress_data<dim, spacedim>,
-            *this->levels_hp[level],
-            this->fe_collection);
-        tg.join_all();
-      }
+      //{
+      //  Threads::TaskGroup<> tg;
+      //  for (int level = this->levels_hp.size() - 1; level >= 0; --level)
+      //    tg += Threads::new_task(
+      //      &dealii::internal::hp::DoFLevel::compress_data<dim, spacedim>,
+      //     *this->levels_hp[level],
+      //      this->fe_collection);
+      //  tg.join_all();
+      //}
     }
   else
     {

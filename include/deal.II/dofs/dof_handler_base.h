@@ -1353,9 +1353,6 @@ private:
   std::vector<dealii::internal::DoFHandlerImplementation::NumberCache>
     mg_number_cache;
 
-  mutable std::vector<std::vector<types::global_dof_index>> new_cell_dofs;
-  mutable std::vector<std::vector<unsigned int>>            new_cell_dofs_ptr;
-
   mutable std::vector<std::vector<types::global_dof_index>> new_cell_dofs_cache;
   mutable std::vector<std::vector<unsigned int>> new_cell_dofs_cache_ptr;
 
@@ -1894,10 +1891,15 @@ DoFHandlerBase<dim, spacedim, T>::save(Archive &ar, const unsigned int) const
 {
   if (is_hp_dof_handler)
     {
-      // ar & this->vertex_dofs;
-      ar & this->new_dofs[0][0];
+      ar & this->new_dofs;
+      ar & this->new_dofs_ptr;
+
+      ar & this->new_cell_dofs_cache;
+      ar & this->new_cell_dofs_cache_ptr;
+
       ar & this->vertex_dof_offsets;
       ar & this->number_cache;
+
       ar & this->mg_number_cache;
 
       // some versions of gcc have trouble with loading vectors of
@@ -1965,10 +1967,28 @@ DoFHandlerBase<dim, spacedim, T>::load(Archive &ar, const unsigned int)
 {
   if (is_hp_dof_handler)
     {
-      // ar & this->vertex_dofs;
-      ar & this->new_dofs[0][0];
+      std::cout << "LOAD" << std::endl;
+      ar & this->new_dofs;
+      ar & this->new_dofs_ptr;
+
+      for (auto &i : this->new_cell_dofs_cache)
+        for (auto &j : i)
+          std::cout << j;
+      std::cout << std::endl;
+
+      ar & this->new_cell_dofs_cache;
+
+      for (auto &i : this->new_cell_dofs_cache)
+        for (auto &j : i)
+          std::cout << j;
+      std::cout << std::endl;
+
+      ar & this->new_cell_dofs_cache_ptr;
+
       ar & this->vertex_dof_offsets;
+
       ar & this->number_cache;
+
       ar & this->mg_number_cache;
 
       // boost::serialization can restore pointers just fine, but if the

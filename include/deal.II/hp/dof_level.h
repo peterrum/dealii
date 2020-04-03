@@ -188,61 +188,64 @@ namespace internal
        * The type we store is then obviously the type the @p dof_indices array
        * uses for indexing.
        */
-      std::vector<offset_type> dof_offsets;
+      // std::vector<offset_type> dof_offsets;
 
       /**
        * Store the global indices of the degrees of freedom. information. The
        * dof_offsets field determines where each (active) cell's data is
        * stored.
        */
-      std::vector<types::global_dof_index> dof_indices;
+      // std::vector<types::global_dof_index> dof_indices;
 
       /**
        * The offsets for each cell of the cache that holds all DoF indices.
        */
-      std::vector<offset_type> cell_cache_offsets;
+      // std::vector<offset_type> cell_cache_offsets;
 
       /**
        * Cache for the DoF indices on cells. The size of this array equals the
        * sum over all cells of
        * selected_fe[active_fe_index[cell]].dofs_per_cell.
        */
-      std::vector<types::global_dof_index> cell_dof_indices_cache;
+      // std::vector<types::global_dof_index> cell_dof_indices_cache;
 
     public:
       /**
-       * Set the global index of the @p local_index-th degree of freedom
-       * located on the object with number @p obj_index to the value given by
-       * @p global_index. The @p dof_handler argument is used to access the
-       * finite element that is to be used to compute the location where this
-       * data is stored.
-       *
-       * The third argument, @p fe_index, denotes which of the finite elements
-       * associated with this object we shall access. Refer to the general
-       * documentation of the internal::hp::DoFLevel class template for more
-       * information.
-       */
-      void
-      set_dof_index(const unsigned int            obj_index,
-                    const unsigned int            fe_index,
-                    const unsigned int            local_index,
-                    const types::global_dof_index global_index);
-
-      /**
-       * Return the global index of the @p local_index-th degree of freedom
-       * located on the object with number @p obj_index. The @p dof_handler
-       * argument is used to access the finite element that is to be used to
-       * compute the location where this data is stored.
-       *
-       * The third argument, @p fe_index, denotes which of the finite elements
-       * associated with this object we shall access. Refer to the general
-       * documentation of the internal::hp::DoFLevel class template for more
-       * information.
-       */
-      types::global_dof_index
-      get_dof_index(const unsigned int obj_index,
-                    const unsigned int fe_index,
-                    const unsigned int local_index) const;
+//       * Set the global index of the @p local_index-th degree of freedom
+//       * located on the object with number @p obj_index to the value given by
+//       * @p global_index. The @p dof_handler argument is used to access the
+//       * finite element that is to be used to compute the location where this
+//       * data is stored.
+//       *
+//       * The third argument, @p fe_index, denotes which of the finite elements
+//       * associated with this object we shall access. Refer to the general
+//       * documentation of the internal::hp::DoFLevel class template for more
+//       * information.
+//       */
+      //      void
+      //      set_dof_index(const unsigned int            obj_index,
+      //                    const unsigned int            fe_index,
+      //                    const unsigned int            local_index,
+      //                    const types::global_dof_index global_index);
+      //
+      //      /**
+      //       * Return the global index of the @p local_index-th degree of freedom
+      //       * located on the object with number @p obj_index. The @p dof_handler
+      //       * argument is used to access the finite element that is to be
+      //       used to
+      //       * compute the location where this data is stored.
+      //       *
+      //       * The third argument, @p fe_index, denotes which of the finite elements
+      //       * associated with this object we shall access. Refer to the
+      //       general
+      //       * documentation of the internal::hp::DoFLevel class template for
+      //       more
+      //       * information.
+      //       */
+      //      types::global_dof_index
+      //      get_dof_index(const unsigned int obj_index,
+      //                    const unsigned int fe_index,
+      //                    const unsigned int local_index) const;
 
       /**
        * Return the fe_index of the active finite element on this object.
@@ -322,31 +325,37 @@ namespace internal
       serialize(Archive &ar, const unsigned int version);
 
     private:
-      /**
-       * Compress the arrays that store dof indices by using a variant of run-
-       * length encoding. See the general documentation of this class for more
-       * information.
-       *
-       * @param fe_collection The object that can tell us how many degrees of
-       * freedom each of the finite elements has that we store in this object.
-       */
-      template <int dim, int spacedim>
-      void
-      compress_data(
-        const dealii::hp::FECollection<dim, spacedim> &fe_collection);
-
-      /**
-       * Uncompress the arrays that store dof indices by using a variant of
-       * run-length encoding. See the general documentation of this class for
-       * more information.
-       *
-       * @param fe_collection The object that can tell us how many degrees of
-       * freedom each of the finite elements has that we store in this object.
-       */
-      template <int dim, int spacedim>
-      void
-      uncompress_data(
-        const dealii::hp::FECollection<dim, spacedim> &fe_collection);
+      //      /**
+      //       * Compress the arrays that store dof indices by using a variant
+      //       of run-
+      //       * length encoding. See the general documentation of this class
+      //       for more
+      //       * information.
+      //       *
+      //       * @param fe_collection The object that can tell us how many degrees of
+      //       * freedom each of the finite elements has that we store in this
+      //       object.
+      //       */
+      //      template <int dim, int spacedim>
+      //      void
+      //      compress_data(
+      //        const dealii::hp::FECollection<dim, spacedim> &fe_collection);
+      //
+      //      /**
+      //       * Uncompress the arrays that store dof indices by using a variant
+      //       of
+      //       * run-length encoding. See the general documentation of this
+      //       class for
+      //       * more information.
+      //       *
+      //       * @param fe_collection The object that can tell us how many degrees of
+      //       * freedom each of the finite elements has that we store in this
+      //       object.
+      //       */
+      //      template <int dim, int spacedim>
+      //      void
+      //      uncompress_data(
+      //        const dealii::hp::FECollection<dim, spacedim> &fe_collection);
 
 
       /**
@@ -406,61 +415,65 @@ namespace internal
 
 
 
-    inline types::global_dof_index
-    DoFLevel::get_dof_index(const unsigned int obj_index,
-                            const unsigned int fe_index,
-                            const unsigned int local_index) const
-    {
-      (void)fe_index;
-      AssertIndexRange(obj_index, dof_offsets.size());
-
-      // make sure we are on an object for which DoFs have been
-      // allocated at all
-      Assert(dof_offsets[obj_index] != static_cast<offset_type>(-1),
-             ExcMessage("You are trying to access degree of freedom "
-                        "information for an object on which no such "
-                        "information is available"));
-
-      Assert(fe_index ==
-               (is_compressed_entry(active_fe_indices[obj_index]) == false ?
-                  active_fe_indices[obj_index] :
-                  get_toggled_compression_state(active_fe_indices[obj_index])),
-             ExcMessage("FE index does not match that of the present cell"));
-
-      // see if the dof_indices array has been compressed for this
-      // particular cell
-      if (is_compressed_entry(active_fe_indices[obj_index]) == false)
-        return dof_indices[dof_offsets[obj_index] + local_index];
-      else
-        return dof_indices[dof_offsets[obj_index]] + local_index;
-    }
-
-
-
-    inline void
-    DoFLevel::set_dof_index(const unsigned int            obj_index,
-                            const unsigned int            fe_index,
-                            const unsigned int            local_index,
-                            const types::global_dof_index global_index)
-    {
-      (void)fe_index;
-      AssertIndexRange(obj_index, dof_offsets.size());
-
-      // make sure we are on an
-      // object for which DoFs have
-      // been allocated at all
-      Assert(dof_offsets[obj_index] != static_cast<offset_type>(-1),
-             ExcMessage("You are trying to access degree of freedom "
-                        "information for an object on which no such "
-                        "information is available"));
-      Assert(
-        is_compressed_entry(active_fe_indices[obj_index]) == false,
-        ExcMessage(
-          "This function can no longer be called after compressing the dof_indices array"));
-      Assert(fe_index == active_fe_indices[obj_index],
-             ExcMessage("FE index does not match that of the present cell"));
-      dof_indices[dof_offsets[obj_index] + local_index] = global_index;
-    }
+    //    inline types::global_dof_index
+    //    DoFLevel::get_dof_index(const unsigned int obj_index,
+    //                            const unsigned int fe_index,
+    //                            const unsigned int local_index) const
+    //    {
+    //      (void)fe_index;
+    //      AssertIndexRange(obj_index, dof_offsets.size());
+    //
+    //      // make sure we are on an object for which DoFs have been
+    //      // allocated at all
+    //      Assert(dof_offsets[obj_index] != static_cast<offset_type>(-1),
+    //             ExcMessage("You are trying to access degree of freedom "
+    //                        "information for an object on which no such "
+    //                        "information is available"));
+    //
+    //      Assert(fe_index ==
+    //               (is_compressed_entry(active_fe_indices[obj_index]) == false
+    //               ?
+    //                  active_fe_indices[obj_index] :
+    //                  get_toggled_compression_state(active_fe_indices[obj_index])),
+    //             ExcMessage("FE index does not match that of the present
+    //             cell"));
+    //
+    //      // see if the dof_indices array has been compressed for this
+    //      // particular cell
+    //      if (is_compressed_entry(active_fe_indices[obj_index]) == false)
+    //        return dof_indices[dof_offsets[obj_index] + local_index];
+    //      else
+    //        return dof_indices[dof_offsets[obj_index]] + local_index;
+    //    }
+    //
+    //
+    //
+    //    inline void
+    //    DoFLevel::set_dof_index(const unsigned int            obj_index,
+    //                            const unsigned int            fe_index,
+    //                            const unsigned int            local_index,
+    //                            const types::global_dof_index global_index)
+    //    {
+    //      (void)fe_index;
+    //      AssertIndexRange(obj_index, dof_offsets.size());
+    //
+    //      // make sure we are on an
+    //      // object for which DoFs have
+    //      // been allocated at all
+    //      Assert(dof_offsets[obj_index] != static_cast<offset_type>(-1),
+    //             ExcMessage("You are trying to access degree of freedom "
+    //                        "information for an object on which no such "
+    //                        "information is available"));
+    //      Assert(
+    //        is_compressed_entry(active_fe_indices[obj_index]) == false,
+    //        ExcMessage(
+    //          "This function can no longer be called after compressing the
+    //          dof_indices array"));
+    //      Assert(fe_index == active_fe_indices[obj_index],
+    //             ExcMessage("FE index does not match that of the present
+    //             cell"));
+    //      dof_indices[dof_offsets[obj_index] + local_index] = global_index;
+    //    }
 
 
 
@@ -573,24 +586,25 @@ namespace internal
 
 
 
-    inline const types::global_dof_index *
-    DoFLevel::get_cell_cache_start(const unsigned int obj_index,
-                                   const unsigned int dofs_per_cell) const
-    {
-      (void)dofs_per_cell;
-      Assert(
-        (obj_index < cell_cache_offsets.size()) &&
-          (cell_cache_offsets[obj_index] + dofs_per_cell <=
-           cell_dof_indices_cache.size()),
-        ExcMessage(
-          "You are trying to access an element of the cache that stores "
-          "the indices of all degrees of freedom that live on one cell. "
-          "However, this element does not exist. Did you forget to call "
-          "DoFHandler::distribute_dofs(), or did you forget to call it "
-          "again after changing the active_fe_index of one of the cells?"));
-
-      return &cell_dof_indices_cache[cell_cache_offsets[obj_index]];
-    }
+    //    inline const types::global_dof_index *
+    //    DoFLevel::get_cell_cache_start(const unsigned int obj_index,
+    //                                   const unsigned int dofs_per_cell) const
+    //    {
+    //      (void)dofs_per_cell;
+    //      Assert(
+    //        (obj_index < cell_cache_offsets.size()) &&
+    //          (cell_cache_offsets[obj_index] + dofs_per_cell <=
+    //           cell_dof_indices_cache.size()),
+    //        ExcMessage(
+    //          "You are trying to access an element of the cache that stores "
+    //          "the indices of all degrees of freedom that live on one cell. "
+    //          "However, this element does not exist. Did you forget to call "
+    //          "DoFHandler::distribute_dofs(), or did you forget to call it "
+    //          "again after changing the active_fe_index of one of the
+    //          cells?"));
+    //
+    //      return &cell_dof_indices_cache[cell_cache_offsets[obj_index]];
+    //    }
 
 
 
@@ -599,10 +613,10 @@ namespace internal
     DoFLevel::serialize(Archive &ar, const unsigned int)
     {
       ar & this->active_fe_indices;
-      ar & this->cell_cache_offsets;
-      ar & this->cell_dof_indices_cache;
-      ar & this->dof_indices;
-      ar & this->dof_offsets;
+      //      ar & this->cell_cache_offsets;
+      //      ar & this->cell_dof_indices_cache;
+      //      ar & this->dof_indices;
+      //      ar & this->dof_offsets;
       ar & this->future_fe_indices;
     }
   } // namespace hp

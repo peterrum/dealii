@@ -239,8 +239,12 @@ namespace internal
                        const unsigned int                     present_index,
                        const unsigned int                     dofs_per_cell)
       {
-        return dof_handler->levels_hp[present_level]->get_cell_cache_start(
-          present_index, dofs_per_cell);
+        (void)dofs_per_cell;
+
+        return &dof_handler
+                  ->new_cell_dofs_cache[present_level]
+                                       [dof_handler->new_cell_dofs_cache_ptr
+                                          [present_level][present_index]];
       }
 
       /**
@@ -292,9 +296,13 @@ namespace internal
                     const unsigned int                         local_index,
                     const std::integral_constant<int, 1> &)
       {
-        return dof_handler.levels_hp[obj_level]->get_dof_index(obj_index,
-                                                               fe_index,
-                                                               local_index);
+        (void)fe_index;
+        const unsigned int d = 1;
+
+        return dof_handler
+          .new_dofs[obj_level][d]
+                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                    local_index];
       }
 
 
@@ -308,10 +316,12 @@ namespace internal
                     const std::integral_constant<int, 1> &,
                     const types::global_dof_index global_index)
       {
-        dof_handler.levels_hp[obj_level]->set_dof_index(obj_index,
-                                                        fe_index,
-                                                        local_index,
-                                                        global_index);
+        (void)fe_index;
+        const unsigned int d = 1;
+
+        dof_handler.new_dofs[obj_level][d]
+                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                             local_index] = global_index;
       }
 
 
@@ -357,9 +367,13 @@ namespace internal
                     const unsigned int                         local_index,
                     const std::integral_constant<int, 2> &)
       {
-        return dof_handler.levels_hp[obj_level]->get_dof_index(obj_index,
-                                                               fe_index,
-                                                               local_index);
+        (void)fe_index;
+        const unsigned int d = 2;
+
+        return dof_handler
+          .new_dofs[obj_level][d]
+                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                    local_index];
       }
 
 
@@ -373,10 +387,12 @@ namespace internal
                     const std::integral_constant<int, 2> &,
                     const types::global_dof_index global_index)
       {
-        dof_handler.levels_hp[obj_level]->set_dof_index(obj_index,
-                                                        fe_index,
-                                                        local_index,
-                                                        global_index);
+        (void)fe_index;
+        const unsigned int d = 2;
+
+        dof_handler.new_dofs[obj_level][d]
+                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                             local_index] = global_index;
       }
 
 
@@ -455,9 +471,13 @@ namespace internal
                     const unsigned int                         local_index,
                     const std::integral_constant<int, 3> &)
       {
-        return dof_handler.levels_hp[obj_level]->get_dof_index(obj_index,
-                                                               fe_index,
-                                                               local_index);
+        (void)fe_index;
+        const unsigned int d = 3;
+
+        return dof_handler
+          .new_dofs[obj_level][d]
+                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                    local_index];
       }
 
 
@@ -471,10 +491,12 @@ namespace internal
                     const std::integral_constant<int, 3> &,
                     const types::global_dof_index global_index)
       {
-        dof_handler.levels_hp[obj_level]->set_dof_index(obj_index,
-                                                        fe_index,
-                                                        local_index,
-                                                        global_index);
+        (void)fe_index;
+        const unsigned int d = 3;
+
+        dof_handler.new_dofs[obj_level][d]
+                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                             local_index] = global_index;
       }
 
 
@@ -510,19 +532,6 @@ namespace internal
         return dof_handler.mg_vertex_dofs[vertex_index].set_index(
           level, i, dof_handler.get_fe().dofs_per_vertex, index);
       }
-      //
-      //
-      //
-      //      template <int structdim, int dim, int spacedim>
-      //      static bool
-      //      fe_index_is_active(const dealii::DoFHandler<dim, spacedim> &,
-      //                         const unsigned int,
-      //                         const unsigned int,
-      //                         const unsigned int fe_index,
-      //                         const std::integral_constant<int, structdim> &)
-      //      {
-      //        return (fe_index == 0);
-      //      }
 
 
 
@@ -2092,72 +2101,6 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::set_mg_dof_indices(
 }
 
 
-namespace internal
-{
-  namespace DoFAccessorImplementation
-  {
-    template <bool level_dof_access, typename DoFHandlerType>
-    inline typename dealii::internal::DoFHandlerImplementation::
-      Iterators<DoFHandlerType, level_dof_access>::quad_iterator
-      get_quad(const dealii::Triangulation<DoFHandlerType::dimension,
-                                           DoFHandlerType::space_dimension> *,
-               unsigned int /*index*/,
-               DoFHandlerType *)
-    {}
-
-
-    template <bool level_dof_access>
-    inline typename dealii::internal::DoFHandlerImplementation::
-      Iterators<dealii::DoFHandler<2, 2>, level_dof_access>::quad_iterator
-      get_quad(const dealii::Triangulation<2, 2> *,
-               unsigned int,
-               dealii::DoFHandler<2, 2> *)
-    {
-      Assert(false, ExcNotImplemented());
-      return typename dealii::internal::DoFHandlerImplementation::
-        Iterators<dealii::DoFHandler<2, 2>, level_dof_access>::line_iterator();
-    }
-
-    template <bool level_dof_access>
-    inline typename dealii::internal::DoFHandlerImplementation::
-      Iterators<dealii::DoFHandler<2, 3>, level_dof_access>::quad_iterator
-      get_quad(const dealii::Triangulation<2, 3> *,
-               unsigned int,
-               dealii::DoFHandler<2, 3> *)
-    {
-      Assert(false, ExcNotImplemented());
-      return typename dealii::internal::DoFHandlerImplementation::
-        Iterators<dealii::DoFHandler<2, 3>, level_dof_access>::line_iterator();
-    }
-
-    template <bool level_dof_access>
-    inline typename dealii::internal::DoFHandlerImplementation::
-      Iterators<dealii::hp::DoFHandler<2, 2>, level_dof_access>::quad_iterator
-      get_quad(const dealii::Triangulation<2, 2> *,
-               unsigned int,
-               dealii::hp::DoFHandler<2, 2> *)
-    {
-      Assert(false, ExcNotImplemented());
-      return typename dealii::internal::DoFHandlerImplementation::Iterators<
-        dealii::hp::DoFHandler<2, 2>,
-        level_dof_access>::line_iterator();
-    }
-
-    template <bool level_dof_access>
-    inline typename dealii::internal::DoFHandlerImplementation::
-      Iterators<dealii::hp::DoFHandler<2, 3>, level_dof_access>::quad_iterator
-      get_quad(const dealii::Triangulation<2, 3> *,
-               unsigned int,
-               dealii::hp::DoFHandler<2, 3> *)
-    {
-      Assert(false, ExcNotImplemented());
-      return typename dealii::internal::DoFHandlerImplementation::Iterators<
-        dealii::hp::DoFHandler<2, 3>,
-        level_dof_access>::line_iterator();
-    }
-  } // namespace DoFAccessorImplementation
-} // namespace internal
-
 
 template <int structdim, typename DoFHandlerType, bool level_dof_access>
 inline typename dealii::internal::DoFHandlerImplementation::
@@ -2823,13 +2766,16 @@ namespace internal
         // writing to the last element of
         // this cell
         Assert(static_cast<unsigned int>(accessor.present_index) <
-                 accessor.dof_handler->levels_hp[accessor.present_level]
-                   ->cell_cache_offsets.size(),
+                 accessor.dof_handler
+                   ->new_cell_dofs_cache_ptr[accessor.present_level]
+                   .size(),
                ExcInternalError());
-        Assert(accessor.dof_handler->levels_hp[accessor.present_level]
-                   ->cell_cache_offsets[accessor.present_index] <=
-                 accessor.dof_handler->levels_hp[accessor.present_level]
-                   ->cell_dof_indices_cache.size(),
+        Assert(accessor.dof_handler
+                   ->new_cell_dofs_cache_ptr[accessor.present_level]
+                                            [accessor.present_index] <=
+                 accessor.dof_handler
+                   ->new_cell_dofs_cache[accessor.present_level]
+                   .size(),
                ExcInternalError());
 
         // call the get_dof_indices() function of DoFAccessor, which goes
@@ -2843,11 +2789,12 @@ namespace internal
                                     level_dof_access> &>(accessor)
           .get_dof_indices(dof_indices, accessor.active_fe_index());
 
-        types::global_dof_index *next_dof_index =
-          &accessor.dof_handler->levels_hp[accessor.present_level]
-             ->cell_dof_indices_cache
-               [accessor.dof_handler->levels_hp[accessor.present_level]
-                  ->cell_cache_offsets[accessor.present_index]];
+        std::vector<types::global_dof_index>::iterator next_dof_index =
+          (accessor.dof_handler->new_cell_dofs_cache[accessor.present_level]
+             .begin() +
+           accessor.dof_handler
+             ->new_cell_dofs_cache_ptr[accessor.present_level]
+                                      [accessor.present_index]);
         for (unsigned int i = 0; i < dofs_per_cell; ++i, ++next_dof_index)
           *next_dof_index = dof_indices[i];
       }
