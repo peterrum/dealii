@@ -915,51 +915,55 @@ namespace internal
             return;
           }
 
-        Assert((fe_index != DoFHandlerType::default_fe_index),
-               ExcMessage("You need to specify a FE index when working "
-                          "with hp DoFHandlers"));
-        Assert(dof_handler.fe_collection.size() > 0,
-               ExcMessage("No finite element collection is associated with "
-                          "this DoFHandler"));
-        AssertIndexRange(local_index,
-                         dof_handler.get_fe(fe_index).dofs_per_vertex);
-        Assert(fe_index < dof_handler.fe_collection.size(), ExcInternalError());
-        Assert(dof_handler.vertex_dof_offsets[vertex_index] !=
-                 numbers::invalid_unsigned_int,
-               ExcMessage(
-                 "This vertex is unused and has no DoFs associated with it"));
+        const unsigned int l         = 0;
+        const unsigned int d         = 0;
+        const unsigned int obj_index = vertex_index;
 
-        // hop along the list of index sets until we find the one with the
-        // correct fe_index, and then poke into that part. trigger an exception
-        // if we can't find a set for this particular fe_index
-        const unsigned int starting_offset =
-          dof_handler.vertex_dof_offsets[vertex_index];
-        types::global_dof_index *pointer =
-          &dof_handler.new_dofs[0][0][starting_offset];
-        while (true)
+        AssertIndexRange(l, dof_handler.new_dofs.size());
+        AssertIndexRange(d, dof_handler.new_dofs[l].size());
+
+        unsigned int fe_index_;
+
+        if (DoFHandlerType::is_hp_dof_handler)
           {
-            Assert(pointer <= &dof_handler.new_dofs[0][0].back(),
-                   ExcInternalError());
+            AssertIndexRange(d, dof_handler.new_hp_ptr.size());
+            AssertIndexRange(obj_index, dof_handler.new_hp_ptr[d].size());
 
-            // a fe index is always small
-            Assert((*pointer) < std::numeric_limits<unsigned int>::max(),
-                   ExcInternalError());
-            const types::global_dof_index this_fe_index = *pointer;
+            const auto ptr = std::find(dof_handler.new_hp_fe[d].begin() +
+                                   dof_handler.new_hp_ptr[d][obj_index],
+                                 dof_handler.new_hp_fe[d].begin() +
+                                   dof_handler.new_hp_ptr[d][obj_index + 1],
+                                 fe_index);
 
-            Assert(this_fe_index != numbers::invalid_dof_index,
-                   ExcInternalError());
-            Assert(this_fe_index < dof_handler.fe_collection.size(),
-                   ExcInternalError());
+            Assert(ptr != dof_handler.new_hp_fe[d].begin() +
+                            dof_handler.new_hp_ptr[d][obj_index + 1],
+                   ExcNotImplemented());
 
-            if (this_fe_index == fe_index)
-              {
-                *(pointer + 1 + local_index) = global_index;
-                return;
-              }
-            else
-              pointer += static_cast<types::global_dof_index>(
-                dof_handler.get_fe(this_fe_index).dofs_per_vertex + 1);
+            fe_index_ = std::distance(dof_handler.new_hp_fe[d].begin() +
+                                        dof_handler.new_hp_ptr[d][obj_index],
+                                      ptr);
           }
+
+        AssertIndexRange(DoFHandlerType::is_hp_dof_handler ?
+                           (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
+                           obj_index,
+                         dof_handler.new_dofs_ptr[l][d].size());
+
+        AssertIndexRange(
+          dof_handler
+              .new_dofs_ptr[l][d][DoFHandlerType::is_hp_dof_handler ?
+                                    (dof_handler.new_hp_ptr[d][obj_index] +
+                                     fe_index_) :
+                                    obj_index] +
+            local_index,
+          dof_handler.new_dofs[l][d].size());
+
+        dof_handler.new_dofs
+          [l][d][dof_handler.new_dofs_ptr
+                   [l][d][DoFHandlerType::is_hp_dof_handler ?
+                            (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
+                            obj_index] +
+                 local_index] = global_index;
       }
 
 
@@ -990,48 +994,55 @@ namespace internal
                         local_index];
           }
 
-        Assert((fe_index != DoFHandlerType::default_fe_index),
-               ExcMessage("You need to specify a FE index when working "
-                          "with hp DoFHandlers"));
-        Assert(dof_handler.fe_collection.size() > 0,
-               ExcMessage("No finite element collection is associated with "
-                          "this DoFHandler"));
-        AssertIndexRange(local_index,
-                         dof_handler.get_fe(fe_index).dofs_per_vertex);
-        AssertIndexRange(vertex_index, dof_handler.vertex_dof_offsets.size());
-        Assert(dof_handler.vertex_dof_offsets[vertex_index] !=
-                 numbers::invalid_unsigned_int,
-               ExcMessage(
-                 "This vertex is unused and has no DoFs associated with it"));
+        const unsigned int l         = 0;
+        const unsigned int d         = 0;
+        const unsigned int obj_index = vertex_index;
 
-        // hop along the list of index sets until we find the one with the
-        // correct fe_index, and then poke into that part. trigger an exception
-        // if we can't find a set for this particular fe_index
-        const unsigned int starting_offset =
-          dof_handler.vertex_dof_offsets[vertex_index];
-        const types::global_dof_index *pointer =
-          &dof_handler.new_dofs[0][0][starting_offset];
-        while (true)
+        AssertIndexRange(l, dof_handler.new_dofs.size());
+        AssertIndexRange(d, dof_handler.new_dofs[l].size());
+
+        unsigned int fe_index_;
+
+        if (DoFHandlerType::is_hp_dof_handler)
           {
-            Assert(pointer <= &dof_handler.new_dofs[0][0].back(),
-                   ExcInternalError());
+            AssertIndexRange(d, dof_handler.new_hp_ptr.size());
+            AssertIndexRange(obj_index, dof_handler.new_hp_ptr[d].size());
 
-            Assert((*pointer) <
-                     std::numeric_limits<types::global_dof_index>::max(),
-                   ExcInternalError());
-            const types::global_dof_index this_fe_index = *pointer;
+            const auto ptr = std::find(dof_handler.new_hp_fe[d].begin() +
+                                   dof_handler.new_hp_ptr[d][obj_index],
+                                 dof_handler.new_hp_fe[d].begin() +
+                                   dof_handler.new_hp_ptr[d][obj_index + 1],
+                                 fe_index);
 
-            Assert(this_fe_index != numbers::invalid_dof_index,
-                   ExcInternalError());
-            Assert(this_fe_index < dof_handler.fe_collection.size(),
-                   ExcInternalError());
+            Assert(ptr != dof_handler.new_hp_fe[d].begin() +
+                            dof_handler.new_hp_ptr[d][obj_index + 1],
+                   ExcNotImplemented());
 
-            if (this_fe_index == fe_index)
-              return *(pointer + 1 + local_index);
-            else
-              pointer += static_cast<types::global_dof_index>(
-                dof_handler.get_fe(this_fe_index).dofs_per_vertex + 1);
+            fe_index_ = std::distance(dof_handler.new_hp_fe[d].begin() +
+                                        dof_handler.new_hp_ptr[d][obj_index],
+                                      ptr);
           }
+
+        AssertIndexRange(DoFHandlerType::is_hp_dof_handler ?
+                           (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
+                           obj_index,
+                         dof_handler.new_dofs_ptr[l][d].size());
+
+        AssertIndexRange(
+          dof_handler
+              .new_dofs_ptr[l][d][DoFHandlerType::is_hp_dof_handler ?
+                                    (dof_handler.new_hp_ptr[d][obj_index] +
+                                     fe_index_) :
+                                    obj_index] +
+            local_index,
+          dof_handler.new_dofs[l][d].size());
+
+        return dof_handler.new_dofs
+          [l][d][dof_handler.new_dofs_ptr
+                   [l][d][DoFHandlerType::is_hp_dof_handler ?
+                            (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
+                            obj_index] +
+                 local_index];
       }
 
 
@@ -1050,38 +1061,13 @@ namespace internal
                ExcMessage("No finite element collection is associated with "
                           "this DoFHandler"));
 
-        // if this vertex is unused, return 0
-        if (dof_handler.vertex_dof_offsets[vertex_index] ==
-            numbers::invalid_unsigned_int)
-          return 0;
+        const unsigned int d = 0;
 
-        // hop along the list of index
-        // sets and count the number of
-        // hops
-        const unsigned int starting_offset =
-          dof_handler.vertex_dof_offsets[vertex_index];
-        const types::global_dof_index *pointer =
-          &dof_handler.new_dofs[0][0][starting_offset];
+        AssertIndexRange(d, dof_handler.new_hp_ptr.size());
+        AssertIndexRange(vertex_index + 1, dof_handler.new_hp_ptr[d].size());
 
-        Assert(*pointer != numbers::invalid_dof_index, ExcInternalError());
-
-        unsigned int counter = 0;
-        while (true)
-          {
-            Assert(pointer <= &dof_handler.new_dofs[0][0].back(),
-                   ExcInternalError());
-
-            const types::global_dof_index this_fe_index = *pointer;
-
-            if (this_fe_index == numbers::invalid_dof_index)
-              return counter;
-            else
-              {
-                pointer += static_cast<types::global_dof_index>(
-                  dof_handler.get_fe(this_fe_index).dofs_per_vertex + 1);
-                ++counter;
-              }
-          }
+        return dof_handler.new_hp_ptr[d][vertex_index + 1] -
+               dof_handler.new_hp_ptr[d][vertex_index];
       }
 
 
@@ -1098,51 +1084,16 @@ namespace internal
       {
         Assert(DoFHandlerType::is_hp_dof_handler == true, ExcNotImplemented());
 
-        Assert(dof_handler.fe_collection.size() > 0,
-               ExcMessage("No finite element collection is associated with "
-                          "this DoFHandler"));
-        Assert(n < n_active_vertex_fe_indices(dof_handler, vertex_index),
-               ExcIndexRange(
-                 n, 0, n_active_vertex_fe_indices(dof_handler, vertex_index)));
-        // make sure we don't ask on
-        // unused vertices
-        Assert(dof_handler.vertex_dof_offsets[vertex_index] !=
-                 numbers::invalid_unsigned_int,
-               ExcInternalError());
+        const unsigned int d = 0;
 
-        // hop along the list of index
-        // sets and count the number of
-        // hops
-        const unsigned int starting_offset =
-          dof_handler.vertex_dof_offsets[vertex_index];
-        const types::global_dof_index *pointer =
-          &dof_handler.new_dofs[0][0][starting_offset];
+        AssertIndexRange(d, dof_handler.new_hp_fe.size());
+        AssertIndexRange(d, dof_handler.new_hp_ptr.size());
+        AssertIndexRange(vertex_index, dof_handler.new_hp_ptr[d].size());
+        AssertIndexRange(dof_handler.new_hp_ptr[d][vertex_index] + n,
+                         dof_handler.new_hp_fe[d].size());
 
-        Assert(*pointer != numbers::invalid_dof_index, ExcInternalError());
-
-        unsigned int counter = 0;
-        while (true)
-          {
-            Assert(pointer <= &dof_handler.new_dofs[0][0].back(),
-                   ExcInternalError());
-
-            Assert((*pointer) < std::numeric_limits<unsigned int>::max(),
-                   ExcInternalError());
-            const types::global_dof_index this_fe_index = *pointer;
-
-            Assert(this_fe_index < dof_handler.fe_collection.size(),
-                   ExcInternalError());
-
-            if (counter == n)
-              return this_fe_index;
-
-            Assert(this_fe_index != numbers::invalid_dof_index,
-                   ExcInternalError());
-
-            pointer += static_cast<types::global_dof_index>(
-              dof_handler.get_fe(this_fe_index).dofs_per_vertex + 1);
-            ++counter;
-          }
+        return dof_handler
+          .new_hp_fe[d][dof_handler.new_hp_ptr[d][vertex_index] + n];
       }
 
 

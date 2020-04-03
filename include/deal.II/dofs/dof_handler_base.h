@@ -1361,6 +1361,9 @@ private:
   mutable std::vector<std::array<std::vector<unsigned int>, dim + 1>>
     new_dofs_ptr;
 
+  mutable std::array<std::vector<unsigned int>, dim + 1> new_hp_ptr;
+  mutable std::array<std::vector<unsigned int>, dim + 1> new_hp_fe;
+
   using active_fe_index_type = unsigned short int;
   mutable std::vector<std::vector<active_fe_index_type>> new_active_fe_indices;
   mutable std::vector<std::vector<active_fe_index_type>> new_future_fe_indices;
@@ -1382,7 +1385,7 @@ private:
    * functions, encapsulating the actual data format used to the present
    * class.
    */
-  std::vector<unsigned int> vertex_dof_offsets; // for hp
+  // std::vector<unsigned int> vertex_dof_offsets; // for hp
 
   /**
    * An array to store the indices for level degrees of freedom located at
@@ -1904,7 +1907,9 @@ DoFHandlerBase<dim, spacedim, T>::save(Archive &ar, const unsigned int) const
       ar & this->new_active_fe_indices;
       ar & this->new_future_fe_indices;
 
-      ar & this->vertex_dof_offsets;
+      ar &new_hp_ptr;
+      ar &new_hp_fe;
+
       ar & this->number_cache;
 
       ar & this->mg_number_cache;
@@ -1984,7 +1989,8 @@ DoFHandlerBase<dim, spacedim, T>::load(Archive &ar, const unsigned int)
       ar & this->new_active_fe_indices;
       ar & this->new_future_fe_indices;
 
-      ar & this->vertex_dof_offsets;
+      ar &new_hp_ptr;
+      ar &new_hp_fe;
 
       ar & this->number_cache;
 
