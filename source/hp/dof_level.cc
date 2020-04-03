@@ -262,15 +262,16 @@ namespace internal
     std::size_t
     DoFLevel::memory_consumption() const
     {
-      return (
-        MemoryConsumption::memory_consumption(active_fe_indices) +
-        //              MemoryConsumption::memory_consumption(dof_indices) +
-        //              MemoryConsumption::memory_consumption(dof_offsets) +
-        //              MemoryConsumption::memory_consumption(cell_cache_offsets)
-        //              +
-        //              MemoryConsumption::memory_consumption(cell_dof_indices_cache)
-        //              +
-        MemoryConsumption::memory_consumption(future_fe_indices));
+      return 0;
+      //      return (
+      ////        MemoryConsumption::memory_consumption(active_fe_indices) +
+      //        // MemoryConsumption::memory_consumption(dof_indices) +
+      //        // MemoryConsumption::memory_consumption(dof_offsets) +
+      //        // MemoryConsumption::memory_consumption(cell_cache_offsets)
+      //        //              +
+      //        // MemoryConsumption::memory_consumption(cell_dof_indices_cache)
+      //        //              +
+      //        MemoryConsumption::memory_consumption(future_fe_indices));
     }
 
 
@@ -278,9 +279,10 @@ namespace internal
     void
     DoFLevel::normalize_active_fe_indices()
     {
-      for (auto &active_fe_index : active_fe_indices)
-        if (is_compressed_entry(active_fe_index))
-          active_fe_index = get_toggled_compression_state(active_fe_index);
+      //      for (auto &active_fe_index : active_fe_indices)
+      //        if (is_compressed_entry(active_fe_index))
+      //          active_fe_index =
+      //          get_toggled_compression_state(active_fe_index);
     }
 
 

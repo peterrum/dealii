@@ -631,8 +631,8 @@ namespace internal
         if (dof_handler.is_hp_dof_handler == false)
           return (fe_index == 0);
 
-        return dof_handler.levels_hp[obj_level]->fe_index_is_active(obj_index,
-                                                                    fe_index);
+        return dof_handler.new_active_fe_indices[obj_level][obj_index] ==
+               fe_index;
       }
 
 
@@ -661,7 +661,7 @@ namespace internal
         (void)n;
         Assert(n == 0,
                ExcMessage("On cells, there can only be one active FE index"));
-        return dof_handler.levels_hp[obj_level]->active_fe_index(obj_index);
+        return dof_handler.new_active_fe_indices[obj_level][obj_index];
       }
 
 
@@ -724,8 +724,8 @@ namespace internal
         if (dof_handler.is_hp_dof_handler == false)
           return (fe_index == 0);
 
-        return dof_handler.levels_hp[obj_level]->fe_index_is_active(obj_index,
-                                                                    fe_index);
+        return dof_handler.new_active_fe_indices[obj_level][obj_index] ==
+               fe_index;
       }
 
 
@@ -754,7 +754,7 @@ namespace internal
         (void)n;
         Assert(n == 0,
                ExcMessage("On cells, there can only be one active FE index"));
-        return dof_handler.levels_hp[obj_level]->active_fe_index(obj_index);
+        return dof_handler.new_active_fe_indices[obj_level][obj_index];
       }
 
 
@@ -836,8 +836,8 @@ namespace internal
         if (dof_handler.is_hp_dof_handler == false)
           return (fe_index == 0);
 
-        return dof_handler.levels_hp[obj_level]->fe_index_is_active(obj_index,
-                                                                    fe_index);
+        return dof_handler.new_active_fe_indices[obj_level][obj_index] ==
+               fe_index;
       }
 
 
@@ -897,7 +897,7 @@ namespace internal
         (void)n;
         Assert(n == 0,
                ExcMessage("On cells, there can only be one active FE index"));
-        return dof_handler.levels_hp[obj_level]->active_fe_index(obj_index);
+        return dof_handler.new_active_fe_indices[obj_level][obj_index];
       }
 
       /**
@@ -2911,8 +2911,8 @@ namespace internal
                  accessor.dof_handler->levels_hp.size(),
                ExcMessage("DoFHandler not initialized"));
 
-        return accessor.dof_handler->levels_hp[accessor.level()]
-          ->active_fe_index(accessor.present_index);
+        return accessor.dof_handler
+          ->new_active_fe_indices[accessor.level()][accessor.present_index];
       }
 
 
@@ -2951,8 +2951,8 @@ namespace internal
                  accessor.dof_handler->levels_hp.size(),
                ExcMessage("DoFHandler not initialized"));
 
-        accessor.dof_handler->levels_hp[accessor.level()]->set_active_fe_index(
-          accessor.present_index, i);
+        accessor.dof_handler
+          ->new_active_fe_indices[accessor.level()][accessor.present_index] = i;
       }
 
 
@@ -2985,8 +2985,12 @@ namespace internal
                  accessor.dof_handler->levels_hp.size(),
                ExcMessage("DoFHandler not initialized"));
 
-        return accessor.dof_handler->levels_hp[accessor.level()]
-          ->future_fe_index(accessor.present_index);
+        if (future_fe_index_set(accessor))
+          return accessor.dof_handler
+            ->new_future_fe_indices[accessor.level()][accessor.present_index];
+        else
+          return accessor.dof_handler
+            ->new_active_fe_indices[accessor.level()][accessor.present_index];
       }
 
 
@@ -3024,8 +3028,10 @@ namespace internal
                  accessor.dof_handler->levels_hp.size(),
                ExcMessage("DoFHandler not initialized"));
 
-        accessor.dof_handler->levels_hp[accessor.level()]->set_future_fe_index(
-          accessor.present_index, i);
+        // accessor.dof_handler->levels_hp[accessor.level()]->set_future_fe_index(
+        //  accessor.present_index, i);
+        accessor.dof_handler
+          ->new_future_fe_indices[accessor.level()][accessor.present_index] = i;
       }
 
 
@@ -3059,8 +3065,18 @@ namespace internal
                  accessor.dof_handler->levels_hp.size(),
                ExcMessage("DoFHandler not initialized"));
 
-        return accessor.dof_handler->levels_hp[accessor.level()]
-          ->future_fe_index_set(accessor.present_index);
+        // return accessor.dof_handler->levels_hp[accessor.level()]
+        //  ->future_fe_index_set(accessor.present_index);
+
+        // TODO
+        using active_fe_index_type = unsigned short int;
+        static const active_fe_index_type invalid_active_fe_index =
+          static_cast<active_fe_index_type>(-1);
+
+        return accessor.dof_handler
+                 ->new_future_fe_indices[accessor.level()]
+                                        [accessor.present_index] !=
+               invalid_active_fe_index;
       }
 
 
@@ -3093,8 +3109,14 @@ namespace internal
                  accessor.dof_handler->levels_hp.size(),
                ExcMessage("DoFHandler not initialized"));
 
-        accessor.dof_handler->levels_hp[accessor.level()]
-          ->clear_future_fe_index(accessor.present_index);
+        // TODO
+        using active_fe_index_type = unsigned short int;
+        static const active_fe_index_type invalid_active_fe_index =
+          static_cast<active_fe_index_type>(-1);
+
+        accessor.dof_handler
+          ->new_future_fe_indices[accessor.level()][accessor.present_index] =
+          invalid_active_fe_index;
       }
 
 

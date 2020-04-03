@@ -1361,6 +1361,10 @@ private:
   mutable std::vector<std::array<std::vector<unsigned int>, dim + 1>>
     new_dofs_ptr;
 
+  using active_fe_index_type = unsigned short int;
+  mutable std::vector<std::vector<active_fe_index_type>> new_active_fe_indices;
+  mutable std::vector<std::vector<active_fe_index_type>> new_future_fe_indices;
+
   /**
    * Array to store the indices for degrees of freedom located at vertices.
    */
@@ -1897,6 +1901,9 @@ DoFHandlerBase<dim, spacedim, T>::save(Archive &ar, const unsigned int) const
       ar & this->new_cell_dofs_cache;
       ar & this->new_cell_dofs_cache_ptr;
 
+      ar & this->new_active_fe_indices;
+      ar & this->new_future_fe_indices;
+
       ar & this->vertex_dof_offsets;
       ar & this->number_cache;
 
@@ -1971,19 +1978,11 @@ DoFHandlerBase<dim, spacedim, T>::load(Archive &ar, const unsigned int)
       ar & this->new_dofs;
       ar & this->new_dofs_ptr;
 
-      for (auto &i : this->new_cell_dofs_cache)
-        for (auto &j : i)
-          std::cout << j;
-      std::cout << std::endl;
-
       ar & this->new_cell_dofs_cache;
-
-      for (auto &i : this->new_cell_dofs_cache)
-        for (auto &j : i)
-          std::cout << j;
-      std::cout << std::endl;
-
       ar & this->new_cell_dofs_cache_ptr;
+
+      ar & this->new_active_fe_indices;
+      ar & this->new_future_fe_indices;
 
       ar & this->vertex_dof_offsets;
 

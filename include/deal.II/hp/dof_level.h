@@ -160,7 +160,7 @@ namespace internal
        * element assigned, which will be verified by corresponding accessor
        * functions of the DoFCellAccessor class.
        */
-      std::vector<active_fe_index_type> active_fe_indices;
+      // std::vector<active_fe_index_type> active_fe_indices;
 
       /**
        * Indices specifying the finite element of hp::FECollection that the cell
@@ -174,7 +174,7 @@ namespace internal
        * will be verified by corresponding accessor functions of the
        * DoFCellAccessor class.
        */
-      std::vector<active_fe_index_type> future_fe_indices;
+      //      std::vector<active_fe_index_type> future_fe_indices;
 
       /**
        * Store the start index for the degrees of freedom of each object in
@@ -250,49 +250,52 @@ namespace internal
       /**
        * Return the fe_index of the active finite element on this object.
        */
-      unsigned int
-      active_fe_index(const unsigned int obj_index) const;
+      //      unsigned int
+      //      active_fe_index(const unsigned int obj_index) const;
+      //
+      //      /**
+      //       * Check whether a given finite element index is used on the
+      //       present
+      //       * object or not.
+      //       */
+      //      bool
+      //      fe_index_is_active(const unsigned int obj_index,
+      //                         const unsigned int fe_index) const;
+      //
+      //      /**
+      //       * Set the fe_index of the active finite element on this object.
+      //       */
+      //      void
+      //      set_active_fe_index(const unsigned int obj_index,
+      //                          const unsigned int fe_index);
 
-      /**
-       * Check whether a given finite element index is used on the present
-       * object or not.
-       */
-      bool
-      fe_index_is_active(const unsigned int obj_index,
-                         const unsigned int fe_index) const;
-
-      /**
-       * Set the fe_index of the active finite element on this object.
-       */
-      void
-      set_active_fe_index(const unsigned int obj_index,
-                          const unsigned int fe_index);
-
-      /**
-       * Return the fe_index of the future finite element on this object. If no
-       * future_fe_index has been specified, return the active_fe_index instead.
-       */
-      unsigned int
-      future_fe_index(const unsigned int obj_index) const;
-
-      /**
-       * Set the fe_index of the future finite element on this object.
-       */
-      void
-      set_future_fe_index(const unsigned int obj_index,
-                          const unsigned int fe_index);
-
-      /**
-       * Return whether a future fe index has been set on this object.
-       */
-      bool
-      future_fe_index_set(const unsigned int obj_index) const;
-
-      /**
-       * Revoke the future finite element assigned to this object.
-       */
-      void
-      clear_future_fe_index(const unsigned int obj_index);
+      //      /**
+      //       * Return the fe_index of the future finite element on this
+      //       object. If no
+      //       * future_fe_index has been specified, return the active_fe_index
+      //       instead.
+      //       */
+      //      unsigned int
+      //      future_fe_index(const unsigned int obj_index) const;
+      //
+      //      /**
+      //       * Set the fe_index of the future finite element on this object.
+      //       */
+      //      void
+      //      set_future_fe_index(const unsigned int obj_index,
+      //                          const unsigned int fe_index);
+      //
+      //      /**
+      //       * Return whether a future fe index has been set on this object.
+      //       */
+      //      bool
+      //      future_fe_index_set(const unsigned int obj_index) const;
+      //
+      //      /**
+      //       * Revoke the future finite element assigned to this object.
+      //       */
+      //      void
+      //      clear_future_fe_index(const unsigned int obj_index);
 
       /**
        * Return a pointer to the beginning of the DoF indices cache for a
@@ -477,112 +480,113 @@ namespace internal
 
 
 
-    inline unsigned int
-    DoFLevel::active_fe_index(const unsigned int obj_index) const
-    {
-      AssertIndexRange(obj_index, active_fe_indices.size());
-
-      if (is_compressed_entry(active_fe_indices[obj_index]) == false)
-        return active_fe_indices[obj_index];
-      else
-        return get_toggled_compression_state(active_fe_indices[obj_index]);
-    }
-
-
-
-    inline bool
-    DoFLevel::fe_index_is_active(const unsigned int obj_index,
-                                 const unsigned int fe_index) const
-    {
-      return (fe_index == active_fe_index(obj_index));
-    }
+    //    inline unsigned int
+    //    DoFLevel::active_fe_index(const unsigned int obj_index) const
+    //    {
+    //      AssertIndexRange(obj_index, active_fe_indices.size());
+    //
+    //      if (is_compressed_entry(active_fe_indices[obj_index]) == false)
+    //        return active_fe_indices[obj_index];
+    //      else
+    //        return
+    //        get_toggled_compression_state(active_fe_indices[obj_index]);
+    //    }
 
 
 
-    inline void
-    DoFLevel::set_active_fe_index(const unsigned int obj_index,
-                                  const unsigned int fe_index)
-    {
-      AssertIndexRange(obj_index, active_fe_indices.size());
-
-      // check whether the given fe_index is within the range of
-      // values that we interpret as "not compressed". if not, then
-      // the index is so large that we cannot accept it. (but this
-      // will not likely happen because it requires someone using an
-      // FECollection that has more than 32k entries.)
-      Assert(is_compressed_entry(fe_index) == false,
-             ExcMessage(
-               "You are using an active_fe_index that is larger than an "
-               "internal limitation for these objects. Try to work with "
-               "hp::FECollection objects that have a more modest size."));
-      Assert(fe_index != invalid_active_fe_index,
-             ExcMessage(
-               "You are using an active_fe_index that is reserved for "
-               "internal purposes for these objects. Try to work with "
-               "hp::FECollection objects that have a more modest size."));
-
-      active_fe_indices[obj_index] = fe_index;
-    }
+    //    inline bool
+    //    DoFLevel::fe_index_is_active(const unsigned int obj_index,
+    //                                 const unsigned int fe_index) const
+    //    {
+    //      return (fe_index == active_fe_index(obj_index));
+    //    }
 
 
 
-    inline unsigned int
-    DoFLevel::future_fe_index(const unsigned int obj_index) const
-    {
-      AssertIndexRange(obj_index, future_fe_indices.size());
-
-      if (future_fe_index_set(obj_index))
-        return future_fe_indices[obj_index];
-
-      return active_fe_index(obj_index);
-    }
-
-
-
-    inline void
-    DoFLevel::set_future_fe_index(const unsigned int obj_index,
-                                  const unsigned int fe_index)
-    {
-      AssertIndexRange(obj_index, future_fe_indices.size());
-
-      // check whether the given fe_index is within the range of
-      // values that we interpret as "not compressed". if not, then
-      // the index is so large that we cannot accept it. (but this
-      // will not likely happen because it requires someone using an
-      // FECollection that has more than 32k entries.)
-      Assert(is_compressed_entry(fe_index) == false,
-             ExcMessage(
-               "You are using a future_fe_index that is larger than an "
-               "internal limitation for these objects. Try to work with "
-               "hp::FECollection objects that have a more modest size."));
-      Assert(fe_index != invalid_active_fe_index,
-             ExcMessage(
-               "You are using a future_fe_index that is reserved for "
-               "internal purposes for these objects. Try to work with "
-               "hp::FECollection objects that have a more modest size."));
-
-      future_fe_indices[obj_index] = fe_index;
-    }
+    //    inline void
+    //    DoFLevel::set_active_fe_index(const unsigned int obj_index,
+    //                                  const unsigned int fe_index)
+    //    {
+    //      AssertIndexRange(obj_index, active_fe_indices.size());
+    //
+    //      // check whether the given fe_index is within the range of
+    //      // values that we interpret as "not compressed". if not, then
+    //      // the index is so large that we cannot accept it. (but this
+    //      // will not likely happen because it requires someone using an
+    //      // FECollection that has more than 32k entries.)
+    //      Assert(is_compressed_entry(fe_index) == false,
+    //             ExcMessage(
+    //               "You are using an active_fe_index that is larger than an "
+    //               "internal limitation for these objects. Try to work with "
+    //               "hp::FECollection objects that have a more modest size."));
+    //      Assert(fe_index != invalid_active_fe_index,
+    //             ExcMessage(
+    //               "You are using an active_fe_index that is reserved for "
+    //               "internal purposes for these objects. Try to work with "
+    //               "hp::FECollection objects that have a more modest size."));
+    //
+    //      active_fe_indices[obj_index] = fe_index;
+    //    }
 
 
 
-    inline bool
-    DoFLevel::future_fe_index_set(const unsigned int obj_index) const
-    {
-      AssertIndexRange(obj_index, future_fe_indices.size());
-
-      return (future_fe_indices[obj_index] != invalid_active_fe_index);
-    }
-
-
-
-    inline void
-    DoFLevel::clear_future_fe_index(const unsigned int obj_index)
-    {
-      AssertIndexRange(obj_index, future_fe_indices.size());
-
-      future_fe_indices[obj_index] = invalid_active_fe_index;
-    }
+    //    inline unsigned int
+    //    DoFLevel::future_fe_index(const unsigned int obj_index) const
+    //    {
+    //      AssertIndexRange(obj_index, future_fe_indices.size());
+    //
+    //      if (future_fe_index_set(obj_index))
+    //        return future_fe_indices[obj_index];
+    //
+    //      return active_fe_index(obj_index);
+    //    }
+    //
+    //
+    //
+    //    inline void
+    //    DoFLevel::set_future_fe_index(const unsigned int obj_index,
+    //                                  const unsigned int fe_index)
+    //    {
+    //      AssertIndexRange(obj_index, future_fe_indices.size());
+    //
+    //      // check whether the given fe_index is within the range of
+    //      // values that we interpret as "not compressed". if not, then
+    //      // the index is so large that we cannot accept it. (but this
+    //      // will not likely happen because it requires someone using an
+    //      // FECollection that has more than 32k entries.)
+    //      Assert(is_compressed_entry(fe_index) == false,
+    //             ExcMessage(
+    //               "You are using a future_fe_index that is larger than an "
+    //               "internal limitation for these objects. Try to work with "
+    //               "hp::FECollection objects that have a more modest size."));
+    //      Assert(fe_index != invalid_active_fe_index,
+    //             ExcMessage(
+    //               "You are using a future_fe_index that is reserved for "
+    //               "internal purposes for these objects. Try to work with "
+    //               "hp::FECollection objects that have a more modest size."));
+    //
+    //      future_fe_indices[obj_index] = fe_index;
+    //    }
+    //
+    //
+    //
+    //    inline bool
+    //    DoFLevel::future_fe_index_set(const unsigned int obj_index) const
+    //    {
+    //      AssertIndexRange(obj_index, future_fe_indices.size());
+    //
+    //      return (future_fe_indices[obj_index] != invalid_active_fe_index);
+    //    }
+    //
+    //
+    //
+    //    inline void
+    //    DoFLevel::clear_future_fe_index(const unsigned int obj_index)
+    //    {
+    //      AssertIndexRange(obj_index, future_fe_indices.size());
+    //
+    //      future_fe_indices[obj_index] = invalid_active_fe_index;
+    //    }
 
 
 
@@ -612,12 +616,12 @@ namespace internal
     inline void
     DoFLevel::serialize(Archive &ar, const unsigned int)
     {
-      ar & this->active_fe_indices;
+      // ar & this->active_fe_indices;
       //      ar & this->cell_cache_offsets;
       //      ar & this->cell_dof_indices_cache;
       //      ar & this->dof_indices;
       //      ar & this->dof_offsets;
-      ar & this->future_fe_indices;
+      // ar & this->future_fe_indices;
     }
   } // namespace hp
 
