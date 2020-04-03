@@ -891,37 +891,31 @@ namespace internal
        * finite element specified by @p fe_index on the vertex with global
        * number @p vertex_index to @p global_index.
        */
-      template <int dim, int spacedim>
+      template <typename DoFHandlerType>
       static void
-      set_vertex_dof_index(dealii::DoFHandler<dim, spacedim> &dof_handler,
-                           const unsigned int                 vertex_index,
-                           const unsigned int                 fe_index,
-                           const unsigned int                 local_index,
-                           const types::global_dof_index      global_index)
+      set_vertex_dof_index(DoFHandlerType &              dof_handler,
+                           const unsigned int            vertex_index,
+                           const unsigned int            fe_index,
+                           const unsigned int            local_index,
+                           const types::global_dof_index global_index)
       {
-        (void)fe_index;
-        Assert(
-          (fe_index == dealii::DoFHandler<dim, spacedim>::default_fe_index),
-          ExcMessage(
-            "Only the default FE index is allowed for non-hp DoFHandler objects"));
-        AssertIndexRange(local_index, dof_handler.get_fe().dofs_per_vertex);
+        if (DoFHandlerType::is_hp_dof_handler == false)
+          {
+            (void)fe_index;
+            Assert(
+              (fe_index == DoFHandlerType::default_fe_index),
+              ExcMessage(
+                "Only the default FE index is allowed for non-hp DoFHandler objects"));
+            AssertIndexRange(local_index, dof_handler.get_fe().dofs_per_vertex);
 
-        dof_handler
-          .new_dofs[0][0][vertex_index * dof_handler.get_fe().dofs_per_vertex +
-                          local_index] = global_index;
-      }
+            dof_handler.new_dofs[0][0][vertex_index *
+                                         dof_handler.get_fe().dofs_per_vertex +
+                                       local_index] = global_index;
 
+            return;
+          }
 
-      template <int dim, int spacedim>
-      static void
-      set_vertex_dof_index(dealii::hp::DoFHandler<dim, spacedim> &dof_handler,
-                           const unsigned int                     vertex_index,
-                           const unsigned int                     fe_index,
-                           const unsigned int                     local_index,
-                           const types::global_dof_index          global_index)
-      {
-        Assert((fe_index !=
-                dealii::hp::DoFHandler<dim, spacedim>::default_fe_index),
+        Assert((fe_index != DoFHandlerType::default_fe_index),
                ExcMessage("You need to specify a FE index when working "
                           "with hp DoFHandlers"));
         Assert(dof_handler.fe_collection.size() > 0,
@@ -935,13 +929,9 @@ namespace internal
                ExcMessage(
                  "This vertex is unused and has no DoFs associated with it"));
 
-        // hop along the list of index
-        // sets until we find the one
-        // with the correct fe_index, and
-        // then poke into that
-        // part. trigger an exception if
-        // we can't find a set for this
-        // particular fe_index
+        // hop along the list of index sets until we find the one with the
+        // correct fe_index, and then poke into that part. trigger an exception
+        // if we can't find a set for this particular fe_index
         const unsigned int starting_offset =
           dof_handler.vertex_dof_offsets[vertex_index];
         types::global_dof_index *pointer =
@@ -979,36 +969,28 @@ namespace internal
        * number @p vertex_index to @p global_index.
        */
 
-      template <int dim, int spacedim>
+      template <typename DoFHandlerType>
       static types::global_dof_index
-      get_vertex_dof_index(const dealii::DoFHandler<dim, spacedim> &dof_handler,
-                           const unsigned int vertex_index,
-                           const unsigned int fe_index,
-                           const unsigned int local_index)
+      get_vertex_dof_index(const DoFHandlerType &dof_handler,
+                           const unsigned int    vertex_index,
+                           const unsigned int    fe_index,
+                           const unsigned int    local_index)
       {
-        (void)fe_index;
-        Assert(
-          (fe_index == dealii::DoFHandler<dim, spacedim>::default_fe_index),
-          ExcMessage(
-            "Only the default FE index is allowed for non-hp DoFHandler objects"));
-        AssertIndexRange(local_index, dof_handler.get_fe().dofs_per_vertex);
+        if (DoFHandlerType::is_hp_dof_handler == false)
+          {
+            Assert(
+              (fe_index == DoFHandlerType::default_fe_index),
+              ExcMessage(
+                "Only the default FE index is allowed for non-hp DoFHandler objects"));
+            AssertIndexRange(local_index, dof_handler.get_fe().dofs_per_vertex);
 
-        return dof_handler
-          .new_dofs[0][0][vertex_index * dof_handler.get_fe().dofs_per_vertex +
-                          local_index];
-      }
+            return dof_handler
+              .new_dofs[0][0]
+                       [vertex_index * dof_handler.get_fe().dofs_per_vertex +
+                        local_index];
+          }
 
-
-      template <int dim, int spacedim>
-      static types::global_dof_index
-      get_vertex_dof_index(
-        const dealii::hp::DoFHandler<dim, spacedim> &dof_handler,
-        const unsigned int                           vertex_index,
-        const unsigned int                           fe_index,
-        const unsigned int                           local_index)
-      {
-        Assert((fe_index !=
-                dealii::hp::DoFHandler<dim, spacedim>::default_fe_index),
+        Assert((fe_index != DoFHandlerType::default_fe_index),
                ExcMessage("You need to specify a FE index when working "
                           "with hp DoFHandlers"));
         Assert(dof_handler.fe_collection.size() > 0,
@@ -1022,13 +1004,9 @@ namespace internal
                ExcMessage(
                  "This vertex is unused and has no DoFs associated with it"));
 
-        // hop along the list of index
-        // sets until we find the one
-        // with the correct fe_index, and
-        // then poke into that
-        // part. trigger an exception if
-        // we can't find a set for this
-        // particular fe_index
+        // hop along the list of index sets until we find the one with the
+        // correct fe_index, and then poke into that part. trigger an exception
+        // if we can't find a set for this particular fe_index
         const unsigned int starting_offset =
           dof_handler.vertex_dof_offsets[vertex_index];
         const types::global_dof_index *pointer =
@@ -1066,6 +1044,8 @@ namespace internal
       n_active_vertex_fe_indices(const DoFHandlerType &dof_handler,
                                  const unsigned int    vertex_index)
       {
+        Assert(DoFHandlerType::is_hp_dof_handler == true, ExcNotImplemented());
+
         Assert(dof_handler.fe_collection.size() > 0,
                ExcMessage("No finite element collection is associated with "
                           "this DoFHandler"));
@@ -1116,6 +1096,8 @@ namespace internal
                                  const unsigned int    vertex_index,
                                  const unsigned int    n)
       {
+        Assert(DoFHandlerType::is_hp_dof_handler == true, ExcNotImplemented());
+
         Assert(dof_handler.fe_collection.size() > 0,
                ExcMessage("No finite element collection is associated with "
                           "this DoFHandler"));
