@@ -218,26 +218,12 @@ namespace internal
      */
     struct Implementation
     {
-      template <int dim, int spacedim>
+      template <typename DoFHandlerType>
       static const types::global_dof_index *
-      get_level_object(dealii::DoFHandler<dim, spacedim> *dof_handler,
-                       const unsigned int                 present_level,
-                       const unsigned int                 present_index,
-                       const unsigned int                 dofs_per_cell)
-      {
-        (void)dofs_per_cell;
-
-        return &dof_handler
-                  ->new_cell_dofs_cache[present_level]
-                                       [dof_handler->new_cell_dofs_cache_ptr
-                                          [present_level][present_index]];
-      }
-      template <int dim, int spacedim>
-      static const types::global_dof_index *
-      get_level_object(dealii::hp::DoFHandler<dim, spacedim> *dof_handler,
-                       const unsigned int                     present_level,
-                       const unsigned int                     present_index,
-                       const unsigned int                     dofs_per_cell)
+      get_cache_ptr(DoFHandlerType *   dof_handler,
+                    const unsigned int present_level,
+                    const unsigned int present_index,
+                    const unsigned int dofs_per_cell)
       {
         (void)dofs_per_cell;
 
@@ -2887,23 +2873,15 @@ namespace internal
        * Do what the active_fe_index function in the parent class is supposed to
        * do.
        */
-      template <int dim, int spacedim, bool level_dof_access>
+      template <typename DoFHandlerType, bool level_dof_access>
       static unsigned int
       active_fe_index(
-        const DoFCellAccessor<DoFHandler<dim, spacedim>, level_dof_access> &)
+        const DoFCellAccessor<DoFHandlerType, level_dof_access> &accessor)
       {
-        // ::DoFHandler only supports a single active fe with index zero
-        return 0;
-      }
+        if (accessor.dof_handler->is_hp_dof_handler == false)
+          return 0; // ::DoFHandler only supports a single active fe with index
+                    // zero
 
-
-
-      template <int dim, int spacedim, bool level_dof_access>
-      static unsigned int
-      active_fe_index(
-        const DoFCellAccessor<dealii::hp::DoFHandler<dim, spacedim>,
-                              level_dof_access> &accessor)
-      {
         Assert(
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
@@ -2921,29 +2899,21 @@ namespace internal
        * Do what the set_active_fe_index function in the parent class is
        * supposed to do.
        */
-      template <int dim, int spacedim, bool level_dof_access>
-      static void
-      set_active_fe_index(const DoFCellAccessor<DoFHandler<dim, spacedim>,
-                                                level_dof_access> &accessor,
-                          const unsigned int                       i)
-      {
-        (void)accessor;
-        (void)i;
-        // ::DoFHandler only supports a single active fe with index zero
-        Assert(
-          i == 0,
-          (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
-      }
-
-
-
-      template <int dim, int spacedim, bool level_dof_access>
+      template <typename DoFHandlerType, bool level_dof_access>
       static void
       set_active_fe_index(
-        const DoFCellAccessor<dealii::hp::DoFHandler<dim, spacedim>,
-                              level_dof_access> &accessor,
-        const unsigned int                       i)
+        const DoFCellAccessor<DoFHandlerType, level_dof_access> &accessor,
+        const unsigned int                                       i)
       {
+        if (accessor.dof_handler->is_hp_dof_handler == false)
+          {
+            // ::DoFHandler only supports a single active fe with index zero
+            Assert(i == 0,
+                   (typename std::decay<decltype(
+                      accessor)>::type::ExcInvalidObject()));
+            return;
+          }
+
         Assert(
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
@@ -2961,23 +2931,15 @@ namespace internal
        * Do what the future_fe_index function in the parent class is supposed to
        * do.
        */
-      template <int dim, int spacedim, bool level_dof_access>
+      template <typename DoFHandlerType, bool level_dof_access>
       static unsigned int
       future_fe_index(
-        const DoFCellAccessor<DoFHandler<dim, spacedim>, level_dof_access> &)
+        const DoFCellAccessor<DoFHandlerType, level_dof_access> &accessor)
       {
-        // ::DoFHandler only supports a single active fe with index zero
-        return 0;
-      }
+        if (accessor.dof_handler->is_hp_dof_handler == false)
+          return 0; // ::DoFHandler only supports a single active fe with index
+                    // zero
 
-
-
-      template <int dim, int spacedim, bool level_dof_access>
-      static unsigned int
-      future_fe_index(
-        const DoFCellAccessor<dealii::hp::DoFHandler<dim, spacedim>,
-                              level_dof_access> &accessor)
-      {
         Assert(
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
@@ -2998,29 +2960,21 @@ namespace internal
        * Do what the set_future_fe_index function in the parent class is
        * supposed to do.
        */
-      template <int dim, int spacedim, bool level_dof_access>
-      static void
-      set_future_fe_index(const DoFCellAccessor<DoFHandler<dim, spacedim>,
-                                                level_dof_access> &accessor,
-                          const unsigned int                       i)
-      {
-        (void)accessor;
-        (void)i;
-        // ::DoFHandler only supports a single active fe with index zero
-        Assert(
-          i == 0,
-          (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
-      }
-
-
-
-      template <int dim, int spacedim, bool level_dof_access>
+      template <typename DoFHandlerType, bool level_dof_access>
       static void
       set_future_fe_index(
-        const DoFCellAccessor<dealii::hp::DoFHandler<dim, spacedim>,
-                              level_dof_access> &accessor,
-        const unsigned int                       i)
+        const DoFCellAccessor<DoFHandlerType, level_dof_access> &accessor,
+        const unsigned int                                       i)
       {
+        if (accessor.dof_handler->is_hp_dof_handler == false)
+          {
+            // ::DoFHandler only supports a single active fe with index zero
+            Assert(i == 0,
+                   (typename std::decay<decltype(
+                      accessor)>::type::ExcInvalidObject()));
+            return;
+          }
+
         Assert(
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
@@ -3040,24 +2994,15 @@ namespace internal
        * Do what the future_fe_index_set function in the parent class is
        * supposed to do.
        */
-      template <int dim, int spacedim, bool level_dof_access>
+      template <typename DoFHandlerType, bool level_dof_access>
       static bool
       future_fe_index_set(
-        const DoFCellAccessor<dealii::DoFHandler<dim, spacedim>,
-                              level_dof_access> &)
+        const DoFCellAccessor<DoFHandlerType, level_dof_access> &accessor)
       {
-        // ::DoFHandler only supports a single active fe with index zero
-        return false;
-      }
+        if (accessor.dof_handler->is_hp_dof_handler == false)
+          return false; // ::DoFHandler only supports a single active fe with
+                        // index zero
 
-
-
-      template <int dim, int spacedim, bool level_dof_access>
-      static bool
-      future_fe_index_set(
-        const DoFCellAccessor<dealii::hp::DoFHandler<dim, spacedim>,
-                              level_dof_access> &accessor)
-      {
         Assert(
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
@@ -3085,23 +3030,15 @@ namespace internal
        * Do what the clear_fe_index function in the parent class is supposed to
        * do.
        */
-      template <int dim, int spacedim, bool level_dof_access>
+      template <typename DoFHandlerType, bool level_dof_access>
       static void
       clear_future_fe_index(
-        const DoFCellAccessor<dealii::DoFHandler<dim, spacedim>,
-                              level_dof_access> &)
+        const DoFCellAccessor<DoFHandlerType, level_dof_access> &accessor)
       {
-        // ::DoFHandler only supports a single active fe with index zero
-      }
+        if (accessor.dof_handler->is_hp_dof_handler == false)
+          return; // ::DoFHandler only supports a single active fe with index
+                  // zero
 
-
-
-      template <int dim, int spacedim, bool level_dof_access>
-      static void
-      clear_future_fe_index(
-        const DoFCellAccessor<dealii::hp::DoFHandler<dim, spacedim>,
-                              level_dof_access> &accessor)
-      {
         Assert(
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
@@ -3679,10 +3616,10 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::get_dof_indices(
     {
       const types::global_dof_index *cache =
         dealii::internal::DoFAccessorImplementation::Implementation::
-          get_level_object(this->dof_handler,
-                           this->present_level,
-                           this->present_index,
-                           dofs_per_cell);
+          get_cache_ptr(this->dof_handler,
+                        this->present_level,
+                        this->present_index,
+                        dofs_per_cell);
       for (unsigned int i = 0; i < dofs_per_cell; ++i, ++cache)
         dof_indices[i] = *cache;
     }
@@ -3758,11 +3695,11 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::get_dof_values(
          typename DoFCellAccessor::ExcVectorDoesNotMatch());
 
   const types::global_dof_index *cache =
-    dealii::internal::DoFAccessorImplementation::Implementation::
-      get_level_object(this->dof_handler,
-                       this->present_level,
-                       this->present_index,
-                       this->get_fe().dofs_per_cell);
+    dealii::internal::DoFAccessorImplementation::Implementation::get_cache_ptr(
+      this->dof_handler,
+      this->present_level,
+      this->present_index,
+      this->get_fe().dofs_per_cell);
   dealii::internal::DoFAccessorImplementation::Implementation::
     extract_subvector_to(values,
                          cache,
@@ -3793,11 +3730,11 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::get_dof_values(
 
 
   const types::global_dof_index *cache =
-    dealii::internal::DoFAccessorImplementation::Implementation::
-      get_level_object(this->dof_handler,
-                       this->present_level,
-                       this->present_index,
-                       this->get_fe().dofs_per_cell);
+    dealii::internal::DoFAccessorImplementation::Implementation::get_cache_ptr(
+      this->dof_handler,
+      this->present_level,
+      this->present_index,
+      this->get_fe().dofs_per_cell);
 
   constraints.get_dof_values(values,
                              *cache,
@@ -3827,11 +3764,11 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::set_dof_values(
 
   Assert(this->dof_handler != nullptr, typename BaseClass::ExcInvalidObject());
   const types::global_dof_index *cache =
-    dealii::internal::DoFAccessorImplementation::Implementation::
-      get_level_object(this->dof_handler,
-                       this->present_level,
-                       this->present_index,
-                       this->get_fe().dofs_per_cell);
+    dealii::internal::DoFAccessorImplementation::Implementation::get_cache_ptr(
+      this->dof_handler,
+      this->present_level,
+      this->present_index,
+      this->get_fe().dofs_per_cell);
 
   for (unsigned int i = 0; i < this->get_fe().dofs_per_cell; ++i, ++cache)
     internal::ElementAccess<OutputVector>::set(local_values(i), *cache, values);

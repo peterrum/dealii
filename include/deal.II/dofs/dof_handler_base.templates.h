@@ -1065,6 +1065,8 @@ namespace internal
               dof_handler.tria->n_levels());
             dof_handler.new_active_fe_indices.resize(
               dof_handler.tria->n_levels());
+            dof_handler.new_future_fe_indices.resize(
+              dof_handler.tria->n_levels());
 
             for (unsigned int level = 0; level < dof_handler.tria->n_levels();
                  ++level)
@@ -3301,11 +3303,6 @@ DoFHandlerBase<dim, spacedim, T>::create_active_fe_table()
           // Either the active_fe_indices have size zero because
           // they were just created, or the correct size. Other
           // sizes indicate that something went wrong.
-          std::cout << this->new_active_fe_indices[level].size() << " "
-                    << this->tria->n_raw_cells(level) << " "
-                    << this->new_future_fe_indices[level].size() << " "
-                    << this->tria->n_raw_cells(level) << std::endl;
-
           Assert(this->new_active_fe_indices[level].size() ==
                      this->tria->n_raw_cells(level) &&
                    this->new_future_fe_indices[level].size() ==
@@ -3354,13 +3351,13 @@ DoFHandlerBase<dim, spacedim, T>::post_refinement_action()
     this->new_active_fe_indices.push_back({});
 
   while (this->new_active_fe_indices.size() > this->tria->n_levels())
-    this->new_active_fe_indices.push_back({});
+    this->new_active_fe_indices.pop_back();
 
   while (this->new_future_fe_indices.size() < this->tria->n_levels())
     this->new_future_fe_indices.push_back({});
 
   while (this->new_future_fe_indices.size() > this->tria->n_levels())
-    this->new_future_fe_indices.push_back({});
+    this->new_future_fe_indices.pop_back();
 
 
 
