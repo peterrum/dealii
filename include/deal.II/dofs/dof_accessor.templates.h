@@ -3055,373 +3055,6 @@ namespace internal
           ->new_future_fe_indices[accessor.level()][accessor.present_index] =
           invalid_active_fe_index;
       }
-
-
-
-      template <int  dim,
-                int  spacedim,
-                bool level_dof_access,
-                typename ForwardIterator,
-                class OutputVector>
-      static void
-      distribute_local_to_global(
-        const DoFCellAccessor<dealii::DoFHandler<dim, spacedim>,
-                              level_dof_access> &accessor,
-        ForwardIterator                          local_source_begin,
-        ForwardIterator                          local_source_end,
-        OutputVector &                           global_destination)
-      {
-        Assert(
-          accessor.dof_handler != nullptr,
-          (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
-        Assert(static_cast<unsigned int>(local_source_end -
-                                         local_source_begin) ==
-                 accessor.get_fe().dofs_per_cell,
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcVectorDoesNotMatch()));
-        Assert(accessor.dof_handler->n_dofs() == global_destination.size(),
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcVectorDoesNotMatch()));
-
-        Assert(!accessor.has_children(), ExcMessage("Cell must be active"));
-
-        const unsigned int n_dofs = local_source_end - local_source_begin;
-
-        types::global_dof_index *dofs =
-          &accessor.dof_handler->new_cell_dofs_cache
-             [accessor.level()][accessor.dof_handler->new_cell_dofs_cache_ptr
-                                  [accessor.level()][accessor.present_index]];
-
-        // distribute cell vector
-        global_destination.add(n_dofs, dofs, local_source_begin);
-      }
-
-
-
-      template <int  dim,
-                int  spacedim,
-                bool level_dof_access,
-                typename ForwardIterator,
-                class OutputVector>
-      static void
-      distribute_local_to_global(
-        const DoFCellAccessor<dealii::hp::DoFHandler<dim, spacedim>,
-                              level_dof_access> &accessor,
-        ForwardIterator                          local_source_begin,
-        ForwardIterator                          local_source_end,
-        OutputVector &                           global_destination)
-      {
-        Assert(
-          accessor.dof_handler != nullptr,
-          (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
-        Assert(local_source_end - local_source_begin ==
-                 accessor.get_fe().dofs_per_cell,
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcVectorDoesNotMatch()));
-        Assert(accessor.dof_handler->n_dofs() == global_destination.size(),
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcVectorDoesNotMatch()));
-
-        const unsigned int n_dofs = local_source_end - local_source_begin;
-
-        // TODO[WB/MK]: This function could me made more efficient because it
-        // allocates memory, which could be avoided by passing in another
-        // argument as a scratch array. This should be fixed eventually. another
-        // option would be to let the surrounding class have a (static, mutable)
-        // scratch array that is thread-local
-
-        // get indices of dofs
-        std::vector<types::global_dof_index> dofs(n_dofs);
-        accessor.get_dof_indices(dofs);
-
-        // distribute cell vector
-        global_destination.add(n_dofs, dofs.begin(), local_source_begin);
-      }
-
-
-
-      template <int  dim,
-                int  spacedim,
-                bool level_dof_access,
-                typename ForwardIterator,
-                class OutputVector>
-      static void
-      distribute_local_to_global(
-        const DoFCellAccessor<dealii::DoFHandler<dim, spacedim>,
-                              level_dof_access> &                   accessor,
-        const AffineConstraints<typename OutputVector::value_type> &constraints,
-        ForwardIterator local_source_begin,
-        ForwardIterator local_source_end,
-        OutputVector &  global_destination)
-      {
-        Assert(
-          accessor.dof_handler != nullptr,
-          (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
-        Assert(local_source_end - local_source_begin ==
-                 accessor.get_fe().dofs_per_cell,
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcVectorDoesNotMatch()));
-        Assert(accessor.dof_handler->n_dofs() == global_destination.size(),
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcVectorDoesNotMatch()));
-
-        Assert(!accessor.has_children(), ExcMessage("Cell must be active."));
-
-        const unsigned int n_dofs = local_source_end - local_source_begin;
-
-        types::global_dof_index *dofs =
-          &accessor.dof_handler->new_cell_dofs_cache
-             [accessor.level()][accessor.dof_handler->new_cell_dofs_cache_ptr
-                                  [accessor.level()][accessor.present_index]];
-
-        // distribute cell vector
-        constraints.distribute_local_to_global(local_source_begin,
-                                               local_source_end,
-                                               dofs,
-                                               global_destination);
-      }
-
-
-
-      template <int  dim,
-                int  spacedim,
-                bool level_dof_access,
-                typename ForwardIterator,
-                class OutputVector>
-      static void
-      distribute_local_to_global(
-        const DoFCellAccessor<dealii::hp::DoFHandler<dim, spacedim>,
-                              level_dof_access> &                   accessor,
-        const AffineConstraints<typename OutputVector::value_type> &constraints,
-        ForwardIterator local_source_begin,
-        ForwardIterator local_source_end,
-        OutputVector &  global_destination)
-      {
-        Assert(
-          accessor.dof_handler != nullptr,
-          (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
-        Assert(local_source_end - local_source_begin ==
-                 accessor.get_fe().dofs_per_cell,
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcVectorDoesNotMatch()));
-        Assert(accessor.dof_handler->n_dofs() == global_destination.size(),
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcVectorDoesNotMatch()));
-
-        const unsigned int n_dofs = local_source_end - local_source_begin;
-
-        // TODO[WB/MK]: This function could me made more efficient because it
-        // allocates memory, which could be avoided by passing in another
-        // argument as a scratch array. This should be fixed eventually
-
-        // get indices of dofs
-        std::vector<types::global_dof_index> dofs(n_dofs);
-        accessor.get_dof_indices(dofs);
-
-        // distribute cell vector
-        constraints.distribute_local_to_global(local_source_begin,
-                                               local_source_end,
-                                               dofs.begin(),
-                                               global_destination);
-      }
-
-
-
-      template <int  dim,
-                int  spacedim,
-                bool level_dof_access,
-                typename number,
-                class OutputMatrix>
-      static void
-      distribute_local_to_global(
-        const DoFCellAccessor<dealii::DoFHandler<dim, spacedim>,
-                              level_dof_access> &accessor,
-        const dealii::FullMatrix<number> &       local_source,
-        OutputMatrix &                           global_destination)
-      {
-        Assert(
-          accessor.dof_handler != nullptr,
-          (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
-        Assert(local_source.m() == accessor.get_fe().dofs_per_cell,
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcMatrixDoesNotMatch()));
-        Assert(local_source.n() == accessor.get_fe().dofs_per_cell,
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcMatrixDoesNotMatch()));
-        Assert(accessor.dof_handler->n_dofs() == global_destination.m(),
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcMatrixDoesNotMatch()));
-        Assert(accessor.dof_handler->n_dofs() == global_destination.n(),
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcMatrixDoesNotMatch()));
-
-        Assert(!accessor.has_children(), ExcMessage("Cell must be active."));
-
-        const unsigned int n_dofs = local_source.m();
-
-        types::global_dof_index *dofs =
-          &accessor.dof_handler->new_cell_dofs_cache
-             [accessor.level()][accessor.dof_handler->new_cell_dofs_cache_ptr
-                                  [accessor.level()][accessor.present_index]];
-
-        // distribute cell matrix
-        for (unsigned int i = 0; i < n_dofs; ++i)
-          global_destination.add(dofs[i], n_dofs, dofs, &local_source(i, 0));
-      }
-
-
-
-      template <int  dim,
-                int  spacedim,
-                bool level_dof_access,
-                typename number,
-                class OutputMatrix>
-      static void
-      distribute_local_to_global(
-        const DoFCellAccessor<dealii::hp::DoFHandler<dim, spacedim>,
-                              level_dof_access> &accessor,
-        const dealii::FullMatrix<number> &       local_source,
-        OutputMatrix &                           global_destination)
-      {
-        Assert(
-          accessor.dof_handler != nullptr,
-          (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
-        Assert(local_source.m() == accessor.get_fe().dofs_per_cell,
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcMatrixDoesNotMatch()));
-        Assert(local_source.n() == accessor.get_fe().dofs_per_cell,
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcVectorDoesNotMatch()));
-        Assert(accessor.dof_handler->n_dofs() == global_destination.m(),
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcMatrixDoesNotMatch()));
-        Assert(accessor.dof_handler->n_dofs() == global_destination.n(),
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcMatrixDoesNotMatch()));
-
-        const unsigned int n_dofs = local_source.size();
-
-        // TODO[WB/MK]: This function could me made more efficient because it
-        // allocates memory, which could be avoided by passing in another
-        // argument as a scratch array.
-
-        // get indices of dofs
-        std::vector<types::global_dof_index> dofs(n_dofs);
-        accessor.get_dof_indices(dofs);
-
-        // distribute cell matrix
-        global_destination.add(dofs, local_source);
-      }
-
-
-
-      template <int  dim,
-                int  spacedim,
-                bool level_dof_access,
-                typename number,
-                class OutputMatrix,
-                typename OutputVector>
-      static void
-      distribute_local_to_global(
-        const DoFCellAccessor<dealii::DoFHandler<dim, spacedim>,
-                              level_dof_access> &accessor,
-        const dealii::FullMatrix<number> &       local_matrix,
-        const dealii::Vector<number> &           local_vector,
-        OutputMatrix &                           global_matrix,
-        OutputVector &                           global_vector)
-      {
-        Assert(
-          accessor.dof_handler != nullptr,
-          (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
-        Assert(local_matrix.m() == accessor.get_fe().dofs_per_cell,
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcMatrixDoesNotMatch()));
-        Assert(local_matrix.n() == accessor.get_fe().dofs_per_cell,
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcVectorDoesNotMatch()));
-        Assert(accessor.dof_handler->n_dofs() == global_matrix.m(),
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcMatrixDoesNotMatch()));
-        Assert(accessor.dof_handler->n_dofs() == global_matrix.n(),
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcMatrixDoesNotMatch()));
-        Assert(local_vector.size() == accessor.get_fe().dofs_per_cell,
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcVectorDoesNotMatch()));
-        Assert(accessor.dof_handler->n_dofs() == global_vector.size(),
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcVectorDoesNotMatch()));
-
-        Assert(!accessor.has_children(), ExcMessage("Cell must be active."));
-
-        const unsigned int       n_dofs = accessor.get_fe().dofs_per_cell;
-        types::global_dof_index *dofs =
-          &accessor.dof_handler->new_cell_dofs_cache
-             [accessor.level()][accessor.dof_handler->new_cell_dofs_cache_ptr
-                                  [accessor.level()][accessor.present_index]];
-
-        // distribute cell matrices
-        for (unsigned int i = 0; i < n_dofs; ++i)
-          {
-            global_matrix.add(dofs[i], n_dofs, dofs, &local_matrix(i, 0));
-            global_vector(dofs[i]) += local_vector(i);
-          }
-      }
-
-
-
-      template <int  dim,
-                int  spacedim,
-                bool level_dof_access,
-                typename number,
-                class OutputMatrix,
-                typename OutputVector>
-      static void
-      distribute_local_to_global(
-        const DoFCellAccessor<dealii::hp::DoFHandler<dim, spacedim>,
-                              level_dof_access> &accessor,
-        const dealii::FullMatrix<number> &       local_matrix,
-        const dealii::Vector<number> &           local_vector,
-        OutputMatrix &                           global_matrix,
-        OutputVector &                           global_vector)
-      {
-        Assert(
-          accessor.dof_handler != nullptr,
-          (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
-        Assert(local_matrix.m() == accessor.get_fe().dofs_per_cell,
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcMatrixDoesNotMatch()));
-        Assert(local_matrix.n() == accessor.get_fe().dofs_per_cell,
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcVectorDoesNotMatch()));
-        Assert(accessor.dof_handler->n_dofs() == global_matrix.m(),
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcMatrixDoesNotMatch()));
-        Assert(accessor.dof_handler->n_dofs() == global_matrix.n(),
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcMatrixDoesNotMatch()));
-        Assert(local_vector.size() == accessor.get_fe().dofs_per_cell,
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcVectorDoesNotMatch()));
-        Assert(accessor.dof_handler->n_dofs() == global_vector.size(),
-               (typename std::decay<decltype(
-                  accessor)>::type::ExcVectorDoesNotMatch()));
-
-        const unsigned int n_dofs = local_matrix.size();
-
-        // TODO[WB/MK]: This function could me made more efficient because
-        // it allocates memory, which could be avoided by passing in
-        // another argument as a scratch array. Comment(GK) Do not bother
-        // and leave this to AffineConstraints or MeshWorker::Assembler
-
-        // get indices of dofs
-        std::vector<types::global_dof_index> dofs(n_dofs);
-        accessor.get_dof_indices(dofs);
-
-        // distribute cell matrix and vector
-        global_matrix.add(dofs, local_matrix);
-        global_vector.add(dofs, local_vector);
-      }
     };
   } // namespace DoFCellAccessorImplementation
 } // namespace internal
@@ -3991,11 +3624,9 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::distribute_local_to_global(
   const Vector<number> &local_source,
   OutputVector &        global_destination) const
 {
-  dealii::internal::DoFCellAccessorImplementation::Implementation::
-    distribute_local_to_global(*this,
-                               local_source.begin(),
-                               local_source.end(),
-                               global_destination);
+  this->distribute_local_to_global(local_source.begin(),
+                                   local_source.end(),
+                                   global_destination);
 }
 
 
@@ -4008,11 +3639,25 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::distribute_local_to_global(
   ForwardIterator local_source_end,
   OutputVector &  global_destination) const
 {
-  dealii::internal::DoFCellAccessorImplementation::Implementation::
-    distribute_local_to_global(*this,
-                               local_source_begin,
-                               local_source_end,
-                               global_destination);
+  Assert(this->dof_handler != nullptr,
+         (typename std::decay<decltype(*this)>::type::ExcInvalidObject()));
+  Assert(static_cast<unsigned int>(local_source_end - local_source_begin) ==
+           this->get_fe().dofs_per_cell,
+         (typename std::decay<decltype(*this)>::type::ExcVectorDoesNotMatch()));
+  Assert(this->dof_handler->n_dofs() == global_destination.size(),
+         (typename std::decay<decltype(*this)>::type::ExcVectorDoesNotMatch()));
+
+  Assert(!this->has_children(), ExcMessage("Cell must be active"));
+
+  const unsigned int n_dofs = local_source_end - local_source_begin;
+
+
+  const types::global_dof_index *dofs =
+    dealii::internal::DoFAccessorImplementation::Implementation::get_cache_ptr(
+      this->dof_handler, this->level(), this->present_index, n_dofs);
+
+  // distribute cell vector
+  global_destination.add(n_dofs, dofs, local_source_begin);
 }
 
 
@@ -4026,12 +3671,27 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::distribute_local_to_global(
   ForwardIterator local_source_end,
   OutputVector &  global_destination) const
 {
-  dealii::internal::DoFCellAccessorImplementation::Implementation::
-    distribute_local_to_global(*this,
-                               constraints,
-                               local_source_begin,
-                               local_source_end,
-                               global_destination);
+  Assert(this->dof_handler != nullptr,
+         (typename std::decay<decltype(*this)>::type::ExcInvalidObject()));
+  Assert(local_source_end - local_source_begin == this->get_fe().dofs_per_cell,
+         (typename std::decay<decltype(*this)>::type::ExcVectorDoesNotMatch()));
+  Assert(this->dof_handler->n_dofs() == global_destination.size(),
+         (typename std::decay<decltype(*this)>::type::ExcVectorDoesNotMatch()));
+
+  Assert(!this->has_children(), ExcMessage("Cell must be active."));
+
+  const unsigned int n_dofs = local_source_end - local_source_begin;
+
+
+  const types::global_dof_index *dofs =
+    dealii::internal::DoFAccessorImplementation::Implementation::get_cache_ptr(
+      this->dof_handler, this->level(), this->present_index, n_dofs);
+
+  // distribute cell vector
+  constraints.distribute_local_to_global(local_source_begin,
+                                         local_source_end,
+                                         dofs,
+                                         global_destination);
 }
 
 
@@ -4043,8 +3703,28 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::distribute_local_to_global(
   const FullMatrix<number> &local_source,
   OutputMatrix &            global_destination) const
 {
-  dealii::internal::DoFCellAccessorImplementation::Implementation::
-    distribute_local_to_global(*this, local_source, global_destination);
+  Assert(this->dof_handler != nullptr,
+         (typename std::decay<decltype(*this)>::type::ExcInvalidObject()));
+  Assert(local_source.m() == this->get_fe().dofs_per_cell,
+         (typename std::decay<decltype(*this)>::type::ExcMatrixDoesNotMatch()));
+  Assert(local_source.n() == this->get_fe().dofs_per_cell,
+         (typename std::decay<decltype(*this)>::type::ExcMatrixDoesNotMatch()));
+  Assert(this->dof_handler->n_dofs() == global_destination.m(),
+         (typename std::decay<decltype(*this)>::type::ExcMatrixDoesNotMatch()));
+  Assert(this->dof_handler->n_dofs() == global_destination.n(),
+         (typename std::decay<decltype(*this)>::type::ExcMatrixDoesNotMatch()));
+
+  Assert(!this->has_children(), ExcMessage("Cell must be active."));
+
+  const unsigned int n_dofs = local_source.m();
+
+  const types::global_dof_index *dofs =
+    dealii::internal::DoFAccessorImplementation::Implementation::get_cache_ptr(
+      this->dof_handler, this->level(), this->present_index, n_dofs);
+
+  // distribute cell matrix
+  for (unsigned int i = 0; i < n_dofs; ++i)
+    global_destination.add(dofs[i], n_dofs, dofs, &local_source(i, 0));
 }
 
 
@@ -4058,9 +3738,34 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::distribute_local_to_global(
   OutputMatrix &            global_matrix,
   OutputVector &            global_vector) const
 {
-  dealii::internal::DoFCellAccessorImplementation::Implementation::
-    distribute_local_to_global(
-      *this, local_matrix, local_vector, global_matrix, global_vector);
+  Assert(this->dof_handler != nullptr,
+         (typename std::decay<decltype(*this)>::type::ExcInvalidObject()));
+  Assert(local_matrix.m() == this->get_fe().dofs_per_cell,
+         (typename std::decay<decltype(*this)>::type::ExcMatrixDoesNotMatch()));
+  Assert(local_matrix.n() == this->get_fe().dofs_per_cell,
+         (typename std::decay<decltype(*this)>::type::ExcVectorDoesNotMatch()));
+  Assert(this->dof_handler->n_dofs() == global_matrix.m(),
+         (typename std::decay<decltype(*this)>::type::ExcMatrixDoesNotMatch()));
+  Assert(this->dof_handler->n_dofs() == global_matrix.n(),
+         (typename std::decay<decltype(*this)>::type::ExcMatrixDoesNotMatch()));
+  Assert(local_vector.size() == this->get_fe().dofs_per_cell,
+         (typename std::decay<decltype(*this)>::type::ExcVectorDoesNotMatch()));
+  Assert(this->dof_handler->n_dofs() == global_vector.size(),
+         (typename std::decay<decltype(*this)>::type::ExcVectorDoesNotMatch()));
+
+  Assert(!this->has_children(), ExcMessage("Cell must be active."));
+
+  const unsigned int             n_dofs = this->get_fe().dofs_per_cell;
+  const types::global_dof_index *dofs =
+    dealii::internal::DoFAccessorImplementation::Implementation::get_cache_ptr(
+      this->dof_handler, this->level(), this->present_index, n_dofs);
+
+  // distribute cell matrices
+  for (unsigned int i = 0; i < n_dofs; ++i)
+    {
+      global_matrix.add(dofs[i], n_dofs, dofs, &local_matrix(i, 0));
+      global_vector(dofs[i]) += local_vector(i);
+    }
 }
 
 
