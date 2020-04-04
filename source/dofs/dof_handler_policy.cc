@@ -1170,11 +1170,13 @@ namespace internal
                                        numbers::invalid_dof_index))
                                     dealii::internal::
                                       DoFAccessorImplementation::
-                                        Implementation::set_vertex_dof_index(
+                                        Implementation::set_dof_index(
                                           dof_handler,
+                                          0,
                                           vertex_index,
                                           other_fe_index,
                                           identity.second,
+                                          std::integral_constant<int, 0>(),
                                           master_dof_index);
                                 }
                             }
@@ -2201,32 +2203,38 @@ namespace internal
                           // cells.
                           if (indices_we_care_about.size() == 0)
                             dealii::internal::DoFAccessorImplementation::
-                              Implementation::set_vertex_dof_index(
+                              Implementation::set_dof_index(
                                 dof_handler,
+                                0,
                                 vertex_index,
                                 fe_index,
                                 d,
+                                std::integral_constant<int, 0>(),
                                 new_numbers[old_dof_index]);
                           else
                             {
                               if (indices_we_care_about.is_element(
                                     old_dof_index))
                                 dealii::internal::DoFAccessorImplementation::
-                                  Implementation::set_vertex_dof_index(
+                                  Implementation::set_dof_index(
                                     dof_handler,
+                                    0,
                                     vertex_index,
                                     fe_index,
                                     d,
+                                    std::integral_constant<int, 0>(),
                                     new_numbers[indices_we_care_about
                                                   .index_within_set(
                                                     old_dof_index)]);
                               else
                                 dealii::internal::DoFAccessorImplementation::
-                                  Implementation::set_vertex_dof_index(
+                                  Implementation::set_dof_index(
                                     dof_handler,
+                                    0,
                                     vertex_index,
                                     fe_index,
                                     d,
+                                    std::integral_constant<int, 0>(),
                                     numbers::invalid_dof_index);
                             }
                         }

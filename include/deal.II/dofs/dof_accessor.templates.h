@@ -893,12 +893,16 @@ namespace internal
        */
       template <typename DoFHandlerType>
       static void
-      set_vertex_dof_index(DoFHandlerType &              dof_handler,
-                           const unsigned int            vertex_index,
-                           const unsigned int            fe_index,
-                           const unsigned int            local_index,
-                           const types::global_dof_index global_index)
+      set_dof_index(DoFHandlerType &   dof_handler,
+                    const unsigned int obj_level,
+                    const unsigned int obj_index,
+                    const unsigned int fe_index,
+                    const unsigned int local_index,
+                    const std::integral_constant<int, 0> &,
+                    const types::global_dof_index global_index)
       {
+        (void)obj_level;
+
         if (DoFHandlerType::is_hp_dof_handler == false)
           {
             (void)fe_index;
@@ -908,16 +912,15 @@ namespace internal
                 "Only the default FE index is allowed for non-hp DoFHandler objects"));
             AssertIndexRange(local_index, dof_handler.get_fe().dofs_per_vertex);
 
-            dof_handler.new_dofs[0][0][vertex_index *
-                                         dof_handler.get_fe().dofs_per_vertex +
-                                       local_index] = global_index;
+            dof_handler
+              .new_dofs[0][0][obj_index * dof_handler.get_fe().dofs_per_vertex +
+                              local_index] = global_index;
 
             return;
           }
 
-        const unsigned int l         = 0;
-        const unsigned int d         = 0;
-        const unsigned int obj_index = vertex_index;
+        const unsigned int l = 0;
+        const unsigned int d = 0;
 
         AssertIndexRange(l, dof_handler.new_dofs.size());
         AssertIndexRange(d, dof_handler.new_dofs[l].size());
@@ -929,11 +932,12 @@ namespace internal
             AssertIndexRange(d, dof_handler.new_hp_ptr.size());
             AssertIndexRange(obj_index, dof_handler.new_hp_ptr[d].size());
 
-            const auto ptr = std::find(dof_handler.new_hp_fe[d].begin() +
-                                   dof_handler.new_hp_ptr[d][obj_index],
-                                 dof_handler.new_hp_fe[d].begin() +
-                                   dof_handler.new_hp_ptr[d][obj_index + 1],
-                                 fe_index);
+            const auto ptr =
+              std::find(dof_handler.new_hp_fe[d].begin() +
+                          dof_handler.new_hp_ptr[d][obj_index],
+                        dof_handler.new_hp_fe[d].begin() +
+                          dof_handler.new_hp_ptr[d][obj_index + 1],
+                        fe_index);
 
             Assert(ptr != dof_handler.new_hp_fe[d].begin() +
                             dof_handler.new_hp_ptr[d][obj_index + 1],
@@ -1008,11 +1012,12 @@ namespace internal
             AssertIndexRange(d, dof_handler.new_hp_ptr.size());
             AssertIndexRange(obj_index, dof_handler.new_hp_ptr[d].size());
 
-            const auto ptr = std::find(dof_handler.new_hp_fe[d].begin() +
-                                   dof_handler.new_hp_ptr[d][obj_index],
-                                 dof_handler.new_hp_fe[d].begin() +
-                                   dof_handler.new_hp_ptr[d][obj_index + 1],
-                                 fe_index);
+            const auto ptr =
+              std::find(dof_handler.new_hp_fe[d].begin() +
+                          dof_handler.new_hp_ptr[d][obj_index],
+                        dof_handler.new_hp_fe[d].begin() +
+                          dof_handler.new_hp_ptr[d][obj_index + 1],
+                        fe_index);
 
             Assert(ptr != dof_handler.new_hp_fe[d].begin() +
                             dof_handler.new_hp_ptr[d][obj_index + 1],
@@ -1475,9 +1480,14 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::set_vertex_dof_index(
   const types::global_dof_index index,
   const unsigned int            fe_index) const
 {
-  dealii::internal::DoFAccessorImplementation::Implementation::
-    set_vertex_dof_index(
-      *this->dof_handler, this->vertex_index(vertex), fe_index, i, index);
+  dealii::internal::DoFAccessorImplementation::Implementation::set_dof_index(
+    *this->dof_handler,
+    0,
+    this->vertex_index(vertex),
+    fe_index,
+    i,
+    std::integral_constant<int, 0>(),
+    index);
 }
 
 
