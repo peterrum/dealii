@@ -233,256 +233,197 @@ namespace internal
                                           [present_level][present_index]];
       }
 
+
+
       /**
-       * Implementations of the get_dof_index/set_dof_index functions.
+       * Set the @p local_index-th degree of freedom corresponding to the
+       * finite element specified by @p fe_index on the vertex with global
+       * number @p vertex_index to @p global_index.
        */
-      template <int dim, int spacedim, int d>
-      static types::global_dof_index
-      get_dof_index(const dealii::DoFHandler<dim, spacedim> &dof_handler,
-                    const unsigned int                       obj_level,
-                    const unsigned int                       obj_index,
-                    const unsigned int                       fe_index,
-                    const unsigned int                       local_index,
-                    std::integral_constant<int, d>)
+      template <typename DoFHandlerType, int d>
+      static void
+      set_dof_index(const DoFHandlerType &dof_handler,
+                    const unsigned int    obj_level,
+                    const unsigned int    obj_index,
+                    const unsigned int    fe_index,
+                    const unsigned int    local_index,
+                    const std::integral_constant<int, d> &,
+                    const types::global_dof_index global_index)
       {
-        (void)fe_index;
+        Assert(d == DoFHandlerType::dimension || obj_level == 0,
+               ExcNotImplemented());
+
+        // 1) no hp used -> fe_index == 0
+        if (DoFHandlerType::is_hp_dof_handler == false)
+          {
+            Assert(fe_index == 0, ExcNotImplemented());
+
+            if (d == 0)
+              dof_handler.new_dofs[0][0][obj_index * dof_handler.get_fe()
+                                                       .dofs_per_vertex +
+                                         local_index] = global_index;
+            else
+              dof_handler
+                .new_dofs[obj_level][d]
+                         [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                          local_index] = global_index;
+
+            return;
+          }
+
+        // 2) cell and hp is used -> there is only one fe_index
+        if (d == DoFHandlerType::dimension)
+          {
+            dof_handler
+              .new_dofs[obj_level][d]
+                       [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                        local_index] = global_index;
+            return;
+          }
+
+        // 3) general entity and hp is used
+        AssertIndexRange(obj_level, dof_handler.new_dofs.size());
+        AssertIndexRange(d, dof_handler.new_dofs[obj_level].size());
+
+        unsigned int fe_index_;
+
+        if (DoFHandlerType::is_hp_dof_handler)
+          {
+            AssertIndexRange(d, dof_handler.new_hp_ptr.size());
+            AssertIndexRange(obj_index, dof_handler.new_hp_ptr[d].size());
+
+            const auto ptr =
+              std::find(dof_handler.new_hp_fe[d].begin() +
+                          dof_handler.new_hp_ptr[d][obj_index],
+                        dof_handler.new_hp_fe[d].begin() +
+                          dof_handler.new_hp_ptr[d][obj_index + 1],
+                        fe_index);
+
+            Assert(ptr != dof_handler.new_hp_fe[d].begin() +
+                            dof_handler.new_hp_ptr[d][obj_index + 1],
+                   ExcNotImplemented());
+
+            fe_index_ = std::distance(dof_handler.new_hp_fe[d].begin() +
+                                        dof_handler.new_hp_ptr[d][obj_index],
+                                      ptr);
+          }
+
+        AssertIndexRange(DoFHandlerType::is_hp_dof_handler ?
+                           (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
+                           obj_index,
+                         dof_handler.new_dofs_ptr[obj_level][d].size());
+
+        AssertIndexRange(
+          dof_handler.new_dofs_ptr[obj_level][d]
+                                  [DoFHandlerType::is_hp_dof_handler ?
+                                     (dof_handler.new_hp_ptr[d][obj_index] +
+                                      fe_index_) :
+                                     obj_index] +
+            local_index,
+          dof_handler.new_dofs[obj_level][d].size());
+
+        dof_handler
+          .new_dofs[obj_level][d]
+                   [dof_handler.new_dofs_ptr
+                      [obj_level][d]
+                      [DoFHandlerType::is_hp_dof_handler ?
+                         (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
+                         obj_index] +
+                    local_index] = global_index;
+      }
+
+
+      /**
+       * Get the @p local_index-th degree of freedom corresponding to the
+       * finite element specified by @p fe_index on the vertex with global
+       * number @p vertex_index to @p global_index.
+       */
+      template <typename DoFHandlerType, int d>
+      static types::global_dof_index
+      get_dof_index(const DoFHandlerType &dof_handler,
+                    const unsigned int    obj_level,
+                    const unsigned int    obj_index,
+                    const unsigned int    fe_index,
+                    const unsigned int    local_index,
+                    const std::integral_constant<int, d> &)
+      {
+        Assert(d == DoFHandlerType::dimension || obj_level == 0,
+               ExcNotImplemented());
+
+        // 1) no hp used -> fe_index == 0
+        if (DoFHandlerType::is_hp_dof_handler == false)
+          {
+            Assert(fe_index == 0, ExcNotImplemented());
+
+            if (d == 0)
+              return dof_handler.new_dofs[0][0][obj_index * dof_handler.get_fe()
+                                                              .dofs_per_vertex +
+                                                local_index];
+            else
+              return dof_handler
+                .new_dofs[obj_level][d]
+                         [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                          local_index];
+          }
+
+        // 2) cell and hp is used -> there is only one fe_index
+        if (d == DoFHandlerType::dimension)
+          {
+            return dof_handler
+              .new_dofs[obj_level][d]
+                       [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                        local_index];
+          }
+
+        // 3) general entity and hp is used
+        AssertIndexRange(obj_level, dof_handler.new_dofs.size());
+        AssertIndexRange(d, dof_handler.new_dofs[obj_level].size());
+
+        unsigned int fe_index_;
+
+        if (DoFHandlerType::is_hp_dof_handler)
+          {
+            AssertIndexRange(d, dof_handler.new_hp_ptr.size());
+            AssertIndexRange(obj_index, dof_handler.new_hp_ptr[d].size());
+
+            const auto ptr =
+              std::find(dof_handler.new_hp_fe[d].begin() +
+                          dof_handler.new_hp_ptr[d][obj_index],
+                        dof_handler.new_hp_fe[d].begin() +
+                          dof_handler.new_hp_ptr[d][obj_index + 1],
+                        fe_index);
+
+            Assert(ptr != dof_handler.new_hp_fe[d].begin() +
+                            dof_handler.new_hp_ptr[d][obj_index + 1],
+                   ExcNotImplemented());
+
+            fe_index_ = std::distance(dof_handler.new_hp_fe[d].begin() +
+                                        dof_handler.new_hp_ptr[d][obj_index],
+                                      ptr);
+          }
+
+        AssertIndexRange(DoFHandlerType::is_hp_dof_handler ?
+                           (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
+                           obj_index,
+                         dof_handler.new_dofs_ptr[obj_level][d].size());
+
+        AssertIndexRange(
+          dof_handler.new_dofs_ptr[obj_level][d]
+                                  [DoFHandlerType::is_hp_dof_handler ?
+                                     (dof_handler.new_hp_ptr[d][obj_index] +
+                                      fe_index_) :
+                                     obj_index] +
+            local_index,
+          dof_handler.new_dofs[obj_level][d].size());
 
         return dof_handler
           .new_dofs[obj_level][d]
-                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
+                   [dof_handler.new_dofs_ptr
+                      [obj_level][d]
+                      [DoFHandlerType::is_hp_dof_handler ?
+                         (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
+                         obj_index] +
                     local_index];
-      }
-
-
-      template <int dim, int spacedim, int d>
-      static void
-      set_dof_index(const dealii::DoFHandler<dim, spacedim> &dof_handler,
-                    const unsigned int                       obj_level,
-                    const unsigned int                       obj_index,
-                    const unsigned int                       fe_index,
-                    const unsigned int                       local_index,
-                    std::integral_constant<int, d>,
-                    const types::global_dof_index global_index)
-      {
-        (void)fe_index;
-
-        dof_handler.new_dofs[obj_level][d]
-                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                             local_index] = global_index;
-      }
-
-
-
-      template <int spacedim>
-      static types::global_dof_index
-      get_dof_index(const dealii::hp::DoFHandler<1, spacedim> &dof_handler,
-                    const unsigned int                         obj_level,
-                    const unsigned int                         obj_index,
-                    const unsigned int                         fe_index,
-                    const unsigned int                         local_index,
-                    const std::integral_constant<int, 1> &)
-      {
-        (void)fe_index;
-        const unsigned int d = 1;
-
-        return dof_handler
-          .new_dofs[obj_level][d]
-                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                    local_index];
-      }
-
-
-      template <int spacedim>
-      static void
-      set_dof_index(const dealii::hp::DoFHandler<1, spacedim> &dof_handler,
-                    const unsigned int                         obj_level,
-                    const unsigned int                         obj_index,
-                    const unsigned int                         fe_index,
-                    const unsigned int                         local_index,
-                    const std::integral_constant<int, 1> &,
-                    const types::global_dof_index global_index)
-      {
-        (void)fe_index;
-        const unsigned int d = 1;
-
-        dof_handler.new_dofs[obj_level][d]
-                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                             local_index] = global_index;
-      }
-
-
-      template <int spacedim>
-      static types::global_dof_index
-      get_dof_index(const dealii::hp::DoFHandler<2, spacedim> &dof_handler,
-                    const unsigned int                         obj_level,
-                    const unsigned int                         obj_index,
-                    const unsigned int                         fe_index,
-                    const unsigned int                         local_index,
-                    const std::integral_constant<int, 1> &)
-      {
-        return dof_handler.faces_hp->lines.get_dof_index(
-          dof_handler, obj_index, fe_index, local_index, obj_level);
-      }
-
-
-      template <int spacedim>
-      static void
-      set_dof_index(const dealii::hp::DoFHandler<2, spacedim> &dof_handler,
-                    const unsigned int                         obj_level,
-                    const unsigned int                         obj_index,
-                    const unsigned int                         fe_index,
-                    const unsigned int                         local_index,
-                    const std::integral_constant<int, 1> &,
-                    const types::global_dof_index global_index)
-      {
-        dof_handler.faces_hp->lines.set_dof_index(dof_handler,
-                                                  obj_index,
-                                                  fe_index,
-                                                  local_index,
-                                                  global_index,
-                                                  obj_level);
-      }
-
-
-      template <int spacedim>
-      static types::global_dof_index
-      get_dof_index(const dealii::hp::DoFHandler<2, spacedim> &dof_handler,
-                    const unsigned int                         obj_level,
-                    const unsigned int                         obj_index,
-                    const unsigned int                         fe_index,
-                    const unsigned int                         local_index,
-                    const std::integral_constant<int, 2> &)
-      {
-        (void)fe_index;
-        const unsigned int d = 2;
-
-        return dof_handler
-          .new_dofs[obj_level][d]
-                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                    local_index];
-      }
-
-
-      template <int spacedim>
-      static void
-      set_dof_index(const dealii::hp::DoFHandler<2, spacedim> &dof_handler,
-                    const unsigned int                         obj_level,
-                    const unsigned int                         obj_index,
-                    const unsigned int                         fe_index,
-                    const unsigned int                         local_index,
-                    const std::integral_constant<int, 2> &,
-                    const types::global_dof_index global_index)
-      {
-        (void)fe_index;
-        const unsigned int d = 2;
-
-        dof_handler.new_dofs[obj_level][d]
-                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                             local_index] = global_index;
-      }
-
-
-      template <int spacedim>
-      static types::global_dof_index
-      get_dof_index(const dealii::hp::DoFHandler<3, spacedim> &dof_handler,
-                    const unsigned int                         obj_level,
-                    const unsigned int                         obj_index,
-                    const unsigned int                         fe_index,
-                    const unsigned int                         local_index,
-                    const std::integral_constant<int, 1> &)
-      {
-        return dof_handler.faces_hp->lines.get_dof_index(
-          dof_handler, obj_index, fe_index, local_index, obj_level);
-      }
-
-
-      template <int spacedim>
-      static void
-      set_dof_index(const dealii::hp::DoFHandler<3, spacedim> &dof_handler,
-                    const unsigned int                         obj_level,
-                    const unsigned int                         obj_index,
-                    const unsigned int                         fe_index,
-                    const unsigned int                         local_index,
-                    const std::integral_constant<int, 1> &,
-                    const types::global_dof_index global_index)
-      {
-        dof_handler.faces_hp->lines.set_dof_index(dof_handler,
-                                                  obj_index,
-                                                  fe_index,
-                                                  local_index,
-                                                  global_index,
-                                                  obj_level);
-      }
-
-
-      template <int spacedim>
-      static types::global_dof_index
-      get_dof_index(const dealii::hp::DoFHandler<3, spacedim> &dof_handler,
-                    const unsigned int                         obj_level,
-                    const unsigned int                         obj_index,
-                    const unsigned int                         fe_index,
-                    const unsigned int                         local_index,
-                    const std::integral_constant<int, 2> &)
-      {
-        return dof_handler.faces_hp->quads.get_dof_index(
-          dof_handler, obj_index, fe_index, local_index, obj_level);
-      }
-
-
-      template <int spacedim>
-      static void
-      set_dof_index(const dealii::hp::DoFHandler<3, spacedim> &dof_handler,
-                    const unsigned int                         obj_level,
-                    const unsigned int                         obj_index,
-                    const unsigned int                         fe_index,
-                    const unsigned int                         local_index,
-                    const std::integral_constant<int, 2> &,
-                    const types::global_dof_index global_index)
-      {
-        dof_handler.faces_hp->quads.set_dof_index(dof_handler,
-                                                  obj_index,
-                                                  fe_index,
-                                                  local_index,
-                                                  global_index,
-                                                  obj_level);
-      }
-
-
-      template <int spacedim>
-      static types::global_dof_index
-      get_dof_index(const dealii::hp::DoFHandler<3, spacedim> &dof_handler,
-                    const unsigned int                         obj_level,
-                    const unsigned int                         obj_index,
-                    const unsigned int                         fe_index,
-                    const unsigned int                         local_index,
-                    const std::integral_constant<int, 3> &)
-      {
-        (void)fe_index;
-        const unsigned int d = 3;
-
-        return dof_handler
-          .new_dofs[obj_level][d]
-                   [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                    local_index];
-      }
-
-
-      template <int spacedim>
-      static void
-      set_dof_index(const dealii::hp::DoFHandler<3, spacedim> &dof_handler,
-                    const unsigned int                         obj_level,
-                    const unsigned int                         obj_index,
-                    const unsigned int                         fe_index,
-                    const unsigned int                         local_index,
-                    const std::integral_constant<int, 3> &,
-                    const types::global_dof_index global_index)
-      {
-        (void)fe_index;
-        const unsigned int d = 3;
-
-        dof_handler.new_dofs[obj_level][d]
-                            [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                             local_index] = global_index;
       }
 
 
@@ -520,560 +461,29 @@ namespace internal
       }
 
 
-
-      template <int structdim, int dim, int spacedim>
-      static unsigned int
-      n_active_fe_indices(const dealii::DoFHandler<dim, spacedim> &dof_handler,
-                          const unsigned int                       obj_level,
-                          const unsigned int                       obj_index,
-                          const std::integral_constant<int, structdim> &)
-      {
-        (void)dof_handler;
-        (void)obj_level;
-        (void)obj_index;
-        // check that the object we look
-        // at is in fact active. the
-        // problem is that we have
-        // templatized on the
-        // dimensionality of the object,
-        // so it may be a cell, a face,
-        // or a line. we have a bit of
-        // trouble doing this all in the
-        // generic case, so only check if
-        // it is either a cell or a
-        // line. the only case this
-        // leaves out is faces in 3d --
-        // let's hope that this never is
-        // a problem
-        Assert((dim == structdim ?
-                  TriaRawIterator<dealii::CellAccessor<dim, spacedim>>(
-                    &dof_handler.get_triangulation(), obj_level, obj_index)
-                    ->used() :
-                  (structdim == 1 ?
-                     typename internal::TriangulationImplementation::
-                       Iterators<dim, spacedim>::raw_line_iterator(
-                         &dof_handler.get_triangulation(), obj_level, obj_index)
-                         ->used() :
-                     true)) == true,
-               ExcMessage("This cell is not active and therefore can't be "
-                          "queried for its active FE indices"));
-        return 1;
-      }
-
-
-
-      template <int structdim, int dim, int spacedim>
-      static unsigned int
-      nth_active_fe_index(const dealii::DoFHandler<dim, spacedim> &dof_handler,
-                          const unsigned int                       obj_level,
-                          const unsigned int                       obj_index,
-                          const unsigned int                       n,
-                          const std::integral_constant<int, structdim> &)
-      {
-        (void)dof_handler;
-        (void)obj_level;
-        (void)obj_index;
-        (void)n;
-        // check that the object we look
-        // at is in fact active. the
-        // problem is that we have
-        // templatized on the
-        // dimensionality of the object,
-        // so it may be a cell, a face,
-        // or a line. we have a bit of
-        // trouble doing this all in the
-        // generic case, so only check if
-        // it is either a cell or a
-        // line. the only case this
-        // leaves out is faces in 3d --
-        // let's hope that this never is
-        // a problem
-        Assert((dim == structdim ?
-                  TriaRawIterator<dealii::CellAccessor<dim, spacedim>>(
-                    &dof_handler.get_triangulation(), obj_level, obj_index)
-                    ->used() :
-                  (structdim == 1 ?
-                     typename internal::TriangulationImplementation::
-                       Iterators<dim, spacedim>::raw_line_iterator(
-                         &dof_handler.get_triangulation(), obj_level, obj_index)
-                         ->used() :
-                     true)) == true,
-               ExcMessage("This cell is not active and therefore can't be "
-                          "queried for its active FE indices"));
-        AssertIndexRange(n, 1);
-
-        return dealii::DoFHandler<dim, spacedim>::default_fe_index;
-      }
-
-
-      template <int spacedim, template <int, int> class DoFHandlerType>
-      static bool
-      fe_index_is_active(const DoFHandlerType<1, spacedim> &dof_handler,
-                         const unsigned int                 obj_level,
-                         const unsigned int                 obj_index,
-                         const unsigned int                 fe_index,
-                         const std::integral_constant<int, 1> &)
-      {
-        if (dof_handler.is_hp_dof_handler == false)
-          return (fe_index == 0);
-
-        return dof_handler.new_active_fe_indices[obj_level][obj_index] ==
-               fe_index;
-      }
-
-
-      template <int spacedim>
-      static unsigned int
-      n_active_fe_indices(const dealii::hp::DoFHandler<1, spacedim> &,
-                          const unsigned int /*obj_level*/,
-                          const unsigned int /*obj_index*/,
-                          const std::integral_constant<int, 1> &)
-      {
-        // on a cell, the number of active elements is one
-        return 1;
-      }
-
-
-
-      template <int spacedim>
-      static unsigned int
-      nth_active_fe_index(
-        const dealii::hp::DoFHandler<1, spacedim> &dof_handler,
-        const unsigned int                         obj_level,
-        const unsigned int                         obj_index,
-        const unsigned int                         n,
-        const std::integral_constant<int, 1> &)
-      {
-        (void)n;
-        Assert(n == 0,
-               ExcMessage("On cells, there can only be one active FE index"));
-        return dof_handler.new_active_fe_indices[obj_level][obj_index];
-      }
-
-
-      template <int spacedim, template <int, int> class DoFHandlerType>
-      static bool
-      fe_index_is_active(const DoFHandlerType<2, spacedim> &dof_handler,
-                         const unsigned int                 obj_level,
-                         const unsigned int                 obj_index,
-                         const unsigned int                 fe_index,
-                         const std::integral_constant<int, 1> &)
-      {
-        if (dof_handler.is_hp_dof_handler == false)
-          return (fe_index == 0);
-
-        return dof_handler.faces_hp->lines.fe_index_is_active(dof_handler,
-                                                              obj_index,
-                                                              fe_index,
-                                                              obj_level);
-      }
-
-
-      template <int spacedim>
-      static unsigned int
-      n_active_fe_indices(
-        const dealii::hp::DoFHandler<2, spacedim> &dof_handler,
-        const unsigned int,
-        const unsigned int obj_index,
-        const std::integral_constant<int, 1> &)
-      {
-        return dof_handler.faces_hp->lines.n_active_fe_indices(dof_handler,
-                                                               obj_index);
-      }
-
-
-      template <int spacedim>
-      static unsigned int
-      nth_active_fe_index(
-        const dealii::hp::DoFHandler<2, spacedim> &dof_handler,
-        const unsigned int                         obj_level,
-        const unsigned int                         obj_index,
-        const unsigned int                         n,
-        const std::integral_constant<int, 1> &)
-      {
-        return dof_handler.faces_hp->lines.nth_active_fe_index(dof_handler,
-                                                               obj_level,
-                                                               obj_index,
-                                                               n);
-      }
-
-
-
-      template <int spacedim, template <int, int> class DoFHandlerType>
-      static bool
-      fe_index_is_active(const DoFHandlerType<2, spacedim> &dof_handler,
-                         const unsigned int                 obj_level,
-                         const unsigned int                 obj_index,
-                         const unsigned int                 fe_index,
-                         const std::integral_constant<int, 2> &)
-      {
-        if (dof_handler.is_hp_dof_handler == false)
-          return (fe_index == 0);
-
-        return dof_handler.new_active_fe_indices[obj_level][obj_index] ==
-               fe_index;
-      }
-
-
-      template <int spacedim>
-      static unsigned int
-      n_active_fe_indices(const dealii::hp::DoFHandler<2, spacedim> &,
-                          const unsigned int /*obj_level*/,
-                          const unsigned int /*obj_index*/,
-                          const std::integral_constant<int, 2> &)
-      {
-        // on a cell, the number of active elements is one
-        return 1;
-      }
-
-
-
-      template <int spacedim>
-      static unsigned int
-      nth_active_fe_index(
-        const dealii::hp::DoFHandler<2, spacedim> &dof_handler,
-        const unsigned int                         obj_level,
-        const unsigned int                         obj_index,
-        const unsigned int                         n,
-        const std::integral_constant<int, 2> &)
-      {
-        (void)n;
-        Assert(n == 0,
-               ExcMessage("On cells, there can only be one active FE index"));
-        return dof_handler.new_active_fe_indices[obj_level][obj_index];
-      }
-
-
-
-      template <int spacedim, template <int, int> class DoFHandlerType>
-      static bool
-      fe_index_is_active(const DoFHandlerType<3, spacedim> &dof_handler,
-                         const unsigned int                 obj_level,
-                         const unsigned int                 obj_index,
-                         const unsigned int                 fe_index,
-                         const std::integral_constant<int, 1> &)
-      {
-        if (dof_handler.is_hp_dof_handler == false)
-          return (fe_index == 0);
-
-        return dof_handler.faces_hp->lines.fe_index_is_active(dof_handler,
-                                                              obj_index,
-                                                              fe_index,
-                                                              obj_level);
-      }
-
-
-      template <int spacedim>
-      static unsigned int
-      n_active_fe_indices(
-        const dealii::hp::DoFHandler<3, spacedim> &dof_handler,
-        const unsigned int,
-        const unsigned int obj_index,
-        const std::integral_constant<int, 1> &)
-      {
-        return dof_handler.faces_hp->lines.n_active_fe_indices(dof_handler,
-                                                               obj_index);
-      }
-
-
-
-      template <int spacedim>
-      static unsigned int
-      nth_active_fe_index(
-        const dealii::hp::DoFHandler<3, spacedim> &dof_handler,
-        const unsigned int                         obj_level,
-        const unsigned int                         obj_index,
-        const unsigned int                         n,
-        const std::integral_constant<int, 1> &)
-      {
-        return dof_handler.faces_hp->lines.nth_active_fe_index(dof_handler,
-                                                               obj_level,
-                                                               obj_index,
-                                                               n);
-      }
-
-
-
-      template <int spacedim, template <int, int> class DoFHandlerType>
-      static bool
-      fe_index_is_active(const DoFHandlerType<3, spacedim> &dof_handler,
-                         const unsigned int                 obj_level,
-                         const unsigned int                 obj_index,
-                         const unsigned int                 fe_index,
-                         const std::integral_constant<int, 2> &)
-      {
-        if (dof_handler.is_hp_dof_handler == false)
-          return (fe_index == 0);
-
-        return dof_handler.faces_hp->quads.fe_index_is_active(dof_handler,
-                                                              obj_index,
-                                                              fe_index,
-                                                              obj_level);
-      }
-
-      template <int spacedim, template <int, int> class DoFHandlerType>
-      static bool
-      fe_index_is_active(const DoFHandlerType<3, spacedim> &dof_handler,
-                         const unsigned int                 obj_level,
-                         const unsigned int                 obj_index,
-                         const unsigned int                 fe_index,
-                         const std::integral_constant<int, 3> &)
-      {
-        if (dof_handler.is_hp_dof_handler == false)
-          return (fe_index == 0);
-
-        return dof_handler.new_active_fe_indices[obj_level][obj_index] ==
-               fe_index;
-      }
-
-
-      template <int spacedim>
-      static unsigned int
-      n_active_fe_indices(
-        const dealii::hp::DoFHandler<3, spacedim> &dof_handler,
-        const unsigned int,
-        const unsigned int obj_index,
-        const std::integral_constant<int, 2> &)
-      {
-        return dof_handler.faces_hp->quads.n_active_fe_indices(dof_handler,
-                                                               obj_index);
-      }
-
-
-
-      template <int spacedim>
-      static unsigned int
-      nth_active_fe_index(
-        const dealii::hp::DoFHandler<3, spacedim> &dof_handler,
-        const unsigned int                         obj_level,
-        const unsigned int                         obj_index,
-        const unsigned int                         n,
-        const std::integral_constant<int, 2> &)
-      {
-        return dof_handler.faces_hp->quads.nth_active_fe_index(dof_handler,
-                                                               obj_level,
-                                                               obj_index,
-                                                               n);
-      }
-
-
-
-      template <int spacedim>
-      static unsigned int
-      n_active_fe_indices(const dealii::hp::DoFHandler<3, spacedim> &,
-                          const unsigned int /*obj_level*/,
-                          const unsigned int /*obj_index*/,
-                          const std::integral_constant<int, 3> &)
-      {
-        // on a cell, the number of active elements is one
-        return 1;
-      }
-
-
-
-      template <int spacedim>
-      static unsigned int
-      nth_active_fe_index(
-        const dealii::hp::DoFHandler<3, spacedim> &dof_handler,
-        const unsigned int                         obj_level,
-        const unsigned int                         obj_index,
-        const unsigned int                         n,
-        const std::integral_constant<int, 3> &)
-      {
-        (void)n;
-        Assert(n == 0,
-               ExcMessage("On cells, there can only be one active FE index"));
-        return dof_handler.new_active_fe_indices[obj_level][obj_index];
-      }
-
-      /**
-       * Set the @p local_index-th degree of freedom corresponding to the
-       * finite element specified by @p fe_index on the vertex with global
-       * number @p vertex_index to @p global_index.
-       */
-      template <typename DoFHandlerType>
-      static void
-      set_dof_index_todo(const DoFHandlerType &dof_handler,
-                         const unsigned int    obj_level,
-                         const unsigned int    obj_index,
-                         const unsigned int    fe_index,
-                         const unsigned int    local_index,
-                         const std::integral_constant<int, 0> &,
-                         const types::global_dof_index global_index)
-      {
-        (void)obj_level;
-
-        if (DoFHandlerType::is_hp_dof_handler == false)
-          {
-            (void)fe_index;
-            Assert(
-              (fe_index == DoFHandlerType::default_fe_index),
-              ExcMessage(
-                "Only the default FE index is allowed for non-hp DoFHandler objects"));
-            AssertIndexRange(local_index, dof_handler.get_fe().dofs_per_vertex);
-
-            dof_handler
-              .new_dofs[0][0][obj_index * dof_handler.get_fe().dofs_per_vertex +
-                              local_index] = global_index;
-
-            return;
-          }
-
-        const unsigned int l = 0;
-        const unsigned int d = 0;
-
-        AssertIndexRange(l, dof_handler.new_dofs.size());
-        AssertIndexRange(d, dof_handler.new_dofs[l].size());
-
-        unsigned int fe_index_;
-
-        if (DoFHandlerType::is_hp_dof_handler)
-          {
-            AssertIndexRange(d, dof_handler.new_hp_ptr.size());
-            AssertIndexRange(obj_index, dof_handler.new_hp_ptr[d].size());
-
-            const auto ptr =
-              std::find(dof_handler.new_hp_fe[d].begin() +
-                          dof_handler.new_hp_ptr[d][obj_index],
-                        dof_handler.new_hp_fe[d].begin() +
-                          dof_handler.new_hp_ptr[d][obj_index + 1],
-                        fe_index);
-
-            Assert(ptr != dof_handler.new_hp_fe[d].begin() +
-                            dof_handler.new_hp_ptr[d][obj_index + 1],
-                   ExcNotImplemented());
-
-            fe_index_ = std::distance(dof_handler.new_hp_fe[d].begin() +
-                                        dof_handler.new_hp_ptr[d][obj_index],
-                                      ptr);
-          }
-
-        AssertIndexRange(DoFHandlerType::is_hp_dof_handler ?
-                           (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
-                           obj_index,
-                         dof_handler.new_dofs_ptr[l][d].size());
-
-        AssertIndexRange(
-          dof_handler
-              .new_dofs_ptr[l][d][DoFHandlerType::is_hp_dof_handler ?
-                                    (dof_handler.new_hp_ptr[d][obj_index] +
-                                     fe_index_) :
-                                    obj_index] +
-            local_index,
-          dof_handler.new_dofs[l][d].size());
-
-        dof_handler.new_dofs
-          [l][d][dof_handler.new_dofs_ptr
-                   [l][d][DoFHandlerType::is_hp_dof_handler ?
-                            (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
-                            obj_index] +
-                 local_index] = global_index;
-      }
-
-
-      /**
-       * Get the @p local_index-th degree of freedom corresponding to the
-       * finite element specified by @p fe_index on the vertex with global
-       * number @p vertex_index to @p global_index.
-       */
-
-      template <typename DoFHandlerType>
-      static types::global_dof_index
-      get_dof_index_todo(const DoFHandlerType &dof_handler,
-                         const unsigned int    obj_level,
-                         const unsigned int    obj_index,
-                         const unsigned int    fe_index,
-                         const unsigned int    local_index,
-                         const std::integral_constant<int, 0> &)
-      {
-        (void)obj_level;
-
-        if (DoFHandlerType::is_hp_dof_handler == false)
-          {
-            Assert(
-              (fe_index == DoFHandlerType::default_fe_index),
-              ExcMessage(
-                "Only the default FE index is allowed for non-hp DoFHandler objects"));
-            AssertIndexRange(local_index, dof_handler.get_fe().dofs_per_vertex);
-
-            return dof_handler
-              .new_dofs[0][0][obj_index * dof_handler.get_fe().dofs_per_vertex +
-                              local_index];
-          }
-
-        const unsigned int l = 0;
-        const unsigned int d = 0;
-
-        AssertIndexRange(l, dof_handler.new_dofs.size());
-        AssertIndexRange(d, dof_handler.new_dofs[l].size());
-
-        unsigned int fe_index_;
-
-        if (DoFHandlerType::is_hp_dof_handler)
-          {
-            AssertIndexRange(d, dof_handler.new_hp_ptr.size());
-            AssertIndexRange(obj_index, dof_handler.new_hp_ptr[d].size());
-
-            const auto ptr =
-              std::find(dof_handler.new_hp_fe[d].begin() +
-                          dof_handler.new_hp_ptr[d][obj_index],
-                        dof_handler.new_hp_fe[d].begin() +
-                          dof_handler.new_hp_ptr[d][obj_index + 1],
-                        fe_index);
-
-            Assert(ptr != dof_handler.new_hp_fe[d].begin() +
-                            dof_handler.new_hp_ptr[d][obj_index + 1],
-                   ExcNotImplemented());
-
-            fe_index_ = std::distance(dof_handler.new_hp_fe[d].begin() +
-                                        dof_handler.new_hp_ptr[d][obj_index],
-                                      ptr);
-          }
-
-        AssertIndexRange(DoFHandlerType::is_hp_dof_handler ?
-                           (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
-                           obj_index,
-                         dof_handler.new_dofs_ptr[l][d].size());
-
-        AssertIndexRange(
-          dof_handler
-              .new_dofs_ptr[l][d][DoFHandlerType::is_hp_dof_handler ?
-                                    (dof_handler.new_hp_ptr[d][obj_index] +
-                                     fe_index_) :
-                                    obj_index] +
-            local_index,
-          dof_handler.new_dofs[l][d].size());
-
-        return dof_handler.new_dofs
-          [l][d][dof_handler.new_dofs_ptr
-                   [l][d][DoFHandlerType::is_hp_dof_handler ?
-                            (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
-                            obj_index] +
-                 local_index];
-      }
-
-
       /**
        * Return the number of different finite elements that are active on a
        * given vertex.
        */
-      template <typename DoFHandlerType>
+      template <typename DoFHandlerType, int d>
       static unsigned int
-      n_active_fe_indices_todo(const DoFHandlerType &dof_handler,
-                               const unsigned int    obj_level,
-                               const unsigned int    obj_index,
-                               const std::integral_constant<int, 0> &)
+      n_active_fe_indices(const DoFHandlerType &dof_handler,
+                          const unsigned int    obj_level,
+                          const unsigned int    obj_index,
+                          const std::integral_constant<int, d> &)
       {
-        (void)obj_level;
+        Assert(d == DoFHandlerType::dimension || obj_level == 0,
+               ExcNotImplemented());
 
-        Assert(DoFHandlerType::is_hp_dof_handler == true, ExcNotImplemented());
+        // 1) no hp used -> fe_index == 0
+        if (dof_handler.is_hp_dof_handler == false)
+          return 1;
 
-        Assert(dof_handler.fe_collection.size() > 0,
-               ExcMessage("No finite element collection is associated with "
-                          "this DoFHandler"));
+        // 2) cell and hp is used -> there is only one fe_index
+        if (d == DoFHandlerType::dimension)
+          return 1;
 
-        const unsigned int d = 0;
-
+        // 3) general entity and hp is used
         AssertIndexRange(d, dof_handler.new_hp_ptr.size());
         AssertIndexRange(obj_index + 1, dof_handler.new_hp_ptr[d].size());
 
@@ -1087,20 +497,30 @@ namespace internal
        * Return the fe index of the n-th finite element active on a given
        * vertex.
        */
-      template <typename DoFHandlerType>
+      template <typename DoFHandlerType, int d>
       static unsigned int
-      nth_active_fe_index_todo(const DoFHandlerType &dof_handler,
-                               const unsigned int    obj_level,
-                               const unsigned int    obj_index,
-                               const unsigned int    local_index,
-                               const std::integral_constant<int, 0> &)
+      nth_active_fe_index(const DoFHandlerType &dof_handler,
+                          const unsigned int    obj_level,
+                          const unsigned int    obj_index,
+                          const unsigned int    local_index,
+                          const std::integral_constant<int, d> &)
       {
-        (void)obj_level;
+        Assert(d == DoFHandlerType::dimension || obj_level == 0,
+               ExcNotImplemented());
 
-        Assert(DoFHandlerType::is_hp_dof_handler == true, ExcNotImplemented());
+        // for cells only one active fe index available
+        Assert(((d == DoFHandlerType::dimension) && (local_index > 0)) == false,
+               ExcNotImplemented());
 
-        const unsigned int d = 0;
+        // 1) no hp used -> fe_index == 0
+        if (dof_handler.is_hp_dof_handler == false)
+          return 0;
 
+        // 2) cell and hp is used -> there is only one fe_index
+        if (d == DoFHandlerType::dimension)
+          return dof_handler.new_active_fe_indices[obj_level][obj_index];
+
+        // 3) general entity and hp is used
         AssertIndexRange(d, dof_handler.new_hp_fe.size());
         AssertIndexRange(d, dof_handler.new_hp_ptr.size());
         AssertIndexRange(obj_index, dof_handler.new_hp_ptr[d].size());
@@ -1119,24 +539,64 @@ namespace internal
        * The size of the returned set equals the number of finite elements that
        * are active on this vertex.
        */
-      template <typename DoFHandlerType>
+      template <typename DoFHandlerType, int d>
       static std::set<unsigned int>
-      get_active_fe_indices_todo(const DoFHandlerType &dof_handler,
-                                 const unsigned int    obj_level,
-                                 const unsigned int    obj_index,
-                                 const std::integral_constant<int, 0> &t)
+      get_active_fe_indices(const DoFHandlerType &                dof_handler,
+                            const unsigned int                    obj_level,
+                            const unsigned int                    obj_index,
+                            const std::integral_constant<int, d> &t)
       {
-        (void)obj_level;
+        Assert(d == DoFHandlerType::dimension || obj_level == 0,
+               ExcNotImplemented());
 
-        Assert(DoFHandlerType::is_hp_dof_handler == true, ExcNotImplemented());
+        // 1) no hp used -> fe_index == 0
+        if (dof_handler.is_hp_dof_handler == false)
+          return {0};
 
+        // 2) cell and hp is used -> there is only one fe_index
+        if (d == DoFHandlerType::dimension)
+          return {dof_handler.new_active_fe_indices[obj_level][obj_index]};
+
+        // 3) general entity and hp is used
         std::set<unsigned int> active_fe_indices;
         for (unsigned int i = 0;
-             i < n_active_fe_indices_todo(dof_handler, obj_level, obj_index, t);
+             i < n_active_fe_indices(dof_handler, obj_level, obj_index, t);
              ++i)
           active_fe_indices.insert(
-            nth_active_fe_index_todo(dof_handler, obj_level, obj_index, i, t));
+            nth_active_fe_index(dof_handler, obj_level, obj_index, i, t));
         return active_fe_indices;
+      }
+
+
+
+      template <typename DoFHandlerType, int d>
+      static bool
+      fe_index_is_active(const DoFHandlerType &dof_handler,
+                         const unsigned int    obj_level,
+                         const unsigned int    obj_index,
+                         const unsigned int    fe_index,
+                         const std::integral_constant<int, d> &)
+      {
+        Assert(d == DoFHandlerType::dimension || obj_level == 0,
+               ExcNotImplemented());
+
+        // 1) no hp used -> fe_index == 0
+        if (dof_handler.is_hp_dof_handler == false)
+          return (fe_index == 0);
+
+        // 2) cell and hp is used -> there is only one fe_index
+        if (d == DoFHandlerType::dimension)
+          return dof_handler.new_active_fe_indices[obj_level][obj_index] ==
+                 fe_index;
+
+        // 3) general entity and hp is used
+        return std::find(dof_handler.new_hp_fe[d].begin() +
+                           dof_handler.new_hp_ptr[d][obj_index],
+                         dof_handler.new_hp_fe[d].begin() +
+                           dof_handler.new_hp_ptr[d][obj_index + 1],
+                         fe_index) !=
+               (dof_handler.new_hp_fe[d].begin() +
+                dof_handler.new_hp_ptr[d][obj_index + 1]);
       }
 
 
@@ -1458,12 +918,12 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::vertex_dof_index(
   const unsigned int fe_index) const
 {
   return dealii::internal::DoFAccessorImplementation::Implementation::
-    get_dof_index_todo(*this->dof_handler,
-                       0,
-                       this->vertex_index(vertex),
-                       fe_index,
-                       i,
-                       std::integral_constant<int, 0>());
+    get_dof_index(*this->dof_handler,
+                  0,
+                  this->vertex_index(vertex),
+                  fe_index,
+                  i,
+                  std::integral_constant<int, 0>());
 }
 
 
@@ -1496,14 +956,14 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::set_vertex_dof_index(
   const types::global_dof_index index,
   const unsigned int            fe_index) const
 {
-  dealii::internal::DoFAccessorImplementation::Implementation::
-    set_dof_index_todo(*this->dof_handler,
-                       0,
-                       this->vertex_index(vertex),
-                       fe_index,
-                       i,
-                       std::integral_constant<int, 0>(),
-                       index);
+  dealii::internal::DoFAccessorImplementation::Implementation::set_dof_index(
+    *this->dof_handler,
+    0,
+    this->vertex_index(vertex),
+    fe_index,
+    i,
+    std::integral_constant<int, 0>(),
+    index);
 }
 
 
@@ -2196,12 +1656,12 @@ DoFAccessor<0, DoFHandlerType<1, spacedim>, level_dof_access>::get_dof_indices(
 {
   for (unsigned int i = 0; i < dof_indices.size(); ++i)
     dof_indices[i] = dealii::internal::DoFAccessorImplementation::
-      Implementation::get_dof_index_todo(*dof_handler,
-                                         0,
-                                         this->global_vertex_index,
-                                         fe_index,
-                                         i,
-                                         std::integral_constant<int, 0>());
+      Implementation::get_dof_index(*dof_handler,
+                                    0,
+                                    this->global_vertex_index,
+                                    fe_index,
+                                    i,
+                                    std::integral_constant<int, 0>());
 }
 
 
@@ -2237,12 +1697,12 @@ DoFAccessor<0, DoFHandlerType<1, spacedim>, level_dof_access>::vertex_dof_index(
   (void)vertex;
   AssertIndexRange(vertex, 1);
   return dealii::internal::DoFAccessorImplementation::Implementation::
-    get_dof_index_todo(*dof_handler,
-                       0,
-                       this->global_vertex_index,
-                       fe_index,
-                       i,
-                       std::integral_constant<int, 0>());
+    get_dof_index(*dof_handler,
+                  0,
+                  this->global_vertex_index,
+                  fe_index,
+                  i,
+                  std::integral_constant<int, 0>());
 }
 
 
@@ -2256,12 +1716,12 @@ DoFAccessor<0, DoFHandlerType<1, spacedim>, level_dof_access>::dof_index(
   const unsigned int fe_index) const
 {
   return dealii::internal::DoFAccessorImplementation::Implementation::
-    get_dof_index_todo(*this->dof_handler,
-                       0,
-                       this->vertex_index(0),
-                       fe_index,
-                       i,
-                       std::integral_constant<int, 0>());
+    get_dof_index(*this->dof_handler,
+                  0,
+                  this->vertex_index(0),
+                  fe_index,
+                  i,
+                  std::integral_constant<int, 0>());
 }
 
 

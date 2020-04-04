@@ -250,16 +250,16 @@ namespace internal
               {
                 const unsigned int n_active_fe_indices =
                   dealii::internal::DoFAccessorImplementation::Implementation::
-                    n_active_fe_indices_todo(dof_handler,
-                                             0,
-                                             vertex_index,
-                                             std::integral_constant<int, 0>());
+                    n_active_fe_indices(dof_handler,
+                                        0,
+                                        vertex_index,
+                                        std::integral_constant<int, 0>());
 
                 if (n_active_fe_indices > 1)
                   {
                     const std::set<unsigned int> fe_indices =
                       dealii::internal::DoFAccessorImplementation::
-                        Implementation::get_active_fe_indices_todo(
+                        Implementation::get_active_fe_indices(
                           dof_handler,
                           0,
                           vertex_index,
@@ -278,7 +278,7 @@ namespace internal
                         numbers::invalid_unsigned_int)
                       most_dominating_fe_index =
                         dealii::internal::DoFAccessorImplementation::
-                          Implementation::nth_active_fe_index_todo(
+                          Implementation::nth_active_fe_index(
                             dof_handler,
                             0,
                             vertex_index,
@@ -315,7 +315,7 @@ namespace internal
                             {
                               const types::global_dof_index master_dof_index =
                                 dealii::internal::DoFAccessorImplementation::
-                                  Implementation::get_dof_index_todo(
+                                  Implementation::get_dof_index(
                                     dof_handler,
                                     0,
                                     vertex_index,
@@ -324,7 +324,7 @@ namespace internal
                                     std::integral_constant<int, 0>());
                               const types::global_dof_index slave_dof_index =
                                 dealii::internal::DoFAccessorImplementation::
-                                  Implementation::get_dof_index_todo(
+                                  Implementation::get_dof_index(
                                     dof_handler,
                                     0,
                                     vertex_index,
@@ -1096,16 +1096,16 @@ namespace internal
               {
                 const unsigned int n_active_fe_indices =
                   dealii::internal::DoFAccessorImplementation::Implementation::
-                    n_active_fe_indices_todo(dof_handler,
-                                             0,
-                                             vertex_index,
-                                             std::integral_constant<int, 0>());
+                    n_active_fe_indices(dof_handler,
+                                        0,
+                                        vertex_index,
+                                        std::integral_constant<int, 0>());
 
                 if (n_active_fe_indices > 1)
                   {
                     const std::set<unsigned int> fe_indices =
                       dealii::internal::DoFAccessorImplementation::
-                        Implementation::get_active_fe_indices_todo(
+                        Implementation::get_active_fe_indices(
                           dof_handler,
                           0,
                           vertex_index,
@@ -1158,7 +1158,7 @@ namespace internal
                                   const types::global_dof_index
                                     master_dof_index = dealii::internal::
                                       DoFAccessorImplementation::
-                                        Implementation::get_dof_index_todo(
+                                        Implementation::get_dof_index(
                                           dof_handler,
                                           0,
                                           vertex_index,
@@ -1168,7 +1168,7 @@ namespace internal
                                   const types::global_dof_index
                                     slave_dof_index = dealii::internal::
                                       DoFAccessorImplementation::
-                                        Implementation::get_dof_index_todo(
+                                        Implementation::get_dof_index(
                                           dof_handler,
                                           0,
                                           vertex_index,
@@ -1194,7 +1194,7 @@ namespace internal
                                        numbers::invalid_dof_index))
                                     dealii::internal::
                                       DoFAccessorImplementation::
-                                        Implementation::set_dof_index_todo(
+                                        Implementation::set_dof_index(
                                           dof_handler,
                                           0,
                                           vertex_index,
@@ -2163,10 +2163,10 @@ namespace internal
             {
               const unsigned int n_active_fe_indices =
                 dealii::internal::DoFAccessorImplementation::Implementation::
-                  n_active_fe_indices_todo(dof_handler,
-                                           0,
-                                           vertex_index,
-                                           std::integral_constant<int, 0>());
+                  n_active_fe_indices(dof_handler,
+                                      0,
+                                      vertex_index,
+                                      std::integral_constant<int, 0>());
 
               // if this vertex is unused, then we really ought not to have
               // allocated any space for it, i.e., n_active_fe_indices should be
@@ -2184,7 +2184,7 @@ namespace internal
                 {
                   const unsigned int fe_index =
                     dealii::internal::DoFAccessorImplementation::
-                      Implementation::nth_active_fe_index_todo(
+                      Implementation::nth_active_fe_index(
                         dof_handler,
                         0,
                         vertex_index,
@@ -2197,7 +2197,7 @@ namespace internal
                     {
                       const types::global_dof_index old_dof_index =
                         dealii::internal::DoFAccessorImplementation::
-                          Implementation::get_dof_index_todo(
+                          Implementation::get_dof_index(
                             dof_handler,
                             0,
                             vertex_index,
@@ -2236,7 +2236,7 @@ namespace internal
                           // cells.
                           if (indices_we_care_about.size() == 0)
                             dealii::internal::DoFAccessorImplementation::
-                              Implementation::set_dof_index_todo(
+                              Implementation::set_dof_index(
                                 dof_handler,
                                 0,
                                 vertex_index,
@@ -2249,7 +2249,7 @@ namespace internal
                               if (indices_we_care_about.is_element(
                                     old_dof_index))
                                 dealii::internal::DoFAccessorImplementation::
-                                  Implementation::set_dof_index_todo(
+                                  Implementation::set_dof_index(
                                     dof_handler,
                                     0,
                                     vertex_index,
@@ -2261,7 +2261,7 @@ namespace internal
                                                     old_dof_index)]);
                               else
                                 dealii::internal::DoFAccessorImplementation::
-                                  Implementation::set_dof_index_todo(
+                                  Implementation::set_dof_index(
                                     dof_handler,
                                     0,
                                     vertex_index,
