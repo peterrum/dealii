@@ -979,11 +979,15 @@ namespace internal
 
       template <typename DoFHandlerType>
       static types::global_dof_index
-      get_vertex_dof_index(const DoFHandlerType &dof_handler,
-                           const unsigned int    vertex_index,
-                           const unsigned int    fe_index,
-                           const unsigned int    local_index)
+      get_dof_index_todo(const DoFHandlerType &dof_handler,
+                         const unsigned int    obj_level,
+                         const unsigned int    obj_index,
+                         const unsigned int    fe_index,
+                         const unsigned int    local_index,
+                         const std::integral_constant<int, 0> &)
       {
+        (void)obj_level;
+
         if (DoFHandlerType::is_hp_dof_handler == false)
           {
             Assert(
@@ -993,14 +997,12 @@ namespace internal
             AssertIndexRange(local_index, dof_handler.get_fe().dofs_per_vertex);
 
             return dof_handler
-              .new_dofs[0][0]
-                       [vertex_index * dof_handler.get_fe().dofs_per_vertex +
-                        local_index];
+              .new_dofs[0][0][obj_index * dof_handler.get_fe().dofs_per_vertex +
+                              local_index];
           }
 
-        const unsigned int l         = 0;
-        const unsigned int d         = 0;
-        const unsigned int obj_index = vertex_index;
+        const unsigned int l = 0;
+        const unsigned int d = 0;
 
         AssertIndexRange(l, dof_handler.new_dofs.size());
         AssertIndexRange(d, dof_handler.new_dofs[l].size());
@@ -1444,10 +1446,12 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::vertex_dof_index(
   const unsigned int fe_index) const
 {
   return dealii::internal::DoFAccessorImplementation::Implementation::
-    get_vertex_dof_index(*this->dof_handler,
-                         this->vertex_index(vertex),
-                         fe_index,
-                         i);
+    get_dof_index_todo(*this->dof_handler,
+                       0,
+                       this->vertex_index(vertex),
+                       fe_index,
+                       i,
+                       std::integral_constant<int, 0>());
 }
 
 
@@ -2180,10 +2184,12 @@ DoFAccessor<0, DoFHandlerType<1, spacedim>, level_dof_access>::get_dof_indices(
 {
   for (unsigned int i = 0; i < dof_indices.size(); ++i)
     dof_indices[i] = dealii::internal::DoFAccessorImplementation::
-      Implementation::get_vertex_dof_index(*dof_handler,
-                                           this->global_vertex_index,
-                                           fe_index,
-                                           i);
+      Implementation::get_dof_index_todo(*dof_handler,
+                                         0,
+                                         this->global_vertex_index,
+                                         fe_index,
+                                         i,
+                                         std::integral_constant<int, 0>());
 }
 
 
@@ -2219,7 +2225,12 @@ DoFAccessor<0, DoFHandlerType<1, spacedim>, level_dof_access>::vertex_dof_index(
   (void)vertex;
   AssertIndexRange(vertex, 1);
   return dealii::internal::DoFAccessorImplementation::Implementation::
-    get_vertex_dof_index(*dof_handler, this->global_vertex_index, fe_index, i);
+    get_dof_index_todo(*dof_handler,
+                       0,
+                       this->global_vertex_index,
+                       fe_index,
+                       i,
+                       std::integral_constant<int, 0>());
 }
 
 
@@ -2233,10 +2244,12 @@ DoFAccessor<0, DoFHandlerType<1, spacedim>, level_dof_access>::dof_index(
   const unsigned int fe_index) const
 {
   return dealii::internal::DoFAccessorImplementation::Implementation::
-    get_vertex_dof_index(*this->dof_handler,
-                         this->vertex_index(0),
-                         fe_index,
-                         i);
+    get_dof_index_todo(*this->dof_handler,
+                       0,
+                       this->vertex_index(0),
+                       fe_index,
+                       i,
+                       std::integral_constant<int, 0>());
 }
 
 

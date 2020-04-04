@@ -305,18 +305,22 @@ namespace internal
                             {
                               const types::global_dof_index master_dof_index =
                                 dealii::internal::DoFAccessorImplementation::
-                                  Implementation::get_vertex_dof_index(
+                                  Implementation::get_dof_index_todo(
                                     dof_handler,
+                                    0,
                                     vertex_index,
                                     most_dominating_fe_index,
-                                    identity.first);
+                                    identity.first,
+                                    std::integral_constant<int, 0>());
                               const types::global_dof_index slave_dof_index =
                                 dealii::internal::DoFAccessorImplementation::
-                                  Implementation::get_vertex_dof_index(
+                                  Implementation::get_dof_index_todo(
                                     dof_handler,
+                                    0,
                                     vertex_index,
                                     other_fe_index,
-                                    identity.second);
+                                    identity.second,
+                                    std::integral_constant<int, 0>());
 
                               // on subdomain boundaries, we will
                               // encounter invalid DoFs on ghost cells,
@@ -1138,19 +1142,23 @@ namespace internal
                                   const types::global_dof_index
                                     master_dof_index = dealii::internal::
                                       DoFAccessorImplementation::
-                                        Implementation::get_vertex_dof_index(
+                                        Implementation::get_dof_index_todo(
                                           dof_handler,
+                                          0,
                                           vertex_index,
                                           most_dominating_fe_index,
-                                          identity.first);
+                                          identity.first,
+                                          std::integral_constant<int, 0>());
                                   const types::global_dof_index
                                     slave_dof_index = dealii::internal::
                                       DoFAccessorImplementation::
-                                        Implementation::get_vertex_dof_index(
+                                        Implementation::get_dof_index_todo(
                                           dof_handler,
+                                          0,
                                           vertex_index,
                                           other_fe_index,
-                                          identity.second);
+                                          identity.second,
+                                          std::integral_constant<int, 0>());
 
                                   // check if we are on an interface between
                                   // a locally owned and a ghost cell on which
@@ -2167,10 +2175,13 @@ namespace internal
                     {
                       const types::global_dof_index old_dof_index =
                         dealii::internal::DoFAccessorImplementation::
-                          Implementation::get_vertex_dof_index(dof_handler,
-                                                               vertex_index,
-                                                               fe_index,
-                                                               d);
+                          Implementation::get_dof_index_todo(
+                            dof_handler,
+                            0,
+                            vertex_index,
+                            fe_index,
+                            d,
+                            std::integral_constant<int, 0>());
 
                       // if check_validity was set, then we are to verify that
                       // the previous indices were all valid. this really should
