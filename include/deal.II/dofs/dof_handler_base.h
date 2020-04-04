@@ -1411,8 +1411,8 @@ private:
   /**
    * Same as levels but in the hp context.
    */
-  std::vector<std::unique_ptr<dealii::internal::hp::DoFLevel>>
-    levels_hp; // TODO: rename hp_levels
+  // std::vector<std::unique_ptr<dealii::internal::hp::DoFLevel>>
+  //  levels_hp; // TODO: rename hp_levels
 
   /**
    * Space to store DoF numbers of faces. They are not stored in
@@ -1917,10 +1917,10 @@ DoFHandlerBase<dim, spacedim, T>::save(Archive &ar, const unsigned int) const
       // some versions of gcc have trouble with loading vectors of
       // std::unique_ptr objects because std::unique_ptr does not
       // have a copy constructor. do it one level at a time
-      const unsigned int n_levels = this->levels_hp.size();
-      ar &               n_levels;
-      for (unsigned int i = 0; i < n_levels; ++i)
-        ar & this->levels_hp[i];
+      //      const unsigned int n_levels = this->levels_hp.size();
+      //      ar &               n_levels;
+      //      for (unsigned int i = 0; i < n_levels; ++i)
+      //        ar & this->levels_hp[i];
 
       // boost dereferences a nullptr when serializing a nullptr
       // at least up to 1.65.1. This causes problems with clang-5.
@@ -2006,15 +2006,15 @@ DoFHandlerBase<dim, spacedim, T>::load(Archive &ar, const unsigned int)
       // some versions of gcc have trouble with loading vectors of
       // std::unique_ptr objects because std::unique_ptr does not
       // have a copy constructor. do it one level at a time
-      unsigned int size;
-      ar &         size;
-      this->levels_hp.resize(size);
-      for (unsigned int i = 0; i < size; ++i)
-        {
-          std::unique_ptr<dealii::internal::hp::DoFLevel> level;
-          ar &                                            level;
-          this->levels_hp[i] = std::move(level);
-        }
+      //      unsigned int size;
+      //      ar &         size;
+      //      this->levels_hp.resize(size);
+      //      for (unsigned int i = 0; i < size; ++i)
+      //        {
+      //          std::unique_ptr<dealii::internal::hp::DoFLevel> level;
+      //          ar &                                            level;
+      //          this->levels_hp[i] = std::move(level);
+      //        }
 
       // Workaround for nullptr, see in save().
       bool faces_is_nullptr = true;
