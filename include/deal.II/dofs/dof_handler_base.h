@@ -1979,7 +1979,6 @@ DoFHandlerBase<dim, spacedim, T>::load(Archive &ar, const unsigned int)
 {
   if (is_hp_dof_handler)
     {
-      std::cout << "LOAD" << std::endl;
       ar & this->new_dofs;
       ar & this->new_dofs_ptr;
 
@@ -2000,7 +1999,7 @@ DoFHandlerBase<dim, spacedim, T>::load(Archive &ar, const unsigned int)
       // pointer object still points to something useful, that object is not
       // destroyed and we end up with a memory leak. consequently, first delete
       // previous content before re-loading stuff
-      this->levels_hp.clear();
+      // this->levels_hp.clear();
       this->faces_hp.reset();
 
       // some versions of gcc have trouble with loading vectors of

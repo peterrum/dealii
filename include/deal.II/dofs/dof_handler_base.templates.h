@@ -1042,9 +1042,10 @@ namespace internal
           // refinement flags which we have to back up before
           {
             std::vector<std::vector<DoFLevel::active_fe_index_type>>
-              active_fe_backup(dof_handler.levels_hp.size()),
-              future_fe_backup(dof_handler.levels_hp.size());
-            for (unsigned int level = 0; level < dof_handler.levels_hp.size();
+              active_fe_backup(dof_handler.new_active_fe_indices.size()),
+              future_fe_backup(dof_handler.new_future_fe_indices.size());
+            for (unsigned int level = 0;
+                 level < dof_handler.new_future_fe_indices.size();
                  ++level)
               {
                 active_fe_backup[level] =
@@ -1071,7 +1072,6 @@ namespace internal
             for (unsigned int level = 0; level < dof_handler.tria->n_levels();
                  ++level)
               {
-                dof_handler.levels_hp.emplace_back(new internal::hp::DoFLevel);
                 // recover backups
                 dof_handler.new_active_fe_indices[level] =
                   std::move(active_fe_backup[level]);
@@ -1461,13 +1461,17 @@ namespace internal
                         }
                       else
                         {
-                          const unsigned int fe_1 = cell->active_fe_index();
+                          unsigned int fe_1 = cell->active_fe_index();
+                          unsigned int fe_2 =
+                            cell->neighbor(face)->active_fe_index();
+
+                          if (fe_2 < fe_1)
+                            std::swap(fe_1, fe_2);
+
                           const unsigned int n_dofs_1 =
                             dof_handler.get_fe(fe_1)
                               .template n_dofs_per_object<dim - 1>();
 
-                          const unsigned int fe_2 =
-                            cell->neighbor(face)->active_fe_index();
                           const unsigned int n_dofs_2 =
                             dof_handler.get_fe(fe_2)
                               .template n_dofs_per_object<dim - 1>();
@@ -1552,7 +1556,8 @@ namespace internal
                     ExcNoFESelected()));
           Assert(dof_handler.tria->n_levels() > 0,
                  ExcMessage("The current Triangulation must not be empty."));
-          Assert(dof_handler.tria->n_levels() == dof_handler.levels_hp.size(),
+          Assert(dof_handler.tria->n_levels() ==
+                   dof_handler.new_future_fe_indices.size(),
                  ExcInternalError());
 
           reserve_space_release_space(dof_handler);
@@ -1576,7 +1581,8 @@ namespace internal
                     ExcNoFESelected()));
           Assert(dof_handler.tria->n_levels() > 0,
                  ExcMessage("The current Triangulation must not be empty."));
-          Assert(dof_handler.tria->n_levels() == dof_handler.levels_hp.size(),
+          Assert(dof_handler.tria->n_levels() ==
+                   dof_handler.new_future_fe_indices.size(),
                  ExcInternalError());
 
           reserve_space_release_space(dof_handler);
@@ -1604,7 +1610,8 @@ namespace internal
                     ExcNoFESelected()));
           Assert(dof_handler.tria->n_levels() > 0,
                  ExcMessage("The current Triangulation must not be empty."));
-          Assert(dof_handler.tria->n_levels() == dof_handler.levels_hp.size(),
+          Assert(dof_handler.tria->n_levels() ==
+                   dof_handler.new_future_fe_indices.size(),
                  ExcInternalError());
 
           reserve_space_release_space(dof_handler);
@@ -2439,14 +2446,15 @@ DoFHandlerBase<dim, spacedim, T>::memory_consumption() const
         (MemoryConsumption::memory_consumption(this->tria) +
          MemoryConsumption::memory_consumption(this->fe_collection) +
          MemoryConsumption::memory_consumption(this->tria) +
-         MemoryConsumption::memory_consumption(this->levels_hp) +
+         //         MemoryConsumption::memory_consumption(this->levels_hp) +
          MemoryConsumption::memory_consumption(*this->faces_hp) +
          MemoryConsumption::memory_consumption(this->number_cache) // +
          // MemoryConsumption::memory_consumption(this->vertex_dofs) +
          // MemoryConsumption::memory_consumption(this->vertex_dof_offsets)
         );
-      for (unsigned int i = 0; i < this->levels_hp.size(); ++i)
-        mem += MemoryConsumption::memory_consumption(*this->levels_hp[i]);
+      //      for (unsigned int i = 0; i < this->levels_hp.size(); ++i)
+      //        mem +=
+      //        MemoryConsumption::memory_consumption(*this->levels_hp[i]);
       mem += MemoryConsumption::memory_consumption(*this->faces_hp);
 
       return mem;
@@ -2764,7 +2772,7 @@ DoFHandlerBase<dim, spacedim, T>::clear_space()
 
   if (is_hp_dof_handler)
     {
-      this->levels_hp.clear();
+      //      this->levels_hp.clear();
       this->new_active_fe_indices.clear();
       this->new_future_fe_indices.clear();
 
@@ -2808,7 +2816,7 @@ DoFHandlerBase<dim, spacedim, T>::renumber_dofs(
 {
   if (is_hp_dof_handler)
     {
-      Assert(this->levels_hp.size() > 0,
+      Assert(this->new_future_fe_indices.size() > 0,
              ExcMessage(
                "You need to distribute DoFs before you can renumber them."));
 
@@ -3206,8 +3214,8 @@ DoFHandlerBase<dim, spacedim, T>::create_active_fe_table()
 
 
   // Create sufficiently many hp::DoFLevels.
-  while (this->levels_hp.size() < this->tria->n_levels())
-    this->levels_hp.emplace_back(new dealii::internal::hp::DoFLevel);
+  //  while (this->levels_hp.size() < this->tria->n_levels())
+  //    this->levels_hp.emplace_back(new dealii::internal::hp::DoFLevel);
 
   while (this->new_active_fe_indices.size() < this->tria->n_levels())
     this->new_active_fe_indices.push_back({});
@@ -3217,7 +3225,8 @@ DoFHandlerBase<dim, spacedim, T>::create_active_fe_table()
 
   // then make sure that on each level we have the appropriate size
   // of active_fe_indices; preset them to zero, i.e. the default FE
-  for (unsigned int level = 0; level < this->levels_hp.size(); ++level)
+  for (unsigned int level = 0; level < this->new_future_fe_indices.size();
+       ++level)
     {
       if (this->new_active_fe_indices[level].size() == 0 &&
           this->new_future_fe_indices[level].size() == 0)
@@ -3246,7 +3255,7 @@ DoFHandlerBase<dim, spacedim, T>::create_active_fe_table()
       // importance because the current function is called at a
       // point where we have to recreate the dof_indices tables in
       // the levels anyway
-      this->levels_hp[level]->normalize_active_fe_indices();
+      // this->levels_hp[level]->normalize_active_fe_indices();
     }
 }
 
@@ -3265,17 +3274,17 @@ template <int dim, int spacedim, typename T>
 void
 DoFHandlerBase<dim, spacedim, T>::post_refinement_action()
 {
-  // Normally only one level is added, but if this Triangulation
-  // is created by copy_triangulation, it can be more than one level.
-  while (this->levels_hp.size() < this->tria->n_levels())
-    this->levels_hp.emplace_back(new dealii::internal::hp::DoFLevel);
-
-  // Coarsening can lead to the loss of levels. Hence remove them.
-  while (this->levels_hp.size() > this->tria->n_levels())
-    {
-      // drop the last element. that also releases the memory pointed to
-      this->levels_hp.pop_back();
-    }
+  //  // Normally only one level is added, but if this Triangulation
+  //  // is created by copy_triangulation, it can be more than one level.
+  //  while (this->levels_hp.size() < this->tria->n_levels())
+  //    this->levels_hp.emplace_back(new dealii::internal::hp::DoFLevel);
+  //
+  //  // Coarsening can lead to the loss of levels. Hence remove them.
+  //  while (this->levels_hp.size() > this->tria->n_levels())
+  //    {
+  //      // drop the last element. that also releases the memory pointed to
+  //      this->levels_hp.pop_back();
+  //    }
 
   while (this->new_active_fe_indices.size() < this->tria->n_levels())
     this->new_active_fe_indices.push_back({});
@@ -3291,8 +3300,9 @@ DoFHandlerBase<dim, spacedim, T>::post_refinement_action()
 
 
 
-  Assert(this->levels_hp.size() == this->tria->n_levels(), ExcInternalError());
-  for (unsigned int i = 0; i < this->levels_hp.size(); ++i)
+  Assert(this->new_future_fe_indices.size() == this->tria->n_levels(),
+         ExcInternalError());
+  for (unsigned int i = 0; i < this->new_future_fe_indices.size(); ++i)
     {
       // Resize active_fe_indices vectors. Use zero indicator to extend.
       this->new_active_fe_indices[i].resize(this->tria->n_raw_cells(i), 0);

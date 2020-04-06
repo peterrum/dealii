@@ -2045,7 +2045,7 @@ namespace internal
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
         Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->levels_hp.size(),
+                 accessor.dof_handler->new_future_fe_indices.size(),
                ExcMessage("DoFHandler not initialized"));
 
         return accessor.dof_handler
@@ -2077,7 +2077,7 @@ namespace internal
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
         Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->levels_hp.size(),
+                 accessor.dof_handler->new_future_fe_indices.size(),
                ExcMessage("DoFHandler not initialized"));
 
         accessor.dof_handler
@@ -2103,7 +2103,7 @@ namespace internal
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
         Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->levels_hp.size(),
+                 accessor.dof_handler->new_future_fe_indices.size(),
                ExcMessage("DoFHandler not initialized"));
 
         if (future_fe_index_set(accessor))
@@ -2138,7 +2138,7 @@ namespace internal
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
         Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->levels_hp.size(),
+                 accessor.dof_handler->new_future_fe_indices.size(),
                ExcMessage("DoFHandler not initialized"));
 
         // accessor.dof_handler->levels_hp[accessor.level()]->set_future_fe_index(
@@ -2166,7 +2166,7 @@ namespace internal
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
         Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->levels_hp.size(),
+                 accessor.dof_handler->new_future_fe_indices.size(),
                ExcMessage("DoFHandler not initialized"));
 
         // return accessor.dof_handler->levels_hp[accessor.level()]
@@ -2202,7 +2202,7 @@ namespace internal
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
         Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->levels_hp.size(),
+                 accessor.dof_handler->new_future_fe_indices.size(),
                ExcMessage("DoFHandler not initialized"));
 
         // TODO
