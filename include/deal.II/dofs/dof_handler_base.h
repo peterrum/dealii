@@ -315,7 +315,7 @@ public:
   /**
    * Make the type of this DoFHandler available in function templates.
    */
-  static const bool is_hp_dof_handler = T::is_hp_dof_handler;
+  const bool is_hp_dof_handler;
 
   /**
    * The default index of the finite element to be used on a given cell. Since
@@ -326,28 +326,20 @@ public:
    * finite element indices may be used on different cells, and the default
    * index there corresponds to an invalid value.
    */
-  static const unsigned int default_fe_index =
-    is_hp_dof_handler ? numbers::invalid_unsigned_int : 0;
+  static const unsigned int default_fe_index = 0; // TODO
 
   /**
    * Standard constructor, not initializing any data. After constructing an
    * object with this constructor, use initialize() to make a valid
    * DoFHandler.
    */
-  DoFHandlerBase();
+  DoFHandlerBase(const bool is_hp_dof_handler);
 
   /**
    * Constructor. Take @p tria as the triangulation to work on.
    */
-  DoFHandlerBase(const Triangulation<dim, spacedim> &tria);
-
-  /**
-   * Copy constructor. DoFHandler objects are large and expensive.
-   * They should not be copied, in particular not by accident, but
-   * rather deliberately constructed. As a consequence, this constructor
-   * is explicitly removed from the interface of this class.
-   */
-  DoFHandlerBase(const DoFHandlerBase &) = delete;
+  DoFHandlerBase(const Triangulation<dim, spacedim> &tria,
+                 const bool                          is_hp_dof_handler);
 
   /**
    * Destructor.
@@ -1841,7 +1833,7 @@ template <int dim, int spacedim, typename T>
 inline const BlockInfo &
 DoFHandlerBase<dim, spacedim, T>::block_info() const
 {
-  Assert(T::is_hp_dof_handler == false, ExcNotImplemented());
+  Assert(this->is_hp_dof_handler == false, ExcNotImplemented());
 
   return block_info_object;
 }
@@ -1855,7 +1847,7 @@ DoFHandlerBase<dim, spacedim, T>::n_boundary_dofs(
   const std::map<types::boundary_id, const Function<spacedim, number> *>
     &boundary_ids) const
 {
-  Assert(!(dim == 2 && spacedim == 3) || T::is_hp_dof_handler == false,
+  Assert(!(dim == 2 && spacedim == 3) || this->is_hp_dof_handler == false,
          ExcNotImplemented());
 
   // extract the set of boundary ids and forget about the function object
@@ -1896,7 +1888,7 @@ template <class Archive>
 void
 DoFHandlerBase<dim, spacedim, T>::save(Archive &ar, const unsigned int) const
 {
-  if (is_hp_dof_handler)
+  if (this->is_hp_dof_handler)
     {
       ar & this->new_dofs;
       ar & this->new_dofs_ptr;
@@ -1977,7 +1969,7 @@ template <class Archive>
 void
 DoFHandlerBase<dim, spacedim, T>::load(Archive &ar, const unsigned int)
 {
-  if (is_hp_dof_handler)
+  if (this->is_hp_dof_handler)
     {
       ar & this->new_dofs;
       ar & this->new_dofs_ptr;

@@ -254,7 +254,7 @@ namespace internal
                ExcNotImplemented());
 
         // 1) no hp used -> fe_index == 0
-        if (DoFHandlerType::is_hp_dof_handler == false)
+        if (dof_handler.is_hp_dof_handler == false)
           {
             Assert(fe_index == 0, ExcNotImplemented());
 
@@ -287,7 +287,7 @@ namespace internal
 
         unsigned int fe_index_;
 
-        if (DoFHandlerType::is_hp_dof_handler)
+        if (dof_handler.is_hp_dof_handler)
           {
             AssertIndexRange(d, dof_handler.new_hp_ptr.size());
             AssertIndexRange(obj_index, dof_handler.new_hp_ptr[d].size());
@@ -308,14 +308,14 @@ namespace internal
                                       ptr);
           }
 
-        AssertIndexRange(DoFHandlerType::is_hp_dof_handler ?
+        AssertIndexRange(dof_handler.is_hp_dof_handler ?
                            (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
                            obj_index,
                          dof_handler.new_dofs_ptr[obj_level][d].size());
 
         AssertIndexRange(
           dof_handler.new_dofs_ptr[obj_level][d]
-                                  [DoFHandlerType::is_hp_dof_handler ?
+                                  [dof_handler.is_hp_dof_handler ?
                                      (dof_handler.new_hp_ptr[d][obj_index] +
                                       fe_index_) :
                                      obj_index] +
@@ -326,7 +326,7 @@ namespace internal
           .new_dofs[obj_level][d]
                    [dof_handler.new_dofs_ptr
                       [obj_level][d]
-                      [DoFHandlerType::is_hp_dof_handler ?
+                      [dof_handler.is_hp_dof_handler ?
                          (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
                          obj_index] +
                     local_index] = global_index;
@@ -351,7 +351,7 @@ namespace internal
                ExcNotImplemented());
 
         // 1) no hp used -> fe_index == 0
-        if (DoFHandlerType::is_hp_dof_handler == false)
+        if (dof_handler.is_hp_dof_handler == false)
           {
             Assert(fe_index == 0, ExcNotImplemented());
 
@@ -381,7 +381,7 @@ namespace internal
 
         unsigned int fe_index_;
 
-        if (DoFHandlerType::is_hp_dof_handler)
+        if (dof_handler.is_hp_dof_handler)
           {
             AssertIndexRange(d, dof_handler.new_hp_ptr.size());
             AssertIndexRange(obj_index, dof_handler.new_hp_ptr[d].size());
@@ -402,14 +402,14 @@ namespace internal
                                       ptr);
           }
 
-        AssertIndexRange(DoFHandlerType::is_hp_dof_handler ?
+        AssertIndexRange(dof_handler.is_hp_dof_handler ?
                            (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
                            obj_index,
                          dof_handler.new_dofs_ptr[obj_level][d].size());
 
         AssertIndexRange(
           dof_handler.new_dofs_ptr[obj_level][d]
-                                  [DoFHandlerType::is_hp_dof_handler ?
+                                  [dof_handler.is_hp_dof_handler ?
                                      (dof_handler.new_hp_ptr[d][obj_index] +
                                       fe_index_) :
                                      obj_index] +
@@ -420,7 +420,7 @@ namespace internal
           .new_dofs[obj_level][d]
                    [dof_handler.new_dofs_ptr
                       [obj_level][d]
-                      [DoFHandlerType::is_hp_dof_handler ?
+                      [dof_handler.is_hp_dof_handler ?
                          (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
                          obj_index] +
                     local_index];
@@ -434,7 +434,7 @@ namespace internal
                           const unsigned int    vertex_index,
                           const unsigned int    i)
       {
-        Assert(DoFHandlerType::is_hp_dof_handler == false,
+        Assert(dof_handler.is_hp_dof_handler == false,
                ExcMessage(
                  "hp__DoFHandler does not implement multilevel DoFs."));
 
@@ -452,7 +452,7 @@ namespace internal
                               const unsigned int      i,
                               types::global_dof_index index)
       {
-        Assert(DoFHandlerType::is_hp_dof_handler == false,
+        Assert(dof_handler.is_hp_dof_handler == false,
                ExcMessage(
                  "hp__DoFHandler does not implement multilevel DoFs."));
 
@@ -940,7 +940,7 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::mg_vertex_dof_index(
   AssertIndexRange(vertex, GeometryInfo<structdim>::vertices_per_cell);
   AssertIndexRange(i, this->dof_handler->get_fe(fe_index).dofs_per_vertex);
 
-  Assert(DoFHandlerType::is_hp_dof_handler == false,
+  Assert(dof_handler->is_hp_dof_handler == false,
          ExcMessage("hp__DoFHandler does not implement multilevel DoFs."));
 
   return this->dof_handler->mg_vertex_dofs[this->vertex_index(vertex)]
@@ -981,7 +981,7 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::
   AssertIndexRange(vertex, GeometryInfo<structdim>::vertices_per_cell);
   AssertIndexRange(i, this->dof_handler->get_fe(fe_index).dofs_per_vertex);
 
-  Assert(DoFHandlerType::is_hp_dof_handler == false,
+  Assert(dof_handler->is_hp_dof_handler == false,
          ExcMessage("hp__DoFHandler does not implement multilevel DoFs."));
 
   this->dof_handler->mg_vertex_dofs[this->vertex_index(vertex)].set_index(

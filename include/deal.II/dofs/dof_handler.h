@@ -177,11 +177,6 @@ class DoFHandler
 {
 public:
   /**
-   * Make the type of this DoFHandler available in function templates.
-   */
-  static const bool is_hp_dof_handler = false;
-
-  /**
    * Standard constructor, not initializing any data. After constructing an
    * object with this constructor, use initialize() to make a valid
    * DoFHandler.

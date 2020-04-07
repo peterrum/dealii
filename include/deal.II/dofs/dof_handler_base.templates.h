@@ -2046,9 +2046,9 @@ namespace internal
 
 
 template <int dim, int spacedim, typename T>
-DoFHandlerBase<dim, spacedim, T>::DoFHandlerBase()
-  : tria(nullptr, typeid(*this).name())
-  //, faces(nullptr)
+DoFHandlerBase<dim, spacedim, T>::DoFHandlerBase(const bool is_hp_dof_handler)
+  : is_hp_dof_handler(is_hp_dof_handler)
+  , tria(nullptr, typeid(*this).name())
   , mg_faces(nullptr)
   , faces_hp(nullptr)
 {}
@@ -2057,9 +2057,10 @@ DoFHandlerBase<dim, spacedim, T>::DoFHandlerBase()
 
 template <int dim, int spacedim, typename T>
 DoFHandlerBase<dim, spacedim, T>::DoFHandlerBase(
-  const Triangulation<dim, spacedim> &tria)
-  : tria(&tria, typeid(*this).name())
-  //, faces(nullptr)
+  const Triangulation<dim, spacedim> &tria,
+  const bool                          is_hp_dof_handler)
+  : is_hp_dof_handler(is_hp_dof_handler)
+  , tria(&tria, typeid(*this).name())
   , mg_faces(nullptr)
   , faces_hp(nullptr)
 {
