@@ -19,15 +19,17 @@
 DEAL_II_NAMESPACE_OPEN
 
 template <int dim, int spacedim>
-DoFHandler<dim, spacedim>::DoFHandler()
-  : DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>>(false)
+DoFHandler<dim, spacedim>::DoFHandler(const bool is_hp_dof_handler)
+  : DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>>(is_hp_dof_handler)
 {}
 
 
 
 template <int dim, int spacedim>
-DoFHandler<dim, spacedim>::DoFHandler(const Triangulation<dim, spacedim> &tria)
-  : DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>>(tria, false)
+DoFHandler<dim, spacedim>::DoFHandler(const Triangulation<dim, spacedim> &tria,
+                                      const bool is_hp_dof_handler)
+  : DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>>(tria,
+                                                             is_hp_dof_handler)
 {}
 
 /*-------------- Explicit Instantiations -------------------------------*/

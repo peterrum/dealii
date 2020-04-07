@@ -181,12 +181,13 @@ public:
    * object with this constructor, use initialize() to make a valid
    * DoFHandler.
    */
-  DoFHandler();
+  DoFHandler(const bool is_hp_dof_handler = false);
 
   /**
    * Constructor. Take @p tria as the triangulation to work on.
    */
-  DoFHandler(const Triangulation<dim, spacedim> &tria);
+  DoFHandler(const Triangulation<dim, spacedim> &tria,
+             const bool                          is_hp_dof_handler = false);
 
   /**
    * Copy constructor. DoFHandler objects are large and expensive.
