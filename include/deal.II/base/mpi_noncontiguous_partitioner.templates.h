@@ -261,13 +261,15 @@ namespace Utilities
     template <typename Number>
     template <typename VectorType>
     void
-    NoncontiguousPartitioner<Number>::update_values(VectorType &      dst,
-                                                    const VectorType &src) const
+    NoncontiguousPartitioner<Number>::export_to_ghosted_array(
+      VectorType &      dst,
+      const VectorType &src) const
     {
-      const auto tag = internal::Tags::noncontiguous_partitioner_update_values;
+      const auto tag =
+        internal::Tags::noncontiguous_partitioner_update_ghost_values;
 
-      this->update_values_start(src, tag);
-      this->update_values_finish(dst, tag);
+      this->export_to_ghosted_array_start(src, tag);
+      this->export_to_ghosted_array_finish(dst, tag);
     }
 
 
@@ -275,7 +277,7 @@ namespace Utilities
     template <typename Number>
     template <typename VectorType>
     void
-    NoncontiguousPartitioner<Number>::update_values_start(
+    NoncontiguousPartitioner<Number>::export_to_ghosted_array_start(
       const VectorType & src,
       const unsigned int tag) const
     {
@@ -328,7 +330,7 @@ namespace Utilities
     template <typename Number>
     template <typename VectorType>
     void
-    NoncontiguousPartitioner<Number>::update_values_finish(
+    NoncontiguousPartitioner<Number>::export_to_ghosted_array_finish(
       VectorType &       dst,
       const unsigned int tag) const
     {

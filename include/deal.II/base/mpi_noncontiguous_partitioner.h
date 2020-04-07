@@ -86,7 +86,7 @@ namespace Utilities
        */
       template <typename VectorType>
       void
-      update_values(VectorType &dst, const VectorType &src) const;
+      export_to_ghosted_array(VectorType &dst, const VectorType &src) const;
 
       /**
        * Start update: Data is packed, non-blocking send and receives
@@ -94,7 +94,8 @@ namespace Utilities
        */
       template <typename VectorType>
       void
-      update_values_start(const VectorType &src, const unsigned int tag) const;
+      export_to_ghosted_array_start(const VectorType & src,
+                                    const unsigned int tag) const;
 
       /**
        * Finish update. The method waits until all data has been sent and
@@ -103,7 +104,8 @@ namespace Utilities
        */
       template <typename VectorType>
       void
-      update_values_finish(VectorType &dst, const unsigned int tag) const;
+      export_to_ghosted_array_finish(VectorType &       dst,
+                                     const unsigned int tag) const;
 
       /**
        * Returns the number of processes this process sends data to and the

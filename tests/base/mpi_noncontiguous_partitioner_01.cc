@@ -49,7 +49,7 @@ test(const MPI_Comm comm)
 
   src[0] = Utilities::MPI::this_mpi_process(comm) * 100 + 1;
 
-  vector.update_values(dst, src);
+  vector.export_to_ghosted_array(dst, src);
 
   for (size_t i = 0; i < src.size(); i++)
     deallog << static_cast<int>(src[i]) << " ";

@@ -24,27 +24,27 @@ for (S : REAL_SCALARS)
         template class NoncontiguousPartitioner<S>;
 
         template void
-        NoncontiguousPartitioner<S>::update_values(
+        NoncontiguousPartitioner<S>::export_to_ghosted_array(
           std::vector<S> &      dst,
           const std::vector<S> &src) const;
 
         template void
-        NoncontiguousPartitioner<S>::update_values(
+        NoncontiguousPartitioner<S>::export_to_ghosted_array(
           AlignedVector<S> &      dst,
           const AlignedVector<S> &src) const;
 
         template void
-        NoncontiguousPartitioner<S>::update_values(
+        NoncontiguousPartitioner<S>::export_to_ghosted_array(
           ArrayView<S> &      dst,
           const ArrayView<S> &src) const;
 
         template void
-        NoncontiguousPartitioner<S>::update_values(
+        NoncontiguousPartitioner<S>::export_to_ghosted_array(
           LinearAlgebra::Vector<S> &      dst,
           const LinearAlgebra::Vector<S> &src) const;
 
         template void
-        NoncontiguousPartitioner<S>::update_values(
+        NoncontiguousPartitioner<S>::export_to_ghosted_array(
           LinearAlgebra::distributed::Vector<S> &      dst,
           const LinearAlgebra::distributed::Vector<S> &src) const;
       \}
