@@ -23,7 +23,7 @@ namespace hp
 {
   template <int dim, int spacedim>
   DoFHandler<dim, spacedim>::DoFHandler()
-    : DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>>(false)
+    : ::dealii::DoFHandler<dim, spacedim>(false)
   {}
 
 
@@ -31,7 +31,7 @@ namespace hp
   template <int dim, int spacedim>
   DoFHandler<dim, spacedim>::DoFHandler(
     const Triangulation<dim, spacedim> &tria)
-    : DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>>(tria, false)
+    : ::dealii::DoFHandler<dim, spacedim>(tria, false)
   {}
 } // namespace hp
 

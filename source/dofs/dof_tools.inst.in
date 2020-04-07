@@ -14,7 +14,7 @@
 // ---------------------------------------------------------------------
 
 
-for (DoFHandler : DOFHANDLER_TEMPLATES;
+for (DoFHandler : DOFHANDLER_TEMPLATES2;
      deal_II_dimension, deal_II_space_dimension : DIMENSIONS)
   {
 #if deal_II_dimension <= deal_II_space_dimension
