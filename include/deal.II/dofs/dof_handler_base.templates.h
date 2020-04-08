@@ -40,9 +40,9 @@ namespace internal
     if (dynamic_cast<const typename dealii::internal::DoFHandlerImplementation::
                        Policy::Sequential<dealii::DoFHandler<dim, spacedim>> *>(
           &policy) ||
-        dynamic_cast<
-          const typename dealii::internal::DoFHandlerImplementation::Policy::
-            Sequential<dealii::hp::DoFHandler<dim, spacedim>> *>(&policy))
+        dynamic_cast<const typename dealii::internal::DoFHandlerImplementation::
+                       Policy::Sequential<dealii::DoFHandler<dim, spacedim>> *>(
+          &policy))
       policy_name = "Policy::Sequential<";
     else if (dynamic_cast<
                const typename dealii::internal::DoFHandlerImplementation::
@@ -50,16 +50,16 @@ namespace internal
                    *>(&policy) ||
              dynamic_cast<
                const typename dealii::internal::DoFHandlerImplementation::
-                 Policy::ParallelDistributed<
-                   dealii::hp::DoFHandler<dim, spacedim>> *>(&policy))
+                 Policy::ParallelDistributed<dealii::DoFHandler<dim, spacedim>>
+                   *>(&policy))
       policy_name = "Policy::ParallelDistributed<";
     else if (dynamic_cast<
                const typename dealii::internal::DoFHandlerImplementation::
                  Policy::ParallelShared<dealii::DoFHandler<dim, spacedim>> *>(
                &policy) ||
-             dynamic_cast<const typename dealii::internal::
-                            DoFHandlerImplementation::Policy::ParallelShared<
-                              dealii::hp::DoFHandler<dim, spacedim>> *>(
+             dynamic_cast<
+               const typename dealii::internal::DoFHandlerImplementation::
+                 Policy::ParallelShared<dealii::DoFHandler<dim, spacedim>> *>(
                &policy))
       policy_name = "Policy::ParallelShared<";
     else
@@ -630,63 +630,6 @@ namespace internal
             }
       }
 
-      template <int dim, int spacedim>
-      static types::global_dof_index
-      get_dof_index(
-        const DoFHandlerBase<dim,
-                             spacedim,
-                             dealii::hp::DoFHandler<dim, spacedim>> &,
-        const std::unique_ptr<internal::DoFHandlerImplementation::DoFLevel<dim>>
-          &,
-        const std::unique_ptr<internal::DoFHandlerImplementation::DoFFaces<dim>>
-          &,
-        const unsigned int,
-        const unsigned int,
-        const unsigned int,
-        const std::integral_constant<int, 1>)
-      {
-        Assert(false, ExcNotImplemented());
-        return 0;
-      }
-
-      template <int dim, int spacedim>
-      static types::global_dof_index
-      get_dof_index(
-        const DoFHandlerBase<dim,
-                             spacedim,
-                             dealii::hp::DoFHandler<dim, spacedim>> &,
-        const std::unique_ptr<internal::DoFHandlerImplementation::DoFLevel<dim>>
-          &,
-        const std::unique_ptr<internal::DoFHandlerImplementation::DoFFaces<dim>>
-          &,
-        const unsigned int,
-        const unsigned int,
-        const unsigned int,
-        const std::integral_constant<int, 2>)
-      {
-        Assert(false, ExcNotImplemented());
-        return 0;
-      }
-
-      template <int dim, int spacedim>
-      static types::global_dof_index
-      get_dof_index(
-        const DoFHandlerBase<dim,
-                             spacedim,
-                             dealii::hp::DoFHandler<dim, spacedim>> &,
-        const std::unique_ptr<internal::DoFHandlerImplementation::DoFLevel<dim>>
-          &,
-        const std::unique_ptr<internal::DoFHandlerImplementation::DoFFaces<dim>>
-          &,
-        const unsigned int,
-        const unsigned int,
-        const unsigned int,
-        const std::integral_constant<int, 3>)
-      {
-        Assert(false, ExcNotImplemented());
-        return 0;
-      }
-
       template <int spacedim>
       static types::global_dof_index
       get_dof_index(
@@ -700,6 +643,8 @@ namespace internal
         const unsigned int local_index,
         const std::integral_constant<int, 1>)
       {
+        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
+
         return mg_level->dof_object.get_dof_index(
           static_cast<const DoFHandler<1, spacedim> &>(dof_handler),
           obj_index,
@@ -740,6 +685,7 @@ namespace internal
         const unsigned int local_index,
         const std::integral_constant<int, 2>)
       {
+        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
         return mg_level->dof_object.get_dof_index(
           static_cast<const DoFHandler<2, spacedim> &>(dof_handler),
           obj_index,
@@ -760,6 +706,7 @@ namespace internal
         const unsigned int local_index,
         const std::integral_constant<int, 1>)
       {
+        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
         return mg_faces->lines.get_dof_index(
           static_cast<const DoFHandler<3, spacedim> &>(dof_handler),
           obj_index,
@@ -780,6 +727,7 @@ namespace internal
         const unsigned int local_index,
         const std::integral_constant<int, 2>)
       {
+        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
         return mg_faces->quads.get_dof_index(
           static_cast<const DoFHandler<3, spacedim> &>(dof_handler),
           obj_index,
@@ -800,68 +748,12 @@ namespace internal
         const unsigned int local_index,
         const std::integral_constant<int, 3>)
       {
+        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
         return mg_level->dof_object.get_dof_index(
           static_cast<const DoFHandler<3, spacedim> &>(dof_handler),
           obj_index,
           fe_index,
           local_index);
-      }
-
-      template <int dim, int spacedim>
-      static void
-      set_dof_index(
-        const DoFHandlerBase<dim,
-                             spacedim,
-                             dealii::hp::DoFHandler<dim, spacedim>> &,
-        const std::unique_ptr<internal::DoFHandlerImplementation::DoFLevel<dim>>
-          &,
-        const std::unique_ptr<internal::DoFHandlerImplementation::DoFFaces<dim>>
-          &,
-        const unsigned int,
-        const unsigned int,
-        const unsigned int,
-        const types::global_dof_index,
-        const std::integral_constant<int, 1>)
-      {
-        Assert(false, ExcNotImplemented());
-      }
-
-      template <int dim, int spacedim>
-      static void
-      set_dof_index(
-        const DoFHandlerBase<dim,
-                             spacedim,
-                             dealii::hp::DoFHandler<dim, spacedim>> &,
-        const std::unique_ptr<internal::DoFHandlerImplementation::DoFLevel<dim>>
-          &,
-        const std::unique_ptr<internal::DoFHandlerImplementation::DoFFaces<dim>>
-          &,
-        const unsigned int,
-        const unsigned int,
-        const unsigned int,
-        const types::global_dof_index,
-        const std::integral_constant<int, 2>)
-      {
-        Assert(false, ExcNotImplemented());
-      }
-
-      template <int dim, int spacedim>
-      static void
-      set_dof_index(
-        const DoFHandlerBase<dim,
-                             spacedim,
-                             dealii::hp::DoFHandler<dim, spacedim>> &,
-        const std::unique_ptr<internal::DoFHandlerImplementation::DoFLevel<dim>>
-          &,
-        const std::unique_ptr<internal::DoFHandlerImplementation::DoFFaces<dim>>
-          &,
-        const unsigned int,
-        const unsigned int,
-        const unsigned int,
-        const types::global_dof_index,
-        const std::integral_constant<int, 3>)
-      {
-        Assert(false, ExcNotImplemented());
       }
 
       template <int spacedim>
@@ -878,6 +770,7 @@ namespace internal
         const types::global_dof_index global_index,
         const std::integral_constant<int, 1>)
       {
+        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
         mg_level->dof_object.set_dof_index(
           static_cast<const DoFHandler<1, spacedim> &>(dof_handler),
           obj_index,
@@ -900,6 +793,7 @@ namespace internal
         const types::global_dof_index global_index,
         const std::integral_constant<int, 1>)
       {
+        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
         mg_faces->lines.set_dof_index(
           static_cast<const DoFHandler<2, spacedim> &>(dof_handler),
           obj_index,
@@ -922,6 +816,7 @@ namespace internal
         const types::global_dof_index global_index,
         const std::integral_constant<int, 2>)
       {
+        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
         mg_level->dof_object.set_dof_index(
           static_cast<const DoFHandler<2, spacedim> &>(dof_handler),
           obj_index,
@@ -944,6 +839,7 @@ namespace internal
         const types::global_dof_index global_index,
         const std::integral_constant<int, 1>)
       {
+        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
         mg_faces->lines.set_dof_index(
           static_cast<const DoFHandler<3, spacedim> &>(dof_handler),
           obj_index,
@@ -966,6 +862,7 @@ namespace internal
         const types::global_dof_index global_index,
         const std::integral_constant<int, 2>)
       {
+        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
         mg_faces->quads.set_dof_index(
           static_cast<const DoFHandler<3, spacedim> &>(dof_handler),
           obj_index,
@@ -988,6 +885,7 @@ namespace internal
         const types::global_dof_index global_index,
         const std::integral_constant<int, 3>)
       {
+        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
         mg_level->dof_object.set_dof_index(
           static_cast<const DoFHandler<3, spacedim> &>(dof_handler),
           obj_index,
@@ -1748,9 +1646,10 @@ namespace internal
         template <int dim, int spacedim>
         static void
         communicate_active_fe_indices(
-          DoFHandlerBase<dim, spacedim, dealii::hp::DoFHandler<dim, spacedim>>
-            &dof_handler)
+          DoFHandlerBase<dim, spacedim, DoFHandler<dim, spacedim>> &dof_handler)
         {
+          Assert(dof_handler.is_hp_dof_handler == true, ExcNotImplemented());
+
           if (const dealii::parallel::shared::Triangulation<dim, spacedim> *tr =
                 dynamic_cast<
                   const dealii::parallel::shared::Triangulation<dim, spacedim>
@@ -1801,17 +1700,15 @@ namespace internal
               // to have functions that can pack and unpack the data we want to
               // transport -- namely, the single unsigned int active_fe_index
               // objects
-              auto pack =
-                [](const typename dealii::hp::DoFHandler<dim, spacedim>::
-                     active_cell_iterator &cell) -> unsigned int {
+              auto pack = [](const typename dealii::DoFHandler<dim, spacedim>::
+                               active_cell_iterator &cell) -> unsigned int {
                 return cell->active_fe_index();
               };
 
-              auto unpack =
-                [&dof_handler](
-                  const typename dealii::hp::DoFHandler<dim, spacedim>::
-                    active_cell_iterator &cell,
-                  const unsigned int      active_fe_index) -> void {
+              auto unpack = [&dof_handler](
+                              const typename dealii::DoFHandler<dim, spacedim>::
+                                active_cell_iterator &cell,
+                              const unsigned int      active_fe_index) -> void {
                 // we would like to say
                 //   cell->set_active_fe_index(active_fe_index);
                 // but this is not allowed on cells that are not
@@ -1823,9 +1720,8 @@ namespace internal
 
               GridTools::exchange_cell_data_to_ghosts<
                 unsigned int,
-                dealii::hp::DoFHandler<dim, spacedim>>(
-                static_cast<dealii::hp::DoFHandler<dim, spacedim> &>(
-                  dof_handler),
+                dealii::DoFHandler<dim, spacedim>>(
+                static_cast<dealii::DoFHandler<dim, spacedim> &>(dof_handler),
                 pack,
                 unpack);
             }
@@ -1838,19 +1734,6 @@ namespace internal
                    &dof_handler.get_triangulation()) == nullptr),
                 ExcInternalError());
             }
-        }
-
-
-
-        template <int dim, int spacedim>
-        static void
-        communicate_active_fe_indices(
-          DoFHandlerBase<dim, spacedim, dealii::DoFHandler<dim, spacedim>>
-            &dof_handler)
-        {
-          // should only be entered for hp
-          AssertThrow(false, ExcNotImplemented());
-          (void)dof_handler;
         }
 
 

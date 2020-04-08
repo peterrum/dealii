@@ -26,7 +26,7 @@ namespace parallel
 {
   template <int dim, int spacedim>
   CellWeights<dim, spacedim>::CellWeights(
-    const hp::DoFHandler<dim, spacedim> &dof_handler,
+    const DoFHandler<dim, spacedim> &dof_handler,
     const typename CellWeights<dim, spacedim>::WeightingFunction
       &weighting_function)
   {
@@ -46,7 +46,7 @@ namespace parallel
   template <int dim, int spacedim>
   void
   CellWeights<dim, spacedim>::reinit(
-    const hp::DoFHandler<dim, spacedim> &dof_handler,
+    const DoFHandler<dim, spacedim> &dof_handler,
     const typename CellWeights<dim, spacedim>::WeightingFunction
       &weighting_function)
   {
@@ -65,11 +65,10 @@ namespace parallel
   typename CellWeights<dim, spacedim>::WeightingFunction
   CellWeights<dim, spacedim>::constant_weighting(const unsigned int factor)
   {
-    return
-      [factor](const typename hp::DoFHandler<dim, spacedim>::cell_iterator &,
-               const FiniteElement<dim, spacedim> &) -> unsigned int {
-        return factor;
-      };
+    return [factor](const typename DoFHandler<dim, spacedim>::cell_iterator &,
+                    const FiniteElement<dim, spacedim> &) -> unsigned int {
+      return factor;
+    };
   }
 
 
@@ -80,7 +79,7 @@ namespace parallel
     const std::pair<float, float> &coefficients)
   {
     return [coefficients](
-             const typename hp::DoFHandler<dim, spacedim>::cell_iterator &,
+             const typename DoFHandler<dim, spacedim>::cell_iterator &,
              const FiniteElement<dim, spacedim> &future_fe) -> unsigned int {
       const float result =
         std::trunc(coefficients.first *
@@ -104,7 +103,7 @@ namespace parallel
     const std::vector<std::pair<float, float>> &coefficients)
   {
     return [coefficients](
-             const typename hp::DoFHandler<dim, spacedim>::cell_iterator &,
+             const typename DoFHandler<dim, spacedim>::cell_iterator &,
              const FiniteElement<dim, spacedim> &future_fe) -> unsigned int {
       float result = 0;
       for (const auto &pair : coefficients)
@@ -130,7 +129,7 @@ namespace parallel
     const typename Triangulation<dim, spacedim>::cell_iterator &cell,
     const typename Triangulation<dim, spacedim>::CellStatus     status)>
   CellWeights<dim, spacedim>::make_weighting_callback(
-    const hp::DoFHandler<dim, spacedim> &dof_handler,
+    const DoFHandler<dim, spacedim> &dof_handler,
     const typename CellWeights<dim, spacedim>::WeightingFunction
       &weighting_function)
   {
@@ -163,7 +162,7 @@ namespace parallel
   CellWeights<dim, spacedim>::weighting_callback(
     const typename Triangulation<dim, spacedim>::cell_iterator &cell_,
     const typename Triangulation<dim, spacedim>::CellStatus     status,
-    const hp::DoFHandler<dim, spacedim> &                       dof_handler,
+    const DoFHandler<dim, spacedim> &                           dof_handler,
     const parallel::TriangulationBase<dim, spacedim> &          triangulation,
     const typename CellWeights<dim, spacedim>::WeightingFunction
       &weighting_function)
@@ -176,8 +175,8 @@ namespace parallel
 
     // Convert cell type from Triangulation to DoFHandler to be able
     // to access the information about the degrees of freedom.
-    const typename hp::DoFHandler<dim, spacedim>::cell_iterator cell(
-      *cell_, &dof_handler);
+    const typename DoFHandler<dim, spacedim>::cell_iterator cell(*cell_,
+                                                                 &dof_handler);
 
     // Determine which FiniteElement object will be present on this cell after
     // refinement and will thus specify the number of degrees of freedom.
@@ -230,7 +229,7 @@ namespace parallel
 
   template <int dim, int spacedim>
   CellWeights<dim, spacedim>::CellWeights(
-    const hp::DoFHandler<dim, spacedim> &dof_handler)
+    const DoFHandler<dim, spacedim> &dof_handler)
     : dof_handler(&dof_handler)
     , triangulation(
         dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
@@ -315,19 +314,19 @@ namespace parallel
   template <int dim, int spacedim>
   void
   CellWeights<dim, spacedim>::register_custom_weighting(
-    const std::function<unsigned int(
-      const FiniteElement<dim, spacedim> &,
-      const typename hp::DoFHandler<dim, spacedim>::cell_iterator &)>
+    const std::function<
+      unsigned int(const FiniteElement<dim, spacedim> &,
+                   const typename DoFHandler<dim, spacedim>::cell_iterator &)>
       custom_function)
   {
     connection.disconnect();
 
-    const std::function<unsigned int(
-      const typename hp::DoFHandler<dim, spacedim>::cell_iterator &,
-      const FiniteElement<dim, spacedim> &)>
+    const std::function<
+      unsigned int(const typename DoFHandler<dim, spacedim>::cell_iterator &,
+                   const FiniteElement<dim, spacedim> &)>
       converted_function =
         [&custom_function](
-          const typename hp::DoFHandler<dim, spacedim>::cell_iterator &cell,
+          const typename DoFHandler<dim, spacedim>::cell_iterator &cell,
           const FiniteElement<dim, spacedim> &future_fe) -> unsigned int {
       return custom_function(future_fe, cell);
     };

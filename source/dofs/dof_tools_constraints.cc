@@ -446,20 +446,14 @@ namespace DoFTools
        * handler uses. This is one for non-hp DoFHandlers and
        * dof_handler.get_fe().size() for the hp-versions.
        */
-      template <int dim, int spacedim>
-      unsigned int
-      n_finite_elements(
-        const dealii::hp::DoFHandler<dim, spacedim> &dof_handler)
-      {
-        return dof_handler.get_fe_collection().size();
-      }
-
-
       template <typename DoFHandlerType>
       unsigned int
-      n_finite_elements(const DoFHandlerType &)
+      n_finite_elements(const DoFHandlerType &dof_handler)
       {
-        return 1;
+        if (dof_handler.is_hp_dof_handler == false)
+          return dof_handler.get_fe_collection().size();
+        else
+          return 1;
       }
 
 
@@ -552,6 +546,12 @@ namespace DoFTools
                                      AffineConstraints<number> &)
     {
       // nothing to do for regular dof handlers in 1d
+
+
+      // hp: we may have to compute constraints for vertices. gotta think about
+      // that a bit more
+
+      // TODO[WB]: think about what to do here...
     }
 
 
@@ -562,31 +562,9 @@ namespace DoFTools
                                            std::integral_constant<int, 1>)
     {
       // nothing to do for regular dof handlers in 1d
-    }
 
-
-    template <typename number>
-    void
-    make_hp_hanging_node_constraints(
-      const dealii::hp::DoFHandler<1> & /*dof_handler*/,
-      AffineConstraints<number> & /*constraints*/)
-    {
-      // we may have to compute constraints for vertices. gotta think about that
-      // a bit more
-
-      // TODO[WB]: think about what to do here...
-    }
-
-
-    template <typename number>
-    void
-    make_oldstyle_hanging_node_constraints(
-      const dealii::hp::DoFHandler<1> & /*dof_handler*/,
-      AffineConstraints<number> & /*constraints*/,
-      std::integral_constant<int, 1>)
-    {
-      // we may have to compute constraints for vertices. gotta think about that
-      // a bit more
+      // hp: we may have to compute constraints for vertices. gotta think about
+      // that a bit more
 
       // TODO[WB]: think about what to do here...
     }

@@ -19,24 +19,5 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-namespace hp
-{
-  template <int dim, int spacedim>
-  DoFHandler<dim, spacedim>::DoFHandler()
-    : ::dealii::DoFHandler<dim, spacedim>(false)
-  {}
-
-
-
-  template <int dim, int spacedim>
-  DoFHandler<dim, spacedim>::DoFHandler(
-    const Triangulation<dim, spacedim> &tria)
-    : ::dealii::DoFHandler<dim, spacedim>(tria, false)
-  {}
-} // namespace hp
-
-/*-------------- Explicit Instantiations -------------------------------*/
-#include "dof_handler.inst"
-
 
 DEAL_II_NAMESPACE_CLOSE
