@@ -15,7 +15,7 @@
 
 
 for (deal_II_dimension : DIMENSIONS; VEC : REAL_VECTOR_TYPES;
-     DH : DOFHANDLER_TEMPLATES)
+     DH : DOFHANDLER_TEMPLATES2)
   {
     namespace DerivativeApproximation
     \{

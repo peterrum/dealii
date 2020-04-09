@@ -656,9 +656,9 @@ namespace DoFRenumbering
    * For finite elements with only one component, or a single non-primitive
    * base element, this function is the identity operation.
    */
-  template <typename DoFHandlerType>
+  template <int dim, int spacedim>
   void
-  component_wise(DoFHandlerType &                 dof_handler,
+  component_wise(DoFHandler<dim, spacedim> &      dof_handler,
                  const std::vector<unsigned int> &target_component =
                    std::vector<unsigned int>());
 
@@ -669,9 +669,9 @@ namespace DoFRenumbering
    * multilevel discretization. The non-multigrid part of the DoFHandler
    * is not touched.
    */
-  template <typename DoFHandlerType>
+  template <int dim, int spacedim>
   void
-  component_wise(DoFHandlerType &                 dof_handler,
+  component_wise(DoFHandler<dim, spacedim> &      dof_handler,
                  const unsigned int               level,
                  const std::vector<unsigned int> &target_component =
                    std::vector<unsigned int>());
@@ -704,22 +704,9 @@ namespace DoFRenumbering
    * some block, and another degree of freedom with index $j$ belonging to the
    * same block will be assigned new indices $n(i)$ and $n(j)$ with
    * $n(i)<n(j)$ if $i<j$ and $n(i)>n(j)$ if $i>j$.
-   */
-  template <int dim, int spacedim>
-  void
-  block_wise(DoFHandler<dim, spacedim> &dof_handler);
-
-  /**
-   * Sort the degrees of freedom by vector block. It does the same thing as
-   * the above function, only that it does this for one single level of a
-   * multilevel discretization. The non-multigrid part of the DoFHandler
-   * is not touched.
-   */
-  template <int dim, int spacedim>
-  void
-  block_wise(DoFHandler<dim, spacedim> &dof_handler, const unsigned int level);
-
-  /**
+   *
+   *
+   * TODO[peterrum]: comments for hp
    * Sort the degrees of freedom by block. It does the same thing as the above
    * function.
    *
@@ -737,7 +724,17 @@ namespace DoFRenumbering
    */
   template <int dim, int spacedim>
   void
-  block_wise(hp::DoFHandler<dim, spacedim> &dof_handler);
+  block_wise(DoFHandler<dim, spacedim> &dof_handler);
+
+  /**
+   * Sort the degrees of freedom by vector block. It does the same thing as
+   * the above function, only that it does this for one single level of a
+   * multilevel discretization. The non-multigrid part of the DoFHandler
+   * is not touched.
+   */
+  template <int dim, int spacedim>
+  void
+  block_wise(DoFHandler<dim, spacedim> &dof_handler, const unsigned int level);
 
   /**
    * Compute the renumbering vector needed by the block_wise() functions.

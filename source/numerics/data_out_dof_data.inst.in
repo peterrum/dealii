@@ -14,7 +14,7 @@
 // ---------------------------------------------------------------------
 
 
-for (VEC : VECTOR_TYPES; DH : DOFHANDLER_TEMPLATES;
+for (VEC : VECTOR_TYPES; DH : DOFHANDLER_TEMPLATES2;
      deal_II_dimension : DIMENSIONS)
   {
     template void DataOut_DoFData<DH<deal_II_dimension, deal_II_dimension>,
@@ -111,7 +111,7 @@ for (VEC : VECTOR_TYPES; DH : DOFHANDLER_TEMPLATES;
 
 
 
-for (DH : DOFHANDLER_TEMPLATES; deal_II_dimension : DIMENSIONS)
+for (DH : DOFHANDLER_TEMPLATES2; deal_II_dimension : DIMENSIONS)
   {
     template class DataOut_DoFData<DH<deal_II_dimension>, deal_II_dimension>;
 
@@ -147,7 +147,7 @@ for (deal_II_dimension : DIMENSIONS)
   }
 
 
-for (DH : DOFHANDLER_TEMPLATES; deal_II_dimension : DIMENSIONS)
+for (DH : DOFHANDLER_TEMPLATES2; deal_II_dimension : DIMENSIONS)
   {
     namespace internal
     \{

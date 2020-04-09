@@ -542,14 +542,11 @@ namespace VectorTools
 
 
 
-  template <int dim,
-            int spacedim,
-            typename VectorType,
-            template <int, int> class DoFHandlerType>
+  template <int dim, int spacedim, typename VectorType>
   void
   interpolate(
     const Mapping<dim, spacedim> &                             mapping,
-    const DoFHandlerType<dim, spacedim> &                      dof_handler,
+    const DoFHandler<dim, spacedim> &                          dof_handler,
     const Function<spacedim, typename VectorType::value_type> &function,
     VectorType &                                               vec,
     const ComponentMask &                                      component_mask)
@@ -562,7 +559,7 @@ namespace VectorTools
     // Create a small lambda capture wrapping function and call the
     // internal implementation
     const auto function_map = [&function](
-      const typename DoFHandlerType<dim, spacedim>::active_cell_iterator &)
+      const typename DoFHandler<dim, spacedim>::active_cell_iterator &)
       -> const Function<spacedim, typename VectorType::value_type> *
     {
       return &function;
@@ -574,13 +571,10 @@ namespace VectorTools
 
 
 
-  template <int dim,
-            int spacedim,
-            typename VectorType,
-            template <int, int> class DoFHandlerType>
+  template <int dim, int spacedim, typename VectorType>
   void
   interpolate(
-    const DoFHandlerType<dim, spacedim> &                      dof,
+    const DoFHandler<dim, spacedim> &                          dof,
     const Function<spacedim, typename VectorType::value_type> &function,
     VectorType &                                               vec,
     const ComponentMask &                                      component_mask)
