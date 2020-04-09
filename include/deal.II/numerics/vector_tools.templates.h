@@ -9151,24 +9151,19 @@ namespace VectorTools
               const Point<spacedim> &                  point,
               Vector<typename VectorType::value_type> &value)
   {
-    point_value(
-      StaticMappingQ1<dim, spacedim>::mapping, dof, fe_function, point, value);
+    if (dof.is_hp_dof_handler == false)
+      point_value(StaticMappingQ1<dim, spacedim>::mapping,
+                  dof,
+                  fe_function,
+                  point,
+                  value);
+    else
+      point_value(hp::StaticMappingQ1<dim, spacedim>::mapping_collection,
+                  dof,
+                  fe_function,
+                  point,
+                  value);
   }
-
-
-  //  template <int dim, typename VectorType, int spacedim>
-  //  void
-  //  point_value(const DoFHandler<dim, spacedim> &    dof,
-  //              const VectorType &                       fe_function,
-  //              const Point<spacedim> &                  point,
-  //              Vector<typename VectorType::value_type> &value)
-  //  {
-  //    point_value(hp::StaticMappingQ1<dim, spacedim>::mapping_collection,
-  //                dof,
-  //                fe_function,
-  //                point,
-  //                value);
-  //  }
 
 
   template <int dim, typename VectorType, int spacedim>
@@ -9177,25 +9172,17 @@ namespace VectorTools
               const VectorType &               fe_function,
               const Point<spacedim> &          point)
   {
-    return point_value(StaticMappingQ1<dim, spacedim>::mapping,
-                       dof,
-                       fe_function,
-                       point);
+    if (dof.is_hp_dof_handler == false)
+      return point_value(StaticMappingQ1<dim, spacedim>::mapping,
+                         dof,
+                         fe_function,
+                         point);
+    else
+      return point_value(hp::StaticMappingQ1<dim, spacedim>::mapping_collection,
+                         dof,
+                         fe_function,
+                         point);
   }
-
-
-  //  template <int dim, typename VectorType, int spacedim>
-  //  typename VectorType::value_type
-  //  point_value(const DoFHandler<dim, spacedim> &dof,
-  //              const VectorType &                   fe_function,
-  //              const Point<spacedim> &              point)
-  //  {
-  //    return point_value(hp::StaticMappingQ1<dim,
-  //    spacedim>::mapping_collection,
-  //                       dof,
-  //                       fe_function,
-  //                       point);
-  //  }
 
 
   template <int dim, typename VectorType, int spacedim>
@@ -9332,29 +9319,19 @@ namespace VectorTools
     std::vector<Tensor<1, spacedim, typename VectorType::value_type>>
       &gradients)
   {
-    point_gradient(StaticMappingQ1<dim, spacedim>::mapping,
-                   dof,
-                   fe_function,
-                   point,
-                   gradients);
+    if (dof.is_hp_dof_handler == false)
+      point_gradient(StaticMappingQ1<dim, spacedim>::mapping,
+                     dof,
+                     fe_function,
+                     point,
+                     gradients);
+    else
+      point_gradient(hp::StaticMappingQ1<dim, spacedim>::mapping_collection,
+                     dof,
+                     fe_function,
+                     point,
+                     gradients);
   }
-
-
-  //  template <int dim, typename VectorType, int spacedim>
-  //  void
-  //  point_gradient(
-  //    const DoFHandler<dim, spacedim> &dof,
-  //    const VectorType &                   fe_function,
-  //    const Point<spacedim> &              point,
-  //    std::vector<Tensor<1, spacedim, typename VectorType::value_type>>
-  //      &gradients)
-  //  {
-  //    point_gradient(hp::StaticMappingQ1<dim, spacedim>::mapping_collection,
-  //                   dof,
-  //                   fe_function,
-  //                   point,
-  //                   gradients);
-  //  }
 
 
   template <int dim, typename VectorType, int spacedim>
@@ -9363,25 +9340,18 @@ namespace VectorTools
                  const VectorType &               fe_function,
                  const Point<spacedim> &          point)
   {
-    return point_gradient(StaticMappingQ1<dim, spacedim>::mapping,
-                          dof,
-                          fe_function,
-                          point);
+    if (dof.is_hp_dof_handler == false)
+      return point_gradient(StaticMappingQ1<dim, spacedim>::mapping,
+                            dof,
+                            fe_function,
+                            point);
+    else
+      return point_gradient(
+        hp::StaticMappingQ1<dim, spacedim>::mapping_collection,
+        dof,
+        fe_function,
+        point);
   }
-
-
-  //  template <int dim, typename VectorType, int spacedim>
-  //  Tensor<1, spacedim, typename VectorType::value_type>
-  //  point_gradient(const DoFHandler<dim, spacedim> &dof,
-  //                 const VectorType &                   fe_function,
-  //                 const Point<spacedim> &              point)
-  //  {
-  //    return point_gradient(
-  //      hp::StaticMappingQ1<dim, spacedim>::mapping_collection,
-  //      dof,
-  //      fe_function,
-  //      point);
-  //  }
 
 
   template <int dim, typename VectorType, int spacedim>

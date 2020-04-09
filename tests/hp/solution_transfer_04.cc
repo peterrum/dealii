@@ -55,7 +55,7 @@ main()
   fe_collection.push_back(FESystem<2>(FE_Q<2>(1), 1, FE_Q<2>(1), 1));
   fe_collection.push_back(FESystem<2>(FE_Nothing<2>(), 1, FE_Nothing<2>(), 1));
 
-  DoFHandler<2> dof_handler(triangulation, ture);
+  DoFHandler<2> dof_handler(triangulation, true);
 
   // Assign FE to cells
   DoFHandler<2>::active_cell_iterator cell;

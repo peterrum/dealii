@@ -48,8 +48,14 @@ void
 DoFCellAccessor<DoFHandlerType, lda>::set_dof_values_by_interpolation(
   const Vector<number> &local_values,
   OutputVector &        values,
-  const unsigned int    fe_index) const
+  const unsigned int    fe_index_) const
 {
+  const unsigned int fe_index =
+    (this->dof_handler->is_hp_dof_handler == false &&
+     fe_index_ == DoFHandlerType::default_fe_index) ?
+      0 :
+      fe_index_;
+
   if (this->is_active() && !this->is_artificial())
     {
       if ((this->dof_handler->is_hp_dof_handler == false) ||

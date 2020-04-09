@@ -326,7 +326,8 @@ public:
    * finite element indices may be used on different cells, and the default
    * index there corresponds to an invalid value.
    */
-  static const unsigned int default_fe_index = 0; // TODO
+  static const unsigned int default_fe_index =
+    numbers::invalid_unsigned_int; // TODO
 
   /**
    * Standard constructor, not initializing any data. After constructing an
