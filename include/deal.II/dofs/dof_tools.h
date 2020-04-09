@@ -552,15 +552,16 @@ namespace DoFTools
    *
    * @ingroup constraints
    */
-  template <typename DoFHandlerType,
+  template <int dim,
+            int space_dim,
             typename SparsityPatternType,
             typename number = double>
   void
   make_sparsity_pattern(
-    const DoFHandlerType &           dof_handler,
-    SparsityPatternType &            sparsity_pattern,
-    const AffineConstraints<number> &constraints = AffineConstraints<number>(),
-    const bool                       keep_constrained_dofs = true,
+    const DoFHandler<dim, space_dim> &dof_handler,
+    SparsityPatternType &             sparsity_pattern,
+    const AffineConstraints<number> & constraints = AffineConstraints<number>(),
+    const bool                        keep_constrained_dofs = true,
     const types::subdomain_id subdomain_id = numbers::invalid_subdomain_id);
 
   /**
@@ -628,16 +629,17 @@ namespace DoFTools
    *
    * @ingroup constraints
    */
-  template <typename DoFHandlerType,
+  template <int dim,
+            int space_dim,
             typename SparsityPatternType,
             typename number = double>
   void
   make_sparsity_pattern(
-    const DoFHandlerType &           dof_handler,
-    const Table<2, Coupling> &       coupling,
-    SparsityPatternType &            sparsity_pattern,
-    const AffineConstraints<number> &constraints = AffineConstraints<number>(),
-    const bool                       keep_constrained_dofs = true,
+    const DoFHandler<dim, space_dim> &dof_handler,
+    const Table<2, Coupling> &        coupling,
+    SparsityPatternType &             sparsity_pattern,
+    const AffineConstraints<number> & constraints = AffineConstraints<number>(),
+    const bool                        keep_constrained_dofs = true,
     const types::subdomain_id subdomain_id = numbers::invalid_subdomain_id);
 
   /**
@@ -660,11 +662,11 @@ namespace DoFTools
    * whereas the ones that correspond to columns come from the second
    * DoFHandler.
    */
-  template <typename DoFHandlerType, typename SparsityPatternType>
+  template <int dim, int space_dim, typename SparsityPatternType>
   void
-  make_sparsity_pattern(const DoFHandlerType &dof_row,
-                        const DoFHandlerType &dof_col,
-                        SparsityPatternType & sparsity);
+  make_sparsity_pattern(const DoFHandler<dim, space_dim> &dof_row,
+                        const DoFHandler<dim, space_dim> &dof_col,
+                        SparsityPatternType &             sparsity);
 
   /**
    * Compute which entries of a matrix built on the given @p dof_handler may
@@ -903,10 +905,10 @@ namespace DoFTools
    *
    * @ingroup constraints
    */
-  template <typename DoFHandlerType, typename number>
+  template <int dim, int spacedim, typename number>
   void
-  make_hanging_node_constraints(const DoFHandlerType &     dof_handler,
-                                AffineConstraints<number> &constraints);
+  make_hanging_node_constraints(const DoFHandler<dim, spacedim> &dof_handler,
+                                AffineConstraints<number> &      constraints);
 
   /**
    * This function is used when different variables in a problem are
@@ -1272,16 +1274,16 @@ namespace DoFTools
    *
    * @author Matthias Maier, 2012
    */
-  template <typename DoFHandlerType, typename number>
+  template <int dim, int space_dim, typename number>
   void
   make_periodicity_constraints(
-    const DoFHandlerType &     dof_handler,
-    const types::boundary_id   b_id1,
-    const types::boundary_id   b_id2,
-    const unsigned int         direction,
-    AffineConstraints<number> &constraints,
-    const ComponentMask &      component_mask     = ComponentMask(),
-    const number               periodicity_factor = 1.);
+    const DoFHandler<dim, space_dim> &dof_handler,
+    const types::boundary_id          b_id1,
+    const types::boundary_id          b_id2,
+    const unsigned int                direction,
+    AffineConstraints<number> &       constraints,
+    const ComponentMask &             component_mask     = ComponentMask(),
+    const number                      periodicity_factor = 1.);
 
 
 
@@ -1310,15 +1312,15 @@ namespace DoFTools
    * @ref GlossPeriodicConstraints "Glossary entry on periodic boundary conditions"
    * for further information.
    */
-  template <typename DoFHandlerType, typename number>
+  template <int dim, int space_dim, typename number>
   void
   make_periodicity_constraints(
-    const DoFHandlerType &     dof_handler,
-    const types::boundary_id   b_id,
-    const unsigned int         direction,
-    AffineConstraints<number> &constraints,
-    const ComponentMask &      component_mask     = ComponentMask(),
-    const number               periodicity_factor = 1.);
+    const DoFHandler<dim, space_dim> &dof_handler,
+    const types::boundary_id          b_id,
+    const unsigned int                direction,
+    AffineConstraints<number> &       constraints,
+    const ComponentMask &             component_mask     = ComponentMask(),
+    const number                      periodicity_factor = 1.);
 
   /**
    * @}
@@ -2718,16 +2720,13 @@ namespace DoFTools
    * @see
    * @ref GlossBoundaryIndicator "Glossary entry on boundary indicators"
    */
-  template <int dim,
-            int spacedim,
-            template <int, int> class DoFHandlerType,
-            typename number>
+  template <int dim, int spacedim, typename number>
   void
   make_zero_boundary_constraints(
-    const DoFHandlerType<dim, spacedim> &dof,
-    const types::boundary_id             boundary_id,
-    AffineConstraints<number> &          zero_boundary_constraints,
-    const ComponentMask &                component_mask = ComponentMask());
+    const DoFHandler<dim, spacedim> &dof,
+    const types::boundary_id         boundary_id,
+    AffineConstraints<number> &      zero_boundary_constraints,
+    const ComponentMask &            component_mask = ComponentMask());
 
   /**
    * Do the same as the previous function, except do it for all parts of the
@@ -2739,15 +2738,12 @@ namespace DoFTools
    *
    * @ingroup constraints
    */
-  template <int dim,
-            int spacedim,
-            template <int, int> class DoFHandlerType,
-            typename number>
+  template <int dim, int spacedim, typename number>
   void
   make_zero_boundary_constraints(
-    const DoFHandlerType<dim, spacedim> &dof,
-    AffineConstraints<number> &          zero_boundary_constraints,
-    const ComponentMask &                component_mask = ComponentMask());
+    const DoFHandler<dim, spacedim> &dof,
+    AffineConstraints<number> &      zero_boundary_constraints,
+    const ComponentMask &            component_mask = ComponentMask());
 
   /**
    * @}

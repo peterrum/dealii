@@ -97,11 +97,12 @@ main()
   fe.push_back(FE_Q<2>(1));
   fe.push_back(FE_Q<2>(2));
 
-  DoFHandler<2> dof_handler(triangulation, true);
+  hp::DoFHandler<2> dof_handler(triangulation);
 
   // distribute fe_indices randomly
   unsigned int cell_no = 0;
-  for (DoFHandler<2>::active_cell_iterator cell = dof_handler.begin_active();
+  for (hp::DoFHandler<2>::active_cell_iterator cell =
+         dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell, ++cell_no)
     cell->set_active_fe_index(0);
@@ -110,7 +111,8 @@ main()
 
   deallog << "n_dofs=" << dof_handler.n_dofs() << std::endl;
 
-  for (DoFHandler<2>::active_cell_iterator cell = dof_handler.begin_active();
+  for (hp::DoFHandler<2>::active_cell_iterator cell =
+         dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell)
     {

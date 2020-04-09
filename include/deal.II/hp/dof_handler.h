@@ -18,4 +18,26 @@
 
 #include <deal.II/dofs/dof_handler.h>
 
+DEAL_II_NAMESPACE_OPEN
+
+namespace hp
+{
+  template <int dim, int spacedim = dim>
+  class DoFHandler : public dealii::DoFHandler<dim, spacedim>
+  {
+  public:
+    DoFHandler();
+
+    DoFHandler(const Triangulation<dim, spacedim> &tria);
+
+    DoFHandler(const DoFHandler &) = delete;
+
+    DoFHandler &
+    operator=(const DoFHandler &) = delete;
+  };
+
+} // namespace hp
+
+DEAL_II_NAMESPACE_CLOSE
+
 #endif
