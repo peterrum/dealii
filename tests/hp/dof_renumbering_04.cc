@@ -41,10 +41,11 @@
 
 template <int dim>
 void
-print_dofs(const DoFHandler<dim> &dof)
+print_dofs(const hp::DoFHandler<dim> &dof)
 {
   std::vector<types::global_dof_index> v;
-  for (typename DoFHandler<dim>::active_cell_iterator cell = dof.begin_active();
+  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
+         dof.begin_active();
        cell != dof.end();
        ++cell)
     {
@@ -61,7 +62,7 @@ print_dofs(const DoFHandler<dim> &dof)
 
 template <int dim>
 void
-check_renumbering(DoFHandler<dim> &dof)
+check_renumbering(hp::DoFHandler<dim> &dof)
 {
   for (unsigned int i = 0; i < dof.get_fe_collection().size(); ++i)
     {
@@ -89,10 +90,10 @@ check()
   if (dim == 1)
     tr.refine_global(2);
 
-  DoFHandler<dim> dof(tr, true);
+  hp::DoFHandler<dim> dof(tr);
   {
     bool coin = false;
-    for (typename DoFHandler<dim>::active_cell_iterator cell =
+    for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
            dof.begin_active();
          cell != dof.end();
          ++cell)

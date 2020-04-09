@@ -129,7 +129,7 @@ test()
                                  FE_Q<dim>(2),
                                  FE_Q<dim>(3),
                                  FE_Q<dim>(4));
-  DoFHandler<dim>             dof_handler(tr, true);
+  hp::DoFHandler<dim>         dof_handler(tr);
 
   // set DoF indices as described at the top of the file
   for (auto &cell : dof_handler.active_cell_iterators())

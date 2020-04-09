@@ -76,8 +76,8 @@ private:
   void
   output_results(const unsigned int cycle) const;
 
-  Triangulation<dim> triangulation;
-  DoFHandler<dim>    dof_handler;
+  Triangulation<dim>  triangulation;
+  hp::DoFHandler<dim> dof_handler;
 
   hp::FECollection<dim> fe;
 
@@ -158,7 +158,7 @@ RightHandSide<dim>::vector_value_list(
 
 template <int dim>
 ElasticProblem<dim>::ElasticProblem()
-  : dof_handler(triangulation, true)
+  : dof_handler(triangulation)
   , fe(FESystem<dim>(FE_Q<dim>(1), dim))
 {}
 
@@ -226,9 +226,9 @@ ElasticProblem<dim>::assemble_system()
   std::vector<Vector<double>> rhs_values(n_q_points, Vector<double>(dim));
 
 
-  typename DoFHandler<dim>::active_cell_iterator cell =
-                                                   dof_handler.begin_active(),
-                                                 endc = dof_handler.end();
+  typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
+                                                              .begin_active(),
+                                                     endc = dof_handler.end();
   for (; cell != endc; ++cell)
     {
       cell_matrix = 0;
@@ -361,7 +361,7 @@ ElasticProblem<dim>::output_results(const unsigned int cycle) const
 
   filename += ".gmv";
 
-  DataOut<dim, DoFHandler<dim>> data_out;
+  DataOut<dim, hp::DoFHandler<dim>> data_out;
   data_out.attach_dof_handler(dof_handler);
 
 

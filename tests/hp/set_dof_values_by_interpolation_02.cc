@@ -63,8 +63,8 @@ test()
   for (unsigned int i = 1; i < 5; ++i)
     fe.push_back(FE_Q<dim>(i));
 
-  DoFHandler<dim> dof_handler(tr, true);
-  for (typename DoFHandler<dim>::cell_iterator cell = dof_handler.begin();
+  hp::DoFHandler<dim> dof_handler(tr);
+  for (typename hp::DoFHandler<dim>::cell_iterator cell = dof_handler.begin();
        cell != dof_handler.end();
        ++cell)
     if (cell->has_children() == false)
@@ -77,7 +77,7 @@ test()
   Vector<double> solution2(dof_handler.n_dofs());
 
   // do the test
-  for (typename DoFHandler<dim>::active_cell_iterator cell =
+  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
          dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell)

@@ -46,7 +46,7 @@ test()
   hp::FECollection<dim> fe_collection;
   fe_collection.push_back(FE_DGQ<dim>(1));
 
-  DoFHandler<dim> dof_handler(tria, true);
+  hp::DoFHandler<dim> dof_handler(tria);
   dof_handler.distribute_dofs(fe_collection);
 
   dof_handler.begin_active()->set_active_fe_index(0);

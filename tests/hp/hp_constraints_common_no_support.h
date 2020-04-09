@@ -68,10 +68,10 @@ void
 do_check(const Triangulation<dim> &   triangulation,
          const hp::FECollection<dim> &fe)
 {
-  DoFHandler<dim> dof_handler(triangulation, true);
+  hp::DoFHandler<dim> dof_handler(triangulation);
 
   // distribute fe_indices randomly
-  for (typename DoFHandler<dim>::active_cell_iterator cell =
+  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
          dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell)
@@ -354,7 +354,7 @@ test_interpolation_base(const hp::FECollection<dim> &    fe,
       triangulation.execute_coarsening_and_refinement();
     }
 
-  DoFHandler<dim> dof_handler(triangulation, true);
+  hp::DoFHandler<dim> dof_handler(triangulation);
 
 
   // for every pair of finite elements,
@@ -367,7 +367,7 @@ test_interpolation_base(const hp::FECollection<dim> &    fe,
 
         // set fe on coarse cell to 'i', on
         // all fine cells to 'j'
-        typename DoFHandler<dim>::active_cell_iterator cell =
+        typename hp::DoFHandler<dim>::active_cell_iterator cell =
           dof_handler.begin_active();
         cell->set_active_fe_index(fe1);
         ++cell;

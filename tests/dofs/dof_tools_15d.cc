@@ -33,10 +33,6 @@ template <typename DoFHandlerType>
 void
 check_this(const DoFHandlerType &dof_handler)
 {
-  if (dof_handler.is_hp_dof_handler == true)
-    return;
-
-
   // test doesn't make much sense if
   // no boundary dofs exist
   if (dof_handler.get_fe().dofs_per_face == 0)

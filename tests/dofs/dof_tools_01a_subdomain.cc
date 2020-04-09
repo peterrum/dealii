@@ -33,9 +33,6 @@ template <typename DoFHandlerType>
 void
 check_this(const DoFHandlerType &dof_handler)
 {
-  if (dof_handler.is_hp_dof_handler == true)
-    return;
-
   // create sparsity pattern
   SparsityPattern sp(dof_handler.n_dofs(),
                      dof_handler.max_couplings_between_dofs());

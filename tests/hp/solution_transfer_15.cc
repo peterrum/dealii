@@ -108,7 +108,7 @@ transfer(const MPI_Comm &mpi_communicator)
   fe.push_back(FESystem<dim>(FE_Q<dim>(2), 1, FE_Q<dim>(2), 1));
   const std::vector<unsigned int> block_component({0, 1});
 
-  DoFHandler<dim> dof_handler(tria, true);
+  hp::DoFHandler<dim> dof_handler(tria);
   dof_handler.begin(0)->child(0)->set_active_fe_index(1);
 
   TrilinosWrappers::MPI::BlockVector solution;
@@ -133,7 +133,7 @@ transfer(const MPI_Comm &mpi_communicator)
     if (locally_owned_dofs.is_element(i))
       solution(i) = i;
 
-  SolutionTransfer<dim, TrilinosWrappers::MPI::BlockVector, DoFHandler<dim>>
+  SolutionTransfer<dim, TrilinosWrappers::MPI::BlockVector, hp::DoFHandler<dim>>
     soltrans(dof_handler);
 
   typename Triangulation<dim>::active_cell_iterator cell = tria.begin_active(),

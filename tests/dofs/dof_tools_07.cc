@@ -28,10 +28,6 @@ template <typename DoFHandlerType>
 void
 check_this(const DoFHandlerType &dof_handler)
 {
-  if (dof_handler.is_hp_dof_handler == true)
-    return;
-
-
   const std::vector<types::global_dof_index> n_dofs =
     DoFTools::count_dofs_per_fe_component(dof_handler);
   for (unsigned int i = 0; i < n_dofs.size(); ++i)

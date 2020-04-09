@@ -46,7 +46,7 @@ test()
   for (unsigned int i = 0; i < std::pow(2, dim); ++i)
     fe.push_back(FE_Q<dim>(1));
 
-  DoFHandler<dim> dh(tria, true);
+  hp::DoFHandler<dim> dh(tria);
   dh.set_fe(fe);
 
   // set future_fe_indices

@@ -79,7 +79,7 @@ test(const unsigned int degree_center,
   fe_collection.push_back(FESystem<dim>(FE_Q<dim>(degree_center), dim));
 
   // prepare DoFHandler
-  DoFHandler<dim> dh(tria, true);
+  hp::DoFHandler<dim> dh(tria);
 
   for (const auto &cell : dh.active_cell_iterators())
     if (cell->is_locally_owned() && cell->id().to_string() == "1_0:")

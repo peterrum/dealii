@@ -32,10 +32,6 @@ template <typename DoFHandlerType>
 void
 check_this(const DoFHandlerType &dof_handler)
 {
-  if (dof_handler.is_hp_dof_handler == true)
-    return;
-
-
   // create sparsity pattern
   DynamicSparsityPattern sp(dof_handler.n_dofs());
   DoFTools::make_flux_sparsity_pattern(dof_handler, sp);

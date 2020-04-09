@@ -61,12 +61,12 @@ test()
   hp::FECollection<2> fe_collection2;
   fe_collection2.push_back(u);
 
-  DoFHandler<2> hp_dof_handler(triangulation, true);
-  DoFHandler<2> hp_dof_handler2(triangulation, true);
+  hp::DoFHandler<2> hp_dof_handler(triangulation);
+  hp::DoFHandler<2> hp_dof_handler2(triangulation);
 
   // set different fe for testing
-  DoFHandler<2>::active_cell_iterator cell = hp_dof_handler.begin_active(),
-                                      endc = hp_dof_handler.end();
+  hp::DoFHandler<2>::active_cell_iterator cell = hp_dof_handler.begin_active(),
+                                          endc = hp_dof_handler.end();
 
   for (; cell != endc; ++cell)
     cell->set_active_fe_index(1);

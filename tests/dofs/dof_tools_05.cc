@@ -28,10 +28,6 @@ template <typename DoFHandlerType>
 void
 check_this(const DoFHandlerType &dof_handler)
 {
-  if (dof_handler.is_hp_dof_handler == true)
-    return;
-
-
   std::vector<bool> component_select(dof_handler.get_fe().n_components(), true);
   std::vector<bool> boundary_dofs(dof_handler.n_dofs());
 

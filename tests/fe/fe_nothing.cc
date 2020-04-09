@@ -58,7 +58,7 @@ test2cells(const unsigned int p1 = 2, const unsigned int p2 = 1)
                                         triangulation);
   }
 
-  DoFHandler<dim> dof_handler(triangulation, true);
+  hp::DoFHandler<dim> dof_handler(triangulation);
 
   hp::FECollection<dim> fe_collection;
   fe_collection.push_back(FESystem<dim>(FE_Q<dim>(p1), 1, FE_Q<dim>(p2), 1));

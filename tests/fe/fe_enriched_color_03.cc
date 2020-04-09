@@ -92,9 +92,9 @@ main(int argc, char **argv)
   MPILogInitAll                    all;
 
   // Make basic grid
-  const unsigned int dim = 2;
-  Triangulation<dim> triangulation;
-  DoFHandler<dim>    dof_handler(triangulation, true);
+  const unsigned int  dim = 2;
+  Triangulation<dim>  triangulation;
+  hp::DoFHandler<dim> dof_handler(triangulation);
   GridGenerator::hyper_cube(triangulation, -2, 2);
   triangulation.refine_global(2);
 

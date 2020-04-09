@@ -69,12 +69,13 @@ test()
   fe_collection.push_back(FESystem<dim>(FE_Q<dim>(1), 1, FE_Nothing<dim>(), 1));
   fe_collection.push_back(FESystem<dim>(FE_Nothing<dim>(), 1, FE_Q<dim>(1), 1));
 
-  DoFHandler<dim> dof_handler(triangulation, true);
+  hp::DoFHandler<dim> dof_handler(triangulation);
 
   dof_handler.begin_active()->set_active_fe_index(1);
-  typename DoFHandler<dim>::active_cell_iterator cell =
-                                                   dof_handler.begin_active(1),
-                                                 endc = dof_handler.end();
+  typename hp::DoFHandler<dim>::active_cell_iterator cell =
+                                                       dof_handler.begin_active(
+                                                         1),
+                                                     endc = dof_handler.end();
   for (; cell != endc; ++cell)
     if (cell->index() % 2 == 0)
       cell->set_active_fe_index(0);
@@ -92,9 +93,9 @@ test()
   deallog << "   Number of constraints:        " << constraints.n_constraints()
           << std::endl;
   {
-    typename DoFHandler<dim>::active_cell_iterator cell =
-                                                     dof_handler.begin_active(),
-                                                   endc = dof_handler.end();
+    typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
+                                                                .begin_active(),
+                                                       endc = dof_handler.end();
 
     for (; cell != endc; cell++)
       {

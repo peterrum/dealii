@@ -114,11 +114,12 @@ do_test(const unsigned int parallel_option)
       quadrature_collection_mf.push_back(QGauss<1>(deg + 1));
     }
 
-  DoFHandler<dim> dof(tria, true);
+  hp::DoFHandler<dim> dof(tria);
   // set the active FE index in a random order
   {
-    typename DoFHandler<dim>::active_cell_iterator cell = dof.begin_active(),
-                                                   endc = dof.end();
+    typename hp::DoFHandler<dim>::active_cell_iterator cell =
+                                                         dof.begin_active(),
+                                                       endc = dof.end();
     for (; cell != endc; ++cell)
       {
         const unsigned int fe_index = Testing::rand() % max_degree;

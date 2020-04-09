@@ -56,10 +56,10 @@ test()
     fe_collection.push_back(
       FESystem<dim>(FE_Q<dim>(2), 1, FE_DGQ<dim>(i % 4), 1));
 
-  DoFHandler<dim> dof_handler(tria, true);
+  hp::DoFHandler<dim> dof_handler(tria);
 
   unsigned int fe_index = 0;
-  for (typename DoFHandler<dim>::active_cell_iterator cell =
+  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
          dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell, ++fe_index)
@@ -76,7 +76,7 @@ test()
   std::vector<types::global_dof_index> line_dof_indices_2(
     fe_collection[0].dofs_per_line + 2 * fe_collection[0].dofs_per_vertex);
 
-  for (typename DoFHandler<dim>::active_cell_iterator cell =
+  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
          dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell)

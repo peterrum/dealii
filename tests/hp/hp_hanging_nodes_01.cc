@@ -96,11 +96,11 @@ test_constraints(hp::FECollection<dim> &fe_coll)
   // Now assign increasing
   // active_fe_indices to
   // the different cells.
-  DoFHandler<dim>                                dof_handler(tria, true);
-  typename DoFHandler<dim>::active_cell_iterator cell =
-                                                   dof_handler.begin_active(),
-                                                 endc = dof_handler.end();
-  unsigned int fe_indx                                = 0;
+  hp::DoFHandler<dim>                                dof_handler(tria);
+  typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
+                                                              .begin_active(),
+                                                     endc = dof_handler.end();
+  unsigned int fe_indx                                    = 0;
   for (; cell != endc; ++cell)
     {
       cell->set_active_fe_index(fe_indx);

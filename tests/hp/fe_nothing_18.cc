@@ -97,8 +97,8 @@ private:
   std::vector<types::global_dof_index> dofs_per_block;
 
   Triangulation<dim>
-                  triangulation; // a triangulation object of the "dim"-dimensional domain;
-  DoFHandler<dim> dof_handler; // is associated with triangulation;
+                      triangulation; // a triangulation object of the "dim"-dimensional domain;
+  hp::DoFHandler<dim> dof_handler; // is associated with triangulation;
 
   FESystem<dim>         elasticity_fe;
   FESystem<dim>         elasticity_w_lagrange_fe;
@@ -241,7 +241,7 @@ ElasticProblem<dim>::ElasticProblem()
   , first_lamda_comp(dim)
   , degree(1)
   , dofs_per_block(n_blocks)
-  , dof_handler(triangulation, true)
+  , dof_handler(triangulation)
   , /*assotiate dof_handler to the triangulation */
   elasticity_fe(
     FE_Q<dim>(degree),
@@ -322,11 +322,11 @@ ElasticProblem<dim>::setup_system()
     block_component[i + dim] = lambda_block;
 
   //(1) set active FE indices based in material id...
-  typename DoFHandler<dim>::active_cell_iterator cell =
-                                                   dof_handler.begin_active(),
-                                                 endc = dof_handler.end();
-  unsigned int n_lagrange_cells                       = 0;
-  unsigned int n_elasticity_cells                     = 0;
+  typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
+                                                              .begin_active(),
+                                                     endc = dof_handler.end();
+  unsigned int n_lagrange_cells                           = 0;
+  unsigned int n_elasticity_cells                         = 0;
   for (; cell != endc; ++cell) // loop over all cells
     {
       if (cell->material_id() == id_of_lagrange_mult)

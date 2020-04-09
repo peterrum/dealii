@@ -58,7 +58,7 @@ test()
   for (unsigned int deg = 1; deg <= max_degree; ++deg)
     fe_dgq.push_back(FE_Q<dim>(deg));
 
-  DoFHandler<dim> dgq_dof_handler(tria, true);
+  hp::DoFHandler<dim> dgq_dof_handler(tria);
 
   // randomly assign fes
   for (const auto &cell : dgq_dof_handler.active_cell_iterators())
@@ -83,7 +83,7 @@ test()
   parallel::distributed::SolutionTransfer<
     dim,
     LinearAlgebra::distributed::Vector<double>,
-    DoFHandler<dim>>
+    hp::DoFHandler<dim>>
     dgq_soltrans(dgq_dof_handler);
   dgq_soltrans.prepare_for_coarsening_and_refinement(dgq_solution);
 

@@ -47,7 +47,7 @@ test()
   GridGenerator::subdivided_hyper_cube(tria, 2);
   tria.refine_global(1);
 
-  DoFHandler<dim>       dh(tria, true);
+  hp::DoFHandler<dim>   dh(tria);
   hp::FECollection<dim> fe_collection;
 
   // prepare FECollection with arbitrary number of entries
@@ -55,8 +55,8 @@ test()
   for (unsigned int i = 0; i < max_degree; ++i)
     fe_collection.push_back(FE_Q<dim>(max_degree - i));
 
-  typename DoFHandler<dim, dim>::active_cell_iterator cell;
-  unsigned int                                        i = 0;
+  typename hp::DoFHandler<dim, dim>::active_cell_iterator cell;
+  unsigned int                                            i = 0;
 
   for (cell = dh.begin_active(); cell != dh.end(); ++cell)
     {
@@ -101,7 +101,7 @@ test()
 
   // ----- transfer -----
   parallel::distributed::
-    SolutionTransfer<dim, TrilinosWrappers::MPI::Vector, DoFHandler<dim>>
+    SolutionTransfer<dim, TrilinosWrappers::MPI::Vector, hp::DoFHandler<dim>>
       soltrans(dh);
 
   soltrans.prepare_for_coarsening_and_refinement(old_solution);

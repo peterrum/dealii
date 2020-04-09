@@ -67,7 +67,7 @@ test()
   fe.push_back(FE_Q<dim>(2));
   fe.push_back(FE_Q<dim>(2));
 
-  DoFHandler<dim> dof_handler(triangulation, true);
+  hp::DoFHandler<dim> dof_handler(triangulation);
   for (auto &cell : dof_handler.active_cell_iterators())
     {
       if (cell->is_locally_owned())

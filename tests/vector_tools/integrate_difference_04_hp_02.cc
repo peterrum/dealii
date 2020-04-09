@@ -92,7 +92,7 @@ test(VectorTools::NormType norm, double value, double exp = 2.0)
   fe.push_back(FESystem<dim>(FE_Q<dim>(4), dim));
   fe.push_back(FESystem<dim>(FE_Q<dim>(5), dim));
   fe.push_back(FESystem<dim>(FE_Q<dim>(6), dim));
-  DoFHandler<dim> dofh(tria, true);
+  hp::DoFHandler<dim> dofh(tria);
 
   // assign FEs mostly randomly to each cell
   for (auto &cell : dofh.active_cell_iterators())

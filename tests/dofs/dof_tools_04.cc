@@ -28,10 +28,6 @@ template <typename DoFHandlerType>
 void
 check_this(const DoFHandlerType &dof_handler)
 {
-  if (dof_handler.is_hp_dof_handler == true)
-    return;
-
-
   const types::global_dof_index n_dofs = dof_handler.n_dofs();
 
   const IndexSet hanging_node_dofs =

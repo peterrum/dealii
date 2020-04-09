@@ -54,7 +54,7 @@ test()
   fe_collection.push_back(FE_Q<dim>(1));
   fe_collection.push_back(FE_Q<dim>(2));
 
-  DoFHandler<dim> dof_handler(triangulation, true);
+  hp::DoFHandler<dim> dof_handler(triangulation);
   dof_handler.begin_active()->set_active_fe_index(0);
   dof_handler.distribute_dofs(fe_collection);
 
@@ -64,7 +64,7 @@ test()
 
 
   // set refine flag for the only cell we have, then do the refinement
-  SolutionTransfer<dim, Vector<double>, DoFHandler<dim>> solution_trans(
+  SolutionTransfer<dim, Vector<double>, hp::DoFHandler<dim>> solution_trans(
     dof_handler);
   dof_handler.begin_active()->set_refine_flag();
   solution_trans.prepare_for_pure_refinement();

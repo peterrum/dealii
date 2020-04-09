@@ -70,7 +70,7 @@ private:
 
   Triangulation<dim>    triangulation;
   hp::FECollection<dim> fe;
-  DoFHandler<dim>       dof_handler;
+  hp::DoFHandler<dim>   dof_handler;
 
   SparsityPattern      sparsity_pattern;
   SparseMatrix<double> system_matrix;
@@ -135,7 +135,7 @@ BoundaryValues<dim>::value(const Point<dim> &p,
 template <int dim>
 LaplaceProblem<dim>::LaplaceProblem()
   : fe(FE_Q<dim>(1))
-  , dof_handler(triangulation, true)
+  , dof_handler(triangulation)
 {}
 
 
@@ -192,9 +192,9 @@ LaplaceProblem<dim>::assemble_system()
 
   std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
 
-  typename DoFHandler<dim>::active_cell_iterator cell =
-                                                   dof_handler.begin_active(),
-                                                 endc = dof_handler.end();
+  typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
+                                                              .begin_active(),
+                                                     endc = dof_handler.end();
   for (; cell != endc; ++cell)
     {
       x_fe_values.reinit(cell);
@@ -262,7 +262,7 @@ template <int dim>
 void
 LaplaceProblem<dim>::output_results() const
 {
-  DataOut<dim, DoFHandler<dim>> data_out;
+  DataOut<dim, hp::DoFHandler<dim>> data_out;
 
   data_out.attach_dof_handler(dof_handler);
   data_out.add_data_vector(solution, "solution");

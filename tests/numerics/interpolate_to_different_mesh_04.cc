@@ -51,8 +51,8 @@ check(const unsigned int refinement_1, const unsigned int refinement_2)
   tria_1.refine_global(refinement_1);
   tria_2.refine_global(refinement_2);
 
-  DoFHandler<spacedim> dof_handler_1(tria_1, true);
-  DoFHandler<spacedim> dof_handler_2(tria_2, true);
+  hp::DoFHandler<spacedim> dof_handler_1(tria_1);
+  hp::DoFHandler<spacedim> dof_handler_2(tria_2);
 
   hp::FECollection<spacedim> fe_collection;
   fe_collection.push_back(FE_Q<spacedim>(1));

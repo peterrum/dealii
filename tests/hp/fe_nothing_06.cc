@@ -107,16 +107,16 @@ test()
   fe_collection.push_back(
     FESystem<dim>(FE_Nothing<dim>(), dim, FE_Nothing<dim>(), 1));
 
-  DoFHandler<dim> dof_handler(triangulation, true);
+  hp::DoFHandler<dim> dof_handler(triangulation);
 
   // loop over cells, and set cells
   // within a circle to be of type
   // FE_Nothing, while outside the
   // circle to be of type FE_Q(1)
   {
-    typename DoFHandler<dim>::active_cell_iterator cell =
-                                                     dof_handler.begin_active(),
-                                                   endc = dof_handler.end();
+    typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
+                                                                .begin_active(),
+                                                       endc = dof_handler.end();
 
     for (; cell != endc; cell++)
       {

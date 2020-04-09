@@ -63,10 +63,10 @@ check()
   fe_collection.push_back(FE_Q<dim>(2));
   fe_collection.push_back(FE_Q<dim>(1));
 
-  DoFHandler<dim> dof(tr, true);
+  hp::DoFHandler<dim> dof(tr);
   {
     bool coin = false;
-    for (typename DoFHandler<dim>::active_cell_iterator cell =
+    for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
            dof.begin_active();
          cell != dof.end();
          ++cell)
@@ -79,7 +79,8 @@ check()
 
   std::vector<bool>                    touched(dof.n_dofs(), false);
   std::vector<types::global_dof_index> local_dof_indices;
-  for (typename DoFHandler<dim>::active_cell_iterator cell = dof.begin_active();
+  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
+         dof.begin_active();
        cell != dof.end();
        ++cell)
     {

@@ -92,7 +92,7 @@ main(int argc, char **argv)
   Triangulation<dim> triangulation;
   GridGenerator::hyper_cube(triangulation, -20, 20);
   triangulation.refine_global(4);
-  DoFHandler<dim> dof_handler(triangulation, true);
+  hp::DoFHandler<dim> dof_handler(triangulation);
 
   // check the coloring function on different set of predicates.
   std::vector<predicate_function<dim>> vec_predicates;

@@ -79,7 +79,7 @@ private:
 
   Triangulation<dim> triangulation;
 
-  DoFHandler<dim>       dof_handler;
+  hp::DoFHandler<dim>   dof_handler;
   hp::FECollection<dim> fe;
 
   AffineConstraints<double> hanging_node_constraints;
@@ -150,7 +150,7 @@ Coefficient<dim>::value_list(const std::vector<Point<dim>> &points,
 
 template <int dim>
 LaplaceProblem<dim>::LaplaceProblem()
-  : dof_handler(triangulation, true)
+  : dof_handler(triangulation)
   , fe(FE_Q<dim>(2))
 {}
 
@@ -215,9 +215,9 @@ LaplaceProblem<dim>::assemble_system()
   const Coefficient<dim> coefficient;
   std::vector<double>    coefficient_values(n_q_points);
 
-  typename DoFHandler<dim>::active_cell_iterator cell =
-                                                   dof_handler.begin_active(),
-                                                 endc = dof_handler.end();
+  typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
+                                                              .begin_active(),
+                                                     endc = dof_handler.end();
   for (; cell != endc; ++cell)
     {
       cell_matrix = 0;
@@ -366,7 +366,7 @@ LaplaceProblem<dim>::run()
   DataOutBase::EpsFlags eps_flags;
   eps_flags.z_scaling = 4;
 
-  DataOut<dim, DoFHandler<dim>> data_out;
+  DataOut<dim, hp::DoFHandler<dim>> data_out;
   data_out.set_flags(eps_flags);
 
   data_out.attach_dof_handler(dof_handler);

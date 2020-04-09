@@ -56,7 +56,7 @@ main()
   tria.refine_global(1);
   GridTools::partition_triangulation(n_subdomains, tria);
 
-  DoFHandler<dim> hp_dof_handler(tria, true);
+  hp::DoFHandler<dim> hp_dof_handler(tria);
   for (auto &cell : hp_dof_handler.active_cell_iterators())
     {
       if (cell == hp_dof_handler.begin_active())

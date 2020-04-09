@@ -52,11 +52,11 @@ test()
   tria[1].last_active()->set_refine_flag();
   tria[1].execute_coarsening_and_refinement();
 
-  DoFHandler<dim> dh0(tria[0], true);
-  DoFHandler<dim> dh1(tria[1], true);
+  hp::DoFHandler<dim> dh0(tria[0]);
+  hp::DoFHandler<dim> dh1(tria[1]);
 
-  typedef std::list<std::pair<typename DoFHandler<dim>::cell_iterator,
-                              typename DoFHandler<dim>::cell_iterator>>
+  typedef std::list<std::pair<typename hp::DoFHandler<dim>::cell_iterator,
+                              typename hp::DoFHandler<dim>::cell_iterator>>
     CellList;
 
   const CellList cell_list = GridTools::get_finest_common_cells(dh0, dh1);

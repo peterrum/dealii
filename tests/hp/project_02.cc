@@ -72,7 +72,7 @@ test()
 
   hp::FECollection<dim> fe;
   fe.push_back(FE_Q<dim>(1));
-  DoFHandler<dim> dh(tria, true);
+  hp::DoFHandler<dim> dh(tria);
   dh.distribute_dofs(fe);
 
   BlockVector<double> v(2);
@@ -85,7 +85,8 @@ test()
   VectorTools::project(
     dh, cm, hp::QCollection<dim>(QGauss<dim>(3)), F<dim>(), v);
 
-  for (typename DoFHandler<dim>::active_cell_iterator cell = dh.begin_active();
+  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
+         dh.begin_active();
        cell != dh.end();
        ++cell)
     for (const unsigned int i : GeometryInfo<dim>::vertex_indices())

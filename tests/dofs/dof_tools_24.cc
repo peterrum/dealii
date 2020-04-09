@@ -120,7 +120,7 @@ main()
   deallog << "hp::DoFHandler" << std::endl;
   {
     hp::FECollection<dim> fe_collection(element);
-    DoFHandler<dim>       dof_handler(triangulation, true);
+    hp::DoFHandler<dim>   dof_handler(triangulation);
     dof_handler.distribute_dofs(fe_collection);
     create_and_print_flux_sparsity_pattern(dof_handler);
   }

@@ -70,7 +70,7 @@ test()
   hp::FECollection<dim> fes;
   fes.push_back(FE_Q<dim>(1));
 
-  DoFHandler<dim> dh(tria, true);
+  hp::DoFHandler<dim> dh(tria);
   dh.distribute_dofs(fes);
 
   // make constraints

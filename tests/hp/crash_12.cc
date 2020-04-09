@@ -84,7 +84,7 @@ test()
   fe.push_back(FE_Q<dim>(QIterated<1>(QTrapez<1>(), 4)));
   fe.push_back(FE_Q<dim>(QIterated<1>(QTrapez<1>(), 5)));
 
-  DoFHandler<dim> dof_handler(triangulation, true);
+  hp::DoFHandler<dim> dof_handler(triangulation);
 
   for (unsigned int i = 0; i < fe.size(); ++i)
     for (unsigned int j = 0; j < fe.size(); ++j)
@@ -94,7 +94,7 @@ test()
 
         // set fe on coarse cell to 'i', on
         // all fine cells to 'j'
-        typename DoFHandler<dim>::active_cell_iterator cell =
+        typename hp::DoFHandler<dim>::active_cell_iterator cell =
           dof_handler.begin_active();
         cell->set_active_fe_index(i);
         ++cell;

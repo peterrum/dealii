@@ -95,7 +95,7 @@ check()
   hp::FECollection<dim> element;
   element.push_back(
     FESystem<dim>(FE_RaviartThomasNodal<dim>(1), 1, FE_DGQ<dim>(1), 1));
-  DoFHandler<dim> dof(tr, true);
+  hp::DoFHandler<dim> dof(tr);
   dof.distribute_dofs(element);
 
   MySquareFunction<dim>                               coefficient;

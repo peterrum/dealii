@@ -86,7 +86,7 @@ test(VectorTools::NormType norm, double value, double exp = 2.0)
 
   hp::FECollection<dim> fe;
   fe.push_back(FESystem<dim>(FE_Q<dim>(4), dim));
-  DoFHandler<dim> dofh(tria, true);
+  hp::DoFHandler<dim> dofh(tria);
   dofh.distribute_dofs(fe);
 
   TrilinosWrappers::MPI::Vector interpolated(dofh.locally_owned_dofs(),

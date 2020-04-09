@@ -29,9 +29,6 @@ template <typename DoFHandlerType>
 void
 check_this(const DoFHandlerType &dof_handler)
 {
-  if (dof_handler.is_hp_dof_handler == true)
-    return;
-
   const unsigned int n_components = dof_handler.get_fe().n_components();
 
   deallog << "n_dofs:" << dof_handler.n_dofs() << std::endl;

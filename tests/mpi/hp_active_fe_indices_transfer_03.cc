@@ -50,7 +50,7 @@ test()
     fe_collection.push_back(FE_Q<dim>(i + 1));
 
   // we need to introduce dof_handler to its fe_collection first
-  DoFHandler<dim> dh(tria, true);
+  hp::DoFHandler<dim> dh(tria);
   dh.set_fe(fe_collection);
 
   for (auto &cell : dh.active_cell_iterators())

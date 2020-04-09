@@ -109,8 +109,9 @@ check()
     element.push_back(FESystem<dim>(
       FE_Nothing<dim>(dim), 1, FE_Nothing<dim>(), 1, FE_Q<dim>(i), dim));
 
-  DoFHandler<dim> dof(tr, true);
-  for (typename DoFHandler<dim>::active_cell_iterator cell = dof.begin_active();
+  hp::DoFHandler<dim> dof(tr);
+  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
+         dof.begin_active();
        cell != dof.end();
        ++cell)
     cell->set_active_fe_index(Testing::rand() % element.size());

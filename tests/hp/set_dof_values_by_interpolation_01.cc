@@ -57,8 +57,8 @@ test()
   for (unsigned int i = 1; i < 5; ++i)
     fe.push_back(FE_Q<dim>(i));
 
-  DoFHandler<dim> dof_handler(tr, true);
-  for (typename DoFHandler<dim>::cell_iterator cell = dof_handler.begin();
+  hp::DoFHandler<dim> dof_handler(tr);
+  for (typename hp::DoFHandler<dim>::cell_iterator cell = dof_handler.begin();
        cell != dof_handler.end();
        ++cell)
     if (cell->has_children() == false)
@@ -75,7 +75,7 @@ test()
   // which is definitely not active. this can't work, so expect an
   // exception for both the call to cell->get_fe() and the call to
   // cell->get_interpolated_dof_values
-  typename DoFHandler<dim>::cell_iterator cell = dof_handler.begin(0);
+  typename hp::DoFHandler<dim>::cell_iterator cell = dof_handler.begin(0);
 
   unsigned int dofs_per_cell = 4;
   try

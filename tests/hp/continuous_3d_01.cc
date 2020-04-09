@@ -48,12 +48,12 @@ test()
 
   const hp::FECollection<dim> fe_collection(FE_Q<dim>(1));
 
-  DoFHandler<dim> dof_handler(tria, true);
+  hp::DoFHandler<dim> dof_handler(tria);
   dof_handler.distribute_dofs(fe_collection);
 
   std::vector<types::global_dof_index> local_dof_indices(
     fe_collection[0].dofs_per_cell);
-  for (typename DoFHandler<dim>::active_cell_iterator cell =
+  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
          dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell)

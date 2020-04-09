@@ -184,12 +184,7 @@ namespace polytest
     SimplePolynomial<dim> boundary_function;
 
     VectorTools::project_boundary_values_curl_conforming_l2(
-      dof_handler,
-      0,
-      boundary_function,
-      0,
-      constraints,
-      StaticMappingQ1<dim>::mapping);
+      dof_handler, 0, boundary_function, 0, constraints);
     constraints.close();
     DynamicSparsityPattern c_sparsity(dof_handler.n_dofs());
     DoFTools::make_sparsity_pattern(dof_handler,

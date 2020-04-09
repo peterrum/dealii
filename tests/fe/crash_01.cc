@@ -46,12 +46,7 @@ test(FiniteElement<dim> &fe)
   AffineConstraints<double>    constraints;
   Functions::ZeroFunction<dim> boundary_values(fe.n_components());
   VectorTools::project_boundary_values_curl_conforming_l2(
-    dof_handler,
-    0,
-    boundary_values,
-    0,
-    constraints,
-    StaticMappingQ1<dim>::mapping);
+    dof_handler, 0, boundary_values, 0, constraints);
 }
 
 

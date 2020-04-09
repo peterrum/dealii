@@ -30,10 +30,6 @@ template <typename DoFHandlerType>
 void
 check_this(const DoFHandlerType &dof_handler)
 {
-  if (dof_handler.is_hp_dof_handler == true)
-    return;
-
-
   // no other args
   deallog << dof_handler.n_boundary_dofs() << std::endl;
 

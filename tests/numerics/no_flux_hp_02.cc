@@ -40,7 +40,7 @@ template <int dim>
 void
 test(const Triangulation<dim> &tr, const hp::FECollection<dim> &fe)
 {
-  DoFHandler<dim> dof(tr, true);
+  hp::DoFHandler<dim> dof(tr);
   dof.distribute_dofs(fe);
 
   for (const unsigned int i : GeometryInfo<dim>::face_indices())

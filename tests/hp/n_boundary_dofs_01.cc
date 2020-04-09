@@ -40,7 +40,7 @@ test()
 
   FE_Q<dim>             fe(2);
   hp::FECollection<dim> fe_coll(fe);
-  DoFHandler<dim>       dof_handler(triangulation, true);
+  hp::DoFHandler<dim>   dof_handler(triangulation);
 
   dof_handler.distribute_dofs(fe_coll);
 

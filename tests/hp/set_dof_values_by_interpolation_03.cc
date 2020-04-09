@@ -60,8 +60,8 @@ test()
   for (unsigned int i = 1; i < 5; ++i)
     fe.push_back(FE_Q<dim>(QIterated<1>(QTrapez<1>(), i)));
 
-  DoFHandler<dim> dof_handler(tr, true);
-  for (typename DoFHandler<dim>::cell_iterator cell = dof_handler.begin();
+  hp::DoFHandler<dim> dof_handler(tr);
+  for (typename hp::DoFHandler<dim>::cell_iterator cell = dof_handler.begin();
        cell != dof_handler.end();
        ++cell)
     if (cell->has_children() == false)
@@ -73,14 +73,14 @@ test()
 
   // do the test where we set data on the coarsest cell with an
   // explicit Q1 space
-  typename DoFHandler<dim>::cell_iterator cell = dof_handler.begin(0);
-  Vector<double>                          local(fe[0].dofs_per_cell);
+  typename hp::DoFHandler<dim>::cell_iterator cell = dof_handler.begin(0);
+  Vector<double>                              local(fe[0].dofs_per_cell);
   for (unsigned int i = 0; i < local.size(); ++i)
     local(i) = i;
   cell->set_dof_values_by_interpolation(local, solution, 0);
 
   // for comparison purposes, also output the values of DoFs on all cells
-  for (typename DoFHandler<dim>::active_cell_iterator cell =
+  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
          dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell)

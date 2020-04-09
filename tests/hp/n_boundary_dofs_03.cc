@@ -70,10 +70,10 @@ test()
     FESystem<1, spacedim>(FE_Q<1, spacedim>(1), 1, FE_DGQ<1, spacedim>(1), 1));
   fe.push_back(FESystem<1, spacedim>(FE_Q<1, spacedim>(2), 2));
 
-  DoFHandler<1, spacedim> dof_handler(triangulation, true);
+  hp::DoFHandler<1, spacedim> dof_handler(triangulation);
 
   unsigned int index = 0;
-  for (typename DoFHandler<1, spacedim>::active_cell_iterator cell =
+  for (typename hp::DoFHandler<1, spacedim>::active_cell_iterator cell =
          dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell, ++index)

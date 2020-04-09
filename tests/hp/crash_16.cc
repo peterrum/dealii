@@ -65,10 +65,10 @@ test()
   GridGenerator::hyper_cube(triangulation);
   triangulation.refine_global(3);
 
-  DoFHandler<dim> dof_handler(triangulation, true);
+  hp::DoFHandler<dim> dof_handler(triangulation);
 
   // distribute fe_indices randomly
-  for (typename DoFHandler<dim>::active_cell_iterator cell =
+  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
          dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell)
@@ -83,7 +83,7 @@ test()
 
   std::set<unsigned int> line_already_treated;
 
-  for (typename DoFHandler<dim>::active_cell_iterator cell =
+  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
          dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell)
@@ -92,7 +92,7 @@ test()
           line_already_treated.end())
         // line not yet treated
         {
-          const typename DoFHandler<dim>::active_line_iterator line =
+          const typename hp::DoFHandler<dim>::active_line_iterator line =
             cell->line(l);
           deallog << "line=" << line << std::endl;
           line_already_treated.insert(line->index());

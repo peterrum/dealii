@@ -56,7 +56,7 @@ check()
   for (unsigned int i = 0; i < 2; ++i)
     element.push_back(
       FESystem<dim>(FE_Q<dim>(1 + i), 1, FE_Nedelec<dim>(0), 1));
-  DoFHandler<dim> dof(tr, true);
+  hp::DoFHandler<dim> dof(tr);
   dof.begin_active()->set_active_fe_index(1);
   dof.distribute_dofs(element);
 

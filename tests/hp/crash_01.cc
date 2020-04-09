@@ -43,11 +43,11 @@ test()
 
   const hp::FECollection<dim> fe_collection(FE_DGQ<dim>(1));
 
-  DoFHandler<dim> dof_handler(tria, true);
+  hp::DoFHandler<dim> dof_handler(tria);
   dof_handler.distribute_dofs(fe_collection);
 
   tria.refine_global(1);
-  for (typename DoFHandler<dim>::active_cell_iterator cell =
+  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
          dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell)

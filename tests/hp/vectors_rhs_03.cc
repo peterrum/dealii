@@ -92,8 +92,9 @@ check()
   // of one Q1 and one Q2 element
   hp::FECollection<dim> element;
   element.push_back(FE_Q<dim>(1));
-  DoFHandler<dim> dof(tr, true);
-  for (typename DoFHandler<dim>::active_cell_iterator cell = dof.begin_active();
+  hp::DoFHandler<dim> dof(tr);
+  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
+         dof.begin_active();
        cell != dof.end();
        ++cell)
     cell->set_active_fe_index(Testing::rand() % element.size());

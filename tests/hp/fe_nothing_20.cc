@@ -60,7 +60,7 @@ test()
   fe_collection.push_back(
     FESystem<dim>(FE_Nothing<dim>(dim + 1), 1, FE_Q<dim>(2), dim));
 
-  DoFHandler<dim> dof_handler(triangulation, true);
+  hp::DoFHandler<dim> dof_handler(triangulation);
 
 
 

@@ -56,9 +56,9 @@ test()
   fe_collection.push_back(FE_Q<dim>(QIterated<1>(QTrapez<1>(), 3)));
   fe_collection.push_back(FE_Q<dim>(QIterated<1>(QTrapez<1>(), 4)));
 
-  DoFHandler<dim> dof_handler(tria, true);
+  hp::DoFHandler<dim> dof_handler(tria);
 
-  for (typename DoFHandler<dim>::active_cell_iterator cell =
+  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
          dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell)

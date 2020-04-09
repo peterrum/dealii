@@ -38,7 +38,7 @@
 
 template <int dim>
 void
-validate(const DoFHandler<dim> &dh)
+validate(const hp::DoFHandler<dim> &dh)
 {
   deallog << " fe_indices:";
   for (const auto &cell : dh.active_cell_iterators())
@@ -51,7 +51,7 @@ validate(const DoFHandler<dim> &dh)
 template <int dim>
 void
 setup(Triangulation<dim> &         tria,
-      DoFHandler<dim> &            dh,
+      hp::DoFHandler<dim> &        dh,
       const hp::FECollection<dim> &fes)
 {
   // Initialize triangulation and dofhandler.
@@ -61,7 +61,8 @@ setup(Triangulation<dim> &         tria,
 
   // Set all active fe indices to 1.
   // Flag first half of cells for refinement, and the other half for coarsening.
-  typename DoFHandler<dim>::cell_iterator cell = dh.begin(1), endc = dh.end(1);
+  typename hp::DoFHandler<dim>::cell_iterator cell = dh.begin(1),
+                                              endc = dh.end(1);
   for (unsigned int counter = 0; cell != endc; ++counter, ++cell)
     {
       Assert(!cell->is_active(), ExcInternalError());
@@ -91,8 +92,8 @@ test()
   for (unsigned int d = 1; d <= 3; ++d)
     fes.push_back(FE_Q<dim>(d));
 
-  Triangulation<dim> tria;
-  DoFHandler<dim>    dh(true);
+  Triangulation<dim>  tria;
+  hp::DoFHandler<dim> dh;
   setup(tria, dh, fes);
 
   deallog << "starting situation" << std::endl;

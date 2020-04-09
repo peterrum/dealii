@@ -96,13 +96,13 @@ check(const FiniteElement<dim> &fe, const std::string &name)
 
   // setup hp DoFHandler
   hp::FECollection<dim> fe_collection(fe);
-  DoFHandler<dim>       hp_dof_handler(tria, true);
+  hp::DoFHandler<dim>   hp_dof_handler(tria);
   hp_dof_handler.distribute_dofs(fe_collection);
 
   check_this<DoFHandler<dof_handler.dimension, dof_handler.space_dimension>>(
     dof_handler);
   check_this<
-    DoFHandler<hp_dof_handler.dimension, hp_dof_handler.space_dimension>>(
+    hp::DoFHandler<hp_dof_handler.dimension, hp_dof_handler.space_dimension>>(
     hp_dof_handler);
 }
 

@@ -55,11 +55,11 @@ main()
   fe_collection.push_back(FESystem<2>(FE_Q<2>(1), 1, FE_Q<2>(1), 1));
   fe_collection.push_back(FESystem<2>(FE_Nothing<2>(), 1, FE_Nothing<2>(), 1));
 
-  DoFHandler<2> dof_handler(triangulation, true);
+  hp::DoFHandler<2> dof_handler(triangulation);
 
   // Assign FE to cells
-  DoFHandler<2>::active_cell_iterator cell;
-  DoFHandler<2>::active_cell_iterator endc = dof_handler.end();
+  hp::DoFHandler<2>::active_cell_iterator cell;
+  hp::DoFHandler<2>::active_cell_iterator endc = dof_handler.end();
 
 
   cell = dof_handler.begin_active();
@@ -79,7 +79,7 @@ main()
   solution = 1.0;
 
 
-  SolutionTransfer<2, Vector<double>, DoFHandler<2>> solultion_trans(
+  SolutionTransfer<2, Vector<double>, hp::DoFHandler<2>> solultion_trans(
     dof_handler);
   solultion_trans.prepare_for_coarsening_and_refinement(solution);
 

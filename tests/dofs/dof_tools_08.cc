@@ -29,10 +29,6 @@ template <typename DoFHandlerType>
 void
 check_this(const DoFHandlerType &dof_handler)
 {
-  if (dof_handler.is_hp_dof_handler == true)
-    return;
-
-
   std::vector<types::global_dof_index> map(dof_handler.n_dofs());
   DoFTools::map_dof_to_boundary_indices(dof_handler, map);
   for (unsigned int i = 0; i < map.size(); ++i)

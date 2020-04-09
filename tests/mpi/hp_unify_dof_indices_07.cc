@@ -72,7 +72,7 @@ test()
 
   hp::FECollection<dim> fe(FE_Q<dim>(2), FE_Q<dim>(2));
 
-  DoFHandler<dim> dof_handler(triangulation, true);
+  hp::DoFHandler<dim> dof_handler(triangulation);
   if (dof_handler.begin_active()->is_locally_owned())
     dof_handler.begin_active()->set_active_fe_index(0);
   if ((++dof_handler.begin_active())->is_locally_owned())

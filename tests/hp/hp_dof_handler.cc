@@ -43,7 +43,7 @@ main()
   hp::FECollection<dim> fe_collection;
   fe_collection.push_back(FE_DGQ<dim>(1));
 
-  DoFHandler<dim> dof_handler(tria, true);
+  hp::DoFHandler<dim> dof_handler(tria);
 
   tria.begin_active()->set_refine_flag();
   tria.execute_coarsening_and_refinement();

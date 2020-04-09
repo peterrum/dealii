@@ -51,10 +51,10 @@ test()
   for (unsigned int i = 1; i <= GeometryInfo<dim>::max_children_per_cell; ++i)
     fe.push_back(FE_Q<dim>(i));
 
-  DoFHandler<dim> dof_handler(triangulation, true);
+  hp::DoFHandler<dim> dof_handler(triangulation);
 
   unsigned int index = 0;
-  for (typename DoFHandler<dim>::active_cell_iterator cell =
+  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
          dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell, ++index)

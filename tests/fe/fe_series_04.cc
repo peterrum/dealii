@@ -86,7 +86,7 @@ void
 test(const LegendreFunction<dim> &func, const unsigned int poly_degree)
 {
   Triangulation<dim>    triangulation;
-  DoFHandler<dim>       dof_handler(triangulation, true);
+  hp::DoFHandler<dim>   dof_handler(triangulation);
   hp::FECollection<dim> fe_collection;
   hp::QCollection<dim>  quadrature_formula;
 
@@ -110,7 +110,7 @@ test(const LegendreFunction<dim> &func, const unsigned int poly_degree)
   Table<1, double> coeff_out(N);
   Vector<double>   local_dof_values;
 
-  typename DoFHandler<dim>::active_cell_iterator cell =
+  typename hp::DoFHandler<dim>::active_cell_iterator cell =
     dof_handler.begin_active();
   {
     const unsigned int cell_n_dofs          = cell->get_fe().dofs_per_cell;

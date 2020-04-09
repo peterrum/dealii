@@ -44,7 +44,7 @@ test()
 
   hp::FECollection<dim> fe_collection(FE_DGQ<dim>(1));
 
-  DoFHandler<dim> dof_handler(tria, true);
+  hp::DoFHandler<dim> dof_handler(tria);
   dof_handler.distribute_dofs(fe_collection);
 
   Vector<double> v(dof_handler.n_dofs());

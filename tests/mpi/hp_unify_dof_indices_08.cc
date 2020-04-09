@@ -87,7 +87,7 @@ test()
   // regardless of the number of processors involved, and we can use
   // that to build a hash value from it that is then used to assign an
   // active_fe_index
-  DoFHandler<dim> dof_handler(triangulation, true);
+  hp::DoFHandler<dim> dof_handler(triangulation);
   for (auto &cell : dof_handler.active_cell_iterators())
     if (cell->is_locally_owned())
       cell->set_active_fe_index(

@@ -28,10 +28,6 @@ template <typename DoFHandlerType>
 void
 check_this(const DoFHandlerType &dof_handler)
 {
-  if (dof_handler.is_hp_dof_handler == true)
-    return;
-
-
   std::vector<bool> dofs(dof_handler.n_dofs());
 
   for (unsigned int level = 0;

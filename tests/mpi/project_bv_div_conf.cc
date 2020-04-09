@@ -203,12 +203,7 @@ namespace ResFlow
       DoFTools::make_hanging_node_constraints(dof_handler, constraints);
 
       VectorTools::project_boundary_values_div_conforming(
-        dof_handler,
-        0,
-        FluxBoundaryValues<dim>(),
-        0,
-        constraints,
-        StaticMappingQ1<dim>::mapping);
+        dof_handler, 0, FluxBoundaryValues<dim>(), 0, constraints);
 
       deallog << "Constraints" << std::endl;
       constraints.print(deallog.get_file_stream());

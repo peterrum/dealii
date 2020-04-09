@@ -295,12 +295,7 @@ namespace Maxwell
 
     // FE_Nedelec boundary condition.
     VectorTools::project_boundary_values_curl_conforming_l2(
-      dof_handler,
-      0,
-      exact_solution,
-      0,
-      constraints,
-      StaticMappingQ1<dim>::mapping);
+      dof_handler, 0, exact_solution, 0, constraints);
 
 
     constraints.close();

@@ -138,7 +138,7 @@ public:
   std::shared_ptr<Manifold<dim>> boundary_manifold;
   Triangulation<dim>             triangulation;
   hp::FECollection<dim>          finite_elements;
-  DoFHandler<dim>                dof_handler;
+  hp::DoFHandler<dim>            dof_handler;
 
   void
   setup_dofs();
@@ -150,7 +150,7 @@ template <int dim>
 QuadraticTimeCircle<dim>::QuadraticTimeCircle(
   const unsigned int n_global_refines)
   : n_global_refines(n_global_refines)
-  , dof_handler(triangulation, true)
+  , dof_handler(triangulation)
 {
   boundary_manifold = ladutenko_circle(triangulation);
   typename Triangulation<dim>::active_cell_iterator cell = triangulation
@@ -178,9 +178,9 @@ QuadraticTimeCircle<dim>::setup_dofs()
 {
   deallog << "Number of cells: " << triangulation.n_active_cells() << std::endl;
 
-  typename DoFHandler<dim>::active_cell_iterator cell =
-                                                   dof_handler.begin_active(),
-                                                 endc = dof_handler.end();
+  typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
+                                                              .begin_active(),
+                                                     endc = dof_handler.end();
   {
     cell->set_active_fe_index(0);
   }

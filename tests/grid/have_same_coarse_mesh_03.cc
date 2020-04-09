@@ -51,11 +51,11 @@ test()
 
   tria[2].refine_global(3);
 
-  DoFHandler<dim> dh0(tria[0], true);
-  DoFHandler<dim> dh1(tria[1], true);
-  DoFHandler<dim> dh2(tria[2], true);
+  hp::DoFHandler<dim> dh0(tria[0]);
+  hp::DoFHandler<dim> dh1(tria[1]);
+  hp::DoFHandler<dim> dh2(tria[2]);
 
-  DoFHandler<dim> *dof_handler[3] = {&dh0, &dh1, &dh2};
+  hp::DoFHandler<dim> *dof_handler[3] = {&dh0, &dh1, &dh2};
 
   for (unsigned int i = 0; i < 3; ++i)
     for (unsigned int j = 0; j < 3; ++j)

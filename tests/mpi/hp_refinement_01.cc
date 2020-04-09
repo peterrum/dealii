@@ -50,7 +50,7 @@ test()
   tria.refine_global(1);
   deallog << "cells before: " << tria.n_global_active_cells() << std::endl;
 
-  DoFHandler<dim>       dh(tria, true);
+  hp::DoFHandler<dim>   dh(tria);
   hp::FECollection<dim> fe_collection;
 
   // prepare FECollection with arbitrary number of entries
@@ -58,8 +58,8 @@ test()
   for (unsigned int i = 0; i < max_degree; ++i)
     fe_collection.push_back(FE_Q<dim>(max_degree - i));
 
-  typename DoFHandler<dim, dim>::active_cell_iterator cell;
-  unsigned int                                        i = 0;
+  typename hp::DoFHandler<dim, dim>::active_cell_iterator cell;
+  unsigned int                                            i = 0;
 
   for (auto &cell : dh.active_cell_iterators())
     {
