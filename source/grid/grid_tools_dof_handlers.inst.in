@@ -227,7 +227,7 @@ for (deal_II_dimension : DIMENSIONS; deal_II_space_dimension : SPACE_DIMENSIONS;
 // types are the same for sequential and parallel containers; consequently, we
 // get duplicate instantiation errors if we instantiate for *all* container
 // types, rather than only the sequential ones
-for (X : SEQUENTIAL_TRIANGULATION_AND_DOFHANDLERS;
+for (X : SEQUENTIAL_TRIANGULATION_AND_DOFHANDLERS_;
      deal_II_dimension : DIMENSIONS;
      deal_II_space_dimension : SPACE_DIMENSIONS)
   {
@@ -267,6 +267,17 @@ for (X : SEQUENTIAL_TRIANGULATION_AND_DOFHANDLERS;
         const Tensor<1, deal_II_space_dimension> &,
         const FullMatrix<double> &);
 
+    \}
+#endif
+  }
+
+for (X : SEQUENTIAL_TRIANGULATION_AND_DOFHANDLERS;
+     deal_II_dimension : DIMENSIONS;
+     deal_II_space_dimension : SPACE_DIMENSIONS)
+  {
+#if deal_II_dimension <= deal_II_space_dimension
+    namespace GridTools
+    \{
       template void
       collect_periodic_faces<X>(
         const X &,
