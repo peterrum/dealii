@@ -42,7 +42,7 @@ test()
   tria.refine_global(1);
   deallog << "cells before: " << tria.n_global_active_cells() << std::endl;
 
-  hp::DoFHandler<dim>   dh(tria);
+  DoFHandler<dim>       dh(tria, true);
   hp::FECollection<dim> fe_collection;
 
   // prepare FECollection with arbitrary number of entries

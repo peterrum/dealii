@@ -48,11 +48,11 @@ main()
   fe_collection.push_back(FE_Q<2>(1));
   fe_collection.push_back(FE_Nothing<2>());
 
-  hp::DoFHandler<2> dof_handler(triangulation);
+  DoFHandler<2> dof_handler(triangulation, true);
 
   // Assign FEQ to all cells
-  hp::DoFHandler<2>::active_cell_iterator cell = dof_handler.begin_active();
-  hp::DoFHandler<2>::active_cell_iterator endc = dof_handler.end();
+  DoFHandler<2>::active_cell_iterator cell = dof_handler.begin_active();
+  DoFHandler<2>::active_cell_iterator endc = dof_handler.end();
 
 
 
@@ -98,7 +98,7 @@ main()
   triangulation.prepare_coarsening_and_refinement();
 
   // Interpolate solution
-  SolutionTransfer<2, Vector<double>, hp::DoFHandler<2>> solultion_trans(
+  SolutionTransfer<2, Vector<double>, DoFHandler<2>> solultion_trans(
     dof_handler);
   solultion_trans.prepare_for_coarsening_and_refinement(solution);
 

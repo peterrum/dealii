@@ -159,11 +159,11 @@ check()
   hp::MappingCollection<dim> mapping_2;
   mapping_2.push_back(MappingQGeneric<dim>(1));
 
-  hp::DoFHandler<dim> dof_handler(tria);
+  DoFHandler<dim> dof_handler(tria, true);
 
-  typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
-                                                              .begin_active(),
-                                                     endc = dof_handler.end();
+  typename DoFHandler<dim>::active_cell_iterator cell =
+                                                   dof_handler.begin_active(),
+                                                 endc = dof_handler.end();
   for (; cell != endc; ++cell)
     {
       cell->set_active_fe_index(Testing::rand() % fe.size());

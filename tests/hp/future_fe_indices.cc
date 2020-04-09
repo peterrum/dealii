@@ -41,7 +41,7 @@ test()
   fe_collection.push_back(FE_Q<dim>(1));
   fe_collection.push_back(FE_Q<dim>(1));
 
-  hp::DoFHandler<dim> dh(tria);
+  DoFHandler<dim> dh(tria, true);
   dh.distribute_dofs(fe_collection);
 
   // check if indices are initialized correctly

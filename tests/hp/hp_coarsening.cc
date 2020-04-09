@@ -34,7 +34,7 @@
 
 template <int dim>
 void
-validate(const Triangulation<dim> &tria, const hp::DoFHandler<dim> &dh)
+validate(const Triangulation<dim> &tria, const DoFHandler<dim> &dh)
 {
   deallog << "ncells: " << tria.n_global_active_cells() << " fe_indices:";
   for (const auto &cell : dh.active_cell_iterators())
@@ -47,7 +47,7 @@ validate(const Triangulation<dim> &tria, const hp::DoFHandler<dim> &dh)
 template <int dim>
 void
 setup(Triangulation<dim> &         tria,
-      hp::DoFHandler<dim> &        dh,
+      DoFHandler<dim> &            dh,
       const hp::FECollection<dim> &fes)
 {
   // Initialize triangulation and dofhandler.
@@ -75,8 +75,8 @@ test()
 
   deallog << "starting situation: ";
   {
-    Triangulation<dim>  tria;
-    hp::DoFHandler<dim> dh;
+    Triangulation<dim> tria;
+    DoFHandler<dim>    dh(true);
     setup(tria, dh, fes);
     validate(tria, dh);
   }
@@ -85,8 +85,8 @@ test()
   {
     deallog << " default behaviour: ";
     {
-      Triangulation<dim>  tria;
-      hp::DoFHandler<dim> dh;
+      Triangulation<dim> tria;
+      DoFHandler<dim>    dh(true);
       setup(tria, dh, fes);
 
       tria.execute_coarsening_and_refinement();
@@ -96,8 +96,8 @@ test()
 
     deallog << " force p over h   : ";
     {
-      Triangulation<dim>  tria;
-      hp::DoFHandler<dim> dh;
+      Triangulation<dim> tria;
+      DoFHandler<dim>    dh(true);
       setup(tria, dh, fes);
 
       hp::Refinement::force_p_over_h(dh);
@@ -108,8 +108,8 @@ test()
 
     deallog << " choose p over h  : ";
     {
-      Triangulation<dim>  tria;
-      hp::DoFHandler<dim> dh;
+      Triangulation<dim> tria;
+      DoFHandler<dim>    dh(true);
       setup(tria, dh, fes);
 
       hp::Refinement::choose_p_over_h(dh);
@@ -124,8 +124,8 @@ test()
   {
     deallog << " default behaviour: ";
     {
-      Triangulation<dim>  tria;
-      hp::DoFHandler<dim> dh;
+      Triangulation<dim> tria;
+      DoFHandler<dim>    dh(true);
       setup(tria, dh, fes);
 
       dh.begin_active()->clear_coarsen_flag();
@@ -136,8 +136,8 @@ test()
 
     deallog << " force p over h   : ";
     {
-      Triangulation<dim>  tria;
-      hp::DoFHandler<dim> dh;
+      Triangulation<dim> tria;
+      DoFHandler<dim>    dh(true);
       setup(tria, dh, fes);
 
       dh.begin_active()->clear_coarsen_flag();
@@ -149,8 +149,8 @@ test()
 
     deallog << " choose p over h  : ";
     {
-      Triangulation<dim>  tria;
-      hp::DoFHandler<dim> dh;
+      Triangulation<dim> tria;
+      DoFHandler<dim>    dh(true);
       setup(tria, dh, fes);
 
       dh.begin_active()->clear_coarsen_flag();
@@ -166,8 +166,8 @@ test()
   {
     deallog << " default behaviour: ";
     {
-      Triangulation<dim>  tria;
-      hp::DoFHandler<dim> dh;
+      Triangulation<dim> tria;
+      DoFHandler<dim>    dh(true);
       setup(tria, dh, fes);
 
       dh.begin_active()->clear_future_fe_index();
@@ -178,8 +178,8 @@ test()
 
     deallog << " force p over h   : ";
     {
-      Triangulation<dim>  tria;
-      hp::DoFHandler<dim> dh;
+      Triangulation<dim> tria;
+      DoFHandler<dim>    dh(true);
       setup(tria, dh, fes);
 
       dh.begin_active()->clear_future_fe_index();
@@ -191,8 +191,8 @@ test()
 
     deallog << " choose p over h  : ";
     {
-      Triangulation<dim>  tria;
-      hp::DoFHandler<dim> dh;
+      Triangulation<dim> tria;
+      DoFHandler<dim>    dh(true);
       setup(tria, dh, fes);
 
       dh.begin_active()->clear_future_fe_index();

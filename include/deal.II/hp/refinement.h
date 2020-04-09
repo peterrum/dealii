@@ -33,11 +33,8 @@ DEAL_II_NAMESPACE_OPEN
 template <typename Number>
 class Vector;
 
-namespace hp
-{
-  template <int dim, int spacedim>
-  class DoFHandler;
-}
+template <int dim, int spacedim>
+class DoFHandler;
 #endif
 
 

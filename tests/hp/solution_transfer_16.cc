@@ -49,7 +49,7 @@ main()
   fe_collection.push_back(FE_Q<2>(1));
   fe_collection.push_back(FE_Nothing<2>());
 
-  hp::DoFHandler<2> dof_handler(triangulation);
+  DoFHandler<2> dof_handler(triangulation, true);
 
   // Assign FE_Nothing to the first cell
   dof_handler.begin_active()->set_active_fe_index(1);
@@ -71,7 +71,7 @@ main()
   triangulation.prepare_coarsening_and_refinement();
 
   // Interpolate solution
-  SolutionTransfer<2, Vector<double>, hp::DoFHandler<2>> solution_trans(
+  SolutionTransfer<2, Vector<double>, DoFHandler<2>> solution_trans(
     dof_handler);
   solution_trans.prepare_for_coarsening_and_refinement(solution);
 

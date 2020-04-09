@@ -47,12 +47,12 @@ template <int dim>
 void
 test()
 {
-  Triangulation<dim>  tria;
-  hp::DoFHandler<dim> dof_handler(tria);
+  Triangulation<dim> tria;
+  DoFHandler<dim>    dof_handler(tria, true);
 
   GridGenerator::hyper_cube(tria);
 
-  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
+  for (typename DoFHandler<dim>::active_cell_iterator cell =
          dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell)

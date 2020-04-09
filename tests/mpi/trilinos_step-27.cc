@@ -100,7 +100,7 @@ namespace Step27
 
     parallel::distributed::Triangulation<dim> triangulation;
 
-    hp::DoFHandler<dim>      dof_handler;
+    DoFHandler<dim>          dof_handler;
     hp::FECollection<dim>    fe_collection;
     hp::QCollection<dim>     quadrature_collection;
     hp::QCollection<dim - 1> face_quadrature_collection;
@@ -169,7 +169,7 @@ namespace Step27
   LaplaceProblem<dim>::LaplaceProblem()
     : mpi_communicator(MPI_COMM_WORLD)
     , triangulation(mpi_communicator)
-    , dof_handler(triangulation)
+    , dof_handler(triangulation, true)
     , max_degree(dim <= 2 ? 7 : 5)
     , pcout(std::cout,
             (Utilities::MPI::this_mpi_process(mpi_communicator) == 0))

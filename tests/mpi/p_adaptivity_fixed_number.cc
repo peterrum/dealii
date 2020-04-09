@@ -39,7 +39,7 @@
 
 template <int dim>
 void
-validate(const hp::DoFHandler<dim> &dh)
+validate(const DoFHandler<dim> &dh)
 {
   deallog << " (cellid,feidx):";
   for (const auto &cell : dh.active_cell_iterators())
@@ -60,7 +60,7 @@ validate(const hp::DoFHandler<dim> &dh)
 template <int dim>
 void
 setup(Triangulation<dim> &         tria,
-      hp::DoFHandler<dim> &        dh,
+      DoFHandler<dim> &            dh,
       const hp::FECollection<dim> &fes)
 {
   // Initialize triangulation and dofhandler.
@@ -98,7 +98,7 @@ test()
     fes.push_back(FE_Q<dim>(d));
 
   parallel::distributed::Triangulation<dim> tria(MPI_COMM_WORLD);
-  hp::DoFHandler<dim>                       dh;
+  DoFHandler<dim>                           dh(true);
   setup(tria, dh, fes);
 
   deallog << "starting situation" << std::endl;

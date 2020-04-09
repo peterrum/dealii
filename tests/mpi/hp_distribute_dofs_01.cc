@@ -44,7 +44,7 @@ test()
 
   const unsigned int max_degree = (dim == 2) ? 4 : 8;
 
-  hp::DoFHandler<dim>   dh(tria);
+  DoFHandler<dim>       dh(tria, true);
   hp::FECollection<dim> fe_collection;
   for (unsigned int degree = 1; degree <= max_degree; ++degree)
     fe_collection.push_back(FE_Q<dim>(degree));

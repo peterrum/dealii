@@ -94,7 +94,7 @@ namespace with_hp
 
     Triangulation<dim>    triangulation;
     hp::FECollection<dim> fe;
-    hp::DoFHandler<dim>   dof_handler;
+    DoFHandler<dim>       dof_handler;
     hp::QCollection<dim>  quadrature;
     SparsityPattern       sparsity_pattern;
     SparseMatrix<double>  system_matrix;
@@ -105,7 +105,7 @@ namespace with_hp
 
   template <int dim>
   LaplaceProblem<dim>::LaplaceProblem()
-    : dof_handler(triangulation)
+    : dof_handler(triangulation, true)
   {
     fe.push_back(FE_Q<dim>(1));
     quadrature.push_back(QGauss<dim>(2));
@@ -153,9 +153,9 @@ namespace with_hp
 
     std::vector<types::global_dof_index> local_dof_indices;
 
-    typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
-                                                                .begin_active(),
-                                                       endc = dof_handler.end();
+    typename DoFHandler<dim>::active_cell_iterator cell =
+                                                     dof_handler.begin_active(),
+                                                   endc = dof_handler.end();
     for (; cell != endc; ++cell)
       {
         fe_values.reinit(cell);

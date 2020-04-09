@@ -123,11 +123,11 @@ make_dof_handler(const Triangulation<dim> &tria, const FiniteElement<dim> &fe)
 
 
 template <int dim>
-hp::DoFHandler<dim> *
+DoFHandler<dim> *
 make_hp_dof_handler(const Triangulation<dim> &   tria,
                     const hp::FECollection<dim> &fe)
 {
-  hp::DoFHandler<dim> *dof_handler = new hp::DoFHandler<dim>(tria);
+  DoFHandler<dim> *dof_handler = new DoFHandler<dim>(tria, true);
   dof_handler->distribute_dofs(fe);
   return dof_handler;
 }

@@ -85,7 +85,7 @@ test()
     {
       FE_DGQ<dim>           fe(p);
       hp::FECollection<dim> hp_fe(fe);
-      hp::DoFHandler<dim>   dof_handler(triangulation);
+      DoFHandler<dim>       dof_handler(triangulation, true);
       dof_handler.distribute_dofs(hp_fe);
 
       AffineConstraints<double> constraints;

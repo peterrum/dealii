@@ -75,7 +75,7 @@ public:
 
 template <int dim>
 void
-check_boundary(const hp::DoFHandler<dim> &       dof,
+check_boundary(const DoFHandler<dim> &           dof,
                const hp::MappingCollection<dim> &mapping)
 {
   MySquareFunction<dim>                               coefficient;
@@ -125,7 +125,7 @@ check_boundary(const hp::DoFHandler<dim> &       dof,
 
 
 void
-check_boundary(const hp::DoFHandler<1> &, const hp::MappingCollection<1> &)
+check_boundary(const DoFHandler<1> &, const hp::MappingCollection<1> &)
 {}
 
 
@@ -150,7 +150,7 @@ check()
   // of one Q1 and one Q2 element
   hp::FECollection<dim> element;
   element.push_back(FESystem<dim>(FE_Q<dim>(1), 1, FE_Q<dim>(2), 1));
-  hp::DoFHandler<dim> dof(tr);
+  DoFHandler<dim> dof(tr, true);
   dof.distribute_dofs(element);
 
   // use a more complicated mapping

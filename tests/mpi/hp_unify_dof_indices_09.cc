@@ -56,7 +56,7 @@ test(MPI_Comm mpi_communicator)
   GridGenerator::hyper_cube(triangulation);
   triangulation.refine_global(4);
 
-  hp::DoFHandler<dim> dof_handler(triangulation);
+  DoFHandler<dim> dof_handler(triangulation, true);
 
   // set active_fe_index mostly randomly
   for (const auto &cell : dof_handler.active_cell_iterators())

@@ -45,7 +45,7 @@ check()
   for (unsigned int i = 1; i <= tria.n_active_cells(); ++i)
     fe_collection.push_back(FESystem<dim>(FE_Q<dim>(i), dim));
 
-  hp::DoFHandler<dim> dof(tria);
+  DoFHandler<dim> dof(tria, true);
   dof.distribute_dofs(fe_collection);
   Point<dim> orientation;
   Point<dim> p(tria.begin_active()->center());

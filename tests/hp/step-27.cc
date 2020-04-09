@@ -90,7 +90,7 @@ namespace Step27
 
     Triangulation<dim> triangulation;
 
-    hp::DoFHandler<dim>      dof_handler;
+    DoFHandler<dim>          dof_handler;
     hp::FECollection<dim>    fe_collection;
     hp::QCollection<dim>     quadrature_collection;
     hp::QCollection<dim - 1> face_quadrature_collection;
@@ -147,7 +147,7 @@ namespace Step27
 
   template <int dim>
   LaplaceProblem<dim>::LaplaceProblem()
-    : dof_handler(triangulation)
+    : dof_handler(triangulation, true)
     , max_degree(dim <= 2 ? 7 : 5)
   {
     for (unsigned int degree = 2; degree <= max_degree; ++degree)
@@ -222,9 +222,9 @@ namespace Step27
 
     std::vector<types::global_dof_index> local_dof_indices;
 
-    typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
-                                                                .begin_active(),
-                                                       endc = dof_handler.end();
+    typename DoFHandler<dim>::active_cell_iterator cell =
+                                                     dof_handler.begin_active(),
+                                                   endc = dof_handler.end();
     for (; cell != endc; ++cell)
       {
         const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
@@ -304,7 +304,7 @@ namespace Step27
       {
         Vector<float> fe_degrees(triangulation.n_active_cells());
         {
-          typename hp::DoFHandler<dim>::active_cell_iterator
+          typename DoFHandler<dim>::active_cell_iterator
             cell = dof_handler.begin_active(),
             endc = dof_handler.end();
           for (; cell != endc; ++cell)
@@ -312,7 +312,7 @@ namespace Step27
               fe_collection[cell->active_fe_index()].degree;
         }
 
-        DataOut<dim, hp::DoFHandler<dim>> data_out;
+        DataOut<dim, DoFHandler<dim>> data_out;
 
         data_out.attach_dof_handler(dof_handler);
         data_out.add_data_vector(solution, "solution");
@@ -338,9 +338,9 @@ namespace Step27
             min_smoothness = *std::max_element(smoothness_indicators.begin(),
                                                smoothness_indicators.end());
       {
-        typename hp::DoFHandler<dim>::active_cell_iterator
-          cell = dof_handler.begin_active(),
-          endc = dof_handler.end();
+        typename DoFHandler<dim>::active_cell_iterator cell = dof_handler
+                                                                .begin_active(),
+                                                       endc = dof_handler.end();
         for (; cell != endc; ++cell)
           if (cell->refine_flag_set())
             {
@@ -355,9 +355,9 @@ namespace Step27
       const float threshold_smoothness = (max_smoothness + min_smoothness) / 2;
 
       {
-        typename hp::DoFHandler<dim>::active_cell_iterator
-          cell = dof_handler.begin_active(),
-          endc = dof_handler.end();
+        typename DoFHandler<dim>::active_cell_iterator cell = dof_handler
+                                                                .begin_active(),
+                                                       endc = dof_handler.end();
         for (; cell != endc; ++cell)
           if (cell->refine_flag_set() &&
               (smoothness_indicators(cell->active_cell_index()) >
@@ -557,9 +557,9 @@ namespace Step27
     std::vector<std::complex<double>> fourier_coefficients(n_fourier_modes);
     Vector<double>                    local_dof_values;
 
-    typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
-                                                                .begin_active(),
-                                                       endc = dof_handler.end();
+    typename DoFHandler<dim>::active_cell_iterator cell =
+                                                     dof_handler.begin_active(),
+                                                   endc = dof_handler.end();
     for (; cell != endc; ++cell)
       {
         local_dof_values.reinit(cell->get_fe().dofs_per_cell);
@@ -607,9 +607,9 @@ namespace Step27
 #else
     Vector<double> local_dof_values;
 
-    typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
-                                                                .begin_active(),
-                                                       endc = dof_handler.end();
+    typename DoFHandler<dim>::active_cell_iterator cell =
+                                                     dof_handler.begin_active(),
+                                                   endc = dof_handler.end();
     for (; cell != endc; ++cell)
       {
         local_dof_values.reinit(cell->get_fe().dofs_per_cell);

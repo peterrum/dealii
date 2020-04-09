@@ -32,6 +32,10 @@ template <typename DoFHandlerType>
 void
 check_this(const DoFHandlerType &dof_handler)
 {
+  if (dof_handler.is_hp_dof_handler == true)
+    return;
+
+
   // don't check if fe has no support
   // points
   if (dof_handler.get_fe().get_unit_support_points().size() == 0)

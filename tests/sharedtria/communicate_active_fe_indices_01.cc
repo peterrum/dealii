@@ -59,7 +59,7 @@ test()
        ++i)
     fe.push_back(FE_Q<dim>(1));
 
-  hp::DoFHandler<dim> dof_handler(triangulation);
+  DoFHandler<dim> dof_handler(triangulation, true);
 
   // set the active_fe_index on all locally active cells equal to the
   // subdomain_id. we can later verify this equality also on ghost

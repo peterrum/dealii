@@ -40,7 +40,7 @@ template <int dim>
 void
 test(const Triangulation<dim> &tr, const hp::FECollection<dim> &fe)
 {
-  hp::DoFHandler<dim> dof(tr);
+  DoFHandler<dim> dof(tr, true);
   dof.distribute_dofs(fe);
 
   deallog << "FE=" << fe[0].get_name() << std::endl;

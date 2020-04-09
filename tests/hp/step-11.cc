@@ -71,7 +71,7 @@ private:
 
   Triangulation<dim>         triangulation;
   hp::FECollection<dim>      fe;
-  hp::DoFHandler<dim>        dof_handler;
+  DoFHandler<dim>            dof_handler;
   hp::MappingCollection<dim> mapping;
 
   SparsityPattern           sparsity_pattern;
@@ -89,7 +89,7 @@ private:
 template <int dim>
 LaplaceProblem<dim>::LaplaceProblem(const unsigned int mapping_degree)
   : fe(FE_Q<dim>(1))
-  , dof_handler(triangulation)
+  , dof_handler(triangulation, true)
   , mapping(MappingQ<dim>(mapping_degree))
 {
   deallog << "Using mapping with degree " << mapping_degree << ":" << std::endl

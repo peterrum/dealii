@@ -94,7 +94,7 @@ using predicate_function =
 
 template <int dim>
 void
-plot_shape_function(hp::DoFHandler<dim> &dof_handler, unsigned int patches = 5)
+plot_shape_function(DoFHandler<dim> &dof_handler, unsigned int patches = 5)
 {
   std::cout << "n_cells: " << dof_handler.get_triangulation().n_active_cells()
             << std::endl;
@@ -129,14 +129,14 @@ plot_shape_function(hp::DoFHandler<dim> &dof_handler, unsigned int patches = 5)
       shape_functions.push_back(shape_function);
     }
 
-  DataOut<dim, hp::DoFHandler<dim>> data_out;
+  DataOut<dim, DoFHandler<dim>> data_out;
   data_out.attach_dof_handler(dof_handler);
 
   // get material ids:
   Vector<float> fe_index(dof_handler.get_triangulation().n_active_cells());
-  typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
-                                                              .begin_active(),
-                                                     endc = dof_handler.end();
+  typename DoFHandler<dim>::active_cell_iterator cell =
+                                                   dof_handler.begin_active(),
+                                                 endc = dof_handler.end();
   for (unsigned int index = 0; cell != endc; ++cell, ++index)
     {
       fe_index[index] = cell->active_fe_index();
@@ -165,9 +165,9 @@ main(int argc, char **argv)
   MPILogInitAll                    all;
 
   // Make basic grid
-  const unsigned int  dim = 2;
-  Triangulation<dim>  triangulation;
-  hp::DoFHandler<dim> dof_handler(triangulation);
+  const unsigned int dim = 2;
+  Triangulation<dim> triangulation;
+  DoFHandler<dim>    dof_handler(triangulation, true);
   GridGenerator::hyper_cube(triangulation, -2, 2);
   triangulation.refine_global(2);
 

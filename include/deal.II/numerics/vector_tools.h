@@ -1699,7 +1699,8 @@ namespace VectorTools
     const Function<dim, number> &boundary_function,
     const types::boundary_id     boundary_component,
     AffineConstraints<number> &  constraints,
-    const Mapping<dim> &         mapping = StaticMappingQ1<dim>::mapping);
+    const Mapping<dim>
+      &mapping /*= StaticMappingQ1<dim>::mapping*/); // TODO[peterrum]
 
 
   /**
@@ -1716,8 +1717,8 @@ namespace VectorTools
     const Function<dim, number> &          boundary_function,
     const types::boundary_id               boundary_component,
     AffineConstraints<number> &            constraints,
-    const hp::MappingCollection<dim, dim> &mapping_collection =
-      hp::StaticMappingQ1<dim>::mapping_collection);
+    const hp::MappingCollection<dim, dim> &mapping_collection /*=
+      hp::StaticMappingQ1<dim>::mapping_collection*/); // TODO[peterrum]
 
 
   /**

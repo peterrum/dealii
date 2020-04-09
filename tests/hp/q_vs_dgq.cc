@@ -45,13 +45,13 @@ namespace Step27
 
   private:
     Triangulation<dim>    triangulation;
-    hp::DoFHandler<dim>   dof_handler;
+    DoFHandler<dim>       dof_handler;
     hp::FECollection<dim> fe_collection;
   };
 
   template <int dim>
   MixedFECollection<dim>::MixedFECollection()
-    : dof_handler(triangulation)
+    : dof_handler(triangulation, true)
   {}
 
   template <int dim>
@@ -74,9 +74,9 @@ namespace Step27
     triangulation.refine_global(1);
 
     // looping over all cells and assigning the FE_DG object to the first cell
-    typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
-                                                                .begin_active(),
-                                                       endc = dof_handler.end();
+    typename DoFHandler<dim>::active_cell_iterator cell =
+                                                     dof_handler.begin_active(),
+                                                   endc = dof_handler.end();
     for (unsigned int counter = 0; cell != endc; ++cell, counter++)
       if (counter == 0)
         {

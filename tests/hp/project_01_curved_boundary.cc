@@ -83,7 +83,7 @@ test()
 
   hp::FECollection<dim> fe;
   fe.push_back(FE_Q<dim>(1));
-  hp::DoFHandler<dim> dh(tria);
+  DoFHandler<dim> dh(tria, true);
   dh.distribute_dofs(fe);
 
   Vector<double> v(dh.n_dofs());
@@ -159,7 +159,7 @@ test()
                          true);
     deallog << v.l2_norm() << std::endl;
     Assert(v.l2_norm() != 0, ExcInternalError());
-    for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
+    for (typename DoFHandler<dim>::active_cell_iterator cell =
            dh.begin_active();
          cell != dh.end();
          ++cell)
@@ -185,7 +185,7 @@ test()
                          true);
     deallog << v.l2_norm() << std::endl;
     Assert(v.l2_norm() != 0, ExcInternalError());
-    for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
+    for (typename DoFHandler<dim>::active_cell_iterator cell =
            dh.begin_active();
          cell != dh.end();
          ++cell)

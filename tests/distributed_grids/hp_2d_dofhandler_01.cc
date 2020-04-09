@@ -58,10 +58,10 @@ test()
 
   hp::FECollection<dim> fe;
   fe.push_back(FE_Q<dim>(2));
-  hp::DoFHandler<dim> dofh(tr);
+  DoFHandler<dim> dofh(tr, true);
   dofh.distribute_dofs(fe);
 
-  typename hp::DoFHandler<dim>::active_cell_iterator cell = dofh.begin_active();
+  typename DoFHandler<dim>::active_cell_iterator cell = dofh.begin_active();
 
   const unsigned int dofs_per_cell = dofh.get_fe(0).dofs_per_cell;
   std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);

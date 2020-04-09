@@ -57,11 +57,11 @@ test()
   fe_collection.push_back(FESystem<dim>(FE_Q<dim>(1), 2));
   fe_collection.push_back(FESystem<dim>(FE_Nothing<dim>(), 2));
 
-  hp::DoFHandler<dim> dof_handler(triangulation);
+  DoFHandler<dim> dof_handler(triangulation, true);
 
-  typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
-                                                              .begin_active(),
-                                                     endc = dof_handler.end();
+  typename DoFHandler<dim>::active_cell_iterator cell =
+                                                   dof_handler.begin_active(),
+                                                 endc = dof_handler.end();
 
   for (; cell != endc; cell++)
     if (cell->center()[0] > 0)

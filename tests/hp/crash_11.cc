@@ -74,7 +74,7 @@ main()
   fe.push_back(FE_Q<3>(QIterated<1>(QTrapez<1>(), 3)));
   fe.push_back(FE_Q<3>(QIterated<1>(QTrapez<1>(), 4)));
 
-  hp::DoFHandler<3> dof_handler(triangulation);
+  DoFHandler<3> dof_handler(triangulation, true);
 
   // assign polynomial degrees like this:
   //
@@ -84,7 +84,7 @@ main()
   // | 4 | 3 |
   // *---*---*
   //
-  hp::DoFHandler<3>::active_cell_iterator cell = dof_handler.begin_active();
+  DoFHandler<3>::active_cell_iterator cell = dof_handler.begin_active();
   cell->set_active_fe_index(0);
   ++cell;
   cell->set_active_fe_index(1);
@@ -103,8 +103,7 @@ main()
   // with it). note that there is
   // only one such line so we can
   // quit the loop once we find it
-  for (hp::DoFHandler<3>::active_cell_iterator cell =
-         dof_handler.begin_active();
+  for (DoFHandler<3>::active_cell_iterator cell = dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell)
     for (unsigned int l = 0; l < GeometryInfo<3>::lines_per_cell; ++l)

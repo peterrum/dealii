@@ -44,7 +44,7 @@ test()
 
   hp::FECollection<dim> fe;
   fe.push_back(FE_Q<dim>(1));
-  hp::DoFHandler<dim> dof_handler(triangulation);
+  DoFHandler<dim> dof_handler(triangulation, true);
   dof_handler.distribute_dofs(fe);
 
   // this used to crash here:

@@ -103,7 +103,7 @@ test2cells(const unsigned int p_feq = 2, const unsigned int p_feen = 1)
                                         triangulation);
   }
 
-  hp::DoFHandler<dim>     dof_handler(triangulation);
+  DoFHandler<dim>         dof_handler(triangulation, true);
   EnrichmentFunction<dim> function;
 
   hp::FECollection<dim> fe_collection;

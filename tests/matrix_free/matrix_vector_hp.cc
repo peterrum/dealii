@@ -149,12 +149,11 @@ test()
       quadrature_collection_mf.push_back(QGauss<1>(deg + 1));
     }
 
-  hp::DoFHandler<dim> dof(tria);
+  DoFHandler<dim> dof(tria, true);
   // set the active FE index in a random order
   {
-    typename hp::DoFHandler<dim>::active_cell_iterator cell =
-                                                         dof.begin_active(),
-                                                       endc = dof.end();
+    typename DoFHandler<dim>::active_cell_iterator cell = dof.begin_active(),
+                                                   endc = dof.end();
     for (; cell != endc; ++cell)
       {
         const unsigned int fe_index = Testing::rand() % max_degree;
@@ -199,9 +198,8 @@ test()
     FullMatrix<double>                   cell_matrix;
     std::vector<types::global_dof_index> local_dof_indices;
 
-    typename hp::DoFHandler<dim>::active_cell_iterator cell =
-                                                         dof.begin_active(),
-                                                       endc = dof.end();
+    typename DoFHandler<dim>::active_cell_iterator cell = dof.begin_active(),
+                                                   endc = dof.end();
     for (; cell != endc; ++cell)
       {
         const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;

@@ -202,8 +202,8 @@ private:
   void
   process_solution(const unsigned int cycle);
 
-  Triangulation<dim>  triangulation;
-  hp::DoFHandler<dim> dof_handler;
+  Triangulation<dim> triangulation;
+  DoFHandler<dim>    dof_handler;
 
   SmartPointer<const hp::FECollection<dim>> fe;
 
@@ -225,7 +225,7 @@ private:
 template <int dim>
 HelmholtzProblem<dim>::HelmholtzProblem(const hp::FECollection<dim> &fe,
                                         const RefinementMode refinement_mode)
-  : dof_handler(triangulation)
+  : dof_handler(triangulation, true)
   , fe(&fe)
   , refinement_mode(refinement_mode)
 {}
@@ -301,9 +301,9 @@ HelmholtzProblem<dim>::assemble_system()
 
   const Solution<dim> exact_solution;
 
-  typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
-                                                              .begin_active(),
-                                                     endc = dof_handler.end();
+  typename DoFHandler<dim>::active_cell_iterator cell =
+                                                   dof_handler.begin_active(),
+                                                 endc = dof_handler.end();
   for (; cell != endc; ++cell)
     {
       cell_matrix = 0;
@@ -547,7 +547,7 @@ HelmholtzProblem<dim>::run()
 
       gmv_filename += ".gmv";
 
-      DataOut<dim, hp::DoFHandler<dim>> data_out;
+      DataOut<dim, DoFHandler<dim>> data_out;
       data_out.attach_dof_handler(dof_handler);
       data_out.add_data_vector(solution, "solution");
 

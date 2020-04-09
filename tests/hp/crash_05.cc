@@ -48,10 +48,10 @@ test()
   for (unsigned int i = 0; i < tria.n_active_cells(); ++i)
     fe_collection.push_back(FE_Q<dim>(1));
 
-  hp::DoFHandler<dim> dof_handler(tria);
+  DoFHandler<dim> dof_handler(tria, true);
 
   unsigned int fe_index = 0;
-  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
+  for (typename DoFHandler<dim>::active_cell_iterator cell =
          dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell, ++fe_index)
@@ -64,7 +64,7 @@ test()
   dof_handler.distribute_dofs(fe_collection);
 
   std::vector<types::global_dof_index> local_dof_indices;
-  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
+  for (typename DoFHandler<dim>::active_cell_iterator cell =
          dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell)

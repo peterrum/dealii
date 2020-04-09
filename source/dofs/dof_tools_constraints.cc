@@ -425,22 +425,6 @@ namespace DoFTools
       }
 
 
-      // a template that can determine statically whether a given DoFHandler
-      // class supports different finite element elements
-      template <typename>
-      struct DoFHandlerSupportsDifferentFEs
-      {
-        static const bool value = true;
-      };
-
-
-      template <int dim, int spacedim>
-      struct DoFHandlerSupportsDifferentFEs<dealii::DoFHandler<dim, spacedim>>
-      {
-        static const bool value = false;
-      };
-
-
       /**
        * A function that returns how many different finite elements a dof
        * handler uses. This is one for non-hp DoFHandlers and
@@ -450,7 +434,7 @@ namespace DoFTools
       unsigned int
       n_finite_elements(const DoFHandlerType &dof_handler)
       {
-        if (dof_handler.is_hp_dof_handler == false)
+        if (dof_handler.is_hp_dof_handler == true)
           return dof_handler.get_fe_collection().size();
         else
           return 1;
@@ -1109,8 +1093,7 @@ namespace DoFTools
                 std::set<unsigned int> fe_ind_face_subface;
                 fe_ind_face_subface.insert(cell->active_fe_index());
 
-                if (DoFHandlerSupportsDifferentFEs<DoFHandlerType>::value ==
-                    true)
+                if (dof_handler.is_hp_dof_handler)
                   for (unsigned int c = 0;
                        c < cell->face(face)->number_of_children();
                        ++c)
@@ -1248,8 +1231,7 @@ namespace DoFTools
                         //
                         // since this is something that can only happen for hp
                         // dof handlers, add a check here...
-                        Assert(DoFHandlerSupportsDifferentFEs<
-                                 DoFHandlerType>::value == true,
+                        Assert(dof_handler.is_hp_dof_handler == true,
                                ExcInternalError());
 
                         const dealii::hp::FECollection<dim, spacedim>
@@ -1466,8 +1448,7 @@ namespace DoFTools
 
                 // Only if there is a neighbor with a different active_fe_index
                 // and the same h-level, some action has to be taken.
-                if ((DoFHandlerSupportsDifferentFEs<DoFHandlerType>::value ==
-                     true) &&
+                if ((dof_handler.is_hp_dof_handler) &&
                     !cell->face(face)->at_boundary() &&
                     (cell->neighbor(face)->active_fe_index() !=
                      cell->active_fe_index()) &&

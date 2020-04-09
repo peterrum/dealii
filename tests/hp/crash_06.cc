@@ -68,10 +68,10 @@ void
 do_check(const Triangulation<dim> &   triangulation,
          const hp::FECollection<dim> &fe)
 {
-  hp::DoFHandler<dim> dof_handler(triangulation);
+  DoFHandler<dim> dof_handler(triangulation, true);
 
   // distribute fe_indices randomly
-  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
+  for (typename DoFHandler<dim>::active_cell_iterator cell =
          dof_handler.begin_active();
        cell != dof_handler.end();
        ++cell)

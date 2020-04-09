@@ -39,9 +39,8 @@ template <int dim>
 void
 test(const Triangulation<dim> &tr, const hp::FECollection<dim> &fe)
 {
-  hp::DoFHandler<dim> dof(tr);
-  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
-         dof.begin_active();
+  DoFHandler<dim> dof(tr, true);
+  for (typename DoFHandler<dim>::active_cell_iterator cell = dof.begin_active();
        cell != dof.end();
        ++cell)
     cell->set_active_fe_index(cell->index() % 2);

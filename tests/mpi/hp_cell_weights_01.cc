@@ -56,7 +56,7 @@ test()
   fe_collection.push_back(FE_Q<dim>(1));
   fe_collection.push_back(FE_Q<dim>(5));
 
-  hp::DoFHandler<dim> dh(tria);
+  DoFHandler<dim> dh(tria, true);
   dh.set_fe(fe_collection);
   // default: active_fe_index = 0
   for (auto &cell : dh.active_cell_iterators())

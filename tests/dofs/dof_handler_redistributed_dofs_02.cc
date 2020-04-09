@@ -38,7 +38,7 @@ main()
   FE_Q<dim, spacedim>             fe(1);
   hp::FECollection<dim, spacedim> fe_collection(fe);
 
-  hp::DoFHandler<dim, spacedim> dh(tria);
+  DoFHandler<dim, spacedim> dh(tria, true);
   dh.distribute_dofs(fe_collection);
 
   SmartPointer<const hp::FECollection<dim, spacedim>> fe_p(

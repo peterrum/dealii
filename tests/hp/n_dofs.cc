@@ -54,7 +54,7 @@ test(const FiniteElement<dim> &fe)
 
   const hp::FECollection<dim> fe_collection(fe);
 
-  hp::DoFHandler<dim> hp_dof_handler(tria);
+  DoFHandler<dim> hp_dof_handler(tria, true);
   hp_dof_handler.distribute_dofs(fe_collection);
 
   DoFHandler<dim> dof_handler(tria);

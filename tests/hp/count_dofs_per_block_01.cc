@@ -73,11 +73,11 @@ check()
   fe.push_back(FESystem<dim>(FE_Q<dim>(1), dim, FE_DGQ<dim>(0), 1));
   fe.push_back(FESystem<dim>(FE_Q<dim>(1), dim, FE_DGQ<dim>(0), 1));
 
-  hp::DoFHandler<dim> dof_handler(tria);
+  DoFHandler<dim> dof_handler(tria, true);
 
-  typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
-                                                              .begin_active(),
-                                                     endc = dof_handler.end();
+  typename DoFHandler<dim>::active_cell_iterator cell =
+                                                   dof_handler.begin_active(),
+                                                 endc = dof_handler.end();
   for (; cell != endc; ++cell)
     cell->set_active_fe_index(Testing::rand() % fe.size());
 

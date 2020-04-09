@@ -31,6 +31,9 @@ template <typename DoFHandlerType>
 void
 check_this(const DoFHandlerType &dof_handler)
 {
+  if (dof_handler.is_hp_dof_handler == true)
+    return;
+
   deallog << dof_handler.get_fe().get_name() << ": "
           << (dof_handler.get_fe().hp_constraints_are_implemented() ? "true" :
                                                                       "false")

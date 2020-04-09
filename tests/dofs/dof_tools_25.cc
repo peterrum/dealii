@@ -109,7 +109,7 @@ test_with_both_dof_handlers(const Triangulation<dim> &triangulation)
   deallog << "hp::DoFHandler" << std::endl;
   {
     hp::FECollection<dim> fe_collection(element);
-    hp::DoFHandler<dim>   dof_handler(triangulation);
+    DoFHandler<dim>       dof_handler(triangulation, true);
     dof_handler.distribute_dofs(fe_collection);
     create_and_print_pattern<dim>(dof_handler);
   }

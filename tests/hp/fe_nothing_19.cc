@@ -49,8 +49,8 @@ test()
   fe.push_back(elasticity_fe);
   fe.push_back(elasticity_w_lagrange_fe);
 
-  hp::DoFHandler<dim>                                dof_handler(triangulation);
-  typename hp::DoFHandler<dim>::active_cell_iterator cell =
+  DoFHandler<dim> dof_handler(triangulation, true);
+  typename DoFHandler<dim>::active_cell_iterator cell =
     dof_handler.begin_active();
   cell->set_active_fe_index(0);
   (++cell)->set_active_fe_index(1);

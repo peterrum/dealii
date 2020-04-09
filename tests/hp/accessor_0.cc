@@ -38,14 +38,14 @@ main()
   triangulation.refine_global(2);
 
   hp::FECollection<1> fe_collection;
-  hp::DoFHandler<1>   dof_handler(triangulation);
+  DoFHandler<1>       dof_handler(triangulation, true);
   fe_collection.push_back(FE_Q<1>(2));
   fe_collection.push_back(FE_Q<1>(4));
   fe_collection.push_back(FE_Q<1>(6));
 
   const unsigned int n_fe_indices = 3;
   {
-    typename hp::DoFHandler<1>::active_cell_iterator cell =
+    typename DoFHandler<1>::active_cell_iterator cell =
       dof_handler.begin_active();
     dof_handler.begin_active()->set_active_fe_index(1);
     ++cell; // go to cell 1
@@ -60,9 +60,9 @@ main()
 
   std::vector<types::global_dof_index> dof_indices;
 
-  typename hp::DoFHandler<1>::active_cell_iterator cell =
-                                                     dof_handler.begin_active(),
-                                                   endc = dof_handler.end();
+  typename DoFHandler<1>::active_cell_iterator cell =
+                                                 dof_handler.begin_active(),
+                                               endc = dof_handler.end();
   for (; cell != endc; ++cell)
     {
       deallog << "===================================" << std::endl;
@@ -83,7 +83,7 @@ main()
 
       // see if we have a neighbor on the right. If so, the common vertex
       // should be associated with two FE indices.
-      const typename hp::DoFHandler<1>::active_cell_iterator neighbor =
+      const typename DoFHandler<1>::active_cell_iterator neighbor =
         cell->neighbor(1);
       if (neighbor != dof_handler.end())
         {

@@ -74,10 +74,9 @@ check()
   if (dim < 3)
     element.push_back(FESystem<dim>(FE_RaviartThomasNodal<dim>(3), 2));
 
-  hp::DoFHandler<dim> dof(tr);
+  DoFHandler<dim> dof(tr, true);
 
-  for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
-         dof.begin_active();
+  for (typename DoFHandler<dim>::active_cell_iterator cell = dof.begin_active();
        cell != dof.end();
        ++cell)
     cell->set_active_fe_index(Testing::rand() % element.size());

@@ -45,7 +45,7 @@ public:
   FESystem<dim> continuous_fe;
   FESystem<dim> discontinuous_fe;
 
-  hp::DoFHandler<dim>   dof_handler;
+  DoFHandler<dim>       dof_handler;
   hp::FECollection<dim> fe_collection;
 };
 
@@ -53,7 +53,7 @@ template <int dim>
 MixedFECollection<dim>::MixedFECollection()
   : continuous_fe(FE_Q<dim>(1), dim)
   , discontinuous_fe(FE_DGQ<dim>(1), dim)
-  , dof_handler(triangulation)
+  , dof_handler(triangulation, true)
 {}
 
 template <int dim>
@@ -77,9 +77,9 @@ MixedFECollection<dim>::run()
   // looping over all cells and assigning the FE_DG object to the first cell
   // that comes up -- works. looping over all cells and assigning the FE_DG
   // object to the interior cells -- doesn't work.
-  typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
-                                                              .begin_active(),
-                                                     endc = dof_handler.end();
+  typename DoFHandler<dim>::active_cell_iterator cell =
+                                                   dof_handler.begin_active(),
+                                                 endc = dof_handler.end();
   for (; cell != endc; ++cell)
     {
       //          if (cell == dof_handler.begin_active()) // this works

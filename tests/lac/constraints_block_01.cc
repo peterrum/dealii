@@ -122,9 +122,9 @@ main()
   fe_collection.push_back(*solid_fe);
   fe_collection.push_back(*fluid_fe);
 
-  hp::DoFHandler<dim> dh(tria);
+  DoFHandler<dim> dh(tria, true);
 
-  for (hp::DoFHandler<dim>::active_cell_iterator cell = dh.begin_active();
+  for (DoFHandler<dim>::active_cell_iterator cell = dh.begin_active();
        cell != dh.end();
        ++cell)
     {
@@ -237,7 +237,7 @@ main()
   std::vector<std::pair<unsigned int, unsigned int>> solid_fluid_pairs;
   std::vector<std::pair<unsigned int, unsigned int>> solid_mesh_pairs;
 
-  for (hp::DoFHandler<dim>::active_cell_iterator cell = dh.begin_active();
+  for (DoFHandler<dim>::active_cell_iterator cell = dh.begin_active();
        cell != dh.end();
        ++cell) // loops over the cells
     {
@@ -344,7 +344,7 @@ main()
 
     std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
 
-    for (hp::DoFHandler<dim>::active_cell_iterator cell = dh.begin_active();
+    for (DoFHandler<dim>::active_cell_iterator cell = dh.begin_active();
          cell != dh.end();
          ++cell) // loops over the cells
       {

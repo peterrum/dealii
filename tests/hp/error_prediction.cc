@@ -55,7 +55,7 @@ test()
   for (unsigned int d = 1; d <= 3; ++d)
     fes.push_back(FE_Q<dim>(d));
 
-  hp::DoFHandler<dim> dh(tria);
+  DoFHandler<dim> dh(tria, true);
   dh.set_fe(fes);
   for (const auto &cell : dh.active_cell_iterators())
     {

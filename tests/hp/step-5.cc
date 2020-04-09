@@ -72,7 +72,7 @@ private:
 
   Triangulation<dim>    triangulation;
   hp::FECollection<dim> fe;
-  hp::DoFHandler<dim>   dof_handler;
+  DoFHandler<dim>       dof_handler;
 
   SparsityPattern      sparsity_pattern;
   SparseMatrix<double> system_matrix;
@@ -142,7 +142,7 @@ Coefficient<dim>::value_list(const std::vector<Point<dim>> &points,
 template <int dim>
 LaplaceProblem<dim>::LaplaceProblem()
   : fe(FE_Q<dim>(1))
-  , dof_handler(triangulation)
+  , dof_handler(triangulation, true)
 {}
 
 
@@ -192,9 +192,9 @@ LaplaceProblem<dim>::assemble_system()
   const Coefficient<dim> coefficient;
   std::vector<double>    coefficient_values(n_q_points);
 
-  typename hp::DoFHandler<dim>::active_cell_iterator cell = dof_handler
-                                                              .begin_active(),
-                                                     endc = dof_handler.end();
+  typename DoFHandler<dim>::active_cell_iterator cell =
+                                                   dof_handler.begin_active(),
+                                                 endc = dof_handler.end();
   for (; cell != endc; ++cell)
     {
       cell_matrix = 0;
@@ -271,7 +271,7 @@ LaplaceProblem<dim>::output_results(const unsigned int cycle) const
   if (cycle >= 2)
     return;
 
-  DataOut<dim, hp::DoFHandler<dim>> data_out;
+  DataOut<dim, DoFHandler<dim>> data_out;
 
   data_out.attach_dof_handler(dof_handler);
   data_out.add_data_vector(solution, "solution");

@@ -67,7 +67,7 @@ namespace Step
   private:
     Triangulation<dim> triangulation;
 
-    hp::DoFHandler<dim>      dof_handler;
+    DoFHandler<dim>          dof_handler;
     hp::FECollection<dim>    fe_collection;
     hp::QCollection<dim>     quadrature_collection;
     hp::QCollection<dim - 1> face_quadrature_collection;
@@ -82,7 +82,7 @@ namespace Step
 
   template <int dim>
   Problem<dim>::Problem()
-    : dof_handler(triangulation)
+    : dof_handler(triangulation, true)
   {
     GridGenerator::hyper_cube(triangulation);
     for (unsigned int degree = 1; degree <= 7; ++degree)

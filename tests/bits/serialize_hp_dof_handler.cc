@@ -44,7 +44,7 @@ main()
   Triangulation<2> triangulation;
   GridGenerator::hyper_cube(triangulation);
   triangulation.refine_global(4);
-  hp::DoFHandler<2>   dof_handler(triangulation);
+  DoFHandler<2>       dof_handler(triangulation, true);
   FE_Q<2>             finite_element(1);
   hp::FECollection<2> fe;
   fe.push_back(finite_element);

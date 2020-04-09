@@ -69,7 +69,7 @@ test()
 
   for (unsigned int test = 0; test < 2; ++test)
     {
-      hp::DoFHandler<2, 3> dof_handler(tr);
+      DoFHandler<2, 3> dof_handler(tr, true);
       dof_handler.distribute_dofs(fe);
 
       // in the second test run, revert the global order of DoF
@@ -97,9 +97,8 @@ test()
               << "prior reordering:" << std::endl;
       const unsigned int                   dofs_per_cell = fe[0].dofs_per_cell;
       std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
-      hp::DoFHandler<2, 3>::active_cell_iterator cell =
-                                                   dof_handler.begin_active(),
-                                                 endc = dof_handler.end();
+      DoFHandler<2, 3>::active_cell_iterator cell = dof_handler.begin_active(),
+                                             endc = dof_handler.end();
       for (; cell != endc; ++cell)
         if (cell->subdomain_id() == tr.locally_owned_subdomain())
           {

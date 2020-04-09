@@ -55,7 +55,7 @@ test()
   hp::FECollection<dim> fe;
   fe.push_back(FESystem<dim>(FE_Q<dim>(3), 2, FE_DGQ<dim>(1), 1));
 
-  hp::DoFHandler<dim> dof_handler(triangulation);
+  DoFHandler<dim> dof_handler(triangulation, true);
 
   GridGenerator::hyper_cube(triangulation);
   triangulation.refine_global(2);

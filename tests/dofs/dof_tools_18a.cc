@@ -49,6 +49,9 @@ template <typename DoFHandlerType>
 void
 check_this(const DoFHandlerType &dof_handler)
 {
+  if (dof_handler.is_hp_dof_handler == true)
+    return;
+
   Table<2, DoFTools::Coupling> mask_int;
   Table<2, DoFTools::Coupling> mask_ext;
   make_masks(dof_handler.get_fe().n_components(), mask_int, mask_ext);

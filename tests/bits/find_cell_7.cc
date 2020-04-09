@@ -80,7 +80,7 @@ check2()
   fes.push_back(FE_Q<3>(1));
   fes.push_back(FE_Q<3>(1));
 
-  hp::DoFHandler<3> dof_handler(tria);
+  DoFHandler<3> dof_handler(tria, true);
   dof_handler.distribute_dofs(fes);
 
   GridTools::find_active_cell_around_point(mappings,

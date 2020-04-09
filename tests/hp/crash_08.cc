@@ -71,10 +71,10 @@ main()
   fe.push_back(FE_Q<2>(2));
   fe.push_back(FE_Q<2>(QIterated<1>(QTrapez<1>(), 3)));
 
-  hp::DoFHandler<2> dof_handler(triangulation);
+  DoFHandler<2> dof_handler(triangulation, true);
 
   // subdivide cells 1, 3, 5, 7
-  hp::DoFHandler<2>::active_cell_iterator cell = dof_handler.begin_active();
+  DoFHandler<2>::active_cell_iterator cell = dof_handler.begin_active();
   ++cell;
   cell->set_refine_flag();
   ++cell;

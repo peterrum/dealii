@@ -35,8 +35,8 @@ template <int dim>
 void
 test1()
 {
-  Triangulation<dim>  tr1;
-  hp::DoFHandler<dim> dofh(tr1);
+  Triangulation<dim> tr1;
+  DoFHandler<dim>    dofh(tr1, true);
 
   Triangulation<dim> tr2;
   GridGenerator::hyper_ball(tr2);

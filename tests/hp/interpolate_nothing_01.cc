@@ -60,7 +60,7 @@ test()
 
   hp::FECollection<dim> hp_fe;
   hp_fe.push_back(FESystem<dim>(FE_Q<dim>(2), 1, FE_Nothing<dim>(), 1));
-  hp::DoFHandler<dim> dof_handler(triangulation);
+  DoFHandler<dim> dof_handler(triangulation, true);
   dof_handler.distribute_dofs(hp_fe);
 
   Vector<double> interpolant(dof_handler.n_dofs());

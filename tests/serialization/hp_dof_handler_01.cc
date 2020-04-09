@@ -35,13 +35,13 @@ namespace dealii
 {
   template <int dim, int spacedim>
   bool
-  operator==(const hp::DoFHandler<dim, spacedim> &t1,
-             const hp::DoFHandler<dim, spacedim> &t2)
+  operator==(const DoFHandler<dim, spacedim> &t1,
+             const DoFHandler<dim, spacedim> &t2)
   {
     // test a few attributes, though we can't
     // test everything unfortunately...
-    typename hp::DoFHandler<dim, spacedim>::cell_iterator c1 = t1.begin(),
-                                                          c2 = t2.begin();
+    typename DoFHandler<dim, spacedim>::cell_iterator c1 = t1.begin(),
+                                                      c2 = t2.begin();
     for (; (c1 != t1.end()) && (c2 != t2.end()); ++c1, ++c2)
       {
         for (const unsigned int v : GeometryInfo<dim>::vertex_indices())
@@ -128,8 +128,8 @@ namespace dealii
 
     // also check the order of raw iterators as they contain
     // something about the history of the triangulation
-    typename hp::DoFHandler<dim, spacedim>::cell_iterator r1 = t1.begin(),
-                                                          r2 = t2.begin();
+    typename DoFHandler<dim, spacedim>::cell_iterator r1 = t1.begin(),
+                                                      r2 = t2.begin();
     for (; (r1 != t1.end()) && (r2 != t2.end()); ++r1, ++r2)
       {
         if (r1->level() != r2->level())
@@ -181,8 +181,8 @@ test()
   fe_collection.push_back(FESystem<dim, spacedim>(
     FE_Q<dim, spacedim>(3), dim, FE_Q<dim, spacedim>(2), 1));
 
-  hp::DoFHandler<dim, spacedim> dof_1(tria);
-  hp::DoFHandler<dim, spacedim> dof_2(tria);
+  DoFHandler<dim, spacedim> dof_1(tria, true);
+  DoFHandler<dim, spacedim> dof_2(tria, true);
 
   dof_1.begin_active()->set_active_fe_index(1);
   dof_2.begin_active()->set_active_fe_index(1);

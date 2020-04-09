@@ -53,7 +53,7 @@ test()
   fe_collection.push_back(FE_Q<dim>(1));
   fe_collection.push_back(FE_Q<dim>(2));
 
-  hp::DoFHandler<dim> dof_handler(triangulation);
+  DoFHandler<dim> dof_handler(triangulation, true);
   for (unsigned int c = 0; c < dof_handler.begin(0)->n_children(); ++c)
     dof_handler.begin(0)->child(c)->set_active_fe_index(1);
   dof_handler.distribute_dofs(fe_collection);
@@ -63,7 +63,7 @@ test()
   solution = 1.0;
 
   // coarsen everything away
-  SolutionTransfer<dim, Vector<double>, hp::DoFHandler<dim>> solution_trans(
+  SolutionTransfer<dim, Vector<double>, DoFHandler<dim>> solution_trans(
     dof_handler);
   for (unsigned int c = 0; c < dof_handler.begin(0)->n_children(); ++c)
     dof_handler.begin(0)->child(c)->set_coarsen_flag();

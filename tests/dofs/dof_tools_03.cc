@@ -33,6 +33,10 @@ template <typename DoFHandlerType>
 void
 check_this(const DoFHandlerType &dof_handler)
 {
+  if (dof_handler.is_hp_dof_handler == true)
+    return;
+
+
   // use a higher output accuracy for this
   // test. the reason is that many of the
   // constraints are negative powers of 2,

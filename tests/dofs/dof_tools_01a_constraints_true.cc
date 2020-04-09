@@ -34,6 +34,9 @@ template <typename DoFHandlerType>
 void
 check_this(const DoFHandlerType &dof_handler)
 {
+  if (dof_handler.is_hp_dof_handler == true)
+    return;
+
   AffineConstraints<double> cm;
   DoFTools::make_hanging_node_constraints(dof_handler, cm);
   cm.close();

@@ -30,6 +30,9 @@ template <typename DoFHandlerType>
 void
 check_this(const DoFHandlerType &dof_handler)
 {
+  if (dof_handler.is_hp_dof_handler == true)
+    return;
+
   const FiniteElement<DoFHandlerType::dimension> &fe = dof_handler.get_fe();
   deallog << fe.dofs_per_vertex << ' ' << fe.dofs_per_line << ' '
           << fe.dofs_per_quad << ' ' << fe.dofs_per_hex << std::endl;

@@ -43,7 +43,7 @@
 const unsigned int dim = 2;
 
 void
-print_dofs(const hp::DoFHandler<2>::active_cell_iterator &cell)
+print_dofs(const DoFHandler<2>::active_cell_iterator &cell)
 {
   deallog << "DoFs on cell=" << cell << ": ";
 
@@ -73,7 +73,7 @@ main()
   fe_collection.push_back(FESystem<dim>(FE_Nothing<dim>(), 1));
   fe_collection.push_back(FESystem<dim>(FE_Q<dim>(1), 1));
 
-  hp::DoFHandler<dim> dof_handler(triangulation);
+  DoFHandler<dim> dof_handler(triangulation, true);
 
   dof_handler.begin_active()->set_active_fe_index(1);
 

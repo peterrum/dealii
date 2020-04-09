@@ -78,7 +78,7 @@ test()
   fe_collection.push_back(void_fe);
   fe_collection.push_back(solid_fe);
 
-  hp::DoFHandler<dim> dof_handler(triangulation);
+  DoFHandler<dim> dof_handler(triangulation, true);
   dof_handler.set_fe(fe_collection);
 
   // Assign void_fe to all the cells with x < 0.5

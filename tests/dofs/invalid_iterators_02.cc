@@ -29,10 +29,10 @@ template <int dim>
 void
 check()
 {
-  typename hp::DoFHandler<dim>::active_cell_iterator invalid_1;
+  typename DoFHandler<dim>::active_cell_iterator invalid_1;
 
   // try copy constructor
-  typename hp::DoFHandler<dim>::active_cell_iterator invalid_2 = invalid_1;
+  typename DoFHandler<dim>::active_cell_iterator invalid_2 = invalid_1;
 
   // now also try copy operator
   invalid_1 = invalid_2;

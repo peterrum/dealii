@@ -891,21 +891,13 @@ namespace internal
          */
         template <int dim, int spacedim>
         static void
-        compute_dof_identities(
-          const std::vector<
-            std::map<types::global_dof_index, types::global_dof_index>> &,
-          const DoFHandler<dim, spacedim> &)
-        {}
-
-
-        template <int dim, int spacedim>
-        static void
         compute_dof_identities(std::vector<std::map<types::global_dof_index,
                                                     types::global_dof_index>>
                                  &all_constrained_indices,
                                const DoFHandler<dim, spacedim> &dof_handler)
         {
-          Assert(dof_handler.is_hp_dof_handler == true, ExcNotImplemented());
+          if (dof_handler.is_hp_dof_handler == false)
+            return;
 
           Assert(all_constrained_indices.size() == dim, ExcInternalError());
 

@@ -50,7 +50,7 @@ test()
   for (unsigned int i = 0; i < 4; ++i)
     fe.push_back(FESystem<dim>(FE_Q<dim>(i + 1), 2, FE_DGQ<dim>(i), 1));
 
-  hp::DoFHandler<dim> dof_handler(triangulation);
+  DoFHandler<dim> dof_handler(triangulation, true);
 
   GridGenerator::hyper_cube(triangulation);
   triangulation.refine_global(2);
@@ -91,7 +91,7 @@ test()
       triangulation.execute_coarsening_and_refinement();
 
       index = 0;
-      for (typename hp::DoFHandler<dim>::active_cell_iterator cell =
+      for (typename DoFHandler<dim>::active_cell_iterator cell =
              dof_handler.begin_active();
            cell != dof_handler.end();
            ++cell, ++index)
