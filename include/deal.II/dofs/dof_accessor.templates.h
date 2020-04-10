@@ -96,7 +96,7 @@ inline DoFAccessor<structdim, DoFHandlerType, level_dof_access>::DoFAccessor(
            "You are trying to assign iterators that are incompatible. "
            "Reasons for incompatibility are that they point to different "
            "types of DoFHandlers (e.g., dealii::DoFHandler and "
-           "dealii::hp__DoFHandler) or that they refer to objects of "
+           "dealii::hp::DoFHandler) or that they refer to objects of "
            "different dimensionality (e.g., assigning a line iterator "
            "to a quad iterator)."));
 }
@@ -436,7 +436,7 @@ namespace internal
       {
         Assert(dof_handler.is_hp_dof_handler == false,
                ExcMessage(
-                 "hp__DoFHandler does not implement multilevel DoFs."));
+                 "hp::DoFHandler does not implement multilevel DoFs."));
 
         return dof_handler.mg_vertex_dofs[vertex_index].get_index(
           level, i, dof_handler.get_fe().dofs_per_vertex);
@@ -454,7 +454,7 @@ namespace internal
       {
         Assert(dof_handler.is_hp_dof_handler == false,
                ExcMessage(
-                 "hp__DoFHandler does not implement multilevel DoFs."));
+                 "hp::DoFHandler does not implement multilevel DoFs."));
 
         return dof_handler.mg_vertex_dofs[vertex_index].set_index(
           level, i, dof_handler.get_fe().dofs_per_vertex, index);
@@ -964,7 +964,7 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::mg_vertex_dof_index(
   AssertIndexRange(i, this->dof_handler->get_fe(fe_index).dofs_per_vertex);
 
   Assert(dof_handler->is_hp_dof_handler == false,
-         ExcMessage("hp__DoFHandler does not implement multilevel DoFs."));
+         ExcMessage("hp::DoFHandler does not implement multilevel DoFs."));
 
   return this->dof_handler->mg_vertex_dofs[this->vertex_index(vertex)]
     .get_index(level, i, this->dof_handler->get_fe().dofs_per_vertex);
@@ -1016,7 +1016,7 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::
   AssertIndexRange(i, this->dof_handler->get_fe(fe_index).dofs_per_vertex);
 
   Assert(dof_handler->is_hp_dof_handler == false,
-         ExcMessage("hp__DoFHandler does not implement multilevel DoFs."));
+         ExcMessage("hp::DoFHandler does not implement multilevel DoFs."));
 
   this->dof_handler->mg_vertex_dofs[this->vertex_index(vertex)].set_index(
     level, i, this->dof_handler->get_fe().dofs_per_vertex, index);
@@ -2652,7 +2652,7 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::get_fe() const
   Assert(this->dof_handler != nullptr, typename BaseClass::ExcInvalidObject());
   Assert((this->dof_handler->is_hp_dof_handler == false) || this->is_active(),
          ExcMessage(
-           "In hp__DoFHandler objects, finite elements are only associated "
+           "In hp::DoFHandler objects, finite elements are only associated "
            "with active cells. Consequently, you can not ask for the "
            "active finite element on cells with children."));
 
@@ -2715,7 +2715,7 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::get_future_fe() const
   Assert(this->dof_handler != nullptr, typename BaseClass::ExcInvalidObject());
   Assert((this->dof_handler->is_hp_dof_handler == false) || this->is_active(),
          ExcMessage(
-           "In hp__DoFHandler objects, finite elements are only associated "
+           "In hp::DoFHandler objects, finite elements are only associated "
            "with active cells. Consequently, you can not ask for the "
            "future finite element on cells with children."));
 

@@ -1633,7 +1633,7 @@ namespace internal
 
 
         /**
-         * Given a hp__DoFHandler object, make sure that the active_fe_indices
+         * Given a hp::DoFHandler object, make sure that the active_fe_indices
          * that a user has set for locally owned cells are communicated to all
          * other relevant cells as well.
          *

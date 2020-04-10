@@ -139,7 +139,7 @@ DEAL_II_NAMESPACE_OPEN
  * For example, a vector holding densities at each quadrature point which is
  * used with LocalIntegrators::L2::weighted_mass_matrix() to assemble the local
  * matrix could be resized to the corresponding number of quadrature points of
- * the current cell in hp__DoFHandler. Similarly, local stiffness matrix in
+ * the current cell in hp::DoFHandler. Similarly, local stiffness matrix in
  * CopyData can be resized in accordance with the number of local DoFs on the
  * current cell.
  *

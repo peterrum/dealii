@@ -293,7 +293,7 @@ DEAL_II_NAMESPACE_OPEN
  *
  * <h3>Implementation in the context of hp finite elements</h3>
  *
- * In the case of hp__DoFHandlers, nothing defines which of the finite
+ * In the case of hp::DoFHandlers, nothing defines which of the finite
  * elements that are part of the hp::FECollection associated with the DoF
  * handler, should be considered on cells that are not active (i.e., that have
  * children). This is because degrees of freedom are only allocated for active
@@ -321,7 +321,7 @@ DEAL_II_NAMESPACE_OPEN
  *   interpolated into the space the user has selected for this cell (which may
  *   be different from Q3, in this example, if the user has set the
  *   active_fe_index for a different space post-refinement and before calling
- *   hp__DoFHandler::distribute_dofs()).
+ *   hp::DoFHandler::distribute_dofs()).
  *
  * @note In the context of hp refinement, if cells are coarsened or the
  * polynomial degree is lowered on some cells, then the old finite element

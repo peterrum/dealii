@@ -153,18 +153,18 @@ namespace parallel
      * @endcode
      *
      *
-     * <h3>Note on usage with hp__DoFHandler</h3>
+     * <h3>Note on usage with hp::DoFHandler</h3>
      *
-     * If an object of the hp__DoFHandler class is registered with an
+     * If an object of the hp::DoFHandler class is registered with an
      * instantiation of this parallel::distributed::SolutionTransfer
      * class, it is necessary to explicitly specify this in the template
      * argument list of this class, i.e.:
      * @code
      * parallel::distributed::SolutionsTransfer<dim, VectorType,
-     *   hp__DoFHandler<dim, spacedim>> sol_trans(hp_dof_handler);
+     *   hp::DoFHandler<dim, spacedim>> sol_trans(hp_dof_handler);
      * @endcode
      *
-     * Since data on hp__DoFHandler objects is associated with many different
+     * Since data on hp::DoFHandler objects is associated with many different
      * FiniteElement objects, each cell's data has to be processed with its
      * correpsonding `active_fe_index`. Further, if refinement is involved,
      * data will be packed on the parent cell with its `active_fe_index` and
@@ -178,7 +178,7 @@ namespace parallel
      * non-hp case. However, when considering serialization, we also have to
      * store the active_fe_indices in an additional step. A code snippet
      * demonstrating serialization with the
-     * parallel::distributed::SolutionTransfer class with hp__DoFHandler objects
+     * parallel::distributed::SolutionTransfer class with hp::DoFHandler objects
      * is provided in the following. Here VectorType is your favorite vector
      * type, e.g. PETScWrappers::MPI::Vector, TrilinosWrappers::MPI::Vector, or
      * corresponding block vectors.
@@ -186,7 +186,7 @@ namespace parallel
      * If vector has the locally relevant DoFs, serialization works as follows:
      * @code
      * parallel::distributed::
-     *   SolutionTransfer<dim, VectorType, hp__DoFHandler<dim,spacedim>>
+     *   SolutionTransfer<dim, VectorType, hp::DoFHandler<dim,spacedim>>
      *     sol_trans(hp_dof_handler);
      *
      * hp_dof_handler.prepare_for_serialization_of_active_fe_indices();
@@ -204,7 +204,7 @@ namespace parallel
      * hp::FECollection<dim,spacedim> fe_collection;
      * //[prepare identical fe_collection...]
      *
-     * hp__DoFHandler<dim,spacedim> hp_dof_handler(triangulation);
+     * hp::DoFHandler<dim,spacedim> hp_dof_handler(triangulation);
      * // We need to introduce our dof_handler to the fe_collection
      * // before setting all active_fe_indices.
      * hp_dof_handler.set_fe(fe_collection);
@@ -212,7 +212,7 @@ namespace parallel
      * hp_dof_handler.distribute_dofs(fe_collection);
      *
      * parallel::distributed::
-     *   SolutionTransfer<dim,VectorType,hp__DoFHandler<dim,spacedim>>
+     *   SolutionTransfer<dim,VectorType,hp::DoFHandler<dim,spacedim>>
      *     sol_trans(dof_handler);
      * sol_trans.deserialize(distributed_vector);
      * @endcode
@@ -244,7 +244,7 @@ namespace parallel
       /**
        * Constructor.
        *
-       * @param[in] dof The DoFHandler or hp__DoFHandler on which all
+       * @param[in] dof The DoFHandler or hp::DoFHandler on which all
        *   operations will happen. At the time when this constructor
        *   is called, the DoFHandler still points to the triangulation
        *   before the refinement in question happens.

@@ -1438,7 +1438,7 @@ namespace GridTools
    *   tria, IteratorFilters::MaterialIdEqualTo(1, true));
    * @endcode
    * or around all cells with one of a set of active FE indices for an
-   * hp__DoFHandler
+   * hp::DoFHandler
    * @code
    * GridTools::compute_active_cell_halo_layer(
    *   hp_dof_handler, IteratorFilters::ActiveFEIndexEqualTo({1,2}, true));
@@ -1450,7 +1450,7 @@ namespace GridTools
    * @tparam MeshType A type that satisfies the requirements of the
    * @ref ConceptMeshType "MeshType concept".
    * @param[in] mesh A mesh (i.e. objects of type Triangulation, DoFHandler,
-   * or hp__DoFHandler).
+   * or hp::DoFHandler).
    * @param[in] predicate A function  (or object of a type with an operator())
    * defining the subdomain around which the halo layer is to be extracted. It
    * is a function that takes in an active cell and returns a boolean.
@@ -1493,7 +1493,7 @@ namespace GridTools
    * @tparam MeshType A type that satisfies the requirements of the
    * @ref ConceptMeshType "MeshType concept".
    * @param[in] mesh A mesh (i.e. objects of type Triangulation, DoFHandler,
-   * or hp__DoFHandler).
+   * or hp::DoFHandler).
    * @return A list of ghost cells
    *
    * @author Jean-Paul Pelteret, Denis Davydov, Wolfgang Bangerth, 2015
@@ -1535,7 +1535,7 @@ namespace GridTools
    * @tparam MeshType A type that satisfies the requirements of the
    * @ref ConceptMeshType "MeshType concept".
    * @param mesh A mesh (i.e. objects of type Triangulation, DoFHandler,
-   * or hp__DoFHandler).
+   * or hp::DoFHandler).
    * @param predicate A function  (or object of a type with an operator())
    * defining the subdomain around which the halo layer is to be extracted. It
    * is a function that takes in an active cell and returns a boolean.
@@ -1575,7 +1575,7 @@ namespace GridTools
    * @tparam MeshType A type that satisfies the requirements of the
    * @ref ConceptMeshType "MeshType concept".
    * @param mesh A mesh (i.e. objects of type Triangulation, DoFHandler,
-   * or hp__DoFHandler).
+   * or hp::DoFHandler).
    * @param layer_thickness specifies the geometric distance within
    * which the function searches for active cells from the locally owned cells.
    * @return A subset of ghost cells within a given geometric distance of @p
@@ -2124,7 +2124,7 @@ namespace GridTools
 
   /**
    * Given two meshes (i.e. objects of type Triangulation, DoFHandler, or
-   * hp__DoFHandler) that are based on the same coarse mesh, this function
+   * hp::DoFHandler) that are based on the same coarse mesh, this function
    * figures out a set of cells that are matched between the two meshes and
    * where at most one of the meshes is more refined on this cell. In other
    * words, it finds the smallest cells that are common to both meshes, and
@@ -2176,7 +2176,7 @@ namespace GridTools
 
   /**
    * The same function as above, but working on arguments of type DoFHandler,
-   * or hp__DoFHandler. This function is provided to allow calling
+   * or hp::DoFHandler. This function is provided to allow calling
    * have_same_coarse_mesh for all types of containers representing
    * triangulations or the classes built on triangulations.
    *
@@ -2401,7 +2401,7 @@ namespace GridTools
    * located.
    *
    * @tparam DoFHandlerType The DoFHandlerType should be a DoFHandler or
-   * hp__DoFHandler.
+   * hp::DoFHandler.
    * @param[in] dof_handler The DoFHandlerType which could be built on a
    * Triangulation or a parallel::distributed::Triangulation with a finite
    * element that has degrees of freedom that are logically associated to a
@@ -2854,12 +2854,12 @@ namespace GridTools
    * in a concrete context. It is taken from the code that makes
    * sure that the @p active_fe_index (a single unsigned integer) is
    * transported from locally owned cells where one can set it in
-   * hp__DoFHandler objects, to the corresponding ghost cells on
+   * hp::DoFHandler objects, to the corresponding ghost cells on
    * other processors to ensure that one can query the right value
    * also on those processors:
    * @code
    * using active_cell_iterator =
-   *   typename dealii::hp__DoFHandler<dim,spacedim>::active_cell_iterator;
+   *   typename dealii::hp::DoFHandler<dim,spacedim>::active_cell_iterator;
    * auto pack = [] (const active_cell_iterator &cell) -> unsigned int
    *             {
    *               return cell->active_fe_index();
@@ -2872,7 +2872,7 @@ namespace GridTools
    *               };
    *
    * GridTools::exchange_cell_data_to_ghosts<
-   *   unsigned int, dealii::hp__DoFHandler<dim,spacedim>> (dof_handler,
+   *   unsigned int, dealii::hp::DoFHandler<dim,spacedim>> (dof_handler,
    *                                                        pack,
    *                                                        unpack);
    * @endcode

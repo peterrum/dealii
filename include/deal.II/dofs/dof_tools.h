@@ -252,7 +252,7 @@ namespace DoFTools
   /**
    * Map a coupling table from the user friendly organization by components to
    * the organization by blocks. Specializations of this function for
-   * DoFHandler and hp__DoFHandler are required due to the different results
+   * DoFHandler and hp::DoFHandler are required due to the different results
    * of their finite element access.
    *
    * The return vector will be initialized to the correct length inside this
@@ -267,7 +267,7 @@ namespace DoFTools
   /**
    * Map a coupling table from the user friendly organization by components to
    * the organization by blocks. Specializations of this function for
-   * DoFHandler and hp__DoFHandler are required due to the different results
+   * DoFHandler and hp::DoFHandler are required due to the different results
    * of their finite element access.
    *
    * The return vector will be initialized to the correct length inside this
@@ -310,7 +310,7 @@ namespace DoFTools
    * @name Generic Functions
    *
    * Functions to support code that generically uses both DoFHandler and
-   * hp__DoFHandler.
+   * hp::DoFHandler.
    * @{
    */
   /**
@@ -361,7 +361,7 @@ namespace DoFTools
    *
    * @deprecated Use <code>dh.get_fe_collection().max_dofs_per_vertex()</code>.
    *
-   * @relatesalso hp__DoFHandler
+   * @relatesalso hp::DoFHandler
    */
   template <int dim, int spacedim>
   DEAL_II_DEPRECATED unsigned int
@@ -391,7 +391,7 @@ namespace DoFTools
    *
    * @deprecated Use <code>dh.get_fe_collection().n_components()</code>.
    *
-   * @relatesalso hp__DoFHandler
+   * @relatesalso hp::DoFHandler
    */
   template <int dim, int spacedim>
   DEAL_II_DEPRECATED unsigned int
@@ -421,7 +421,7 @@ namespace DoFTools
    *
    * @deprecated Use <code>dh.get_fe(0).is_primitive()</code>.
    *
-   * @relatesalso hp__DoFHandler
+   * @relatesalso hp::DoFHandler
    */
   template <int dim, int spacedim>
   DEAL_II_DEPRECATED bool
@@ -488,7 +488,7 @@ namespace DoFTools
    * methods for building the sparsity patterns that depend on the exact
    * formulation of the problem. You will have to do this yourself then.
    *
-   * @param[in] dof_handler The DoFHandler or hp__DoFHandler object that
+   * @param[in] dof_handler The DoFHandler or hp::DoFHandler object that
    * describes which degrees of freedom live on which cells.
    *
    * @param[out] sparsity_pattern The sparsity pattern to be filled with
@@ -686,7 +686,7 @@ namespace DoFTools
    * strict super-set of nonzero entries compared to the work done by
    * make_sparsity_pattern().
    *
-   * @param[in] dof_handler The DoFHandler or hp__DoFHandler object that
+   * @param[in] dof_handler The DoFHandler or hp::DoFHandler object that
    * describes which degrees of freedom live on which cells.
    *
    * @param[out] sparsity_pattern The sparsity pattern to be filled with
@@ -892,14 +892,14 @@ namespace DoFTools
    * This function does not close the object since you may want to
    * enter other constraints later on yourself.
    *
-   * In the hp-case, i.e. when the argument is of type hp__DoFHandler, we
+   * In the hp-case, i.e. when the argument is of type hp::DoFHandler, we
    * consider constraints due to different finite elements used on two sides
    * of a face between cells as hanging nodes as well. In other words, for hp
    * finite elements, this function computes all constraints due to differing
    * mesh sizes (h) or polynomial degrees (p) between adjacent cells.
    *
    * The template argument (and by consequence the type of the first argument
-   * to this function) can be either ::DoFHandler or hp__DoFHandler.
+   * to this function) can be either ::DoFHandler or hp::DoFHandler.
    *
    * @ingroup constraints
    */
@@ -2023,7 +2023,7 @@ namespace DoFTools
    * system that results retains the block structure of the global system.
    *
    * @tparam DoFHandlerType A type that is either DoFHandler or
-   * hp__DoFHandler. In C++, the compiler can not determine the type of
+   * hp::DoFHandler. In C++, the compiler can not determine the type of
    * <code>DoFHandlerType</code> from the function call. You need to specify
    * it as an explicit template argument following the function name.
    *
@@ -2329,13 +2329,13 @@ namespace DoFTools
                          std::vector<unsigned int>());
 
   /**
-   * For each active cell of a DoFHandler or hp__DoFHandler, extract the
+   * For each active cell of a DoFHandler or hp::DoFHandler, extract the
    * active finite element index and fill the vector given as second argument.
    * This vector is assumed to have as many entries as there are active cells.
    *
    * For non-hp DoFHandler objects given as first argument, the returned
    * vector will consist of only zeros, indicating that all cells use the same
-   * finite element. For a hp__DoFHandler, the values may be different,
+   * finite element. For a hp::DoFHandler, the values may be different,
    * though.
    */
   template <typename DoFHandlerType>
@@ -2357,7 +2357,7 @@ namespace DoFTools
    * between global degrees of freedom and the local ones.
    *
    * @tparam DoFHandlerType A type that is either DoFHandler or
-   * hp__DoFHandler. In C++, the compiler can not determine the type of
+   * hp::DoFHandler. In C++, the compiler can not determine the type of
    * <code>DoFHandlerType</code> from the function call. You need to specify
    * it as an explicit template argument following the function name.
    *
@@ -2778,7 +2778,7 @@ namespace DoFTools
    */
   DeclException0(ExcGridsDontMatch);
   /**
-   * The ::DoFHandler or hp__DoFHandler was not initialized with a finite
+   * The ::DoFHandler or hp::DoFHandler was not initialized with a finite
    * element. Please call DoFHandler::distribute_dofs() etc. first.
    *
    * @ingroup Exceptions

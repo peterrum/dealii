@@ -168,7 +168,7 @@ class TriaActiveIterator;
  *
  * The accessors provided by the library consist of two groups, determined by
  * whether they access the data of Triangulation objects or
- * DoFHandler/hp__DoFHandler objects. They are derived from TriaAccessor and
+ * DoFHandler/hp::DoFHandler objects. They are derived from TriaAccessor and
  * DoFAccessor, respectively. Each group also has specialized accessors for
  * cells (as opposed to faces and lines) that offer more functionality such as
  * accessing neighbors.

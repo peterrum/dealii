@@ -368,7 +368,7 @@ namespace internal
        * array out-of-synch from the other member variables, and the
        * function can consequently only be used when the remaining
        * data structures are going to be rebuilt next. This is
-       * specifically the case in hp__DoFHandler::distribute_dofs()
+       * specifically the case in hp::DoFHandler::distribute_dofs()
        * where we throw away all data in the DoFLevels objects *except
        * for the active_fe_indices* array. This function therefore
        * simply makes sure that that one array is in uncompressed
@@ -382,7 +382,7 @@ namespace internal
       normalize_active_fe_indices();
 
 
-      // Make hp__DoFHandler and its auxiliary class a friend since it is the
+      // Make hp::DoFHandler and its auxiliary class a friend since it is the
       // class that needs to create these data structures.
       template <int, int>
       friend class dealii::hp::DoFHandler;
