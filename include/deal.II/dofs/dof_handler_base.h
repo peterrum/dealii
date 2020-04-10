@@ -1918,10 +1918,10 @@ DoFHandlerBase<dim, spacedim, T>::save(Archive &ar, const unsigned int) const
       // boost dereferences a nullptr when serializing a nullptr
       // at least up to 1.65.1. This causes problems with clang-5.
       // Therefore, work around it.
-      bool faces_is_nullptr = (this->faces_hp.get() == nullptr);
-      ar & faces_is_nullptr;
-      if (!faces_is_nullptr)
-        ar & this->faces_hp;
+      // bool faces_is_nullptr = (this->faces_hp.get() == nullptr);
+      // ar & faces_is_nullptr;
+      // if (!faces_is_nullptr)
+      //  ar & this->faces_hp;
 
       // write out the number of triangulation cells and later check during
       // loading that this number is indeed correct; same with something that
@@ -1993,7 +1993,7 @@ DoFHandlerBase<dim, spacedim, T>::load(Archive &ar, const unsigned int)
       // destroyed and we end up with a memory leak. consequently, first delete
       // previous content before re-loading stuff
       // this->levels_hp.clear();
-      this->faces_hp.reset();
+      // this->faces_hp.reset();
 
       // some versions of gcc have trouble with loading vectors of
       // std::unique_ptr objects because std::unique_ptr does not
@@ -2009,10 +2009,10 @@ DoFHandlerBase<dim, spacedim, T>::load(Archive &ar, const unsigned int)
       //        }
 
       // Workaround for nullptr, see in save().
-      bool faces_is_nullptr = true;
-      ar & faces_is_nullptr;
-      if (!faces_is_nullptr)
-        ar & this->faces_hp;
+      // bool faces_is_nullptr = true;
+      // ar & faces_is_nullptr;
+      // if (!faces_is_nullptr)
+      //  ar & this->faces_hp;
 
       // these are the checks that correspond to the last block in the save()
       // function
