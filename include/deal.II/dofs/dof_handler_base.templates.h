@@ -24,10 +24,11 @@
 
 #include <deal.II/grid/grid_tools.h>
 
-#include <deal.II/hp/dof_level.h>
-
 DEAL_II_NAMESPACE_OPEN
 
+template <int dim, int spacedim, typename T>
+const typename DoFHandlerBase<dim, spacedim, T>::active_fe_index_type
+  DoFHandlerBase<dim, spacedim, T>::invalid_active_fe_index;
 
 namespace internal
 {
@@ -939,7 +940,8 @@ namespace internal
           // Release all space except the fields for active_fe_indices and
           // refinement flags which we have to back up before
           {
-            std::vector<std::vector<DoFLevel::active_fe_index_type>>
+            std::vector<std::vector<
+              typename DoFHandlerBase<dim, spacedim, T>::active_fe_index_type>>
               active_fe_backup(dof_handler.new_active_fe_indices.size()),
               future_fe_backup(dof_handler.new_future_fe_indices.size());
             for (unsigned int level = 0;
@@ -976,10 +978,6 @@ namespace internal
                 dof_handler.new_future_fe_indices[level] =
                   std::move(future_fe_backup[level]);
               }
-
-            if (dim > 1)
-              dof_handler.faces_hp =
-                std_cxx14::make_unique<internal::hp::DoFIndicesOnFaces<dim>>();
           }
         }
 
@@ -1136,14 +1134,16 @@ namespace internal
           for (unsigned int level = 0; level < dof_handler.tria->n_levels();
                ++level)
             {
-              dof_handler.new_dofs_ptr[level][dim] =
-                std::vector<DoFLevel::offset_type>(
-                  dof_handler.tria->n_raw_cells(level),
-                  static_cast<DoFLevel::offset_type>(-1));
-              dof_handler.new_cell_dofs_cache_ptr[level] =
-                std::vector<DoFLevel::offset_type>(
-                  dof_handler.tria->n_raw_cells(level),
-                  static_cast<DoFLevel::offset_type>(-1));
+              dof_handler.new_dofs_ptr[level][dim] = std::vector<
+                typename DoFHandlerBase<dim, spacedim, T>::offset_type>(
+                dof_handler.tria->n_raw_cells(level),
+                static_cast<
+                  typename DoFHandlerBase<dim, spacedim, T>::offset_type>(-1));
+              dof_handler.new_cell_dofs_cache_ptr[level] = std::vector<
+                typename DoFHandlerBase<dim, spacedim, T>::offset_type>(
+                dof_handler.tria->n_raw_cells(level),
+                static_cast<
+                  typename DoFHandlerBase<dim, spacedim, T>::offset_type>(-1));
 
               types::global_dof_index next_free_dof = 0;
               types::global_dof_index cache_size    = 0;
@@ -1933,7 +1933,6 @@ DoFHandlerBase<dim, spacedim, T>::DoFHandlerBase(const bool is_hp_dof_handler)
   : is_hp_dof_handler(is_hp_dof_handler)
   , tria(nullptr, typeid(*this).name())
   , mg_faces(nullptr)
-  , faces_hp(nullptr)
 {}
 
 
@@ -1945,7 +1944,6 @@ DoFHandlerBase<dim, spacedim, T>::DoFHandlerBase(
   : is_hp_dof_handler(is_hp_dof_handler)
   , tria(&tria, typeid(*this).name())
   , mg_faces(nullptr)
-  , faces_hp(nullptr)
 {
   if (is_hp_dof_handler)
     {
@@ -2331,7 +2329,7 @@ DoFHandlerBase<dim, spacedim, T>::memory_consumption() const
          MemoryConsumption::memory_consumption(this->fe_collection) +
          MemoryConsumption::memory_consumption(this->tria) +
          //         MemoryConsumption::memory_consumption(this->levels_hp) +
-         MemoryConsumption::memory_consumption(*this->faces_hp) +
+         // MemoryConsumption::memory_consumption(*this->faces_hp) +
          MemoryConsumption::memory_consumption(this->number_cache) // +
          // MemoryConsumption::memory_consumption(this->vertex_dofs) +
          // MemoryConsumption::memory_consumption(this->vertex_dof_offsets)
@@ -2339,7 +2337,7 @@ DoFHandlerBase<dim, spacedim, T>::memory_consumption() const
       //      for (unsigned int i = 0; i < this->levels_hp.size(); ++i)
       //        mem +=
       //        MemoryConsumption::memory_consumption(*this->levels_hp[i]);
-      mem += MemoryConsumption::memory_consumption(*this->faces_hp);
+      // mem += MemoryConsumption::memory_consumption(*this->faces_hp);
 
       return mem;
     }
@@ -2660,7 +2658,7 @@ DoFHandlerBase<dim, spacedim, T>::clear_space()
       this->new_active_fe_indices.clear();
       this->new_future_fe_indices.clear();
 
-      this->faces_hp.reset();
+      // this->faces_hp.reset();
 
       // this->vertex_dofs        = std::vector<types::global_dof_index>();
       new_dofs.clear();
@@ -3118,8 +3116,7 @@ DoFHandlerBase<dim, spacedim, T>::create_active_fe_table()
           this->new_active_fe_indices[level].resize(
             this->tria->n_raw_cells(level), 0);
           this->new_future_fe_indices[level].resize(
-            this->tria->n_raw_cells(level),
-            dealii::internal::hp::DoFLevel::invalid_active_fe_index);
+            this->tria->n_raw_cells(level), invalid_active_fe_index);
         }
       else
         {
@@ -3196,9 +3193,8 @@ DoFHandlerBase<dim, spacedim, T>::post_refinement_action()
       //
       // We have used future_fe_indices to update all active_fe_indices
       // before refinement happened, thus we are safe to clear them now.
-      this->new_future_fe_indices[i].assign(
-        this->tria->n_raw_cells(i),
-        dealii::internal::hp::DoFLevel::invalid_active_fe_index);
+      this->new_future_fe_indices[i].assign(this->tria->n_raw_cells(i),
+                                            invalid_active_fe_index);
     }
 }
 

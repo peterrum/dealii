@@ -38,8 +38,6 @@
 #include <deal.II/dofs/dof_levels.h>
 #include <deal.II/dofs/number_cache.h>
 
-#include <deal.II/hp/dof_faces.h>
-#include <deal.II/hp/dof_level.h>
 #include <deal.II/hp/fe_collection.h>
 
 #include <boost/serialization/split_member.hpp>
@@ -1358,6 +1356,10 @@ private:
   mutable std::array<std::vector<unsigned int>, dim + 1> new_hp_fe;
 
   using active_fe_index_type = unsigned short int;
+  using offset_type          = unsigned int;
+  static const active_fe_index_type invalid_active_fe_index =
+    static_cast<active_fe_index_type>(-1);
+
   mutable std::vector<std::vector<active_fe_index_type>> new_active_fe_indices;
   mutable std::vector<std::vector<active_fe_index_type>> new_future_fe_indices;
 
@@ -1425,8 +1427,8 @@ private:
   /**
    * Space to store DoF numbers of faces in the hp context.
    */
-  std::unique_ptr<dealii::internal::hp::DoFIndicesOnFaces<dim>>
-    faces_hp; // TODO: rename hp_faces
+  // std::unique_ptr<dealii::internal::hp::DoFIndicesOnFaces<dim>>
+  //  faces_hp; // TODO: rename hp_faces
 
   /**
    * We embed our data structure into a pointer to control that
@@ -1583,8 +1585,6 @@ private:
 
   // Likewise for DoFLevel objects since they need to access the vertex dofs
   // in the functions that set and retrieve vertex dof indices.
-  template <int>
-  friend class dealii::internal::hp::DoFIndicesOnFacesOrEdges;
   friend struct dealii::internal::DoFHandlerImplementation::Implementation;
   friend struct dealii::internal::hp::DoFHandlerImplementation::Implementation;
   friend struct dealii::internal::DoFHandlerImplementation::Policy::
