@@ -14,7 +14,8 @@
 // ---------------------------------------------------------------------
 
 
-for (deal_II_dimension : DIMENSIONS; deal_II_space_dimension : SPACE_DIMENSIONS)
+for (DoFHandler : DOFHANDLER_TEMPLATES2; deal_II_dimension : DIMENSIONS;
+     deal_II_space_dimension : SPACE_DIMENSIONS)
   {
 #if deal_II_dimension <= deal_II_space_dimension
     namespace DoFRenumbering
@@ -43,11 +44,12 @@ for (deal_II_dimension : DIMENSIONS; deal_II_space_dimension : SPACE_DIMENSIONS)
         const std::vector<types::global_dof_index> &);
 
       template void
-      component_wise(DoFHandler<deal_II_dimension, deal_II_space_dimension> &,
-                     const std::vector<unsigned int> &);
+      component_wise<DoFHandler<deal_II_dimension, deal_II_space_dimension>>(
+        DoFHandler<deal_II_dimension, deal_II_space_dimension> &,
+        const std::vector<unsigned int> &);
 
       template void
-      block_wise<deal_II_dimension, deal_II_space_dimension>(
+      block_wise<DoFHandler<deal_II_dimension, deal_II_space_dimension>>(
         DoFHandler<deal_II_dimension, deal_II_space_dimension> &);
 
       template void
@@ -70,7 +72,8 @@ for (deal_II_dimension : DIMENSIONS; deal_II_space_dimension : SPACE_DIMENSIONS)
 // TODO[SP]: replace <deal_II_dimension> by <deal_II_dimension,
 // deal_II_space_dimension>
 // where applicable and move to codimension cases above also when applicable
-for (deal_II_dimension : DIMENSIONS; deal_II_space_dimension : SPACE_DIMENSIONS)
+for (DoFHandler : DOFHANDLER_TEMPLATES2; deal_II_dimension : DIMENSIONS;
+     deal_II_space_dimension : SPACE_DIMENSIONS)
   {
 #if deal_II_dimension == deal_II_space_dimension
     namespace DoFRenumbering
@@ -115,8 +118,8 @@ for (deal_II_dimension : DIMENSIONS; deal_II_space_dimension : SPACE_DIMENSIONS)
                      const std::vector<unsigned int> &);
 
       template void
-      block_wise<deal_II_dimension>(DoFHandler<deal_II_dimension> &,
-                                    unsigned int);
+      block_wise<DoFHandler<deal_II_dimension>>(DoFHandler<deal_II_dimension> &,
+                                                unsigned int);
 
       template void
       cell_wise<DoFHandler<deal_II_dimension>>(

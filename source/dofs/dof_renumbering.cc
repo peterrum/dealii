@@ -626,21 +626,21 @@ namespace DoFRenumbering
 
 
 
-  template <int dim, int spacedim>
+  template <typename DoFHandlerType>
   void
-  component_wise(DoFHandler<dim, spacedim> &      dof_handler,
+  component_wise(DoFHandlerType &                 dof_handler,
                  const std::vector<unsigned int> &component_order_arg)
   {
     std::vector<types::global_dof_index> renumbering(
       dof_handler.n_locally_owned_dofs(), numbers::invalid_dof_index);
 
-    typename DoFHandler<dim, spacedim>::active_cell_iterator start =
+    typename DoFHandlerType::active_cell_iterator start =
       dof_handler.begin_active();
-    const typename DoFHandler<dim, spacedim>::level_cell_iterator end =
-      dof_handler.end();
+    const typename DoFHandlerType::level_cell_iterator end = dof_handler.end();
 
     const types::global_dof_index result =
-      compute_component_wise<dim, spacedim>(
+      compute_component_wise<DoFHandlerType::dimension,
+                             DoFHandlerType::space_dimension>(
         renumbering, start, end, component_order_arg, false);
     if (result == 0)
       return;
@@ -662,9 +662,9 @@ namespace DoFRenumbering
 
 
 
-  template <int dim, int spacedim>
+  template <typename DoFHandlerType>
   void
-  component_wise(DoFHandler<dim, spacedim> &      dof_handler,
+  component_wise(DoFHandlerType &                 dof_handler,
                  const unsigned int               level,
                  const std::vector<unsigned int> &component_order_arg)
   {
@@ -675,13 +675,13 @@ namespace DoFRenumbering
       dof_handler.locally_owned_mg_dofs(level).n_elements(),
       numbers::invalid_dof_index);
 
-    typename DoFHandler<dim, spacedim>::level_cell_iterator start =
+    typename DoFHandlerType::level_cell_iterator start =
       dof_handler.begin(level);
-    typename DoFHandler<dim, spacedim>::level_cell_iterator end =
-      dof_handler.end(level);
+    typename DoFHandlerType::level_cell_iterator end = dof_handler.end(level);
 
     const types::global_dof_index result =
-      compute_component_wise<dim, spacedim>(
+      compute_component_wise<DoFHandlerType::dimension,
+                             DoFHandlerType::space_dimension>(
         renumbering, start, end, component_order_arg, true);
 
     if (result == 0)
@@ -944,26 +944,23 @@ namespace DoFRenumbering
 
 
 
-  template <int dim, int spacedim>
+  template <typename DoFHandlerType>
   void
-  block_wise(DoFHandler<dim, spacedim> &dof_handler)
+  block_wise(DoFHandlerType &dof_handler)
   {
     std::vector<types::global_dof_index> renumbering(
       dof_handler.n_locally_owned_dofs(), numbers::invalid_dof_index);
 
-    typename DoFHandler<dim, spacedim>::active_cell_iterator start =
+    typename DoFHandlerType::active_cell_iterator start =
       dof_handler.begin_active();
-    const typename DoFHandler<dim, spacedim>::level_cell_iterator end =
-      dof_handler.end();
+    const typename DoFHandlerType::level_cell_iterator end = dof_handler.end();
 
-    const types::global_dof_index result = compute_block_wise<
-      dim,
-      spacedim,
-      typename DoFHandler<dim, spacedim>::active_cell_iterator,
-      typename DoFHandler<dim, spacedim>::level_cell_iterator>(renumbering,
-                                                               start,
-                                                               end,
-                                                               false);
+    const types::global_dof_index result =
+      compute_block_wise<DoFHandlerType::dimension,
+                         DoFHandlerType::space_dimension,
+                         typename DoFHandlerType::active_cell_iterator,
+                         typename DoFHandlerType::level_cell_iterator>(
+        renumbering, start, end, false);
     if (result == 0)
       return;
 
@@ -984,9 +981,9 @@ namespace DoFRenumbering
 
 
 
-  template <int dim, int spacedim>
+  template <typename DoFHandlerType>
   void
-  block_wise(DoFHandler<dim, spacedim> &dof_handler, const unsigned int level)
+  block_wise(DoFHandlerType &dof_handler, const unsigned int level)
   {
     Assert(dof_handler.n_dofs(level) != numbers::invalid_dof_index,
            ExcDoFHandlerNotInitialized());
@@ -995,19 +992,16 @@ namespace DoFRenumbering
       dof_handler.locally_owned_mg_dofs(level).n_elements(),
       numbers::invalid_dof_index);
 
-    typename DoFHandler<dim, spacedim>::level_cell_iterator start =
+    typename DoFHandlerType::level_cell_iterator start =
       dof_handler.begin(level);
-    typename DoFHandler<dim, spacedim>::level_cell_iterator end =
-      dof_handler.end(level);
+    typename DoFHandlerType::level_cell_iterator end = dof_handler.end(level);
 
-    const types::global_dof_index result = compute_block_wise<
-      dim,
-      spacedim,
-      typename DoFHandler<dim, spacedim>::level_cell_iterator,
-      typename DoFHandler<dim, spacedim>::level_cell_iterator>(renumbering,
-                                                               start,
-                                                               end,
-                                                               true);
+    const types::global_dof_index result =
+      compute_block_wise<DoFHandlerType::dimension,
+                         DoFHandlerType::space_dimension,
+                         typename DoFHandlerType::level_cell_iterator,
+                         typename DoFHandlerType::level_cell_iterator>(
+        renumbering, start, end, true);
 
     if (result == 0)
       return;

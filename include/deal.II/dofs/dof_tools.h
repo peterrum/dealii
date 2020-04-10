@@ -552,16 +552,15 @@ namespace DoFTools
    *
    * @ingroup constraints
    */
-  template <int dim,
-            int space_dim,
+  template <typename DoFHandlerType,
             typename SparsityPatternType,
             typename number = double>
   void
   make_sparsity_pattern(
-    const DoFHandler<dim, space_dim> &dof_handler,
-    SparsityPatternType &             sparsity_pattern,
-    const AffineConstraints<number> & constraints = AffineConstraints<number>(),
-    const bool                        keep_constrained_dofs = true,
+    const DoFHandlerType &           dof_handler,
+    SparsityPatternType &            sparsity_pattern,
+    const AffineConstraints<number> &constraints = AffineConstraints<number>(),
+    const bool                       keep_constrained_dofs = true,
     const types::subdomain_id subdomain_id = numbers::invalid_subdomain_id);
 
   /**
@@ -629,17 +628,16 @@ namespace DoFTools
    *
    * @ingroup constraints
    */
-  template <int dim,
-            int space_dim,
+  template <typename DoFHandlerType,
             typename SparsityPatternType,
             typename number = double>
   void
   make_sparsity_pattern(
-    const DoFHandler<dim, space_dim> &dof_handler,
-    const Table<2, Coupling> &        coupling,
-    SparsityPatternType &             sparsity_pattern,
-    const AffineConstraints<number> & constraints = AffineConstraints<number>(),
-    const bool                        keep_constrained_dofs = true,
+    const DoFHandlerType &           dof_handler,
+    const Table<2, Coupling> &       coupling,
+    SparsityPatternType &            sparsity_pattern,
+    const AffineConstraints<number> &constraints = AffineConstraints<number>(),
+    const bool                       keep_constrained_dofs = true,
     const types::subdomain_id subdomain_id = numbers::invalid_subdomain_id);
 
   /**
@@ -662,11 +660,11 @@ namespace DoFTools
    * whereas the ones that correspond to columns come from the second
    * DoFHandler.
    */
-  template <int dim, int space_dim, typename SparsityPatternType>
+  template <typename DoFHandlerType, typename SparsityPatternType>
   void
-  make_sparsity_pattern(const DoFHandler<dim, space_dim> &dof_row,
-                        const DoFHandler<dim, space_dim> &dof_col,
-                        SparsityPatternType &             sparsity);
+  make_sparsity_pattern(const DoFHandlerType &dof_row,
+                        const DoFHandlerType &dof_col,
+                        SparsityPatternType & sparsity);
 
   /**
    * Compute which entries of a matrix built on the given @p dof_handler may
@@ -713,10 +711,10 @@ namespace DoFTools
    *
    * @ingroup constraints
    */
-  template <int dim, int spacedim, typename SparsityPatternType>
+  template <typename DoFHandlerType, typename SparsityPatternType>
   void
-  make_flux_sparsity_pattern(const DoFHandler<dim, spacedim> &dof_handler,
-                             SparsityPatternType &            sparsity_pattern);
+  make_flux_sparsity_pattern(const DoFHandlerType &dof_handler,
+                             SparsityPatternType & sparsity_pattern);
 
   /**
    * This function does essentially the same as the other
@@ -726,13 +724,12 @@ namespace DoFTools
    *
    * @ingroup constraints
    */
-  template <int dim,
-            int spacedim,
+  template <typename DoFHandlerType,
             typename SparsityPatternType,
             typename number>
   void
   make_flux_sparsity_pattern(
-    const DoFHandler<dim, spacedim> &dof_handler,
+    const DoFHandlerType &           dof_handler,
     SparsityPatternType &            sparsity_pattern,
     const AffineConstraints<number> &constraints,
     const bool                       keep_constrained_dofs = true,
@@ -758,13 +755,13 @@ namespace DoFTools
    *
    * @ingroup constraints
    */
-  template <int dim, int spacedim, typename SparsityPatternType>
+  template <typename DoFHandlerType, typename SparsityPatternType>
   void
   make_flux_sparsity_pattern(
-    const DoFHandler<dim, spacedim> &dof,
-    SparsityPatternType &            sparsity,
-    const Table<2, Coupling> &       cell_integrals_mask,
-    const Table<2, Coupling> &       face_integrals_mask,
+    const DoFHandlerType &    dof,
+    SparsityPatternType &     sparsity,
+    const Table<2, Coupling> &cell_integrals_mask,
+    const Table<2, Coupling> &face_integrals_mask,
     const types::subdomain_id subdomain_id = numbers::invalid_subdomain_id);
 
 
@@ -794,13 +791,12 @@ namespace DoFTools
    *    };
    * @endcode
    */
-  template <int dim,
-            int spacedim,
+  template <typename DoFHandlerType,
             typename SparsityPatternType,
             typename number>
   void
   make_flux_sparsity_pattern(
-    const DoFHandler<dim, spacedim> &dof,
+    const DoFHandlerType &           dof,
     SparsityPatternType &            sparsity,
     const AffineConstraints<number> &constraints,
     const bool                       keep_constrained_dofs,
@@ -808,9 +804,9 @@ namespace DoFTools
     const Table<2, Coupling> &       face_couplings,
     const types::subdomain_id        subdomain_id,
     const std::function<
-      bool(const typename DoFHandler<dim, spacedim>::active_cell_iterator &,
+      bool(const typename DoFHandlerType::active_cell_iterator &,
            const unsigned int)> &face_has_flux_coupling =
-      &internal::always_couple_on_faces<DoFHandler<dim, spacedim>>);
+      &internal::always_couple_on_faces<DoFHandlerType>);
 
   /**
    * Create the sparsity pattern for boundary matrices. See the general
@@ -821,10 +817,10 @@ namespace DoFTools
    * the matrix does not consist of domain integrals, but only of integrals
    * over the boundary of the domain.
    */
-  template <int dim, int spacedim, typename SparsityPatternType>
+  template <typename DoFHandlerType, typename SparsityPatternType>
   void
   make_boundary_sparsity_pattern(
-    const DoFHandler<dim, spacedim> &           dof,
+    const DoFHandlerType &                      dof,
     const std::vector<types::global_dof_index> &dof_to_boundary_mapping,
     SparsityPatternType &                       sparsity_pattern);
 
@@ -845,14 +841,14 @@ namespace DoFTools
    * map with the boundary indicators you want and set the function pointers to
    * null pointers).
    */
-  template <int dim,
-            int spacedim,
+  template <typename DoFHandlerType,
             typename SparsityPatternType,
             typename number>
   void
   make_boundary_sparsity_pattern(
-    const DoFHandler<dim, spacedim> &dof,
-    const std::map<types::boundary_id, const Function<spacedim, number> *>
+    const DoFHandlerType &dof,
+    const std::map<types::boundary_id,
+                   const Function<DoFHandlerType::space_dimension, number> *>
       &                                         boundary_ids,
     const std::vector<types::global_dof_index> &dof_to_boundary_mapping,
     SparsityPatternType &                       sparsity);
@@ -907,10 +903,10 @@ namespace DoFTools
    *
    * @ingroup constraints
    */
-  template <int dim, int spacedim, typename number>
+  template <typename DoFHandlerType, typename number>
   void
-  make_hanging_node_constraints(const DoFHandler<dim, spacedim> &dof_handler,
-                                AffineConstraints<number> &      constraints);
+  make_hanging_node_constraints(const DoFHandlerType &     dof_handler,
+                                AffineConstraints<number> &constraints);
 
   /**
    * This function is used when different variables in a problem are
@@ -1276,16 +1272,16 @@ namespace DoFTools
    *
    * @author Matthias Maier, 2012
    */
-  template <int dim, int space_dim, typename number>
+  template <typename DoFHandlerType, typename number>
   void
   make_periodicity_constraints(
-    const DoFHandler<dim, space_dim> &dof_handler,
-    const types::boundary_id          b_id1,
-    const types::boundary_id          b_id2,
-    const unsigned int                direction,
-    AffineConstraints<number> &       constraints,
-    const ComponentMask &             component_mask     = ComponentMask(),
-    const number                      periodicity_factor = 1.);
+    const DoFHandlerType &     dof_handler,
+    const types::boundary_id   b_id1,
+    const types::boundary_id   b_id2,
+    const unsigned int         direction,
+    AffineConstraints<number> &constraints,
+    const ComponentMask &      component_mask     = ComponentMask(),
+    const number               periodicity_factor = 1.);
 
 
 
@@ -1314,15 +1310,15 @@ namespace DoFTools
    * @ref GlossPeriodicConstraints "Glossary entry on periodic boundary conditions"
    * for further information.
    */
-  template <int dim, int space_dim, typename number>
+  template <typename DoFHandlerType, typename number>
   void
   make_periodicity_constraints(
-    const DoFHandler<dim, space_dim> &dof_handler,
-    const types::boundary_id          b_id,
-    const unsigned int                direction,
-    AffineConstraints<number> &       constraints,
-    const ComponentMask &             component_mask     = ComponentMask(),
-    const number                      periodicity_factor = 1.);
+    const DoFHandlerType &     dof_handler,
+    const types::boundary_id   b_id,
+    const unsigned int         direction,
+    AffineConstraints<number> &constraints,
+    const ComponentMask &      component_mask     = ComponentMask(),
+    const number               periodicity_factor = 1.);
 
   /**
    * @}
@@ -1351,18 +1347,18 @@ namespace DoFTools
    * @deprecated For the reason stated above, this function is deprecated in
    *   favor of the following function.
    */
-  template <int dim, int spacedim>
+  template <typename DoFHandlerType>
   DEAL_II_DEPRECATED void
-  extract_hanging_node_dofs(const DoFHandler<dim, spacedim> &dof_handler,
-                            std::vector<bool> &              selected_dofs);
+  extract_hanging_node_dofs(const DoFHandlerType &dof_handler,
+                            std::vector<bool> &   selected_dofs);
 
   /**
    * Same as above but return the selected DoFs as IndexSet. In particular,
    * for parallel::TriangulationBase objects this function should be preferred.
    */
-  template <int dim, int spacedim>
+  template <typename DoFHandlerType>
   IndexSet
-  extract_hanging_node_dofs(const DoFHandler<dim, spacedim> &dof_handler);
+  extract_hanging_node_dofs(const DoFHandlerType &dof_handler);
 
   /**
    * Extract the indices of the degrees of freedom belonging to certain vector
@@ -1586,9 +1582,9 @@ namespace DoFTools
    * @see
    * @ref GlossBoundaryIndicator "Glossary entry on boundary indicators"
    */
-  template <int dim, int spacedim>
+  template <typename DoFHandlerType>
   void
-  extract_boundary_dofs(const DoFHandler<dim, spacedim> &   dof_handler,
+  extract_boundary_dofs(const DoFHandlerType &              dof_handler,
                         const ComponentMask &               component_mask,
                         std::vector<bool> &                 selected_dofs,
                         const std::set<types::boundary_id> &boundary_ids =
@@ -1624,9 +1620,9 @@ namespace DoFTools
    * @see
    * @ref GlossBoundaryIndicator "Glossary entry on boundary indicators"
    */
-  template <int dim, int spacedim>
+  template <typename DoFHandlerType>
   void
-  extract_boundary_dofs(const DoFHandler<dim, spacedim> &   dof_handler,
+  extract_boundary_dofs(const DoFHandlerType &              dof_handler,
                         const ComponentMask &               component_mask,
                         IndexSet &                          selected_dofs,
                         const std::set<types::boundary_id> &boundary_ids =
@@ -1833,10 +1829,9 @@ namespace DoFTools
    *
    * @author Denis Davydov, 2015
    */
-  template <int dim, int spacedim>
+  template <typename DoFHandlerType>
   std::vector<IndexSet>
-  locally_owned_dofs_per_subdomain(
-    const DoFHandler<dim, spacedim> &dof_handler);
+  locally_owned_dofs_per_subdomain(const DoFHandlerType &dof_handler);
 
   /**
    *
@@ -1854,10 +1849,9 @@ namespace DoFTools
    *
    * @author Jean-Paul Pelteret, 2015
    */
-  template <int dim, int spacedim>
+  template <typename DoFHandlerType>
   std::vector<IndexSet>
-  locally_relevant_dofs_per_subdomain(
-    const DoFHandler<dim, spacedim> &dof_handler);
+  locally_relevant_dofs_per_subdomain(const DoFHandlerType &dof_handler);
 
 
   /**
@@ -2317,9 +2311,9 @@ namespace DoFTools
    * element used by the dof_handler argument has blocks, or alternatively as
    * many blocks as are enumerated in the target_blocks argument if given.
    */
-  template <int dim, int spacedim>
+  template <typename DoFHandlerType>
   std::vector<types::global_dof_index>
-  count_dofs_per_fe_block(const DoFHandler<dim, spacedim> &dof,
+  count_dofs_per_fe_block(const DoFHandlerType &           dof,
                           const std::vector<unsigned int> &target_block =
                             std::vector<unsigned int>());
 
@@ -2410,9 +2404,9 @@ namespace DoFTools
    *
    * Prior content of @p mapping is deleted.
    */
-  template <int dim, int spacedim>
+  template <typename DoFHandlerType>
   void
-  map_dof_to_boundary_indices(const DoFHandler<dim, spacedim> &     dof_handler,
+  map_dof_to_boundary_indices(const DoFHandlerType &                dof_handler,
                               std::vector<types::global_dof_index> &mapping);
 
   /**
@@ -2425,9 +2419,9 @@ namespace DoFTools
    * @see
    * @ref GlossBoundaryIndicator "Glossary entry on boundary indicators"
    */
-  template <int dim, int spacedim>
+  template <typename DoFHandlerType>
   void
-  map_dof_to_boundary_indices(const DoFHandler<dim, spacedim> &   dof_handler,
+  map_dof_to_boundary_indices(const DoFHandlerType &              dof_handler,
                               const std::set<types::boundary_id> &boundary_ids,
                               std::vector<types::global_dof_index> &mapping);
 
@@ -2724,13 +2718,16 @@ namespace DoFTools
    * @see
    * @ref GlossBoundaryIndicator "Glossary entry on boundary indicators"
    */
-  template <int dim, int spacedim, typename number>
+  template <int dim,
+            int spacedim,
+            template <int, int> class DoFHandlerType,
+            typename number>
   void
   make_zero_boundary_constraints(
-    const DoFHandler<dim, spacedim> &dof,
-    const types::boundary_id         boundary_id,
-    AffineConstraints<number> &      zero_boundary_constraints,
-    const ComponentMask &            component_mask = ComponentMask());
+    const DoFHandlerType<dim, spacedim> &dof,
+    const types::boundary_id             boundary_id,
+    AffineConstraints<number> &          zero_boundary_constraints,
+    const ComponentMask &                component_mask = ComponentMask());
 
   /**
    * Do the same as the previous function, except do it for all parts of the
@@ -2742,12 +2739,15 @@ namespace DoFTools
    *
    * @ingroup constraints
    */
-  template <int dim, int spacedim, typename number>
+  template <int dim,
+            int spacedim,
+            template <int, int> class DoFHandlerType,
+            typename number>
   void
   make_zero_boundary_constraints(
-    const DoFHandler<dim, spacedim> &dof,
-    AffineConstraints<number> &      zero_boundary_constraints,
-    const ComponentMask &            component_mask = ComponentMask());
+    const DoFHandlerType<dim, spacedim> &dof,
+    AffineConstraints<number> &          zero_boundary_constraints,
+    const ComponentMask &                component_mask = ComponentMask());
 
   /**
    * @}

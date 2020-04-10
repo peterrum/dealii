@@ -916,14 +916,13 @@ namespace DerivativeApproximation
               int spacedim>
     void
     approximate(
-      SynchronousIterators<std::tuple<
-        TriaActiveIterator<
-          dealii::DoFCellAccessor<DoFHandlerType<dim, spacedim>, false>>,
-        Vector<float>::iterator>> const &  cell,
-      const Mapping<dim, spacedim> &       mapping,
-      const DoFHandlerType<dim, spacedim> &dof_handler,
-      const InputVector &                  solution,
-      const unsigned int                   component)
+      SynchronousIterators<
+        std::tuple<typename DoFHandlerType<dim, spacedim>::active_cell_iterator,
+                   Vector<float>::iterator>> const &cell,
+      const Mapping<dim, spacedim> &                mapping,
+      const DoFHandlerType<dim, spacedim> &         dof_handler,
+      const InputVector &                           solution,
+      const unsigned int                            component)
     {
       // if the cell is not locally owned, then there is nothing to do
       if (std::get<0>(*cell)->is_locally_owned() == false)
@@ -981,10 +980,9 @@ namespace DerivativeApproximation
                dof_handler.get_triangulation().n_active_cells()));
       AssertIndexRange(component, dof_handler.get_fe(0).n_components());
 
-      using Iterators = std::tuple<
-        TriaActiveIterator<
-          dealii::DoFCellAccessor<DoFHandlerType<dim, spacedim>, false>>,
-        Vector<float>::iterator>;
+      using Iterators =
+        std::tuple<typename DoFHandlerType<dim, spacedim>::active_cell_iterator,
+                   Vector<float>::iterator>;
       SynchronousIterators<Iterators> begin(
         Iterators(dof_handler.begin_active(), derivative_norm.begin())),
         end(Iterators(dof_handler.end(), derivative_norm.end()));

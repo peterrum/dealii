@@ -1769,7 +1769,7 @@ namespace VectorTools
     const Function<dim, double> &boundary_function,
     const types::boundary_id     boundary_component,
     AffineConstraints<double> &  constraints,
-    const Mapping<dim> &         mapping = StaticMappingQ1<dim>::mapping);
+    const Mapping<dim> &         mapping);
 
   /**
    * Same as above for the hp-namespace.
@@ -1787,8 +1787,7 @@ namespace VectorTools
     const Function<dim, double> &          boundary_function,
     const types::boundary_id               boundary_component,
     AffineConstraints<double> &            constraints,
-    const hp::MappingCollection<dim, dim> &mapping_collection =
-      hp::StaticMappingQ1<dim>::mapping_collection);
+    const hp::MappingCollection<dim, dim> &mapping_collection);
 
 
   /**

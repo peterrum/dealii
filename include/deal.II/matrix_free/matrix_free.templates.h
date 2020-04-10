@@ -327,11 +327,11 @@ MatrixFree<dim, Number, VectorizedArrayType>::copy_from(
 
 
 template <int dim, typename Number, typename VectorizedArrayType>
-template <typename number2>
+template <typename number2, typename DoFHandlerType>
 void
 MatrixFree<dim, Number, VectorizedArrayType>::internal_reinit(
   const Mapping<dim> &                                   mapping,
-  const std::vector<const DoFHandler<dim> *> &           dof_handler,
+  const std::vector<const DoFHandlerType *> &            dof_handler,
   const std::vector<const AffineConstraints<number2> *> &constraint,
   const std::vector<IndexSet> &                          locally_owned_set,
   const std::vector<hp::QCollection<1>> &                quad,
@@ -735,10 +735,11 @@ namespace internal
 
 
 template <int dim, typename Number, typename VectorizedArrayType>
+template <typename DoFHandlerType>
 void
 MatrixFree<dim, Number, VectorizedArrayType>::initialize_dof_handlers(
-  const std::vector<const DoFHandler<dim> *> &dof_handler,
-  const AdditionalData &                      additional_data)
+  const std::vector<const DoFHandlerType *> &dof_handler,
+  const AdditionalData &                     additional_data)
 {
   if (dof_handler.front()->is_hp_dof_handler == false)
     {

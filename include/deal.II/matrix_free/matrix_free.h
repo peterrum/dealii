@@ -1984,11 +1984,11 @@ private:
    * This is the actual reinit function that sets up the indices for the
    * DoFHandler case.
    */
-  template <typename number2>
+  template <typename number2, typename DoFHandlerType>
   void
   internal_reinit(
     const Mapping<dim> &                                   mapping,
-    const std::vector<const DoFHandler<dim> *> &           dof_handler,
+    const std::vector<const DoFHandlerType *> &            dof_handler,
     const std::vector<const AffineConstraints<number2> *> &constraint,
     const std::vector<IndexSet> &                          locally_owned_set,
     const std::vector<hp::QCollection<1>> &                quad,
@@ -2010,10 +2010,11 @@ private:
   /**
    * Initializes the DoFHandlers based on a DoFHandler<dim> argument.
    */
+  template <typename DoFHandlerType>
   void
   initialize_dof_handlers(
-    const std::vector<const DoFHandler<dim> *> &dof_handlers,
-    const AdditionalData &                      additional_data);
+    const std::vector<const DoFHandlerType *> &dof_handlers,
+    const AdditionalData &                     additional_data);
 
   /**
    * Setup connectivity graph with information on the dependencies between

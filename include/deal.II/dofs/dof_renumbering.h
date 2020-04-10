@@ -656,9 +656,9 @@ namespace DoFRenumbering
    * For finite elements with only one component, or a single non-primitive
    * base element, this function is the identity operation.
    */
-  template <int dim, int spacedim>
+  template <typename DoFHandlerType>
   void
-  component_wise(DoFHandler<dim, spacedim> &      dof_handler,
+  component_wise(DoFHandlerType &                 dof_handler,
                  const std::vector<unsigned int> &target_component =
                    std::vector<unsigned int>());
 
@@ -669,9 +669,9 @@ namespace DoFRenumbering
    * multilevel discretization. The non-multigrid part of the DoFHandler
    * is not touched.
    */
-  template <int dim, int spacedim>
+  template <typename DoFHandlerType>
   void
-  component_wise(DoFHandler<dim, spacedim> &      dof_handler,
+  component_wise(DoFHandlerType &                 dof_handler,
                  const unsigned int               level,
                  const std::vector<unsigned int> &target_component =
                    std::vector<unsigned int>());
@@ -722,9 +722,9 @@ namespace DoFRenumbering
    * number of blocks and that subsequent blocks in one element have the same
    * meaning as in another element.
    */
-  template <int dim, int spacedim>
+  template <typename DoFHandlerType>
   void
-  block_wise(DoFHandler<dim, spacedim> &dof_handler);
+  block_wise(DoFHandlerType &dof_handler);
 
   /**
    * Sort the degrees of freedom by vector block. It does the same thing as
@@ -732,9 +732,9 @@ namespace DoFRenumbering
    * multilevel discretization. The non-multigrid part of the DoFHandler
    * is not touched.
    */
-  template <int dim, int spacedim>
+  template <typename DoFHandlerType>
   void
-  block_wise(DoFHandler<dim, spacedim> &dof_handler, const unsigned int level);
+  block_wise(DoFHandlerType &dof_handler, const unsigned int level);
 
   /**
    * Compute the renumbering vector needed by the block_wise() functions.
