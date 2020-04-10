@@ -18,7 +18,6 @@ for (D1 : DIMENSIONS; D2 : DIMENSIONS)
   {
 #if D1 <= D2
     template class DoFHandler<D1, D2>;
-    template class DoFHandlerBase<D1, D2, DoFHandler<D1, D2>>;
     template std::string internal::policy_to_string(
       const dealii::internal::DoFHandlerImplementation::Policy::PolicyBase<D1,
                                                                            D2>
@@ -30,14 +29,13 @@ for (D1 : DIMENSIONS; D2 : DIMENSIONS)
 for (D1 : DIMENSIONS; D2 : DIMENSIONS; D3 : DIMENSIONS)
   {
 #if D3 <= D1 && D1 <= D2
-    template types::global_dof_index
-    DoFHandlerBase<D1, D2, DoFHandler<D1, D2>>::get_dof_index<D3>(
+    template types::global_dof_index DoFHandler<D1, D2>::get_dof_index<D3>(
       const unsigned int obj_level,
       const unsigned int obj_index,
       const unsigned int fe_index,
       const unsigned int local_index) const;
 
-    template void DoFHandlerBase<D1, D2, DoFHandler<D1, D2>>::set_dof_index<D3>(
+    template void DoFHandler<D1, D2>::set_dof_index<D3>(
       const unsigned int            obj_level,
       const unsigned int            obj_index,
       const unsigned int            fe_index,
