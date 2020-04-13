@@ -30,6 +30,7 @@ SET(_unity_include_src
   la_vector.cc
   la_parallel_vector.cc
   la_parallel_block_vector.cc
+  la_sm_partitioner.cc
   la_sm_vector.cc
   matrix_lib.cc
   matrix_out.cc
@@ -81,6 +82,7 @@ SET(_inst
   la_vector.inst.in
   la_parallel_vector.inst.in
   la_parallel_block_vector.inst.in
+  la_sm_partitioner.inst.in
   la_sm_vector.inst.in
   precondition_block.inst.in
   relaxation_block.inst.in
