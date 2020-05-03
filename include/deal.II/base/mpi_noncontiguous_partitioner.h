@@ -38,7 +38,6 @@ namespace Utilities
      *
      * @author Peter Munch, 2020
      */
-    template <typename Number = double>
     class NoncontiguousPartitioner
       : public LinearAlgebra::CommunicationPatternBase
     {
@@ -84,28 +83,56 @@ namespace Utilities
        *   functions separately and hereby overlap communication and
        *   computation.
        */
-      template <typename VectorType>
+      template <typename Number>
       void
-      export_to_ghosted_array(const VectorType &src, VectorType &dst) const;
+      export_to_ghosted_array(
+        const ArrayView<const Number> &locally_owned_array,
+        const ArrayView<Number> &      ghost_array) const;
+
+      /**
+       * Same as above but with an interface similar to
+       * Utilities::MPI::Partitioner::export_to_ghosted_array_start and
+       * Utilities::MPI::Partitioner::export_to_ghosted_array_finish. In this
+       * function, the user can provide the temporary data structures to be
+       * used.
+       */
+      template <typename Number>
+      void
+      export_to_ghosted_array(
+        const unsigned int             communication_channel,
+        const ArrayView<const Number> &locally_owned_array,
+        const ArrayView<Number> &      temporary_storage,
+        const ArrayView<Number> &      ghost_array,
+        std::vector<MPI_Request> &     requests) const;
 
       /**
        * Start update: Data is packed, non-blocking send and receives
        * are started.
        */
-      template <typename VectorType>
+      template <typename Number>
       void
-      export_to_ghosted_array_start(const VectorType & src,
-                                    const unsigned int tag) const;
+      export_to_ghosted_array_start(
+        const unsigned int             communication_channel,
+        const ArrayView<const Number> &locally_owned_array,
+        const ArrayView<Number> &      temporary_storage,
+        std::vector<MPI_Request> &     requests) const;
 
       /**
        * Finish update. The method waits until all data has been sent and
        * received. Once data from any process is received it is processed and
        * placed at the right position of the vector @p dst.
+       *
+       * @note In contrast to the function
+       *   Utilities::MPI::Partitioner::export_to_ghosted_array_finish, the user
+       *   also has to pas a reference to the buffer, since the data has been
+       *   received into the buffer and not into the destination vector.
        */
-      template <typename VectorType>
+      template <typename Number>
       void
-      export_to_ghosted_array_finish(VectorType &       dst,
-                                     const unsigned int tag) const;
+      export_to_ghosted_array_finish(
+        const ArrayView<const Number> &temporary_storage,
+        const ArrayView<Number> &      ghost_array,
+        std::vector<MPI_Request> &     requests) const;
 
       /**
        * Returns the number of processes this process sends data to and the
@@ -169,16 +196,6 @@ namespace Utilities
       std::vector<types::global_dof_index> send_indices;
 
       /**
-       *  Buffer containing the values sorted accoding to the ranks.
-       */
-      mutable std::vector<Number> send_buffers;
-
-      /**
-       * MPI requests for sending.
-       */
-      mutable std::vector<MPI_Request> send_requests;
-
-      /**
        * The ranks this process receives data from.
        */
       std::vector<unsigned int> recv_ranks;
@@ -199,14 +216,22 @@ namespace Utilities
       std::vector<types::global_dof_index> recv_indices;
 
       /**
-       * Buffer containing the values sorted by rank.
+       * Buffer containing the values sorted by rank for sending and receiving.
+       *
+       * @note Only allocated if not provided externally by user.
+       * 
+       * @note At this place we do not know the type of the data to be sent. So 
+       *   we use an arbitrary type of size 1 byte. The type is cased to the 
+       *   requested type in the relevant functions.
        */
-      mutable std::vector<Number> recv_buffers;
+      mutable std::vector<uint8_t> buffers;
 
       /**
-       * MPI requests for receiving.
+       * MPI requests for sending and receiving.
+       *
+       * @note Only allocated if not provided externally by user.
        */
-      mutable std::vector<MPI_Request> recv_requests;
+      mutable std::vector<MPI_Request> requests;
     };
 
   } // namespace MPI
