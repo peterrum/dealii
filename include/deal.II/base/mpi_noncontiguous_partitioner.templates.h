@@ -70,7 +70,7 @@ namespace Utilities
              MemoryConsumption::memory_consumption(recv_ranks) +
              MemoryConsumption::memory_consumption(recv_ptr) +
              MemoryConsumption::memory_consumption(recv_indices) +
-             MemoryConsumption::memory_consumption(buffers) +
+             MemoryConsumption::memory_consumption(buffers_) +
              MemoryConsumption::memory_consumption(requests);
     }
 
@@ -98,7 +98,7 @@ namespace Utilities
       recv_ranks.clear();
       recv_ptr.clear();
       recv_indices.clear();
-      buffers.clear();
+      buffers_.clear();
       requests.clear();
 
       // setup communication pattern
@@ -140,12 +140,22 @@ namespace Utilities
 
             recv_ptr.push_back(recv_indices.size());
           }
+
+        std::cout << "A ";
+        for (auto i : recv_indices)
+          std::cout << i << " ";
+        std::cout << std::endl;
+        for (auto i : recv_ptr)
+          std::cout << i << " ";
+        std::cout << std::endl;
       }
 
       {
         const auto targets_with_indexset = process.get_requesters();
 
-        send_ptr.push_back(send_indices.size() /*=0*/);
+        std::cout << recv_ptr.back() << std::endl;
+
+        send_ptr.push_back(recv_ptr.back());
         for (const auto &target_with_indexset : targets_with_indexset)
           {
             send_ranks.push_back(target_with_indexset.first);
@@ -153,15 +163,17 @@ namespace Utilities
             for (const auto &cell_index : target_with_indexset.second)
               send_indices.push_back(indexset_has.index_within_set(cell_index));
 
-            send_ptr.push_back(send_indices.size());
+            send_ptr.push_back(send_indices.size() + recv_ptr.back());
           }
-      }
 
-      // TODO
-      // recv_buffers.resize(recv_indices.size());
-      // recv_requests.resize(recv_map.size());
-      // send_buffers.resize(send_indices.size());
-      // send_requests.resize(targets_with_indexset.size());
+        std::cout << "B ";
+        for (auto i : send_indices)
+          std::cout << i << " ";
+        std::cout << std::endl;
+        for (auto i : send_ptr)
+          std::cout << i << " ";
+        std::cout << std::endl;
+      }
     }
 
 
@@ -254,17 +266,24 @@ namespace Utilities
       const ArrayView<Number> &      dst) const
     {
       // allocate internal memory since needed
-
       if (requests.size() != send_ranks.size() + recv_ranks.size())
         requests.resize(send_ranks.size() + recv_ranks.size());
 
+      if (this->buffers_.size() != send_ptr.back() * sizeof(Number))
+        this->buffers_.resize(send_ptr.back() * sizeof(Number), 0);
+
       this->template export_to_ghosted_array<Number>(
-        internal::Tags::noncontiguous_partitioner_update_ghost_values,
+        0,
         src,
-        ArrayView<Number>(reinterpret_cast<Number *>(this->buffers.data()),
-                          0 /*TODO*/),
+        ArrayView<Number>(reinterpret_cast<Number *>(this->buffers_.data()),
+                          send_ptr.back()),
         dst,
         this->requests);
+
+      for (unsigned i = 0; i < send_ptr.back(); ++i)
+        std::cout << reinterpret_cast<Number *>(this->buffers_.data())[i]
+                  << " ";
+      std::cout << std::endl;
     }
 
 
@@ -318,7 +337,7 @@ namespace Utilities
                       recv_ranks[i],
                       tag,
                       communicator,
-                      &requests[i] + send_ranks.size());
+                      &requests[i + send_ranks.size()]);
           AssertThrowMPI(ierr);
         }
 

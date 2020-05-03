@@ -219,12 +219,12 @@ namespace Utilities
        * Buffer containing the values sorted by rank for sending and receiving.
        *
        * @note Only allocated if not provided externally by user.
-       * 
-       * @note At this place we do not know the type of the data to be sent. So 
-       *   we use an arbitrary type of size 1 byte. The type is cased to the 
+       *
+       * @note At this place we do not know the type of the data to be sent. So
+       *   we use an arbitrary type of size 1 byte. The type is cased to the
        *   requested type in the relevant functions.
        */
-      mutable std::vector<uint8_t> buffers;
+      mutable std::vector<uint8_t> buffers_;
 
       /**
        * MPI requests for sending and receiving.
