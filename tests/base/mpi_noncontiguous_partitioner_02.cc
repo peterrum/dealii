@@ -125,7 +125,7 @@ test(const MPI_Comm &comm, const bool do_revert, const unsigned int dir)
 
   AlignedVector<double> dst(indices_want.size());
 
-  vector.export_to_ghosted_array(dst, src);
+  vector.export_to_ghosted_array(src, dst);
 
   for (size_t i = 0; i < src.size(); i++)
     deallog << static_cast<int>(src[i]) << " ";

@@ -262,8 +262,8 @@ namespace Utilities
     template <typename VectorType>
     void
     NoncontiguousPartitioner<Number>::export_to_ghosted_array(
-      VectorType &      dst,
-      const VectorType &src) const
+      const VectorType &src,
+      VectorType &      dst) const
     {
       const auto tag =
         internal::Tags::noncontiguous_partitioner_update_ghost_values;

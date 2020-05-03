@@ -86,7 +86,7 @@ namespace Utilities
        */
       template <typename VectorType>
       void
-      export_to_ghosted_array(VectorType &dst, const VectorType &src) const;
+      export_to_ghosted_array(const VectorType &src, VectorType &dst) const;
 
       /**
        * Start update: Data is packed, non-blocking send and receives
