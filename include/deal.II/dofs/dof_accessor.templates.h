@@ -191,9 +191,9 @@ inline TriaIterator<DoFAccessor<structdim, DoFHandlerType, level_dof_access>>
 DoFAccessor<structdim, DoFHandlerType, level_dof_access>::child(
   const unsigned int i) const
 {
-  Assert(static_cast<unsigned int>(this->level()) <
-           this->dof_handler->levels.size(),
-         ExcMessage("DoFHandler not initialized"));
+  // Assert(static_cast<unsigned int>(this->level()) <
+  //         this->dof_handler->levels.size(),
+  //       ExcMessage("DoFHandler not initialized"));
 
   TriaIterator<TriaAccessor<structdim,
                             DoFHandlerType::dimension,
@@ -230,6 +230,7 @@ namespace internal
                     const unsigned int                     local_index,
                     std::integral_constant<int, 1>)
       {
+        Assert(obj_level == 0, ExcInternalError());
         return dof_handler.levels[obj_level]->dof_object.get_dof_index(
           dof_handler, obj_index, fe_index, local_index);
       }
@@ -245,6 +246,7 @@ namespace internal
                     std::integral_constant<int, 1>,
                     const types::global_dof_index global_index)
       {
+        Assert(obj_level == 0, ExcInternalError());
         dof_handler.levels[obj_level]->dof_object.set_dof_index(
           dof_handler, obj_index, fe_index, local_index, global_index);
       }
@@ -296,6 +298,7 @@ namespace internal
                     const unsigned int                     local_index,
                     std::integral_constant<int, 2>)
       {
+        Assert(obj_level == 0, ExcInternalError());
         return dof_handler.levels[obj_level]->dof_object.get_dof_index(
           dof_handler, obj_index, fe_index, local_index);
       }
@@ -311,6 +314,7 @@ namespace internal
                     std::integral_constant<int, 2>,
                     const types::global_dof_index global_index)
       {
+        Assert(obj_level == 0, ExcInternalError());
         dof_handler.levels[obj_level]->dof_object.set_dof_index(
           dof_handler, obj_index, fe_index, local_index, global_index);
       }
@@ -401,6 +405,7 @@ namespace internal
                     const unsigned int                     local_index,
                     std::integral_constant<int, 3>)
       {
+        Assert(obj_level == 0, ExcInternalError());
         return dof_handler.levels[obj_level]->dof_object.get_dof_index(
           dof_handler, obj_index, fe_index, local_index);
       }
@@ -416,6 +421,7 @@ namespace internal
                     std::integral_constant<int, 3>,
                     const types::global_dof_index global_index)
       {
+        Assert(obj_level == 0, ExcInternalError());
         dof_handler.levels[obj_level]->dof_object.set_dof_index(
           dof_handler, obj_index, fe_index, local_index, global_index);
       }
@@ -430,6 +436,7 @@ namespace internal
                     const unsigned int                         local_index,
                     const std::integral_constant<int, 1> &)
       {
+        Assert(obj_level == 0, ExcInternalError());
         return dof_handler.levels[obj_level]->get_dof_index(obj_index,
                                                             fe_index,
                                                             local_index);
@@ -446,6 +453,7 @@ namespace internal
                     const std::integral_constant<int, 1> &,
                     const types::global_dof_index global_index)
       {
+        Assert(obj_level == 0, ExcInternalError());
         dof_handler.levels[obj_level]->set_dof_index(obj_index,
                                                      fe_index,
                                                      local_index,
@@ -495,6 +503,7 @@ namespace internal
                     const unsigned int                         local_index,
                     const std::integral_constant<int, 2> &)
       {
+        Assert(obj_level == 0, ExcInternalError());
         return dof_handler.levels[obj_level]->get_dof_index(obj_index,
                                                             fe_index,
                                                             local_index);
@@ -511,6 +520,7 @@ namespace internal
                     const std::integral_constant<int, 2> &,
                     const types::global_dof_index global_index)
       {
+        Assert(obj_level == 0, ExcInternalError());
         dof_handler.levels[obj_level]->set_dof_index(obj_index,
                                                      fe_index,
                                                      local_index,
@@ -593,6 +603,7 @@ namespace internal
                     const unsigned int                         local_index,
                     const std::integral_constant<int, 3> &)
       {
+        Assert(obj_level == 0, ExcInternalError());
         return dof_handler.levels[obj_level]->get_dof_index(obj_index,
                                                             fe_index,
                                                             local_index);
@@ -609,6 +620,7 @@ namespace internal
                     const std::integral_constant<int, 3> &,
                     const types::global_dof_index global_index)
       {
+        Assert(obj_level == 0, ExcInternalError());
         dof_handler.levels[obj_level]->set_dof_index(obj_index,
                                                      fe_index,
                                                      local_index,
@@ -776,6 +788,7 @@ namespace internal
                          const unsigned int                         fe_index,
                          const std::integral_constant<int, 1> &)
       {
+        Assert(obj_level == 0, ExcInternalError());
         return dof_handler.levels[obj_level]->fe_index_is_active(obj_index,
                                                                  fe_index);
       }
@@ -803,6 +816,7 @@ namespace internal
         const unsigned int                         n,
         const std::integral_constant<int, 1> &)
       {
+        Assert(obj_level == 0, ExcInternalError());
         (void)n;
         Assert(n == 0,
                ExcMessage("On cells, there can only be one active FE index"));
@@ -863,6 +877,7 @@ namespace internal
                          const unsigned int                         fe_index,
                          const std::integral_constant<int, 2> &)
       {
+        Assert(obj_level == 0, ExcInternalError());
         return dof_handler.levels[obj_level]->fe_index_is_active(obj_index,
                                                                  fe_index);
       }
@@ -890,6 +905,7 @@ namespace internal
         const unsigned int                         n,
         const std::integral_constant<int, 2> &)
       {
+        Assert(obj_level == 0, ExcInternalError());
         (void)n;
         Assert(n == 0,
                ExcMessage("On cells, there can only be one active FE index"));
@@ -966,6 +982,7 @@ namespace internal
                          const unsigned int                         fe_index,
                          const std::integral_constant<int, 3> &)
       {
+        Assert(obj_level == 0, ExcInternalError());
         return dof_handler.levels[obj_level]->fe_index_is_active(obj_index,
                                                                  fe_index);
       }
@@ -1024,6 +1041,7 @@ namespace internal
         const unsigned int                         n,
         const std::integral_constant<int, 3> &)
       {
+        Assert(obj_level == 0, ExcInternalError());
         (void)n;
         Assert(n == 0,
                ExcMessage("On cells, there can only be one active FE index"));
@@ -1603,8 +1621,13 @@ DoFAccessor<dim, DoFHandlerType, level_dof_access>::dof_index(
   // access the respective DoF
   return dealii::internal::DoFAccessorImplementation::Implementation::
     get_dof_index(*this->dof_handler,
-                  this->level(),
-                  this->present_index,
+                  0,
+                  dim == DoFHandlerType::dimension ?
+                    CellAccessor<DoFHandlerType::dimension,
+                                 DoFHandlerType::space_dimension>(
+                      this->tria, this->level(), this->present_index)
+                      .active_cell_index() :
+                    this->present_index,
                   fe_index,
                   i,
                   std::integral_constant<int, dim>());
@@ -1632,8 +1655,12 @@ DoFAccessor<dim, DoFHandlerType, level_dof_access>::set_dof_index(
   // access the respective DoF
   dealii::internal::DoFAccessorImplementation::Implementation::set_dof_index(
     *this->dof_handler,
-    this->level(),
-    this->present_index,
+    0,
+    dim == DoFHandlerType::dimension ?
+      CellAccessor<DoFHandlerType::dimension, DoFHandlerType::space_dimension>(
+        this->tria, this->level(), this->present_index)
+        .active_cell_index() :
+      this->present_index,
     fe_index,
     i,
     std::integral_constant<int, dim>(),
@@ -1664,8 +1691,13 @@ DoFAccessor<dim, DoFHandlerType, level_dof_access>::nth_active_fe_index(
   // access the respective DoF
   return dealii::internal::DoFAccessorImplementation::Implementation::
     nth_active_fe_index(*this->dof_handler,
-                        this->level(),
-                        this->present_index,
+                        0,
+                        dim == DoFHandlerType::dimension ?
+                          CellAccessor<DoFHandlerType::dimension,
+                                       DoFHandlerType::space_dimension>(
+                            this->tria, this->level(), this->present_index)
+                            .active_cell_index() :
+                          this->present_index,
                         n,
                         std::integral_constant<int, dim>());
 }
@@ -1693,8 +1725,13 @@ DoFAccessor<dim, DoFHandlerType, level_dof_access>::fe_index_is_active(
   // access the respective DoF
   return dealii::internal::DoFAccessorImplementation::Implementation::
     fe_index_is_active(*this->dof_handler,
-                       this->level(),
-                       this->present_index,
+                       0,
+                       dim == DoFHandlerType::dimension ?
+                         CellAccessor<DoFHandlerType::dimension,
+                                      DoFHandlerType::space_dimension>(
+                           this->tria, this->level(), this->present_index)
+                           .active_cell_index() :
+                         this->present_index,
                        fe_index,
                        std::integral_constant<int, dim>());
 }
@@ -1790,8 +1827,9 @@ inline const FiniteElement<DoFHandlerType::dimension,
 DoFAccessor<dim, DoFHandlerType, level_dof_access>::get_fe(
   const unsigned int fe_index) const
 {
-  Assert(fe_index_is_active(fe_index) == true,
-         ExcMessage("This function can only be called for active fe indices"));
+  // Assert(fe_index_is_active(fe_index) == true,
+  //       ExcMessage("This function can only be called for active fe
+  //       indices"));
 
   return this->dof_handler->get_fe(fe_index);
 }
@@ -2049,12 +2087,12 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::get_dof_indices(
   const unsigned int                    fe_index) const
 {
   Assert(this->dof_handler != nullptr, ExcInvalidObject());
-  Assert(static_cast<unsigned int>(this->level()) <
-           this->dof_handler->levels.size(),
-         ExcMessage(
-           "The DoFHandler to which this accessor points has not "
-           "been initialized, i.e., it doesn't appear that DoF indices "
-           "have been distributed on it."));
+  // Assert(static_cast<unsigned int>(this->level()) <
+  //         this->dof_handler->levels.size(),
+  //       ExcMessage(
+  //         "The DoFHandler to which this accessor points has not "
+  //         "been initialized, i.e., it doesn't appear that DoF indices "
+  //         "have been distributed on it."));
 
   switch (structdim)
     {
@@ -2706,8 +2744,8 @@ namespace internal
 
         types::global_dof_index *next_dof_index =
           const_cast<types::global_dof_index *>(
-            accessor.dof_handler->levels[accessor.present_level]
-              ->get_cell_cache_start(accessor.present_index, dofs_per_cell));
+            accessor.dof_handler->levels[0]->get_cell_cache_start(
+              accessor.active_cell_index(), dofs_per_cell));
 
         for (unsigned int i = 0; i < dofs_per_cell; ++i, ++next_dof_index)
           *next_dof_index = dof_indices[i];
@@ -2821,12 +2859,12 @@ namespace internal
         Assert(
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
-        Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->levels.size(),
-               ExcMessage("DoFHandler not initialized"));
+        // Assert(static_cast<unsigned int>(accessor.level()) <
+        //         accessor.dof_handler->levels.size(),
+        //       ExcMessage("DoFHandler not initialized"));
 
-        return accessor.dof_handler->levels[accessor.level()]->active_fe_index(
-          accessor.present_index);
+        return accessor.dof_handler->levels[0]->active_fe_index(
+          accessor.active_cell_index());
       }
 
 
@@ -2861,12 +2899,12 @@ namespace internal
         Assert(
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
-        Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->levels.size(),
-               ExcMessage("DoFHandler not initialized"));
+        // Assert(static_cast<unsigned int>(accessor.level()) <
+        //         accessor.dof_handler->levels.size(),
+        //       ExcMessage("DoFHandler not initialized"));
 
-        accessor.dof_handler->levels[accessor.level()]->set_active_fe_index(
-          accessor.present_index, i);
+        accessor.dof_handler->levels[0]->set_active_fe_index(
+          accessor.active_cell_index(), i);
       }
 
 
@@ -2895,12 +2933,12 @@ namespace internal
         Assert(
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
-        Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->levels.size(),
-               ExcMessage("DoFHandler not initialized"));
+        // Assert(static_cast<unsigned int>(accessor.level()) <
+        //         accessor.dof_handler->levels.size(),
+        //       ExcMessage("DoFHandler not initialized"));
 
-        return accessor.dof_handler->levels[accessor.level()]->future_fe_index(
-          accessor.present_index);
+        return accessor.dof_handler->levels[0]->future_fe_index(
+          accessor.active_cell_index());
       }
 
 
@@ -2934,12 +2972,12 @@ namespace internal
         Assert(
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
-        Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->levels.size(),
-               ExcMessage("DoFHandler not initialized"));
+        // Assert(static_cast<unsigned int>(accessor.level()) <
+        //         accessor.dof_handler->levels.size(),
+        //       ExcMessage("DoFHandler not initialized"));
 
-        accessor.dof_handler->levels[accessor.level()]->set_future_fe_index(
-          accessor.present_index, i);
+        accessor.dof_handler->levels[0]->set_future_fe_index(
+          accessor.active_cell_index(), i);
       }
 
 
@@ -2969,12 +3007,12 @@ namespace internal
         Assert(
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
-        Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->levels.size(),
-               ExcMessage("DoFHandler not initialized"));
+        // Assert(static_cast<unsigned int>(accessor.level()) <
+        //         accessor.dof_handler->levels.size(),
+        //       ExcMessage("DoFHandler not initialized"));
 
-        return accessor.dof_handler->levels[accessor.level()]
-          ->future_fe_index_set(accessor.present_index);
+        return accessor.dof_handler->levels[0]->future_fe_index_set(
+          accessor.active_cell_index());
       }
 
 
@@ -3003,12 +3041,12 @@ namespace internal
         Assert(
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
-        Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->levels.size(),
-               ExcMessage("DoFHandler not initialized"));
+        // Assert(static_cast<unsigned int>(accessor.level()) <
+        //         accessor.dof_handler->levels.size(),
+        //       ExcMessage("DoFHandler not initialized"));
 
-        accessor.dof_handler->levels[accessor.level()]->clear_future_fe_index(
-          accessor.present_index);
+        accessor.dof_handler->levels[0]->clear_future_fe_index(
+          accessor.active_cell_index());
       }
     };
   } // namespace DoFCellAccessorImplementation
@@ -3203,8 +3241,8 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::get_dof_indices(
   if (dofs_per_cell > 0)
     {
       const types::global_dof_index *cache =
-        this->dof_handler->levels[this->present_level]->get_cell_cache_start(
-          this->present_index, dofs_per_cell);
+        this->dof_handler->levels[0]->get_cell_cache_start(
+          this->active_cell_index(), dofs_per_cell);
       for (unsigned int i = 0; i < dofs_per_cell; ++i, ++cache)
         dof_indices[i] = *cache;
     }
@@ -3280,8 +3318,8 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::get_dof_values(
          typename DoFCellAccessor::ExcVectorDoesNotMatch());
 
   const types::global_dof_index *cache =
-    this->dof_handler->levels[this->present_level]->get_cell_cache_start(
-      this->present_index, this->get_fe().dofs_per_cell);
+    this->dof_handler->levels[0]->get_cell_cache_start(
+      this->active_cell_index(), this->get_fe().dofs_per_cell);
   dealii::internal::DoFAccessorImplementation::Implementation::
     extract_subvector_to(values,
                          cache,
@@ -3312,8 +3350,8 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::get_dof_values(
 
 
   const types::global_dof_index *cache =
-    this->dof_handler->levels[this->present_level]->get_cell_cache_start(
-      this->present_index, this->get_fe().dofs_per_cell);
+    this->dof_handler->levels[0]->get_cell_cache_start(
+      this->active_cell_index(), this->get_fe().dofs_per_cell);
 
   constraints.get_dof_values(values,
                              *cache,
@@ -3343,8 +3381,8 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::set_dof_values(
 
   Assert(this->dof_handler != nullptr, typename BaseClass::ExcInvalidObject());
   const types::global_dof_index *cache =
-    this->dof_handler->levels[this->present_level]->get_cell_cache_start(
-      this->present_index, this->get_fe().dofs_per_cell);
+    this->dof_handler->levels[0]->get_cell_cache_start(
+      this->active_cell_index(), this->get_fe().dofs_per_cell);
 
   for (unsigned int i = 0; i < this->get_fe().dofs_per_cell; ++i, ++cache)
     internal::ElementAccess<OutputVector>::set(local_values(i), *cache, values);
@@ -3595,8 +3633,8 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::distribute_local_to_global(
   const unsigned int n_dofs = local_source_end - local_source_begin;
 
   const types::global_dof_index *dofs =
-    this->dof_handler->levels[this->level()]->get_cell_cache_start(
-      this->present_index, n_dofs);
+    this->dof_handler->levels[0]->get_cell_cache_start(
+      this->active_cell_index(), n_dofs);
 
   // distribute cell vector
   global_destination.add(n_dofs, dofs, local_source_begin);
@@ -3625,8 +3663,8 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::distribute_local_to_global(
   const unsigned int n_dofs = local_source_end - local_source_begin;
 
   const types::global_dof_index *dofs =
-    this->dof_handler->levels[this->level()]->get_cell_cache_start(
-      this->present_index, n_dofs);
+    this->dof_handler->levels[0]->get_cell_cache_start(
+      this->active_cell_index(), n_dofs);
 
   // distribute cell vector
   constraints.distribute_local_to_global(local_source_begin,
@@ -3660,8 +3698,8 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::distribute_local_to_global(
   const unsigned int n_dofs = local_source.m();
 
   const types::global_dof_index *dofs =
-    this->dof_handler->levels[this->level()]->get_cell_cache_start(
-      this->present_index, n_dofs);
+    this->dof_handler->levels[0]->get_cell_cache_start(
+      this->active_cell_index(), n_dofs);
 
   // distribute cell matrix
   for (unsigned int i = 0; i < n_dofs; ++i)
@@ -3698,8 +3736,8 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::distribute_local_to_global(
 
   const unsigned int             n_dofs = this->get_fe().dofs_per_cell;
   const types::global_dof_index *dofs =
-    this->dof_handler->levels[this->level()]->get_cell_cache_start(
-      this->present_index, n_dofs);
+    this->dof_handler->levels[0]->get_cell_cache_start(this->activ_cell_index(),
+                                                       n_dofs);
 
   // distribute cell matrices
   for (unsigned int i = 0; i < n_dofs; ++i)

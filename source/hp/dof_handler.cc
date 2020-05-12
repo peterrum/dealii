@@ -119,7 +119,8 @@ namespace internal
             std::vector<std::vector<DoFLevel::active_fe_index_type>>
               active_fe_backup(dof_handler.levels.size()),
               future_fe_backup(dof_handler.levels.size());
-            for (unsigned int level = 0; level < dof_handler.levels.size();
+            for (unsigned int level = 0;
+                 level < dof_handler.levels.size() && level < 1;
                  ++level)
               {
                 active_fe_backup[level] =
@@ -132,7 +133,8 @@ namespace internal
             // are troublesome if you want to change their size
             dof_handler.clear_space();
 
-            for (unsigned int level = 0; level < dof_handler.tria->n_levels();
+            for (unsigned int level = 0;
+                 level < dof_handler.tria->n_levels() && level < 1;
                  ++level)
               {
                 dof_handler.levels.emplace_back(new internal::hp::DoFLevel);
@@ -278,80 +280,88 @@ namespace internal
           // note that for dof_handler.cells, the situation is simpler
           // than for other (lower dimensional) objects since exactly
           // one finite element is used for it
-          for (unsigned int level = 0; level < dof_handler.tria->n_levels();
-               ++level)
-            {
-              dof_handler.levels[level]->dof_offsets =
-                std::vector<DoFLevel::offset_type>(
-                  dof_handler.tria->n_raw_cells(level),
-                  static_cast<DoFLevel::offset_type>(-1));
-              dof_handler.levels[level]->cell_cache_offsets =
-                std::vector<DoFLevel::offset_type>(
-                  dof_handler.tria->n_raw_cells(level),
-                  static_cast<DoFLevel::offset_type>(-1));
+          dof_handler.levels[0]->dof_offsets =
+            std::vector<DoFLevel::offset_type>(
+              dof_handler.tria->n_active_cells(),
+              static_cast<DoFLevel::offset_type>(-1));
+          dof_handler.levels[0]->cell_cache_offsets =
+            std::vector<DoFLevel::offset_type>(
+              dof_handler.tria->n_active_cells(),
+              static_cast<DoFLevel::offset_type>(-1));
 
-              types::global_dof_index next_free_dof = 0;
-              types::global_dof_index cache_size    = 0;
-              typename HpDoFHandler<dim, spacedim>::active_cell_iterator
-                cell = dof_handler.begin_active(level),
-                endc = dof_handler.end_active(level);
-              for (; cell != endc; ++cell)
-                if (cell->is_active() && !cell->is_artificial())
-                  {
-                    dof_handler.levels[level]->dof_offsets[cell->index()] =
-                      next_free_dof;
-                    next_free_dof +=
-                      cell->get_fe().template n_dofs_per_object<dim>();
+          types::global_dof_index next_free_dof = 0;
+          types::global_dof_index cache_size    = 0;
 
-                    dof_handler.levels[level]
-                      ->cell_cache_offsets[cell->index()] = cache_size;
-                    cache_size += cell->get_fe().dofs_per_cell;
-                  }
+          // for (unsigned int level = 0; level < dof_handler.tria->n_levels();
+          //     ++level)
+          {
+            // typename HpDoFHandler<dim, spacedim>::active_cell_iterator
+            //  cell = dof_handler.begin_active(level),
+            //  endc = dof_handler.end_active(level);
+            for (auto cell : dof_handler.active_cell_iterators())
+              if (cell->is_active() && !cell->is_artificial())
+                {
+                  dof_handler.levels[0]
+                    ->dof_offsets[cell->active_cell_index()] = next_free_dof;
+                  next_free_dof +=
+                    cell->get_fe().template n_dofs_per_object<dim>();
 
-              dof_handler.levels[level]->dof_indices =
-                std::vector<types::global_dof_index>(
-                  next_free_dof, numbers::invalid_dof_index);
-              dof_handler.levels[level]->cell_dof_indices_cache =
-                std::vector<types::global_dof_index>(
-                  cache_size, numbers::invalid_dof_index);
-            }
+                  dof_handler.levels[0]
+                    ->cell_cache_offsets[cell->active_cell_index()] =
+                    cache_size;
+                  cache_size += cell->get_fe().dofs_per_cell;
+                }
+          }
 
-            // safety check: make sure that the number of DoFs we
-            // allocated is actually correct (above we have also set the
-            // dof_*_offsets field, so we couldn't use this simpler
-            // algorithm)
-#ifdef DEBUG
-          for (unsigned int level = 0; level < dof_handler.tria->n_levels();
-               ++level)
-            {
-              types::global_dof_index counter = 0;
-              for (const auto &cell :
-                   dof_handler.active_cell_iterators_on_level(level))
-                if (cell->is_active() && !cell->is_artificial())
-                  counter += cell->get_fe().template n_dofs_per_object<dim>();
+          dof_handler.levels[0]->dof_indices =
+            std::vector<types::global_dof_index>(next_free_dof,
+                                                 numbers::invalid_dof_index);
+          dof_handler.levels[0]->cell_dof_indices_cache =
+            std::vector<types::global_dof_index>(cache_size,
+                                                 numbers::invalid_dof_index);
 
-              Assert(dof_handler.levels[level]->dof_indices.size() == counter,
-                     ExcInternalError());
-
-              // also check that the number of unassigned slots in the
-              // dof_offsets equals the number of cells on that level minus the
-              // number of active, non-artificial cells (because these are
-              // exactly the cells on which we do something)
-              unsigned int n_active_non_artificial_cells = 0;
-              for (const auto &cell :
-                   dof_handler.active_cell_iterators_on_level(level))
-                if (cell->is_active() && !cell->is_artificial())
-                  ++n_active_non_artificial_cells;
-
-              Assert(static_cast<unsigned int>(std::count(
-                       dof_handler.levels[level]->dof_offsets.begin(),
-                       dof_handler.levels[level]->dof_offsets.end(),
-                       static_cast<DoFLevel::offset_type>(-1))) ==
-                       dof_handler.tria->n_raw_cells(level) -
-                         n_active_non_artificial_cells,
-                     ExcInternalError());
-            }
-#endif
+          // safety check: make sure that the number of DoFs we
+          // allocated is actually correct (above we have also set the
+          // dof_*_offsets field, so we couldn't use this simpler
+          // algorithm)
+          //#ifdef DEBUG
+          //          for (unsigned int level = 0; level <
+          //          dof_handler.tria->n_levels();
+          //               ++level)
+          //            {
+          //              types::global_dof_index counter = 0;
+          //              for (const auto &cell :
+          //                   dof_handler.active_cell_iterators_on_level(level))
+          //                if (cell->is_active() && !cell->is_artificial())
+          //                  counter += cell->get_fe().template
+          //                  n_dofs_per_object<dim>();
+          //
+          //              Assert(dof_handler.levels[level]->dof_indices.size()
+          //              == counter,
+          //                     ExcInternalError());
+          //
+          //              // also check that the number of unassigned slots in
+          //              the
+          //              // dof_offsets equals the number of cells on that
+          //              level minus the
+          //              // number of active, non-artificial cells (because
+          //              these are
+          //              // exactly the cells on which we do something)
+          //              unsigned int n_active_non_artificial_cells = 0;
+          //              for (const auto &cell :
+          //                   dof_handler.active_cell_iterators_on_level(level))
+          //                if (cell->is_active() && !cell->is_artificial())
+          //                  ++n_active_non_artificial_cells;
+          //
+          //              Assert(static_cast<unsigned int>(std::count(
+          //                       dof_handler.levels[level]->dof_offsets.begin(),
+          //                       dof_handler.levels[level]->dof_offsets.end(),
+          //                       static_cast<DoFLevel::offset_type>(-1))) ==
+          //                       dof_handler.tria->n_raw_cells(level) -
+          //                         n_active_non_artificial_cells,
+          //                     ExcInternalError());
+          //            }
+          //#endif
         }
 
 
@@ -687,8 +697,8 @@ namespace internal
                  (typename DoFHandler<1, spacedim>::ExcNoFESelected()));
           Assert(dof_handler.tria->n_levels() > 0,
                  ExcMessage("The current Triangulation must not be empty."));
-          Assert(dof_handler.tria->n_levels() == dof_handler.levels.size(),
-                 ExcInternalError());
+          // Assert(dof_handler.tria->n_levels() == dof_handler.levels.size(),
+          //       ExcInternalError());
 
           reserve_space_release_space(dof_handler);
 
@@ -709,8 +719,8 @@ namespace internal
                  (typename DoFHandler<2, spacedim>::ExcNoFESelected()));
           Assert(dof_handler.tria->n_levels() > 0,
                  ExcMessage("The current Triangulation must not be empty."));
-          Assert(dof_handler.tria->n_levels() == dof_handler.levels.size(),
-                 ExcInternalError());
+          // Assert(dof_handler.tria->n_levels() == dof_handler.levels.size(),
+          //       ExcInternalError());
 
           reserve_space_release_space(dof_handler);
 
@@ -735,8 +745,8 @@ namespace internal
                  (typename DoFHandler<dim, spacedim>::ExcNoFESelected()));
           Assert(dof_handler.tria->n_levels() > 0,
                  ExcMessage("The current Triangulation must not be empty."));
-          Assert(dof_handler.tria->n_levels() == dof_handler.levels.size(),
-                 ExcInternalError());
+          // Assert(dof_handler.tria->n_levels() == dof_handler.levels.size(),
+          //       ExcInternalError());
 
           reserve_space_release_space(dof_handler);
 
@@ -1010,8 +1020,8 @@ namespace internal
               // structures directly
               for (const auto &cell : dof_handler.active_cell_iterators())
                 if (!cell->is_locally_owned())
-                  dof_handler.levels[cell->level()]->set_active_fe_index(
-                    cell->index(),
+                  dof_handler.levels[0]->set_active_fe_index(
+                    cell->active_cell_index(),
                     active_fe_indices[cell->active_cell_index()]);
             }
           else if (const dealii::parallel::
@@ -1042,8 +1052,8 @@ namespace internal
                 //   cell->set_active_fe_index(active_fe_index);
                 // but this is not allowed on cells that are not
                 // locally owned, and we are on a ghost cell
-                dof_handler.levels[cell->level()]->set_active_fe_index(
-                  cell->index(), active_fe_index);
+                dof_handler.levels[0]->set_active_fe_index(
+                  cell->active_cell_index(), active_fe_index);
               };
 
               GridTools::exchange_cell_data_to_ghosts<
@@ -1158,6 +1168,9 @@ namespace internal
                     if (cell->future_fe_index_set() == true)
                       fe_transfer->persisting_cells_fe_index.insert(
                         {cell, cell->future_fe_index()});
+                    else
+                      fe_transfer->persisting_cells_fe_index.insert(
+                        {cell, cell->active_fe_index()});
                   }
               }
         }
@@ -1916,20 +1929,19 @@ namespace hp
   DoFHandler<dim, spacedim>::create_active_fe_table()
   {
     // Create sufficiently many hp::DoFLevels.
-    while (levels.size() < tria->n_levels())
+    while (levels.size() < tria->n_levels() && levels.size() < 1)
       levels.emplace_back(new dealii::internal::hp::DoFLevel);
 
     // then make sure that on each level we have the appropriate size
     // of active_fe_indices; preset them to zero, i.e. the default FE
-    for (unsigned int level = 0; level < levels.size(); ++level)
+    for (unsigned int level = 0; level < levels.size() && level < 1; ++level)
       {
         if (levels[level]->active_fe_indices.size() == 0 &&
             levels[level]->future_fe_indices.size() == 0)
           {
-            levels[level]->active_fe_indices.resize(tria->n_raw_cells(level),
-                                                    0);
+            levels[level]->active_fe_indices.resize(tria->n_active_cells(), 0);
             levels[level]->future_fe_indices.resize(
-              tria->n_raw_cells(level),
+              tria->n_active_cells(),
               dealii::internal::hp::DoFLevel::invalid_active_fe_index);
           }
         else
@@ -1938,9 +1950,9 @@ namespace hp
             // they were just created, or the correct size. Other
             // sizes indicate that something went wrong.
             Assert(levels[level]->active_fe_indices.size() ==
-                       tria->n_raw_cells(level) &&
+                       tria->n_active_cells() &&
                      levels[level]->future_fe_indices.size() ==
-                       tria->n_raw_cells(level),
+                       tria->n_active_cells(),
                    ExcInternalError());
           }
 
@@ -1971,21 +1983,21 @@ namespace hp
   {
     // Normally only one level is added, but if this Triangulation
     // is created by copy_triangulation, it can be more than one level.
-    while (levels.size() < tria->n_levels())
+    while (levels.size() < tria->n_levels() && levels.size() < 1)
       levels.emplace_back(new dealii::internal::hp::DoFLevel);
 
     // Coarsening can lead to the loss of levels. Hence remove them.
-    while (levels.size() > tria->n_levels())
+    while (levels.size() > tria->n_levels() && levels.size() > 1)
       {
         // drop the last element. that also releases the memory pointed to
         levels.pop_back();
       }
 
-    Assert(levels.size() == tria->n_levels(), ExcInternalError());
-    for (unsigned int i = 0; i < levels.size(); ++i)
+    // Assert(levels.size() == tria->n_levels(), ExcInternalError());
+    for (unsigned int i = 0; i < levels.size() && i < 1; ++i)
       {
         // Resize active_fe_indices vectors. Use zero indicator to extend.
-        levels[i]->active_fe_indices.resize(tria->n_raw_cells(i), 0);
+        levels[i]->active_fe_indices.resize(tria->n_active_cells(), 0);
 
         // Resize future_fe_indices vectors. Make sure that all
         // future_fe_indices have been cleared after refinement happened.
@@ -1993,7 +2005,7 @@ namespace hp
         // We have used future_fe_indices to update all active_fe_indices
         // before refinement happened, thus we are safe to clear them now.
         levels[i]->future_fe_indices.assign(
-          tria->n_raw_cells(i),
+          tria->n_active_cells(),
           dealii::internal::hp::DoFLevel::invalid_active_fe_index);
       }
   }
