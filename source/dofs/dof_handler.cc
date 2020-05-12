@@ -295,18 +295,18 @@ namespace internal
                                          dof_handler.get_fe().dofs_per_vertex,
                                        numbers::invalid_dof_index);
 
-        for (unsigned int i = 0; i < dof_handler.tria->n_levels(); ++i)
+        for (unsigned int i = 0; i < dof_handler.tria->n_levels() && i < 1; ++i)
           {
             dof_handler.levels.emplace_back(
               new internal::DoFHandlerImplementation::DoFLevel<1>);
 
             dof_handler.levels.back()->dof_object.dofs.resize(
-              dof_handler.tria->n_raw_cells(i) *
+              dof_handler.tria->n_active_cells() *
                 dof_handler.get_fe().dofs_per_line,
               numbers::invalid_dof_index);
 
             dof_handler.levels.back()->cell_dof_indices_cache.resize(
-              dof_handler.tria->n_raw_cells(i) *
+              dof_handler.tria->n_active_cells() *
                 dof_handler.get_fe().dofs_per_cell,
               numbers::invalid_dof_index);
           }
@@ -320,18 +320,18 @@ namespace internal
                                          dof_handler.get_fe().dofs_per_vertex,
                                        numbers::invalid_dof_index);
 
-        for (unsigned int i = 0; i < dof_handler.tria->n_levels(); ++i)
+        for (unsigned int i = 0; i < dof_handler.tria->n_levels() && i < 1; ++i)
           {
             dof_handler.levels.emplace_back(
               new internal::DoFHandlerImplementation::DoFLevel<2>);
 
             dof_handler.levels.back()->dof_object.dofs.resize(
-              dof_handler.tria->n_raw_cells(i) *
+              dof_handler.tria->n_active_cells() *
                 dof_handler.get_fe().dofs_per_quad,
               numbers::invalid_dof_index);
 
             dof_handler.levels.back()->cell_dof_indices_cache.resize(
-              dof_handler.tria->n_raw_cells(i) *
+              dof_handler.tria->n_active_cells() *
                 dof_handler.get_fe().dofs_per_cell,
               numbers::invalid_dof_index);
           }
@@ -356,18 +356,18 @@ namespace internal
                                          dof_handler.get_fe().dofs_per_vertex,
                                        numbers::invalid_dof_index);
 
-        for (unsigned int i = 0; i < dof_handler.tria->n_levels(); ++i)
+        for (unsigned int i = 0; i < dof_handler.tria->n_levels() && i < 1; ++i)
           {
             dof_handler.levels.emplace_back(
               new internal::DoFHandlerImplementation::DoFLevel<3>);
 
             dof_handler.levels.back()->dof_object.dofs.resize(
-              dof_handler.tria->n_raw_cells(i) *
+              dof_handler.tria->n_active_cells() *
                 dof_handler.get_fe().dofs_per_hex,
               numbers::invalid_dof_index);
 
             dof_handler.levels.back()->cell_dof_indices_cache.resize(
-              dof_handler.tria->n_raw_cells(i) *
+              dof_handler.tria->n_active_cells() *
                 dof_handler.get_fe().dofs_per_cell,
               numbers::invalid_dof_index);
           }
