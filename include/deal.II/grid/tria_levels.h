@@ -54,13 +54,20 @@ namespace internal
      *
      * @author Wolfgang Bangerth, Guido Kanschat, 1998, 2007
      */
-    template <int dim>
     class TriaLevel
     {
     public:
-      TriaLevel()
-        : cells(dim)
+      TriaLevel(const unsigned int dim)
+        : dim(dim)
+        , cells(dim)
       {}
+
+      TriaLevel()
+        : dim(-1)
+        , cells(-1)
+      {}
+
+      unsigned int dim;
 
       /**
        * @p RefinementCase<dim>::Type flags for the cells to be refined with
@@ -255,10 +262,9 @@ namespace internal
     };
 
 
-    template <int dim>
     template <class Archive>
     void
-    TriaLevel<dim>::serialize(Archive &ar, const unsigned int)
+    TriaLevel::serialize(Archive &ar, const unsigned int)
     {
       ar &refine_flags &coarsen_flags;
 

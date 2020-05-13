@@ -1814,7 +1814,7 @@ namespace internal
         // reserve enough space
         triangulation.levels.push_back(
           std_cxx14::make_unique<
-            internal::TriangulationImplementation::TriaLevel<dim>>());
+            internal::TriangulationImplementation::TriaLevel>(dim));
         triangulation.levels[0]->reserve_space(cells.size(), dim, spacedim);
         triangulation.levels[0]->cells.reserve_space(0, cells.size());
 
@@ -2084,7 +2084,7 @@ namespace internal
         // reserve enough space
         triangulation.levels.push_back(
           std_cxx14::make_unique<
-            internal::TriangulationImplementation::TriaLevel<dim>>());
+            internal::TriangulationImplementation::TriaLevel>(dim));
         triangulation.faces = std_cxx14::make_unique<
           internal::TriangulationImplementation::TriaFaces>(dim);
         triangulation.levels[0]->reserve_space(cells.size(), dim, spacedim);
@@ -2464,7 +2464,7 @@ namespace internal
         // reserve enough space
         triangulation.levels.push_back(
           std_cxx14::make_unique<
-            internal::TriangulationImplementation::TriaLevel<dim>>());
+            internal::TriangulationImplementation::TriaLevel>(dim));
         triangulation.faces = std_cxx14::make_unique<
           internal::TriangulationImplementation::TriaFaces>(dim);
         triangulation.levels[0]->reserve_space(cells.size(), dim, spacedim);
@@ -4700,7 +4700,7 @@ namespace internal
                 {
                   triangulation.levels.push_back(
                     std_cxx14::make_unique<
-                      internal::TriangulationImplementation::TriaLevel<dim>>());
+                      internal::TriangulationImplementation::TriaLevel>(dim));
                   break;
                 }
         }
@@ -4944,7 +4944,7 @@ namespace internal
                 {
                   triangulation.levels.push_back(
                     std_cxx14::make_unique<
-                      internal::TriangulationImplementation::TriaLevel<dim>>());
+                      internal::TriangulationImplementation::TriaLevel>(dim));
                   break;
                 }
         }
@@ -5275,7 +5275,7 @@ namespace internal
                 {
                   triangulation.levels.push_back(
                     std_cxx14::make_unique<
-                      internal::TriangulationImplementation::TriaLevel<dim>>());
+                      internal::TriangulationImplementation::TriaLevel>(dim));
                   break;
                 }
         }
@@ -10471,9 +10471,9 @@ Triangulation<dim, spacedim>::copy_triangulation(
 
   levels.reserve(other_tria.levels.size());
   for (unsigned int level = 0; level < other_tria.levels.size(); ++level)
-    levels.push_back(std_cxx14::make_unique<
-                     internal::TriangulationImplementation::TriaLevel<dim>>(
-      *other_tria.levels[level]));
+    levels.push_back(
+      std_cxx14::make_unique<internal::TriangulationImplementation::TriaLevel>(
+        *other_tria.levels[level]));
 
   number_cache = other_tria.number_cache;
 
@@ -11013,12 +11013,9 @@ Triangulation<dim, spacedim>::get_anisotropic_refinement_flag() const
 namespace
 {
   // clear user data of cells
-  template <int dim>
   void
-  clear_user_data(
-    std::vector<
-      std::unique_ptr<internal::TriangulationImplementation::TriaLevel<dim>>>
-      &levels)
+  clear_user_data(std::vector<std::unique_ptr<
+                    internal::TriangulationImplementation::TriaLevel>> &levels)
   {
     for (unsigned int level = 0; level < levels.size(); ++level)
       levels[level]->cells.clear_user_data();
@@ -11057,24 +11054,27 @@ Triangulation<dim, spacedim>::clear_user_data()
 
 namespace
 {
-  void clear_user_flags_line(
-    std::vector<
-      std::unique_ptr<internal::TriangulationImplementation::TriaLevel<1>>>
-      &levels,
-    internal::TriangulationImplementation::TriaFaces *)
-  {
-    for (const auto &level : levels)
-      level->cells.clear_user_flags();
-  }
-
-  template <int dim>
   void
   clear_user_flags_line(
+    unsigned int dim,
     std::vector<
-      std::unique_ptr<internal::TriangulationImplementation::TriaLevel<dim>>> &,
+      std::unique_ptr<internal::TriangulationImplementation::TriaLevel>>
+      &                                               levels,
     internal::TriangulationImplementation::TriaFaces *faces)
   {
-    faces->lines.clear_user_flags();
+    if (dim == 1)
+      {
+        for (const auto &level : levels)
+          level->cells.clear_user_flags();
+      }
+    else if (dim == 2 || dim == 3)
+      {
+        faces->lines.clear_user_flags();
+      }
+    else
+      {
+        Assert(false, ExcNotImplemented())
+      }
   }
 } // namespace
 
@@ -11083,39 +11083,38 @@ template <int dim, int spacedim>
 void
 Triangulation<dim, spacedim>::clear_user_flags_line()
 {
-  dealii::clear_user_flags_line(levels, faces.get());
+  dealii::clear_user_flags_line(dim, levels, faces.get());
 }
 
 
 
 namespace
 {
-  void clear_user_flags_quad(
-    std::vector<
-      std::unique_ptr<internal::TriangulationImplementation::TriaLevel<1>>> &,
-    internal::TriangulationImplementation::TriaFaces *)
-  {
-    // nothing to do in 1d
-  }
-
-  void clear_user_flags_quad(
-    std::vector<
-      std::unique_ptr<internal::TriangulationImplementation::TriaLevel<2>>>
-      &levels,
-    internal::TriangulationImplementation::TriaFaces *)
-  {
-    for (const auto &level : levels)
-      level->cells.clear_user_flags();
-  }
-
-  template <int dim>
   void
   clear_user_flags_quad(
+    unsigned int dim,
     std::vector<
-      std::unique_ptr<internal::TriangulationImplementation::TriaLevel<dim>>> &,
+      std::unique_ptr<internal::TriangulationImplementation::TriaLevel>>
+      &                                               levels,
     internal::TriangulationImplementation::TriaFaces *faces)
   {
-    faces->quads.clear_user_flags();
+    if (dim == 1)
+      {
+        // nothing to do in 1d
+      }
+    else if (dim == 2)
+      {
+        for (const auto &level : levels)
+          level->cells.clear_user_flags();
+      }
+    else if (dim == 3)
+      {
+        faces->quads.clear_user_flags();
+      }
+    else
+      {
+        Assert(false, ExcNotImplemented())
+      }
   }
 } // namespace
 
@@ -11124,38 +11123,38 @@ template <int dim, int spacedim>
 void
 Triangulation<dim, spacedim>::clear_user_flags_quad()
 {
-  dealii::clear_user_flags_quad(levels, faces.get());
+  dealii::clear_user_flags_quad(dim, levels, faces.get());
 }
 
 
 
 namespace
 {
-  void clear_user_flags_hex(
+  void
+  clear_user_flags_hex(
+    unsigned int dim,
     std::vector<
-      std::unique_ptr<internal::TriangulationImplementation::TriaLevel<1>>> &,
-    internal::TriangulationImplementation::TriaFaces *)
-  {
-    // nothing to do in 1d
-  }
-
-
-  void clear_user_flags_hex(
-    std::vector<
-      std::unique_ptr<internal::TriangulationImplementation::TriaLevel<2>>> &,
-    internal::TriangulationImplementation::TriaFaces *)
-  {
-    // nothing to do in 2d
-  }
-
-  void clear_user_flags_hex(
-    std::vector<
-      std::unique_ptr<internal::TriangulationImplementation::TriaLevel<3>>>
+      std::unique_ptr<internal::TriangulationImplementation::TriaLevel>>
       &levels,
     internal::TriangulationImplementation::TriaFaces *)
   {
-    for (const auto &level : levels)
-      level->cells.clear_user_flags();
+    if (dim == 1)
+      {
+        // nothing to do in 1d
+      }
+    else if (dim == 2)
+      {
+        // nothing to do in 2d
+      }
+    else if (dim == 3)
+      {
+        for (const auto &level : levels)
+          level->cells.clear_user_flags();
+      }
+    else
+      {
+        Assert(false, ExcNotImplemented())
+      }
   }
 } // namespace
 
@@ -11164,7 +11163,7 @@ template <int dim, int spacedim>
 void
 Triangulation<dim, spacedim>::clear_user_flags_hex()
 {
-  dealii::clear_user_flags_hex(levels, faces.get());
+  dealii::clear_user_flags_hex(dim, levels, faces.get());
 }
 
 

@@ -24,11 +24,10 @@ namespace internal
 {
   namespace TriangulationImplementation
   {
-    template <int dim>
     void
-    TriaLevel<dim>::reserve_space(const unsigned int total_cells,
-                                  const unsigned int dimension,
-                                  const unsigned int space_dimension)
+    TriaLevel::reserve_space(const unsigned int total_cells,
+                             const unsigned int dimension,
+                             const unsigned int space_dimension)
     {
       // we need space for total_cells cells. Maybe we have more already
       // with those cells which are unused, so only allocate new space if
@@ -41,7 +40,7 @@ namespace internal
           refine_flags.reserve(total_cells);
           refine_flags.insert(refine_flags.end(),
                               total_cells - refine_flags.size(),
-                              RefinementCase<dim>::no_refinement);
+                              /*RefinementCase::no_refinement=*/0);
 
           coarsen_flags.reserve(total_cells);
           coarsen_flags.insert(coarsen_flags.end(),
@@ -111,9 +110,8 @@ namespace internal
     }
 
 
-    template <int dim>
     void
-    TriaLevel<dim>::monitor_memory(const unsigned int true_dimension) const
+    TriaLevel::monitor_memory(const unsigned int true_dimension) const
     {
       (void)true_dimension;
       Assert(2 * true_dimension * refine_flags.size() == neighbors.size(),
@@ -123,9 +121,8 @@ namespace internal
     }
 
 
-    template <int dim>
     std::size_t
-    TriaLevel<dim>::memory_consumption() const
+    TriaLevel::memory_consumption() const
     {
       return (MemoryConsumption::memory_consumption(refine_flags) +
               MemoryConsumption::memory_consumption(coarsen_flags) +
@@ -139,10 +136,5 @@ namespace internal
     }
   } // namespace TriangulationImplementation
 } // namespace internal
-
-
-template class internal::TriangulationImplementation::TriaLevel<1>;
-template class internal::TriangulationImplementation::TriaLevel<2>;
-template class internal::TriangulationImplementation::TriaLevel<3>;
 
 DEAL_II_NAMESPACE_CLOSE

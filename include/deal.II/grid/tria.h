@@ -27,6 +27,7 @@
 
 #include <deal.II/grid/tria_description.h>
 #include <deal.II/grid/tria_iterator_selector.h>
+#include <deal.II/grid/tria_levels.h>
 
 #include <boost/serialization/map.hpp>
 #include <boost/serialization/split_member.hpp>
@@ -78,7 +79,6 @@ namespace internal
 {
   namespace TriangulationImplementation
   {
-    template <int dim>
     class TriaLevel;
 
     class TriaFaces;
@@ -3824,8 +3824,8 @@ private:
    * Array of pointers pointing to the objects storing the cell data on the
    * different levels.
    */
-  std::vector<std::unique_ptr<
-    dealii::internal::TriangulationImplementation::TriaLevel<dim>>>
+  std::vector<
+    std::unique_ptr<dealii::internal::TriangulationImplementation::TriaLevel>>
     levels;
 
   /**
@@ -4085,9 +4085,8 @@ Triangulation<dim, spacedim>::load(Archive &ar, const unsigned int)
   levels.resize(size);
   for (unsigned int i = 0; i < levels.size(); ++i)
     {
-      std::unique_ptr<internal::TriangulationImplementation::TriaLevel<dim>>
-          level;
-      ar &level;
+      std::unique_ptr<internal::TriangulationImplementation::TriaLevel> level;
+      ar &                                                              level;
       levels[i] = std::move(level);
     }
 
