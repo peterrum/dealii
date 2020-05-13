@@ -3955,21 +3955,21 @@ namespace internal
                                    ++l)
                                 for (unsigned int h = 0;
                                      h <
-                                     triangulation.levels[l]->cells.n_cells();
+                                     triangulation.levels[l]->cells.n_objects();
                                      ++h)
                                   for (const unsigned int q :
                                        GeometryInfo<dim>::face_indices())
                                     {
                                       const int index = triangulation.levels[l]
-                                                          ->cells.get_cell(h)
+                                                          ->cells.get_object(h)
                                                           .face(q);
                                       if (index == switch_1_index)
                                         triangulation.levels[l]
-                                          ->cells.get_cell(h)
+                                          ->cells.get_object(h)
                                           .set_face(q, switch_2_index);
                                       else if (index == switch_2_index)
                                         triangulation.levels[l]
-                                          ->cells.get_cell(h)
+                                          ->cells.get_object(h)
                                           .set_face(q, switch_1_index);
                                     }
                               // now we have to copy
@@ -5962,20 +5962,20 @@ namespace internal
                             // loop over all quads and replace the old
                             // lines
                             for (unsigned int q = 0;
-                                 q < triangulation.faces->quads.n_cells();
+                                 q < triangulation.faces->quads.n_objects();
                                  ++q)
                               for (unsigned int l = 0;
                                    l < GeometryInfo<dim>::lines_per_face;
                                    ++l)
                                 {
                                   const int this_index =
-                                    triangulation.faces->quads.get_cell(q).face(
-                                      l);
+                                    triangulation.faces->quads.get_object(q)
+                                      .face(l);
                                   if (this_index == old_index_0)
-                                    triangulation.faces->quads.get_cell(q)
+                                    triangulation.faces->quads.get_object(q)
                                       .set_face(l, new_index_0);
                                   else if (this_index == old_index_1)
-                                    triangulation.faces->quads.get_cell(q)
+                                    triangulation.faces->quads.get_object(q)
                                       .set_face(l, new_index_1);
                                 }
                             // now we have to copy all information of
@@ -6062,22 +6062,23 @@ namespace internal
                                  l < triangulation.levels.size();
                                  ++l)
                               for (unsigned int h = 0;
-                                   h < triangulation.levels[l]->cells.n_cells();
+                                   h <
+                                   triangulation.levels[l]->cells.n_objects();
                                    ++h)
                                 for (const unsigned int q :
                                      GeometryInfo<dim>::face_indices())
                                   {
                                     const int face_index =
                                       triangulation.levels[l]
-                                        ->cells.get_cell(h)
+                                        ->cells.get_object(h)
                                         .face(q);
                                     if (face_index == switch_1_index)
                                       triangulation.levels[l]
-                                        ->cells.get_cell(h)
+                                        ->cells.get_object(h)
                                         .set_face(q, switch_2_index);
                                     else if (face_index == switch_2_index)
                                       triangulation.levels[l]
-                                        ->cells.get_cell(h)
+                                        ->cells.get_object(h)
                                         .set_face(q, switch_1_index);
                                   }
                             // now we have to copy all information of
@@ -12032,14 +12033,14 @@ typename Triangulation<dim, spacedim>::cell_iterator
 Triangulation<dim, spacedim>::last() const
 {
   const unsigned int level = levels.size() - 1;
-  if (levels[level]->cells.n_cells() == 0)
+  if (levels[level]->cells.n_objects() == 0)
     return end(level);
 
   // find the last raw iterator on
   // this level
   raw_cell_iterator ri(const_cast<Triangulation<dim, spacedim> *>(this),
                        level,
-                       levels[level]->cells.n_cells() - 1);
+                       levels[level]->cells.n_objects() - 1);
 
   // then move to the last used one
   if (ri->used() == true)
@@ -12358,7 +12359,7 @@ Triangulation<dim, spacedim>::begin_raw_line(const unsigned int level) const
         // triangulation.
         Assert(level < levels.size(), ExcInvalidLevel(level, levels.size()));
 
-        if (level >= levels.size() || levels[level]->cells.n_cells() == 0)
+        if (level >= levels.size() || levels[level]->cells.n_objects() == 0)
           return end_line();
 
         return raw_line_iterator(
@@ -12448,7 +12449,7 @@ Triangulation<dim, spacedim>::begin_raw_quad(const unsigned int level) const
           // triangulation.
           Assert(level < levels.size(), ExcInvalidLevel(level, levels.size()));
 
-          if (level >= levels.size() || levels[level]->cells.n_cells() == 0)
+          if (level >= levels.size() || levels[level]->cells.n_objects() == 0)
             return end_quad();
 
           return raw_quad_iterator(
@@ -12548,7 +12549,7 @@ Triangulation<dim, spacedim>::begin_raw_hex(const unsigned int level) const
           // triangulation.
           Assert(level < levels.size(), ExcInvalidLevel(level, levels.size()));
 
-          if (level >= levels.size() || levels[level]->cells.n_cells() == 0)
+          if (level >= levels.size() || levels[level]->cells.n_objects() == 0)
             return end_hex();
 
           return raw_hex_iterator(
@@ -12827,7 +12828,7 @@ unsigned int
 Triangulation<1, 1>::n_raw_lines(const unsigned int level) const
 {
   AssertIndexRange(level, n_levels());
-  return levels[level]->cells.n_cells();
+  return levels[level]->cells.n_objects();
 }
 
 
@@ -12846,7 +12847,7 @@ unsigned int
 Triangulation<1, 2>::n_raw_lines(const unsigned int level) const
 {
   AssertIndexRange(level, n_levels());
-  return levels[level]->cells.n_cells();
+  return levels[level]->cells.n_objects();
 }
 
 
@@ -12864,7 +12865,7 @@ unsigned int
 Triangulation<1, 3>::n_raw_lines(const unsigned int level) const
 {
   AssertIndexRange(level, n_levels());
-  return levels[level]->cells.n_cells();
+  return levels[level]->cells.n_objects();
 }
 
 template <>
@@ -12890,7 +12891,7 @@ template <int dim, int spacedim>
 unsigned int
 Triangulation<dim, spacedim>::n_raw_lines() const
 {
-  return faces->lines.n_cells();
+  return faces->lines.n_objects();
 }
 
 
@@ -13093,7 +13094,7 @@ unsigned int
 Triangulation<2, 2>::n_raw_quads(const unsigned int level) const
 {
   AssertIndexRange(level, n_levels());
-  return levels[level]->cells.n_cells();
+  return levels[level]->cells.n_objects();
 }
 
 
@@ -13103,7 +13104,7 @@ unsigned int
 Triangulation<2, 3>::n_raw_quads(const unsigned int level) const
 {
   AssertIndexRange(level, n_levels());
-  return levels[level]->cells.n_cells();
+  return levels[level]->cells.n_objects();
 }
 
 
@@ -13131,7 +13132,7 @@ template <>
 unsigned int
 Triangulation<3, 3>::n_raw_quads() const
 {
-  return faces->quads.n_cells();
+  return faces->quads.n_objects();
 }
 
 
@@ -13223,7 +13224,7 @@ unsigned int
 Triangulation<3, 3>::n_raw_hexs(const unsigned int level) const
 {
   AssertIndexRange(level, n_levels());
-  return levels[level]->cells.n_cells();
+  return levels[level]->cells.n_objects();
 }
 
 

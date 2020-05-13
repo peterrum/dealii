@@ -78,7 +78,7 @@ namespace internal
 
     public:
       unsigned int
-      n_cells() const
+      n_objects() const
       {
         unsigned int faces_per_cell = 1;
 
@@ -95,7 +95,7 @@ namespace internal
       }
 
       TriaObjectView
-      get_cell(const unsigned int index)
+      get_object(const unsigned int index)
       {
         unsigned int faces_per_cell = 1;
 

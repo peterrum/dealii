@@ -86,7 +86,7 @@ namespace internal
             new_size += additional_single_objects;
 
           // only allocate space if necessary
-          if (new_size > n_cells())
+          if (new_size > this->n_objects())
             {
               unsigned int faces_per_cell        = 1;
               unsigned int max_children_per_cell = 1;
@@ -111,7 +111,7 @@ namespace internal
 
               cells.reserve(new_size * faces_per_cell);
               cells.insert(cells.end(),
-                           (new_size - n_cells()) * faces_per_cell,
+                           (new_size - this->n_objects()) * faces_per_cell,
                            -1);
 
               used.reserve(new_size);
@@ -164,7 +164,7 @@ namespace internal
             new_hexes + std::count(used.begin(), used.end(), true);
 
           // see above...
-          if (new_size > n_cells())
+          if (new_size > n_objects())
             {
               unsigned int faces_per_cell = 1;
 
@@ -179,7 +179,7 @@ namespace internal
 
               cells.reserve(new_size * faces_per_cell);
               cells.insert(cells.end(),
-                           (new_size - n_cells()) * faces_per_cell,
+                           (new_size - n_objects()) * faces_per_cell,
                            -1);
 
               used.reserve(new_size);
@@ -256,50 +256,50 @@ namespace internal
     {
       if (this->structdim == 1)
         {
-          Assert(n_cells() == used.size(),
-                 ExcMemoryInexact(n_cells(), used.size()));
-          Assert(n_cells() == user_flags.size(),
-                 ExcMemoryInexact(n_cells(), user_flags.size()));
-          Assert(n_cells() == children.size(),
-                 ExcMemoryInexact(n_cells(), children.size()));
-          Assert(n_cells() == boundary_or_material_id.size(),
-                 ExcMemoryInexact(n_cells(), boundary_or_material_id.size()));
-          Assert(n_cells() == manifold_id.size(),
-                 ExcMemoryInexact(n_cells(), manifold_id.size()));
-          Assert(n_cells() == user_data.size(),
-                 ExcMemoryInexact(n_cells(), user_data.size()));
+          Assert(n_objects() == used.size(),
+                 ExcMemoryInexact(n_objects(), used.size()));
+          Assert(n_objects() == user_flags.size(),
+                 ExcMemoryInexact(n_objects(), user_flags.size()));
+          Assert(n_objects() == children.size(),
+                 ExcMemoryInexact(n_objects(), children.size()));
+          Assert(n_objects() == boundary_or_material_id.size(),
+                 ExcMemoryInexact(n_objects(), boundary_or_material_id.size()));
+          Assert(n_objects() == manifold_id.size(),
+                 ExcMemoryInexact(n_objects(), manifold_id.size()));
+          Assert(n_objects() == user_data.size(),
+                 ExcMemoryInexact(n_objects(), user_data.size()));
         }
       else if (this->structdim == 2)
         {
-          Assert(n_cells() == used.size(),
-                 ExcMemoryInexact(n_cells(), used.size()));
-          Assert(n_cells() == user_flags.size(),
-                 ExcMemoryInexact(n_cells(), user_flags.size()));
-          Assert(2 * n_cells() == children.size(),
-                 ExcMemoryInexact(n_cells(), children.size()));
-          Assert(n_cells() == refinement_cases.size(),
-                 ExcMemoryInexact(n_cells(), refinement_cases.size()));
-          Assert(n_cells() == boundary_or_material_id.size(),
-                 ExcMemoryInexact(n_cells(), boundary_or_material_id.size()));
-          Assert(n_cells() == manifold_id.size(),
-                 ExcMemoryInexact(n_cells(), manifold_id.size()));
-          Assert(n_cells() == user_data.size(),
-                 ExcMemoryInexact(n_cells(), user_data.size()));
+          Assert(n_objects() == used.size(),
+                 ExcMemoryInexact(n_objects(), used.size()));
+          Assert(n_objects() == user_flags.size(),
+                 ExcMemoryInexact(n_objects(), user_flags.size()));
+          Assert(2 * n_objects() == children.size(),
+                 ExcMemoryInexact(n_objects(), children.size()));
+          Assert(n_objects() == refinement_cases.size(),
+                 ExcMemoryInexact(n_objects(), refinement_cases.size()));
+          Assert(n_objects() == boundary_or_material_id.size(),
+                 ExcMemoryInexact(n_objects(), boundary_or_material_id.size()));
+          Assert(n_objects() == manifold_id.size(),
+                 ExcMemoryInexact(n_objects(), manifold_id.size()));
+          Assert(n_objects() == user_data.size(),
+                 ExcMemoryInexact(n_objects(), user_data.size()));
         }
       else if (this->structdim == 3)
         {
-          Assert(n_cells() == used.size(),
-                 ExcMemoryInexact(n_cells(), used.size()));
-          Assert(n_cells() == user_flags.size(),
-                 ExcMemoryInexact(n_cells(), user_flags.size()));
-          Assert(4 * n_cells() == children.size(),
-                 ExcMemoryInexact(n_cells(), children.size()));
-          Assert(n_cells() == boundary_or_material_id.size(),
-                 ExcMemoryInexact(n_cells(), boundary_or_material_id.size()));
-          Assert(n_cells() == manifold_id.size(),
-                 ExcMemoryInexact(n_cells(), manifold_id.size()));
-          Assert(n_cells() == user_data.size(),
-                 ExcMemoryInexact(n_cells(), user_data.size()));
+          Assert(n_objects() == used.size(),
+                 ExcMemoryInexact(n_objects(), used.size()));
+          Assert(n_objects() == user_flags.size(),
+                 ExcMemoryInexact(n_objects(), user_flags.size()));
+          Assert(4 * n_objects() == children.size(),
+                 ExcMemoryInexact(n_objects(), children.size()));
+          Assert(n_objects() == boundary_or_material_id.size(),
+                 ExcMemoryInexact(n_objects(), boundary_or_material_id.size()));
+          Assert(n_objects() == manifold_id.size(),
+                 ExcMemoryInexact(n_objects(), manifold_id.size()));
+          Assert(n_objects() == user_data.size(),
+                 ExcMemoryInexact(n_objects(), user_data.size()));
         }
     }
 

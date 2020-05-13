@@ -206,14 +206,14 @@ TriaAccessorBase<structdim, dim, spacedim>::operator++()
       // have to set the level, since
       // dim!=1 and the object therefore
       // has no level)
-      if (this->present_index >= static_cast<int>(objects().n_cells()))
+      if (this->present_index >= static_cast<int>(objects().n_objects()))
         this->present_index = -1;
     }
   else
     {
       while (this->present_index >=
              static_cast<int>(
-               this->tria->levels[this->present_level]->cells.n_cells()))
+               this->tria->levels[this->present_level]->cells.n_objects()))
         {
           // no -> go one level up until we find
           // one with more than zero cells
@@ -259,7 +259,7 @@ TriaAccessorBase<structdim, dim, spacedim>::operator--()
             }
           // else
           this->present_index =
-            this->tria->levels[this->present_level]->cells.n_cells() - 1;
+            this->tria->levels[this->present_level]->cells.n_objects() - 1;
         }
     }
 }
@@ -611,7 +611,7 @@ namespace internal
       line_index(const TriaAccessor<2, dim, spacedim> &accessor,
                  const unsigned int                    i)
       {
-        return accessor.objects().get_cell(accessor.present_index).face(i);
+        return accessor.objects().get_object(accessor.present_index).face(i);
       }
 
 
@@ -686,7 +686,7 @@ namespace internal
       {
         AssertIndexRange(i, GeometryInfo<3>::quads_per_cell);
         return accessor.tria->levels[accessor.present_level]
-          ->cells.get_cell(accessor.present_index)
+          ->cells.get_object(accessor.present_index)
           .face(i);
       }
 
@@ -1075,7 +1075,9 @@ namespace internal
       vertex_index(const TriaAccessor<1, dim, spacedim> &accessor,
                    const unsigned int                    corner)
       {
-        return accessor.objects().get_cell(accessor.present_index).face(corner);
+        return accessor.objects()
+          .get_object(accessor.present_index)
+          .face(corner);
       }
 
 
