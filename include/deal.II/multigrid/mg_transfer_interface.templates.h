@@ -228,6 +228,7 @@ Transfer<dim, Number>::prolongate(
 
           // ---------------------------- coarse -----------------------------
           const auto ierr = cell_transfer.run(cell_prolongator);
+          (void)ierr;
           Assert(ierr,
                  ExcMessage("Prolongation " +
                             std::to_string(scheme.degree_coarse) + " -> " +
@@ -335,6 +336,7 @@ Transfer<dim, Number>::restrict_and_add(
 
           // ------------------------------ fine -----------------------------
           const auto ierr = cell_transfer.run(cell_restrictor);
+          (void)ierr;
           Assert(ierr,
                  ExcMessage("Restriction " +
                             std::to_string(scheme.degree_fine) + " -> " +
