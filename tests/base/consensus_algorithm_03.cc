@@ -88,7 +88,14 @@ public:
                    const unsigned int n_global_levels)
     : n_coarse_cells(n_coarse_cells)
     , n_global_levels(n_global_levels)
-  {}
+  {
+    tree_sizes.push_back(0);
+    for (unsigned int i = 0; i < n_global_levels; ++i)
+      tree_sizes.push_back(
+        tree_sizes.back() +
+        Utilities::pow(GeometryInfo<dim>::max_children_per_cell, i) *
+          n_coarse_cells);
+  }
 
   unsigned int
   size()
@@ -103,19 +110,14 @@ public:
   unsigned int
   translate(const T &cell)
   {
-    return convert_cell_id_binary_type_to_level_coarse_cell_id<dim>(
-             cell->id().template to_binary<dim>()) +
-           n_coarse_cells *
-             (Utilities::pow(GeometryInfo<dim>::max_children_per_cell,
-                             cell->level()) -
-              1);
-  }
+    unsigned int id = 0;
 
-  CellId
-  to_cell_id(const unsigned int id)
-  {
-    const std::vector<std::uint8_t> child_indices;
-    return CellId(id, child_indices); // TODO
+    id += convert_cell_id_binary_type_to_level_coarse_cell_id<dim>(
+      cell->id().template to_binary<dim>());
+
+    id += tree_sizes[cell->level()];
+
+    return id;
   }
 
   template <typename T>
@@ -125,9 +127,38 @@ public:
     return translate(cell) * GeometryInfo<dim>::max_children_per_cell + i;
   }
 
+  CellId
+  to_cell_id(const unsigned int id)
+  {
+    std::vector<std::uint8_t> child_indices;
+
+    unsigned int id_temp = id;
+
+    unsigned int level = 0;
+
+    for (; level < n_global_levels; ++level)
+      if (id < tree_sizes[level])
+        break;
+    level -= 1;
+
+    id_temp -= tree_sizes[level];
+
+    for (unsigned int l = 0; l < level; ++l)
+      {
+        child_indices.push_back(id_temp %
+                                GeometryInfo<dim>::max_children_per_cell);
+        id_temp /= GeometryInfo<dim>::max_children_per_cell;
+      }
+
+    std::reverse(child_indices.begin(), child_indices.end());
+
+    return CellId(id_temp, child_indices); // TODO
+  }
+
 private:
-  const unsigned int n_coarse_cells;
-  const unsigned int n_global_levels;
+  const unsigned int        n_coarse_cells;
+  const unsigned int        n_global_levels;
+  std::vector<unsigned int> tree_sizes;
 };
 
 
@@ -147,12 +178,12 @@ public:
     const auto deterimine_n_coarse_cells = [&communicator](auto &tria) {
       types::coarse_cell_id n_coarse_cells = 0;
 
-      for (auto cell : tria.cell_iterators_on_level(0))
+      for (auto cell : tria.active_cell_iterators())
         if (!cell->is_artificial())
           n_coarse_cells =
             std::max(n_coarse_cells, cell->id().get_coarse_cell_id());
 
-      return Utilities::MPI::max(n_coarse_cells, communicator);
+      return Utilities::MPI::max(n_coarse_cells, communicator) + 1;
     };
 
     const auto n_coarse_cells_dst = deterimine_n_coarse_cells(tria_dst);
@@ -351,15 +382,12 @@ public:
     ghost_indices.erase(std::unique(ghost_indices.begin(), ghost_indices.end()),
                         ghost_indices.end());
 
-    this->is_dst_large = IndexSet(dof_handler_dst.n_dofs());
-    is_dst_large.add_indices(ghost_indices.begin(), ghost_indices.end());
+    this->is_extended_locally_owned = dof_handler_dst.locally_owned_dofs();
 
-    this->d = dof_handler_dst.locally_owned_dofs();
-
-    IndexSet dd;
-    DoFTools::extract_locally_relevant_dofs(dof_handler_dst, dd);
-
-    is_dst_large.add_indices(dd);
+    this->is_extendende_ghosts = IndexSet(dof_handler_dst.n_dofs());
+    this->is_extendende_ghosts.add_indices(ghost_indices.begin(),
+                                           ghost_indices.end());
+    this->is_extendende_ghosts.subtract_set(this->is_extended_locally_owned);
   }
 
   template <typename Number>
@@ -368,9 +396,8 @@ public:
          const LinearAlgebra::distributed::Vector<Number> &src) const
   {
     // create new source vector with matching ghost values
-    LinearAlgebra::distributed::Vector<Number> src_extended(d,
-                                                            is_dst_large,
-                                                            communicator);
+    LinearAlgebra::distributed::Vector<Number> src_extended(
+      is_extended_locally_owned, is_extendende_ghosts, communicator);
 
     // copy locally owned values from original source vector
     src_extended.copy_locally_owned_data_from(src);
@@ -384,10 +411,9 @@ public:
   }
 
 private:
-  MPI_Comm communicator;
-  IndexSet d;
-  IndexSet is_dst_large;
-
+  MPI_Comm                  communicator;
+  IndexSet                  is_extended_locally_owned;
+  IndexSet                  is_extendende_ghosts;
   std::vector<unsigned int> indices;
 };
 
@@ -397,6 +423,7 @@ test(const MPI_Comm &comm)
 {
   Triangulation<dim> basetria;
   GridGenerator::subdivided_hyper_cube(basetria, 4);
+  basetria.refine_global(2);
 
   parallel::fullydistributed::Triangulation<dim> tria_1(comm);
   parallel::fullydistributed::Triangulation<dim> tria_2(comm);
