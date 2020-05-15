@@ -164,6 +164,8 @@ public:
         is_dst_remote_potentially_relevant.add_index(
           translator_coarse.translate(cell));
 
+    auto is_dst_remote_potentially_relevant_ =
+      is_dst_remote_potentially_relevant;
     is_dst_remote_potentially_relevant.subtract_set(is_dst_locally_owned);
 
     std::vector<unsigned int> owning_ranks_of_ghosts(
@@ -263,6 +265,41 @@ public:
     std::map<unsigned int, std::vector<unsigned int>> rank_to_ids;
 
     this->indices.resize(dof_handler_src.locally_owned_dofs().n_elements());
+
+
+    // process local cells
+    {
+      auto is_dst_locally_owned_actual = is_dst_remote_potentially_relevant_;
+      is_dst_locally_owned_actual.subtract_set(is_dst_remote);
+
+      std::vector<types::global_dof_index> indices(
+        dof_handler_dst.get_fe().dofs_per_cell);
+
+      std::vector<types::global_dof_index> indices_(
+        dof_handler_dst.get_fe().dofs_per_cell);
+
+      for (const auto id : is_dst_locally_owned_actual)
+        {
+          const auto cell_id = translator_coarse.to_cell_id(id);
+
+          typename DoFHandler<dim, spacedim>::cell_iterator cell(
+            *cell_id.to_cell(tria_src), &dof_handler_src);
+
+          typename DoFHandler<dim, spacedim>::cell_iterator cell_(
+            *cell_id.to_cell(tria_dst), &dof_handler_dst);
+
+          cell->get_dof_indices(indices);
+          cell_->get_dof_indices(indices_);
+
+          for (unsigned int j = 0; j < dof_handler_dst.get_fe().dofs_per_cell;
+               ++j)
+            {
+              if (dof_handler_src.locally_owned_dofs().is_element(indices[j]))
+                this->indices[dof_handler_src.locally_owned_dofs()
+                                .index_within_set(indices[j])] = indices_[j];
+            }
+        }
+    }
 
     {
       std::set<unsigned int> ranks;
