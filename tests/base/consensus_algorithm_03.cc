@@ -158,14 +158,16 @@ public:
                                             tria_dst.n_global_levels());
 
     IndexSet is_dst_remote_potentially_relevant(translator_coarse.size());
+    IndexSet is_src_locally_owned(translator_coarse.size());
 
     for (auto cell : tria_src.active_cell_iterators())
       if (!cell->is_artificial() && cell->is_locally_owned())
-        is_dst_remote_potentially_relevant.add_index(
-          translator_coarse.translate(cell));
+        {
+          is_src_locally_owned.add_index(translator_coarse.translate(cell));
+          is_dst_remote_potentially_relevant.add_index(
+            translator_coarse.translate(cell));
+        }
 
-    auto is_dst_remote_potentially_relevant_ =
-      is_dst_remote_potentially_relevant;
     is_dst_remote_potentially_relevant.subtract_set(is_dst_locally_owned);
 
     std::vector<unsigned int> owning_ranks_of_ghosts(
@@ -269,8 +271,8 @@ public:
 
     // process local cells
     {
-      auto is_dst_locally_owned_actual = is_dst_remote_potentially_relevant_;
-      is_dst_locally_owned_actual.subtract_set(is_dst_remote);
+      auto is_src_and_dst_locally_owned = is_src_locally_owned;
+      is_src_and_dst_locally_owned.subtract_set(is_dst_remote);
 
       std::vector<types::global_dof_index> indices(
         dof_handler_dst.get_fe().dofs_per_cell);
@@ -278,7 +280,7 @@ public:
       std::vector<types::global_dof_index> indices_(
         dof_handler_dst.get_fe().dofs_per_cell);
 
-      for (const auto id : is_dst_locally_owned_actual)
+      for (const auto id : is_src_and_dst_locally_owned)
         {
           const auto cell_id = translator_coarse.to_cell_id(id);
 
@@ -494,6 +496,8 @@ test(const MPI_Comm &comm)
 
   vec1.print(deallog.get_file_stream());
   vec2.print(deallog.get_file_stream());
+
+  AssertDimension(vec1.l2_norm(), vec2.l2_norm());
 }
 
 int
