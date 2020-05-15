@@ -130,196 +130,230 @@ private:
   const unsigned int n_global_levels;
 };
 
-template <int dim, int spacedim>
-void
-check(const DoFHandler<dim, spacedim> &dof_handler_dst,
-      const DoFHandler<dim, spacedim> &dof_handler_src,
-      const MPI_Comm &                 communicator)
+
+class VectorRepartitioner
 {
-  const Triangulation<dim, spacedim> &tria_dst =
-    dof_handler_dst.get_triangulation();
-  const Triangulation<dim, spacedim> &tria_src =
-    dof_handler_src.get_triangulation();
+public:
+  template <int dim, int spacedim>
+  VectorRepartitioner(const DoFHandler<dim, spacedim> &dof_handler_dst,
+                      const DoFHandler<dim, spacedim> &dof_handler_src,
+                      const MPI_Comm &                 communicator)
+    : communicator(communicator)
+  {
+    const Triangulation<dim, spacedim> &tria_dst =
+      dof_handler_dst.get_triangulation();
+    const Triangulation<dim, spacedim> &tria_src =
+      dof_handler_src.get_triangulation();
 
 
-  CellIDTranslator<dim> translator_fine(tria_dst.n_cells(0),
-                                        tria_dst.n_global_levels());
-  IndexSet              is_dst_locally_owned(translator_fine.size());
-
-  for (auto cell : tria_dst.active_cell_iterators())
-    if (!cell->is_artificial() && cell->is_locally_owned())
-      is_dst_locally_owned.add_index(translator_fine.translate(cell));
-
-  CellIDTranslator<dim> translator_coarse(tria_dst.n_cells(0),
+    CellIDTranslator<dim> translator_fine(tria_dst.n_cells(0),
                                           tria_dst.n_global_levels());
+    IndexSet              is_dst_locally_owned(translator_fine.size());
 
-  IndexSet is_dst_remote_potentially_relevant(translator_coarse.size());
+    for (auto cell : tria_dst.active_cell_iterators())
+      if (!cell->is_artificial() && cell->is_locally_owned())
+        is_dst_locally_owned.add_index(translator_fine.translate(cell));
 
-  for (auto cell : tria_src.active_cell_iterators())
-    if (!cell->is_artificial() && cell->is_locally_owned())
-      is_dst_remote_potentially_relevant.add_index(
-        translator_coarse.translate(cell));
+    CellIDTranslator<dim> translator_coarse(tria_dst.n_cells(0),
+                                            tria_dst.n_global_levels());
 
-  is_dst_remote_potentially_relevant.subtract_set(is_dst_locally_owned);
+    IndexSet is_dst_remote_potentially_relevant(translator_coarse.size());
 
-  std::vector<unsigned int> owning_ranks_of_ghosts(
-    is_dst_remote_potentially_relevant.n_elements());
+    for (auto cell : tria_src.active_cell_iterators())
+      if (!cell->is_artificial() && cell->is_locally_owned())
+        is_dst_remote_potentially_relevant.add_index(
+          translator_coarse.translate(cell));
 
-  {
-    Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
-      process(is_dst_locally_owned,
-              is_dst_remote_potentially_relevant,
-              communicator,
-              owning_ranks_of_ghosts,
-              false);
+    is_dst_remote_potentially_relevant.subtract_set(is_dst_locally_owned);
 
-    Utilities::MPI::ConsensusAlgorithms::Selector<
-      std::pair<types::global_dof_index, types::global_dof_index>,
-      unsigned int>
-      consensus_algorithm(process, communicator);
-    consensus_algorithm.run();
-  }
+    std::vector<unsigned int> owning_ranks_of_ghosts(
+      is_dst_remote_potentially_relevant.n_elements());
 
-  IndexSet is_dst_remote(translator_coarse.size());
+    {
+      Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
+        process(is_dst_locally_owned,
+                is_dst_remote_potentially_relevant,
+                communicator,
+                owning_ranks_of_ghosts,
+                false);
 
-  for (unsigned i = 0; i < is_dst_remote_potentially_relevant.n_elements(); ++i)
-    if (owning_ranks_of_ghosts[i] != numbers::invalid_unsigned_int)
-      is_dst_remote.add_index(
-        is_dst_remote_potentially_relevant.nth_index_in_set(i));
+      Utilities::MPI::ConsensusAlgorithms::Selector<
+        std::pair<types::global_dof_index, types::global_dof_index>,
+        unsigned int>
+        consensus_algorithm(process, communicator);
+      consensus_algorithm.run();
+    }
+
+    IndexSet is_dst_remote(translator_coarse.size());
+
+    for (unsigned i = 0; i < is_dst_remote_potentially_relevant.n_elements();
+         ++i)
+      if (owning_ranks_of_ghosts[i] != numbers::invalid_unsigned_int)
+        is_dst_remote.add_index(
+          is_dst_remote_potentially_relevant.nth_index_in_set(i));
 
 
-  is_dst_remote.print(deallog.get_file_stream());
+    is_dst_remote.print(deallog.get_file_stream());
 
-  std::vector<unsigned int> owning_ranks_of_ghosts_clean(
-    is_dst_remote.n_elements());
+    std::vector<unsigned int> owning_ranks_of_ghosts_clean(
+      is_dst_remote.n_elements());
 
-  std::map<unsigned int, IndexSet> targets_with_indexset;
-  {
-    Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
-      process(is_dst_locally_owned,
-              is_dst_remote,
-              communicator,
-              owning_ranks_of_ghosts_clean,
-              true);
+    std::map<unsigned int, IndexSet> targets_with_indexset;
+    {
+      Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
+        process(is_dst_locally_owned,
+                is_dst_remote,
+                communicator,
+                owning_ranks_of_ghosts_clean,
+                true);
 
-    Utilities::MPI::ConsensusAlgorithms::Selector<
-      std::pair<types::global_dof_index, types::global_dof_index>,
-      unsigned int>
-      consensus_algorithm(process, communicator);
-    consensus_algorithm.run();
+      Utilities::MPI::ConsensusAlgorithms::Selector<
+        std::pair<types::global_dof_index, types::global_dof_index>,
+        unsigned int>
+        consensus_algorithm(process, communicator);
+      consensus_algorithm.run();
 
-    targets_with_indexset = process.get_requesters();
-  }
+      targets_with_indexset = process.get_requesters();
+    }
 
-  std::map<unsigned int, std::vector<unsigned int>> indices_to_be_sent;
-  std::vector<MPI_Request>                          requests;
-  requests.reserve(targets_with_indexset.size());
+    std::map<unsigned int, std::vector<unsigned int>> indices_to_be_sent;
+    std::vector<MPI_Request>                          requests;
+    requests.reserve(targets_with_indexset.size());
 
-  {
-    std::vector<types::global_dof_index> indices(
-      dof_handler_dst.get_fe().dofs_per_cell);
+    {
+      std::vector<types::global_dof_index> indices(
+        dof_handler_dst.get_fe().dofs_per_cell);
 
-    for (auto i : targets_with_indexset)
-      {
-        deallog << i.first << ": ";
-        i.second.print(deallog.get_file_stream());
+      for (auto i : targets_with_indexset)
+        {
+          deallog << i.first << ": ";
+          i.second.print(deallog.get_file_stream());
 
-        indices_to_be_sent[i.first] = {};
-        auto &buffer                = indices_to_be_sent[i.first];
+          indices_to_be_sent[i.first] = {};
+          auto &buffer                = indices_to_be_sent[i.first];
 
-        for (auto cell_id : i.second)
-          {
-            typename DoFHandler<dim, spacedim>::cell_iterator cell(
-              *translator_fine.to_cell_id(cell_id).to_cell(tria_dst),
-              &dof_handler_dst);
+          for (auto cell_id : i.second)
+            {
+              typename DoFHandler<dim, spacedim>::cell_iterator cell(
+                *translator_fine.to_cell_id(cell_id).to_cell(tria_dst),
+                &dof_handler_dst);
 
-            cell->get_dof_indices(indices);
-            buffer.insert(buffer.end(), indices.begin(), indices.end());
+              cell->get_dof_indices(indices);
+              buffer.insert(buffer.end(), indices.begin(), indices.end());
 
-            for (auto i : indices)
-              deallog << i << " ";
-            deallog << std::endl;
-          }
+              for (auto i : indices)
+                deallog << i << " ";
+              deallog << std::endl;
+            }
 
-        requests.resize(requests.size() + 1);
+          requests.resize(requests.size() + 1);
 
-        MPI_Isend(buffer.data(),
-                  buffer.size(),
-                  MPI_UNSIGNED,
-                  i.first,
-                  11,
-                  communicator,
-                  &requests.back());
-      }
-  }
+          MPI_Isend(buffer.data(),
+                    buffer.size(),
+                    MPI_UNSIGNED,
+                    i.first,
+                    11,
+                    communicator,
+                    &requests.back());
+        }
+    }
 
-  std::vector<unsigned int> ghost_indices;
+    std::vector<unsigned int> ghost_indices;
 
-  {
-    std::set<unsigned int> ranks;
+    {
+      std::set<unsigned int> ranks;
+
+      for (auto i : owning_ranks_of_ghosts_clean)
+        ranks.insert(i);
+
+      for (unsigned int i = 0; i < ranks.size(); ++i)
+        {
+          MPI_Status status;
+          MPI_Probe(MPI_ANY_SOURCE, 11, communicator, &status);
+
+          int message_length;
+          MPI_Get_count(&status, MPI_UNSIGNED, &message_length);
+
+          std::vector<unsigned int> buffer(message_length);
+
+          MPI_Recv(buffer.data(),
+                   buffer.size(),
+                   MPI_UNSIGNED,
+                   status.MPI_SOURCE,
+                   11,
+                   communicator,
+                   MPI_STATUS_IGNORE);
+
+          ghost_indices.insert(ghost_indices.end(),
+                               buffer.begin(),
+                               buffer.end());
+        }
+
+      MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
+    }
+
+    std::sort(ghost_indices.begin(), ghost_indices.end());
+    ghost_indices.erase(std::unique(ghost_indices.begin(), ghost_indices.end()),
+                        ghost_indices.end());
+
+    this->is_dst_large = IndexSet(dof_handler_dst.n_dofs());
+    is_dst_large.add_indices(ghost_indices.begin(), ghost_indices.end());
+
+    deallog << "AA " << std::endl;
+    this->d = dof_handler_dst.locally_owned_dofs();
+
+    IndexSet dd;
+    DoFTools::extract_locally_relevant_dofs(dof_handler_dst, dd);
+
+    d.print(deallog.get_file_stream());
+    dd.print(deallog.get_file_stream());
+    is_dst_large.print(deallog.get_file_stream());
+
+    is_dst_large.add_indices(dd);
+    is_dst_large.print(deallog.get_file_stream());
+
+    LinearAlgebra::distributed::Vector<double> vector(d, dd, communicator);
+
+    LinearAlgebra::distributed::Vector<double> vector_extended(d,
+                                                               is_dst_large,
+                                                               communicator);
+
+    vector_extended.copy_locally_owned_data_from(vector);
+    vector_extended.update_ghost_values();
 
     for (auto i : owning_ranks_of_ghosts_clean)
-      ranks.insert(i);
-
-    for (unsigned int i = 0; i < ranks.size(); ++i)
-      {
-        MPI_Status status;
-        MPI_Probe(MPI_ANY_SOURCE, 11, communicator, &status);
-
-        int message_length;
-        MPI_Get_count(&status, MPI_UNSIGNED, &message_length);
-
-        std::vector<unsigned int> buffer(message_length);
-
-        MPI_Recv(buffer.data(),
-                 buffer.size(),
-                 MPI_UNSIGNED,
-                 status.MPI_SOURCE,
-                 11,
-                 communicator,
-                 MPI_STATUS_IGNORE);
-
-        ghost_indices.insert(ghost_indices.end(), buffer.begin(), buffer.end());
-      }
-
-    MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
+      deallog << i << " ";
+    deallog << std::endl;
   }
 
-  std::sort(ghost_indices.begin(), ghost_indices.end());
-  ghost_indices.erase(std::unique(ghost_indices.begin(), ghost_indices.end()),
-                      ghost_indices.end());
+  template <typename Number>
+  void
+  update(LinearAlgebra::distributed::Vector<Number> &      dst,
+         const LinearAlgebra::distributed::Vector<Number> &src) const
+  {
+    // create new source vector with matching ghost values
+    LinearAlgebra::distributed::Vector<Number> src_extended(d,
+                                                            is_dst_large,
+                                                            communicator);
 
-  IndexSet is_dst_large(dof_handler_dst.n_dofs());
-  is_dst_large.add_indices(ghost_indices.begin(), ghost_indices.end());
+    // copy locally owned values from original source vector
+    src_extended.copy_locally_owned_data_from(src);
 
-  deallog << "AA " << std::endl;
-  auto d = dof_handler_dst.locally_owned_dofs();
+    // update ghost values
+    src_extended.update_ghost_values();
 
-  IndexSet dd;
-  DoFTools::extract_locally_relevant_dofs(dof_handler_dst, dd);
+    std::vector<unsigned int> indices;
 
-  d.print(deallog.get_file_stream());
-  dd.print(deallog.get_file_stream());
-  is_dst_large.print(deallog.get_file_stream());
+    // copy locally owned values from temporal array to destination vector
+    for (unsigned int i = 0; i < 0; ++i)
+      dst.local_element(i) = src_extended.local_element(indices[i]);
+  }
 
-  is_dst_large.add_indices(dd);
-  is_dst_large.print(deallog.get_file_stream());
-
-  LinearAlgebra::distributed::Vector<double> vector(d, dd, communicator);
-
-  LinearAlgebra::distributed::Vector<double> vector_extended(d,
-                                                             is_dst_large,
-                                                             communicator);
-
-  vector_extended.copy_locally_owned_data_from(vector);
-  vector_extended.update_ghost_values();
-
-  for (auto i : owning_ranks_of_ghosts_clean)
-    deallog << i << " ";
-  deallog << std::endl;
-
-  // is_dst_locally_owned & is_dst_remote
-}
+private:
+  MPI_Comm communicator;
+  IndexSet d;
+  IndexSet is_dst_large;
+};
 
 template <int dim, int spacedim>
 void
@@ -359,7 +393,23 @@ test(const MPI_Comm &comm)
   DoFHandler<dim, spacedim> dof_handler_2(tria_2);
   dof_handler_2.distribute_dofs(fe);
 
-  check(dof_handler_1, dof_handler_2, comm);
+  VectorRepartitioner vr(dof_handler_1, dof_handler_2, comm);
+
+  // setup first vector
+  IndexSet d1 = dof_handler_1.locally_owned_dofs();
+  IndexSet dd1;
+  DoFTools::extract_locally_relevant_dofs(dof_handler_1, dd1);
+
+  LinearAlgebra::distributed::Vector<double> vec1(d1, dd1, comm);
+
+  // setup second vector
+  IndexSet d2 = dof_handler_2.locally_owned_dofs();
+  IndexSet dd2;
+  DoFTools::extract_locally_relevant_dofs(dof_handler_2, dd2);
+
+  LinearAlgebra::distributed::Vector<double> vec2(d2, dd2, comm);
+
+  vr.update(vec2, vec1);
 }
 
 int
