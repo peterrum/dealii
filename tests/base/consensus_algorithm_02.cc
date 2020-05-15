@@ -82,7 +82,7 @@ check(const DoFHandler<dim, spacedim> &dof_handler_dst,
             cell_id_translator.translate(cell, i));
       }
 
-  is_dst_remote.subtract_set(is_dst_locally_owned);
+  is_dst_remote_potentially_relevant.subtract_set(is_dst_locally_owned);
 
   {
     std::vector<unsigned int> owning_ranks_of_ghosts(
@@ -125,6 +125,28 @@ check(const DoFHandler<dim, spacedim> &dof_handler_dst,
     unsigned int>
     consensus_algorithm(process, communicator);
   consensus_algorithm.run();
+
+  {
+    deallog << "IS_SRC_LOCALLY_OWNED" << std::endl;
+    for (auto i : is_src_locally_owned)
+      deallog << cell_id_translator.to_cell_id(i) << std::endl;
+    deallog << std::endl << std::endl << std::endl;
+
+
+    deallog << "IS_DST_LOCALLY_OWNED" << std::endl;
+    for (auto i : is_dst_locally_owned)
+      deallog << cell_id_translator.to_cell_id(i) << std::endl;
+    deallog << std::endl << std::endl << std::endl;
+
+
+    deallog << "IS_DST_REMOTE" << std::endl;
+    for (unsigned int i = 0; i < is_dst_remote.n_elements(); i++)
+      {
+        deallog << cell_id_translator.to_cell_id(
+                     is_dst_remote.nth_index_in_set(i))
+                << " -> " << is_dst_remote_owners[i] << std::endl;
+      }
+  }
 }
 
 template <int dim, int spacedim>
@@ -138,7 +160,7 @@ test(const MPI_Comm &comm)
     parallel::distributed::Triangulation<dim, spacedim>::Settings::
       construct_multigrid_hierarchy);
   GridGenerator::hyper_cube(tria_1, -1, +1);
-  tria_1.refine_global(3);
+  tria_1.refine_global(1);
 
   for (unsigned int i = 0; i < 4; ++i)
     {

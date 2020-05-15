@@ -124,7 +124,8 @@ public:
   unsigned int
   translate(const T &cell, const unsigned int i)
   {
-    return translate(cell) * GeometryInfo<dim>::max_children_per_cell + i;
+    return translate(cell) * GeometryInfo<dim>::max_children_per_cell + i +
+           tree_sizes[cell->level() + 1];
   }
 
   CellId
