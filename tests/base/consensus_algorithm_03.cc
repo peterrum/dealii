@@ -166,7 +166,7 @@ public:
 
     // create index sets
     IndexSet is_dst_locally_owned(cell_id_translator.size());
-    IndexSet is_dst_remote_potentially_relevant(cell_id_translator.size());
+    IndexSet is_dst_remote(cell_id_translator.size());
     IndexSet is_src_locally_owned(cell_id_translator.size());
 
     for (auto cell : tria_dst.active_cell_iterators())
@@ -178,61 +178,29 @@ public:
       if (!cell->is_artificial() && cell->is_locally_owned())
         {
           is_src_locally_owned.add_index(cell_id_translator.translate(cell));
-          is_dst_remote_potentially_relevant.add_index(
-            cell_id_translator.translate(cell));
+          is_dst_remote.add_index(cell_id_translator.translate(cell));
         }
 
-    is_dst_remote_potentially_relevant.subtract_set(is_dst_locally_owned);
-
-    std::vector<unsigned int> owning_ranks_of_ghosts(
-      is_dst_remote_potentially_relevant.n_elements());
-
-    {
-      Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
-        process(is_dst_locally_owned,
-                is_dst_remote_potentially_relevant,
-                communicator,
-                owning_ranks_of_ghosts,
-                false);
-
-      Utilities::MPI::ConsensusAlgorithms::Selector<
-        std::pair<types::global_dof_index, types::global_dof_index>,
-        unsigned int>
-        consensus_algorithm(process, communicator);
-      consensus_algorithm.run();
-    }
-
-    IndexSet is_dst_remote(cell_id_translator.size());
-
-    for (unsigned i = 0; i < is_dst_remote_potentially_relevant.n_elements();
-         ++i)
-      if (owning_ranks_of_ghosts[i] != numbers::invalid_unsigned_int)
-        is_dst_remote.add_index(
-          is_dst_remote_potentially_relevant.nth_index_in_set(i));
-
-
+    is_dst_remote.subtract_set(is_dst_locally_owned);
     is_dst_remote.print(deallog.get_file_stream());
 
-    std::vector<unsigned int> owning_ranks_of_ghosts_clean(
-      is_dst_remote.n_elements());
+    // determine owner of remote cells
+    std::vector<unsigned int> is_dst_remote_owners(is_dst_remote.n_elements());
 
-    std::map<unsigned int, IndexSet> targets_with_indexset;
-    {
-      Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
-        process(is_dst_locally_owned,
-                is_dst_remote,
-                communicator,
-                owning_ranks_of_ghosts_clean,
-                true);
+    Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
+      process(is_dst_locally_owned,
+              is_dst_remote,
+              communicator,
+              is_dst_remote_owners,
+              true);
 
-      Utilities::MPI::ConsensusAlgorithms::Selector<
-        std::pair<types::global_dof_index, types::global_dof_index>,
-        unsigned int>
-        consensus_algorithm(process, communicator);
-      consensus_algorithm.run();
+    Utilities::MPI::ConsensusAlgorithms::Selector<
+      std::pair<types::global_dof_index, types::global_dof_index>,
+      unsigned int>
+      consensus_algorithm(process, communicator);
+    consensus_algorithm.run();
 
-      targets_with_indexset = process.get_requesters();
-    }
+    const auto targets_with_indexset = process.get_requesters();
 
     std::map<unsigned int, std::vector<unsigned int>> indices_to_be_sent;
     std::vector<MPI_Request>                          requests;
@@ -276,9 +244,6 @@ public:
         }
     }
 
-    std::vector<unsigned int> ghost_indices;
-
-    std::map<unsigned int, std::vector<unsigned int>> rank_to_ids;
 
     this->indices.resize(dof_handler_src.locally_owned_dofs().n_elements());
 
@@ -317,17 +282,21 @@ public:
         }
     }
 
+    std::vector<unsigned int> ghost_indices;
+
     {
+      std::map<unsigned int, std::vector<unsigned int>> rank_to_ids;
+
       std::set<unsigned int> ranks;
 
-      for (auto i : owning_ranks_of_ghosts_clean)
+      for (auto i : is_dst_remote_owners)
         ranks.insert(i);
 
       for (auto i : ranks)
         rank_to_ids[i] = {};
 
-      for (unsigned int i = 0; i < owning_ranks_of_ghosts_clean.size(); ++i)
-        rank_to_ids[owning_ranks_of_ghosts_clean[i]].push_back(
+      for (unsigned int i = 0; i < is_dst_remote_owners.size(); ++i)
+        rank_to_ids[is_dst_remote_owners[i]].push_back(
           is_dst_remote.nth_index_in_set(i));
 
 
@@ -406,16 +375,7 @@ public:
     is_dst_large.add_indices(dd);
     is_dst_large.print(deallog.get_file_stream());
 
-    LinearAlgebra::distributed::Vector<double> vector(d, dd, communicator);
-
-    LinearAlgebra::distributed::Vector<double> vector_extended(d,
-                                                               is_dst_large,
-                                                               communicator);
-
-    vector_extended.copy_locally_owned_data_from(vector);
-    vector_extended.update_ghost_values();
-
-    for (auto i : owning_ranks_of_ghosts_clean)
+    for (auto i : is_dst_remote_owners)
       deallog << i << " ";
     deallog << std::endl;
   }
