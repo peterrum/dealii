@@ -27,85 +27,104 @@
 
 template <int dim, int spacedim>
 void
-check(const Triangulation<dim, spacedim> &tria_dst,
-      const Triangulation<dim, spacedim> &tria_src,
-      const MPI_Comm &                    communicator)
+check(const DoFHandler<dim, spacedim> &dof_handler_dst,
+      const DoFHandler<dim, spacedim> &dof_handler_src,
+      const MPI_Comm &                 communicator)
 {
-  CellIDTranslator<dim> translator_fine(tria_dst.n_cells(0),
-                                        tria_dst.n_global_levels());
-  IndexSet              is_dst_locally_owned(translator_fine.size());
+  // get reference to triangulations
+  const auto &tria_dst = dof_handler_dst.get_triangulation();
+  const auto &tria_src = dof_handler_src.get_triangulation();
+
+  const auto deterimine_n_coarse_cells = [&communicator](auto &tria) {
+    types::coarse_cell_id n_coarse_cells = 0;
+
+    for (auto cell : tria.active_cell_iterators())
+      if (!cell->is_artificial())
+        n_coarse_cells =
+          std::max(n_coarse_cells, cell->id().get_coarse_cell_id());
+
+    return Utilities::MPI::max(n_coarse_cells, communicator) + 1;
+  };
+
+  const auto n_coarse_cells_dst = deterimine_n_coarse_cells(tria_dst);
+
+  AssertDimension(n_coarse_cells_dst, deterimine_n_coarse_cells(tria_src));
+
+  // create translator: CellID <-> unique ID
+  CellIDTranslator<dim> cell_id_translator(n_coarse_cells_dst,
+                                           tria_dst.n_global_levels());
+
+
+  // create index sets
+  IndexSet is_dst_locally_owned(cell_id_translator.size());
+  IndexSet is_dst_remote(cell_id_translator.size());
+  IndexSet is_dst_remote_potentially_relevant(cell_id_translator.size());
+  IndexSet is_src_locally_owned(cell_id_translator.size());
 
   for (auto cell : tria_dst.active_cell_iterators())
-    is_dst_locally_owned.add_index(translator_fine.translate(cell));
+    if (!cell->is_artificial() && cell->is_locally_owned())
+      is_dst_locally_owned.add_index(cell_id_translator.translate(cell));
 
-  CellIDTranslator<dim> translator_coarse(tria_dst.n_cells(0),
-                                          tria_dst.n_global_levels());
-
-  IndexSet is_dst_remote_potentially_relevant(translator_coarse.size());
 
   for (auto cell : tria_src.active_cell_iterators())
-    {
-      is_dst_remote_potentially_relevant.add_index(
-        translator_coarse.translate(cell));
-
-      if (cell->level() + 1 == tria_dst.n_global_levels())
-        continue;
-
-      for (unsigned int i = 0; i < GeometryInfo<dim>::max_children_per_cell;
-           ++i)
+    if (!cell->is_artificial() && cell->is_locally_owned())
+      {
+        is_src_locally_owned.add_index(cell_id_translator.translate(cell));
         is_dst_remote_potentially_relevant.add_index(
-          translator_coarse.translate(cell, i));
+          cell_id_translator.translate(cell));
+
+        if (cell->level() + 1 == tria_dst.n_global_levels())
+          continue;
+
+        for (unsigned int i = 0; i < GeometryInfo<dim>::max_children_per_cell;
+             ++i)
+          is_dst_remote_potentially_relevant.add_index(
+            cell_id_translator.translate(cell, i));
+      }
+
+  is_dst_remote.subtract_set(is_dst_locally_owned);
+
+  {
+    std::vector<unsigned int> owning_ranks_of_ghosts(
+      is_dst_remote_potentially_relevant.n_elements());
+
+    {
+      Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
+        process(is_dst_locally_owned,
+                is_dst_remote_potentially_relevant,
+                communicator,
+                owning_ranks_of_ghosts,
+                false);
+
+      Utilities::MPI::ConsensusAlgorithms::Selector<
+        std::pair<types::global_dof_index, types::global_dof_index>,
+        unsigned int>
+        consensus_algorithm(process, communicator);
+      consensus_algorithm.run();
     }
 
-  is_dst_remote_potentially_relevant.subtract_set(is_dst_locally_owned);
-
-  std::vector<unsigned int> owning_ranks_of_ghosts(
-    is_dst_remote_potentially_relevant.n_elements());
-
-  {
-    Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
-      process(is_dst_locally_owned,
-              is_dst_remote_potentially_relevant,
-              communicator,
-              owning_ranks_of_ghosts,
-              false);
-
-    Utilities::MPI::ConsensusAlgorithms::Selector<
-      std::pair<types::global_dof_index, types::global_dof_index>,
-      unsigned int>
-      consensus_algorithm(process, communicator);
-    consensus_algorithm.run();
+    for (unsigned i = 0; i < is_dst_remote_potentially_relevant.n_elements();
+         ++i)
+      if (owning_ranks_of_ghosts[i] != numbers::invalid_unsigned_int)
+        is_dst_remote.add_index(
+          is_dst_remote_potentially_relevant.nth_index_in_set(i));
   }
 
-  IndexSet is_dst_remote(translator_coarse.size());
+  // determine owner of remote cells
+  std::vector<unsigned int> is_dst_remote_owners(is_dst_remote.n_elements());
 
-  for (unsigned i = 0; i < is_dst_remote_potentially_relevant.n_elements(); ++i)
-    if (owning_ranks_of_ghosts[i] != numbers::invalid_unsigned_int)
-      is_dst_remote.add_index(
-        is_dst_remote_potentially_relevant.nth_index_in_set(i));
+  Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
+    process(is_dst_locally_owned,
+            is_dst_remote,
+            communicator,
+            is_dst_remote_owners,
+            true);
 
-
-  is_dst_remote.print(deallog.get_file_stream());
-
-  std::vector<unsigned int> owning_ranks_of_ghosts_clean(
-    is_dst_remote.n_elements());
-
-  {
-    Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
-      process(is_dst_locally_owned,
-              is_dst_remote,
-              communicator,
-              owning_ranks_of_ghosts_clean,
-              true);
-
-    Utilities::MPI::ConsensusAlgorithms::Selector<
-      std::pair<types::global_dof_index, types::global_dof_index>,
-      unsigned int>
-      consensus_algorithm(process, communicator);
-    consensus_algorithm.run();
-  }
-
-  // is_dst_locally_owned & is_dst_remote
+  Utilities::MPI::ConsensusAlgorithms::Selector<
+    std::pair<types::global_dof_index, types::global_dof_index>,
+    unsigned int>
+    consensus_algorithm(process, communicator);
+  consensus_algorithm.run();
 }
 
 template <int dim, int spacedim>
@@ -150,7 +169,15 @@ test(const MPI_Comm &comm)
     tria_2.execute_coarsening_and_refinement();
   }
 
-  check(tria_1, tria_2, comm);
+  FE_Q<dim, spacedim> fe(1);
+
+  DoFHandler<dim, spacedim> dof_handler_1(tria_1);
+  dof_handler_1.distribute_dofs(fe);
+
+  DoFHandler<dim, spacedim> dof_handler_2(tria_2);
+  dof_handler_2.distribute_dofs(fe);
+
+  check(dof_handler_1, dof_handler_2, comm);
 }
 
 int
