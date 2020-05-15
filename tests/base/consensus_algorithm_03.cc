@@ -22,7 +22,15 @@
 #include <deal.II/distributed/fully_distributed_tria.h>
 #include <deal.II/distributed/tria.h>
 
+#include <deal.II/dofs/dof_tools.h>
+
+#include <deal.II/fe/fe_q.h>
+
 #include <deal.II/grid/grid_generator.h>
+
+#include <deal.II/lac/la_parallel_vector.h>
+
+#include <set>
 
 #include "../tests.h"
 
@@ -103,6 +111,13 @@ public:
               1);
   }
 
+  CellId
+  to_cell_id(const unsigned int id)
+  {
+    const std::vector<std::uint8_t> child_indices;
+    return CellId(id, child_indices); // TODO
+  }
+
   template <typename T>
   unsigned int
   translate(const T &cell, const unsigned int i)
@@ -117,10 +132,16 @@ private:
 
 template <int dim, int spacedim>
 void
-check(const Triangulation<dim, spacedim> &tria_dst,
-      const Triangulation<dim, spacedim> &tria_src,
-      const MPI_Comm &                    communicator)
+check(const DoFHandler<dim, spacedim> &dof_handler_dst,
+      const DoFHandler<dim, spacedim> &dof_handler_src,
+      const MPI_Comm &                 communicator)
 {
+  const Triangulation<dim, spacedim> &tria_dst =
+    dof_handler_dst.get_triangulation();
+  const Triangulation<dim, spacedim> &tria_src =
+    dof_handler_src.get_triangulation();
+
+
   CellIDTranslator<dim> translator_fine(tria_dst.n_cells(0),
                                         tria_dst.n_global_levels());
   IndexSet              is_dst_locally_owned(translator_fine.size());
@@ -172,6 +193,7 @@ check(const Triangulation<dim, spacedim> &tria_dst,
   std::vector<unsigned int> owning_ranks_of_ghosts_clean(
     is_dst_remote.n_elements());
 
+  std::map<unsigned int, IndexSet> targets_with_indexset;
   {
     Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
       process(is_dst_locally_owned,
@@ -185,7 +207,112 @@ check(const Triangulation<dim, spacedim> &tria_dst,
       unsigned int>
       consensus_algorithm(process, communicator);
     consensus_algorithm.run();
+
+    targets_with_indexset = process.get_requesters();
   }
+
+  std::map<unsigned int, std::vector<unsigned int>> indices_to_be_sent;
+  std::vector<MPI_Request>                          requests;
+  requests.reserve(targets_with_indexset.size());
+
+  {
+    std::vector<types::global_dof_index> indices(
+      dof_handler_dst.get_fe().dofs_per_cell);
+
+    for (auto i : targets_with_indexset)
+      {
+        deallog << i.first << ": ";
+        i.second.print(deallog.get_file_stream());
+
+        indices_to_be_sent[i.first] = {};
+        auto &buffer                = indices_to_be_sent[i.first];
+
+        for (auto cell_id : i.second)
+          {
+            typename DoFHandler<dim, spacedim>::cell_iterator cell(
+              *translator_fine.to_cell_id(cell_id).to_cell(tria_dst),
+              &dof_handler_dst);
+
+            cell->get_dof_indices(indices);
+            buffer.insert(buffer.end(), indices.begin(), indices.end());
+
+            for (auto i : indices)
+              deallog << i << " ";
+            deallog << std::endl;
+          }
+
+        requests.resize(requests.size() + 1);
+
+        MPI_Isend(buffer.data(),
+                  buffer.size(),
+                  MPI_UNSIGNED,
+                  i.first,
+                  11,
+                  communicator,
+                  &requests.back());
+      }
+  }
+
+  std::vector<unsigned int> ghost_indices;
+
+  {
+    std::set<unsigned int> ranks;
+
+    for (auto i : owning_ranks_of_ghosts_clean)
+      ranks.insert(i);
+
+    for (unsigned int i = 0; i < ranks.size(); ++i)
+      {
+        MPI_Status status;
+        MPI_Probe(MPI_ANY_SOURCE, 11, communicator, &status);
+
+        int message_length;
+        MPI_Get_count(&status, MPI_UNSIGNED, &message_length);
+
+        std::vector<unsigned int> buffer(message_length);
+
+        MPI_Recv(buffer.data(),
+                 buffer.size(),
+                 MPI_UNSIGNED,
+                 status.MPI_SOURCE,
+                 11,
+                 communicator,
+                 MPI_STATUS_IGNORE);
+
+        ghost_indices.insert(ghost_indices.end(), buffer.begin(), buffer.end());
+      }
+
+    MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
+  }
+
+  std::sort(ghost_indices.begin(), ghost_indices.end());
+  ghost_indices.erase(std::unique(ghost_indices.begin(), ghost_indices.end()),
+                      ghost_indices.end());
+
+  IndexSet is_dst_large(dof_handler_dst.n_dofs());
+  is_dst_large.add_indices(ghost_indices.begin(), ghost_indices.end());
+
+  deallog << "AA " << std::endl;
+  auto d = dof_handler_dst.locally_owned_dofs();
+
+  IndexSet dd;
+  DoFTools::extract_locally_relevant_dofs(dof_handler_dst, dd);
+
+  d.print(deallog.get_file_stream());
+  dd.print(deallog.get_file_stream());
+  is_dst_large.print(deallog.get_file_stream());
+
+  is_dst_large.add_indices(dd);
+  is_dst_large.print(deallog.get_file_stream());
+
+  LinearAlgebra::distributed::Vector<double> vector(d, dd, communicator);
+
+  LinearAlgebra::distributed::Vector<double> vector_extended(d,
+                                                             is_dst_large,
+                                                             communicator);
+
+  vector_extended.copy_locally_owned_data_from(vector);
+  vector_extended.update_ghost_values();
 
   for (auto i : owning_ranks_of_ghosts_clean)
     deallog << i << " ";
@@ -224,7 +351,15 @@ test(const MPI_Comm &comm)
     tria_2.create_triangulation(construction_data);
   }
 
-  check(tria_1, tria_2, comm);
+  FE_Q<dim, spacedim> fe(1);
+
+  DoFHandler<dim, spacedim> dof_handler_1(tria_1);
+  dof_handler_1.distribute_dofs(fe);
+
+  DoFHandler<dim, spacedim> dof_handler_2(tria_2);
+  dof_handler_2.distribute_dofs(fe);
+
+  check(dof_handler_1, dof_handler_2, comm);
 }
 
 int
