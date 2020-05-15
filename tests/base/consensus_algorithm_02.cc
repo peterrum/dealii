@@ -191,6 +191,24 @@ test(const MPI_Comm &comm)
     tria_2.execute_coarsening_and_refinement();
   }
 
+  if (Utilities::MPI::n_mpi_processes(comm) == 1)
+    {
+      for (const auto cell : tria_2.active_cell_iterators())
+        {
+          deallog << cell->id() << " : ";
+
+          const auto other_cell = cell->id().to_cell(tria_1);
+
+          if (other_cell->has_children())
+            {
+              for (unsigned int i = 0; i < other_cell->n_children(); ++i)
+                deallog << other_cell->child(i)->id() << " ";
+            }
+
+          deallog << std::endl;
+        }
+    }
+
   FE_Q<dim, spacedim> fe(1);
 
   DoFHandler<dim, spacedim> dof_handler_1(tria_1);
