@@ -260,11 +260,23 @@ public:
 
     std::vector<unsigned int> ghost_indices;
 
+    std::map<unsigned int, std::vector<unsigned int>> rank_to_ids;
+
+    this->indices.resize(dof_handler_src.locally_owned_dofs().n_elements());
+
     {
       std::set<unsigned int> ranks;
 
       for (auto i : owning_ranks_of_ghosts_clean)
         ranks.insert(i);
+
+      for (auto i : ranks)
+        rank_to_ids[i] = {};
+
+      for (unsigned int i = 0; i < owning_ranks_of_ghosts_clean.size(); ++i)
+        rank_to_ids[owning_ranks_of_ghosts_clean[i]].push_back(
+          is_dst_remote.nth_index_in_set(i));
+
 
       for (unsigned int i = 0; i < ranks.size(); ++i)
         {
@@ -287,6 +299,35 @@ public:
           ghost_indices.insert(ghost_indices.end(),
                                buffer.begin(),
                                buffer.end());
+
+          const unsigned int rank = status.MPI_SOURCE;
+
+          const auto ids = rank_to_ids[rank];
+
+          {
+            std::vector<types::global_dof_index> indices(
+              dof_handler_dst.get_fe().dofs_per_cell);
+
+            for (unsigned int i = 0, k = 0; i < ids.size(); ++i)
+              {
+                typename DoFHandler<dim, spacedim>::cell_iterator cell(
+                  *translator_coarse.to_cell_id(ids[i]).to_cell(tria_src),
+                  &dof_handler_src);
+
+                cell->get_dof_indices(indices);
+
+                for (unsigned int j = 0;
+                     j < dof_handler_dst.get_fe().dofs_per_cell;
+                     ++j, ++k)
+                  {
+                    if (dof_handler_src.locally_owned_dofs().is_element(
+                          indices[j]))
+                      this->indices[dof_handler_src.locally_owned_dofs()
+                                      .index_within_set(indices[j])] =
+                        buffer[k];
+                  }
+              }
+          }
         }
 
       MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
@@ -342,17 +383,17 @@ public:
     // update ghost values
     src_extended.update_ghost_values();
 
-    std::vector<unsigned int> indices;
-
     // copy locally owned values from temporal array to destination vector
-    for (unsigned int i = 0; i < 0; ++i)
-      dst.local_element(i) = src_extended.local_element(indices[i]);
+    for (unsigned int i = 0; i < indices.size(); ++i)
+      dst.local_element(i) = src_extended[indices[i]]; // TODO
   }
 
 private:
   MPI_Comm communicator;
   IndexSet d;
   IndexSet is_dst_large;
+
+  std::vector<unsigned int> indices;
 };
 
 template <int dim, int spacedim>
@@ -402,6 +443,9 @@ test(const MPI_Comm &comm)
 
   LinearAlgebra::distributed::Vector<double> vec1(d1, dd1, comm);
 
+  for (auto i : dof_handler_1.locally_owned_dofs())
+    vec1[i] = i;
+
   // setup second vector
   IndexSet d2 = dof_handler_2.locally_owned_dofs();
   IndexSet dd2;
@@ -410,6 +454,9 @@ test(const MPI_Comm &comm)
   LinearAlgebra::distributed::Vector<double> vec2(d2, dd2, comm);
 
   vr.update(vec2, vec1);
+
+  vec1.print(deallog.get_file_stream());
+  vec2.print(deallog.get_file_stream());
 }
 
 int
