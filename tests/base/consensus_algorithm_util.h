@@ -170,49 +170,61 @@ public:
   template <int dim, int spacedim>
   VectorRepartitioner(const DoFHandler<dim, spacedim> &dof_handler_dst,
                       const DoFHandler<dim, spacedim> &dof_handler_src,
-                      const MPI_Comm &                 communicator)
+                      const MPI_Comm &                 communicator,
+                      const MPI_Comm &communicator_dst = MPI_COMM_SELF,
+                      const MPI_Comm &communicator_src = MPI_COMM_SELF)
     : communicator(communicator)
   {
     // get reference to triangulations
     const auto &tria_dst = dof_handler_dst.get_triangulation();
     const auto &tria_src = dof_handler_src.get_triangulation();
 
-    const auto deterimine_n_coarse_cells = [&communicator](auto &tria) {
+    const auto deterimine_n_coarse_cells = [&communicator](const auto &tria) {
       types::coarse_cell_id n_coarse_cells = 0;
 
-      for (auto cell : tria.active_cell_iterators())
-        if (!cell->is_artificial())
-          n_coarse_cells =
-            std::max(n_coarse_cells, cell->id().get_coarse_cell_id());
+      // const MPI_Comm communicator = dynamic_cast<const
+      // dealii::parallel::TriangulationBase<dim, spacedim>* >(&tria) == nullptr
+      // ? MPI_COMM_SELF :
+      //    dynamic_cast<const dealii::parallel::TriangulationBase<dim,
+      //    spacedim>* >(&tria)->get_communicator();
+
+      if (tria.n_cells() != 0)
+        for (auto cell : tria.active_cell_iterators())
+          if (!cell->is_artificial())
+            n_coarse_cells =
+              std::max(n_coarse_cells, cell->id().get_coarse_cell_id());
 
       return Utilities::MPI::max(n_coarse_cells, communicator) + 1;
     };
 
     const auto n_coarse_cells_dst = deterimine_n_coarse_cells(tria_dst);
 
-    AssertDimension(n_coarse_cells_dst, deterimine_n_coarse_cells(tria_src));
-    AssertDimension(tria_dst.n_global_levels(), tria_src.n_global_levels());
+    // AssertDimension(n_coarse_cells_dst, deterimine_n_coarse_cells(tria_src));
+    // AssertDimension(tria_dst.n_global_levels(), tria_src.n_global_levels());
 
     // create translator: CellID <-> unique ID
-    CellIDTranslator<dim> cell_id_translator(n_coarse_cells_dst,
-                                             tria_dst.n_global_levels());
+    CellIDTranslator<dim> cell_id_translator(
+      n_coarse_cells_dst,
+      Utilities::MPI::max(tria_dst.n_global_levels(), communicator));
 
     // create index sets
     IndexSet is_dst_locally_owned(cell_id_translator.size());
     IndexSet is_dst_remote(cell_id_translator.size());
     IndexSet is_src_locally_owned(cell_id_translator.size());
 
-    for (auto cell : tria_dst.active_cell_iterators())
-      if (!cell->is_artificial() && cell->is_locally_owned())
-        is_dst_locally_owned.add_index(cell_id_translator.translate(cell));
+    if (communicator_dst != MPI_COMM_NULL)
+      for (auto cell : tria_dst.active_cell_iterators())
+        if (!cell->is_artificial() && cell->is_locally_owned())
+          is_dst_locally_owned.add_index(cell_id_translator.translate(cell));
 
 
-    for (auto cell : tria_src.active_cell_iterators())
-      if (!cell->is_artificial() && cell->is_locally_owned())
-        {
-          is_src_locally_owned.add_index(cell_id_translator.translate(cell));
-          is_dst_remote.add_index(cell_id_translator.translate(cell));
-        }
+    if (communicator_src != MPI_COMM_NULL)
+      for (auto cell : tria_src.active_cell_iterators())
+        if (!cell->is_artificial() && cell->is_locally_owned())
+          {
+            is_src_locally_owned.add_index(cell_id_translator.translate(cell));
+            is_dst_remote.add_index(cell_id_translator.translate(cell));
+          }
 
     is_dst_remote.subtract_set(is_dst_locally_owned);
 
@@ -238,9 +250,13 @@ public:
     std::vector<MPI_Request>                          requests;
     requests.reserve(targets_with_indexset.size());
 
+    const unsigned int dofs_per_cell =
+      communicator_dst != MPI_COMM_NULL ?
+        dof_handler_dst.get_fe().dofs_per_cell :
+        dof_handler_src.get_fe().dofs_per_cell;
+
     {
-      std::vector<types::global_dof_index> indices(
-        dof_handler_dst.get_fe().dofs_per_cell);
+      std::vector<types::global_dof_index> indices(dofs_per_cell);
 
       for (auto i : targets_with_indexset)
         {
@@ -278,11 +294,9 @@ public:
       auto is_src_and_dst_locally_owned = is_src_locally_owned;
       is_src_and_dst_locally_owned.subtract_set(is_dst_remote);
 
-      std::vector<types::global_dof_index> indices(
-        dof_handler_dst.get_fe().dofs_per_cell);
+      std::vector<types::global_dof_index> indices(dofs_per_cell);
 
-      std::vector<types::global_dof_index> indices_(
-        dof_handler_dst.get_fe().dofs_per_cell);
+      std::vector<types::global_dof_index> indices_(dofs_per_cell);
 
       for (const auto id : is_src_and_dst_locally_owned)
         {
@@ -297,8 +311,7 @@ public:
           cell->get_dof_indices(indices);
           cell_->get_dof_indices(indices_);
 
-          for (unsigned int j = 0; j < dof_handler_dst.get_fe().dofs_per_cell;
-               ++j)
+          for (unsigned int j = 0; j < dofs_per_cell; ++j)
             {
               if (dof_handler_src.locally_owned_dofs().is_element(indices[j]))
                 this->indices[dof_handler_src.locally_owned_dofs()
@@ -352,8 +365,7 @@ public:
           const auto ids = rank_to_ids[rank];
 
           {
-            std::vector<types::global_dof_index> indices(
-              dof_handler_dst.get_fe().dofs_per_cell);
+            std::vector<types::global_dof_index> indices(dofs_per_cell);
 
             for (unsigned int i = 0, k = 0; i < ids.size(); ++i)
               {
@@ -363,9 +375,7 @@ public:
 
                 cell->get_dof_indices(indices);
 
-                for (unsigned int j = 0;
-                     j < dof_handler_dst.get_fe().dofs_per_cell;
-                     ++j, ++k)
+                for (unsigned int j = 0; j < dofs_per_cell; ++j, ++k)
                   {
                     if (dof_handler_src.locally_owned_dofs().is_element(
                           indices[j]))
@@ -380,13 +390,19 @@ public:
       MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
     }
 
+
     std::sort(ghost_indices.begin(), ghost_indices.end());
     ghost_indices.erase(std::unique(ghost_indices.begin(), ghost_indices.end()),
                         ghost_indices.end());
 
-    this->is_extended_locally_owned = dof_handler_dst.locally_owned_dofs();
+    this->is_extended_locally_owned = communicator_dst != MPI_COMM_NULL ?
+                                        dof_handler_dst.locally_owned_dofs() :
+                                        IndexSet(dof_handler_src.n_dofs());
 
-    this->is_extendende_ghosts = IndexSet(dof_handler_dst.n_dofs());
+    this->is_extendende_ghosts =
+      IndexSet(communicator_dst != MPI_COMM_NULL ? dof_handler_dst.n_dofs() :
+                                                   dof_handler_src.n_dofs());
+
     this->is_extendende_ghosts.add_indices(ghost_indices.begin(),
                                            ghost_indices.end());
     this->is_extendende_ghosts.subtract_set(this->is_extended_locally_owned);
