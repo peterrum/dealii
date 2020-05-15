@@ -30,6 +30,8 @@
 
 #include <deal.II/lac/la_parallel_vector.h>
 
+#include <deal.II/numerics/vector_tools.h>
+
 #include <set>
 
 #include "consensus_algorithm_util.h"
@@ -289,6 +291,17 @@ private:
   std::vector<unsigned int> indices;
 };
 
+template <int dim>
+class Solution : public Function<dim>
+{
+public:
+  double
+  value(const Point<dim> &p, const unsigned int = 0) const
+  {
+    return p[0];
+  }
+};
+
 template <int dim, int spacedim>
 void
 test(const MPI_Comm &comm)
@@ -337,8 +350,10 @@ test(const MPI_Comm &comm)
 
   LinearAlgebra::distributed::Vector<double> vec1(d1, dd1, comm);
 
-  for (auto i : dof_handler_1.locally_owned_dofs())
-    vec1[i] = i;
+  // for (auto i : dof_handler_1.locally_owned_dofs())
+  //  vec1[i] = i;
+
+  VectorTools::interpolate(dof_handler_1, Solution<spacedim>(), vec1);
 
   // setup second vector
   IndexSet d2 = dof_handler_2.locally_owned_dofs();
@@ -349,8 +364,8 @@ test(const MPI_Comm &comm)
 
   vr.update(vec2, vec1);
 
-  vec1.print(deallog.get_file_stream());
-  vec2.print(deallog.get_file_stream());
+  // vec1.print(deallog.get_file_stream());
+  // vec2.print(deallog.get_file_stream());
 
   AssertDimension(vec1.l2_norm(), vec2.l2_norm());
 }
