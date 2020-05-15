@@ -111,12 +111,13 @@ namespace Utilities
             for (auto interval : buffer_recv)
               {
 #ifdef DEBUG
-                for (types::global_dof_index i = interval.first;
-                     i < interval.second;
-                     i++)
-                  Assert(actually_owning_ranks[i - local_range.first] ==
-                           numbers::invalid_unsigned_int,
-                         ExcInternalError());
+                if (false)
+                  for (types::global_dof_index i = interval.first;
+                       i < interval.second;
+                       i++)
+                    Assert(actually_owning_ranks[i - local_range.first] ==
+                             numbers::invalid_unsigned_int,
+                           ExcInternalError());
                 Assert(interval.first >= local_range.first &&
                          interval.first < local_range.second,
                        ExcInternalError());
