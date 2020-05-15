@@ -140,32 +140,46 @@ public:
                       const MPI_Comm &                 communicator)
     : communicator(communicator)
   {
-    const Triangulation<dim, spacedim> &tria_dst =
-      dof_handler_dst.get_triangulation();
-    const Triangulation<dim, spacedim> &tria_src =
-      dof_handler_src.get_triangulation();
+    // get reference to triangulations
+    const auto &tria_dst = dof_handler_dst.get_triangulation();
+    const auto &tria_src = dof_handler_src.get_triangulation();
 
+    const auto deterimine_n_coarse_cells = [&communicator](auto &tria) {
+      types::coarse_cell_id n_coarse_cells = 0;
 
-    CellIDTranslator<dim> translator_fine(tria_dst.n_cells(0),
-                                          tria_dst.n_global_levels());
-    IndexSet              is_dst_locally_owned(translator_fine.size());
+      for (auto cell : tria.cell_iterators_on_level(0))
+        if (!cell->is_artificial())
+          n_coarse_cells =
+            std::max(n_coarse_cells, cell->id().get_coarse_cell_id());
+
+      return Utilities::MPI::max(n_coarse_cells, communicator);
+    };
+
+    const auto n_coarse_cells_dst = deterimine_n_coarse_cells(tria_dst);
+
+    AssertDimension(n_coarse_cells_dst, deterimine_n_coarse_cells(tria_src));
+    AssertDimension(tria_dst.n_global_levels(), tria_src.n_global_levels());
+
+    // create translator: CellID <-> unique ID
+    CellIDTranslator<dim> cell_id_translator(n_coarse_cells_dst,
+                                             tria_dst.n_global_levels());
+
+    // create index sets
+    IndexSet is_dst_locally_owned(cell_id_translator.size());
+    IndexSet is_dst_remote_potentially_relevant(cell_id_translator.size());
+    IndexSet is_src_locally_owned(cell_id_translator.size());
 
     for (auto cell : tria_dst.active_cell_iterators())
       if (!cell->is_artificial() && cell->is_locally_owned())
-        is_dst_locally_owned.add_index(translator_fine.translate(cell));
+        is_dst_locally_owned.add_index(cell_id_translator.translate(cell));
 
-    CellIDTranslator<dim> translator_coarse(tria_dst.n_cells(0),
-                                            tria_dst.n_global_levels());
-
-    IndexSet is_dst_remote_potentially_relevant(translator_coarse.size());
-    IndexSet is_src_locally_owned(translator_coarse.size());
 
     for (auto cell : tria_src.active_cell_iterators())
       if (!cell->is_artificial() && cell->is_locally_owned())
         {
-          is_src_locally_owned.add_index(translator_coarse.translate(cell));
+          is_src_locally_owned.add_index(cell_id_translator.translate(cell));
           is_dst_remote_potentially_relevant.add_index(
-            translator_coarse.translate(cell));
+            cell_id_translator.translate(cell));
         }
 
     is_dst_remote_potentially_relevant.subtract_set(is_dst_locally_owned);
@@ -188,7 +202,7 @@ public:
       consensus_algorithm.run();
     }
 
-    IndexSet is_dst_remote(translator_coarse.size());
+    IndexSet is_dst_remote(cell_id_translator.size());
 
     for (unsigned i = 0; i < is_dst_remote_potentially_relevant.n_elements();
          ++i)
@@ -239,7 +253,7 @@ public:
           for (auto cell_id : i.second)
             {
               typename DoFHandler<dim, spacedim>::cell_iterator cell(
-                *translator_fine.to_cell_id(cell_id).to_cell(tria_dst),
+                *cell_id_translator.to_cell_id(cell_id).to_cell(tria_dst),
                 &dof_handler_dst);
 
               cell->get_dof_indices(indices);
@@ -282,7 +296,7 @@ public:
 
       for (const auto id : is_src_and_dst_locally_owned)
         {
-          const auto cell_id = translator_coarse.to_cell_id(id);
+          const auto cell_id = cell_id_translator.to_cell_id(id);
 
           typename DoFHandler<dim, spacedim>::cell_iterator cell(
             *cell_id.to_cell(tria_src), &dof_handler_src);
@@ -350,7 +364,7 @@ public:
             for (unsigned int i = 0, k = 0; i < ids.size(); ++i)
               {
                 typename DoFHandler<dim, spacedim>::cell_iterator cell(
-                  *translator_coarse.to_cell_id(ids[i]).to_cell(tria_src),
+                  *cell_id_translator.to_cell_id(ids[i]).to_cell(tria_src),
                   &dof_handler_src);
 
                 cell->get_dof_indices(indices);
