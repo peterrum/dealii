@@ -262,6 +262,15 @@ public:
     this->is_extendende_ghosts.add_indices(ghost_indices.begin(),
                                            ghost_indices.end());
     this->is_extendende_ghosts.subtract_set(this->is_extended_locally_owned);
+
+    for (auto &i : indices)
+      if (is_extended_locally_owned.is_element(i))
+        i = is_extended_locally_owned.index_within_set(i);
+      else if (is_extendende_ghosts.is_element(i))
+        i = is_extended_locally_owned.n_elements() +
+            is_extendende_ghosts.index_within_set(i);
+      else
+        Assert(false, ExcNotImplemented());
   }
 
   template <typename Number>
@@ -281,7 +290,7 @@ public:
 
     // copy locally owned values from temporal array to destination vector
     for (unsigned int i = 0; i < indices.size(); ++i)
-      dst.local_element(i) = src_extended[indices[i]]; // TODO
+      dst.local_element(i) = src_extended.local_element(indices[i]);
   }
 
 private:
