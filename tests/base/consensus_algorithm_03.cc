@@ -182,7 +182,6 @@ public:
         }
 
     is_dst_remote.subtract_set(is_dst_locally_owned);
-    is_dst_remote.print(deallog.get_file_stream());
 
     // determine owner of remote cells
     std::vector<unsigned int> is_dst_remote_owners(is_dst_remote.n_elements());
@@ -212,9 +211,6 @@ public:
 
       for (auto i : targets_with_indexset)
         {
-          deallog << i.first << ": ";
-          i.second.print(deallog.get_file_stream());
-
           indices_to_be_sent[i.first] = {};
           auto &buffer                = indices_to_be_sent[i.first];
 
@@ -226,10 +222,6 @@ public:
 
               cell->get_dof_indices(indices);
               buffer.insert(buffer.end(), indices.begin(), indices.end());
-
-              for (auto i : indices)
-                deallog << i << " ";
-              deallog << std::endl;
             }
 
           requests.resize(requests.size() + 1);
@@ -362,22 +354,12 @@ public:
     this->is_dst_large = IndexSet(dof_handler_dst.n_dofs());
     is_dst_large.add_indices(ghost_indices.begin(), ghost_indices.end());
 
-    deallog << "AA " << std::endl;
     this->d = dof_handler_dst.locally_owned_dofs();
 
     IndexSet dd;
     DoFTools::extract_locally_relevant_dofs(dof_handler_dst, dd);
 
-    d.print(deallog.get_file_stream());
-    dd.print(deallog.get_file_stream());
-    is_dst_large.print(deallog.get_file_stream());
-
     is_dst_large.add_indices(dd);
-    is_dst_large.print(deallog.get_file_stream());
-
-    for (auto i : is_dst_remote_owners)
-      deallog << i << " ";
-    deallog << std::endl;
   }
 
   template <typename Number>
