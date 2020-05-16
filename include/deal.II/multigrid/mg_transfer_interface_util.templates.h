@@ -45,6 +45,20 @@ namespace MGTransferUtil
       run()
       {}
     };
+
+    template <typename MeshType>
+    MPI_Comm
+    get_mpi_comm(const MeshType &mesh)
+    {
+      const auto *tria_parallel = dynamic_cast<
+        const parallel::TriangulationBase<MeshType::dimension,
+                                          MeshType::space_dimension> *>(
+        &(mesh.get_triangulation()));
+
+      return tria_parallel != nullptr ? tria_parallel->get_communicator() :
+                                        MPI_COMM_SELF;
+    }
+
   } // namespace
 
   bool
@@ -66,25 +80,25 @@ namespace MGTransferUtil
     const AffineConstraints<Number> &constraint_coarse,
     Transfer<dim, Number> &          transfer)
   {
+    // copy constrain matrix; TODO: why only for the coarse level?
     transfer.constraint_coarse.copy_from(constraint_coarse);
 
+    // create partitioners and vectors for internal purposes
     {
-      const parallel::TriangulationBase<dim> *dist_tria =
-        dynamic_cast<const parallel::TriangulationBase<dim> *>(
-          &(dof_handler_coarse.get_triangulation()));
-
-      MPI_Comm comm =
-        dist_tria != nullptr ? dist_tria->get_communicator() : MPI_COMM_SELF;
-
+      // ... for fine mesh (TODO: to be extended for parallel case)
       {
         IndexSet locally_relevant_dofs;
         DoFTools::extract_locally_relevant_dofs(dof_handler_fine,
                                                 locally_relevant_dofs);
 
-        transfer.partitioner_fine.reset(new Utilities::MPI::Partitioner(
-          dof_handler_fine.locally_owned_dofs(), locally_relevant_dofs, comm));
+        transfer.partitioner_fine.reset(
+          new Utilities::MPI::Partitioner(dof_handler_fine.locally_owned_dofs(),
+                                          locally_relevant_dofs,
+                                          get_mpi_comm(dof_handler_fine)));
         transfer.vec_fine.reinit(transfer.partitioner_fine);
       }
+
+      // ... coarse mesh (needed since user vector might be const)
       {
         IndexSet locally_relevant_dofs;
         DoFTools::extract_locally_relevant_dofs(dof_handler_coarse,
@@ -93,34 +107,41 @@ namespace MGTransferUtil
         transfer.partitioner_coarse.reset(new Utilities::MPI::Partitioner(
           dof_handler_coarse.locally_owned_dofs(),
           locally_relevant_dofs,
-          comm));
+          get_mpi_comm(dof_handler_coarse)));
         transfer.vec_coarse.reinit(transfer.partitioner_coarse);
       }
     }
 
+    // helper function: to process the fine level cells; function @p fu_1 is
+    // performed on cells that are not refined and @fu_2 is performed on
+    // children of cells that are refined
     auto process_cells = [&](const auto &fu_1, const auto &fu_2) {
-      const auto &triangulation_fine = dof_handler_fine.get_triangulation();
-
+      // loop over all active (locally-owned?) cells
       for (const auto cell_coarse : dof_handler_coarse.active_cell_iterators())
         {
-          if (cell_coarse->id().to_cell(triangulation_fine)->has_children())
+          // get a reference to the equivalent cell on the fine triangulation
+          // TODO: this is working not in parallel!!!
+          const auto cell_coarse_on_fine_mesh =
+            cell_coarse->id().to_cell(dof_handler_fine.get_triangulation());
+
+          // check if cell has children
+          if (cell_coarse_on_fine_mesh->has_children())
             {
+              // ... cell has children -> process children
               for (unsigned int c = 0;
-                   c <
-                   cell_coarse->id().to_cell(triangulation_fine)->n_children();
+                   c < cell_coarse_on_fine_mesh->n_children();
                    c++)
                 {
                   typename MeshType::cell_iterator cell_fine(
-                    *cell_coarse->id().to_cell(triangulation_fine)->child(c),
-                    &dof_handler_fine);
+                    *cell_coarse_on_fine_mesh->child(c), &dof_handler_fine);
                   fu_2(cell_coarse, cell_fine, c);
                 }
             }
           else
             {
+              // ... cell has no children -> process cell
               typename MeshType::cell_iterator cell_fine(
-                *cell_coarse->id().to_cell(triangulation_fine),
-                &dof_handler_fine);
+                *cell_coarse_on_fine_mesh, &dof_handler_fine);
               fu_1(cell_coarse, cell_fine);
             }
         }
@@ -170,11 +191,16 @@ namespace MGTransferUtil
                                      j * n_child_dofs_1d + i + shift;
     };
 
+    // set up two mg-schesmes
+    //   (0) no refinement -> identity
+    //   (1) h-refinement
     transfer.schemes.resize(2);
 
+    // check if FE is the same; TODO: better way?
     AssertDimension(dof_handler_coarse.get_fe(0).dofs_per_cell,
                     dof_handler_fine.get_fe(0).dofs_per_cell);
 
+    // number of dofs on coarse and fine cells
     transfer.schemes[0].n_cell_dofs_coarse =
       transfer.schemes[0].n_cell_dofs_fine =
         transfer.schemes[1].n_cell_dofs_coarse =
@@ -183,20 +209,23 @@ namespace MGTransferUtil
       dof_handler_coarse.get_fe(0).dofs_per_cell *
       GeometryInfo<dim>::max_children_per_cell;
 
+    // degree of fe on coarse and fine cell
     transfer.schemes[0].degree_coarse   = transfer.schemes[0].degree_fine =
       transfer.schemes[1].degree_coarse = dof_handler_coarse.get_fe(0).degree;
     transfer.schemes[1].degree_fine =
       dof_handler_coarse.get_fe(0).degree * 2 + 1;
 
+    // continuous or discontinuous
     transfer.schemes[0].fine_element_is_continuous =
       transfer.schemes[1].fine_element_is_continuous =
         dof_handler_fine.get_fe(0).dofs_per_vertex > 0;
 
-    // extract number of coarse cells
+    // extract number of coarse cells for each scheme
     {
-      transfer.schemes[0].n_cells_coarse = 0;
+      transfer.schemes[0].n_cells_coarse = 0; // reset
       transfer.schemes[1].n_cells_coarse = 0;
 
+      // count by looping over all coarse cells
       process_cells([&](const auto &,
                         const auto &) { transfer.schemes[0].n_cells_coarse++; },
                     [&](const auto &, const auto &, const auto c) {
@@ -206,7 +235,7 @@ namespace MGTransferUtil
     }
 
 
-    std::vector<std::vector<unsigned int>> offsets(
+    std::vector<std::vector<unsigned int>> cell_local_chilren_indices(
       GeometryInfo<dim>::max_children_per_cell,
       std::vector<unsigned int>(transfer.schemes[0].n_cell_dofs_coarse));
     {
@@ -215,7 +244,7 @@ namespace MGTransferUtil
         get_child_offset(c,
                          dof_handler_fine.get_fe(0).degree + 1,
                          dof_handler_fine.get_fe(0).degree,
-                         offsets[c]);
+                         cell_local_chilren_indices[c]);
     }
 
 
@@ -305,7 +334,7 @@ namespace MGTransferUtil
             cell_fine->get_dof_indices(local_dof_indices);
             for (unsigned int i = 0; i < transfer.schemes[1].n_cell_dofs_coarse;
                  i++)
-              level_dof_indices_fine_1[offsets[c][i]] =
+              level_dof_indices_fine_1[cell_local_chilren_indices[c][i]] =
                 transfer.partitioner_fine->global_to_local(
                   local_dof_indices[lexicographic_numbering[i]]);
           }
@@ -425,9 +454,11 @@ namespace MGTransferUtil
                  i++)
               if (constraint_fine.is_constrained(
                     transfer.partitioner_fine->local_to_global(
-                      level_dof_indices_fine_1[offsets[c][i]])) == false)
+                      level_dof_indices_fine_1
+                        [cell_local_chilren_indices[c][i]])) == false)
                 touch_count.local_element(
-                  level_dof_indices_fine_1[offsets[c][i]]) += 1;
+                  level_dof_indices_fine_1[cell_local_chilren_indices[c][i]]) +=
+                  1;
 
             // move pointers (only once at the end)
             if (c + 1 == GeometryInfo<dim>::max_children_per_cell)
@@ -464,12 +495,14 @@ namespace MGTransferUtil
                  i++)
               if (constraint_fine.is_constrained(
                     transfer.partitioner_fine->local_to_global(
-                      level_dof_indices_fine_1[offsets[c][i]])) == true)
-                weights_1[offsets[c][i]] = Number(0.);
+                      level_dof_indices_fine_1
+                        [cell_local_chilren_indices[c][i]])) == true)
+                weights_1[cell_local_chilren_indices[c][i]] = Number(0.);
               else
-                weights_1[offsets[c][i]] =
-                  Number(1.) / touch_count.local_element(
-                                 level_dof_indices_fine_1[offsets[c][i]]);
+                weights_1[cell_local_chilren_indices[c][i]] =
+                  Number(1.) /
+                  touch_count.local_element(
+                    level_dof_indices_fine_1[cell_local_chilren_indices[c][i]]);
 
             // move pointers (only once at the end)
             if (c + 1 == GeometryInfo<dim>::max_children_per_cell)
