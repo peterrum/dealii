@@ -61,6 +61,59 @@ namespace MGTransferUtil
 
   } // namespace
 
+  template <typename MeshType>
+  class FineDoFHandlerEmulatorCell
+  {
+  public:
+    FineDoFHandlerEmulatorCell(const typename MeshType::cell_iterator cell)
+      : cell(cell)
+    {}
+
+    bool
+    has_children() const
+    {
+      return cell->has_children();
+    }
+
+    void
+    get_dof_indices(std::vector<types::global_dof_index> &dof_indices) const
+    {
+      cell->get_dof_indices(dof_indices);
+    }
+
+
+  private:
+    const typename MeshType::cell_iterator cell;
+  };
+
+  template <typename MeshType>
+  class FineDoFHandlerEmulator
+  {
+  public:
+    FineDoFHandlerEmulator(const MeshType &mesh)
+      : mesh(mesh)
+    {}
+
+    FineDoFHandlerEmulatorCell<MeshType>
+    get_cell(const CellId &id) const
+    {
+      return FineDoFHandlerEmulatorCell<MeshType>(
+        typename MeshType::cell_iterator(*id.to_cell(mesh.get_triangulation()),
+                                         &mesh));
+    }
+
+    FineDoFHandlerEmulatorCell<MeshType>
+    get_cell(const CellId &id, const unsigned int c) const
+    {
+      return FineDoFHandlerEmulatorCell<MeshType>(
+        typename MeshType::cell_iterator(
+          *id.to_cell(mesh.get_triangulation())->child(c), &mesh));
+    }
+
+  private:
+    const MeshType &mesh;
+  };
+
   bool
   polynomial_transfer_supported(const unsigned int fe_degree_fine,
                                 const unsigned int fe_degree_coarse)
@@ -112,38 +165,28 @@ namespace MGTransferUtil
       }
     }
 
+    const FineDoFHandlerEmulator<MeshType> emulator(dof_handler_fine);
+
     // helper function: to process the fine level cells; function @p fu_1 is
     // performed on cells that are not refined and @fu_2 is performed on
     // children of cells that are refined
-    auto process_cells = [&](const auto &fu_1, const auto &fu_2) {
+    const auto process_cells = [&](const auto &fu_1, const auto &fu_2) {
       // loop over all active (locally-owned?) cells
       for (const auto cell_coarse : dof_handler_coarse.active_cell_iterators())
         {
           // get a reference to the equivalent cell on the fine triangulation
-          // TODO: this is working not in parallel!!!
           const auto cell_coarse_on_fine_mesh =
-            cell_coarse->id().to_cell(dof_handler_fine.get_triangulation());
+            emulator.get_cell(cell_coarse->id());
 
           // check if cell has children
-          if (cell_coarse_on_fine_mesh->has_children())
-            {
-              // ... cell has children -> process children
-              for (unsigned int c = 0;
-                   c < cell_coarse_on_fine_mesh->n_children();
-                   c++)
-                {
-                  typename MeshType::cell_iterator cell_fine(
-                    *cell_coarse_on_fine_mesh->child(c), &dof_handler_fine);
-                  fu_2(cell_coarse, cell_fine, c);
-                }
-            }
-          else
-            {
-              // ... cell has no children -> process cell
-              typename MeshType::cell_iterator cell_fine(
-                *cell_coarse_on_fine_mesh, &dof_handler_fine);
-              fu_1(cell_coarse, cell_fine);
-            }
+          if (cell_coarse_on_fine_mesh.has_children())
+            // ... cell has children -> process children
+            for (unsigned int c = 0;
+                 c < GeometryInfo<dim>::max_children_per_cell;
+                 c++)
+              fu_2(cell_coarse, emulator.get_cell(cell_coarse->id(), c), c);
+          else // ... cell has no children -> process cell
+            fu_1(cell_coarse, cell_coarse_on_fine_mesh);
         }
     };
 
@@ -301,7 +344,7 @@ namespace MGTransferUtil
 
           // child
           {
-            cell_fine->get_dof_indices(local_dof_indices);
+            cell_fine.get_dof_indices(local_dof_indices);
             for (unsigned int i = 0; i < transfer.schemes[0].n_cell_dofs_coarse;
                  i++)
               level_dof_indices_fine_0[i] =
@@ -331,7 +374,7 @@ namespace MGTransferUtil
 
           // child
           {
-            cell_fine->get_dof_indices(local_dof_indices);
+            cell_fine.get_dof_indices(local_dof_indices);
             for (unsigned int i = 0; i < transfer.schemes[1].n_cell_dofs_coarse;
                  i++)
               level_dof_indices_fine_1[cell_local_chilren_indices[c][i]] =
