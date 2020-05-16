@@ -59,6 +59,75 @@ namespace MGTransferUtil
                                         MPI_COMM_SELF;
     }
 
+    template <int dim>
+    unsigned int
+    compute_shift_within_children(const unsigned int child,
+                                  const unsigned int fe_shift_1d,
+                                  const unsigned int fe_degree)
+    {
+      // we put the degrees of freedom of all child cells in lexicographic
+      // ordering
+      unsigned int c_tensor_index[dim];
+      unsigned int tmp = child;
+      for (unsigned int d = 0; d < dim; ++d)
+        {
+          c_tensor_index[d] = tmp % 2;
+          tmp /= 2;
+        }
+      const unsigned int n_child_dofs_1d = fe_degree + 1 + fe_shift_1d;
+      unsigned int       factor          = 1;
+      unsigned int       shift           = fe_shift_1d * c_tensor_index[0];
+      for (unsigned int d = 1; d < dim; ++d)
+        {
+          factor *= n_child_dofs_1d;
+          shift = shift + factor * fe_shift_1d * c_tensor_index[d];
+        }
+      return shift;
+    }
+
+    template <int dim>
+    void
+    get_child_offset(const unsigned int         child,
+                     const unsigned int         fe_shift_1d,
+                     const unsigned int         fe_degree,
+                     std::vector<unsigned int> &local_dof_indices)
+    {
+      const unsigned int n_child_dofs_1d = fe_degree + 1 + fe_shift_1d;
+      const unsigned int shift =
+        compute_shift_within_children<dim>(child, fe_shift_1d, fe_degree);
+      const unsigned int n_components =
+        local_dof_indices.size() / Utilities::fixed_power<dim>(fe_degree + 1);
+      const unsigned int n_scalar_cell_dofs =
+        Utilities::fixed_power<dim>(n_child_dofs_1d);
+      for (unsigned int c = 0, m = 0; c < n_components; ++c)
+        for (unsigned int k = 0; k < (dim > 2 ? (fe_degree + 1) : 1); ++k)
+          for (unsigned int j = 0; j < (dim > 1 ? (fe_degree + 1) : 1); ++j)
+            for (unsigned int i = 0; i < (fe_degree + 1); ++i, ++m)
+              local_dof_indices[m] = c * n_scalar_cell_dofs +
+                                     k * n_child_dofs_1d * n_child_dofs_1d +
+                                     j * n_child_dofs_1d + i + shift;
+    }
+
+    template <int dim>
+    std::vector<std::vector<unsigned int>>
+    get_child_offsets(const unsigned int n_cell_dofs_coarse,
+                      const unsigned int fe_shift_1d,
+                      const unsigned int fe_degree)
+    {
+      std::vector<std::vector<unsigned int>> cell_local_chilren_indices(
+        GeometryInfo<dim>::max_children_per_cell,
+        std::vector<unsigned int>(n_cell_dofs_coarse));
+      {
+        for (unsigned int c = 0; c < GeometryInfo<dim>::max_children_per_cell;
+             c++)
+          get_child_offset<dim>(c,
+                                fe_shift_1d,
+                                fe_degree,
+                                cell_local_chilren_indices[c]);
+      }
+      return cell_local_chilren_indices;
+    }
+
   } // namespace
 
   template <typename MeshType>
@@ -190,50 +259,6 @@ namespace MGTransferUtil
         }
     };
 
-    auto compute_shift_within_children = [](const unsigned int child,
-                                            const unsigned int fe_shift_1d,
-                                            const unsigned int fe_degree) {
-      // we put the degrees of freedom of all child cells in lexicographic
-      // ordering
-      unsigned int c_tensor_index[dim];
-      unsigned int tmp = child;
-      for (unsigned int d = 0; d < dim; ++d)
-        {
-          c_tensor_index[d] = tmp % 2;
-          tmp /= 2;
-        }
-      const unsigned int n_child_dofs_1d = fe_degree + 1 + fe_shift_1d;
-      unsigned int       factor          = 1;
-      unsigned int       shift           = fe_shift_1d * c_tensor_index[0];
-      for (unsigned int d = 1; d < dim; ++d)
-        {
-          factor *= n_child_dofs_1d;
-          shift = shift + factor * fe_shift_1d * c_tensor_index[d];
-        }
-      return shift;
-    };
-
-    auto get_child_offset = [compute_shift_within_children](
-                              const unsigned int         child,
-                              const unsigned int         fe_shift_1d,
-                              const unsigned int         fe_degree,
-                              std::vector<unsigned int> &local_dof_indices) {
-      const unsigned int n_child_dofs_1d = fe_degree + 1 + fe_shift_1d;
-      const unsigned int shift =
-        compute_shift_within_children(child, fe_shift_1d, fe_degree);
-      const unsigned int n_components =
-        local_dof_indices.size() / Utilities::fixed_power<dim>(fe_degree + 1);
-      const unsigned int n_scalar_cell_dofs =
-        Utilities::fixed_power<dim>(n_child_dofs_1d);
-      for (unsigned int c = 0, m = 0; c < n_components; ++c)
-        for (unsigned int k = 0; k < (dim > 2 ? (fe_degree + 1) : 1); ++k)
-          for (unsigned int j = 0; j < (dim > 1 ? (fe_degree + 1) : 1); ++j)
-            for (unsigned int i = 0; i < (fe_degree + 1); ++i, ++m)
-              local_dof_indices[m] = c * n_scalar_cell_dofs +
-                                     k * n_child_dofs_1d * n_child_dofs_1d +
-                                     j * n_child_dofs_1d + i + shift;
-    };
-
     // set up two mg-schesmes
     //   (0) no refinement -> identity
     //   (1) h-refinement
@@ -278,17 +303,10 @@ namespace MGTransferUtil
     }
 
 
-    std::vector<std::vector<unsigned int>> cell_local_chilren_indices(
-      GeometryInfo<dim>::max_children_per_cell,
-      std::vector<unsigned int>(transfer.schemes[0].n_cell_dofs_coarse));
-    {
-      for (unsigned int c = 0; c < GeometryInfo<dim>::max_children_per_cell;
-           c++)
-        get_child_offset(c,
-                         dof_handler_fine.get_fe(0).degree + 1,
-                         dof_handler_fine.get_fe(0).degree,
-                         cell_local_chilren_indices[c]);
-    }
+    const auto cell_local_chilren_indices =
+      get_child_offsets<dim>(transfer.schemes[0].n_cell_dofs_coarse,
+                             dof_handler_fine.get_fe(0).degree + 1,
+                             dof_handler_fine.get_fe(0).degree);
 
 
     {
