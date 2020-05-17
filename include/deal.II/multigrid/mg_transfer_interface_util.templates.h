@@ -342,7 +342,10 @@ namespace MGTransferUtil
           for (unsigned i = 0;
                i < is_dst_remote_potentially_relevant.n_elements();
                ++i)
-            if (owning_ranks_of_ghosts[i] != numbers::invalid_unsigned_int)
+            if (owning_ranks_of_ghosts[i] != numbers::invalid_unsigned_int &&
+                owning_ranks_of_ghosts[i] !=
+                  Utilities::MPI::this_mpi_process(
+                    communicator) /*TODO why needed?*/)
               is_dst_remote.add_index(
                 is_dst_remote_potentially_relevant.nth_index_in_set(i));
         }
@@ -381,14 +384,18 @@ namespace MGTransferUtil
         std::cout << std::endl << std::endl << std::endl;
 #endif
 
-      const auto &dof_handler_dst = mesh_fine;   // TODO: remove
-      const auto &dof_handler_src = mesh_coarse; // TODO
-      const auto &tria_dst        = mesh_fine.get_triangulation();   // TODO
-      const auto &tria_src        = mesh_coarse.get_triangulation(); // TODO
+      const auto &dof_handler_dst = mesh_fine; // TODO: remove
+      const auto &tria_dst        = mesh_fine.get_triangulation(); // TODO
 
-      const unsigned int dofs_per_cell = get_fe_collection()[0].dofs_per_cell;
+      const unsigned int dofs_per_cell =
+        mesh_coarse.get_fe_collection()[0].dofs_per_cell;
 
       const auto targets_with_indexset = process.get_requesters();
+
+      std::cout << targets_with_indexset.size() << " "
+                << targets_with_indexset.begin()->first << std::endl;
+
+      return;
 
       std::map<unsigned int, std::vector<unsigned int>> indices_to_be_sent;
       std::vector<MPI_Request>                          requests;
@@ -424,42 +431,6 @@ namespace MGTransferUtil
           }
       }
 
-
-      this->indices.resize(dof_handler_src.locally_owned_dofs().n_elements());
-
-
-      // process local cells
-      {
-        auto is_src_and_dst_locally_owned = is_src_locally_owned;
-        is_src_and_dst_locally_owned.subtract_set(is_dst_remote);
-
-        std::vector<types::global_dof_index> indices(dofs_per_cell);
-
-        std::vector<types::global_dof_index> indices_(dofs_per_cell);
-
-        for (const auto id : is_src_and_dst_locally_owned)
-          {
-            continue; // TODO!!!
-
-            const auto cell_id = cell_id_translator.to_cell_id(id);
-
-            typename MeshType::cell_iterator cell(*cell_id.to_cell(tria_src),
-                                                  &dof_handler_src);
-
-            typename MeshType::cell_iterator cell_(*cell_id.to_cell(tria_dst),
-                                                   &dof_handler_dst);
-
-            cell->get_dof_indices(indices);
-            cell_->get_dof_indices(indices_);
-
-            for (unsigned int j = 0; j < dofs_per_cell; ++j)
-              {
-                if (dof_handler_src.locally_owned_dofs().is_element(indices[j]))
-                  this->indices[dof_handler_src.locally_owned_dofs()
-                                  .index_within_set(indices[j])] = indices_[j];
-              }
-          }
-      }
 
       std::vector<unsigned int> ghost_indices;
 
@@ -510,22 +481,11 @@ namespace MGTransferUtil
 
               for (unsigned int i = 0, k = 0; i < ids.size(); ++i)
                 {
-                  continue; // TODO!!!
-
-                  typename MeshType::cell_iterator cell(
-                    *cell_id_translator.to_cell_id(ids[i]).to_cell(tria_src),
-                    &dof_handler_src);
-
-                  cell->get_dof_indices(indices);
+                  (void)ids[i];  // TODO
+                  (void)indices; // TODO
 
                   for (unsigned int j = 0; dofs_per_cell; ++j, ++k)
-                    {
-                      if (dof_handler_src.locally_owned_dofs().is_element(
-                            indices[j]))
-                        this->indices[dof_handler_src.locally_owned_dofs()
-                                        .index_within_set(indices[j])] =
-                          buffer[k];
-                    }
+                    (void)buffer[k]; // TODO
                 }
             }
           }
@@ -544,15 +504,6 @@ namespace MGTransferUtil
       this->is_extendende_ghosts.add_indices(ghost_indices.begin(),
                                              ghost_indices.end());
       this->is_extendende_ghosts.subtract_set(this->is_extended_locally_owned);
-
-      for (auto &i : indices)
-        if (is_extended_locally_owned.is_element(i))
-          i = is_extended_locally_owned.index_within_set(i);
-        else if (is_extendende_ghosts.is_element(i))
-          i = is_extended_locally_owned.n_elements() +
-              is_extendende_ghosts.index_within_set(i);
-        else
-          Assert(false, ExcNotImplemented());
     }
 
     FineDoFHandlerViewCell
@@ -655,9 +606,8 @@ namespace MGTransferUtil
     IndexSet is_src_locally_owned;
 
 
-    IndexSet                  is_extended_locally_owned;
-    IndexSet                  is_extendende_ghosts;
-    std::vector<unsigned int> indices;
+    IndexSet is_extended_locally_owned;
+    IndexSet is_extendende_ghosts;
 
     static unsigned int
     n_coarse_cells(const MeshType &mesh)
