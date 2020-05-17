@@ -288,7 +288,7 @@ namespace MGTransferUtil
       transfer.schemes[1].fine_element_is_continuous =
         dof_handler_fine.get_fe(0).dofs_per_vertex > 0;
 
-    // extract number of coarse cells for each scheme
+    // count coarse cells for each scheme (0, 1)
     {
       transfer.schemes[0].n_cells_coarse = 0; // reset
       transfer.schemes[1].n_cells_coarse = 0;
@@ -309,6 +309,7 @@ namespace MGTransferUtil
                              dof_handler_fine.get_fe(0).degree);
 
 
+    // indices
     {
       transfer.schemes[0].level_dof_indices_fine.resize(
         transfer.schemes[0].n_cell_dofs_fine *
@@ -479,6 +480,39 @@ namespace MGTransferUtil
     // -------------------------------- weights --------------------------------
     if (transfer.schemes[0].fine_element_is_continuous)
       {
+        LinearAlgebra::distributed::Vector<Number> touch_count;
+        touch_count.reinit(transfer.partitioner_fine);
+
+        std::vector<types::global_dof_index> local_dof_indices(
+          transfer.schemes[0].n_cell_dofs_coarse);
+
+        for (auto cell : dof_handler_fine.active_cell_iterators())
+          {
+            if (cell->is_locally_owned() == false)
+              continue;
+
+            cell->get_dof_indices(local_dof_indices);
+
+            for (auto i : local_dof_indices)
+              if (constraint_fine.is_constrained(i) == false)
+                touch_count[i] += 1;
+          }
+
+        touch_count.compress(VectorOperation::add);
+
+        for (unsigned int i = 0; i < touch_count.local_size(); ++i)
+          touch_count.local_element(i) =
+            constraint_fine.is_constrained(
+              touch_count.get_partitioner()->local_to_global(i)) ?
+              Number(0.) :
+              Number(1.) / touch_count.local_element(i);
+
+        touch_count.update_ghost_values();
+
+        // *********************************************************************
+        // TODO: repartition touch count!!!
+        // *********************************************************************
+
         transfer.schemes[0].weights.resize(
           transfer.schemes[0].n_cells_coarse *
           transfer.schemes[0].n_cell_dofs_fine);
@@ -486,90 +520,33 @@ namespace MGTransferUtil
           transfer.schemes[1].n_cells_coarse *
           transfer.schemes[1].n_cell_dofs_fine);
 
-        LinearAlgebra::distributed::Vector<Number> touch_count;
-        touch_count.reinit(transfer.partitioner_fine);
-
-        const Quadrature<1> dummy_quadrature(
-          std::vector<Point<1>>(1, Point<1>()));
-        internal::MatrixFreeFunctions::ShapeInfo<Number> shape_info;
-        shape_info.reinit(dummy_quadrature, dof_handler_fine.get_fe(0), 0);
-
-        unsigned int *level_dof_indices_fine_0 =
+        Number *      weights_0 = &transfer.schemes[0].weights[0];
+        Number *      weights_1 = &transfer.schemes[1].weights[0];
+        unsigned int *dof_indices_fine_0 =
           &transfer.schemes[0].level_dof_indices_fine[0];
-        unsigned int *level_dof_indices_fine_1 =
-          &transfer.schemes[1].level_dof_indices_fine[0];
-
-        process_cells(
-          [&](const auto &, const auto &) {
-            for (unsigned int i = 0; i < transfer.schemes[0].n_cell_dofs_coarse;
-                 i++)
-              if (constraint_fine.is_constrained(
-                    transfer.partitioner_fine->local_to_global(
-                      level_dof_indices_fine_0[i])) == false)
-                touch_count.local_element(level_dof_indices_fine_0[i]) += 1;
-
-            level_dof_indices_fine_0 += transfer.schemes[0].n_cell_dofs_fine;
-          },
-          [&](const auto &, const auto &, const auto c) {
-            for (unsigned int i = 0; i < transfer.schemes[1].n_cell_dofs_coarse;
-                 i++)
-              if (constraint_fine.is_constrained(
-                    transfer.partitioner_fine->local_to_global(
-                      level_dof_indices_fine_1
-                        [cell_local_chilren_indices[c][i]])) == false)
-                touch_count.local_element(
-                  level_dof_indices_fine_1[cell_local_chilren_indices[c][i]]) +=
-                  1;
-
-            // move pointers (only once at the end)
-            if (c + 1 == GeometryInfo<dim>::max_children_per_cell)
-              level_dof_indices_fine_1 += transfer.schemes[1].n_cell_dofs_fine;
-          });
-
-        touch_count.compress(VectorOperation::add);
-        touch_count.update_ghost_values();
-
-        Number *weights_0 = &transfer.schemes[0].weights[0];
-        Number *weights_1 = &transfer.schemes[1].weights[0];
-        level_dof_indices_fine_0 =
-          &transfer.schemes[0].level_dof_indices_fine[0];
-        level_dof_indices_fine_1 =
+        unsigned int *dof_indices_fine_1 =
           &transfer.schemes[1].level_dof_indices_fine[0];
 
         process_cells(
           [&](const auto &, const auto &) {
             for (unsigned int i = 0; i < transfer.schemes[0].n_cell_dofs_fine;
                  i++)
-              if (constraint_fine.is_constrained(
-                    transfer.partitioner_fine->local_to_global(
-                      level_dof_indices_fine_0[i])) == true)
-                weights_0[i] = Number(0.);
-              else
-                weights_0[i] = Number(1.) / touch_count.local_element(
-                                              level_dof_indices_fine_0[i]);
+              weights_0[i] = touch_count.local_element(dof_indices_fine_0[i]);
 
-            level_dof_indices_fine_0 += transfer.schemes[0].n_cell_dofs_fine;
+            dof_indices_fine_0 += transfer.schemes[0].n_cell_dofs_fine;
             weights_0 += transfer.schemes[0].n_cell_dofs_fine;
           },
           [&](const auto &, const auto &, const auto c) {
             for (unsigned int i = 0; i < transfer.schemes[1].n_cell_dofs_coarse;
                  i++)
-              if (constraint_fine.is_constrained(
-                    transfer.partitioner_fine->local_to_global(
-                      level_dof_indices_fine_1
-                        [cell_local_chilren_indices[c][i]])) == true)
-                weights_1[cell_local_chilren_indices[c][i]] = Number(0.);
-              else
-                weights_1[cell_local_chilren_indices[c][i]] =
-                  Number(1.) /
-                  touch_count.local_element(
-                    level_dof_indices_fine_1[cell_local_chilren_indices[c][i]]);
+              weights_1[cell_local_chilren_indices[c][i]] =
+                touch_count.local_element(
+                  dof_indices_fine_1[cell_local_chilren_indices[c][i]]);
 
             // move pointers (only once at the end)
             if (c + 1 == GeometryInfo<dim>::max_children_per_cell)
               {
-                level_dof_indices_fine_1 +=
-                  transfer.schemes[1].n_cell_dofs_fine;
+                dof_indices_fine_1 += transfer.schemes[1].n_cell_dofs_fine;
                 weights_1 += transfer.schemes[1].n_cell_dofs_fine;
               }
           });
