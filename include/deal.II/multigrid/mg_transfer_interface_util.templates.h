@@ -494,6 +494,9 @@ namespace MGTransferUtil
       this->is_extendende_ghosts.add_indices(ghost_indices.begin(),
                                              ghost_indices.end());
       this->is_extendende_ghosts.subtract_set(this->is_extended_locally_owned);
+
+      is_extended_locally_owned.print(std::cout);
+      is_extendende_ghosts.print(std::cout);
     }
 
     FineDoFHandlerViewCell
@@ -580,6 +583,18 @@ namespace MGTransferUtil
               AssertThrow(false, ExcNotImplemented()); // should not happen!
             }
         });
+    }
+
+    const IndexSet &
+    locally_owned_dofs() const
+    {
+      return is_extended_locally_owned;
+    }
+
+    const IndexSet &
+    locally_relevant_dofs() const
+    {
+      return is_extendende_ghosts;
     }
 
   private:
@@ -695,15 +710,11 @@ namespace MGTransferUtil
 
     // create partitioners and vectors for internal purposes
     {
-      // ... for fine mesh (TODO: to be extended for parallel case)
+      // ... for fine mesh
       {
-        IndexSet locally_relevant_dofs;
-        DoFTools::extract_locally_relevant_dofs(dof_handler_fine,
-                                                locally_relevant_dofs);
-
         transfer.partitioner_fine.reset(
-          new Utilities::MPI::Partitioner(dof_handler_fine.locally_owned_dofs(),
-                                          locally_relevant_dofs,
+          new Utilities::MPI::Partitioner(view.locally_owned_dofs(),
+                                          view.locally_relevant_dofs(),
                                           get_mpi_comm(dof_handler_fine)));
         transfer.vec_fine.reinit(transfer.partitioner_fine);
       }
@@ -970,8 +981,22 @@ namespace MGTransferUtil
     // -------------------------------- weights --------------------------------
     if (transfer.schemes[0].fine_element_is_continuous)
       {
-        LinearAlgebra::distributed::Vector<Number> touch_count;
+        LinearAlgebra::distributed::Vector<Number> touch_count, touch_count_;
+
         touch_count.reinit(transfer.partitioner_fine);
+
+        IndexSet locally_relevant_dofs;
+        DoFTools::extract_locally_relevant_dofs(dof_handler_fine,
+                                                locally_relevant_dofs);
+
+        const auto partitioner_fine_ =
+          std::make_shared<Utilities::MPI::Partitioner>(
+            dof_handler_fine.locally_owned_dofs(),
+            locally_relevant_dofs,
+            get_mpi_comm(dof_handler_fine));
+        transfer.vec_fine.reinit(transfer.partitioner_fine);
+
+        touch_count_.reinit(partitioner_fine_);
 
         std::vector<types::global_dof_index> local_dof_indices(
           transfer.schemes[0].n_cell_dofs_coarse);
@@ -985,23 +1010,25 @@ namespace MGTransferUtil
 
             for (auto i : local_dof_indices)
               if (constraint_fine.is_constrained(i) == false)
-                touch_count[i] += 1;
+                touch_count_[i] += 1;
           }
 
-        touch_count.compress(VectorOperation::add);
+        touch_count_.compress(VectorOperation::add);
 
-        for (unsigned int i = 0; i < touch_count.local_size(); ++i)
-          touch_count.local_element(i) =
+        for (unsigned int i = 0; i < touch_count_.local_size(); ++i)
+          touch_count_.local_element(i) =
             constraint_fine.is_constrained(
-              touch_count.get_partitioner()->local_to_global(i)) ?
+              touch_count_.get_partitioner()->local_to_global(i)) ?
               Number(0.) :
-              Number(1.) / touch_count.local_element(i);
+              Number(1.) / touch_count_.local_element(i);
 
+        // TODO: needed?
+        touch_count_.update_ghost_values();
+
+
+        // copy weights to other indexset
+        touch_count.copy_locally_owned_data_from(touch_count_);
         touch_count.update_ghost_values();
-
-        // *********************************************************************
-        // TODO: repartition touch count!!!
-        // *********************************************************************
 
         transfer.schemes[0].weights.resize(
           transfer.schemes[0].n_cells_coarse *
