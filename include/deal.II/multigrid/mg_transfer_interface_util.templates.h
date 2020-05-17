@@ -131,10 +131,10 @@ namespace MGTransferUtil
   } // namespace
 
   template <typename MeshType>
-  class FineDoFHandlerEmulatorCell
+  class FineDoFHandlerViewCell
   {
   public:
-    FineDoFHandlerEmulatorCell(const typename MeshType::cell_iterator cell)
+    FineDoFHandlerViewCell(const typename MeshType::cell_iterator cell)
       : cell(cell)
     {}
 
@@ -156,27 +156,26 @@ namespace MGTransferUtil
   };
 
   template <typename MeshType>
-  class FineDoFHandlerEmulator
+  class FineDoFHandlerView
   {
   public:
-    FineDoFHandlerEmulator(const MeshType &mesh)
+    FineDoFHandlerView(const MeshType &mesh)
       : mesh(mesh)
     {}
 
-    FineDoFHandlerEmulatorCell<MeshType>
+    FineDoFHandlerViewCell<MeshType>
     get_cell(const CellId &id) const
     {
-      return FineDoFHandlerEmulatorCell<MeshType>(
+      return FineDoFHandlerViewCell<MeshType>(
         typename MeshType::cell_iterator(*id.to_cell(mesh.get_triangulation()),
                                          &mesh));
     }
 
-    FineDoFHandlerEmulatorCell<MeshType>
+    FineDoFHandlerViewCell<MeshType>
     get_cell(const CellId &id, const unsigned int c) const
     {
-      return FineDoFHandlerEmulatorCell<MeshType>(
-        typename MeshType::cell_iterator(
-          *id.to_cell(mesh.get_triangulation())->child(c), &mesh));
+      return FineDoFHandlerViewCell<MeshType>(typename MeshType::cell_iterator(
+        *id.to_cell(mesh.get_triangulation())->child(c), &mesh));
     }
 
   private:
@@ -202,6 +201,8 @@ namespace MGTransferUtil
     const AffineConstraints<Number> &constraint_coarse,
     Transfer<dim, Number> &          transfer)
   {
+    const FineDoFHandlerView<MeshType> view(dof_handler_fine);
+
     // copy constrain matrix; TODO: why only for the coarse level?
     transfer.constraint_coarse.copy_from(constraint_coarse);
 
@@ -234,18 +235,21 @@ namespace MGTransferUtil
       }
     }
 
-    const FineDoFHandlerEmulator<MeshType> emulator(dof_handler_fine);
-
     // helper function: to process the fine level cells; function @p fu_1 is
     // performed on cells that are not refined and @fu_2 is performed on
     // children of cells that are refined
-    const auto process_cells = [&](const auto &fu_1, const auto &fu_2) {
-      // loop over all active (locally-owned?) cells
+    const auto process_cells = [&view,
+                                &dof_handler_coarse](const auto &fu_non_refined,
+                                                     const auto &fu_refined) {
+      // loop over all active locally-owned cells
       for (const auto cell_coarse : dof_handler_coarse.active_cell_iterators())
         {
+          if (cell_coarse->is_locally_owned() == false)
+            continue;
+
           // get a reference to the equivalent cell on the fine triangulation
           const auto cell_coarse_on_fine_mesh =
-            emulator.get_cell(cell_coarse->id());
+            view.get_cell(cell_coarse->id());
 
           // check if cell has children
           if (cell_coarse_on_fine_mesh.has_children())
@@ -253,9 +257,9 @@ namespace MGTransferUtil
             for (unsigned int c = 0;
                  c < GeometryInfo<dim>::max_children_per_cell;
                  c++)
-              fu_2(cell_coarse, emulator.get_cell(cell_coarse->id(), c), c);
+              fu_refined(cell_coarse, view.get_cell(cell_coarse->id(), c), c);
           else // ... cell has no children -> process cell
-            fu_1(cell_coarse, cell_coarse_on_fine_mesh);
+            fu_non_refined(cell_coarse, cell_coarse_on_fine_mesh);
         }
     };
 
