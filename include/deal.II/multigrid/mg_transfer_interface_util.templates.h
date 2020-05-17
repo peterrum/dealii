@@ -320,6 +320,8 @@ namespace MGTransferUtil
           IndexSet is_dst_remote_potentially_relevant = is_dst_remote;
           is_dst_remote.clear();
 
+          is_dst_remote_potentially_relevant.subtract_set(is_dst_locally_owned);
+
           std::vector<unsigned int> owning_ranks_of_ghosts(
             is_dst_remote_potentially_relevant.n_elements());
 
@@ -342,10 +344,7 @@ namespace MGTransferUtil
           for (unsigned i = 0;
                i < is_dst_remote_potentially_relevant.n_elements();
                ++i)
-            if (owning_ranks_of_ghosts[i] != numbers::invalid_unsigned_int &&
-                owning_ranks_of_ghosts[i] !=
-                  Utilities::MPI::this_mpi_process(
-                    communicator) /*TODO why needed?*/)
+            if (owning_ranks_of_ghosts[i] != numbers::invalid_unsigned_int)
               is_dst_remote.add_index(
                 is_dst_remote_potentially_relevant.nth_index_in_set(i));
         }
@@ -391,11 +390,6 @@ namespace MGTransferUtil
         mesh_coarse.get_fe_collection()[0].dofs_per_cell;
 
       const auto targets_with_indexset = process.get_requesters();
-
-      std::cout << targets_with_indexset.size() << " "
-                << targets_with_indexset.begin()->first << std::endl;
-
-      return;
 
       std::map<unsigned int, std::vector<unsigned int>> indices_to_be_sent;
       std::vector<MPI_Request>                          requests;
@@ -484,7 +478,7 @@ namespace MGTransferUtil
                   (void)ids[i];  // TODO
                   (void)indices; // TODO
 
-                  for (unsigned int j = 0; dofs_per_cell; ++j, ++k)
+                  for (unsigned int j = 0; j < dofs_per_cell; ++j, ++k)
                     (void)buffer[k]; // TODO
                 }
             }
