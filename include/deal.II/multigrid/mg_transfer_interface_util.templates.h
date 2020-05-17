@@ -435,20 +435,37 @@ namespace MGTransferUtil
     get_cell(const typename MeshType::cell_iterator &cell,
              const unsigned int                      c) const
     {
+      const auto id = this->cell_id_translator.translate(cell, c);
+
+      const bool is_cell_locally_owned =
+        this->is_dst_locally_owned.is_element(id);
+      const bool is_cell_remotly_owned = this->is_dst_remote.is_element(id);
+
       return FineDoFHandlerViewCell(
         [cell, c, this]() {
-          return (typename MeshType::cell_iterator(
-                    *cell->id().to_cell(mesh_fine.get_triangulation()),
-                    &mesh_fine))
-            ->child(c)
-            ->has_children();
+          AssertThrow(false, ExcNotImplemented()); // currently we do not need
+                                                   // children of children
+
+          return false;
         },
-        [cell, c, this](auto &dof_indices) {
-          return (typename MeshType::cell_iterator(
-                    *cell->id().to_cell(mesh_fine.get_triangulation()),
-                    &mesh_fine))
-            ->child(c)
-            ->get_dof_indices(dof_indices);
+        [cell, is_cell_locally_owned, is_cell_remotly_owned, c, this](
+          auto &dof_indices) {
+          if (is_cell_locally_owned)
+            {
+              (typename MeshType::cell_iterator(
+                 *cell->id().to_cell(mesh_fine.get_triangulation()),
+                 &mesh_fine))
+                ->child(c)
+                ->get_dof_indices(dof_indices);
+            }
+          else if (is_cell_remotly_owned)
+            {
+              AssertThrow(false, ExcNotImplemented()); // TODO
+            }
+          else
+            {
+              AssertThrow(false, ExcNotImplemented()); // should not happen!
+            }
         });
     }
 
