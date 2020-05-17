@@ -303,8 +303,8 @@ namespace MGTransferUtil
                            n_global_levels(mesh_fine))
     {
       AssertDimension(n_coarse_cells(mesh_fine), n_coarse_cells(mesh_coarse));
-      AssertIndexRange(n_global_levels(mesh_fine),
-                       n_global_levels(mesh_coarse));
+      AssertIndexRange(n_global_levels(mesh_coarse),
+                       n_global_levels(mesh_fine) + 1);
     }
 
     void
@@ -368,7 +368,6 @@ namespace MGTransferUtil
       this->is_dst_remote        = is_dst_remote;
       this->is_src_locally_owned = is_src_locally_owned;
 
-
 #if false
         std::cout << "IS_SRC_LOCALLY_OWNED" << std::endl;
         for (auto i : is_src_locally_owned)
@@ -381,6 +380,179 @@ namespace MGTransferUtil
           std::cout << cell_id_translator.to_cell_id(i) << std::endl;
         std::cout << std::endl << std::endl << std::endl;
 #endif
+
+      const auto &dof_handler_dst = mesh_fine;   // TODO: remove
+      const auto &dof_handler_src = mesh_coarse; // TODO
+      const auto &tria_dst        = mesh_fine.get_triangulation();   // TODO
+      const auto &tria_src        = mesh_coarse.get_triangulation(); // TODO
+
+      const unsigned int dofs_per_cell = get_fe_collection()[0].dofs_per_cell;
+
+      const auto targets_with_indexset = process.get_requesters();
+
+      std::map<unsigned int, std::vector<unsigned int>> indices_to_be_sent;
+      std::vector<MPI_Request>                          requests;
+      requests.reserve(targets_with_indexset.size());
+
+      {
+        std::vector<types::global_dof_index> indices(dofs_per_cell);
+
+        for (auto i : targets_with_indexset)
+          {
+            indices_to_be_sent[i.first] = {};
+            auto &buffer                = indices_to_be_sent[i.first];
+
+            for (auto cell_id : i.second)
+              {
+                typename MeshType::cell_iterator cell(
+                  *cell_id_translator.to_cell_id(cell_id).to_cell(tria_dst),
+                  &dof_handler_dst);
+
+                cell->get_dof_indices(indices);
+                buffer.insert(buffer.end(), indices.begin(), indices.end());
+              }
+
+            requests.resize(requests.size() + 1);
+
+            MPI_Isend(buffer.data(),
+                      buffer.size(),
+                      MPI_UNSIGNED,
+                      i.first,
+                      11,
+                      communicator,
+                      &requests.back());
+          }
+      }
+
+
+      this->indices.resize(dof_handler_src.locally_owned_dofs().n_elements());
+
+
+      // process local cells
+      {
+        auto is_src_and_dst_locally_owned = is_src_locally_owned;
+        is_src_and_dst_locally_owned.subtract_set(is_dst_remote);
+
+        std::vector<types::global_dof_index> indices(dofs_per_cell);
+
+        std::vector<types::global_dof_index> indices_(dofs_per_cell);
+
+        for (const auto id : is_src_and_dst_locally_owned)
+          {
+            continue; // TODO!!!
+
+            const auto cell_id = cell_id_translator.to_cell_id(id);
+
+            typename MeshType::cell_iterator cell(*cell_id.to_cell(tria_src),
+                                                  &dof_handler_src);
+
+            typename MeshType::cell_iterator cell_(*cell_id.to_cell(tria_dst),
+                                                   &dof_handler_dst);
+
+            cell->get_dof_indices(indices);
+            cell_->get_dof_indices(indices_);
+
+            for (unsigned int j = 0; j < dofs_per_cell; ++j)
+              {
+                if (dof_handler_src.locally_owned_dofs().is_element(indices[j]))
+                  this->indices[dof_handler_src.locally_owned_dofs()
+                                  .index_within_set(indices[j])] = indices_[j];
+              }
+          }
+      }
+
+      std::vector<unsigned int> ghost_indices;
+
+      {
+        std::map<unsigned int, std::vector<unsigned int>> rank_to_ids;
+
+        std::set<unsigned int> ranks;
+
+        for (auto i : is_dst_remote_owners)
+          ranks.insert(i);
+
+        for (auto i : ranks)
+          rank_to_ids[i] = {};
+
+        for (unsigned int i = 0; i < is_dst_remote_owners.size(); ++i)
+          rank_to_ids[is_dst_remote_owners[i]].push_back(
+            is_dst_remote.nth_index_in_set(i));
+
+
+        for (unsigned int i = 0; i < ranks.size(); ++i)
+          {
+            MPI_Status status;
+            MPI_Probe(MPI_ANY_SOURCE, 11, communicator, &status);
+
+            int message_length;
+            MPI_Get_count(&status, MPI_UNSIGNED, &message_length);
+
+            std::vector<unsigned int> buffer(message_length);
+
+            MPI_Recv(buffer.data(),
+                     buffer.size(),
+                     MPI_UNSIGNED,
+                     status.MPI_SOURCE,
+                     11,
+                     communicator,
+                     MPI_STATUS_IGNORE);
+
+            ghost_indices.insert(ghost_indices.end(),
+                                 buffer.begin(),
+                                 buffer.end());
+
+            const unsigned int rank = status.MPI_SOURCE;
+
+            const auto ids = rank_to_ids[rank];
+
+            {
+              std::vector<types::global_dof_index> indices(dofs_per_cell);
+
+              for (unsigned int i = 0, k = 0; i < ids.size(); ++i)
+                {
+                  continue; // TODO!!!
+
+                  typename MeshType::cell_iterator cell(
+                    *cell_id_translator.to_cell_id(ids[i]).to_cell(tria_src),
+                    &dof_handler_src);
+
+                  cell->get_dof_indices(indices);
+
+                  for (unsigned int j = 0; dofs_per_cell; ++j, ++k)
+                    {
+                      if (dof_handler_src.locally_owned_dofs().is_element(
+                            indices[j]))
+                        this->indices[dof_handler_src.locally_owned_dofs()
+                                        .index_within_set(indices[j])] =
+                          buffer[k];
+                    }
+                }
+            }
+          }
+
+        MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
+      }
+
+      std::sort(ghost_indices.begin(), ghost_indices.end());
+      ghost_indices.erase(std::unique(ghost_indices.begin(),
+                                      ghost_indices.end()),
+                          ghost_indices.end());
+
+      this->is_extended_locally_owned = dof_handler_dst.locally_owned_dofs();
+
+      this->is_extendende_ghosts = IndexSet(dof_handler_dst.n_dofs());
+      this->is_extendende_ghosts.add_indices(ghost_indices.begin(),
+                                             ghost_indices.end());
+      this->is_extendende_ghosts.subtract_set(this->is_extended_locally_owned);
+
+      for (auto &i : indices)
+        if (is_extended_locally_owned.is_element(i))
+          i = is_extended_locally_owned.index_within_set(i);
+        else if (is_extendende_ghosts.is_element(i))
+          i = is_extended_locally_owned.n_elements() +
+              is_extendende_ghosts.index_within_set(i);
+        else
+          Assert(false, ExcNotImplemented());
     }
 
     FineDoFHandlerViewCell
@@ -481,6 +653,11 @@ namespace MGTransferUtil
     IndexSet is_dst_locally_owned;
     IndexSet is_dst_remote;
     IndexSet is_src_locally_owned;
+
+
+    IndexSet                  is_extended_locally_owned;
+    IndexSet                  is_extendende_ghosts;
+    std::vector<unsigned int> indices;
 
     static unsigned int
     n_coarse_cells(const MeshType &mesh)
