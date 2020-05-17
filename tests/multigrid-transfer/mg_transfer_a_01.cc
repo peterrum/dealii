@@ -79,12 +79,20 @@ do_test(const FiniteElement<dim> &fe_fine, const FiniteElement<dim> &fe_coarse)
   };
 
   // create coarse grid
-  Triangulation<dim> tria_coarse;
+  parallel::distributed::Triangulation<dim> tria_coarse(
+    MPI_COMM_WORLD,
+    ::Triangulation<dim, dim>::none,
+    parallel::distributed::Triangulation<dim, dim>::Settings::
+      construct_multigrid_hierarchy);
   create_fine_grid(tria_coarse);
   execute_global_coarsening(tria_coarse);
 
   // create fine grid
-  Triangulation<dim> tria_fine;
+  parallel::distributed::Triangulation<dim> tria_fine(
+    MPI_COMM_WORLD,
+    ::Triangulation<dim, dim>::none,
+    parallel::distributed::Triangulation<dim, dim>::Settings::
+      construct_multigrid_hierarchy);
   create_fine_grid(tria_fine);
 
   // setup dof-handlers
