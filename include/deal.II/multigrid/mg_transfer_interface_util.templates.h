@@ -159,27 +159,28 @@ namespace MGTransferUtil
   class FineDoFHandlerView
   {
   public:
-    FineDoFHandlerView(const MeshType &mesh)
-      : mesh(mesh)
+    FineDoFHandlerView(const MeshType &mesh_fine, const MeshType &mesh_coarse)
+      : mesh_fine(mesh_fine)
+      , mesh_coarse(mesh_coarse)
     {}
 
     FineDoFHandlerViewCell<MeshType>
     get_cell(const CellId &id) const
     {
-      return FineDoFHandlerViewCell<MeshType>(
-        typename MeshType::cell_iterator(*id.to_cell(mesh.get_triangulation()),
-                                         &mesh));
+      return FineDoFHandlerViewCell<MeshType>(typename MeshType::cell_iterator(
+        *id.to_cell(mesh_fine.get_triangulation()), &mesh_fine));
     }
 
     FineDoFHandlerViewCell<MeshType>
     get_cell(const CellId &id, const unsigned int c) const
     {
       return FineDoFHandlerViewCell<MeshType>(typename MeshType::cell_iterator(
-        *id.to_cell(mesh.get_triangulation())->child(c), &mesh));
+        *id.to_cell(mesh_fine.get_triangulation())->child(c), &mesh_fine));
     }
 
   private:
-    const MeshType &mesh;
+    const MeshType &mesh_fine;
+    const MeshType &mesh_coarse;
   };
 
   bool
@@ -201,7 +202,8 @@ namespace MGTransferUtil
     const AffineConstraints<Number> &constraint_coarse,
     Transfer<dim, Number> &          transfer)
   {
-    const FineDoFHandlerView<MeshType> view(dof_handler_fine);
+    const FineDoFHandlerView<MeshType> view(dof_handler_fine,
+                                            dof_handler_coarse);
 
     // copy constrain matrix; TODO: why only for the coarse level?
     transfer.constraint_coarse.copy_from(constraint_coarse);
