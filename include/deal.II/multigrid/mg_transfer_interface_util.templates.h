@@ -470,18 +470,14 @@ namespace MGTransferUtil
 
             const auto ids = rank_to_ids[rank];
 
-            {
-              std::vector<types::global_dof_index> indices(dofs_per_cell);
+            std::vector<types::global_dof_index> indices(dofs_per_cell);
 
-              for (unsigned int i = 0, k = 0; i < ids.size(); ++i)
-                {
-                  (void)ids[i];  // TODO
-                  (void)indices; // TODO
-
-                  for (unsigned int j = 0; j < dofs_per_cell; ++j, ++k)
-                    (void)buffer[k]; // TODO
-                }
-            }
+            for (unsigned int i = 0, k = 0; i < ids.size(); ++i)
+              {
+                for (unsigned int j = 0; j < dofs_per_cell; ++j, ++k)
+                  indices[j] = buffer[k];
+                map[ids[i]] = indices;
+              }
           }
 
         MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
@@ -528,7 +524,7 @@ namespace MGTransferUtil
 
       return FineDoFHandlerViewCell(
         [has_cell_any_children]() { return has_cell_any_children; },
-        [cell, is_cell_locally_owned, is_cell_remotly_owned, this](
+        [cell, is_cell_locally_owned, is_cell_remotly_owned, id, this](
           auto &dof_indices) {
           if (is_cell_locally_owned)
             {
@@ -539,7 +535,7 @@ namespace MGTransferUtil
             }
           else if (is_cell_remotly_owned)
             {
-              AssertThrow(false, ExcNotImplemented()); // TODO
+              dof_indices = map.at(id);
             }
           else
             {
@@ -565,7 +561,7 @@ namespace MGTransferUtil
 
           return false;
         },
-        [cell, is_cell_locally_owned, is_cell_remotly_owned, c, this](
+        [cell, is_cell_locally_owned, is_cell_remotly_owned, c, id, this](
           auto &dof_indices) {
           if (is_cell_locally_owned)
             {
@@ -577,7 +573,7 @@ namespace MGTransferUtil
             }
           else if (is_cell_remotly_owned)
             {
-              AssertThrow(false, ExcNotImplemented()); // TODO
+              dof_indices = map.at(id);
             }
           else
             {
@@ -602,6 +598,8 @@ namespace MGTransferUtil
 
     IndexSet is_extended_locally_owned;
     IndexSet is_extendende_ghosts;
+
+    std::map<unsigned int, std::vector<types::global_dof_index>> map;
 
     static unsigned int
     n_coarse_cells(const MeshType &mesh)
