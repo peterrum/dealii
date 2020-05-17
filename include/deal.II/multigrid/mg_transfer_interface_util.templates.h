@@ -183,6 +183,16 @@ namespace MGTransferUtil
     const MeshType &mesh_coarse;
   };
 
+  template <typename MeshType>
+  class GlobalCoarseningFineDoFHandlerView : public FineDoFHandlerView<MeshType>
+  {
+  public:
+    GlobalCoarseningFineDoFHandlerView(const MeshType &mesh_fine,
+                                       const MeshType &mesh_coarse)
+      : FineDoFHandlerView<MeshType>(mesh_fine, mesh_coarse)
+    {}
+  };
+
   bool
   polynomial_transfer_supported(const unsigned int fe_degree_fine,
                                 const unsigned int fe_degree_coarse)
@@ -202,8 +212,8 @@ namespace MGTransferUtil
     const AffineConstraints<Number> &constraint_coarse,
     Transfer<dim, Number> &          transfer)
   {
-    const FineDoFHandlerView<MeshType> view(dof_handler_fine,
-                                            dof_handler_coarse);
+    const GlobalCoarseningFineDoFHandlerView<MeshType> view(dof_handler_fine,
+                                                            dof_handler_coarse);
 
     // copy constrain matrix; TODO: why only for the coarse level?
     transfer.constraint_coarse.copy_from(constraint_coarse);
