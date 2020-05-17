@@ -179,29 +179,34 @@ namespace MGTransferUtil
 
   } // namespace
 
-  template <typename MeshType>
   class FineDoFHandlerViewCell
   {
   public:
-    FineDoFHandlerViewCell(const typename MeshType::cell_iterator cell)
-      : cell(cell)
+    FineDoFHandlerViewCell(
+      const std::function<bool()> &has_children_,
+      const std::function<void(std::vector<types::global_dof_index> &)>
+        &get_dof_indices_)
+      : has_children_(has_children_)
+      , get_dof_indices_(get_dof_indices_)
     {}
 
     bool
     has_children() const
     {
-      return cell->has_children();
+      return has_children_();
     }
 
     void
     get_dof_indices(std::vector<types::global_dof_index> &dof_indices) const
     {
-      cell->get_dof_indices(dof_indices);
+      get_dof_indices_(dof_indices);
     }
 
 
   private:
-    const typename MeshType::cell_iterator cell;
+    const std::function<bool()> has_children_;
+    const std::function<void(std::vector<types::global_dof_index> &)>
+      get_dof_indices_;
   };
 
   template <int dim>
@@ -364,20 +369,43 @@ namespace MGTransferUtil
       this->is_src_locally_owned = is_src_locally_owned;
     }
 
-    FineDoFHandlerViewCell<MeshType>
+    FineDoFHandlerViewCell
     get_cell(const typename MeshType::cell_iterator &cell) const
     {
-      return FineDoFHandlerViewCell<MeshType>(typename MeshType::cell_iterator(
-        *cell->id().to_cell(mesh_fine.get_triangulation()), &mesh_fine));
+      return FineDoFHandlerViewCell(
+        [cell, this]() {
+          return (typename MeshType::cell_iterator(
+                    *cell->id().to_cell(mesh_fine.get_triangulation()),
+                    &mesh_fine))
+            ->has_children();
+        },
+        [cell, this](auto &dof_indices) {
+          return (typename MeshType::cell_iterator(
+                    *cell->id().to_cell(mesh_fine.get_triangulation()),
+                    &mesh_fine))
+            ->get_dof_indices(dof_indices);
+        });
     }
 
-    FineDoFHandlerViewCell<MeshType>
+    FineDoFHandlerViewCell
     get_cell(const typename MeshType::cell_iterator &cell,
              const unsigned int                      c) const
     {
-      return FineDoFHandlerViewCell<MeshType>(typename MeshType::cell_iterator(
-        *cell->id().to_cell(mesh_fine.get_triangulation())->child(c),
-        &mesh_fine));
+      return FineDoFHandlerViewCell(
+        [cell, c, this]() {
+          return (typename MeshType::cell_iterator(
+                    *cell->id().to_cell(mesh_fine.get_triangulation()),
+                    &mesh_fine))
+            ->child(c)
+            ->has_children();
+        },
+        [cell, c, this](auto &dof_indices) {
+          return (typename MeshType::cell_iterator(
+                    *cell->id().to_cell(mesh_fine.get_triangulation()),
+                    &mesh_fine))
+            ->child(c)
+            ->get_dof_indices(dof_indices);
+        });
     }
 
   private:
