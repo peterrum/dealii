@@ -19,6 +19,9 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/base/mpi_compute_index_owner_internal.h>
+#include <deal.II/base/mpi_consensus_algorithms.h>
+
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
 
@@ -219,7 +222,7 @@ namespace MGTransferUtil
     }
 
     unsigned int
-    size()
+    size() const
     {
       return n_coarse_cells *
              (Utilities::pow(GeometryInfo<dim>::max_children_per_cell,
@@ -229,7 +232,7 @@ namespace MGTransferUtil
 
     template <typename T>
     unsigned int
-    translate(const T &cell)
+    translate(const T &cell) const
     {
       unsigned int id = 0;
 
@@ -243,14 +246,14 @@ namespace MGTransferUtil
 
     template <typename T>
     unsigned int
-    translate(const T &cell, const unsigned int i)
+    translate(const T &cell, const unsigned int i) const
     {
       return translate(cell) * GeometryInfo<dim>::max_children_per_cell + i +
              tree_sizes[cell->level() + 1];
     }
 
     CellId
-    to_cell_id(const unsigned int id)
+    to_cell_id(const unsigned int id) const
     {
       std::vector<std::uint8_t> child_indices;
 
@@ -290,12 +293,75 @@ namespace MGTransferUtil
     FineDoFHandlerView(const MeshType &mesh_fine, const MeshType &mesh_coarse)
       : mesh_fine(mesh_fine)
       , mesh_coarse(mesh_coarse)
+      , communicator(get_mpi_comm(mesh_fine) /*TODO: fix for different comms*/)
       , cell_id_translator(n_coarse_cells(mesh_fine),
                            n_global_levels(mesh_fine))
     {
       AssertDimension(n_coarse_cells(mesh_fine), n_coarse_cells(mesh_coarse));
       AssertIndexRange(n_global_levels(mesh_fine),
                        n_global_levels(mesh_coarse));
+    }
+
+    void
+    reinit(const IndexSet &is_dst_locally_owned,
+           const IndexSet &is_dst_remote_input,
+           const IndexSet &is_src_locally_owned,
+           const bool      check_if_elements_in_is_dst_remote_exist = false)
+    {
+      IndexSet is_dst_remote = is_dst_remote_input;
+
+      if (check_if_elements_in_is_dst_remote_exist)
+        {
+          IndexSet is_dst_remote_potentially_relevant = is_dst_remote;
+          is_dst_remote.clear();
+
+          std::vector<unsigned int> owning_ranks_of_ghosts(
+            is_dst_remote_potentially_relevant.n_elements());
+
+          {
+            Utilities::MPI::internal::ComputeIndexOwner::
+              ConsensusAlgorithmsPayload process(
+                is_dst_locally_owned,
+                is_dst_remote_potentially_relevant,
+                communicator,
+                owning_ranks_of_ghosts,
+                false);
+
+            Utilities::MPI::ConsensusAlgorithms::Selector<
+              std::pair<types::global_dof_index, types::global_dof_index>,
+              unsigned int>
+              consensus_algorithm(process, communicator);
+            consensus_algorithm.run();
+          }
+
+          for (unsigned i = 0;
+               i < is_dst_remote_potentially_relevant.n_elements();
+               ++i)
+            if (owning_ranks_of_ghosts[i] != numbers::invalid_unsigned_int)
+              is_dst_remote.add_index(
+                is_dst_remote_potentially_relevant.nth_index_in_set(i));
+        }
+
+      // determine owner of remote cells
+      std::vector<unsigned int> is_dst_remote_owners(
+        is_dst_remote.n_elements());
+
+      Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
+        process(is_dst_locally_owned,
+                is_dst_remote,
+                communicator,
+                is_dst_remote_owners,
+                true);
+
+      Utilities::MPI::ConsensusAlgorithms::Selector<
+        std::pair<types::global_dof_index, types::global_dof_index>,
+        unsigned int>
+        consensus_algorithm(process, communicator);
+      consensus_algorithm.run();
+
+      this->is_dst_locally_owned = is_dst_locally_owned;
+      this->is_dst_remote        = is_dst_remote;
+      this->is_src_locally_owned = is_src_locally_owned;
     }
 
     FineDoFHandlerViewCell<MeshType>
@@ -315,8 +381,15 @@ namespace MGTransferUtil
   private:
     const MeshType &mesh_fine;
     const MeshType &mesh_coarse;
+    const MPI_Comm  communicator;
 
+  protected:
     const CellIDTranslator<MeshType::dimension> cell_id_translator;
+
+  private:
+    IndexSet is_dst_locally_owned;
+    IndexSet is_dst_remote;
+    IndexSet is_src_locally_owned;
 
     static unsigned int
     n_coarse_cells(const MeshType &mesh)
@@ -342,10 +415,47 @@ namespace MGTransferUtil
   class GlobalCoarseningFineDoFHandlerView : public FineDoFHandlerView<MeshType>
   {
   public:
-    GlobalCoarseningFineDoFHandlerView(const MeshType &mesh_fine,
-                                       const MeshType &mesh_coarse)
-      : FineDoFHandlerView<MeshType>(mesh_fine, mesh_coarse)
-    {}
+    GlobalCoarseningFineDoFHandlerView(const MeshType &dof_handler_dst,
+                                       const MeshType &dof_handler_src)
+      : FineDoFHandlerView<MeshType>(dof_handler_dst, dof_handler_src)
+    {
+      // get reference to triangulations
+      const auto &tria_dst = dof_handler_dst.get_triangulation();
+      const auto &tria_src = dof_handler_src.get_triangulation();
+
+      // create index sets
+      IndexSet is_dst_locally_owned(this->cell_id_translator.size());
+      IndexSet is_dst_remote(this->cell_id_translator.size());
+      IndexSet is_src_locally_owned(this->cell_id_translator.size());
+
+      for (auto cell : tria_dst.active_cell_iterators())
+        if (!cell->is_artificial() && cell->is_locally_owned())
+          is_dst_locally_owned.add_index(
+            this->cell_id_translator.translate(cell));
+
+
+      for (auto cell : tria_src.active_cell_iterators())
+        if (!cell->is_artificial() && cell->is_locally_owned())
+          {
+            is_src_locally_owned.add_index(
+              this->cell_id_translator.translate(cell));
+            is_dst_remote.add_index(this->cell_id_translator.translate(cell));
+
+            if (cell->level() + 1u == tria_dst.n_global_levels())
+              continue;
+
+            for (unsigned int i = 0;
+                 i < GeometryInfo<MeshType::dimension>::max_children_per_cell;
+                 ++i)
+              is_dst_remote.add_index(
+                this->cell_id_translator.translate(cell, i));
+          }
+
+      this->reinit(is_dst_locally_owned,
+                   is_dst_remote,
+                   is_src_locally_owned,
+                   true);
+    }
   };
 
   bool
