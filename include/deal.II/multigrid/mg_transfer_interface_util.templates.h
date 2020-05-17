@@ -365,17 +365,19 @@ namespace MGTransferUtil
     }
 
     FineDoFHandlerViewCell<MeshType>
-    get_cell(const CellId &id) const
+    get_cell(const typename MeshType::cell_iterator &cell) const
     {
       return FineDoFHandlerViewCell<MeshType>(typename MeshType::cell_iterator(
-        *id.to_cell(mesh_fine.get_triangulation()), &mesh_fine));
+        *cell->id().to_cell(mesh_fine.get_triangulation()), &mesh_fine));
     }
 
     FineDoFHandlerViewCell<MeshType>
-    get_cell(const CellId &id, const unsigned int c) const
+    get_cell(const typename MeshType::cell_iterator &cell,
+             const unsigned int                      c) const
     {
       return FineDoFHandlerViewCell<MeshType>(typename MeshType::cell_iterator(
-        *id.to_cell(mesh_fine.get_triangulation())->child(c), &mesh_fine));
+        *cell->id().to_cell(mesh_fine.get_triangulation())->child(c),
+        &mesh_fine));
     }
 
   private:
@@ -525,8 +527,7 @@ namespace MGTransferUtil
             continue;
 
           // get a reference to the equivalent cell on the fine triangulation
-          const auto cell_coarse_on_fine_mesh =
-            view.get_cell(cell_coarse->id());
+          const auto cell_coarse_on_fine_mesh = view.get_cell(cell_coarse);
 
           // check if cell has children
           if (cell_coarse_on_fine_mesh.has_children())
@@ -534,7 +535,7 @@ namespace MGTransferUtil
             for (unsigned int c = 0;
                  c < GeometryInfo<dim>::max_children_per_cell;
                  c++)
-              fu_refined(cell_coarse, view.get_cell(cell_coarse->id(), c), c);
+              fu_refined(cell_coarse, view.get_cell(cell_coarse, c), c);
           else // ... cell has no children -> process cell
             fu_non_refined(cell_coarse, cell_coarse_on_fine_mesh);
         }
