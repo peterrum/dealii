@@ -254,7 +254,7 @@ namespace MGTransferUtil
     translate(const T &cell, const unsigned int i) const
     {
       return translate(cell) * GeometryInfo<dim>::max_children_per_cell + i +
-             tree_sizes[cell->level() + 1];
+             tree_sizes[cell->level()];
     }
 
     CellId
@@ -367,24 +367,62 @@ namespace MGTransferUtil
       this->is_dst_locally_owned = is_dst_locally_owned;
       this->is_dst_remote        = is_dst_remote;
       this->is_src_locally_owned = is_src_locally_owned;
+
+
+#if false
+        std::cout << "IS_SRC_LOCALLY_OWNED" << std::endl;
+        for (auto i : is_src_locally_owned)
+          std::cout << cell_id_translator.to_cell_id(i) << std::endl;
+        std::cout << std::endl << std::endl << std::endl;
+
+
+        std::cout << "IS_DST_LOCALLY_OWNED" << std::endl;
+        for (auto i : is_dst_locally_owned)
+          std::cout << cell_id_translator.to_cell_id(i) << std::endl;
+        std::cout << std::endl << std::endl << std::endl;
+#endif
     }
 
     FineDoFHandlerViewCell
     get_cell(const typename MeshType::cell_iterator &cell) const
     {
+      const auto id = this->cell_id_translator.translate(cell);
+
+      if (this->is_dst_locally_owned.is_element(id))
+        {
+          return FineDoFHandlerViewCell(
+            [cell, this]() {
+              return (typename MeshType::cell_iterator(
+                        *cell->id().to_cell(mesh_fine.get_triangulation()),
+                        &mesh_fine))
+                ->has_children();
+            },
+            [cell, this](auto &dof_indices) {
+              return (typename MeshType::cell_iterator(
+                        *cell->id().to_cell(mesh_fine.get_triangulation()),
+                        &mesh_fine))
+                ->get_dof_indices(dof_indices);
+            });
+        }
+      else if (this->is_dst_locally_owned.is_element(
+                 this->cell_id_translator.translate(cell, 0)))
+        {
+          return FineDoFHandlerViewCell([cell, this]() { return true; },
+                                        [cell, this](auto &) {
+                                          AssertThrow(false,
+                                                      ExcNotImplemented());
+                                          return false;
+                                        });
+        }
+
+      AssertThrow(false, ExcNotImplemented());
+
       return FineDoFHandlerViewCell(
-        [cell, this]() {
-          return (typename MeshType::cell_iterator(
-                    *cell->id().to_cell(mesh_fine.get_triangulation()),
-                    &mesh_fine))
-            ->has_children();
+        []() {
+          AssertThrow(false, ExcNotImplemented());
+          return false;
         },
-        [cell, this](auto &dof_indices) {
-          return (typename MeshType::cell_iterator(
-                    *cell->id().to_cell(mesh_fine.get_triangulation()),
-                    &mesh_fine))
-            ->get_dof_indices(dof_indices);
-        });
+        [](auto &) { AssertThrow(false, ExcNotImplemented()); });
     }
 
     FineDoFHandlerViewCell
