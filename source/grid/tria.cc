@@ -45,13 +45,15 @@ DEAL_II_NAMESPACE_OPEN
 
 
 template <int structdim>
-CellData<structdim>::CellData()
-  : material_id(0)
+CellData<structdim>::CellData(const EntityType &entity_type)
+  : entity_type(entity_type)
+  , material_id(0)
   , manifold_id(numbers::flat_manifold_id)
 {
-  std::fill(std::begin(vertices),
-            std::end(vertices),
-            numbers::invalid_unsigned_int);
+  // TODO: make dependent on entity type
+  const unsigned int n_vertices = GeometryInfo<structdim>::vertices_per_cell;
+
+  vertices.resize(n_vertices, numbers::invalid_unsigned_int);
 }
 
 
@@ -60,6 +62,9 @@ template <int structdim>
 bool
 CellData<structdim>::operator==(const CellData<structdim> &other) const
 {
+  if (entity_type != other.entity_type)
+    return false;
+
   for (const unsigned int i : GeometryInfo<structdim>::vertex_indices())
     if (vertices[i] != other.vertices[i])
       return false;

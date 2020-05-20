@@ -26,6 +26,16 @@
 
 DEAL_II_NAMESPACE_OPEN
 
+enum class EntityType
+{
+  VERTEX,
+  LINE,
+  TRI,
+  QUAD,
+  TET,
+  HEX
+};
+
 /*------------------------------------------------------------------------*/
 
 /**
@@ -67,11 +77,16 @@ template <int structdim>
 struct CellData
 {
   /**
+   * Entity type.
+   */
+  EntityType entity_type;
+
+  /**
    * Indices of the vertices of this cell. These indices correspond
    * to entries in the vector of vertex locations passed to
    * Triangulation::create_triangulation().
    */
-  unsigned int vertices[GeometryInfo<structdim>::vertices_per_cell];
+  std::vector<unsigned int> vertices;
 
   /**
    * Material or boundary indicator of this cell.
@@ -121,7 +136,7 @@ struct CellData
    * - boundary or material id zero (the default for boundary or material ids)
    * - manifold id to numbers::flat_manifold_id
    */
-  CellData();
+  CellData(const EntityType &entity_type = EntityType::HEX);
 
   /**
    * Comparison operator.
@@ -232,6 +247,7 @@ template <class Archive>
 void
 CellData<structdim>::serialize(Archive &ar, const unsigned int /*version*/)
 {
+  ar &entity_type;
   ar &vertices;
   ar &material_id;
   ar &boundary_id;
