@@ -370,6 +370,49 @@ Transfer<dim, Number>::restrict_and_add(
 }
 
 
+
+template <int dim, typename Number>
+void
+VectorRepartitioner<dim, Number>::update_forwards(
+  LinearAlgebra::distributed::Vector<Number> &      dst,
+  const LinearAlgebra::distributed::Vector<Number> &src) const
+{
+  // create new source vector with matching ghost values
+  LinearAlgebra::distributed::Vector<Number> src_extended(extended_partitioner);
+
+  // copy locally owned values from original source vector
+  src_extended.copy_locally_owned_data_from(src);
+
+  // update ghost values
+  src_extended.update_ghost_values();
+
+  // copy locally owned values from temporal array to destination vector
+  for (unsigned int i = 0; i < indices.size(); ++i)
+    dst.local_element(i) = src_extended.local_element(indices[i]);
+}
+
+template <int dim, typename Number>
+void
+VectorRepartitioner<dim, Number>::update_backwards(
+  LinearAlgebra::distributed::Vector<Number> &      dst,
+  const LinearAlgebra::distributed::Vector<Number> &src) const
+{
+  // create new source vector with matching ghost values
+  LinearAlgebra::distributed::Vector<Number> dst_extended(extended_partitioner);
+
+  // copy locally owned values from temporal array to destination vector
+  for (unsigned int i = 0; i < indices.size(); ++i)
+    dst_extended.local_element(indices[i]) = src.local_element(i);
+
+  // update ghost values
+  dst_extended.compress(VectorOperation::values::insert); // VectorOperation
+                                                          // shouldn't matter?
+
+  // copy locally owned values from original source vector
+  dst.copy_locally_owned_data_from(dst_extended);
+}
+
+
 DEAL_II_NAMESPACE_CLOSE
 
 #endif

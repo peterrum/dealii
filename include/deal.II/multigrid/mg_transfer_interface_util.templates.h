@@ -683,6 +683,44 @@ namespace MGTransferUtil
     }
   };
 
+  template <typename MeshType>
+  class PermutationFineDoFHandlerView : public FineDoFHandlerView<MeshType>
+  {
+  public:
+    PermutationFineDoFHandlerView(const MeshType &dof_handler_dst,
+                                  const MeshType &dof_handler_src)
+      : FineDoFHandlerView<MeshType>(dof_handler_dst, dof_handler_src)
+    {
+      // get reference to triangulations
+      const auto &tria_dst = dof_handler_dst.get_triangulation();
+      const auto &tria_src = dof_handler_src.get_triangulation();
+
+      // create index sets
+      IndexSet is_dst_locally_owned(this->cell_id_translator.size());
+      IndexSet is_dst_remote(this->cell_id_translator.size());
+      IndexSet is_src_locally_owned(this->cell_id_translator.size());
+
+      for (auto cell : tria_dst.active_cell_iterators())
+        if (!cell->is_artificial() && cell->is_locally_owned())
+          is_dst_locally_owned.add_index(
+            this->cell_id_translator.translate(cell));
+
+
+      for (auto cell : tria_src.active_cell_iterators())
+        if (!cell->is_artificial() && cell->is_locally_owned())
+          {
+            is_src_locally_owned.add_index(
+              this->cell_id_translator.translate(cell));
+            is_dst_remote.add_index(this->cell_id_translator.translate(cell));
+          }
+
+      this->reinit(is_dst_locally_owned,
+                   is_dst_remote,
+                   is_src_locally_owned,
+                   false);
+    }
+  };
+
   bool
   polynomial_transfer_supported(const unsigned int fe_degree_fine,
                                 const unsigned int fe_degree_coarse)
@@ -692,6 +730,68 @@ namespace MGTransferUtil
 
     return cell_transfer.run(cell_transfer_test);
   }
+
+
+
+  template <int dim, typename Number, typename MeshType>
+  void
+  setup_vector_repartitioner(const MeshType &dof_handler_fine,
+                             const MeshType &dof_handler_coarse,
+                             VectorRepartitioner<dim, Number> &transfer)
+  {
+    const PermutationFineDoFHandlerView<MeshType> view(dof_handler_fine,
+                                                       dof_handler_coarse);
+
+    const auto &is_extended_locally_owned = view.locally_owned_dofs();
+    const auto &is_extendende_ghosts      = view.locally_relevant_dofs();
+
+    transfer.extended_partitioner.reset(new Utilities::MPI::Partitioner(
+      is_extended_locally_owned,
+      is_extendende_ghosts,
+      get_mpi_comm(dof_handler_fine) /*TODO: generalize*/));
+
+    transfer.indices.resize(
+      dof_handler_coarse.locally_owned_dofs().n_elements());
+
+    const unsigned int dofs_per_cell =
+      dof_handler_fine.get_fe_collection()[0].dofs_per_cell;
+
+    std::vector<types::global_dof_index> indices_coarse(dofs_per_cell);
+    std::vector<types::global_dof_index> indices_fine(dofs_per_cell);
+
+    // loop over all cells
+    for (auto cell_coarse : dof_handler_coarse.active_cell_iterators())
+      {
+        if (cell_coarse->is_artificial() ||
+            cell_coarse->is_locally_owned() == false)
+          continue;
+
+        const auto cell_fine = view.get_cell(cell_coarse);
+
+        cell_coarse->get_dof_indices(indices_coarse);
+        cell_fine.get_dof_indices(indices_fine);
+
+        for (unsigned int j = 0; j < dofs_per_cell; ++j)
+          {
+            if (dof_handler_coarse.locally_owned_dofs().is_element(
+                  indices_coarse[j]))
+              transfer.indices[dof_handler_coarse.locally_owned_dofs()
+                                 .index_within_set(indices_coarse[j])] =
+                indices_fine[j];
+          }
+      }
+
+    for (auto &i : transfer.indices)
+      if (is_extended_locally_owned.is_element(i))
+        i = is_extended_locally_owned.index_within_set(i);
+      else if (is_extendende_ghosts.is_element(i))
+        i = is_extended_locally_owned.n_elements() +
+            is_extendende_ghosts.index_within_set(i);
+      else
+        Assert(false, ExcNotImplemented());
+  }
+
+
 
   template <int dim, typename Number, typename MeshType>
   void

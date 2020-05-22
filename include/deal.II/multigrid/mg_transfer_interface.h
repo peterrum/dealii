@@ -78,6 +78,22 @@ public:
   AffineConstraints<Number> constraint_coarse;
 };
 
+template <int dim, typename Number>
+class VectorRepartitioner
+{
+public:
+  void
+  update_forwards(LinearAlgebra::distributed::Vector<Number> &      dst,
+                  const LinearAlgebra::distributed::Vector<Number> &src) const;
+
+  void
+  update_backwards(LinearAlgebra::distributed::Vector<Number> &      dst,
+                   const LinearAlgebra::distributed::Vector<Number> &src) const;
+
+  std::shared_ptr<const Utilities::MPI::Partitioner> extended_partitioner;
+  std::vector<unsigned int>                          indices;
+};
+
 DEAL_II_NAMESPACE_CLOSE
 
 #endif

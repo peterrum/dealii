@@ -48,6 +48,12 @@ namespace MGTransferUtil
                             const AffineConstraints<Number> &constraint_coarse,
                             Transfer<dim, Number> &          transfer);
 
+  template <int dim, typename Number, typename MeshType>
+  void
+  setup_vector_repartitioner(const MeshType &dof_handler_fine,
+                             const MeshType &dof_handler_coarse,
+                             VectorRepartitioner<dim, Number> &transfer);
+
 } // namespace MGTransferUtil
 
 DEAL_II_NAMESPACE_CLOSE
