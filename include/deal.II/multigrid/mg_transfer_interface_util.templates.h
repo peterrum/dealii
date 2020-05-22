@@ -771,24 +771,28 @@ namespace MGTransferUtil
         cell_coarse->get_dof_indices(indices_coarse);
         cell_fine.get_dof_indices(indices_fine);
 
+        const auto make_local = [&is_extended_locally_owned,
+                                 &is_extendende_ghosts](const unsigned int i) {
+          if (is_extended_locally_owned.is_element(i))
+            return is_extended_locally_owned.index_within_set(i);
+          else if (is_extendende_ghosts.is_element(i))
+            return is_extended_locally_owned.n_elements() +
+                   is_extendende_ghosts.index_within_set(i);
+
+          Assert(false, ExcNotImplemented());
+
+          return typename IndexSet::size_type(0);
+        };
+
         for (unsigned int j = 0; j < dofs_per_cell; ++j)
           {
             if (dof_handler_coarse.locally_owned_dofs().is_element(
                   indices_coarse[j]))
               transfer.indices[dof_handler_coarse.locally_owned_dofs()
                                  .index_within_set(indices_coarse[j])] =
-                indices_fine[j];
+                make_local(indices_fine[j]);
           }
       }
-
-    for (auto &i : transfer.indices)
-      if (is_extended_locally_owned.is_element(i))
-        i = is_extended_locally_owned.index_within_set(i);
-      else if (is_extendende_ghosts.is_element(i))
-        i = is_extended_locally_owned.n_elements() +
-            is_extendende_ghosts.index_within_set(i);
-      else
-        Assert(false, ExcNotImplemented());
   }
 
 

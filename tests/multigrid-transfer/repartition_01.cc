@@ -122,7 +122,8 @@ test(const MPI_Comm &comm)
 
   vr.update_forwards(vec2, vec1);
 
-  deallog << vec1.l2_norm() << " " << vec2.l2_norm() << std::endl;
+  deallog << vec1.l2_norm() << " ";
+  deallog << vec2.l2_norm() << " ";
 
   AssertDimension(vec1.l2_norm(), vec2.l2_norm());
 
@@ -147,6 +148,16 @@ test(const MPI_Comm &comm)
 
   write_vtu(dof_handler_1, vec1, "result.0.vtu");
   write_vtu(dof_handler_2, vec2, "result.1.vtu");
+
+
+  vec1 = 0.0;
+  vr.update_backwards(vec1, vec2);
+  deallog << vec1.l2_norm() << std::endl;
+
+  AssertDimension(vec1.l2_norm(), vec2.l2_norm());
+
+
+  write_vtu(dof_handler_1, vec1, "result.2.vtu");
 }
 
 int
