@@ -735,62 +735,64 @@ namespace MGTransferUtil
 
   template <int dim, typename Number, typename MeshType>
   void
-  setup_vector_repartitioner(const MeshType &dof_handler_fine,
-                             const MeshType &dof_handler_coarse,
+  setup_vector_repartitioner(const MeshType &                  dof_handler_src,
+                             const MeshType &                  dof_handler_dst,
                              VectorRepartitioner<dim, Number> &transfer)
   {
-    const PermutationFineDoFHandlerView<MeshType> view(dof_handler_fine,
-                                                       dof_handler_coarse);
+    const auto view =
+      PermutationFineDoFHandlerView(dof_handler_src, dof_handler_dst);
 
     const auto &is_extended_locally_owned = view.locally_owned_dofs();
     const auto &is_extendende_ghosts      = view.locally_relevant_dofs();
+    const auto  comm = get_mpi_comm(dof_handler_src); /*TODO: generalize*/
 
+    // 1) setup intermediate vector
     transfer.extended_partitioner.reset(new Utilities::MPI::Partitioner(
-      is_extended_locally_owned,
-      is_extendende_ghosts,
-      get_mpi_comm(dof_handler_fine) /*TODO: generalize*/));
+      is_extended_locally_owned, is_extendende_ghosts, comm));
 
-    transfer.indices.resize(
-      dof_handler_coarse.locally_owned_dofs().n_elements());
+    // 2) setup indices for fast copying between vector
+    transfer.indices.resize(dof_handler_dst.locally_owned_dofs().n_elements());
 
     const unsigned int dofs_per_cell =
-      dof_handler_fine.get_fe_collection()[0].dofs_per_cell;
+      dof_handler_src.get_fe_collection()[0].dofs_per_cell;
 
-    std::vector<types::global_dof_index> indices_coarse(dofs_per_cell);
-    std::vector<types::global_dof_index> indices_fine(dofs_per_cell);
+    std::vector<types::global_dof_index> indices_src(dofs_per_cell);
+    std::vector<types::global_dof_index> indices_dst(dofs_per_cell);
 
-    // loop over all cells
-    for (auto cell_coarse : dof_handler_coarse.active_cell_iterators())
+    // helper function to translate global to local index
+    const auto make_local = [&is_extended_locally_owned,
+                             &is_extendende_ghosts](const unsigned int i) {
+      if (is_extended_locally_owned.is_element(i))
+        return is_extended_locally_owned.index_within_set(i);
+      else if (is_extendende_ghosts.is_element(i))
+        return is_extended_locally_owned.n_elements() +
+               is_extendende_ghosts.index_within_set(i);
+
+      Assert(false, ExcNotImplemented());
+
+      return typename IndexSet::size_type(0);
+    };
+
+    // loop over all active locally owned cells
+    for (auto cell_dst : dof_handler_dst.active_cell_iterators())
       {
-        if (cell_coarse->is_artificial() ||
-            cell_coarse->is_locally_owned() == false)
+        if (cell_dst->is_artificial() || cell_dst->is_locally_owned() == false)
           continue;
 
-        const auto cell_fine = view.get_cell(cell_coarse);
+        // get view on source cell (possibly remote)
+        const auto cell_src = view.get_cell(cell_dst);
 
-        cell_coarse->get_dof_indices(indices_coarse);
-        cell_fine.get_dof_indices(indices_fine);
+        // get indices
+        cell_dst->get_dof_indices(indices_dst);
+        cell_src.get_dof_indices(indices_src);
 
-        const auto make_local = [&is_extended_locally_owned,
-                                 &is_extendende_ghosts](const unsigned int i) {
-          if (is_extended_locally_owned.is_element(i))
-            return is_extended_locally_owned.index_within_set(i);
-          else if (is_extendende_ghosts.is_element(i))
-            return is_extended_locally_owned.n_elements() +
-                   is_extendende_ghosts.index_within_set(i);
-
-          Assert(false, ExcNotImplemented());
-
-          return typename IndexSet::size_type(0);
-        };
-
+        // use src/dst indeices to set up indices
         for (unsigned int j = 0; j < dofs_per_cell; ++j)
           {
-            if (dof_handler_coarse.locally_owned_dofs().is_element(
-                  indices_coarse[j]))
-              transfer.indices[dof_handler_coarse.locally_owned_dofs()
-                                 .index_within_set(indices_coarse[j])] =
-                make_local(indices_fine[j]);
+            if (dof_handler_dst.locally_owned_dofs().is_element(indices_dst[j]))
+              transfer.indices[dof_handler_dst.locally_owned_dofs()
+                                 .index_within_set(indices_dst[j])] =
+                make_local(indices_src[j]);
           }
       }
   }

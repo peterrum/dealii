@@ -405,8 +405,7 @@ VectorRepartitioner<dim, Number>::update_backwards(
     dst_extended.local_element(indices[i]) = src.local_element(i);
 
   // update ghost values
-  dst_extended.compress(VectorOperation::values::add); // VectorOperation
-                                                       // shouldn't matter?
+  dst_extended.compress(VectorOperation::values::add);
 
   // copy locally owned values from original source vector
   dst.copy_locally_owned_data_from(dst_extended);
