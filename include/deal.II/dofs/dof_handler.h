@@ -1560,8 +1560,8 @@ private:
   setup_policy_and_listeners();
 
   /**
-   * Create default tables for the active_fe_indices in the
-   * dealii::internal::hp::DoFLevel. They are initialized with a zero
+   * Create default tables for the active_fe_indices.
+   * They are initialized with a zero
    * indicator, meaning that fe[0] is going to be used by default. This
    * method is called before refinement and while setting the finite elements
    * via set_fe(). It ensures each cell has a valid active_fe_index.
