@@ -236,7 +236,7 @@ namespace Step46
                     1,
                     FE_Q<dim>(elasticity_degree),
                     dim)
-    , dof_handler(triangulation, true)
+    , dof_handler(triangulation, /*enable_hp_capability */ true)
     , viscosity(2)
     , lambda(1)
     , mu(1)

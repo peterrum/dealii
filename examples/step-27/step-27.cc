@@ -186,7 +186,7 @@ namespace Step27
 
   template <int dim>
   LaplaceProblem<dim>::LaplaceProblem()
-    : dof_handler(triangulation, true)
+    : dof_handler(triangulation, /*enable_hp_capability */ true)
     , max_degree(dim <= 2 ? 7 : 5)
   {
     for (unsigned int degree = 2; degree <= max_degree; ++degree)
