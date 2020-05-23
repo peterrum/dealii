@@ -705,13 +705,8 @@ namespace DoFRenumbering
    * same block will be assigned new indices $n(i)$ and $n(j)$ with
    * $n(i)<n(j)$ if $i<j$ and $n(i)>n(j)$ if $i>j$.
    *
-   *
-   * TODO[peterrum]: comments for hp
-   * Sort the degrees of freedom by block. It does the same thing as the above
-   * function.
-   *
-   * This function only succeeds if each of the elements in the
-   * hp::FECollection attached to the hp::DoFHandler argument has exactly the
+   * @nore This function only succeeds if each of the elements in the
+   * hp::FECollection attached to the DoFHandler argument has exactly the
    * same number of blocks (see
    * @ref GlossBlock "the glossary"
    * for more information). Note that this is not always given: while the
