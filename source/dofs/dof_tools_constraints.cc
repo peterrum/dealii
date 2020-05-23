@@ -530,12 +530,6 @@ namespace DoFTools
                                      AffineConstraints<number> &)
     {
       // nothing to do for regular dof handlers in 1d
-
-
-      // hp: we may have to compute constraints for vertices. gotta think about
-      // that a bit more
-
-      // TODO[WB]: think about what to do here...
     }
 
 
@@ -546,11 +540,6 @@ namespace DoFTools
                                            std::integral_constant<int, 1>)
     {
       // nothing to do for regular dof handlers in 1d
-
-      // hp: we may have to compute constraints for vertices. gotta think about
-      // that a bit more
-
-      // TODO[WB]: think about what to do here...
     }
 
 
