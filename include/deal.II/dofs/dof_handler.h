@@ -224,12 +224,12 @@ namespace parallel
 template <int dim, int spacedim = dim>
 class DoFHandler : public Subscriptor
 {
-public:
   using ActiveSelector = dealii::internal::DoFHandlerImplementation::
     Iterators<DoFHandler<dim, spacedim>, false>;
   using LevelSelector = dealii::internal::DoFHandlerImplementation::
     Iterators<DoFHandler<dim, spacedim>, true>;
 
+public:
   /**
    * An alias that is used to identify cell iterators in DoFHandler objects.
    * The concept of iterators is discussed at length in the
@@ -1661,6 +1661,14 @@ private:
   friend struct dealii::internal::hp::DoFHandlerImplementation::Implementation;
   friend struct dealii::internal::DoFHandlerImplementation::Policy::
     Implementation;
+
+  // explicitly check for sensible template arguments, but not on windows
+  // because MSVC creates bogus warnings during normal compilation
+#ifndef DEAL_II_MSVC
+  static_assert(dim <= spacedim,
+                "The dimension <dim> of a DoFHandler must be less than or "
+                "equal to the space dimension <spacedim> in which it lives.");
+#endif
 };
 
 #ifndef DOXYGEN
@@ -1673,7 +1681,7 @@ template <int dim, int spacedim>
 inline bool
 DoFHandler<dim, spacedim>::has_level_dofs() const
 {
-  return this->mg_number_cache.size() > 0;
+  return mg_number_cache.size() > 0;
 }
 
 
@@ -1735,10 +1743,10 @@ DoFHandler<dim, spacedim>::locally_owned_mg_dofs(const unsigned int level) const
          ExcMessage("The given level index exceeds the number of levels "
                     "present in the triangulation"));
   Assert(
-    this->mg_number_cache.size() == this->get_triangulation().n_global_levels(),
+    mg_number_cache.size() == this->get_triangulation().n_global_levels(),
     ExcMessage(
       "The level dofs are not set up properly! Did you call distribute_mg_dofs()?"));
-  return this->mg_number_cache[level].locally_owned_dofs;
+  return mg_number_cache[level].locally_owned_dofs;
 }
 
 
@@ -1806,11 +1814,11 @@ DoFHandler<dim, spacedim>::locally_owned_mg_dofs_per_processor(
          ExcMessage("The given level index exceeds the number of levels "
                     "present in the triangulation"));
   Assert(
-    this->mg_number_cache.size() == this->get_triangulation().n_global_levels(),
+    mg_number_cache.size() == this->get_triangulation().n_global_levels(),
     ExcMessage(
       "The level dofs are not set up properly! Did you call distribute_mg_dofs()?"));
-  if (this->mg_number_cache[level].locally_owned_dofs_per_processor.empty() &&
-      this->mg_number_cache[level].n_global_dofs > 0)
+  if (mg_number_cache[level].locally_owned_dofs_per_processor.empty() &&
+      mg_number_cache[level].n_global_dofs > 0)
     {
       MPI_Comm comm;
 
@@ -1823,11 +1831,11 @@ DoFHandler<dim, spacedim>::locally_owned_mg_dofs_per_processor(
         comm = MPI_COMM_SELF;
 
       const_cast<dealii::internal::DoFHandlerImplementation::NumberCache &>(
-        this->mg_number_cache[level])
+        mg_number_cache[level])
         .locally_owned_dofs_per_processor =
         mg_number_cache[level].get_locally_owned_dofs_per_processor(comm);
     }
-  return this->mg_number_cache[level].locally_owned_dofs_per_processor;
+  return mg_number_cache[level].locally_owned_dofs_per_processor;
 }
 
 
@@ -1943,23 +1951,7 @@ DoFHandler<dim, spacedim>::save(Archive &ar, const unsigned int) const
 
       ar & this->number_cache;
 
-      ar & this->mg_number_cache;
-
-      // some versions of gcc have trouble with loading vectors of
-      // std::unique_ptr objects because std::unique_ptr does not
-      // have a copy constructor. do it one level at a time
-      //      const unsigned int n_levels = this->levels_hp.size();
-      //      ar &               n_levels;
-      //      for (unsigned int i = 0; i < n_levels; ++i)
-      //        ar & this->levels_hp[i];
-
-      // boost dereferences a nullptr when serializing a nullptr
-      // at least up to 1.65.1. This causes problems with clang-5.
-      // Therefore, work around it.
-      // bool faces_is_nullptr = (this->faces_hp.get() == nullptr);
-      // ar & faces_is_nullptr;
-      // if (!faces_is_nullptr)
-      //  ar & this->faces_hp;
+      ar &mg_number_cache;
 
       // write out the number of triangulation cells and later check during
       // loading that this number is indeed correct; same with something that
@@ -1973,16 +1965,7 @@ DoFHandler<dim, spacedim>::save(Archive &ar, const unsigned int) const
   else
     {
       ar & this->block_info_object;
-      // ar & this->vertex_dofs;
       ar & this->number_cache;
-
-      // some versions of gcc have trouble with loading vectors of
-      // std::unique_ptr objects because std::unique_ptr does not
-      // have a copy constructor. do it one level at a time
-      // unsigned int n_levels = this->levels.size();
-      // ar &         n_levels;
-      // for (unsigned int i = 0; i < this->levels.size(); ++i)
-      //  ar & this->levels[i];
 
       ar & this->object_dof_indices;
       ar & this->object_dof_ptr;
@@ -2024,33 +2007,7 @@ DoFHandler<dim, spacedim>::load(Archive &ar, const unsigned int)
 
       ar & this->number_cache;
 
-      ar & this->mg_number_cache;
-
-      // boost::serialization can restore pointers just fine, but if the
-      // pointer object still points to something useful, that object is not
-      // destroyed and we end up with a memory leak. consequently, first delete
-      // previous content before re-loading stuff
-      // this->levels_hp.clear();
-      // this->faces_hp.reset();
-
-      // some versions of gcc have trouble with loading vectors of
-      // std::unique_ptr objects because std::unique_ptr does not
-      // have a copy constructor. do it one level at a time
-      //      unsigned int size;
-      //      ar &         size;
-      //      this->levels_hp.resize(size);
-      //      for (unsigned int i = 0; i < size; ++i)
-      //        {
-      //          std::unique_ptr<dealii::internal::hp::DoFLevel> level;
-      //          ar &                                            level;
-      //          this->levels_hp[i] = std::move(level);
-      //        }
-
-      // Workaround for nullptr, see in save().
-      // bool faces_is_nullptr = true;
-      // ar & faces_is_nullptr;
-      // if (!faces_is_nullptr)
-      //  ar & this->faces_hp;
+      ar &mg_number_cache;
 
       // these are the checks that correspond to the last block in the save()
       // function
@@ -2075,32 +2032,11 @@ DoFHandler<dim, spacedim>::load(Archive &ar, const unsigned int)
   else
     {
       ar & this->block_info_object;
-      // ar & this->vertex_dofs;
       ar & this->number_cache;
-
-      // boost::serialization can restore pointers just fine, but if the
-      // pointer object still points to something useful, that object is not
-      // destroyed and we end up with a memory leak. consequently, first delete
-      // previous content before re-loading stuff
-      // this->levels.clear();
 
       object_dof_indices.clear();
 
       object_dof_ptr.clear();
-
-      // some versions of gcc have trouble with loading vectors of
-      // std::unique_ptr objects because std::unique_ptr does not
-      // have a copy constructor. do it one level at a time
-      // unsigned int size;
-      // ar &         size;
-      // this->levels.resize(size);
-      // for (unsigned int i = 0; i < this->levels.size(); ++i)
-      //  {
-      //    std::unique_ptr<internal::DoFHandlerImplementation::DoFLevel<dim>>
-      //        level;
-      //    ar &level;
-      //    this->levels[i] = std::move(level);
-      //  }
 
       ar & this->object_dof_indices;
       ar & this->object_dof_ptr;
@@ -2165,8 +2101,8 @@ DoFHandler<dim, spacedim>::MGVertexDoFs::set_index(
   indices[dofs_per_vertex * (level - coarsest_level) + dof_number] = index;
 }
 
-#endif // DOXYGEN
 
+#endif // DOXYGEN
 
 DEAL_II_NAMESPACE_CLOSE
 
