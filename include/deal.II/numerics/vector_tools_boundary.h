@@ -607,7 +607,7 @@ namespace VectorTools
    * L2-projection method used has been taken from the paper "Electromagnetic
    * scattering simulation using an H (curl) conforming hp finite element
    * method in three dimensions" by PD Ledger, K Morgan and O Hassan ( Int. J.
-   * Num. Meth. Fluids, Volume 53, Issue 8, pages 1267–1296).
+   * Num. Meth. Fluids, Volume 53, Issue 8, pages 1267-1296).
    *
    * This function will compute constraints that correspond to Dirichlet
    * boundary conditions of the form
@@ -702,8 +702,7 @@ namespace VectorTools
     const Function<dim, number> &boundary_function,
     const types::boundary_id     boundary_component,
     AffineConstraints<number> &  constraints,
-    const Mapping<dim>
-      &mapping /*= StaticMappingQ1<dim>::mapping*/); // TODO[peterrum]
+    const Mapping<dim> &         mapping);
 
 
   /**
@@ -715,13 +714,12 @@ namespace VectorTools
   template <int dim, typename number>
   void
   project_boundary_values_curl_conforming_l2(
-    const DoFHandler<dim, dim> &                dof_handler,
+    const DoFHandler<dim, dim> &           dof_handler,
     const unsigned int                     first_vector_component,
     const Function<dim, number> &          boundary_function,
     const types::boundary_id               boundary_component,
     AffineConstraints<number> &            constraints,
-    const hp::MappingCollection<dim, dim> &mapping_collection /*=
-      hp::StaticMappingQ1<dim>::mapping_collection*/); // TODO[peterrum]
+    const hp::MappingCollection<dim, dim> &mapping_collection);
 
 
   /**
