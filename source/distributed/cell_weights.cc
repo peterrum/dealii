@@ -228,7 +228,7 @@ namespace parallel
 
   template <int dim, int spacedim>
   CellWeights<dim, spacedim>::CellWeights(
-    const DoFHandler<dim, spacedim> &dof_handler)
+    const dealii::DoFHandler<dim, spacedim> &dof_handler)
     : dof_handler(&dof_handler)
     , triangulation(
         dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
