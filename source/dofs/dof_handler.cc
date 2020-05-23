@@ -2108,8 +2108,9 @@ template <int dim, int spacedim>
 typename DoFHandler<dim, spacedim>::level_cell_iterator
 DoFHandler<dim, spacedim>::begin_mg(const unsigned int level) const
 {
-  // Assert(this->has_level_dofs(), ExcMessage("You can only iterate over mg "
-  //     "levels if mg dofs got distributed."));
+  Assert(this->has_level_dofs(),
+         ExcMessage("You can only iterate over mg "
+                    "levels if mg dofs got distributed."));
   typename Triangulation<dim, spacedim>::cell_iterator cell =
     this->get_triangulation().begin(level);
   if (cell == this->get_triangulation().end(level))
@@ -2123,8 +2124,9 @@ template <int dim, int spacedim>
 typename DoFHandler<dim, spacedim>::level_cell_iterator
 DoFHandler<dim, spacedim>::end_mg(const unsigned int level) const
 {
-  // Assert(this->has_level_dofs(), ExcMessage("You can only iterate over mg "
-  //     "levels if mg dofs got distributed."));
+  Assert(this->has_level_dofs(),
+         ExcMessage("You can only iterate over mg "
+                    "levels if mg dofs got distributed."));
   typename Triangulation<dim, spacedim>::cell_iterator cell =
     this->get_triangulation().end(level);
   if (cell.state() != IteratorState::valid)
@@ -2311,40 +2313,29 @@ template <int dim, int spacedim>
 std::size_t
 DoFHandler<dim, spacedim>::memory_consumption() const
 {
+  std::size_t mem = MemoryConsumption::memory_consumption(this->tria) +
+                    MemoryConsumption::memory_consumption(this->fe_collection) +
+                    MemoryConsumption::memory_consumption(this->number_cache);
+
+  mem += MemoryConsumption::memory_consumption(cell_dof_cache_indices) +
+         MemoryConsumption::memory_consumption(cell_dof_cache_ptr) +
+         MemoryConsumption::memory_consumption(object_dof_indices) +
+         MemoryConsumption::memory_consumption(object_dof_ptr) +
+         MemoryConsumption::memory_consumption(hp_object_fe_indices) +
+         MemoryConsumption::memory_consumption(hp_object_fe_ptr) +
+         MemoryConsumption::memory_consumption(hp_cell_active_fe_indices) +
+         MemoryConsumption::memory_consumption(hp_cell_future_fe_indices);
+
+
   if (is_hp_dof_handler)
     {
-      std::size_t mem =
-        (MemoryConsumption::memory_consumption(this->tria) +
-         MemoryConsumption::memory_consumption(this->fe_collection) +
-         MemoryConsumption::memory_consumption(this->tria) +
-         //         MemoryConsumption::memory_consumption(this->levels_hp) +
-         // MemoryConsumption::memory_consumption(*this->faces_hp) +
-         MemoryConsumption::memory_consumption(this->number_cache) // +
-         // MemoryConsumption::memory_consumption(this->vertex_dofs) +
-         // MemoryConsumption::memory_consumption(this->vertex_dof_offsets)
-        );
-      //      for (unsigned int i = 0; i < this->levels_hp.size(); ++i)
-      //        mem +=
-      //        MemoryConsumption::memory_consumption(*this->levels_hp[i]);
-      // mem += MemoryConsumption::memory_consumption(*this->faces_hp);
-
-      return mem;
+      // nothing to add
     }
   else
     {
-      std::size_t mem =
-        (MemoryConsumption::memory_consumption(this->tria) +
-         MemoryConsumption::memory_consumption(this->fe_collection) +
-         MemoryConsumption::memory_consumption(this->block_info_object) +
-         // MemoryConsumption::memory_consumption(this->levels) +
-         // MemoryConsumption::memory_consumption(*this->faces) +
-         // MemoryConsumption::memory_consumption(this->faces) +
-         sizeof(this->number_cache) +
-         MemoryConsumption::memory_consumption(this->n_dofs())
-         // + MemoryConsumption::memory_consumption(this->vertex_dofs)
-        );
-      // for (unsigned int i = 0; i < this->levels.size(); ++i)
-      //  mem += MemoryConsumption::memory_consumption(*this->levels[i]);
+      // collect size of multigrid data structures
+
+      mem += MemoryConsumption::memory_consumption(this->block_info_object);
 
       for (unsigned int level = 0; level < this->mg_levels.size(); ++level)
         mem += this->mg_levels[level]->memory_consumption();
@@ -2357,9 +2348,9 @@ DoFHandler<dim, spacedim>::memory_consumption() const
                (1 + this->mg_vertex_dofs[i].get_finest_level() -
                 this->mg_vertex_dofs[i].get_coarsest_level()) *
                  sizeof(types::global_dof_index);
-
-      return mem;
     }
+
+  return mem;
 }
 
 
@@ -2560,10 +2551,8 @@ DoFHandler<dim, spacedim>::distribute_mg_dofs()
   internal::DoFHandlerImplementation::Implementation::reserve_space_mg(*this);
   this->mg_number_cache = this->policy->distribute_mg_dofs();
 
-  // initialize the block info object
-  // only if this is a sequential
-  // triangulation. it doesn't work
-  // correctly yet if it is parallel
+  // initialize the block info object only if this is a sequential
+  // triangulation. it doesn't work correctly yet if it is parallel
   if (dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
         &*this->tria) == nullptr)
     this->block_info_object.initialize(*this, true, false);
@@ -2641,21 +2630,13 @@ DoFHandler<dim, spacedim>::clear_space()
 
   if (is_hp_dof_handler)
     {
-      //      this->levels_hp.clear();
       this->hp_cell_active_fe_indices.clear();
       this->hp_cell_future_fe_indices.clear();
 
-      // this->faces_hp.reset();
-
-      // this->vertex_dofs        = std::vector<types::global_dof_index>();
       object_dof_indices.clear();
-      // this->vertex_dof_offsets = std::vector<unsigned int>();
     }
   else
     {
-      // std::vector<types::global_dof_index> tmp;
-      // std::swap(this->vertex_dofs, tmp);
-
       this->number_cache.clear();
     }
 }
@@ -2692,15 +2673,10 @@ DoFHandler<dim, spacedim>::renumber_dofs(
       AssertDimension(new_numbers.size(), this->n_locally_owned_dofs());
 
 #ifdef DEBUG
-      // assert that the new indices are
-      // consecutively numbered if we are
-      // working on a single
-      // processor. this doesn't need to
-      // hold in the case of a parallel
-      // mesh since we map the interval
-      // [0...n_dofs()) into itself but
-      // only globally, not on each
-      // processor
+      // assert that the new indices are consecutively numbered if we are
+      // working on a single processor. this doesn't need to
+      // hold in the case of a parallel mesh since we map the interval
+      // [0...n_dofs()) into itself but only globally, not on each processor
       if (this->n_locally_owned_dofs() == this->n_dofs())
         {
           std::vector<types::global_dof_index> tmp(new_numbers);
@@ -2769,15 +2745,10 @@ DoFHandler<dim, spacedim>::renumber_dofs(
           AssertDimension(new_numbers.size(), this->n_dofs());
         }
 
-      // assert that the new indices are
-      // consecutively numbered if we are
-      // working on a single
-      // processor. this doesn't need to
-      // hold in the case of a parallel
-      // mesh since we map the interval
-      // [0...n_dofs()) into itself but
-      // only globally, not on each
-      // processor
+      // assert that the new indices are consecutively numbered if we are
+      // working on a single processor. this doesn't need to
+      // hold in the case of a parallel mesh since we map the interval
+      // [0...n_dofs()) into itself but only globally, not on each processor
       if (this->n_locally_owned_dofs() == this->n_dofs())
         {
           std::vector<types::global_dof_index> tmp(new_numbers);
@@ -3551,6 +3522,7 @@ DoFHandler<dim, spacedim>::MGVertexDoFs::get_finest_level() const
 
 /*-------------- Explicit Instantiations -------------------------------*/
 #include "dof_handler.inst"
+
 
 
 DEAL_II_NAMESPACE_CLOSE
