@@ -224,12 +224,12 @@ namespace parallel
 template <int dim, int spacedim = dim>
 class DoFHandler : public Subscriptor
 {
-public:
   using ActiveSelector = dealii::internal::DoFHandlerImplementation::
     Iterators<DoFHandler<dim, spacedim>, false>;
   using LevelSelector = dealii::internal::DoFHandlerImplementation::
     Iterators<DoFHandler<dim, spacedim>, true>;
 
+public:
   /**
    * An alias that is used to identify cell iterators in DoFHandler objects.
    * The concept of iterators is discussed at length in the
