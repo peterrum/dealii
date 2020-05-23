@@ -442,6 +442,23 @@ public:
     numbers::invalid_unsigned_int; // TODO
 
   /**
+   * The type in which we store the active FE index.
+   */
+  using active_fe_index_type = unsigned short int;
+
+  /**
+   * The type in which we store the offsets in the CRS data structures.
+   */
+  using offset_type = unsigned int;
+
+  /**
+   * Invalid active_fe_index which will be used as a default value to determine
+   *  whether a future_fe_index has been set or not.
+   */
+  static const active_fe_index_type invalid_active_fe_index =
+    static_cast<active_fe_index_type>(-1);
+
+  /**
    * Standard constructor, not initializing any data. After constructing an
    * object with this constructor, use initialize() to make a valid
    * DoFHandler.
@@ -1431,7 +1448,7 @@ private:
    * Pointer to the first cached degree of freedom of an active cell
    * (identified by level and level index) within cell_dof_cache_indices.
    */
-  mutable std::vector<std::vector<unsigned int>> cell_dof_cache_ptr;
+  mutable std::vector<std::vector<offset_type>> cell_dof_cache_ptr;
 
   /**
    * Indices of degree of freedom of each d+1 geometric object (3D: vertex,
@@ -1449,7 +1466,7 @@ private:
    *   In hp mode, an indirection via hp_object_fe_indices/hp_object_fe_ptr is
    * necessary.
    */
-  mutable std::vector<std::array<std::vector<unsigned int>, dim + 1>>
+  mutable std::vector<std::array<std::vector<offset_type>, dim + 1>>
     object_dof_ptr;
 
   /**
@@ -1457,17 +1474,13 @@ private:
    * of the appropriate position of a cell in the vectors is done via
    * hp_object_fe_ptr (CRS scheme).
    */
-  mutable std::array<std::vector<unsigned int>, dim + 1> hp_object_fe_indices;
+  mutable std::array<std::vector<active_fe_index_type>, dim + 1>
+    hp_object_fe_indices;
 
   /**
    * Pointer to the first fe index of a geometric object.
    */
-  mutable std::array<std::vector<unsigned int>, dim + 1> hp_object_fe_ptr;
-
-  using active_fe_index_type = unsigned short int;
-  using offset_type          = unsigned int;
-  static const active_fe_index_type invalid_active_fe_index =
-    static_cast<active_fe_index_type>(-1);
+  mutable std::array<std::vector<offset_type>, dim + 1> hp_object_fe_ptr;
 
   /**
    * Active fe index of an active cell (identified by level and level index).

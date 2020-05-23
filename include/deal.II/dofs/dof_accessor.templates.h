@@ -188,9 +188,9 @@ inline TriaIterator<DoFAccessor<structdim, DoFHandlerType, level_dof_access>>
 DoFAccessor<structdim, DoFHandlerType, level_dof_access>::child(
   const unsigned int i) const
 {
-  // Assert(static_cast<unsigned int>(this->level()) <
-  //         this->dof_handler->levels.size(),
-  //       ExcMessage("DoFHandler not initialized"));
+  Assert(static_cast<unsigned int>(this->present_level) <
+           this->dof_handler->object_dof_indices.size(),
+         ExcMessage("DoFHandler not initialized"));
 
   TriaIterator<TriaAccessor<structdim,
                             DoFHandlerType::dimension,
@@ -1315,12 +1315,12 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::get_dof_indices(
       0 :
       fe_index_;
 
-  // Assert(static_cast<unsigned int>(this->level()) <
-  //         this->dof_handler->levels.size(),
-  //       ExcMessage(
-  //         "The DoFHandler to which this accessor points has not "
-  //         "been initialized, i.e., it doesn't appear that DoF indices "
-  //         "have been distributed on it."));
+  Assert(static_cast<unsigned int>(this->level()) <
+           this->dof_handler->object_dof_indices.size(),
+         ExcMessage(
+           "The DoFHandler to which this accessor points has not "
+           "been initialized, i.e., it doesn't appear that DoF indices "
+           "have been distributed on it."));
 
   switch (structdim)
     {
@@ -2226,8 +2226,6 @@ namespace internal
                  accessor.dof_handler->hp_cell_future_fe_indices.size(),
                ExcMessage("DoFHandler not initialized"));
 
-        // accessor.dof_handler->levels_hp[accessor.level()]->set_future_fe_index(
-        //  accessor.present_index, i);
         accessor.dof_handler
           ->hp_cell_future_fe_indices[accessor.level()]
                                      [accessor.present_index] = i;
@@ -2255,18 +2253,10 @@ namespace internal
                  accessor.dof_handler->hp_cell_future_fe_indices.size(),
                ExcMessage("DoFHandler not initialized"));
 
-        // return accessor.dof_handler->levels_hp[accessor.level()]
-        //  ->future_fe_index_set(accessor.present_index);
-
-        // TODO
-        using active_fe_index_type = unsigned short int;
-        static const active_fe_index_type invalid_active_fe_index =
-          static_cast<active_fe_index_type>(-1);
-
         return accessor.dof_handler
                  ->hp_cell_future_fe_indices[accessor.level()]
                                             [accessor.present_index] !=
-               invalid_active_fe_index;
+               DoFHandlerType::invalid_active_fe_index;
       }
 
 
