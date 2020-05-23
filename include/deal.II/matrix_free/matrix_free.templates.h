@@ -49,7 +49,6 @@ DEAL_II_ENABLE_EXTRA_DIAGNOSTICS
 #endif
 
 #include <fstream>
-#include <vector>
 
 
 DEAL_II_NAMESPACE_OPEN
@@ -654,7 +653,6 @@ MatrixFree<dim, Number, VectorizedArrayType>::initialize_dof_handlers(
 
       if (n_mpi_procs == 1)
         cell_level_index.reserve(tria.n_active_cells());
-
       // For serial Triangulations always take all cells
       const unsigned int subdomain_id =
         (dynamic_cast<const parallel::TriangulationBase<dim> *>(
@@ -662,7 +660,7 @@ MatrixFree<dim, Number, VectorizedArrayType>::initialize_dof_handlers(
           my_pid :
           numbers::invalid_subdomain_id;
 
-      // go through cells on zeroth level and then successively step down into
+      // Go through cells on zeroth level and then successively step down into
       // children. This gives a z-ordering of the cells, which is beneficial
       // when setting up neighboring relations between cells for thread
       // parallelization
