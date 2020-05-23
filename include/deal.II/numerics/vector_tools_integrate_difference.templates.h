@@ -487,7 +487,8 @@ namespace VectorTools
                                    double(std::abs(data.psi_grads[q][k][d]) *
                                           data.weight_vectors[q](k)));
 
-              // then add seminorm to norm if that had previously been computed
+              // then add seminorm to norm if that had previously been
+              // computed
               diff += t;
             }
             break;
@@ -776,7 +777,8 @@ namespace VectorTools
                                    double(std::abs(data.psi_grads[q][k][d]) *
                                           data.weight_vectors[q](k)));
 
-              // then add seminorm to norm if that had previously been computed
+              // then add seminorm to norm if that had previously been
+              // computed
               diff += t;
             }
             break;
@@ -1052,16 +1054,16 @@ namespace VectorTools
     const Function<spacedim> *                               weight,
     const double                                             exponent)
   {
-    internal ::do_integrate_difference(hp::MappingCollection<dim, spacedim>(
-                                         mapping),
-                                       dof,
-                                       fe_function,
-                                       exact_solution,
-                                       difference,
-                                       hp::QCollection<dim>(q),
-                                       norm,
-                                       weight,
-                                       exponent);
+    internal::do_integrate_difference(hp::MappingCollection<dim, spacedim>(
+                                        mapping),
+                                      dof,
+                                      fe_function,
+                                      exact_solution,
+                                      difference,
+                                      hp::QCollection<dim>(q),
+                                      norm,
+                                      weight,
+                                      exponent);
   }
 
   template <int dim, class InVector, class OutVector, int spacedim>
@@ -1077,16 +1079,16 @@ namespace VectorTools
                        const Function<spacedim> *       weight,
                        const double                     exponent)
   {
-    internal ::do_integrate_difference(hp::MappingCollection<dim, spacedim>(
-                                         mapping),
-                                       dof,
-                                       fe_function,
-                                       exact_solution,
-                                       difference,
-                                       hp::QCollection<dim>(q),
-                                       norm,
-                                       weight,
-                                       exponent);
+    internal::do_integrate_difference(hp::MappingCollection<dim, spacedim>(
+                                        mapping),
+                                      dof,
+                                      fe_function,
+                                      exact_solution,
+                                      difference,
+                                      hp::QCollection<dim>(q),
+                                      norm,
+                                      weight,
+                                      exponent);
   }
 
 
@@ -1102,7 +1104,7 @@ namespace VectorTools
     const Function<spacedim> *                               weight,
     const double                                             exponent)
   {
-    internal ::do_integrate_difference(
+    internal::do_integrate_difference(
       hp::StaticMappingQ1<dim, spacedim>::mapping_collection,
       dof,
       fe_function,
@@ -1127,7 +1129,7 @@ namespace VectorTools
                        const Function<spacedim> *       weight,
                        const double                     exponent)
   {
-    internal ::do_integrate_difference(
+    internal::do_integrate_difference(
       hp::StaticMappingQ1<dim, spacedim>::mapping_collection,
       dof,
       fe_function,
@@ -1154,16 +1156,16 @@ namespace VectorTools
     const Function<spacedim> *                               weight,
     const double                                             exponent)
   {
-    internal ::do_integrate_difference(hp::MappingCollection<dim, spacedim>(
-                                         mapping),
-                                       dof,
-                                       fe_function,
-                                       exact_solution,
-                                       difference,
-                                       q,
-                                       norm,
-                                       weight,
-                                       exponent);
+    internal::do_integrate_difference(hp::MappingCollection<dim, spacedim>(
+                                        mapping),
+                                      dof,
+                                      fe_function,
+                                      exact_solution,
+                                      difference,
+                                      q,
+                                      norm,
+                                      weight,
+                                      exponent);
   }
 
   template <int dim, class InVector, class OutVector, int spacedim>
@@ -1180,16 +1182,16 @@ namespace VectorTools
     const Function<spacedim> *                          weight,
     const double                                        exponent)
   {
-    internal ::do_integrate_difference(hp::MappingCollection<dim, spacedim>(
-                                         mapping),
-                                       dof,
-                                       fe_function,
-                                       exact_solution,
-                                       difference,
-                                       q,
-                                       norm,
-                                       weight,
-                                       exponent);
+    internal::do_integrate_difference(hp::MappingCollection<dim, spacedim>(
+                                        mapping),
+                                      dof,
+                                      fe_function,
+                                      exact_solution,
+                                      difference,
+                                      q,
+                                      norm,
+                                      weight,
+                                      exponent);
   }
 
 
@@ -1205,7 +1207,7 @@ namespace VectorTools
     const Function<spacedim> *                               weight,
     const double                                             exponent)
   {
-    internal ::do_integrate_difference(
+    internal::do_integrate_difference(
       hp::StaticMappingQ1<dim, spacedim>::mapping_collection,
       dof,
       fe_function,
@@ -1229,7 +1231,7 @@ namespace VectorTools
                        const Function<spacedim> *               weight,
                        const double                             exponent)
   {
-    internal ::do_integrate_difference(
+    internal::do_integrate_difference(
       hp::StaticMappingQ1<dim, spacedim>::mapping_collection,
       dof,
       fe_function,
