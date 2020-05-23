@@ -218,7 +218,7 @@ DOFHANDLER_TEMPLATES := { DoFHandler; hp::DoFHandler }
 TRIANGULATION_AND_DOFHANDLER_TEMPLATES := { Triangulation;
                                             parallel::shared::Triangulation;
                                             parallel::distributed::Triangulation;
-                                            DoFHandler; 
+                                            DoFHandler;
                                             hp::DoFHandler }
 
 // concrete sequential Triangulation and DoFHandler with hard-coded
@@ -239,7 +239,6 @@ TRIANGULATION_AND_DOFHANDLERS := { Triangulation<deal_II_dimension, deal_II_spac
                                    parallel::distributed::Triangulation<deal_II_dimension, deal_II_space_dimension>;
                                    DoFHandler<deal_II_dimension, deal_II_space_dimension>;
                                    hp::DoFHandler<deal_II_dimension, deal_II_space_dimension> }
-
 
 // concrete Triangulation types (all types you can iterate over cells from)
 // with hard-coded <deal_II_dimension, deal_II_space_dimension>
