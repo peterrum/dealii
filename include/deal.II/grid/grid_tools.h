@@ -103,14 +103,6 @@ namespace internal
     using type = TriaActiveIterator<
       dealii::DoFCellAccessor<dealii::DoFHandler<dim, spacedim>, false>>;
   };
-
-  template <int dim, int spacedim>
-  class ActiveCellIterator<dim, spacedim, dealii::DoFHandler<dim, spacedim>>
-  {
-  public:
-    using type = TriaActiveIterator<
-      dealii::DoFCellAccessor<dealii::DoFHandler<dim, spacedim>, false>>;
-  };
 #  endif
 } // namespace internal
 
