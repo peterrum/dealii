@@ -225,9 +225,9 @@ namespace internal
         (void)dofs_per_cell;
 
         return &dof_handler
-                  ->new_cell_dofs_cache[present_level]
-                                       [dof_handler->new_cell_dofs_cache_ptr
-                                          [present_level][present_index]];
+                  ->cell_dof_cache_indices[present_level]
+                                          [dof_handler->cell_dof_cache_ptr
+                                             [present_level][present_index]];
       }
 
 
@@ -256,14 +256,14 @@ namespace internal
             Assert(fe_index == 0, ExcNotImplemented());
 
             if (d == 0)
-              dof_handler.new_dofs[0][0][obj_index * dof_handler.get_fe()
-                                                       .dofs_per_vertex +
-                                         local_index] = global_index;
+              dof_handler.object_dof_indices
+                [0][0][obj_index * dof_handler.get_fe().dofs_per_vertex +
+                       local_index] = global_index;
             else
-              dof_handler
-                .new_dofs[obj_level][d]
-                         [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                          local_index] = global_index;
+              dof_handler.object_dof_indices
+                [obj_level][d]
+                [dof_handler.object_dof_ptr[obj_level][d][obj_index] +
+                 local_index] = global_index;
 
             return;
           }
@@ -271,62 +271,65 @@ namespace internal
         // 2) cell and hp is used -> there is only one fe_index
         if (d == DoFHandlerType::dimension)
           {
-            dof_handler
-              .new_dofs[obj_level][d]
-                       [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                        local_index] = global_index;
+            dof_handler.object_dof_indices
+              [obj_level][d]
+              [dof_handler.object_dof_ptr[obj_level][d][obj_index] +
+               local_index] = global_index;
             return;
           }
 
         // 3) general entity and hp is used
-        AssertIndexRange(obj_level, dof_handler.new_dofs.size());
-        AssertIndexRange(d, dof_handler.new_dofs[obj_level].size());
+        AssertIndexRange(obj_level, dof_handler.object_dof_indices.size());
+        AssertIndexRange(d, dof_handler.object_dof_indices[obj_level].size());
 
         unsigned int fe_index_;
 
         if (dof_handler.is_hp_dof_handler)
           {
-            AssertIndexRange(d, dof_handler.new_hp_ptr.size());
-            AssertIndexRange(obj_index, dof_handler.new_hp_ptr[d].size());
+            AssertIndexRange(d, dof_handler.hp_object_fe_ptr.size());
+            AssertIndexRange(obj_index, dof_handler.hp_object_fe_ptr[d].size());
 
             const auto ptr =
-              std::find(dof_handler.new_hp_fe[d].begin() +
-                          dof_handler.new_hp_ptr[d][obj_index],
-                        dof_handler.new_hp_fe[d].begin() +
-                          dof_handler.new_hp_ptr[d][obj_index + 1],
+              std::find(dof_handler.hp_object_fe_indices[d].begin() +
+                          dof_handler.hp_object_fe_ptr[d][obj_index],
+                        dof_handler.hp_object_fe_indices[d].begin() +
+                          dof_handler.hp_object_fe_ptr[d][obj_index + 1],
                         fe_index);
 
-            Assert(ptr != dof_handler.new_hp_fe[d].begin() +
-                            dof_handler.new_hp_ptr[d][obj_index + 1],
+            Assert(ptr != dof_handler.hp_object_fe_indices[d].begin() +
+                            dof_handler.hp_object_fe_ptr[d][obj_index + 1],
                    ExcNotImplemented());
 
-            fe_index_ = std::distance(dof_handler.new_hp_fe[d].begin() +
-                                        dof_handler.new_hp_ptr[d][obj_index],
-                                      ptr);
+            fe_index_ =
+              std::distance(dof_handler.hp_object_fe_indices[d].begin() +
+                              dof_handler.hp_object_fe_ptr[d][obj_index],
+                            ptr);
           }
 
         AssertIndexRange(dof_handler.is_hp_dof_handler ?
-                           (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
+                           (dof_handler.hp_object_fe_ptr[d][obj_index] +
+                            fe_index_) :
                            obj_index,
-                         dof_handler.new_dofs_ptr[obj_level][d].size());
+                         dof_handler.object_dof_ptr[obj_level][d].size());
 
         AssertIndexRange(
-          dof_handler.new_dofs_ptr[obj_level][d]
-                                  [dof_handler.is_hp_dof_handler ?
-                                     (dof_handler.new_hp_ptr[d][obj_index] +
-                                      fe_index_) :
-                                     obj_index] +
+          dof_handler
+              .object_dof_ptr[obj_level][d]
+                             [dof_handler.is_hp_dof_handler ?
+                                (dof_handler.hp_object_fe_ptr[d][obj_index] +
+                                 fe_index_) :
+                                obj_index] +
             local_index,
-          dof_handler.new_dofs[obj_level][d].size());
+          dof_handler.object_dof_indices[obj_level][d].size());
 
-        dof_handler
-          .new_dofs[obj_level][d]
-                   [dof_handler.new_dofs_ptr
-                      [obj_level][d]
-                      [dof_handler.is_hp_dof_handler ?
-                         (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
-                         obj_index] +
-                    local_index] = global_index;
+        dof_handler.object_dof_indices
+          [obj_level][d]
+          [dof_handler.object_dof_ptr
+             [obj_level][d]
+             [dof_handler.is_hp_dof_handler ?
+                (dof_handler.hp_object_fe_ptr[d][obj_index] + fe_index_) :
+                obj_index] +
+           local_index] = global_index;
       }
 
 
@@ -353,74 +356,77 @@ namespace internal
             Assert(fe_index == 0, ExcNotImplemented());
 
             if (d == 0)
-              return dof_handler.new_dofs[0][0][obj_index * dof_handler.get_fe()
-                                                              .dofs_per_vertex +
-                                                local_index];
+              return dof_handler.object_dof_indices
+                [0][0][obj_index * dof_handler.get_fe().dofs_per_vertex +
+                       local_index];
             else
-              return dof_handler
-                .new_dofs[obj_level][d]
-                         [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                          local_index];
+              return dof_handler.object_dof_indices
+                [obj_level][d]
+                [dof_handler.object_dof_ptr[obj_level][d][obj_index] +
+                 local_index];
           }
 
         // 2) cell and hp is used -> there is only one fe_index
         if (d == DoFHandlerType::dimension)
           {
-            return dof_handler
-              .new_dofs[obj_level][d]
-                       [dof_handler.new_dofs_ptr[obj_level][d][obj_index] +
-                        local_index];
+            return dof_handler.object_dof_indices
+              [obj_level][d]
+              [dof_handler.object_dof_ptr[obj_level][d][obj_index] +
+               local_index];
           }
 
         // 3) general entity and hp is used
-        AssertIndexRange(obj_level, dof_handler.new_dofs.size());
-        AssertIndexRange(d, dof_handler.new_dofs[obj_level].size());
+        AssertIndexRange(obj_level, dof_handler.object_dof_indices.size());
+        AssertIndexRange(d, dof_handler.object_dof_indices[obj_level].size());
 
         unsigned int fe_index_;
 
         if (dof_handler.is_hp_dof_handler)
           {
-            AssertIndexRange(d, dof_handler.new_hp_ptr.size());
-            AssertIndexRange(obj_index, dof_handler.new_hp_ptr[d].size());
+            AssertIndexRange(d, dof_handler.hp_object_fe_ptr.size());
+            AssertIndexRange(obj_index, dof_handler.hp_object_fe_ptr[d].size());
 
             const auto ptr =
-              std::find(dof_handler.new_hp_fe[d].begin() +
-                          dof_handler.new_hp_ptr[d][obj_index],
-                        dof_handler.new_hp_fe[d].begin() +
-                          dof_handler.new_hp_ptr[d][obj_index + 1],
+              std::find(dof_handler.hp_object_fe_indices[d].begin() +
+                          dof_handler.hp_object_fe_ptr[d][obj_index],
+                        dof_handler.hp_object_fe_indices[d].begin() +
+                          dof_handler.hp_object_fe_ptr[d][obj_index + 1],
                         fe_index);
 
-            Assert(ptr != dof_handler.new_hp_fe[d].begin() +
-                            dof_handler.new_hp_ptr[d][obj_index + 1],
+            Assert(ptr != dof_handler.hp_object_fe_indices[d].begin() +
+                            dof_handler.hp_object_fe_ptr[d][obj_index + 1],
                    ExcNotImplemented());
 
-            fe_index_ = std::distance(dof_handler.new_hp_fe[d].begin() +
-                                        dof_handler.new_hp_ptr[d][obj_index],
-                                      ptr);
+            fe_index_ =
+              std::distance(dof_handler.hp_object_fe_indices[d].begin() +
+                              dof_handler.hp_object_fe_ptr[d][obj_index],
+                            ptr);
           }
 
         AssertIndexRange(dof_handler.is_hp_dof_handler ?
-                           (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
+                           (dof_handler.hp_object_fe_ptr[d][obj_index] +
+                            fe_index_) :
                            obj_index,
-                         dof_handler.new_dofs_ptr[obj_level][d].size());
+                         dof_handler.object_dof_ptr[obj_level][d].size());
 
         AssertIndexRange(
-          dof_handler.new_dofs_ptr[obj_level][d]
-                                  [dof_handler.is_hp_dof_handler ?
-                                     (dof_handler.new_hp_ptr[d][obj_index] +
-                                      fe_index_) :
-                                     obj_index] +
+          dof_handler
+              .object_dof_ptr[obj_level][d]
+                             [dof_handler.is_hp_dof_handler ?
+                                (dof_handler.hp_object_fe_ptr[d][obj_index] +
+                                 fe_index_) :
+                                obj_index] +
             local_index,
-          dof_handler.new_dofs[obj_level][d].size());
+          dof_handler.object_dof_indices[obj_level][d].size());
 
-        return dof_handler
-          .new_dofs[obj_level][d]
-                   [dof_handler.new_dofs_ptr
-                      [obj_level][d]
-                      [dof_handler.is_hp_dof_handler ?
-                         (dof_handler.new_hp_ptr[d][obj_index] + fe_index_) :
-                         obj_index] +
-                    local_index];
+        return dof_handler.object_dof_indices
+          [obj_level][d]
+          [dof_handler.object_dof_ptr
+             [obj_level][d]
+             [dof_handler.is_hp_dof_handler ?
+                (dof_handler.hp_object_fe_ptr[d][obj_index] + fe_index_) :
+                obj_index] +
+           local_index];
       }
 
 
@@ -483,11 +489,11 @@ namespace internal
           return 1;
 
         // 3) general entity and hp is used
-        AssertIndexRange(d, dof_handler.new_hp_ptr.size());
-        AssertIndexRange(obj_index + 1, dof_handler.new_hp_ptr[d].size());
+        AssertIndexRange(d, dof_handler.hp_object_fe_ptr.size());
+        AssertIndexRange(obj_index + 1, dof_handler.hp_object_fe_ptr[d].size());
 
-        return dof_handler.new_hp_ptr[d][obj_index + 1] -
-               dof_handler.new_hp_ptr[d][obj_index];
+        return dof_handler.hp_object_fe_ptr[d][obj_index + 1] -
+               dof_handler.hp_object_fe_ptr[d][obj_index];
       }
 
 
@@ -517,17 +523,19 @@ namespace internal
 
         // 2) cell and hp is used -> there is only one fe_index
         if (d == DoFHandlerType::dimension)
-          return dof_handler.new_active_fe_indices[obj_level][obj_index];
+          return dof_handler.hp_cell_active_fe_indices[obj_level][obj_index];
 
         // 3) general entity and hp is used
-        AssertIndexRange(d, dof_handler.new_hp_fe.size());
-        AssertIndexRange(d, dof_handler.new_hp_ptr.size());
-        AssertIndexRange(obj_index, dof_handler.new_hp_ptr[d].size());
-        AssertIndexRange(dof_handler.new_hp_ptr[d][obj_index] + local_index,
-                         dof_handler.new_hp_fe[d].size());
+        AssertIndexRange(d, dof_handler.hp_object_fe_indices.size());
+        AssertIndexRange(d, dof_handler.hp_object_fe_ptr.size());
+        AssertIndexRange(obj_index, dof_handler.hp_object_fe_ptr[d].size());
+        AssertIndexRange(dof_handler.hp_object_fe_ptr[d][obj_index] +
+                           local_index,
+                         dof_handler.hp_object_fe_indices[d].size());
 
         return dof_handler
-          .new_hp_fe[d][dof_handler.new_hp_ptr[d][obj_index] + local_index];
+          .hp_object_fe_indices[d][dof_handler.hp_object_fe_ptr[d][obj_index] +
+                                   local_index];
       }
 
 
@@ -554,7 +562,7 @@ namespace internal
 
         // 2) cell and hp is used -> there is only one fe_index
         if (d == DoFHandlerType::dimension)
-          return {dof_handler.new_active_fe_indices[obj_level][obj_index]};
+          return {dof_handler.hp_cell_active_fe_indices[obj_level][obj_index]};
 
         // 3) general entity and hp is used
         std::set<unsigned int> active_fe_indices;
@@ -585,17 +593,17 @@ namespace internal
 
         // 2) cell and hp is used -> there is only one fe_index
         if (d == DoFHandlerType::dimension)
-          return dof_handler.new_active_fe_indices[obj_level][obj_index] ==
+          return dof_handler.hp_cell_active_fe_indices[obj_level][obj_index] ==
                  fe_index;
 
         // 3) general entity and hp is used
-        return std::find(dof_handler.new_hp_fe[d].begin() +
-                           dof_handler.new_hp_ptr[d][obj_index],
-                         dof_handler.new_hp_fe[d].begin() +
-                           dof_handler.new_hp_ptr[d][obj_index + 1],
+        return std::find(dof_handler.hp_object_fe_indices[d].begin() +
+                           dof_handler.hp_object_fe_ptr[d][obj_index],
+                         dof_handler.hp_object_fe_indices[d].begin() +
+                           dof_handler.hp_object_fe_ptr[d][obj_index + 1],
                          fe_index) !=
-               (dof_handler.new_hp_fe[d].begin() +
-                dof_handler.new_hp_ptr[d][obj_index + 1]);
+               (dof_handler.hp_object_fe_indices[d].begin() +
+                dof_handler.hp_object_fe_ptr[d][obj_index + 1]);
       }
 
 
@@ -2119,11 +2127,11 @@ namespace internal
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
         Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->new_future_fe_indices.size(),
+                 accessor.dof_handler->hp_cell_future_fe_indices.size(),
                ExcMessage("DoFHandler not initialized"));
 
         return accessor.dof_handler
-          ->new_active_fe_indices[accessor.level()][accessor.present_index];
+          ->hp_cell_active_fe_indices[accessor.level()][accessor.present_index];
       }
 
 
@@ -2151,11 +2159,12 @@ namespace internal
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
         Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->new_future_fe_indices.size(),
+                 accessor.dof_handler->hp_cell_future_fe_indices.size(),
                ExcMessage("DoFHandler not initialized"));
 
         accessor.dof_handler
-          ->new_active_fe_indices[accessor.level()][accessor.present_index] = i;
+          ->hp_cell_active_fe_indices[accessor.level()]
+                                     [accessor.present_index] = i;
       }
 
 
@@ -2177,15 +2186,17 @@ namespace internal
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
         Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->new_future_fe_indices.size(),
+                 accessor.dof_handler->hp_cell_future_fe_indices.size(),
                ExcMessage("DoFHandler not initialized"));
 
         if (future_fe_index_set(accessor))
           return accessor.dof_handler
-            ->new_future_fe_indices[accessor.level()][accessor.present_index];
+            ->hp_cell_future_fe_indices[accessor.level()]
+                                       [accessor.present_index];
         else
           return accessor.dof_handler
-            ->new_active_fe_indices[accessor.level()][accessor.present_index];
+            ->hp_cell_active_fe_indices[accessor.level()]
+                                       [accessor.present_index];
       }
 
 
@@ -2212,13 +2223,14 @@ namespace internal
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
         Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->new_future_fe_indices.size(),
+                 accessor.dof_handler->hp_cell_future_fe_indices.size(),
                ExcMessage("DoFHandler not initialized"));
 
         // accessor.dof_handler->levels_hp[accessor.level()]->set_future_fe_index(
         //  accessor.present_index, i);
         accessor.dof_handler
-          ->new_future_fe_indices[accessor.level()][accessor.present_index] = i;
+          ->hp_cell_future_fe_indices[accessor.level()]
+                                     [accessor.present_index] = i;
       }
 
 
@@ -2240,7 +2252,7 @@ namespace internal
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
         Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->new_future_fe_indices.size(),
+                 accessor.dof_handler->hp_cell_future_fe_indices.size(),
                ExcMessage("DoFHandler not initialized"));
 
         // return accessor.dof_handler->levels_hp[accessor.level()]
@@ -2252,8 +2264,8 @@ namespace internal
           static_cast<active_fe_index_type>(-1);
 
         return accessor.dof_handler
-                 ->new_future_fe_indices[accessor.level()]
-                                        [accessor.present_index] !=
+                 ->hp_cell_future_fe_indices[accessor.level()]
+                                            [accessor.present_index] !=
                invalid_active_fe_index;
       }
 
@@ -2276,7 +2288,7 @@ namespace internal
           accessor.dof_handler != nullptr,
           (typename std::decay<decltype(accessor)>::type::ExcInvalidObject()));
         Assert(static_cast<unsigned int>(accessor.level()) <
-                 accessor.dof_handler->new_future_fe_indices.size(),
+                 accessor.dof_handler->hp_cell_future_fe_indices.size(),
                ExcMessage("DoFHandler not initialized"));
 
         // TODO
@@ -2285,7 +2297,8 @@ namespace internal
           static_cast<active_fe_index_type>(-1);
 
         accessor.dof_handler
-          ->new_future_fe_indices[accessor.level()][accessor.present_index] =
+          ->hp_cell_future_fe_indices[accessor.level()]
+                                     [accessor.present_index] =
           invalid_active_fe_index;
       }
     };

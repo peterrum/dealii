@@ -254,38 +254,38 @@ namespace internal
       template <int spacedim>
       static void reserve_space(DoFHandler<1, spacedim> &dof_handler)
       {
-        dof_handler.new_dofs[0][0].resize(
+        dof_handler.object_dof_indices[0][0].resize(
           dof_handler.tria->n_vertices() * dof_handler.get_fe().dofs_per_vertex,
           numbers::invalid_dof_index);
 
         for (unsigned int i = 0; i < dof_handler.tria->n_levels(); ++i)
           {
-            dof_handler.new_dofs[i][1].resize(
+            dof_handler.object_dof_indices[i][1].resize(
               dof_handler.tria->n_raw_cells(i) *
                 dof_handler.get_fe().dofs_per_line,
               numbers::invalid_dof_index);
 
-            dof_handler.new_dofs_ptr[i][1].reserve(
+            dof_handler.object_dof_ptr[i][1].reserve(
               dof_handler.tria->n_raw_cells(i) + 1);
             for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
                  j++)
-              dof_handler.new_dofs_ptr[i][1].push_back(
+              dof_handler.object_dof_ptr[i][1].push_back(
                 j * dof_handler.get_fe().dofs_per_line);
 
-            dof_handler.new_cell_dofs_cache[i].resize(
+            dof_handler.cell_dof_cache_indices[i].resize(
               dof_handler.tria->n_raw_cells(i) *
                 dof_handler.get_fe().dofs_per_cell,
               numbers::invalid_dof_index);
 
-            dof_handler.new_cell_dofs_cache_ptr[i].reserve(
+            dof_handler.cell_dof_cache_ptr[i].reserve(
               dof_handler.tria->n_raw_cells(i) + 1);
             for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
                  j++)
-              dof_handler.new_cell_dofs_cache_ptr[i].push_back(
+              dof_handler.cell_dof_cache_ptr[i].push_back(
                 j * dof_handler.get_fe().dofs_per_cell);
           }
 
-        dof_handler.new_dofs[0][0].resize(
+        dof_handler.object_dof_indices[0][0].resize(
           dof_handler.tria->n_vertices() * dof_handler.get_fe().dofs_per_vertex,
           numbers::invalid_dof_index);
       }
@@ -293,52 +293,52 @@ namespace internal
       template <int spacedim>
       static void reserve_space(DoFHandler<2, spacedim> &dof_handler)
       {
-        dof_handler.new_dofs[0][0].resize(
+        dof_handler.object_dof_indices[0][0].resize(
           dof_handler.tria->n_vertices() * dof_handler.get_fe().dofs_per_vertex,
           numbers::invalid_dof_index);
 
         for (unsigned int i = 0; i < dof_handler.tria->n_levels(); ++i)
           {
-            dof_handler.new_dofs[i][2].resize(
+            dof_handler.object_dof_indices[i][2].resize(
               dof_handler.tria->n_raw_cells(i) *
                 dof_handler.get_fe().dofs_per_quad,
               numbers::invalid_dof_index);
 
-            dof_handler.new_dofs_ptr[i][2].reserve(
+            dof_handler.object_dof_ptr[i][2].reserve(
               dof_handler.tria->n_raw_cells(i) + 1);
             for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
                  j++)
-              dof_handler.new_dofs_ptr[i][2].push_back(
+              dof_handler.object_dof_ptr[i][2].push_back(
                 j * dof_handler.get_fe().dofs_per_quad);
 
-            dof_handler.new_cell_dofs_cache[i].resize(
+            dof_handler.cell_dof_cache_indices[i].resize(
               dof_handler.tria->n_raw_cells(i) *
                 dof_handler.get_fe().dofs_per_cell,
               numbers::invalid_dof_index);
 
-            dof_handler.new_cell_dofs_cache_ptr[i].reserve(
+            dof_handler.cell_dof_cache_ptr[i].reserve(
               dof_handler.tria->n_raw_cells(i) + 1);
             for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
                  j++)
-              dof_handler.new_cell_dofs_cache_ptr[i].push_back(
+              dof_handler.cell_dof_cache_ptr[i].push_back(
                 j * dof_handler.get_fe().dofs_per_cell);
           }
 
-        dof_handler.new_dofs[0][0].resize(
+        dof_handler.object_dof_indices[0][0].resize(
           dof_handler.tria->n_vertices() * dof_handler.get_fe().dofs_per_vertex,
           numbers::invalid_dof_index);
 
         if (dof_handler.tria->n_cells() > 0)
           {
             // line
-            dof_handler.new_dofs_ptr[0][1].reserve(
+            dof_handler.object_dof_ptr[0][1].reserve(
               dof_handler.tria->n_raw_lines() + 1);
             for (unsigned int i = 0; i < dof_handler.tria->n_raw_lines() + 1;
                  i++)
-              dof_handler.new_dofs_ptr[0][1].push_back(
+              dof_handler.object_dof_ptr[0][1].push_back(
                 i * dof_handler.get_fe().dofs_per_line);
 
-            dof_handler.new_dofs[0][1].resize(
+            dof_handler.object_dof_indices[0][1].resize(
               dof_handler.tria->n_raw_lines() *
                 dof_handler.get_fe().dofs_per_line,
               numbers::invalid_dof_index);
@@ -348,65 +348,65 @@ namespace internal
       template <int spacedim>
       static void reserve_space(DoFHandler<3, spacedim> &dof_handler)
       {
-        dof_handler.new_dofs[0][0].resize(
+        dof_handler.object_dof_indices[0][0].resize(
           dof_handler.tria->n_vertices() * dof_handler.get_fe().dofs_per_vertex,
           numbers::invalid_dof_index);
 
         for (unsigned int i = 0; i < dof_handler.tria->n_levels(); ++i)
           {
-            dof_handler.new_dofs[i][3].resize(
+            dof_handler.object_dof_indices[i][3].resize(
               dof_handler.tria->n_raw_cells(i) *
                 dof_handler.get_fe().dofs_per_hex,
               numbers::invalid_dof_index);
 
-            dof_handler.new_dofs_ptr[i][3].reserve(
+            dof_handler.object_dof_ptr[i][3].reserve(
               dof_handler.tria->n_raw_cells(i) + 1);
             for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
                  j++)
-              dof_handler.new_dofs_ptr[i][3].push_back(
+              dof_handler.object_dof_ptr[i][3].push_back(
                 j * dof_handler.get_fe().dofs_per_hex);
 
-            dof_handler.new_cell_dofs_cache[i].resize(
+            dof_handler.cell_dof_cache_indices[i].resize(
               dof_handler.tria->n_raw_cells(i) *
                 dof_handler.get_fe().dofs_per_cell,
               numbers::invalid_dof_index);
 
-            dof_handler.new_cell_dofs_cache_ptr[i].reserve(
+            dof_handler.cell_dof_cache_ptr[i].reserve(
               dof_handler.tria->n_raw_cells(i) + 1);
             for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
                  j++)
-              dof_handler.new_cell_dofs_cache_ptr[i].push_back(
+              dof_handler.cell_dof_cache_ptr[i].push_back(
                 j * dof_handler.get_fe().dofs_per_cell);
           }
 
-        dof_handler.new_dofs[0][0].resize(
+        dof_handler.object_dof_indices[0][0].resize(
           dof_handler.tria->n_vertices() * dof_handler.get_fe().dofs_per_vertex,
           numbers::invalid_dof_index);
 
         if (dof_handler.tria->n_cells() > 0)
           {
             // lines
-            dof_handler.new_dofs_ptr[0][1].reserve(
+            dof_handler.object_dof_ptr[0][1].reserve(
               dof_handler.tria->n_raw_lines() + 1);
             for (unsigned int i = 0; i < dof_handler.tria->n_raw_lines() + 1;
                  i++)
-              dof_handler.new_dofs_ptr[0][1].push_back(
+              dof_handler.object_dof_ptr[0][1].push_back(
                 i * dof_handler.get_fe().dofs_per_line);
 
-            dof_handler.new_dofs[0][1].resize(
+            dof_handler.object_dof_indices[0][1].resize(
               dof_handler.tria->n_raw_lines() *
                 dof_handler.get_fe().dofs_per_line,
               numbers::invalid_dof_index);
 
             // faces
-            dof_handler.new_dofs_ptr[0][2].reserve(
+            dof_handler.object_dof_ptr[0][2].reserve(
               dof_handler.tria->n_raw_quads() + 1);
             for (unsigned int i = 0; i < dof_handler.tria->n_raw_quads() + 1;
                  i++)
-              dof_handler.new_dofs_ptr[0][2].push_back(
+              dof_handler.object_dof_ptr[0][2].push_back(
                 i * dof_handler.get_fe().dofs_per_quad);
 
-            dof_handler.new_dofs[0][2].resize(
+            dof_handler.object_dof_indices[0][2].resize(
               dof_handler.tria->n_raw_quads() *
                 dof_handler.get_fe().dofs_per_quad,
               numbers::invalid_dof_index);
@@ -939,40 +939,39 @@ namespace internal
           {
             std::vector<std::vector<
               typename DoFHandler<dim, spacedim>::active_fe_index_type>>
-              active_fe_backup(dof_handler.new_active_fe_indices.size()),
-              future_fe_backup(dof_handler.new_future_fe_indices.size());
+              active_fe_backup(dof_handler.hp_cell_active_fe_indices.size()),
+              future_fe_backup(dof_handler.hp_cell_future_fe_indices.size());
             for (unsigned int level = 0;
-                 level < dof_handler.new_future_fe_indices.size();
+                 level < dof_handler.hp_cell_future_fe_indices.size();
                  ++level)
               {
                 active_fe_backup[level] =
-                  std::move(dof_handler.new_active_fe_indices[level]);
+                  std::move(dof_handler.hp_cell_active_fe_indices[level]);
                 future_fe_backup[level] =
-                  std::move(dof_handler.new_future_fe_indices[level]);
+                  std::move(dof_handler.hp_cell_future_fe_indices[level]);
               }
 
             // delete all levels and set them up newly, since vectors
             // are troublesome if you want to change their size
             dof_handler.clear_space();
 
-            dof_handler.new_dofs.resize(dof_handler.tria->n_levels());
-            dof_handler.new_dofs_ptr.resize(dof_handler.tria->n_levels());
-            dof_handler.new_cell_dofs_cache.resize(
+            dof_handler.object_dof_indices.resize(dof_handler.tria->n_levels());
+            dof_handler.object_dof_ptr.resize(dof_handler.tria->n_levels());
+            dof_handler.cell_dof_cache_indices.resize(
               dof_handler.tria->n_levels());
-            dof_handler.new_cell_dofs_cache_ptr.resize(
+            dof_handler.cell_dof_cache_ptr.resize(dof_handler.tria->n_levels());
+            dof_handler.hp_cell_active_fe_indices.resize(
               dof_handler.tria->n_levels());
-            dof_handler.new_active_fe_indices.resize(
-              dof_handler.tria->n_levels());
-            dof_handler.new_future_fe_indices.resize(
+            dof_handler.hp_cell_future_fe_indices.resize(
               dof_handler.tria->n_levels());
 
             for (unsigned int level = 0; level < dof_handler.tria->n_levels();
                  ++level)
               {
                 // recover backups
-                dof_handler.new_active_fe_indices[level] =
+                dof_handler.hp_cell_active_fe_indices[level] =
                   std::move(active_fe_backup[level]);
-                dof_handler.new_future_fe_indices[level] =
+                dof_handler.hp_cell_future_fe_indices[level] =
                   std::move(future_fe_backup[level]);
               }
           }
@@ -1039,19 +1038,20 @@ namespace internal
           const unsigned int d = 0;
           const unsigned int l = 0;
 
-          dof_handler.new_hp_ptr[d].clear();
-          dof_handler.new_hp_fe[d].clear();
-          dof_handler.new_dofs_ptr[l][d].clear();
-          dof_handler.new_dofs[l][d].clear();
+          dof_handler.hp_object_fe_ptr[d].clear();
+          dof_handler.hp_object_fe_indices[d].clear();
+          dof_handler.object_dof_ptr[l][d].clear();
+          dof_handler.object_dof_indices[l][d].clear();
 
-          dof_handler.new_hp_ptr[d].reserve(dof_handler.tria->n_vertices() + 1);
+          dof_handler.hp_object_fe_ptr[d].reserve(
+            dof_handler.tria->n_vertices() + 1);
 
           unsigned int vertex_slots_needed = 0;
           unsigned int fe_slots_needed     = 0;
 
           for (unsigned int v = 0; v < dof_handler.tria->n_vertices(); ++v)
             {
-              dof_handler.new_hp_ptr[d].push_back(fe_slots_needed);
+              dof_handler.hp_object_fe_ptr[d].push_back(fe_slots_needed);
 
               if (dof_handler.tria->vertex_used(v) && locally_used_vertices[v])
                 {
@@ -1067,12 +1067,12 @@ namespace internal
                 }
             }
 
-          dof_handler.new_hp_ptr[d].push_back(fe_slots_needed);
+          dof_handler.hp_object_fe_ptr[d].push_back(fe_slots_needed);
 
-          dof_handler.new_hp_fe[d].reserve(fe_slots_needed);
-          dof_handler.new_dofs_ptr[l][d].reserve(fe_slots_needed + 1);
+          dof_handler.hp_object_fe_indices[d].reserve(fe_slots_needed);
+          dof_handler.object_dof_ptr[l][d].reserve(fe_slots_needed + 1);
 
-          dof_handler.new_dofs[l][d].reserve(vertex_slots_needed);
+          dof_handler.object_dof_indices[l][d].reserve(vertex_slots_needed);
 
           for (unsigned int v = 0; v < dof_handler.tria->n_vertices(); ++v)
             if (dof_handler.tria->vertex_used(v) && locally_used_vertices[v])
@@ -1081,32 +1081,33 @@ namespace internal
                      ++fe)
                   if (vertex_fe_association[fe][v] == true)
                     {
-                      dof_handler.new_hp_fe[d].push_back(fe);
-                      dof_handler.new_dofs_ptr[l][d].push_back(
-                        dof_handler.new_dofs[l][d].size());
+                      dof_handler.hp_object_fe_indices[d].push_back(fe);
+                      dof_handler.object_dof_ptr[l][d].push_back(
+                        dof_handler.object_dof_indices[l][d].size());
 
                       for (unsigned int i = 0;
                            i < dof_handler.get_fe(fe).dofs_per_vertex;
                            i++)
-                        dof_handler.new_dofs[l][d].push_back(
+                        dof_handler.object_dof_indices[l][d].push_back(
                           numbers::invalid_dof_index);
                     }
               }
 
 
-          dof_handler.new_dofs_ptr[l][d].push_back(
-            dof_handler.new_dofs[l][d].size());
+          dof_handler.object_dof_ptr[l][d].push_back(
+            dof_handler.object_dof_indices[l][d].size());
 
           AssertDimension(vertex_slots_needed,
-                          dof_handler.new_dofs[l][d].size());
-          AssertDimension(fe_slots_needed, dof_handler.new_hp_fe[d].size());
+                          dof_handler.object_dof_indices[l][d].size());
+          AssertDimension(fe_slots_needed,
+                          dof_handler.hp_object_fe_indices[d].size());
           AssertDimension(fe_slots_needed + 1,
-                          dof_handler.new_dofs_ptr[l][d].size());
+                          dof_handler.object_dof_ptr[l][d].size());
           AssertDimension(dof_handler.tria->n_vertices() + 1,
-                          dof_handler.new_hp_ptr[d].size());
+                          dof_handler.hp_object_fe_ptr[d].size());
 
-          dof_handler.new_dofs[l][d].assign(vertex_slots_needed,
-                                            numbers::invalid_dof_index);
+          dof_handler.object_dof_indices[l][d].assign(
+            vertex_slots_needed, numbers::invalid_dof_index);
         }
 
 
@@ -1131,12 +1132,12 @@ namespace internal
           for (unsigned int level = 0; level < dof_handler.tria->n_levels();
                ++level)
             {
-              dof_handler.new_dofs_ptr[level][dim] =
+              dof_handler.object_dof_ptr[level][dim] =
                 std::vector<typename DoFHandler<dim, spacedim>::offset_type>(
                   dof_handler.tria->n_raw_cells(level),
                   static_cast<typename DoFHandler<dim, spacedim>::offset_type>(
                     -1));
-              dof_handler.new_cell_dofs_cache_ptr[level] =
+              dof_handler.cell_dof_cache_ptr[level] =
                 std::vector<typename DoFHandler<dim, spacedim>::offset_type>(
                   dof_handler.tria->n_raw_cells(level),
                   static_cast<typename DoFHandler<dim, spacedim>::offset_type>(
@@ -1149,20 +1150,20 @@ namespace internal
                    dof_handler.active_cell_iterators_on_level(level))
                 if (cell->is_active() && !cell->is_artificial())
                   {
-                    dof_handler.new_dofs_ptr[level][dim][cell->index()] =
+                    dof_handler.object_dof_ptr[level][dim][cell->index()] =
                       next_free_dof;
                     next_free_dof +=
                       cell->get_fe().template n_dofs_per_object<dim>();
 
-                    dof_handler.new_cell_dofs_cache_ptr[level][cell->index()] =
+                    dof_handler.cell_dof_cache_ptr[level][cell->index()] =
                       cache_size;
                     cache_size += cell->get_fe().dofs_per_cell;
                   }
 
-              dof_handler.new_dofs[level][dim] =
+              dof_handler.object_dof_indices[level][dim] =
                 std::vector<types::global_dof_index>(
                   next_free_dof, numbers::invalid_dof_index);
-              dof_handler.new_cell_dofs_cache[level] =
+              dof_handler.cell_dof_cache_indices[level] =
                 std::vector<types::global_dof_index>(
                   cache_size, numbers::invalid_dof_index);
             }
@@ -1231,13 +1232,13 @@ namespace internal
             const unsigned int d = dim - 1;
             const unsigned int l = 0;
 
-            dof_handler.new_hp_ptr[d].clear();
-            dof_handler.new_hp_fe[d].clear();
-            dof_handler.new_dofs_ptr[l][d].clear();
-            dof_handler.new_dofs[l][d].clear();
+            dof_handler.hp_object_fe_ptr[d].clear();
+            dof_handler.hp_object_fe_indices[d].clear();
+            dof_handler.object_dof_ptr[l][d].clear();
+            dof_handler.object_dof_indices[l][d].clear();
 
-            dof_handler.new_hp_ptr[d].resize(dof_handler.tria->n_raw_faces() +
-                                             1);
+            dof_handler.hp_object_fe_ptr[d].resize(
+              dof_handler.tria->n_raw_faces() + 1);
 
             // An array to hold how many slots (see the hp::DoFLevel
             // class) we will have to store on each level
@@ -1280,19 +1281,23 @@ namespace internal
                       // mark this face as visited
                       cell->face(face)->set_user_flag();
 
-                      dof_handler.new_hp_ptr[d][cell->face(face)->index() + 1] =
+                      dof_handler
+                        .hp_object_fe_ptr[d][cell->face(face)->index() + 1] =
                         fe_slots_needed;
                     }
 
-            for (unsigned int i = 1; i < dof_handler.new_hp_ptr[d].size(); i++)
-              dof_handler.new_hp_ptr[d][i] += dof_handler.new_hp_ptr[d][i - 1];
+            for (unsigned int i = 1; i < dof_handler.hp_object_fe_ptr[d].size();
+                 i++)
+              dof_handler.hp_object_fe_ptr[d][i] +=
+                dof_handler.hp_object_fe_ptr[d][i - 1];
 
 
-            dof_handler.new_hp_fe[d].resize(dof_handler.new_hp_ptr[d].back());
-            dof_handler.new_dofs_ptr[l][d].resize(
-              dof_handler.new_hp_ptr[d].back() + 1);
+            dof_handler.hp_object_fe_indices[d].resize(
+              dof_handler.hp_object_fe_ptr[d].back());
+            dof_handler.object_dof_ptr[l][d].resize(
+              dof_handler.hp_object_fe_ptr[d].back() + 1);
 
-            dof_handler.new_dofs[l][d].reserve(n_face_slots);
+            dof_handler.object_dof_indices[l][d].reserve(n_face_slots);
 
 
             // With the memory now allocated, loop over the
@@ -1345,13 +1350,13 @@ namespace internal
                               .template n_dofs_per_object<dim - 1>();
                           const unsigned int offset =
                             dof_handler
-                              .new_hp_ptr[d][cell->face(face)->index()];
+                              .hp_object_fe_ptr[d][cell->face(face)->index()];
 
-                          dof_handler.new_hp_fe[d][offset]           = fe;
-                          dof_handler.new_dofs_ptr[l][d][offset + 1] = n_dofs;
+                          dof_handler.hp_object_fe_indices[d][offset]  = fe;
+                          dof_handler.object_dof_ptr[l][d][offset + 1] = n_dofs;
 
                           for (unsigned int i = 0; i < n_dofs; i++)
-                            dof_handler.new_dofs[l][d].push_back(
+                            dof_handler.object_dof_indices[l][d].push_back(
                               numbers::invalid_dof_index);
                         }
                       else
@@ -1373,28 +1378,32 @@ namespace internal
 
                           const unsigned int offset =
                             dof_handler
-                              .new_hp_ptr[d][cell->face(face)->index()];
+                              .hp_object_fe_ptr[d][cell->face(face)->index()];
 
-                          dof_handler.new_hp_fe[d].push_back(
+                          dof_handler.hp_object_fe_indices[d].push_back(
                             cell->active_fe_index());
-                          dof_handler.new_dofs_ptr[l][d].push_back(
-                            dof_handler.new_dofs[l][d].size());
+                          dof_handler.object_dof_ptr[l][d].push_back(
+                            dof_handler.object_dof_indices[l][d].size());
 
                           for (unsigned int i = 0;
                                i < dof_handler.get_fe(cell->active_fe_index())
                                      .template n_dofs_per_object<dim - 1>();
                                i++)
-                            dof_handler.new_dofs[l][d].push_back(
+                            dof_handler.object_dof_indices[l][d].push_back(
                               numbers::invalid_dof_index);
 
-                          dof_handler.new_hp_fe[d][offset + 0]       = fe_1;
-                          dof_handler.new_hp_fe[d][offset + 1]       = fe_2;
-                          dof_handler.new_dofs_ptr[l][d][offset + 1] = n_dofs_1;
-                          dof_handler.new_dofs_ptr[l][d][offset + 2] = n_dofs_2;
+                          dof_handler.hp_object_fe_indices[d][offset + 0] =
+                            fe_1;
+                          dof_handler.hp_object_fe_indices[d][offset + 1] =
+                            fe_2;
+                          dof_handler.object_dof_ptr[l][d][offset + 1] =
+                            n_dofs_1;
+                          dof_handler.object_dof_ptr[l][d][offset + 2] =
+                            n_dofs_2;
 
 
                           for (unsigned int i = 0; i < n_dofs_1 + n_dofs_2; i++)
-                            dof_handler.new_dofs[l][d].push_back(
+                            dof_handler.object_dof_indices[l][d].push_back(
                               numbers::invalid_dof_index);
                         }
 
@@ -1402,10 +1411,11 @@ namespace internal
                       cell->face(face)->set_user_flag();
                     }
 
-            for (unsigned int i = 1; i < dof_handler.new_dofs_ptr[l][d].size();
+            for (unsigned int i = 1;
+                 i < dof_handler.object_dof_ptr[l][d].size();
                  i++)
-              dof_handler.new_dofs_ptr[l][d][i] +=
-                dof_handler.new_dofs_ptr[l][d][i - 1];
+              dof_handler.object_dof_ptr[l][d][i] +=
+                dof_handler.object_dof_ptr[l][d][i - 1];
 
             // at the end, restore the user flags for the faces
             switch (dim)
@@ -1450,7 +1460,7 @@ namespace internal
           Assert(dof_handler.tria->n_levels() > 0,
                  ExcMessage("The current Triangulation must not be empty."));
           Assert(dof_handler.tria->n_levels() ==
-                   dof_handler.new_future_fe_indices.size(),
+                   dof_handler.hp_cell_future_fe_indices.size(),
                  ExcInternalError());
 
           reserve_space_release_space(dof_handler);
@@ -1473,7 +1483,7 @@ namespace internal
           Assert(dof_handler.tria->n_levels() > 0,
                  ExcMessage("The current Triangulation must not be empty."));
           Assert(dof_handler.tria->n_levels() ==
-                   dof_handler.new_future_fe_indices.size(),
+                   dof_handler.hp_cell_future_fe_indices.size(),
                  ExcInternalError());
 
           reserve_space_release_space(dof_handler);
@@ -1500,7 +1510,7 @@ namespace internal
           Assert(dof_handler.tria->n_levels() > 0,
                  ExcMessage("The current Triangulation must not be empty."));
           Assert(dof_handler.tria->n_levels() ==
-                   dof_handler.new_future_fe_indices.size(),
+                   dof_handler.hp_cell_future_fe_indices.size(),
                  ExcInternalError());
 
           reserve_space_release_space(dof_handler);
@@ -1558,13 +1568,13 @@ namespace internal
             const unsigned int d = 1;
             const unsigned int l = 0;
 
-            dof_handler.new_hp_ptr[d].clear();
-            dof_handler.new_hp_fe[d].clear();
-            dof_handler.new_dofs_ptr[l][d].clear();
-            dof_handler.new_dofs[l][d].clear();
+            dof_handler.hp_object_fe_ptr[d].clear();
+            dof_handler.hp_object_fe_indices[d].clear();
+            dof_handler.object_dof_ptr[l][d].clear();
+            dof_handler.object_dof_indices[l][d].clear();
 
-            dof_handler.new_hp_ptr[d].reserve(dof_handler.tria->n_raw_lines() +
-                                              1);
+            dof_handler.hp_object_fe_ptr[d].reserve(
+              dof_handler.tria->n_raw_lines() + 1);
 
             unsigned int line_slots_needed = 0;
             unsigned int fe_slots_needed   = 0;
@@ -1572,7 +1582,7 @@ namespace internal
             for (unsigned int line = 0; line < dof_handler.tria->n_raw_lines();
                  ++line)
               {
-                dof_handler.new_hp_ptr[d].push_back(fe_slots_needed);
+                dof_handler.hp_object_fe_ptr[d].push_back(fe_slots_needed);
 
                 if (line_is_used[line] == true)
                   {
@@ -1588,12 +1598,12 @@ namespace internal
                   }
               }
 
-            dof_handler.new_hp_ptr[d].push_back(fe_slots_needed);
+            dof_handler.hp_object_fe_ptr[d].push_back(fe_slots_needed);
 
-            dof_handler.new_hp_fe[d].reserve(fe_slots_needed);
-            dof_handler.new_dofs_ptr[l][d].reserve(fe_slots_needed + 1);
+            dof_handler.hp_object_fe_indices[d].reserve(fe_slots_needed);
+            dof_handler.object_dof_ptr[l][d].reserve(fe_slots_needed + 1);
 
-            dof_handler.new_dofs[l][d].reserve(line_slots_needed);
+            dof_handler.object_dof_indices[l][d].reserve(line_slots_needed);
 
             for (unsigned int line = 0; line < dof_handler.tria->n_raw_lines();
                  ++line)
@@ -1604,14 +1614,14 @@ namespace internal
                        ++fe)
                     if (line_fe_association[fe][line] == true)
                       {
-                        dof_handler.new_hp_fe[d].push_back(fe);
-                        dof_handler.new_dofs_ptr[l][d].push_back(
-                          dof_handler.new_dofs[l][d].size());
+                        dof_handler.hp_object_fe_indices[d].push_back(fe);
+                        dof_handler.object_dof_ptr[l][d].push_back(
+                          dof_handler.object_dof_indices[l][d].size());
 
                         for (unsigned int i = 0;
                              i < dof_handler.get_fe(fe).dofs_per_line;
                              i++)
-                          dof_handler.new_dofs[l][d].push_back(
+                          dof_handler.object_dof_indices[l][d].push_back(
                             numbers::invalid_dof_index);
                       }
                 }
@@ -1675,7 +1685,7 @@ namespace internal
               for (const auto &cell : dof_handler.active_cell_iterators())
                 if (!cell->is_locally_owned())
                   dof_handler
-                    .new_active_fe_indices[cell->level()][cell->index()] =
+                    .hp_cell_active_fe_indices[cell->level()][cell->index()] =
                     active_fe_indices[cell->active_cell_index()];
             }
           else if (const dealii::parallel::distributed::Triangulation<dim,
@@ -1704,7 +1714,7 @@ namespace internal
                 // but this is not allowed on cells that are not
                 // locally owned, and we are on a ghost cell
                 dof_handler
-                  .new_active_fe_indices[cell->level()][cell->index()] =
+                  .hp_cell_active_fe_indices[cell->level()][cell->index()] =
                   active_fe_index;
               };
 
@@ -2419,12 +2429,12 @@ DoFHandler<dim, spacedim>::distribute_dofs(
 {
   if (is_hp_dof_handler)
     {
-      new_dofs.resize(this->tria->n_levels());
-      new_dofs_ptr.resize(this->tria->n_levels());
-      new_cell_dofs_cache.resize(this->tria->n_levels());
-      new_cell_dofs_cache_ptr.resize(this->tria->n_levels());
-      new_active_fe_indices.resize(this->tria->n_levels());
-      new_future_fe_indices.resize(this->tria->n_levels());
+      object_dof_indices.resize(this->tria->n_levels());
+      object_dof_ptr.resize(this->tria->n_levels());
+      cell_dof_cache_indices.resize(this->tria->n_levels());
+      cell_dof_cache_ptr.resize(this->tria->n_levels());
+      hp_cell_active_fe_indices.resize(this->tria->n_levels());
+      hp_cell_future_fe_indices.resize(this->tria->n_levels());
       // assign the fe_collection and initialize all active_fe_indices
       this->set_fe(ff);
 
@@ -2507,10 +2517,10 @@ DoFHandler<dim, spacedim>::distribute_dofs(
       // to be able to query the dof_indices on each cell, and simply be told
       // that we don't know them on some cell (i.e. get back invalid_dof_index)
       this->clear_space();
-      new_dofs.resize(this->tria->n_levels());
-      new_dofs_ptr.resize(this->tria->n_levels());
-      new_cell_dofs_cache.resize(this->tria->n_levels());
-      new_cell_dofs_cache_ptr.resize(this->tria->n_levels());
+      object_dof_indices.resize(this->tria->n_levels());
+      object_dof_ptr.resize(this->tria->n_levels());
+      cell_dof_cache_indices.resize(this->tria->n_levels());
+      cell_dof_cache_ptr.resize(this->tria->n_levels());
       internal::DoFHandlerImplementation::Implementation::reserve_space(*this);
 
       // hand things off to the policy
@@ -2534,7 +2544,7 @@ DoFHandler<dim, spacedim>::distribute_mg_dofs()
   AssertThrow(is_hp_dof_handler == false, ExcNotImplemented());
 
   Assert(
-    this->new_dofs.size() > 0,
+    this->object_dof_indices.size() > 0,
     ExcMessage(
       "Distribute active DoFs using distribute_dofs() before calling distribute_mg_dofs()."));
 
@@ -2621,24 +2631,24 @@ template <int dim, int spacedim>
 void
 DoFHandler<dim, spacedim>::clear_space()
 {
-  new_cell_dofs_cache.clear();
+  cell_dof_cache_indices.clear();
 
-  new_cell_dofs_cache_ptr.clear();
+  cell_dof_cache_ptr.clear();
 
-  new_dofs.clear();
+  object_dof_indices.clear();
 
-  new_dofs_ptr.clear();
+  object_dof_ptr.clear();
 
   if (is_hp_dof_handler)
     {
       //      this->levels_hp.clear();
-      this->new_active_fe_indices.clear();
-      this->new_future_fe_indices.clear();
+      this->hp_cell_active_fe_indices.clear();
+      this->hp_cell_future_fe_indices.clear();
 
       // this->faces_hp.reset();
 
       // this->vertex_dofs        = std::vector<types::global_dof_index>();
-      new_dofs.clear();
+      object_dof_indices.clear();
       // this->vertex_dof_offsets = std::vector<unsigned int>();
     }
   else
@@ -2675,7 +2685,7 @@ DoFHandler<dim, spacedim>::renumber_dofs(
 {
   if (is_hp_dof_handler)
     {
-      Assert(this->new_future_fe_indices.size() > 0,
+      Assert(this->hp_cell_future_fe_indices.size() > 0,
              ExcMessage(
                "You need to distribute DoFs before you can renumber them."));
 
@@ -2736,7 +2746,7 @@ DoFHandler<dim, spacedim>::renumber_dofs(
     }
   else
     {
-      Assert(this->new_dofs.size() > 0,
+      Assert(this->object_dof_indices.size() > 0,
              ExcMessage(
                "You need to distribute DoFs before you can renumber them."));
 
@@ -2799,7 +2809,7 @@ DoFHandler<dim, spacedim>::renumber_dofs(
   AssertThrow(is_hp_dof_handler == false, ExcNotImplemented());
 
   Assert(
-    this->mg_levels.size() > 0 && this->new_dofs.size() > 0,
+    this->mg_levels.size() > 0 && this->object_dof_indices.size() > 0,
     ExcMessage(
       "You need to distribute active and level DoFs before you can renumber level DoFs."));
   AssertIndexRange(level, this->get_triangulation().n_global_levels());
@@ -3076,23 +3086,23 @@ DoFHandler<dim, spacedim>::create_active_fe_table()
   //  while (this->levels_hp.size() < this->tria->n_levels())
   //    this->levels_hp.emplace_back(new dealii::internal::hp::DoFLevel);
 
-  while (this->new_active_fe_indices.size() < this->tria->n_levels())
-    this->new_active_fe_indices.push_back({});
+  while (this->hp_cell_active_fe_indices.size() < this->tria->n_levels())
+    this->hp_cell_active_fe_indices.push_back({});
 
-  while (this->new_future_fe_indices.size() < this->tria->n_levels())
-    this->new_future_fe_indices.push_back({});
+  while (this->hp_cell_future_fe_indices.size() < this->tria->n_levels())
+    this->hp_cell_future_fe_indices.push_back({});
 
   // then make sure that on each level we have the appropriate size
   // of active_fe_indices; preset them to zero, i.e. the default FE
-  for (unsigned int level = 0; level < this->new_future_fe_indices.size();
+  for (unsigned int level = 0; level < this->hp_cell_future_fe_indices.size();
        ++level)
     {
-      if (this->new_active_fe_indices[level].size() == 0 &&
-          this->new_future_fe_indices[level].size() == 0)
+      if (this->hp_cell_active_fe_indices[level].size() == 0 &&
+          this->hp_cell_future_fe_indices[level].size() == 0)
         {
-          this->new_active_fe_indices[level].resize(
+          this->hp_cell_active_fe_indices[level].resize(
             this->tria->n_raw_cells(level), 0);
-          this->new_future_fe_indices[level].resize(
+          this->hp_cell_future_fe_indices[level].resize(
             this->tria->n_raw_cells(level), invalid_active_fe_index);
         }
       else
@@ -3100,9 +3110,9 @@ DoFHandler<dim, spacedim>::create_active_fe_table()
           // Either the active_fe_indices have size zero because
           // they were just created, or the correct size. Other
           // sizes indicate that something went wrong.
-          Assert(this->new_active_fe_indices[level].size() ==
+          Assert(this->hp_cell_active_fe_indices[level].size() ==
                      this->tria->n_raw_cells(level) &&
-                   this->new_future_fe_indices[level].size() ==
+                   this->hp_cell_future_fe_indices[level].size() ==
                      this->tria->n_raw_cells(level),
                  ExcInternalError());
         }
@@ -3144,34 +3154,34 @@ DoFHandler<dim, spacedim>::post_refinement_action()
   //      this->levels_hp.pop_back();
   //    }
 
-  while (this->new_active_fe_indices.size() < this->tria->n_levels())
-    this->new_active_fe_indices.push_back({});
+  while (this->hp_cell_active_fe_indices.size() < this->tria->n_levels())
+    this->hp_cell_active_fe_indices.push_back({});
 
-  while (this->new_active_fe_indices.size() > this->tria->n_levels())
-    this->new_active_fe_indices.pop_back();
+  while (this->hp_cell_active_fe_indices.size() > this->tria->n_levels())
+    this->hp_cell_active_fe_indices.pop_back();
 
-  while (this->new_future_fe_indices.size() < this->tria->n_levels())
-    this->new_future_fe_indices.push_back({});
+  while (this->hp_cell_future_fe_indices.size() < this->tria->n_levels())
+    this->hp_cell_future_fe_indices.push_back({});
 
-  while (this->new_future_fe_indices.size() > this->tria->n_levels())
-    this->new_future_fe_indices.pop_back();
+  while (this->hp_cell_future_fe_indices.size() > this->tria->n_levels())
+    this->hp_cell_future_fe_indices.pop_back();
 
 
 
-  Assert(this->new_future_fe_indices.size() == this->tria->n_levels(),
+  Assert(this->hp_cell_future_fe_indices.size() == this->tria->n_levels(),
          ExcInternalError());
-  for (unsigned int i = 0; i < this->new_future_fe_indices.size(); ++i)
+  for (unsigned int i = 0; i < this->hp_cell_future_fe_indices.size(); ++i)
     {
       // Resize active_fe_indices vectors. Use zero indicator to extend.
-      this->new_active_fe_indices[i].resize(this->tria->n_raw_cells(i), 0);
+      this->hp_cell_active_fe_indices[i].resize(this->tria->n_raw_cells(i), 0);
 
       // Resize future_fe_indices vectors. Make sure that all
       // future_fe_indices have been cleared after refinement happened.
       //
       // We have used future_fe_indices to update all active_fe_indices
       // before refinement happened, thus we are safe to clear them now.
-      this->new_future_fe_indices[i].assign(this->tria->n_raw_cells(i),
-                                            invalid_active_fe_index);
+      this->hp_cell_future_fe_indices[i].assign(this->tria->n_raw_cells(i),
+                                                invalid_active_fe_index);
     }
 }
 

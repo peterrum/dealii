@@ -1419,24 +1419,69 @@ private:
   std::vector<dealii::internal::DoFHandlerImplementation::NumberCache>
     mg_number_cache;
 
-  mutable std::vector<std::vector<types::global_dof_index>> new_cell_dofs_cache;
-  mutable std::vector<std::vector<unsigned int>> new_cell_dofs_cache_ptr;
+  /**
+   * Cached indices of the degrees of freedom of all active cell. Identification
+   * of the appropriate position of a cell in the vectors is done via
+   * cell_dof_cache_ptr (CRS scheme).
+   */
+  mutable std::vector<std::vector<types::global_dof_index>>
+    cell_dof_cache_indices;
 
+  /**
+   * Pointer to the first cached degree of freedom of an active cell
+   * (identified by level and level index) within cell_dof_cache_indices.
+   */
+  mutable std::vector<std::vector<unsigned int>> cell_dof_cache_ptr;
+
+  /**
+   * Indices of degree of freedom of each d+1 geometric object (3D: vertex,
+   * line, quad, hex) for all relevant active finite elements. Identification
+   * of the appropriate position is done via object_dof_ptr (CRS scheme).
+   */
   mutable std::vector<std::array<std::vector<types::global_dof_index>, dim + 1>>
-    new_dofs;
-  mutable std::vector<std::array<std::vector<unsigned int>, dim + 1>>
-    new_dofs_ptr;
+    object_dof_indices;
 
-  mutable std::array<std::vector<unsigned int>, dim + 1> new_hp_ptr;
-  mutable std::array<std::vector<unsigned int>, dim + 1> new_hp_fe;
+  /**
+   * Pointer to the first cached degree of freedom of a geometric object for all
+   * relevant active finite elements.
+   *
+   * @note In normal mode it is possible to access this data strucutre directly.
+   *   In hp mode, an indirection via hp_object_fe_indices/hp_object_fe_ptr is
+   * necessary.
+   */
+  mutable std::vector<std::array<std::vector<unsigned int>, dim + 1>>
+    object_dof_ptr;
+
+  /**
+   * Active fe indices of each geometric object. Identification
+   * of the appropriate position of a cell in the vectors is done via
+   * hp_object_fe_ptr (CRS scheme).
+   */
+  mutable std::array<std::vector<unsigned int>, dim + 1> hp_object_fe_indices;
+
+  /**
+   * Pointer to the first fe index of a geometric object.
+   */
+  mutable std::array<std::vector<unsigned int>, dim + 1> hp_object_fe_ptr;
 
   using active_fe_index_type = unsigned short int;
   using offset_type          = unsigned int;
   static const active_fe_index_type invalid_active_fe_index =
     static_cast<active_fe_index_type>(-1);
 
-  mutable std::vector<std::vector<active_fe_index_type>> new_active_fe_indices;
-  mutable std::vector<std::vector<active_fe_index_type>> new_future_fe_indices;
+  /**
+   * Active fe index of an active cell (identified by level and level index).
+   * This vector is only used in hp mode.
+   */
+  mutable std::vector<std::vector<active_fe_index_type>>
+    hp_cell_active_fe_indices;
+
+  /**
+   * Future fe index of an active cell (identified by level and level index).
+   * This vector is only used in hp mode.
+   */
+  mutable std::vector<std::vector<active_fe_index_type>>
+    hp_cell_future_fe_indices;
 
   /**
    * An array to store the indices for level degrees of freedom located at
@@ -1884,17 +1929,17 @@ DoFHandler<dim, spacedim>::save(Archive &ar, const unsigned int) const
 {
   if (this->is_hp_dof_handler)
     {
-      ar & this->new_dofs;
-      ar & this->new_dofs_ptr;
+      ar & this->object_dof_indices;
+      ar & this->object_dof_ptr;
 
-      ar & this->new_cell_dofs_cache;
-      ar & this->new_cell_dofs_cache_ptr;
+      ar & this->cell_dof_cache_indices;
+      ar & this->cell_dof_cache_ptr;
 
-      ar & this->new_active_fe_indices;
-      ar & this->new_future_fe_indices;
+      ar & this->hp_cell_active_fe_indices;
+      ar & this->hp_cell_future_fe_indices;
 
-      ar &new_hp_ptr;
-      ar &new_hp_fe;
+      ar &hp_object_fe_ptr;
+      ar &hp_object_fe_indices;
 
       ar & this->number_cache;
 
@@ -1939,11 +1984,11 @@ DoFHandler<dim, spacedim>::save(Archive &ar, const unsigned int) const
       // for (unsigned int i = 0; i < this->levels.size(); ++i)
       //  ar & this->levels[i];
 
-      ar & this->new_dofs;
-      ar & this->new_dofs_ptr;
+      ar & this->object_dof_indices;
+      ar & this->object_dof_ptr;
 
-      ar & this->new_cell_dofs_cache;
-      ar & this->new_cell_dofs_cache_ptr;
+      ar & this->cell_dof_cache_indices;
+      ar & this->cell_dof_cache_ptr;
 
       // write out the number of triangulation cells and later check during
       // loading that this number is indeed correct; same with something that
@@ -1965,17 +2010,17 @@ DoFHandler<dim, spacedim>::load(Archive &ar, const unsigned int)
 {
   if (this->is_hp_dof_handler)
     {
-      ar & this->new_dofs;
-      ar & this->new_dofs_ptr;
+      ar & this->object_dof_indices;
+      ar & this->object_dof_ptr;
 
-      ar & this->new_cell_dofs_cache;
-      ar & this->new_cell_dofs_cache_ptr;
+      ar & this->cell_dof_cache_indices;
+      ar & this->cell_dof_cache_ptr;
 
-      ar & this->new_active_fe_indices;
-      ar & this->new_future_fe_indices;
+      ar & this->hp_cell_active_fe_indices;
+      ar & this->hp_cell_future_fe_indices;
 
-      ar &new_hp_ptr;
-      ar &new_hp_fe;
+      ar &hp_object_fe_ptr;
+      ar &hp_object_fe_indices;
 
       ar & this->number_cache;
 
@@ -2039,9 +2084,9 @@ DoFHandler<dim, spacedim>::load(Archive &ar, const unsigned int)
       // previous content before re-loading stuff
       // this->levels.clear();
 
-      new_dofs.clear();
+      object_dof_indices.clear();
 
-      new_dofs_ptr.clear();
+      object_dof_ptr.clear();
 
       // some versions of gcc have trouble with loading vectors of
       // std::unique_ptr objects because std::unique_ptr does not
@@ -2057,11 +2102,11 @@ DoFHandler<dim, spacedim>::load(Archive &ar, const unsigned int)
       //    this->levels[i] = std::move(level);
       //  }
 
-      ar & this->new_dofs;
-      ar & this->new_dofs_ptr;
+      ar & this->object_dof_indices;
+      ar & this->object_dof_ptr;
 
-      ar & this->new_cell_dofs_cache;
-      ar & this->new_cell_dofs_cache_ptr;
+      ar & this->cell_dof_cache_indices;
+      ar & this->cell_dof_cache_ptr;
 
       // these are the checks that correspond to the last block in the save()
       // function

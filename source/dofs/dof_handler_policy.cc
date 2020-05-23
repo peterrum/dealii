@@ -1818,7 +1818,7 @@ namespace internal
           DoFHandler<dim, spacedim> &                 dof_handler)
         {
           for (unsigned int d = 1; d < dim; d++)
-            for (auto &i : dof_handler.new_dofs[0][d])
+            for (auto &i : dof_handler.object_dof_indices[0][d])
               if (i != numbers::invalid_dof_index)
                 i = ((indices_we_care_about.size() == 0) ?
                        new_numbers[i] :
@@ -1844,8 +1844,8 @@ namespace internal
               // may be invalid_dof_index, namely when the appropriate
               // vertex/line/etc is unused
               for (std::vector<types::global_dof_index>::iterator i =
-                     dof_handler.new_dofs[0][0].begin();
-                   i != dof_handler.new_dofs[0][0].end();
+                     dof_handler.object_dof_indices[0][0].begin();
+                   i != dof_handler.object_dof_indices[0][0].end();
                    ++i)
                 if (*i != numbers::invalid_dof_index)
                   *i =
@@ -1856,7 +1856,7 @@ namespace internal
                   // if index is invalid_dof_index: check if this one
                   // really is unused
                   Assert(dof_handler.get_triangulation().vertex_used(
-                           (i - dof_handler.new_dofs[0][0].begin()) /
+                           (i - dof_handler.object_dof_indices[0][0].begin()) /
                            dof_handler.get_fe().dofs_per_vertex) == false,
                          ExcInternalError());
               return;
@@ -1993,9 +1993,10 @@ namespace internal
         {
           if (dof_handler.is_hp_dof_handler == false)
             {
-              for (unsigned int level = 0; level < dof_handler.new_dofs.size();
+              for (unsigned int level = 0;
+                   level < dof_handler.object_dof_indices.size();
                    ++level)
-                for (auto &i : dof_handler.new_dofs[level][dim])
+                for (auto &i : dof_handler.object_dof_indices[level][dim])
                   if (i != numbers::invalid_dof_index)
                     i = ((indices_we_care_about.size() == 0) ?
                            new_numbers[i] :
@@ -2081,7 +2082,7 @@ namespace internal
           if (dof_handler.is_hp_dof_handler == false)
             {
               for (unsigned int d = 1; d < dim; d++)
-                for (auto &i : dof_handler.new_dofs[0][d])
+                for (auto &i : dof_handler.object_dof_indices[0][d])
                   if (i != numbers::invalid_dof_index)
                     i = ((indices_we_care_about.size() == 0) ?
                            new_numbers[i] :
@@ -2191,7 +2192,7 @@ namespace internal
           if (dof_handler.is_hp_dof_handler == false)
             {
               for (unsigned int d = 1; d < dim; d++)
-                for (auto &i : dof_handler.new_dofs[0][d])
+                for (auto &i : dof_handler.object_dof_indices[0][d])
                   if (i != numbers::invalid_dof_index)
                     i = ((indices_we_care_about.size() == 0) ?
                            new_numbers[i] :
