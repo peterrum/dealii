@@ -126,10 +126,10 @@ namespace
 
     if (ndofs.size() == 0)
       {
-        std::vector<std::vector<types::global_dof_index>> object_dof_indices(
+        std::vector<std::vector<types::global_dof_index>> new_dofs(
           mg_dof.get_triangulation().n_levels(),
           std::vector<types::global_dof_index>(target_component.size()));
-        std::swap(ndofs, object_dof_indices);
+        std::swap(ndofs, new_dofs);
         MGTools::count_dofs_per_block(mg_dof, ndofs, target_component);
       }
 
@@ -196,10 +196,10 @@ namespace
 
     if (ndofs.size() == 0)
       {
-        std::vector<std::vector<types::global_dof_index>> object_dof_indices(
+        std::vector<std::vector<types::global_dof_index>> new_dofs(
           mg_dof.get_triangulation().n_levels(),
           std::vector<types::global_dof_index>(target_component.size()));
-        std::swap(ndofs, object_dof_indices);
+        std::swap(ndofs, new_dofs);
         MGTools::count_dofs_per_block(mg_dof, ndofs, target_component);
       }
 
