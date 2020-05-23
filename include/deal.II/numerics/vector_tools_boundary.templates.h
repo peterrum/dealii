@@ -1900,7 +1900,7 @@ namespace VectorTools
                           dofs_processed[dof] = false;
                         }
 
-                      internals ::compute_face_projection_curl_conforming(
+                      internals::compute_face_projection_curl_conforming(
                         cell,
                         face,
                         fe_face_values,
