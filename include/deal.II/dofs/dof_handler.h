@@ -465,7 +465,7 @@ public:
   /**
    * Destructor.
    */
-  virtual ~DoFHandler();
+  virtual ~DoFHandler() override;
 
   /**
    * Copy operator. DoFHandler objects are large and expensive.
@@ -1690,7 +1690,7 @@ template <int dim, int spacedim>
 inline bool
 DoFHandler<dim, spacedim>::has_active_dofs() const
 {
-  return this->number_cache.n_global_dofs > 0;
+  return number_cache.n_global_dofs > 0;
 }
 
 
@@ -1721,7 +1721,7 @@ template <int dim, int spacedim>
 types::global_dof_index
 DoFHandler<dim, spacedim>::n_locally_owned_dofs() const
 {
-  return this->number_cache.n_locally_owned_dofs;
+  return number_cache.n_locally_owned_dofs;
 }
 
 
@@ -1730,7 +1730,7 @@ template <int dim, int spacedim>
 const IndexSet &
 DoFHandler<dim, spacedim>::locally_owned_dofs() const
 {
-  return this->number_cache.locally_owned_dofs;
+  return number_cache.locally_owned_dofs;
 }
 
 
@@ -1755,8 +1755,8 @@ template <int dim, int spacedim>
 const std::vector<types::global_dof_index> &
 DoFHandler<dim, spacedim>::n_locally_owned_dofs_per_processor() const
 {
-  if (this->number_cache.n_locally_owned_dofs_per_processor.empty() &&
-      this->number_cache.n_global_dofs > 0)
+  if (number_cache.n_locally_owned_dofs_per_processor.empty() &&
+      number_cache.n_global_dofs > 0)
     {
       MPI_Comm comm;
 
@@ -1769,11 +1769,11 @@ DoFHandler<dim, spacedim>::n_locally_owned_dofs_per_processor() const
         comm = MPI_COMM_SELF;
 
       const_cast<dealii::internal::DoFHandlerImplementation::NumberCache &>(
-        this->number_cache)
+        number_cache)
         .n_locally_owned_dofs_per_processor =
         number_cache.get_n_locally_owned_dofs_per_processor(comm);
     }
-  return this->number_cache.n_locally_owned_dofs_per_processor;
+  return number_cache.n_locally_owned_dofs_per_processor;
 }
 
 
@@ -1782,8 +1782,8 @@ template <int dim, int spacedim>
 const std::vector<IndexSet> &
 DoFHandler<dim, spacedim>::locally_owned_dofs_per_processor() const
 {
-  if (this->number_cache.locally_owned_dofs_per_processor.empty() &&
-      this->number_cache.n_global_dofs > 0)
+  if (number_cache.locally_owned_dofs_per_processor.empty() &&
+      number_cache.n_global_dofs > 0)
     {
       MPI_Comm comm;
 
@@ -1796,11 +1796,11 @@ DoFHandler<dim, spacedim>::locally_owned_dofs_per_processor() const
         comm = MPI_COMM_SELF;
 
       const_cast<dealii::internal::DoFHandlerImplementation::NumberCache &>(
-        this->number_cache)
+        number_cache)
         .locally_owned_dofs_per_processor =
         number_cache.get_locally_owned_dofs_per_processor(comm);
     }
-  return this->number_cache.locally_owned_dofs_per_processor;
+  return number_cache.locally_owned_dofs_per_processor;
 }
 
 
@@ -1949,7 +1949,7 @@ DoFHandler<dim, spacedim>::save(Archive &ar, const unsigned int) const
       ar &hp_object_fe_ptr;
       ar &hp_object_fe_indices;
 
-      ar & this->number_cache;
+      ar &number_cache;
 
       ar &mg_number_cache;
 
@@ -1965,7 +1965,7 @@ DoFHandler<dim, spacedim>::save(Archive &ar, const unsigned int) const
   else
     {
       ar & this->block_info_object;
-      ar & this->number_cache;
+      ar &number_cache;
 
       ar & this->object_dof_indices;
       ar & this->object_dof_ptr;
@@ -2005,7 +2005,7 @@ DoFHandler<dim, spacedim>::load(Archive &ar, const unsigned int)
       ar &hp_object_fe_ptr;
       ar &hp_object_fe_indices;
 
-      ar & this->number_cache;
+      ar &number_cache;
 
       ar &mg_number_cache;
 
@@ -2032,7 +2032,7 @@ DoFHandler<dim, spacedim>::load(Archive &ar, const unsigned int)
   else
     {
       ar & this->block_info_object;
-      ar & this->number_cache;
+      ar &number_cache;
 
       object_dof_indices.clear();
 
