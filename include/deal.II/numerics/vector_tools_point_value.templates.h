@@ -316,10 +316,16 @@ namespace VectorTools
                              const Point<spacedim> &          p,
                              Vector<double> &                 rhs_vector)
   {
-    create_point_source_vector(StaticMappingQ1<dim, spacedim>::mapping,
-                               dof_handler,
-                               p,
-                               rhs_vector);
+    if (dof_handler.is_hp_dof_handler)
+      create_point_source_vector(hp::StaticMappingQ1<dim>::mapping_collection,
+                                 dof_handler,
+                                 p,
+                                 rhs_vector);
+    else
+      create_point_source_vector(StaticMappingQ1<dim, spacedim>::mapping,
+                                 dof_handler,
+                                 p,
+                                 rhs_vector);
   }
 
 
@@ -360,20 +366,6 @@ namespace VectorTools
     for (unsigned int i = 0; i < dofs_per_cell; i++)
       rhs_vector(local_dof_indices[i]) = fe_values.shape_value(i, 0);
   }
-
-
-
-  //  template <int dim, int spacedim>
-  //  void
-  //  create_point_source_vector(const DoFHandler<dim, spacedim> &dof_handler,
-  //                             const Point<spacedim> &              p,
-  //                             Vector<double> & rhs_vector)
-  //  {
-  //    create_point_source_vector(hp::StaticMappingQ1<dim>::mapping_collection,
-  //                               dof_handler,
-  //                               p,
-  //                               rhs_vector);
-  //  }
 
 
 
@@ -427,11 +419,18 @@ namespace VectorTools
                              const Point<dim> &               orientation,
                              Vector<double> &                 rhs_vector)
   {
-    create_point_source_vector(StaticMappingQ1<dim, spacedim>::mapping,
-                               dof_handler,
-                               p,
-                               orientation,
-                               rhs_vector);
+    if (dof_handler.is_hp_dof_handler)
+      create_point_source_vector(hp::StaticMappingQ1<dim>::mapping_collection,
+                                 dof_handler,
+                                 p,
+                                 orientation,
+                                 rhs_vector);
+    else
+      create_point_source_vector(StaticMappingQ1<dim, spacedim>::mapping,
+                                 dof_handler,
+                                 p,
+                                 orientation,
+                                 rhs_vector);
   }
 
 
@@ -476,22 +475,6 @@ namespace VectorTools
       rhs_vector(local_dof_indices[i]) =
         orientation * fe_values[vec].value(i, 0);
   }
-
-
-
-  //  template <int dim, int spacedim>
-  //  void
-  //  create_point_source_vector(const DoFHandler<dim, spacedim> &dof_handler,
-  //                             const Point<spacedim> &              p,
-  //                             const Point<dim> & orientation, Vector<double>
-  //                             &                     rhs_vector)
-  //  {
-  //    create_point_source_vector(hp::StaticMappingQ1<dim>::mapping_collection,
-  //                               dof_handler,
-  //                               p,
-  //                               orientation,
-  //                               rhs_vector);
-  //  }
 } // namespace VectorTools
 
 DEAL_II_NAMESPACE_CLOSE
