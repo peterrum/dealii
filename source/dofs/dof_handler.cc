@@ -15,6 +15,7 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/distributed/cell_data_transfer.templates.h>
 #include <deal.II/distributed/shared_tria.h>
 #include <deal.II/distributed/tria.h>
 

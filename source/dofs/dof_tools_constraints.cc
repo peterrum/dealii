@@ -1769,7 +1769,7 @@ namespace DoFTools
       const number                                 periodicity_factor)
     {
       static const int dim      = FaceIterator::AccessorType::dimension;
-      static const int spacedim = FaceIterator::AccessorType::spacedimension;
+      static const int spacedim = FaceIterator::AccessorType::space_dimension;
 
       // we should be in the case where face_1 is active, i.e. has no children:
       Assert(!face_1->has_children(), ExcInternalError());
@@ -2202,7 +2202,7 @@ namespace DoFTools
     const number                                 periodicity_factor)
   {
     static const int dim      = FaceIterator::AccessorType::dimension;
-    static const int spacedim = FaceIterator::AccessorType::spacedimension;
+    static const int spacedim = FaceIterator::AccessorType::space_dimension;
 
     Assert((dim != 1) || (face_orientation == true && face_flip == false &&
                           face_rotation == false),
@@ -2473,7 +2473,7 @@ namespace DoFTools
                                const ComponentMask &component_mask,
                                const number         periodicity_factor)
   {
-    static const int spacedim = DoFHandlerType::spacedimension;
+    static const int spacedim = DoFHandlerType::space_dimension;
     (void)spacedim;
     AssertIndexRange(direction, spacedim);
 
@@ -2508,7 +2508,7 @@ namespace DoFTools
                                const number               periodicity_factor)
   {
     static const int dim      = DoFHandlerType::dimension;
-    static const int spacedim = DoFHandlerType::spacedimension;
+    static const int spacedim = DoFHandlerType::space_dimension;
     (void)dim;
     (void)spacedim;
 
