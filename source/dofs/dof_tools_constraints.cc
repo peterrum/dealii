@@ -430,9 +430,9 @@ namespace DoFTools
        * handler uses. This is one for non-hp DoFHandlers and
        * dof_handler.get_fe().size() for the hp-versions.
        */
-      template <int dim, int space_dim>
+      template <int dim, int spacedim>
       unsigned int
-      n_finite_elements(const DoFHandler<dim, space_dim> &dof_handler)
+      n_finite_elements(const DoFHandler<dim, spacedim> &dof_handler)
       {
         if (dof_handler.hp_capability_enabled == true)
           return dof_handler.get_fe_collection().size();
@@ -1769,7 +1769,7 @@ namespace DoFTools
       const number                                 periodicity_factor)
     {
       static const int dim      = FaceIterator::AccessorType::dimension;
-      static const int spacedim = FaceIterator::AccessorType::space_dimension;
+      static const int spacedim = FaceIterator::AccessorType::spacedimension;
 
       // we should be in the case where face_1 is active, i.e. has no children:
       Assert(!face_1->has_children(), ExcInternalError());
@@ -2202,7 +2202,7 @@ namespace DoFTools
     const number                                 periodicity_factor)
   {
     static const int dim      = FaceIterator::AccessorType::dimension;
-    static const int spacedim = FaceIterator::AccessorType::space_dimension;
+    static const int spacedim = FaceIterator::AccessorType::spacedimension;
 
     Assert((dim != 1) || (face_orientation == true && face_flip == false &&
                           face_rotation == false),
@@ -2473,9 +2473,9 @@ namespace DoFTools
                                const ComponentMask &component_mask,
                                const number         periodicity_factor)
   {
-    static const int space_dim = DoFHandlerType::space_dimension;
-    (void)space_dim;
-    AssertIndexRange(direction, space_dim);
+    static const int spacedim = DoFHandlerType::spacedimension;
+    (void)spacedim;
+    AssertIndexRange(direction, spacedim);
 
     Assert(b_id1 != b_id2,
            ExcMessage("The boundary indicators b_id1 and b_id2 must be "
@@ -2507,14 +2507,14 @@ namespace DoFTools
                                const ComponentMask &      component_mask,
                                const number               periodicity_factor)
   {
-    static const int dim       = DoFHandlerType::dimension;
-    static const int space_dim = DoFHandlerType::space_dimension;
+    static const int dim      = DoFHandlerType::dimension;
+    static const int spacedim = DoFHandlerType::spacedimension;
     (void)dim;
-    (void)space_dim;
+    (void)spacedim;
 
-    AssertIndexRange(direction, space_dim);
+    AssertIndexRange(direction, spacedim);
 
-    Assert(dim == space_dim, ExcNotImplemented());
+    Assert(dim == spacedim, ExcNotImplemented());
 
     std::vector<
       GridTools::PeriodicFacePair<typename DoFHandlerType::cell_iterator>>
