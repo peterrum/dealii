@@ -1407,10 +1407,10 @@ private:
     tria;
 
   /**
-   * Store a hp::FECollection object containing the (one)
-   * FiniteElement this object is initialized with.
+   * Store a hp::FECollection object. If only a single FiniteElement is
+   * used during initialization of this object, it contains the (one)
+   * FiniteElement.
    */
-
   hp::FECollection<dim, spacedim> fe_collection;
 
   /**
