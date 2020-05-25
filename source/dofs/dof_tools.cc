@@ -2441,7 +2441,7 @@ namespace DoFTools
                               const Table<2, Coupling> &       table,
                               std::vector<Table<2, Coupling>> &tables_by_block)
   {
-    if (dof_handler.is_hp_dof_handler == false)
+    if (dof_handler.hp_capability_enabled == false)
       {
         const FiniteElement<dim, spacedim> &fe = dof_handler.get_fe();
         const unsigned int                  nb = fe.n_blocks();

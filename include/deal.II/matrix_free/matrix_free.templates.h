@@ -460,8 +460,9 @@ MatrixFree<dim, Number, VectorizedArrayType>::internal_reinit(
         dof_handler[0]->get_triangulation(),
         cell_level_index,
         face_info,
-        dof_handler[0]->is_hp_dof_handler ? dof_info[0].cell_active_fe_index :
-                                            std::vector<unsigned int>(),
+        dof_handler[0]->hp_capability_enabled ?
+          dof_info[0].cell_active_fe_index :
+          std::vector<unsigned int>(),
         mapping,
         quad,
         additional_data.mapping_update_flags,
@@ -568,7 +569,7 @@ MatrixFree<dim, Number, VectorizedArrayType>::initialize_dof_handlers(
   const std::vector<const DoFHandlerType *> &dof_handler,
   const AdditionalData &                     additional_data)
 {
-  if (dof_handler.front()->is_hp_dof_handler == false)
+  if (dof_handler.front()->hp_capability_enabled == false)
     {
       cell_level_index.clear();
       dof_handlers.active_dof_handler = DoFHandlers::usual;

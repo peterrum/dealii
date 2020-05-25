@@ -251,7 +251,7 @@ namespace internal
                ExcNotImplemented());
 
         // 1) no hp used -> fe_index == 0
-        if (dof_handler.is_hp_dof_handler == false)
+        if (dof_handler.hp_capability_enabled == false)
           {
             Assert(fe_index == 0, ExcNotImplemented());
 
@@ -284,7 +284,7 @@ namespace internal
 
         unsigned int fe_index_;
 
-        if (dof_handler.is_hp_dof_handler)
+        if (dof_handler.hp_capability_enabled)
           {
             AssertIndexRange(d, dof_handler.hp_object_fe_ptr.size());
             AssertIndexRange(obj_index, dof_handler.hp_object_fe_ptr[d].size());
@@ -306,7 +306,7 @@ namespace internal
                             ptr);
           }
 
-        AssertIndexRange(dof_handler.is_hp_dof_handler ?
+        AssertIndexRange(dof_handler.hp_capability_enabled ?
                            (dof_handler.hp_object_fe_ptr[d][obj_index] +
                             fe_index_) :
                            obj_index,
@@ -315,7 +315,7 @@ namespace internal
         AssertIndexRange(
           dof_handler
               .object_dof_ptr[obj_level][d]
-                             [dof_handler.is_hp_dof_handler ?
+                             [dof_handler.hp_capability_enabled ?
                                 (dof_handler.hp_object_fe_ptr[d][obj_index] +
                                  fe_index_) :
                                 obj_index] +
@@ -326,7 +326,7 @@ namespace internal
           [obj_level][d]
           [dof_handler.object_dof_ptr
              [obj_level][d]
-             [dof_handler.is_hp_dof_handler ?
+             [dof_handler.hp_capability_enabled ?
                 (dof_handler.hp_object_fe_ptr[d][obj_index] + fe_index_) :
                 obj_index] +
            local_index] = global_index;
@@ -351,7 +351,7 @@ namespace internal
                ExcNotImplemented());
 
         // 1) no hp used -> fe_index == 0
-        if (dof_handler.is_hp_dof_handler == false)
+        if (dof_handler.hp_capability_enabled == false)
           {
             Assert(fe_index == 0, ExcNotImplemented());
 
@@ -381,7 +381,7 @@ namespace internal
 
         unsigned int fe_index_;
 
-        if (dof_handler.is_hp_dof_handler)
+        if (dof_handler.hp_capability_enabled)
           {
             AssertIndexRange(d, dof_handler.hp_object_fe_ptr.size());
             AssertIndexRange(obj_index, dof_handler.hp_object_fe_ptr[d].size());
@@ -403,7 +403,7 @@ namespace internal
                             ptr);
           }
 
-        AssertIndexRange(dof_handler.is_hp_dof_handler ?
+        AssertIndexRange(dof_handler.hp_capability_enabled ?
                            (dof_handler.hp_object_fe_ptr[d][obj_index] +
                             fe_index_) :
                            obj_index,
@@ -412,7 +412,7 @@ namespace internal
         AssertIndexRange(
           dof_handler
               .object_dof_ptr[obj_level][d]
-                             [dof_handler.is_hp_dof_handler ?
+                             [dof_handler.hp_capability_enabled ?
                                 (dof_handler.hp_object_fe_ptr[d][obj_index] +
                                  fe_index_) :
                                 obj_index] +
@@ -423,7 +423,7 @@ namespace internal
           [obj_level][d]
           [dof_handler.object_dof_ptr
              [obj_level][d]
-             [dof_handler.is_hp_dof_handler ?
+             [dof_handler.hp_capability_enabled ?
                 (dof_handler.hp_object_fe_ptr[d][obj_index] + fe_index_) :
                 obj_index] +
            local_index];
@@ -437,7 +437,7 @@ namespace internal
                           const unsigned int    vertex_index,
                           const unsigned int    i)
       {
-        Assert(dof_handler.is_hp_dof_handler == false,
+        Assert(dof_handler.hp_capability_enabled == false,
                ExcMessage(
                  "hp::DoFHandler does not implement multilevel DoFs."));
 
@@ -455,7 +455,7 @@ namespace internal
                               const unsigned int      i,
                               types::global_dof_index index)
       {
-        Assert(dof_handler.is_hp_dof_handler == false,
+        Assert(dof_handler.hp_capability_enabled == false,
                ExcMessage(
                  "hp::DoFHandler does not implement multilevel DoFs."));
 
@@ -481,7 +481,7 @@ namespace internal
                ExcNotImplemented());
 
         // 1) no hp used -> fe_index == 0
-        if (dof_handler.is_hp_dof_handler == false)
+        if (dof_handler.hp_capability_enabled == false)
           return 1;
 
         // 2) cell and hp is used -> there is only one fe_index
@@ -518,7 +518,7 @@ namespace internal
                ExcNotImplemented());
 
         // 1) no hp used -> fe_index == 0
-        if (dof_handler.is_hp_dof_handler == false)
+        if (dof_handler.hp_capability_enabled == false)
           return 0;
 
         // 2) cell and hp is used -> there is only one fe_index
@@ -557,7 +557,7 @@ namespace internal
                ExcNotImplemented());
 
         // 1) no hp used -> fe_index == 0
-        if (dof_handler.is_hp_dof_handler == false)
+        if (dof_handler.hp_capability_enabled == false)
           return {0};
 
         // 2) cell and hp is used -> there is only one fe_index
@@ -588,7 +588,7 @@ namespace internal
                ExcNotImplemented());
 
         // 1) no hp used -> fe_index == 0
-        if (dof_handler.is_hp_dof_handler == false)
+        if (dof_handler.hp_capability_enabled == false)
           return (fe_index == 0);
 
         // 2) cell and hp is used -> there is only one fe_index
@@ -817,7 +817,7 @@ DoFAccessor<dim, DoFHandlerType, level_dof_access>::dof_index(
   const unsigned int fe_index_) const
 {
   const unsigned int fe_index =
-    (this->dof_handler->is_hp_dof_handler == false &&
+    (this->dof_handler->hp_capability_enabled == false &&
      fe_index_ == DoFHandlerType::default_fe_index) ?
       0 :
       fe_index_;
@@ -852,7 +852,7 @@ DoFAccessor<dim, DoFHandlerType, level_dof_access>::set_dof_index(
   const unsigned int            fe_index_) const
 {
   const unsigned int fe_index =
-    (this->dof_handler->is_hp_dof_handler == false &&
+    (this->dof_handler->hp_capability_enabled == false &&
      fe_index_ == DoFHandlerType::default_fe_index) ?
       0 :
       fe_index_;
@@ -937,7 +937,7 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::vertex_dof_index(
   const unsigned int fe_index_) const
 {
   const unsigned int fe_index =
-    (this->dof_handler->is_hp_dof_handler == false &&
+    (this->dof_handler->hp_capability_enabled == false &&
      fe_index_ == DoFHandlerType::default_fe_index) ?
       0 :
       fe_index_;
@@ -961,7 +961,7 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::mg_vertex_dof_index(
   const unsigned int fe_index_) const
 {
   const unsigned int fe_index =
-    (this->dof_handler->is_hp_dof_handler == false &&
+    (this->dof_handler->hp_capability_enabled == false &&
      fe_index_ == DoFHandlerType::default_fe_index) ?
       0 :
       fe_index_;
@@ -970,7 +970,7 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::mg_vertex_dof_index(
   AssertIndexRange(vertex, GeometryInfo<structdim>::vertices_per_cell);
   AssertIndexRange(i, this->dof_handler->get_fe(fe_index).dofs_per_vertex);
 
-  Assert(dof_handler->is_hp_dof_handler == false,
+  Assert(dof_handler->hp_capability_enabled == false,
          ExcMessage("hp::DoFHandler does not implement multilevel DoFs."));
 
   return this->dof_handler->mg_vertex_dofs[this->vertex_index(vertex)]
@@ -987,7 +987,7 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::set_vertex_dof_index(
   const unsigned int            fe_index_) const
 {
   const unsigned int fe_index =
-    (this->dof_handler->is_hp_dof_handler == false &&
+    (this->dof_handler->hp_capability_enabled == false &&
      fe_index_ == DoFHandlerType::default_fe_index) ?
       0 :
       fe_index_;
@@ -1013,7 +1013,7 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::
                           const unsigned int            fe_index_) const
 {
   const unsigned int fe_index =
-    (this->dof_handler->is_hp_dof_handler == false &&
+    (this->dof_handler->hp_capability_enabled == false &&
      fe_index_ == DoFHandlerType::default_fe_index) ?
       0 :
       fe_index_;
@@ -1022,7 +1022,7 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::
   AssertIndexRange(vertex, GeometryInfo<structdim>::vertices_per_cell);
   AssertIndexRange(i, this->dof_handler->get_fe(fe_index).dofs_per_vertex);
 
-  Assert(dof_handler->is_hp_dof_handler == false,
+  Assert(dof_handler->hp_capability_enabled == false,
          ExcMessage("hp::DoFHandler does not implement multilevel DoFs."));
 
   this->dof_handler->mg_vertex_dofs[this->vertex_index(vertex)].set_index(
@@ -1310,7 +1310,7 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::get_dof_indices(
   Assert(this->dof_handler != nullptr, ExcInvalidObject());
 
   const unsigned int fe_index =
-    (this->dof_handler->is_hp_dof_handler == false &&
+    (this->dof_handler->hp_capability_enabled == false &&
      fe_index_ == DoFHandlerType::default_fe_index) ?
       0 :
       fe_index_;
@@ -1391,7 +1391,7 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::get_mg_dof_indices(
   Assert(this->dof_handler != nullptr, ExcInvalidObject());
 
   const unsigned int fe_index =
-    (this->dof_handler->is_hp_dof_handler == false &&
+    (this->dof_handler->hp_capability_enabled == false &&
      fe_index_ == DoFHandlerType::default_fe_index) ?
       0 :
       fe_index_;
@@ -1455,7 +1455,7 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::set_mg_dof_indices(
   Assert(this->dof_handler != nullptr, ExcInvalidObject());
 
   const unsigned int fe_index =
-    (this->dof_handler->is_hp_dof_handler == false &&
+    (this->dof_handler->hp_capability_enabled == false &&
      fe_index_ == DoFHandlerType::default_fe_index) ?
       0 :
       fe_index_;
@@ -1714,7 +1714,7 @@ DoFAccessor<0, DoFHandlerType<1, spacedim>, level_dof_access>::get_dof_indices(
   const unsigned int                    fe_index_) const
 {
   const unsigned int fe_index =
-    (this->dof_handler->is_hp_dof_handler == false &&
+    (this->dof_handler->hp_capability_enabled == false &&
      fe_index_ == DoFHandlerType<1, spacedim>::default_fe_index) ?
       0 :
       fe_index_;
@@ -1741,7 +1741,7 @@ DoFAccessor<0, DoFHandlerType<1, spacedim>, level_dof_access>::
                      const unsigned int                    fe_index_) const
 {
   const unsigned int fe_index =
-    (this->dof_handler->is_hp_dof_handler == false &&
+    (this->dof_handler->hp_capability_enabled == false &&
      fe_index_ == DoFHandlerType<1, spacedim>::default_fe_index) ?
       0 :
       fe_index_;
@@ -1765,7 +1765,7 @@ DoFAccessor<0, DoFHandlerType<1, spacedim>, level_dof_access>::vertex_dof_index(
   const unsigned int fe_index_) const
 {
   const unsigned int fe_index =
-    (this->dof_handler->is_hp_dof_handler == false &&
+    (this->dof_handler->hp_capability_enabled == false &&
      fe_index_ == DoFHandlerType<1, spacedim>::default_fe_index) ?
       0 :
       fe_index_;
@@ -1792,7 +1792,7 @@ DoFAccessor<0, DoFHandlerType<1, spacedim>, level_dof_access>::dof_index(
   const unsigned int fe_index_) const
 {
   const unsigned int fe_index =
-    (this->dof_handler->is_hp_dof_handler == false &&
+    (this->dof_handler->hp_capability_enabled == false &&
      fe_index_ == DoFHandlerType<1, spacedim>::default_fe_index) ?
       0 :
       fe_index_;
@@ -2119,7 +2119,7 @@ namespace internal
       active_fe_index(
         const DoFCellAccessor<DoFHandlerType, level_dof_access> &accessor)
       {
-        if (accessor.dof_handler->is_hp_dof_handler == false)
+        if (accessor.dof_handler->hp_capability_enabled == false)
           return 0; // ::DoFHandler only supports a single active fe with index
                     // zero
 
@@ -2146,7 +2146,7 @@ namespace internal
         const DoFCellAccessor<DoFHandlerType, level_dof_access> &accessor,
         const unsigned int                                       i)
       {
-        if (accessor.dof_handler->is_hp_dof_handler == false)
+        if (accessor.dof_handler->hp_capability_enabled == false)
           {
             // ::DoFHandler only supports a single active fe with index zero
             Assert(i == 0,
@@ -2178,7 +2178,7 @@ namespace internal
       future_fe_index(
         const DoFCellAccessor<DoFHandlerType, level_dof_access> &accessor)
       {
-        if (accessor.dof_handler->is_hp_dof_handler == false)
+        if (accessor.dof_handler->hp_capability_enabled == false)
           return 0; // ::DoFHandler only supports a single active fe with index
                     // zero
 
@@ -2210,7 +2210,7 @@ namespace internal
         const DoFCellAccessor<DoFHandlerType, level_dof_access> &accessor,
         const unsigned int                                       i)
       {
-        if (accessor.dof_handler->is_hp_dof_handler == false)
+        if (accessor.dof_handler->hp_capability_enabled == false)
           {
             // ::DoFHandler only supports a single active fe with index zero
             Assert(i == 0,
@@ -2242,7 +2242,7 @@ namespace internal
       future_fe_index_set(
         const DoFCellAccessor<DoFHandlerType, level_dof_access> &accessor)
       {
-        if (accessor.dof_handler->is_hp_dof_handler == false)
+        if (accessor.dof_handler->hp_capability_enabled == false)
           return false; // ::DoFHandler only supports a single active fe with
                         // index zero
 
@@ -2270,7 +2270,7 @@ namespace internal
       clear_future_fe_index(
         const DoFCellAccessor<DoFHandlerType, level_dof_access> &accessor)
       {
-        if (accessor.dof_handler->is_hp_dof_handler == false)
+        if (accessor.dof_handler->hp_capability_enabled == false)
           return; // ::DoFHandler only supports a single active fe with index
                   // zero
 
@@ -2651,7 +2651,8 @@ inline const FiniteElement<DoFHandlerType::dimension,
 DoFCellAccessor<DoFHandlerType, level_dof_access>::get_fe() const
 {
   Assert(this->dof_handler != nullptr, typename BaseClass::ExcInvalidObject());
-  Assert((this->dof_handler->is_hp_dof_handler == false) || this->is_active(),
+  Assert((this->dof_handler->hp_capability_enabled == false) ||
+           this->is_active(),
          ExcMessage(
            "In hp::DoFHandler objects, finite elements are only associated "
            "with active cells. Consequently, you can not ask for the "
@@ -2666,13 +2667,14 @@ template <typename DoFHandlerType, bool level_dof_access>
 inline unsigned int
 DoFCellAccessor<DoFHandlerType, level_dof_access>::active_fe_index() const
 {
-  Assert((this->dof_handler->is_hp_dof_handler == false) || this->is_active(),
+  Assert((this->dof_handler->hp_capability_enabled == false) ||
+           this->is_active(),
          ExcMessage(
            "You can not ask for the active_fe_index on a cell that has "
            "children because no degrees of freedom are assigned "
            "to this cell and, consequently, no finite element "
            "is associated with it."));
-  Assert((this->dof_handler->is_hp_dof_handler == false) ||
+  Assert((this->dof_handler->hp_capability_enabled == false) ||
            (this->is_locally_owned() || this->is_ghost()),
          ExcMessage("You can only query active_fe_index information on cells "
                     "that are either locally owned or (after distributing "
@@ -2689,12 +2691,13 @@ inline void
 DoFCellAccessor<DoFHandlerType, level_dof_access>::set_active_fe_index(
   const unsigned int i) const
 {
-  Assert((this->dof_handler->is_hp_dof_handler == false) || this->is_active(),
+  Assert((this->dof_handler->hp_capability_enabled == false) ||
+           this->is_active(),
          ExcMessage("You can not set the active_fe_index on a cell that has "
                     "children because no degrees of freedom will be assigned "
                     "to this cell."));
 
-  Assert((this->dof_handler->is_hp_dof_handler == false) ||
+  Assert((this->dof_handler->hp_capability_enabled == false) ||
            this->is_locally_owned(),
          ExcMessage("You can only set active_fe_index information on cells "
                     "that are locally owned. On ghost cells, this information "
@@ -2714,7 +2717,8 @@ inline const FiniteElement<DoFHandlerType::dimension,
 DoFCellAccessor<DoFHandlerType, level_dof_access>::get_future_fe() const
 {
   Assert(this->dof_handler != nullptr, typename BaseClass::ExcInvalidObject());
-  Assert((this->dof_handler->is_hp_dof_handler == false) || this->is_active(),
+  Assert((this->dof_handler->hp_capability_enabled == false) ||
+           this->is_active(),
          ExcMessage(
            "In hp::DoFHandler objects, finite elements are only associated "
            "with active cells. Consequently, you can not ask for the "
@@ -2729,14 +2733,14 @@ template <typename DoFHandlerType, bool level_dof_access>
 inline unsigned int
 DoFCellAccessor<DoFHandlerType, level_dof_access>::future_fe_index() const
 {
-  Assert((this->dof_handler->is_hp_dof_handler == false) ||
+  Assert((this->dof_handler->hp_capability_enabled == false) ||
            (this->has_children() == false),
          ExcMessage(
            "You can not ask for the future_fe_index on a cell that has "
            "children because no degrees of freedom are assigned "
            "to this cell and, consequently, no finite element "
            "is associated with it."));
-  Assert((this->dof_handler->is_hp_dof_handler == false) ||
+  Assert((this->dof_handler->hp_capability_enabled == false) ||
            (this->is_locally_owned()),
          ExcMessage("You can only query future_fe_index information on cells "
                     "that are locally owned."));
@@ -2752,13 +2756,13 @@ inline void
 DoFCellAccessor<DoFHandlerType, level_dof_access>::set_future_fe_index(
   const unsigned int i) const
 {
-  Assert((this->dof_handler->is_hp_dof_handler == false) ||
+  Assert((this->dof_handler->hp_capability_enabled == false) ||
            (this->has_children() == false),
          ExcMessage("You can not set the future_fe_index on a cell that has "
                     "children because no degrees of freedom will be assigned "
                     "to this cell."));
 
-  Assert((this->dof_handler->is_hp_dof_handler == false) ||
+  Assert((this->dof_handler->hp_capability_enabled == false) ||
            this->is_locally_owned(),
          ExcMessage("You can only set future_fe_index information on cells "
                     "that are locally owned."));
@@ -2773,14 +2777,14 @@ template <typename DoFHandlerType, bool level_dof_access>
 inline bool
 DoFCellAccessor<DoFHandlerType, level_dof_access>::future_fe_index_set() const
 {
-  Assert((this->dof_handler->is_hp_dof_handler == false) ||
+  Assert((this->dof_handler->hp_capability_enabled == false) ||
            (this->has_children() == false),
          ExcMessage(
            "You can not ask for the future_fe_index on a cell that has "
            "children because no degrees of freedom are assigned "
            "to this cell and, consequently, no finite element "
            "is associated with it."));
-  Assert((this->dof_handler->is_hp_dof_handler == false) ||
+  Assert((this->dof_handler->hp_capability_enabled == false) ||
            (this->is_locally_owned()),
          ExcMessage("You can only query future_fe_index information on cells "
                     "that are locally owned."));
@@ -2795,14 +2799,14 @@ template <typename DoFHandlerType, bool level_dof_access>
 inline void
 DoFCellAccessor<DoFHandlerType, level_dof_access>::clear_future_fe_index() const
 {
-  Assert((this->dof_handler->is_hp_dof_handler == false) ||
+  Assert((this->dof_handler->hp_capability_enabled == false) ||
            (this->has_children() == false),
          ExcMessage(
            "You can not ask for the future_fe_index on a cell that has "
            "children because no degrees of freedom are assigned "
            "to this cell and, consequently, no finite element "
            "is associated with it."));
-  Assert((this->dof_handler->is_hp_dof_handler == false) ||
+  Assert((this->dof_handler->hp_capability_enabled == false) ||
            (this->is_locally_owned()),
          ExcMessage("You can only query future_fe_index information on cells "
                     "that are locally owned."));

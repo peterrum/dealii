@@ -642,7 +642,7 @@ namespace internal
         const unsigned int local_index,
         const std::integral_constant<int, 1>)
       {
-        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
+        Assert(dof_handler.hp_capability_enabled == false, ExcNotImplemented());
 
         return mg_level->dof_object.get_dof_index(
           static_cast<const DoFHandler<1, spacedim> &>(dof_handler),
@@ -684,7 +684,7 @@ namespace internal
         const unsigned int local_index,
         const std::integral_constant<int, 2>)
       {
-        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
+        Assert(dof_handler.hp_capability_enabled == false, ExcNotImplemented());
         return mg_level->dof_object.get_dof_index(
           static_cast<const DoFHandler<2, spacedim> &>(dof_handler),
           obj_index,
@@ -705,7 +705,7 @@ namespace internal
         const unsigned int local_index,
         const std::integral_constant<int, 1>)
       {
-        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
+        Assert(dof_handler.hp_capability_enabled == false, ExcNotImplemented());
         return mg_faces->lines.get_dof_index(
           static_cast<const DoFHandler<3, spacedim> &>(dof_handler),
           obj_index,
@@ -726,7 +726,7 @@ namespace internal
         const unsigned int local_index,
         const std::integral_constant<int, 2>)
       {
-        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
+        Assert(dof_handler.hp_capability_enabled == false, ExcNotImplemented());
         return mg_faces->quads.get_dof_index(
           static_cast<const DoFHandler<3, spacedim> &>(dof_handler),
           obj_index,
@@ -747,7 +747,7 @@ namespace internal
         const unsigned int local_index,
         const std::integral_constant<int, 3>)
       {
-        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
+        Assert(dof_handler.hp_capability_enabled == false, ExcNotImplemented());
         return mg_level->dof_object.get_dof_index(
           static_cast<const DoFHandler<3, spacedim> &>(dof_handler),
           obj_index,
@@ -769,7 +769,7 @@ namespace internal
         const types::global_dof_index global_index,
         const std::integral_constant<int, 1>)
       {
-        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
+        Assert(dof_handler.hp_capability_enabled == false, ExcNotImplemented());
         mg_level->dof_object.set_dof_index(
           static_cast<const DoFHandler<1, spacedim> &>(dof_handler),
           obj_index,
@@ -792,7 +792,7 @@ namespace internal
         const types::global_dof_index global_index,
         const std::integral_constant<int, 1>)
       {
-        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
+        Assert(dof_handler.hp_capability_enabled == false, ExcNotImplemented());
         mg_faces->lines.set_dof_index(
           static_cast<const DoFHandler<2, spacedim> &>(dof_handler),
           obj_index,
@@ -815,7 +815,7 @@ namespace internal
         const types::global_dof_index global_index,
         const std::integral_constant<int, 2>)
       {
-        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
+        Assert(dof_handler.hp_capability_enabled == false, ExcNotImplemented());
         mg_level->dof_object.set_dof_index(
           static_cast<const DoFHandler<2, spacedim> &>(dof_handler),
           obj_index,
@@ -838,7 +838,7 @@ namespace internal
         const types::global_dof_index global_index,
         const std::integral_constant<int, 1>)
       {
-        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
+        Assert(dof_handler.hp_capability_enabled == false, ExcNotImplemented());
         mg_faces->lines.set_dof_index(
           static_cast<const DoFHandler<3, spacedim> &>(dof_handler),
           obj_index,
@@ -861,7 +861,7 @@ namespace internal
         const types::global_dof_index global_index,
         const std::integral_constant<int, 2>)
       {
-        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
+        Assert(dof_handler.hp_capability_enabled == false, ExcNotImplemented());
         mg_faces->quads.set_dof_index(
           static_cast<const DoFHandler<3, spacedim> &>(dof_handler),
           obj_index,
@@ -884,7 +884,7 @@ namespace internal
         const types::global_dof_index global_index,
         const std::integral_constant<int, 3>)
       {
-        Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
+        Assert(dof_handler.hp_capability_enabled == false, ExcNotImplemented());
         mg_level->dof_object.set_dof_index(
           static_cast<const DoFHandler<3, spacedim> &>(dof_handler),
           obj_index,
@@ -1648,7 +1648,8 @@ namespace internal
         static void
         communicate_active_fe_indices(DoFHandler<dim, spacedim> &dof_handler)
         {
-          Assert(dof_handler.is_hp_dof_handler == true, ExcNotImplemented());
+          Assert(dof_handler.hp_capability_enabled == true,
+                 ExcNotImplemented());
 
           if (const dealii::parallel::shared::Triangulation<dim, spacedim> *tr =
                 dynamic_cast<
@@ -1930,8 +1931,8 @@ namespace internal
 
 
 template <int dim, int spacedim>
-DoFHandler<dim, spacedim>::DoFHandler(const bool is_hp_dof_handler)
-  : is_hp_dof_handler(is_hp_dof_handler)
+DoFHandler<dim, spacedim>::DoFHandler(const bool hp_capability_enabled)
+  : hp_capability_enabled(hp_capability_enabled)
   , tria(nullptr, typeid(*this).name())
   , mg_faces(nullptr)
 {}
@@ -1940,12 +1941,12 @@ DoFHandler<dim, spacedim>::DoFHandler(const bool is_hp_dof_handler)
 
 template <int dim, int spacedim>
 DoFHandler<dim, spacedim>::DoFHandler(const Triangulation<dim, spacedim> &tria,
-                                      const bool is_hp_dof_handler)
-  : is_hp_dof_handler(is_hp_dof_handler)
+                                      const bool hp_capability_enabled)
+  : hp_capability_enabled(hp_capability_enabled)
   , tria(&tria, typeid(*this).name())
   , mg_faces(nullptr)
 {
-  if (is_hp_dof_handler)
+  if (hp_capability_enabled)
     {
       this->setup_policy_and_listeners();
       this->create_active_fe_table();
@@ -1959,7 +1960,7 @@ DoFHandler<dim, spacedim>::DoFHandler(const Triangulation<dim, spacedim> &tria,
 template <int dim, int spacedim>
 DoFHandler<dim, spacedim>::~DoFHandler()
 {
-  if (is_hp_dof_handler)
+  if (hp_capability_enabled)
     {
       // unsubscribe as a listener to refinement of the underlying
       // triangulation
@@ -2005,7 +2006,7 @@ void
 DoFHandler<dim, spacedim>::initialize(const Triangulation<dim, spacedim> &tria,
                                       const hp::FECollection<dim, spacedim> &fe)
 {
-  if (is_hp_dof_handler)
+  if (hp_capability_enabled)
     {
       this->clear();
 
@@ -2218,7 +2219,7 @@ template <int dim, int spacedim>
 types::global_dof_index
 DoFHandler<dim, spacedim>::n_boundary_dofs() const
 {
-  Assert(!(dim == 2 && spacedim == 3) || is_hp_dof_handler == false,
+  Assert(!(dim == 2 && spacedim == 3) || hp_capability_enabled == false,
          ExcNotImplemented());
 
   Assert(this->fe_collection.size() > 0, ExcNoFESelected());
@@ -2267,7 +2268,7 @@ types::global_dof_index
 DoFHandler<dim, spacedim>::n_boundary_dofs(
   const std::set<types::boundary_id> &boundary_ids) const
 {
-  Assert(!(dim == 2 && spacedim == 3) || is_hp_dof_handler == false,
+  Assert(!(dim == 2 && spacedim == 3) || hp_capability_enabled == false,
          ExcNotImplemented());
 
   Assert(this->fe_collection.size() > 0, ExcNoFESelected());
@@ -2331,7 +2332,7 @@ DoFHandler<dim, spacedim>::memory_consumption() const
          MemoryConsumption::memory_consumption(hp_cell_future_fe_indices);
 
 
-  if (is_hp_dof_handler)
+  if (hp_capability_enabled)
     {
       // nothing to add
     }
@@ -2385,7 +2386,7 @@ DoFHandler<dim, spacedim>::set_fe(const hp::FECollection<dim, spacedim> &ff)
   if (this->fe_collection != ff)
     this->fe_collection = hp::FECollection<dim, spacedim>(ff);
 
-  if (is_hp_dof_handler)
+  if (hp_capability_enabled)
     {
       // ensure that the active_fe_indices vectors are initialized correctly
       this->create_active_fe_table();
@@ -2422,7 +2423,7 @@ void
 DoFHandler<dim, spacedim>::distribute_dofs(
   const hp::FECollection<dim, spacedim> &ff)
 {
-  if (is_hp_dof_handler)
+  if (hp_capability_enabled)
     {
       object_dof_indices.resize(this->tria->n_levels());
       object_dof_ptr.resize(this->tria->n_levels());
@@ -2536,7 +2537,7 @@ template <int dim, int spacedim>
 void
 DoFHandler<dim, spacedim>::distribute_mg_dofs()
 {
-  AssertThrow(is_hp_dof_handler == false, ExcNotImplemented());
+  AssertThrow(hp_capability_enabled == false, ExcNotImplemented());
 
   Assert(
     this->object_dof_indices.size() > 0,
@@ -2568,7 +2569,7 @@ template <int dim, int spacedim>
 void
 DoFHandler<dim, spacedim>::initialize_local_block_info()
 {
-  AssertThrow(is_hp_dof_handler == false, ExcNotImplemented());
+  AssertThrow(hp_capability_enabled == false, ExcNotImplemented());
 
   this->block_info_object.initialize_local(*this);
 }
@@ -2605,7 +2606,7 @@ template <int dim, int spacedim>
 void
 DoFHandler<dim, spacedim>::clear()
 {
-  if (is_hp_dof_handler)
+  if (hp_capability_enabled)
     {
       // release memory
       this->clear_space();
@@ -2632,7 +2633,7 @@ DoFHandler<dim, spacedim>::clear_space()
 
   object_dof_ptr.clear();
 
-  if (is_hp_dof_handler)
+  if (hp_capability_enabled)
     {
       this->hp_cell_active_fe_indices.clear();
       this->hp_cell_future_fe_indices.clear();
@@ -2668,7 +2669,7 @@ void
 DoFHandler<dim, spacedim>::renumber_dofs(
   const std::vector<types::global_dof_index> &new_numbers)
 {
-  if (is_hp_dof_handler)
+  if (hp_capability_enabled)
     {
       Assert(this->hp_cell_future_fe_indices.size() > 0,
              ExcMessage(
@@ -2781,7 +2782,7 @@ DoFHandler<dim, spacedim>::renumber_dofs(
   const unsigned int                          level,
   const std::vector<types::global_dof_index> &new_numbers)
 {
-  AssertThrow(is_hp_dof_handler == false, ExcNotImplemented());
+  AssertThrow(hp_capability_enabled == false, ExcNotImplemented());
 
   Assert(
     this->mg_levels.size() > 0 && this->object_dof_indices.size() > 0,
@@ -2871,7 +2872,7 @@ DoFHandler<dim, spacedim>::get_dof_index(const unsigned int obj_level,
                                          const unsigned int fe_index,
                                          const unsigned int local_index) const
 {
-  if (is_hp_dof_handler)
+  if (hp_capability_enabled)
     {
       Assert(false, ExcNotImplemented());
       return numbers::invalid_dof_index;
@@ -2901,7 +2902,7 @@ DoFHandler<dim, spacedim>::set_dof_index(
   const unsigned int            local_index,
   const types::global_dof_index global_index) const
 {
-  if (is_hp_dof_handler)
+  if (hp_capability_enabled)
     {
       Assert(false, ExcNotImplemented());
       return;
@@ -3054,7 +3055,7 @@ template <int dim, int spacedim>
 void
 DoFHandler<dim, spacedim>::create_active_fe_table()
 {
-  AssertThrow(is_hp_dof_handler == true, ExcNotImplemented());
+  AssertThrow(hp_capability_enabled == true, ExcNotImplemented());
 
 
   // Create sufficiently many hp::DoFLevels.

@@ -427,7 +427,7 @@ public:
   /**
    * Make the type of this DoFHandler available in function templates.
    */
-  const bool is_hp_dof_handler;
+  const bool hp_capability_enabled;
 
   /**
    * The default index of the finite element to be used on a given cell. Since
@@ -463,13 +463,13 @@ public:
    * object with this constructor, use initialize() to make a valid
    * DoFHandler.
    */
-  DoFHandler(const bool is_hp_dof_handler = false);
+  DoFHandler(const bool hp_capability_enabled = false);
 
   /**
    * Constructor. Take @p tria as the triangulation to work on.
    */
   DoFHandler(const Triangulation<dim, spacedim> &tria,
-             const bool                          is_hp_dof_handler = false);
+             const bool                          hp_capability_enabled = false);
 
   /**
    * Copy constructor. DoFHandler objects are large and expensive.
@@ -1893,7 +1893,7 @@ template <int dim, int spacedim>
 inline const BlockInfo &
 DoFHandler<dim, spacedim>::block_info() const
 {
-  Assert(this->is_hp_dof_handler == false, ExcNotImplemented());
+  Assert(this->hp_capability_enabled == false, ExcNotImplemented());
 
   return block_info_object;
 }
@@ -1907,7 +1907,7 @@ DoFHandler<dim, spacedim>::n_boundary_dofs(
   const std::map<types::boundary_id, const Function<spacedim, number> *>
     &boundary_ids) const
 {
-  Assert(!(dim == 2 && spacedim == 3) || this->is_hp_dof_handler == false,
+  Assert(!(dim == 2 && spacedim == 3) || this->hp_capability_enabled == false,
          ExcNotImplemented());
 
   // extract the set of boundary ids and forget about the function object
@@ -1948,7 +1948,7 @@ template <class Archive>
 void
 DoFHandler<dim, spacedim>::save(Archive &ar, const unsigned int) const
 {
-  if (this->is_hp_dof_handler)
+  if (this->hp_capability_enabled)
     {
       ar & this->object_dof_indices;
       ar & this->object_dof_ptr;
@@ -2004,7 +2004,7 @@ template <class Archive>
 void
 DoFHandler<dim, spacedim>::load(Archive &ar, const unsigned int)
 {
-  if (this->is_hp_dof_handler)
+  if (this->hp_capability_enabled)
     {
       ar & this->object_dof_indices;
       ar & this->object_dof_ptr;

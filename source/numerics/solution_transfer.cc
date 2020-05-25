@@ -201,7 +201,7 @@ namespace internal
   extract_interpolation_matrices(const dealii::DoFHandler<dim, spacedim> &dof,
                                  dealii::Table<2, FullMatrix<double>> &matrices)
   {
-    if (dof.is_hp_dof_handler == false)
+    if (dof.hp_capability_enabled == false)
       return;
 
     const dealii::hp::FECollection<dim, spacedim> &fe = dof.get_fe_collection();

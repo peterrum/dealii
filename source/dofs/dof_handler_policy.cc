@@ -222,7 +222,8 @@ namespace internal
         compute_vertex_dof_identities(
           const DoFHandler<dim, spacedim> &dof_handler)
         {
-          Assert(dof_handler.is_hp_dof_handler == true, ExcNotImplemented());
+          Assert(dof_handler.hp_capability_enabled == true,
+                 ExcNotImplemented());
 
           std::map<types::global_dof_index, types::global_dof_index>
             dof_identities;
@@ -380,7 +381,8 @@ namespace internal
         compute_line_dof_identities(const DoFHandler<1, spacedim> &dof_handler)
         {
           (void)dof_handler;
-          Assert(dof_handler.is_hp_dof_handler == true, ExcNotImplemented());
+          Assert(dof_handler.hp_capability_enabled == true,
+                 ExcNotImplemented());
 
           return std::map<types::global_dof_index, types::global_dof_index>();
         }
@@ -391,7 +393,8 @@ namespace internal
         compute_line_dof_identities(
           const DoFHandler<dim, spacedim> &dof_handler)
         {
-          Assert(dof_handler.is_hp_dof_handler == true, ExcNotImplemented());
+          Assert(dof_handler.hp_capability_enabled == true,
+                 ExcNotImplemented());
 
           std::map<types::global_dof_index, types::global_dof_index>
             dof_identities;
@@ -747,7 +750,8 @@ namespace internal
         {
           (void)dof_handler;
 
-          Assert(dof_handler.is_hp_dof_handler == true, ExcNotImplemented());
+          Assert(dof_handler.hp_capability_enabled == true,
+                 ExcNotImplemented());
 
           // this function should only be called for dim<3 where there are
           // no quad dof identies. for dim==3, the specialization below should
@@ -762,7 +766,8 @@ namespace internal
         static std::map<types::global_dof_index, types::global_dof_index>
         compute_quad_dof_identities(const DoFHandler<3, spacedim> &dof_handler)
         {
-          Assert(dof_handler.is_hp_dof_handler == true, ExcNotImplemented());
+          Assert(dof_handler.hp_capability_enabled == true,
+                 ExcNotImplemented());
 
           const int dim = 3;
 
@@ -899,7 +904,7 @@ namespace internal
                                  &all_constrained_indices,
                                const DoFHandler<dim, spacedim> &dof_handler)
         {
-          if (dof_handler.is_hp_dof_handler == false)
+          if (dof_handler.hp_capability_enabled == false)
             return;
 
           Assert(all_constrained_indices.size() == dim, ExcInternalError());
@@ -1026,7 +1031,7 @@ namespace internal
                           const unsigned int n_dofs_before_identification,
                           const bool         check_validity)
         {
-          if (dof_handler.is_hp_dof_handler == false)
+          if (dof_handler.hp_capability_enabled == false)
             return n_dofs_before_identification;
 
           std::vector<
@@ -1059,7 +1064,8 @@ namespace internal
         merge_invalid_vertex_dofs_on_ghost_interfaces(
           DoFHandler<dim, spacedim> &dof_handler)
         {
-          Assert(dof_handler.is_hp_dof_handler == true, ExcNotImplemented());
+          Assert(dof_handler.hp_capability_enabled == true,
+                 ExcNotImplemented());
 
           // Note: we may wish to have something here similar to what
           // we do for lines and quads, namely that we only identify
@@ -1216,7 +1222,8 @@ namespace internal
           DoFHandler<1, spacedim> &dof_handler)
         {
           (void)dof_handler;
-          Assert(dof_handler.is_hp_dof_handler == true, ExcNotImplemented());
+          Assert(dof_handler.hp_capability_enabled == true,
+                 ExcNotImplemented());
         }
 
 
@@ -1225,7 +1232,8 @@ namespace internal
         merge_invalid_line_dofs_on_ghost_interfaces(
           DoFHandler<dim, spacedim> &dof_handler)
         {
-          Assert(dof_handler.is_hp_dof_handler == true, ExcNotImplemented());
+          Assert(dof_handler.hp_capability_enabled == true,
+                 ExcNotImplemented());
 
           // we will mark lines that we have already treated, so first save and
           // clear the user flags on lines and later restore them
@@ -1490,7 +1498,8 @@ namespace internal
           DoFHandler<dim, spacedim> &dof_handler)
         {
           (void)dof_handler;
-          Assert(dof_handler.is_hp_dof_handler == true, ExcNotImplemented());
+          Assert(dof_handler.hp_capability_enabled == true,
+                 ExcNotImplemented());
 
           // this function should only be called for dim<3 where there are
           // no quad dof identies. for dim>=3, the specialization below should
@@ -1503,7 +1512,8 @@ namespace internal
         static void merge_invalid_quad_dofs_on_ghost_interfaces(
           DoFHandler<3, spacedim> &dof_handler)
         {
-          Assert(dof_handler.is_hp_dof_handler == true, ExcNotImplemented());
+          Assert(dof_handler.hp_capability_enabled == true,
+                 ExcNotImplemented());
 
           const int dim = 3;
 
@@ -1638,7 +1648,7 @@ namespace internal
         merge_invalid_dof_indices_on_ghost_interfaces(
           DoFHandler<dim, spacedim> &dof_handler)
         {
-          if (dof_handler.is_hp_dof_handler == false)
+          if (dof_handler.hp_capability_enabled == false)
             return;
 
           {
@@ -1765,7 +1775,8 @@ namespace internal
                                  DoFHandlerType &          dof_handler,
                                  const unsigned int        level)
         {
-          Assert(dof_handler.is_hp_dof_handler == false, ExcInternalError());
+          Assert(dof_handler.hp_capability_enabled == false,
+                 ExcInternalError());
 
           const unsigned int dim      = DoFHandlerType::dimension;
           const unsigned int spacedim = DoFHandlerType::space_dimension;
@@ -1835,7 +1846,7 @@ namespace internal
           DoFHandler<dim, spacedim> &                 dof_handler,
           const bool                                  check_validity)
         {
-          if (dof_handler.is_hp_dof_handler == false)
+          if (dof_handler.hp_capability_enabled == false)
             {
               // we can not use cell iterators in this function since then
               // we would renumber the dofs on the interface of two cells
@@ -1991,7 +2002,7 @@ namespace internal
           const IndexSet &                            indices_we_care_about,
           DoFHandler<dim, spacedim> &                 dof_handler)
         {
-          if (dof_handler.is_hp_dof_handler == false)
+          if (dof_handler.hp_capability_enabled == false)
             {
               for (unsigned int level = 0;
                    level < dof_handler.object_dof_indices.size();
@@ -2079,7 +2090,7 @@ namespace internal
         {
           const unsigned int dim = 2;
 
-          if (dof_handler.is_hp_dof_handler == false)
+          if (dof_handler.hp_capability_enabled == false)
             {
               for (unsigned int d = 1; d < dim; d++)
                 for (auto &i : dof_handler.object_dof_indices[0][d])
@@ -2189,7 +2200,7 @@ namespace internal
         {
           const unsigned int dim = 3;
 
-          if (dof_handler.is_hp_dof_handler == false)
+          if (dof_handler.hp_capability_enabled == false)
             {
               for (unsigned int d = 1; d < dim; d++)
                 for (auto &i : dof_handler.object_dof_indices[0][d])
@@ -2727,7 +2738,8 @@ namespace internal
           const unsigned int         level,
           const bool                 check_validity)
         {
-          Assert(dof_handler.is_hp_dof_handler == false, ExcNotImplemented());
+          Assert(dof_handler.hp_capability_enabled == false,
+                 ExcNotImplemented());
 
           Assert(level < dof_handler.get_triangulation().n_global_levels(),
                  ExcInternalError());

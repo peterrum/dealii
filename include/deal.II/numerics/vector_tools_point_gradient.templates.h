@@ -48,7 +48,7 @@ namespace VectorTools
     std::vector<Tensor<1, spacedim, typename VectorType::value_type>>
       &gradients)
   {
-    if (dof.is_hp_dof_handler == false)
+    if (dof.hp_capability_enabled == false)
       point_gradient(StaticMappingQ1<dim, spacedim>::mapping,
                      dof,
                      fe_function,
@@ -69,7 +69,7 @@ namespace VectorTools
                  const VectorType &               fe_function,
                  const Point<spacedim> &          point)
   {
-    if (dof.is_hp_dof_handler == false)
+    if (dof.hp_capability_enabled == false)
       return point_gradient(StaticMappingQ1<dim, spacedim>::mapping,
                             dof,
                             fe_function,

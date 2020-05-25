@@ -47,7 +47,7 @@ namespace VectorTools
               const Point<spacedim> &                  point,
               Vector<typename VectorType::value_type> &value)
   {
-    if (dof.is_hp_dof_handler == false)
+    if (dof.hp_capability_enabled == false)
       point_value(StaticMappingQ1<dim, spacedim>::mapping,
                   dof,
                   fe_function,
@@ -68,7 +68,7 @@ namespace VectorTools
               const VectorType &               fe_function,
               const Point<spacedim> &          point)
   {
-    if (dof.is_hp_dof_handler == false)
+    if (dof.hp_capability_enabled == false)
       return point_value(StaticMappingQ1<dim, spacedim>::mapping,
                          dof,
                          fe_function,
@@ -316,7 +316,7 @@ namespace VectorTools
                              const Point<spacedim> &          p,
                              Vector<double> &                 rhs_vector)
   {
-    if (dof_handler.is_hp_dof_handler)
+    if (dof_handler.hp_capability_enabled)
       create_point_source_vector(hp::StaticMappingQ1<dim>::mapping_collection,
                                  dof_handler,
                                  p,
@@ -419,7 +419,7 @@ namespace VectorTools
                              const Point<dim> &               orientation,
                              Vector<double> &                 rhs_vector)
   {
-    if (dof_handler.is_hp_dof_handler)
+    if (dof_handler.hp_capability_enabled)
       create_point_source_vector(hp::StaticMappingQ1<dim>::mapping_collection,
                                  dof_handler,
                                  p,

@@ -2841,7 +2841,7 @@ namespace DoFTools
   inline unsigned int
   max_dofs_per_cell(const DoFHandler<dim, spacedim> &dh)
   {
-    if (dh.is_hp_dof_handler == true)
+    if (dh.hp_capability_enabled == true)
       return dh.get_fe_collection().max_dofs_per_cell();
     else
       return dh.get_fe().dofs_per_cell;
@@ -2852,7 +2852,7 @@ namespace DoFTools
   inline unsigned int
   max_dofs_per_face(const DoFHandler<dim, spacedim> &dh)
   {
-    if (dh.is_hp_dof_handler == true)
+    if (dh.hp_capability_enabled == true)
       return dh.get_fe_collection().max_dofs_per_face();
     else
       return dh.get_fe().dofs_per_face;
@@ -2863,7 +2863,7 @@ namespace DoFTools
   inline unsigned int
   max_dofs_per_vertex(const DoFHandler<dim, spacedim> &dh)
   {
-    if (dh.is_hp_dof_handler == true)
+    if (dh.hp_capability_enabled == true)
       return dh.get_fe_collection().max_dofs_per_vertex();
     else
       return dh.get_fe().dofs_per_vertex;
@@ -2874,7 +2874,7 @@ namespace DoFTools
   inline unsigned int
   n_components(const DoFHandler<dim, spacedim> &dh)
   {
-    if (dh.is_hp_dof_handler == true)
+    if (dh.hp_capability_enabled == true)
       return dh.get_fe(0).n_components();
     else
       return dh.get_fe().n_components();
@@ -2886,7 +2886,7 @@ namespace DoFTools
   inline bool
   fe_is_primitive(const DoFHandler<dim, spacedim> &dh)
   {
-    if (dh.is_hp_dof_handler == true)
+    if (dh.hp_capability_enabled == true)
       return dh.get_fe(0).is_primitive();
     else
       return dh.get_fe().is_primitive();
