@@ -253,8 +253,9 @@ namespace MGTransferUtil
     unsigned int
     translate(const T &cell, const unsigned int i) const
     {
-      return translate(cell) * GeometryInfo<dim>::max_children_per_cell + i +
-             tree_sizes[cell->level()];
+      return (translate(cell) - tree_sizes[cell->level()]) *
+               GeometryInfo<dim>::max_children_per_cell +
+             i + tree_sizes[cell->level() + 1];
     }
 
     CellId
@@ -428,6 +429,25 @@ namespace MGTransferUtil
 
       std::vector<unsigned int> ghost_indices;
 
+      // process local cells
+      {
+        std::vector<types::global_dof_index> indices(dofs_per_cell);
+
+        for (const auto id : is_dst_locally_owned)
+          {
+            const auto cell_id = cell_id_translator.to_cell_id(id);
+
+            typename MeshType::cell_iterator cell_(*cell_id.to_cell(tria_dst),
+                                                   &dof_handler_dst);
+
+            cell_->get_dof_indices(indices);
+
+            ghost_indices.insert(ghost_indices.end(),
+                                 indices.begin(),
+                                 indices.end());
+          }
+      }
+
       {
         std::map<unsigned int, std::vector<unsigned int>> rank_to_ids;
 
@@ -494,9 +514,6 @@ namespace MGTransferUtil
       this->is_extendende_ghosts.add_indices(ghost_indices.begin(),
                                              ghost_indices.end());
       this->is_extendende_ghosts.subtract_set(this->is_extended_locally_owned);
-
-      is_extended_locally_owned.print(std::cout);
-      is_extendende_ghosts.print(std::cout);
     }
 
     FineDoFHandlerViewCell
@@ -740,7 +757,7 @@ namespace MGTransferUtil
                              VectorRepartitioner<dim, Number> &transfer)
   {
     const auto view =
-      PermutationFineDoFHandlerView(dof_handler_src, dof_handler_dst);
+      PermutationFineDoFHandlerView<MeshType>(dof_handler_src, dof_handler_dst);
 
     const auto &is_extended_locally_owned = view.locally_owned_dofs();
     const auto &is_extendende_ghosts      = view.locally_relevant_dofs();
@@ -848,7 +865,8 @@ namespace MGTransferUtil
       // loop over all active locally-owned cells
       for (const auto cell_coarse : dof_handler_coarse.active_cell_iterators())
         {
-          if (cell_coarse->is_locally_owned() == false)
+          if (cell_coarse->is_artificial() == true ||
+              cell_coarse->is_locally_owned() == false)
             continue;
 
           // get a reference to the equivalent cell on the fine triangulation
