@@ -106,28 +106,7 @@ struct TransferScheme
    */
   template <typename Stream>
   void
-  print(Stream &out) const
-  {
-    out << "weights:" << std::endl;
-    for (const auto w : weights)
-      out << w << " ";
-    out << std::endl;
-
-    out << "level_dof_indices_fine:" << std::endl;
-    for (const auto w : level_dof_indices_fine)
-      out << w << " ";
-    out << std::endl;
-
-    out << "level_dof_indices_coarse:" << std::endl;
-    for (const auto w : level_dof_indices_coarse)
-      out << w << " ";
-    out << std::endl;
-
-    out << "prolongation_matrix_1d:" << std::endl;
-    for (const auto w : prolongation_matrix_1d)
-      out << w[0] << " ";
-    out << std::endl;
-  }
+  print(Stream &out) const;
 };
 
 
@@ -144,11 +123,7 @@ public:
    */
   template <typename Stream>
   void
-  print_internal(Stream &out) const
-  {
-    for (const auto &scheme : schemes)
-      scheme.print(out);
-  }
+  print_internal(Stream &out) const;
 
   /**
    * Perform prolongation.
@@ -236,10 +211,7 @@ public:
    * Constructor.
    */
   MGTransferMatrixFreeNew(const MGLevelObject<MatrixType> &           matrices,
-                          const MGLevelObject<Transfer<dim, Number>> &transfer)
-    : matrices(matrices)
-    , transfer(transfer)
-  {}
+                          const MGLevelObject<Transfer<dim, Number>> &transfer);
 
   /**
    * Perform prolongation.
@@ -248,10 +220,7 @@ public:
   prolongate(
     const unsigned int                                        to_level,
     dealii::LinearAlgebra::distributed::Vector<Number> &      dst,
-    const dealii::LinearAlgebra::distributed::Vector<Number> &src) const
-  {
-    this->transfer[to_level].prolongate(0 /*dummy*/, dst, src);
-  }
+    const dealii::LinearAlgebra::distributed::Vector<Number> &src) const;
 
   /**
    * Perform restriction.
@@ -260,10 +229,7 @@ public:
   restrict_and_add(
     const unsigned int                                        from_level,
     dealii::LinearAlgebra::distributed::Vector<Number> &      dst,
-    const dealii::LinearAlgebra::distributed::Vector<Number> &src) const
-  {
-    this->transfer[from_level].restrict_and_add(0 /*dummy*/, dst, src);
-  }
+    const dealii::LinearAlgebra::distributed::Vector<Number> &src) const;
 
   /**
    * Initialize internal vectors and copy @p src vector to the finest
@@ -276,17 +242,7 @@ public:
   copy_to_mg(
     const DoFHandler<dim, spacedim> &dof_handler,
     MGLevelObject<dealii::LinearAlgebra::distributed::Vector<Number>> &dst,
-    const InVector &src) const
-  {
-    (void)dof_handler;
-
-    for (unsigned int level = dst.min_level(); level <= dst.max_level();
-         ++level)
-      matrices[level].initialize_dof_vector(dst[level]);
-
-    dst[dst.max_level()].copy_locally_owned_data_from(src);
-    dst[dst.max_level()].update_ghost_values();
-  }
+    const InVector &src) const;
 
   /**
    * Initialize internal vectors and copy the values on the finest
@@ -300,13 +256,7 @@ public:
     const DoFHandler<dim, spacedim> &dof_handler,
     OutVector &                      dst,
     const MGLevelObject<dealii::LinearAlgebra::distributed::Vector<Number>>
-      &src) const
-  {
-    (void)dof_handler;
-
-    dst.copy_locally_owned_data_from(src[src.max_level()]);
-    dst.update_ghost_values();
-  }
+      &src) const;
 
 private:
   const MGLevelObject<MatrixType> &           matrices;
@@ -351,6 +301,123 @@ private:
 
   friend class MGTransferUtil::Implementation;
 };
+
+
+
+#ifndef DOXYGEN
+
+/* ----------------------- Inline functions --------------------------------- */
+
+
+
+template <typename Number>
+template <typename Stream>
+void
+TransferScheme<Number>::print(Stream &out) const
+{
+  out << "weights:" << std::endl;
+  for (const auto w : weights)
+    out << w << " ";
+  out << std::endl;
+
+  out << "level_dof_indices_fine:" << std::endl;
+  for (const auto w : level_dof_indices_fine)
+    out << w << " ";
+  out << std::endl;
+
+  out << "level_dof_indices_coarse:" << std::endl;
+  for (const auto w : level_dof_indices_coarse)
+    out << w << " ";
+  out << std::endl;
+
+  out << "prolongation_matrix_1d:" << std::endl;
+  for (const auto w : prolongation_matrix_1d)
+    out << w[0] << " ";
+  out << std::endl;
+}
+
+
+
+template <int dim, typename Number>
+template <typename Stream>
+void
+Transfer<dim, Number>::print_internal(Stream &out) const
+{
+  for (const auto &scheme : schemes)
+    scheme.print(out);
+}
+
+
+
+template <typename MatrixType>
+MGTransferMatrixFreeNew<MatrixType>::MGTransferMatrixFreeNew(
+  const MGLevelObject<MatrixType> &           matrices,
+  const MGLevelObject<Transfer<dim, Number>> &transfer)
+  : matrices(matrices)
+  , transfer(transfer)
+{}
+
+
+
+template <typename MatrixType>
+void
+MGTransferMatrixFreeNew<MatrixType>::prolongate(
+  const unsigned int                                        to_level,
+  dealii::LinearAlgebra::distributed::Vector<Number> &      dst,
+  const dealii::LinearAlgebra::distributed::Vector<Number> &src) const
+{
+  this->transfer[to_level].prolongate(0 /*dummy*/, dst, src);
+}
+
+
+
+template <typename MatrixType>
+void
+MGTransferMatrixFreeNew<MatrixType>::restrict_and_add(
+  const unsigned int                                        from_level,
+  dealii::LinearAlgebra::distributed::Vector<Number> &      dst,
+  const dealii::LinearAlgebra::distributed::Vector<Number> &src) const
+{
+  this->transfer[from_level].restrict_and_add(0 /*dummy*/, dst, src);
+}
+
+
+
+template <typename MatrixType>
+template <class InVector, int spacedim>
+void
+MGTransferMatrixFreeNew<MatrixType>::copy_to_mg(
+  const DoFHandler<dim, spacedim> &dof_handler,
+  MGLevelObject<dealii::LinearAlgebra::distributed::Vector<Number>> &dst,
+  const InVector &                                                   src) const
+{
+  (void)dof_handler;
+
+  for (unsigned int level = dst.min_level(); level <= dst.max_level(); ++level)
+    matrices[level].initialize_dof_vector(dst[level]);
+
+  dst[dst.max_level()].copy_locally_owned_data_from(src);
+  dst[dst.max_level()].update_ghost_values();
+}
+
+
+
+template <typename MatrixType>
+template <class OutVector, int spacedim>
+void
+MGTransferMatrixFreeNew<MatrixType>::copy_from_mg(
+  const DoFHandler<dim, spacedim> &dof_handler,
+  OutVector &                      dst,
+  const MGLevelObject<dealii::LinearAlgebra::distributed::Vector<Number>> &src)
+  const
+{
+  (void)dof_handler;
+
+  dst.copy_locally_owned_data_from(src[src.max_level()]);
+  dst.update_ghost_values();
+}
+
+#endif
 
 DEAL_II_NAMESPACE_CLOSE
 
