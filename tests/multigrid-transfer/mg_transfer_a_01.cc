@@ -155,6 +155,8 @@ main(int argc, char **argv)
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    all;
 
+  deallog.precision(8);
+
   for (unsigned int i = 1; i < 5; i++)
     test<2, double>(i);
 }

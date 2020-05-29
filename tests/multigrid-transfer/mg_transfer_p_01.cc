@@ -138,6 +138,8 @@ main(int argc, char **argv)
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    all;
 
+  deallog.precision(8);
+
   for (unsigned int fe_degree_fine = 1; fe_degree_fine < 5; fe_degree_fine++)
     for (unsigned int fe_degree_coarse = 1; fe_degree_coarse < 5;
          fe_degree_coarse++)
