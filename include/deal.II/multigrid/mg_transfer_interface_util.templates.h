@@ -749,70 +749,77 @@ namespace MGTransferUtil
   }
 
 
-
-  template <int dim, typename Number, typename MeshType>
-  void
-  setup_vector_repartitioner(const MeshType &                  dof_handler_src,
-                             const MeshType &                  dof_handler_dst,
-                             VectorRepartitioner<dim, Number> &transfer)
+  class Implementation
   {
-    const auto view =
-      PermutationFineDoFHandlerView<MeshType>(dof_handler_src, dof_handler_dst);
+  public:
+    template <int dim, typename Number, typename MeshType>
+    static void
+    setup_vector_repartitioner(const MeshType &dof_handler_src,
+                               const MeshType &dof_handler_dst,
+                               VectorRepartitioner<dim, Number> &transfer)
+    {
+      const auto view =
+        PermutationFineDoFHandlerView<MeshType>(dof_handler_src,
+                                                dof_handler_dst);
 
-    const auto &is_extended_locally_owned = view.locally_owned_dofs();
-    const auto &is_extendende_ghosts      = view.locally_relevant_dofs();
-    const auto  comm = get_mpi_comm(dof_handler_src); /*TODO: generalize*/
+      const auto &is_extended_locally_owned = view.locally_owned_dofs();
+      const auto &is_extendende_ghosts      = view.locally_relevant_dofs();
+      const auto  comm = get_mpi_comm(dof_handler_src); /*TODO: generalize*/
 
-    // 1) setup intermediate vector
-    transfer.extended_partitioner.reset(new Utilities::MPI::Partitioner(
-      is_extended_locally_owned, is_extendende_ghosts, comm));
+      // 1) setup intermediate vector
+      transfer.extended_partitioner.reset(new Utilities::MPI::Partitioner(
+        is_extended_locally_owned, is_extendende_ghosts, comm));
 
-    // 2) setup indices for fast copying between vector
-    transfer.indices.resize(dof_handler_dst.locally_owned_dofs().n_elements());
+      // 2) setup indices for fast copying between vector
+      transfer.indices.resize(
+        dof_handler_dst.locally_owned_dofs().n_elements());
 
-    const unsigned int dofs_per_cell =
-      dof_handler_src.get_fe_collection()[0].dofs_per_cell;
+      const unsigned int dofs_per_cell =
+        dof_handler_src.get_fe_collection()[0].dofs_per_cell;
 
-    std::vector<types::global_dof_index> indices_src(dofs_per_cell);
-    std::vector<types::global_dof_index> indices_dst(dofs_per_cell);
+      std::vector<types::global_dof_index> indices_src(dofs_per_cell);
+      std::vector<types::global_dof_index> indices_dst(dofs_per_cell);
 
-    // helper function to translate global to local index
-    const auto make_local = [&is_extended_locally_owned,
-                             &is_extendende_ghosts](const unsigned int i) {
-      if (is_extended_locally_owned.is_element(i))
-        return is_extended_locally_owned.index_within_set(i);
-      else if (is_extendende_ghosts.is_element(i))
-        return is_extended_locally_owned.n_elements() +
-               is_extendende_ghosts.index_within_set(i);
+      // helper function to translate global to local index
+      const auto make_local = [&is_extended_locally_owned,
+                               &is_extendende_ghosts](const unsigned int i) {
+        if (is_extended_locally_owned.is_element(i))
+          return is_extended_locally_owned.index_within_set(i);
+        else if (is_extendende_ghosts.is_element(i))
+          return is_extended_locally_owned.n_elements() +
+                 is_extendende_ghosts.index_within_set(i);
 
-      Assert(false, ExcNotImplemented());
+        Assert(false, ExcNotImplemented());
 
-      return typename IndexSet::size_type(0);
-    };
+        return typename IndexSet::size_type(0);
+      };
 
-    // loop over all active locally owned cells
-    for (auto cell_dst : dof_handler_dst.active_cell_iterators())
-      {
-        if (cell_dst->is_artificial() || cell_dst->is_locally_owned() == false)
-          continue;
+      // loop over all active locally owned cells
+      for (auto cell_dst : dof_handler_dst.active_cell_iterators())
+        {
+          if (cell_dst->is_artificial() ||
+              cell_dst->is_locally_owned() == false)
+            continue;
 
-        // get view on source cell (possibly remote)
-        const auto cell_src = view.get_cell(cell_dst);
+          // get view on source cell (possibly remote)
+          const auto cell_src = view.get_cell(cell_dst);
 
-        // get indices
-        cell_dst->get_dof_indices(indices_dst);
-        cell_src.get_dof_indices(indices_src);
+          // get indices
+          cell_dst->get_dof_indices(indices_dst);
+          cell_src.get_dof_indices(indices_src);
 
-        // use src/dst indeices to set up indices
-        for (unsigned int j = 0; j < dofs_per_cell; ++j)
-          {
-            if (dof_handler_dst.locally_owned_dofs().is_element(indices_dst[j]))
-              transfer.indices[dof_handler_dst.locally_owned_dofs()
-                                 .index_within_set(indices_dst[j])] =
-                make_local(indices_src[j]);
-          }
-      }
-  }
+          // use src/dst indeices to set up indices
+          for (unsigned int j = 0; j < dofs_per_cell; ++j)
+            {
+              if (dof_handler_dst.locally_owned_dofs().is_element(
+                    indices_dst[j]))
+                transfer.indices[dof_handler_dst.locally_owned_dofs()
+                                   .index_within_set(indices_dst[j])] =
+                  make_local(indices_src[j]);
+            }
+        }
+    }
+  };
 
 
 
@@ -1544,6 +1551,18 @@ namespace MGTransferUtil
           weights_[fe_pair_no] += transfer.schemes[fe_pair_no].n_cell_dofs_fine;
         });
       }
+  }
+
+
+  template <int dim, typename Number, typename MeshType>
+  void
+  setup_vector_repartitioner(const MeshType &                  dof_handler_src,
+                             const MeshType &                  dof_handler_dst,
+                             VectorRepartitioner<dim, Number> &transfer)
+  {
+    Implementation::setup_vector_repartitioner(dof_handler_src,
+                                               dof_handler_dst,
+                                               transfer);
   }
 
 } // namespace MGTransferUtil

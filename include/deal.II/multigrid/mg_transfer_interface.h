@@ -23,6 +23,11 @@
 
 DEAL_II_NAMESPACE_OPEN
 
+namespace MGTransferUtil
+{
+  class Implementation;
+}
+
 /**
  * A multigrid transfer scheme. A multrigrid transfer class can have different
  * transfer schemes to enable p-adaptivity (one transfer scheme per
@@ -179,6 +184,7 @@ public:
   update_backwards(LinearAlgebra::distributed::Vector<Number> &      dst,
                    const LinearAlgebra::distributed::Vector<Number> &src) const;
 
+private:
   /**
    * Partitioner needed by an intermediate vector, which is needed for
    * collecting all degrees of freedom of the children cells.
@@ -189,6 +195,8 @@ public:
    * Indices for copying the data from/to the intermediate vector.
    */
   std::vector<unsigned int> indices;
+
+  friend class MGTransferUtil::Implementation;
 };
 
 DEAL_II_NAMESPACE_CLOSE
