@@ -23,10 +23,13 @@
 
 DEAL_II_NAMESPACE_OPEN
 
+// Forward declarations
+#ifndef DOXYGEN
 namespace MGTransferUtil
 {
   class Implementation;
 }
+#endif
 
 /**
  * A multigrid transfer scheme. A multrigrid transfer class can have different
@@ -130,6 +133,7 @@ public:
     LinearAlgebra::distributed::Vector<Number> &      dst,
     const LinearAlgebra::distributed::Vector<Number> &src) const override;
 
+private:
   /**
    * Transfer schemes.
    */
@@ -160,6 +164,8 @@ public:
    * Constraint matrix on coarse level.
    */
   AffineConstraints<Number> constraint_coarse;
+
+  friend class MGTransferUtil::Implementation;
 };
 
 /**
