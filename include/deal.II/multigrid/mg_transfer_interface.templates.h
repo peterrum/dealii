@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2019 by the deal.II authors
+// Copyright (C) 2020 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -140,38 +140,7 @@ namespace
 
 } // namespace
 
-template <typename Number>
-void
-TransferScheme<Number>::print(std::ostream &out) const
-{
-  out << "weights:" << std::endl;
-  for (const auto w : weights)
-    out << w << " ";
-  out << std::endl;
 
-  out << "level_dof_indices_fine:" << std::endl;
-  for (const auto w : level_dof_indices_fine)
-    out << w << " ";
-  out << std::endl;
-
-  out << "level_dof_indices_coarse:" << std::endl;
-  for (const auto w : level_dof_indices_coarse)
-    out << w << " ";
-  out << std::endl;
-
-  out << "prolongation_matrix_1d:" << std::endl;
-  for (const auto w : prolongation_matrix_1d)
-    out << w[0] << " ";
-  out << std::endl;
-}
-
-template <int dim, typename Number>
-void
-Transfer<dim, Number>::print_internal(std::ostream &out) const
-{
-  for (const auto &scheme : schemes)
-    scheme.print(out);
-}
 
 template <int dim, typename Number>
 void

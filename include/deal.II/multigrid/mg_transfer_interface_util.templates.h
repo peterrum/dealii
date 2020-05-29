@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2019 by the deal.II authors
+// Copyright (C) 2020 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -966,8 +966,7 @@ namespace MGTransferUtil
         std::vector<types::global_dof_index> local_dof_indices(
           transfer.schemes[0].n_cell_dofs_coarse);
 
-        // ----------------------- lexicographic_numbering
-        // -----------------------
+        // ---------------------- lexicographic_numbering ----------------------
         std::vector<unsigned int> lexicographic_numbering;
         {
           const Quadrature<1> dummy_quadrature(
@@ -977,8 +976,7 @@ namespace MGTransferUtil
           lexicographic_numbering = shape_info.lexicographic_numbering;
         }
 
-        // ------------------------------- indices
-        // -------------------------------
+        // ------------------------------ indices ------------------------------
         unsigned int *level_dof_indices_coarse_0 =
           &transfer.schemes[0].level_dof_indices_coarse[0];
         unsigned int *level_dof_indices_fine_0 =
@@ -1055,8 +1053,7 @@ namespace MGTransferUtil
           });
       }
 
-      // -------------- prolongation matrix (0) -> identity matrix
-      // ---------------
+      // ------------- prolongation matrix (0) -> identity matrix --------------
       {
         AssertDimension(dof_handler_fine.get_fe(0).n_base_elements(), 1);
         std::string fe_name =
@@ -1079,8 +1076,7 @@ namespace MGTransferUtil
             .prolongation_matrix_1d[i + i * fe->dofs_per_cell] = Number(1.0);
       }
 
-      // ------------------------ prolongation matrix (1)
-      // ------------------------
+      // ----------------------- prolongation matrix (1) -----------------------
       {
         AssertDimension(dof_handler_fine.get_fe(0).n_base_elements(), 1);
         std::string fe_name =
@@ -1124,8 +1120,7 @@ namespace MGTransferUtil
       }
 
 
-      // -------------------------------- weights
-      // --------------------------------
+      // ------------------------------- weights -------------------------------
       if (transfer.schemes[0].fine_element_is_continuous)
         {
           LinearAlgebra::distributed::Vector<Number> touch_count, touch_count_;
@@ -1354,8 +1349,7 @@ namespace MGTransferUtil
                 transfer.schemes[fe_index_pair.second].n_cells_coarse);
 
 
-            // ----------------------- lexicographic_numbering
-            // -----------------------
+            // ------------------- lexicographic_numbering  --------------------
             {
               const Quadrature<1> dummy_quadrature(
                 std::vector<Point<1>>(1, Point<1>()));
@@ -1376,8 +1370,7 @@ namespace MGTransferUtil
             }
           }
 
-        // ------------------------------- indices
-        // -------------------------------
+        // ------------------------------ indices  -----------------------------
         std::vector<unsigned int *> level_dof_indices_coarse_(
           fe_index_pairs.size());
         std::vector<unsigned int *> level_dof_indices_fine_(
@@ -1423,10 +1416,12 @@ namespace MGTransferUtil
         });
       }
 
-      // -------------------------- prolongation matrix
-      // --------------------------
-      for (auto const &[fe_index_pair, fe_index_no] : fe_index_pairs)
+      // ------------------------- prolongation matrix -------------------------
+      for (auto const &fe_index_pair_ : fe_index_pairs)
         {
+          const auto &fe_index_pair = fe_index_pair_.first;
+          const auto &fe_index_no   = fe_index_pair_.second;
+
           AssertDimension(
             dof_handler_fine.get_fe(fe_index_pair.second).n_base_elements(), 1);
           std::string fe_name_fine =
@@ -1507,8 +1502,7 @@ namespace MGTransferUtil
                 matrix(renumbering_fine[j], renumbering_coarse[i]);
         }
 
-      // -------------------------------- weights
-      // --------------------------------
+      // ------------------------------- weights -------------------------------
       const bool fine_element_is_continuous = Utilities::MPI::max(
         static_cast<unsigned int>(
           transfer.schemes.size() > 0 ?

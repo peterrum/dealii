@@ -78,8 +78,7 @@ template <int dim, typename Number>
 void
 print(const Transfer<dim, Number> &transfer)
 {
-  for (const auto &scheme : transfer.schemes)
-    print(scheme);
+  transfer.print_internal(deallog);
 }
 
 

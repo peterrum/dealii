@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2019 by the deal.II authors
+// Copyright (C) 2020 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -26,10 +26,21 @@ DEAL_II_NAMESPACE_OPEN
 
 namespace MGTransferUtil
 {
+  /**
+   * Check if the polynomial transfer between @p fe_degree_fine and
+   * @p fe_degree_coarse is supported.
+   *
+   * @note Currently, the polynomial coarsening strategies: 1) go-to-one,
+   *   2) bisect, and 3) decrease-by-one is supported.
+   */
   bool
   polynomial_transfer_supported(const unsigned int fe_degree_fine,
                                 const unsigned int fe_degree_coarse);
 
+  /**
+   * Set up global coarsening transfer @p transfer between the given
+   * dof-handlers.
+   */
   template <int dim, typename Number, typename MeshType>
   void
   setup_global_coarsening_transfer(
@@ -39,7 +50,13 @@ namespace MGTransferUtil
     const AffineConstraints<Number> &constraint_coarse,
     Transfer<dim, Number> &          transfer);
 
-
+  /**
+   * Set up polynomial coarsening transfer @p transfer between the given
+   * dof-handlers.
+   *
+   * @note The function polynomial_transfer_supported() can be used to
+   *   check if the given polynomial coarsening strategy is supported.
+   */
   template <int dim, typename Number, typename MeshType>
   void
   setup_polynomial_transfer(const MeshType &                 dof_handler_fine,
@@ -48,6 +65,10 @@ namespace MGTransferUtil
                             const AffineConstraints<Number> &constraint_coarse,
                             Transfer<dim, Number> &          transfer);
 
+  /**
+   * Set up vector repartitioner @p transfer between dof-handler
+   * @p dof_handler_fine and @p dof_handler_coarse.
+   */
   template <int dim, typename Number, typename MeshType>
   void
   setup_vector_repartitioner(const MeshType &dof_handler_fine,

@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2019 by the deal.II authors
+// Copyright (C) 2020 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -15,6 +15,10 @@
 
 #ifndef dealii_mg_transfer_interface_h
 #define dealii_mg_transfer_interface_h
+
+#include <deal.II/base/mg_level_object.h>
+
+#include <deal.II/dofs/dof_handler.h>
 
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/la_parallel_vector.h>
@@ -97,8 +101,33 @@ struct TransferScheme
    */
   std::vector<unsigned int> level_dof_indices_fine;
 
+  /**
+   * Print internal data structures to stream @p out.
+   */
+  template <typename Stream>
   void
-  print(std::ostream &out) const;
+  print(Stream &out) const
+  {
+    out << "weights:" << std::endl;
+    for (const auto w : weights)
+      out << w << " ";
+    out << std::endl;
+
+    out << "level_dof_indices_fine:" << std::endl;
+    for (const auto w : level_dof_indices_fine)
+      out << w << " ";
+    out << std::endl;
+
+    out << "level_dof_indices_coarse:" << std::endl;
+    for (const auto w : level_dof_indices_coarse)
+      out << w << " ";
+    out << std::endl;
+
+    out << "prolongation_matrix_1d:" << std::endl;
+    for (const auto w : prolongation_matrix_1d)
+      out << w[0] << " ";
+    out << std::endl;
+  }
 };
 
 
@@ -113,8 +142,13 @@ public:
   /**
    * Print internal data structures to stream @p out.
    */
+  template <typename Stream>
   void
-  print_internal(std::ostream &out) const;
+  print_internal(Stream &out) const
+  {
+    for (const auto &scheme : schemes)
+      scheme.print(out);
+  }
 
   /**
    * Perform prolongation.
