@@ -101,12 +101,13 @@ struct TransferScheme
   print(std::ostream &out) const;
 };
 
+
+
 /**
  * Class for transfer between two multigrid levels.
  */
 template <int dim, typename Number>
 class Transfer
-  : public MGTransferBase<LinearAlgebra::distributed::Vector<Number>>
 {
 public:
   /**
@@ -119,19 +120,17 @@ public:
    * Perform prolongation.
    */
   void
-  prolongate(
-    const unsigned int,
-    LinearAlgebra::distributed::Vector<Number> &      dst,
-    const LinearAlgebra::distributed::Vector<Number> &src) const override;
+  prolongate(const unsigned int,
+             LinearAlgebra::distributed::Vector<Number> &      dst,
+             const LinearAlgebra::distributed::Vector<Number> &src) const;
 
   /**
    * Perform restriction.
    */
   void
-  restrict_and_add(
-    const unsigned int,
-    LinearAlgebra::distributed::Vector<Number> &      dst,
-    const LinearAlgebra::distributed::Vector<Number> &src) const override;
+  restrict_and_add(const unsigned int,
+                   LinearAlgebra::distributed::Vector<Number> &      dst,
+                   const LinearAlgebra::distributed::Vector<Number> &src) const;
 
 private:
   /**
@@ -167,6 +166,120 @@ private:
 
   friend class MGTransferUtil::Implementation;
 };
+
+
+
+/**
+ * Implementation of the MGTransferBase interface for which the transfer
+ * operations is implemented in a matrix-free way based on the interpolation
+ * matrices of the underlying finite element. This requires considerably less
+ * memory than MGTransferPrebuilt and can also be considerably faster than that
+ * variant. In contrast to MGTransferMatrixFree, the user can provide separate
+ * transfer operators between each level.
+ *
+ * This class currently only works for tensor-product finite elements based on
+ * FE_Q and FE_DGQ elements. Systems involving multiple components of
+ * one of these element, as well as, systems with different elements or other
+ * elements are currently not implemented.
+ */
+template <typename MatrixType>
+class MGTransferMatrixFreeNew
+  : public dealii::MGTransferBase<dealii::LinearAlgebra::distributed::Vector<
+      typename MatrixType::value_type>>
+{
+public:
+  /**
+   * Dimension.
+   */
+  static const int dim = MatrixType::dim;
+
+  /**
+   * Value type.
+   */
+  using Number = typename MatrixType::value_type;
+
+  /**
+   * Constructor.
+   */
+  MGTransferMatrixFreeNew(const MGLevelObject<MatrixType> &           matrices,
+                          const MGLevelObject<Transfer<dim, Number>> &transfer)
+    : matrices(matrices)
+    , transfer(transfer)
+  {}
+
+  /**
+   * Perform prolongation.
+   */
+  void
+  prolongate(
+    const unsigned int                                        to_level,
+    dealii::LinearAlgebra::distributed::Vector<Number> &      dst,
+    const dealii::LinearAlgebra::distributed::Vector<Number> &src) const
+  {
+    this->transfer[to_level].prolongate(0 /*dummy*/, dst, src);
+  }
+
+  /**
+   * Perform restriction.
+   */
+  virtual void
+  restrict_and_add(
+    const unsigned int                                        from_level,
+    dealii::LinearAlgebra::distributed::Vector<Number> &      dst,
+    const dealii::LinearAlgebra::distributed::Vector<Number> &src) const
+  {
+    this->transfer[from_level].restrict_and_add(0 /*dummy*/, dst, src);
+  }
+
+  /**
+   * Initialize internal vectors and copy @p src vector to the finest
+   * multigrid level.
+   *
+   * @note DoFHandler is not needed here, but is required by the interface.
+   */
+  template <class InVector, int spacedim>
+  void
+  copy_to_mg(
+    const DoFHandler<dim, spacedim> &dof_handler,
+    MGLevelObject<dealii::LinearAlgebra::distributed::Vector<Number>> &dst,
+    const InVector &src) const
+  {
+    (void)dof_handler;
+
+    for (unsigned int level = dst.min_level(); level <= dst.max_level();
+         ++level)
+      matrices[level].initialize_dof_vector(dst[level]);
+
+    dst[dst.max_level()].copy_locally_owned_data_from(src);
+    dst[dst.max_level()].update_ghost_values();
+  }
+
+  /**
+   * Initialize internal vectors and copy the values on the finest
+   * multigrid level to @p dst vector.
+   *
+   * @note DoFHandler is not needed here, but is required by the interface.
+   */
+  template <class OutVector, int spacedim>
+  void
+  copy_from_mg(
+    const DoFHandler<dim, spacedim> &dof_handler,
+    OutVector &                      dst,
+    const MGLevelObject<dealii::LinearAlgebra::distributed::Vector<Number>>
+      &src) const
+  {
+    (void)dof_handler;
+
+    dst.copy_locally_owned_data_from(src[src.max_level()]);
+    dst.update_ghost_values();
+  }
+
+private:
+  const MGLevelObject<MatrixType> &           matrices;
+  const MGLevelObject<Transfer<dim, Number>> &transfer;
+};
+
+
 
 /**
  * Class for repartitioning data living on the same triangulation, which
