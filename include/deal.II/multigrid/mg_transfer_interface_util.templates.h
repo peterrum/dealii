@@ -584,7 +584,7 @@ namespace MGTransferUtil
       const bool is_cell_remotly_owned = this->is_dst_remote.is_element(id);
 
       return FineDoFHandlerViewCell(
-        [cell, c, this]() {
+        [cell]() {
           AssertThrow(false, ExcNotImplemented()); // currently we do not need
                                                    // children of children
 
