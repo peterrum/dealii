@@ -313,6 +313,13 @@ namespace internal
       void
       serialize(Archive &ar, const unsigned int version);
     };
+
+    /**
+     * TODO
+     */
+    template <int, int>
+    class Policy;
+
   } // namespace TriangulationImplementation
 } // namespace internal
 
@@ -3453,6 +3460,13 @@ protected:
 
 
 private:
+  /**
+   * TODO
+   */
+  std::unique_ptr<
+    dealii::internal::TriangulationImplementation::Policy<dim, spacedim>>
+    policy;
+
   /**
    * If add_periodicity() is called, this variable stores the given periodic
    * face pairs on level 0 for later access during the identification of ghost
