@@ -821,6 +821,8 @@ GridIn<dim, spacedim>::read_ucd(std::istream &in,
   std::vector<CellData<dim>> cells;
   SubCellData                subcelldata;
 
+  bool hex_mesh = true;
+
   for (unsigned int cell = 0; cell < n_cells; ++cell)
     {
       // note that since in the input
@@ -841,13 +843,18 @@ GridIn<dim, spacedim>::read_ucd(std::istream &in,
       in >> cell_type;
 
       if (((cell_type == "line") && (dim == 1)) ||
+          ((cell_type == "tri") && (dim == 2)) ||
           ((cell_type == "quad") && (dim == 2)) ||
+          ((cell_type == "tet") && (dim == 3)) ||
           ((cell_type == "hex") && (dim == 3)))
         // found a cell
         {
+          const auto &geometry_info = create_dynamic_geometry_info(cell_type);
+
           // allocate and read indices
           cells.emplace_back();
-          for (const unsigned int i : GeometryInfo<dim>::vertex_indices())
+          cells.back().vertices.resize(geometry_info.n_vertices());
+          for (const unsigned int i : geometry_info.vertex_indices())
             in >> cells.back().vertices[i];
 
           // to make sure that the cast won't fail
@@ -864,23 +871,30 @@ GridIn<dim, spacedim>::read_ucd(std::istream &in,
               static_cast<types::manifold_id>(material_id);
           cells.back().material_id = material_id;
 
-          // transform from ucd to
-          // consecutive numbering
-          for (const unsigned int i : GeometryInfo<dim>::vertex_indices())
-            if (vertex_indices.find(cells.back().vertices[i]) !=
-                vertex_indices.end())
-              // vertex with this index exists
-              cells.back().vertices[i] =
-                vertex_indices[cells.back().vertices[i]];
-            else
-              {
-                // no such vertex index
-                AssertThrow(false,
-                            ExcInvalidVertexIndex(cell,
-                                                  cells.back().vertices[i]));
+          if (cell_type == "line" || cell_type == "quad" || cell_type == "hex")
+            {
+              // transform from ucd to
+              // consecutive numbering
+              for (const unsigned int i : geometry_info.vertex_indices())
+                if (vertex_indices.find(cells.back().vertices[i]) !=
+                    vertex_indices.end())
+                  // vertex with this index exists
+                  cells.back().vertices[i] =
+                    vertex_indices[cells.back().vertices[i]];
+                else
+                  {
+                    // no such vertex index
+                    AssertThrow(
+                      false,
+                      ExcInvalidVertexIndex(cell, cells.back().vertices[i]));
 
-                cells.back().vertices[i] = numbers::invalid_unsigned_int;
-              }
+                    cells.back().vertices[i] = numbers::invalid_unsigned_int;
+                  }
+            }
+          else
+            {
+              hex_mesh = false; // TODO
+            }
         }
       else if ((cell_type == "line") && ((dim == 2) || (dim == 3)))
         // boundary info
@@ -993,14 +1007,25 @@ GridIn<dim, spacedim>::read_ucd(std::istream &in,
 
   AssertThrow(in, ExcIO());
 
-  // do some clean-up on vertices...
-  GridTools::delete_unused_vertices(vertices, cells, subcelldata);
-  // ... and cells
-  if (dim == spacedim)
-    GridReordering<dim, spacedim>::invert_all_cells_of_negative_grid(vertices,
-                                                                     cells);
-  GridReordering<dim, spacedim>::reorder_cells(cells);
-  tria->create_triangulation_compatibility(vertices, cells, subcelldata);
+  if (hex_mesh) // TODO
+    {
+      // do some clean-up on vertices...
+      GridTools::delete_unused_vertices(vertices, cells, subcelldata);
+      // ... and cells
+      if (dim == spacedim)
+        GridReordering<dim, spacedim>::invert_all_cells_of_negative_grid(
+          vertices, cells);
+      GridReordering<dim, spacedim>::reorder_cells(cells);
+      tria->create_triangulation_compatibility(vertices, cells, subcelldata);
+    }
+  else
+    {
+      for (auto &cell : cells)
+        for (auto &vertex : cell.vertices)
+          vertex -= 1;
+
+      tria->create_triangulation(vertices, cells, subcelldata);
+    }
 }
 
 namespace

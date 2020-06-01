@@ -19,6 +19,7 @@
 
 #include <deal.II/fe/mapping_q1.h>
 
+#include <deal.II/grid/connectivity.h>
 #include <deal.II/grid/grid_tools.h>
 #include <deal.II/grid/magic_numbers.h>
 #include <deal.II/grid/manifold.h>
@@ -1363,6 +1364,12 @@ namespace internal
             new_size * GeometryInfo<2>::lines_per_cell -
               tria_faces.quads_line_orientations.size(),
             true);
+
+          tria_faces.quad_entity_type.reserve(new_size);
+          tria_faces.quad_entity_type.insert(
+            tria_faces.quad_entity_type.end(),
+            new_size - tria_faces.quad_entity_type.size(),
+            3 /*TODO*/);
         }
     }
 
@@ -1459,6 +1466,18 @@ namespace internal
                   tria_level.face_orientations.size(),
                 true);
             }
+
+
+          {
+            const unsigned char default_value =
+              tria_level.dim == 1 ? 1 : (tria_level.dim == 2 ? 3 : 5); // TODO
+
+            tria_level.entity_type.reserve(total_cells);
+            tria_level.entity_type.insert(tria_level.entity_type.end(),
+                                          total_cells -
+                                            tria_level.entity_type.size(),
+                                          default_value);
+          }
         }
     }
 
@@ -1759,6 +1778,448 @@ namespace internal
                                   tria_object.children.size()));
         }
     }
+
+
+
+    /**
+     * An interface for algorithms that implement Triangulation-specific tasks
+     * related to creation, refinement, and coarsening.
+     *
+     * @note It is necessary to write out the functions for all possible
+     *   dim/spacedim combinations here to be able to make the functions
+     *   virtual.
+     */
+    template <int dim, int spacedim>
+    class Policy
+    {
+    public:
+      /**
+       * Destructor.
+       */
+      virtual ~Policy() = default;
+
+      /**
+       * Create triangulation.
+       */
+      virtual void
+      create_triangulation(const std::vector<Point<1>> &   v,
+                           const std::vector<CellData<1>> &cells,
+                           const SubCellData &             subcelldata,
+                           Triangulation<1, 1> &           triangulation) = 0;
+
+      /**
+       * Same as above.
+       */
+      virtual void
+      create_triangulation(const std::vector<Point<2>> &   v,
+                           const std::vector<CellData<1>> &cells,
+                           const SubCellData &             subcelldata,
+                           Triangulation<1, 2> &           triangulation) = 0;
+
+      /**
+       * Same as above.
+       */
+      virtual void
+      create_triangulation(const std::vector<Point<3>> &   v,
+                           const std::vector<CellData<1>> &cells,
+                           const SubCellData &             subcelldata,
+                           Triangulation<1, 3> &           triangulation) = 0;
+
+      /**
+       * Same as above.
+       */
+      virtual void
+      create_triangulation(const std::vector<Point<2>> &   v,
+                           const std::vector<CellData<2>> &cells,
+                           const SubCellData &             subcelldata,
+                           Triangulation<2, 2> &           triangulation) = 0;
+
+      /**
+       * Same as above.
+       */
+      virtual void
+      create_triangulation(const std::vector<Point<3>> &   v,
+                           const std::vector<CellData<2>> &cells,
+                           const SubCellData &             subcelldata,
+                           Triangulation<2, 3> &           triangulation) = 0;
+
+      /**
+       * Same as above.
+       */
+      virtual void
+      create_triangulation(const std::vector<Point<3>> &   v,
+                           const std::vector<CellData<3>> &cells,
+                           const SubCellData &             subcelldata,
+                           Triangulation<3, 3> &           triangulation) = 0;
+
+      /**
+       * Delete children of given cell.
+       */
+      virtual void
+        delete_children(Triangulation<1, 1> &triangulation,
+                        typename Triangulation<1, 1>::cell_iterator &cell,
+                        std::vector<unsigned int> &line_cell_count,
+                        std::vector<unsigned int> &quad_cell_count) = 0;
+
+      /**
+       * Same as above.
+       */
+      virtual void
+        delete_children(Triangulation<1, 2> &triangulation,
+                        typename Triangulation<1, 2>::cell_iterator &cell,
+                        std::vector<unsigned int> &line_cell_count,
+                        std::vector<unsigned int> &quad_cell_count) = 0;
+
+      /**
+       * Same as above.
+       */
+      virtual void
+        delete_children(Triangulation<1, 3> &triangulation,
+                        typename Triangulation<1, 3>::cell_iterator &cell,
+                        std::vector<unsigned int> &line_cell_count,
+                        std::vector<unsigned int> &quad_cell_count) = 0;
+
+      /**
+       * Same as above.
+       */
+      virtual void
+        delete_children(Triangulation<2, 2> &triangulation,
+                        typename Triangulation<2, 2>::cell_iterator &cell,
+                        std::vector<unsigned int> &line_cell_count,
+                        std::vector<unsigned int> &quad_cell_count) = 0;
+
+      /**
+       * Same as above.
+       */
+      virtual void
+        delete_children(Triangulation<2, 3> &triangulation,
+                        typename Triangulation<2, 3>::cell_iterator &cell,
+                        std::vector<unsigned int> &line_cell_count,
+                        std::vector<unsigned int> &quad_cell_count) = 0;
+
+      /**
+       * Same as above.
+       */
+      virtual void
+        delete_children(Triangulation<3, 3> &triangulation,
+                        typename Triangulation<3, 3>::cell_iterator &cell,
+                        std::vector<unsigned int> &line_cell_count,
+                        std::vector<unsigned int> &quad_cell_count) = 0;
+
+      /**
+       * Execute refinement.
+       */
+      virtual typename Triangulation<1, 1>::DistortedCellList
+        execute_refinement(Triangulation<1, 1> &triangulation,
+                           const bool           check_for_distorted_cells) = 0;
+
+      /**
+       * Same as above.
+       */
+      virtual typename Triangulation<1, 2>::DistortedCellList
+        execute_refinement(Triangulation<1, 2> &triangulation,
+                           const bool           check_for_distorted_cells) = 0;
+
+      /**
+       * Same as above.
+       */
+      virtual typename Triangulation<1, 3>::DistortedCellList
+        execute_refinement(Triangulation<1, 3> &triangulation,
+                           const bool           check_for_distorted_cells) = 0;
+
+      /**
+       * Same as above.
+       */
+      virtual typename Triangulation<2, 2>::DistortedCellList
+        execute_refinement(Triangulation<2, 2> &triangulation,
+                           const bool           check_for_distorted_cells) = 0;
+
+      /**
+       * Same as above.
+       */
+      virtual typename Triangulation<2, 3>::DistortedCellList
+        execute_refinement(Triangulation<2, 3> &triangulation,
+                           const bool           check_for_distorted_cells) = 0;
+
+      /**
+       * Same as above.
+       */
+      virtual typename Triangulation<3, 3>::DistortedCellList
+        execute_refinement(Triangulation<3, 3> &triangulation,
+                           const bool           check_for_distorted_cells) = 0;
+
+      /**
+       * Prevent distorted boundary cells.
+       */
+      virtual void
+      prevent_distorted_boundary_cells(
+        Triangulation<dim, spacedim> &triangulation) = 0;
+
+      /**
+       * Prepare refinement.
+       */
+      virtual void
+      prepare_refinement_dim_dependent(
+        Triangulation<dim, spacedim> &triangulation) = 0;
+
+      /**
+       * Check if coarsening is allowed for the given cell.
+       */
+      virtual bool
+      coarsening_allowed(
+        const typename Triangulation<dim, spacedim>::cell_iterator &cell) = 0;
+
+      /**
+       * A sort of virtual copy constructor, this function returns a copy of
+       * the policy object. Derived classes need to override the function here
+       * in this base class and return an object of the same type as the derived
+       * class.
+       */
+      virtual std::unique_ptr<Policy<dim, spacedim>>
+      clone() = 0;
+    };
+
+    /**
+     * A simple implementation of the interface Policy. It simply delegates the
+     * task to the functions with the same name provided by class specified by
+     * the template argument T.
+     *
+     * If the class T provides different
+     * implementations for different dim/spacedim, this class selects implicitly
+     * the right one.In a certain sense, this class functions a a jump table.
+     */
+    template <int dim, int spacedim, typename T>
+    class PolicyWrapper : public Policy<dim, spacedim>
+    {
+    public:
+      void
+      create_triangulation(const std::vector<Point<1>> &   v,
+                           const std::vector<CellData<1>> &cells,
+                           const SubCellData &             subcelldata,
+                           Triangulation<1, 1> &triangulation) override
+      {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 1);
+
+        T::create_triangulation(v, cells, subcelldata, triangulation);
+      }
+
+      void
+      create_triangulation(const std::vector<Point<2>> &   v,
+                           const std::vector<CellData<1>> &cells,
+                           const SubCellData &             subcelldata,
+                           Triangulation<1, 2> &triangulation) override
+      {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 2);
+
+        T::create_triangulation(v, cells, subcelldata, triangulation);
+      }
+
+      void
+      create_triangulation(const std::vector<Point<3>> &   v,
+                           const std::vector<CellData<1>> &cells,
+                           const SubCellData &             subcelldata,
+                           Triangulation<1, 3> &triangulation) override
+      {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 3);
+
+        T::create_triangulation(v, cells, subcelldata, triangulation);
+      }
+
+      void
+      create_triangulation(const std::vector<Point<2>> &   v,
+                           const std::vector<CellData<2>> &cells,
+                           const SubCellData &             subcelldata,
+                           Triangulation<2, 2> &triangulation) override
+      {
+        AssertDimension(dim, 2);
+        AssertDimension(spacedim, 2);
+
+        T::create_triangulation(v, cells, subcelldata, triangulation);
+      }
+
+      void
+      create_triangulation(const std::vector<Point<3>> &   v,
+                           const std::vector<CellData<2>> &cells,
+                           const SubCellData &             subcelldata,
+                           Triangulation<2, 3> &triangulation) override
+      {
+        AssertDimension(dim, 2);
+        AssertDimension(spacedim, 3);
+
+        T::create_triangulation(v, cells, subcelldata, triangulation);
+      }
+
+      void
+      create_triangulation(const std::vector<Point<3>> &   v,
+                           const std::vector<CellData<3>> &cells,
+                           const SubCellData &             subcelldata,
+                           Triangulation<3, 3> &triangulation) override
+      {
+        AssertDimension(dim, 3);
+        AssertDimension(spacedim, 3);
+
+        T::create_triangulation(v, cells, subcelldata, triangulation);
+      }
+
+
+      void delete_children(Triangulation<1, 1> &                        tria,
+                           typename Triangulation<1, 1>::cell_iterator &cell,
+                           std::vector<unsigned int> &line_cell_count,
+                           std::vector<unsigned int> &quad_cell_count) override
+      {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 1);
+
+        T::delete_children(tria, cell, line_cell_count, quad_cell_count);
+      }
+
+      void delete_children(Triangulation<1, 2> &                        tria,
+                           typename Triangulation<1, 2>::cell_iterator &cell,
+                           std::vector<unsigned int> &line_cell_count,
+                           std::vector<unsigned int> &quad_cell_count) override
+      {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 2);
+
+        T::delete_children(tria, cell, line_cell_count, quad_cell_count);
+      }
+
+      void delete_children(Triangulation<1, 3> &                        tria,
+                           typename Triangulation<1, 3>::cell_iterator &cell,
+                           std::vector<unsigned int> &line_cell_count,
+                           std::vector<unsigned int> &quad_cell_count) override
+      {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 3);
+
+        T::delete_children(tria, cell, line_cell_count, quad_cell_count);
+      }
+
+      void delete_children(Triangulation<2, 2> &                        tria,
+                           typename Triangulation<2, 2>::cell_iterator &cell,
+                           std::vector<unsigned int> &line_cell_count,
+                           std::vector<unsigned int> &quad_cell_count) override
+      {
+        AssertDimension(dim, 2);
+        AssertDimension(spacedim, 2);
+
+        T::delete_children(tria, cell, line_cell_count, quad_cell_count);
+      }
+
+      void delete_children(Triangulation<2, 3> &                        tria,
+                           typename Triangulation<2, 3>::cell_iterator &cell,
+                           std::vector<unsigned int> &line_cell_count,
+                           std::vector<unsigned int> &quad_cell_count) override
+      {
+        AssertDimension(dim, 2);
+        AssertDimension(spacedim, 3);
+
+        T::delete_children(tria, cell, line_cell_count, quad_cell_count);
+      }
+
+      void delete_children(Triangulation<3, 3> &                        tria,
+                           typename Triangulation<3, 3>::cell_iterator &cell,
+                           std::vector<unsigned int> &line_cell_count,
+                           std::vector<unsigned int> &quad_cell_count) override
+      {
+        AssertDimension(dim, 3);
+        AssertDimension(spacedim, 3);
+
+        T::delete_children(tria, cell, line_cell_count, quad_cell_count);
+      }
+
+      typename Triangulation<1, 1>::DistortedCellList
+        execute_refinement(Triangulation<1, 1> &triangulation,
+                           const bool check_for_distorted_cells) override
+      {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 1);
+
+        return T::execute_refinement(triangulation, check_for_distorted_cells);
+      }
+
+      typename Triangulation<1, 2>::DistortedCellList
+        execute_refinement(Triangulation<1, 2> &triangulation,
+                           const bool check_for_distorted_cells) override
+      {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 2);
+
+        return T::execute_refinement(triangulation, check_for_distorted_cells);
+      }
+
+      typename Triangulation<1, 3>::DistortedCellList
+        execute_refinement(Triangulation<1, 3> &triangulation,
+                           const bool check_for_distorted_cells) override
+      {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 3);
+
+        return T::execute_refinement(triangulation, check_for_distorted_cells);
+      }
+
+      typename Triangulation<2, 2>::DistortedCellList
+        execute_refinement(Triangulation<2, 2> &triangulation,
+                           const bool check_for_distorted_cells) override
+      {
+        AssertDimension(dim, 2);
+        AssertDimension(spacedim, 2);
+
+        return T::execute_refinement(triangulation, check_for_distorted_cells);
+      }
+
+      typename Triangulation<2, 3>::DistortedCellList
+        execute_refinement(Triangulation<2, 3> &triangulation,
+                           const bool check_for_distorted_cells) override
+      {
+        AssertDimension(dim, 2);
+        AssertDimension(spacedim, 3);
+
+        return T::execute_refinement(triangulation, check_for_distorted_cells);
+      }
+
+      typename Triangulation<3, 3>::DistortedCellList
+        execute_refinement(Triangulation<3, 3> &triangulation,
+                           const bool check_for_distorted_cells) override
+      {
+        AssertDimension(dim, 3);
+        AssertDimension(spacedim, 3);
+
+        return T::execute_refinement(triangulation, check_for_distorted_cells);
+      }
+
+      void
+      prevent_distorted_boundary_cells(
+        Triangulation<dim, spacedim> &triangulation) override
+      {
+        T::prevent_distorted_boundary_cells(triangulation);
+      }
+
+      void
+      prepare_refinement_dim_dependent(
+        Triangulation<dim, spacedim> &triangulation) override
+      {
+        T::prepare_refinement_dim_dependent(triangulation);
+      }
+
+      bool
+      coarsening_allowed(
+        const typename Triangulation<dim, spacedim>::cell_iterator &cell)
+        override
+      {
+        return T::template coarsening_allowed<dim, spacedim>(cell);
+      }
+
+      std::unique_ptr<Policy<dim, spacedim>>
+      clone() override
+      {
+        return std::unique_ptr<Policy<dim, spacedim>>(
+          new PolicyWrapper<dim, spacedim, T>());
+      }
+    };
 
     /**
      * A class into which we put many of the functions that implement
@@ -9947,8 +10408,8 @@ namespace internal
        * specialization).
        */
       template <int spacedim>
-      static void
-      prevent_distorted_boundary_cells(const Triangulation<1, spacedim> &);
+      static void prevent_distorted_boundary_cells(Triangulation<1, spacedim> &)
+      {}
 
 
       template <int dim, int spacedim>
@@ -10032,19 +10493,11 @@ namespace internal
        */
       template <int dim, int spacedim>
       static void
-      prepare_refinement_dim_dependent(const Triangulation<dim, spacedim> &)
+      prepare_refinement_dim_dependent(
+        Triangulation<dim, spacedim> &triangulation)
       {
-        Assert(dim < 3,
-               ExcMessage("Wrong function called -- there should "
-                          "be a specialization."));
-      }
-
-
-      template <int spacedim>
-      static void prepare_refinement_dim_dependent(
-        Triangulation<3, spacedim> &triangulation)
-      {
-        const unsigned int dim = 3;
+        if (dim < 3)
+          return; // nothing to do
 
         // first clear flags on lines, since we need them to determine
         // which lines will be refined
@@ -10301,6 +10754,303 @@ namespace internal
       }
     };
 
+    struct Implementation2
+    {
+      template <int dim, int spacedim>
+      static void
+      create_triangulation(const std::vector<Point<spacedim>> &vertices,
+                           const std::vector<CellData<dim>> &  cells,
+                           const SubCellData &                 subcelldata,
+                           Triangulation<dim, spacedim> &      tria)
+      {
+        (void)subcelldata;
+
+        tria.vertices = vertices;
+
+        Tet::Connectivity<dim> connectivity;
+
+        {
+          std::vector<Tet::CellTypeEnum> cell_types;
+          std::vector<unsigned int>      cell_vertices;
+
+          for (const auto &cell : cells)
+            {
+              cell_types.push_back(Tet::CellTypeEnum::tet);
+              for (const auto &vertex : cell.vertices)
+                cell_vertices.push_back(vertex);
+            }
+
+          connectivity.build(cell_types, cell_vertices);
+        }
+
+        connectivity.print(std::cout);
+
+        tria.levels.clear();
+        tria.levels.push_back(
+          std::make_unique<
+            dealii::internal::TriangulationImplementation::TriaLevel>(dim));
+        tria.faces = std::make_unique<
+          dealii::internal::TriangulationImplementation::TriaFaces>(dim);
+
+        const unsigned int n_cell = cells.size();
+
+        // TriaLevel
+        {
+          auto &level_0 = *tria.levels[0];
+
+          level_0.active_cell_indices.assign(n_cell, 0); // the right value will
+                                                         // be set later
+          level_0.subdomain_ids.assign(n_cell, 0);
+          level_0.level_subdomain_ids.assign(n_cell, 0);
+
+          level_0.neighbors.assign(n_cell * GeometryInfo<dim>::faces_per_cell,
+                                   {-1, -1});
+
+          {
+            const auto &crs  = connectivity.table[dim][dim - 1];
+            const auto &crs_ = connectivity.table[dim - 1][dim];
+
+            for (unsigned int cell = 0; cell < cells.size(); ++cell)
+              for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
+                   ++i, ++j)
+                {
+                  unsigned int face = crs.col[i];
+                  for (unsigned int k = crs_.ptr[face]; k < crs_.ptr[face + 1];
+                       ++k)
+                    if (crs_.col[k] != cell)
+                      level_0
+                        .neighbors[cell * GeometryInfo<dim>::faces_per_cell +
+                                   j] = {0, crs_.col[k]};
+                }
+          }
+        }
+
+        // TriaObjects: cell
+        {
+          auto &cells_0 = tria.levels[0]->cells;
+          cells_0.used.assign(n_cell, true);
+          cells_0.boundary_or_material_id.assign(
+            n_cell,
+            internal::TriangulationImplementation::TriaObjects::
+              BoundaryOrMaterialId());
+          cells_0.manifold_id.assign(n_cell, 0);
+          cells_0.user_flags.assign(n_cell, false);
+
+          // TODO: this is the HEX size
+          cells_0.children.assign(GeometryInfo<dim>::max_children_per_cell / 2 *
+                                    n_cell,
+                                  -1);
+
+          // TODO: this is the HEX size
+          cells_0.cells.assign(GeometryInfo<dim>::faces_per_cell * n_cell, -1);
+
+          {
+            const auto &crs = connectivity.table[dim][dim - 1];
+
+            for (unsigned int cell = 0; cell < cells.size(); ++cell)
+              for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
+                   ++i, ++j)
+                cells_0.cells[cell * GeometryInfo<dim>::faces_per_cell + j] =
+                  crs.col[i];
+          }
+
+          tria.levels[0]->entity_type.assign(n_cell,
+                                             dim == 2 ? 2 : 4 /* TODO*/);
+
+          // if (dim == 3)
+          //  tria.levels[0]->face_orientations.assign(
+          //    n_cell * GeometryInfo<dim>::faces_per_cell, 0 /* TODO */);
+          if (dim >= 2)
+            {
+              const auto &crs = connectivity.table[dim][dim - 1];
+
+              tria.levels[0]->face_orientations.assign(
+                n_cell * GeometryInfo<dim>::faces_per_cell, -1);
+
+              for (unsigned int cell = 0; cell < cells.size(); ++cell)
+                for (unsigned int i = crs.ptr[cell], j = 0;
+                     i < crs.ptr[cell + 1];
+                     ++i, ++j)
+                  tria.levels[0]->face_orientations
+                    [cell * GeometryInfo<dim>::faces_per_cell + j] =
+                    connectivity.orientations[dim - 1][i];
+            }
+        }
+
+        // TriaObjects: quad
+        if (dim == 3)
+          {
+            auto &quads_0 = tria.faces->quads;
+
+            const unsigned int n_quads =
+              connectivity.table[2][0].ptr.size() - 1;
+
+            quads_0.used.assign(n_quads, true);
+            quads_0.boundary_or_material_id.assign(
+              n_quads,
+              internal::TriangulationImplementation::TriaObjects::
+                BoundaryOrMaterialId());
+            quads_0.manifold_id.assign(n_quads, 0);
+            quads_0.user_flags.assign(n_quads, false);
+
+            // TODO: this is the HEX size
+            quads_0.children.assign(GeometryInfo<2>::max_children_per_cell / 2 *
+                                      n_quads,
+                                    -1);
+
+            // TODO: this is the HEX size
+            quads_0.cells.assign(GeometryInfo<2>::faces_per_cell * n_quads, -1);
+
+            {
+              const auto &crs = connectivity.table[2][1];
+
+              for (unsigned int quad = 0; quad < n_quads; ++quad)
+                for (unsigned int i = crs.ptr[quad], j = 0;
+                     i < crs.ptr[quad + 1];
+                     ++i, ++j)
+                  quads_0.cells[quad * GeometryInfo<2>::faces_per_cell + j] =
+                    crs.col[i];
+            }
+
+            tria.faces->quad_entity_type.assign(n_quads, 2 /* TODO*/);
+
+            {
+              const auto &crs = connectivity.table[2][1];
+
+              tria.faces->quads_line_orientations.assign(
+                n_quads * GeometryInfo<2>::faces_per_cell, -1);
+
+              std::cout << "AAAAAAAA "
+                        << n_quads * GeometryInfo<2>::faces_per_cell
+                        << std::endl;
+              std::cout << "AAAAAAAA " << connectivity.orientations[1].size()
+                        << std::endl;
+
+              for (unsigned int quad = 0, k = 0; quad < n_quads; ++quad)
+                for (unsigned int i = crs.ptr[quad], j = 0;
+                     i < crs.ptr[quad + 1];
+                     ++i, ++j, ++k)
+                  tria.faces->quads_line_orientations
+                    [quad * GeometryInfo<2>::faces_per_cell + j] =
+                    connectivity.orientations[1][k];
+            }
+          }
+
+        // TriaObjects: line
+        if (dim >= 2)
+          {
+            auto &lines_0 = tria.faces->lines;
+
+            const unsigned int n_lines =
+              connectivity.table[1][0].ptr.size() - 1;
+
+            lines_0.used.assign(n_lines, true);
+            lines_0.boundary_or_material_id.assign(
+              n_lines,
+              internal::TriangulationImplementation::TriaObjects::
+                BoundaryOrMaterialId());
+            lines_0.manifold_id.assign(n_lines, 0);
+            lines_0.user_flags.assign(n_lines, false);
+
+            // TODO: this is the HEX size
+            lines_0.children.assign(GeometryInfo<1>::max_children_per_cell / 2 *
+                                      n_lines,
+                                    -1);
+
+            // TODO: this is the HEX size
+            lines_0.cells.assign(GeometryInfo<1>::faces_per_cell * n_lines, -1);
+
+            {
+              const auto &crs = connectivity.table[1][0];
+
+              for (unsigned int line = 0; line < n_lines; ++line)
+                for (unsigned int i = crs.ptr[line], j = 0;
+                     i < crs.ptr[line + 1];
+                     ++i, ++j)
+                  lines_0.cells[line * GeometryInfo<1>::faces_per_cell + j] =
+                    crs.col[i];
+            }
+          }
+
+
+        std::cout << "AA " << std::endl;
+        for (auto i : tria.levels[0]->cells.cells)
+          std::cout << static_cast<unsigned int>(i) << " ";
+        std::cout << std::endl;
+        for (auto i : tria.levels[0]->face_orientations)
+          std::cout << static_cast<unsigned int>(i) << " ";
+        std::cout << std::endl;
+
+        for (auto i : tria.faces->quads.cells)
+          std::cout << static_cast<unsigned int>(i) << " ";
+        std::cout << std::endl;
+        for (auto i : tria.faces->quads_line_orientations)
+          std::cout << static_cast<unsigned int>(i) << " ";
+        std::cout << std::endl;
+
+        for (auto i : tria.faces->lines.cells)
+          std::cout << static_cast<unsigned int>(i) << " ";
+        std::cout << std::endl;
+      }
+
+      template <int dim, int spacedim>
+      static void
+      delete_children(
+        Triangulation<dim, spacedim> &                        triangulation,
+        typename Triangulation<dim, spacedim>::cell_iterator &cell,
+        std::vector<unsigned int> &                           line_cell_count,
+        std::vector<unsigned int> &                           quad_cell_count)
+      {
+        Assert(false, ExcNotImplemented());
+        (void)triangulation;
+        (void)cell;
+        (void)line_cell_count;
+        (void)quad_cell_count;
+      }
+
+      template <int dim, int spacedim>
+      static typename Triangulation<dim, spacedim>::DistortedCellList
+      execute_refinement(Triangulation<dim, spacedim> &triangulation,
+                         const bool check_for_distorted_cells)
+      {
+        Assert(false, ExcNotImplemented());
+        (void)triangulation;
+        (void)check_for_distorted_cells;
+
+        return typename Triangulation<dim, spacedim>::DistortedCellList();
+      }
+
+
+      template <int dim, int spacedim>
+      static void
+      prevent_distorted_boundary_cells(
+        Triangulation<dim, spacedim> &triangulation)
+      {
+        Assert(false, ExcNotImplemented());
+        (void)triangulation;
+      }
+
+      template <int dim, int spacedim>
+      static void
+      prepare_refinement_dim_dependent(
+        Triangulation<dim, spacedim> &triangulation)
+      {
+        Assert(false, ExcNotImplemented());
+        (void)triangulation;
+      }
+
+      template <int dim, int spacedim>
+      static bool
+      coarsening_allowed(
+        const typename Triangulation<dim, spacedim>::cell_iterator &cell)
+      {
+        Assert(false, ExcNotImplemented());
+        (void)cell;
+
+        return false;
+      }
+    };
+
 
 
     template <int dim, int spacedim>
@@ -10341,6 +11091,14 @@ Triangulation<dim, spacedim>::Triangulation(
   signals.post_refinement.connect(signals.any_change);
   signals.clear.connect(signals.any_change);
   signals.mesh_movement.connect(signals.any_change);
+
+  this->geometry_info = std::vector<std::unique_ptr<DynamicGeometryInfo>>();
+  this->geometry_info.emplace_back(new DynamicGeometryInfoVertex()); // 0
+  this->geometry_info.emplace_back(new DynamicGeometryInfoLine());   // 1
+  this->geometry_info.emplace_back(new DynamicGeometryInfoTri());    // 2
+  this->geometry_info.emplace_back(new DynamicGeometryInfoQuad());   // 3
+  this->geometry_info.emplace_back(new DynamicGeometryInfoTet());    // 4
+  this->geometry_info.emplace_back(new DynamicGeometryInfoHex());    // 5
 }
 
 
@@ -10362,6 +11120,7 @@ Triangulation<dim, spacedim>::Triangulation(
   , number_cache(std::move(tria.number_cache))
   , vertex_to_boundary_id_map_1d(std::move(tria.vertex_to_boundary_id_map_1d))
   , vertex_to_manifold_id_map_1d(std::move(tria.vertex_to_manifold_id_map_1d))
+  , geometry_info(std::move(tria.geometry_info))
 {
   tria.number_cache = internal::TriangulationImplementation::NumberCache<dim>();
 }
@@ -10691,6 +11450,9 @@ Triangulation<dim, spacedim>::copy_triangulation(
           *other_tria.vertex_to_manifold_id_map_1d);
     }
 
+  if (other_tria.policy)
+    this->policy = other_tria.policy->clone();
+
   // inform those who are listening on other_tria of the copy operation
   other_tria.signals.copy(*this);
   // also inform all listeners of the current triangulation that the
@@ -10736,28 +11498,35 @@ Triangulation<dim, spacedim>::create_triangulation(
   // are used
   Assert(subcelldata.check_consistency(dim), ExcInternalError());
 
+  // choose a policy
+  const bool arbitray_mesh_provided =
+    std::any_of(cells.begin(), cells.end(), [](const auto &cell) {
+      return cell.vertices.size() != GeometryInfo<dim>::vertices_per_cell;
+    });
+
+  if (arbitray_mesh_provided == false)
+    {
+      this->policy.reset(
+        new internal::TriangulationImplementation::PolicyWrapper<
+          dim,
+          spacedim,
+          internal::TriangulationImplementation::Implementation>());
+    }
+  else
+    {
+      this->policy.reset(
+        new internal::TriangulationImplementation::PolicyWrapper<
+          dim,
+          spacedim,
+          internal::TriangulationImplementation::Implementation2>());
+    }
+
   // try to create a triangulation; if this fails, we still want to
   // throw an exception but if we just do so we'll get into trouble
   // because sometimes other objects are already attached to it:
   try
     {
-      const bool arbitray_mesh_provided =
-        std::any_of(cells.begin(), cells.end(), [](const auto &cell) {
-          return cell.vertices.size() != GeometryInfo<dim>::vertices_per_cell;
-        });
-
-      if (arbitray_mesh_provided == false)
-        {
-          internal::TriangulationImplementation::Implementation::
-            create_triangulation(v, cells, subcelldata, *this);
-        }
-      else
-        {
-          AssertThrow(
-            false,
-            ExcMessage(
-              "A cell with invalid number of vertices has been provided."));
-        }
+      this->policy->create_triangulation(v, cells, subcelldata, *this);
     }
   catch (...)
     {
@@ -13742,8 +14511,7 @@ typename Triangulation<dim, spacedim>::DistortedCellList
 Triangulation<dim, spacedim>::execute_refinement()
 {
   const DistortedCellList cells_with_distorted_children =
-    internal::TriangulationImplementation::Implementation::execute_refinement(
-      *this, check_for_distorted_cells);
+    this->policy->execute_refinement(*this, check_for_distorted_cells);
 
 
 
@@ -13826,8 +14594,10 @@ Triangulation<dim, spacedim>::execute_coarsening()
           // inform all listeners that cell coarsening is going to happen
           signals.pre_coarsening_on_cell(cell);
           // use a separate function, since this is dimension specific
-          internal::TriangulationImplementation::Implementation::
-            delete_children(*this, cell, line_cell_count, quad_cell_count);
+          this->policy->delete_children(*this,
+                                        cell,
+                                        line_cell_count,
+                                        quad_cell_count);
         }
 
   // re-compute number of lines and quads
@@ -14024,8 +14794,7 @@ Triangulation<dim, spacedim>::fix_coarsen_flags()
         if (cell->user_flag_set())
           // if allowed: flag the
           // children for coarsening
-          if (internal::TriangulationImplementation::Implementation::
-                template coarsening_allowed<dim, spacedim>(cell))
+          if (this->policy->coarsening_allowed(cell))
             for (unsigned int c = 0; c < cell->n_children(); ++c)
               {
                 Assert(cell->child(c)->refine_flag_set() == false,
@@ -14795,8 +15564,7 @@ Triangulation<dim, spacedim>::prepare_coarsening_and_refinement()
       //  volume or at least with a part, that is negative, if the
       //  cell is refined anisotropically. we have to check, whether
       //  that can happen
-      internal::TriangulationImplementation::Implementation::
-        prevent_distorted_boundary_cells(*this);
+      this->policy->prevent_distorted_boundary_cells(*this);
 
       /////////////////////////////////
       // STEP 6:
@@ -15258,8 +16026,7 @@ Triangulation<dim, spacedim>::prepare_coarsening_and_refinement()
       //    take care that no double refinement
       //    is done at each line in 3d or higher
       //    dimensions.
-      internal::TriangulationImplementation::Implementation::
-        prepare_refinement_dim_dependent(*this);
+      this->policy->prepare_refinement_dim_dependent(*this);
 
       //////////////////////////////////////
       // STEP 8:

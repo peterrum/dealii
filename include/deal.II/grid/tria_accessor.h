@@ -25,6 +25,7 @@
 #include <deal.II/base/point.h>
 
 #include <deal.II/grid/cell_id.h>
+#include <deal.II/grid/entity.h>
 #include <deal.II/grid/tria_iterator_base.h>
 #include <deal.II/grid/tria_iterator_selector.h>
 
@@ -1609,6 +1610,97 @@ public:
    * @}
    */
 
+  /**
+   * TODO
+   */
+  inline unsigned int
+  entity_type_index() const
+  {
+    if (structdim == 0)
+      return 0;
+    else if (structdim == 1)
+      return 1;
+    else if (structdim == dim)
+      return this->tria->levels[this->present_level]
+        ->entity_type[this->present_index];
+    else
+      return this->tria->faces->quad_entity_type[this->present_index];
+  }
+
+  inline const DynamicGeometryInfo &
+  entity() const
+  {
+    return *this->tria->geometry_info[this->entity_type_index()];
+  }
+
+  /**
+   * TODO
+   */
+  inline unsigned int
+  n_vertices() const
+  {
+    if (structdim == 0)
+      return 0;
+    else if (structdim == 1)
+      return 2;
+    else
+      return this->entity().n_vertices();
+  }
+
+  /**
+   * TODO
+   */
+  inline unsigned int
+  n_lines() const
+  {
+    if (structdim == 0)
+      return 0;
+    else if (structdim == 1)
+      return 1;
+    else
+      return this->entity().n_lines();
+  }
+
+  /**
+   * @note Only implemented for cells.
+   */
+  inline unsigned int
+  n_faces() const
+  {
+    AssertDimension(structdim, dim);
+
+    if (dim == 1)
+      return 2;
+    else
+      return this->entity().n_faces();
+  }
+
+  /**
+   * TODO
+   */
+  inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
+  vertex_indices() const
+  {
+    return {0U, n_vertices()};
+  }
+
+  /**
+   * TODO
+   */
+  inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
+  line_indices() const
+  {
+    return {0U, n_lines()};
+  }
+
+  /**
+   * @note Only implemented for cells.
+   */
+  inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
+  face_indices() const
+  {
+    return {0U, n_faces()};
+  }
 
 private:
   /**
@@ -2628,6 +2720,57 @@ public:
   bool
   used() const;
 
+  /**
+   * TODO
+   */
+  inline unsigned int
+  entity_type_index() const
+  {
+    return 0;
+  }
+
+  inline const DynamicGeometryInfo &
+  entity() const
+  {
+    return *this->tria->geometry_info[this->entity_type_index()];
+  }
+
+  /**
+   * TODO
+   */
+  inline unsigned int
+  n_vertices() const
+  {
+    return 1;
+  }
+
+  /**
+   * TODO
+   */
+  inline unsigned int
+  n_lines() const
+  {
+    return 0;
+  }
+
+  /**
+   * TODO
+   */
+  inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
+  vertex_indices() const
+  {
+    return {0U, n_vertices()};
+  }
+
+  /**
+   * TODO
+   */
+  inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
+  line_indices() const
+  {
+    return {0U, n_lines()};
+  }
+
 protected:
   /**
    * Pointer to the triangulation we operate on.
@@ -2766,8 +2909,7 @@ public:
   /**
    * Return an array of iterators to all faces of this cell.
    */
-  std::array<TriaIterator<TriaAccessor<dim - 1, dim, spacedim>>,
-             GeometryInfo<dim>::faces_per_cell>
+  std::vector<TriaIterator<TriaAccessor<dim - 1, dim, spacedim>>>
   face_iterators() const;
 
   /**

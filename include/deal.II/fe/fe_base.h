@@ -20,6 +20,8 @@
 
 #include <deal.II/base/exceptions.h>
 
+#include <deal.II/grid/entity.h>
+
 #include <deal.II/lac/block_indices.h>
 
 #include <vector>
@@ -346,6 +348,13 @@ public:
    * elements such as FESystem will want to pass a different value here.
    */
   FiniteElementData(const std::vector<unsigned int> &dofs_per_object,
+                    const unsigned int               n_components,
+                    const unsigned int               degree,
+                    const Conformity                 conformity = unknown,
+                    const BlockIndices &block_indices = BlockIndices());
+
+  FiniteElementData(const std::vector<unsigned int> &dofs_per_object,
+                    const DynamicGeometryInfo &      geometry_info,
                     const unsigned int               n_components,
                     const unsigned int               degree,
                     const Conformity                 conformity = unknown,
