@@ -19,6 +19,7 @@
 
 #include <deal.II/fe/mapping_q1.h>
 
+#include <deal.II/grid/connectivity.h>
 #include <deal.II/grid/grid_tools.h>
 #include <deal.II/grid/magic_numbers.h>
 #include <deal.II/grid/manifold.h>
@@ -10806,16 +10807,114 @@ namespace internal
     {
       template <int dim, int spacedim>
       static void
-      create_triangulation(const std::vector<Point<spacedim>> &v,
+      create_triangulation(const std::vector<Point<spacedim>> &vertices,
                            const std::vector<CellData<dim>> &  cells,
                            const SubCellData &                 subcelldata,
-                           Triangulation<dim, spacedim> &      triangulation)
+                           Triangulation<dim, spacedim> &      tria)
       {
-        Assert(false, ExcNotImplemented());
-        (void)v;
-        (void)cells;
         (void)subcelldata;
-        (void)triangulation;
+
+        tria.vertices = vertices;
+
+        Tet::Connectivity<dim> connectivity;
+
+        {
+          std::vector<Tet::CellTypeEnum> cell_types;
+          std::vector<unsigned int>      cell_vertices;
+
+          for (const auto &cell : cells)
+            {
+              cell_types.push_back(Tet::CellTypeEnum::tet);
+              for (const auto &vertex : cell.vertices)
+                cell_vertices.push_back(vertex);
+            }
+
+          connectivity.build(cell_types, cell_vertices);
+        }
+
+        tria.levels.clear();
+        tria.levels.push_back(
+          std::make_unique<
+            dealii::internal::TriangulationImplementation::TriaLevel>(dim));
+        tria.faces = std::make_unique<
+          dealii::internal::TriangulationImplementation::TriaFaces>(dim);
+
+        const unsigned int n_cell = cells.size();
+
+        auto &level_0 = *tria.levels[0];
+
+        level_0.active_cell_indices.assign(n_cell, 0); // the right value will
+                                                       // be set later
+        level_0.subdomain_ids.assign(n_cell, 0);
+        level_0.level_subdomain_ids.assign(n_cell, 0);
+
+        // TriaObjects: cell
+        {
+          level_0.cells.used.assign(n_cell, true);
+          level_0.cells.boundary_or_material_id.assign(
+            n_cell,
+            internal::TriangulationImplementation::TriaObjects::
+              BoundaryOrMaterialId());
+          level_0.cells.manifold_id.assign(n_cell, 0);
+
+          // TODO: this is the HEX size
+          level_0.cells.children.assign(
+            GeometryInfo<dim>::max_children_per_cell / 2 * n_cell, -1);
+
+          // TODO: this is the HEX size
+          level_0.cells.cells.assign(GeometryInfo<dim>::faces_per_cell * n_cell,
+                                     -1);
+        }
+
+        // TriaObjects: quad
+        if (dim == 3)
+          {
+            auto &quads_0 = tria.faces->quads;
+
+            const unsigned int n_quads =
+              connectivity.table[2][0].ptr.size() - 1;
+
+            quads_0.used.assign(n_quads, true);
+            quads_0.boundary_or_material_id.assign(
+              n_quads,
+              internal::TriangulationImplementation::TriaObjects::
+                BoundaryOrMaterialId());
+            quads_0.manifold_id.assign(n_quads, 0);
+
+            // TODO: this is the HEX size
+            quads_0.children.assign(GeometryInfo<2>::max_children_per_cell / 2 *
+                                      n_quads,
+                                    -1);
+
+            // TODO: this is the HEX size
+            quads_0.cells.assign(GeometryInfo<2>::faces_per_cell * n_quads, -1);
+          }
+
+        // TriaObjects: line
+        if (dim >= 2)
+          {
+            auto &lines_0 = tria.faces->lines;
+
+            const unsigned int n_lines =
+              connectivity.table[1][0].ptr.size() - 1;
+
+            std::cout << "n_lines: " << n_lines << std::endl;
+
+            lines_0.used.assign(n_lines, true);
+            lines_0.boundary_or_material_id.assign(
+              n_lines,
+              internal::TriangulationImplementation::TriaObjects::
+                BoundaryOrMaterialId());
+            lines_0.manifold_id.assign(n_lines, 0);
+
+            // TODO: this is the HEX size
+            lines_0.children.assign(GeometryInfo<1>::max_children_per_cell / 2 *
+                                      n_lines,
+                                    -1);
+
+            // TODO: this is the HEX size
+            lines_0.cells.assign(GeometryInfo<1>::faces_per_cell * n_lines, -1);
+          }
       }
 
       template <int dim, int spacedim>
