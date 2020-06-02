@@ -83,6 +83,9 @@ namespace internal
 
     class TriaObjects;
 
+    template <int, int>
+    class Policy;
+
     /**
      * Forward declaration of a class into which we put much of the
      * implementation of the Triangulation class. See the .cc file for more
@@ -313,13 +316,6 @@ namespace internal
       void
       serialize(Archive &ar, const unsigned int version);
     };
-
-    /**
-     * TODO
-     */
-    template <int, int>
-    class Policy;
-
   } // namespace TriangulationImplementation
 } // namespace internal
 
@@ -3461,7 +3457,8 @@ protected:
 
 private:
   /**
-   * TODO
+   * Policy with the Triangulation-specific tasks related to creation,
+   * refinement, and coarsening.
    */
   std::unique_ptr<
     dealii::internal::TriangulationImplementation::Policy<dim, spacedim>>

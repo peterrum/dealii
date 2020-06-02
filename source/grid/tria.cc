@@ -1762,123 +1762,208 @@ namespace internal
 
 
 
+    /**
+     * An interface for algorithms that implement Triangulation-specific tasks
+     * related to creation, refinement, and coarsening.
+     *
+     * @note It is necessary to write out the functions for all possible
+     *   dim/spacedim combinations here to be able to make the functions
+     *   virtual.
+     */
     template <int dim, int spacedim>
     class Policy
     {
     public:
+      /**
+       * Create triangulation.
+       */
       virtual void
       create_triangulation(const std::vector<Point<1>> &   v,
                            const std::vector<CellData<1>> &cells,
                            const SubCellData &             subcelldata,
                            Triangulation<1, 1> &           triangulation) = 0;
 
+      /**
+       * Same as above.
+       */
       virtual void
       create_triangulation(const std::vector<Point<2>> &   v,
                            const std::vector<CellData<1>> &cells,
                            const SubCellData &             subcelldata,
                            Triangulation<1, 2> &           triangulation) = 0;
 
+      /**
+       * Same as above.
+       */
       virtual void
       create_triangulation(const std::vector<Point<3>> &   v,
                            const std::vector<CellData<1>> &cells,
                            const SubCellData &             subcelldata,
                            Triangulation<1, 3> &           triangulation) = 0;
 
+      /**
+       * Same as above.
+       */
       virtual void
       create_triangulation(const std::vector<Point<2>> &   v,
                            const std::vector<CellData<2>> &cells,
                            const SubCellData &             subcelldata,
                            Triangulation<2, 2> &           triangulation) = 0;
 
+      /**
+       * Same as above.
+       */
       virtual void
       create_triangulation(const std::vector<Point<3>> &   v,
                            const std::vector<CellData<2>> &cells,
                            const SubCellData &             subcelldata,
                            Triangulation<2, 3> &           triangulation) = 0;
 
+      /**
+       * Same as above.
+       */
       virtual void
       create_triangulation(const std::vector<Point<3>> &   v,
                            const std::vector<CellData<3>> &cells,
                            const SubCellData &             subcelldata,
                            Triangulation<3, 3> &           triangulation) = 0;
 
-
+      /**
+       * Delete children of given cell.
+       */
       virtual void
         delete_children(Triangulation<1, 1> &triangulation,
                         typename Triangulation<1, 1>::cell_iterator &cell,
                         std::vector<unsigned int> &line_cell_count,
                         std::vector<unsigned int> &quad_cell_count) = 0;
 
+      /**
+       * Same as above.
+       */
       virtual void
         delete_children(Triangulation<1, 2> &triangulation,
                         typename Triangulation<1, 2>::cell_iterator &cell,
                         std::vector<unsigned int> &line_cell_count,
                         std::vector<unsigned int> &quad_cell_count) = 0;
 
+      /**
+       * Same as above.
+       */
       virtual void
         delete_children(Triangulation<1, 3> &triangulation,
                         typename Triangulation<1, 3>::cell_iterator &cell,
                         std::vector<unsigned int> &line_cell_count,
                         std::vector<unsigned int> &quad_cell_count) = 0;
 
+      /**
+       * Same as above.
+       */
       virtual void
         delete_children(Triangulation<2, 2> &triangulation,
                         typename Triangulation<2, 2>::cell_iterator &cell,
                         std::vector<unsigned int> &line_cell_count,
                         std::vector<unsigned int> &quad_cell_count) = 0;
 
+      /**
+       * Same as above.
+       */
       virtual void
         delete_children(Triangulation<2, 3> &triangulation,
                         typename Triangulation<2, 3>::cell_iterator &cell,
                         std::vector<unsigned int> &line_cell_count,
                         std::vector<unsigned int> &quad_cell_count) = 0;
 
+      /**
+       * Same as above.
+       */
       virtual void
         delete_children(Triangulation<3, 3> &triangulation,
                         typename Triangulation<3, 3>::cell_iterator &cell,
                         std::vector<unsigned int> &line_cell_count,
                         std::vector<unsigned int> &quad_cell_count) = 0;
 
+      /**
+       * Execute refinement.
+       */
       virtual typename Triangulation<1, 1>::DistortedCellList
         execute_refinement(Triangulation<1, 1> &triangulation,
                            const bool           check_for_distorted_cells) = 0;
 
+      /**
+       * Same as above.
+       */
       virtual typename Triangulation<1, 2>::DistortedCellList
         execute_refinement(Triangulation<1, 2> &triangulation,
                            const bool           check_for_distorted_cells) = 0;
 
+      /**
+       * Same as above.
+       */
       virtual typename Triangulation<1, 3>::DistortedCellList
         execute_refinement(Triangulation<1, 3> &triangulation,
                            const bool           check_for_distorted_cells) = 0;
 
+      /**
+       * Same as above.
+       */
       virtual typename Triangulation<2, 2>::DistortedCellList
         execute_refinement(Triangulation<2, 2> &triangulation,
                            const bool           check_for_distorted_cells) = 0;
 
+      /**
+       * Same as above.
+       */
       virtual typename Triangulation<2, 3>::DistortedCellList
         execute_refinement(Triangulation<2, 3> &triangulation,
                            const bool           check_for_distorted_cells) = 0;
 
+      /**
+       * Same as above.
+       */
       virtual typename Triangulation<3, 3>::DistortedCellList
         execute_refinement(Triangulation<3, 3> &triangulation,
                            const bool           check_for_distorted_cells) = 0;
 
+      /**
+       * Prevent distorted boundary cells.
+       */
       virtual void
       prevent_distorted_boundary_cells(
         Triangulation<dim, spacedim> &triangulation) = 0;
 
+      /**
+       * Prepare refinement.
+       */
       virtual void
       prepare_refinement_dim_dependent(
         Triangulation<dim, spacedim> &triangulation) = 0;
 
+      /**
+       * Check if coarsening is allowed for the given cell.
+       */
       virtual bool
       coarsening_allowed(
         const typename Triangulation<dim, spacedim>::cell_iterator &cell) = 0;
 
+      /**
+       * A sort of virtual copy constructor, this function returns a copy of
+       * the policy object. Derived classes need to override the function here
+       * in this base class and return an object of the same type as the derived
+       * class.
+       */
       virtual std::unique_ptr<Policy<dim, spacedim>>
       clone() = 0;
     };
 
+    /**
+     * A simple implementation of the interface Policy. It simply delegates the
+     * task to the functions with the same name provided by class specified by
+     * the template argument T.
+     *
+     * If the class T provides different
+     * implementations for different dim/spacedim, this class selects implicitly
+     * the right one.In a certain sense, this class functions a a jump table.
+     */
     template <int dim, int spacedim, typename T>
     class PolicyWrapper : public Policy<dim, spacedim>
     {
@@ -1889,6 +1974,9 @@ namespace internal
                            const SubCellData &             subcelldata,
                            Triangulation<1, 1> &triangulation) override
       {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 1);
+
         T::create_triangulation(v, cells, subcelldata, triangulation);
       }
 
@@ -1898,6 +1986,9 @@ namespace internal
                            const SubCellData &             subcelldata,
                            Triangulation<1, 2> &triangulation) override
       {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 2);
+
         T::create_triangulation(v, cells, subcelldata, triangulation);
       }
 
@@ -1907,6 +1998,9 @@ namespace internal
                            const SubCellData &             subcelldata,
                            Triangulation<1, 3> &triangulation) override
       {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 3);
+
         T::create_triangulation(v, cells, subcelldata, triangulation);
       }
 
@@ -1916,6 +2010,9 @@ namespace internal
                            const SubCellData &             subcelldata,
                            Triangulation<2, 2> &triangulation) override
       {
+        AssertDimension(dim, 2);
+        AssertDimension(spacedim, 2);
+
         T::create_triangulation(v, cells, subcelldata, triangulation);
       }
 
@@ -1925,6 +2022,9 @@ namespace internal
                            const SubCellData &             subcelldata,
                            Triangulation<2, 3> &triangulation) override
       {
+        AssertDimension(dim, 2);
+        AssertDimension(spacedim, 3);
+
         T::create_triangulation(v, cells, subcelldata, triangulation);
       }
 
@@ -1934,6 +2034,9 @@ namespace internal
                            const SubCellData &             subcelldata,
                            Triangulation<3, 3> &triangulation) override
       {
+        AssertDimension(dim, 3);
+        AssertDimension(spacedim, 3);
+
         T::create_triangulation(v, cells, subcelldata, triangulation);
       }
 
@@ -1943,6 +2046,9 @@ namespace internal
                            std::vector<unsigned int> &line_cell_count,
                            std::vector<unsigned int> &quad_cell_count) override
       {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 1);
+
         T::delete_children(triangulation,
                            cell,
                            line_cell_count,
@@ -1954,6 +2060,9 @@ namespace internal
                            std::vector<unsigned int> &line_cell_count,
                            std::vector<unsigned int> &quad_cell_count) override
       {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 2);
+
         T::delete_children(triangulation,
                            cell,
                            line_cell_count,
@@ -1965,6 +2074,9 @@ namespace internal
                            std::vector<unsigned int> &line_cell_count,
                            std::vector<unsigned int> &quad_cell_count) override
       {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 3);
+
         T::delete_children(triangulation,
                            cell,
                            line_cell_count,
@@ -1976,6 +2088,9 @@ namespace internal
                            std::vector<unsigned int> &line_cell_count,
                            std::vector<unsigned int> &quad_cell_count) override
       {
+        AssertDimension(dim, 2);
+        AssertDimension(spacedim, 2);
+
         T::delete_children(triangulation,
                            cell,
                            line_cell_count,
@@ -1987,6 +2102,9 @@ namespace internal
                            std::vector<unsigned int> &line_cell_count,
                            std::vector<unsigned int> &quad_cell_count) override
       {
+        AssertDimension(dim, 2);
+        AssertDimension(spacedim, 3);
+
         T::delete_children(triangulation,
                            cell,
                            line_cell_count,
@@ -1998,6 +2116,9 @@ namespace internal
                            std::vector<unsigned int> &line_cell_count,
                            std::vector<unsigned int> &quad_cell_count) override
       {
+        AssertDimension(dim, 3);
+        AssertDimension(spacedim, 3);
+
         T::delete_children(triangulation,
                            cell,
                            line_cell_count,
@@ -2008,6 +2129,9 @@ namespace internal
         execute_refinement(Triangulation<1, 1> &triangulation,
                            const bool check_for_distorted_cells) override
       {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 1);
+
         return T::execute_refinement(triangulation, check_for_distorted_cells);
       }
 
@@ -2015,6 +2139,9 @@ namespace internal
         execute_refinement(Triangulation<1, 2> &triangulation,
                            const bool check_for_distorted_cells) override
       {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 2);
+
         return T::execute_refinement(triangulation, check_for_distorted_cells);
       }
 
@@ -2022,6 +2149,9 @@ namespace internal
         execute_refinement(Triangulation<1, 3> &triangulation,
                            const bool check_for_distorted_cells) override
       {
+        AssertDimension(dim, 1);
+        AssertDimension(spacedim, 3);
+
         return T::execute_refinement(triangulation, check_for_distorted_cells);
       }
 
@@ -2029,6 +2159,9 @@ namespace internal
         execute_refinement(Triangulation<2, 2> &triangulation,
                            const bool check_for_distorted_cells) override
       {
+        AssertDimension(dim, 2);
+        AssertDimension(spacedim, 2);
+
         return T::execute_refinement(triangulation, check_for_distorted_cells);
       }
 
@@ -2036,6 +2169,9 @@ namespace internal
         execute_refinement(Triangulation<2, 3> &triangulation,
                            const bool check_for_distorted_cells) override
       {
+        AssertDimension(dim, 2);
+        AssertDimension(spacedim, 3);
+
         return T::execute_refinement(triangulation, check_for_distorted_cells);
       }
 
@@ -2043,6 +2179,9 @@ namespace internal
         execute_refinement(Triangulation<3, 3> &triangulation,
                            const bool check_for_distorted_cells) override
       {
+        AssertDimension(dim, 3);
+        AssertDimension(spacedim, 3);
+
         return T::execute_refinement(triangulation, check_for_distorted_cells);
       }
 
