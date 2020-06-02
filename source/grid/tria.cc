@@ -10849,6 +10849,27 @@ namespace internal
                                                          // be set later
           level_0.subdomain_ids.assign(n_cell, 0);
           level_0.level_subdomain_ids.assign(n_cell, 0);
+
+          level_0.neighbors.assign(n_cell * GeometryInfo<dim>::faces_per_cell,
+                                   {-1, -1});
+
+          {
+            const auto &crs  = connectivity.table[dim][dim - 1];
+            const auto &crs_ = connectivity.table[dim - 1][dim];
+
+            for (unsigned int cell = 0; cell < cells.size(); ++cell)
+              for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
+                   ++i, ++j)
+                {
+                  unsigned int face = crs.col[i];
+                  for (unsigned int k = crs_.ptr[face]; k < crs_.ptr[face + 1];
+                       ++k)
+                    if (crs_.col[k] != cell)
+                      level_0
+                        .neighbors[cell * GeometryInfo<dim>::faces_per_cell +
+                                   j] = {0, crs_.col[k]};
+                }
+          }
         }
 
         // TriaObjects: cell

@@ -83,6 +83,26 @@ test()
           deallog << "  " << face->vertex_index(i) << std::endl;
       }
   }
+
+
+  {
+    deallog << std::endl << "CELLS -> NEIGHBORS" << std::endl;
+    auto cell  = tria.begin();
+    auto ecell = tria.end();
+
+    for (; cell != ecell; ++cell)
+      {
+        deallog << cell->index() << " " << cell->id() << std::endl;
+        for (unsigned int i = 0; i < 3 /* TODO */; ++i)
+          {
+            deallog << "  " << cell->at_boundary(i) << " ";
+            if (!cell->at_boundary(i))
+              deallog << "  " << cell->neighbor_index(i) << "  "
+                      << cell->neighbor(i)->index();
+            deallog << std::endl;
+          }
+      }
+  }
 }
 
 int
