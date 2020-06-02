@@ -2046,7 +2046,7 @@ namespace internal
       }
 
 
-      void delete_children(Triangulation<1, 1> &triangulation,
+      void delete_children(Triangulation<1, 1> &                        tria,
                            typename Triangulation<1, 1>::cell_iterator &cell,
                            std::vector<unsigned int> &line_cell_count,
                            std::vector<unsigned int> &quad_cell_count) override
@@ -2054,13 +2054,10 @@ namespace internal
         AssertDimension(dim, 1);
         AssertDimension(spacedim, 1);
 
-        T::delete_children(triangulation,
-                           cell,
-                           line_cell_count,
-                           quad_cell_count);
+        T::delete_children(tria, cell, line_cell_count, quad_cell_count);
       }
 
-      void delete_children(Triangulation<1, 2> &triangulation,
+      void delete_children(Triangulation<1, 2> &                        tria,
                            typename Triangulation<1, 2>::cell_iterator &cell,
                            std::vector<unsigned int> &line_cell_count,
                            std::vector<unsigned int> &quad_cell_count) override
@@ -2068,13 +2065,10 @@ namespace internal
         AssertDimension(dim, 1);
         AssertDimension(spacedim, 2);
 
-        T::delete_children(triangulation,
-                           cell,
-                           line_cell_count,
-                           quad_cell_count);
+        T::delete_children(tria, cell, line_cell_count, quad_cell_count);
       }
 
-      void delete_children(Triangulation<1, 3> &triangulation,
+      void delete_children(Triangulation<1, 3> &                        tria,
                            typename Triangulation<1, 3>::cell_iterator &cell,
                            std::vector<unsigned int> &line_cell_count,
                            std::vector<unsigned int> &quad_cell_count) override
@@ -2082,13 +2076,10 @@ namespace internal
         AssertDimension(dim, 1);
         AssertDimension(spacedim, 3);
 
-        T::delete_children(triangulation,
-                           cell,
-                           line_cell_count,
-                           quad_cell_count);
+        T::delete_children(tria, cell, line_cell_count, quad_cell_count);
       }
 
-      void delete_children(Triangulation<2, 2> &triangulation,
+      void delete_children(Triangulation<2, 2> &                        tria,
                            typename Triangulation<2, 2>::cell_iterator &cell,
                            std::vector<unsigned int> &line_cell_count,
                            std::vector<unsigned int> &quad_cell_count) override
@@ -2096,13 +2087,10 @@ namespace internal
         AssertDimension(dim, 2);
         AssertDimension(spacedim, 2);
 
-        T::delete_children(triangulation,
-                           cell,
-                           line_cell_count,
-                           quad_cell_count);
+        T::delete_children(tria, cell, line_cell_count, quad_cell_count);
       }
 
-      void delete_children(Triangulation<2, 3> &triangulation,
+      void delete_children(Triangulation<2, 3> &                        tria,
                            typename Triangulation<2, 3>::cell_iterator &cell,
                            std::vector<unsigned int> &line_cell_count,
                            std::vector<unsigned int> &quad_cell_count) override
@@ -2110,13 +2098,10 @@ namespace internal
         AssertDimension(dim, 2);
         AssertDimension(spacedim, 3);
 
-        T::delete_children(triangulation,
-                           cell,
-                           line_cell_count,
-                           quad_cell_count);
+        T::delete_children(tria, cell, line_cell_count, quad_cell_count);
       }
 
-      void delete_children(Triangulation<3, 3> &triangulation,
+      void delete_children(Triangulation<3, 3> &                        tria,
                            typename Triangulation<3, 3>::cell_iterator &cell,
                            std::vector<unsigned int> &line_cell_count,
                            std::vector<unsigned int> &quad_cell_count) override
@@ -2124,10 +2109,7 @@ namespace internal
         AssertDimension(dim, 3);
         AssertDimension(spacedim, 3);
 
-        T::delete_children(triangulation,
-                           cell,
-                           line_cell_count,
-                           quad_cell_count);
+        T::delete_children(tria, cell, line_cell_count, quad_cell_count);
       }
 
       typename Triangulation<1, 1>::DistortedCellList
