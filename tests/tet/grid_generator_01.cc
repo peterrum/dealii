@@ -33,6 +33,56 @@ test()
                                                  {1, 1},
                                                  {0.0, 0.0},
                                                  {1.0, 1.0});
+
+  deallog << tria.n_quads() << std::endl;
+  deallog << tria.n_lines() << std::endl;
+  deallog << tria.n_vertices() << std::endl;
+
+
+  {
+    deallog << std::endl << "CELLS" << std::endl;
+    auto cell  = tria.begin();
+    auto ecell = tria.end();
+
+    for (; cell != ecell; ++cell)
+      deallog << cell->index() << " " << cell->id() << std::endl;
+  }
+
+  {
+    deallog << std::endl << "FACES" << std::endl;
+    auto face  = tria.begin_face();
+    auto eface = tria.end_face();
+
+    for (; face != eface; ++face)
+      deallog << face->index() << std::endl;
+  }
+
+  {
+    deallog << std::endl << "CELLS -> FACES" << std::endl;
+    auto cell  = tria.begin();
+    auto ecell = tria.end();
+
+    for (; cell != ecell; ++cell)
+      {
+        deallog << cell->index() << " " << cell->id() << std::endl;
+        for (unsigned int i = 0; i < 3 /* TODO */; ++i)
+          deallog << "  " << cell->line_index(i) << "  "
+                  << cell->line(i)->index() << std::endl;
+      }
+  }
+
+  {
+    deallog << std::endl << "FACES -> VERTICES" << std::endl;
+    auto face  = tria.begin_face();
+    auto eface = tria.end_face();
+
+    for (; face != eface; ++face)
+      {
+        deallog << face->index() << std::endl;
+        for (unsigned int i = 0; i < 2 /* TODO */; ++i)
+          deallog << "  " << face->vertex_index(i) << std::endl;
+      }
+  }
 }
 
 int

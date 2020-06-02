@@ -10864,6 +10864,17 @@ namespace internal
           // TODO: this is the HEX size
           level_0.cells.cells.assign(GeometryInfo<dim>::faces_per_cell * n_cell,
                                      -1);
+
+          {
+            const auto &crs = connectivity.table[dim][dim - 1];
+
+            for (unsigned int cell = 0; cell < cells.size(); ++cell)
+              for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
+                   ++i, ++j)
+                level_0.cells
+                  .cells[cell * GeometryInfo<dim>::faces_per_cell + j] =
+                  crs.col[i];
+          }
         }
 
         // TriaObjects: quad
@@ -10888,6 +10899,17 @@ namespace internal
 
             // TODO: this is the HEX size
             quads_0.cells.assign(GeometryInfo<2>::faces_per_cell * n_quads, -1);
+
+            {
+              const auto &crs = connectivity.table[2][1];
+
+              for (unsigned int quad = 0; quad < n_quads; ++quad)
+                for (unsigned int i = crs.ptr[quad], j = 0;
+                     i < crs.ptr[quad + 1];
+                     ++i, ++j)
+                  quads_0.cells[quad * GeometryInfo<1>::faces_per_cell + j] =
+                    crs.col[i];
+            }
           }
 
         // TriaObjects: line
@@ -10897,8 +10919,6 @@ namespace internal
 
             const unsigned int n_lines =
               connectivity.table[1][0].ptr.size() - 1;
-
-            std::cout << "n_lines: " << n_lines << std::endl;
 
             lines_0.used.assign(n_lines, true);
             lines_0.boundary_or_material_id.assign(
@@ -10914,6 +10934,17 @@ namespace internal
 
             // TODO: this is the HEX size
             lines_0.cells.assign(GeometryInfo<1>::faces_per_cell * n_lines, -1);
+
+            {
+              const auto &crs = connectivity.table[1][0];
+
+              for (unsigned int line = 0; line < n_lines; ++line)
+                for (unsigned int i = crs.ptr[line], j = 0;
+                     i < crs.ptr[line + 1];
+                     ++i, ++j)
+                  lines_0.cells[line * GeometryInfo<1>::faces_per_cell + j] =
+                    crs.col[i];
+            }
           }
       }
 
