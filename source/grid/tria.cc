@@ -10841,29 +10841,33 @@ namespace internal
 
         const unsigned int n_cell = cells.size();
 
-        auto &level_0 = *tria.levels[0];
+        // TriaLevel
+        {
+          auto &level_0 = *tria.levels[0];
 
-        level_0.active_cell_indices.assign(n_cell, 0); // the right value will
-                                                       // be set later
-        level_0.subdomain_ids.assign(n_cell, 0);
-        level_0.level_subdomain_ids.assign(n_cell, 0);
+          level_0.active_cell_indices.assign(n_cell, 0); // the right value will
+                                                         // be set later
+          level_0.subdomain_ids.assign(n_cell, 0);
+          level_0.level_subdomain_ids.assign(n_cell, 0);
+        }
 
         // TriaObjects: cell
         {
-          level_0.cells.used.assign(n_cell, true);
-          level_0.cells.boundary_or_material_id.assign(
+          auto &cells_0 = tria.levels[0]->cells;
+          cells_0.used.assign(n_cell, true);
+          cells_0.boundary_or_material_id.assign(
             n_cell,
             internal::TriangulationImplementation::TriaObjects::
               BoundaryOrMaterialId());
-          level_0.cells.manifold_id.assign(n_cell, 0);
+          cells_0.manifold_id.assign(n_cell, 0);
 
           // TODO: this is the HEX size
-          level_0.cells.children.assign(
-            GeometryInfo<dim>::max_children_per_cell / 2 * n_cell, -1);
+          cells_0.children.assign(GeometryInfo<dim>::max_children_per_cell / 2 *
+                                    n_cell,
+                                  -1);
 
           // TODO: this is the HEX size
-          level_0.cells.cells.assign(GeometryInfo<dim>::faces_per_cell * n_cell,
-                                     -1);
+          cells_0.cells.assign(GeometryInfo<dim>::faces_per_cell * n_cell, -1);
 
           {
             const auto &crs = connectivity.table[dim][dim - 1];
@@ -10871,8 +10875,7 @@ namespace internal
             for (unsigned int cell = 0; cell < cells.size(); ++cell)
               for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
                    ++i, ++j)
-                level_0.cells
-                  .cells[cell * GeometryInfo<dim>::faces_per_cell + j] =
+                cells_0.cells[cell * GeometryInfo<dim>::faces_per_cell + j] =
                   crs.col[i];
           }
         }
