@@ -1775,6 +1775,11 @@ namespace internal
     {
     public:
       /**
+       * Destructor.
+       */
+      virtual ~Policy() = default;
+
+      /**
        * Create triangulation.
        */
       virtual void
