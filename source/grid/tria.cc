@@ -1874,6 +1874,9 @@ namespace internal
       virtual bool
       coarsening_allowed(
         const typename Triangulation<dim, spacedim>::cell_iterator &cell) = 0;
+
+      virtual std::unique_ptr<Policy<dim, spacedim>>
+      clone() = 0;
     };
 
     template <int dim, int spacedim, typename T>
@@ -2063,6 +2066,13 @@ namespace internal
         override
       {
         return T::template coarsening_allowed<dim, spacedim>(cell);
+      }
+
+      std::unique_ptr<Policy<dim, spacedim>>
+      clone() override
+      {
+        return std::unique_ptr<Policy<dim, spacedim>>(
+          new PolicyWrapper<dim, spacedim, T>());
       }
     };
 
@@ -11055,6 +11065,9 @@ Triangulation<dim, spacedim>::copy_triangulation(
         std::make_unique<std::map<unsigned int, types::manifold_id>>(
           *other_tria.vertex_to_manifold_id_map_1d);
     }
+
+  if (other_tria.policy)
+    this->policy = other_tria.policy->clone();
 
   // inform those who are listening on other_tria of the copy operation
   other_tria.signals.copy(*this);
