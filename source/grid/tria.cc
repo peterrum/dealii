@@ -10802,6 +10802,80 @@ namespace internal
       }
     };
 
+    struct Implementation2
+    {
+      template <int dim, int spacedim>
+      static void
+      create_triangulation(const std::vector<Point<spacedim>> &v,
+                           const std::vector<CellData<dim>> &  cells,
+                           const SubCellData &                 subcelldata,
+                           Triangulation<dim, spacedim> &      triangulation)
+      {
+        Assert(false, ExcNotImplemented());
+        (void)v;
+        (void)cells;
+        (void)subcelldata;
+        (void)triangulation;
+      }
+
+      template <int dim, int spacedim>
+      static void
+      delete_children(
+        Triangulation<dim, spacedim> &                        triangulation,
+        typename Triangulation<dim, spacedim>::cell_iterator &cell,
+        std::vector<unsigned int> &                           line_cell_count,
+        std::vector<unsigned int> &                           quad_cell_count)
+      {
+        Assert(false, ExcNotImplemented());
+        (void)triangulation;
+        (void)cell;
+        (void)line_cell_count;
+        (void)quad_cell_count;
+      }
+
+      template <int dim, int spacedim>
+      static typename Triangulation<dim, spacedim>::DistortedCellList
+      execute_refinement(Triangulation<dim, spacedim> &triangulation,
+                         const bool check_for_distorted_cells)
+      {
+        Assert(false, ExcNotImplemented());
+        (void)triangulation;
+        (void)check_for_distorted_cells;
+
+        return typename Triangulation<dim, spacedim>::DistortedCellList();
+      }
+
+
+      template <int dim, int spacedim>
+      static void
+      prevent_distorted_boundary_cells(
+        Triangulation<dim, spacedim> &triangulation)
+      {
+        Assert(false, ExcNotImplemented());
+        (void)triangulation;
+      }
+
+      template <int dim, int spacedim>
+      static void
+      prepare_refinement_dim_dependent(
+        Triangulation<dim, spacedim> &triangulation)
+      {
+        Assert(false, ExcNotImplemented());
+        (void)triangulation;
+      }
+
+      template <int dim, int spacedim>
+      static bool
+      coarsening_allowed(
+        const typename Triangulation<dim, spacedim>::cell_iterator &cell)
+      {
+        Assert(false, ExcNotImplemented());
+        (void)cell;
+
+        return false;
+      }
+    };
+
 
 
     template <int dim, int spacedim>
@@ -11256,10 +11330,11 @@ Triangulation<dim, spacedim>::create_triangulation(
     }
   else
     {
-      AssertThrow(
-        false,
-        ExcMessage(
-          "A cell with invalid number of vertices has been provided."));
+      this->policy.reset(
+        new internal::TriangulationImplementation::PolicyWrapper<
+          dim,
+          spacedim,
+          internal::TriangulationImplementation::Implementation2>());
     }
 
   // try to create a triangulation; if this fails, we still want to

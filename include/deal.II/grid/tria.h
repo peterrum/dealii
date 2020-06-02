@@ -92,6 +92,7 @@ namespace internal
      * information.
      */
     struct Implementation;
+    struct Implementation2;
   } // namespace TriangulationImplementation
 
   namespace TriaAccessorImplementation
@@ -3944,6 +3945,7 @@ private:
   friend class hp::DoFHandler<dim, spacedim>;
 
   friend struct dealii::internal::TriangulationImplementation::Implementation;
+  friend struct dealii::internal::TriangulationImplementation::Implementation2;
 
   friend class dealii::internal::TriangulationImplementation::TriaObjects;
 
