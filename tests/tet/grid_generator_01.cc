@@ -72,7 +72,19 @@ test_2()
       }
   }
 
-  // TODO: CELLS -> VERTICES
+  if (false /* TODO */)
+    {
+      deallog << std::endl << "CELLS -> VERTICES" << std::endl;
+      auto cell  = tria.begin();
+      auto ecell = tria.end();
+
+      for (; cell != ecell; ++cell)
+        {
+          deallog << cell->index() << std::endl;
+          for (unsigned int i = 0; i < 3 /* TODO */; ++i)
+            deallog << "  " << cell->vertex_index(i) << std::endl;
+        }
+    }
 
   {
     deallog << std::endl << "FACES -> VERTICES" << std::endl;
@@ -160,8 +172,35 @@ test_3()
       }
   }
 
-  // TODO: CELLS -> LINES
-  // TODO: CELLS -> VERTICES
+  if (false /* TODO */)
+    {
+      deallog << std::endl << "CELLS -> LINE" << std::endl;
+      auto cell  = tria.begin();
+      auto ecell = tria.end();
+
+      for (; cell != ecell; ++cell)
+        {
+          deallog << cell->index() << " " << cell->id() << std::endl;
+          for (unsigned int i = 0; i < 4 /* TODO */; ++i)
+            deallog << "  " << cell->line_index(i) << "  "
+                    << cell->line(i)->index() << std::endl;
+        }
+    }
+
+  if (false /* TODO */)
+    {
+      deallog << std::endl << "CELLS -> VERTEX" << std::endl;
+      auto cell  = tria.begin();
+      auto ecell = tria.end();
+
+      for (; cell != ecell; ++cell)
+        {
+          deallog << cell->index() << " " << cell->id() << std::endl;
+          for (unsigned int i = 0; i < 4 /* TODO */; ++i)
+            deallog << "  " << cell->vertex_index(i) << std::endl;
+        }
+    }
+
 
   {
     deallog << std::endl << "FACES -> LINES" << std::endl;
@@ -177,7 +216,19 @@ test_3()
       }
   }
 
-  // TODO: FACES -> VERTICES
+  if (false /* TODO */)
+    {
+      deallog << std::endl << "FACES -> VERTEX" << std::endl;
+      auto face  = tria.begin_face();
+      auto eface = tria.end_face();
+
+      for (; face != eface; ++face)
+        {
+          deallog << face->index() << std::endl;
+          for (unsigned int i = 0; i < 3 /* TODO */; ++i)
+            deallog << "  " << face->vertex_index(i) << std::endl;
+        }
+    }
 
   {
     deallog << std::endl << "CELLS -> NEIGHBORS" << std::endl;
