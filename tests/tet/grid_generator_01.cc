@@ -87,6 +87,20 @@ test_2()
     }
 
   {
+    deallog << std::endl << "CELLS -> FACES -> VERTICES" << std::endl;
+    auto cell  = tria.begin();
+    auto ecell = tria.end();
+
+    for (; cell != ecell; ++cell)
+      {
+        deallog << cell->index() << " " << cell->id() << std::endl;
+        for (unsigned int i = 0; i < 3 /* TODO */; ++i)
+          for (unsigned int j = 0; j < 2 /* TODO */; ++j)
+            deallog << "  " << cell->line(i)->vertex_index(j) << std::endl;
+      }
+  }
+
+  {
     deallog << std::endl << "FACES -> VERTICES" << std::endl;
     auto face  = tria.begin_face();
     auto eface = tria.end_face();
