@@ -14,7 +14,7 @@
 // ---------------------------------------------------------------------
 
 
-// Test PolynomialsTet on quadrature points returned by QGaussTet.
+// Test different triangulation iterators.
 
 #include <deal.II/grid/tria.h>
 
@@ -24,10 +24,11 @@
 
 using namespace dealii;
 
-template <int dim>
 void
-test()
+test_2()
 {
+  const int dim = 2;
+
   Triangulation<dim> tria;
   Tet::GridGenerator::subdivided_hyper_rectangle(tria,
                                                  {1, 1},
@@ -71,6 +72,8 @@ test()
       }
   }
 
+  // TODO: CELLS -> VERTICES
+
   {
     deallog << std::endl << "FACES -> VERTICES" << std::endl;
     auto face  = tria.begin_face();
@@ -105,6 +108,97 @@ test()
   }
 }
 
+void
+test_3()
+{
+  const int dim = 3;
+
+  Triangulation<dim> tria;
+  Tet::GridGenerator::subdivided_hyper_rectangle(tria,
+                                                 {1, 1, 1},
+                                                 {0.0, 0.0, 0.0},
+                                                 {1.0, 1.0, 1.0});
+
+  deallog << tria.n_cells() << std::endl;
+  deallog << tria.n_hexs() << std::endl;
+  deallog << tria.n_quads() << std::endl;
+  deallog << tria.n_lines() << std::endl;
+  deallog << tria.n_vertices() << std::endl;
+
+
+  {
+    deallog << std::endl << "CELLS" << std::endl;
+    auto cell  = tria.begin();
+    auto ecell = tria.end();
+
+    for (; cell != ecell; ++cell)
+      deallog << cell->index() << " " << cell->id() << std::endl;
+  }
+
+  {
+    deallog << std::endl << "FACES" << std::endl;
+    auto face  = tria.begin_face();
+    auto eface = tria.end_face();
+
+    for (; face != eface; ++face)
+      deallog << face->index() << std::endl;
+  }
+
+  // NOTE: loop over lines is not possible!
+
+  {
+    deallog << std::endl << "CELLS -> FACES" << std::endl;
+    auto cell  = tria.begin();
+    auto ecell = tria.end();
+
+    for (; cell != ecell; ++cell)
+      {
+        deallog << cell->index() << " " << cell->id() << std::endl;
+        for (unsigned int i = 0; i < 4 /* TODO */; ++i)
+          deallog << "  " << cell->face_index(i) << "  "
+                  << cell->face(i)->index() << std::endl;
+      }
+  }
+
+  // TODO: CELLS -> LINES
+  // TODO: CELLS -> VERTICES
+
+  {
+    deallog << std::endl << "FACES -> LINES" << std::endl;
+    auto face  = tria.begin_face();
+    auto eface = tria.end_face();
+
+    for (; face != eface; ++face)
+      {
+        deallog << face->index() << std::endl;
+        for (unsigned int i = 0; i < 3 /* TODO */; ++i)
+          deallog << "  " << face->line_index(i) << "  "
+                  << face->line(i)->index() << std::endl;
+      }
+  }
+
+  // TODO: FACES -> VERTICES
+
+  {
+    deallog << std::endl << "CELLS -> NEIGHBORS" << std::endl;
+    auto cell  = tria.begin();
+    auto ecell = tria.end();
+
+    for (; cell != ecell; ++cell)
+      {
+        deallog << cell->index() << " " << cell->id() << std::endl;
+        for (unsigned int i = 0; i < 4 /* TODO */; ++i)
+          {
+            deallog << "  " << cell->at_boundary(i) << " ";
+            if (!cell->at_boundary(i))
+              deallog << "  " << cell->neighbor_index(i) << "  "
+                      << cell->neighbor(i)->index();
+            deallog << std::endl;
+          }
+      }
+  }
+}
+
 int
 main()
 {
@@ -112,7 +206,13 @@ main()
 
   {
     deallog.push("2D");
-    test<2>();
+    test_2();
+    deallog.pop();
+  }
+
+  {
+    deallog.push("3D");
+    test_3();
     deallog.pop();
   }
 }

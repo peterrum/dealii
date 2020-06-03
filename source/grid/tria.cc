@@ -10931,7 +10931,7 @@ namespace internal
                 for (unsigned int i = crs.ptr[quad], j = 0;
                      i < crs.ptr[quad + 1];
                      ++i, ++j)
-                  quads_0.cells[quad * GeometryInfo<1>::faces_per_cell + j] =
+                  quads_0.cells[quad * GeometryInfo<2>::faces_per_cell + j] =
                     crs.col[i];
             }
           }
