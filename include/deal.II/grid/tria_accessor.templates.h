@@ -537,13 +537,10 @@ namespace internal
                  const unsigned int                  i)
       {
         const auto pair =
-          GeometryInfo<3>::standard_hex_line_to_quad_line_index(i);
+          accessor.entity().standard_hex_line_to_quad_line_index(i);
         const auto quad_index = pair[0];
-        const auto line_index = GeometryInfo<3>::standard_to_real_face_line(
-          pair[1],
-          accessor.face_orientation(quad_index),
-          accessor.face_flip(quad_index),
-          accessor.face_rotation(quad_index));
+        const auto line_index = accessor.entity().standard_to_real_face_line(
+          pair[1], face_orientation_raw(accessor, quad_index));
 
         return accessor.quad(quad_index)->line_index(line_index);
       }
@@ -606,6 +603,16 @@ namespace internal
           accessor.tria->levels[accessor.present_level]->face_orientations
             [accessor.present_index * GeometryInfo<3>::faces_per_cell + face],
           0 /*=orientation_bit*/);
+      }
+
+
+      inline static unsigned int
+      face_orientation_raw(const TriaAccessor<3, 3, 3> &accessor,
+                           const unsigned int           face)
+      {
+        AssertIndexRange(face, accessor.n_faces());
+        return accessor.tria->levels[accessor.present_level]->face_orientations
+          [accessor.present_index * GeometryInfo<3>::faces_per_cell + face];
       }
 
 

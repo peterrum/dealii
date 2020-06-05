@@ -65,6 +65,29 @@ struct DynamicGeometryInfo
 
     return 0;
   }
+
+
+  virtual std::array<unsigned int, 2>
+  standard_hex_line_to_quad_line_index(const unsigned int line) const
+  {
+    Assert(false, ExcNotImplemented());
+
+    (void)line;
+
+    return {0, 0};
+  }
+
+  virtual unsigned int
+  standard_to_real_face_line(const unsigned int line,
+                             const unsigned int face_orientation) const
+  {
+    Assert(false, ExcNotImplemented());
+
+    (void)line;
+    (void)face_orientation;
+
+    return 0;
+  }
 };
 
 
@@ -210,7 +233,39 @@ struct DynamicGeometryInfoTet : DynamicGeometryInfo
  * HEX
  */
 struct DynamicGeometryInfoHex : public DynamicGeometryInfoTensor<3>
-{};
+{
+  std::array<unsigned int, 2>
+  standard_hex_line_to_quad_line_index(const unsigned int line) const override
+  {
+    return GeometryInfo<3>::standard_hex_line_to_quad_line_index(line);
+  }
+
+  unsigned int
+  standard_to_real_face_line(const unsigned int line,
+                             const unsigned int face_orientation) const override
+  {
+    return GeometryInfo<3>::standard_to_real_face_line(
+      line,
+      get_bit(face_orientation, 0),
+      get_bit(face_orientation, 1),
+      get_bit(face_orientation, 2));
+  }
+
+private:
+  /**
+   * Check if the bit at position @p n in @p number is set.
+   */
+  inline static bool
+  get_bit(const unsigned char number, const unsigned int n)
+  {
+    AssertIndexRange(n, 8);
+
+    // source:
+    // https://stackoverflow.com/questions/47981/how-do-you-set-clear-and-toggle-a-single-bit
+    // "Checking a bit"
+    return (number >> n) & 1U;
+  }
+};
 
 
 
