@@ -1627,7 +1627,7 @@ public:
   inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
   vertex_indices() const
   {
-    return GeometryInfo<structdim>::vertex_indices();
+    return {0U, n_vertices()};
   }
 
   /**
@@ -1646,8 +1646,7 @@ public:
   inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
   face_indices() const
   {
-    AssertDimension(structdim, dim);
-    return GeometryInfo<dim>::face_indices();
+    return {0U, n_faces()};
   }
 
 private:
