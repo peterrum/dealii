@@ -76,6 +76,11 @@ namespace internal
       std::vector<unsigned char> quads_line_orientations;
 
       /**
+       * TODO
+       */
+      std::vector<unsigned char> quad_entity_type;
+
+      /**
        * The TriaObject containing the data of lines.
        *
        * @note Used only for dim>1.
@@ -110,7 +115,7 @@ namespace internal
         ar &lines;
 
       if (dim == 3)
-        ar &quads &lines &quads_line_orientations;
+        ar &quads &lines &quads_line_orientations &quad_entity_type;
     }
   } // namespace TriangulationImplementation
 } // namespace internal

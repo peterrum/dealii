@@ -25,6 +25,7 @@
 #include <deal.II/base/smartpointer.h>
 #include <deal.II/base/subscriptor.h>
 
+#include <deal.II/grid/entity.h>
 #include <deal.II/grid/tria_description.h>
 #include <deal.II/grid/tria_iterator_selector.h>
 #include <deal.II/grid/tria_levels.h>
@@ -3930,6 +3931,12 @@ private:
    */
   std::unique_ptr<std::map<unsigned int, types::manifold_id>>
     vertex_to_manifold_id_map_1d;
+
+  /**
+   * TODO
+   */
+
+  std::vector<std::unique_ptr<DynamicGeometryInfo>> geometry_info;
 
   // make a couple of classes friends
   template <int, int, int>

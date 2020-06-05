@@ -210,6 +210,11 @@ namespace internal
       std::vector<unsigned char> face_orientations;
 
       /**
+       * TODO
+       */
+      std::vector<unsigned char> entity_type;
+
+      /**
        * Determine an estimate for the memory consumption (in bytes) of this
        * object.
        */
@@ -247,6 +252,8 @@ namespace internal
 
       if (dim == 3)
         ar &face_orientations;
+
+      ar &entity_type;
     }
 
   } // namespace TriangulationImplementation

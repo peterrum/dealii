@@ -1364,6 +1364,12 @@ namespace internal
             new_size * GeometryInfo<2>::lines_per_cell -
               tria_faces.quads_line_orientations.size(),
             true);
+
+          tria_faces.quad_entity_type.reserve(new_size);
+          tria_faces.quad_entity_type.insert(
+            tria_faces.quad_entity_type.end(),
+            new_size - tria_faces.quad_entity_type.size(),
+            3 /*TODO*/);
         }
     }
 
@@ -1460,6 +1466,18 @@ namespace internal
                   tria_level.face_orientations.size(),
                 true);
             }
+
+
+          {
+            const unsigned char default_value =
+              tria_level.dim == 1 ? 1 : (tria_level.dim == 2 ? 3 : 5); // TODO
+
+            tria_level.entity_type.reserve(total_cells);
+            tria_level.entity_type.insert(tria_level.entity_type.end(),
+                                          total_cells -
+                                            tria_level.entity_type.size(),
+                                          default_value);
+          }
         }
     }
 
@@ -11070,6 +11088,14 @@ Triangulation<dim, spacedim>::Triangulation(
   signals.post_refinement.connect(signals.any_change);
   signals.clear.connect(signals.any_change);
   signals.mesh_movement.connect(signals.any_change);
+
+  this->geometry_info = std::vector<std::unique_ptr<DynamicGeometryInfo>>();
+  this->geometry_info.emplace_back(new DynamicGeometryInfoVertex()); // 0
+  this->geometry_info.emplace_back(new DynamicGeometryInfoLine());   // 1
+  this->geometry_info.emplace_back(new DynamicGeometryInfoTri());    // 2
+  this->geometry_info.emplace_back(new DynamicGeometryInfoQuad());   // 3
+  this->geometry_info.emplace_back(new DynamicGeometryInfoTet());    // 4
+  this->geometry_info.emplace_back(new DynamicGeometryInfoHex());    // 5
 }
 
 
@@ -11091,6 +11117,7 @@ Triangulation<dim, spacedim>::Triangulation(
   , number_cache(std::move(tria.number_cache))
   , vertex_to_boundary_id_map_1d(std::move(tria.vertex_to_boundary_id_map_1d))
   , vertex_to_manifold_id_map_1d(std::move(tria.vertex_to_manifold_id_map_1d))
+  , geometry_info(std::move(tria.geometry_info))
 {
   tria.number_cache = internal::TriangulationImplementation::NumberCache<dim>();
 }

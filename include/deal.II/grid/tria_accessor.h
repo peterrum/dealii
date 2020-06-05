@@ -1613,16 +1613,28 @@ public:
    */
 
   inline unsigned int
+  entity_type_index() const
+  {
+    if (structdim == 0)
+      return 0;
+    else if (structdim == 1)
+      return 1;
+    else if (structdim == dim)
+      return this->tria->levels[this->present_level]
+        ->entity_type[this->present_index];
+    else
+      return this->tria->faces->quad_entity_type[this->present_index];
+  }
+
+  inline unsigned int
   n_vertices() const
   {
     if (structdim == 0)
       return 0;
     else if (structdim == 1)
       return 2;
-    else if (structdim == dim)
-      return GeometryInfo<structdim>::vertices_per_cell;
     else
-      return GeometryInfo<structdim>::vertices_per_cell;
+      return this->tria->geometry_info[this->entity_type_index()]->n_vertices();
   }
 
   inline unsigned int
@@ -1632,10 +1644,8 @@ public:
       return 0;
     else if (structdim == 1)
       return 1;
-    else if (structdim == dim)
-      return GeometryInfo<structdim>::lines_per_cell;
     else
-      return GeometryInfo<structdim>::lines_per_cell;
+      return this->tria->geometry_info[this->entity_type_index()]->n_lines();
   }
 
   inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
@@ -1655,7 +1665,7 @@ public:
     if (dim == 1)
       return 2;
     else
-      return GeometryInfo<structdim>::faces_per_cell;
+      return this->tria->geometry_info[this->entity_type_index()]->n_faces();
   }
 
   /**
