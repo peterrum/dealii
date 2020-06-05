@@ -43,6 +43,28 @@ struct DynamicGeometryInfo
 
   virtual unsigned int
   n_faces() const = 0;
+
+  virtual std::array<unsigned int, 2>
+  standard_quad_vertex_to_line_vertex_index(const unsigned int vertex) const
+  {
+    Assert(false, ExcNotImplemented());
+
+    (void)vertex;
+
+    return {0u, 0u};
+  }
+
+  virtual unsigned int
+  standard_to_real_line_vertex(const unsigned int vertex,
+                               const bool         line_orientation) const
+  {
+    Assert(false, ExcNotImplemented());
+
+    (void)vertex;
+    (void)line_orientation;
+
+    return 0;
+  }
 };
 
 
@@ -107,7 +129,29 @@ struct DynamicGeometryInfoTri : DynamicGeometryInfo
   unsigned int
   n_faces() const override
   {
-    return 3;
+    return this->n_lines();
+  }
+
+  std::array<unsigned int, 2>
+  standard_quad_vertex_to_line_vertex_index(
+    const unsigned int vertex) const override
+  {
+    AssertIndexRange(vertex, 3);
+
+    static const std::array<unsigned int, 2> table[3] = {{0, 0},
+                                                         {0, 1},
+                                                         {1, 1}}; // TODO
+
+    return table[vertex];
+  }
+
+  unsigned int
+  standard_to_real_line_vertex(const unsigned int vertex,
+                               const bool line_orientation) const override
+  {
+    (void)line_orientation; // TODO
+
+    return vertex;
   }
 };
 
@@ -117,7 +161,22 @@ struct DynamicGeometryInfoTri : DynamicGeometryInfo
  * QUAD
  */
 struct DynamicGeometryInfoQuad : public DynamicGeometryInfoTensor<2>
-{};
+{
+  std::array<unsigned int, 2>
+  standard_quad_vertex_to_line_vertex_index(
+    const unsigned int vertex) const override
+  {
+    return GeometryInfo<2>::standard_quad_vertex_to_line_vertex_index(vertex);
+  }
+
+  unsigned int
+  standard_to_real_line_vertex(const unsigned int vertex,
+                               const bool line_orientation) const override
+  {
+    return GeometryInfo<2>::standard_to_real_line_vertex(vertex,
+                                                         line_orientation);
+  }
+};
 
 
 

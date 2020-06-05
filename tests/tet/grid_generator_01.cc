@@ -72,19 +72,18 @@ test_2()
       }
   }
 
-  if (false /* TODO */)
-    {
-      deallog << std::endl << "CELLS -> VERTICES" << std::endl;
-      auto cell  = tria.begin();
-      auto ecell = tria.end();
+  {
+    deallog << std::endl << "CELLS -> VERTICES" << std::endl;
+    auto cell  = tria.begin();
+    auto ecell = tria.end();
 
-      for (; cell != ecell; ++cell)
-        {
-          deallog << cell->index() << std::endl;
-          for (const auto i : cell->vertex_indices())
-            deallog << "  " << cell->vertex_index(i) << std::endl;
-        }
-    }
+    for (; cell != ecell; ++cell)
+      {
+        deallog << cell->index() << std::endl;
+        for (const auto i : cell->vertex_indices())
+          deallog << "  " << cell->vertex_index(i) << std::endl;
+      }
+  }
 
   {
     deallog << std::endl << "CELLS -> FACES -> VERTICES" << std::endl;

@@ -991,10 +991,11 @@ namespace internal
                    const unsigned int                    corner)
       {
         const auto pair =
-          GeometryInfo<2>::standard_quad_vertex_to_line_vertex_index(corner);
-        const auto line_index   = pair[0];
-        const auto vertex_index = GeometryInfo<2>::standard_to_real_line_vertex(
-          pair[1], accessor.line_orientation(line_index));
+          accessor.entity().standard_quad_vertex_to_line_vertex_index(corner);
+        const auto line_index = pair[0];
+        const auto vertex_index =
+          accessor.entity().standard_to_real_line_vertex(
+            pair[1], accessor.line_orientation(line_index));
 
         return accessor.line(line_index)->vertex_index(vertex_index);
       }
