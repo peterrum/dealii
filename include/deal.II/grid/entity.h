@@ -261,6 +261,57 @@ struct DynamicGeometryInfoTet : DynamicGeometryInfo
   {
     return 4;
   }
+  std::array<unsigned int, 2>
+  standard_hex_line_to_quad_line_index(const unsigned int line) const override
+  {
+    static const std::array<unsigned int, 2> table[6] = {
+      {0, 2}, {0, 1}, {0, 0}, {1, 2}, {1, 1}, {2, 1}};
+
+    return table[line];
+  }
+
+  unsigned int
+  standard_to_real_face_line(
+    const unsigned int  line,
+    const unsigned char face_orientation) const override
+  {
+    (void)face_orientation;
+
+    return line; // TODO
+  }
+
+  bool
+  combine_quad_and_line_orientation(const unsigned int  line,
+                                    const unsigned char face_orientation_raw,
+                                    const bool line_orientation) const override
+  {
+    (void)line;
+    (void)face_orientation_raw;
+
+    return line_orientation; // TODO
+  }
+
+  std::array<unsigned int, 2>
+  standard_hex_vertex_to_quad_vertex_index(
+    const unsigned int vertex) const override
+  {
+    static const std::array<unsigned int, 2> table[4] = {{0, 0},
+                                                         {0, 2},
+                                                         {0, 1},
+                                                         {1, 2}};
+
+    return table[vertex];
+  }
+
+  unsigned int
+  standard_to_real_face_vertex(
+    const unsigned int  vertex,
+    const unsigned char face_orientation) const override
+  {
+    (void)face_orientation;
+
+    return vertex; // TODO
+  }
 };
 
 
