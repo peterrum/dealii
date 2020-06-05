@@ -1615,13 +1615,27 @@ public:
   inline unsigned int
   n_vertices() const
   {
-    return GeometryInfo<structdim>::vertices_per_cell;
+    if (structdim == 0)
+      return 0;
+    else if (structdim == 1)
+      return 2;
+    else if (structdim == dim)
+      return GeometryInfo<structdim>::vertices_per_cell;
+    else
+      return GeometryInfo<structdim>::vertices_per_cell;
   }
 
   inline unsigned int
   n_lines() const
   {
-    return GeometryInfo<structdim>::lines_per_cell;
+    if (structdim == 0)
+      return 0;
+    else if (structdim == 1)
+      return 1;
+    else if (structdim == dim)
+      return GeometryInfo<structdim>::lines_per_cell;
+    else
+      return GeometryInfo<structdim>::lines_per_cell;
   }
 
   inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
@@ -1637,7 +1651,11 @@ public:
   n_faces() const
   {
     AssertDimension(structdim, dim);
-    return GeometryInfo<dim>::faces_per_cell;
+
+    if (dim == 1)
+      return 2;
+    else
+      return GeometryInfo<structdim>::faces_per_cell;
   }
 
   /**
