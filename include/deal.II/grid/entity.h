@@ -102,6 +102,28 @@ struct DynamicGeometryInfo
 
     return true;
   }
+
+  virtual std::array<unsigned int, 2>
+  standard_hex_vertex_to_quad_vertex_index(const unsigned int vertex) const
+  {
+    Assert(false, ExcNotImplemented());
+
+    (void)vertex;
+
+    return {0, 0};
+  }
+
+  virtual unsigned int
+  standard_to_real_face_vertex(const unsigned int  vertex,
+                               const unsigned char face_orientation) const
+  {
+    Assert(false, ExcNotImplemented());
+
+    (void)vertex;
+    (void)face_orientation;
+
+    return 0;
+  }
 };
 
 
@@ -291,6 +313,25 @@ struct DynamicGeometryInfoHex : public DynamicGeometryInfoTensor<3>
 
     return (line_orientation ==
             bool_table[line / 2][face_orientation][face_flip][face_rotation]);
+  }
+
+  std::array<unsigned int, 2>
+  standard_hex_vertex_to_quad_vertex_index(
+    const unsigned int vertex) const override
+  {
+    return GeometryInfo<3>::standard_hex_vertex_to_quad_vertex_index(vertex);
+  }
+
+  unsigned int
+  standard_to_real_face_vertex(
+    const unsigned int  vertex,
+    const unsigned char face_orientation) const override
+  {
+    return GeometryInfo<3>::standard_to_real_face_vertex(
+      vertex,
+      get_bit(face_orientation, 0),
+      get_bit(face_orientation, 1),
+      get_bit(face_orientation, 2));
   }
 
 private:

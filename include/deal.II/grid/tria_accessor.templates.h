@@ -979,13 +979,11 @@ namespace internal
                    const unsigned int                  corner)
       {
         const auto pair =
-          GeometryInfo<3>::standard_hex_vertex_to_quad_vertex_index(corner);
-        const auto face_index   = pair[0];
-        const auto vertex_index = GeometryInfo<3>::standard_to_real_face_vertex(
-          pair[1],
-          accessor.face_orientation(face_index),
-          accessor.face_flip(face_index),
-          accessor.face_rotation(face_index));
+          accessor.entity().standard_hex_vertex_to_quad_vertex_index(corner);
+        const auto face_index = pair[0];
+        const auto vertex_index =
+          accessor.entity().standard_to_real_face_vertex(
+            pair[1], face_orientation_raw(accessor, face_index));
 
         return accessor.quad(face_index)->vertex_index(vertex_index);
       }
