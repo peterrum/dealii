@@ -1612,6 +1612,9 @@ public:
    * @}
    */
 
+  /**
+   * TODO
+   */
   inline unsigned int
   entity_type_index() const
   {
@@ -1626,6 +1629,9 @@ public:
       return this->tria->faces->quad_entity_type[this->present_index];
   }
 
+  /**
+   * TODO
+   */
   inline unsigned int
   n_vertices() const
   {
@@ -1637,6 +1643,9 @@ public:
       return this->tria->geometry_info[this->entity_type_index()]->n_vertices();
   }
 
+  /**
+   * TODO
+   */
   inline unsigned int
   n_lines() const
   {
@@ -1646,18 +1655,6 @@ public:
       return 1;
     else
       return this->tria->geometry_info[this->entity_type_index()]->n_lines();
-  }
-
-  inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
-  vertex_indices() const
-  {
-    return {0U, n_vertices()};
-  }
-
-  inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
-  line_indices() const
-  {
-    return {0U, n_lines()};
   }
 
   /**
@@ -1672,6 +1669,24 @@ public:
       return 2;
     else
       return this->tria->geometry_info[this->entity_type_index()]->n_faces();
+  }
+
+  /**
+   * TODO
+   */
+  inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
+  vertex_indices() const
+  {
+    return {0U, n_vertices()};
+  }
+
+  /**
+   * TODO
+   */
+  inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
+  line_indices() const
+  {
+    return {0U, n_lines()};
   }
 
   /**
