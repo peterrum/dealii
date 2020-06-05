@@ -1629,6 +1629,12 @@ public:
       return this->tria->faces->quad_entity_type[this->present_index];
   }
 
+  inline const DynamicGeometryInfo &
+  entity() const
+  {
+    return *this->tria->geometry_info[this->entity_type_index()];
+  }
+
   /**
    * TODO
    */
@@ -1640,7 +1646,7 @@ public:
     else if (structdim == 1)
       return 2;
     else
-      return this->tria->geometry_info[this->entity_type_index()]->n_vertices();
+      return this->entity().n_vertices();
   }
 
   /**
@@ -1654,7 +1660,7 @@ public:
     else if (structdim == 1)
       return 1;
     else
-      return this->tria->geometry_info[this->entity_type_index()]->n_lines();
+      return this->entity().n_lines();
   }
 
   /**
@@ -1668,7 +1674,7 @@ public:
     if (dim == 1)
       return 2;
     else
-      return this->tria->geometry_info[this->entity_type_index()]->n_faces();
+      return this->entity().n_faces();
   }
 
   /**
