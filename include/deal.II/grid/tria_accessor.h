@@ -1612,6 +1612,43 @@ public:
    * @}
    */
 
+  inline unsigned int
+  n_vertices() const
+  {
+    return GeometryInfo<structdim>::vertices_per_cell;
+  }
+
+  inline unsigned int
+  n_lines() const
+  {
+    return GeometryInfo<structdim>::lines_per_cell;
+  }
+
+  inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
+  vertex_indices() const
+  {
+    return GeometryInfo<structdim>::vertex_indices();
+  }
+
+  /**
+   * @note Only implemented for cells.
+   */
+  inline unsigned int
+  n_faces() const
+  {
+    AssertDimension(structdim, dim);
+    return GeometryInfo<dim>::faces_per_cell;
+  }
+
+  /**
+   * @note Only implemented for cells.
+   */
+  inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
+  face_indices() const
+  {
+    AssertDimension(structdim, dim);
+    return GeometryInfo<dim>::face_indices();
+  }
 
 private:
   /**
@@ -2771,8 +2808,7 @@ public:
   /**
    * Return an array of iterators to all faces of this cell.
    */
-  std::array<TriaIterator<TriaAccessor<dim - 1, dim, spacedim>>,
-             GeometryInfo<dim>::faces_per_cell>
+  std::vector<TriaIterator<TriaAccessor<dim - 1, dim, spacedim>>>
   face_iterators() const;
 
   /**
