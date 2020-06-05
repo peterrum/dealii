@@ -185,34 +185,32 @@ test_3()
       }
   }
 
-  if (false /* TODO */)
-    {
-      deallog << std::endl << "CELLS -> LINE" << std::endl;
-      auto cell  = tria.begin();
-      auto ecell = tria.end();
+  {
+    deallog << std::endl << "CELLS -> LINE" << std::endl;
+    auto cell  = tria.begin();
+    auto ecell = tria.end();
 
-      for (; cell != ecell; ++cell)
-        {
-          deallog << cell->index() << " " << cell->id() << std::endl;
-          for (auto i : cell->line_indices())
-            deallog << "  " << cell->line_index(i) << "  "
-                    << cell->line(i)->index() << std::endl;
-        }
-    }
+    for (; cell != ecell; ++cell)
+      {
+        deallog << cell->index() << " " << cell->id() << std::endl;
+        for (auto i : cell->line_indices())
+          deallog << "  " << cell->line_index(i) << "  "
+                  << cell->line(i)->index() << std::endl;
+      }
+  }
 
-  if (false /* TODO */)
-    {
-      deallog << std::endl << "CELLS -> VERTEX" << std::endl;
-      auto cell  = tria.begin();
-      auto ecell = tria.end();
+  {
+    deallog << std::endl << "CELLS -> VERTEX" << std::endl;
+    auto cell  = tria.begin();
+    auto ecell = tria.end();
 
-      for (; cell != ecell; ++cell)
-        {
-          deallog << cell->index() << " " << cell->id() << std::endl;
-          for (auto i : cell->vertex_indices())
-            deallog << "  " << cell->vertex_index(i) << std::endl;
-        }
-    }
+    for (; cell != ecell; ++cell)
+      {
+        deallog << cell->index() << " " << cell->id() << std::endl;
+        for (auto i : cell->vertex_indices())
+          deallog << "  " << cell->vertex_index(i) << std::endl;
+      }
+  }
 
 
   {
@@ -229,19 +227,18 @@ test_3()
       }
   }
 
-  if (false /* TODO */)
-    {
-      deallog << std::endl << "FACES -> VERTEX" << std::endl;
-      auto face  = tria.begin_face();
-      auto eface = tria.end_face();
+  {
+    deallog << std::endl << "FACES -> VERTEX" << std::endl;
+    auto face  = tria.begin_face();
+    auto eface = tria.end_face();
 
-      for (; face != eface; ++face)
-        {
-          deallog << face->index() << std::endl;
-          for (auto i : face->vertex_indices())
-            deallog << "  " << face->vertex_index(i) << std::endl;
-        }
-    }
+    for (; face != eface; ++face)
+      {
+        deallog << face->index() << std::endl;
+        for (auto i : face->vertex_indices())
+          deallog << "  " << face->vertex_index(i) << std::endl;
+      }
+  }
 
   {
     deallog << std::endl << "CELLS -> NEIGHBORS" << std::endl;
