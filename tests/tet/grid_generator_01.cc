@@ -66,7 +66,7 @@ test_2()
     for (; cell != ecell; ++cell)
       {
         deallog << cell->index() << " " << cell->id() << std::endl;
-        for (unsigned int i = 0; i < 3 /* TODO */; ++i)
+        for (auto i : cell->face_indices())
           deallog << "  " << cell->line_index(i) << "  "
                   << cell->line(i)->index() << std::endl;
       }
@@ -81,7 +81,7 @@ test_2()
       for (; cell != ecell; ++cell)
         {
           deallog << cell->index() << std::endl;
-          for (unsigned int i = 0; i < 3 /* TODO */; ++i)
+          for (const auto i : cell->vertex_indices())
             deallog << "  " << cell->vertex_index(i) << std::endl;
         }
     }
@@ -94,9 +94,9 @@ test_2()
     for (; cell != ecell; ++cell)
       {
         deallog << cell->index() << " " << cell->id() << std::endl;
-        for (unsigned int i = 0; i < 3 /* TODO */; ++i)
-          for (unsigned int j = 0; j < 2 /* TODO */; ++j)
-            deallog << "  " << cell->line(i)->vertex_index(j) << std::endl;
+        for (const auto face : cell->face_iterators())
+          for (const auto j : face->vertex_indices())
+            deallog << "  " << face->vertex_index(j) << std::endl;
       }
   }
 
@@ -108,7 +108,7 @@ test_2()
     for (; face != eface; ++face)
       {
         deallog << face->index() << std::endl;
-        for (unsigned int i = 0; i < 2 /* TODO */; ++i)
+        for (auto i : face->vertex_indices())
           deallog << "  " << face->vertex_index(i) << std::endl;
       }
   }
@@ -122,7 +122,7 @@ test_2()
     for (; cell != ecell; ++cell)
       {
         deallog << cell->index() << " " << cell->id() << std::endl;
-        for (unsigned int i = 0; i < 3 /* TODO */; ++i)
+        for (auto i : cell->face_indices())
           {
             deallog << "  " << cell->at_boundary(i) << " ";
             if (!cell->at_boundary(i))
@@ -180,7 +180,7 @@ test_3()
     for (; cell != ecell; ++cell)
       {
         deallog << cell->index() << " " << cell->id() << std::endl;
-        for (unsigned int i = 0; i < 4 /* TODO */; ++i)
+        for (auto i : cell->face_indices())
           deallog << "  " << cell->face_index(i) << "  "
                   << cell->face(i)->index() << std::endl;
       }
@@ -195,7 +195,7 @@ test_3()
       for (; cell != ecell; ++cell)
         {
           deallog << cell->index() << " " << cell->id() << std::endl;
-          for (unsigned int i = 0; i < 4 /* TODO */; ++i)
+          for (auto i : cell->line_indices())
             deallog << "  " << cell->line_index(i) << "  "
                     << cell->line(i)->index() << std::endl;
         }
@@ -210,7 +210,7 @@ test_3()
       for (; cell != ecell; ++cell)
         {
           deallog << cell->index() << " " << cell->id() << std::endl;
-          for (unsigned int i = 0; i < 4 /* TODO */; ++i)
+          for (auto i : cell->vertex_indices())
             deallog << "  " << cell->vertex_index(i) << std::endl;
         }
     }
@@ -224,7 +224,7 @@ test_3()
     for (; face != eface; ++face)
       {
         deallog << face->index() << std::endl;
-        for (unsigned int i = 0; i < 3 /* TODO */; ++i)
+        for (auto i : face->line_indices())
           deallog << "  " << face->line_index(i) << "  "
                   << face->line(i)->index() << std::endl;
       }
@@ -239,7 +239,7 @@ test_3()
       for (; face != eface; ++face)
         {
           deallog << face->index() << std::endl;
-          for (unsigned int i = 0; i < 3 /* TODO */; ++i)
+          for (auto i : face->vertex_indices())
             deallog << "  " << face->vertex_index(i) << std::endl;
         }
     }
@@ -252,7 +252,7 @@ test_3()
     for (; cell != ecell; ++cell)
       {
         deallog << cell->index() << " " << cell->id() << std::endl;
-        for (unsigned int i = 0; i < 4 /* TODO */; ++i)
+        for (auto i : cell->face_indices())
           {
             deallog << "  " << cell->at_boundary(i) << " ";
             if (!cell->at_boundary(i))

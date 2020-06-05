@@ -1654,6 +1654,12 @@ public:
     return {0U, n_vertices()};
   }
 
+  inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
+  line_indices() const
+  {
+    return {0U, n_lines()};
+  }
+
   /**
    * @note Only implemented for cells.
    */

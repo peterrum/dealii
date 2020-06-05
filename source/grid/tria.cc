@@ -10917,6 +10917,9 @@ namespace internal
                 cells_0.cells[cell * GeometryInfo<dim>::faces_per_cell + j] =
                   crs.col[i];
           }
+
+          tria.levels[0]->entity_type.assign(n_cell,
+                                             dim == 2 ? 2 : 4 /* TODO*/);
         }
 
         // TriaObjects: quad
@@ -10952,6 +10955,8 @@ namespace internal
                   quads_0.cells[quad * GeometryInfo<2>::faces_per_cell + j] =
                     crs.col[i];
             }
+
+            tria.faces->quad_entity_type.assign(n_quads, 2 /* TODO*/);
           }
 
         // TriaObjects: line
