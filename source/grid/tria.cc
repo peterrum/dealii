@@ -10920,6 +10920,10 @@ namespace internal
 
           tria.levels[0]->entity_type.assign(n_cell,
                                              dim == 2 ? 2 : 4 /* TODO*/);
+
+          if (dim == 3)
+            tria.levels[0]->face_orientations.assign(
+              n_cell * GeometryInfo<dim>::faces_per_cell, 0 /* TODO */);
         }
 
         // TriaObjects: quad
@@ -10957,6 +10961,9 @@ namespace internal
             }
 
             tria.faces->quad_entity_type.assign(n_quads, 2 /* TODO*/);
+
+            tria.faces->quads_line_orientations.assign(
+              n_quads * GeometryInfo<2>::faces_per_cell, 0 /* TODO */);
           }
 
         // TriaObjects: line
