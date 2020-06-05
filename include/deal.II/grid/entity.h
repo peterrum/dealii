@@ -78,8 +78,8 @@ struct DynamicGeometryInfo
   }
 
   virtual unsigned int
-  standard_to_real_face_line(const unsigned int line,
-                             const unsigned int face_orientation) const
+  standard_to_real_face_line(const unsigned int  line,
+                             const unsigned char face_orientation) const
   {
     Assert(false, ExcNotImplemented());
 
@@ -87,6 +87,20 @@ struct DynamicGeometryInfo
     (void)face_orientation;
 
     return 0;
+  }
+
+  virtual bool
+  combine_quad_and_line_orientation(const unsigned int  line,
+                                    const unsigned char face_orientation,
+                                    const bool          line_orientation) const
+  {
+    Assert(false, ExcNotImplemented());
+
+    (void)line;
+    (void)face_orientation;
+    (void)line_orientation;
+
+    return true;
   }
 };
 
@@ -241,14 +255,42 @@ struct DynamicGeometryInfoHex : public DynamicGeometryInfoTensor<3>
   }
 
   unsigned int
-  standard_to_real_face_line(const unsigned int line,
-                             const unsigned int face_orientation) const override
+  standard_to_real_face_line(
+    const unsigned int  line,
+    const unsigned char face_orientation) const override
   {
     return GeometryInfo<3>::standard_to_real_face_line(
       line,
       get_bit(face_orientation, 0),
       get_bit(face_orientation, 1),
       get_bit(face_orientation, 2));
+  }
+
+  bool
+  combine_quad_and_line_orientation(const unsigned int  line,
+                                    const unsigned char face_orientation_raw,
+                                    const bool line_orientation) const override
+  {
+    static const bool bool_table[2][2][2][2] = {
+      {{{true, false},    // lines 0/1, face_orientation=false,
+                          // face_flip=false, face_rotation=false and true
+        {false, true}},   // lines 0/1, face_orientation=false,
+                          // face_flip=true, face_rotation=false and true
+       {{true, true},     // lines 0/1, face_orientation=true, face_flip=false,
+                          // face_rotation=false and true
+        {false, false}}}, // lines 0/1, face_orientation=true,
+                          // face_flip=true, face_rotation=false and true
+
+      {{{true, true}, // lines 2/3 ...
+        {false, false}},
+       {{true, false}, {false, true}}}};
+
+    const bool face_orientation = get_bit(face_orientation_raw, 0);
+    const bool face_flip        = get_bit(face_orientation_raw, 1);
+    const bool face_rotation    = get_bit(face_orientation_raw, 2);
+
+    return (line_orientation ==
+            bool_table[line / 2][face_orientation][face_flip][face_rotation]);
   }
 
 private:

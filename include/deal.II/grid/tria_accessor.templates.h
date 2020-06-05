@@ -773,51 +773,15 @@ namespace internal
         AssertIndexRange(line, GeometryInfo<3>::lines_per_cell);
 
         const auto pair =
-          GeometryInfo<3>::standard_hex_line_to_quad_line_index(line);
-        const auto quad_index     = pair[0];
-        const auto std_line_index = pair[1];
-        const auto line_index     = GeometryInfo<3>::standard_to_real_face_line(
-          std_line_index,
-          accessor.face_orientation(quad_index),
-          accessor.face_flip(quad_index),
-          accessor.face_rotation(quad_index));
+          accessor.entity().standard_hex_line_to_quad_line_index(line);
+        const auto quad_index = pair[0];
+        const auto line_index = accessor.entity().standard_to_real_face_line(
+          pair[1], face_orientation_raw(accessor, quad_index));
 
-        // now we got to the correct line and ask the quad for its
-        // line_orientation. however, if the face is rotated, it might be
-        // possible, that a standard orientation of the line with respect to
-        // the face corresponds to a non-standard orientation for the line with
-        // respect to the cell.
-        //
-        // set up a table indicating if the two standard orientations coincide
-        //
-        // first index: two pairs of lines 0(lines 0/1) and 1(lines 2/3)
-        //
-        // second index: face_orientation; 0: opposite normal, 1: standard
-        //
-        // third index: face_flip; 0: standard, 1: face rotated by 180 degrees
-        //
-        // forth index: face_rotation: 0: standard, 1: face rotated by 90
-        // degrees
-
-        static const bool bool_table[2][2][2][2] = {
-          {{{true, false},  // lines 0/1, face_orientation=false,
-                            // face_flip=false, face_rotation=false and true
-            {false, true}}, // lines 0/1, face_orientation=false,
-                            // face_flip=true, face_rotation=false and true
-           {{true, true}, // lines 0/1, face_orientation=true, face_flip=false,
-                          // face_rotation=false and true
-            {false, false}}}, // lines 0/1, face_orientation=true,
-                              // face_flip=true, face_rotation=false and true
-
-          {{{true, true}, // lines 2/3 ...
-            {false, false}},
-           {{true, false}, {false, true}}}};
-
-
-        return (accessor.quad(quad_index)->line_orientation(line_index) ==
-                bool_table[std_line_index / 2][accessor.face_orientation(
-                  quad_index)][accessor.face_flip(quad_index)]
-                          [accessor.face_rotation(quad_index)]);
+        return accessor.entity().combine_quad_and_line_orientation(
+          pair[1],
+          face_orientation_raw(accessor, quad_index),
+          accessor.quad(quad_index)->line_orientation(line_index));
       }
 
 
