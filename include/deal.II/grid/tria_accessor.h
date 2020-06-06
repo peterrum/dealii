@@ -25,6 +25,7 @@
 #include <deal.II/base/point.h>
 
 #include <deal.II/grid/cell_id.h>
+#include <deal.II/grid/entity.h>
 #include <deal.II/grid/tria_iterator_base.h>
 #include <deal.II/grid/tria_iterator_selector.h>
 

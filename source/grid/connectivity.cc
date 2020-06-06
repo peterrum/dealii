@@ -17,6 +17,7 @@
 
 #include <iomanip>
 #include <set>
+#include <vector>
 
 DEAL_II_NAMESPACE_OPEN
 
@@ -291,7 +292,8 @@ namespace Tet
       const std::vector<unsigned int> &                      cell_types_index,
       const CRS<unsigned int> &                              crs,
       CRS<unsigned int> &                                    crs_d,
-      CRS<unsigned int> &                                    crs_0)
+      CRS<unsigned int> &                                    crs_0,
+      std::vector<unsigned char> &                           orientations)
     {
       const std::vector<std::size_t> & cell_ptr      = crs.ptr;
       const std::vector<unsigned int> &cell_vertices = crs.col;
@@ -328,8 +330,33 @@ namespace Tet
 
               // TODO: save this permutation
 
-              std::sort(global_entity_vertices.begin(),
-                        global_entity_vertices.end());
+              std::vector<std::pair<unsigned int, unsigned int>>
+                global_entity_vertices_with_permutation;
+
+              for (unsigned int i = 0; i < global_entity_vertices.size(); ++i)
+                global_entity_vertices_with_permutation.emplace_back(
+                  global_entity_vertices[i], i);
+
+              std::sort(global_entity_vertices_with_permutation.begin(),
+                        global_entity_vertices_with_permutation.end());
+
+              std::vector<unsigned int> permutation;
+
+              for (unsigned int i = 0; i < global_entity_vertices.size(); ++i)
+                {
+                  global_entity_vertices[i] =
+                    global_entity_vertices_with_permutation[i].first;
+                  permutation.push_back(
+                    global_entity_vertices_with_permutation[i].second);
+                }
+
+              unsigned char orientation = -1;
+              if (permutation == std::vector<unsigned int>{0, 1})
+                orientation = 0;
+              else if (permutation == std::vector<unsigned int>{1, 0})
+                orientation = 1;
+
+              orientations.push_back(orientation);
 
 
               std::array<unsigned int, key_length> key;
@@ -382,7 +409,8 @@ namespace Tet
       const std::vector<unsigned int> &                      cell_types_index,
       const CRS<unsigned int> &                              crs,
       CRS<unsigned int> &                                    crs_d,
-      CRS<unsigned int> &                                    crs_0)
+      CRS<unsigned int> &                                    crs_0,
+      std::vector<unsigned char> &                           orientations)
     {
       if (!(0 < d && d < dim))
         AssertThrow(false, dealii::StandardExceptions::ExcNotImplemented());
@@ -399,9 +427,9 @@ namespace Tet
 
       // clang-format off
     if(key_length == 2)
-      build_entity_templated<2>(d, cell_types, cell_types_index, crs, crs_d, crs_0);
+      build_entity_templated<2>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations);
     else if(key_length == 3)
-      build_entity_templated<3>(d, cell_types, cell_types_index, crs, crs_d, crs_0);
+      build_entity_templated<3>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations);
     else
       AssertThrow(false, dealii::StandardExceptions::ExcNotImplemented ());
       // clang-format on
@@ -414,7 +442,8 @@ namespace Tet
       const std::vector<std::shared_ptr<CellTypeBase<dim>>> &cell_types,
       const std::vector<unsigned int> &                      cell_types_index,
       const CRS<unsigned int> &                              crs,
-      std::array<std::array<CRS<unsigned int>, dim + 1>, dim + 1> &table)
+      std::array<std::array<CRS<unsigned int>, dim + 1>, dim + 1> &table,
+      std::array<std::vector<unsigned char>, dim + 1> &            orientations)
     {
       table[dim][0] = crs;
 
@@ -428,7 +457,8 @@ namespace Tet
                        cell_types_index,
                        table[dim][0],
                        table[dim][d],
-                       table[d][0]);
+                       table[d][0],
+                       orientations[d]);
           transpose(table[d][0], table[0][d]);
           transpose(table[dim][d], table[d][dim]);
         }
@@ -518,7 +548,8 @@ namespace Tet
     crs.col = cell_vertices;
     crs.ptr = cell_ptr;
 
-    internal::build_table(cell_types_impl, cell_types_indices, crs, table);
+    internal::build_table(
+      cell_types_impl, cell_types_indices, crs, table, orientations);
   }
 
   template <int dim>

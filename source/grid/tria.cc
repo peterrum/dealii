@@ -10924,6 +10924,21 @@ namespace internal
           if (dim == 3)
             tria.levels[0]->face_orientations.assign(
               n_cell * GeometryInfo<dim>::faces_per_cell, 0 /* TODO */);
+          if (dim == 2)
+            {
+              const auto &crs = connectivity.table[dim][dim - 1];
+
+              tria.levels[0]->face_orientations.assign(
+                n_cell * GeometryInfo<dim>::faces_per_cell, -1);
+
+              for (unsigned int cell = 0; cell < cells.size(); ++cell)
+                for (unsigned int i = crs.ptr[cell], j = 0;
+                     i < crs.ptr[cell + 1];
+                     ++i, ++j)
+                  tria.levels[0]->face_orientations
+                    [cell * GeometryInfo<dim>::faces_per_cell + j] =
+                    connectivity.orientations[1][i];
+            }
         }
 
         // TriaObjects: quad

@@ -91,6 +91,8 @@ namespace Tet
 
     // private:
     std::array<std::array<CRS<unsigned int>, dim + 1>, dim + 1> table;
+
+    std::array<std::vector<unsigned char>, dim + 1> orientations;
   };
 
 } // namespace Tet

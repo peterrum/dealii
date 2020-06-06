@@ -208,9 +208,10 @@ struct DynamicGeometryInfoTri : DynamicGeometryInfo
   standard_to_real_line_vertex(const unsigned int vertex,
                                const bool line_orientation) const override
   {
-    (void)line_orientation; // TODO
+    static const std::array<std::array<unsigned int, 2>, 2> table = {
+      {{0, 1}, {1, 0}}};
 
-    return vertex;
+    return table[line_orientation][vertex];
   }
 };
 
