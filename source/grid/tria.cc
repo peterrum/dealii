@@ -10850,6 +10850,8 @@ namespace internal
           connectivity.build(cell_types, cell_vertices);
         }
 
+        connectivity.print(std::cout);
+
         tria.levels.clear();
         tria.levels.push_back(
           std::make_unique<
@@ -10921,10 +10923,10 @@ namespace internal
           tria.levels[0]->entity_type.assign(n_cell,
                                              dim == 2 ? 2 : 4 /* TODO*/);
 
-          if (dim == 3)
-            tria.levels[0]->face_orientations.assign(
-              n_cell * GeometryInfo<dim>::faces_per_cell, 0 /* TODO */);
-          if (dim == 2)
+          // if (dim == 3)
+          //  tria.levels[0]->face_orientations.assign(
+          //    n_cell * GeometryInfo<dim>::faces_per_cell, 0 /* TODO */);
+          if (dim >= 2)
             {
               const auto &crs = connectivity.table[dim][dim - 1];
 
@@ -10937,7 +10939,7 @@ namespace internal
                      ++i, ++j)
                   tria.levels[0]->face_orientations
                     [cell * GeometryInfo<dim>::faces_per_cell + j] =
-                    connectivity.orientations[1][i];
+                    connectivity.orientations[dim - 1][i];
             }
         }
 
@@ -10977,8 +10979,26 @@ namespace internal
 
             tria.faces->quad_entity_type.assign(n_quads, 2 /* TODO*/);
 
-            tria.faces->quads_line_orientations.assign(
-              n_quads * GeometryInfo<2>::faces_per_cell, 0 /* TODO */);
+            {
+              const auto &crs = connectivity.table[2][1];
+
+              tria.faces->quads_line_orientations.assign(
+                n_quads * GeometryInfo<2>::faces_per_cell, -1);
+
+              std::cout << "AAAAAAAA "
+                        << n_quads * GeometryInfo<2>::faces_per_cell
+                        << std::endl;
+              std::cout << "AAAAAAAA " << connectivity.orientations[1].size()
+                        << std::endl;
+
+              for (unsigned int quad = 0, k = 0; quad < n_quads; ++quad)
+                for (unsigned int i = crs.ptr[quad], j = 0;
+                     i < crs.ptr[quad + 1];
+                     ++i, ++j, ++k)
+                  tria.faces->quads_line_orientations
+                    [quad * GeometryInfo<2>::faces_per_cell + j] =
+                    connectivity.orientations[1][k];
+            }
           }
 
         // TriaObjects: line

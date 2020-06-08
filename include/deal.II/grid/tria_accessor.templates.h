@@ -977,6 +977,14 @@ namespace internal
           accessor.entity().standard_to_real_line_vertex(
             pair[1], accessor.line_orientation(line_index));
 
+        // deallog << corner << " " << pair[0] << " " << pair[1] << " " <<
+        // vertex_index
+        //        << " " << static_cast<unsigned
+        //        int>(accessor.line_orientation(line_index))<< std::endl;
+
+        // deallog << accessor.line(line_index)->vertex_index(0) << " " <<
+        //        accessor.line(line_index)->vertex_index(1) << std::endl;
+
         return accessor.line(line_index)->vertex_index(vertex_index);
       }
 
@@ -993,6 +1001,12 @@ namespace internal
         const auto vertex_index =
           accessor.entity().standard_to_real_face_vertex(
             pair[1], face_orientation_raw(accessor, face_index));
+
+        // deallog << "AA " << corner << " " << pair[0] << " " << pair[1] << " "
+        // << vertex_index << " "
+        //        << static_cast<unsigned int>(face_orientation_raw(accessor,
+        //        face_index))
+        //        << std::endl;
 
         return accessor.quad(face_index)->vertex_index(vertex_index);
       }

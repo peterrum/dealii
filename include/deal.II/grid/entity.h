@@ -197,9 +197,8 @@ struct DynamicGeometryInfoTri : DynamicGeometryInfo
   {
     AssertIndexRange(vertex, 3);
 
-    static const std::array<unsigned int, 2> table[3] = {{0, 0},
-                                                         {0, 1},
-                                                         {1, 1}}; // TODO
+    static const std::array<std::array<unsigned int, 2>, 3> table = {
+      {{0, 0}, {0, 1}, {1, 1}}};
 
     return table[vertex];
   }
@@ -276,18 +275,24 @@ struct DynamicGeometryInfoTet : DynamicGeometryInfo
     const unsigned int  line,
     const unsigned char face_orientation) const override
   {
-    (void)face_orientation;
+    static const std::array<std::array<unsigned int, 3>, 6> table = {
+      {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}};
+    // static const std::array<std::array<unsigned int, 3>, 6> table = {
+    //  {{0, 1, 2}, {2, 1, 0}, {0, 2, 1}, {1, 2, 0}, {2, 0, 1}, {1, 0, 2}}};
 
-    return line; // TODO
+    return table[face_orientation][line];
   }
 
   bool
   combine_quad_and_line_orientation(const unsigned int  line,
-                                    const unsigned char face_orientation_raw,
+                                    const unsigned char face_orientation,
                                     const bool line_orientation) const override
   {
     (void)line;
-    (void)face_orientation_raw;
+    (void)face_orientation;
+
+    deallog << line << " " << static_cast<unsigned int>(face_orientation) << " "
+            << static_cast<unsigned int>(line_orientation) << std::endl;
 
     return line_orientation; // TODO
   }
@@ -296,9 +301,11 @@ struct DynamicGeometryInfoTet : DynamicGeometryInfo
   standard_hex_vertex_to_quad_vertex_index(
     const unsigned int vertex) const override
   {
+    AssertIndexRange(vertex, 4);
+
     static const std::array<unsigned int, 2> table[4] = {{0, 0},
-                                                         {0, 2},
                                                          {0, 1},
+                                                         {0, 2},
                                                          {1, 2}};
 
     return table[vertex];
@@ -309,9 +316,15 @@ struct DynamicGeometryInfoTet : DynamicGeometryInfo
     const unsigned int  vertex,
     const unsigned char face_orientation) const override
   {
-    (void)face_orientation;
+    AssertIndexRange(face_orientation, 6);
 
-    return vertex; // TODO
+    // static const std::array<std::array<unsigned int, 3>, 6> table = {
+    //  {{0, 1, 2}, {0, 1, 2}, {0, 1, 2}, {0, 1, 2}, {0, 1, 2}, {0, 1, 2}}};
+
+    static const std::array<std::array<unsigned int, 3>, 6> table = {
+      {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}};
+
+    return table[face_orientation][vertex];
   }
 };
 
