@@ -130,7 +130,7 @@ namespace Tet
                   {
                     CellData<dim> cell;
                     if (((i % 2) + (j % 2) + (k % 2)) % 2 == 0)
-                      cell.vertices = {quad[1], quad[3], quad[2], quad[7]};
+                      cell.vertices = {quad[2], quad[1], quad[3], quad[7]};
                     else
                       cell.vertices = {quad[0], quad[3], quad[2], quad[6]};
                     cells.push_back(cell);

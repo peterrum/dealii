@@ -552,89 +552,20 @@ namespace Tet
           // TODO
         }
 
-      if (dim == 3)
-        {
+      if (false)
+        if (dim == 3)
           {
-            std::cout << orientations[1].size() << " " << orientations[2].size()
-                      << std::endl;
-
-            const auto orientation_line = orientations[1];
-            orientations[1].clear();
-            orientations[1].resize((table[2][1].ptr.size() - 1) * 3);
-
-            const auto &crs_32 = table[3][2];
-            const auto &crs_21 = table[2][1];
-
-            for (unsigned int i = 0; i < crs_32.ptr.size() - 1; ++i)
-              {
-                for (unsigned int j = crs_32.ptr[i]; j < crs_32.ptr[i + 1]; ++j)
-                  {
-                    const unsigned int quad = crs_32.col[j];
-                    const unsigned int line0 =
-                      orientation_line[crs_21.col[crs_21.ptr[quad] + 0]];
-                    const unsigned int line1 =
-                      orientation_line[crs_21.col[crs_21.ptr[quad] + 1]];
-                    const unsigned int line2 =
-                      orientation_line[crs_21.col[crs_21.ptr[quad] + 2]];
-
-                    const unsigned int o_quad = orientations[2][j];
-
-                    std::array<unsigned int, 4> p = {o_quad,
-                                                     line0,
-                                                     line1,
-                                                     line2};
-
-                    /*
-                    if(p==std::array<unsigned int, 4>{0,0,1,0})
-                        p={0,0,0,0};
-                    else if(p==std::array<unsigned int, 4>{1,0,0,0})
-                        p={1,1,0,0};
-                    else if(p==std::array<unsigned int, 4>{1,0,0,1})
-                        p={1,0,1,1};
-
-                    orientations[1][quad*3+0] = p[1];
-                    orientations[1][quad*3+1] = p[2];
-                    orientations[1][quad*3+2] = p[3];
-                     */
-
-                    // orientations[1][quad*3+0] = 0;
-                    // orientations[1][quad*3+1] = 0;
-                    // orientations[1][quad*3+2] = 0;
-
-                    if (o_quad == 0)
-                      orientations[1][quad * 3 + 2] = p[1 + 2] == 1 ? 0 : 1;
-                    else if (o_quad == 1)
-                      orientations[1][quad * 3 + 0] = p[1 + 0] == 1 ? 0 : 1;
-                    else if (o_quad == 2)
-                      orientations[1][quad * 3 + 1] = p[1 + 1] == 1 ? 0 : 1;
-                    else if (o_quad == 3)
-                      orientations[1][quad * 3 + 1] = p[1 + 1] == 1 ? 0 : 1;
-                    else if (o_quad == 4)
-                      orientations[1][quad * 3 + 0] = p[1 + 0] == 1 ? 0 : 1;
-                    else if (o_quad == 5)
-                      orientations[1][quad * 3 + 2] = p[1 + 2] == 1 ? 0 : 1;
-
-                    deallog << " ";
-                    deallog << static_cast<unsigned int>(orientations[2][j])
-                            << " ";
-                    deallog << static_cast<unsigned int>(
-                                 orientations[1][quad * 3 + 0])
-                            << " ";
-                    deallog << static_cast<unsigned int>(
-                                 orientations[1][quad * 3 + 1])
-                            << " ";
-                    deallog << static_cast<unsigned int>(
-                                 orientations[1][quad * 3 + 2])
-                            << " :  ";
-                    // break;
-                  }
-                // break;
-              }
-          }
-          if (false)
             {
+              std::cout << orientations[1].size() << " "
+                        << orientations[2].size() << std::endl;
+
+              const auto orientation_line = orientations[1];
+              orientations[1].clear();
+              orientations[1].resize((table[2][1].ptr.size() - 1) * 3);
+
               const auto &crs_32 = table[3][2];
               const auto &crs_21 = table[2][1];
+              const auto &crs_10 = table[1][0];
 
               for (unsigned int i = 0; i < crs_32.ptr.size() - 1; ++i)
                 {
@@ -643,30 +574,204 @@ namespace Tet
                     {
                       const unsigned int quad = crs_32.col[j];
                       const unsigned int line0 =
-                        crs_21.col[crs_21.ptr[quad] + 0];
+                        orientation_line[crs_21.col[crs_21.ptr[quad] + 0]];
                       const unsigned int line1 =
-                        crs_21.col[crs_21.ptr[quad] + 1];
+                        orientation_line[crs_21.col[crs_21.ptr[quad] + 1]];
                       const unsigned int line2 =
-                        crs_21.col[crs_21.ptr[quad] + 2];
+                        orientation_line[crs_21.col[crs_21.ptr[quad] + 2]];
 
-                      std::array<unsigned int, 4> p = {orientations[2][j],
-                                                       orientations[1][line0],
-                                                       orientations[1][line1],
-                                                       orientations[1][line2]};
+                      {
+                        std::array<unsigned int, 6> temp{
+                          crs_10
+                            .col[crs_10.ptr[crs_21.col[crs_21.ptr[quad] + 0]] +
+                                 0],
+                          crs_10
+                            .col[crs_10.ptr[crs_21.col[crs_21.ptr[quad] + 0]] +
+                                 1],
+                          crs_10
+                            .col[crs_10.ptr[crs_21.col[crs_21.ptr[quad] + 1]] +
+                                 0],
+                          crs_10
+                            .col[crs_10.ptr[crs_21.col[crs_21.ptr[quad] + 1]] +
+                                 1],
+                          crs_10
+                            .col[crs_10.ptr[crs_21.col[crs_21.ptr[quad] + 2]] +
+                                 0],
+                          crs_10
+                            .col[crs_10.ptr[crs_21.col[crs_21.ptr[quad] + 2]] +
+                                 1]};
 
-                      if (p == std::array<unsigned int, 4>{1, 0, 1, 1})
-                        p = {1, 0, 0, 1};
+                        std::cout << "AA ";
+                        for (auto i : temp)
+                          std::cout << " " << i;
+                        std::cout << std::endl;
 
-                      orientations[1][line0] = p[1];
-                      orientations[1][line1] = p[2];
-                      orientations[1][line2] = p[3];
+                        std::map<unsigned int, unsigned int> m;
 
-                      break;
+                        for (auto i : temp)
+                          m[i] = -1;
+
+                        unsigned int counter = 0;
+
+                        for (auto &i : m)
+                          i.second = counter++;
+
+
+                        for (auto &i : temp)
+                          i = m[i];
+
+                        unsigned int                orientation = -1;
+                        std::array<unsigned int, 3> line_orientation;
+
+                        if (temp ==
+                            std::array<unsigned int, 6>{0, 1, 0, 2, 1, 2})
+                          {
+                            orientation      = 2;
+                            line_orientation = {0, 1, 0};
+                          }
+                        else if (temp ==
+                                 std::array<unsigned int, 6>{0, 1, 1, 2, 0, 2})
+                          {
+                            orientation      = 0;
+                            line_orientation = {0, 0, 1};
+                          }
+                        else if (temp ==
+                                 std::array<unsigned int, 6>{0, 2, 0, 1, 1, 2})
+                          {
+                            orientation      = 4;
+                            line_orientation = {1, 0, 0};
+                          }
+                        else if (temp ==
+                                 std::array<unsigned int, 6>{0, 2, 1, 2, 0, 1})
+                          {
+                            orientation      = 1;
+                            line_orientation = {0, 1, 1};
+                          }
+                        else if (temp ==
+                                 std::array<unsigned int, 6>{1, 2, 0, 1, 0, 2})
+                          {
+                            orientation      = 5;
+                            line_orientation = {1, 1, 0};
+                          }
+                        else if (temp ==
+                                 std::array<unsigned int, 6>{1, 2, 0, 2, 0, 1})
+                          {
+                            orientation      = 3;
+                            line_orientation = {0, 1, 0};
+                          }
+
+
+                        std::cout << "AA " << orientation;
+                        for (auto i : temp)
+                          std::cout << " " << i;
+                        std::cout << std::endl;
+
+                        orientations[2][j] = orientation;
+
+                        orientations[1][quad * 3 + 0] = line_orientation[0];
+                        orientations[1][quad * 3 + 1] = line_orientation[1];
+                        orientations[1][quad * 3 + 2] = line_orientation[2];
+                      }
+
+                      //                    const unsigned int o_quad =
+                      //                    orientations[2][j];
+                      //
+                      //                    std::array<unsigned int, 4> p =
+                      //                    {o_quad,
+                      //                                                     line0,
+                      //                                                     line1,
+                      //                                                     line2};
+
+                      /*
+                      if(p==std::array<unsigned int, 4>{0,0,1,0})
+                          p={0,0,0,0};
+                      else if(p==std::array<unsigned int, 4>{1,0,0,0})
+                          p={1,1,0,0};
+                      else if(p==std::array<unsigned int, 4>{1,0,0,1})
+                          p={1,0,1,1};
+
+                      orientations[1][quad*3+0] = p[1];
+                      orientations[1][quad*3+1] = p[2];
+                      orientations[1][quad*3+2] = p[3];
+                       */
+
+                      // orientations[1][quad*3+0] = 0;
+                      // orientations[1][quad*3+1] = 0;
+                      // orientations[1][quad*3+2] = 0;
+
+                      //                    if (o_quad == 0)
+                      //                      orientations[1][quad * 3 + 2] =
+                      //                      p[1 + 2] == 1 ? 0 : 1;
+                      //                    else if (o_quad == 1)
+                      //                      orientations[1][quad * 3 + 0] =
+                      //                      p[1 + 0] == 1 ? 0 : 1;
+                      //                    else if (o_quad == 2)
+                      //                      orientations[1][quad * 3 + 1] =
+                      //                      p[1 + 1] == 1 ? 0 : 1;
+                      //                    else if (o_quad == 3)
+                      //                      orientations[1][quad * 3 + 1] =
+                      //                      p[1 + 1] == 1 ? 0 : 1;
+                      //                    else if (o_quad == 4)
+                      //                      orientations[1][quad * 3 + 0] =
+                      //                      p[1 + 0] == 1 ? 0 : 1;
+                      //                    else if (o_quad == 5)
+                      //                      orientations[1][quad * 3 + 2] =
+                      //                      p[1 + 2] == 1 ? 0 : 1;
+
+                      deallog << " ";
+                      deallog << static_cast<unsigned int>(orientations[2][j])
+                              << " ";
+                      deallog << static_cast<unsigned int>(
+                                   orientations[1][quad * 3 + 0])
+                              << " ";
+                      deallog << static_cast<unsigned int>(
+                                   orientations[1][quad * 3 + 1])
+                              << " ";
+                      deallog << static_cast<unsigned int>(
+                                   orientations[1][quad * 3 + 2])
+                              << " :  ";
+                      // break;
                     }
-                  break;
+                  // break;
                 }
             }
-        }
+            if (false)
+              {
+                const auto &crs_32 = table[3][2];
+                const auto &crs_21 = table[2][1];
+
+                for (unsigned int i = 0; i < crs_32.ptr.size() - 1; ++i)
+                  {
+                    for (unsigned int j = crs_32.ptr[i]; j < crs_32.ptr[i + 1];
+                         ++j)
+                      {
+                        const unsigned int quad = crs_32.col[j];
+                        const unsigned int line0 =
+                          crs_21.col[crs_21.ptr[quad] + 0];
+                        const unsigned int line1 =
+                          crs_21.col[crs_21.ptr[quad] + 1];
+                        const unsigned int line2 =
+                          crs_21.col[crs_21.ptr[quad] + 2];
+
+                        std::array<unsigned int, 4> p = {
+                          orientations[2][j],
+                          orientations[1][line0],
+                          orientations[1][line1],
+                          orientations[1][line2]};
+
+                        if (p == std::array<unsigned int, 4>{1, 0, 1, 1})
+                          p = {1, 0, 0, 1};
+
+                        orientations[1][line0] = p[1];
+                        orientations[1][line1] = p[2];
+                        orientations[1][line2] = p[3];
+
+                        break;
+                      }
+                    break;
+                  }
+              }
+          }
     }
   } // namespace internal
 
