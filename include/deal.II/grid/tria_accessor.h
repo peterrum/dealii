@@ -3337,6 +3337,12 @@ public:
    * @}
    */
 
+  types::global_cell_index
+  global_cell_id() const;
+
+  void
+  set_global_cell_id(const types::global_cell_index index) const;
+
   /**
    * @name Dealing with codim 1 cell orientation
    */

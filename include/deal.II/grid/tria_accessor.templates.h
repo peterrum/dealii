@@ -3567,6 +3567,27 @@ CellAccessor<dim, spacedim>::subdomain_id() const
 
 
 template <int dim, int spacedim>
+inline types::global_cell_index
+CellAccessor<dim, spacedim>::global_cell_id() const
+{
+  return this->tria->levels[this->present_level]
+    ->global_cell_ids[this->present_index];
+}
+
+
+
+template <int dim, int spacedim>
+void
+CellAccessor<dim, spacedim>::set_global_cell_id(
+  const types::global_cell_index index) const
+{
+  this->tria->levels[this->present_level]
+    ->global_cell_ids[this->present_index] = index;
+}
+
+
+
+template <int dim, int spacedim>
 inline unsigned int
 CellAccessor<dim, spacedim>::neighbor_face_no(const unsigned int neighbor) const
 {

@@ -16,6 +16,7 @@
 
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/memory_consumption.h>
+#include <deal.II/base/mpi.templates.h>
 #include <deal.II/base/utilities.h>
 
 #include <deal.II/distributed/tria_base.h>
@@ -270,6 +271,8 @@ namespace parallel
                  Utilities::MPI::n_mpi_processes(this->mpi_communicator),
                ExcInternalError());
       }
+
+    this->reset_global_cell_indices();
   }
 
 #else
@@ -338,6 +341,54 @@ namespace parallel
     return Utilities::MPI::compute_set_union(
       dealii::Triangulation<dim, spacedim>::get_manifold_ids(),
       this->mpi_communicator);
+  }
+
+
+
+  template <int dim, int spacedim>
+  void
+  TriangulationBase<dim, spacedim>::reset_global_cell_indices()
+  {
+    const types::global_cell_index n_locally_owned_cells =
+      this->n_locally_owned_active_cells();
+
+    // for (const auto cell : this->active_cell_iterators())
+    //  if (cell->is_locally_owned())
+    //    ++n_locally_owned_cells;
+
+    types::global_cell_index cell_index = 0;
+
+    MPI_Exscan(&n_locally_owned_cells,
+               &cell_index,
+               1,
+               Utilities::MPI::internal::mpi_type_id(&n_locally_owned_cells),
+               MPI_SUM,
+               this->mpi_communicator);
+
+    for (const auto cell : this->active_cell_iterators())
+      if (cell->is_locally_owned())
+        cell->set_global_cell_id(cell_index++);
+
+    // ghost cell update
+    GridTools::exchange_cell_data_to_ghosts<types::global_cell_index>(
+      *this,
+      [](const auto &cell) { return cell->global_cell_id(); },
+      [](const auto &cell, const auto &id) {
+        return cell->set_global_cell_id(id);
+      });
+
+    IndexSet is_local(this->n_global_active_cells());
+    IndexSet is_ghost(this->n_global_active_cells());
+
+    for (const auto cell : this->active_cell_iterators())
+      if (!cell->is_artificial())
+        if (cell->is_locally_owned())
+          is_local.add_index(cell->global_cell_id());
+        else
+          is_ghost.add_index(cell->global_cell_id());
+
+    number_cache.cell_partitioner =
+      Utilities::MPI::Partitioner(is_local, is_ghost, this->mpi_communicator);
   }
 
 

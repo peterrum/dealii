@@ -20,6 +20,7 @@
 #include <deal.II/base/config.h>
 
 #include <deal.II/base/mpi.h>
+#include <deal.II/base/partitioner.h>
 #include <deal.II/base/smartpointer.h>
 #include <deal.II/base/subscriptor.h>
 #include <deal.II/base/template_constraints.h>
@@ -282,6 +283,11 @@ namespace parallel
        */
       std::set<types::subdomain_id> level_ghost_owners;
 
+      /**
+       * TODO
+       */
+      Utilities::MPI::Partitioner cell_partitioner;
+
       NumberCache();
     };
 
@@ -292,6 +298,9 @@ namespace parallel
      */
     virtual void
     update_number_cache();
+
+    void
+    reset_global_cell_indices();
   };
 
   /**

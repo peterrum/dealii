@@ -1425,6 +1425,12 @@ namespace internal
             total_cells - tria_level.level_subdomain_ids.size(),
             0);
 
+          tria_level.global_cell_ids.reserve(total_cells);
+          tria_level.global_cell_ids.insert(tria_level.global_cell_ids.end(),
+                                            total_cells -
+                                              tria_level.global_cell_ids.size(),
+                                            numbers::invalid_unsigned_int);
+
           if (dimension < space_dimension)
             {
               tria_level.direction_flags.reserve(total_cells);
@@ -13629,6 +13635,8 @@ Triangulation<dim, spacedim>::execute_coarsening_and_refinement()
   update_neighbors(*this);
   reset_active_cell_indices();
 
+  reset_global_cell_indices();
+
   // Inform all listeners about end of refinement.
   signals.post_refinement();
 
@@ -13656,6 +13664,20 @@ Triangulation<dim, spacedim>::reset_active_cell_indices()
 
   Assert(active_cell_index == n_active_cells(), ExcInternalError());
 }
+
+
+
+template <int dim, int spacedim>
+void
+Triangulation<dim, spacedim>::reset_global_cell_indices()
+{
+  types::global_cell_index cell_index = 0;
+
+  for (const auto cell : active_cell_iterators())
+    if (cell->is_locally_owned())
+      cell->set_global_cell_id(cell_index++);
+}
+
 
 
 template <int dim, int spacedim>
