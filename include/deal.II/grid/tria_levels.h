@@ -156,6 +156,16 @@ namespace internal
       std::vector<types::subdomain_id> level_subdomain_ids;
 
       /**
+       * Global cell id of each active cell.
+       */
+      std::vector<types::global_cell_index> global_cell_indices;
+
+      /**
+       * Global cell id of each cell on the given level.
+       */
+      std::vector<types::global_cell_index> global_level_cell_indices;
+
+      /**
        * One integer for every consecutive pair of cells to store which index
        * their parent has.
        *

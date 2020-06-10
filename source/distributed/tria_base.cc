@@ -16,6 +16,7 @@
 
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/memory_consumption.h>
+#include <deal.II/base/mpi.templates.h>
 #include <deal.II/base/utilities.h>
 
 #include <deal.II/distributed/tria_base.h>
@@ -270,6 +271,9 @@ namespace parallel
                  Utilities::MPI::n_mpi_processes(this->mpi_communicator),
                ExcInternalError());
       }
+
+    // reset global cell ids
+    this->reset_global_cell_indices();
   }
 
 #else
@@ -341,6 +345,153 @@ namespace parallel
   }
 
 
+
+  template <int dim, int spacedim>
+  void
+  TriangulationBase<dim, spacedim>::reset_global_cell_indices()
+  {
+#ifndef DEAL_II_WITH_MPI
+    Assert(false, ExcNeedsMPI());
+#else
+
+    // 1) determine number of active locally-owned cells
+    const types::global_cell_index n_locally_owned_cells =
+      this->n_locally_owned_active_cells();
+
+    // 2) determine the offset of each process
+    types::global_cell_index cell_index = 0;
+
+    MPI_Exscan(&n_locally_owned_cells,
+               &cell_index,
+               1,
+               Utilities::MPI::internal::mpi_type_id(&n_locally_owned_cells),
+               MPI_SUM,
+               this->mpi_communicator);
+
+    // 3) enumerate locally-owned cells
+    for (const auto &cell : this->active_cell_iterators())
+      if (cell->is_locally_owned())
+        cell->set_global_index(cell_index++);
+
+    // 4) update the numbers of ghost cells
+    GridTools::exchange_cell_data_to_ghosts<types::global_cell_index>(
+      *this,
+      [](const auto &cell) { return cell->global_index(); },
+      [](const auto &cell, const auto &id) {
+        return cell->set_global_index(id);
+      });
+
+    // 5) set up cell partitioner
+    {
+      IndexSet is_local(this->n_global_active_cells());
+      IndexSet is_ghost(this->n_global_active_cells());
+
+      for (const auto &cell : this->active_cell_iterators())
+        if (!cell->is_artificial())
+          if (cell->is_locally_owned())
+            is_local.add_index(cell->global_index());
+          else
+            is_ghost.add_index(cell->global_index());
+
+      number_cache.cell_partitioner =
+        Utilities::MPI::Partitioner(is_local, is_ghost, this->mpi_communicator);
+    }
+
+    // 6) proceed with multigrid levels if requesteded
+    if (this->is_multilevel_hierarchy_constructed() == true)
+      {
+        // 1) determine number of locally-owned cells on levels
+        std::vector<types::global_cell_index> n_locally_owned_cells(
+          this->n_global_levels(), 0);
+
+        for (auto cell : this->cell_iterators())
+          if (cell->level_subdomain_id() == this->locally_owned_subdomain())
+            n_locally_owned_cells[cell->level()]++;
+
+        // 2) determine the offset of each process
+        std::vector<types::global_cell_index> cell_index(
+          this->n_global_levels(), 0);
+
+        MPI_Exscan(n_locally_owned_cells.data(),
+                   cell_index.data(),
+                   this->n_global_levels(),
+                   Utilities::MPI::internal::mpi_type_id(
+                     n_locally_owned_cells.data()),
+                   MPI_SUM,
+                   this->mpi_communicator);
+
+        // 3) determine global number of "active" cells on each level
+        std::vector<types::global_cell_index> n_cells_level(
+          this->n_global_levels(), 0);
+
+        MPI_Allreduce(n_locally_owned_cells.data(),
+                      n_cells_level.data(),
+                      this->n_global_levels(),
+                      Utilities::MPI::internal::mpi_type_id(
+                        n_locally_owned_cells.data()),
+                      MPI_SUM,
+                      this->mpi_communicator);
+
+        // 4) enumerate locally-owned level cells
+        for (auto cell : this->cell_iterators())
+          if (cell->level_subdomain_id() == this->locally_owned_subdomain())
+            cell->set_global_level_index(cell_index[cell->level()]++);
+
+        // 5) update the numbers of ghost level cells
+        GridTools::exchange_cell_data_to_level_ghosts<
+          types::global_cell_index,
+          dealii::Triangulation<dim, spacedim>>(
+          *this,
+          [](const auto &cell) { return cell->global_level_index(); },
+          [](const auto &cell, const auto &id) {
+            return cell->set_global_level_index(id);
+          });
+
+        // 6) set up cell partitioners for each level
+        number_cache.level_cell_partitioners.resize(this->n_global_levels());
+
+        for (unsigned int l = 0; l < this->n_global_levels(); ++l)
+          {
+            IndexSet is_local(n_cells_level[l]);
+            IndexSet is_ghost(n_cells_level[l]);
+
+            for (const auto &cell : this->cell_iterators_on_level(l))
+              if (cell->level_subdomain_id() !=
+                  dealii::numbers::artificial_subdomain_id)
+                if (cell->level_subdomain_id() ==
+                    this->locally_owned_subdomain())
+                  is_local.add_index(cell->global_level_index());
+                else
+                  is_ghost.add_index(cell->global_level_index());
+
+            number_cache.level_cell_partitioners[l] =
+              Utilities::MPI::Partitioner(is_local,
+                                          is_ghost,
+                                          this->mpi_communicator);
+          }
+      }
+
+#endif
+  }
+
+
+  template <int dim, int spacedim>
+  const Utilities::MPI::Partitioner &
+  TriangulationBase<dim, spacedim>::global_cell_index_partitioner() const
+  {
+    return number_cache.cell_partitioner;
+  }
+
+  template <int dim, int spacedim>
+  const Utilities::MPI::Partitioner &
+  TriangulationBase<dim, spacedim>::global_level_cell_index_partitioner(
+    const unsigned int level) const
+  {
+    Assert(this->is_multilevel_hierarchy_constructed(), ExcNotImplemented());
+    AssertIndexRange(level, this->n_global_levels());
+
+    return number_cache.level_cell_partitioners[level];
+  }
 
   template <int dim, int spacedim>
   DistributedTriangulationBase<dim, spacedim>::DistributedTriangulationBase(

@@ -20,6 +20,7 @@
 #include <deal.II/base/config.h>
 
 #include <deal.II/base/mpi.h>
+#include <deal.II/base/partitioner.h>
 #include <deal.II/base/smartpointer.h>
 #include <deal.II/base/subscriptor.h>
 #include <deal.II/base/template_constraints.h>
@@ -202,6 +203,18 @@ namespace parallel
     level_ghost_owners() const;
 
     /**
+     * Return partitioner for the global cell indices.
+     */
+    const Utilities::MPI::Partitioner &
+    global_cell_index_partitioner() const;
+
+    /**
+     * Return partitioner for the global level cell indices of given @p level.
+     */
+    const Utilities::MPI::Partitioner &
+    global_level_cell_index_partitioner(const unsigned int level) const;
+
+    /**
      * Return a map that, for each vertex, lists all the processors whose
      * subdomains are adjacent to that vertex.
      *
@@ -282,6 +295,16 @@ namespace parallel
        */
       std::set<types::subdomain_id> level_ghost_owners;
 
+      /**
+       * Partitioner for the global cell ids.
+       */
+      Utilities::MPI::Partitioner cell_partitioner;
+
+      /**
+       * Partitioner for the global level cell ids for each level.
+       */
+      std::vector<Utilities::MPI::Partitioner> level_cell_partitioners;
+
       NumberCache();
     };
 
@@ -292,6 +315,12 @@ namespace parallel
      */
     virtual void
     update_number_cache();
+
+    /**
+     * Reset global cell ids and globale level cell ids.
+     */
+    void
+    reset_global_cell_indices();
   };
 
   /**

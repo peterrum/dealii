@@ -1,0 +1,9 @@
+New: Each cell is assigned a globally unique ID and (if requested) a level ID.
+These IDs are integers and originate from a contiguous index set. 
+Users can query locally-owned and ghost cells for their IDs via CellAccessor::global_cell_id().
+The value is managed automatically by the Triangulation classes.
+Furthermore, triangulations deriving from parallel::TriangulationBase provide partitioners
+for these IDs. These partitioners can be used to set up ghosted vectors with one entry per
+cell. 
+<br>
+(Peter Munch, 2020/06/12)

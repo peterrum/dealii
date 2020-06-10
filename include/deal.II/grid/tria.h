@@ -3754,6 +3754,12 @@ private:
   reset_active_cell_indices();
 
   /**
+   * Reset global cell ids and globale level cell ids.
+   */
+  void
+  reset_global_cell_indices();
+
+  /**
    * Refine all cells on all levels which were previously flagged for
    * refinement.
    *

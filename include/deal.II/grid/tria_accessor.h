@@ -44,6 +44,12 @@ class TriaIterator;
 template <typename Accessor>
 class TriaActiveIterator;
 
+namespace parallel
+{
+  template <int dim, int spacedim>
+  class TriangulationBase;
+}
+
 template <int dim, int spacedim>
 class Manifold;
 #endif
@@ -3338,6 +3344,18 @@ public:
    */
 
   /**
+   * Return global cell id for an active cell.
+   */
+  types::global_cell_index
+  global_index() const;
+
+  /**
+   * Return global level cell id for a level cell.
+   */
+  types::global_cell_index
+  global_level_index() const;
+
+  /**
    * @name Dealing with codim 1 cell orientation
    */
   /**
@@ -3637,8 +3655,23 @@ private:
   void
   set_direction_flag(const bool new_direction_flag) const;
 
+  /**
+   * Set global cell id for an active cell.
+   */
+  void
+  set_global_index(const types::global_cell_index index) const;
+
+  /**
+   * Set global level cell id for a level cell.
+   */
+  void
+  set_global_level_index(const types::global_cell_index index) const;
+
   template <int, int>
   friend class Triangulation;
+
+  template <int, int>
+  friend class parallel::TriangulationBase;
 
   friend struct dealii::internal::TriangulationImplementation::Implementation;
 };
