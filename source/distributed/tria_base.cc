@@ -352,10 +352,6 @@ namespace parallel
     const types::global_cell_index n_locally_owned_cells =
       this->n_locally_owned_active_cells();
 
-    // for (const auto cell : this->active_cell_iterators())
-    //  if (cell->is_locally_owned())
-    //    ++n_locally_owned_cells;
-
     types::global_cell_index cell_index = 0;
 
     MPI_Exscan(&n_locally_owned_cells,
