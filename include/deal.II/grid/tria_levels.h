@@ -158,7 +158,7 @@ namespace internal
 
       std::vector<types::global_cell_index> global_cell_ids;
 
-      std::vector<types::global_cell_index> level_global_cell_ids;
+      std::vector<types::global_cell_index> global_level_cell_ids;
 
       /**
        * One integer for every consecutive pair of cells to store which index

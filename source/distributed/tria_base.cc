@@ -349,6 +349,10 @@ namespace parallel
   void
   TriangulationBase<dim, spacedim>::reset_global_cell_indices()
   {
+#ifndef DEAL_II_WITH_MPI
+    Assert(false, ExcNeedsMPI());
+#else
+
     const types::global_cell_index n_locally_owned_cells =
       this->n_locally_owned_active_cells();
 
@@ -385,6 +389,44 @@ namespace parallel
 
     number_cache.cell_partitioner =
       Utilities::MPI::Partitioner(is_local, is_ghost, this->mpi_communicator);
+
+    if (this->is_multilevel_hierarchy_constructed() == true)
+      {
+        std::vector<types::global_cell_index> n_locally_owned_cells(
+          this->n_global_levels(), 0);
+
+        for (auto cell : this->cell_iterators())
+          if (cell->level_subdomain_id() == this->locally_owned_subdomain())
+            n_locally_owned_cells[cell->level()]++;
+
+        std::vector<types::global_cell_index> cell_index(
+          this->n_global_levels(), 0);
+
+        MPI_Exscan(n_locally_owned_cells.data(),
+                   cell_index.data(),
+                   this->n_global_levels(),
+                   Utilities::MPI::internal::mpi_type_id(
+                     n_locally_owned_cells.data()),
+                   MPI_SUM,
+                   this->mpi_communicator);
+
+        for (const auto cell : this->cell_iterators())
+          if (cell->is_locally_owned())
+            cell->set_global_cell_id(cell_index[cell->level()]++);
+
+        GridTools::exchange_cell_data_to_level_ghosts<
+          types::global_cell_index,
+          dealii::Triangulation<dim, spacedim>>(
+          *this,
+          [](const auto &cell) { return cell->global_level_cell_id(); },
+          [](const auto &cell, const auto &id) {
+            return cell->set_global_level_cell_id(id);
+          });
+
+        // TODO: partitioners
+      }
+
+#endif
   }
 
 

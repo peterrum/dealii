@@ -1431,6 +1431,12 @@ namespace internal
                                               tria_level.global_cell_ids.size(),
                                             numbers::invalid_unsigned_int);
 
+          tria_level.global_level_cell_ids.reserve(total_cells);
+          tria_level.global_level_cell_ids.insert(
+            tria_level.global_level_cell_ids.end(),
+            total_cells - tria_level.global_level_cell_ids.size(),
+            numbers::invalid_unsigned_int);
+
           if (dimension < space_dimension)
             {
               tria_level.direction_flags.reserve(total_cells);

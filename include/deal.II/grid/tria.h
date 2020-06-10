@@ -1328,7 +1328,8 @@ public:
    *
    * @ingroup Iterators
    */
-  using cell_iterator = TriaIterator<CellAccessor<dim, spacedim>>;
+  using cell_iterator       = TriaIterator<CellAccessor<dim, spacedim>>;
+  using level_cell_iterator = TriaIterator<CellAccessor<dim, spacedim>>;
 
   /**
    * An alias that is used to identify
