@@ -43,7 +43,8 @@ test(int n_refinements, MPI_Comm comm)
 
   for (const auto cell : tria.active_cell_iterators())
     if (!cell->is_artificial())
-      deallog << cell->id() << " -> " << cell->global_cell_id() << std::endl;
+      deallog << cell->id() << " -> " << cell->subdomain_id() << " "
+              << cell->global_cell_id() << std::endl;
 }
 
 int

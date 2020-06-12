@@ -13683,11 +13683,11 @@ Triangulation<dim, spacedim>::reset_global_cell_indices()
       cell->set_global_cell_id(cell_index++);
   }
 
-  for (unsigned int l = 0; l < n_global_levels(); ++l)
+  for (unsigned int l = 0; l < levels.size(); ++l)
     {
       types::global_cell_index cell_index = 0;
       for (const auto cell : cell_iterators_on_level(l))
-        cell->set_global_cell_id(cell_index++);
+        cell->set_global_level_cell_id(cell_index++);
     }
 }
 
