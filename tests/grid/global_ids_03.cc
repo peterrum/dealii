@@ -52,6 +52,11 @@ test(int n_refinements, MPI_Comm comm)
           deallog << cell->id() << " -> " << cell->level_subdomain_id() << " "
                   << cell->global_level_cell_id() << std::endl;
 
+      const auto &part = tria.global_level_cell_id_partitioner(l);
+
+      part.locally_owned_range().print(deallog);
+      part.ghost_indices().print(deallog);
+
       deallog << std::endl;
     }
 }

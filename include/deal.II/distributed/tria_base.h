@@ -203,6 +203,18 @@ namespace parallel
     level_ghost_owners() const;
 
     /**
+     * Return partitioner for the global cell ids.
+     */
+    const Utilities::MPI::Partitioner &
+    global_cell_id_partitioner() const;
+
+    /**
+     * Return partitioner for the global level cell ids of given @p level.
+     */
+    const Utilities::MPI::Partitioner &
+    global_level_cell_id_partitioner(const unsigned int level) const;
+
+    /**
      * Return a map that, for each vertex, lists all the processors whose
      * subdomains are adjacent to that vertex.
      *

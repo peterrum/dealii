@@ -44,6 +44,11 @@ test(int n_refinements, MPI_Comm comm)
     if (!cell->is_artificial())
       deallog << cell->id() << " -> " << cell->subdomain_id() << " "
               << cell->global_cell_id() << std::endl;
+
+  const auto &part = tria.global_cell_id_partitioner();
+
+  part.locally_owned_range().print(deallog);
+  part.ghost_indices().print(deallog);
 }
 
 int

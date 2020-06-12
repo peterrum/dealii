@@ -475,6 +475,23 @@ namespace parallel
   }
 
 
+  template <int dim, int spacedim>
+  const Utilities::MPI::Partitioner &
+  TriangulationBase<dim, spacedim>::global_cell_id_partitioner() const
+  {
+    return number_cache.cell_partitioner;
+  }
+
+  template <int dim, int spacedim>
+  const Utilities::MPI::Partitioner &
+  TriangulationBase<dim, spacedim>::global_level_cell_id_partitioner(
+    const unsigned int level) const
+  {
+    Assert(this->is_multilevel_hierarchy_constructed(), ExcNotImplemented());
+    AssertIndexRange(level, this->n_global_levels());
+
+    return number_cache.level_cell_partitioners[level];
+  }
 
   template <int dim, int spacedim>
   DistributedTriangulationBase<dim, spacedim>::DistributedTriangulationBase(
