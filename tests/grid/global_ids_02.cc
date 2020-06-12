@@ -14,7 +14,8 @@
 // ---------------------------------------------------------------------
 
 
-// Create a serial triangulation and copy it.
+// Check global level cell ids when construct_multigrid_hierarchy is not
+// enabled.
 
 #include <deal.II/base/mpi.h>
 
@@ -36,7 +37,6 @@ template <int dim>
 void
 test(int n_refinements, MPI_Comm comm)
 {
-  // create serial triangulation
   parallel::distributed::Triangulation<dim> tria(comm);
   GridGenerator::hyper_cube(tria);
   tria.refine_global(n_refinements);
