@@ -272,6 +272,7 @@ namespace parallel
                ExcInternalError());
       }
 
+    // reset global cell ids
     this->reset_global_cell_indices();
   }
 
@@ -419,12 +420,24 @@ namespace parallel
                    MPI_SUM,
                    this->mpi_communicator);
 
-        // 3) enumerate locally-owned level cells
+        // 3) determine global number of "active" cells on each level
+        std::vector<types::global_cell_index> n_cells_level(
+          this->n_global_levels(), 0);
+
+        MPI_Allreduce(n_locally_owned_cells.data(),
+                      n_cells_level.data(),
+                      this->n_global_levels(),
+                      Utilities::MPI::internal::mpi_type_id(
+                        n_locally_owned_cells.data()),
+                      MPI_SUM,
+                      this->mpi_communicator);
+
+        // 4) enumerate locally-owned level cells
         for (auto cell : this->cell_iterators())
           if (cell->level_subdomain_id() == this->locally_owned_subdomain())
             cell->set_global_level_cell_id(cell_index[cell->level()]++);
 
-        // 4) update the numbers of ghost level cells
+        // 5) update the numbers of ghost level cells
         GridTools::exchange_cell_data_to_level_ghosts<
           types::global_cell_index,
           dealii::Triangulation<dim, spacedim>>(
@@ -434,7 +447,28 @@ namespace parallel
             return cell->set_global_level_cell_id(id);
           });
 
-        // TODO: partitioners
+        // 6) set up cell partitioners for each level
+        number_cache.level_cell_partitioners.resize(this->n_global_levels());
+
+        for (unsigned int l = 0; l < this->n_global_levels(); ++l)
+          {
+            IndexSet is_local(n_cells_level[l]);
+            IndexSet is_ghost(n_cells_level[l]);
+
+            for (const auto cell : this->cell_iterators_on_level(l))
+              if (cell->level_subdomain_id() !=
+                  dealii::numbers::artificial_subdomain_id)
+                if (cell->level_subdomain_id() ==
+                    this->locally_owned_subdomain())
+                  is_local.add_index(cell->global_level_cell_id());
+                else
+                  is_ghost.add_index(cell->global_level_cell_id());
+
+            number_cache.level_cell_partitioners[l] =
+              Utilities::MPI::Partitioner(is_local,
+                                          is_ghost,
+                                          this->mpi_communicator);
+          }
       }
 
 #endif

@@ -3337,15 +3337,27 @@ public:
    * @}
    */
 
+  /**
+   * Return global cell id for an active cell.
+   */
   types::global_cell_index
   global_cell_id() const;
 
+  /**
+   * Set global cell id for an active cell.
+   */
   void
   set_global_cell_id(const types::global_cell_index index) const;
 
+  /**
+   * Return global level cell id for a level cell.
+   */
   types::global_cell_index
   global_level_cell_id() const;
 
+  /**
+   * Set global level cell id for a level cell.
+   */
   void
   set_global_level_cell_id(const types::global_cell_index index) const;
 

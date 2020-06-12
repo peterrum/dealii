@@ -3749,7 +3749,7 @@ private:
   reset_active_cell_indices();
 
   /**
-   * TODO
+   * Reset global cell ids and globale level cell ids.
    */
   void
   reset_global_cell_indices();

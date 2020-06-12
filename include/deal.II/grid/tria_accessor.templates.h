@@ -3570,6 +3570,10 @@ template <int dim, int spacedim>
 inline types::global_cell_index
 CellAccessor<dim, spacedim>::global_cell_id() const
 {
+  Assert(this->used(), TriaAccessorExceptions::ExcCellNotUsed());
+  Assert(this->is_active(),
+         ExcMessage("global_cell_id() can only be called on active cells!"));
+
   return this->tria->levels[this->present_level]
     ->global_cell_ids[this->present_index];
 }
@@ -3581,6 +3585,12 @@ void
 CellAccessor<dim, spacedim>::set_global_cell_id(
   const types::global_cell_index index) const
 {
+  Assert(this->used(), TriaAccessorExceptions::ExcCellNotUsed());
+  Assert(this->is_active(),
+         ExcMessage(
+           "set_global_cell_id() can only be called on active cells!"));
+
+
   this->tria->levels[this->present_level]
     ->global_cell_ids[this->present_index] = index;
 }

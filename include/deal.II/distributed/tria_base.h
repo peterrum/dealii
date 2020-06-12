@@ -284,9 +284,14 @@ namespace parallel
       std::set<types::subdomain_id> level_ghost_owners;
 
       /**
-       * TODO
+       * Partitioner for the global cell ids.
        */
       Utilities::MPI::Partitioner cell_partitioner;
+
+      /**
+       * Partitioner for the global level cell ids for each level.
+       */
+      std::vector<Utilities::MPI::Partitioner> level_cell_partitioners;
 
       NumberCache();
     };
@@ -299,6 +304,9 @@ namespace parallel
     virtual void
     update_number_cache();
 
+    /**
+     * Reset global cell ids and globale level cell ids.
+     */
     void
     reset_global_cell_indices();
   };
