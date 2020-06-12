@@ -1,0 +1,25 @@
+
+DEAL:0:2d:level=0::0_0: -> 4294967295
+DEAL:0:2d:level=0::
+DEAL:0:2d:level=0:level=1::0_1:0 -> 4294967295
+DEAL:0:2d:level=0:level=1::0_1:1 -> 4294967295
+DEAL:0:2d:level=0:level=1::0_1:2 -> 4294967295
+DEAL:0:2d:level=0:level=1::0_1:3 -> 4294967295
+DEAL:0:2d:level=0:level=1::
+DEAL:0:2d:level=0:level=1:level=2::0_2:00 -> 4294967295
+DEAL:0:2d:level=0:level=1:level=2::0_2:01 -> 4294967295
+DEAL:0:2d:level=0:level=1:level=2::0_2:02 -> 4294967295
+DEAL:0:2d:level=0:level=1:level=2::0_2:03 -> 4294967295
+DEAL:0:2d:level=0:level=1:level=2::0_2:10 -> 4294967295
+DEAL:0:2d:level=0:level=1:level=2::0_2:11 -> 4294967295
+DEAL:0:2d:level=0:level=1:level=2::0_2:12 -> 4294967295
+DEAL:0:2d:level=0:level=1:level=2::0_2:13 -> 4294967295
+DEAL:0:2d:level=0:level=1:level=2::0_2:20 -> 4294967295
+DEAL:0:2d:level=0:level=1:level=2::0_2:21 -> 4294967295
+DEAL:0:2d:level=0:level=1:level=2::0_2:22 -> 4294967295
+DEAL:0:2d:level=0:level=1:level=2::0_2:23 -> 4294967295
+DEAL:0:2d:level=0:level=1:level=2::0_2:30 -> 4294967295
+DEAL:0:2d:level=0:level=1:level=2::0_2:31 -> 4294967295
+DEAL:0:2d:level=0:level=1:level=2::0_2:32 -> 4294967295
+DEAL:0:2d:level=0:level=1:level=2::0_2:33 -> 4294967295
+DEAL:0:2d:level=0:level=1:level=2::

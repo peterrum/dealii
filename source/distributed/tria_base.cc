@@ -353,9 +353,11 @@ namespace parallel
     Assert(false, ExcNeedsMPI());
 #else
 
+    // 1) determine number of active locally-owned cells
     const types::global_cell_index n_locally_owned_cells =
       this->n_locally_owned_active_cells();
 
+    // 2) determine the offset of each process
     types::global_cell_index cell_index = 0;
 
     MPI_Exscan(&n_locally_owned_cells,
@@ -365,11 +367,12 @@ namespace parallel
                MPI_SUM,
                this->mpi_communicator);
 
+    // 3) enumerate locally-owned cells
     for (const auto cell : this->active_cell_iterators())
       if (cell->is_locally_owned())
         cell->set_global_cell_id(cell_index++);
 
-    // ghost cell update
+    // 4) update the numbers of ghost cells
     GridTools::exchange_cell_data_to_ghosts<types::global_cell_index>(
       *this,
       [](const auto &cell) { return cell->global_cell_id(); },
@@ -377,21 +380,26 @@ namespace parallel
         return cell->set_global_cell_id(id);
       });
 
-    IndexSet is_local(this->n_global_active_cells());
-    IndexSet is_ghost(this->n_global_active_cells());
+    // 5) set up cell partitioner
+    {
+      IndexSet is_local(this->n_global_active_cells());
+      IndexSet is_ghost(this->n_global_active_cells());
 
-    for (const auto cell : this->active_cell_iterators())
-      if (!cell->is_artificial())
-        if (cell->is_locally_owned())
-          is_local.add_index(cell->global_cell_id());
-        else
-          is_ghost.add_index(cell->global_cell_id());
+      for (const auto cell : this->active_cell_iterators())
+        if (!cell->is_artificial())
+          if (cell->is_locally_owned())
+            is_local.add_index(cell->global_cell_id());
+          else
+            is_ghost.add_index(cell->global_cell_id());
 
-    number_cache.cell_partitioner =
-      Utilities::MPI::Partitioner(is_local, is_ghost, this->mpi_communicator);
+      number_cache.cell_partitioner =
+        Utilities::MPI::Partitioner(is_local, is_ghost, this->mpi_communicator);
+    }
 
+    // 6) proceed with multigrid levels if requesteded
     if (this->is_multilevel_hierarchy_constructed() == true)
       {
+        // 1) determine number of locally-owned cells on levels
         std::vector<types::global_cell_index> n_locally_owned_cells(
           this->n_global_levels(), 0);
 
@@ -399,6 +407,7 @@ namespace parallel
           if (cell->level_subdomain_id() == this->locally_owned_subdomain())
             n_locally_owned_cells[cell->level()]++;
 
+        // 2) determine the offset of each process
         std::vector<types::global_cell_index> cell_index(
           this->n_global_levels(), 0);
 
@@ -410,10 +419,12 @@ namespace parallel
                    MPI_SUM,
                    this->mpi_communicator);
 
-        for (const auto cell : this->cell_iterators())
-          if (cell->is_locally_owned())
-            cell->set_global_cell_id(cell_index[cell->level()]++);
+        // 3) enumerate locally-owned level cells
+        for (auto cell : this->cell_iterators())
+          if (cell->level_subdomain_id() == this->locally_owned_subdomain())
+            cell->set_global_level_cell_id(cell_index[cell->level()]++);
 
+        // 4) update the numbers of ghost level cells
         GridTools::exchange_cell_data_to_level_ghosts<
           types::global_cell_index,
           dealii::Triangulation<dim, spacedim>>(

@@ -13641,7 +13641,7 @@ Triangulation<dim, spacedim>::execute_coarsening_and_refinement()
   update_neighbors(*this);
   reset_active_cell_indices();
 
-  reset_global_cell_indices();
+  reset_global_cell_indices(); // TODO: better place?
 
   // Inform all listeners about end of refinement.
   signals.post_refinement();
@@ -13677,11 +13677,18 @@ template <int dim, int spacedim>
 void
 Triangulation<dim, spacedim>::reset_global_cell_indices()
 {
-  types::global_cell_index cell_index = 0;
-
-  for (const auto cell : active_cell_iterators())
-    if (cell->is_locally_owned())
+  {
+    types::global_cell_index cell_index = 0;
+    for (const auto cell : active_cell_iterators())
       cell->set_global_cell_id(cell_index++);
+  }
+
+  for (unsigned int l = 0; l < n_global_levels(); ++l)
+    {
+      types::global_cell_index cell_index = 0;
+      for (const auto cell : cell_iterators_on_level(l))
+        cell->set_global_cell_id(cell_index++);
+    }
 }
 
 
