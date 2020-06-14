@@ -2200,6 +2200,89 @@ CellAccessor<dim, spacedim>::active_cell_index() const
 
 
 template <int dim, int spacedim>
+inline types::global_cell_index
+CellAccessor<dim, spacedim>::global_index() const
+{
+  Assert(this->used(), TriaAccessorExceptions::ExcCellNotUsed());
+  Assert(this->is_active(),
+         ExcMessage("global_index() can only be called on active cells!"));
+
+  // get local index (TODO: move to CellAccessor::active_cell_index())
+  const types::global_cell_index local_index =
+    this->tria->levels[this->present_level]
+      ->global_cell_indices[this->present_index];
+
+  Assert(local_index != numbers::invalid_dof_index,
+         ExcMessage("Invalid local index; the cell is probably artificial!"));
+
+  // for distributed triangulations: translate local to global index
+  if (const auto tria_parallel = dynamic_cast<
+        const parallel::DistributedTriangulationBase<dim, spacedim> *>(
+        &*this->tria))
+    return tria_parallel->global_cell_index_partitioner().local_to_global(
+      local_index);
+
+  // for serial and shared triangulation: simply return local index
+  return local_index;
+}
+
+
+
+template <int dim, int spacedim>
+void
+CellAccessor<dim, spacedim>::set_global_index(
+  const types::global_cell_index index) const
+{
+  Assert(this->used(), TriaAccessorExceptions::ExcCellNotUsed());
+  Assert(this->is_active(),
+         ExcMessage("set_global_index() can only be called on active cells!"));
+
+
+  this->tria->levels[this->present_level]
+    ->global_cell_indices[this->present_index] = index;
+}
+
+
+
+template <int dim, int spacedim>
+inline types::global_cell_index
+CellAccessor<dim, spacedim>::global_level_index() const
+{
+  // get local index
+  const types::global_cell_index local_index =
+    this->tria->levels[this->present_level]
+      ->global_level_cell_indices[this->present_index];
+
+  Assert(local_index != numbers::invalid_dof_index,
+         ExcMessage(
+           "Invalid local level index; the cell is probably artificial!"));
+
+  // for distributed triangulations: translate local to global index
+  if (const auto tria_parallel = dynamic_cast<
+        const parallel::DistributedTriangulationBase<dim, spacedim> *>(
+        &*this->tria))
+    return tria_parallel
+      ->global_level_cell_index_partitioner(this->present_level)
+      .local_to_global(local_index);
+
+  // for serial and shared triangulation: simply return local index
+  return local_index;
+}
+
+
+
+template <int dim, int spacedim>
+void
+CellAccessor<dim, spacedim>::set_global_level_index(
+  const types::global_cell_index index) const
+{
+  this->tria->levels[this->present_level]
+    ->global_level_cell_indices[this->present_index] = index;
+}
+
+
+
+template <int dim, int spacedim>
 TriaIterator<CellAccessor<dim, spacedim>>
 CellAccessor<dim, spacedim>::parent() const
 {

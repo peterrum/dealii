@@ -3553,57 +3553,6 @@ CellAccessor<dim, spacedim>::subdomain_id() const
 
 
 template <int dim, int spacedim>
-inline types::global_cell_index
-CellAccessor<dim, spacedim>::global_index() const
-{
-  Assert(this->used(), TriaAccessorExceptions::ExcCellNotUsed());
-  Assert(this->is_active(),
-         ExcMessage("global_index() can only be called on active cells!"));
-
-  return this->tria->levels[this->present_level]
-    ->global_cell_indices[this->present_index];
-}
-
-
-
-template <int dim, int spacedim>
-void
-CellAccessor<dim, spacedim>::set_global_index(
-  const types::global_cell_index index) const
-{
-  Assert(this->used(), TriaAccessorExceptions::ExcCellNotUsed());
-  Assert(this->is_active(),
-         ExcMessage("set_global_index() can only be called on active cells!"));
-
-
-  this->tria->levels[this->present_level]
-    ->global_cell_indices[this->present_index] = index;
-}
-
-
-
-template <int dim, int spacedim>
-inline types::global_cell_index
-CellAccessor<dim, spacedim>::global_level_index() const
-{
-  return this->tria->levels[this->present_level]
-    ->global_level_cell_indices[this->present_index];
-}
-
-
-
-template <int dim, int spacedim>
-void
-CellAccessor<dim, spacedim>::set_global_level_index(
-  const types::global_cell_index index) const
-{
-  this->tria->levels[this->present_level]
-    ->global_level_cell_indices[this->present_index] = index;
-}
-
-
-
-template <int dim, int spacedim>
 inline unsigned int
 CellAccessor<dim, spacedim>::neighbor_face_no(const unsigned int neighbor) const
 {
