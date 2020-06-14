@@ -278,9 +278,7 @@ namespace parallel
       }
 
     // reset global cell ids
-    if (dynamic_cast<const parallel::DistributedTriangulationBase<dim, spacedim>
-                       *>(&*this))
-      this->reset_global_cell_indices();
+    this->reset_global_cell_indices();
   }
 
 #else
@@ -360,6 +358,11 @@ namespace parallel
 #ifndef DEAL_II_WITH_MPI
     Assert(false, ExcNeedsMPI());
 #else
+
+    // currently only implemented for distributed triangulations
+    if (dynamic_cast<const parallel::DistributedTriangulationBase<dim, spacedim>
+                       *>(this) == nullptr)
+      return;
 
     // 1) determine number of active locally-owned cells
     const types::global_cell_index n_locally_owned_cells =
