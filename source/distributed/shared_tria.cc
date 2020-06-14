@@ -455,6 +455,16 @@ namespace parallel
       return false;
     }
 
+
+
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim, spacedim>::add_periodicity(
+      const std::vector<dealii::GridTools::PeriodicFacePair<cell_iterator>> &)
+    {
+      Assert(false, ExcNotImplemented());
+    }
+
     template <int dim, int spacedim>
     const std::vector<unsigned int> &
     Triangulation<dim, spacedim>::get_true_subdomain_ids_of_cells() const
