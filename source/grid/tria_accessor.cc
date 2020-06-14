@@ -2237,7 +2237,6 @@ CellAccessor<dim, spacedim>::set_global_index(
   Assert(this->is_active(),
          ExcMessage("set_global_index() can only be called on active cells!"));
 
-
   this->tria->levels[this->present_level]
     ->global_cell_indices[this->present_index] = index;
 }

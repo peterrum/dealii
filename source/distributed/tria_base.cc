@@ -273,7 +273,9 @@ namespace parallel
       }
 
     // reset global cell ids
-    this->reset_global_cell_indices();
+    if (dynamic_cast<const parallel::DistributedTriangulationBase<dim, spacedim>
+                       *>(&*this))
+      this->reset_global_cell_indices();
   }
 
 #else
