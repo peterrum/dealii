@@ -2212,8 +2212,8 @@ CellAccessor<dim, spacedim>::global_index() const
     this->tria->levels[this->present_level]
       ->global_cell_indices[this->present_index];
 
-  Assert(local_index != numbers::invalid_dof_index,
-         ExcMessage("Invalid local index; the cell is probably artificial!"));
+  if (local_index == numbers::invalid_dof_index)
+    return numbers::invalid_dof_index;
 
   // for distributed triangulations: translate local to global index
   if (const auto tria_parallel = dynamic_cast<
@@ -2252,9 +2252,8 @@ CellAccessor<dim, spacedim>::global_level_index() const
     this->tria->levels[this->present_level]
       ->global_level_cell_indices[this->present_index];
 
-  Assert(local_index != numbers::invalid_dof_index,
-         ExcMessage(
-           "Invalid local level index; the cell is probably artificial!"));
+  if (local_index == numbers::invalid_dof_index)
+    return numbers::invalid_dof_index;
 
   // for distributed triangulations: translate local to global index
   if (const auto tria_parallel = dynamic_cast<

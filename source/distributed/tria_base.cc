@@ -401,10 +401,17 @@ namespace parallel
 
     for (const auto &cell : this->active_cell_iterators())
       if (!cell->is_artificial())
-        if (cell->is_locally_owned())
-          is_local.add_index(cell->global_index());
-        else
-          is_ghost.add_index(cell->global_index());
+        {
+          const auto index = cell->global_index();
+
+          if (index == numbers::invalid_dof_index)
+            continue;
+
+          if (cell->is_locally_owned())
+            is_local.add_index(index);
+          else
+            is_ghost.add_index(index);
+        }
 
     Utilities::MPI::Partitioner partitioner_new(is_local,
                                                 is_ghost,
@@ -414,8 +421,7 @@ namespace parallel
     for (const auto &cell : this->active_cell_iterators())
       if (!cell->is_artificial())
         {
-          Assert(cell->global_index() != numbers::invalid_dof_index,
-                 ExcMessage("Index of local or ghost cell is still invalid!"))
+          if (cell->global_index() != numbers::invalid_dof_index)
             cell->set_global_index(
               partitioner_new.global_to_local(cell->global_index()));
         }
@@ -495,25 +501,28 @@ namespace parallel
             for (const auto &cell : this->cell_iterators_on_level(l))
               if (cell->level_subdomain_id() !=
                   dealii::numbers::artificial_subdomain_id)
-                if (cell->level_subdomain_id() ==
-                    this->locally_owned_subdomain())
-                  is_local.add_index(cell->global_level_index());
-                else
-                  is_ghost.add_index(cell->global_level_index());
+                {
+                  const auto index = cell->global_level_index();
+
+                  if (index == numbers::invalid_dof_index)
+                    continue;
+
+                  if (cell->level_subdomain_id() ==
+                      this->locally_owned_subdomain())
+                    is_local.add_index(index);
+                  else
+                    is_ghost.add_index(index);
+                }
 
             Utilities::MPI::Partitioner partitioner_new(is_local,
                                                         is_ghost,
                                                         this->mpi_communicator);
 
-
             for (const auto &cell : this->cell_iterators_on_level(l))
               if (cell->level_subdomain_id() !=
                   dealii::numbers::artificial_subdomain_id)
                 {
-                  Assert(cell->global_level_index() !=
-                           numbers::invalid_dof_index,
-                         ExcMessage(
-                           "Index of local or ghost cell is still invalid!"))
+                  if (cell->global_level_index() != numbers::invalid_dof_index)
                     cell->set_global_level_index(
                       partitioner_new.global_to_local(
                         cell->global_level_index()));
