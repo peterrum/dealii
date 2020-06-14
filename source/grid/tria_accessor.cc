@@ -2181,7 +2181,7 @@ CellAccessor<dim, spacedim>::active_cell_index() const
 {
   Assert(this->is_active(), TriaAccessorExceptions::ExcCellNotActive());
   return this->tria->levels[this->present_level]
-    ->global_cell_indices[this->present_index];
+    ->active_cell_indices[this->present_index];
 }
 
 
@@ -2234,7 +2234,7 @@ CellAccessor<dim, spacedim>::set_global_index(
          ExcMessage("set_global_index() can only be called on active cells!"));
 
   this->tria->levels[this->present_level]
-    ->global_cell_indices[this->present_index] = index;
+    ->active_cell_indices[this->present_index] = index;
 }
 
 
