@@ -50,7 +50,7 @@ test(int n_refinements, MPI_Comm comm)
         if (cell->level_subdomain_id() !=
             dealii::numbers::artificial_subdomain_id)
           deallog << cell->id() << " -> " << cell->level_subdomain_id() << " "
-                  << cell->global_level_index() << std::endl;
+                  << cell->global_level_cell_index() << std::endl;
 
       const auto &part = tria.global_level_cell_index_partitioner(l);
 

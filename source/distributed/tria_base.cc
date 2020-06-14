@@ -480,7 +480,7 @@ namespace parallel
           types::global_cell_index,
           dealii::Triangulation<dim, spacedim>>(
           *this,
-          [](const auto &cell) { return cell->global_level_index(); },
+          [](const auto &cell) { return cell->level_cell_index(); },
           [](const auto &cell, const auto &id) {
             return cell->set_level_cell_index(id);
           });
@@ -495,7 +495,7 @@ namespace parallel
               if (cell->level_subdomain_id() !=
                   dealii::numbers::artificial_subdomain_id)
                 {
-                  const auto index = cell->global_level_index();
+                  const auto index = cell->level_cell_index();
 
                   if (index == numbers::invalid_dof_index)
                     continue;
@@ -515,9 +515,9 @@ namespace parallel
               if (cell->level_subdomain_id() !=
                   dealii::numbers::artificial_subdomain_id)
                 {
-                  if (cell->global_level_index() != numbers::invalid_dof_index)
+                  if (cell->level_cell_index() != numbers::invalid_dof_index)
                     cell->set_level_cell_index(partitioner_new.global_to_local(
-                      cell->global_level_index()));
+                      cell->level_cell_index()));
                 }
 
             number_cache.level_cell_partitioners[l] =

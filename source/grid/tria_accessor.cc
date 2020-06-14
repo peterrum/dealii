@@ -2238,12 +2238,19 @@ CellAccessor<dim, spacedim>::set_level_cell_index(
 
 template <int dim, int spacedim>
 inline types::global_cell_index
-CellAccessor<dim, spacedim>::global_level_index() const
+CellAccessor<dim, spacedim>::level_cell_index() const
 {
-  // get local index (TODO: move to CellAccessor::level_cell_index())
-  const types::global_cell_index local_index =
-    this->tria->levels[this->present_level]
-      ->global_level_cell_indices[this->present_index];
+  return this->tria->levels[this->present_level]
+    ->global_level_cell_indices[this->present_index];
+}
+
+
+
+template <int dim, int spacedim>
+inline types::global_cell_index
+CellAccessor<dim, spacedim>::global_level_cell_index() const
+{
+  const types::global_cell_index local_index = this->level_cell_index();
 
   if (local_index == numbers::invalid_dof_index)
     return numbers::invalid_dof_index;

@@ -3350,10 +3350,16 @@ public:
   global_active_cell_index() const;
 
   /**
+   * Return level cell id for a level cell.
+   */
+  types::global_cell_index
+  level_cell_index() const;
+
+  /**
    * Return global level cell id for a level cell.
    */
   types::global_cell_index
-  global_level_index() const;
+  global_level_cell_index() const;
 
   /**
    * @name Dealing with codim 1 cell orientation
