@@ -39,17 +39,21 @@ test()
   // setup
   const unsigned int n_cells = 2;
 
+  std::cout << "H" << std::endl;
+
   parallel::shared::Triangulation<dim> tr(
     MPI_COMM_WORLD,
     ::Triangulation<dim>::none,
     false,
     parallel::shared::Triangulation<dim>::partition_custom_signal);
-  tr.signals.post_refinement.connect([&tr]() {
+  tr.signals.create.connect([&tr]() {
     // partition the triangulation by hand
     for (const auto &cell : tr.active_cell_iterators())
       cell->set_subdomain_id(cell->active_cell_index() %
                              Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD));
   });
+
+  std::cout << "I" << std::endl;
 
   std::vector<unsigned int> rep(dim, 1);
   rep[0] = n_cells;
@@ -60,7 +64,10 @@ test()
       p2[d] = (d == 0) ? n_cells : 1;
     }
   GridGenerator::subdivided_hyper_rectangle(tr, rep, p1, p2);
+  std::cout << "J" << std::endl;
   tr.refine_global(1);
+
+  std::cout << "A" << std::endl;
 
   hp::FECollection<dim> fes;
   for (unsigned int d = 1; d <= 2; ++d)
@@ -68,6 +75,8 @@ test()
 
   hp::DoFHandler<dim> dh(tr);
   dh.set_fe(fes);
+
+  std::cout << "B" << std::endl;
 
   // set flags
   for (auto cell = dh.begin(0); cell != dh.end(0); ++cell)
@@ -104,8 +113,12 @@ test()
         }
     }
 
+  std::cout << "C" << std::endl;
+
   // decide between p and h flags
   hp::Refinement::choose_p_over_h(dh);
+
+  std::cout << "d" << std::endl;
 
   // verify
   unsigned int h_flagged_cells = 0, p_flagged_cells = 0;

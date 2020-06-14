@@ -2192,9 +2192,24 @@ template <int dim, int spacedim>
 unsigned int
 CellAccessor<dim, spacedim>::active_cell_index() const
 {
-  Assert(this->is_active(), TriaAccessorExceptions::ExcCellNotActive());
-  return this->tria->levels[this->present_level]
-    ->active_cell_indices[this->present_index];
+  const auto i = this->tria->levels[this->present_level]
+                   ->global_cell_indices[this->present_index];
+
+  auto tria_parallel =
+    dynamic_cast<const parallel::DistributedTriangulationBase<dim, spacedim> *>(
+      &*this->tria);
+  auto tria_parallel =
+    dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
+      &*this->tria);
+
+
+  if (tria_parallel &&
+      (tria_parallel->global_cell_index_partitioner().size() > 0))
+    return (tria_parallel->global_cell_index_partitioner().global_to_local(i));
+  else
+    // return i;
+    return this->tria->levels[this->present_level]
+      ->active_cell_indices[this->present_index];
 }
 
 
