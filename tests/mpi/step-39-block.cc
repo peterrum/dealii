@@ -711,7 +711,8 @@ namespace Step39
            triangulation.begin_active();
          cell != triangulation.end();
          ++cell, ++i)
-      cell->set_user_index(i);
+      if (!cell->is_artificial())
+        cell->set_user_index(cell->active_cell_index());
 
     MeshWorker::IntegrationInfoBox<dim> info_box;
     const unsigned int                  n_gauss_points =

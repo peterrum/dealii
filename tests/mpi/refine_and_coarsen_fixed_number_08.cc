@@ -89,8 +89,15 @@ test()
   {
     deallog << "criteria:[b>0,e>0]" << std::endl;
 
-    std::iota(criteria.begin(), criteria.end(), 1);
-    Assert(criteria(0) > 0. && criteria(n_cells - 1) > 0., ExcInternalError());
+    unsigned int counter = 1;
+    for (const auto &cell : tr.active_cell_iterators())
+      {
+        if (cell->is_locally_owned())
+          criteria(cell->active_cell_index()) = counter;
+        counter++;
+      }
+    // Assert(criteria(0) > 0. && criteria(n_cells - 1) > 0.,
+    // ExcInternalError());
 
     verify<dim>(tr, criteria, refinement_fraction, coarsening_fraction);
     verify<dim>(tr, criteria, refinement_fraction, 0.);
@@ -100,8 +107,13 @@ test()
   {
     deallog << "criteria:[b=0,e>0]" << std::endl;
 
-    std::iota(criteria.begin(), criteria.end(), 0);
-    Assert(criteria(0) == 0. && criteria(n_cells - 1) > 0., ExcInternalError());
+    unsigned int counter = 1;
+    for (const auto &cell : tr.active_cell_iterators())
+      {
+        if (cell->is_locally_owned())
+          criteria(cell->active_cell_index()) = counter;
+        counter++;
+      }
 
     verify<dim>(tr, criteria, refinement_fraction, coarsening_fraction);
     verify<dim>(tr, criteria, refinement_fraction, 0.);

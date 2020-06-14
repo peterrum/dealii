@@ -1320,13 +1320,11 @@ namespace VectorTools
         case W1p_norm:
         case W1p_seminorm:
           {
-            double                       local = 0;
-            typename InVector::size_type i;
-            typename Triangulation<dim, spacedim>::active_cell_iterator it =
-              tria.begin_active();
-            for (i = 0; i < cellwise_error.size(); ++i, ++it)
-              if (it->is_locally_owned())
-                local += std::pow(cellwise_error[i], exponent);
+            double local = 0;
+            for (const auto &cell : tria.active_cell_iterators())
+              if (cell->is_locally_owned())
+                local +=
+                  std::pow(cellwise_error[cell->active_cell_index()], exponent);
 
             return std::pow(Utilities::MPI::sum(local, comm), 1. / exponent);
           }

@@ -127,10 +127,20 @@ test()
             }
       }
 
+      Vector<float> indicators2(tr.n_active_cells());
+
+      unsigned int counter = 0;
+      for (const auto &cell : tr.active_cell_iterators())
+        {
+          if (cell->is_locally_owned())
+            indicators2(cell->active_cell_index()) = indicators(counter);
+          counter++;
+        }
+
       Assert(neighbors == ghost_owners, ExcInternalError());
 
       parallel::distributed::GridRefinement::refine_and_coarsen_fixed_number(
-        tr, indicators, 0.3, 0.0);
+        tr, indicators2, 0.3, 0.0);
       tr.execute_coarsening_and_refinement();
       if (myid == 0)
         deallog << "total active cells = " << tr.n_global_active_cells()

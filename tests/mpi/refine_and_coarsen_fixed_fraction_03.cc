@@ -64,15 +64,14 @@ test()
 
   Vector<float> indicators(tr.n_active_cells());
   {
-    unsigned int cell_index    = 0;
     unsigned int my_cell_index = 0;
     for (Triangulation<2>::active_cell_iterator cell = tr.begin_active();
          cell != tr.end();
-         ++cell, ++cell_index)
+         ++cell)
       if (cell->subdomain_id() == myid)
         {
           ++my_cell_index;
-          indicators(cell_index) = my_cell_index + 1;
+          indicators(cell->active_cell_index()) = my_cell_index + 1;
         }
     AssertThrow(my_cell_index == 20, ExcInternalError());
   }

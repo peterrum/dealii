@@ -2949,8 +2949,23 @@ namespace GridTools
     Assert(subdomain.size() == triangulation.n_active_cells(),
            ExcDimensionMismatch(subdomain.size(),
                                 triangulation.n_active_cells()));
-    for (const auto &cell : triangulation.active_cell_iterators())
-      subdomain[cell->active_cell_index()] = cell->subdomain_id();
+
+    if (false /*TODO*/)
+      {
+        std::fill(subdomain.begin(),
+                  subdomain.end(),
+                  numbers::artificial_subdomain_id);
+
+        for (const auto &cell : triangulation.active_cell_iterators())
+          if (cell->is_artificial() == false)
+            subdomain[cell->active_cell_index()] = cell->subdomain_id();
+      }
+    else
+      {
+        unsigned int i = 0;
+        for (const auto &cell : triangulation.active_cell_iterators())
+          subdomain[i++] = cell->subdomain_id();
+      }
   }
 
 
