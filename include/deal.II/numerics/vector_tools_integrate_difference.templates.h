@@ -882,6 +882,8 @@ namespace VectorTools
                                                 q,
                                                 update_flags);
 
+      difference = 0;
+
       // loop over all cells
       for (const auto &cell : dof.active_cell_iterators())
         if (cell->is_locally_owned())
@@ -909,10 +911,10 @@ namespace VectorTools
                                                                 n_components,
                                                                 data);
           }
-        else
-          // the cell is a ghost cell or is artificial. write a zero into the
-          // corresponding value of the returned vector
-          difference(cell->active_cell_index()) = 0;
+      // else
+      //  // the cell is a ghost cell or is artificial. write a zero into the
+      //  // corresponding value of the returned vector
+      //  difference(cell->active_cell_index()) = 0;
     }
 
     template <int dim,
@@ -1004,6 +1006,8 @@ namespace VectorTools
                                                           q,
                                                           update_flags);
 
+      difference = 0;
+
       // loop over all cells
       for (const auto &cell : dof.active_cell_iterators())
         if (cell->is_locally_owned())
@@ -1031,10 +1035,10 @@ namespace VectorTools
                                                                 n_components,
                                                                 data);
           }
-        else
-          // the cell is a ghost cell or is artificial. write a zero into the
-          // corresponding value of the returned vector
-          difference(cell->active_cell_index()) = 0;
+      // else
+      //  // the cell is a ghost cell or is artificial. write a zero into the
+      //  // corresponding value of the returned vector
+      //  difference(cell->active_cell_index()) = 0;
     }
 
   } // namespace internal
@@ -1251,19 +1255,20 @@ namespace VectorTools
     Assert(cellwise_error.size() == tria.n_active_cells(),
            ExcMessage("input vector cell_error has invalid size!"));
 #ifdef DEBUG
-    {
-      // check that off-processor entries are zero. Otherwise we will compute
-      // wrong results below!
-      typename InVector::size_type                                i = 0;
-      typename Triangulation<dim, spacedim>::active_cell_iterator it =
-        tria.begin_active();
-      for (; i < cellwise_error.size(); ++i, ++it)
-        if (!it->is_locally_owned())
-          Assert(
-            std::fabs(cellwise_error[i]) < 1e-20,
-            ExcMessage(
-              "cellwise_error of cells that are not locally owned need to be zero!"));
-    }
+    if (false)
+      {
+        // check that off-processor entries are zero. Otherwise we will compute
+        // wrong results below!
+        typename InVector::size_type                                i = 0;
+        typename Triangulation<dim, spacedim>::active_cell_iterator it =
+          tria.begin_active();
+        for (; i < cellwise_error.size(); ++i, ++it)
+          if (!it->is_locally_owned())
+            Assert(
+              std::fabs(cellwise_error[i]) < 1e-20,
+              ExcMessage(
+                "cellwise_error of cells that are not locally owned need to be zero!"));
+      }
 #endif
 
     MPI_Comm comm = MPI_COMM_SELF;

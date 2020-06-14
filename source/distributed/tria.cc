@@ -2165,6 +2165,7 @@ namespace parallel
       const std::vector<CellData<dim>> &  cells,
       const SubCellData &                 subcelldata)
     {
+      this->number_cache.cell_partitioner = Utilities::MPI::Partitioner();
       try
         {
           dealii::Triangulation<dim, spacedim>::create_triangulation(
