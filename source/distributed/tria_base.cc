@@ -468,13 +468,6 @@ namespace parallel
           else
             cell->set_level_cell_index(numbers::invalid_dof_index);
 
-        // reset partitioner (s.t. local and global indices are identical)
-
-        number_cache.level_cell_partitioners.resize(this->n_global_levels());
-        for (unsigned int l = 0; l < this->n_global_levels(); ++l)
-          number_cache.level_cell_partitioners[l] =
-            Utilities::MPI::Partitioner(n_cells_level[l]);
-
         // 5) update the numbers of ghost level cells
         GridTools::exchange_cell_data_to_level_ghosts<
           types::global_cell_index,
@@ -484,6 +477,8 @@ namespace parallel
           [](const auto &cell, const auto &id) {
             return cell->set_level_cell_index(id);
           });
+
+        number_cache.level_cell_partitioners.resize(this->n_global_levels());
 
         // 6) set up cell partitioners for each level
         for (unsigned int l = 0; l < this->n_global_levels(); ++l)
@@ -507,24 +502,20 @@ namespace parallel
                     is_ghost.add_index(index);
                 }
 
-            Utilities::MPI::Partitioner partitioner_new(is_local,
-                                                        is_ghost,
-                                                        this->mpi_communicator);
+            number_cache.level_cell_partitioners[l] =
+              Utilities::MPI::Partitioner(is_local,
+                                          is_ghost,
+                                          this->mpi_communicator);
 
             for (const auto &cell : this->cell_iterators_on_level(l))
               if (cell->level_subdomain_id() !=
                   dealii::numbers::artificial_subdomain_id)
                 {
                   if (cell->level_cell_index() != numbers::invalid_dof_index)
-                    cell->set_level_cell_index(partitioner_new.global_to_local(
-                      cell->level_cell_index()));
+                    cell->set_level_cell_index(
+                      number_cache.level_cell_partitioners[l].global_to_local(
+                        cell->level_cell_index()));
                 }
-
-            number_cache.level_cell_partitioners[l] =
-              Utilities::MPI::Partitioner(
-                partitioner_new.locally_owned_range(),
-                partitioner_new.ghost_indices(),
-                partitioner_new.get_mpi_communicator());
           }
       }
 
