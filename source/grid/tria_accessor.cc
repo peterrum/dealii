@@ -2150,19 +2150,6 @@ CellAccessor<dim, spacedim>::set_direction_flag(
 
 template <int dim, int spacedim>
 void
-CellAccessor<dim, spacedim>::set_active_cell_index(
-  const unsigned int active_cell_index)
-{
-  // set the active cell index. allow setting it also for non-active (and
-  // unused) cells to allow resetting the index after refinement
-  this->tria->levels[this->present_level]
-    ->active_cell_indices[this->present_index] = active_cell_index;
-}
-
-
-
-template <int dim, int spacedim>
-void
 CellAccessor<dim, spacedim>::set_parent(const unsigned int parent_index)
 {
   Assert(this->used(), TriaAccessorExceptions::ExcCellNotUsed());
@@ -2195,6 +2182,17 @@ CellAccessor<dim, spacedim>::active_cell_index() const
   Assert(this->is_active(), TriaAccessorExceptions::ExcCellNotActive());
   return this->tria->levels[this->present_level]
     ->global_cell_indices[this->present_index];
+}
+
+
+
+template <int dim, int spacedim>
+void
+CellAccessor<dim, spacedim>::set_active_cell_index(
+  const unsigned int active_cell_index)
+{
+  this->tria->levels[this->present_level]
+    ->active_cell_indices[this->present_index] = active_cell_index; // TODO
 }
 
 
