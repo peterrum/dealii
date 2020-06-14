@@ -2199,11 +2199,12 @@ CellAccessor<dim, spacedim>::set_active_cell_index(
 
 template <int dim, int spacedim>
 inline types::global_cell_index
-CellAccessor<dim, spacedim>::global_index() const
+CellAccessor<dim, spacedim>::global_active_cell_index() const
 {
   Assert(this->used(), TriaAccessorExceptions::ExcCellNotUsed());
   Assert(this->is_active(),
-         ExcMessage("global_index() can only be called on active cells!"));
+         ExcMessage(
+           "global_active_cell_index() can only be called on active cells!"));
 
   // get local index
   const types::global_cell_index local_index = this->active_cell_index();

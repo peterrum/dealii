@@ -3347,7 +3347,7 @@ public:
    * Return global cell id for an active cell.
    */
   types::global_cell_index
-  global_index() const;
+  global_active_cell_index() const;
 
   /**
    * Return global level cell id for a level cell.

@@ -43,7 +43,7 @@ test(int n_refinements, MPI_Comm comm)
   for (const auto cell : tria.active_cell_iterators())
     if (!cell->is_artificial())
       deallog << cell->id() << " -> " << cell->subdomain_id() << " "
-              << cell->global_index() << std::endl;
+              << cell->global_active_cell_index() << std::endl;
 
   const auto &part = tria.global_cell_index_partitioner();
 
