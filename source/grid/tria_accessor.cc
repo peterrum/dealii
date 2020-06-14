@@ -2189,10 +2189,10 @@ CellAccessor<dim, spacedim>::active_cell_index() const
 template <int dim, int spacedim>
 void
 CellAccessor<dim, spacedim>::set_active_cell_index(
-  const unsigned int active_cell_index)
+  const unsigned int active_cell_index) const
 {
   this->tria->levels[this->present_level]
-    ->active_cell_indices[this->present_index] = active_cell_index; // TODO
+    ->active_cell_indices[this->present_index] = active_cell_index;
 }
 
 
@@ -2220,21 +2220,6 @@ CellAccessor<dim, spacedim>::global_index() const
 
   // for serial and shared triangulation: simply return local index
   return local_index;
-}
-
-
-
-template <int dim, int spacedim>
-void
-CellAccessor<dim, spacedim>::set_global_index(
-  const types::global_cell_index index) const
-{
-  Assert(this->used(), TriaAccessorExceptions::ExcCellNotUsed());
-  Assert(this->is_active(),
-         ExcMessage("set_global_index() can only be called on active cells!"));
-
-  this->tria->levels[this->present_level]
-    ->active_cell_indices[this->present_index] = index;
 }
 
 

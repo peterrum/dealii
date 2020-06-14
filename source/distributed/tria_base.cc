@@ -382,30 +382,26 @@ namespace parallel
     //    invalid
     for (const auto &cell : this->active_cell_iterators())
       if (cell->is_locally_owned())
-        cell->set_global_index(cell_index++);
+        cell->set_active_cell_index(cell_index++);
       else
-        cell->set_global_index(numbers::invalid_dof_index);
+        cell->set_active_cell_index(numbers::invalid_dof_index);
 
-    // 4) reset partitioner (s.t. local and global indices are identical)
-    number_cache.cell_partitioner =
-      Utilities::MPI::Partitioner(this->n_global_active_cells());
-
-    // 5) determine the global indices of ghost cells
+    // 4) determine the global indices of ghost cells
     GridTools::exchange_cell_data_to_ghosts<types::global_cell_index>(
       *this,
-      [](const auto &cell) { return cell->global_index(); },
+      [](const auto &cell) { return cell->active_cell_index(); },
       [](const auto &cell, const auto &id) {
-        return cell->set_global_index(id);
+        cell->set_active_cell_index(id);
       });
 
-    // 6) set up new partitioner
+    // 5) set up new partitioner
     IndexSet is_local(this->n_global_active_cells());
     IndexSet is_ghost(this->n_global_active_cells());
 
     for (const auto &cell : this->active_cell_iterators())
       if (!cell->is_artificial())
         {
-          const auto index = cell->global_index();
+          const auto index = cell->active_cell_index();
 
           if (index == numbers::invalid_dof_index)
             continue;
@@ -416,26 +412,20 @@ namespace parallel
             is_ghost.add_index(index);
         }
 
-    Utilities::MPI::Partitioner partitioner_new(is_local,
-                                                is_ghost,
-                                                this->mpi_communicator);
+    number_cache.cell_partitioner =
+      Utilities::MPI::Partitioner(is_local, is_ghost, this->mpi_communicator);
 
-    // 7) translate global to local indices
+    // 6) translate global to local indices
     for (const auto &cell : this->active_cell_iterators())
       if (!cell->is_artificial())
         {
-          if (cell->global_index() != numbers::invalid_dof_index)
-            cell->set_global_index(
-              partitioner_new.global_to_local(cell->global_index()));
+          if (cell->active_cell_index() != numbers::invalid_dof_index)
+            cell->set_active_cell_index(
+              number_cache.cell_partitioner.global_to_local(
+                cell->active_cell_index()));
         }
 
-    // 8) save new partitioner
-    number_cache.cell_partitioner =
-      Utilities::MPI::Partitioner(partitioner_new.locally_owned_range(),
-                                  partitioner_new.ghost_indices(),
-                                  partitioner_new.get_mpi_communicator());
-
-    // 9) proceed with multigrid levels if requested
+    // 7) proceed with multigrid levels if requested
     if (this->is_multilevel_hierarchy_constructed() == true)
       {
         // 1) determine number of locally-owned cells on levels

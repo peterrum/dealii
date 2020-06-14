@@ -3638,7 +3638,7 @@ private:
    * refinement.
    */
   void
-  set_active_cell_index(const unsigned int active_cell_index);
+  set_active_cell_index(const unsigned int active_cell_index) const;
 
   /**
    * Set the parent of a cell.
@@ -3654,12 +3654,6 @@ private:
    */
   void
   set_direction_flag(const bool new_direction_flag) const;
-
-  /**
-   * Set global cell id for an active cell.
-   */
-  void
-  set_global_index(const types::global_cell_index index) const;
 
   /**
    * Set global level cell id for a level cell.
