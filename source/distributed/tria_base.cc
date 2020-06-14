@@ -454,12 +454,20 @@ namespace parallel
                       MPI_SUM,
                       this->mpi_communicator);
 
-        // 4) enumerate locally-owned level cells
+        // 4) give global indices to locally-owned cells on level and mark
+        //    all other cells as invalid
         for (auto cell : this->cell_iterators())
           if (cell->level_subdomain_id() == this->locally_owned_subdomain())
             cell->set_global_level_index(cell_index[cell->level()]++);
           else
             cell->set_global_level_index(numbers::invalid_dof_index);
+
+        // reset partitioner (s.t. local and global indices are identical)
+
+        number_cache.level_cell_partitioners.resize(this->n_global_levels());
+        for (unsigned int l = 0; l < this->n_global_levels(); ++l)
+          number_cache.level_cell_partitioners[l] =
+            Utilities::MPI::Partitioner(n_cells_level[l]);
 
         // 5) update the numbers of ghost level cells
         GridTools::exchange_cell_data_to_level_ghosts<
@@ -472,8 +480,6 @@ namespace parallel
           });
 
         // 6) set up cell partitioners for each level
-        number_cache.level_cell_partitioners.resize(this->n_global_levels());
-
         for (unsigned int l = 0; l < this->n_global_levels(); ++l)
           {
             IndexSet is_local(n_cells_level[l]);
@@ -488,10 +494,29 @@ namespace parallel
                 else
                   is_ghost.add_index(cell->global_level_index());
 
+            Utilities::MPI::Partitioner partitioner_new(is_local,
+                                                        is_ghost,
+                                                        this->mpi_communicator);
+
+
+            for (const auto &cell : this->cell_iterators_on_level(l))
+              if (cell->level_subdomain_id() !=
+                  dealii::numbers::artificial_subdomain_id)
+                {
+                  Assert(cell->global_level_index() !=
+                           numbers::invalid_dof_index,
+                         ExcMessage(
+                           "Index of local or ghost cell is still invalid!"))
+                    cell->set_global_level_index(
+                      partitioner_new.global_to_local(
+                        cell->global_level_index()));
+                }
+
             number_cache.level_cell_partitioners[l] =
-              Utilities::MPI::Partitioner(is_local,
-                                          is_ghost,
-                                          this->mpi_communicator);
+              Utilities::MPI::Partitioner(
+                partitioner_new.locally_owned_range(),
+                partitioner_new.ghost_indices(),
+                partitioner_new.get_mpi_communicator());
           }
       }
 
