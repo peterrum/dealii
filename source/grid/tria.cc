@@ -10782,6 +10782,7 @@ Triangulation<dim, spacedim>::create_triangulation(
   internal::TriangulationImplementation::Implementation::compute_number_cache(
     *this, levels.size(), number_cache);
   reset_active_cell_indices();
+  reset_global_cell_indices();
 
   // now verify that there are indeed no distorted cells. as per the
   // documentation of this class, we first collect all distorted cells
