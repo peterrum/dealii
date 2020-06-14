@@ -13688,7 +13688,7 @@ Triangulation<dim, spacedim>::reset_global_cell_indices()
     {
       types::global_cell_index cell_index = 0;
       for (const auto &cell : cell_iterators_on_level(l))
-        cell->set_global_level_index(cell_index++);
+        cell->set_level_cell_index(cell_index++);
     }
 }
 

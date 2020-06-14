@@ -2226,6 +2226,17 @@ CellAccessor<dim, spacedim>::global_active_cell_index() const
 
 
 template <int dim, int spacedim>
+void
+CellAccessor<dim, spacedim>::set_level_cell_index(
+  const types::global_cell_index index) const
+{
+  this->tria->levels[this->present_level]
+    ->global_level_cell_indices[this->present_index] = index;
+}
+
+
+
+template <int dim, int spacedim>
 inline types::global_cell_index
 CellAccessor<dim, spacedim>::global_level_index() const
 {
@@ -2247,17 +2258,6 @@ CellAccessor<dim, spacedim>::global_level_index() const
 
   // for serial and shared triangulation: simply return local index
   return local_index;
-}
-
-
-
-template <int dim, int spacedim>
-void
-CellAccessor<dim, spacedim>::set_global_level_index(
-  const types::global_cell_index index) const
-{
-  this->tria->levels[this->present_level]
-    ->global_level_cell_indices[this->present_index] = index;
 }
 
 

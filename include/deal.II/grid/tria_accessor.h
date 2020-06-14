@@ -3659,7 +3659,7 @@ private:
    * Set global level cell id for a level cell.
    */
   void
-  set_global_level_index(const types::global_cell_index index) const;
+  set_level_cell_index(const types::global_cell_index index) const;
 
   template <int, int>
   friend class Triangulation;

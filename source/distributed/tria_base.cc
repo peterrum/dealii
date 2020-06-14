@@ -464,9 +464,9 @@ namespace parallel
         //    all other cells as invalid
         for (auto cell : this->cell_iterators())
           if (cell->level_subdomain_id() == this->locally_owned_subdomain())
-            cell->set_global_level_index(cell_index[cell->level()]++);
+            cell->set_level_cell_index(cell_index[cell->level()]++);
           else
-            cell->set_global_level_index(numbers::invalid_dof_index);
+            cell->set_level_cell_index(numbers::invalid_dof_index);
 
         // reset partitioner (s.t. local and global indices are identical)
 
@@ -482,7 +482,7 @@ namespace parallel
           *this,
           [](const auto &cell) { return cell->global_level_index(); },
           [](const auto &cell, const auto &id) {
-            return cell->set_global_level_index(id);
+            return cell->set_level_cell_index(id);
           });
 
         // 6) set up cell partitioners for each level
@@ -516,9 +516,8 @@ namespace parallel
                   dealii::numbers::artificial_subdomain_id)
                 {
                   if (cell->global_level_index() != numbers::invalid_dof_index)
-                    cell->set_global_level_index(
-                      partitioner_new.global_to_local(
-                        cell->global_level_index()));
+                    cell->set_level_cell_index(partitioner_new.global_to_local(
+                      cell->global_level_index()));
                 }
 
             number_cache.level_cell_partitioners[l] =
