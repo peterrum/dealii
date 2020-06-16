@@ -11035,6 +11035,26 @@ namespace internal
                     crs.col[i];
             }
           }
+
+
+        std::cout << "AA " << std::endl;
+        for (auto i : tria.levels[0]->cells.cells)
+          std::cout << static_cast<unsigned int>(i) << " ";
+        std::cout << std::endl;
+        for (auto i : tria.levels[0]->face_orientations)
+          std::cout << static_cast<unsigned int>(i) << " ";
+        std::cout << std::endl;
+
+        for (auto i : tria.faces->quads.cells)
+          std::cout << static_cast<unsigned int>(i) << " ";
+        std::cout << std::endl;
+        for (auto i : tria.faces->quads_line_orientations)
+          std::cout << static_cast<unsigned int>(i) << " ";
+        std::cout << std::endl;
+
+        for (auto i : tria.faces->lines.cells)
+          std::cout << static_cast<unsigned int>(i) << " ";
+        std::cout << std::endl;
       }
 
       template <int dim, int spacedim>
