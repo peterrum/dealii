@@ -44,6 +44,30 @@ struct DynamicGeometryInfo
   virtual unsigned int
   n_faces() const = 0;
 
+  inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
+  vertex_indices() const
+  {
+    return {0U, n_vertices()};
+  }
+
+  /**
+   * TODO
+   */
+  inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
+  line_indices() const
+  {
+    return {0U, n_lines()};
+  }
+
+  /**
+   * @note Only implemented for cells.
+   */
+  inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
+  face_indices() const
+  {
+    return {0U, n_faces()};
+  }
+
   virtual std::array<unsigned int, 2>
   standard_quad_vertex_to_line_vertex_index(const unsigned int vertex) const
   {
@@ -416,6 +440,40 @@ private:
 };
 
 
+
+inline const DynamicGeometryInfo &
+create_dynamic_geometry_info(const std::string label)
+{
+  if (label == "vertex")
+    {
+      static DynamicGeometryInfoVertex o;
+      return o;
+    }
+  if (label == "line")
+    {
+      static DynamicGeometryInfoLine o;
+      return o;
+    }
+  if (label == "tri")
+    {
+      static DynamicGeometryInfoTri o;
+      return o;
+    }
+  if (label == "quad")
+    {
+      static DynamicGeometryInfoQuad o;
+      return o;
+    }
+  if (label == "tet")
+    {
+      static DynamicGeometryInfoTet o;
+      return o;
+    }
+  Assert(label == "hex", ExcNotImplemented())
+
+    static DynamicGeometryInfoHex o;
+  return o;
+}
 
 DEAL_II_NAMESPACE_CLOSE
 
