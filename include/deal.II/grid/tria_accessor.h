@@ -2724,6 +2724,57 @@ public:
   bool
   used() const;
 
+  /**
+   * TODO
+   */
+  inline unsigned int
+  entity_type_index() const
+  {
+    return 0;
+  }
+
+  inline const DynamicGeometryInfo &
+  entity() const
+  {
+    return *this->tria->geometry_info[this->entity_type_index()];
+  }
+
+  /**
+   * TODO
+   */
+  inline unsigned int
+  n_vertices() const
+  {
+    return 1;
+  }
+
+  /**
+   * TODO
+   */
+  inline unsigned int
+  n_lines() const
+  {
+    return 0;
+  }
+
+  /**
+   * TODO
+   */
+  inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
+  vertex_indices() const
+  {
+    return {0U, n_vertices()};
+  }
+
+  /**
+   * TODO
+   */
+  inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
+  line_indices() const
+  {
+    return {0U, n_lines()};
+  }
+
 protected:
   /**
    * Pointer to the triangulation we operate on.

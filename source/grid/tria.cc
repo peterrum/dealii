@@ -10901,6 +10901,7 @@ namespace internal
             internal::TriangulationImplementation::TriaObjects::
               BoundaryOrMaterialId());
           cells_0.manifold_id.assign(n_cell, 0);
+          cells_0.user_flags.assign(n_cell, false);
 
           // TODO: this is the HEX size
           cells_0.children.assign(GeometryInfo<dim>::max_children_per_cell / 2 *
@@ -10957,6 +10958,7 @@ namespace internal
               internal::TriangulationImplementation::TriaObjects::
                 BoundaryOrMaterialId());
             quads_0.manifold_id.assign(n_quads, 0);
+            quads_0.user_flags.assign(n_quads, false);
 
             // TODO: this is the HEX size
             quads_0.children.assign(GeometryInfo<2>::max_children_per_cell / 2 *
@@ -11015,6 +11017,7 @@ namespace internal
               internal::TriangulationImplementation::TriaObjects::
                 BoundaryOrMaterialId());
             lines_0.manifold_id.assign(n_lines, 0);
+            lines_0.user_flags.assign(n_lines, false);
 
             // TODO: this is the HEX size
             lines_0.children.assign(GeometryInfo<1>::max_children_per_cell / 2 *
