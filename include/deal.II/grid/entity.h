@@ -439,40 +439,64 @@ private:
   }
 };
 
-
+enum EntityType
+{
+  none,
+  vertex,
+  line,
+  tri,
+  quad,
+  tet,
+  hex
+};
 
 inline const DynamicGeometryInfo &
-create_dynamic_geometry_info(const std::string label)
+create_dynamic_geometry_info(const EntityType label)
+{
+  static DynamicGeometryInfoVertex o_vertex;
+  static DynamicGeometryInfoLine   o_line;
+  static DynamicGeometryInfoTri    o_tri;
+  static DynamicGeometryInfoQuad   o_quad;
+  static DynamicGeometryInfoTet    o_tet;
+  static DynamicGeometryInfoHex    o_hex;
+
+  if (label == EntityType::vertex)
+    return o_vertex;
+  if (label == EntityType::line)
+    return o_line;
+  if (label == EntityType::tri)
+    return o_tri;
+  if (label == EntityType::quad)
+    return o_quad;
+  if (label == EntityType::tet)
+    return o_tet;
+  if (label == EntityType::hex)
+    return o_hex;
+
+  Assert(false, ExcNotImplemented())
+
+    return o_hex;
+}
+
+inline const DynamicGeometryInfo &
+create_dynamic_geometry_info(const std::string &label)
 {
   if (label == "vertex")
-    {
-      static DynamicGeometryInfoVertex o;
-      return o;
-    }
+    return create_dynamic_geometry_info(EntityType::vertex);
   if (label == "line")
-    {
-      static DynamicGeometryInfoLine o;
-      return o;
-    }
+    return create_dynamic_geometry_info(EntityType::line);
   if (label == "tri")
-    {
-      static DynamicGeometryInfoTri o;
-      return o;
-    }
+    return create_dynamic_geometry_info(EntityType::tri);
   if (label == "quad")
-    {
-      static DynamicGeometryInfoQuad o;
-      return o;
-    }
+    return create_dynamic_geometry_info(EntityType::quad);
   if (label == "tet")
-    {
-      static DynamicGeometryInfoTet o;
-      return o;
-    }
-  Assert(label == "hex", ExcNotImplemented())
+    return create_dynamic_geometry_info(EntityType::tet);
+  if (label == "hex")
+    return create_dynamic_geometry_info(EntityType::hex);
 
-    static DynamicGeometryInfoHex o;
-  return o;
+  Assert(false, ExcNotImplemented())
+
+    return create_dynamic_geometry_info(EntityType::none);
 }
 
 DEAL_II_NAMESPACE_CLOSE
