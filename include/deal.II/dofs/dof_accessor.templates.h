@@ -839,8 +839,7 @@ namespace internal
         unsigned int index = 0;
 
         // 1) VERTEX dofs
-        for (const unsigned int vertex :
-             GeometryInfo<structdim>::vertex_indices())
+        for (const auto vertex : accessor.vertex_indices())
           for (unsigned int d = 0; d < dofs_per_vertex; ++d, ++index)
             DoFOperation::process_vertex_dof(
               accessor, vertex, d, dof_indices[index], fe_index);
@@ -853,9 +852,7 @@ namespace internal
         // adjust the shape function indices that we see to correspond to the
         // correct (face/cell-local) ordering.
         if (structdim == 2 || structdim == 3)
-          for (unsigned int line = 0;
-               line < GeometryInfo<structdim>::lines_per_cell;
-               ++line)
+          for (const auto line : accessor.line_indices())
             for (unsigned int d = 0; d < dofs_per_line; ++d, ++index)
               DoFOperation::process_dof(
                 *accessor.line(line),
@@ -874,9 +871,7 @@ namespace internal
         // correct (cell-local) ordering. The same applies, if the face_rotation
         // or face_orientation is non-standard
         if (structdim == 3)
-          for (unsigned int quad = 0;
-               quad < GeometryInfo<structdim>::quads_per_cell;
-               ++quad)
+          for (const auto quad : accessor.face_indices())
             for (unsigned int d = 0; d < dofs_per_quad; ++d, ++index)
               DoFOperation::process_dof(
                 *accessor.quad(quad),
@@ -1443,27 +1438,27 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::get_dof_indices(
     {
       case 1:
         Assert(dof_indices.size() ==
-                 (GeometryInfo<1>::vertices_per_cell *
+                 (this->n_vertices() *
                     this->dof_handler->get_fe(fe_index).dofs_per_vertex +
                   this->dof_handler->get_fe(fe_index).dofs_per_line),
                ExcVectorDoesNotMatch());
         break;
       case 2:
         Assert(dof_indices.size() ==
-                 (GeometryInfo<2>::vertices_per_cell *
+                 (this->n_vertices() *
                     this->dof_handler->get_fe(fe_index).dofs_per_vertex +
-                  GeometryInfo<2>::lines_per_cell *
+                  this->n_lines() *
                     this->dof_handler->get_fe(fe_index).dofs_per_line +
                   this->dof_handler->get_fe(fe_index).dofs_per_quad),
                ExcVectorDoesNotMatch());
         break;
       case 3:
         Assert(dof_indices.size() ==
-                 (GeometryInfo<3>::vertices_per_cell *
+                 (this->n_vertices() *
                     this->dof_handler->get_fe(fe_index).dofs_per_vertex +
-                  GeometryInfo<3>::lines_per_cell *
+                  this->n_lines() *
                     this->dof_handler->get_fe(fe_index).dofs_per_line +
-                  GeometryInfo<3>::faces_per_cell *
+                  this->n_faces() *
                     this->dof_handler->get_fe(fe_index).dofs_per_quad +
                   this->dof_handler->get_fe(fe_index).dofs_per_hex),
                ExcVectorDoesNotMatch());

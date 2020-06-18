@@ -346,12 +346,6 @@ namespace Tet
                 global_entity_vertices_with_permutation;
 
 
-              std::cout << "Before: " << std::endl;
-              for (auto i : global_entity_vertices)
-                std::cout << i << " ";
-              std::cout << std::endl;
-
-
               for (unsigned int i = 0; i < global_entity_vertices.size(); ++i)
                 global_entity_vertices_with_permutation.emplace_back(
                   global_entity_vertices[i], i);
@@ -379,11 +373,6 @@ namespace Tet
                   // permutation.push_back(
                   //  global_entity_vertices_with_permutation[i].second);
                 }
-
-              std::cout << "Permutation: " << std::endl;
-              for (auto i : permutation)
-                std::cout << i << " ";
-              std::cout << std::endl << std::endl;
 
               unsigned char orientation = -1;
               if (permutation == std::vector<unsigned int>{0, 1}) // line

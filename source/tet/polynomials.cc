@@ -357,12 +357,7 @@ namespace Tet
   ScalarPolynomial<dim>::compute_1st_derivative(const unsigned int i,
                                                 const Point<dim> & p) const
   {
-    (void)i;
-    (void)p;
-
-    Assert(false, ExcNotImplemented());
-
-    return {};
+    return compute_grad(i, p);
   }
 
   template <int dim>
@@ -415,7 +410,7 @@ namespace Tet
   std::unique_ptr<ScalarPolynomialsBase<dim>>
   ScalarPolynomial<dim>::clone() const
   {
-    Assert(false, ExcNotImplemented());
+    return std::make_unique<ScalarPolynomial<dim>>(*this);
   }
 
   template class ScalarPolynomial<1>;

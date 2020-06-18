@@ -10783,8 +10783,6 @@ namespace internal
           connectivity.build(cell_types, cell_vertices);
         }
 
-        connectivity.print(std::cout);
-
         tria.levels.clear();
         tria.levels.push_back(
           std::make_unique<
@@ -10920,12 +10918,6 @@ namespace internal
               tria.faces->quads_line_orientations.assign(
                 n_quads * GeometryInfo<2>::faces_per_cell, -1);
 
-              std::cout << "AAAAAAAA "
-                        << n_quads * GeometryInfo<2>::faces_per_cell
-                        << std::endl;
-              std::cout << "AAAAAAAA " << connectivity.orientations[1].size()
-                        << std::endl;
-
               for (unsigned int quad = 0, k = 0; quad < n_quads; ++quad)
                 for (unsigned int i = crs.ptr[quad], j = 0;
                      i < crs.ptr[quad + 1];
@@ -10971,26 +10963,6 @@ namespace internal
                     crs.col[i];
             }
           }
-
-
-        std::cout << "AA " << std::endl;
-        for (auto i : tria.levels[0]->cells.cells)
-          std::cout << static_cast<unsigned int>(i) << " ";
-        std::cout << std::endl;
-        for (auto i : tria.levels[0]->face_orientations)
-          std::cout << static_cast<unsigned int>(i) << " ";
-        std::cout << std::endl;
-
-        for (auto i : tria.faces->quads.cells)
-          std::cout << static_cast<unsigned int>(i) << " ";
-        std::cout << std::endl;
-        for (auto i : tria.faces->quads_line_orientations)
-          std::cout << static_cast<unsigned int>(i) << " ";
-        std::cout << std::endl;
-
-        for (auto i : tria.faces->lines.cells)
-          std::cout << static_cast<unsigned int>(i) << " ";
-        std::cout << std::endl;
       }
 
       template <int dim, int spacedim>
