@@ -10792,6 +10792,95 @@ namespace internal
 
         const unsigned int n_cell = cells.size();
 
+        // TriaObjects: line
+        if (dim >= 2)
+          {
+            auto &lines_0 = tria.faces->lines;
+
+            const unsigned int n_lines =
+              connectivity.table[1][0].ptr.size() - 1;
+
+            lines_0.used.assign(n_lines, true);
+            lines_0.boundary_or_material_id.assign(
+              n_lines,
+              internal::TriangulationImplementation::TriaObjects::
+                BoundaryOrMaterialId());
+            lines_0.manifold_id.assign(n_lines, 0);
+            lines_0.user_flags.assign(n_lines, false);
+
+            // TODO: this is the HEX size
+            lines_0.children.assign(GeometryInfo<1>::max_children_per_cell / 2 *
+                                      n_lines,
+                                    -1);
+
+            // TODO: this is the HEX size
+            lines_0.cells.assign(GeometryInfo<1>::faces_per_cell * n_lines, -1);
+
+            {
+              const auto &crs = connectivity.table[1][0];
+
+              for (unsigned int line = 0; line < n_lines; ++line)
+                for (unsigned int i = crs.ptr[line], j = 0;
+                     i < crs.ptr[line + 1];
+                     ++i, ++j)
+                  lines_0.cells[line * GeometryInfo<1>::faces_per_cell + j] =
+                    crs.col[i];
+            }
+          }
+
+        // TriaObjects: quad
+        if (dim == 3)
+          {
+            auto &quads_0 = tria.faces->quads;
+
+            const unsigned int n_quads =
+              connectivity.table[2][0].ptr.size() - 1;
+
+            quads_0.used.assign(n_quads, true);
+            quads_0.boundary_or_material_id.assign(
+              n_quads,
+              internal::TriangulationImplementation::TriaObjects::
+                BoundaryOrMaterialId());
+            quads_0.manifold_id.assign(n_quads, 0);
+            quads_0.user_flags.assign(n_quads, false);
+
+            // TODO: this is the HEX size
+            quads_0.children.assign(GeometryInfo<2>::max_children_per_cell / 2 *
+                                      n_quads,
+                                    -1);
+
+            // TODO: this is the HEX size
+            quads_0.cells.assign(GeometryInfo<2>::faces_per_cell * n_quads, -1);
+
+            {
+              const auto &crs = connectivity.table[2][1];
+
+              for (unsigned int quad = 0; quad < n_quads; ++quad)
+                for (unsigned int i = crs.ptr[quad], j = 0;
+                     i < crs.ptr[quad + 1];
+                     ++i, ++j)
+                  quads_0.cells[quad * GeometryInfo<2>::faces_per_cell + j] =
+                    crs.col[i];
+            }
+
+            tria.faces->quad_entity_type.assign(n_quads, 2 /* TODO*/);
+
+            {
+              const auto &crs = connectivity.table[2][1];
+
+              tria.faces->quads_line_orientations.assign(
+                n_quads * GeometryInfo<2>::faces_per_cell, -1);
+
+              for (unsigned int quad = 0, k = 0; quad < n_quads; ++quad)
+                for (unsigned int i = crs.ptr[quad], j = 0;
+                     i < crs.ptr[quad + 1];
+                     ++i, ++j, ++k)
+                  tria.faces->quads_line_orientations
+                    [quad * GeometryInfo<2>::faces_per_cell + j] =
+                    connectivity.orientations[1][k];
+            }
+          }
+
         // TriaLevel
         {
           auto &level_0 = *tria.levels[0];
@@ -10819,6 +10908,15 @@ namespace internal
                       level_0
                         .neighbors[cell * GeometryInfo<dim>::faces_per_cell +
                                    j] = {0, crs_.col[k]};
+                    else if (crs_.ptr[face + 1] - crs_.ptr[face] == 1)
+                      {
+                        if (dim == 3)
+                          tria.faces->quads.boundary_or_material_id[face]
+                            .boundary_id = 0;
+                        else if (dim == 2)
+                          tria.faces->lines.boundary_or_material_id[face]
+                            .boundary_id = 0;
+                      }
                 }
           }
         }
@@ -10874,95 +10972,6 @@ namespace internal
                     connectivity.orientations[dim - 1][i];
             }
         }
-
-        // TriaObjects: quad
-        if (dim == 3)
-          {
-            auto &quads_0 = tria.faces->quads;
-
-            const unsigned int n_quads =
-              connectivity.table[2][0].ptr.size() - 1;
-
-            quads_0.used.assign(n_quads, true);
-            quads_0.boundary_or_material_id.assign(
-              n_quads,
-              internal::TriangulationImplementation::TriaObjects::
-                BoundaryOrMaterialId());
-            quads_0.manifold_id.assign(n_quads, 0);
-            quads_0.user_flags.assign(n_quads, false);
-
-            // TODO: this is the HEX size
-            quads_0.children.assign(GeometryInfo<2>::max_children_per_cell / 2 *
-                                      n_quads,
-                                    -1);
-
-            // TODO: this is the HEX size
-            quads_0.cells.assign(GeometryInfo<2>::faces_per_cell * n_quads, -1);
-
-            {
-              const auto &crs = connectivity.table[2][1];
-
-              for (unsigned int quad = 0; quad < n_quads; ++quad)
-                for (unsigned int i = crs.ptr[quad], j = 0;
-                     i < crs.ptr[quad + 1];
-                     ++i, ++j)
-                  quads_0.cells[quad * GeometryInfo<2>::faces_per_cell + j] =
-                    crs.col[i];
-            }
-
-            tria.faces->quad_entity_type.assign(n_quads, 2 /* TODO*/);
-
-            {
-              const auto &crs = connectivity.table[2][1];
-
-              tria.faces->quads_line_orientations.assign(
-                n_quads * GeometryInfo<2>::faces_per_cell, -1);
-
-              for (unsigned int quad = 0, k = 0; quad < n_quads; ++quad)
-                for (unsigned int i = crs.ptr[quad], j = 0;
-                     i < crs.ptr[quad + 1];
-                     ++i, ++j, ++k)
-                  tria.faces->quads_line_orientations
-                    [quad * GeometryInfo<2>::faces_per_cell + j] =
-                    connectivity.orientations[1][k];
-            }
-          }
-
-        // TriaObjects: line
-        if (dim >= 2)
-          {
-            auto &lines_0 = tria.faces->lines;
-
-            const unsigned int n_lines =
-              connectivity.table[1][0].ptr.size() - 1;
-
-            lines_0.used.assign(n_lines, true);
-            lines_0.boundary_or_material_id.assign(
-              n_lines,
-              internal::TriangulationImplementation::TriaObjects::
-                BoundaryOrMaterialId());
-            lines_0.manifold_id.assign(n_lines, 0);
-            lines_0.user_flags.assign(n_lines, false);
-
-            // TODO: this is the HEX size
-            lines_0.children.assign(GeometryInfo<1>::max_children_per_cell / 2 *
-                                      n_lines,
-                                    -1);
-
-            // TODO: this is the HEX size
-            lines_0.cells.assign(GeometryInfo<1>::faces_per_cell * n_lines, -1);
-
-            {
-              const auto &crs = connectivity.table[1][0];
-
-              for (unsigned int line = 0; line < n_lines; ++line)
-                for (unsigned int i = crs.ptr[line], j = 0;
-                     i < crs.ptr[line + 1];
-                     ++i, ++j)
-                  lines_0.cells[line * GeometryInfo<1>::faces_per_cell + j] =
-                    crs.col[i];
-            }
-          }
       }
 
       template <int dim, int spacedim>

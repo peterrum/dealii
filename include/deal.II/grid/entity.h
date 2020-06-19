@@ -289,7 +289,9 @@ struct DynamicGeometryInfoTet : DynamicGeometryInfo
   standard_hex_line_to_quad_line_index(const unsigned int line) const override
   {
     static const std::array<unsigned int, 2> table[6] = {
-      {0, 2}, {0, 1}, {0, 0}, {1, 2}, {1, 1}, {2, 1}};
+      {0, 0}, {0, 1}, {0, 2}, {1, 1}, {1, 2}, {2, 1}};
+    // static const std::array<unsigned int, 2> table[6] = {
+    //  {0, 0}, {0, 2}, {1, 2}, {0, 1}, {1, 1}, {2, 1}};
 
     return table[line];
   }
@@ -300,9 +302,7 @@ struct DynamicGeometryInfoTet : DynamicGeometryInfo
     const unsigned char face_orientation) const override
   {
     static const std::array<std::array<unsigned int, 3>, 6> table = {
-      {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}};
-    // static const std::array<std::array<unsigned int, 3>, 6> table = {
-    //  {{0, 1, 2}, {2, 1, 0}, {0, 2, 1}, {1, 2, 0}, {2, 0, 1}, {1, 0, 2}}};
+      {{0, 1, 2}, {2, 1, 0}, {0, 2, 1}, {1, 2, 0}, {2, 0, 1}, {1, 0, 2}}};
 
     return table[face_orientation][line];
   }
