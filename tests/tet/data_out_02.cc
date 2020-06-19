@@ -57,7 +57,7 @@
 using namespace dealii;
 
 void
-test_3(const std::vector<unsigned int> indices)
+test_3()
 {
   const int dim      = 3;
   const int spacedim = 3;
@@ -77,6 +77,8 @@ test_3(const std::vector<unsigned int> indices)
 
   std::ofstream output("cell_tet.vtk");
   Tet::data_out(dof_handler, vector, "data", output);
+
+  Tet::data_out(dof_handler, vector, "data", deallog.get_file_stream());
 }
 
 int
@@ -84,35 +86,5 @@ main()
 {
   initlog();
 
-  test_3({0, 1, 2, 3});
-  //  test_3({0, 1, 3, 2});
-  //  test_3({0, 2, 1, 3});
-  //  test_3({0, 2, 3, 1});
-  //  test_3({0, 3, 1, 2});
-  //  test_3({0, 3, 2, 1});
-  //  deallog << std::endl;
-  //
-  //  test_3({1, 0, 2, 3});
-  //  test_3({1, 0, 3, 2});
-  //  test_3({1, 2, 0, 3});
-  //  test_3({1, 2, 3, 0});
-  //  test_3({1, 3, 0, 2});
-  //  test_3({1, 3, 2, 0});
-  //  deallog << std::endl;
-  //
-  //  test_3({2, 1, 0, 3});
-  //  test_3({2, 1, 3, 0});
-  //  test_3({2, 0, 1, 3});
-  //  test_3({2, 0, 3, 1});
-  //  test_3({2, 3, 1, 0});
-  //  test_3({2, 3, 0, 1});
-  //  deallog << std::endl;
-  //
-  //  test_3({3, 1, 2, 0});
-  //  test_3({3, 1, 0, 2});
-  //  test_3({3, 2, 1, 0});
-  //  test_3({3, 2, 0, 1});
-  //  test_3({3, 0, 1, 2});
-  //  test_3({3, 0, 2, 1});
-  //  deallog << std::endl;
+  test_3();
 }

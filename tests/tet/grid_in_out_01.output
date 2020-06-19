@@ -23,7 +23,7 @@ CELL_DATA 4
 SCALARS MaterialID int 1
 LOOKUP_TABLE default
 -1 
--1 -1 -1 
+0 0 0 
 
 
 SCALARS ManifoldID int 1
@@ -59,7 +59,7 @@ CELL_DATA 7
 SCALARS MaterialID int 1
 LOOKUP_TABLE default
 -1 -1 
--1 -1 -1 -1 -1 
+0 0 -1 0 0 
 
 
 SCALARS ManifoldID int 1

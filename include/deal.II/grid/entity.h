@@ -315,8 +315,9 @@ struct DynamicGeometryInfoTet : DynamicGeometryInfo
     (void)line;
     (void)face_orientation;
 
-    deallog << line << " " << static_cast<unsigned int>(face_orientation) << " "
-            << static_cast<unsigned int>(line_orientation) << std::endl;
+    // deallog << line << " " << static_cast<unsigned int>(face_orientation) <<
+    // " "
+    //        << static_cast<unsigned int>(line_orientation) << std::endl;
 
     return line_orientation; // TODO
   }
