@@ -52,6 +52,7 @@
 #include <limits>
 #include <list>
 #include <memory>
+#include <vector>
 
 
 DEAL_II_NAMESPACE_OPEN
@@ -757,6 +758,45 @@ public:
    */
   void
   update_mapping(const Mapping<dim> &mapping);
+
+  /**
+   * Refresh internal data structures due to re-categorization.
+   */
+  void
+  update_categorization(
+    const AdditionalData &additional_data = AdditionalData())
+  {
+    Assert(this->mapping_is_initialized, ExcNotImplemented());
+
+    // TODO: where should these come from?
+    std::vector<const AffineConstraints<number2> *> constraint;
+    std::vector<IndexSet>                           locally_owned_dofs;
+
+    // 1) store old indices
+    std::vector<std::pair<std::pair<unsigned int, unsigned int>, unsigned int>>
+      old_cell_level_index;
+    old_cell_level_index.reserve(cell_level_index.size());
+
+    for (unsigned int i = 0; i < cell_level_index.size(); ++i)
+      old_cell_level_index.emplace_back(cell_level_index[i], i);
+
+    std::sort(old_cell_level_index.begin(), old_cell_level_index.end());
+
+    // 2) recompute internal data structures due to modified categorization
+    if (additional_data.initialize_indices == true)
+      this->initialize_indices(constraint, locally_owned_dofs, additional_data);
+
+    // 3) permute old mapping data
+    if (additional_data.initialize_mapping == true)
+      mapping_info.recategorize(
+        old_cell_level_index,
+        cell_level_index,
+        face_info,
+        additional_data.mapping_update_flags,
+        additional_data.mapping_update_flags_boundary_faces,
+        additional_data.mapping_update_flags_inner_faces,
+        additional_data.mapping_update_flags_faces_by_cells);
+  }
 
   /**
    * Clear all data fields and brings the class into a condition similar to
