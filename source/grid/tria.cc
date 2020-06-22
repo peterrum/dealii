@@ -19,7 +19,6 @@
 
 #include <deal.II/fe/mapping_q1.h>
 
-#include <deal.II/grid/connectivity.h>
 #include <deal.II/grid/grid_tools.h>
 #include <deal.II/grid/magic_numbers.h>
 #include <deal.II/grid/manifold.h>
@@ -10754,6 +10753,751 @@ namespace internal
       }
     };
 
+
+
+    enum class CellTypeEnum
+    {
+      quad,
+      tet,
+    };
+
+    struct CellTypeEntities
+    {
+      std::vector<unsigned int> vertices     = {};
+      std::vector<unsigned int> vertices_ptr = {0};
+    };
+
+    struct CellTypeBase
+    {
+      CellTypeBase(
+        const unsigned int                                         dim,
+        const std::string                                          name,
+        const std::vector<std::vector<std::vector<unsigned int>>> &entities_in);
+
+      unsigned int
+      n_entities(const unsigned int d) const;
+
+      unsigned int
+      n_vertices();
+
+      dealii::ArrayView<const unsigned int>
+      vertices_of_entity(const unsigned int d, const unsigned int e) const;
+
+      std::string
+      get_name() const;
+
+      unsigned int
+      n_lines_of_surface(const unsigned int line) const
+      {
+        // TODO: only for TET
+
+        (void)line;
+        return 3; // TODO
+      }
+
+      unsigned int
+      nth_line_of_surface(const unsigned int line,
+                          const unsigned int face) const
+      {
+        // TODO: only for TET
+
+        const static std::array<std::array<unsigned int, 3>, 4> table = {
+          {{0, 3, 1}, {0, 2, 4}, {1, 5, 2}, {3, 4, 5}}};
+
+        return table[face][line];
+      }
+
+      const std::array<unsigned int, 2> &
+      vertices_of_nth_line_of_surface(const unsigned int line,
+                                      const unsigned int face) const
+      {
+        // TODO: only for TET
+
+        const static std::array<std::array<std::array<unsigned int, 2>, 3>, 4>
+          table = {{{{{0, 1}, {1, 2}, {2, 0}}},
+                    {{{1, 0}, {0, 3}, {3, 1}}},
+                    {{{0, 2}, {2, 3}, {3, 0}}},
+                    {{{2, 1}, {1, 3}, {3, 2}}}}};
+
+        return table[face][line];
+      }
+
+    private:
+      const std::string name;
+
+      const std::vector<CellTypeEntities> entities;
+
+      const unsigned int n_vertices_;
+    };
+
+    class CellTypeFactory
+    {
+    public:
+      static std::shared_ptr<CellTypeBase>
+      build(const unsigned int dim, const CellTypeEnum type);
+    };
+
+    template <typename T = unsigned int>
+    struct CRS
+    {
+      std::vector<std::size_t> ptr = {0};
+      std::vector<T>           col;
+    };
+
+    template <typename T = unsigned int>
+    struct Result
+    {
+      Result(const CRS<T> &                    line_vertices,
+             const std::vector<unsigned char> &line_orientation,
+             const CRS<T> &                    quad_lines,
+             const std::vector<unsigned char> &quad_orientation,
+             const CRS<T> &                    cell_entities,
+             const CRS<T> &                    neighbors)
+        : line_vertices(line_vertices)
+        , line_orientation(line_orientation)
+        , quad_lines(quad_lines)
+        , quad_orientation(quad_orientation)
+        , cell_entities(cell_entities)
+        , neighbors(neighbors)
+      {}
+
+      Result(const CRS<T> &                    line_vertices,
+             const std::vector<unsigned char> &line_orientation,
+             const CRS<T> &                    cell_entities,
+             const CRS<T> &                    neighbors)
+        : line_vertices(line_vertices)
+        , line_orientation(line_orientation)
+        , cell_entities(cell_entities)
+        , neighbors(neighbors)
+      {}
+
+
+      CRS<T>                     line_vertices;
+      std::vector<unsigned char> line_orientation;
+      CRS<T>                     quad_lines;
+      std::vector<unsigned char> quad_orientation;
+      CRS<T>                     cell_entities;
+      CRS<T>                     neighbors;
+    };
+
+
+
+    static std::vector<CellTypeEntities>
+    convert_to_crs(
+      const unsigned int                                         dim,
+      const std::vector<std::vector<std::vector<unsigned int>>> &entities_in)
+    {
+      std::vector<CellTypeEntities> result(dim + 1);
+
+      AssertDimension(dim, entities_in.size());
+
+      for (unsigned int d = 0; d < dim; d++)
+        {
+          const auto &entities = entities_in[d];
+
+          for (auto entity : entities)
+            {
+              for (auto vertex : entity)
+                result[dim - d].vertices.push_back(vertex);
+
+              result[dim - d].vertices_ptr.push_back(
+                result[dim - d].vertices.size());
+            }
+        }
+
+      return result;
+    }
+
+
+
+    CellTypeBase::CellTypeBase(
+      const unsigned int                                         dim,
+      const std::string                                          name,
+      const std::vector<std::vector<std::vector<unsigned int>>> &entities_in)
+      : name(name)
+      , entities(convert_to_crs(dim, entities_in))
+      , n_vertices_(entities[dim].vertices.size())
+    {}
+
+
+
+    unsigned int
+    CellTypeBase::n_entities(const unsigned int d) const
+    {
+      // AssertIndexRange(d, dim + 1);
+      return entities[d].vertices_ptr.size() - 1;
+    }
+
+
+
+    unsigned int
+    CellTypeBase::n_vertices()
+    {
+      return n_vertices_;
+    }
+
+
+
+    dealii::ArrayView<const unsigned int>
+    CellTypeBase::vertices_of_entity(const unsigned int d,
+                                     const unsigned int e) const
+    {
+      // AssertIndexRange(d, dim + 1);
+      return dealii::ArrayView<const unsigned int>(
+        entities[d].vertices.data() + entities[d].vertices_ptr[e],
+        entities[d].vertices_ptr[e + 1] - entities[d].vertices_ptr[e]);
+    }
+
+
+
+    std::string
+    CellTypeBase::get_name() const
+    {
+      return name;
+    }
+
+
+
+    struct CellTypeTet : public CellTypeBase
+    {
+      CellTypeTet(const unsigned int dim)
+        : CellTypeBase(
+            dim,
+            "tet",
+            dim == 2 ?
+              (std::vector<std::vector<std::vector<unsigned int>>>{
+                {{0, 1, 2}},             // cell
+                {{0, 1}, {1, 2}, {2, 0}} // edges
+              }) :
+              (std::vector<std::vector<std::vector<unsigned int>>>{
+                {{0, 1, 2, 3}},                                  // cell
+                {{0, 1, 2}, {1, 0, 3}, {0, 2, 3}, {2, 1, 3}},    // faces
+                {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}} // edges
+              }))
+      {}
+    };
+
+
+
+    struct CellTypeQuad : public CellTypeBase
+    {
+      CellTypeQuad(const unsigned int dim)
+        : CellTypeBase(dim,
+                       "quad",
+                       {
+                         {{0, 1, 2, 3}},                  // cell
+                         {{0, 1}, {1, 2}, {2, 3}, {3, 0}} // edges
+                       })
+      {
+        AssertDimension(dim, 2);
+      }
+    };
+
+
+
+    std::shared_ptr<CellTypeBase>
+    CellTypeFactory::build(const unsigned int dim, const CellTypeEnum type)
+    {
+      std::shared_ptr<CellTypeBase> result;
+
+      switch (type)
+        {
+          // clang-format off
+        case CellTypeEnum::tet:  result.reset(new CellTypeTet(dim));  break;
+        case CellTypeEnum::quad: result.reset(new CellTypeQuad(dim)); break;
+          // clang-format on
+          default:
+            Assert(false,
+                   dealii::StandardExceptions::ExcMessage(
+                     "Element type is not supported!"));
+        }
+
+      return result;
+    }
+
+
+
+    template <typename T>
+    CRS<T>
+    transpose(const CRS<T> &con)
+    {
+      auto        con_copy = con;
+      auto &      col      = con_copy.col;
+      const auto &ptr      = con_copy.ptr;
+
+      CRS<T> con_t;
+      auto & col_t = con_t.col;
+      auto & ptr_t = con_t.ptr;
+
+      for (unsigned int i = 0; i < ptr.size() - 1; i++)
+        std::sort(col.data() + ptr[i], col.data() + ptr[i + 1]);
+
+      col_t.clear();
+      ptr_t.clear();
+
+      col_t.reserve(col.size());
+      ptr_t.reserve(
+        col.size() == 0 ? 0 : *std::max_element(col.begin(), col.end()));
+
+      std::vector<std::pair<T, T>> temp;
+      temp.reserve(col.size());
+
+      for (unsigned int i = 0; i < ptr.size() - 1; i++)
+        for (std::size_t j = ptr[i]; j < ptr[i + 1]; j++)
+          temp.emplace_back(col[j], i);
+
+      std::sort(temp.begin(), temp.end());
+
+      T r = -1;
+
+      for (unsigned int i = 0; i < temp.size(); i++)
+        {
+          if (r != temp[i].first)
+            {
+              r = temp[i].first;
+              ptr_t.push_back(col_t.size());
+            }
+
+          col_t.push_back(temp[i].second);
+        }
+
+      ptr_t.push_back(col_t.size());
+
+      return con_t;
+    }
+
+
+
+    template <typename T>
+    CRS<T>
+    determine_neighbors(const CRS<T> &con_cf, const CRS<T> &con_fc)
+    {
+      const auto &col_cf = con_cf.col;
+      const auto &ptr_cf = con_cf.ptr;
+      const auto &col_fc = con_fc.col;
+      const auto &ptr_fc = con_fc.ptr;
+
+      CRS<T> con_cc;
+      auto & col_cc = con_cc.col;
+      auto & ptr_cc = con_cc.ptr;
+
+      col_cc.clear();
+      ptr_cc.clear();
+
+      ptr_cc.push_back(0);
+
+      for (unsigned int i_0 = 0; i_0 < ptr_cf.size() - 1; i_0++)
+        {
+          for (std::size_t j_0 = ptr_cf[i_0]; j_0 < ptr_cf[i_0 + 1]; j_0++)
+            {
+              T temp = -1;
+
+              for (std::size_t j_1 = ptr_fc[col_cf[j_0]];
+                   j_1 < ptr_fc[col_cf[j_0] + 1];
+                   j_1++)
+                if (i_0 != col_fc[j_1])
+                  temp = col_fc[j_1];
+
+              col_cc.emplace_back(temp);
+            }
+
+          ptr_cc.push_back(col_cc.size());
+        }
+
+      return con_cc;
+    }
+
+
+
+    template <typename T, std::size_t N>
+    inline unsigned char
+    compute_orientation(const std::array<T, N> &ref_ind,
+                        const std::array<T, N> &ind)
+    {
+      const unsigned int n_non_zeros =
+        N - std::count(ref_ind.begin(), ref_ind.end(), 0);
+
+      if (n_non_zeros == 2)
+        {
+          std::array<T, 2> ind_{ref_ind[0], ref_ind[1]};
+
+          if (ind_ == std::array<T, 2>{{ind[0], ind[1]}})
+            return 0;
+          if (ind_ == std::array<T, 2>{{ind[1], ind[0]}})
+            return 1;
+        }
+      else if (n_non_zeros == 3)
+        {
+          std::array<T, 3> ind_0{ref_ind[0], ref_ind[1], ref_ind[2]};
+          std::array<T, 3> ind_1{ind[0], ind[1], ind[2]};
+
+          if (ind_1 == std::array<T, 3>{{ind_0[0], ind_0[1], ind_0[2]}})
+            return 0;
+          if (ind_1 == std::array<T, 3>{{ind_0[0], ind_0[2], ind_0[1]}})
+            return 1;
+          if (ind_1 == std::array<T, 3>{{ind_0[1], ind_0[0], ind_0[2]}})
+            return 2;
+          if (ind_1 == std::array<T, 3>{{ind_0[1], ind_0[2], ind_0[0]}})
+            return 3;
+          if (ind_1 == std::array<T, 3>{{ind_0[2], ind_0[0], ind_0[1]}})
+            return 4;
+          if (ind_1 == std::array<T, 3>{{ind_0[2], ind_0[1], ind_0[0]}})
+            return 5;
+        }
+
+      AssertThrow(false, dealii::StandardExceptions::ExcNotImplemented());
+
+      return -1;
+    }
+
+
+
+    template <int key_length>
+    void
+    build_entity_templated(
+      const unsigned int                                d,
+      const std::vector<std::shared_ptr<CellTypeBase>> &cell_types,
+      const std::vector<unsigned int> &                 cell_types_index,
+      const CRS<unsigned int> &                         crs,
+      CRS<unsigned int> &                               crs_d,
+      CRS<unsigned int> &                               crs_0,
+      std::vector<unsigned char> &                      orientations)
+    {
+      const std::vector<std::size_t> & cell_ptr      = crs.ptr;
+      const std::vector<unsigned int> &cell_vertices = crs.col;
+      std::vector<std::size_t> &       ptr_d         = crs_d.ptr;
+      std::vector<unsigned int> &      col_d         = crs_d.col;
+      std::vector<std::size_t> &       ptr_0 = crs_0.ptr = {};
+      std::vector<unsigned int> &      col_0             = crs_0.col;
+
+      std::vector<std::tuple<std::array<unsigned int, key_length>,
+                             std::array<unsigned int, key_length>,
+                             unsigned int>>
+        keys; // key (sorted vertices), vertices, cell-entity index
+
+      ptr_d.resize(cell_types_index.size() + 1);
+      ptr_d[0] = 0;
+
+      static const unsigned int offset = 1;
+
+      // loop over all cells
+      for (unsigned int c = 0, counter = 0; c < cell_types_index.size(); c++)
+        {
+          const auto &cell_type = cell_types[cell_types_index[c]];
+          ptr_d[c + 1]          = ptr_d[c] + cell_type->n_entities(d);
+
+          // ... collect vertices of cell
+          const dealii::ArrayView<const unsigned int> cell_vertice(
+            cell_vertices.data() + cell_ptr[c], cell_ptr[c + 1] - cell_ptr[c]);
+
+          // ... loop over all its entities
+          for (unsigned int e = 0; e < cell_type->n_entities(d); e++)
+            {
+              // ... determine global entity vertices
+              const auto &local_entity_vertices =
+                cell_type->vertices_of_entity(d, e);
+
+              std::array<unsigned int, key_length> entity_vertices;
+              std::fill(entity_vertices.begin(), entity_vertices.end(), 0);
+
+              for (unsigned int i = 0; i < local_entity_vertices.size(); i++)
+                entity_vertices[i] =
+                  cell_vertice[local_entity_vertices[i]] + offset;
+
+              // ... create key
+              std::array<unsigned int, key_length> key = entity_vertices;
+              std::sort(key.begin(), key.end());
+              keys.emplace_back(key, entity_vertices, counter++);
+            }
+        }
+
+      // sort according to key so that entities with same key can be merged
+      std::sort(keys.begin(), keys.end(), [](const auto &a, const auto &b) {
+        return std::get<0>(a) < std::get<0>(b);
+      });
+
+      std::vector<std::tuple<unsigned int, unsigned int, unsigned char>>
+        keys_unique; // cell-entity index, entity index, orientation
+      keys_unique.reserve(keys.size());
+
+      std::array<unsigned int, key_length> ref_key;
+      std::array<unsigned int, key_length> ref_indices;
+      std::fill(ref_key.begin(), ref_key.end(), 0);
+
+      for (unsigned int i = 0, counter = dealii::numbers::invalid_unsigned_int;
+           i < keys.size();
+           i++)
+        {
+          if (ref_key != std::get<0>(keys[i]))
+            {
+              // new key
+              counter++;
+              ref_key     = std::get<0>(keys[i]);
+              ref_indices = std::get<1>(keys[i]);
+
+              ptr_0.push_back(col_0.size());
+              for (const auto j : std::get<1>(keys[i]))
+                if (j != 0)
+                  col_0.push_back(j - offset);
+
+              // take its orientation as default
+              keys_unique.emplace_back(std::get<2>(keys[i]), counter, 0);
+            }
+          else
+            {
+              // same key, but different orientation
+              keys_unique.emplace_back(
+                std::get<2>(keys[i]),
+                counter,
+                compute_orientation(ref_indices, std::get<1>(keys[i])));
+            }
+        }
+      ptr_0.push_back(col_0.size());
+
+      // sort according to cell-entity index so that entity index and
+      // orientation can be copied back
+      std::sort(keys_unique.begin(),
+                keys_unique.end(),
+                [](const auto &a, const auto &b) {
+                  return std::get<0>(a) < std::get<0>(b);
+                });
+
+      col_d.resize(keys_unique.size());
+      orientations.resize(keys_unique.size());
+      for (unsigned int i = 0; i < keys_unique.size(); i++)
+        {
+          col_d[i]        = std::get<1>(keys_unique[i]);
+          orientations[i] = std::get<2>(keys_unique[i]);
+        }
+    }
+
+
+
+    void
+    build_entity(const unsigned int                                d,
+                 const std::vector<std::shared_ptr<CellTypeBase>> &cell_types,
+                 const std::vector<unsigned int> &cell_types_index,
+                 const CRS<unsigned int> &        crs,
+                 CRS<unsigned int> &              crs_d,
+                 CRS<unsigned int> &              crs_0,
+                 std::vector<unsigned char> &     orientations)
+    {
+      std::size_t key_length = 0;
+
+      for (unsigned int c = 0; c < cell_types_index.size(); c++)
+        {
+          const auto &cell_type = cell_types[cell_types_index[c]];
+          for (unsigned int e = 0; e < cell_type->n_entities(d); e++)
+            key_length =
+              std::max(key_length, cell_type->vertices_of_entity(d, e).size());
+        }
+
+      // clang-format off
+    if(key_length == 2)
+      build_entity_templated<2>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations);
+    else if(key_length == 3)
+      build_entity_templated<3>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations);
+    else
+      AssertThrow(false, dealii::StandardExceptions::ExcNotImplemented ());
+      // clang-format on
+    }
+
+
+
+    void
+    build_intersection(
+      const std::vector<std::shared_ptr<CellTypeBase>> &cell_types,
+      const std::vector<unsigned int> &                 cell_types_index,
+      const CRS<unsigned int> &                         con_cv,
+      const CRS<unsigned int> &                         con_cl,
+      const CRS<unsigned int> &                         con_lv,
+      const CRS<unsigned int> &                         con_cq,
+      const CRS<unsigned int> &                         con_qv,
+      const std::vector<unsigned char> &                ori_cq,
+      CRS<unsigned int> &                               crs,
+      std::vector<unsigned char> &                      orientations)
+    {
+      (void)con_qv;
+
+      // reset output
+      orientations = {};
+      crs.ptr      = {};
+      crs.col      = {};
+
+      crs.ptr.resize(con_qv.ptr.size());
+      crs.ptr[0] = 0;
+
+      for (unsigned int c = 0; c < con_cq.ptr.size() - 1; ++c)
+        {
+          const auto &cell_type = cell_types[cell_types_index[c]];
+
+          // loop over faces
+          for (unsigned int f_ = con_cq.ptr[c], f_index = 0;
+               f_ < con_cq.ptr[c + 1];
+               ++f_, ++f_index)
+            {
+              const unsigned int f = con_cq.col[f_];
+
+              crs.ptr[f + 1] = cell_type->n_lines_of_surface(f_index);
+            }
+        }
+
+      for (unsigned int i = 0; i < crs.ptr.size() - 1; ++i)
+        crs.ptr[i + 1] += crs.ptr[i];
+
+      crs.col.resize(crs.ptr.back());
+      orientations.resize(crs.ptr.back());
+
+      // loop over cells
+      for (unsigned int c = 0; c < con_cq.ptr.size() - 1; ++c)
+        {
+          const auto &cell_type = cell_types[cell_types_index[c]];
+
+          // loop over faces
+          for (unsigned int f_ = con_cq.ptr[c], f_index = 0;
+               f_ < con_cq.ptr[c + 1];
+               ++f_, ++f_index)
+            {
+              const unsigned int f = con_cq.col[f_];
+
+              if (ori_cq[f_] !=
+                  0)      // only faces with default orientation have to
+                continue; // do something
+
+              // loop over lines
+              for (unsigned int l = 0;
+                   l < cell_type->n_lines_of_surface(f_index);
+                   ++l)
+                {
+                  // determine global index of line
+                  const unsigned int local_line_index =
+                    cell_type->nth_line_of_surface(l, f_index);
+                  const unsigned int global_line_index =
+                    con_cl.col[con_cl.ptr[c] + local_line_index];
+                  crs.col[crs.ptr[f] + l] = global_line_index;
+
+                  // determine orientation of line
+                  const auto line_vertices_1_ref =
+                    cell_type->vertices_of_nth_line_of_surface(l, f_index);
+
+                  bool same = true;
+                  for (unsigned int v = 0; v < line_vertices_1_ref.size(); ++v)
+                    if (con_cv.col[con_cv.ptr[c] + line_vertices_1_ref[v]] !=
+                        con_lv.col[con_lv.ptr[global_line_index] + v])
+                      {
+                        same = false;
+                        break;
+                      }
+
+                  // ... comparison gives orientation
+                  orientations[crs.ptr[f] + l] = (same ? 0 : 1);
+                }
+            }
+        }
+    }
+
+
+
+    template <typename T>
+    Result<T>
+    build_connectivity(const unsigned int                                dim,
+                       const std::vector<std::shared_ptr<CellTypeBase>> &cell_t,
+                       const std::vector<unsigned int> &cell_t_id,
+                       const CRS<T> &                   crs)
+    {
+      CRS<T> con_cv = crs; // input
+
+      // cell -> line & line -> vertex
+      CRS<T>                     con_lv, con_cl;
+      std::vector<unsigned char> ori_cl; // not needed in 3D
+
+      // cell -> quad & quad -> vertex (only in 3D)
+      CRS<T>                     con_qv, con_cq;
+      std::vector<unsigned char> ori_cq;
+
+      // quad -> line (only in 3D)
+      CRS<T>                     con_ql;
+      std::vector<unsigned char> ori_ql;
+
+      // neighbors
+      CRS<T> con_cc;
+
+      // build lines
+      build_entity(1, cell_t, cell_t_id, con_cv, con_cl, con_lv, ori_cl);
+
+      if (dim == 3)
+        {
+          // build quads
+          build_entity(2, cell_t, cell_t_id, con_cv, con_cq, con_qv, ori_cq);
+
+          // create connectivity: quad -> line
+          build_intersection(cell_t,
+                             cell_t_id,
+                             con_cv,
+                             con_cl,
+                             con_lv,
+                             con_cq,
+                             con_qv,
+                             ori_cq,
+                             con_ql,
+                             ori_ql);
+        }
+
+      // determine neighbors
+      {
+        const CRS<T> &con_cf = dim == 2 ? con_cl : con_cq;
+        con_cc = determine_neighbors(con_cf, transpose(con_cf) /*:=con_fc*/);
+      }
+
+      // pack result
+      if (dim == 2)
+        return {con_lv, ori_cl, con_cl, con_cc};
+      else
+        return {con_lv, ori_ql, con_ql, ori_cq, con_cq, con_cc};
+    }
+
+
+
+    template <typename T>
+    Result<T>
+    build_connectivity(const unsigned int               dim,
+                       const std::vector<CellTypeEnum> &cell_types,
+                       const std::vector<T> &           cell_vertices)
+    {
+      // 1) collect cell types
+      std::set<CellTypeEnum> cell_types_set;
+      for (const auto cell_type : cell_types)
+        cell_types_set.insert(cell_type);
+
+      std::map<CellTypeEnum, unsigned int>       cell_types_map;
+      std::vector<std::shared_ptr<CellTypeBase>> cell_types_impl;
+
+      for (const auto cell_type : cell_types_set)
+        {
+          cell_types_map[cell_type] = cell_types_impl.size();
+          cell_types_impl.push_back(CellTypeFactory::build(dim, cell_type));
+        }
+
+      std::vector<unsigned int> cell_types_indices(cell_types.size());
+      std::vector<std::size_t>  cell_ptr(cell_types.size() + 1);
+      cell_ptr[0] = 0;
+
+      for (unsigned int i = 0; i < cell_types.size(); i++)
+        {
+          const unsigned int index = cell_types_map[cell_types[i]];
+          cell_types_indices[i]    = index;
+          cell_ptr[i + 1] = cell_ptr[i] + cell_types_impl[index]->n_vertices();
+        }
+
+      // 2) convert vertices vector to CRS
+      CRS<T> crs;
+      crs.col = cell_vertices;
+      crs.ptr = cell_ptr;
+
+      // 3) create connectivity
+      return build_connectivity(dim, cell_types_impl, cell_types_indices, crs);
+    }
+
     struct Implementation2
     {
       template <int dim, int spacedim>
@@ -10767,21 +11511,22 @@ namespace internal
 
         tria.vertices = vertices;
 
-        Tet::Connectivity<dim> connectivity;
 
-        {
-          std::vector<Tet::CellTypeEnum> cell_types;
-          std::vector<unsigned int>      cell_vertices;
 
-          for (const auto &cell : cells)
-            {
-              cell_types.push_back(Tet::CellTypeEnum::tet);
-              for (const auto &vertex : cell.vertices)
-                cell_vertices.push_back(vertex);
-            }
+        //{
+        std::vector<CellTypeEnum> cell_types;
+        std::vector<unsigned int> cell_vertices;
 
-          connectivity.build(cell_types, cell_vertices);
-        }
+        for (const auto &cell : cells)
+          {
+            cell_types.push_back(CellTypeEnum::tet);
+            for (const auto &vertex : cell.vertices)
+              cell_vertices.push_back(vertex);
+          }
+
+        Result<unsigned int> connectivity =
+          build_connectivity(dim, cell_types, cell_vertices);
+        //}
 
         tria.levels.clear();
         tria.levels.push_back(
@@ -10798,7 +11543,7 @@ namespace internal
             auto &lines_0 = tria.faces->lines;
 
             const unsigned int n_lines =
-              connectivity.table[1][0].ptr.size() - 1;
+              connectivity.line_vertices.ptr.size() - 1;
 
             lines_0.used.assign(n_lines, true);
             lines_0.boundary_or_material_id.assign(
@@ -10817,7 +11562,7 @@ namespace internal
             lines_0.cells.assign(GeometryInfo<1>::faces_per_cell * n_lines, -1);
 
             {
-              const auto &crs = connectivity.table[1][0];
+              const auto &crs = connectivity.line_vertices;
 
               for (unsigned int line = 0; line < n_lines; ++line)
                 for (unsigned int i = crs.ptr[line], j = 0;
@@ -10833,8 +11578,7 @@ namespace internal
           {
             auto &quads_0 = tria.faces->quads;
 
-            const unsigned int n_quads =
-              connectivity.table[2][0].ptr.size() - 1;
+            const unsigned int n_quads = connectivity.quad_lines.ptr.size() - 1;
 
             quads_0.used.assign(n_quads, true);
             quads_0.boundary_or_material_id.assign(
@@ -10853,7 +11597,7 @@ namespace internal
             quads_0.cells.assign(GeometryInfo<2>::faces_per_cell * n_quads, -1);
 
             {
-              const auto &crs = connectivity.table[2][1];
+              const auto &crs = connectivity.quad_lines;
 
               for (unsigned int quad = 0; quad < n_quads; ++quad)
                 for (unsigned int i = crs.ptr[quad], j = 0;
@@ -10866,7 +11610,7 @@ namespace internal
             tria.faces->quad_entity_type.assign(n_quads, 2 /* TODO*/);
 
             {
-              const auto &crs = connectivity.table[2][1];
+              const auto &crs = connectivity.quad_lines;
 
               tria.faces->quads_line_orientations.assign(
                 n_quads * GeometryInfo<2>::faces_per_cell, -1);
@@ -10877,7 +11621,7 @@ namespace internal
                      ++i, ++j, ++k)
                   tria.faces->quads_line_orientations
                     [quad * GeometryInfo<2>::faces_per_cell + j] =
-                    connectivity.orientations[1][k];
+                    connectivity.line_orientation[k];
             }
           }
 
@@ -10894,29 +11638,26 @@ namespace internal
                                    {-1, -1});
 
           {
-            const auto &crs  = connectivity.table[dim][dim - 1];
-            const auto &crs_ = connectivity.table[dim - 1][dim];
+            std::vector<unsigned int> temp(
+              dim == 3 ? tria.faces->quads.boundary_or_material_id.size() :
+                         tria.faces->lines.boundary_or_material_id.size(),
+              0);
+
+            const auto &crs = connectivity.cell_entities;
 
             for (unsigned int cell = 0; cell < cells.size(); ++cell)
-              for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
-                   ++i, ++j)
+              for (unsigned int i = crs.ptr[cell]; i < crs.ptr[cell + 1]; ++i)
+                temp[crs.col[i]]++;
+
+            for (unsigned int face = 0; face < temp.size(); ++face)
+              if (temp[face] == 1)
                 {
-                  unsigned int face = crs.col[i];
-                  for (unsigned int k = crs_.ptr[face]; k < crs_.ptr[face + 1];
-                       ++k)
-                    if (crs_.col[k] != cell)
-                      level_0
-                        .neighbors[cell * GeometryInfo<dim>::faces_per_cell +
-                                   j] = {0, crs_.col[k]};
-                    else if (crs_.ptr[face + 1] - crs_.ptr[face] == 1)
-                      {
-                        if (dim == 3)
-                          tria.faces->quads.boundary_or_material_id[face]
-                            .boundary_id = 0;
-                        else if (dim == 2)
-                          tria.faces->lines.boundary_or_material_id[face]
-                            .boundary_id = 0;
-                      }
+                  if (dim == 3)
+                    tria.faces->quads.boundary_or_material_id[face]
+                      .boundary_id = 0;
+                  else if (dim == 2)
+                    tria.faces->lines.boundary_or_material_id[face]
+                      .boundary_id = 0;
                 }
           }
         }
@@ -10941,7 +11682,7 @@ namespace internal
           cells_0.cells.assign(GeometryInfo<dim>::faces_per_cell * n_cell, -1);
 
           {
-            const auto &crs = connectivity.table[dim][dim - 1];
+            const auto &crs = connectivity.cell_entities;
 
             for (unsigned int cell = 0; cell < cells.size(); ++cell)
               for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
@@ -10958,7 +11699,7 @@ namespace internal
           //    n_cell * GeometryInfo<dim>::faces_per_cell, 0 /* TODO */);
           if (dim >= 2)
             {
-              const auto &crs = connectivity.table[dim][dim - 1];
+              const auto &crs = connectivity.cell_entities;
 
               tria.levels[0]->face_orientations.assign(
                 n_cell * GeometryInfo<dim>::faces_per_cell, -1);
@@ -10969,7 +11710,8 @@ namespace internal
                      ++i, ++j)
                   tria.levels[0]->face_orientations
                     [cell * GeometryInfo<dim>::faces_per_cell + j] =
-                    connectivity.orientations[dim - 1][i];
+                    dim == 3 ? connectivity.quad_orientation[i] :
+                               connectivity.line_orientation[i];
             }
         }
       }

@@ -17,7 +17,6 @@ INCLUDE_DIRECTORIES(BEFORE ${CMAKE_CURRENT_BINARY_DIR})
 
 SET(_unity_include_src
   cell_id.cc
-  connectivity.cc
   grid_refinement.cc
   grid_reordering.cc
   intergrid_map.cc
