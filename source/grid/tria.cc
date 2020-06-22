@@ -10761,6 +10761,8 @@ namespace internal
       tet,
     };
 
+
+
     struct CellTypeBase
     {
       virtual unsigned int
@@ -10814,56 +10816,6 @@ namespace internal
 
         return table;
       }
-    };
-
-    class CellTypeFactory
-    {
-    public:
-      static std::shared_ptr<CellTypeBase>
-      build(const unsigned int dim, const CellTypeEnum type);
-    };
-
-    template <typename T = unsigned int>
-    struct CRS
-    {
-      std::vector<std::size_t> ptr = {0};
-      std::vector<T>           col;
-    };
-
-    template <typename T = unsigned int>
-    struct Result
-    {
-      Result(const CRS<T> &                    line_vertices,
-             const std::vector<unsigned char> &line_orientation,
-             const CRS<T> &                    quad_lines,
-             const std::vector<unsigned char> &quad_orientation,
-             const CRS<T> &                    cell_entities,
-             const CRS<T> &                    neighbors)
-        : line_vertices(line_vertices)
-        , line_orientation(line_orientation)
-        , quad_lines(quad_lines)
-        , quad_orientation(quad_orientation)
-        , cell_entities(cell_entities)
-        , neighbors(neighbors)
-      {}
-
-      Result(const CRS<T> &                    line_vertices,
-             const std::vector<unsigned char> &line_orientation,
-             const CRS<T> &                    cell_entities,
-             const CRS<T> &                    neighbors)
-        : line_vertices(line_vertices)
-        , line_orientation(line_orientation)
-        , cell_entities(cell_entities)
-        , neighbors(neighbors)
-      {}
-
-
-      CRS<T>                     line_vertices;
-      std::vector<unsigned char> line_orientation;
-      CRS<T>                     quad_lines;
-      std::vector<unsigned char> quad_orientation;
-      CRS<T>                     cell_entities;
-      CRS<T>                     neighbors;
     };
 
 
@@ -10978,6 +10930,62 @@ namespace internal
 
         return table[face][line];
       }
+    };
+
+
+
+    class CellTypeFactory
+    {
+    public:
+      static std::shared_ptr<CellTypeBase>
+      build(const unsigned int dim, const CellTypeEnum type);
+    };
+
+
+
+    template <typename T = unsigned int>
+    struct CRS
+    {
+      std::vector<std::size_t> ptr = {0};
+      std::vector<T>           col;
+    };
+
+
+
+    template <typename T = unsigned int>
+    struct Result
+    {
+      Result(const CRS<T> &                    line_vertices,
+             const std::vector<unsigned char> &line_orientation,
+             const CRS<T> &                    quad_lines,
+             const std::vector<unsigned char> &quad_orientation,
+             const CRS<T> &                    cell_entities,
+             const CRS<T> &                    neighbors)
+        : line_vertices(line_vertices)
+        , line_orientation(line_orientation)
+        , quad_lines(quad_lines)
+        , quad_orientation(quad_orientation)
+        , cell_entities(cell_entities)
+        , neighbors(neighbors)
+      {}
+
+      Result(const CRS<T> &                    line_vertices,
+             const std::vector<unsigned char> &line_orientation,
+             const CRS<T> &                    cell_entities,
+             const CRS<T> &                    neighbors)
+        : line_vertices(line_vertices)
+        , line_orientation(line_orientation)
+        , cell_entities(cell_entities)
+        , neighbors(neighbors)
+      {}
+
+
+      CRS<T>                     line_vertices;
+      std::vector<unsigned char> line_orientation;
+      CRS<T>                     quad_lines;
+      std::vector<unsigned char> quad_orientation;
+      CRS<T>                     cell_entities;
+      CRS<T>                     neighbors;
     };
 
 
