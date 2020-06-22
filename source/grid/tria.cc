@@ -10761,18 +10761,8 @@ namespace internal
       tet,
     };
 
-    struct CellTypeEntities
-    {
-      std::vector<unsigned int> vertices     = {};
-      std::vector<unsigned int> vertices_ptr = {0};
-    };
-
     struct CellTypeBase
     {
-      CellTypeBase(
-        const unsigned int                                         dim,
-        const std::vector<std::vector<std::vector<unsigned int>>> &entities_in);
-
       virtual unsigned int
       n_entities(const unsigned int d) const
       {
@@ -10782,11 +10772,15 @@ namespace internal
         return 0;
       }
 
-      unsigned int
-      n_vertices();
+      virtual dealii::ArrayView<const unsigned int>
+      vertices_of_entity(const unsigned int d, const unsigned int e) const
+      {
+        Assert(false, ExcNotImplemented());
+        (void)d;
+        (void)e;
 
-      dealii::ArrayView<const unsigned int>
-      vertices_of_entity(const unsigned int d, const unsigned int e) const;
+        return dealii::ArrayView<const unsigned int>();
+      }
 
       virtual unsigned int
       n_lines_of_surface(const unsigned int line) const
@@ -10820,11 +10814,6 @@ namespace internal
 
         return table;
       }
-
-    private:
-      const std::vector<CellTypeEntities> entities;
-
-      const unsigned int n_vertices_;
     };
 
     class CellTypeFactory
@@ -10879,64 +10868,33 @@ namespace internal
 
 
 
-    static std::vector<CellTypeEntities>
-    convert_to_crs(
-      const unsigned int                                         dim,
-      const std::vector<std::vector<std::vector<unsigned int>>> &entities_in)
-    {
-      std::vector<CellTypeEntities> result(dim + 1);
-
-      AssertDimension(dim, entities_in.size());
-
-      for (unsigned int d = 0; d < dim; d++)
-        {
-          const auto &entities = entities_in[d];
-
-          for (auto entity : entities)
-            {
-              for (auto vertex : entity)
-                result[dim - d].vertices.push_back(vertex);
-
-              result[dim - d].vertices_ptr.push_back(
-                result[dim - d].vertices.size());
-            }
-        }
-
-      return result;
-    }
-
-
-
-    CellTypeBase::CellTypeBase(
-      const unsigned int                                         dim,
-      const std::vector<std::vector<std::vector<unsigned int>>> &entities_in)
-      : entities(convert_to_crs(dim, entities_in))
-      , n_vertices_(entities[dim].vertices.size())
-    {}
-
-
-
-    dealii::ArrayView<const unsigned int>
-    CellTypeBase::vertices_of_entity(const unsigned int d,
-                                     const unsigned int e) const
-    {
-      // AssertIndexRange(d, dim + 1);
-      return dealii::ArrayView<const unsigned int>(
-        entities[d].vertices.data() + entities[d].vertices_ptr[e],
-        entities[d].vertices_ptr[e + 1] - entities[d].vertices_ptr[e]);
-    }
-
-
-
     struct CellTypeTri : public CellTypeBase
     {
-      CellTypeTri()
-        : CellTypeBase(2,
-                       std::vector<std::vector<std::vector<unsigned int>>>{
-                         {{0, 1, 2}},             // cell
-                         {{0, 1}, {1, 2}, {2, 0}} // edges
-                       })
-      {}
+      dealii::ArrayView<const unsigned int>
+      vertices_of_entity(const unsigned int d,
+                         const unsigned int e) const override
+      {
+        if (d == 2)
+          {
+            static const std::array<unsigned int, 3> table = {0, 1, 2};
+
+            AssertDimension(e, 0);
+
+            return dealii::ArrayView<const unsigned int>(table);
+          }
+
+        if (d == 1)
+          {
+            static const std::array<std::array<unsigned int, 2>, 3> table = {
+              {{0, 1}, {1, 2}, {2, 0}}};
+
+            return dealii::ArrayView<const unsigned int>(table[e]);
+          }
+
+        Assert(false, ExcNotImplemented());
+
+        return dealii::ArrayView<const unsigned int>();
+      }
 
       unsigned int
       n_entities(const unsigned int d) const override
@@ -10950,15 +10908,39 @@ namespace internal
 
     struct CellTypeTet : public CellTypeBase
     {
-      CellTypeTet()
-        : CellTypeBase(
-            3,
-            std::vector<std::vector<std::vector<unsigned int>>>{
-              {{0, 1, 2, 3}},                                  // cell
-              {{0, 1, 2}, {1, 0, 3}, {0, 2, 3}, {2, 1, 3}},    // faces
-              {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}} // edges
-            })
-      {}
+      dealii::ArrayView<const unsigned int>
+      vertices_of_entity(const unsigned int d,
+                         const unsigned int e) const override
+      {
+        if (d == 3)
+          {
+            static const std::array<unsigned int, 4> table = {0, 1, 2, 3};
+
+            AssertDimension(e, 0);
+
+            return dealii::ArrayView<const unsigned int>(table);
+          }
+
+        if (d == 2)
+          {
+            static const std::array<std::array<unsigned int, 3>, 4> table = {
+              {{0, 1, 2}, {1, 0, 3}, {0, 2, 3}, {2, 1, 3}}};
+
+            return dealii::ArrayView<const unsigned int>(table[e]);
+          }
+
+        if (d == 1)
+          {
+            static const std::array<std::array<unsigned int, 2>, 6> table = {
+              {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}};
+
+            return dealii::ArrayView<const unsigned int>(table[e]);
+          }
+
+        Assert(false, ExcNotImplemented());
+
+        return dealii::ArrayView<const unsigned int>();
+      }
 
       unsigned int
       n_entities(const unsigned int d) const override
@@ -11490,7 +11472,7 @@ namespace internal
         {
           const unsigned int index = cell_types_map[cell_types[i]];
           cell_types_indices[i]    = index;
-          cell_ptr[i + 1] = cell_ptr[i] + cell_types_impl[index]->n_vertices();
+          cell_ptr[i + 1] = cell_ptr[i] + cell_types_impl[index]->n_entities(0);
         }
 
       // 2) convert vertices vector to CRS
