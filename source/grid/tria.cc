@@ -10755,14 +10755,6 @@ namespace internal
 
 
 
-    enum class CellTypeEnum
-    {
-      quad,
-      tet,
-    };
-
-
-
     struct CellTypeBase
     {
       virtual unsigned int
@@ -10934,15 +10926,6 @@ namespace internal
 
 
 
-    class CellTypeFactory
-    {
-    public:
-      static std::shared_ptr<CellTypeBase>
-      build(const unsigned int dim, const CellTypeEnum type);
-    };
-
-
-
     template <typename T = unsigned int>
     struct CRS
     {
@@ -10987,27 +10970,6 @@ namespace internal
       CRS<T>                     cell_entities;
       CRS<T>                     neighbors;
     };
-
-
-
-    std::shared_ptr<CellTypeBase>
-    CellTypeFactory::build(const unsigned int dim, const CellTypeEnum type)
-    {
-      std::shared_ptr<CellTypeBase> result;
-
-      if (type == CellTypeEnum::tet && dim == 2)
-        result.reset(new CellTypeTri());
-      else if (type == CellTypeEnum::tet && dim == 3)
-        result.reset(new CellTypeTet());
-      else
-        {
-          Assert(false,
-                 dealii::StandardExceptions::ExcMessage(
-                   "Element type is not supported!"));
-        }
-
-      return result;
-    }
 
 
 
@@ -11455,32 +11417,26 @@ namespace internal
     template <typename T>
     Result<T>
     build_connectivity(const unsigned int               dim,
-                       const std::vector<CellTypeEnum> &cell_types,
+                       const std::vector<unsigned int> &cell_types_indices,
                        const std::vector<T> &           cell_vertices)
     {
       // 1) collect cell types
-      std::set<CellTypeEnum> cell_types_set;
-      for (const auto cell_type : cell_types)
-        cell_types_set.insert(cell_type);
-
-      std::map<CellTypeEnum, unsigned int>       cell_types_map;
       std::vector<std::shared_ptr<CellTypeBase>> cell_types_impl;
 
-      for (const auto cell_type : cell_types_set)
-        {
-          cell_types_map[cell_type] = cell_types_impl.size();
-          cell_types_impl.push_back(CellTypeFactory::build(dim, cell_type));
-        }
+      cell_types_impl.emplace_back(new CellTypeBase()); // 0
+      cell_types_impl.emplace_back(new CellTypeBase()); // 1
+      cell_types_impl.emplace_back(new CellTypeTri());  // 2
+      cell_types_impl.emplace_back(new CellTypeBase()); // 3
+      cell_types_impl.emplace_back(new CellTypeTet());  // 4
+      cell_types_impl.emplace_back(new CellTypeBase()); // 5
 
-      std::vector<unsigned int> cell_types_indices(cell_types.size());
-      std::vector<std::size_t>  cell_ptr(cell_types.size() + 1);
+      std::vector<std::size_t> cell_ptr(cell_types_indices.size() + 1);
       cell_ptr[0] = 0;
 
-      for (unsigned int i = 0; i < cell_types.size(); i++)
+      for (unsigned int i = 0; i < cell_types_indices.size(); i++)
         {
-          const unsigned int index = cell_types_map[cell_types[i]];
-          cell_types_indices[i]    = index;
-          cell_ptr[i + 1] = cell_ptr[i] + cell_types_impl[index]->n_entities(0);
+          cell_ptr[i + 1] =
+            cell_ptr[i] + cell_types_impl[cell_types_indices[i]]->n_entities(0);
         }
 
       // 2) convert vertices vector to CRS
@@ -11498,12 +11454,15 @@ namespace internal
     Result<T>
     build_connectivity(const std::vector<CellData<dim>> &cells)
     {
-      std::vector<CellTypeEnum> cell_types;
+      std::vector<unsigned int> cell_types;
       std::vector<unsigned int> cell_vertices;
 
       for (const auto &cell : cells)
         {
-          cell_types.push_back(CellTypeEnum::tet);
+          cell_types.push_back(cell.vertices.size() == 3 ?
+                                 2 /*TRI*/ :
+                                 (cell.vertices.size() == 4 ? 4 /*TET*/ : 0));
+
           for (const auto &vertex : cell.vertices)
             cell_vertices.push_back(vertex);
         }
