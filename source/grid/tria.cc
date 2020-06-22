@@ -10958,39 +10958,32 @@ namespace internal
 
 
 
-    struct CellTypeTet : public CellTypeBase
+    struct CellTypeTri : public CellTypeBase
     {
-      CellTypeTet(const unsigned int dim)
-        : CellTypeBase(
-            dim,
-            "tet",
-            dim == 2 ?
-              (std::vector<std::vector<std::vector<unsigned int>>>{
-                {{0, 1, 2}},             // cell
-                {{0, 1}, {1, 2}, {2, 0}} // edges
-              }) :
-              (std::vector<std::vector<std::vector<unsigned int>>>{
-                {{0, 1, 2, 3}},                                  // cell
-                {{0, 1, 2}, {1, 0, 3}, {0, 2, 3}, {2, 1, 3}},    // faces
-                {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}} // edges
-              }))
+      CellTypeTri()
+        : CellTypeBase(2,
+                       "tri",
+                       std::vector<std::vector<std::vector<unsigned int>>>{
+                         {{0, 1, 2}},             // cell
+                         {{0, 1}, {1, 2}, {2, 0}} // edges
+                       })
       {}
     };
 
 
 
-    struct CellTypeQuad : public CellTypeBase
+    struct CellTypeTet : public CellTypeBase
     {
-      CellTypeQuad(const unsigned int dim)
-        : CellTypeBase(dim,
-                       "quad",
-                       {
-                         {{0, 1, 2, 3}},                  // cell
-                         {{0, 1}, {1, 2}, {2, 3}, {3, 0}} // edges
-                       })
-      {
-        AssertDimension(dim, 2);
-      }
+      CellTypeTet()
+        : CellTypeBase(
+            3,
+            "tet",
+            std::vector<std::vector<std::vector<unsigned int>>>{
+              {{0, 1, 2, 3}},                                  // cell
+              {{0, 1, 2}, {1, 0, 3}, {0, 2, 3}, {2, 1, 3}},    // faces
+              {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}} // edges
+            })
+      {}
     };
 
 
@@ -11000,16 +10993,15 @@ namespace internal
     {
       std::shared_ptr<CellTypeBase> result;
 
-      switch (type)
+      if (type == CellTypeEnum::tet && dim == 2)
+        result.reset(new CellTypeTri());
+      else if (type == CellTypeEnum::tet && dim == 3)
+        result.reset(new CellTypeTet());
+      else
         {
-            // clang-format off
-        case CellTypeEnum::tet:  result.reset(new CellTypeTet(dim));  break;
-        case CellTypeEnum::quad: result.reset(new CellTypeQuad(dim)); break;
-          // clang-format on
-          default:
-            Assert(false,
-                   dealii::StandardExceptions::ExcMessage(
-                     "Element type is not supported!"));
+          Assert(false,
+                 dealii::StandardExceptions::ExcMessage(
+                   "Element type is not supported!"));
         }
 
       return result;
