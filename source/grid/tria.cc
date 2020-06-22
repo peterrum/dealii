@@ -11002,7 +11002,7 @@ namespace internal
 
       switch (type)
         {
-          // clang-format off
+            // clang-format off
         case CellTypeEnum::tet:  result.reset(new CellTypeTet(dim));  break;
         case CellTypeEnum::quad: result.reset(new CellTypeQuad(dim)); break;
           // clang-format on
@@ -11498,6 +11498,25 @@ namespace internal
       return build_connectivity(dim, cell_types_impl, cell_types_indices, crs);
     }
 
+
+
+    template <typename T, int dim>
+    Result<T>
+    build_connectivity(const std::vector<CellData<dim>> &cells)
+    {
+      std::vector<CellTypeEnum> cell_types;
+      std::vector<unsigned int> cell_vertices;
+
+      for (const auto &cell : cells)
+        {
+          cell_types.push_back(CellTypeEnum::tet);
+          for (const auto &vertex : cell.vertices)
+            cell_vertices.push_back(vertex);
+        }
+
+      return build_connectivity(dim, cell_types, cell_vertices);
+    }
+
     struct Implementation2
     {
       template <int dim, int spacedim>
@@ -11507,26 +11526,16 @@ namespace internal
                            const SubCellData &                 subcelldata,
                            Triangulation<dim, spacedim> &      tria)
       {
+        // no sub-cell data supported at the moment
         (void)subcelldata;
+        AssertDimension(subcelldata.boundary_lines.size(), 0);
+        AssertDimension(subcelldata.boundary_quads.size(), 0);
 
+        // copy vertices
         tria.vertices = vertices;
 
-
-
-        //{
-        std::vector<CellTypeEnum> cell_types;
-        std::vector<unsigned int> cell_vertices;
-
-        for (const auto &cell : cells)
-          {
-            cell_types.push_back(CellTypeEnum::tet);
-            for (const auto &vertex : cell.vertices)
-              cell_vertices.push_back(vertex);
-          }
-
-        Result<unsigned int> connectivity =
-          build_connectivity(dim, cell_types, cell_vertices);
-        //}
+        // compute connectivity
+        const auto connectivity = build_connectivity<unsigned int>(cells);
 
         tria.levels.clear();
         tria.levels.push_back(
@@ -11537,7 +11546,7 @@ namespace internal
 
         const unsigned int n_cell = cells.size();
 
-        // TriaObjects: line
+        // TriaObjects: lines
         if (dim >= 2)
           {
             auto &lines_0 = tria.faces->lines;
@@ -11553,27 +11562,23 @@ namespace internal
             lines_0.manifold_id.assign(n_lines, 0);
             lines_0.user_flags.assign(n_lines, false);
 
-            // TODO: this is the HEX size
             lines_0.children.assign(GeometryInfo<1>::max_children_per_cell / 2 *
                                       n_lines,
                                     -1);
 
-            // TODO: this is the HEX size
             lines_0.cells.assign(GeometryInfo<1>::faces_per_cell * n_lines, -1);
 
-            {
-              const auto &crs = connectivity.line_vertices;
+            // set vertices of lines
+            const auto &crs = connectivity.line_vertices;
 
-              for (unsigned int line = 0; line < n_lines; ++line)
-                for (unsigned int i = crs.ptr[line], j = 0;
-                     i < crs.ptr[line + 1];
-                     ++i, ++j)
-                  lines_0.cells[line * GeometryInfo<1>::faces_per_cell + j] =
-                    crs.col[i];
-            }
+            for (unsigned int line = 0; line < n_lines; ++line)
+              for (unsigned int i = crs.ptr[line], j = 0; i < crs.ptr[line + 1];
+                   ++i, ++j)
+                lines_0.cells[line * GeometryInfo<1>::faces_per_cell + j] =
+                  crs.col[i];
           }
 
-        // TriaObjects: quad
+        // TriaObjects: quads
         if (dim == 3)
           {
             auto &quads_0 = tria.faces->quads;
@@ -11588,41 +11593,34 @@ namespace internal
             quads_0.manifold_id.assign(n_quads, 0);
             quads_0.user_flags.assign(n_quads, false);
 
-            // TODO: this is the HEX size
             quads_0.children.assign(GeometryInfo<2>::max_children_per_cell / 2 *
                                       n_quads,
                                     -1);
 
-            // TODO: this is the HEX size
-            quads_0.cells.assign(GeometryInfo<2>::faces_per_cell * n_quads, -1);
-
-            {
-              const auto &crs = connectivity.quad_lines;
-
-              for (unsigned int quad = 0; quad < n_quads; ++quad)
-                for (unsigned int i = crs.ptr[quad], j = 0;
-                     i < crs.ptr[quad + 1];
-                     ++i, ++j)
-                  quads_0.cells[quad * GeometryInfo<2>::faces_per_cell + j] =
-                    crs.col[i];
-            }
 
             tria.faces->quad_entity_type.assign(n_quads, 2 /* TODO*/);
 
-            {
-              const auto &crs = connectivity.quad_lines;
+            const auto &crs = connectivity.quad_lines;
 
-              tria.faces->quads_line_orientations.assign(
-                n_quads * GeometryInfo<2>::faces_per_cell, -1);
+            // set lines of quads
+            quads_0.cells.assign(GeometryInfo<2>::faces_per_cell * n_quads, -1);
 
-              for (unsigned int quad = 0, k = 0; quad < n_quads; ++quad)
-                for (unsigned int i = crs.ptr[quad], j = 0;
-                     i < crs.ptr[quad + 1];
-                     ++i, ++j, ++k)
-                  tria.faces->quads_line_orientations
-                    [quad * GeometryInfo<2>::faces_per_cell + j] =
-                    connectivity.line_orientation[k];
-            }
+            for (unsigned int quad = 0; quad < n_quads; ++quad)
+              for (unsigned int i = crs.ptr[quad], j = 0; i < crs.ptr[quad + 1];
+                   ++i, ++j)
+                quads_0.cells[quad * GeometryInfo<2>::faces_per_cell + j] =
+                  crs.col[i];
+
+            // set line orientations
+            tria.faces->quads_line_orientations.assign(
+              n_quads * GeometryInfo<2>::faces_per_cell, -1);
+
+            for (unsigned int quad = 0, k = 0; quad < n_quads; ++quad)
+              for (unsigned int i = crs.ptr[quad], j = 0; i < crs.ptr[quad + 1];
+                   ++i, ++j, ++k)
+                tria.faces->quads_line_orientations
+                  [quad * GeometryInfo<2>::faces_per_cell + j] =
+                  connectivity.line_orientation[k];
           }
 
         // TriaLevel
@@ -11634,9 +11632,21 @@ namespace internal
           level_0.subdomain_ids.assign(n_cell, 0);
           level_0.level_subdomain_ids.assign(n_cell, 0);
 
-          level_0.neighbors.assign(n_cell * GeometryInfo<dim>::faces_per_cell,
-                                   {-1, -1});
+          // set neighbors
+          {
+            level_0.neighbors.assign(n_cell * GeometryInfo<dim>::faces_per_cell,
+                                     {-1, -1});
 
+            const auto &crs = connectivity.neighbors;
+
+            for (unsigned int cell = 0; cell < cells.size(); ++cell)
+              for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
+                   ++i, ++j)
+                level_0.neighbors[cell * GeometryInfo<dim>::faces_per_cell +
+                                  j] = {0, crs.col[i]};
+          }
+
+          // set boundary faces
           {
             std::vector<unsigned int> temp(
               dim == 3 ? tria.faces->quads.boundary_or_material_id.size() :
@@ -11673,34 +11683,27 @@ namespace internal
           cells_0.manifold_id.assign(n_cell, 0);
           cells_0.user_flags.assign(n_cell, false);
 
-          // TODO: this is the HEX size
           cells_0.children.assign(GeometryInfo<dim>::max_children_per_cell / 2 *
                                     n_cell,
                                   -1);
 
-          // TODO: this is the HEX size
-          cells_0.cells.assign(GeometryInfo<dim>::faces_per_cell * n_cell, -1);
-
-          {
-            const auto &crs = connectivity.cell_entities;
-
-            for (unsigned int cell = 0; cell < cells.size(); ++cell)
-              for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
-                   ++i, ++j)
-                cells_0.cells[cell * GeometryInfo<dim>::faces_per_cell + j] =
-                  crs.col[i];
-          }
-
           tria.levels[0]->entity_type.assign(n_cell,
                                              dim == 2 ? 2 : 4 /* TODO*/);
 
-          // if (dim == 3)
-          //  tria.levels[0]->face_orientations.assign(
-          //    n_cell * GeometryInfo<dim>::faces_per_cell, 0 /* TODO */);
+          const auto &crs = connectivity.cell_entities;
+
+          // set faces (2D: line, 3D: quad) of cells
+          cells_0.cells.assign(GeometryInfo<dim>::faces_per_cell * n_cell, -1);
+
+          for (unsigned int cell = 0; cell < cells.size(); ++cell)
+            for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
+                 ++i, ++j)
+              cells_0.cells[cell * GeometryInfo<dim>::faces_per_cell + j] =
+                crs.col[i];
+
+          // set face orientation
           if (dim >= 2)
             {
-              const auto &crs = connectivity.cell_entities;
-
               tria.levels[0]->face_orientations.assign(
                 n_cell * GeometryInfo<dim>::faces_per_cell, -1);
 
