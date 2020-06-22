@@ -10771,11 +10771,16 @@ namespace internal
     {
       CellTypeBase(
         const unsigned int                                         dim,
-        const std::string                                          name,
         const std::vector<std::vector<std::vector<unsigned int>>> &entities_in);
 
-      unsigned int
-      n_entities(const unsigned int d) const;
+      virtual unsigned int
+      n_entities(const unsigned int d) const
+      {
+        Assert(false, ExcNotImplemented());
+        (void)d;
+
+        return 0;
+      }
 
       unsigned int
       n_vertices();
@@ -10783,48 +10788,40 @@ namespace internal
       dealii::ArrayView<const unsigned int>
       vertices_of_entity(const unsigned int d, const unsigned int e) const;
 
-      std::string
-      get_name() const;
-
-      unsigned int
+      virtual unsigned int
       n_lines_of_surface(const unsigned int line) const
       {
-        // TODO: only for TET
-
+        Assert(false, ExcNotImplemented());
         (void)line;
-        return 3; // TODO
+
+        return 0;
       }
 
-      unsigned int
+      virtual unsigned int
       nth_line_of_surface(const unsigned int line,
                           const unsigned int face) const
       {
-        // TODO: only for TET
+        Assert(false, ExcNotImplemented());
+        (void)line;
+        (void)face;
 
-        const static std::array<std::array<unsigned int, 3>, 4> table = {
-          {{0, 3, 1}, {0, 2, 4}, {1, 5, 2}, {3, 4, 5}}};
-
-        return table[face][line];
+        return 0;
       }
 
-      const std::array<unsigned int, 2> &
+      virtual const std::array<unsigned int, 2> &
       vertices_of_nth_line_of_surface(const unsigned int line,
                                       const unsigned int face) const
       {
-        // TODO: only for TET
+        Assert(false, ExcNotImplemented());
+        (void)line;
+        (void)face;
 
-        const static std::array<std::array<std::array<unsigned int, 2>, 3>, 4>
-          table = {{{{{0, 1}, {1, 2}, {2, 0}}},
-                    {{{1, 0}, {0, 3}, {3, 1}}},
-                    {{{0, 2}, {2, 3}, {3, 0}}},
-                    {{{2, 1}, {1, 3}, {3, 2}}}}};
+        const static std::array<unsigned int, 2> table = {};
 
-        return table[face][line];
+        return table;
       }
 
     private:
-      const std::string name;
-
       const std::vector<CellTypeEntities> entities;
 
       const unsigned int n_vertices_;
@@ -10912,29 +10909,10 @@ namespace internal
 
     CellTypeBase::CellTypeBase(
       const unsigned int                                         dim,
-      const std::string                                          name,
       const std::vector<std::vector<std::vector<unsigned int>>> &entities_in)
-      : name(name)
-      , entities(convert_to_crs(dim, entities_in))
+      : entities(convert_to_crs(dim, entities_in))
       , n_vertices_(entities[dim].vertices.size())
     {}
-
-
-
-    unsigned int
-    CellTypeBase::n_entities(const unsigned int d) const
-    {
-      // AssertIndexRange(d, dim + 1);
-      return entities[d].vertices_ptr.size() - 1;
-    }
-
-
-
-    unsigned int
-    CellTypeBase::n_vertices()
-    {
-      return n_vertices_;
-    }
 
 
 
@@ -10950,24 +10928,22 @@ namespace internal
 
 
 
-    std::string
-    CellTypeBase::get_name() const
-    {
-      return name;
-    }
-
-
-
     struct CellTypeTri : public CellTypeBase
     {
       CellTypeTri()
         : CellTypeBase(2,
-                       "tri",
                        std::vector<std::vector<std::vector<unsigned int>>>{
                          {{0, 1, 2}},             // cell
                          {{0, 1}, {1, 2}, {2, 0}} // edges
                        })
       {}
+
+      unsigned int
+      n_entities(const unsigned int d) const override
+      {
+        static std::array<unsigned int, 3> table = {3, 3, 1};
+        return table[d];
+      }
     };
 
 
@@ -10977,13 +10953,49 @@ namespace internal
       CellTypeTet()
         : CellTypeBase(
             3,
-            "tet",
             std::vector<std::vector<std::vector<unsigned int>>>{
               {{0, 1, 2, 3}},                                  // cell
               {{0, 1, 2}, {1, 0, 3}, {0, 2, 3}, {2, 1, 3}},    // faces
               {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}} // edges
             })
       {}
+
+      unsigned int
+      n_entities(const unsigned int d) const override
+      {
+        static std::array<unsigned int, 4> table = {4, 6, 4, 1};
+        return table[d];
+      }
+
+      unsigned int
+      n_lines_of_surface(const unsigned int line) const override
+      {
+        (void)line;
+        return 3;
+      }
+
+      unsigned int
+      nth_line_of_surface(const unsigned int line,
+                          const unsigned int face) const override
+      {
+        const static std::array<std::array<unsigned int, 3>, 4> table = {
+          {{0, 3, 1}, {0, 2, 4}, {1, 5, 2}, {3, 4, 5}}};
+
+        return table[face][line];
+      }
+
+      const std::array<unsigned int, 2> &
+      vertices_of_nth_line_of_surface(const unsigned int line,
+                                      const unsigned int face) const override
+      {
+        const static std::array<std::array<std::array<unsigned int, 2>, 3>, 4>
+          table = {{{{{0, 1}, {1, 2}, {2, 0}}},
+                    {{{1, 0}, {0, 3}, {3, 1}}},
+                    {{{0, 2}, {2, 3}, {3, 0}}},
+                    {{{2, 1}, {1, 3}, {3, 2}}}}};
+
+        return table[face][line];
+      }
     };
 
 
