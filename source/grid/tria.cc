@@ -10876,7 +10876,7 @@ namespace internal
         if (d == 1)
           {
             static const std::array<std::array<unsigned int, 2>, 6> table = {
-              {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}};
+              {{0, 1}, {1, 2}, {2, 0}, {0, 3}, {1, 3}, {2, 3}}};
 
             return dealii::ArrayView<const unsigned int>(table[e]);
           }
@@ -10905,7 +10905,7 @@ namespace internal
                           const unsigned int face) const override
       {
         const static std::array<std::array<unsigned int, 3>, 4> table = {
-          {{0, 3, 1}, {0, 2, 4}, {1, 5, 2}, {3, 4, 5}}};
+          {{0, 1, 2}, {0, 3, 4}, {2, 5, 3}, {1, 4, 5}}};
 
         return table[face][line];
       }
