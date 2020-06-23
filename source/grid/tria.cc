@@ -10926,6 +10926,97 @@ namespace internal
 
 
 
+    struct CellTypePyramid : public CellTypeBase
+    {
+      dealii::ArrayView<const unsigned int>
+      vertices_of_entity(const unsigned int d,
+                         const unsigned int e) const override
+      {
+        if (d == 3)
+          {
+            static const std::array<unsigned int, 5> table = {0, 1, 2, 3, 4};
+
+            AssertDimension(e, 0);
+
+            return dealii::ArrayView<const unsigned int>(table);
+          }
+
+        if (d == 2)
+          {
+            if (e == 0)
+              {
+                static const std::array<unsigned int, 4> table = {0, 1, 2, 3};
+                return dealii::ArrayView<const unsigned int>(table);
+              }
+
+            static const std::array<std::array<unsigned int, 3>, 4> table = {
+              {{0, 2, 4}, {3, 1, 4}, {1, 0, 4}, {2, 3, 4}}};
+
+            return dealii::ArrayView<const unsigned int>(table[e]);
+          }
+
+        if (d == 1)
+          {
+            static const std::array<std::array<unsigned int, 2>, 8> table = {
+              {{0, 2}, {1, 3}, {0, 1}, {2, 3}, {0, 4}, {1, 4}, {2, 4}, {3, 4}}};
+
+            return dealii::ArrayView<const unsigned int>(table[e]);
+          }
+
+        Assert(false, ExcNotImplemented());
+
+        return dealii::ArrayView<const unsigned int>();
+      }
+
+      unsigned int
+      n_entities(const unsigned int d) const override
+      {
+        static std::array<unsigned int, 4> table = {5, 8, 5, 1};
+        return table[d];
+      }
+
+      unsigned int
+      n_lines_of_surface(const unsigned int surface) const override
+      {
+        if (surface == 0)
+          return 4;
+
+        return 3;
+      }
+
+      unsigned int
+      nth_line_of_surface(const unsigned int line,
+                          const unsigned int face) const override
+      {
+        const static std::array<std::array<unsigned int, 4>, 5> table = {
+          {{0, 1, 2, 3},
+           {0, 6, 4, numbers::invalid_unsigned_int},
+           {1, 5, 7, numbers::invalid_unsigned_int},
+           {2, 4, 5, numbers::invalid_unsigned_int},
+           {3, 7, 6, numbers::invalid_unsigned_int}}};
+
+        return table[face][line];
+      }
+
+      const std::array<unsigned int, 2> &
+      vertices_of_nth_line_of_surface(const unsigned int line,
+                                      const unsigned int face) const override
+      {
+        // clang-format off
+        const static std::array<std::array<std::array<unsigned int, 2>, 4>, 5>
+          table = {{{{{0, 2}, {1, 3}, {0, 1}, {2, 3}}},
+                    {{{0, 2}, {2, 4}, {4, 0}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
+                    {{{3, 1}, {1, 4}, {4, 3}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
+                    {{{1, 0}, {0, 4}, {4, 1}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
+                    {{{2, 3}, {3, 4}, {4, 2}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}}}};
+        // clang-format on
+
+        return table[face][line];
+      }
+    };
+
+
+
     template <typename T = unsigned int>
     struct CRS
     {
