@@ -1469,7 +1469,7 @@ namespace internal
 
           {
             const unsigned char default_value =
-              tria_level.dim == 1 ? 1 : (tria_level.dim == 2 ? 3 : 5); // TODO
+              tria_level.dim == 1 ? 1 : (tria_level.dim == 2 ? 3 : 7); // TODO
 
             tria_level.entity_type.reserve(total_cells);
             tria_level.entity_type.insert(tria_level.entity_type.end(),
@@ -11514,12 +11514,14 @@ namespace internal
       // 1) collect cell types
       std::vector<std::shared_ptr<CellTypeBase>> cell_types_impl;
 
-      cell_types_impl.emplace_back(new CellTypeBase()); // 0
-      cell_types_impl.emplace_back(new CellTypeBase()); // 1
-      cell_types_impl.emplace_back(new CellTypeTri());  // 2
-      cell_types_impl.emplace_back(new CellTypeBase()); // 3
-      cell_types_impl.emplace_back(new CellTypeTet());  // 4
-      cell_types_impl.emplace_back(new CellTypeBase()); // 5
+      cell_types_impl.emplace_back(new CellTypeBase());    // 0: VERTEX
+      cell_types_impl.emplace_back(new CellTypeBase());    // 1: LINE
+      cell_types_impl.emplace_back(new CellTypeTri());     // 2: TRI
+      cell_types_impl.emplace_back(new CellTypeBase());    // 3: QUAD
+      cell_types_impl.emplace_back(new CellTypeTet());     // 4: TET
+      cell_types_impl.emplace_back(new CellTypePyramid()); // 5: PYRAMID
+      cell_types_impl.emplace_back(new CellTypeBase());    // 6: WEDGE
+      cell_types_impl.emplace_back(new CellTypeBase());    // 7: HEX
 
       std::vector<std::size_t> cell_ptr(cell_types_indices.size() + 1);
       cell_ptr[0] = 0;
@@ -11548,11 +11550,16 @@ namespace internal
       std::vector<unsigned int> cell_types;
       std::vector<unsigned int> cell_vertices;
 
+      static const unsigned int X = static_cast<unsigned int>(-1);
+      static const std::array<const std::array<unsigned int, 9>, 4> table = {
+        {{X, 0, X, X, X, X, X, X, X},
+         {X, X, 1, X, X, X, X, X, X},
+         {X, X, X, 2, 3, X, X, X, X},
+         {X, X, X, X, 4, 5, 6, X, 7}}};
+
       for (const auto &cell : cells)
         {
-          cell_types.push_back(cell.vertices.size() == 3 ?
-                                 2 /*TRI*/ :
-                                 (cell.vertices.size() == 4 ? 4 /*TET*/ : 0));
+          cell_types.push_back(table[dim][cell.vertices.size()]);
 
           for (const auto &vertex : cell.vertices)
             cell_vertices.push_back(vertex);
@@ -11868,7 +11875,9 @@ Triangulation<dim, spacedim>::Triangulation(
   this->geometry_info.emplace_back(new DynamicGeometryInfoTri());    // 2
   this->geometry_info.emplace_back(new DynamicGeometryInfoQuad());   // 3
   this->geometry_info.emplace_back(new DynamicGeometryInfoTet());    // 4
-  this->geometry_info.emplace_back(new DynamicGeometryInfoHex());    // 5
+  this->geometry_info.emplace_back(new DynamicGeometryInfo());       // 5 (TODO)
+  this->geometry_info.emplace_back(new DynamicGeometryInfo());       // 6 (TODO)
+  this->geometry_info.emplace_back(new DynamicGeometryInfoHex());    // 7
 }
 
 

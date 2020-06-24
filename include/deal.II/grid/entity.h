@@ -36,13 +36,25 @@ DEAL_II_NAMESPACE_OPEN
 struct DynamicGeometryInfo
 {
   virtual unsigned int
-  n_vertices() const = 0;
+  n_vertices() const
+  {
+    Assert(false, ExcNotImplemented());
+    return 0;
+  }
 
   virtual unsigned int
-  n_lines() const = 0;
+  n_lines() const
+  {
+    Assert(false, ExcNotImplemented());
+    return 0;
+  }
 
   virtual unsigned int
-  n_faces() const = 0;
+  n_faces() const
+  {
+    Assert(false, ExcNotImplemented());
+    return 0;
+  }
 
   inline std_cxx20::ranges::iota_view<unsigned int, unsigned int>
   vertex_indices() const
