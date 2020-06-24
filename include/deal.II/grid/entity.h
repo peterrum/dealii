@@ -368,6 +368,91 @@ struct DynamicGeometryInfoTet : DynamicGeometryInfo
 
 
 /**
+ * TET
+ */
+struct DynamicGeometryInfoPyramid : DynamicGeometryInfo
+{
+  unsigned int
+  n_vertices() const override
+  {
+    return 5;
+  }
+
+  unsigned int
+  n_lines() const override
+  {
+    return 8;
+  }
+
+  unsigned int
+  n_faces() const override
+  {
+    return 5;
+  }
+  std::array<unsigned int, 2>
+  standard_hex_line_to_quad_line_index(const unsigned int line) const override
+  {
+    Assert(false, ExcNotImplemented());
+
+    static const std::array<unsigned int, 2> table[6] = {
+      {0, 0}, {0, 1}, {0, 2}, {1, 1}, {1, 2}, {2, 1}};
+
+    return table[line];
+  }
+
+  unsigned int
+  standard_to_real_face_line(
+    const unsigned int  line,
+    const unsigned char face_orientation) const override
+  {
+    Assert(false, ExcNotImplemented());
+
+    static const std::array<std::array<unsigned int, 3>, 6> table = {
+      {{0, 1, 2}, {2, 1, 0}, {0, 2, 1}, {1, 2, 0}, {2, 0, 1}, {1, 0, 2}}};
+
+    return table[face_orientation][line];
+  }
+
+  bool
+  combine_quad_and_line_orientation(const unsigned int  line,
+                                    const unsigned char face_orientation,
+                                    const bool line_orientation) const override
+  {
+    (void)line;
+    (void)face_orientation;
+
+    return line_orientation; // TODO
+  }
+
+  std::array<unsigned int, 2>
+  standard_hex_vertex_to_quad_vertex_index(
+    const unsigned int vertex) const override
+  {
+    static const std::array<unsigned int, 2> table[5] = {
+      {0, 0}, {0, 1}, {0, 2}, {0, 3}, {1, 2}};
+
+    return table[vertex];
+  }
+
+  unsigned int
+  standard_to_real_face_vertex(
+    const unsigned int  vertex,
+    const unsigned char face_orientation) const override
+  {
+    (void)face_orientation;
+
+    return vertex;
+
+    // static const std::array<std::array<unsigned int, 3>, 6> table = {
+    //  {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}};
+    //
+    // return table[face_orientation][vertex];
+  }
+};
+
+
+
+/**
  * HEX
  */
 struct DynamicGeometryInfoHex : public DynamicGeometryInfoTensor<3>

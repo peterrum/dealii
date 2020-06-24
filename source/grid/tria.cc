@@ -10777,6 +10777,16 @@ namespace internal
       }
 
       virtual unsigned int
+      type_of_entity(const unsigned int d, const unsigned int e) const
+      {
+        Assert(false, ExcNotImplemented());
+        (void)d;
+        (void)e;
+
+        return -1;
+      }
+
+      virtual unsigned int
       n_lines_of_surface(const unsigned int line) const
       {
         Assert(false, ExcNotImplemented());
@@ -10840,6 +10850,22 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
+      virtual unsigned int
+      type_of_entity(const unsigned int d, const unsigned int e) const override
+      {
+        (void)e;
+
+        if (d == 2)
+          return 2;
+
+        if (d == 1)
+          return 1;
+
+        Assert(false, ExcNotImplemented());
+
+        return -1;
+      }
+
       unsigned int
       n_entities(const unsigned int d) const override
       {
@@ -10884,6 +10910,25 @@ namespace internal
         Assert(false, ExcNotImplemented());
 
         return dealii::ArrayView<const unsigned int>();
+      }
+
+      virtual unsigned int
+      type_of_entity(const unsigned int d, const unsigned int e) const override
+      {
+        (void)e;
+
+        if (d == 3)
+          return 4;
+
+        if (d == 2)
+          return 2;
+
+        if (d == 1)
+          return 1;
+
+        Assert(false, ExcNotImplemented());
+
+        return -1;
       }
 
       unsigned int
@@ -10968,6 +11013,27 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
+      virtual unsigned int
+      type_of_entity(const unsigned int d, const unsigned int e) const override
+      {
+        (void)e;
+
+        if (d == 3)
+          return 5;
+
+        if (d == 2 && e == 0)
+          return 3;
+        else if (d == 2)
+          return 2;
+
+        if (d == 1)
+          return 1;
+
+        Assert(false, ExcNotImplemented());
+
+        return -1;
+      }
+
       unsigned int
       n_entities(const unsigned int d) const override
       {
@@ -11034,23 +11100,29 @@ namespace internal
              const CRS<T> &                    quad_lines,
              const std::vector<unsigned char> &quad_orientation,
              const CRS<T> &                    cell_entities,
-             const CRS<T> &                    neighbors)
+             const CRS<T> &                    neighbors,
+             const std::vector<unsigned int> & cell_types,
+             const std::vector<unsigned int> & quad_types)
         : line_vertices(line_vertices)
         , line_orientation(line_orientation)
         , quad_lines(quad_lines)
         , quad_orientation(quad_orientation)
         , cell_entities(cell_entities)
         , neighbors(neighbors)
+        , cell_types(cell_types)
+        , quad_types(quad_types)
       {}
 
       Result(const CRS<T> &                    line_vertices,
              const std::vector<unsigned char> &line_orientation,
              const CRS<T> &                    cell_entities,
-             const CRS<T> &                    neighbors)
+             const CRS<T> &                    neighbors,
+             const std::vector<unsigned int> & cell_types)
         : line_vertices(line_vertices)
         , line_orientation(line_orientation)
         , cell_entities(cell_entities)
         , neighbors(neighbors)
+        , cell_types(cell_types)
       {}
 
 
@@ -11060,6 +11132,9 @@ namespace internal
       std::vector<unsigned char> quad_orientation;
       CRS<T>                     cell_entities;
       CRS<T>                     neighbors;
+
+      std::vector<unsigned int> cell_types;
+      std::vector<unsigned int> quad_types;
     };
 
 
@@ -11219,6 +11294,7 @@ namespace internal
 
       std::vector<std::tuple<std::array<unsigned int, key_length>,
                              std::array<unsigned int, key_length>,
+                             unsigned int,
                              unsigned int>>
         keys; // key (sorted vertices), vertices, cell-entity index
 
@@ -11254,7 +11330,10 @@ namespace internal
               // ... create key
               std::array<unsigned int, key_length> key = entity_vertices;
               std::sort(key.begin(), key.end());
-              keys.emplace_back(key, entity_vertices, counter++);
+              keys.emplace_back(key,
+                                entity_vertices,
+                                counter++,
+                                cell_type->type_of_entity(d, e));
             }
         }
 
@@ -11344,6 +11423,8 @@ namespace internal
       build_entity_templated<2>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations);
     else if(key_length == 3)
       build_entity_templated<3>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations);
+    else if(key_length == 4)
+      build_entity_templated<4>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations);
     else
       AssertThrow(false, dealii::StandardExceptions::ExcNotImplemented ());
       // clang-format on
@@ -11362,7 +11443,8 @@ namespace internal
       const CRS<unsigned int> &                         con_qv,
       const std::vector<unsigned char> &                ori_cq,
       CRS<unsigned int> &                               crs,
-      std::vector<unsigned char> &                      orientations)
+      std::vector<unsigned char> &                      orientations,
+      std::vector<unsigned int> &                       quad_t_id)
     {
       (void)con_qv;
 
@@ -11373,6 +11455,8 @@ namespace internal
 
       crs.ptr.resize(con_qv.ptr.size());
       crs.ptr[0] = 0;
+
+      quad_t_id.resize(con_qv.ptr.size() - 1);
 
       for (unsigned int c = 0; c < con_cq.ptr.size() - 1; ++c)
         {
@@ -11407,9 +11491,13 @@ namespace internal
             {
               const unsigned int f = con_cq.col[f_];
 
-              if (ori_cq[f_] !=
-                  0)      // only faces with default orientation have to
-                continue; // do something
+              const unsigned int t = cell_type->type_of_entity(2, f_index);
+
+              // only faces with default orientation have to do something
+              if (ori_cq[f_] != 0)
+                continue;
+
+              quad_t_id[f] = cell_type->type_of_entity(2, f_index);
 
               // loop over lines
               for (unsigned int l = 0;
@@ -11437,7 +11525,10 @@ namespace internal
                       }
 
                   // ... comparison gives orientation
-                  orientations[crs.ptr[f] + l] = (same ? 0 : 1);
+                  if (t == 3)                                      // QUAD
+                    orientations[crs.ptr[f] + l] = (same ? 1 : 0); // TODO
+                  else
+                    orientations[crs.ptr[f] + l] = (same ? 0 : 1);
                 }
             }
         }
@@ -11469,6 +11560,8 @@ namespace internal
       // neighbors
       CRS<T> con_cc;
 
+      std::vector<unsigned int> quad_t_id;
+
       // build lines
       build_entity(1, cell_t, cell_t_id, con_cv, con_cl, con_lv, ori_cl);
 
@@ -11487,7 +11580,8 @@ namespace internal
                              con_qv,
                              ori_cq,
                              con_ql,
-                             ori_ql);
+                             ori_ql,
+                             quad_t_id);
         }
 
       // determine neighbors
@@ -11498,9 +11592,10 @@ namespace internal
 
       // pack result
       if (dim == 2)
-        return {con_lv, ori_cl, con_cl, con_cc};
+        return {con_lv, ori_cl, con_cl, con_cc, cell_t_id};
       else
-        return {con_lv, ori_ql, con_ql, ori_cq, con_cq, con_cc};
+        return {
+          con_lv, ori_ql, con_ql, ori_cq, con_cq, con_cc, cell_t_id, quad_t_id};
     }
 
 
@@ -11649,7 +11744,10 @@ namespace internal
                                     -1);
 
 
-            tria.faces->quad_entity_type.assign(n_quads, 2 /* TODO*/);
+            tria.faces->quad_entity_type.assign(n_quads, -1);
+
+            for (unsigned int i = 0; i < n_quads; ++i)
+              tria.faces->quad_entity_type[i] = connectivity.quad_types[i];
 
             const auto &crs = connectivity.quad_lines;
 
@@ -11738,8 +11836,10 @@ namespace internal
                                     n_cell,
                                   -1);
 
-          tria.levels[0]->entity_type.assign(n_cell,
-                                             dim == 2 ? 2 : 4 /* TODO*/);
+          tria.levels[0]->entity_type.assign(n_cell, -1);
+
+          for (unsigned int i = 0; i < n_cell; ++i)
+            tria.levels[0]->entity_type[i] = connectivity.cell_types[i];
 
           const auto &crs = connectivity.cell_entities;
 
@@ -11870,14 +11970,14 @@ Triangulation<dim, spacedim>::Triangulation(
   signals.mesh_movement.connect(signals.any_change);
 
   this->geometry_info = std::vector<std::unique_ptr<DynamicGeometryInfo>>();
-  this->geometry_info.emplace_back(new DynamicGeometryInfoVertex()); // 0
-  this->geometry_info.emplace_back(new DynamicGeometryInfoLine());   // 1
-  this->geometry_info.emplace_back(new DynamicGeometryInfoTri());    // 2
-  this->geometry_info.emplace_back(new DynamicGeometryInfoQuad());   // 3
-  this->geometry_info.emplace_back(new DynamicGeometryInfoTet());    // 4
-  this->geometry_info.emplace_back(new DynamicGeometryInfo());       // 5 (TODO)
-  this->geometry_info.emplace_back(new DynamicGeometryInfo());       // 6 (TODO)
-  this->geometry_info.emplace_back(new DynamicGeometryInfoHex());    // 7
+  this->geometry_info.emplace_back(new DynamicGeometryInfoVertex());  // 0
+  this->geometry_info.emplace_back(new DynamicGeometryInfoLine());    // 1
+  this->geometry_info.emplace_back(new DynamicGeometryInfoTri());     // 2
+  this->geometry_info.emplace_back(new DynamicGeometryInfoQuad());    // 3
+  this->geometry_info.emplace_back(new DynamicGeometryInfoTet());     // 4
+  this->geometry_info.emplace_back(new DynamicGeometryInfoPyramid()); // 5
+  this->geometry_info.emplace_back(new DynamicGeometryInfo());    // 6 (TODO)
+  this->geometry_info.emplace_back(new DynamicGeometryInfoHex()); // 7
 }
 
 
