@@ -11231,7 +11231,7 @@ namespace internal
                {0, 1, 2, 3},
                {4, 5, 6, 7}}};
 
-            return dealii::ArrayView<const unsigned int>(table[e - 2]);
+            return dealii::ArrayView<const unsigned int>(table[e]);
           }
 
         if (d == 1)
@@ -11493,7 +11493,7 @@ namespace internal
           // clang-format off
           // line_orientation=true
           if (i == std::array<T, 2>{{j[0], j[1]}}) return 1;
-          
+
           // line_orientation=false
           if (i == std::array<T, 2>{{j[1], j[0]}}) return 0;
           // clang-format on
@@ -11530,28 +11530,28 @@ namespace internal
 
           // clang-format off
           // face_orientation=true, face_rotation=false, face_flip=false
-          if (i == std::array<T, 4>{{j[0], j[1], j[2], j[3]}}) return 1; // 0
+          if (i == std::array<T, 4>{{j[0], j[1], j[2], j[3]}}) return 1;
 
           // face_orientation=true, face_rotation=true, face_flip=false
-          if (i == std::array<T, 4>{{j[1], j[3], j[0], j[2]}}) return 5; // 2
+          if (i == std::array<T, 4>{{j[1], j[3], j[0], j[2]}}) return 5; // 3
 
           // face_orientation=true, face_rotation=false, face_flip=true
-          if (i == std::array<T, 4>{{j[3], j[2], j[1], j[0]}}) return 3; // 4
+          if (i == std::array<T, 4>{{j[3], j[2], j[1], j[0]}}) return 3; // 5
 
           // face_orientation=true, face_rotation=true, face_flip=true
-          if (i == std::array<T, 4>{{j[2], j[0], j[3], j[1]}}) return 7; // 6
+          if (i == std::array<T, 4>{{j[2], j[0], j[3], j[1]}}) return 7;
 
           // face_orientation=false, face_rotation=false, face_flip=false
-          if (i == std::array<T, 4>{{j[0], j[2], j[1], j[3]}}) return 0; // 1
+          if (i == std::array<T, 4>{{j[0], j[2], j[1], j[3]}}) return 0;
 
           // face_orientation=false, face_rotation=true, face_flip=false
-          if (i == std::array<T, 4>{{j[2], j[3], j[0], j[1]}}) return 4; // 3
+          if (i == std::array<T, 4>{{j[2], j[3], j[0], j[1]}}) return 4; // 2
 
           // face_orientation=false, face_rotation=false, face_flip=true
-          if (i == std::array<T, 4>{{j[3], j[1], j[2], j[0]}}) return 2; // 5
+          if (i == std::array<T, 4>{{j[3], j[1], j[2], j[0]}}) return 2; // 4
 
           // face_orientation=false, face_rotation=true, face_flip=true
-          if (i == std::array<T, 4>{{j[1], j[0], j[2], j[3]}}) return 6; // 7
+          if (i == std::array<T, 4>{{j[1], j[0], j[2], j[3]}}) return 6;
           // clang-format on
         }
 
@@ -12670,7 +12670,7 @@ Triangulation<dim, spacedim>::create_triangulation(
       return cell.vertices.size() != GeometryInfo<dim>::vertices_per_cell;
     });
 
-  if (arbitray_mesh_provided == false)
+  if (arbitray_mesh_provided == false && use_arbitray_mesh == false)
     {
       this->policy.reset(
         new internal::TriangulationImplementation::PolicyWrapper<

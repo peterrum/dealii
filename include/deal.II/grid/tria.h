@@ -3309,6 +3309,15 @@ public:
     std::pair<std::pair<cell_iterator, unsigned int>, std::bitset<3>>> &
   get_periodic_face_map() const;
 
+  /**
+   * TODO
+   */
+  void
+  set_use_arbitray_mesh(const bool use_arbitray_mesh)
+  {
+    this->use_arbitray_mesh = use_arbitray_mesh;
+  }
+
 #ifdef DOXYGEN
   /**
    * Write and read the data of this object from a stream for the purpose
@@ -3934,6 +3943,8 @@ private:
    */
 
   std::vector<std::unique_ptr<DynamicGeometryInfo>> geometry_info;
+
+  bool use_arbitray_mesh = false;
 
   // make a couple of classes friends
   template <int, int, int>

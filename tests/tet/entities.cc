@@ -34,6 +34,8 @@ test_3(const std::vector<unsigned int> indices)
 
   Triangulation<dim, spacedim> tria;
 
+  tria.set_use_arbitray_mesh(true);
+
   std::vector<CellData<dim>> cells;
   CellData<dim>              cell;
   cell.vertices = indices;
@@ -72,10 +74,16 @@ main()
 {
   initlog();
 
+  // Tetrahedron
+  test_3({0, 1, 2, 3});
+
   // Pyramid
   test_3({0, 1, 2, 3, 4});
   test_3({0, 1, 2, 4, 3});
 
   // Wedge
   test_3({0, 1, 2, 3, 4, 5});
+
+  // Hexahedron
+  test_3({0, 1, 2, 3, 4, 5, 6, 7});
 }
