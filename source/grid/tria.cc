@@ -11389,6 +11389,37 @@ namespace internal
           if (j == std::array<T, 3>{{i[2], i[1], i[0]}}) return 5;
           // clang-format on
         }
+      else if (n_non_zeros == 3) // QUAD
+        {
+          const std::array<T, 4> i{var_0[0], var_0[1], var_0[2]};
+          const std::array<T, 4> j{var_1[0], var_1[1], var_1[2]};
+
+          // clang-format off
+          // face_orientation=true, face_flip=false, face_rotation=false
+          if (i == std::array<T, 4>{{j[0], j[1], j[2], j[3]}}) return 1;
+          
+          // face_orientation=false, face_flip=false, face_rotation=false
+          if (i == std::array<T, 4>{{j[2], j[3], j[0], j[1]}}) return 0;
+          
+          // face_orientation=false, face_flip=false, face_rotation=true
+          if (i == std::array<T, 4>{{j[0], j[1], j[3], j[2]}}) return 4;
+          
+          // face_orientation=false, face_flip=true, face_rotation=false
+          if (i == std::array<T, 4>{{j[3], j[2], j[1], j[0]}}) return 2;
+          
+          // face_orientation=false, face_flip=true, face_rotation=true
+          if (i == std::array<T, 4>{{j[1], j[0], j[2], j[3]}}) return 6;
+          
+          // face_orientation=true, face_flip=false, face_rotation=true
+          if (i == std::array<T, 4>{{j[2], j[3], j[1], j[0]}}) return 5;
+          
+          // face_orientation=true, face_flip=true, face_rotation=false
+          if (i == std::array<T, 4>{{j[1], j[0], j[3], j[2]}}) return 3;
+          
+          // face_orientation=true, face_flip=true, face_rotation=true
+          if (i == std::array<T, 4>{{j[3], j[2], j[0], j[1]}}) return 7;
+          // clang-format on
+        }
 
       AssertThrow(false, dealii::StandardExceptions::ExcNotImplemented());
 
