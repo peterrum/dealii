@@ -11587,10 +11587,10 @@ namespace internal
           if (i == std::array<T, 4>{{j[0], j[1], j[2], j[3]}}) return 1;
 
           // face_orientation=true, face_rotation=true, face_flip=false
-          if (i == std::array<T, 4>{{j[1], j[3], j[0], j[2]}}) return 5; // 3
+          if (i == std::array<T, 4>{{j[1], j[3], j[0], j[2]}}) return 3;
 
           // face_orientation=true, face_rotation=false, face_flip=true
-          if (i == std::array<T, 4>{{j[3], j[2], j[1], j[0]}}) return 3; // 5
+          if (i == std::array<T, 4>{{j[3], j[2], j[1], j[0]}}) return 5;
 
           // face_orientation=true, face_rotation=true, face_flip=true
           if (i == std::array<T, 4>{{j[2], j[0], j[3], j[1]}}) return 7;
@@ -11599,10 +11599,10 @@ namespace internal
           if (i == std::array<T, 4>{{j[0], j[2], j[1], j[3]}}) return 0;
 
           // face_orientation=false, face_rotation=true, face_flip=false
-          if (i == std::array<T, 4>{{j[2], j[3], j[0], j[1]}}) return 4; // 2
+          if (i == std::array<T, 4>{{j[2], j[3], j[0], j[1]}}) return 2;
 
           // face_orientation=false, face_rotation=false, face_flip=true
-          if (i == std::array<T, 4>{{j[3], j[1], j[2], j[0]}}) return 2; // 4
+          if (i == std::array<T, 4>{{j[3], j[1], j[2], j[0]}}) return 4;
 
           // face_orientation=false, face_rotation=true, face_flip=true
           if (i == std::array<T, 4>{{j[1], j[0], j[2], j[3]}}) return 6;
