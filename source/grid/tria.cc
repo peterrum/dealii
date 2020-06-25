@@ -11353,40 +11353,41 @@ namespace internal
 
 
 
+    /**
+     * TODO
+     */
     template <typename T, std::size_t N>
     inline unsigned char
-    compute_orientation(const std::array<T, N> &ref_ind,
-                        const std::array<T, N> &ind)
+    compute_orientation(const std::array<T, N> &var_0,
+                        const std::array<T, N> &var_1)
     {
+      // TODO: use the element information here
       const unsigned int n_non_zeros =
-        N - std::count(ref_ind.begin(), ref_ind.end(), 0);
+        N - std::count(var_0.begin(), var_0.end(), 0);
 
-      if (n_non_zeros == 2)
+      if (n_non_zeros == 2) // LINE
         {
-          std::array<T, 2> ind_{ref_ind[0], ref_ind[1]};
+          const std::array<T, 2> i{var_0[0], var_0[1]};
+          const std::array<T, 3> j{var_1[0], var_1[1]};
 
-          if (ind_ == std::array<T, 2>{{ind[0], ind[1]}})
-            return 0;
-          if (ind_ == std::array<T, 2>{{ind[1], ind[0]}})
-            return 1;
+          // clang-format off
+          if (i == std::array<T, 2>{{j[0], j[1]}}) return 0;
+          if (i == std::array<T, 2>{{j[1], j[0]}}) return 1;
+          // clang-format on
         }
-      else if (n_non_zeros == 3)
+      else if (n_non_zeros == 3) // TRI
         {
-          std::array<T, 3> ind_0{ref_ind[0], ref_ind[1], ref_ind[2]};
-          std::array<T, 3> ind_1{ind[0], ind[1], ind[2]};
+          const std::array<T, 3> i{var_0[0], var_0[1], var_0[2]};
+          const std::array<T, 3> j{var_1[0], var_1[1], var_1[2]};
 
-          if (ind_1 == std::array<T, 3>{{ind_0[0], ind_0[1], ind_0[2]}})
-            return 0;
-          if (ind_1 == std::array<T, 3>{{ind_0[0], ind_0[2], ind_0[1]}})
-            return 1;
-          if (ind_1 == std::array<T, 3>{{ind_0[1], ind_0[0], ind_0[2]}})
-            return 2;
-          if (ind_1 == std::array<T, 3>{{ind_0[1], ind_0[2], ind_0[0]}})
-            return 3;
-          if (ind_1 == std::array<T, 3>{{ind_0[2], ind_0[0], ind_0[1]}})
-            return 4;
-          if (ind_1 == std::array<T, 3>{{ind_0[2], ind_0[1], ind_0[0]}})
-            return 5;
+          // clang-format off
+          if (j == std::array<T, 3>{{i[0], i[1], i[2]}}) return 0;
+          if (j == std::array<T, 3>{{i[0], i[2], i[1]}}) return 1;
+          if (j == std::array<T, 3>{{i[1], i[0], i[2]}}) return 2;
+          if (j == std::array<T, 3>{{i[1], i[2], i[0]}}) return 3;
+          if (j == std::array<T, 3>{{i[2], i[0], i[1]}}) return 4;
+          if (j == std::array<T, 3>{{i[2], i[1], i[0]}}) return 5;
+          // clang-format on
         }
 
       AssertThrow(false, dealii::StandardExceptions::ExcNotImplemented());
