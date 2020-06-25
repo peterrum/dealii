@@ -11205,6 +11205,129 @@ namespace internal
 
 
 
+    struct CellTypeHex : public CellTypeBase
+    {
+      dealii::ArrayView<const unsigned int>
+      vertices_of_entity(const unsigned int d,
+                         const unsigned int e) const override
+      {
+        if (d == 3)
+          {
+            static const std::array<unsigned int, 8> table = {
+              0, 1, 2, 3, 4, 5, 6, 7};
+
+            AssertDimension(e, 0);
+
+            return dealii::ArrayView<const unsigned int>(table);
+          }
+
+        if (d == 2)
+          {
+            static const std::array<std::array<unsigned int, 4>, 6> table = {
+              {{0, 2, 4, 6},
+               {1, 3, 5, 7},
+               {0, 4, 1, 5},
+               {2, 6, 3, 7},
+               {0, 1, 2, 3},
+               {4, 5, 6, 7}}};
+
+            return dealii::ArrayView<const unsigned int>(table[e - 2]);
+          }
+
+        if (d == 1)
+          {
+            static const std::array<std::array<unsigned int, 2>, 12> table = {
+              {{0, 2},
+               {1, 3},
+               {0, 1},
+               {2, 3},
+               {4, 6},
+               {5, 7},
+               {4, 5},
+               {6, 7},
+               {0, 4},
+               {1, 5},
+               {2, 6},
+               {3, 7}}};
+
+            return dealii::ArrayView<const unsigned int>(table[e]);
+          }
+
+        Assert(false, ExcNotImplemented());
+
+        return dealii::ArrayView<const unsigned int>();
+      }
+
+      virtual unsigned int
+      type_of_entity(const unsigned int d, const unsigned int e) const override
+      {
+        (void)e;
+
+        if (d == 3)
+          return 7;
+
+        if (d == 2)
+          return 3;
+
+        if (d == 1)
+          return 1;
+
+        Assert(false, ExcNotImplemented());
+
+        return -1;
+      }
+
+      unsigned int
+      n_entities(const unsigned int d) const override
+      {
+        static std::array<unsigned int, 4> table = {8, 12, 6, 1};
+        return table[d];
+      }
+
+      unsigned int
+      n_lines_of_surface(const unsigned int surface) const override
+      {
+        (void)surface;
+        return 4;
+      }
+
+      unsigned int
+      nth_line_of_surface(const unsigned int line,
+                          const unsigned int face) const override
+      {
+        // clang-format off
+        const static std::array<std::array<unsigned int, 4>, 6> table = {
+          {{8, 10,  0,  4},
+           {9, 11,  1,  5},
+           {2,  6,  8,  9},
+           {3,  7, 10, 11},
+           {0,  1,  2,  3},
+           {4,  5,  6,  7}}};
+        // clang-format on
+
+        return table[face][line];
+      }
+
+      const std::array<unsigned int, 2> &
+      vertices_of_nth_line_of_surface(const unsigned int line,
+                                      const unsigned int face) const override
+      {
+        // clang-format off
+        const static std::array<std::array<std::array<unsigned int, 2>, 4>, 6>
+          table = {{{{{0, 4}, {2, 6}, {0, 2}, {4, 6}}},
+                    {{{1, 5}, {3, 7}, {1, 3}, {5, 7}}},
+                    {{{0, 1}, {4, 5}, {0, 4}, {1, 5}}},
+                    {{{2, 3}, {6, 7}, {2, 6}, {3, 7}}},
+                    {{{0, 2}, {1, 3}, {0, 1}, {2, 3}}},
+                    {{{4, 6}, {5, 7}, {4, 5}, {6, 7}}}}};
+        // clang-format on
+
+        return table[face][line];
+      }
+    };
+
+
+
     template <typename T = unsigned int>
     struct CRS
     {
@@ -11368,7 +11491,10 @@ namespace internal
           const std::array<T, 3> j{var_1[0], var_1[1]};
 
           // clang-format off
+          // line_orientation=true
           if (i == std::array<T, 2>{{j[0], j[1]}}) return 1;
+          
+          // line_orientation=false
           if (i == std::array<T, 2>{{j[1], j[0]}}) return 0;
           // clang-format on
         }
@@ -11777,7 +11903,7 @@ namespace internal
       cell_types_impl.emplace_back(new CellTypeTet());     // 4: TET
       cell_types_impl.emplace_back(new CellTypePyramid()); // 5: PYRAMID
       cell_types_impl.emplace_back(new CellTypeWedge());   // 6: WEDGE
-      cell_types_impl.emplace_back(new CellTypeBase());    // 7: HEX
+      cell_types_impl.emplace_back(new CellTypeHex());     // 7: HEX
 
       std::vector<std::size_t> cell_ptr(cell_types_indices.size() + 1);
       cell_ptr[0] = 0;
