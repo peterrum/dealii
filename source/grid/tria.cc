@@ -11382,22 +11382,22 @@ namespace internal
 
           // clang-format off
           // face_orientation=true, face_rotation=false, face_flip=false
-          if (j == std::array<T, 3>{{i[0], i[1], i[2]}}) return 0;
+          if (i == std::array<T, 3>{{j[0], j[1], j[2]}}) return 0;
           
           // face_orientation=true, face_rotation=true, face_flip=false
-          if (j == std::array<T, 3>{{i[1], i[0], i[2]}}) return 2;
+          if (i == std::array<T, 3>{{j[1], j[0], j[2]}}) return 2;
           
           // face_orientation=true, face_rotation=false, face_flip=true
-          if (j == std::array<T, 3>{{i[2], i[0], i[1]}}) return 4;
+          if (i == std::array<T, 3>{{j[2], j[0], j[1]}}) return 4;
           
           // face_orientation=false, face_rotation=false, face_flip=false
-          if (j == std::array<T, 3>{{i[0], i[2], i[1]}}) return 1;
+          if (i == std::array<T, 3>{{j[0], j[2], j[1]}}) return 1;
           
           // face_orientation=false, face_rotation=true, face_flip=false
-          if (j == std::array<T, 3>{{i[1], i[2], i[0]}}) return 3;
+          if (i == std::array<T, 3>{{j[1], j[2], j[0]}}) return 3;
           
           // face_orientation=false, face_rotation=false, face_flip=true
-          if (j == std::array<T, 3>{{i[2], i[1], i[0]}}) return 5;
+          if (i == std::array<T, 3>{{j[2], j[1], j[0]}}) return 5;
           // clang-format on
         }
       else if (n_non_zeros == 3) // QUAD
