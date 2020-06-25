@@ -246,7 +246,7 @@ struct DynamicGeometryInfoTri : DynamicGeometryInfo
                                const bool line_orientation) const override
   {
     static const std::array<std::array<unsigned int, 2>, 2> table = {
-      {{0, 1}, {1, 0}}};
+      {{1, 0}, {0, 1}}};
 
     return table[line_orientation][vertex];
   }
@@ -316,7 +316,7 @@ struct DynamicGeometryInfoTet : DynamicGeometryInfo
     const unsigned char face_orientation) const override
   {
     static const std::array<std::array<unsigned int, 3>, 6> table = {
-      {{0, 1, 2}, {2, 1, 0}, {0, 2, 1}, {1, 2, 0}, {2, 0, 1}, {1, 0, 2}}};
+      {{2, 1, 0}, {0, 1, 2}, {1, 2, 0}, {0, 2, 1}, {1, 0, 2}, {2, 0, 1}}};
 
     return table[face_orientation][line];
   }
@@ -363,7 +363,7 @@ struct DynamicGeometryInfoTet : DynamicGeometryInfo
     //  {{0, 1, 2}, {0, 1, 2}, {0, 1, 2}, {0, 1, 2}, {0, 1, 2}, {0, 1, 2}}};
 
     static const std::array<std::array<unsigned int, 3>, 6> table = {
-      {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}};
+      {{0, 2, 1}, {0, 1, 2}, {1, 2, 0}, {1, 0, 2}, {2, 1, 0}, {2, 0, 1}}};
 
     return table[face_orientation][vertex];
   }
@@ -412,7 +412,7 @@ struct DynamicGeometryInfoPyramid : DynamicGeometryInfo
     Assert(false, ExcNotImplemented());
 
     static const std::array<std::array<unsigned int, 3>, 6> table = {
-      {{0, 1, 2}, {2, 1, 0}, {0, 2, 1}, {1, 2, 0}, {2, 0, 1}, {1, 0, 2}}};
+      {{2, 1, 0}, {0, 1, 2}, {1, 2, 0}, {0, 2, 1}, {1, 0, 2}, {2, 0, 1}}};
 
     return table[face_orientation][line];
   }
@@ -455,7 +455,7 @@ struct DynamicGeometryInfoPyramid : DynamicGeometryInfo
     else // TRI
       {
         static const std::array<std::array<unsigned int, 3>, 6> table = {
-          {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}};
+          {{0, 2, 1}, {0, 1, 2}, {1, 2, 0}, {1, 0, 2}, {2, 1, 0}, {2, 0, 1}}};
 
         return table[face_orientation][vertex];
       }
@@ -520,7 +520,7 @@ struct DynamicGeometryInfoWedge : DynamicGeometryInfo
     Assert(false, ExcNotImplemented());
 
     static const std::array<std::array<unsigned int, 3>, 6> table = {
-      {{0, 1, 2}, {2, 1, 0}, {0, 2, 1}, {1, 2, 0}, {2, 0, 1}, {1, 0, 2}}};
+      {{2, 1, 0}, {0, 1, 2}, {1, 2, 0}, {0, 2, 1}, {1, 0, 2}, {2, 0, 1}}};
 
     return table[face_orientation][line];
   }
@@ -563,7 +563,7 @@ struct DynamicGeometryInfoWedge : DynamicGeometryInfo
     else // TRI
       {
         static const std::array<std::array<unsigned int, 3>, 6> table = {
-          {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}};
+          {{0, 2, 1}, {0, 1, 2}, {1, 2, 0}, {1, 0, 2}, {2, 1, 0}, {2, 0, 1}}};
 
         return table[face_orientation][vertex];
       }

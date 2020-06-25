@@ -11359,48 +11359,45 @@ namespace internal
     template <typename T, std::size_t N>
     inline unsigned char
     compute_orientation(const std::array<T, N> &var_0,
-                        const std::array<T, N> &var_1)
+                        const std::array<T, N> &var_1,
+                        const unsigned int      type)
     {
-      // TODO: use the element information here
-      const unsigned int n_non_zeros =
-        N - std::count(var_0.begin(), var_0.end(), 0);
-
-      if (n_non_zeros == 2) // LINE
+      if (type == 1) // LINE
         {
           const std::array<T, 2> i{var_0[0], var_0[1]};
           const std::array<T, 3> j{var_1[0], var_1[1]};
 
           // clang-format off
-          if (i == std::array<T, 2>{{j[0], j[1]}}) return 0;
-          if (i == std::array<T, 2>{{j[1], j[0]}}) return 1;
+          if (i == std::array<T, 2>{{j[0], j[1]}}) return 1;
+          if (i == std::array<T, 2>{{j[1], j[0]}}) return 0;
           // clang-format on
         }
-      else if (n_non_zeros == 3) // TRI
+      else if (type == 2) // TRI
         {
           const std::array<T, 3> i{var_0[0], var_0[1], var_0[2]};
           const std::array<T, 3> j{var_1[0], var_1[1], var_1[2]};
 
           // clang-format off
           // face_orientation=true, face_rotation=false, face_flip=false
-          if (i == std::array<T, 3>{{j[0], j[1], j[2]}}) return 0;
-          
+          if (i == std::array<T, 3>{{j[0], j[1], j[2]}}) return 1;
+
           // face_orientation=true, face_rotation=true, face_flip=false
-          if (i == std::array<T, 3>{{j[1], j[0], j[2]}}) return 2;
-          
+          if (i == std::array<T, 3>{{j[1], j[0], j[2]}}) return 3;
+
           // face_orientation=true, face_rotation=false, face_flip=true
-          if (i == std::array<T, 3>{{j[2], j[0], j[1]}}) return 4;
-          
+          if (i == std::array<T, 3>{{j[2], j[0], j[1]}}) return 5;
+
           // face_orientation=false, face_rotation=false, face_flip=false
-          if (i == std::array<T, 3>{{j[0], j[2], j[1]}}) return 1;
-          
+          if (i == std::array<T, 3>{{j[0], j[2], j[1]}}) return 0;
+
           // face_orientation=false, face_rotation=true, face_flip=false
-          if (i == std::array<T, 3>{{j[1], j[2], j[0]}}) return 3;
-          
+          if (i == std::array<T, 3>{{j[1], j[2], j[0]}}) return 2;
+
           // face_orientation=false, face_rotation=false, face_flip=true
-          if (i == std::array<T, 3>{{j[2], j[1], j[0]}}) return 5;
+          if (i == std::array<T, 3>{{j[2], j[1], j[0]}}) return 4;
           // clang-format on
         }
-      else if (n_non_zeros == 3) // QUAD
+      else if (type == 3) // QUAD
         {
           const std::array<T, 4> i{var_0[0], var_0[1], var_0[2], var_0[3]};
           const std::array<T, 4> j{var_1[0], var_1[1], var_1[2], var_1[3]};
@@ -11408,25 +11405,25 @@ namespace internal
           // clang-format off
           // face_orientation=true, face_rotation=false, face_flip=false
           if (i == std::array<T, 4>{{j[0], j[1], j[2], j[3]}}) return 1; // 0
-          
+
           // face_orientation=true, face_rotation=true, face_flip=false
           if (i == std::array<T, 4>{{j[1], j[3], j[0], j[2]}}) return 5; // 2
-          
+
           // face_orientation=true, face_rotation=false, face_flip=true
           if (i == std::array<T, 4>{{j[3], j[2], j[1], j[0]}}) return 3; // 4
-          
+
           // face_orientation=true, face_rotation=true, face_flip=true
           if (i == std::array<T, 4>{{j[2], j[0], j[3], j[1]}}) return 7; // 6
-          
+
           // face_orientation=false, face_rotation=false, face_flip=false
           if (i == std::array<T, 4>{{j[0], j[2], j[1], j[3]}}) return 0; // 1
-          
+
           // face_orientation=false, face_rotation=true, face_flip=false
           if (i == std::array<T, 4>{{j[2], j[3], j[0], j[1]}}) return 4; // 3
-          
+
           // face_orientation=false, face_rotation=false, face_flip=true
           if (i == std::array<T, 4>{{j[3], j[1], j[2], j[0]}}) return 2; // 5
-          
+
           // face_orientation=false, face_rotation=true, face_flip=true
           if (i == std::array<T, 4>{{j[1], j[0], j[2], j[3]}}) return 6; // 7
           // clang-format on
@@ -11461,7 +11458,7 @@ namespace internal
                              std::array<unsigned int, key_length>,
                              unsigned int,
                              unsigned int>>
-        keys; // key (sorted vertices), vertices, cell-entity index
+        keys; // key (sorted vertices), vertices, cell-entity index, type
 
       ptr_d.resize(cell_types_index.size() + 1);
       ptr_d[0] = 0;
@@ -11534,15 +11531,17 @@ namespace internal
               // take its orientation as default
               keys_unique.emplace_back(std::get<2>(keys[i]),
                                        counter,
-                                       std::get<3>(keys[i]) == 3 ? 1 : 0);
+                                       1 /*default orientation*/);
             }
           else
             {
               // same key, but different orientation
-              keys_unique.emplace_back(
-                std::get<2>(keys[i]),
-                counter,
-                compute_orientation(ref_indices, std::get<1>(keys[i])));
+              keys_unique.emplace_back(std::get<2>(keys[i]),
+                                       counter,
+                                       compute_orientation(ref_indices,
+                                                           std::get<1>(keys[i]),
+                                                           std::get<3>(
+                                                             keys[i])));
             }
         }
       ptr_0.push_back(col_0.size());
@@ -11658,10 +11657,8 @@ namespace internal
             {
               const unsigned int f = con_cq.col[f_];
 
-              const unsigned int t = cell_type->type_of_entity(2, f_index);
-
               // only faces with default orientation have to do something
-              if (!((t == 3 && ori_cq[f_] == 1) || (t != 3 && ori_cq[f_] == 0)))
+              if (ori_cq[f_] != 1)
                 continue;
 
               quad_t_id[f] = cell_type->type_of_entity(2, f_index);
@@ -11692,10 +11689,7 @@ namespace internal
                       }
 
                   // ... comparison gives orientation
-                  if (t == 3)                                      // QUAD
-                    orientations[crs.ptr[f] + l] = (same ? 1 : 0); // TODO
-                  else
-                    orientations[crs.ptr[f] + l] = (same ? 0 : 1);
+                  orientations[crs.ptr[f] + l] = (same ? 1 : 0);
                 }
             }
         }
