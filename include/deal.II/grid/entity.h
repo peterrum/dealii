@@ -151,11 +151,13 @@ struct DynamicGeometryInfo
 
   virtual unsigned int
   standard_to_real_face_vertex(const unsigned int  vertex,
+                               const unsigned int  face,
                                const unsigned char face_orientation) const
   {
     Assert(false, ExcNotImplemented());
 
     (void)vertex;
+    (void)face;
     (void)face_orientation;
 
     return 0;
@@ -351,9 +353,11 @@ struct DynamicGeometryInfoTet : DynamicGeometryInfo
   unsigned int
   standard_to_real_face_vertex(
     const unsigned int  vertex,
+    const unsigned int  face,
     const unsigned char face_orientation) const override
   {
     AssertIndexRange(face_orientation, 6);
+    (void)face;
 
     // static const std::array<std::array<unsigned int, 3>, 6> table = {
     //  {{0, 1, 2}, {0, 1, 2}, {0, 1, 2}, {0, 1, 2}, {0, 1, 2}, {0, 1, 2}}};
@@ -368,7 +372,7 @@ struct DynamicGeometryInfoTet : DynamicGeometryInfo
 
 
 /**
- * TET
+ * PYRAMID
  */
 struct DynamicGeometryInfoPyramid : DynamicGeometryInfo
 {
@@ -437,16 +441,39 @@ struct DynamicGeometryInfoPyramid : DynamicGeometryInfo
   unsigned int
   standard_to_real_face_vertex(
     const unsigned int  vertex,
+    const unsigned int  face,
     const unsigned char face_orientation) const override
   {
-    (void)face_orientation;
+    if (face == 0) // QUAD
+      {
+        return GeometryInfo<3>::standard_to_real_face_vertex(
+          vertex,
+          get_bit(face_orientation, 0),
+          get_bit(face_orientation, 1),
+          get_bit(face_orientation, 2));
+      }
+    else // TRI
+      {
+        static const std::array<std::array<unsigned int, 3>, 6> table = {
+          {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}};
 
-    return vertex;
+        return table[face_orientation][vertex];
+      }
+  }
 
-    // static const std::array<std::array<unsigned int, 3>, 6> table = {
-    //  {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}};
-    //
-    // return table[face_orientation][vertex];
+
+  /**
+   * Check if the bit at position @p n in @p number is set.
+   */
+  inline static bool
+  get_bit(const unsigned char number, const unsigned int n)
+  {
+    AssertIndexRange(n, 8);
+
+    // source:
+    // https://stackoverflow.com/questions/47981/how-do-you-set-clear-and-toggle-a-single-bit
+    // "Checking a bit"
+    return (number >> n) & 1U;
   }
 };
 
@@ -512,8 +539,11 @@ struct DynamicGeometryInfoHex : public DynamicGeometryInfoTensor<3>
   unsigned int
   standard_to_real_face_vertex(
     const unsigned int  vertex,
+    const unsigned int  face,
     const unsigned char face_orientation) const override
   {
+    (void)face;
+
     return GeometryInfo<3>::standard_to_real_face_vertex(
       vertex,
       get_bit(face_orientation, 0),

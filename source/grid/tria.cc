@@ -11083,6 +11083,128 @@ namespace internal
 
 
 
+    struct CellTypeWedge : public CellTypeBase
+    {
+      dealii::ArrayView<const unsigned int>
+      vertices_of_entity(const unsigned int d,
+                         const unsigned int e) const override
+      {
+        if (d == 3)
+          {
+            static const std::array<unsigned int, 6> table = {0, 1, 2, 3, 4, 5};
+
+            AssertDimension(e, 0);
+
+            return dealii::ArrayView<const unsigned int>(table);
+          }
+
+        if (d == 2)
+          {
+            if (e == 0)
+              {
+                static const std::array<unsigned int, 4> table = {0,
+                                                                  1,
+                                                                  2,
+                                                                  3}; // TODO
+                return dealii::ArrayView<const unsigned int>(table);
+              }
+
+            static const std::array<std::array<unsigned int, 3>, 4> table = {
+              {{0, 2, 4}, {3, 1, 4}, {1, 0, 4}, {2, 3, 4}}}; // TODO
+
+            return dealii::ArrayView<const unsigned int>(table[e]);
+          }
+
+        if (d == 1)
+          {
+            static const std::array<std::array<unsigned int, 2>, 8> table = {
+              {{0, 2},
+               {1, 3},
+               {0, 1},
+               {2, 3},
+               {0, 4},
+               {1, 4},
+               {2, 4},
+               {3, 4}}}; // TODO
+
+            return dealii::ArrayView<const unsigned int>(table[e]);
+          }
+
+        Assert(false, ExcNotImplemented());
+
+        return dealii::ArrayView<const unsigned int>();
+      }
+
+      virtual unsigned int
+      type_of_entity(const unsigned int d, const unsigned int e) const override
+      {
+        (void)e;
+
+        if (d == 3)
+          return 6;
+
+        if (d == 2 && e > 1)
+          return 3;
+        else if (d == 2)
+          return 2;
+
+        if (d == 1)
+          return 1;
+
+        Assert(false, ExcNotImplemented());
+
+        return -1;
+      }
+
+      unsigned int
+      n_entities(const unsigned int d) const override
+      {
+        static std::array<unsigned int, 4> table = {6, 10, 6, 1};
+        return table[d];
+      }
+
+      unsigned int
+      n_lines_of_surface(const unsigned int surface) const override
+      {
+        if (surface > 1)
+          return 4;
+
+        return 3;
+      }
+
+      unsigned int
+      nth_line_of_surface(const unsigned int line,
+                          const unsigned int face) const override
+      {
+        const static std::array<std::array<unsigned int, 4>, 5> table = {
+          {{0, 1, 2, 3},
+           {0, 6, 4, numbers::invalid_unsigned_int},
+           {1, 5, 7, numbers::invalid_unsigned_int},
+           {2, 4, 5, numbers::invalid_unsigned_int},
+           {3, 7, 6, numbers::invalid_unsigned_int}}}; // TODO
+
+        return table[face][line];
+      }
+
+      const std::array<unsigned int, 2> &
+      vertices_of_nth_line_of_surface(const unsigned int line,
+                                      const unsigned int face) const override
+      {
+        // clang-format off
+        const static std::array<std::array<std::array<unsigned int, 2>, 4>, 5>
+          table = {{{{{0, 2}, {1, 3}, {0, 1}, {2, 3}}},
+                    {{{0, 2}, {2, 4}, {4, 0}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
+                    {{{3, 1}, {1, 4}, {4, 3}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
+                    {{{1, 0}, {0, 4}, {4, 1}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
+                    {{{2, 3}, {3, 4}, {4, 2}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}}}}; // TODO
+        // clang-format on
+
+        return table[face][line];
+      }
+    };
+
+
+
     template <typename T = unsigned int>
     struct CRS
     {
@@ -11367,7 +11489,9 @@ namespace internal
                   col_0.push_back(j - offset);
 
               // take its orientation as default
-              keys_unique.emplace_back(std::get<2>(keys[i]), counter, 0);
+              keys_unique.emplace_back(std::get<2>(keys[i]),
+                                       counter,
+                                       std::get<3>(keys[i]) == 3 ? 1 : 0);
             }
           else
             {
@@ -11494,7 +11618,7 @@ namespace internal
               const unsigned int t = cell_type->type_of_entity(2, f_index);
 
               // only faces with default orientation have to do something
-              if (ori_cq[f_] != 0)
+              if (!((t == 3 && ori_cq[f_] == 1) || (t != 3 && ori_cq[f_] == 0)))
                 continue;
 
               quad_t_id[f] = cell_type->type_of_entity(2, f_index);
@@ -11615,7 +11739,7 @@ namespace internal
       cell_types_impl.emplace_back(new CellTypeBase());    // 3: QUAD
       cell_types_impl.emplace_back(new CellTypeTet());     // 4: TET
       cell_types_impl.emplace_back(new CellTypePyramid()); // 5: PYRAMID
-      cell_types_impl.emplace_back(new CellTypeBase());    // 6: WEDGE
+      cell_types_impl.emplace_back(new CellTypeWedge());   // 6: WEDGE
       cell_types_impl.emplace_back(new CellTypeBase());    // 7: HEX
 
       std::vector<std::size_t> cell_ptr(cell_types_indices.size() + 1);

@@ -986,7 +986,7 @@ namespace internal
         const auto face_index = pair[0];
         const auto vertex_index =
           accessor.entity().standard_to_real_face_vertex(
-            pair[1], face_orientation_raw(accessor, face_index));
+            pair[1], pair[0], face_orientation_raw(accessor, face_index));
 
         // deallog << "AA " << corner << " " << pair[0] << " " << pair[1] << " "
         // << vertex_index << " "
