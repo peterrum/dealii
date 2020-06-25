@@ -480,6 +480,114 @@ struct DynamicGeometryInfoPyramid : DynamicGeometryInfo
 
 
 /**
+ * WEDGE
+ */
+struct DynamicGeometryInfoWedge : DynamicGeometryInfo
+{
+  unsigned int
+  n_vertices() const override
+  {
+    return 6;
+  }
+
+  unsigned int
+  n_lines() const override
+  {
+    return 9;
+  }
+
+  unsigned int
+  n_faces() const override
+  {
+    return 6;
+  }
+  std::array<unsigned int, 2>
+  standard_hex_line_to_quad_line_index(const unsigned int line) const override
+  {
+    Assert(false, ExcNotImplemented());
+
+    static const std::array<unsigned int, 2> table[6] = {
+      {0, 0}, {0, 1}, {0, 2}, {1, 1}, {1, 2}, {2, 1}};
+
+    return table[line];
+  }
+
+  unsigned int
+  standard_to_real_face_line(
+    const unsigned int  line,
+    const unsigned char face_orientation) const override
+  {
+    Assert(false, ExcNotImplemented());
+
+    static const std::array<std::array<unsigned int, 3>, 6> table = {
+      {{0, 1, 2}, {2, 1, 0}, {0, 2, 1}, {1, 2, 0}, {2, 0, 1}, {1, 0, 2}}};
+
+    return table[face_orientation][line];
+  }
+
+  bool
+  combine_quad_and_line_orientation(const unsigned int  line,
+                                    const unsigned char face_orientation,
+                                    const bool line_orientation) const override
+  {
+    (void)line;
+    (void)face_orientation;
+
+    return line_orientation; // TODO
+  }
+
+  std::array<unsigned int, 2>
+  standard_hex_vertex_to_quad_vertex_index(
+    const unsigned int vertex) const override
+  {
+    static const std::array<std::array<unsigned int, 2>, 6> table = {
+      {{0, 1}, {0, 0}, {0, 2}, {1, 0}, {1, 1}, {1, 2}}};
+
+    return table[vertex];
+  }
+
+  unsigned int
+  standard_to_real_face_vertex(
+    const unsigned int  vertex,
+    const unsigned int  face,
+    const unsigned char face_orientation) const override
+  {
+    if (face > 1) // QUAD
+      {
+        return GeometryInfo<3>::standard_to_real_face_vertex(
+          vertex,
+          get_bit(face_orientation, 0),
+          get_bit(face_orientation, 1),
+          get_bit(face_orientation, 2));
+      }
+    else // TRI
+      {
+        static const std::array<std::array<unsigned int, 3>, 6> table = {
+          {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}};
+
+        return table[face_orientation][vertex];
+      }
+  }
+
+
+  /**
+   * Check if the bit at position @p n in @p number is set.
+   */
+  inline static bool
+  get_bit(const unsigned char number, const unsigned int n)
+  {
+    AssertIndexRange(n, 8);
+
+    // source:
+    // https://stackoverflow.com/questions/47981/how-do-you-set-clear-and-toggle-a-single-bit
+    // "Checking a bit"
+    return (number >> n) & 1U;
+  }
+};
+
+
+
+/**
  * HEX
  */
 struct DynamicGeometryInfoHex : public DynamicGeometryInfoTensor<3>

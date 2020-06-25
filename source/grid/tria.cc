@@ -10997,7 +10997,7 @@ namespace internal
             static const std::array<std::array<unsigned int, 3>, 4> table = {
               {{0, 2, 4}, {3, 1, 4}, {1, 0, 4}, {2, 3, 4}}};
 
-            return dealii::ArrayView<const unsigned int>(table[e]);
+            return dealii::ArrayView<const unsigned int>(table[e - 1]);
           }
 
         if (d == 1)
@@ -11100,32 +11100,32 @@ namespace internal
 
         if (d == 2)
           {
-            if (e == 0)
+            if (e == 0 || e == 1)
               {
-                static const std::array<unsigned int, 4> table = {0,
-                                                                  1,
-                                                                  2,
-                                                                  3}; // TODO
-                return dealii::ArrayView<const unsigned int>(table);
+                static const std::array<std::array<unsigned int, 3>, 2> table =
+                  {{{1, 0, 2}, {3, 4, 5}}};
+
+                return dealii::ArrayView<const unsigned int>(table[e]);
               }
 
-            static const std::array<std::array<unsigned int, 3>, 4> table = {
-              {{0, 2, 4}, {3, 1, 4}, {1, 0, 4}, {2, 3, 4}}}; // TODO
+            static const std::array<std::array<unsigned int, 4>, 3> table = {
+              {{0, 1, 3, 4}, {1, 2, 4, 5}, {2, 0, 5, 3}}};
 
-            return dealii::ArrayView<const unsigned int>(table[e]);
+            return dealii::ArrayView<const unsigned int>(table[e - 2]);
           }
 
         if (d == 1)
           {
-            static const std::array<std::array<unsigned int, 2>, 8> table = {
-              {{0, 2},
-               {1, 3},
-               {0, 1},
-               {2, 3},
-               {0, 4},
+            static const std::array<std::array<unsigned int, 2>, 9> table = {
+              {{0, 1},
+               {1, 2},
+               {2, 0},
+               {3, 4},
+               {4, 5},
+               {5, 3},
+               {0, 3},
                {1, 4},
-               {2, 4},
-               {3, 4}}}; // TODO
+               {2, 5}}};
 
             return dealii::ArrayView<const unsigned int>(table[e]);
           }
@@ -11159,7 +11159,7 @@ namespace internal
       unsigned int
       n_entities(const unsigned int d) const override
       {
-        static std::array<unsigned int, 4> table = {6, 10, 6, 1};
+        static std::array<unsigned int, 4> table = {6, 9, 5, 1};
         return table[d];
       }
 
@@ -11177,11 +11177,11 @@ namespace internal
                           const unsigned int face) const override
       {
         const static std::array<std::array<unsigned int, 4>, 5> table = {
-          {{0, 1, 2, 3},
-           {0, 6, 4, numbers::invalid_unsigned_int},
-           {1, 5, 7, numbers::invalid_unsigned_int},
-           {2, 4, 5, numbers::invalid_unsigned_int},
-           {3, 7, 6, numbers::invalid_unsigned_int}}}; // TODO
+          {{0, 2, 1, numbers::invalid_unsigned_int},
+           {3, 4, 5, numbers::invalid_unsigned_int},
+           {6, 7, 0, 3},
+           {7, 8, 1, 4},
+           {8, 6, 5, 2}}}; // TODO
 
         return table[face][line];
       }
@@ -11192,11 +11192,11 @@ namespace internal
       {
         // clang-format off
         const static std::array<std::array<std::array<unsigned int, 2>, 4>, 5>
-          table = {{{{{0, 2}, {1, 3}, {0, 1}, {2, 3}}},
-                    {{{0, 2}, {2, 4}, {4, 0}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
-                    {{{3, 1}, {1, 4}, {4, 3}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
-                    {{{1, 0}, {0, 4}, {4, 1}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
-                    {{{2, 3}, {3, 4}, {4, 2}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}}}}; // TODO
+          table = {{{{{1, 0}, {0, 2}, {2, 1}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
+                    {{{3, 4}, {4, 5}, {5, 3}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
+                    {{{0, 3}, {1, 4}, {0, 1}, {3, 4}}},
+                    {{{1, 4}, {2, 5}, {1, 2}, {4, 5}}},
+                    {{{2, 5}, {0, 3}, {2, 0}, {5, 3}}}}}; // TODO
         // clang-format on
 
         return table[face][line];
@@ -12100,8 +12100,8 @@ Triangulation<dim, spacedim>::Triangulation(
   this->geometry_info.emplace_back(new DynamicGeometryInfoQuad());    // 3
   this->geometry_info.emplace_back(new DynamicGeometryInfoTet());     // 4
   this->geometry_info.emplace_back(new DynamicGeometryInfoPyramid()); // 5
-  this->geometry_info.emplace_back(new DynamicGeometryInfo());    // 6 (TODO)
-  this->geometry_info.emplace_back(new DynamicGeometryInfoHex()); // 7
+  this->geometry_info.emplace_back(new DynamicGeometryInfoWedge());   // 6
+  this->geometry_info.emplace_back(new DynamicGeometryInfoHex());     // 7
 }
 
 
