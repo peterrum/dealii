@@ -10876,6 +10876,60 @@ namespace internal
 
 
 
+    struct CellTypeQuad : public CellTypeBase
+    {
+      dealii::ArrayView<const unsigned int>
+      vertices_of_entity(const unsigned int d,
+                         const unsigned int e) const override
+      {
+        if (d == 2)
+          {
+            static const std::array<unsigned int, 4> table = {0, 1, 2, 3};
+
+            AssertDimension(e, 0);
+
+            return dealii::ArrayView<const unsigned int>(table);
+          }
+
+        if (d == 1)
+          {
+            static const std::array<std::array<unsigned int, 2>, 4> table = {
+              {{0, 2}, {1, 3}, {0, 1}, {2, 3}}};
+
+            return dealii::ArrayView<const unsigned int>(table[e]);
+          }
+
+        Assert(false, ExcNotImplemented());
+
+        return dealii::ArrayView<const unsigned int>();
+      }
+
+      virtual unsigned int
+      type_of_entity(const unsigned int d, const unsigned int e) const override
+      {
+        (void)e;
+
+        if (d == 2)
+          return 3;
+
+        if (d == 1)
+          return 1;
+
+        Assert(false, ExcNotImplemented());
+
+        return -1;
+      }
+
+      unsigned int
+      n_entities(const unsigned int d) const override
+      {
+        static std::array<unsigned int, 3> table = {4, 4, 1};
+        return table[d];
+      }
+    };
+
+
+
     struct CellTypeTet : public CellTypeBase
     {
       dealii::ArrayView<const unsigned int>
@@ -11899,7 +11953,7 @@ namespace internal
       cell_types_impl.emplace_back(new CellTypeBase());    // 0: VERTEX
       cell_types_impl.emplace_back(new CellTypeBase());    // 1: LINE
       cell_types_impl.emplace_back(new CellTypeTri());     // 2: TRI
-      cell_types_impl.emplace_back(new CellTypeBase());    // 3: QUAD
+      cell_types_impl.emplace_back(new CellTypeQuad());    // 3: QUAD
       cell_types_impl.emplace_back(new CellTypeTet());     // 4: TET
       cell_types_impl.emplace_back(new CellTypePyramid()); // 5: PYRAMID
       cell_types_impl.emplace_back(new CellTypeWedge());   // 6: WEDGE

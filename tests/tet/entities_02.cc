@@ -67,6 +67,22 @@ void generate_grid(Triangulation<2> &triangulation, int orientation)
     }
 
   triangulation.create_triangulation(vertices, cells, SubCellData());
+
+  auto cell_input = cells.begin();
+
+  for (const auto &cell : triangulation.active_cell_iterators())
+    {
+      for (unsigned int v = 0; v < cell_input->vertices.size(); ++v)
+        deallog << cell->vertex_index(v) << " ";
+      deallog << std::endl;
+
+      for (const auto &vertex : cell_input->vertices)
+        deallog << vertex << " ";
+      deallog << std::endl;
+
+      cell_input++;
+    }
+  deallog << std::endl;
 }
 
 
@@ -147,6 +163,7 @@ main()
     {
       // Generate a triangulation and match:
       Triangulation<2> triangulation;
+      triangulation.set_use_arbitray_mesh(true);
 
       deallog << "Triangulation:" << i << std::endl;
 
@@ -158,6 +175,7 @@ main()
   for (int i = 0; i < 8; ++i)
     {
       Triangulation<3> triangulation;
+      triangulation.set_use_arbitray_mesh(true);
 
       deallog << "Triangulation:" << i << std::endl;
 
