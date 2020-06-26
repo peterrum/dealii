@@ -11476,9 +11476,11 @@ namespace internal
       /**
        * for 1D
        */
-      Connectivity(const CRS<T> &                   neighbors,
+      Connectivity(const CRS<T> &                   cell_entities,
+                   const CRS<T> &                   neighbors,
                    const std::vector<unsigned int> &cell_types)
-        : neighbors(neighbors)
+        : cell_entities(cell_entities)
+        , neighbors(neighbors)
         , cell_types(cell_types)
       {}
 
@@ -11663,7 +11665,7 @@ namespace internal
           if (i == std::array<T, 4>{{j[3], j[1], j[2], j[0]}}) return 4;
 
           // face_orientation=false, face_rotation=true, face_flip=true
-          if (i == std::array<T, 4>{{j[1], j[0], j[2], j[3]}}) return 6;
+          if (i == std::array<T, 4>{{j[1], j[0], j[3], j[2]}}) return 6;
           // clang-format on
         }
 
@@ -11940,10 +11942,8 @@ namespace internal
     build_connectivity(const unsigned int                                dim,
                        const std::vector<std::shared_ptr<CellTypeBase>> &cell_t,
                        const std::vector<unsigned int> &cell_t_id,
-                       const CRS<T> &                   crs)
+                       const CRS<T> &                   con_cv)
     {
-      CRS<T> con_cv = crs; // input
-
       // cell -> line & line -> vertex (only in 2D/3D)
       CRS<T>                     con_lv, con_cl;
       std::vector<unsigned char> ori_cl; // not needed in 3D
@@ -11981,13 +11981,13 @@ namespace internal
 
       // determine neighbors
       {
-        const CRS<T> &con_cf = dim == 2 ? con_cv : (dim == 2 ? con_cl : con_cq);
+        const CRS<T> &con_cf = dim == 1 ? con_cv : (dim == 2 ? con_cl : con_cq);
         con_cc = determine_neighbors(con_cf, transpose(con_cf) /*:=con_fc*/);
       }
 
       // pack result
       if (dim == 1)
-        return {con_cc, cell_t_id};
+        return {con_cv, con_cc, cell_t_id};
       else if (dim == 2)
         return {con_lv, ori_cl, con_cl, con_cc, cell_t_id};
       else
@@ -12076,6 +12076,7 @@ namespace internal
 
         // copy vertices
         tria.vertices = vertices;
+        tria.vertices_used.assign(vertices.size(), true);
 
         // compute connectivity
         const auto connectivity = build_connectivity<unsigned int>(cells);
@@ -12102,8 +12103,10 @@ namespace internal
               n_lines,
               internal::TriangulationImplementation::TriaObjects::
                 BoundaryOrMaterialId());
-            lines_0.manifold_id.assign(n_lines, 0);
+            lines_0.manifold_id.assign(n_lines, -1);
             lines_0.user_flags.assign(n_lines, false);
+            lines_0.user_data.resize(n_lines);
+            // lines_0.refinement_cases.assign(n_lines, 0);
 
             lines_0.children.assign(GeometryInfo<1>::max_children_per_cell / 2 *
                                       n_lines,
@@ -12119,6 +12122,10 @@ namespace internal
                    ++i, ++j)
                 lines_0.cells[line * GeometryInfo<1>::faces_per_cell + j] =
                   crs.col[i];
+
+            lines_0.next_free_single               = n_lines - 1;
+            lines_0.next_free_pair                 = 0;
+            lines_0.reverse_order_next_free_single = true;
           }
 
         // TriaObjects: quads
@@ -12133,8 +12140,10 @@ namespace internal
               n_quads,
               internal::TriangulationImplementation::TriaObjects::
                 BoundaryOrMaterialId());
-            quads_0.manifold_id.assign(n_quads, 0);
+            quads_0.manifold_id.assign(n_quads, -1);
             quads_0.user_flags.assign(n_quads, false);
+            quads_0.user_data.resize(n_quads);
+            // quads_0.refinement_cases.assign(n_quads, 0);
 
             quads_0.children.assign(GeometryInfo<2>::max_children_per_cell / 2 *
                                       n_quads,
@@ -12173,10 +12182,15 @@ namespace internal
         {
           auto &level_0 = *tria.levels[0];
 
-          level_0.active_cell_indices.assign(n_cell, 0); // the right value will
-                                                         // be set later
+          level_0.active_cell_indices.assign(n_cell, -1); // the right value
+                                                          // will be set later
           level_0.subdomain_ids.assign(n_cell, 0);
           level_0.level_subdomain_ids.assign(n_cell, 0);
+
+          level_0.refine_flags.assign(n_cell, false);
+          level_0.coarsen_flags.assign(n_cell, false);
+
+          level_0.parents.assign(n_cell - 1, -1);
 
           // set neighbors
           {
@@ -12188,46 +12202,71 @@ namespace internal
             for (unsigned int cell = 0; cell < cells.size(); ++cell)
               for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
                    ++i, ++j)
-                level_0.neighbors[cell * GeometryInfo<dim>::faces_per_cell +
-                                  j] = {0, crs.col[i]};
+                level_0
+                  .neighbors[cell * GeometryInfo<dim>::faces_per_cell + j] = {
+                  crs.col[i] == static_cast<unsigned int>(-1) ? -1 : 0,
+                  crs.col[i]};
           }
 
           // set boundary faces
-          {
-            std::vector<unsigned int> temp(
-              dim == 3 ? tria.faces->quads.boundary_or_material_id.size() :
-                         tria.faces->lines.boundary_or_material_id.size(),
-              0);
+          if (dim > 1)
+            {
+              std::vector<unsigned int> temp(
+                dim == 3 ? tria.faces->quads.boundary_or_material_id.size() :
+                           tria.faces->lines.boundary_or_material_id.size(),
+                0);
 
-            const auto &crs = connectivity.cell_entities;
+              const auto &crs = connectivity.cell_entities;
 
-            for (unsigned int cell = 0; cell < cells.size(); ++cell)
-              for (unsigned int i = crs.ptr[cell]; i < crs.ptr[cell + 1]; ++i)
-                temp[crs.col[i]]++;
+              for (unsigned int cell = 0; cell < cells.size(); ++cell)
+                for (unsigned int i = crs.ptr[cell]; i < crs.ptr[cell + 1]; ++i)
+                  temp[crs.col[i]]++;
 
-            for (unsigned int face = 0; face < temp.size(); ++face)
-              if (temp[face] == 1)
-                {
-                  if (dim == 3)
-                    tria.faces->quads.boundary_or_material_id[face]
-                      .boundary_id = 0;
-                  else if (dim == 2)
-                    tria.faces->lines.boundary_or_material_id[face]
-                      .boundary_id = 0;
-                }
-          }
+              for (unsigned int face = 0; face < temp.size(); ++face)
+                if (temp[face] == 1)
+                  {
+                    if (dim == 3)
+                      tria.faces->quads.boundary_or_material_id[face]
+                        .boundary_id = 0;
+                    else if (dim == 2)
+                      tria.faces->lines.boundary_or_material_id[face]
+                        .boundary_id = 0;
+                  }
+            }
+          else // 1D
+            {
+              std::vector<std::pair<unsigned int, unsigned int>> temp(
+                vertices.size());
+
+              const auto &crs = connectivity.cell_entities;
+
+              for (unsigned int cell = 0; cell < cells.size(); ++cell)
+                for (unsigned int i = crs.ptr[cell], j = 0;
+                     i < crs.ptr[cell + 1];
+                     ++i, ++j)
+                  temp[crs.col[i]] = {temp[crs.col[i]].first + 1, j};
+
+              for (unsigned int face = 0; face < temp.size(); ++face)
+                if (temp[face].first == 1)
+                  (*tria.vertex_to_boundary_id_map_1d)[face] =
+                    temp[face].second;
+            }
         }
 
         // TriaObjects: cell
         {
           auto &cells_0 = tria.levels[0]->cells;
           cells_0.used.assign(n_cell, true);
-          cells_0.boundary_or_material_id.assign(
-            n_cell,
-            internal::TriangulationImplementation::TriaObjects::
-              BoundaryOrMaterialId());
-          cells_0.manifold_id.assign(n_cell, 0);
+          cells_0.boundary_or_material_id.resize(n_cell);
+
+          for (unsigned int c = 0; c < n_cell; ++c)
+            cells_0.boundary_or_material_id[c].boundary_id =
+              cells[c].material_id;
+
+          cells_0.manifold_id.assign(n_cell, -1);
           cells_0.user_flags.assign(n_cell, false);
+          cells_0.user_data.resize(n_cell);
+          cells_0.refinement_cases.assign(n_cell, 0);
 
           cells_0.children.assign(GeometryInfo<dim>::max_children_per_cell / 2 *
                                     n_cell,
@@ -12240,7 +12279,7 @@ namespace internal
 
           const auto &crs = connectivity.cell_entities;
 
-          // set faces (2D: line, 3D: quad) of cells
+          // set faces (1D: vertex, 2D: line, 3D: quad) of cells
           cells_0.cells.assign(GeometryInfo<dim>::faces_per_cell * n_cell, -1);
 
           for (unsigned int cell = 0; cell < cells.size(); ++cell)
@@ -12250,7 +12289,7 @@ namespace internal
                 crs.col[i];
 
           // set face orientation
-          if (dim >= 2)
+          if (dim >= 3 /*????*/)
             {
               tria.levels[0]->face_orientations.assign(
                 n_cell * GeometryInfo<dim>::faces_per_cell, -1);
@@ -12264,6 +12303,10 @@ namespace internal
                     dim == 3 ? connectivity.quad_orientation[i] :
                                connectivity.line_orientation[i];
             }
+
+          cells_0.next_free_single               = n_cell - 1;
+          cells_0.next_free_pair                 = 0;
+          cells_0.reverse_order_next_free_single = true;
         }
       }
 
@@ -12780,7 +12823,8 @@ Triangulation<dim, spacedim>::create_triangulation(
       return cell.vertices.size() != GeometryInfo<dim>::vertices_per_cell;
     });
 
-  if (arbitray_mesh_provided == false && use_arbitray_mesh == false)
+  if (arbitray_mesh_provided == false && use_arbitray_mesh == false &&
+      false /*TODO!!!*/)
     {
       this->policy.reset(
         new internal::TriangulationImplementation::PolicyWrapper<
@@ -12809,6 +12853,106 @@ Triangulation<dim, spacedim>::create_triangulation(
       clear_despite_subscriptions();
       throw;
     }
+
+#if false
+  const auto fu = [](const auto & obj){
+    std::cout << "a : ";
+    for(auto i : obj.cells)
+      std::cout << static_cast<int>(i) << " ";
+    std::cout << std::endl;
+
+    std::cout << "b : ";
+    for(auto i : obj.children)
+      std::cout << static_cast<int>(i) << " ";
+    std::cout << std::endl;
+
+    std::cout << "c : " << obj.refinement_cases.size() << " : ";
+    for(auto i : obj.refinement_cases)
+      std::cout << static_cast<int>(i) << " ";
+    std::cout << std::endl;
+
+    std::cout << "d : ";
+    for(auto i : obj.used)
+      std::cout << static_cast<int>(i) << " ";
+    std::cout << std::endl;
+
+    std::cout << "e : ";
+    for(auto i : obj.user_flags)
+      std::cout << static_cast<int>(i) << " ";
+    std::cout << std::endl;
+
+    std::cout << "f : ";
+    for(auto i : obj.boundary_or_material_id)
+      std::cout << static_cast<int>(i.boundary_id) << " ";
+    std::cout << std::endl;
+
+    std::cout << "g : ";
+    for(auto i : obj.manifold_id)
+      std::cout << static_cast<int>(i) << " ";
+    std::cout << std::endl;
+
+    std::cout << "h : ";
+    std::cout << obj.next_free_single << " "
+              << obj.next_free_pair << " "
+              << static_cast<int>(obj.reverse_order_next_free_single) << std::endl;
+  };
+
+  fu(faces->lines);
+  fu(levels[0]->cells);
+  std::cout << std::endl;
+
+  const auto fu2 = [](const auto & obj){
+    std::cout << "A : ";
+    for(auto i : obj.refine_flags)
+      std::cout << static_cast<int>(i) << " ";
+    std::cout << std::endl;
+
+    std::cout << "B : ";
+    for(auto i : obj.refine_flags)
+      std::cout << static_cast<int>(i) << " ";
+    std::cout << std::endl;
+
+    std::cout << "C : ";
+    for(auto i : obj.active_cell_indices)
+      std::cout << static_cast<int>(i) << " ";
+    std::cout << std::endl;
+
+    std::cout << "D : ";
+    for(auto i : obj.neighbors)
+      std::cout << static_cast<int>(i.first) << " " << static_cast<int>(i.second) << " ";
+    std::cout << std::endl;
+
+    std::cout << "E : ";
+    for(auto i : obj.subdomain_ids)
+      std::cout << static_cast<int>(i) << " ";
+    std::cout << std::endl;
+
+    std::cout << "F : ";
+    for(auto i : obj.level_subdomain_ids)
+      std::cout << static_cast<int>(i) << " ";
+    std::cout << std::endl;
+
+    std::cout << "G : ";
+    for(auto i : obj.parents)
+      std::cout << static_cast<int>(i) << " ";
+    std::cout << std::endl;
+
+    std::cout << "H : ";
+    for(auto i : obj.direction_flags)
+      std::cout << static_cast<int>(i) << " ";
+    std::cout << std::endl;
+
+    std::cout << "I: ";
+    for(auto i : obj.face_orientations)
+      std::cout << static_cast<int>(i) << " ";
+    std::cout << std::endl;
+  };
+
+  fu2(*levels[0]);
+  std::cout << std::endl;
+
+  exit(0);
+#endif
 
   // update our counts of the various elements of a triangulation, and set
   // active_cell_indices of all cells
@@ -15783,8 +15927,10 @@ typename Triangulation<dim, spacedim>::DistortedCellList
 Triangulation<dim, spacedim>::execute_refinement()
 {
   const DistortedCellList cells_with_distorted_children =
-    this->policy->execute_refinement(*this, check_for_distorted_cells);
-
+    internal::TriangulationImplementation::Implementation::execute_refinement(
+      *this, check_for_distorted_cells);
+  // this->policy->execute_refinement(*this, check_for_distorted_cells); //
+  // TODO!!!
 
 
   // re-compute number of lines
@@ -15866,10 +16012,9 @@ Triangulation<dim, spacedim>::execute_coarsening()
           // inform all listeners that cell coarsening is going to happen
           signals.pre_coarsening_on_cell(cell);
           // use a separate function, since this is dimension specific
-          this->policy->delete_children(*this,
-                                        cell,
-                                        line_cell_count,
-                                        quad_cell_count);
+          // this->policy->delete_children(*this, // TODO!!!
+          internal::TriangulationImplementation::Implementation::
+            delete_children(*this, cell, line_cell_count, quad_cell_count);
         }
 
   // re-compute number of lines and quads
@@ -16066,7 +16211,9 @@ Triangulation<dim, spacedim>::fix_coarsen_flags()
         if (cell->user_flag_set())
           // if allowed: flag the
           // children for coarsening
-          if (this->policy->coarsening_allowed(cell))
+          // if (this->policy->coarsening_allowed(cell)) // TODO!!!
+          if (internal::TriangulationImplementation::Implementation::
+                coarsening_allowed<dim, spacedim>(cell))
             for (unsigned int c = 0; c < cell->n_children(); ++c)
               {
                 Assert(cell->child(c)->refine_flag_set() == false,
@@ -16836,7 +16983,9 @@ Triangulation<dim, spacedim>::prepare_coarsening_and_refinement()
       //  volume or at least with a part, that is negative, if the
       //  cell is refined anisotropically. we have to check, whether
       //  that can happen
-      this->policy->prevent_distorted_boundary_cells(*this);
+      // this->policy->prevent_distorted_boundary_cells(*this); // TODO!!!
+      internal::TriangulationImplementation::Implementation::
+        prevent_distorted_boundary_cells(*this);
 
       /////////////////////////////////
       // STEP 6:
@@ -17298,7 +17447,9 @@ Triangulation<dim, spacedim>::prepare_coarsening_and_refinement()
       //    take care that no double refinement
       //    is done at each line in 3d or higher
       //    dimensions.
-      this->policy->prepare_refinement_dim_dependent(*this);
+      // this->policy->prepare_refinement_dim_dependent(*this); // TODO!!!
+      internal::TriangulationImplementation::Implementation::
+        prepare_refinement_dim_dependent(*this);
 
       //////////////////////////////////////
       // STEP 8:
