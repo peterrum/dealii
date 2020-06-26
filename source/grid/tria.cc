@@ -10822,6 +10822,49 @@ namespace internal
 
 
 
+    struct CellTypeLine : public CellTypeBase
+    {
+      dealii::ArrayView<const unsigned int>
+      vertices_of_entity(const unsigned int d,
+                         const unsigned int e) const override
+      {
+        if (d == 1)
+          {
+            static const std::array<unsigned int, 2> table = {{0, 1}};
+
+            AssertDimension(e, 0);
+
+            return dealii::ArrayView<const unsigned int>(table);
+          }
+
+        Assert(false, ExcNotImplemented());
+
+        return dealii::ArrayView<const unsigned int>();
+      }
+
+      virtual unsigned int
+      type_of_entity(const unsigned int d, const unsigned int e) const override
+      {
+        (void)e;
+
+        if (d == 1)
+          return 1;
+
+        Assert(false, ExcNotImplemented());
+
+        return -1;
+      }
+
+      unsigned int
+      n_entities(const unsigned int d) const override
+      {
+        static std::array<unsigned int, 3> table = {2, 1};
+        return table[d];
+      }
+    };
+
+
+
     struct CellTypeTri : public CellTypeBase
     {
       dealii::ArrayView<const unsigned int>
@@ -11392,16 +11435,19 @@ namespace internal
 
 
     template <typename T = unsigned int>
-    struct Result
+    struct Connectivity
     {
-      Result(const CRS<T> &                    line_vertices,
-             const std::vector<unsigned char> &line_orientation,
-             const CRS<T> &                    quad_lines,
-             const std::vector<unsigned char> &quad_orientation,
-             const CRS<T> &                    cell_entities,
-             const CRS<T> &                    neighbors,
-             const std::vector<unsigned int> & cell_types,
-             const std::vector<unsigned int> & quad_types)
+      /**
+       * for 3D
+       */
+      Connectivity(const CRS<T> &                    line_vertices,
+                   const std::vector<unsigned char> &line_orientation,
+                   const CRS<T> &                    quad_lines,
+                   const std::vector<unsigned char> &quad_orientation,
+                   const CRS<T> &                    cell_entities,
+                   const CRS<T> &                    neighbors,
+                   const std::vector<unsigned int> & cell_types,
+                   const std::vector<unsigned int> & quad_types)
         : line_vertices(line_vertices)
         , line_orientation(line_orientation)
         , quad_lines(quad_lines)
@@ -11412,15 +11458,27 @@ namespace internal
         , quad_types(quad_types)
       {}
 
-      Result(const CRS<T> &                    line_vertices,
-             const std::vector<unsigned char> &line_orientation,
-             const CRS<T> &                    cell_entities,
-             const CRS<T> &                    neighbors,
-             const std::vector<unsigned int> & cell_types)
+      /**
+       * for 2D
+       */
+      Connectivity(const CRS<T> &                    line_vertices,
+                   const std::vector<unsigned char> &line_orientation,
+                   const CRS<T> &                    cell_entities,
+                   const CRS<T> &                    neighbors,
+                   const std::vector<unsigned int> & cell_types)
         : line_vertices(line_vertices)
         , line_orientation(line_orientation)
         , cell_entities(cell_entities)
         , neighbors(neighbors)
+        , cell_types(cell_types)
+      {}
+
+      /**
+       * for 1D
+       */
+      Connectivity(const CRS<T> &                   neighbors,
+                   const std::vector<unsigned int> &cell_types)
+        : neighbors(neighbors)
         , cell_types(cell_types)
       {}
 
@@ -11878,7 +11936,7 @@ namespace internal
 
 
     template <typename T>
-    Result<T>
+    Connectivity<T>
     build_connectivity(const unsigned int                                dim,
                        const std::vector<std::shared_ptr<CellTypeBase>> &cell_t,
                        const std::vector<unsigned int> &cell_t_id,
@@ -11886,7 +11944,7 @@ namespace internal
     {
       CRS<T> con_cv = crs; // input
 
-      // cell -> line & line -> vertex
+      // cell -> line & line -> vertex (only in 2D/3D)
       CRS<T>                     con_lv, con_cl;
       std::vector<unsigned char> ori_cl; // not needed in 3D
 
@@ -11904,7 +11962,10 @@ namespace internal
       std::vector<unsigned int> quad_t_id;
 
       // build lines
-      build_entity(1, cell_t, cell_t_id, con_cv, con_cl, con_lv, ori_cl);
+      if (dim == 2 || dim == 3)
+        {
+          build_entity(1, cell_t, cell_t_id, con_cv, con_cl, con_lv, ori_cl);
+        }
 
       if (dim == 3)
         {
@@ -11912,27 +11973,22 @@ namespace internal
           build_entity(2, cell_t, cell_t_id, con_cv, con_cq, con_qv, ori_cq);
 
           // create connectivity: quad -> line
-          build_intersection(cell_t,
-                             cell_t_id,
-                             con_cv,
-                             con_cl,
-                             con_lv,
-                             con_cq,
-                             con_qv,
-                             ori_cq,
-                             con_ql,
-                             ori_ql,
-                             quad_t_id);
+          // clang-format off
+          build_intersection(cell_t, cell_t_id, con_cv, con_cl, con_lv, con_cq,
+                             con_qv, ori_cq, con_ql, ori_ql, quad_t_id);
+          // clang-format on
         }
 
       // determine neighbors
       {
-        const CRS<T> &con_cf = dim == 2 ? con_cl : con_cq;
+        const CRS<T> &con_cf = dim == 2 ? con_cv : (dim == 2 ? con_cl : con_cq);
         con_cc = determine_neighbors(con_cf, transpose(con_cf) /*:=con_fc*/);
       }
 
       // pack result
-      if (dim == 2)
+      if (dim == 1)
+        return {con_cc, cell_t_id};
+      else if (dim == 2)
         return {con_lv, ori_cl, con_cl, con_cc, cell_t_id};
       else
         return {
@@ -11942,7 +11998,7 @@ namespace internal
 
 
     template <typename T>
-    Result<T>
+    Connectivity<T>
     build_connectivity(const unsigned int               dim,
                        const std::vector<unsigned int> &cell_types_indices,
                        const std::vector<T> &           cell_vertices)
@@ -11951,7 +12007,7 @@ namespace internal
       std::vector<std::shared_ptr<CellTypeBase>> cell_types_impl;
 
       cell_types_impl.emplace_back(new CellTypeBase());    // 0: VERTEX
-      cell_types_impl.emplace_back(new CellTypeBase());    // 1: LINE
+      cell_types_impl.emplace_back(new CellTypeLine());    // 1: LINE
       cell_types_impl.emplace_back(new CellTypeTri());     // 2: TRI
       cell_types_impl.emplace_back(new CellTypeQuad());    // 3: QUAD
       cell_types_impl.emplace_back(new CellTypeTet());     // 4: TET
@@ -11980,7 +12036,7 @@ namespace internal
 
 
     template <typename T, int dim>
-    Result<T>
+    Connectivity<T>
     build_connectivity(const std::vector<CellData<dim>> &cells)
     {
       std::vector<unsigned int> cell_types;
