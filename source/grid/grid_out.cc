@@ -3219,8 +3219,8 @@ GridOut::write_vtk(const Triangulation<dim, spacedim> &tria,
    *  5 VTK_TRIANGLE
    *  9 VTK_QUAD
    * 10 VTK_TETRA
-   * 14 VTK_TETRA
-   * 13 VTK_TETRA
+   * 14 VTK_PYRAMID
+   * 13 VTK_WEDGE
    * 12 VTK_HEXAHEDRON
    *
    * see also: https://vtk.org/wp-content/uploads/2015/04/file-formats.pdf
