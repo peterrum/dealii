@@ -11442,6 +11442,7 @@ namespace internal
        */
       Connectivity(const CRS<T> &                    line_vertices,
                    const std::vector<unsigned char> &line_orientation,
+                   const CRS<T> &                    quad_vertices,
                    const CRS<T> &                    quad_lines,
                    const std::vector<unsigned char> &quad_orientation,
                    const CRS<T> &                    cell_entities,
@@ -11450,6 +11451,7 @@ namespace internal
                    const std::vector<unsigned int> & quad_types)
         : line_vertices(line_vertices)
         , line_orientation(line_orientation)
+        , quad_vertices(quad_vertices)
         , quad_lines(quad_lines)
         , quad_orientation(quad_orientation)
         , cell_entities(cell_entities)
@@ -11487,6 +11489,7 @@ namespace internal
 
       CRS<T>                     line_vertices;
       std::vector<unsigned char> line_orientation;
+      CRS<T>                     quad_vertices;
       CRS<T>                     quad_lines;
       std::vector<unsigned char> quad_orientation;
       CRS<T>                     cell_entities;
@@ -11991,8 +11994,15 @@ namespace internal
       else if (dim == 2)
         return {con_lv, ori_cl, con_cl, con_cc, cell_t_id};
       else
-        return {
-          con_lv, ori_ql, con_ql, ori_cq, con_cq, con_cc, cell_t_id, quad_t_id};
+        return {con_lv,
+                ori_ql,
+                con_qv,
+                con_ql,
+                ori_cq,
+                con_cq,
+                con_cc,
+                cell_t_id,
+                quad_t_id};
     }
 
 
@@ -12285,7 +12295,7 @@ namespace internal
                               subcelldata.boundary_lines);
 
         if (dim == 3)
-          process_subcelldata(connectivity.line_vertices /*TODO*/,
+          process_subcelldata(connectivity.quad_vertices,
                               tria.faces->quads,
                               subcelldata.boundary_quads);
       }
@@ -12316,11 +12326,12 @@ namespace internal
         for (unsigned int o = 0; o < obj.n_objects(); ++o)
           {
             auto &boundary_id = obj.boundary_or_material_id[o].boundary_id;
-            auto &manifold_id = obj.manifold_id[o];
 
             // only on boundary has to be done something
             if (boundary_id == numbers::internal_face_boundary_id)
               continue;
+
+            auto &manifold_id = obj.manifold_id[o];
 
             // assert that object has not been visited yet and its value
             // has not been modified yet
