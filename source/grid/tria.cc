@@ -12172,10 +12172,9 @@ namespace internal
             for (unsigned int cell = 0; cell < cells.size(); ++cell)
               for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
                    ++i, ++j)
-                level_0
-                  .neighbors[cell * GeometryInfo<dim>::faces_per_cell + j] = {
-                  crs.col[i] == static_cast<unsigned int>(-1) ? -1 : 0,
-                  crs.col[i]};
+                if (crs.col[i] != static_cast<unsigned int>(-1))
+                  level_0.neighbors[cell * GeometryInfo<dim>::faces_per_cell +
+                                    j] = {0, crs.col[i]};
           }
 
           // set boundary id of boundary faces
