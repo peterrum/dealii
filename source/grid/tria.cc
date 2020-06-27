@@ -11744,7 +11744,14 @@ namespace internal
 
       // sort according to key so that entities with same key can be merged
       std::sort(keys.begin(), keys.end(), [](const auto &a, const auto &b) {
-        return std::get<0>(a) < std::get<0>(b);
+        // try to sort according to the key ...
+        if (std::get<0>(a) < std::get<0>(b))
+          return true;
+        else if (std::get<0>(a) > std::get<0>(b))
+          return false;
+        else // ... else sort according to index -> to preserve order among
+             // entities with same key
+          return std::get<2>(a) < std::get<2>(b);
       });
 
       std::vector<std::tuple<unsigned int, unsigned int, unsigned char>>
@@ -12401,9 +12408,16 @@ namespace internal
 
         obj.cells.assign(faces_per_cell * size, -1);
 
-        obj.next_free_single               = size - 1;
-        obj.next_free_pair                 = 0;
-        obj.reverse_order_next_free_single = true;
+        if (structdim <= 2)
+          {
+            obj.next_free_single               = size - 1;
+            obj.next_free_pair                 = 0;
+            obj.reverse_order_next_free_single = true;
+          }
+        else
+          {
+            obj.next_free_single = obj.next_free_pair = 0;
+          }
       }
 
       template <int dim, int spacedim>
@@ -13047,7 +13061,7 @@ Triangulation<dim, spacedim>::create_triangulation(
   fu2(*levels[0]);
   std::cout << std::endl;
 
-  exit(0);
+  //exit(0);
 #endif
 
   // update our counts of the various elements of a triangulation, and set
