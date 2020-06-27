@@ -12069,11 +12069,6 @@ namespace internal
                            const SubCellData &                 subcelldata,
                            Triangulation<dim, spacedim> &      tria)
       {
-        // no sub-cell data supported at the moment
-        (void)subcelldata;
-        AssertDimension(subcelldata.boundary_lines.size(), 0);
-        AssertDimension(subcelldata.boundary_quads.size(), 0);
-
         // copy vertices
         tria.vertices = vertices;
         tria.vertices_used.assign(vertices.size(), true);
@@ -12283,6 +12278,56 @@ namespace internal
                                connectivity.line_orientation[i];
             }
         }
+
+
+        if (dim >= 2)
+          {
+            auto boundary_lines = subcelldata.boundary_lines;
+            for (auto &boundary_line : boundary_lines)
+              std::sort(boundary_line.vertices.begin(),
+                        boundary_line.vertices.end());
+
+            auto &lines_0 = tria.faces->lines;
+
+            for (unsigned int line = 0; line < tria.faces->lines.n_objects();
+                 ++line)
+              {
+                auto &boundary_id =
+                  lines_0.boundary_or_material_id[line].boundary_id;
+                auto &manifold_id = lines_0.manifold_id[line];
+
+                if (boundary_id == numbers::internal_face_boundary_id)
+                  continue;
+
+                AssertThrow(boundary_id == 0, ExcNotImplemented());
+                AssertThrow(manifold_id == numbers::flat_manifold_id,
+                            ExcNotImplemented());
+
+                const unsigned int n_entries = 2;
+
+                const auto ptr = lines_0.cells.data() +
+                                 (line * GeometryInfo<1>::faces_per_cell);
+                std::vector<unsigned int> key(ptr, ptr + n_entries);
+                std::sort(key.begin(), key.end());
+
+                const auto it = std::find_if(boundary_lines.begin(),
+                                             boundary_lines.end(),
+                                             [&](const auto &cell) {
+                                               return cell.vertices == key;
+                                             });
+
+                if (it != boundary_lines.end())
+                  {
+                    const auto &subcell_line = *it;
+
+                    manifold_id = subcell_line.manifold_id;
+
+                    if (subcell_line.boundary_id !=
+                        numbers::internal_face_boundary_id)
+                      boundary_id = subcell_line.boundary_id;
+                  }
+              }
+          }
       }
 
       static void
