@@ -449,8 +449,8 @@ struct DynamicGeometryInfoPyramid : DynamicGeometryInfo
         return GeometryInfo<3>::standard_to_real_face_vertex(
           vertex,
           get_bit(face_orientation, 0),
-          get_bit(face_orientation, 1),
-          get_bit(face_orientation, 2));
+          get_bit(face_orientation, 2),
+          get_bit(face_orientation, 1));
       }
     else // TRI
       {
@@ -557,8 +557,8 @@ struct DynamicGeometryInfoWedge : DynamicGeometryInfo
         return GeometryInfo<3>::standard_to_real_face_vertex(
           vertex,
           get_bit(face_orientation, 0),
-          get_bit(face_orientation, 1),
-          get_bit(face_orientation, 2));
+          get_bit(face_orientation, 2),
+          get_bit(face_orientation, 1));
       }
     else // TRI
       {
@@ -606,8 +606,8 @@ struct DynamicGeometryInfoHex : public DynamicGeometryInfoTensor<3>
     return GeometryInfo<3>::standard_to_real_face_line(
       line,
       get_bit(face_orientation, 0),
-      get_bit(face_orientation, 1),
-      get_bit(face_orientation, 2));
+      get_bit(face_orientation, 2),
+      get_bit(face_orientation, 1));
   }
 
   bool
@@ -630,8 +630,8 @@ struct DynamicGeometryInfoHex : public DynamicGeometryInfoTensor<3>
        {{true, false}, {false, true}}}};
 
     const bool face_orientation = get_bit(face_orientation_raw, 0);
-    const bool face_flip        = get_bit(face_orientation_raw, 1);
-    const bool face_rotation    = get_bit(face_orientation_raw, 2);
+    const bool face_flip        = get_bit(face_orientation_raw, 2);
+    const bool face_rotation    = get_bit(face_orientation_raw, 1);
 
     return (line_orientation ==
             bool_table[line / 2][face_orientation][face_flip][face_rotation]);
@@ -655,8 +655,8 @@ struct DynamicGeometryInfoHex : public DynamicGeometryInfoTensor<3>
     return GeometryInfo<3>::standard_to_real_face_vertex(
       vertex,
       get_bit(face_orientation, 0),
-      get_bit(face_orientation, 1),
-      get_bit(face_orientation, 2));
+      get_bit(face_orientation, 2),
+      get_bit(face_orientation, 1));
   }
 
 private:
