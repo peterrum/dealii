@@ -11679,7 +11679,7 @@ namespace internal
 
 
 
-    template <int key_length>
+    template <int key_length, typename FU>
     void
     build_entity_templated(
       const unsigned int                                d,
@@ -11688,7 +11688,8 @@ namespace internal
       const CRS<unsigned int> &                         crs,
       CRS<unsigned int> &                               crs_d,
       CRS<unsigned int> &                               crs_0,
-      std::vector<unsigned char> &                      orientations)
+      std::vector<unsigned char> &                      orientations,
+      const FU &                                        second_key_function)
     {
       const std::vector<std::size_t> & cell_ptr      = crs.ptr;
       const std::vector<unsigned int> &cell_vertices = crs.col;
@@ -11700,8 +11701,11 @@ namespace internal
       std::vector<std::tuple<std::array<unsigned int, key_length>,
                              std::array<unsigned int, key_length>,
                              unsigned int,
-                             unsigned int>>
-        keys; // key (sorted vertices), vertices, cell-entity index, type
+                             unsigned int,
+                             std::array<unsigned int, key_length>>>
+        keys; // key (sorted vertices), vertices, cell-entity index, type,
+              // additional key (to ensure same enumeration as in deal.II -
+              // TODO: remove)
 
       ptr_d.resize(cell_types_index.size() + 1);
       ptr_d[0] = 0;
@@ -11735,10 +11739,12 @@ namespace internal
               // ... create key
               std::array<unsigned int, key_length> key = entity_vertices;
               std::sort(key.begin(), key.end());
-              keys.emplace_back(key,
-                                entity_vertices,
-                                counter++,
-                                cell_type->type_of_entity(d, e));
+              keys.emplace_back(
+                key,
+                entity_vertices,
+                counter++,
+                cell_type->type_of_entity(d, e),
+                second_key_function(entity_vertices, cell_type, c, e));
             }
         }
 
@@ -11753,6 +11759,39 @@ namespace internal
              // entities with same key
           return std::get<2>(a) < std::get<2>(b);
       });
+
+      if (true) // to ensure same enumeration as in deal.II (TODO: remove)
+        {
+          std::array<unsigned int, key_length> ref_key;
+          std::array<unsigned int, key_length> add_key;
+          std::fill(ref_key.begin(), ref_key.end(), 0);
+
+          // merge entities (arbitrary groups indices)
+          for (unsigned int i = 0; i < keys.size(); i++)
+            {
+              if (ref_key != std::get<0>(keys[i]))
+                {
+                  ref_key = std::get<0>(keys[i]);
+                  add_key = std::get<4>(keys[i]);
+                }
+              else
+                {
+                  std::get<4>(keys[i]) = add_key;
+                }
+            }
+
+
+          std::sort(keys.begin(), keys.end(), [](const auto &a, const auto &b) {
+            // try to sort according to the key ...
+            if (std::get<4>(a) < std::get<4>(b))
+              return true;
+            else if (std::get<4>(a) > std::get<4>(b))
+              return false;
+            else // ... else sort according to index -> to preserve order among
+                 // entities with same key
+              return std::get<2>(a) < std::get<2>(b);
+          });
+        }
 
       std::vector<std::tuple<unsigned int, unsigned int, unsigned char>>
         keys_unique; // cell-entity index, entity index, orientation
@@ -11815,6 +11854,7 @@ namespace internal
 
 
 
+    template <typename FU>
     void
     build_entity(const unsigned int                                d,
                  const std::vector<std::shared_ptr<CellTypeBase>> &cell_types,
@@ -11822,7 +11862,8 @@ namespace internal
                  const CRS<unsigned int> &        crs,
                  CRS<unsigned int> &              crs_d,
                  CRS<unsigned int> &              crs_0,
-                 std::vector<unsigned char> &     orientations)
+                 std::vector<unsigned char> &     orientations,
+                 const FU &                       second_key_function)
     {
       std::size_t key_length = 0;
 
@@ -11836,11 +11877,11 @@ namespace internal
 
       // clang-format off
     if(key_length == 2)
-      build_entity_templated<2>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations);
+      build_entity_templated<2>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations, second_key_function);
     else if(key_length == 3)
-      build_entity_templated<3>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations);
+      build_entity_templated<3>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations, second_key_function);
     else if(key_length == 4)
-      build_entity_templated<4>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations);
+      build_entity_templated<4>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations, second_key_function);
     else
       AssertThrow(false, dealii::StandardExceptions::ExcNotImplemented ());
       // clang-format on
@@ -11974,13 +12015,45 @@ namespace internal
       // build lines
       if (dim == 2 || dim == 3)
         {
-          build_entity(1, cell_t, cell_t_id, con_cv, con_cl, con_lv, ori_cl);
+          build_entity(1,
+                       cell_t,
+                       cell_t_id,
+                       con_cv,
+                       con_cl,
+                       con_lv,
+                       ori_cl,
+                       [](auto key, const auto &, const auto &, const auto &) {
+                         //  to ensure same enumeration as in deal.II (TODO:
+                         //  remove)
+                         return key;
+                       });
         }
 
       if (dim == 3)
         {
           // build quads
-          build_entity(2, cell_t, cell_t_id, con_cv, con_cq, con_qv, ori_cq);
+          build_entity(
+            2,
+            cell_t,
+            cell_t_id,
+            con_cv,
+            con_cq,
+            con_qv,
+            ori_cq,
+            [&](auto key, const auto &cell_type, const auto &c, const auto &f) {
+              //  to ensure same enumeration as in deal.II (TODO: remove)
+
+              // we exploit here that number of vertices are
+              // the same as the number of lines in the case of TRI and QUAD
+              AssertDimension(cell_type->n_lines_of_surface(f), key.size());
+
+              for (unsigned int l = 0; l < key.size(); ++l)
+                key[l] =
+                  con_cl
+                    .col[con_cl.ptr[c] + cell_type->nth_line_of_surface(l, f)];
+
+              return key;
+            });
 
           // create connectivity: quad -> line
           // clang-format off
@@ -12169,7 +12242,7 @@ namespace internal
           level_0.refine_flags.assign(n_cell, false);
           level_0.coarsen_flags.assign(n_cell, false);
 
-          level_0.parents.assign(n_cell - 1, -1);
+          level_0.parents.assign((n_cell + 1) / 2, -1); // TODO: why?
 
           if (dim < spacedim)
             level_0.direction_flags.assign(n_cell, true);
@@ -12316,7 +12389,7 @@ namespace internal
       {
         AssertDimension(obj.structdim, structdim);
 
-        if (boundary_objects_in.size())
+        if (boundary_objects_in.size() == 0)
           return; // empty subcelldata -> nothing to do
 
         // pre-sort subcelldata
@@ -12333,16 +12406,13 @@ namespace internal
         for (unsigned int o = 0; o < obj.n_objects(); ++o)
           {
             auto &boundary_id = obj.boundary_or_material_id[o].boundary_id;
-
-            // only on boundary has to be done something
-            if (boundary_id == numbers::internal_face_boundary_id)
-              continue;
-
             auto &manifold_id = obj.manifold_id[o];
 
             // assert that object has not been visited yet and its value
             // has not been modified yet
-            AssertThrow(boundary_id == 0, ExcNotImplemented());
+            AssertThrow(boundary_id == 0 ||
+                          boundary_id == numbers::internal_face_boundary_id,
+                        ExcNotImplemented());
             AssertThrow(manifold_id == numbers::flat_manifold_id,
                         ExcNotImplemented());
 
@@ -12370,11 +12440,15 @@ namespace internal
             // set boundary id
             if (subcell_object->boundary_id !=
                 numbers::internal_face_boundary_id)
-              boundary_id = subcell_object->boundary_id;
+              {
+                AssertThrow(boundary_id != numbers::internal_face_boundary_id,
+                            ExcNotImplemented());
+                boundary_id = subcell_object->boundary_id;
+              }
           }
 
         // make sure that all subcelldata entries have been processed
-        AssertDimension(counter, boundary_objects_in.size());
+        // AssertDimension(counter, boundary_objects_in.size());
       }
 
       static void
@@ -12549,9 +12623,19 @@ Triangulation<dim, spacedim>::Triangulation(
   , number_cache(std::move(tria.number_cache))
   , vertex_to_boundary_id_map_1d(std::move(tria.vertex_to_boundary_id_map_1d))
   , vertex_to_manifold_id_map_1d(std::move(tria.vertex_to_manifold_id_map_1d))
-  , geometry_info(std::move(tria.geometry_info))
+//, geometry_info(std::move(tria.geometry_info))
 {
   tria.number_cache = internal::TriangulationImplementation::NumberCache<dim>();
+
+  this->geometry_info = std::vector<std::unique_ptr<DynamicGeometryInfo>>();
+  this->geometry_info.emplace_back(new DynamicGeometryInfoVertex());  // 0
+  this->geometry_info.emplace_back(new DynamicGeometryInfoLine());    // 1
+  this->geometry_info.emplace_back(new DynamicGeometryInfoTri());     // 2
+  this->geometry_info.emplace_back(new DynamicGeometryInfoQuad());    // 3
+  this->geometry_info.emplace_back(new DynamicGeometryInfoTet());     // 4
+  this->geometry_info.emplace_back(new DynamicGeometryInfoPyramid()); // 5
+  this->geometry_info.emplace_back(new DynamicGeometryInfoWedge());   // 6
+  this->geometry_info.emplace_back(new DynamicGeometryInfoHex());     // 7
 }
 
 
@@ -13007,7 +13091,10 @@ Triangulation<dim, spacedim>::create_triangulation(
               << static_cast<int>(obj.reverse_order_next_free_single) << std::endl;
   };
 
-  fu(faces->lines);
+  if(dim >=2 )
+    fu(faces->lines);
+  if(dim ==3 )
+    fu(faces->quads);
   fu(levels[0]->cells);
   std::cout << std::endl;
 

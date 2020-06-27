@@ -3219,11 +3219,13 @@ GridOut::write_vtk(const Triangulation<dim, spacedim> &tria,
    *  5 VTK_TRIANGLE
    *  9 VTK_QUAD
    * 10 VTK_TETRA
+   * 14 VTK_TETRA
+   * 13 VTK_TETRA
    * 12 VTK_HEXAHEDRON
    *
    * see also: https://vtk.org/wp-content/uploads/2015/04/file-formats.pdf
    */
-  static const std::array<int, 6> table = {{1, 3, 5, 9, 10, 12}};
+  static const std::array<int, 8> table = {{1, 3, 5, 9, 10, 14, 13, 12}};
 
   // write cells.
   if (vtk_flags.output_cells)
