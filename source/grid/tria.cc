@@ -12098,21 +12098,7 @@ namespace internal
             const unsigned int n_lines =
               connectivity.line_vertices.ptr.size() - 1;
 
-            lines_0.used.assign(n_lines, true);
-            lines_0.boundary_or_material_id.assign(
-              n_lines,
-              internal::TriangulationImplementation::TriaObjects::
-                BoundaryOrMaterialId());
-            lines_0.manifold_id.assign(n_lines, -1);
-            lines_0.user_flags.assign(n_lines, false);
-            lines_0.user_data.resize(n_lines);
-            // lines_0.refinement_cases.assign(n_lines, 0);
-
-            lines_0.children.assign(GeometryInfo<1>::max_children_per_cell / 2 *
-                                      n_lines,
-                                    -1);
-
-            lines_0.cells.assign(GeometryInfo<1>::faces_per_cell * n_lines, -1);
+            reserve_space(lines_0, n_lines);
 
             // set vertices of lines
             const auto &crs = connectivity.line_vertices;
@@ -12122,10 +12108,6 @@ namespace internal
                    ++i, ++j)
                 lines_0.cells[line * GeometryInfo<1>::faces_per_cell + j] =
                   crs.col[i];
-
-            lines_0.next_free_single               = n_lines - 1;
-            lines_0.next_free_pair                 = 0;
-            lines_0.reverse_order_next_free_single = true;
           }
 
         // TriaObjects: quads
@@ -12135,20 +12117,7 @@ namespace internal
 
             const unsigned int n_quads = connectivity.quad_lines.ptr.size() - 1;
 
-            quads_0.used.assign(n_quads, true);
-            quads_0.boundary_or_material_id.assign(
-              n_quads,
-              internal::TriangulationImplementation::TriaObjects::
-                BoundaryOrMaterialId());
-            quads_0.manifold_id.assign(n_quads, -1);
-            quads_0.user_flags.assign(n_quads, false);
-            quads_0.user_data.resize(n_quads);
-            quads_0.refinement_cases.assign(n_quads, 0);
-
-            quads_0.children.assign(GeometryInfo<2>::max_children_per_cell / 2 *
-                                      n_quads,
-                                    -1);
-
+            reserve_space(quads_0, n_quads);
 
             tria.faces->quad_entity_type.assign(n_quads, -1);
 
@@ -12158,8 +12127,6 @@ namespace internal
             const auto &crs = connectivity.quad_lines;
 
             // set lines of quads
-            quads_0.cells.assign(GeometryInfo<2>::faces_per_cell * n_quads, -1);
-
             for (unsigned int quad = 0; quad < n_quads; ++quad)
               for (unsigned int i = crs.ptr[quad], j = 0; i < crs.ptr[quad + 1];
                    ++i, ++j)
@@ -12275,32 +12242,22 @@ namespace internal
         // TriaObjects: cell
         {
           auto &cells_0 = tria.levels[0]->cells;
-          cells_0.used.assign(n_cell, true);
-          cells_0.boundary_or_material_id.resize(n_cell);
 
+          reserve_space(cells_0, n_cell);
+
+          // set material ids
           for (unsigned int c = 0; c < n_cell; ++c)
-            cells_0.boundary_or_material_id[c].boundary_id =
+            cells_0.boundary_or_material_id[c].material_id =
               cells[c].material_id;
 
-          cells_0.manifold_id.assign(n_cell, -1);
-          cells_0.user_flags.assign(n_cell, false);
-          cells_0.user_data.resize(n_cell);
-          cells_0.refinement_cases.assign(n_cell, 0);
-
-          cells_0.children.assign(GeometryInfo<dim>::max_children_per_cell / 2 *
-                                    n_cell,
-                                  -1);
-
+          // set entity types
           tria.levels[0]->entity_type.assign(n_cell, -1);
 
           for (unsigned int i = 0; i < n_cell; ++i)
             tria.levels[0]->entity_type[i] = connectivity.cell_types[i];
 
-          const auto &crs = connectivity.cell_entities;
-
           // set faces (1D: vertex, 2D: line, 3D: quad) of cells
-          cells_0.cells.assign(GeometryInfo<dim>::faces_per_cell * n_cell, -1);
-
+          const auto &crs = connectivity.cell_entities;
           for (unsigned int cell = 0; cell < cells.size(); ++cell)
             for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
                  ++i, ++j)
@@ -12322,11 +12279,43 @@ namespace internal
                     dim == 3 ? connectivity.quad_orientation[i] :
                                connectivity.line_orientation[i];
             }
-
-          cells_0.next_free_single               = n_cell - 1;
-          cells_0.next_free_pair                 = 0;
-          cells_0.reverse_order_next_free_single = true;
         }
+      }
+
+      static void
+      reserve_space(TriaObjects &obj, const unsigned int size)
+      {
+        const unsigned int structdim = obj.structdim;
+
+        const unsigned int max_children_per_cell =
+          structdim == 1 ?
+            GeometryInfo<1>::max_children_per_cell :
+            (structdim == 2 ? GeometryInfo<2>::max_children_per_cell :
+                              GeometryInfo<3>::max_children_per_cell);
+        const unsigned int faces_per_cell =
+          structdim == 1 ? GeometryInfo<1>::faces_per_cell :
+                           (structdim == 2 ? GeometryInfo<2>::faces_per_cell :
+                                             GeometryInfo<3>::faces_per_cell);
+
+        obj.used.assign(size, true);
+        obj.boundary_or_material_id.assign(
+          size,
+          internal::TriangulationImplementation::TriaObjects::
+            BoundaryOrMaterialId());
+        obj.manifold_id.assign(size, -1);
+        obj.user_flags.assign(size, false);
+        obj.user_data.resize(size);
+
+        if (structdim > 1) // TODO: why?
+          obj.refinement_cases.assign(size, 0);
+
+        obj.children.assign(max_children_per_cell / 2 * size, -1);
+
+        obj.cells.assign(faces_per_cell * size, -1);
+
+        obj.next_free_single               = size - 1;
+        obj.next_free_pair                 = 0;
+        obj.reverse_order_next_free_single = true;
       }
 
       template <int dim, int spacedim>
