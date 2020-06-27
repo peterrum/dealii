@@ -12250,6 +12250,10 @@ namespace internal
             cells_0.boundary_or_material_id[c].material_id =
               cells[c].material_id;
 
+          // set manifold ids
+          for (unsigned int c = 0; c < n_cell; ++c)
+            cells_0.manifold_id[c] = cells[c].manifold_id;
+
           // set entity types
           tria.levels[0]->entity_type.assign(n_cell, -1);
 
