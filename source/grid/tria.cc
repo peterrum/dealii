@@ -12279,55 +12279,89 @@ namespace internal
             }
         }
 
-
         if (dim >= 2)
+          process_subcelldata(tria,
+                              tria.faces->lines,
+                              subcelldata.boundary_lines);
+
+        if (dim == 3)
+          process_subcelldata(tria,
+                              tria.faces->quads,
+                              subcelldata.boundary_quads);
+      }
+
+      template <int structdim, int dim, int spacedim>
+      static void
+      process_subcelldata(
+        const Triangulation<dim, spacedim> &    tria,
+        TriaObjects &                           obj,
+        const std::vector<CellData<structdim>> &boundary_objects_in)
+      {
+        AssertDimension(obj.structdim, structdim);
+        AssertIndexRange(obj.structdim, dim);
+
+        if (boundary_objects_in.size())
+          return; // empty subcell data -> nothing to do
+
+        // pre-sort subcelldata
+        auto boundary_objects = boundary_objects_in;
+        for (auto &boundary_object : boundary_objects)
+          std::sort(boundary_object.vertices.begin(),
+                    boundary_object.vertices.end());
+
+        unsigned int counter = 0;
+
+        for (unsigned int o = 0; o < obj.n_objects(); ++o)
           {
-            auto boundary_lines = subcelldata.boundary_lines;
-            for (auto &boundary_line : boundary_lines)
-              std::sort(boundary_line.vertices.begin(),
-                        boundary_line.vertices.end());
+            auto &boundary_id = obj.boundary_or_material_id[o].boundary_id;
+            auto &manifold_id = obj.manifold_id[o];
 
-            auto &lines_0 = tria.faces->lines;
+            // only on boundary has to be done something
+            if (boundary_id == numbers::internal_face_boundary_id)
+              continue;
 
-            for (unsigned int line = 0; line < tria.faces->lines.n_objects();
-                 ++line)
-              {
-                auto &boundary_id =
-                  lines_0.boundary_or_material_id[line].boundary_id;
-                auto &manifold_id = lines_0.manifold_id[line];
+            // assert that object has not been visited yet and its value
+            // has not been modified yet
+            AssertThrow(boundary_id == 0, ExcNotImplemented());
+            AssertThrow(manifold_id == numbers::flat_manifold_id,
+                        ExcNotImplemented());
 
-                if (boundary_id == numbers::internal_face_boundary_id)
-                  continue;
+            // create key
+            const unsigned int n_vertices =
+              structdim == 1 ?
+                2 :
+                tria.geometry_info[tria.faces->quad_entity_type[o]]
+                  ->n_vertices();
 
-                AssertThrow(boundary_id == 0, ExcNotImplemented());
-                AssertThrow(manifold_id == numbers::flat_manifold_id,
-                            ExcNotImplemented());
+            const auto ptr =
+              obj.cells.data() + (o * GeometryInfo<structdim>::faces_per_cell);
+            std::vector<unsigned int> key(ptr, ptr + n_vertices);
+            std::sort(key.begin(), key.end());
 
-                const unsigned int n_entries = 2;
+            const auto subcell_object =
+              std::find_if(boundary_objects.begin(),
+                           boundary_objects.end(),
+                           [&](const auto &cell) {
+                             return cell.vertices == key;
+                           });
 
-                const auto ptr = lines_0.cells.data() +
-                                 (line * GeometryInfo<1>::faces_per_cell);
-                std::vector<unsigned int> key(ptr, ptr + n_entries);
-                std::sort(key.begin(), key.end());
+            // no subcelldata provided for this object
+            if (subcell_object == boundary_objects.end())
+              continue;
 
-                const auto it = std::find_if(boundary_lines.begin(),
-                                             boundary_lines.end(),
-                                             [&](const auto &cell) {
-                                               return cell.vertices == key;
-                                             });
+            counter++;
 
-                if (it != boundary_lines.end())
-                  {
-                    const auto &subcell_line = *it;
+            // set manifold id
+            manifold_id = subcell_object->manifold_id;
 
-                    manifold_id = subcell_line.manifold_id;
-
-                    if (subcell_line.boundary_id !=
-                        numbers::internal_face_boundary_id)
-                      boundary_id = subcell_line.boundary_id;
-                  }
-              }
+            // set boundary id
+            if (subcell_object->boundary_id !=
+                numbers::internal_face_boundary_id)
+              boundary_id = subcell_object->boundary_id;
           }
+
+        // make sure that all subcelldata entries have been processed
+        AssertDimension(counter, boundary_objects_in.size());
       }
 
       static void
