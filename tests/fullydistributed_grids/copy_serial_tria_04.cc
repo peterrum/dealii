@@ -50,22 +50,22 @@ test(const int n_refinements, const int n_subdivisions, MPI_Comm comm)
     for (; cell != endc; ++cell)
       for (const unsigned int face_number : GeometryInfo<dim>::face_indices())
         if (std::fabs(cell->face(face_number)->center()(0) - left) < 1e-12)
-          cell->face(face_number)->set_boundary_id(1);
+          cell->face(face_number)->set_all_boundary_ids(1);
         else if (std::fabs(cell->face(face_number)->center()(0) - right) <
                  1e-12)
-          cell->face(face_number)->set_boundary_id(2);
+          cell->face(face_number)->set_all_boundary_ids(2);
         else if (dim >= 2 &&
                  std::fabs(cell->face(face_number)->center()(1) - left) < 1e-12)
-          cell->face(face_number)->set_boundary_id(3);
+          cell->face(face_number)->set_all_boundary_ids(3);
         else if (dim >= 2 && std::fabs(cell->face(face_number)->center()(1) -
                                        right) < 1e-12)
-          cell->face(face_number)->set_boundary_id(4);
+          cell->face(face_number)->set_all_boundary_ids(4);
         else if (dim >= 3 &&
                  std::fabs(cell->face(face_number)->center()(2) - left) < 1e-12)
-          cell->face(face_number)->set_boundary_id(5);
+          cell->face(face_number)->set_all_boundary_ids(5);
         else if (dim >= 3 && std::fabs(cell->face(face_number)->center()(2) -
                                        right) < 1e-12)
-          cell->face(face_number)->set_boundary_id(6);
+          cell->face(face_number)->set_all_boundary_ids(6);
 
     if (dim >= 1)
       GridTools::collect_periodic_faces(tria, 1, 2, 0, periodic_faces);

@@ -12143,7 +12143,7 @@ namespace internal
             quads_0.manifold_id.assign(n_quads, -1);
             quads_0.user_flags.assign(n_quads, false);
             quads_0.user_data.resize(n_quads);
-            // quads_0.refinement_cases.assign(n_quads, 0);
+            quads_0.refinement_cases.assign(n_quads, 0);
 
             quads_0.children.assign(GeometryInfo<2>::max_children_per_cell / 2 *
                                       n_quads,
@@ -12192,6 +12192,9 @@ namespace internal
 
           level_0.parents.assign(n_cell - 1, -1);
 
+          if (dim < spacedim)
+            level_0.direction_flags.assign(n_cell, true);
+
           // set neighbors
           {
             level_0.neighbors.assign(n_cell * GeometryInfo<dim>::faces_per_cell,
@@ -12208,10 +12211,11 @@ namespace internal
                   crs.col[i]};
           }
 
-          // set boundary faces
+          // set boundary id of boundary faces
           if (dim > 1)
             {
-              std::vector<unsigned int> temp(
+              // count number of cells a face is belonging to
+              std::vector<unsigned int> count(
                 dim == 3 ? tria.faces->quads.boundary_or_material_id.size() :
                            tria.faces->lines.boundary_or_material_id.size(),
                 0);
@@ -12220,22 +12224,37 @@ namespace internal
 
               for (unsigned int cell = 0; cell < cells.size(); ++cell)
                 for (unsigned int i = crs.ptr[cell]; i < crs.ptr[cell + 1]; ++i)
-                  temp[crs.col[i]]++;
+                  count[crs.col[i]]++;
 
-              for (unsigned int face = 0; face < temp.size(); ++face)
-                if (temp[face] == 1)
+              // loop over all faces
+              for (unsigned int face = 0; face < count.size(); ++face)
+                if (count[face] == 1) // face belongs to once cell -> boundary
                   {
                     if (dim == 3)
-                      tria.faces->quads.boundary_or_material_id[face]
-                        .boundary_id = 0;
+                      {
+                        // boundary quad ...
+                        tria.faces->quads.boundary_or_material_id[face]
+                          .boundary_id = 0;
+
+                        // ... and its lines
+                        const auto &crs = connectivity.quad_lines;
+                        for (unsigned int i = crs.ptr[face];
+                             i < crs.ptr[face + 1];
+                             ++i)
+                          tria.faces->lines.boundary_or_material_id[crs.col[i]]
+                            .boundary_id = 0;
+                      }
                     else if (dim == 2)
-                      tria.faces->lines.boundary_or_material_id[face]
-                        .boundary_id = 0;
+                      {
+                        // boundary  line
+                        tria.faces->lines.boundary_or_material_id[face]
+                          .boundary_id = 0;
+                      }
                   }
             }
           else // 1D
             {
-              std::vector<std::pair<unsigned int, unsigned int>> temp(
+              std::vector<std::pair<unsigned int, unsigned int>> count(
                 vertices.size());
 
               const auto &crs = connectivity.cell_entities;
@@ -12244,12 +12263,12 @@ namespace internal
                 for (unsigned int i = crs.ptr[cell], j = 0;
                      i < crs.ptr[cell + 1];
                      ++i, ++j)
-                  temp[crs.col[i]] = {temp[crs.col[i]].first + 1, j};
+                  count[crs.col[i]] = {count[crs.col[i]].first + 1, j};
 
-              for (unsigned int face = 0; face < temp.size(); ++face)
-                if (temp[face].first == 1)
+              for (unsigned int face = 0; face < count.size(); ++face)
+                if (count[face].first == 1)
                   (*tria.vertex_to_boundary_id_map_1d)[face] =
-                    temp[face].second;
+                    count[face].second;
             }
         }
 
