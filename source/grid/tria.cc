@@ -12280,28 +12280,27 @@ namespace internal
         }
 
         if (dim >= 2)
-          process_subcelldata(tria,
+          process_subcelldata(connectivity.line_vertices,
                               tria.faces->lines,
                               subcelldata.boundary_lines);
 
         if (dim == 3)
-          process_subcelldata(tria,
+          process_subcelldata(connectivity.line_vertices /*TODO*/,
                               tria.faces->quads,
                               subcelldata.boundary_quads);
       }
 
-      template <int structdim, int dim, int spacedim>
+      template <int structdim, typename T>
       static void
       process_subcelldata(
-        const Triangulation<dim, spacedim> &    tria,
+        const CRS<T> &                          crs,
         TriaObjects &                           obj,
         const std::vector<CellData<structdim>> &boundary_objects_in)
       {
         AssertDimension(obj.structdim, structdim);
-        AssertIndexRange(obj.structdim, dim);
 
         if (boundary_objects_in.size())
-          return; // empty subcell data -> nothing to do
+          return; // empty subcelldata -> nothing to do
 
         // pre-sort subcelldata
         auto boundary_objects = boundary_objects_in;
@@ -12310,6 +12309,9 @@ namespace internal
                     boundary_object.vertices.end());
 
         unsigned int counter = 0;
+
+        std::vector<unsigned int> key;
+        key.reserve(GeometryInfo<structdim>::vertices_per_cell);
 
         for (unsigned int o = 0; o < obj.n_objects(); ++o)
           {
@@ -12327,15 +12329,8 @@ namespace internal
                         ExcNotImplemented());
 
             // create key
-            const unsigned int n_vertices =
-              structdim == 1 ?
-                2 :
-                tria.geometry_info[tria.faces->quad_entity_type[o]]
-                  ->n_vertices();
-
-            const auto ptr =
-              obj.cells.data() + (o * GeometryInfo<structdim>::faces_per_cell);
-            std::vector<unsigned int> key(ptr, ptr + n_vertices);
+            key.assign(crs.col.data() + crs.ptr[o],
+                       crs.col.data() + crs.ptr[o + 1]);
             std::sort(key.begin(), key.end());
 
             const auto subcell_object =
