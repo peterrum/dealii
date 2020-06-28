@@ -12264,18 +12264,12 @@ namespace internal
 
             // allocate memory
             reserve_space(quads_0, n_quads);
+            reserve_space(faces, 2 /*structdim*/, n_quads);
 
-            // ... for entity types (TODO)
-            faces.quad_entity_type.assign(n_quads, -1);
-
-            // ... for line orientations (TODO)
-            faces.quads_line_orientations.assign(
-              n_quads * GeometryInfo<2>::faces_per_cell, -1);
-
-            // loop over all quads
+            // loop over all quads -> entity type, line indices/orientations
             for (unsigned int q = 0, k = 0; q < n_quads; ++q)
               {
-                // set entity types of quads
+                // set entity type of quads
                 faces.quad_entity_type[q] = connectivity.entity_types(2)[q];
 
                 // loop over all its lines
@@ -12517,6 +12511,30 @@ namespace internal
 
         // make sure that all subcelldata entries have been processed
         // AssertDimension(counter, boundary_objects_in.size());
+      }
+
+      static void
+      reserve_space(TriaFaces &        faces,
+                    const unsigned     structdim,
+                    const unsigned int size,
+                    const bool         orientation_needed = true)
+      {
+        const unsigned int dim = faces.dim;
+
+        const unsigned int faces_per_cell =
+          structdim == 1 ? GeometryInfo<1>::faces_per_cell :
+                           (structdim == 2 ? GeometryInfo<2>::faces_per_cell :
+                                             GeometryInfo<3>::faces_per_cell);
+
+        if (dim == 3 && structdim == 2)
+          {
+            // quad entity types
+            faces.quad_entity_type.assign(size, -1);
+
+            // quad line orientations
+            if (orientation_needed)
+              faces.quads_line_orientations.assign(size * faces_per_cell, -1);
+          }
       }
 
       static void
