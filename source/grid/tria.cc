@@ -12388,19 +12388,22 @@ namespace internal
           }
         else // 1D
           {
-            std::vector<std::pair<unsigned int, unsigned int>> count(
-              vertices.size());
+            static const unsigned int t_tba   = static_cast<unsigned int>(-1);
+            static const unsigned int t_inner = static_cast<unsigned int>(-2);
 
-            const auto &crs = connectivity.entity_to_entities(dim, dim - 1);
+            std::vector<unsigned int> type(vertices.size(), t_tba);
+
+            const auto &crs = connectivity.entity_to_entities(1, 0);
 
             for (unsigned int cell = 0; cell < cells.size(); ++cell)
               for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
                    ++i, ++j)
-                count[crs.col[i]] = {count[crs.col[i]].first + 1, j};
+                if (type[crs.col[i]] != t_inner)
+                  type[crs.col[i]] = type[crs.col[i]] == t_tba ? j : t_inner;
 
-            for (unsigned int face = 0; face < count.size(); ++face)
-              if (count[face].first == 1)
-                (*tria.vertex_to_boundary_id_map_1d)[face] = count[face].second;
+            for (unsigned int face = 0; face < type.size(); ++face)
+              if (type[face] != t_inner && type[face] != t_tba)
+                (*tria.vertex_to_boundary_id_map_1d)[face] = type[face];
           }
 
         // SubCellData: line
