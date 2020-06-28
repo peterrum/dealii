@@ -12100,6 +12100,9 @@ namespace internal
 
       CRS<T> temp1; // needed for 3D
 
+      if (dim == 1)
+        connectivity.entity_to_entities(1, 0) = con_cv;
+
       if (dim == 2 || dim == 3) // build lines
         {
           std::vector<unsigned char> dummy;
@@ -12120,15 +12123,13 @@ namespace internal
 
       if (dim == 3) // build quads
         {
-          CRS<T> temp2;
-
           build_entity(
             2,
             cell_t,
             connectivity.entity_types(3),
             con_cv,
             connectivity.entity_to_entities(3, 2),
-            temp2,
+            connectivity.entity_to_entities(2, 0),
             connectivity.entity_orientations(2),
             [&](auto key, const auto &cell_type, const auto &c, const auto &f) {
               //  to ensure same enumeration as in deal.II (TODO: remove)
@@ -12156,7 +12157,7 @@ namespace internal
                              temp1,
                              connectivity.entity_to_entities(1, 0),
                              connectivity.entity_to_entities(3, 2),
-                             temp2,
+                             connectivity.entity_to_entities(2, 0),
                              connectivity.entity_orientations(2),
                              connectivity.entity_to_entities(2, 1),
                              connectivity.entity_orientations(1),
@@ -12453,9 +12454,18 @@ namespace internal
 
         // pre-sort subcelldata
         auto boundary_objects = boundary_objects_in;
+
+        // ... sort vertices
         for (auto &boundary_object : boundary_objects)
           std::sort(boundary_object.vertices.begin(),
                     boundary_object.vertices.end());
+
+        // ... sort cells
+        std::sort(boundary_objects.begin(),
+                  boundary_objects.end(),
+                  [](const auto &a, const auto &b) {
+                    return a.vertices < b.vertices;
+                  });
 
         unsigned int counter = 0;
 
@@ -12480,15 +12490,18 @@ namespace internal
                        crs.col.data() + crs.ptr[o + 1]);
             std::sort(key.begin(), key.end());
 
+            // is subcelldata provided? -> binary search
             const auto subcell_object =
-              std::find_if(boundary_objects.begin(),
-                           boundary_objects.end(),
-                           [&](const auto &cell) {
-                             return cell.vertices == key;
-                           });
+              std::lower_bound(boundary_objects.begin(),
+                               boundary_objects.end(),
+                               key,
+                               [&](const auto &cell, const auto &key) {
+                                 return cell.vertices < key;
+                               });
 
             // no subcelldata provided for this object
-            if (subcell_object == boundary_objects.end())
+            if (subcell_object == boundary_objects.end() ||
+                subcell_object->vertices != key)
               continue;
 
             counter++;
