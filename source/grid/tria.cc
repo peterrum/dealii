@@ -12244,18 +12244,19 @@ namespace internal
             // allocate memory
             reserve_space(lines_0, n_lines);
 
-            // set vertices of lines
+            // loop over lines
             for (unsigned int line = 0; line < n_lines; ++line)
               for (unsigned int i = crs.ptr[line], j = 0; i < crs.ptr[line + 1];
                    ++i, ++j)
                 lines_0.cells[line * GeometryInfo<1>::faces_per_cell + j] =
-                  crs.col[i];
+                  crs.col[i]; // set vertex indices
           }
 
         // TriaObjects: quads
         if (dim == 3)
           {
-            auto &quads_0 = tria.faces->quads; // data structure to be filled
+            auto &quads_0 = tria.faces->quads; // data structures to be filled
+            auto &faces   = *tria.faces;
 
             // get connectivity between quads and lines
             const auto &       crs     = connectivity.entity_to_entities(2, 1);
@@ -12265,30 +12266,32 @@ namespace internal
             reserve_space(quads_0, n_quads);
 
             // ... for entity types (TODO)
-            tria.faces->quad_entity_type.assign(n_quads, -1);
+            faces.quad_entity_type.assign(n_quads, -1);
 
             // ... for line orientations (TODO)
-            tria.faces->quads_line_orientations.assign(
+            faces.quads_line_orientations.assign(
               n_quads * GeometryInfo<2>::faces_per_cell, -1);
 
-            // set entity types of quads
-            for (unsigned int i = 0; i < n_quads; ++i)
-              tria.faces->quad_entity_type[i] = connectivity.entity_types(2)[i];
+            // loop over all quads
+            for (unsigned int q = 0, k = 0; q < n_quads; ++q)
+              {
+                // set entity types of quads
+                faces.quad_entity_type[q] = connectivity.entity_types(2)[q];
 
-            // set bounding lines of quads
-            for (unsigned int quad = 0; quad < n_quads; ++quad)
-              for (unsigned int i = crs.ptr[quad], j = 0; i < crs.ptr[quad + 1];
-                   ++i, ++j)
-                quads_0.cells[quad * GeometryInfo<2>::faces_per_cell + j] =
-                  crs.col[i];
+                // loop over all its lines
+                for (unsigned int i = crs.ptr[q], j = 0; i < crs.ptr[q + 1];
+                     ++i, ++j, ++k)
+                  {
+                    // set line index
+                    quads_0.cells[q * GeometryInfo<2>::faces_per_cell + j] =
+                      crs.col[i];
 
-            // set line orientations
-            for (unsigned int quad = 0, k = 0; quad < n_quads; ++quad)
-              for (unsigned int i = crs.ptr[quad], j = 0; i < crs.ptr[quad + 1];
-                   ++i, ++j, ++k)
-                tria.faces->quads_line_orientations
-                  [quad * GeometryInfo<2>::faces_per_cell + j] =
-                  connectivity.entity_orientations(1)[k];
+                    // set line orientations
+                    faces.quads_line_orientations
+                      [q * GeometryInfo<2>::faces_per_cell + j] =
+                      connectivity.entity_orientations(1)[k];
+                  }
+              }
           }
 
         // TriaLevel
