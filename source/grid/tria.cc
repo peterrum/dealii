@@ -12384,8 +12384,23 @@ namespace internal
         // TriaObjects: cell
         {
           auto &cells_0 = tria.levels[0]->cells;
+          auto &level   = *tria.levels[0];
 
+          // get connectivity between cells and faces
+          const auto &crs = connectivity.entity_to_entities(dim, dim - 1);
+
+          // in 2D optional: since in in pure QUAD meshes same line
+          // orientations can be guaranteed
+          const bool orientation_needed =
+            dim == 3 ||
+            (dim == 2 &&
+             std::any_of(connectivity.entity_orientations(1).begin(),
+                         connectivity.entity_orientations(1).end(),
+                         [](const auto &i) { return i == 0; }));
+
+          // allocate memory
           reserve_space(cells_0, n_cell);
+          reserve_space(level, n_cell, orientation_needed);
 
           // set material ids
           for (unsigned int c = 0; c < n_cell; ++c)
@@ -12396,37 +12411,26 @@ namespace internal
           for (unsigned int c = 0; c < n_cell; ++c)
             cells_0.manifold_id[c] = cells[c].manifold_id;
 
-          // set entity types
-          tria.levels[0]->entity_type.assign(n_cell, -1);
-
           for (unsigned int i = 0; i < n_cell; ++i)
-            tria.levels[0]->entity_type[i] = connectivity.entity_types(dim)[i];
+            level.entity_type[i] = connectivity.entity_types(dim)[i];
 
           // set faces (1D: vertex, 2D: line, 3D: quad) of cells
-          const auto &crs = connectivity.entity_to_entities(dim, dim - 1);
-          for (unsigned int cell = 0; cell < cells.size(); ++cell)
+          for (unsigned int cell = 0; cell < n_cell; ++cell)
             for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
                  ++i, ++j)
               cells_0.cells[cell * GeometryInfo<dim>::faces_per_cell + j] =
                 crs.col[i];
 
-          // set face orientation (in 2D optional: since in in pure QUAD
-          // meshes same line orientations can be guaranteed)
-          if (dim == 3 ||
-              (dim == 2 &&
-               std::any_of(connectivity.entity_orientations(1).begin(),
-                           connectivity.entity_orientations(1).end(),
-                           [](const auto &i) { return i == 0; })))
+          // set face orientation
+          if (orientation_needed)
             {
-              tria.levels[0]->face_orientations.assign(
-                n_cell * GeometryInfo<dim>::faces_per_cell, -1);
-
-              for (unsigned int cell = 0; cell < cells.size(); ++cell)
+              for (unsigned int cell = 0; cell < n_cell; ++cell)
                 for (unsigned int i = crs.ptr[cell], j = 0;
                      i < crs.ptr[cell + 1];
                      ++i, ++j)
-                  tria.levels[0]->face_orientations
-                    [cell * GeometryInfo<dim>::faces_per_cell + j] =
+                  level.face_orientations[cell *
+                                            GeometryInfo<dim>::faces_per_cell +
+                                          j] =
                     connectivity.entity_orientations(dim - 1)[i];
             }
         }
@@ -12516,8 +12520,7 @@ namespace internal
       static void
       reserve_space(TriaFaces &        faces,
                     const unsigned     structdim,
-                    const unsigned int size,
-                    const bool         orientation_needed = true)
+                    const unsigned int size)
       {
         const unsigned int dim = faces.dim;
 
@@ -12532,9 +12535,27 @@ namespace internal
             faces.quad_entity_type.assign(size, -1);
 
             // quad line orientations
-            if (orientation_needed)
-              faces.quads_line_orientations.assign(size * faces_per_cell, -1);
+            faces.quads_line_orientations.assign(size * faces_per_cell, -1);
           }
+      }
+
+      static void
+      reserve_space(TriaLevel &        level,
+                    const unsigned int size,
+                    const bool         orientation_needed)
+      {
+        const unsigned int dim = level.dim;
+
+        const unsigned int faces_per_cell =
+          dim == 1 ? GeometryInfo<1>::faces_per_cell :
+                     (dim == 2 ? GeometryInfo<2>::faces_per_cell :
+                                 GeometryInfo<3>::faces_per_cell);
+
+
+        level.entity_type.assign(size, -1);
+
+        if (orientation_needed)
+          level.face_orientations.assign(size * faces_per_cell, -1);
       }
 
       static void
