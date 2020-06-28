@@ -11445,57 +11445,22 @@ namespace internal
     template <typename T = unsigned int>
     struct Connectivity
     {
-      /**
-       * for 3D
-       */
-      Connectivity(const CRS<T> &                    line_vertices,
-                   const std::vector<unsigned char> &line_orientation,
-                   const CRS<T> &                    quad_vertices,
-                   const CRS<T> &                    quad_lines,
-                   const std::vector<unsigned char> &quad_orientation,
-                   const CRS<T> &                    cell_entities,
-                   const CRS<T> &                    neighbors,
-                   const std::vector<unsigned int> & cell_types,
-                   const std::vector<unsigned int> & quad_types)
-        : dim(3)
-        , line_vertices(line_vertices)
-        , line_orientation(line_orientation)
-        , quad_vertices(quad_vertices)
-        , quad_lines(quad_lines)
-        , quad_orientation(quad_orientation)
-        , cell_entities(cell_entities)
-        , neighbors(neighbors)
-        , cell_types(cell_types)
-        , quad_types(quad_types)
-      {}
-
-      /**
-       * for 2D
-       */
-      Connectivity(const CRS<T> &                    line_vertices,
-                   const std::vector<unsigned char> &line_orientation,
-                   const CRS<T> &                    cell_entities,
-                   const CRS<T> &                    neighbors,
-                   const std::vector<unsigned int> & cell_types)
-        : dim(2)
-        , line_vertices(line_vertices)
-        , line_orientation(line_orientation)
-        , cell_entities(cell_entities)
-        , neighbors(neighbors)
-        , cell_types(cell_types)
-      {}
-
-      /**
-       * for 1D
-       */
-      Connectivity(const CRS<T> &                   cell_entities,
-                   const CRS<T> &                   neighbors,
+      Connectivity(const unsigned int               dim,
                    const std::vector<unsigned int> &cell_types)
-        : dim(1)
-        , cell_entities(cell_entities)
-        , neighbors(neighbors)
+        : dim(dim)
         , cell_types(cell_types)
       {}
+
+      inline std::vector<unsigned char> &
+      entity_orientations(const unsigned int structdim)
+      {
+        if (structdim == 1)
+          return line_orientation;
+
+        AssertDimension(structdim, 2);
+
+        return quad_orientation;
+      }
 
       inline const std::vector<unsigned char> &
       entity_orientations(const unsigned int structdim) const
@@ -11508,18 +11473,49 @@ namespace internal
         return quad_orientation;
       }
 
-      inline const std::vector<unsigned int> &
-      entity_types(const unsigned int structdim) const
+      inline std::vector<unsigned int> &
+      entity_types(const unsigned int structdim)
       {
-        // for vertices/lines the entity types are clear (0/1)
-
         if (structdim == dim)
           return cell_types;
 
+        // for vertices/lines the entity types are clear (0/1)
         AssertDimension(structdim, 2);
         AssertDimension(dim, 3);
 
         return quad_types;
+      }
+
+      inline const std::vector<unsigned int> &
+      entity_types(const unsigned int structdim) const
+      {
+        if (structdim == dim)
+          return cell_types;
+
+        // for vertices/lines the entity types are clear (0/1)
+        AssertDimension(structdim, 2);
+        AssertDimension(dim, 3);
+
+        return quad_types;
+      }
+
+      inline CRS<T> &
+      entity_to_entities(const unsigned int from, const unsigned int to)
+      {
+        if (from == dim && to == dim)
+          return neighbors;
+        else if (from == dim && to == dim - 1)
+          return cell_entities;
+        else if (dim == 3 && from == 2 && to == 0)
+          return quad_vertices;
+        else if (dim == 3 && from == 2 && to == 1)
+          return quad_lines;
+        else if (from == 1 && to == 0)
+          return line_vertices;
+
+        Assert(false, ExcNotImplemented());
+
+        return cell_entities;
       }
 
       inline const CRS<T> &
@@ -11542,22 +11538,22 @@ namespace internal
       }
 
     private:
-      const unsigned int dim;
+      const unsigned int        dim;
+      std::vector<unsigned int> cell_types;
 
-      const CRS<T> line_vertices;
+      CRS<T> line_vertices;
 
-      const std::vector<unsigned char> line_orientation;
+      std::vector<unsigned char> line_orientation;
 
-      const CRS<T> quad_vertices;
-      const CRS<T> quad_lines;
+      CRS<T> quad_vertices;
+      CRS<T> quad_lines;
 
-      const std::vector<unsigned char> quad_orientation;
+      std::vector<unsigned char> quad_orientation;
 
-      const CRS<T> cell_entities;
-      const CRS<T> neighbors;
+      CRS<T> cell_entities;
+      CRS<T> neighbors;
 
-      const std::vector<unsigned int> cell_types;
-      const std::vector<unsigned int> quad_types;
+      std::vector<unsigned int> quad_types;
     };
 
 
@@ -12056,33 +12052,21 @@ namespace internal
                        const std::vector<unsigned int> &cell_t_id,
                        const CRS<T> &                   con_cv)
     {
-      // cell -> line & line -> vertex (only in 2D/3D)
-      CRS<T>                     con_lv, con_cl;
-      std::vector<unsigned char> ori_cl; // not needed in 3D
+      Connectivity<T> connectivity(dim, cell_t_id);
 
-      // cell -> quad & quad -> vertex (only in 3D)
-      CRS<T>                     con_qv, con_cq;
-      std::vector<unsigned char> ori_cq;
+      CRS<T> temp1;
 
-      // quad -> line (only in 3D)
-      CRS<T>                     con_ql;
-      std::vector<unsigned char> ori_ql;
-
-      // neighbors
-      CRS<T> con_cc;
-
-      std::vector<unsigned int> quad_t_id;
-
-      // build lines
-      if (dim == 2 || dim == 3)
+      if (dim == 2 || dim == 3) // build lines
         {
+          std::vector<unsigned char> dummy;
+
           build_entity(1,
                        cell_t,
-                       cell_t_id,
+                       connectivity.entity_types(dim),
                        con_cv,
-                       con_cl,
-                       con_lv,
-                       ori_cl,
+                       dim == 2 ? connectivity.entity_to_entities(2, 1) : temp1,
+                       connectivity.entity_to_entities(1, 0),
+                       dim == 2 ? connectivity.entity_orientations(1) : dummy,
                        [](auto key, const auto &, const auto &, const auto &) {
                          //  to ensure same enumeration as in deal.II (TODO:
                          //  remove)
@@ -12090,17 +12074,18 @@ namespace internal
                        });
         }
 
-      if (dim == 3)
+      if (dim == 3) // build quads
         {
-          // build quads
+          CRS<T> temp2;
+
           build_entity(
             2,
             cell_t,
-            cell_t_id,
+            connectivity.entity_types(3),
             con_cv,
-            con_cq,
-            con_qv,
-            ori_cq,
+            connectivity.entity_to_entities(3, 2),
+            temp2,
+            connectivity.entity_orientations(2),
             [&](auto key, const auto &cell_type, const auto &c, const auto &f) {
               //  to ensure same enumeration as in deal.II (TODO: remove)
               AssertIndexRange(cell_type->n_lines_of_surface(f),
@@ -12110,8 +12095,8 @@ namespace internal
 
               for (; l < cell_type->n_lines_of_surface(f); ++l)
                 key[l] =
-                  con_cl
-                    .col[con_cl.ptr[c] + cell_type->nth_line_of_surface(l, f)] +
+                  temp1
+                    .col[temp1.ptr[c] + cell_type->nth_line_of_surface(l, f)] +
                   1 /*offset!*/;
 
               for (; l < key.size(); ++l)
@@ -12121,33 +12106,26 @@ namespace internal
             });
 
           // create connectivity: quad -> line
-          // clang-format off
-          build_intersection(cell_t, cell_t_id, con_cv, con_cl, con_lv, con_cq,
-                             con_qv, ori_cq, con_ql, ori_ql, quad_t_id);
-          // clang-format on
+          build_intersection(cell_t,
+                             connectivity.entity_types(3),
+                             con_cv,
+                             temp1,
+                             connectivity.entity_to_entities(1, 0),
+                             connectivity.entity_to_entities(3, 2),
+                             temp2,
+                             connectivity.entity_orientations(2),
+                             connectivity.entity_to_entities(2, 1),
+                             connectivity.entity_orientations(1),
+                             connectivity.entity_types(2));
         }
 
       // determine neighbors
-      {
-        const CRS<T> &con_cf = dim == 1 ? con_cv : (dim == 2 ? con_cl : con_cq);
-        con_cc = determine_neighbors(con_cf, transpose(con_cf) /*:=con_fc*/);
-      }
+      connectivity.entity_to_entities(dim, dim) =
+        determine_neighbors(connectivity.entity_to_entities(dim, dim - 1),
+                            transpose(
+                              connectivity.entity_to_entities(dim, dim - 1)));
 
-      // pack result
-      if (dim == 1)
-        return {con_cv, con_cc, cell_t_id};
-      else if (dim == 2)
-        return {con_lv, ori_cl, con_cl, con_cc, cell_t_id};
-      else
-        return {con_lv,
-                ori_ql,
-                con_qv,
-                con_ql,
-                ori_cq,
-                con_cq,
-                con_cc,
-                cell_t_id,
-                quad_t_id};
+      return connectivity;
     }
 
 
