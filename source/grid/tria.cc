@@ -11503,6 +11503,8 @@ namespace internal
       inline const std::vector<unsigned int> &
       entity_types(const unsigned int structdim) const
       {
+        // for vertices/lines the entity types are clear (0/1)
+
         if (structdim == dim)
           return cell_types;
 
@@ -11512,27 +11514,40 @@ namespace internal
         return quad_types;
       }
 
+      inline const CRS<T> &
+      entity_to_entities(const unsigned int from, const unsigned int to) const
+      {
+        if (from == dim && to == dim)
+          return neighbors;
+        else if (from == dim && to == dim - 1)
+          return cell_entities;
+        else if (dim == 3 && from == 2 && to == 0)
+          return quad_vertices;
+        else if (dim == 3 && from == 2 && to == 1)
+          return quad_lines;
+        else if (from == 1 && to == 0)
+          return line_vertices;
+
+        Assert(false, ExcNotImplemented());
+
+        return cell_entities;
+      }
+
     private:
       const unsigned int dim;
 
-    public:
       const CRS<T> line_vertices;
 
-    private:
       const std::vector<unsigned char> line_orientation;
 
-    public:
       const CRS<T> quad_vertices;
       const CRS<T> quad_lines;
 
-    private:
       const std::vector<unsigned char> quad_orientation;
 
-    public:
       const CRS<T> cell_entities;
       const CRS<T> neighbors;
 
-    private:
       const std::vector<unsigned int> cell_types;
       const std::vector<unsigned int> quad_types;
     };
@@ -12220,16 +12235,16 @@ namespace internal
         // TriaObjects: lines
         if (dim >= 2)
           {
-            auto &lines_0 = tria.faces->lines;
+            auto &lines_0 = tria.faces->lines; // data structure to be filled
 
-            const unsigned int n_lines =
-              connectivity.line_vertices.ptr.size() - 1;
+            // get connectivity between quads and lines
+            const auto &       crs     = connectivity.entity_to_entities(1, 0);
+            const unsigned int n_lines = crs.ptr.size() - 1;
 
+            // allocate memory
             reserve_space(lines_0, n_lines);
 
             // set vertices of lines
-            const auto &crs = connectivity.line_vertices;
-
             for (unsigned int line = 0; line < n_lines; ++line)
               for (unsigned int i = crs.ptr[line], j = 0; i < crs.ptr[line + 1];
                    ++i, ++j)
@@ -12240,20 +12255,27 @@ namespace internal
         // TriaObjects: quads
         if (dim == 3)
           {
-            auto &quads_0 = tria.faces->quads;
+            auto &quads_0 = tria.faces->quads; // data structure to be filled
 
-            const unsigned int n_quads = connectivity.quad_lines.ptr.size() - 1;
+            // get connectivity between quads and lines
+            const auto &       crs     = connectivity.entity_to_entities(2, 1);
+            const unsigned int n_quads = crs.ptr.size() - 1;
 
+            // allocate memory
             reserve_space(quads_0, n_quads);
 
+            // ... for entity types (TODO)
             tria.faces->quad_entity_type.assign(n_quads, -1);
 
+            // ... for line orientations (TODO)
+            tria.faces->quads_line_orientations.assign(
+              n_quads * GeometryInfo<2>::faces_per_cell, -1);
+
+            // set entity types of quads
             for (unsigned int i = 0; i < n_quads; ++i)
               tria.faces->quad_entity_type[i] = connectivity.entity_types(2)[i];
 
-            const auto &crs = connectivity.quad_lines;
-
-            // set lines of quads
+            // set bounding lines of quads
             for (unsigned int quad = 0; quad < n_quads; ++quad)
               for (unsigned int i = crs.ptr[quad], j = 0; i < crs.ptr[quad + 1];
                    ++i, ++j)
@@ -12261,9 +12283,6 @@ namespace internal
                   crs.col[i];
 
             // set line orientations
-            tria.faces->quads_line_orientations.assign(
-              n_quads * GeometryInfo<2>::faces_per_cell, -1);
-
             for (unsigned int quad = 0, k = 0; quad < n_quads; ++quad)
               for (unsigned int i = crs.ptr[quad], j = 0; i < crs.ptr[quad + 1];
                    ++i, ++j, ++k)
@@ -12274,27 +12293,27 @@ namespace internal
 
         // TriaLevel
         {
-          auto &level_0 = *tria.levels[0];
+          auto &level_0 = *tria.levels[0]; // data structure to be filled
 
-          level_0.active_cell_indices.assign(n_cell, -1); // the right value
-                                                          // will be set later
+          level_0.active_cell_indices.assign(n_cell, -1);
           level_0.subdomain_ids.assign(n_cell, 0);
           level_0.level_subdomain_ids.assign(n_cell, 0);
 
           level_0.refine_flags.assign(n_cell, false);
           level_0.coarsen_flags.assign(n_cell, false);
 
-          level_0.parents.assign((n_cell + 1) / 2, -1); // TODO: why?
+          level_0.parents.assign((n_cell + 1) / 2, -1);
 
           if (dim < spacedim)
             level_0.direction_flags.assign(n_cell, true);
 
+          level_0.neighbors.assign(n_cell * GeometryInfo<dim>::faces_per_cell,
+                                   {-1, -1});
+
+
           // set neighbors
           {
-            level_0.neighbors.assign(n_cell * GeometryInfo<dim>::faces_per_cell,
-                                     {-1, -1});
-
-            const auto &crs = connectivity.neighbors;
+            const auto &crs = connectivity.entity_to_entities(dim, dim);
 
             for (unsigned int cell = 0; cell < cells.size(); ++cell)
               for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
@@ -12313,7 +12332,7 @@ namespace internal
                            tria.faces->lines.boundary_or_material_id.size(),
                 0);
 
-              const auto &crs = connectivity.cell_entities;
+              const auto &crs = connectivity.entity_to_entities(dim, dim - 1);
 
               for (unsigned int cell = 0; cell < cells.size(); ++cell)
                 for (unsigned int i = crs.ptr[cell]; i < crs.ptr[cell + 1]; ++i)
@@ -12330,7 +12349,7 @@ namespace internal
                           .boundary_id = 0;
 
                         // ... and its lines
-                        const auto &crs = connectivity.quad_lines;
+                        const auto &crs = connectivity.entity_to_entities(2, 1);
                         for (unsigned int i = crs.ptr[face];
                              i < crs.ptr[face + 1];
                              ++i)
@@ -12350,7 +12369,7 @@ namespace internal
               std::vector<std::pair<unsigned int, unsigned int>> count(
                 vertices.size());
 
-              const auto &crs = connectivity.cell_entities;
+              const auto &crs = connectivity.entity_to_entities(dim, dim - 1);
 
               for (unsigned int cell = 0; cell < cells.size(); ++cell)
                 for (unsigned int i = crs.ptr[cell], j = 0;
@@ -12387,7 +12406,7 @@ namespace internal
             tria.levels[0]->entity_type[i] = connectivity.entity_types(dim)[i];
 
           // set faces (1D: vertex, 2D: line, 3D: quad) of cells
-          const auto &crs = connectivity.cell_entities;
+          const auto &crs = connectivity.entity_to_entities(dim, dim - 1);
           for (unsigned int cell = 0; cell < cells.size(); ++cell)
             for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
                  ++i, ++j)
@@ -12416,12 +12435,12 @@ namespace internal
         }
 
         if (dim >= 2)
-          process_subcelldata(connectivity.line_vertices,
+          process_subcelldata(connectivity.entity_to_entities(1, 0),
                               tria.faces->lines,
                               subcelldata.boundary_lines);
 
         if (dim == 3)
-          process_subcelldata(connectivity.quad_vertices,
+          process_subcelldata(connectivity.entity_to_entities(2, 0),
                               tria.faces->quads,
                               subcelldata.boundary_quads);
       }
