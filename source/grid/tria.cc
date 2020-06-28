@@ -11425,6 +11425,9 @@ namespace internal
 
 
 
+    /**
+     * Compressed row storage sparse matrix.
+     */
     template <typename T = unsigned int>
     struct CRS
     {
@@ -11442,6 +11445,9 @@ namespace internal
 
 
 
+    /**
+     * Class for storing the reduced connectivit table.
+     */
     template <typename T = unsigned int>
     struct Connectivity
     {
@@ -11558,6 +11564,9 @@ namespace internal
 
 
 
+    /**
+     * Create the transposed of a compressed row storage matrix.
+     */
     template <typename T>
     CRS<T>
     transpose(const CRS<T> &con)
@@ -11609,6 +11618,10 @@ namespace internal
 
 
 
+    /**
+     * Determine the neighbors of a cell by visiting its faces and looking for
+     * a cell which is not equal to this cell.
+     */
     template <typename T>
     CRS<T>
     determine_neighbors(const CRS<T> &con_cf, const CRS<T> &con_fc)
@@ -11651,7 +11664,8 @@ namespace internal
 
 
     /**
-     * TODO
+     * Determine the orientation of an entity of @p type described by its
+     * vertices @p var_1 relative to an entity described by @p var_0.
      */
     template <typename T, std::size_t N>
     inline unsigned char
@@ -11736,6 +11750,13 @@ namespace internal
 
 
 
+    /**
+     * Build entities of dimension d (with 0<d<dim). Entities are described by
+     * a set of vertices.
+     *
+     * Furthermore, the function determines for each cell of which d-dimensional
+     * entity it consists of and its orientation relative to the cell.
+     */
     template <int key_length, typename FU>
     void
     build_entity_templated(
@@ -11743,9 +11764,9 @@ namespace internal
       const std::vector<std::shared_ptr<CellTypeBase>> &cell_types,
       const std::vector<unsigned int> &                 cell_types_index,
       const CRS<unsigned int> &                         crs,
-      CRS<unsigned int> &                               crs_d,
-      CRS<unsigned int> &                               crs_0,
-      std::vector<unsigned char> &                      orientations,
+      CRS<unsigned int> &                               crs_d,        // result
+      CRS<unsigned int> &                               crs_0,        // result
+      std::vector<unsigned char> &                      orientations, // result
       const FU &                                        second_key_function)
     {
       const std::vector<std::size_t> & cell_ptr      = crs.ptr;
@@ -11755,6 +11776,8 @@ namespace internal
       std::vector<std::size_t> &       ptr_0 = crs_0.ptr = {};
       std::vector<unsigned int> &      col_0             = crs_0.col;
 
+      // step 1: store each d-dimensional entity of a cell (described by their
+      // vertices) into a vector and create a key for them
       std::vector<std::tuple<std::array<unsigned int, key_length>,
                              std::array<unsigned int, key_length>,
                              unsigned int,
@@ -11805,7 +11828,8 @@ namespace internal
             }
         }
 
-      // sort according to key so that entities with same key can be merged
+      // step 2: sort according to key so that entities with same key can be
+      // merged
       std::sort(keys.begin(), keys.end(), [](const auto &a, const auto &b) {
         // try to sort according to the key ...
         if (std::get<0>(a) < std::get<0>(b))
@@ -11817,7 +11841,8 @@ namespace internal
           return std::get<2>(a) < std::get<2>(b);
       });
 
-      if (true) // to ensure same enumeration as in deal.II (TODO: remove)
+      if (true) // to ensure the same enumeration of entities as in deal.II
+                // (TODO: remove): sort according to the additional key
         {
           std::array<unsigned int, key_length> ref_key;
           std::array<unsigned int, key_length> add_key;
@@ -11839,7 +11864,7 @@ namespace internal
 
 
           std::sort(keys.begin(), keys.end(), [](const auto &a, const auto &b) {
-            // try to sort according to the key ...
+            // try to sort according to the additional key ...
             if (std::get<4>(a) < std::get<4>(b))
               return true;
             else if (std::get<4>(a) > std::get<4>(b))
@@ -11850,6 +11875,9 @@ namespace internal
           });
         }
 
+      // step 3: merge entities with the same key as well give entities with
+      // the same key the same ID and determine their orientation relative to
+      // any other entity in the same group.
       std::vector<std::tuple<unsigned int, unsigned int, unsigned char>>
         keys_unique; // cell-entity index, entity index, orientation
       keys_unique.reserve(keys.size());
@@ -11892,7 +11920,7 @@ namespace internal
         }
       ptr_0.push_back(col_0.size());
 
-      // sort according to cell-entity index so that entity index and
+      // step 4: sort according to cell-entity index so that entity index and
       // orientation can be copied back
       std::sort(keys_unique.begin(),
                 keys_unique.end(),
@@ -11911,6 +11939,10 @@ namespace internal
 
 
 
+    /**
+     * Call the right templated function to be able to use std::array instead
+     * of std::vector.
+     */
     template <typename FU>
     void
     build_entity(const unsigned int                                d,
@@ -11946,6 +11978,13 @@ namespace internal
 
 
 
+    /**
+     * Build surface lines described by:
+     *  - connectivity quad -> line
+     *  - orientation of line relative to the quad
+     *
+     * Furthermore, the type of the quad is determined.
+     */
     void
     build_intersection(
       const std::vector<std::shared_ptr<CellTypeBase>> &cell_types,
@@ -11956,22 +11995,21 @@ namespace internal
       const CRS<unsigned int> &                         con_cq,
       const CRS<unsigned int> &                         con_qv,
       const std::vector<unsigned char> &                ori_cq,
-      CRS<unsigned int> &                               crs,
-      std::vector<unsigned char> &                      orientations,
-      std::vector<unsigned int> &                       quad_t_id)
+      CRS<unsigned int> &                               con_ql, // result
+      std::vector<unsigned char> &                      ori_ql, // result
+      std::vector<unsigned int> &                       quad_t_id)                     // result
     {
-      (void)con_qv;
-
       // reset output
-      orientations = {};
-      crs.ptr      = {};
-      crs.col      = {};
+      ori_ql     = {};
+      con_ql.ptr = {};
+      con_ql.col = {};
 
-      crs.ptr.resize(con_qv.ptr.size());
-      crs.ptr[0] = 0;
+      con_ql.ptr.resize(con_qv.ptr.size());
+      con_ql.ptr[0] = 0;
 
       quad_t_id.resize(con_qv.ptr.size() - 1);
 
+      // count the number of lines of each face
       for (unsigned int c = 0; c < con_cq.ptr.size() - 1; ++c)
         {
           const auto &cell_type = cell_types[cell_types_index[c]];
@@ -11983,15 +12021,17 @@ namespace internal
             {
               const unsigned int f = con_cq.col[f_];
 
-              crs.ptr[f + 1] = cell_type->n_lines_of_surface(f_index);
+              con_ql.ptr[f + 1] = cell_type->n_lines_of_surface(f_index);
             }
         }
 
-      for (unsigned int i = 0; i < crs.ptr.size() - 1; ++i)
-        crs.ptr[i + 1] += crs.ptr[i];
+      // use the counts to determine the offsets -> prefix sum
+      for (unsigned int i = 0; i < con_ql.ptr.size() - 1; ++i)
+        con_ql.ptr[i + 1] += con_ql.ptr[i];
 
-      crs.col.resize(crs.ptr.back());
-      orientations.resize(crs.ptr.back());
+      // allocate memory
+      con_ql.col.resize(con_ql.ptr.back());
+      ori_ql.resize(con_ql.ptr.back());
 
       // loop over cells
       for (unsigned int c = 0; c < con_cq.ptr.size() - 1; ++c)
@@ -12009,6 +12049,7 @@ namespace internal
               if (ori_cq[f_] != 1)
                 continue;
 
+              // determine entity type of face (TODO: move it somewhere else)
               quad_t_id[f] = cell_type->type_of_entity(2, f_index);
 
               // loop over lines
@@ -12021,7 +12062,7 @@ namespace internal
                     cell_type->nth_line_of_surface(l, f_index);
                   const unsigned int global_line_index =
                     con_cl.col[con_cl.ptr[c] + local_line_index];
-                  crs.col[crs.ptr[f] + l] = global_line_index;
+                  con_ql.col[con_ql.ptr[f] + l] = global_line_index;
 
                   // determine orientation of line
                   const auto line_vertices_1_ref =
@@ -12037,7 +12078,7 @@ namespace internal
                       }
 
                   // ... comparison gives orientation
-                  orientations[crs.ptr[f] + l] = (same ? 1 : 0);
+                  ori_ql[con_ql.ptr[f] + l] = (same ? 1 : 0);
                 }
             }
         }
@@ -12045,6 +12086,9 @@ namespace internal
 
 
 
+    /**
+     * Build the reduced connectivity table for the given dimension @p dim.
+     */
     template <typename T>
     Connectivity<T>
     build_connectivity(const unsigned int                                dim,
@@ -12054,7 +12098,7 @@ namespace internal
     {
       Connectivity<T> connectivity(dim, cell_t_id);
 
-      CRS<T> temp1;
+      CRS<T> temp1; // needed for 3D
 
       if (dim == 2 || dim == 3) // build lines
         {
@@ -12130,6 +12174,9 @@ namespace internal
 
 
 
+    /**
+     * Preprocessing step to remove the template argument dim.
+     */
     template <typename T, int dim>
     Connectivity<T>
     build_connectivity(const std::vector<CellData<dim>> &cells)
@@ -12181,6 +12228,8 @@ namespace internal
                                    cell_types_indices,
                                    {cell_vertices_ptr, cell_vertices});
     }
+
+
 
     struct Implementation2
     {
@@ -12458,6 +12507,7 @@ namespace internal
           }
 
         // make sure that all subcelldata entries have been processed
+        // TODO: this is not guaranteed, why?
         // AssertDimension(counter, boundary_objects_in.size());
       }
 
