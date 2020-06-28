@@ -11449,7 +11449,8 @@ namespace internal
                    const CRS<T> &                    neighbors,
                    const std::vector<unsigned int> & cell_types,
                    const std::vector<unsigned int> & quad_types)
-        : line_vertices(line_vertices)
+        : dim(3)
+        , line_vertices(line_vertices)
         , line_orientation(line_orientation)
         , quad_vertices(quad_vertices)
         , quad_lines(quad_lines)
@@ -11468,7 +11469,8 @@ namespace internal
                    const CRS<T> &                    cell_entities,
                    const CRS<T> &                    neighbors,
                    const std::vector<unsigned int> & cell_types)
-        : line_vertices(line_vertices)
+        : dim(2)
+        , line_vertices(line_vertices)
         , line_orientation(line_orientation)
         , cell_entities(cell_entities)
         , neighbors(neighbors)
@@ -11481,7 +11483,8 @@ namespace internal
       Connectivity(const CRS<T> &                   cell_entities,
                    const CRS<T> &                   neighbors,
                    const std::vector<unsigned int> &cell_types)
-        : cell_entities(cell_entities)
+        : dim(1)
+        , cell_entities(cell_entities)
         , neighbors(neighbors)
         , cell_types(cell_types)
       {}
@@ -11497,25 +11500,41 @@ namespace internal
         return quad_orientation;
       }
 
+      inline const std::vector<unsigned int> &
+      entity_types(const unsigned int structdim) const
+      {
+        if (structdim == dim)
+          return cell_types;
 
-      CRS<T> line_vertices;
+        AssertDimension(structdim, 2);
+        AssertDimension(dim, 3);
+
+        return quad_types;
+      }
 
     private:
-      std::vector<unsigned char> line_orientation;
+      const unsigned int dim;
 
     public:
-      CRS<T> quad_vertices;
-      CRS<T> quad_lines;
+      const CRS<T> line_vertices;
 
     private:
-      std::vector<unsigned char> quad_orientation;
+      const std::vector<unsigned char> line_orientation;
 
     public:
-      CRS<T> cell_entities;
-      CRS<T> neighbors;
+      const CRS<T> quad_vertices;
+      const CRS<T> quad_lines;
 
-      std::vector<unsigned int> cell_types;
-      std::vector<unsigned int> quad_types;
+    private:
+      const std::vector<unsigned char> quad_orientation;
+
+    public:
+      const CRS<T> cell_entities;
+      const CRS<T> neighbors;
+
+    private:
+      const std::vector<unsigned int> cell_types;
+      const std::vector<unsigned int> quad_types;
     };
 
 
@@ -12230,7 +12249,7 @@ namespace internal
             tria.faces->quad_entity_type.assign(n_quads, -1);
 
             for (unsigned int i = 0; i < n_quads; ++i)
-              tria.faces->quad_entity_type[i] = connectivity.quad_types[i];
+              tria.faces->quad_entity_type[i] = connectivity.entity_types(2)[i];
 
             const auto &crs = connectivity.quad_lines;
 
@@ -12365,7 +12384,7 @@ namespace internal
           tria.levels[0]->entity_type.assign(n_cell, -1);
 
           for (unsigned int i = 0; i < n_cell; ++i)
-            tria.levels[0]->entity_type[i] = connectivity.cell_types[i];
+            tria.levels[0]->entity_type[i] = connectivity.entity_types(dim)[i];
 
           // set faces (1D: vertex, 2D: line, 3D: quad) of cells
           const auto &crs = connectivity.cell_entities;
