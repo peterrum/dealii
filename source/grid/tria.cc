@@ -11428,6 +11428,14 @@ namespace internal
     template <typename T = unsigned int>
     struct CRS
     {
+      CRS()
+        : ptr{0} {};
+
+      CRS(const std::vector<std::size_t> &ptr, const std::vector<T> col)
+        : ptr(ptr)
+        , col(col)
+      {}
+
       std::vector<std::size_t> ptr = {0};
       std::vector<T>           col;
     };
@@ -12144,15 +12152,12 @@ namespace internal
 
 
 
-    template <typename T>
+    template <typename T, int dim>
     Connectivity<T>
-    build_connectivity(const unsigned int               dim,
-                       const std::vector<unsigned int> &cell_types_indices,
-                       const std::vector<T> &           cell_vertices)
+    build_connectivity(const std::vector<CellData<dim>> &cells)
     {
-      // 1) collect cell types
+      // vector of possible cell entity types
       std::vector<std::shared_ptr<CellTypeBase>> cell_types_impl;
-
       cell_types_impl.emplace_back(new CellTypeBase());    // 0: VERTEX
       cell_types_impl.emplace_back(new CellTypeLine());    // 1: LINE
       cell_types_impl.emplace_back(new CellTypeTri());     // 2: TRI
@@ -12162,33 +12167,7 @@ namespace internal
       cell_types_impl.emplace_back(new CellTypeWedge());   // 6: WEDGE
       cell_types_impl.emplace_back(new CellTypeHex());     // 7: HEX
 
-      std::vector<std::size_t> cell_ptr(cell_types_indices.size() + 1);
-      cell_ptr[0] = 0;
-
-      for (unsigned int i = 0; i < cell_types_indices.size(); i++)
-        {
-          cell_ptr[i + 1] =
-            cell_ptr[i] + cell_types_impl[cell_types_indices[i]]->n_entities(0);
-        }
-
-      // 2) convert vertices vector to CRS
-      CRS<T> crs;
-      crs.col = cell_vertices;
-      crs.ptr = cell_ptr;
-
-      // 3) create connectivity
-      return build_connectivity(dim, cell_types_impl, cell_types_indices, crs);
-    }
-
-
-
-    template <typename T, int dim>
-    Connectivity<T>
-    build_connectivity(const std::vector<CellData<dim>> &cells)
-    {
-      std::vector<unsigned int> cell_types;
-      std::vector<unsigned int> cell_vertices;
-
+      // jump table to pick the right entity type
       static const unsigned int X = static_cast<unsigned int>(-1);
       static const std::array<const std::array<unsigned int, 9>, 4> table = {
         {{X, 0, X, X, X, X, X, X, X},
@@ -12196,15 +12175,33 @@ namespace internal
          {X, X, X, 2, 3, X, X, X, X},
          {X, X, X, X, 4, 5, 6, X, 7}}};
 
+      // determine cell types and process vertices
+      std::vector<T> cell_vertices;
+
+      std::vector<std::size_t> cell_vertices_ptr;
+      cell_vertices_ptr.reserve(cells.size() + 1);
+      cell_vertices_ptr.push_back(0);
+
+      std::vector<unsigned int> cell_types_indices;
+
+      // loop over cells and create CRS
       for (const auto &cell : cells)
         {
-          cell_types.push_back(table[dim][cell.vertices.size()]);
+          // determine cell type
+          cell_types_indices.push_back(table[dim][cell.vertices.size()]);
 
+          // create CRS of vertices (to remove template argument dim)
           for (const auto &vertex : cell.vertices)
             cell_vertices.push_back(vertex);
+
+          cell_vertices_ptr.push_back(cell_vertices.size());
         }
 
-      return build_connectivity(dim, cell_types, cell_vertices);
+      // do the actual work
+      return build_connectivity<T>(dim,
+                                   cell_types_impl,
+                                   cell_types_indices,
+                                   {cell_vertices_ptr, cell_vertices});
     }
 
     struct Implementation2
