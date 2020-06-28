@@ -12042,15 +12042,19 @@ namespace internal
             ori_cq,
             [&](auto key, const auto &cell_type, const auto &c, const auto &f) {
               //  to ensure same enumeration as in deal.II (TODO: remove)
+              AssertIndexRange(cell_type->n_lines_of_surface(f),
+                               key.size() + 1);
 
-              // we exploit here that number of vertices are
-              // the same as the number of lines in the case of TRI and QUAD
-              AssertDimension(cell_type->n_lines_of_surface(f), key.size());
+              unsigned int l = 0;
 
-              for (unsigned int l = 0; l < key.size(); ++l)
+              for (; l < cell_type->n_lines_of_surface(f); ++l)
                 key[l] =
                   con_cl
-                    .col[con_cl.ptr[c] + cell_type->nth_line_of_surface(l, f)];
+                    .col[con_cl.ptr[c] + cell_type->nth_line_of_surface(l, f)] +
+                  1 /*offset!*/;
+
+              for (; l < key.size(); ++l)
+                key[l] = 0;
 
               return key;
             });
@@ -12352,8 +12356,11 @@ namespace internal
               cells_0.cells[cell * GeometryInfo<dim>::faces_per_cell + j] =
                 crs.col[i];
 
-          // set face orientation
-          if (dim >= 2 /*????*/)
+          // set face orientation (in 2D optional: since in in pure QUAD
+          // meshes same line orientations can be guaranteed)
+          if (dim == 3 || std::any_of(connectivity.line_orientation.begin(),
+                                      connectivity.line_orientation.end(),
+                                      [](const auto &i) { return i == 0; }))
             {
               tria.levels[0]->face_orientations.assign(
                 n_cell * GeometryInfo<dim>::faces_per_cell, -1);
