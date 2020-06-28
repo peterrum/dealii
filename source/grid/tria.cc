@@ -11486,14 +11486,33 @@ namespace internal
         , cell_types(cell_types)
       {}
 
+      inline const std::vector<unsigned char> &
+      entity_orientations(const unsigned int structdim) const
+      {
+        if (structdim == 1)
+          return line_orientation;
 
-      CRS<T>                     line_vertices;
+        AssertDimension(structdim, 2);
+
+        return quad_orientation;
+      }
+
+
+      CRS<T> line_vertices;
+
+    private:
       std::vector<unsigned char> line_orientation;
-      CRS<T>                     quad_vertices;
-      CRS<T>                     quad_lines;
+
+    public:
+      CRS<T> quad_vertices;
+      CRS<T> quad_lines;
+
+    private:
       std::vector<unsigned char> quad_orientation;
-      CRS<T>                     cell_entities;
-      CRS<T>                     neighbors;
+
+    public:
+      CRS<T> cell_entities;
+      CRS<T> neighbors;
 
       std::vector<unsigned int> cell_types;
       std::vector<unsigned int> quad_types;
@@ -12231,7 +12250,7 @@ namespace internal
                    ++i, ++j, ++k)
                 tria.faces->quads_line_orientations
                   [quad * GeometryInfo<2>::faces_per_cell + j] =
-                  connectivity.line_orientation[k];
+                  connectivity.entity_orientations(1)[k];
           }
 
         // TriaLevel
@@ -12358,9 +12377,11 @@ namespace internal
 
           // set face orientation (in 2D optional: since in in pure QUAD
           // meshes same line orientations can be guaranteed)
-          if (dim == 3 || std::any_of(connectivity.line_orientation.begin(),
-                                      connectivity.line_orientation.end(),
-                                      [](const auto &i) { return i == 0; }))
+          if (dim == 3 ||
+              (dim == 2 &&
+               std::any_of(connectivity.entity_orientations(1).begin(),
+                           connectivity.entity_orientations(1).end(),
+                           [](const auto &i) { return i == 0; })))
             {
               tria.levels[0]->face_orientations.assign(
                 n_cell * GeometryInfo<dim>::faces_per_cell, -1);
@@ -12371,8 +12392,7 @@ namespace internal
                      ++i, ++j)
                   tria.levels[0]->face_orientations
                     [cell * GeometryInfo<dim>::faces_per_cell + j] =
-                    dim == 3 ? connectivity.quad_orientation[i] :
-                               connectivity.line_orientation[i];
+                    connectivity.entity_orientations(dim - 1)[i];
             }
         }
 
