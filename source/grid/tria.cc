@@ -12381,7 +12381,7 @@ namespace internal
             }
         }
 
-        // TriaObjects: cell
+        // TriaObjects/TriaLevel: cell
         {
           auto &cells_0 = tria.levels[0]->cells;
           auto &level   = *tria.levels[0];
@@ -12402,44 +12402,42 @@ namespace internal
           reserve_space(cells_0, n_cell);
           reserve_space(level, n_cell, orientation_needed);
 
-          // set material ids
-          for (unsigned int c = 0; c < n_cell; ++c)
-            cells_0.boundary_or_material_id[c].material_id =
-              cells[c].material_id;
-
-          // set manifold ids
-          for (unsigned int c = 0; c < n_cell; ++c)
-            cells_0.manifold_id[c] = cells[c].manifold_id;
-
-          for (unsigned int i = 0; i < n_cell; ++i)
-            level.entity_type[i] = connectivity.entity_types(dim)[i];
-
-          // set faces (1D: vertex, 2D: line, 3D: quad) of cells
+          // loop over all cells
           for (unsigned int cell = 0; cell < n_cell; ++cell)
-            for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
-                 ++i, ++j)
-              cells_0.cells[cell * GeometryInfo<dim>::faces_per_cell + j] =
-                crs.col[i];
-
-          // set face orientation
-          if (orientation_needed)
             {
-              for (unsigned int cell = 0; cell < n_cell; ++cell)
-                for (unsigned int i = crs.ptr[cell], j = 0;
-                     i < crs.ptr[cell + 1];
-                     ++i, ++j)
-                  level.face_orientations[cell *
-                                            GeometryInfo<dim>::faces_per_cell +
-                                          j] =
-                    connectivity.entity_orientations(dim - 1)[i];
+              // set material ids
+              cells_0.boundary_or_material_id[cell].material_id =
+                cells[cell].material_id;
+
+              // set manifold ids
+              cells_0.manifold_id[cell] = cells[cell].manifold_id;
+
+              // set entity types
+              level.entity_type[cell] = connectivity.entity_types(dim)[cell];
+
+              for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
+                   ++i, ++j)
+                {
+                  // set face indices
+                  cells_0.cells[cell * GeometryInfo<dim>::faces_per_cell + j] =
+                    crs.col[i];
+
+                  // set face orientation if needed
+                  if (orientation_needed)
+                    level.face_orientations
+                      [cell * GeometryInfo<dim>::faces_per_cell + j] =
+                      connectivity.entity_orientations(dim - 1)[i];
+                }
             }
         }
 
+        // SubCellData: line
         if (dim >= 2)
           process_subcelldata(connectivity.entity_to_entities(1, 0),
                               tria.faces->lines,
                               subcelldata.boundary_lines);
 
+        // SubCellData: quad
         if (dim == 3)
           process_subcelldata(connectivity.entity_to_entities(2, 0),
                               tria.faces->quads,
