@@ -12288,26 +12288,6 @@ namespace internal
               }
           }
 
-        // TriaLevel
-        {
-          auto &level_0 = *tria.levels[0];
-
-          level_0.active_cell_indices.assign(n_cell, -1);
-          level_0.subdomain_ids.assign(n_cell, 0);
-          level_0.level_subdomain_ids.assign(n_cell, 0);
-
-          level_0.refine_flags.assign(n_cell, false);
-          level_0.coarsen_flags.assign(n_cell, false);
-
-          level_0.parents.assign((n_cell + 1) / 2, -1);
-
-          if (dim < spacedim)
-            level_0.direction_flags.assign(n_cell, true);
-
-          level_0.neighbors.assign(n_cell * GeometryInfo<dim>::faces_per_cell,
-                                   {-1, -1});
-        }
-
         // TriaObjects/TriaLevel: cell
         {
           auto &cells_0 = tria.levels[0]->cells; // data structure to be filled
@@ -12328,7 +12308,7 @@ namespace internal
 
           // allocate memory
           reserve_space(cells_0, n_cell);
-          reserve_space(level, n_cell, orientation_needed);
+          reserve_space(level, spacedim, n_cell, orientation_needed);
 
           // loop over all cells
           for (unsigned int cell = 0; cell < n_cell; ++cell)
@@ -12531,6 +12511,7 @@ namespace internal
 
       static void
       reserve_space(TriaLevel &        level,
+                    const unsigned int spacedim,
                     const unsigned int size,
                     const bool         orientation_needed)
       {
@@ -12541,6 +12522,19 @@ namespace internal
                      (dim == 2 ? GeometryInfo<2>::faces_per_cell :
                                  GeometryInfo<3>::faces_per_cell);
 
+        level.active_cell_indices.assign(size, -1);
+        level.subdomain_ids.assign(size, 0);
+        level.level_subdomain_ids.assign(size, 0);
+
+        level.refine_flags.assign(size, false);
+        level.coarsen_flags.assign(size, false);
+
+        level.parents.assign((size + 1) / 2, -1);
+
+        if (dim < spacedim)
+          level.direction_flags.assign(size, true);
+
+        level.neighbors.assign(size * faces_per_cell, {-1, -1});
 
         level.entity_type.assign(size, -1);
 
