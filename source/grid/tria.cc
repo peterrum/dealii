@@ -12290,7 +12290,7 @@ namespace internal
 
         // TriaLevel
         {
-          auto &level_0 = *tria.levels[0]; // data structure to be filled
+          auto &level_0 = *tria.levels[0];
 
           level_0.active_cell_indices.assign(n_cell, -1);
           level_0.subdomain_ids.assign(n_cell, 0);
@@ -12306,71 +12306,11 @@ namespace internal
 
           level_0.neighbors.assign(n_cell * GeometryInfo<dim>::faces_per_cell,
                                    {-1, -1});
-
-          // set boundary id of boundary faces
-          if (dim > 1)
-            {
-              // count number of cells a face is belonging to
-              std::vector<unsigned int> count(
-                dim == 3 ? tria.faces->quads.boundary_or_material_id.size() :
-                           tria.faces->lines.boundary_or_material_id.size(),
-                0);
-
-              const auto &crs = connectivity.entity_to_entities(dim, dim - 1);
-
-              for (unsigned int cell = 0; cell < cells.size(); ++cell)
-                for (unsigned int i = crs.ptr[cell]; i < crs.ptr[cell + 1]; ++i)
-                  count[crs.col[i]]++;
-
-              // loop over all faces
-              for (unsigned int face = 0; face < count.size(); ++face)
-                if (count[face] == 1) // face belongs to once cell -> boundary
-                  {
-                    if (dim == 3)
-                      {
-                        // boundary quad ...
-                        tria.faces->quads.boundary_or_material_id[face]
-                          .boundary_id = 0;
-
-                        // ... and its lines
-                        const auto &crs = connectivity.entity_to_entities(2, 1);
-                        for (unsigned int i = crs.ptr[face];
-                             i < crs.ptr[face + 1];
-                             ++i)
-                          tria.faces->lines.boundary_or_material_id[crs.col[i]]
-                            .boundary_id = 0;
-                      }
-                    else if (dim == 2)
-                      {
-                        // boundary  line
-                        tria.faces->lines.boundary_or_material_id[face]
-                          .boundary_id = 0;
-                      }
-                  }
-            }
-          else // 1D
-            {
-              std::vector<std::pair<unsigned int, unsigned int>> count(
-                vertices.size());
-
-              const auto &crs = connectivity.entity_to_entities(dim, dim - 1);
-
-              for (unsigned int cell = 0; cell < cells.size(); ++cell)
-                for (unsigned int i = crs.ptr[cell], j = 0;
-                     i < crs.ptr[cell + 1];
-                     ++i, ++j)
-                  count[crs.col[i]] = {count[crs.col[i]].first + 1, j};
-
-              for (unsigned int face = 0; face < count.size(); ++face)
-                if (count[face].first == 1)
-                  (*tria.vertex_to_boundary_id_map_1d)[face] =
-                    count[face].second;
-            }
         }
 
         // TriaObjects/TriaLevel: cell
         {
-          auto &cells_0 = tria.levels[0]->cells;
+          auto &cells_0 = tria.levels[0]->cells; // data structure to be filled
           auto &level   = *tria.levels[0];
 
           // get connectivity between cells/faces and cells/cells
@@ -12424,6 +12364,64 @@ namespace internal
                 }
             }
         }
+
+        // TriaFaces: boundary id of boundary faces
+        if (dim > 1)
+          {
+            // count number of cells a face is belonging to
+            std::vector<unsigned int> count(
+              dim == 3 ? tria.faces->quads.boundary_or_material_id.size() :
+                         tria.faces->lines.boundary_or_material_id.size(),
+              0);
+
+            const auto &crs = connectivity.entity_to_entities(dim, dim - 1);
+
+            for (unsigned int cell = 0; cell < cells.size(); ++cell)
+              for (unsigned int i = crs.ptr[cell]; i < crs.ptr[cell + 1]; ++i)
+                count[crs.col[i]]++;
+
+            // loop over all faces
+            for (unsigned int face = 0; face < count.size(); ++face)
+              if (count[face] == 1) // face belongs to once cell -> boundary
+                {
+                  if (dim == 3)
+                    {
+                      // boundary quad ...
+                      tria.faces->quads.boundary_or_material_id[face]
+                        .boundary_id = 0;
+
+                      // ... and its lines
+                      const auto &crs = connectivity.entity_to_entities(2, 1);
+                      for (unsigned int i = crs.ptr[face];
+                           i < crs.ptr[face + 1];
+                           ++i)
+                        tria.faces->lines.boundary_or_material_id[crs.col[i]]
+                          .boundary_id = 0;
+                    }
+                  else if (dim == 2)
+                    {
+                      // boundary  line
+                      tria.faces->lines.boundary_or_material_id[face]
+                        .boundary_id = 0;
+                    }
+                }
+          }
+        else // 1D
+          {
+            std::vector<std::pair<unsigned int, unsigned int>> count(
+              vertices.size());
+
+            const auto &crs = connectivity.entity_to_entities(dim, dim - 1);
+
+            for (unsigned int cell = 0; cell < cells.size(); ++cell)
+              for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
+                   ++i, ++j)
+                count[crs.col[i]] = {count[crs.col[i]].first + 1, j};
+
+            for (unsigned int face = 0; face < count.size(); ++face)
+              if (count[face].first == 1)
+                (*tria.vertex_to_boundary_id_map_1d)[face] = count[face].second;
+          }
 
         // SubCellData: line
         if (dim >= 2)
