@@ -12307,19 +12307,6 @@ namespace internal
           level_0.neighbors.assign(n_cell * GeometryInfo<dim>::faces_per_cell,
                                    {-1, -1});
 
-
-          // set neighbors
-          {
-            const auto &crs = connectivity.entity_to_entities(dim, dim);
-
-            for (unsigned int cell = 0; cell < cells.size(); ++cell)
-              for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
-                   ++i, ++j)
-                if (crs.col[i] != static_cast<unsigned int>(-1))
-                  level_0.neighbors[cell * GeometryInfo<dim>::faces_per_cell +
-                                    j] = {0, crs.col[i]};
-          }
-
           // set boundary id of boundary faces
           if (dim > 1)
             {
@@ -12386,8 +12373,9 @@ namespace internal
           auto &cells_0 = tria.levels[0]->cells;
           auto &level   = *tria.levels[0];
 
-          // get connectivity between cells and faces
+          // get connectivity between cells/faces and cells/cells
           const auto &crs = connectivity.entity_to_entities(dim, dim - 1);
+          const auto &nei = connectivity.entity_to_entities(dim, dim);
 
           // in 2D optional: since in in pure QUAD meshes same line
           // orientations can be guaranteed
@@ -12415,9 +12403,15 @@ namespace internal
               // set entity types
               level.entity_type[cell] = connectivity.entity_types(dim)[cell];
 
+              // loop over faces
               for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
                    ++i, ++j)
                 {
+                  // set neighbor if not at boundary
+                  if (nei.col[i] != static_cast<unsigned int>(-1))
+                    level.neighbors[cell * GeometryInfo<dim>::faces_per_cell +
+                                    j] = {0, nei.col[i]};
+
                   // set face indices
                   cells_0.cells[cell * GeometryInfo<dim>::faces_per_cell + j] =
                     crs.col[i];
