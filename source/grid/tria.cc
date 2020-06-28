@@ -12353,7 +12353,7 @@ namespace internal
                 crs.col[i];
 
           // set face orientation
-          if (dim >= 3 /*????*/)
+          if (dim >= 2 /*????*/)
             {
               tria.levels[0]->face_orientations.assign(
                 n_cell * GeometryInfo<dim>::faces_per_cell, -1);
