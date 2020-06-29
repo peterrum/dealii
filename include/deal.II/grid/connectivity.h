@@ -28,6 +28,8 @@ namespace internal
   {
     struct CellTypeBase
     {
+      virtual ~CellTypeBase() = default;
+
       virtual unsigned int
       n_entities(const unsigned int d) const
       {
