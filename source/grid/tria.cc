@@ -11773,7 +11773,7 @@ namespace internal
       std::vector<unsigned char> &                      orientations, // result
       const FU &                                        second_key_function)
     {
-      const bool comptibility_mode = false;
+      const bool comptibility_mode = true;
 
       const std::vector<std::size_t> & cell_ptr      = crs.ptr;
       const std::vector<unsigned int> &cell_vertices = crs.col;
