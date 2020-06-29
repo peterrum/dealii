@@ -31,6 +31,8 @@
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/vector.h>
 
+#include <stdio.h>
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -10828,6 +10830,8 @@ namespace internal
       vertices_of_entity(const unsigned int d,
                          const unsigned int e) const override
       {
+        (void)e;
+
         if (d == 1)
           {
             static const std::array<unsigned int, 2> table = {{0, 1}};
@@ -11769,6 +11773,8 @@ namespace internal
       std::vector<unsigned char> &                      orientations, // result
       const FU &                                        second_key_function)
     {
+      const bool comptibility_mode = false;
+
       const std::vector<std::size_t> & cell_ptr      = crs.ptr;
       const std::vector<unsigned int> &cell_vertices = crs.col;
       std::vector<std::size_t> &       ptr_d         = crs_d.ptr;
@@ -11778,14 +11784,17 @@ namespace internal
 
       // step 1: store each d-dimensional entity of a cell (described by their
       // vertices) into a vector and create a key for them
-      std::vector<std::tuple<std::array<unsigned int, key_length>,
-                             std::array<unsigned int, key_length>,
-                             unsigned int,
-                             unsigned int,
-                             std::array<unsigned int, key_length>>>
-        keys; // key (sorted vertices), vertices, cell-entity index, type,
-              // additional key (to ensure same enumeration as in deal.II -
-              // TODO: remove)
+      std::vector<
+        std::tuple<std::array<unsigned int, key_length>, unsigned int>>
+        keys; // key (sorted vertices), cell-entity index
+
+      std::vector<std::tuple<std::array<unsigned int, key_length>, // vertices
+                             unsigned int // element type
+                             >>
+        additional_info;
+
+      std::vector<std::array<unsigned int, key_length>>
+        additional_info_compatibility;
 
       ptr_d.resize(cell_types_index.size() + 1);
       ptr_d[0] = 0;
@@ -11819,68 +11828,44 @@ namespace internal
               // ... create key
               std::array<unsigned int, key_length> key = entity_vertices;
               std::sort(key.begin(), key.end());
-              keys.emplace_back(
-                key,
-                entity_vertices,
-                counter++,
-                cell_type->type_of_entity(d, e),
-                second_key_function(entity_vertices, cell_type, c, e));
+              keys.emplace_back(key, counter++);
+
+              additional_info.emplace_back(entity_vertices,
+                                           cell_type->type_of_entity(d, e));
+
+              if (comptibility_mode)
+                additional_info_compatibility.emplace_back(
+                  second_key_function(entity_vertices, cell_type, c, e));
             }
         }
+
+      col_d.resize(keys.size());
+      orientations.resize(keys.size());
 
       // step 2: sort according to key so that entities with same key can be
       // merged
-      std::sort(keys.begin(), keys.end(), [](const auto &a, const auto &b) {
-        // try to sort according to the key ...
-        if (std::get<0>(a) < std::get<0>(b))
-          return true;
-        else if (std::get<0>(a) > std::get<0>(b))
-          return false;
-        else // ... else sort according to index -> to preserve order among
-             // entities with same key
-          return std::get<2>(a) < std::get<2>(b);
-      });
+      std::sort(keys.begin(), keys.end());
 
-      if (true) // to ensure the same enumeration of entities as in deal.II
-                // (TODO: remove): sort according to the additional key
+
+      if (comptibility_mode)
         {
-          std::array<unsigned int, key_length> ref_key;
-          std::array<unsigned int, key_length> add_key;
+          std::array<unsigned int, key_length> ref_key, new_key;
           std::fill(ref_key.begin(), ref_key.end(), 0);
-
-          // merge entities (arbitrary groups indices)
-          for (unsigned int i = 0; i < keys.size(); i++)
+          for (unsigned int i = 0; i < keys.size(); ++i)
             {
+              const auto offset_i = std::get<1>(keys[i]);
+
               if (ref_key != std::get<0>(keys[i]))
                 {
                   ref_key = std::get<0>(keys[i]);
-                  add_key = std::get<4>(keys[i]);
+                  new_key = additional_info_compatibility[offset_i];
                 }
-              else
-                {
-                  std::get<4>(keys[i]) = add_key;
-                }
+
+              std::get<0>(keys[i]) = new_key;
             }
 
-
-          std::sort(keys.begin(), keys.end(), [](const auto &a, const auto &b) {
-            // try to sort according to the additional key ...
-            if (std::get<4>(a) < std::get<4>(b))
-              return true;
-            else if (std::get<4>(a) > std::get<4>(b))
-              return false;
-            else // ... else sort according to index -> to preserve order among
-                 // entities with same key
-              return std::get<2>(a) < std::get<2>(b);
-          });
+          std::sort(keys.begin(), keys.end());
         }
-
-      // step 3: merge entities with the same key as well give entities with
-      // the same key the same ID and determine their orientation relative to
-      // any other entity in the same group.
-      std::vector<std::tuple<unsigned int, unsigned int, unsigned char>>
-        keys_unique; // cell-entity index, entity index, orientation
-      keys_unique.reserve(keys.size());
 
       std::array<unsigned int, key_length> ref_key;
       std::array<unsigned int, key_length> ref_indices;
@@ -11890,51 +11875,34 @@ namespace internal
            i < keys.size();
            i++)
         {
+          const auto offset_i = std::get<1>(keys[i]);
+
           if (ref_key != std::get<0>(keys[i]))
             {
               // new key
               counter++;
               ref_key     = std::get<0>(keys[i]);
-              ref_indices = std::get<1>(keys[i]);
+              ref_indices = std::get<0>(additional_info[offset_i]);
 
               ptr_0.push_back(col_0.size());
-              for (const auto j : std::get<1>(keys[i]))
+              for (const auto j : std::get<0>(additional_info[offset_i]))
                 if (j != 0)
                   col_0.push_back(j - offset);
 
               // take its orientation as default
-              keys_unique.emplace_back(std::get<2>(keys[i]),
-                                       counter,
-                                       1 /*default orientation*/);
+              col_d[offset_i]        = counter;
+              orientations[offset_i] = 1;
             }
           else
             {
-              // same key, but different orientation
-              keys_unique.emplace_back(std::get<2>(keys[i]),
-                                       counter,
-                                       compute_orientation(ref_indices,
-                                                           std::get<1>(keys[i]),
-                                                           std::get<3>(
-                                                             keys[i])));
+              col_d[offset_i] = counter;
+              orientations[offset_i] =
+                compute_orientation(ref_indices,
+                                    std::get<0>(additional_info[offset_i]),
+                                    std::get<1>(additional_info[offset_i]));
             }
         }
       ptr_0.push_back(col_0.size());
-
-      // step 4: sort according to cell-entity index so that entity index and
-      // orientation can be copied back
-      std::sort(keys_unique.begin(),
-                keys_unique.end(),
-                [](const auto &a, const auto &b) {
-                  return std::get<0>(a) < std::get<0>(b);
-                });
-
-      col_d.resize(keys_unique.size());
-      orientations.resize(keys_unique.size());
-      for (unsigned int i = 0; i < keys_unique.size(); i++)
-        {
-          col_d[i]        = std::get<1>(keys_unique[i]);
-          orientations[i] = std::get<2>(keys_unique[i]);
-        }
     }
 
 
