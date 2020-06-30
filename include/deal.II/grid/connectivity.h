@@ -1055,9 +1055,8 @@ namespace internal
 
       // step 1: store each d-dimensional entity of a cell (described by their
       // vertices) into a vector and create a key for them
-      std::vector<
-        std::tuple<std::array<unsigned int, key_length>, unsigned int>>
-        keys; // key (sorted vertices), cell-entity index
+      std::vector<std::array<unsigned int, key_length>> keys;
+      std::vector<unsigned int>                         key_indices;
 
       std::vector<std::array<unsigned int, key_length>> ad_entity_vertices;
       std::vector<unsigned int>                         ad_entity_types;
@@ -1095,7 +1094,8 @@ namespace internal
               // ... create key
               std::array<unsigned int, key_length> key = entity_vertices;
               std::sort(key.begin(), key.end());
-              keys.emplace_back(key, counter++);
+              keys.emplace_back(key);
+              key_indices.emplace_back(counter++);
 
               ad_entity_vertices.emplace_back(entity_vertices);
 
@@ -1110,9 +1110,17 @@ namespace internal
       col_d.resize(keys.size());
       orientations.resize(keys.size());
 
+      const auto comp = [&](const auto &a, const auto &b) {
+        if (keys[a] < keys[b])
+          return true;
+        if (keys[a] > keys[b])
+          return false;
+        return a < b;
+      };
+
       // step 2: sort according to key so that entities with same key can be
       // merged
-      std::sort(keys.begin(), keys.end());
+      std::sort(key_indices.begin(), key_indices.end(), comp);
 
 
       if (comptibility_mode)
@@ -1121,18 +1129,18 @@ namespace internal
           std::fill(ref_key.begin(), ref_key.end(), 0);
           for (unsigned int i = 0; i < keys.size(); ++i)
             {
-              const auto offset_i = std::get<1>(keys[i]);
+              const auto offset_i = key_indices[i];
 
-              if (ref_key != std::get<0>(keys[i]))
+              if (ref_key != keys[offset_i])
                 {
-                  ref_key = std::get<0>(keys[i]);
+                  ref_key = keys[offset_i];
                   new_key = ad_compatibility[offset_i];
                 }
 
-              std::get<0>(keys[i]) = new_key;
+              keys[offset_i] = new_key;
             }
 
-          std::sort(keys.begin(), keys.end());
+          std::sort(key_indices.begin(), key_indices.end(), comp);
         }
 
       std::array<unsigned int, key_length> ref_key;
@@ -1143,9 +1151,9 @@ namespace internal
            i < keys.size();
            i++)
         {
-          const auto offset_i = std::get<1>(keys[i]);
+          const auto offset_i = key_indices[i];
 
-          if (ref_key != std::get<0>(keys[i]))
+          if (ref_key != keys[offset_i])
             {
               // new key
               counter++;
