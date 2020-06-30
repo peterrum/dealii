@@ -26,8 +26,33 @@ namespace internal
 {
   namespace TriangulationImplementation
   {
+    enum class CellType : std::uint8_t
+    {
+      VERTEX  = 0,
+      LINE    = 1,
+      TRI     = 2,
+      QUAD    = 3,
+      TET     = 4,
+      PYRAMID = 5,
+      WEDGE   = 6,
+      HEX     = 7,
+      INVALID = static_cast<std::uint8_t>(-1)
+    };
+
+    /**
+     * Interface of geometric cell entities with the focus on creating a
+     * reduced connectivity table.
+     */
     struct CellTypeBase
     {
+      /**
+       * Default destructor.
+       */
+      virtual ~CellTypeBase() = default;
+
+      /**
+       * Number of sub-entities of dimension @p d.
+       */
       virtual unsigned int
       n_entities(const unsigned int d) const
       {
@@ -37,6 +62,9 @@ namespace internal
         return 0;
       }
 
+      /**
+       * Number of vertices of the @p e-th sub-entity of dimension @p d.
+       */
       virtual dealii::ArrayView<const unsigned int>
       vertices_of_entity(const unsigned int d, const unsigned int e) const
       {
@@ -47,25 +75,34 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
-      virtual unsigned int
+      /**
+       * Geometric entity type of the @p e-th sub-entity of dimension @p d.
+       */
+      virtual CellType
       type_of_entity(const unsigned int d, const unsigned int e) const
       {
         Assert(false, ExcNotImplemented());
         (void)d;
         (void)e;
 
-        return -1;
+        return CellType::VERTEX;
       }
 
+      /**
+       * Number of lines of @p face-th surface.
+       */
       virtual unsigned int
-      n_lines_of_surface(const unsigned int line) const
+      n_lines_of_surface(const unsigned int face) const
       {
         Assert(false, ExcNotImplemented());
-        (void)line;
+        (void)face;
 
         return 0;
       }
 
+      /**
+       * Index of the @line-th lines of @p face-th surface.
+       */
       virtual unsigned int
       nth_line_of_surface(const unsigned int line,
                           const unsigned int face) const
@@ -77,6 +114,9 @@ namespace internal
         return 0;
       }
 
+      /**
+       * Vertex indices of the @line-th lines of @p face-th surface.
+       */
       virtual const std::array<unsigned int, 2> &
       vertices_of_nth_line_of_surface(const unsigned int line,
                                       const unsigned int face) const
@@ -93,6 +133,9 @@ namespace internal
 
 
 
+    /**
+     * Implementation for lines.
+     */
     struct CellTypeLine : public CellTypeBase
     {
       dealii::ArrayView<const unsigned int>
@@ -115,17 +158,17 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
-      virtual unsigned int
+      CellType
       type_of_entity(const unsigned int d, const unsigned int e) const override
       {
         (void)e;
 
         if (d == 1)
-          return 1;
+          return CellType::LINE;
 
         Assert(false, ExcNotImplemented());
 
-        return -1;
+        return CellType::VERTEX;
       }
 
       unsigned int
@@ -138,6 +181,9 @@ namespace internal
 
 
 
+    /**
+     * Implementation for triangles.
+     */
     struct CellTypeTri : public CellTypeBase
     {
       dealii::ArrayView<const unsigned int>
@@ -166,20 +212,20 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
-      virtual unsigned int
+      virtual CellType
       type_of_entity(const unsigned int d, const unsigned int e) const override
       {
         (void)e;
 
         if (d == 2)
-          return 2;
+          return CellType::TRI;
 
         if (d == 1)
-          return 1;
+          return CellType::LINE;
 
         Assert(false, ExcNotImplemented());
 
-        return -1;
+        return CellType::VERTEX;
       }
 
       unsigned int
@@ -192,6 +238,9 @@ namespace internal
 
 
 
+    /**
+     * Implementation for quadrilaterals.
+     */
     struct CellTypeQuad : public CellTypeBase
     {
       dealii::ArrayView<const unsigned int>
@@ -220,20 +269,20 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
-      virtual unsigned int
+      virtual CellType
       type_of_entity(const unsigned int d, const unsigned int e) const override
       {
         (void)e;
 
         if (d == 2)
-          return 3;
+          return CellType::QUAD;
 
         if (d == 1)
-          return 1;
+          return CellType::LINE;
 
         Assert(false, ExcNotImplemented());
 
-        return -1;
+        return CellType::VERTEX;
       }
 
       unsigned int
@@ -246,6 +295,9 @@ namespace internal
 
 
 
+    /**
+     * Implementation for tetrahedrons.
+     */
     struct CellTypeTet : public CellTypeBase
     {
       dealii::ArrayView<const unsigned int>
@@ -282,23 +334,23 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
-      virtual unsigned int
+      virtual CellType
       type_of_entity(const unsigned int d, const unsigned int e) const override
       {
         (void)e;
 
         if (d == 3)
-          return 4;
+          return CellType::TET;
 
         if (d == 2)
-          return 2;
+          return CellType::TRI;
 
         if (d == 1)
-          return 1;
+          return CellType::LINE;
 
         Assert(false, ExcNotImplemented());
 
-        return -1;
+        return CellType::VERTEX;
       }
 
       unsigned int
@@ -340,6 +392,9 @@ namespace internal
     };
 
 
+    /**
+     * Implementation for pyramids.
+     */
 
     struct CellTypePyramid : public CellTypeBase
     {
@@ -383,25 +438,25 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
-      virtual unsigned int
+      virtual CellType
       type_of_entity(const unsigned int d, const unsigned int e) const override
       {
         (void)e;
 
         if (d == 3)
-          return 5;
+          return CellType::PYRAMID;
 
         if (d == 2 && e == 0)
-          return 3;
+          return CellType::QUAD;
         else if (d == 2)
-          return 2;
+          return CellType::TRI;
 
         if (d == 1)
-          return 1;
+          return CellType::LINE;
 
         Assert(false, ExcNotImplemented());
 
-        return -1;
+        return CellType::VERTEX;
       }
 
       unsigned int
@@ -438,14 +493,14 @@ namespace internal
       vertices_of_nth_line_of_surface(const unsigned int line,
                                       const unsigned int face) const override
       {
-        // clang-format off
+        static const unsigned int X = static_cast<unsigned int>(-1);
+
         const static std::array<std::array<std::array<unsigned int, 2>, 4>, 5>
           table = {{{{{0, 2}, {1, 3}, {0, 1}, {2, 3}}},
-                    {{{0, 2}, {2, 4}, {4, 0}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
-                    {{{3, 1}, {1, 4}, {4, 3}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
-                    {{{1, 0}, {0, 4}, {4, 1}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
-                    {{{2, 3}, {3, 4}, {4, 2}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}}}};
-        // clang-format on
+                    {{{0, 2}, {2, 4}, {4, 0}, {X, X}}},
+                    {{{3, 1}, {1, 4}, {4, 3}, {X, X}}},
+                    {{{1, 0}, {0, 4}, {4, 1}, {X, X}}},
+                    {{{2, 3}, {3, 4}, {4, 2}, {X, X}}}}};
 
         return table[face][line];
       }
@@ -453,6 +508,9 @@ namespace internal
 
 
 
+    /**
+     * Implementation for wedges.
+     */
     struct CellTypeWedge : public CellTypeBase
     {
       dealii::ArrayView<const unsigned int>
@@ -505,25 +563,25 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
-      virtual unsigned int
+      virtual CellType
       type_of_entity(const unsigned int d, const unsigned int e) const override
       {
         (void)e;
 
         if (d == 3)
-          return 6;
+          return CellType::WEDGE;
 
         if (d == 2 && e > 1)
-          return 3;
+          return CellType::QUAD;
         else if (d == 2)
-          return 2;
+          return CellType::TRI;
 
         if (d == 1)
-          return 1;
+          return CellType::LINE;
 
         Assert(false, ExcNotImplemented());
 
-        return -1;
+        return CellType::VERTEX;
       }
 
       unsigned int
@@ -546,12 +604,14 @@ namespace internal
       nth_line_of_surface(const unsigned int line,
                           const unsigned int face) const override
       {
+        static const unsigned int X = static_cast<unsigned int>(-1);
+
         const static std::array<std::array<unsigned int, 4>, 5> table = {
-          {{0, 2, 1, numbers::invalid_unsigned_int},
-           {3, 4, 5, numbers::invalid_unsigned_int},
+          {{0, 2, 1, X},
+           {3, 4, 5, X},
            {6, 7, 0, 3},
            {7, 8, 1, 4},
-           {8, 6, 5, 2}}}; // TODO
+           {8, 6, 5, 2}}};
 
         return table[face][line];
       }
@@ -560,14 +620,14 @@ namespace internal
       vertices_of_nth_line_of_surface(const unsigned int line,
                                       const unsigned int face) const override
       {
-        // clang-format off
+        static const unsigned int X = static_cast<unsigned int>(-1);
+
         const static std::array<std::array<std::array<unsigned int, 2>, 4>, 5>
-          table = {{{{{1, 0}, {0, 2}, {2, 1}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
-                    {{{3, 4}, {4, 5}, {5, 3}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
+          table = {{{{{1, 0}, {0, 2}, {2, 1}, {X, X}}},
+                    {{{3, 4}, {4, 5}, {5, 3}, {X, X}}},
                     {{{0, 3}, {1, 4}, {0, 1}, {3, 4}}},
                     {{{1, 4}, {2, 5}, {1, 2}, {4, 5}}},
-                    {{{2, 5}, {0, 3}, {2, 0}, {5, 3}}}}}; // TODO
-        // clang-format on
+                    {{{2, 5}, {0, 3}, {2, 0}, {5, 3}}}}};
 
         return table[face][line];
       }
@@ -575,6 +635,9 @@ namespace internal
 
 
 
+    /**
+     * Implementation for hexahedrons.
+     */
     struct CellTypeHex : public CellTypeBase
     {
       dealii::ArrayView<const unsigned int>
@@ -628,23 +691,23 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
-      virtual unsigned int
+      virtual CellType
       type_of_entity(const unsigned int d, const unsigned int e) const override
       {
         (void)e;
 
         if (d == 3)
-          return 7;
+          return CellType::HEX;
 
         if (d == 2)
-          return 3;
+          return CellType::QUAD;
 
         if (d == 1)
-          return 1;
+          return CellType::LINE;
 
         Assert(false, ExcNotImplemented());
 
-        return -1;
+        return CellType::VERTEX;
       }
 
       unsigned int
@@ -665,15 +728,13 @@ namespace internal
       nth_line_of_surface(const unsigned int line,
                           const unsigned int face) const override
       {
-        // clang-format off
         const static std::array<std::array<unsigned int, 4>, 6> table = {
-          {{8, 10,  0,  4},
-           {9, 11,  1,  5},
-           {2,  6,  8,  9},
-           {3,  7, 10, 11},
-           {0,  1,  2,  3},
-           {4,  5,  6,  7}}};
-        // clang-format on
+          {{8, 10, 0, 4},
+           {9, 11, 1, 5},
+           {2, 6, 8, 9},
+           {3, 7, 10, 11},
+           {0, 1, 2, 3},
+           {4, 5, 6, 7}}};
 
         return table[face][line];
       }
@@ -682,7 +743,6 @@ namespace internal
       vertices_of_nth_line_of_surface(const unsigned int line,
                                       const unsigned int face) const override
       {
-        // clang-format off
         const static std::array<std::array<std::array<unsigned int, 2>, 4>, 6>
           table = {{{{{0, 4}, {2, 6}, {0, 2}, {4, 6}}},
                     {{{1, 5}, {3, 7}, {1, 3}, {5, 7}}},
@@ -690,7 +750,6 @@ namespace internal
                     {{{2, 3}, {6, 7}, {2, 6}, {3, 7}}},
                     {{{0, 2}, {1, 3}, {0, 1}, {2, 3}}},
                     {{{4, 6}, {5, 7}, {4, 5}, {6, 7}}}}};
-        // clang-format on
 
         return table[face][line];
       }
@@ -699,33 +758,70 @@ namespace internal
 
 
     /**
-     * Compressed row storage sparse matrix.
+     * Compressed row storage sparse matrix. This class is similar to
+     * SparsityPattern but reduced to the bare minimum as needed here - in the
+     * context of setting up the connectivity - and allowing direct simplified
+     * access to the entries.
      */
     template <typename T = unsigned int>
     struct CRS
     {
+      /**
+       * Default constructor.
+       */
       CRS()
         : ptr{0} {};
 
-      CRS(const std::vector<std::size_t> &ptr, const std::vector<T> col)
+      /**
+       * Constructor which allows to set the internal fields directly.
+       */
+      CRS(const std::vector<std::size_t> &ptr, const std::vector<T> &col)
         : ptr(ptr)
         , col(col)
       {}
 
-      std::vector<std::size_t> ptr = {0};
-      std::vector<T>           col;
+      // row index
+      std::vector<std::size_t> ptr;
+
+      // column index
+      std::vector<T> col;
     };
 
 
 
     /**
-     * Class for storing the reduced connectivit table.
+     * Class for storing the reduced connectivity table.
+     *
+     * A full connectivity table contains all possible connectivities of
+     * entities of dimension d and entities of dimension d' with 0<=d,d'<=dim.
+     * However, in the library we only need the following types of
+     * connectivities:
+     *  - dim-dimensional neighbors of dim-dimensional entities (connected via
+     *    faces)
+     *  - d-dimensional entity to it's (d-1)-dimension bounding entities
+     *  - quad (2 - 3D), line (1 - 2D/3D) to vertices (0) to be able to process
+     *    the user provided SubCellData during
+     *    Triangulation::create_triangulation().
+     * We call a table, which computes the corresponding entries of a full
+     * connectivity table a reduced table.
+     *
+     * The entries of the reduced table are as follows for 1D-3D:
+     *
+     * 1D :    | 0 1    2D:    | 0 1 2    3D:    | 0 1 2 3
+     *      ---+-----       ---+-------       ---+--------
+     *       0 |             0 |               0 |
+     *       1 | x n         1 | x             1 | x
+     *                       2 | s x n         2 | s x
+     *                                         3 |     x n
+     *
+     * with markers highlighting the reason for the entry x:=bounding entities;
+     * n:= neighboring entities; s:=sub-cell data
      */
     template <typename T = unsigned int>
     struct Connectivity
     {
-      Connectivity(const unsigned int               dim,
-                   const std::vector<unsigned int> &cell_types)
+      Connectivity(const unsigned int           dim,
+                   const std::vector<CellType> &cell_types)
         : dim(dim)
         , cell_types(cell_types)
       {}
@@ -752,7 +848,7 @@ namespace internal
         return quad_orientation;
       }
 
-      inline std::vector<unsigned int> &
+      inline std::vector<CellType> &
       entity_types(const unsigned int structdim)
       {
         if (structdim == dim)
@@ -765,7 +861,7 @@ namespace internal
         return quad_types;
       }
 
-      inline const std::vector<unsigned int> &
+      inline const std::vector<CellType> &
       entity_types(const unsigned int structdim) const
       {
         if (structdim == dim)
@@ -817,8 +913,8 @@ namespace internal
       }
 
     private:
-      const unsigned int        dim;
-      std::vector<unsigned int> cell_types;
+      const unsigned int    dim;
+      std::vector<CellType> cell_types;
 
       CRS<T> line_vertices;
 
@@ -832,17 +928,17 @@ namespace internal
       CRS<T> cell_entities;
       CRS<T> neighbors;
 
-      std::vector<unsigned int> quad_types;
+      std::vector<CellType> quad_types;
     };
 
 
 
     /**
-     * Determine the neighbors of a cell by visiting its faces and looking for
-     * a cell which is not equal to this cell.
+     * Determine the neighbors of all cells.
      *
      * @p con_cf connectivity cell-face
-     * @p con_fc connectivity face-cell
+     * @p con_cc connectivity cell-cell (for each cell-face it contains the
+     *   the index of the neighboring cell or -1 for boundary face)
      */
     template <typename T>
     void
@@ -857,7 +953,8 @@ namespace internal
       const unsigned int n_faces =
         *std::max_element(col_cf.begin(), col_cf.end()) + 1;
 
-      // clear
+      // clear and initialize with -1 (assume that all faces are at the
+      // boundary)
       col_cc = std::vector<T>(col_cf.size(), -1);
       ptr_cc = ptr_cf;
 
@@ -866,15 +963,20 @@ namespace internal
       // loop over all cells
       for (unsigned int i_0 = 0; i_0 < ptr_cf.size() - 1; i_0++)
         {
-          // loop over all faces
+          // ... and all its faces
           for (std::size_t j_0 = ptr_cf[i_0]; j_0 < ptr_cf[i_0 + 1]; j_0++)
             {
               if (neighbors[col_cf[j_0]].first == static_cast<unsigned int>(-1))
                 {
+                  // face is visited the first time -> save the visiting cell
+                  // and the face pointer
                   neighbors[col_cf[j_0]] = std::pair<T, unsigned int>(i_0, j_0);
                 }
               else
                 {
+                  // face is visited the second time -> now we know the cells
+                  // on both sides of the face and we can determine for both
+                  // cells the neigbor
                   col_cc[j_0] = neighbors[col_cf[j_0]].first;
                   col_cc[neighbors[col_cf[j_0]].second] = i_0;
                 }
@@ -890,78 +992,94 @@ namespace internal
      */
     template <typename T, std::size_t N>
     inline unsigned char
-    compute_orientation(const std::array<T, N> &var_0,
-                        const std::array<T, N> &var_1,
-                        const unsigned int      type)
+    compute_orientation(const CellType          entity_type,
+                        const std::array<T, N> &vertices_0,
+                        const std::array<T, N> &vertices_1)
     {
-      if (type == 1) // LINE
+      if (entity_type == CellType::LINE)
         {
-          const std::array<T, 2> i{var_0[0], var_0[1]};
-          const std::array<T, 3> j{var_1[0], var_1[1]};
+          const std::array<T, 2> i{vertices_0[0], vertices_0[1]};
+          const std::array<T, 3> j{vertices_1[0], vertices_1[1]};
 
-          // clang-format off
           // line_orientation=true
-          if (i == std::array<T, 2>{{j[0], j[1]}}) return 1;
+          if (i == std::array<T, 2>{{j[0], j[1]}})
+            return 1;
 
           // line_orientation=false
-          if (i == std::array<T, 2>{{j[1], j[0]}}) return 0;
-          // clang-format on
+          if (i == std::array<T, 2>{{j[1], j[0]}})
+            return 0;
         }
-      else if (type == 2) // TRI
+      else if (entity_type == CellType::TRI)
         {
-          const std::array<T, 3> i{var_0[0], var_0[1], var_0[2]};
-          const std::array<T, 3> j{var_1[0], var_1[1], var_1[2]};
+          const std::array<T, 3> i{vertices_0[0], vertices_0[1], vertices_0[2]};
+          const std::array<T, 3> j{vertices_1[0], vertices_1[1], vertices_1[2]};
 
-          // clang-format off
           // face_orientation=true, face_rotation=false, face_flip=false
-          if (i == std::array<T, 3>{{j[0], j[1], j[2]}}) return 1;
+          if (i == std::array<T, 3>{{j[0], j[1], j[2]}})
+            return 1;
 
           // face_orientation=true, face_rotation=true, face_flip=false
-          if (i == std::array<T, 3>{{j[1], j[0], j[2]}}) return 3;
+          if (i == std::array<T, 3>{{j[1], j[0], j[2]}})
+            return 3;
 
           // face_orientation=true, face_rotation=false, face_flip=true
-          if (i == std::array<T, 3>{{j[2], j[0], j[1]}}) return 5;
+          if (i == std::array<T, 3>{{j[2], j[0], j[1]}})
+            return 5;
 
           // face_orientation=false, face_rotation=false, face_flip=false
-          if (i == std::array<T, 3>{{j[0], j[2], j[1]}}) return 0;
+          if (i == std::array<T, 3>{{j[0], j[2], j[1]}})
+            return 0;
 
           // face_orientation=false, face_rotation=true, face_flip=false
-          if (i == std::array<T, 3>{{j[1], j[2], j[0]}}) return 2;
+          if (i == std::array<T, 3>{{j[1], j[2], j[0]}})
+            return 2;
 
           // face_orientation=false, face_rotation=false, face_flip=true
-          if (i == std::array<T, 3>{{j[2], j[1], j[0]}}) return 4;
-          // clang-format on
+          if (i == std::array<T, 3>{{j[2], j[1], j[0]}})
+            return 4;
         }
-      else if (type == 3) // QUAD
+      else if (entity_type == CellType::QUAD)
         {
-          const std::array<T, 4> i{var_0[0], var_0[1], var_0[2], var_0[3]};
-          const std::array<T, 4> j{var_1[0], var_1[1], var_1[2], var_1[3]};
+          const std::array<T, 4> i{vertices_0[0],
+                                   vertices_0[1],
+                                   vertices_0[2],
+                                   vertices_0[3]};
+          const std::array<T, 4> j{vertices_1[0],
+                                   vertices_1[1],
+                                   vertices_1[2],
+                                   vertices_1[3]};
 
-          // clang-format off
           // face_orientation=true, face_rotation=false, face_flip=false
-          if (i == std::array<T, 4>{{j[0], j[1], j[2], j[3]}}) return 1;
+          if (i == std::array<T, 4>{{j[0], j[1], j[2], j[3]}})
+            return 1;
 
           // face_orientation=true, face_rotation=true, face_flip=false
-          if (i == std::array<T, 4>{{j[1], j[3], j[0], j[2]}}) return 3;
+          if (i == std::array<T, 4>{{j[1], j[3], j[0], j[2]}})
+            return 3;
 
           // face_orientation=true, face_rotation=false, face_flip=true
-          if (i == std::array<T, 4>{{j[3], j[2], j[1], j[0]}}) return 5;
+          if (i == std::array<T, 4>{{j[3], j[2], j[1], j[0]}})
+            return 5;
 
           // face_orientation=true, face_rotation=true, face_flip=true
-          if (i == std::array<T, 4>{{j[2], j[0], j[3], j[1]}}) return 7;
+          if (i == std::array<T, 4>{{j[2], j[0], j[3], j[1]}})
+            return 7;
 
           // face_orientation=false, face_rotation=false, face_flip=false
-          if (i == std::array<T, 4>{{j[0], j[2], j[1], j[3]}}) return 0;
+          if (i == std::array<T, 4>{{j[0], j[2], j[1], j[3]}})
+            return 0;
 
           // face_orientation=false, face_rotation=true, face_flip=false
-          if (i == std::array<T, 4>{{j[2], j[3], j[0], j[1]}}) return 2;
+          if (i == std::array<T, 4>{{j[2], j[3], j[0], j[1]}})
+            return 2;
 
           // face_orientation=false, face_rotation=false, face_flip=true
-          if (i == std::array<T, 4>{{j[3], j[1], j[2], j[0]}}) return 4;
+          if (i == std::array<T, 4>{{j[3], j[1], j[2], j[0]}})
+            return 4;
 
           // face_orientation=false, face_rotation=true, face_flip=true
-          if (i == std::array<T, 4>{{j[1], j[0], j[3], j[2]}}) return 6;
-          // clang-format on
+          if (i == std::array<T, 4>{{j[1], j[0], j[3], j[2]}})
+            return 6;
         }
 
       AssertThrow(false, dealii::StandardExceptions::ExcNotImplemented());
@@ -983,14 +1101,14 @@ namespace internal
     build_entity_templated(
       const unsigned int                                d,
       const std::vector<std::shared_ptr<CellTypeBase>> &cell_types,
-      const std::vector<unsigned int> &                 cell_types_index,
+      const std::vector<CellType> &                     cell_types_index,
       const CRS<unsigned int> &                         crs,
       CRS<unsigned int> &                               crs_d,        // result
       CRS<unsigned int> &                               crs_0,        // result
       std::vector<unsigned char> &                      orientations, // result
       const FU &                                        second_key_function)
     {
-      const bool comptibility_mode = false;
+      const bool compatibility_mode = false;
 
       const std::vector<std::size_t> & cell_ptr      = crs.ptr;
       const std::vector<unsigned int> &cell_vertices = crs.col;
@@ -999,13 +1117,18 @@ namespace internal
 
       // note: we do not pre-allocate memory for these arrays because it turned
       // out that counting unique entities is more expensive than push_back().
-      std::vector<std::size_t> & ptr_0 = crs_0.ptr = {};
-      std::vector<unsigned int> &col_0 = crs_0.col = {};
+      std::vector<std::size_t> & ptr_0 = crs_0.ptr;
+      std::vector<unsigned int> &col_0 = crs_0.col;
+
+      // clear
+      ptr_0 = {};
+      col_0 = {};
 
       unsigned int n_entities = 0;
 
       for (unsigned int c = 0; c < cell_types_index.size(); c++)
-        n_entities += cell_types[cell_types_index[c]]->n_entities(d);
+        n_entities += cell_types[static_cast<std::uint8_t>(cell_types_index[c])]
+                        ->n_entities(d);
 
       // step 1: store each d-dimensional entity of a cell (described by their
       // vertices) into a vector and create a key for them
@@ -1017,7 +1140,7 @@ namespace internal
         keys; // key (sorted vertices), cell-entity index
 
       std::vector<std::array<unsigned int, key_length>> ad_entity_vertices;
-      std::vector<unsigned int>                         ad_entity_types;
+      std::vector<CellType>                             ad_entity_types;
       std::vector<std::array<unsigned int, key_length>> ad_compatibility;
 
       keys.reserve(n_entities);
@@ -1033,8 +1156,9 @@ namespace internal
       // loop over all cells
       for (unsigned int c = 0, counter = 0; c < cell_types_index.size(); c++)
         {
-          const auto &cell_type = cell_types[cell_types_index[c]];
-          ptr_d[c + 1]          = ptr_d[c] + cell_type->n_entities(d);
+          const auto &cell_type =
+            cell_types[static_cast<std::uint8_t>(cell_types_index[c])];
+          ptr_d[c + 1] = ptr_d[c] + cell_type->n_entities(d);
 
           // ... collect vertices of cell
           const dealii::ArrayView<const unsigned int> cell_vertice(
@@ -1063,7 +1187,7 @@ namespace internal
 
               ad_entity_types.emplace_back(cell_type->type_of_entity(d, e));
 
-              if (comptibility_mode)
+              if (compatibility_mode)
                 ad_compatibility.emplace_back(
                   second_key_function(entity_vertices, cell_type, c, e));
             }
@@ -1077,7 +1201,7 @@ namespace internal
       std::sort(keys.begin(), keys.end());
 
 
-      if (comptibility_mode)
+      if (compatibility_mode)
         {
           unsigned int n_unique_entities        = 0;
           unsigned int n_unique_entity_vertices = 0;
@@ -1094,7 +1218,9 @@ namespace internal
 
                   n_unique_entities++;
                   n_unique_entity_vertices +=
-                    cell_types[ad_entity_types[offset_i]]->n_entities(0);
+                    cell_types[static_cast<std::uint8_t>(
+                                 ad_entity_types[offset_i])]
+                      ->n_entities(0);
 
                   new_key = ad_compatibility[offset_i];
                 }
@@ -1139,9 +1265,9 @@ namespace internal
             {
               col_d[offset_i] = counter;
               orientations[offset_i] =
-                compute_orientation(ref_indices,
-                                    ad_entity_vertices[offset_i],
-                                    ad_entity_types[offset_i]);
+                compute_orientation(ad_entity_types[offset_i],
+                                    ref_indices,
+                                    ad_entity_vertices[offset_i]);
             }
         }
       ptr_0.push_back(col_0.size());
@@ -1157,33 +1283,53 @@ namespace internal
     void
     build_entity(const unsigned int                                d,
                  const std::vector<std::shared_ptr<CellTypeBase>> &cell_types,
-                 const std::vector<unsigned int> &cell_types_index,
-                 const CRS<unsigned int> &        crs,
-                 CRS<unsigned int> &              crs_d,
-                 CRS<unsigned int> &              crs_0,
-                 std::vector<unsigned char> &     orientations,
-                 const FU &                       second_key_function)
+                 const std::vector<CellType> &cell_types_index,
+                 const CRS<unsigned int> &    crs,
+                 CRS<unsigned int> &          crs_d,
+                 CRS<unsigned int> &          crs_0,
+                 std::vector<unsigned char> & orientations,
+                 const FU &                   second_key_function)
     {
       std::size_t key_length = 0;
 
       for (unsigned int c = 0; c < cell_types_index.size(); c++)
         {
-          const auto &cell_type = cell_types[cell_types_index[c]];
+          const auto &cell_type =
+            cell_types[static_cast<std::uint8_t>(cell_types_index[c])];
           for (unsigned int e = 0; e < cell_type->n_entities(d); e++)
             key_length =
               std::max(key_length, cell_type->vertices_of_entity(d, e).size());
         }
 
-      // clang-format off
-    if(key_length == 2)
-      build_entity_templated<2>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations, second_key_function);
-    else if(key_length == 3)
-      build_entity_templated<3>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations, second_key_function);
-    else if(key_length == 4)
-      build_entity_templated<4>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations, second_key_function);
-    else
-      AssertThrow(false, dealii::StandardExceptions::ExcNotImplemented ());
-      // clang-format on
+      if (key_length == 2)
+        build_entity_templated<2>(d,
+                                  cell_types,
+                                  cell_types_index,
+                                  crs,
+                                  crs_d,
+                                  crs_0,
+                                  orientations,
+                                  second_key_function);
+      else if (key_length == 3)
+        build_entity_templated<3>(d,
+                                  cell_types,
+                                  cell_types_index,
+                                  crs,
+                                  crs_d,
+                                  crs_0,
+                                  orientations,
+                                  second_key_function);
+      else if (key_length == 4)
+        build_entity_templated<4>(d,
+                                  cell_types,
+                                  cell_types_index,
+                                  crs,
+                                  crs_d,
+                                  crs_0,
+                                  orientations,
+                                  second_key_function);
+      else
+        AssertThrow(false, dealii::StandardExceptions::ExcNotImplemented());
     }
 
 
@@ -1198,16 +1344,17 @@ namespace internal
     void
     build_intersection(
       const std::vector<std::shared_ptr<CellTypeBase>> &cell_types,
-      const std::vector<unsigned int> &                 cell_types_index,
+      const std::vector<CellType> &                     cell_types_index,
       const CRS<unsigned int> &                         con_cv,
       const CRS<unsigned int> &                         con_cl,
       const CRS<unsigned int> &                         con_lv,
       const CRS<unsigned int> &                         con_cq,
       const CRS<unsigned int> &                         con_qv,
       const std::vector<unsigned char> &                ori_cq,
-      CRS<unsigned int> &                               con_ql, // result
-      std::vector<unsigned char> &                      ori_ql, // result
-      std::vector<unsigned int> &                       quad_t_id)                     // result
+      CRS<unsigned int> &                               con_ql,   // result
+      std::vector<unsigned char> &                      ori_ql,   // result
+      std::vector<CellType> &                           quad_t_id // result
+    )
     {
       // reset output
       ori_ql     = {};
@@ -1222,7 +1369,8 @@ namespace internal
       // count the number of lines of each face
       for (unsigned int c = 0; c < con_cq.ptr.size() - 1; ++c)
         {
-          const auto &cell_type = cell_types[cell_types_index[c]];
+          const auto &cell_type =
+            cell_types[static_cast<std::uint8_t>(cell_types_index[c])];
 
           // loop over faces
           for (unsigned int f_ = con_cq.ptr[c], f_index = 0;
@@ -1246,7 +1394,8 @@ namespace internal
       // loop over cells
       for (unsigned int c = 0; c < con_cq.ptr.size() - 1; ++c)
         {
-          const auto &cell_type = cell_types[cell_types_index[c]];
+          const auto &cell_type =
+            cell_types[static_cast<std::uint8_t>(cell_types_index[c])];
 
           // loop over faces
           for (unsigned int f_ = con_cq.ptr[c], f_index = 0;
@@ -1259,7 +1408,7 @@ namespace internal
               if (ori_cq[f_] != 1)
                 continue;
 
-              // determine entity type of face (TODO: move it somewhere else)
+              // determine entity type of face
               quad_t_id[f] = cell_type->type_of_entity(2, f_index);
 
               // loop over lines
@@ -1298,13 +1447,18 @@ namespace internal
 
     /**
      * Build the reduced connectivity table for the given dimension @p dim.
+     *
+     * This function is inspired by the publication Anders Logg "Efficient
+     * Representation of Computational Meshes" and the FEniCS's DOLFIN mesh
+     * implementation. It has been strongly adjusted to efficiently solely meet
+     * our connectivity needs while sacrificing some of the flexibility there.
      */
     template <typename T>
     Connectivity<T>
     build_connectivity(const unsigned int                                dim,
                        const std::vector<std::shared_ptr<CellTypeBase>> &cell_t,
-                       const std::vector<unsigned int> &cell_t_id,
-                       const CRS<T> &                   con_cv)
+                       const std::vector<CellType> &cell_t_id,
+                       const CRS<T> &               con_cv)
     {
       Connectivity<T> connectivity(dim, cell_t_id);
 
@@ -1325,8 +1479,7 @@ namespace internal
                        connectivity.entity_to_entities(1, 0),
                        dim == 2 ? connectivity.entity_orientations(1) : dummy,
                        [](auto key, const auto &, const auto &, const auto &) {
-                         //  to ensure same enumeration as in deal.II (TODO:
-                         //  remove)
+                         //  to ensure same enumeration as in deal.II
                          return key;
                        });
         }
@@ -1342,7 +1495,7 @@ namespace internal
             connectivity.entity_to_entities(2, 0),
             connectivity.entity_orientations(2),
             [&](auto key, const auto &cell_type, const auto &c, const auto &f) {
-              //  to ensure same enumeration as in deal.II (TODO: remove)
+              //  to ensure same enumeration as in deal.II
               AssertIndexRange(cell_type->n_lines_of_surface(f),
                                key.size() + 1);
 
@@ -1391,23 +1544,38 @@ namespace internal
     build_connectivity(const std::vector<CellData<dim>> &cells)
     {
       // vector of possible cell entity types
-      std::vector<std::shared_ptr<CellTypeBase>> cell_types_impl;
-      cell_types_impl.emplace_back(new CellTypeBase());    // 0: VERTEX
-      cell_types_impl.emplace_back(new CellTypeLine());    // 1: LINE
-      cell_types_impl.emplace_back(new CellTypeTri());     // 2: TRI
-      cell_types_impl.emplace_back(new CellTypeQuad());    // 3: QUAD
-      cell_types_impl.emplace_back(new CellTypeTet());     // 4: TET
-      cell_types_impl.emplace_back(new CellTypePyramid()); // 5: PYRAMID
-      cell_types_impl.emplace_back(new CellTypeWedge());   // 6: WEDGE
-      cell_types_impl.emplace_back(new CellTypeHex());     // 7: HEX
+      std::vector<std::shared_ptr<CellTypeBase>> cell_types_impl(8);
+
+      cell_types_impl[static_cast<std::uint8_t>(CellType::LINE)].reset(
+        new CellTypeLine());
+      cell_types_impl[static_cast<std::uint8_t>(CellType::TRI)].reset(
+        new CellTypeTri());
+      cell_types_impl[static_cast<std::uint8_t>(CellType::QUAD)].reset(
+        new CellTypeQuad());
+      cell_types_impl[static_cast<std::uint8_t>(CellType::TET)].reset(
+        new CellTypeTet());
+      cell_types_impl[static_cast<std::uint8_t>(CellType::PYRAMID)].reset(
+        new CellTypePyramid());
+      cell_types_impl[static_cast<std::uint8_t>(CellType::WEDGE)].reset(
+        new CellTypeWedge());
+      cell_types_impl[static_cast<std::uint8_t>(CellType::HEX)].reset(
+        new CellTypeHex());
 
       // jump table to pick the right entity type
-      static const unsigned int X = static_cast<unsigned int>(-1);
-      static const std::array<const std::array<unsigned int, 9>, 4> table = {
-        {{X, 0, X, X, X, X, X, X, X},
-         {X, X, 1, X, X, X, X, X, X},
-         {X, X, X, 2, 3, X, X, X, X},
-         {X, X, X, X, 4, 5, 6, X, 7}}};
+      static const CellType X = CellType::INVALID;
+      static const std::array<const std::array<CellType, 9>, 4> table = {
+        {{X, CellType::VERTEX, X, X, X, X, X, X, X},
+         {X, X, CellType::LINE, X, X, X, X, X, X},
+         {X, X, X, CellType::TRI, CellType::QUAD, X, X, X, X},
+         {X,
+          X,
+          X,
+          X,
+          CellType::TET,
+          CellType::PYRAMID,
+          CellType::WEDGE,
+          X,
+          CellType::HEX}}};
 
       // determine cell types and process vertices
       std::vector<T> cell_vertices;
@@ -1423,14 +1591,23 @@ namespace internal
       cell_vertices_ptr.reserve(cells.size() + 1);
       cell_vertices_ptr.push_back(0);
 
-      std::vector<unsigned int> cell_types_indices;
+      std::vector<CellType> cell_types_indices;
       cell_types_indices.reserve(cells.size());
 
       // loop over cells and create CRS
       for (const auto &cell : cells)
         {
           // determine cell type
-          cell_types_indices.push_back(table[dim][cell.vertices.size()]);
+          const CellType cell_type = table[dim][cell.vertices.size()];
+
+          Assert(cell_type != CellType::INVALID, ExcNotImplemented());
+          AssertIndexRange(static_cast<std::uint8_t>(cell_type),
+                           cell_types_impl.size());
+          Assert(cell_types_impl[static_cast<std::uint8_t>(cell_type)].get() !=
+                   nullptr,
+                 ExcNotImplemented());
+
+          cell_types_indices.push_back(cell_type);
 
           // create CRS of vertices (to remove template argument dim)
           for (const auto &vertex : cell.vertices)

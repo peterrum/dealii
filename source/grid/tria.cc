@@ -10821,7 +10821,8 @@ namespace internal
             for (unsigned int q = 0, k = 0; q < n_quads; ++q)
               {
                 // set entity type of quads
-                faces.quad_entity_type[q] = connectivity.entity_types(2)[q];
+                faces.quad_entity_type[q] =
+                  static_cast<std::uint8_t>(connectivity.entity_types(2)[q]);
 
                 // loop over all its lines
                 for (unsigned int i = crs.ptr[q], j = 0; i < crs.ptr[q + 1];
@@ -10872,7 +10873,8 @@ namespace internal
               cells_0.manifold_id[cell] = cells[cell].manifold_id;
 
               // set entity types
-              level.entity_type[cell] = connectivity.entity_types(dim)[cell];
+              level.entity_type[cell] =
+                static_cast<std::uint8_t>(connectivity.entity_types(dim)[cell]);
 
               // loop over faces
               for (unsigned int i = crs.ptr[cell], j = 0; i < crs.ptr[cell + 1];
