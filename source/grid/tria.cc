@@ -2172,8 +2172,10 @@ namespace internal
         tria.levels.push_back(
           std::make_unique<
             dealii::internal::TriangulationImplementation::TriaLevel>(dim));
-        tria.faces = std::make_unique<
-          dealii::internal::TriangulationImplementation::TriaFaces>(dim);
+
+        if (dim > 1)
+          tria.faces = std::make_unique<
+            dealii::internal::TriangulationImplementation::TriaFaces>(dim);
 
         // copy vertices
         tria.vertices = vertices;
@@ -2252,15 +2254,18 @@ namespace internal
 
           // in 2D optional: since in in pure QUAD meshes same line
           // orientations can be guaranteed
-          const bool orientation_needed =
-            dim == 3 ||
+          const bool orientation_needed = dim == 3 ||
+#if false
             (dim == 2 &&
              std::any_of(connectivity.entity_orientations(1).begin(),
                          connectivity.entity_orientations(1).end(),
                          [](const auto &i) { return i == 0; }));
+#else
+                                          false;
+#endif
 
-          // allocate memory
-          reserve_space_(cells_0, n_cell);
+                                          // allocate memory
+                                          reserve_space_(cells_0, n_cell);
           reserve_space_(level, spacedim, n_cell, orientation_needed);
 
           // loop over all cells
@@ -2353,8 +2358,13 @@ namespace internal
                   type[crs.col[i]] = type[crs.col[i]] == t_tba ? j : t_inner;
 
             for (unsigned int face = 0; face < type.size(); ++face)
-              if (type[face] != t_inner && type[face] != t_tba)
-                (*tria.vertex_to_boundary_id_map_1d)[face] = type[face];
+              {
+                // note: we also treat manifolds here!?
+                (*tria.vertex_to_manifold_id_map_1d)[face] =
+                  numbers::flat_manifold_id;
+                if (type[face] != t_inner && type[face] != t_tba)
+                  (*tria.vertex_to_boundary_id_map_1d)[face] = type[face];
+              }
           }
 
         // SubCellData: line
