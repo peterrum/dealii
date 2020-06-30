@@ -940,78 +940,94 @@ namespace internal
      */
     template <typename T, std::size_t N>
     inline unsigned char
-    compute_orientation(const std::array<T, N> &var_0,
-                        const std::array<T, N> &var_1,
-                        const unsigned int      type)
+    compute_orientation(const unsigned int      entity_type,
+                        const std::array<T, N> &vertices_0,
+                        const std::array<T, N> &vertices_1)
     {
-      if (type == 1) // LINE
+      if (entity_type == 1) // LINE
         {
-          const std::array<T, 2> i{var_0[0], var_0[1]};
-          const std::array<T, 3> j{var_1[0], var_1[1]};
+          const std::array<T, 2> i{vertices_0[0], vertices_0[1]};
+          const std::array<T, 3> j{vertices_1[0], vertices_1[1]};
 
-          // clang-format off
           // line_orientation=true
-          if (i == std::array<T, 2>{{j[0], j[1]}}) return 1;
+          if (i == std::array<T, 2>{{j[0], j[1]}})
+            return 1;
 
           // line_orientation=false
-          if (i == std::array<T, 2>{{j[1], j[0]}}) return 0;
-          // clang-format on
+          if (i == std::array<T, 2>{{j[1], j[0]}})
+            return 0;
         }
-      else if (type == 2) // TRI
+      else if (entity_type == 2) // TRI
         {
-          const std::array<T, 3> i{var_0[0], var_0[1], var_0[2]};
-          const std::array<T, 3> j{var_1[0], var_1[1], var_1[2]};
+          const std::array<T, 3> i{vertices_0[0], vertices_0[1], vertices_0[2]};
+          const std::array<T, 3> j{vertices_1[0], vertices_1[1], vertices_1[2]};
 
-          // clang-format off
           // face_orientation=true, face_rotation=false, face_flip=false
-          if (i == std::array<T, 3>{{j[0], j[1], j[2]}}) return 1;
+          if (i == std::array<T, 3>{{j[0], j[1], j[2]}})
+            return 1;
 
           // face_orientation=true, face_rotation=true, face_flip=false
-          if (i == std::array<T, 3>{{j[1], j[0], j[2]}}) return 3;
+          if (i == std::array<T, 3>{{j[1], j[0], j[2]}})
+            return 3;
 
           // face_orientation=true, face_rotation=false, face_flip=true
-          if (i == std::array<T, 3>{{j[2], j[0], j[1]}}) return 5;
+          if (i == std::array<T, 3>{{j[2], j[0], j[1]}})
+            return 5;
 
           // face_orientation=false, face_rotation=false, face_flip=false
-          if (i == std::array<T, 3>{{j[0], j[2], j[1]}}) return 0;
+          if (i == std::array<T, 3>{{j[0], j[2], j[1]}})
+            return 0;
 
           // face_orientation=false, face_rotation=true, face_flip=false
-          if (i == std::array<T, 3>{{j[1], j[2], j[0]}}) return 2;
+          if (i == std::array<T, 3>{{j[1], j[2], j[0]}})
+            return 2;
 
           // face_orientation=false, face_rotation=false, face_flip=true
-          if (i == std::array<T, 3>{{j[2], j[1], j[0]}}) return 4;
-          // clang-format on
+          if (i == std::array<T, 3>{{j[2], j[1], j[0]}})
+            return 4;
         }
-      else if (type == 3) // QUAD
+      else if (entity_type == 3) // QUAD
         {
-          const std::array<T, 4> i{var_0[0], var_0[1], var_0[2], var_0[3]};
-          const std::array<T, 4> j{var_1[0], var_1[1], var_1[2], var_1[3]};
+          const std::array<T, 4> i{vertices_0[0],
+                                   vertices_0[1],
+                                   vertices_0[2],
+                                   vertices_0[3]};
+          const std::array<T, 4> j{vertices_1[0],
+                                   vertices_1[1],
+                                   vertices_1[2],
+                                   vertices_1[3]};
 
-          // clang-format off
           // face_orientation=true, face_rotation=false, face_flip=false
-          if (i == std::array<T, 4>{{j[0], j[1], j[2], j[3]}}) return 1;
+          if (i == std::array<T, 4>{{j[0], j[1], j[2], j[3]}})
+            return 1;
 
           // face_orientation=true, face_rotation=true, face_flip=false
-          if (i == std::array<T, 4>{{j[1], j[3], j[0], j[2]}}) return 3;
+          if (i == std::array<T, 4>{{j[1], j[3], j[0], j[2]}})
+            return 3;
 
           // face_orientation=true, face_rotation=false, face_flip=true
-          if (i == std::array<T, 4>{{j[3], j[2], j[1], j[0]}}) return 5;
+          if (i == std::array<T, 4>{{j[3], j[2], j[1], j[0]}})
+            return 5;
 
           // face_orientation=true, face_rotation=true, face_flip=true
-          if (i == std::array<T, 4>{{j[2], j[0], j[3], j[1]}}) return 7;
+          if (i == std::array<T, 4>{{j[2], j[0], j[3], j[1]}})
+            return 7;
 
           // face_orientation=false, face_rotation=false, face_flip=false
-          if (i == std::array<T, 4>{{j[0], j[2], j[1], j[3]}}) return 0;
+          if (i == std::array<T, 4>{{j[0], j[2], j[1], j[3]}})
+            return 0;
 
           // face_orientation=false, face_rotation=true, face_flip=false
-          if (i == std::array<T, 4>{{j[2], j[3], j[0], j[1]}}) return 2;
+          if (i == std::array<T, 4>{{j[2], j[3], j[0], j[1]}})
+            return 2;
 
           // face_orientation=false, face_rotation=false, face_flip=true
-          if (i == std::array<T, 4>{{j[3], j[1], j[2], j[0]}}) return 4;
+          if (i == std::array<T, 4>{{j[3], j[1], j[2], j[0]}})
+            return 4;
 
           // face_orientation=false, face_rotation=true, face_flip=true
-          if (i == std::array<T, 4>{{j[1], j[0], j[3], j[2]}}) return 6;
-          // clang-format on
+          if (i == std::array<T, 4>{{j[1], j[0], j[3], j[2]}})
+            return 6;
         }
 
       AssertThrow(false, dealii::StandardExceptions::ExcNotImplemented());
@@ -1189,9 +1205,9 @@ namespace internal
             {
               col_d[offset_i] = counter;
               orientations[offset_i] =
-                compute_orientation(ref_indices,
-                                    ad_entity_vertices[offset_i],
-                                    ad_entity_types[offset_i]);
+                compute_orientation(ad_entity_types[offset_i],
+                                    ref_indices,
+                                    ad_entity_vertices[offset_i]);
             }
         }
       ptr_0.push_back(col_0.size());
