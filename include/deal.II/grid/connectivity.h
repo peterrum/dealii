@@ -875,11 +875,11 @@ namespace internal
 
 
     /**
-     * Determine the neighbors of a cell by visiting its faces and looking for
-     * a cell which is not equal to this cell.
+     * Determine the neighbors of all cells.
      *
      * @p con_cf connectivity cell-face
-     * @p con_fc connectivity face-cell
+     * @p con_cc connectivity cell-cell (for each cell-face it contains the
+     *   the index of the neighboring cell or -1 for boundary face)
      */
     template <typename T>
     void
@@ -894,7 +894,8 @@ namespace internal
       const unsigned int n_faces =
         *std::max_element(col_cf.begin(), col_cf.end()) + 1;
 
-      // clear
+      // clear and initialize with -1 (assume that all faces are at the
+      // boundary)
       col_cc = std::vector<T>(col_cf.size(), -1);
       ptr_cc = ptr_cf;
 
@@ -1380,6 +1381,11 @@ namespace internal
 
     /**
      * Build the reduced connectivity table for the given dimension @p dim.
+     *
+     * This function is inspired by the publication Anders Logg "Efficient
+     * Representation of Computational Meshes" and the FEniCS's DOLFIN mesh
+     * implementation. It has been strongly adjusted to efficiently solely meet
+     * our connectivity needs while sacrificing some of the flexibility there.
      */
     template <typename T>
     Connectivity<T>
