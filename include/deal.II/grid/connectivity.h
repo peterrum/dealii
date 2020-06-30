@@ -838,100 +838,48 @@ namespace internal
 
 
     /**
-     * Create the transposed of a compressed row storage matrix.
-     */
-    template <typename T>
-    CRS<T>
-    transpose(const CRS<T> &con)
-    {
-      auto        con_copy = con;
-      auto &      col      = con_copy.col;
-      const auto &ptr      = con_copy.ptr;
-
-      CRS<T> con_t;
-      auto & col_t = con_t.col;
-      auto & ptr_t = con_t.ptr;
-
-      for (unsigned int i = 0; i < ptr.size() - 1; i++)
-        std::sort(col.data() + ptr[i], col.data() + ptr[i + 1]);
-
-      col_t.clear();
-      ptr_t.clear();
-
-      col_t.reserve(col.size());
-      ptr_t.reserve(
-        col.size() == 0 ? 0 : *std::max_element(col.begin(), col.end()));
-
-      std::vector<std::pair<T, T>> temp;
-      temp.reserve(col.size());
-
-      for (unsigned int i = 0; i < ptr.size() - 1; i++)
-        for (std::size_t j = ptr[i]; j < ptr[i + 1]; j++)
-          temp.emplace_back(col[j], i);
-
-      std::sort(temp.begin(), temp.end());
-
-      T r = -1;
-
-      for (unsigned int i = 0; i < temp.size(); i++)
-        {
-          if (r != temp[i].first)
-            {
-              r = temp[i].first;
-              ptr_t.push_back(col_t.size());
-            }
-
-          col_t.push_back(temp[i].second);
-        }
-
-      ptr_t.push_back(col_t.size());
-
-      return con_t;
-    }
-
-
-
-    /**
      * Determine the neighbors of a cell by visiting its faces and looking for
      * a cell which is not equal to this cell.
+     *
+     * @p con_cf connectivity cell-face
+     * @p con_fc connectivity face-cell
      */
     template <typename T>
-    CRS<T>
-    determine_neighbors(const CRS<T> &con_cf, const CRS<T> &con_fc)
+    void
+    determine_neighbors(const CRS<T> &con_cf, CRS<T> &con_cc)
     {
       const auto &col_cf = con_cf.col;
       const auto &ptr_cf = con_cf.ptr;
-      const auto &col_fc = con_fc.col;
-      const auto &ptr_fc = con_fc.ptr;
 
-      CRS<T> con_cc;
-      auto & col_cc = con_cc.col;
-      auto & ptr_cc = con_cc.ptr;
+      auto &col_cc = con_cc.col;
+      auto &ptr_cc = con_cc.ptr;
 
-      col_cc.clear();
-      ptr_cc.clear();
+      const unsigned int n_faces =
+        *std::max_element(col_cf.begin(), col_cf.end()) + 1;
 
-      ptr_cc.push_back(0);
+      // clear
+      col_cc = std::vector<T>(col_cf.size(), -1);
+      ptr_cc = ptr_cf;
 
+      std::vector<std::pair<T, unsigned int>> neighbors(n_faces, {-1, -1});
+
+      // loop over all cells
       for (unsigned int i_0 = 0; i_0 < ptr_cf.size() - 1; i_0++)
         {
+          // loop over all faces
           for (std::size_t j_0 = ptr_cf[i_0]; j_0 < ptr_cf[i_0 + 1]; j_0++)
             {
-              T temp = -1;
-
-              for (std::size_t j_1 = ptr_fc[col_cf[j_0]];
-                   j_1 < ptr_fc[col_cf[j_0] + 1];
-                   j_1++)
-                if (i_0 != col_fc[j_1])
-                  temp = col_fc[j_1];
-
-              col_cc.emplace_back(temp);
+              if (neighbors[col_cf[j_0]].first == static_cast<unsigned int>(-1))
+                {
+                  neighbors[col_cf[j_0]] = std::pair<T, unsigned int>(i_0, j_0);
+                }
+              else
+                {
+                  col_cc[j_0] = neighbors[col_cf[j_0]].first;
+                  col_cc[neighbors[col_cf[j_0]].second] = i_0;
+                }
             }
-
-          ptr_cc.push_back(col_cc.size());
         }
-
-      return con_cc;
     }
 
 
@@ -1042,28 +990,40 @@ namespace internal
       std::vector<unsigned char> &                      orientations, // result
       const FU &                                        second_key_function)
     {
-      const bool comptibility_mode = true;
+      const bool comptibility_mode = false;
 
       const std::vector<std::size_t> & cell_ptr      = crs.ptr;
       const std::vector<unsigned int> &cell_vertices = crs.col;
       std::vector<std::size_t> &       ptr_d         = crs_d.ptr;
       std::vector<unsigned int> &      col_d         = crs_d.col;
-      std::vector<std::size_t> &       ptr_0 = crs_0.ptr = {};
-      std::vector<unsigned int> &      col_0             = crs_0.col;
+
+      // note: we do not pre-allocate memory for these arrays because it turned
+      // out that counting unique entities is more expensive than push_back().
+      std::vector<std::size_t> & ptr_0 = crs_0.ptr = {};
+      std::vector<unsigned int> &col_0 = crs_0.col = {};
+
+      unsigned int n_entities = 0;
+
+      for (unsigned int c = 0; c < cell_types_index.size(); c++)
+        n_entities += cell_types[cell_types_index[c]]->n_entities(d);
 
       // step 1: store each d-dimensional entity of a cell (described by their
       // vertices) into a vector and create a key for them
+      //
+      // note: it turned out to be more efficient to have a vector of tuples
+      // than to have two vectors (sorting becomes inefficient)
       std::vector<
         std::tuple<std::array<unsigned int, key_length>, unsigned int>>
         keys; // key (sorted vertices), cell-entity index
 
-      std::vector<std::tuple<std::array<unsigned int, key_length>, // vertices
-                             unsigned int // element type
-                             >>
-        additional_info;
+      std::vector<std::array<unsigned int, key_length>> ad_entity_vertices;
+      std::vector<unsigned int>                         ad_entity_types;
+      std::vector<std::array<unsigned int, key_length>> ad_compatibility;
 
-      std::vector<std::array<unsigned int, key_length>>
-        additional_info_compatibility;
+      keys.reserve(n_entities);
+      ad_entity_vertices.reserve(n_entities);
+      ad_entity_types.reserve(n_entities);
+      ad_compatibility.reserve(n_entities);
 
       ptr_d.resize(cell_types_index.size() + 1);
       ptr_d[0] = 0;
@@ -1099,11 +1059,12 @@ namespace internal
               std::sort(key.begin(), key.end());
               keys.emplace_back(key, counter++);
 
-              additional_info.emplace_back(entity_vertices,
-                                           cell_type->type_of_entity(d, e));
+              ad_entity_vertices.emplace_back(entity_vertices);
+
+              ad_entity_types.emplace_back(cell_type->type_of_entity(d, e));
 
               if (comptibility_mode)
-                additional_info_compatibility.emplace_back(
+                ad_compatibility.emplace_back(
                   second_key_function(entity_vertices, cell_type, c, e));
             }
         }
@@ -1118,6 +1079,9 @@ namespace internal
 
       if (comptibility_mode)
         {
+          unsigned int n_unique_entities        = 0;
+          unsigned int n_unique_entity_vertices = 0;
+
           std::array<unsigned int, key_length> ref_key, new_key;
           std::fill(ref_key.begin(), ref_key.end(), 0);
           for (unsigned int i = 0; i < keys.size(); ++i)
@@ -1127,14 +1091,23 @@ namespace internal
               if (ref_key != std::get<0>(keys[i]))
                 {
                   ref_key = std::get<0>(keys[i]);
-                  new_key = additional_info_compatibility[offset_i];
+
+                  n_unique_entities++;
+                  n_unique_entity_vertices +=
+                    cell_types[ad_entity_types[offset_i]]->n_entities(0);
+
+                  new_key = ad_compatibility[offset_i];
                 }
 
               std::get<0>(keys[i]) = new_key;
             }
 
           std::sort(keys.begin(), keys.end());
+
+          ptr_0.reserve(n_unique_entities);
+          col_0.reserve(n_unique_entity_vertices);
         }
+
 
       std::array<unsigned int, key_length> ref_key;
       std::array<unsigned int, key_length> ref_indices;
@@ -1151,10 +1124,10 @@ namespace internal
               // new key
               counter++;
               ref_key     = std::get<0>(keys[i]);
-              ref_indices = std::get<0>(additional_info[offset_i]);
+              ref_indices = ad_entity_vertices[offset_i];
 
               ptr_0.push_back(col_0.size());
-              for (const auto j : std::get<0>(additional_info[offset_i]))
+              for (const auto j : ad_entity_vertices[offset_i])
                 if (j != 0)
                   col_0.push_back(j - offset);
 
@@ -1167,8 +1140,8 @@ namespace internal
               col_d[offset_i] = counter;
               orientations[offset_i] =
                 compute_orientation(ref_indices,
-                                    std::get<0>(additional_info[offset_i]),
-                                    std::get<1>(additional_info[offset_i]));
+                                    ad_entity_vertices[offset_i],
+                                    ad_entity_types[offset_i]);
             }
         }
       ptr_0.push_back(col_0.size());
@@ -1402,10 +1375,8 @@ namespace internal
         }
 
       // determine neighbors
-      connectivity.entity_to_entities(dim, dim) =
-        determine_neighbors(connectivity.entity_to_entities(dim, dim - 1),
-                            transpose(
-                              connectivity.entity_to_entities(dim, dim - 1)));
+      determine_neighbors(connectivity.entity_to_entities(dim, dim - 1),
+                          connectivity.entity_to_entities(dim, dim));
 
       return connectivity;
     }
@@ -1440,12 +1411,20 @@ namespace internal
 
       // determine cell types and process vertices
       std::vector<T> cell_vertices;
+      cell_vertices.reserve(
+        std::accumulate(cells.begin(),
+                        cells.end(),
+                        0,
+                        [](const auto &result, const auto &cell) {
+                          return result + cell.vertices.size();
+                        }));
 
       std::vector<std::size_t> cell_vertices_ptr;
       cell_vertices_ptr.reserve(cells.size() + 1);
       cell_vertices_ptr.push_back(0);
 
       std::vector<unsigned int> cell_types_indices;
+      cell_types_indices.reserve(cells.size());
 
       // loop over cells and create CRS
       for (const auto &cell : cells)
