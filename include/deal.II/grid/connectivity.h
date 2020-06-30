@@ -18,6 +18,8 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/grid/geometric_entity.h>
+
 
 DEAL_II_NAMESPACE_OPEN
 
@@ -26,22 +28,6 @@ namespace internal
 {
   namespace TriangulationImplementation
   {
-    /**
-     * Supported cell entity types.
-     */
-    enum class CellType : std::uint8_t
-    {
-      VERTEX  = 0,
-      LINE    = 1,
-      TRI     = 2,
-      QUAD    = 3,
-      TET     = 4,
-      PYRAMID = 5,
-      WEDGE   = 6,
-      HEX     = 7,
-      INVALID = static_cast<std::uint8_t>(-1)
-    };
-
     /**
      * Interface of geometric cell entities with the focus on creating a
      * reduced connectivity table.
@@ -81,14 +67,14 @@ namespace internal
       /**
        * Geometric entity type of the @p e-th sub-entity of dimension @p d.
        */
-      virtual CellType
+      virtual GeometricEntityType
       type_of_entity(const unsigned int d, const unsigned int e) const
       {
         Assert(false, ExcNotImplemented());
         (void)d;
         (void)e;
 
-        return CellType::VERTEX;
+        return GeometricEntityType::VERTEX;
       }
 
       /**
@@ -161,17 +147,17 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
-      CellType
+      GeometricEntityType
       type_of_entity(const unsigned int d, const unsigned int e) const override
       {
         (void)e;
 
         if (d == 1)
-          return CellType::LINE;
+          return GeometricEntityType::LINE;
 
         Assert(false, ExcNotImplemented());
 
-        return CellType::VERTEX;
+        return GeometricEntityType::VERTEX;
       }
 
       unsigned int
@@ -215,20 +201,20 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
-      virtual CellType
+      virtual GeometricEntityType
       type_of_entity(const unsigned int d, const unsigned int e) const override
       {
         (void)e;
 
         if (d == 2)
-          return CellType::TRI;
+          return GeometricEntityType::TRI;
 
         if (d == 1)
-          return CellType::LINE;
+          return GeometricEntityType::LINE;
 
         Assert(false, ExcNotImplemented());
 
-        return CellType::VERTEX;
+        return GeometricEntityType::VERTEX;
       }
 
       unsigned int
@@ -272,20 +258,20 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
-      virtual CellType
+      virtual GeometricEntityType
       type_of_entity(const unsigned int d, const unsigned int e) const override
       {
         (void)e;
 
         if (d == 2)
-          return CellType::QUAD;
+          return GeometricEntityType::QUAD;
 
         if (d == 1)
-          return CellType::LINE;
+          return GeometricEntityType::LINE;
 
         Assert(false, ExcNotImplemented());
 
-        return CellType::VERTEX;
+        return GeometricEntityType::VERTEX;
       }
 
       unsigned int
@@ -337,23 +323,23 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
-      virtual CellType
+      virtual GeometricEntityType
       type_of_entity(const unsigned int d, const unsigned int e) const override
       {
         (void)e;
 
         if (d == 3)
-          return CellType::TET;
+          return GeometricEntityType::TET;
 
         if (d == 2)
-          return CellType::TRI;
+          return GeometricEntityType::TRI;
 
         if (d == 1)
-          return CellType::LINE;
+          return GeometricEntityType::LINE;
 
         Assert(false, ExcNotImplemented());
 
-        return CellType::VERTEX;
+        return GeometricEntityType::VERTEX;
       }
 
       unsigned int
@@ -441,25 +427,25 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
-      virtual CellType
+      virtual GeometricEntityType
       type_of_entity(const unsigned int d, const unsigned int e) const override
       {
         (void)e;
 
         if (d == 3)
-          return CellType::PYRAMID;
+          return GeometricEntityType::PYRAMID;
 
         if (d == 2 && e == 0)
-          return CellType::QUAD;
+          return GeometricEntityType::QUAD;
         else if (d == 2)
-          return CellType::TRI;
+          return GeometricEntityType::TRI;
 
         if (d == 1)
-          return CellType::LINE;
+          return GeometricEntityType::LINE;
 
         Assert(false, ExcNotImplemented());
 
-        return CellType::VERTEX;
+        return GeometricEntityType::VERTEX;
       }
 
       unsigned int
@@ -566,25 +552,25 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
-      virtual CellType
+      virtual GeometricEntityType
       type_of_entity(const unsigned int d, const unsigned int e) const override
       {
         (void)e;
 
         if (d == 3)
-          return CellType::WEDGE;
+          return GeometricEntityType::WEDGE;
 
         if (d == 2 && e > 1)
-          return CellType::QUAD;
+          return GeometricEntityType::QUAD;
         else if (d == 2)
-          return CellType::TRI;
+          return GeometricEntityType::TRI;
 
         if (d == 1)
-          return CellType::LINE;
+          return GeometricEntityType::LINE;
 
         Assert(false, ExcNotImplemented());
 
-        return CellType::VERTEX;
+        return GeometricEntityType::VERTEX;
       }
 
       unsigned int
@@ -694,23 +680,23 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
-      virtual CellType
+      virtual GeometricEntityType
       type_of_entity(const unsigned int d, const unsigned int e) const override
       {
         (void)e;
 
         if (d == 3)
-          return CellType::HEX;
+          return GeometricEntityType::HEX;
 
         if (d == 2)
-          return CellType::QUAD;
+          return GeometricEntityType::QUAD;
 
         if (d == 1)
-          return CellType::LINE;
+          return GeometricEntityType::LINE;
 
         Assert(false, ExcNotImplemented());
 
-        return CellType::VERTEX;
+        return GeometricEntityType::VERTEX;
       }
 
       unsigned int
@@ -823,8 +809,8 @@ namespace internal
     template <typename T = unsigned int>
     struct Connectivity
     {
-      Connectivity(const unsigned int           dim,
-                   const std::vector<CellType> &cell_types)
+      Connectivity(const unsigned int                      dim,
+                   const std::vector<GeometricEntityType> &cell_types)
         : dim(dim)
         , cell_types(cell_types)
       {}
@@ -851,7 +837,7 @@ namespace internal
         return quad_orientation;
       }
 
-      inline std::vector<CellType> &
+      inline std::vector<GeometricEntityType> &
       entity_types(const unsigned int structdim)
       {
         if (structdim == dim)
@@ -864,7 +850,7 @@ namespace internal
         return quad_types;
       }
 
-      inline const std::vector<CellType> &
+      inline const std::vector<GeometricEntityType> &
       entity_types(const unsigned int structdim) const
       {
         if (structdim == dim)
@@ -916,8 +902,8 @@ namespace internal
       }
 
     private:
-      const unsigned int    dim;
-      std::vector<CellType> cell_types;
+      const unsigned int               dim;
+      std::vector<GeometricEntityType> cell_types;
 
       CRS<T> line_vertices;
 
@@ -931,7 +917,7 @@ namespace internal
       CRS<T> cell_entities;
       CRS<T> neighbors;
 
-      std::vector<CellType> quad_types;
+      std::vector<GeometricEntityType> quad_types;
     };
 
 
@@ -995,11 +981,11 @@ namespace internal
      */
     template <typename T, std::size_t N>
     inline unsigned char
-    compute_orientation(const CellType          entity_type,
-                        const std::array<T, N> &vertices_0,
-                        const std::array<T, N> &vertices_1)
+    compute_orientation(const GeometricEntityType entity_type,
+                        const std::array<T, N> &  vertices_0,
+                        const std::array<T, N> &  vertices_1)
     {
-      if (entity_type == CellType::LINE)
+      if (entity_type == GeometricEntityType::LINE)
         {
           const std::array<T, 2> i{vertices_0[0], vertices_0[1]};
           const std::array<T, 3> j{vertices_1[0], vertices_1[1]};
@@ -1012,7 +998,7 @@ namespace internal
           if (i == std::array<T, 2>{{j[1], j[0]}})
             return 0;
         }
-      else if (entity_type == CellType::TRI)
+      else if (entity_type == GeometricEntityType::TRI)
         {
           const std::array<T, 3> i{vertices_0[0], vertices_0[1], vertices_0[2]};
           const std::array<T, 3> j{vertices_1[0], vertices_1[1], vertices_1[2]};
@@ -1041,7 +1027,7 @@ namespace internal
           if (i == std::array<T, 3>{{j[2], j[1], j[0]}})
             return 4;
         }
-      else if (entity_type == CellType::QUAD)
+      else if (entity_type == GeometricEntityType::QUAD)
         {
           const std::array<T, 4> i{vertices_0[0],
                                    vertices_0[1],
@@ -1104,7 +1090,7 @@ namespace internal
     build_entity_templated(
       const unsigned int                                d,
       const std::vector<std::shared_ptr<CellTypeBase>> &cell_types,
-      const std::vector<CellType> &                     cell_types_index,
+      const std::vector<GeometricEntityType> &          cell_types_index,
       const CRS<unsigned int> &                         crs,
       CRS<unsigned int> &                               crs_d,        // result
       CRS<unsigned int> &                               crs_0,        // result
@@ -1130,7 +1116,8 @@ namespace internal
       unsigned int n_entities = 0;
 
       for (unsigned int c = 0; c < cell_types_index.size(); c++)
-        n_entities += cell_types[static_cast<std::uint8_t>(cell_types_index[c])]
+        n_entities += cell_types[static_cast<types::geometric_entity_type>(
+                                   cell_types_index[c])]
                         ->n_entities(d);
 
       // step 1: store each d-dimensional entity of a cell (described by their
@@ -1143,7 +1130,7 @@ namespace internal
         keys; // key (sorted vertices), cell-entity index
 
       std::vector<std::array<unsigned int, key_length>> ad_entity_vertices;
-      std::vector<CellType>                             ad_entity_types;
+      std::vector<GeometricEntityType>                  ad_entity_types;
       std::vector<std::array<unsigned int, key_length>> ad_compatibility;
 
       keys.reserve(n_entities);
@@ -1160,7 +1147,8 @@ namespace internal
       for (unsigned int c = 0, counter = 0; c < cell_types_index.size(); c++)
         {
           const auto &cell_type =
-            cell_types[static_cast<std::uint8_t>(cell_types_index[c])];
+            cell_types[static_cast<types::geometric_entity_type>(
+              cell_types_index[c])];
           ptr_d[c + 1] = ptr_d[c] + cell_type->n_entities(d);
 
           // ... collect vertices of cell
@@ -1221,7 +1209,7 @@ namespace internal
 
                   n_unique_entities++;
                   n_unique_entity_vertices +=
-                    cell_types[static_cast<std::uint8_t>(
+                    cell_types[static_cast<types::geometric_entity_type>(
                                  ad_entity_types[offset_i])]
                       ->n_entities(0);
 
@@ -1286,19 +1274,20 @@ namespace internal
     void
     build_entity(const unsigned int                                d,
                  const std::vector<std::shared_ptr<CellTypeBase>> &cell_types,
-                 const std::vector<CellType> &cell_types_index,
-                 const CRS<unsigned int> &    crs,
-                 CRS<unsigned int> &          crs_d,
-                 CRS<unsigned int> &          crs_0,
-                 std::vector<unsigned char> & orientations,
-                 const FU &                   second_key_function)
+                 const std::vector<GeometricEntityType> &cell_types_index,
+                 const CRS<unsigned int> &               crs,
+                 CRS<unsigned int> &                     crs_d,
+                 CRS<unsigned int> &                     crs_0,
+                 std::vector<unsigned char> &            orientations,
+                 const FU &                              second_key_function)
     {
       std::size_t key_length = 0;
 
       for (unsigned int c = 0; c < cell_types_index.size(); c++)
         {
           const auto &cell_type =
-            cell_types[static_cast<std::uint8_t>(cell_types_index[c])];
+            cell_types[static_cast<types::geometric_entity_type>(
+              cell_types_index[c])];
           for (unsigned int e = 0; e < cell_type->n_entities(d); e++)
             key_length =
               std::max(key_length, cell_type->vertices_of_entity(d, e).size());
@@ -1347,7 +1336,7 @@ namespace internal
     void
     build_intersection(
       const std::vector<std::shared_ptr<CellTypeBase>> &cell_types,
-      const std::vector<CellType> &                     cell_types_index,
+      const std::vector<GeometricEntityType> &          cell_types_index,
       const CRS<unsigned int> &                         con_cv,
       const CRS<unsigned int> &                         con_cl,
       const CRS<unsigned int> &                         con_lv,
@@ -1356,7 +1345,7 @@ namespace internal
       const std::vector<unsigned char> &                ori_cq,
       CRS<unsigned int> &                               con_ql,   // result
       std::vector<unsigned char> &                      ori_ql,   // result
-      std::vector<CellType> &                           quad_t_id // result
+      std::vector<GeometricEntityType> &                quad_t_id // result
     )
     {
       // reset output
@@ -1373,7 +1362,8 @@ namespace internal
       for (unsigned int c = 0; c < con_cq.ptr.size() - 1; ++c)
         {
           const auto &cell_type =
-            cell_types[static_cast<std::uint8_t>(cell_types_index[c])];
+            cell_types[static_cast<types::geometric_entity_type>(
+              cell_types_index[c])];
 
           // loop over faces
           for (unsigned int f_ = con_cq.ptr[c], f_index = 0;
@@ -1398,7 +1388,8 @@ namespace internal
       for (unsigned int c = 0; c < con_cq.ptr.size() - 1; ++c)
         {
           const auto &cell_type =
-            cell_types[static_cast<std::uint8_t>(cell_types_index[c])];
+            cell_types[static_cast<types::geometric_entity_type>(
+              cell_types_index[c])];
 
           // loop over faces
           for (unsigned int f_ = con_cq.ptr[c], f_index = 0;
@@ -1460,8 +1451,8 @@ namespace internal
     Connectivity<T>
     build_connectivity(const unsigned int                                dim,
                        const std::vector<std::shared_ptr<CellTypeBase>> &cell_t,
-                       const std::vector<CellType> &cell_t_id,
-                       const CRS<T> &               con_cv)
+                       const std::vector<GeometricEntityType> &cell_t_id,
+                       const CRS<T> &                          con_cv)
     {
       Connectivity<T> connectivity(dim, cell_t_id);
 
@@ -1549,36 +1540,51 @@ namespace internal
       // vector of possible cell entity types
       std::vector<std::shared_ptr<CellTypeBase>> cell_types_impl(8);
 
-      cell_types_impl[static_cast<std::uint8_t>(CellType::LINE)].reset(
-        new CellTypeLine());
-      cell_types_impl[static_cast<std::uint8_t>(CellType::TRI)].reset(
-        new CellTypeTri());
-      cell_types_impl[static_cast<std::uint8_t>(CellType::QUAD)].reset(
-        new CellTypeQuad());
-      cell_types_impl[static_cast<std::uint8_t>(CellType::TET)].reset(
-        new CellTypeTet());
-      cell_types_impl[static_cast<std::uint8_t>(CellType::PYRAMID)].reset(
-        new CellTypePyramid());
-      cell_types_impl[static_cast<std::uint8_t>(CellType::WEDGE)].reset(
-        new CellTypeWedge());
-      cell_types_impl[static_cast<std::uint8_t>(CellType::HEX)].reset(
-        new CellTypeHex());
+      cell_types_impl[static_cast<types::geometric_entity_type>(
+                        GeometricEntityType::LINE)]
+        .reset(new CellTypeLine());
+      cell_types_impl[static_cast<types::geometric_entity_type>(
+                        GeometricEntityType::TRI)]
+        .reset(new CellTypeTri());
+      cell_types_impl[static_cast<types::geometric_entity_type>(
+                        GeometricEntityType::QUAD)]
+        .reset(new CellTypeQuad());
+      cell_types_impl[static_cast<types::geometric_entity_type>(
+                        GeometricEntityType::TET)]
+        .reset(new CellTypeTet());
+      cell_types_impl[static_cast<types::geometric_entity_type>(
+                        GeometricEntityType::PYRAMID)]
+        .reset(new CellTypePyramid());
+      cell_types_impl[static_cast<types::geometric_entity_type>(
+                        GeometricEntityType::WEDGE)]
+        .reset(new CellTypeWedge());
+      cell_types_impl[static_cast<types::geometric_entity_type>(
+                        GeometricEntityType::HEX)]
+        .reset(new CellTypeHex());
 
       // jump table to pick the right entity type
-      static const CellType X = CellType::INVALID;
-      static const std::array<const std::array<CellType, 9>, 4> table = {
-        {{X, CellType::VERTEX, X, X, X, X, X, X, X},
-         {X, X, CellType::LINE, X, X, X, X, X, X},
-         {X, X, X, CellType::TRI, CellType::QUAD, X, X, X, X},
-         {X,
-          X,
-          X,
-          X,
-          CellType::TET,
-          CellType::PYRAMID,
-          CellType::WEDGE,
-          X,
-          CellType::HEX}}};
+      static const GeometricEntityType X = GeometricEntityType::INVALID;
+      static const std::array<const std::array<GeometricEntityType, 9>, 4>
+        table = {{{X, GeometricEntityType::VERTEX, X, X, X, X, X, X, X},
+                  {X, X, GeometricEntityType::LINE, X, X, X, X, X, X},
+                  {X,
+                   X,
+                   X,
+                   GeometricEntityType::TRI,
+                   GeometricEntityType::QUAD,
+                   X,
+                   X,
+                   X,
+                   X},
+                  {X,
+                   X,
+                   X,
+                   X,
+                   GeometricEntityType::TET,
+                   GeometricEntityType::PYRAMID,
+                   GeometricEntityType::WEDGE,
+                   X,
+                   GeometricEntityType::HEX}}};
 
       // determine cell types and process vertices
       std::vector<T> cell_vertices;
@@ -1594,20 +1600,23 @@ namespace internal
       cell_vertices_ptr.reserve(cells.size() + 1);
       cell_vertices_ptr.push_back(0);
 
-      std::vector<CellType> cell_types_indices;
+      std::vector<GeometricEntityType> cell_types_indices;
       cell_types_indices.reserve(cells.size());
 
       // loop over cells and create CRS
       for (const auto &cell : cells)
         {
           // determine cell type
-          const CellType cell_type = table[dim][cell.vertices.size()];
+          const GeometricEntityType cell_type =
+            table[dim][cell.vertices.size()];
 
-          Assert(cell_type != CellType::INVALID, ExcNotImplemented());
-          AssertIndexRange(static_cast<std::uint8_t>(cell_type),
+          Assert(cell_type != GeometricEntityType::INVALID,
+                 ExcNotImplemented());
+          AssertIndexRange(static_cast<types::geometric_entity_type>(cell_type),
                            cell_types_impl.size());
-          Assert(cell_types_impl[static_cast<std::uint8_t>(cell_type)].get() !=
-                   nullptr,
+          Assert(cell_types_impl[static_cast<types::geometric_entity_type>(
+                                   cell_type)]
+                     .get() != nullptr,
                  ExcNotImplemented());
 
           cell_types_indices.push_back(cell_type);
