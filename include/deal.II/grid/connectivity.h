@@ -881,9 +881,8 @@ namespace internal
     CRS<T>
     transpose(const CRS<T> &con)
     {
-      auto        con_copy = con;
-      auto &      col      = con_copy.col;
-      const auto &ptr      = con_copy.ptr;
+      auto        col = con.col; // create a copy to be able to sort it
+      const auto &ptr = con.ptr;
 
       CRS<T> con_t;
       auto & col_t = con_t.col;
@@ -896,15 +895,20 @@ namespace internal
       ptr_t.clear();
 
       col_t.reserve(col.size());
-      ptr_t.reserve(
-        col.size() == 0 ? 0 : *std::max_element(col.begin(), col.end()));
 
       std::vector<std::pair<T, T>> temp;
       temp.reserve(col.size());
 
+      T max_col = 0;
+
       for (unsigned int i = 0; i < ptr.size() - 1; i++)
         for (std::size_t j = ptr[i]; j < ptr[i + 1]; j++)
-          temp.emplace_back(col[j], i);
+          {
+            temp.emplace_back(col[j], i);
+            max_col = std::max(max_col, col[j]);
+          }
+
+      ptr_t.reserve(max_col);
 
       std::sort(temp.begin(), temp.end());
 
@@ -931,6 +935,9 @@ namespace internal
     /**
      * Determine the neighbors of a cell by visiting its faces and looking for
      * a cell which is not equal to this cell.
+     *
+     * @p con_cf connectivity cell-face
+     * @p con_fc connectivity face-cell
      */
     template <typename T>
     CRS<T>
@@ -941,6 +948,7 @@ namespace internal
       const auto &col_fc = con_fc.col;
       const auto &ptr_fc = con_fc.ptr;
 
+      // Create the cell-cell connectivity table entry (i.e. neighbors).
       CRS<T> con_cc;
       auto & col_cc = con_cc.col;
       auto & ptr_cc = con_cc.ptr;
@@ -950,17 +958,24 @@ namespace internal
 
       ptr_cc.push_back(0);
 
+      // loop over all cells
       for (unsigned int i_0 = 0; i_0 < ptr_cf.size() - 1; i_0++)
         {
+          // loop over all faces
           for (std::size_t j_0 = ptr_cf[i_0]; j_0 < ptr_cf[i_0 + 1]; j_0++)
             {
-              T temp = -1;
+              T temp = -1; // Assume that no neighbor has been found. If no
+                           // neighbor has been found this number will also
+                           // be saved, which gives us in
+                           // Triangulation::create_triangulation()an easy way
+                           // to determine if a cell is at the boundary or not.
 
+              // loop over all cells this face is adjacent to
               for (std::size_t j_1 = ptr_fc[col_cf[j_0]];
                    j_1 < ptr_fc[col_cf[j_0] + 1];
                    j_1++)
-                if (i_0 != col_fc[j_1])
-                  temp = col_fc[j_1];
+                if (i_0 != col_fc[j_1]) // cell index is different then the
+                  temp = col_fc[j_1];   // index of this cell -> neighbor
 
               col_cc.emplace_back(temp);
             }
@@ -1104,8 +1119,12 @@ namespace internal
 
       // note: we do not pre-allocate memory for these arrays because it turned
       // out that counting unique entities is more expensive than push_back().
-      std::vector<std::size_t> & ptr_0 = crs_0.ptr = {};
-      std::vector<unsigned int> &col_0 = crs_0.col = {};
+      std::vector<std::size_t> & ptr_0 = crs_0.ptr;
+      std::vector<unsigned int> &col_0 = crs_0.col;
+
+      // clear
+      ptr_0 = {};
+      col_0 = {};
 
       unsigned int n_entities = 0;
 
@@ -1329,9 +1348,10 @@ namespace internal
       const CRS<unsigned int> &                         con_cq,
       const CRS<unsigned int> &                         con_qv,
       const std::vector<unsigned char> &                ori_cq,
-      CRS<unsigned int> &                               con_ql, // result
-      std::vector<unsigned char> &                      ori_ql, // result
-      std::vector<unsigned int> &                       quad_t_id)                     // result
+      CRS<unsigned int> &                               con_ql,   // result
+      std::vector<unsigned char> &                      ori_ql,   // result
+      std::vector<unsigned int> &                       quad_t_id // result
+    )
     {
       // reset output
       ori_ql     = {};
@@ -1383,7 +1403,7 @@ namespace internal
               if (ori_cq[f_] != 1)
                 continue;
 
-              // determine entity type of face (TODO: move it somewhere else)
+              // determine entity type of face
               quad_t_id[f] = cell_type->type_of_entity(2, f_index);
 
               // loop over lines
