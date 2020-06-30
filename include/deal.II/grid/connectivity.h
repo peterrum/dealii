@@ -28,8 +28,6 @@ namespace internal
   {
     struct CellTypeBase
     {
-      virtual ~CellTypeBase() = default;
-
       virtual unsigned int
       n_entities(const unsigned int d) const
       {
@@ -1053,14 +1051,25 @@ namespace internal
       std::vector<std::size_t> &       ptr_0 = crs_0.ptr = {};
       std::vector<unsigned int> &      col_0             = crs_0.col;
 
+      unsigned int n_entities = 0;
+
+      for (unsigned int c = 0; c < cell_types_index.size(); c++)
+        n_entities += cell_types[cell_types_index[c]]->n_entities(d);
+
       // step 1: store each d-dimensional entity of a cell (described by their
       // vertices) into a vector and create a key for them
-      std::vector<std::array<unsigned int, key_length>> keys;
-      std::vector<unsigned int>                         key_indices;
+      std::vector<
+        std::tuple<std::array<unsigned int, key_length>, unsigned int>>
+        keys; // key (sorted vertices), cell-entity index
 
       std::vector<std::array<unsigned int, key_length>> ad_entity_vertices;
       std::vector<unsigned int>                         ad_entity_types;
       std::vector<std::array<unsigned int, key_length>> ad_compatibility;
+
+      keys.reserve(n_entities);
+      ad_entity_vertices.reserve(n_entities);
+      ad_entity_types.reserve(n_entities);
+      ad_compatibility.reserve(n_entities);
 
       ptr_d.resize(cell_types_index.size() + 1);
       ptr_d[0] = 0;
@@ -1094,8 +1103,7 @@ namespace internal
               // ... create key
               std::array<unsigned int, key_length> key = entity_vertices;
               std::sort(key.begin(), key.end());
-              keys.emplace_back(key);
-              key_indices.emplace_back(counter++);
+              keys.emplace_back(key, counter++);
 
               ad_entity_vertices.emplace_back(entity_vertices);
 
@@ -1110,17 +1118,9 @@ namespace internal
       col_d.resize(keys.size());
       orientations.resize(keys.size());
 
-      const auto comp = [&](const auto &a, const auto &b) {
-        if (keys[a] < keys[b])
-          return true;
-        if (keys[a] > keys[b])
-          return false;
-        return a < b;
-      };
-
       // step 2: sort according to key so that entities with same key can be
       // merged
-      std::sort(key_indices.begin(), key_indices.end(), comp);
+      std::sort(keys.begin(), keys.end());
 
 
       if (comptibility_mode)
@@ -1129,18 +1129,18 @@ namespace internal
           std::fill(ref_key.begin(), ref_key.end(), 0);
           for (unsigned int i = 0; i < keys.size(); ++i)
             {
-              const auto offset_i = key_indices[i];
+              const auto offset_i = std::get<1>(keys[i]);
 
-              if (ref_key != keys[offset_i])
+              if (ref_key != std::get<0>(keys[i]))
                 {
-                  ref_key = keys[offset_i];
+                  ref_key = std::get<0>(keys[i]);
                   new_key = ad_compatibility[offset_i];
                 }
 
-              keys[offset_i] = new_key;
+              std::get<0>(keys[i]) = new_key;
             }
 
-          std::sort(key_indices.begin(), key_indices.end(), comp);
+          std::sort(keys.begin(), keys.end());
         }
 
       std::array<unsigned int, key_length> ref_key;
@@ -1151,9 +1151,9 @@ namespace internal
            i < keys.size();
            i++)
         {
-          const auto offset_i = key_indices[i];
+          const auto offset_i = std::get<1>(keys[i]);
 
-          if (ref_key != keys[offset_i])
+          if (ref_key != std::get<0>(keys[i]))
             {
               // new key
               counter++;
@@ -1347,11 +1347,9 @@ namespace internal
       if (dim == 1)
         connectivity.entity_to_entities(1, 0) = con_cv;
 
-      if (dim == 2 || dim == 3) // build lines (1D entities)
+      if (dim == 2 || dim == 3) // build lines
         {
-          std::vector<unsigned char> dummy; // line orientation relative to cell
-          // is not needed in 3D; line orientation relative to be quads will
-          // computed later
+          std::vector<unsigned char> dummy;
 
           build_entity(1,
                        cell_t,
@@ -1361,12 +1359,13 @@ namespace internal
                        connectivity.entity_to_entities(1, 0),
                        dim == 2 ? connectivity.entity_orientations(1) : dummy,
                        [](auto key, const auto &, const auto &, const auto &) {
-                         //  to ensure same enumeration as in deal.II
+                         //  to ensure same enumeration as in deal.II (TODO:
+                         //  remove)
                          return key;
                        });
         }
 
-      if (dim == 3) // build triangles/quads (2D entities)
+      if (dim == 3) // build quads
         {
           build_entity(
             2,
@@ -1377,7 +1376,7 @@ namespace internal
             connectivity.entity_to_entities(2, 0),
             connectivity.entity_orientations(2),
             [&](auto key, const auto &cell_type, const auto &c, const auto &f) {
-              //  to ensure same enumeration as in deal.II
+              //  to ensure same enumeration as in deal.II (TODO: remove)
               AssertIndexRange(cell_type->n_lines_of_surface(f),
                                key.size() + 1);
 
@@ -1448,12 +1447,20 @@ namespace internal
 
       // determine cell types and process vertices
       std::vector<T> cell_vertices;
+      cell_vertices.reserve(
+        std::accumulate(cells.begin(),
+                        cells.end(),
+                        0,
+                        [](const auto &result, const auto &cell) {
+                          return result + cell.vertices.size();
+                        }));
 
       std::vector<std::size_t> cell_vertices_ptr;
       cell_vertices_ptr.reserve(cells.size() + 1);
       cell_vertices_ptr.push_back(0);
 
       std::vector<unsigned int> cell_types_indices;
+      cell_types_indices.reserve(cells.size());
 
       // loop over cells and create CRS
       for (const auto &cell : cells)
