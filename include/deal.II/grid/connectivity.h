@@ -1342,9 +1342,11 @@ namespace internal
       if (dim == 1)
         connectivity.entity_to_entities(1, 0) = con_cv;
 
-      if (dim == 2 || dim == 3) // build lines
+      if (dim == 2 || dim == 3) // build lines (1D entities)
         {
-          std::vector<unsigned char> dummy;
+          std::vector<unsigned char> dummy; // line orientation relative to cell
+          // is not needed in 3D; line orientation relative to be quads will
+          // computed later
 
           build_entity(1,
                        cell_t,
@@ -1354,13 +1356,12 @@ namespace internal
                        connectivity.entity_to_entities(1, 0),
                        dim == 2 ? connectivity.entity_orientations(1) : dummy,
                        [](auto key, const auto &, const auto &, const auto &) {
-                         //  to ensure same enumeration as in deal.II (TODO:
-                         //  remove)
+                         //  to ensure same enumeration as in deal.II
                          return key;
                        });
         }
 
-      if (dim == 3) // build quads
+      if (dim == 3) // build triangles/quads (2D entities)
         {
           build_entity(
             2,
@@ -1371,7 +1372,7 @@ namespace internal
             connectivity.entity_to_entities(2, 0),
             connectivity.entity_orientations(2),
             [&](auto key, const auto &cell_type, const auto &c, const auto &f) {
-              //  to ensure same enumeration as in deal.II (TODO: remove)
+              //  to ensure same enumeration as in deal.II
               AssertIndexRange(cell_type->n_lines_of_surface(f),
                                key.size() + 1);
 
