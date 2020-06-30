@@ -1048,8 +1048,11 @@ namespace internal
       const std::vector<unsigned int> &cell_vertices = crs.col;
       std::vector<std::size_t> &       ptr_d         = crs_d.ptr;
       std::vector<unsigned int> &      col_d         = crs_d.col;
-      std::vector<std::size_t> &       ptr_0 = crs_0.ptr = {};
-      std::vector<unsigned int> &      col_0             = crs_0.col;
+
+      // note: we do not pre-allocate memory for these arrays because it turned
+      // out that counting unique entities is more expensive than push_back().
+      std::vector<std::size_t> & ptr_0 = crs_0.ptr = {};
+      std::vector<unsigned int> &col_0 = crs_0.col = {};
 
       unsigned int n_entities = 0;
 
@@ -1058,6 +1061,9 @@ namespace internal
 
       // step 1: store each d-dimensional entity of a cell (described by their
       // vertices) into a vector and create a key for them
+      //
+      // note: it turned out to be more efficient to have a vector of tuples
+      // than to have two vectors (sorting becomes inefficient)
       std::vector<
         std::tuple<std::array<unsigned int, key_length>, unsigned int>>
         keys; // key (sorted vertices), cell-entity index
@@ -1125,6 +1131,9 @@ namespace internal
 
       if (comptibility_mode)
         {
+          unsigned int n_unique_entities        = 0;
+          unsigned int n_unique_entity_vertices = 0;
+
           std::array<unsigned int, key_length> ref_key, new_key;
           std::fill(ref_key.begin(), ref_key.end(), 0);
           for (unsigned int i = 0; i < keys.size(); ++i)
@@ -1134,6 +1143,11 @@ namespace internal
               if (ref_key != std::get<0>(keys[i]))
                 {
                   ref_key = std::get<0>(keys[i]);
+
+                  n_unique_entities++;
+                  n_unique_entity_vertices +=
+                    cell_types[ad_entity_types[offset_i]]->n_entities(0);
+
                   new_key = ad_compatibility[offset_i];
                 }
 
@@ -1141,7 +1155,11 @@ namespace internal
             }
 
           std::sort(keys.begin(), keys.end());
+
+          ptr_0.reserve(n_unique_entities);
+          col_0.reserve(n_unique_entity_vertices);
         }
+
 
       std::array<unsigned int, key_length> ref_key;
       std::array<unsigned int, key_length> ref_indices;
@@ -1359,8 +1377,7 @@ namespace internal
                        connectivity.entity_to_entities(1, 0),
                        dim == 2 ? connectivity.entity_orientations(1) : dummy,
                        [](auto key, const auto &, const auto &, const auto &) {
-                         //  to ensure same enumeration as in deal.II (TODO:
-                         //  remove)
+                         //  to ensure same enumeration as in deal.II
                          return key;
                        });
         }
@@ -1376,7 +1393,7 @@ namespace internal
             connectivity.entity_to_entities(2, 0),
             connectivity.entity_orientations(2),
             [&](auto key, const auto &cell_type, const auto &c, const auto &f) {
-              //  to ensure same enumeration as in deal.II (TODO: remove)
+              //  to ensure same enumeration as in deal.II
               AssertIndexRange(cell_type->n_lines_of_surface(f),
                                key.size() + 1);
 
