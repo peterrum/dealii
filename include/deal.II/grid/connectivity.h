@@ -875,64 +875,6 @@ namespace internal
 
 
     /**
-     * Create the transposed of a compressed row storage matrix.
-     */
-    template <typename T>
-    CRS<T>
-    transpose(const CRS<T> &con)
-    {
-      auto        col = con.col; // create a copy to be able to sort it
-      const auto &ptr = con.ptr;
-
-      CRS<T> con_t;
-      auto & col_t = con_t.col;
-      auto & ptr_t = con_t.ptr;
-
-      for (unsigned int i = 0; i < ptr.size() - 1; i++)
-        std::sort(col.data() + ptr[i], col.data() + ptr[i + 1]);
-
-      col_t.clear();
-      ptr_t.clear();
-
-      col_t.reserve(col.size());
-
-      std::vector<std::pair<T, T>> temp;
-      temp.reserve(col.size());
-
-      T max_col = 0;
-
-      for (unsigned int i = 0; i < ptr.size() - 1; i++)
-        for (std::size_t j = ptr[i]; j < ptr[i + 1]; j++)
-          {
-            temp.emplace_back(col[j], i);
-            max_col = std::max(max_col, col[j]);
-          }
-
-      ptr_t.reserve(max_col);
-
-      std::sort(temp.begin(), temp.end());
-
-      T r = -1;
-
-      for (unsigned int i = 0; i < temp.size(); i++)
-        {
-          if (r != temp[i].first)
-            {
-              r = temp[i].first;
-              ptr_t.push_back(col_t.size());
-            }
-
-          col_t.push_back(temp[i].second);
-        }
-
-      ptr_t.push_back(col_t.size());
-
-      return con_t;
-    }
-
-
-
-    /**
      * Determine the neighbors of a cell by visiting its faces and looking for
      * a cell which is not equal to this cell.
      *
@@ -940,50 +882,46 @@ namespace internal
      * @p con_fc connectivity face-cell
      */
     template <typename T>
-    CRS<T>
-    determine_neighbors(const CRS<T> &con_cf, const CRS<T> &con_fc)
+    void
+    determine_neighbors(const CRS<T> &con_cf, CRS<T> &con_cc)
     {
       const auto &col_cf = con_cf.col;
       const auto &ptr_cf = con_cf.ptr;
-      const auto &col_fc = con_fc.col;
-      const auto &ptr_fc = con_fc.ptr;
 
-      // Create the cell-cell connectivity table entry (i.e. neighbors).
-      CRS<T> con_cc;
-      auto & col_cc = con_cc.col;
-      auto & ptr_cc = con_cc.ptr;
+      auto &col_cc = con_cc.col;
+      auto &ptr_cc = con_cc.ptr;
 
-      col_cc.clear();
-      ptr_cc.clear();
+      const unsigned int n_faces =
+        *std::max_element(col_cf.begin(), col_cf.end()) + 1;
 
-      ptr_cc.push_back(0);
+      // clear
+      col_cc = std::vector<T>(col_cf.size(), -1);
+      ptr_cc = ptr_cf;
+
+      std::vector<std::pair<T, unsigned int>> neighbors(n_faces, {-1, -1});
 
       // loop over all cells
       for (unsigned int i_0 = 0; i_0 < ptr_cf.size() - 1; i_0++)
         {
-          // loop over all faces
+          // ... and all its faces
           for (std::size_t j_0 = ptr_cf[i_0]; j_0 < ptr_cf[i_0 + 1]; j_0++)
             {
-              T temp = -1; // Assume that no neighbor has been found. If no
-                           // neighbor has been found this number will also
-                           // be saved, which gives us in
-                           // Triangulation::create_triangulation()an easy way
-                           // to determine if a cell is at the boundary or not.
-
-              // loop over all cells this face is adjacent to
-              for (std::size_t j_1 = ptr_fc[col_cf[j_0]];
-                   j_1 < ptr_fc[col_cf[j_0] + 1];
-                   j_1++)
-                if (i_0 != col_fc[j_1]) // cell index is different then the
-                  temp = col_fc[j_1];   // index of this cell -> neighbor
-
-              col_cc.emplace_back(temp);
+              if (neighbors[col_cf[j_0]].first == static_cast<unsigned int>(-1))
+                {
+                  // face is visited the first time -> save the visiting cell
+                  // and the face pointer
+                  neighbors[col_cf[j_0]] = std::pair<T, unsigned int>(i_0, j_0);
+                }
+              else
+                {
+                  // face is visited the second time -> now we know the cells
+                  // on both sides of the face and we can determine for both
+                  // cells the neigbor
+                  col_cc[j_0] = neighbors[col_cf[j_0]].first;
+                  col_cc[neighbors[col_cf[j_0]].second] = i_0;
+                }
             }
-
-          ptr_cc.push_back(col_cc.size());
         }
-
-      return con_cc;
     }
 
 
@@ -1518,10 +1456,8 @@ namespace internal
         }
 
       // determine neighbors
-      connectivity.entity_to_entities(dim, dim) =
-        determine_neighbors(connectivity.entity_to_entities(dim, dim - 1),
-                            transpose(
-                              connectivity.entity_to_entities(dim, dim - 1)));
+      determine_neighbors(connectivity.entity_to_entities(dim, dim - 1),
+                          connectivity.entity_to_entities(dim, dim));
 
       return connectivity;
     }
