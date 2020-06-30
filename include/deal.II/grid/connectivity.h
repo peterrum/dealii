@@ -438,14 +438,14 @@ namespace internal
       vertices_of_nth_line_of_surface(const unsigned int line,
                                       const unsigned int face) const override
       {
-        // clang-format off
+        static const unsigned int X = static_cast<unsigned int>(-1);
+
         const static std::array<std::array<std::array<unsigned int, 2>, 4>, 5>
           table = {{{{{0, 2}, {1, 3}, {0, 1}, {2, 3}}},
-                    {{{0, 2}, {2, 4}, {4, 0}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
-                    {{{3, 1}, {1, 4}, {4, 3}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
-                    {{{1, 0}, {0, 4}, {4, 1}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
-                    {{{2, 3}, {3, 4}, {4, 2}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}}}};
-        // clang-format on
+                    {{{0, 2}, {2, 4}, {4, 0}, {X, X}}},
+                    {{{3, 1}, {1, 4}, {4, 3}, {X, X}}},
+                    {{{1, 0}, {0, 4}, {4, 1}, {X, X}}},
+                    {{{2, 3}, {3, 4}, {4, 2}, {X, X}}}}};
 
         return table[face][line];
       }
@@ -546,12 +546,14 @@ namespace internal
       nth_line_of_surface(const unsigned int line,
                           const unsigned int face) const override
       {
+        static const unsigned int X = static_cast<unsigned int>(-1);
+
         const static std::array<std::array<unsigned int, 4>, 5> table = {
-          {{0, 2, 1, numbers::invalid_unsigned_int},
-           {3, 4, 5, numbers::invalid_unsigned_int},
+          {{0, 2, 1, X},
+           {3, 4, 5, X},
            {6, 7, 0, 3},
            {7, 8, 1, 4},
-           {8, 6, 5, 2}}}; // TODO
+           {8, 6, 5, 2}}};
 
         return table[face][line];
       }
@@ -560,14 +562,14 @@ namespace internal
       vertices_of_nth_line_of_surface(const unsigned int line,
                                       const unsigned int face) const override
       {
-        // clang-format off
+        static const unsigned int X = static_cast<unsigned int>(-1);
+
         const static std::array<std::array<std::array<unsigned int, 2>, 4>, 5>
-          table = {{{{{1, 0}, {0, 2}, {2, 1}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
-                    {{{3, 4}, {4, 5}, {5, 3}, {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}},
+          table = {{{{{1, 0}, {0, 2}, {2, 1}, {X, X}}},
+                    {{{3, 4}, {4, 5}, {5, 3}, {X, X}}},
                     {{{0, 3}, {1, 4}, {0, 1}, {3, 4}}},
                     {{{1, 4}, {2, 5}, {1, 2}, {4, 5}}},
-                    {{{2, 5}, {0, 3}, {2, 0}, {5, 3}}}}}; // TODO
-        // clang-format on
+                    {{{2, 5}, {0, 3}, {2, 0}, {5, 3}}}}};
 
         return table[face][line];
       }
@@ -665,15 +667,13 @@ namespace internal
       nth_line_of_surface(const unsigned int line,
                           const unsigned int face) const override
       {
-        // clang-format off
         const static std::array<std::array<unsigned int, 4>, 6> table = {
-          {{8, 10,  0,  4},
-           {9, 11,  1,  5},
-           {2,  6,  8,  9},
-           {3,  7, 10, 11},
-           {0,  1,  2,  3},
-           {4,  5,  6,  7}}};
-        // clang-format on
+          {{8, 10, 0, 4},
+           {9, 11, 1, 5},
+           {2, 6, 8, 9},
+           {3, 7, 10, 11},
+           {0, 1, 2, 3},
+           {4, 5, 6, 7}}};
 
         return table[face][line];
       }
@@ -682,7 +682,6 @@ namespace internal
       vertices_of_nth_line_of_surface(const unsigned int line,
                                       const unsigned int face) const override
       {
-        // clang-format off
         const static std::array<std::array<std::array<unsigned int, 2>, 4>, 6>
           table = {{{{{0, 4}, {2, 6}, {0, 2}, {4, 6}}},
                     {{{1, 5}, {3, 7}, {1, 3}, {5, 7}}},
@@ -690,7 +689,6 @@ namespace internal
                     {{{2, 3}, {6, 7}, {2, 6}, {3, 7}}},
                     {{{0, 2}, {1, 3}, {0, 1}, {2, 3}}},
                     {{{4, 6}, {5, 7}, {4, 5}, {6, 7}}}}};
-        // clang-format on
 
         return table[face][line];
       }
@@ -707,7 +705,7 @@ namespace internal
       CRS()
         : ptr{0} {};
 
-      CRS(const std::vector<std::size_t> &ptr, const std::vector<T> col)
+      CRS(const std::vector<std::size_t> &ptr, const std::vector<T> &col)
         : ptr(ptr)
         , col(col)
       {}
@@ -1042,7 +1040,7 @@ namespace internal
       std::vector<unsigned char> &                      orientations, // result
       const FU &                                        second_key_function)
     {
-      const bool comptibility_mode = true;
+      const bool compatibility_mode = true;
 
       const std::vector<std::size_t> & cell_ptr      = crs.ptr;
       const std::vector<unsigned int> &cell_vertices = crs.col;
@@ -1115,7 +1113,7 @@ namespace internal
 
               ad_entity_types.emplace_back(cell_type->type_of_entity(d, e));
 
-              if (comptibility_mode)
+              if (compatibility_mode)
                 ad_compatibility.emplace_back(
                   second_key_function(entity_vertices, cell_type, c, e));
             }
@@ -1129,7 +1127,7 @@ namespace internal
       std::sort(keys.begin(), keys.end());
 
 
-      if (comptibility_mode)
+      if (compatibility_mode)
         {
           unsigned int n_unique_entities        = 0;
           unsigned int n_unique_entity_vertices = 0;
@@ -1226,16 +1224,35 @@ namespace internal
               std::max(key_length, cell_type->vertices_of_entity(d, e).size());
         }
 
-      // clang-format off
-    if(key_length == 2)
-      build_entity_templated<2>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations, second_key_function);
-    else if(key_length == 3)
-      build_entity_templated<3>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations, second_key_function);
-    else if(key_length == 4)
-      build_entity_templated<4>(d, cell_types, cell_types_index, crs, crs_d, crs_0, orientations, second_key_function);
-    else
-      AssertThrow(false, dealii::StandardExceptions::ExcNotImplemented ());
-      // clang-format on
+      if (key_length == 2)
+        build_entity_templated<2>(d,
+                                  cell_types,
+                                  cell_types_index,
+                                  crs,
+                                  crs_d,
+                                  crs_0,
+                                  orientations,
+                                  second_key_function);
+      else if (key_length == 3)
+        build_entity_templated<3>(d,
+                                  cell_types,
+                                  cell_types_index,
+                                  crs,
+                                  crs_d,
+                                  crs_0,
+                                  orientations,
+                                  second_key_function);
+      else if (key_length == 4)
+        build_entity_templated<4>(d,
+                                  cell_types,
+                                  cell_types_index,
+                                  crs,
+                                  crs_d,
+                                  crs_0,
+                                  orientations,
+                                  second_key_function);
+      else
+        AssertThrow(false, dealii::StandardExceptions::ExcNotImplemented());
     }
 
 
