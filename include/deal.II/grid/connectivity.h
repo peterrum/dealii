@@ -26,10 +26,20 @@ namespace internal
 {
   namespace TriangulationImplementation
   {
+    /**
+     * Interface of geometric cell entities with the focus on creating a
+     * reduced connectivity table.
+     */
     struct CellTypeBase
     {
+      /**
+       * Default destructor.
+       */
       virtual ~CellTypeBase() = default;
 
+      /**
+       * Number of sub-entities of dimension @p d.
+       */
       virtual unsigned int
       n_entities(const unsigned int d) const
       {
@@ -39,6 +49,9 @@ namespace internal
         return 0;
       }
 
+      /**
+       * Number of vertices of the @p e-th sub-entity of dimension @p d.
+       */
       virtual dealii::ArrayView<const unsigned int>
       vertices_of_entity(const unsigned int d, const unsigned int e) const
       {
@@ -49,6 +62,9 @@ namespace internal
         return dealii::ArrayView<const unsigned int>();
       }
 
+      /**
+       * Geometric entity type of the @p e-th sub-entity of dimension @p d.
+       */
       virtual unsigned int
       type_of_entity(const unsigned int d, const unsigned int e) const
       {
@@ -59,15 +75,21 @@ namespace internal
         return -1;
       }
 
+      /**
+       * Number of lines of @p face-th surface.
+       */
       virtual unsigned int
-      n_lines_of_surface(const unsigned int line) const
+      n_lines_of_surface(const unsigned int face) const
       {
         Assert(false, ExcNotImplemented());
-        (void)line;
+        (void)face;
 
         return 0;
       }
 
+      /**
+       * Index of the @line-th lines of @p face-th surface.
+       */
       virtual unsigned int
       nth_line_of_surface(const unsigned int line,
                           const unsigned int face) const
@@ -79,6 +101,9 @@ namespace internal
         return 0;
       }
 
+      /**
+       * Vertex indices of the @line-th lines of @p face-th surface.
+       */
       virtual const std::array<unsigned int, 2> &
       vertices_of_nth_line_of_surface(const unsigned int line,
                                       const unsigned int face) const
@@ -95,6 +120,9 @@ namespace internal
 
 
 
+    /**
+     * Implementation for lines.
+     */
     struct CellTypeLine : public CellTypeBase
     {
       dealii::ArrayView<const unsigned int>
@@ -140,6 +168,9 @@ namespace internal
 
 
 
+    /**
+     * Implementation for triangles.
+     */
     struct CellTypeTri : public CellTypeBase
     {
       dealii::ArrayView<const unsigned int>
@@ -194,6 +225,9 @@ namespace internal
 
 
 
+    /**
+     * Implementation for quadrilaterals.
+     */
     struct CellTypeQuad : public CellTypeBase
     {
       dealii::ArrayView<const unsigned int>
@@ -248,6 +282,9 @@ namespace internal
 
 
 
+    /**
+     * Implementation for tetrahedrons.
+     */
     struct CellTypeTet : public CellTypeBase
     {
       dealii::ArrayView<const unsigned int>
@@ -342,6 +379,9 @@ namespace internal
     };
 
 
+    /**
+     * Implementation for pyramids.
+     */
 
     struct CellTypePyramid : public CellTypeBase
     {
@@ -455,6 +495,9 @@ namespace internal
 
 
 
+    /**
+     * Implementation for wedges.
+     */
     struct CellTypeWedge : public CellTypeBase
     {
       dealii::ArrayView<const unsigned int>
@@ -579,6 +622,9 @@ namespace internal
 
 
 
+    /**
+     * Implementation for hexahedrons.
+     */
     struct CellTypeHex : public CellTypeBase
     {
       dealii::ArrayView<const unsigned int>
