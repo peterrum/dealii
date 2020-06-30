@@ -28,6 +28,8 @@ namespace internal
   {
     struct CellTypeBase
     {
+      virtual ~CellTypeBase() = default;
+
       virtual unsigned int
       n_entities(const unsigned int d) const
       {
@@ -697,27 +699,64 @@ namespace internal
 
 
     /**
-     * Compressed row storage sparse matrix.
+     * Compressed row storage sparse matrix. This class is similar to
+     * SparsityPattern but reduced to the bare minimum as needed here - in the
+     * context of setting up the connectivity - and allowing direct simplified
+     * access to the entries.
      */
     template <typename T = unsigned int>
     struct CRS
     {
+      /**
+       * Default constructor.
+       */
       CRS()
         : ptr{0} {};
 
+      /**
+       * Constructor which allows to set the internal fields directly.
+       */
       CRS(const std::vector<std::size_t> &ptr, const std::vector<T> &col)
         : ptr(ptr)
         , col(col)
       {}
 
-      std::vector<std::size_t> ptr = {0};
-      std::vector<T>           col;
+      // row index
+      std::vector<std::size_t> ptr;
+
+      // column index
+      std::vector<T> col;
     };
 
 
 
     /**
-     * Class for storing the reduced connectivit table.
+     * Class for storing the reduced connectivity table.
+     *
+     * A full connectivity table contains all possible connectivities of
+     * entities of dimension d and entities of dimension d' with 0<=d,d'<=dim.
+     * However, in the library we only need the following types of
+     * connectivities:
+     *  - dim-dimensional neighbors of dim-dimensional entities (connected via
+     *    faces)
+     *  - d-dimensional entity to it's (d-1)-dimension bounding entities
+     *  - quad (2 - 3D), line (1 - 2D/3D) to vertices (0) to be able to process
+     *    the user provided SubCellData during
+     *    Triangulation::create_triangulation().
+     * We call a table, which computes the corresponding entries of a full
+     * connectivity table a reduced table.
+     *
+     * The entries of the reduced table are as follows for 1D-3D:
+     *
+     * 1D :    | 0 1    2D:    | 0 1 2    3D:    | 0 1 2 3
+     *      ---+-----       ---+-------       ---+--------
+     *       0 |             0 |               0 |
+     *       1 | x n         1 | x             1 | x x
+     *                       2 | s x n         2 | s x
+     *                                         3 |     x n
+     *
+     * with markers highlighting the reason for the entry x:=bounding entities;
+     * n:= neighboring entities; s:=sub-cell data
      */
     template <typename T = unsigned int>
     struct Connectivity
