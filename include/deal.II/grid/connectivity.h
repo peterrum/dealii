@@ -104,7 +104,7 @@ namespace internal
       }
 
       /**
-       * Index of the @line-th lines of @p face-th surface.
+       * Index of the @p line-th lines of @p face-th surface.
        */
       virtual unsigned int
       nth_line_of_surface(const unsigned int line,
@@ -118,7 +118,7 @@ namespace internal
       }
 
       /**
-       * Vertex indices of the @line-th lines of @p face-th surface.
+       * Vertex indices of the @p line-th lines of @p face-th surface.
        */
       virtual const std::array<unsigned int, 2> &
       vertices_of_nth_line_of_surface(const unsigned int line,
