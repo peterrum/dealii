@@ -1059,13 +1059,9 @@ namespace internal
         std::tuple<std::array<unsigned int, key_length>, unsigned int>>
         keys; // key (sorted vertices), cell-entity index
 
-      std::vector<std::tuple<std::array<unsigned int, key_length>, // vertices
-                             unsigned int // element type
-                             >>
-        additional_info;
-
-      std::vector<std::array<unsigned int, key_length>>
-        additional_info_compatibility;
+      std::vector<std::array<unsigned int, key_length>> ad_entity_vertices;
+      std::vector<unsigned int>                         ad_entity_types;
+      std::vector<std::array<unsigned int, key_length>> ad_compatibility;
 
       ptr_d.resize(cell_types_index.size() + 1);
       ptr_d[0] = 0;
@@ -1101,11 +1097,12 @@ namespace internal
               std::sort(key.begin(), key.end());
               keys.emplace_back(key, counter++);
 
-              additional_info.emplace_back(entity_vertices,
-                                           cell_type->type_of_entity(d, e));
+              ad_entity_vertices.emplace_back(entity_vertices);
+
+              ad_entity_types.emplace_back(cell_type->type_of_entity(d, e));
 
               if (comptibility_mode)
-                additional_info_compatibility.emplace_back(
+                ad_compatibility.emplace_back(
                   second_key_function(entity_vertices, cell_type, c, e));
             }
         }
@@ -1129,7 +1126,7 @@ namespace internal
               if (ref_key != std::get<0>(keys[i]))
                 {
                   ref_key = std::get<0>(keys[i]);
-                  new_key = additional_info_compatibility[offset_i];
+                  new_key = ad_compatibility[offset_i];
                 }
 
               std::get<0>(keys[i]) = new_key;
@@ -1153,10 +1150,10 @@ namespace internal
               // new key
               counter++;
               ref_key     = std::get<0>(keys[i]);
-              ref_indices = std::get<0>(additional_info[offset_i]);
+              ref_indices = ad_entity_vertices[offset_i];
 
               ptr_0.push_back(col_0.size());
-              for (const auto j : std::get<0>(additional_info[offset_i]))
+              for (const auto j : ad_entity_vertices[offset_i])
                 if (j != 0)
                   col_0.push_back(j - offset);
 
@@ -1169,8 +1166,8 @@ namespace internal
               col_d[offset_i] = counter;
               orientations[offset_i] =
                 compute_orientation(ref_indices,
-                                    std::get<0>(additional_info[offset_i]),
-                                    std::get<1>(additional_info[offset_i]));
+                                    ad_entity_vertices[offset_i],
+                                    ad_entity_types[offset_i]);
             }
         }
       ptr_0.push_back(col_0.size());
