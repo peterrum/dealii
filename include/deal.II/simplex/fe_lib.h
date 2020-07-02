@@ -13,10 +13,12 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef dealii_fe_lib_h
-#define dealii_fe_lib_h
+#ifndef dealii_simplex_fe_lib_h
+#define dealii_simplex_fe_lib_h
 
 #include <deal.II/base/config.h>
+
+#include <deal.II/base/qprojector.h>
 
 #include <deal.II/fe/fe_poly.h>
 
@@ -52,16 +54,28 @@ namespace Simplex
 
   protected:
     /**
-     * Create InternalData. (TODO: needed?)
+     * Create InternalData.
      */
     virtual std::unique_ptr<
       typename FiniteElement<dim, spacedim>::InternalDataBase>
-    get_data(const UpdateFlags update_flags,
-             const Mapping<dim, spacedim> & /*mapping*/,
-             const Quadrature<dim> &quadrature,
+    get_data(const UpdateFlags             update_flags,
+             const Mapping<dim, spacedim> &mapping,
+             const Quadrature<dim> &       quadrature,
              dealii::internal::FEValuesImplementation::FiniteElementRelatedData<
                dim,
                spacedim> &output_data) const override;
+
+    /**
+     * Create InternalData for face.
+     */
+    virtual std::unique_ptr<
+      typename FiniteElement<dim, spacedim>::InternalDataBase>
+    get_face_data(
+      const UpdateFlags             flags,
+      const Mapping<dim, spacedim> &mapping,
+      const Quadrature<dim - 1> &   quadrature,
+      dealii::internal::FEValuesImplementation::
+        FiniteElementRelatedData<dim, spacedim> &output_data) const override;
 
     /**
      * @copydoc dealii::FiniteElement::fill_fe_values()
@@ -72,6 +86,23 @@ namespace Simplex
       const CellSimilarity::Similarity                         cell_similarity,
       const Quadrature<dim> &                                  quadrature,
       const Mapping<dim, spacedim> &                           mapping,
+      const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,
+      const dealii::internal::FEValuesImplementation::
+        MappingRelatedData<dim, spacedim> &mapping_data,
+      const typename FiniteElement<dim, spacedim>::InternalDataBase
+        &fe_internal,
+      dealii::internal::FEValuesImplementation::
+        FiniteElementRelatedData<dim, spacedim> &output_data) const override;
+
+    /**
+     * @copydoc dealii::FiniteElement::fill_fe_face_values()
+     */
+    void
+    fill_fe_face_values(
+      const typename Triangulation<dim, spacedim>::cell_iterator &cell,
+      const unsigned int                                          face_no,
+      const Quadrature<dim - 1> &                                 quadrature,
+      const Mapping<dim, spacedim> &                              mapping,
       const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,
       const dealii::internal::FEValuesImplementation::
         MappingRelatedData<dim, spacedim> &mapping_data,
@@ -311,6 +342,23 @@ namespace Simplex
               data.shape_3rd_derivatives[k][i] = third_derivatives[k];
         }
     return data_ptr;
+  }
+
+
+  template <int dim, int spacedim>
+  std::unique_ptr<typename FiniteElement<dim, spacedim>::InternalDataBase>
+  FE_Poly<dim, spacedim>::get_face_data(
+    const UpdateFlags             flags,
+    const Mapping<dim, spacedim> &mapping,
+    const Quadrature<dim - 1> &   quadrature,
+    dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,
+                                                                       spacedim>
+      &output_data) const
+  {
+    return get_data(flags,
+                    mapping,
+                    QProjector<dim>::project_to_all_faces(quadrature), // TODO
+                    output_data);
   }
 
 } // namespace Simplex
