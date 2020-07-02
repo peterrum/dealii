@@ -139,7 +139,7 @@ namespace internal
 
             AssertDimension(e, 0);
 
-            return dealii::ArrayView<const unsigned int>(table);
+            return {table};
           }
 
         Assert(false, ExcNotImplemented());
@@ -185,7 +185,7 @@ namespace internal
 
             AssertDimension(e, 0);
 
-            return dealii::ArrayView<const unsigned int>(table);
+            return {table};
           }
 
         if (d == 1)
@@ -193,7 +193,7 @@ namespace internal
             static const std::array<std::array<unsigned int, 2>, 3> table = {
               {{0, 1}, {1, 2}, {2, 0}}};
 
-            return dealii::ArrayView<const unsigned int>(table[e]);
+            return {table[e]};
           }
 
         Assert(false, ExcNotImplemented());
@@ -242,7 +242,7 @@ namespace internal
 
             AssertDimension(e, 0);
 
-            return dealii::ArrayView<const unsigned int>(table);
+            return {table};
           }
 
         if (d == 1)
@@ -250,7 +250,7 @@ namespace internal
             static const std::array<std::array<unsigned int, 2>, 4> table = {
               {{0, 2}, {1, 3}, {0, 1}, {2, 3}}};
 
-            return dealii::ArrayView<const unsigned int>(table[e]);
+            return {table[e]};
           }
 
         Assert(false, ExcNotImplemented());
@@ -299,7 +299,7 @@ namespace internal
 
             AssertDimension(e, 0);
 
-            return dealii::ArrayView<const unsigned int>(table);
+            return {table};
           }
 
         if (d == 2)
@@ -307,7 +307,7 @@ namespace internal
             static const std::array<std::array<unsigned int, 3>, 4> table = {
               {{0, 1, 2}, {1, 0, 3}, {0, 2, 3}, {2, 1, 3}}};
 
-            return dealii::ArrayView<const unsigned int>(table[e]);
+            return {table[e]};
           }
 
         if (d == 1)
@@ -315,7 +315,7 @@ namespace internal
             static const std::array<std::array<unsigned int, 2>, 6> table = {
               {{0, 1}, {1, 2}, {2, 0}, {0, 3}, {1, 3}, {2, 3}}};
 
-            return dealii::ArrayView<const unsigned int>(table[e]);
+            return {table[e]};
           }
 
         Assert(false, ExcNotImplemented());
@@ -397,7 +397,7 @@ namespace internal
 
             AssertDimension(e, 0);
 
-            return dealii::ArrayView<const unsigned int>(table);
+            return {table};
           }
 
         if (d == 2)
@@ -405,13 +405,13 @@ namespace internal
             if (e == 0)
               {
                 static const std::array<unsigned int, 4> table = {0, 1, 2, 3};
-                return dealii::ArrayView<const unsigned int>(table);
+                return {table};
               }
 
             static const std::array<std::array<unsigned int, 3>, 4> table = {
               {{0, 2, 4}, {3, 1, 4}, {1, 0, 4}, {2, 3, 4}}};
 
-            return dealii::ArrayView<const unsigned int>(table[e - 1]);
+            return {table[e - 1]};
           }
 
         if (d == 1)
@@ -419,7 +419,7 @@ namespace internal
             static const std::array<std::array<unsigned int, 2>, 8> table = {
               {{0, 2}, {1, 3}, {0, 1}, {2, 3}, {0, 4}, {1, 4}, {2, 4}, {3, 4}}};
 
-            return dealii::ArrayView<const unsigned int>(table[e]);
+            return {table[e]};
           }
 
         Assert(false, ExcNotImplemented());
@@ -512,7 +512,7 @@ namespace internal
 
             AssertDimension(e, 0);
 
-            return dealii::ArrayView<const unsigned int>(table);
+            return {table};
           }
 
         if (d == 2)
@@ -522,13 +522,13 @@ namespace internal
                 static const std::array<std::array<unsigned int, 3>, 2> table =
                   {{{1, 0, 2}, {3, 4, 5}}};
 
-                return dealii::ArrayView<const unsigned int>(table[e]);
+                return {table[e]};
               }
 
             static const std::array<std::array<unsigned int, 4>, 3> table = {
               {{0, 1, 3, 4}, {1, 2, 4, 5}, {2, 0, 5, 3}}};
 
-            return dealii::ArrayView<const unsigned int>(table[e - 2]);
+            return {table[e - 2]};
           }
 
         if (d == 1)
@@ -544,7 +544,7 @@ namespace internal
                {1, 4},
                {2, 5}}};
 
-            return dealii::ArrayView<const unsigned int>(table[e]);
+            return {table[e]};
           }
 
         Assert(false, ExcNotImplemented());
@@ -640,7 +640,7 @@ namespace internal
 
             AssertDimension(e, 0);
 
-            return dealii::ArrayView<const unsigned int>(table);
+            return {table};
           }
 
         if (d == 2)
@@ -653,7 +653,7 @@ namespace internal
                {0, 1, 2, 3},
                {4, 5, 6, 7}}};
 
-            return dealii::ArrayView<const unsigned int>(table[e]);
+            return {table[e]};
           }
 
         if (d == 1)
@@ -672,7 +672,7 @@ namespace internal
                {2, 6},
                {3, 7}}};
 
-            return dealii::ArrayView<const unsigned int>(table[e]);
+            return {table[e]};
           }
 
         Assert(false, ExcNotImplemented());
