@@ -61,7 +61,7 @@ namespace internal
         (void)d;
         (void)e;
 
-        return dealii::ArrayView<const unsigned int>();
+        return {};
       }
 
       /**
@@ -144,7 +144,7 @@ namespace internal
 
         Assert(false, ExcNotImplemented());
 
-        return dealii::ArrayView<const unsigned int>();
+        return {};
       }
 
       GeometricEntityType
@@ -198,7 +198,7 @@ namespace internal
 
         Assert(false, ExcNotImplemented());
 
-        return dealii::ArrayView<const unsigned int>();
+        return {};
       }
 
       virtual GeometricEntityType
@@ -255,7 +255,7 @@ namespace internal
 
         Assert(false, ExcNotImplemented());
 
-        return dealii::ArrayView<const unsigned int>();
+        return {};
       }
 
       virtual GeometricEntityType
@@ -320,7 +320,7 @@ namespace internal
 
         Assert(false, ExcNotImplemented());
 
-        return dealii::ArrayView<const unsigned int>();
+        return {};
       }
 
       virtual GeometricEntityType
@@ -424,7 +424,7 @@ namespace internal
 
         Assert(false, ExcNotImplemented());
 
-        return dealii::ArrayView<const unsigned int>();
+        return {};
       }
 
       virtual GeometricEntityType
@@ -549,7 +549,7 @@ namespace internal
 
         Assert(false, ExcNotImplemented());
 
-        return dealii::ArrayView<const unsigned int>();
+        return {};
       }
 
       virtual GeometricEntityType
@@ -677,7 +677,7 @@ namespace internal
 
         Assert(false, ExcNotImplemented());
 
-        return dealii::ArrayView<const unsigned int>();
+        return {};
       }
 
       virtual GeometricEntityType
@@ -1115,10 +1115,10 @@ namespace internal
 
       unsigned int n_entities = 0;
 
-      for (unsigned int c = 0; c < cell_types_index.size(); c++)
-        n_entities += cell_types[static_cast<types::geometric_entity_type>(
-                                   cell_types_index[c])]
-                        ->n_entities(d);
+      for (const auto &c : cell_types_index)
+        n_entities +=
+          cell_types[static_cast<types::geometric_entity_type>(c)]->n_entities(
+            d);
 
       // step 1: store each d-dimensional entity of a cell (described by their
       // vertices) into a vector and create a key for them
@@ -1283,11 +1283,10 @@ namespace internal
     {
       std::size_t key_length = 0;
 
-      for (unsigned int c = 0; c < cell_types_index.size(); c++)
+      for (const auto &c : cell_types_index)
         {
           const auto &cell_type =
-            cell_types[static_cast<types::geometric_entity_type>(
-              cell_types_index[c])];
+            cell_types[static_cast<types::geometric_entity_type>(c)];
           for (unsigned int e = 0; e < cell_type->n_entities(d); e++)
             key_length =
               std::max(key_length, cell_type->vertices_of_entity(d, e).size());
