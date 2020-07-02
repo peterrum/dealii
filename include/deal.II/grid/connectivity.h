@@ -21,6 +21,7 @@
 #include <deal.II/base/array_view.h>
 
 #include <deal.II/grid/geometric_entity.h>
+#include <deal.II/grid/tria_description.h>
 
 
 DEAL_II_NAMESPACE_OPEN
