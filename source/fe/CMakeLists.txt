@@ -74,6 +74,7 @@ SET(_separate_src
   fe_tools.cc
   fe_tools_interpolate.cc
   fe_tools_extrapolate.cc
+  mapping_isoparametric.cc
   mapping_q_generic.cc
   mapping_q1_eulerian.cc
   mapping_q_eulerian.cc
@@ -131,6 +132,7 @@ SET(_inst
   mapping_cartesian.inst.in
   mapping.inst.in
   mapping_fe_field.inst.in
+  mapping_isoparametric.inst.in
   mapping_q_generic.inst.in
   mapping_q1_eulerian.inst.in
   mapping_q1.inst.in
