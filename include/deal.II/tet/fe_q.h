@@ -18,6 +18,8 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/base/qprojector.h>
+
 #include <deal.II/fe/fe_poly.h>
 
 #include <deal.II/tet/polynomials.h>
@@ -195,6 +197,23 @@ namespace Tet
       return data_ptr;
     }
 
+    virtual std::unique_ptr<
+      typename FiniteElement<dim, spacedim>::InternalDataBase>
+    get_face_data(
+      const UpdateFlags             flags,
+      const Mapping<dim, spacedim> &mapping,
+      const Quadrature<dim - 1> &   quadrature,
+      dealii::internal::FEValuesImplementation::
+        FiniteElementRelatedData<dim, spacedim> &output_data) const override
+    {
+      Assert(false, ExcNotImplemented());
+
+      return get_data(flags,
+                      mapping,
+                      QProjector<dim>::project_to_all_faces(quadrature),
+                      output_data);
+    }
+
     virtual void
     fill_fe_values(
       const typename Triangulation<dim, spacedim>::cell_iterator &cell,
@@ -264,6 +283,106 @@ namespace Tet
           //                            mapping_data,
           //                            quadrature.size(),
           //                            k);
+        }
+    }
+
+
+    void
+    fill_fe_face_values(
+      const typename Triangulation<dim, spacedim>::cell_iterator &cell,
+      const unsigned int                                          face_no,
+      const Quadrature<dim - 1> &                                 quadrature,
+      const Mapping<dim, spacedim> &                              mapping,
+      const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,
+      const dealii::internal::FEValuesImplementation::
+        MappingRelatedData<dim, spacedim> &mapping_data,
+      const typename FiniteElement<dim, spacedim>::InternalDataBase
+        &fe_internal,
+      dealii::internal::FEValuesImplementation::
+        FiniteElementRelatedData<dim, spacedim> &output_data) const override
+    {
+      (void)mapping_data;
+
+      // convert data object to internal data for this class. fails with an
+      // exception if that is not possible
+      Assert(dynamic_cast<const InternalData *>(&fe_internal) != nullptr,
+             ExcInternalError());
+      const InternalData &fe_data =
+        static_cast<const InternalData &>(fe_internal);
+
+      // offset determines which data set to take (all data sets for all faces
+      // are stored contiguously)
+
+      const typename QProjector<dim>::DataSetDescriptor offset =
+        QProjector<dim>::DataSetDescriptor::face(face_no,
+                                                 cell->face_orientation(
+                                                   face_no),
+                                                 cell->face_flip(face_no),
+                                                 cell->face_rotation(face_no),
+                                                 quadrature.size());
+
+      const UpdateFlags flags(fe_data.update_each);
+
+#if false
+  const bool need_to_correct_higher_derivatives =
+    higher_derivatives_need_correcting(mapping,
+                                       mapping_data,
+                                       quadrature.size(),
+                                       flags);
+#endif
+
+      // transform gradients and higher derivatives. we also have to copy
+      // the values (unlike in the case of fill_fe_values()) since
+      // we need to take into account the offsets
+      if (flags & update_values)
+        for (unsigned int k = 0; k < this->dofs_per_cell; ++k)
+          for (unsigned int i = 0; i < quadrature.size(); ++i)
+            output_data.shape_values(k, i) =
+              fe_data.shape_values[k][i + offset];
+
+      if (flags & update_gradients)
+        for (unsigned int k = 0; k < this->dofs_per_cell; ++k)
+          mapping.transform(make_array_view(fe_data.shape_gradients,
+                                            k,
+                                            offset,
+                                            quadrature.size()),
+                            mapping_covariant,
+                            mapping_internal,
+                            make_array_view(output_data.shape_gradients, k));
+
+      if (flags & update_hessians)
+        {
+          for (unsigned int k = 0; k < this->dofs_per_cell; ++k)
+            mapping.transform(make_array_view(fe_data.shape_hessians,
+                                              k,
+                                              offset,
+                                              quadrature.size()),
+                              mapping_covariant_gradient,
+                              mapping_internal,
+                              make_array_view(output_data.shape_hessians, k));
+
+#if false
+      if (need_to_correct_higher_derivatives)
+        correct_hessians(output_data, mapping_data, quadrature.size());
+#endif
+        }
+
+      if (flags & update_3rd_derivatives)
+        {
+          for (unsigned int k = 0; k < this->dofs_per_cell; ++k)
+            mapping.transform(make_array_view(fe_data.shape_3rd_derivatives,
+                                              k,
+                                              offset,
+                                              quadrature.size()),
+                              mapping_covariant_hessian,
+                              mapping_internal,
+                              make_array_view(output_data.shape_3rd_derivatives,
+                                              k));
+
+#if false
+      if (need_to_correct_higher_derivatives)
+        correct_third_derivatives(output_data, mapping_data, quadrature.size());
+#endif
         }
     }
 
