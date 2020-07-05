@@ -31,6 +31,8 @@
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/read_write_vector.h>
 
+#include <boost/container/small_vector.hpp>
+
 #include <limits>
 #include <type_traits>
 #include <vector>
@@ -2475,21 +2477,20 @@ DoFCellAccessor<DoFHandlerType, level_dof_access>::face(
 
 
 template <typename DoFHandlerType, bool level_dof_access>
-inline std::array<
+inline boost::container::small_vector<
   typename DoFCellAccessor<DoFHandlerType, level_dof_access>::face_iterator,
   GeometryInfo<DoFHandlerType::dimension>::faces_per_cell>
 DoFCellAccessor<DoFHandlerType, level_dof_access>::face_iterators() const
 {
-  std::array<
+  boost::container::small_vector<
     typename DoFCellAccessor<DoFHandlerType, level_dof_access>::face_iterator,
-    GeometryInfo<dim>::faces_per_cell>
-    face_iterators;
+    GeometryInfo<DoFHandlerType::dimension>::faces_per_cell>
+    face_iterators(this->n_faces());
 
-  const unsigned int dim = DoFHandlerType::dimension;
-  for (unsigned int i : GeometryInfo<dim>::face_indices())
+  for (unsigned int i : this->face_indices())
     face_iterators[i] =
       dealii::internal::DoFCellAccessorImplementation::get_face(
-        *this, i, std::integral_constant<int, dim>());
+        *this, i, std::integral_constant<int, DoFHandlerType::dimension>());
 
   return face_iterators;
 }

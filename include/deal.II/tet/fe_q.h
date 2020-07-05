@@ -18,6 +18,7 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/base/pprojector.h>
 #include <deal.II/base/qprojector.h>
 
 #include <deal.II/fe/fe_poly.h>
@@ -206,11 +207,9 @@ namespace Tet
       dealii::internal::FEValuesImplementation::
         FiniteElementRelatedData<dim, spacedim> &output_data) const override
     {
-      Assert(false, ExcNotImplemented());
-
       return get_data(flags,
                       mapping,
-                      QProjector<dim>::project_to_all_faces(quadrature),
+                      PProjector<dim>::project_to_all_faces(quadrature),
                       output_data);
     }
 

@@ -15,6 +15,7 @@
 
 #include <deal.II/base/geometry_info.h>
 #include <deal.II/base/polynomial.h>
+#include <deal.II/base/quadrature_lib.h>
 
 #include <deal.II/tet/quadrature_lib.h>
 
@@ -35,7 +36,14 @@ namespace Tet
     const double Q16  = 1.0 / 6.0;
     const double Q124 = 1.0 / 6.0 / 4.0;
 
-    if (dim == 2)
+    if (dim == 1)
+      {
+        const dealii::QGauss<dim> quad(n_points);
+
+        this->quadrature_points = quad.get_points();
+        this->weights           = quad.get_weights();
+      }
+    else if (dim == 2)
       {
         if (n_points == 1) // intrule_tri_1point
           {
@@ -136,6 +144,7 @@ namespace Tet
 } // namespace Tet
 
 
+template class Tet::QGauss<1>;
 template class Tet::QGauss<2>;
 template class Tet::QGauss<3>;
 

@@ -25,7 +25,14 @@ namespace Tet
     unsigned int
     compute_n_polynomials(const unsigned int dim, const unsigned int degree)
     {
-      if (dim == 2)
+      if (dim == 1)
+        {
+          if (degree == 1)
+            return 2;
+          if (degree == 2)
+            return 3;
+        }
+      else if (dim == 2)
         {
           if (degree == 1) // DRT::Element::tri3
             return 3;
@@ -53,7 +60,21 @@ namespace Tet
   ScalarPolynomial<dim>::compute_value(const unsigned int i,
                                        const Point<dim> & p) const
   {
-    if (dim == 2)
+    if (dim == 1)
+      {
+        if (this->degree() == 1)
+          {
+            if (i == 0)
+              return p[0];
+            else if (i == 1)
+              return 1 - p[0];
+          }
+        else if (this->degree() == 2)
+          {
+            Assert(false, ExcNotImplemented())
+          }
+      }
+    else if (dim == 2)
       {
         if (this->degree() == 1) // DRT::Element::tri3 (TODO: change order)
           {

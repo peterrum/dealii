@@ -1833,7 +1833,7 @@ TriaAccessor<structdim, dim, spacedim>::center(
     {
       Assert(use_interpolation == false, ExcNotImplemented());
       Point<spacedim> p;
-      for (const unsigned int v : GeometryInfo<structdim>::vertex_indices())
+      for (const unsigned int v : this->vertex_indices())
         p += vertex(v);
       return p / GeometryInfo<structdim>::vertices_per_cell;
     }
