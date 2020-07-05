@@ -1835,7 +1835,7 @@ TriaAccessor<structdim, dim, spacedim>::center(
       Point<spacedim> p;
       for (const unsigned int v : this->vertex_indices())
         p += vertex(v);
-      return p / GeometryInfo<structdim>::vertices_per_cell;
+      return p / this->n_vertices();
     }
   else
     return get_new_point_on_object(*this, use_interpolation);

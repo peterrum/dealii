@@ -69,7 +69,7 @@ namespace Tet
                 {
                   CellData<dim> tri1;
                   if (true || (i % 2 == 0) == (j % 2 == 0))
-                    tri1.vertices = {quad[1], quad[2], quad[0]};
+                    tri1.vertices = {quad[0], quad[1], quad[2]};
                   else
                     tri1.vertices = {quad[0], quad[3], quad[2]};
 
@@ -79,7 +79,7 @@ namespace Tet
                 {
                   CellData<dim> tri1;
                   if (true || (i % 2 == 0) == (j % 2 == 0))
-                    tri1.vertices = {quad[2], quad[1], quad[3]};
+                    tri1.vertices = {quad[3], quad[2], quad[1]};
                   else
                     tri1.vertices = {quad[3], quad[0], quad[1]};
 
