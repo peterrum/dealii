@@ -177,21 +177,76 @@ MappingIsoparametric<dim, spacedim>::InternalData::initialize_face(
       //            }
       //        }
 
-      AssertDimension(dim, 2);
+      // AssertDimension(dim, 2);
 
-      Tensor<1, dim> t1;
-      t1[0] = 1;
-      t1[1] = 0;
-      for (unsigned int i = 0; i < n_original_q_points; i++)
-        unit_tangentials[0].emplace_back(t1);
-      t1[0] = -0.70710678118;
-      t1[1] = 0.70710678118;
-      for (unsigned int i = 0; i < n_original_q_points; i++)
-        unit_tangentials[1].emplace_back(t1);
-      t1[0] = 0;
-      t1[1] = -1;
-      for (unsigned int i = 0; i < n_original_q_points; i++)
-        unit_tangentials[2].emplace_back(t1);
+      if (dim == 2)
+        {
+          Tensor<1, dim> t1;
+          t1[0] = 1;
+          t1[1] = 0;
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[0].emplace_back(t1);
+          t1[0] = -0.70710678118;
+          t1[1] = 0.70710678118;
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[1].emplace_back(t1);
+          t1[0] = 0;
+          t1[1] = -1;
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[2].emplace_back(t1);
+        }
+      else
+        {
+          Tensor<1, dim> t1;
+
+          t1[0] = 1;
+          t1[1] = 0;
+          t1[2] = 0; // face 0
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[0].emplace_back(t1);
+
+          t1[0] = 0;
+          t1[1] = 1;
+          t1[2] = 0; // face 0
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[4].emplace_back(t1);
+
+          t1[0] = -1;
+          t1[1] = 0;
+          t1[2] = 0; // face 1
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[1].emplace_back(t1);
+
+          t1[0] = -0.70710678118;
+          t1[1] = 0;
+          t1[2] = 0.70710678118; // face 1
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[5].emplace_back(t1);
+
+          t1[0] = 0;
+          t1[1] = 1;
+          t1[2] = 0; // face 2
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[2].emplace_back(t1);
+
+          t1[0] = 0;
+          t1[1] = 0;
+          t1[2] = 1; // face 2
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[6].emplace_back(t1);
+
+          t1[0] = 0.70710678118;
+          t1[1] = -0.70710678118;
+          t1[2] = 0; // face 3
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[3].emplace_back(t1);
+
+          t1[0] = 0;
+          t1[1] = -0.70710678118;
+          t1[2] = 0.70710678118; // face 3
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[7].emplace_back(t1);
+        }
     }
 }
 
@@ -1496,12 +1551,21 @@ namespace internal
           data,
           output_data.jacobian_pushed_forward_3rd_derivatives);
 
+        //********************* TODO *******************************************
+        std::vector<double> weights(quadrature.size());
+
+        auto quad = PProjector<dim>::project_to_all_faces(quadrature);
+
+        for (unsigned int i = 0; i < quadrature.size(); ++i)
+          weights[i] = quad.get_weights()[i + data_set];
+        //********************* TODO *******************************************
+
         maybe_compute_face_data(mapping,
                                 cell,
                                 face_no,
                                 subface_no,
                                 quadrature.size(),
-                                quadrature.get_weights(),
+                                weights,
                                 data,
                                 output_data);
       }

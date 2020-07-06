@@ -312,8 +312,8 @@ namespace Tet
       // offset determines which data set to take (all data sets for all faces
       // are stored contiguously)
 
-      const typename QProjector<dim>::DataSetDescriptor offset =
-        QProjector<dim>::DataSetDescriptor::face(face_no,
+      const typename PProjector<dim>::DataSetDescriptor offset =
+        PProjector<dim>::DataSetDescriptor::face(face_no,
                                                  cell->face_orientation(
                                                    face_no),
                                                  cell->face_flip(face_no),

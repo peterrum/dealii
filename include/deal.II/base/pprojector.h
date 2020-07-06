@@ -32,11 +32,90 @@ struct PProjector
   static Quadrature<3>
   project_to_all_faces(const Quadrature<2> quad)
   {
-    Assert(false, ExcNotImplemented());
+    const auto &sub_quadrature_points  = quad.get_points();
+    const auto &sub_quadrature_weights = quad.get_weights();
 
-    (void)quad;
+    const std::array<std::pair<std::array<Point<3>, 3>, unsigned int>, 4>
+      faces = {{{{Point<3>(0.0, 0.0, 0.0),
+                  Point<3>(1.0, 0.0, 0.0),
+                  Point<3>(0.0, 1.0, 0.0)},
+                 1.0},
+                {{Point<3>(1.0, 0.0, 0.0),
+                  Point<3>(0.0, 0.0, 0.0),
+                  Point<3>(0.0, 0.0, 1.0)},
+                 1.0},
+                {{Point<3>(0.0, 0.0, 0.0),
+                  Point<3>(0.0, 1.0, 0.0),
+                  Point<3>(0.0, 0.0, 1.0)},
+                 1.0},
+                {{Point<3>(0.0, 1.0, 0.0),
+                  Point<3>(1.0, 0.0, 0.0),
+                  Point<3>(0.0, 0.0, 1.0)},
+                 2.0}}};
 
-    return Quadrature<3>();
+    Tet::ScalarPolynomial<2> poly(1);
+
+    std::vector<Point<3>> points;
+    std::vector<double>   weights;
+
+    for (const auto &face : faces)
+      {
+        for (unsigned int o = 0; o < 6; ++o)
+          {
+            std::array<Point<3>, 3> support_points;
+
+            switch (o)
+              {
+                case 1:
+                  support_points = {face.first[0],
+                                    face.first[1],
+                                    face.first[2]};
+                  break;
+                case 3:
+                  support_points = {face.first[1],
+                                    face.first[0],
+                                    face.first[2]};
+                  break;
+                case 5:
+                  support_points = {face.first[2],
+                                    face.first[0],
+                                    face.first[1]};
+                  break;
+                case 0:
+                  support_points = {face.first[0],
+                                    face.first[2],
+                                    face.first[1]};
+                  break;
+                case 2:
+                  support_points = {face.first[1],
+                                    face.first[2],
+                                    face.first[0]};
+                  break;
+                case 4:
+                  support_points = {face.first[2],
+                                    face.first[1],
+                                    face.first[0]};
+                  break;
+                default:
+                  Assert(false, ExcNotImplemented());
+              }
+
+            for (unsigned int j = 0; j < sub_quadrature_points.size(); ++j)
+              {
+                Point<3> mapped_point;
+
+                for (unsigned int i = 0; i < 3; ++i)
+                  mapped_point +=
+                    support_points[i] *
+                    poly.compute_value(i, sub_quadrature_points[j]);
+
+                points.push_back(mapped_point);
+                weights.push_back(sub_quadrature_weights[j] * face.second);
+              }
+          }
+      }
+
+    return {points, weights};
   }
 
   static Quadrature<2>
@@ -163,12 +242,16 @@ struct PProjector
          const bool         face_rotation,
          const unsigned int n_quadrature_points)
     {
-      AssertDimension(dim, 2);
+      if (dim == 2)
+        return {(2 * face_no + face_orientation) * n_quadrature_points};
+      else if (dim == 3)
+        {
+          const unsigned int orientation =
+            (face_flip * 2 + face_rotation) * 2 + face_orientation;
+          return {(6 * face_no + orientation) * n_quadrature_points};
+        }
 
-      (void)face_flip;
-      (void)face_rotation;
-
-      return {(2 * face_no + face_orientation) * n_quadrature_points};
+      Assert(false, ExcNotImplemented());
     }
 
 
