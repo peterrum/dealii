@@ -124,15 +124,15 @@ struct PProjector
     const auto &sub_quadrature_points  = quad.get_points();
     const auto &sub_quadrature_weights = quad.get_weights();
 
-    // const std::array<std::pair<std::array<Point<2>, 2>, unsigned int>, 3>
-    //  faces = {{{{Point<2>(0.0, 0.0), Point<2>(1.0, 0.0)}, 1.0},
-    //            {{Point<2>(1.0, 0.0), Point<2>(0.0, 1.0)}, 1.41421356237},
-    //            {{Point<2>(0.0, 1.0), Point<2>(0.0, 0.0)}, 1.0}}};
-
     const std::array<std::pair<std::array<Point<2>, 2>, unsigned int>, 3>
-      faces = {{{{Point<2>(1.0, 0.0), Point<2>(0.0, 1.0)}, 1.41421356237},
-                {{Point<2>(0.0, 1.0), Point<2>(0.0, 0.0)}, 1.0},
-                {{Point<2>(0.0, 0.0), Point<2>(1.0, 0.0)}, 1.0}}};
+      faces = {{{{Point<2>(0.0, 0.0), Point<2>(1.0, 0.0)}, 1.0},
+                {{Point<2>(1.0, 0.0), Point<2>(0.0, 1.0)}, 1.41421356237},
+                {{Point<2>(0.0, 1.0), Point<2>(0.0, 0.0)}, 1.0}}};
+
+    // const std::array<std::pair<std::array<Point<2>, 2>, unsigned int>, 3>
+    //  faces = {{{{Point<2>(1.0, 0.0), Point<2>(0.0, 1.0)}, 1.41421356237},
+    //            {{Point<2>(0.0, 1.0), Point<2>(0.0, 0.0)}, 1.0},
+    //            {{Point<2>(0.0, 0.0), Point<2>(1.0, 0.0)}, 1.0}}};
 
     Tet::ScalarPolynomial<1> poly(1);
 
