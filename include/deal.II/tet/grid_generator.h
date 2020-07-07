@@ -169,6 +169,32 @@ namespace Tet
       tria.create_triangulation(vertices, cells, subcelldata);
     }
 
+    template <int dim, int spacedim>
+    void
+    subdivided_hyper_cube(Triangulation<dim, spacedim> &tria,
+                          const unsigned int            repetitions,
+                          const double                  p1       = 0,
+                          const double                  p2       = 1,
+                          const bool                    colorize = false)
+    {
+      if (dim == 2)
+        {
+          subdivided_hyper_rectangle(
+            tria, {repetitions, repetitions}, {p1, p1}, {p2, p2}, colorize);
+        }
+      else if (dim == 3)
+        {
+          subdivided_hyper_rectangle(tria,
+                                     {repetitions, repetitions, repetitions},
+                                     {p1, p1, p1},
+                                     {p2, p2, p2},
+                                     colorize);
+        }
+      else
+        {
+          Assert(false, ExcNotImplemented())
+        }
+    }
   } // namespace GridGenerator
 } // namespace Tet
 

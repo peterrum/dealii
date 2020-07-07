@@ -576,8 +576,7 @@ namespace DoFTools
                                                   sparsity,
                                                   keep_constrained_dofs);
 
-          for (const unsigned int face :
-               GeometryInfo<DoFHandlerType::dimension>::face_indices())
+          for (const unsigned int face : cell->face_indices())
             {
               typename DoFHandlerType::face_iterator cell_face =
                 cell->face(face);
@@ -819,8 +818,7 @@ namespace DoFTools
                                                           keep_constrained_dofs,
                                                           bool_int_dof_mask);
                   // Loop over all interior neighbors
-                  for (const unsigned int face_n :
-                       GeometryInfo<dim>::face_indices())
+                  for (const unsigned int face_n : cell->face_indices())
                     {
                       const typename DoFHandler<dim, spacedim>::face_iterator
                         cell_face = cell->face(face_n);

@@ -1098,7 +1098,7 @@ MappingIsoparametric<dim, spacedim>::get_subface_data(
     std::make_unique<InternalData>(this->fe);
   auto &data = dynamic_cast<InternalData &>(*data_ptr);
   data.initialize_face(this->requires_update_flags(update_flags),
-                       PProjector<dim>::project_to_all_subfaces(quadrature),
+                       QProjector<dim>::project_to_all_subfaces(quadrature),
                        quadrature.size());
 
   return data_ptr;

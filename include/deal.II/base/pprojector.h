@@ -124,10 +124,10 @@ struct PProjector
     const auto &sub_quadrature_points  = quad.get_points();
     const auto &sub_quadrature_weights = quad.get_weights();
 
-    const std::array<std::pair<std::array<Point<2>, 2>, unsigned int>, 3>
-      faces = {{{{Point<2>(0.0, 0.0), Point<2>(1.0, 0.0)}, 1.0},
-                {{Point<2>(1.0, 0.0), Point<2>(0.0, 1.0)}, 1.41421356237},
-                {{Point<2>(0.0, 1.0), Point<2>(0.0, 0.0)}, 1.0}}};
+    const std::array<std::pair<std::array<Point<2>, 2>, double>, 3> faces = {
+      {{{Point<2>(0.0, 0.0), Point<2>(1.0, 0.0)}, 1.0},
+       {{Point<2>(1.0, 0.0), Point<2>(0.0, 1.0)}, 1.41421356237},
+       {{Point<2>(0.0, 1.0), Point<2>(0.0, 0.0)}, 1.0}}};
 
     // const std::array<std::pair<std::array<Point<2>, 2>, unsigned int>, 3>
     //  faces = {{{{Point<2>(1.0, 0.0), Point<2>(0.0, 1.0)}, 1.41421356237},
@@ -166,8 +166,8 @@ struct PProjector
                     support_points[i] *
                     poly.compute_value(i, sub_quadrature_points[j]);
 
-                points.push_back(mapped_point);
-                weights.push_back(sub_quadrature_weights[j] * face.second);
+                points.emplace_back(mapped_point);
+                weights.emplace_back(sub_quadrature_weights[j] * face.second);
               }
           }
       }

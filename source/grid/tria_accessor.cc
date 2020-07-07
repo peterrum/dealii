@@ -2329,7 +2329,8 @@ CellAccessor<dim, spacedim>::neighbor_of_neighbor_internal(
   const unsigned int neighbor_guess =
     GeometryInfo<dim>::opposite_face[neighbor];
 
-  if (neighbor_cell->face_index(neighbor_guess) == this_face_index)
+  if (neighbor_guess < neighbor_cell->n_faces() &&
+      neighbor_cell->face_index(neighbor_guess) == this_face_index)
     return neighbor_guess;
   else
     // if the guess was false, then
@@ -2337,7 +2338,7 @@ CellAccessor<dim, spacedim>::neighbor_of_neighbor_internal(
     // neighbors and find the number
     // the hard way
     {
-      for (const unsigned int face_no : GeometryInfo<dim>::face_indices())
+      for (const unsigned int face_no : neighbor_cell->face_indices())
         if (neighbor_cell->face_index(face_no) == this_face_index)
           return face_no;
 

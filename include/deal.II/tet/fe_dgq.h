@@ -13,8 +13,8 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef dealii_fe_q_tet_h
-#define dealii_fe_q_tet_h
+#ifndef dealii_fe_dgq_tet_h
+#define dealii_fe_dgq_tet_h
 
 #include <deal.II/base/config.h>
 
@@ -30,10 +30,10 @@ DEAL_II_NAMESPACE_OPEN
 namespace Tet
 {
   template <int dim, int spacedim = dim>
-  class FE_Q : public FE_Poly<dim>
+  class FE_DGQ : public FE_Poly<dim>
   {
   public:
-    FE_Q(const unsigned int degree);
+    FE_DGQ(const unsigned int degree);
 
     std::unique_ptr<FiniteElement<dim, dim>>
     clone() const override;
@@ -45,19 +45,19 @@ namespace Tet
     static std::vector<unsigned int>
     get_dpo_vector(const unsigned int deg)
     {
-      AssertIndexRange(deg, 3);
-
       std::vector<unsigned int> dpo(dim + 1, 0U);
 
-      if (deg == 1)
-        {
-          dpo[0] = 1;
-        }
+      if (dim == 2 && deg == 1)
+        dpo[dim] = 3;
+      else if (dim == 2 && deg == 2)
+        dpo[dim] = 6;
+      else if (dim == 3 && deg == 1)
+        dpo[dim] = 4;
+      else if (dim == 3 && deg == 2)
+        dpo[dim] = 10;
       else
         {
-          dpo[0] = 1;
-          dpo[1] = 1;
-          dpo[2] = 0;
+          Assert(false, ExcNotImplemented());
         }
 
       return dpo;
@@ -311,9 +311,6 @@ namespace Tet
 
       // offset determines which data set to take (all data sets for all faces
       // are stored contiguously)
-
-      std::cout << "AA " << static_cast<int>(cell->face_orientation(face_no))
-                << std::endl;
 
       const typename PProjector<dim>::DataSetDescriptor offset =
         PProjector<dim>::DataSetDescriptor::face(face_no,

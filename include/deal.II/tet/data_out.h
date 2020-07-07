@@ -22,6 +22,8 @@
 
 #include <deal.II/fe/fe_poly.h>
 
+#include <deal.II/lac/la_parallel_vector.h>
+
 #include <deal.II/tet/fe_q.h>
 #include <deal.II/tet/mapping_q.h>
 #include <deal.II/tet/polynomials.h>
@@ -37,8 +39,22 @@ namespace Tet
            const std::string &              label,
            StreamType &                     stream)
   {
-    const auto &is_local = vector.get_partitioner()->locally_owned_range();
-    const auto &is_ghost = vector.get_partitioner()->ghost_indices();
+    IndexSet is_local;
+    IndexSet is_ghost;
+
+    if (auto vector_ =
+          dynamic_cast<const typename LinearAlgebra::distributed::Vector<
+            typename VectorType::value_type> *>(&vector))
+      {
+        is_local = vector_->get_partitioner()->locally_owned_range();
+        is_ghost = vector_->get_partitioner()->ghost_indices();
+      }
+    else
+      {
+        is_local = IndexSet(vector.size());
+        is_local.add_range(0, vector.size());
+        is_ghost = IndexSet(vector.size());
+      }
 
     const unsigned int n_dofs = is_local.n_elements() + is_ghost.n_elements();
 
@@ -144,7 +160,12 @@ namespace Tet
     stream << "LOOKUP_TABLE default" << std::endl;
 
     for (unsigned int i = 0; i < n_dofs; ++i)
-      stream << vector.local_element(i) << std::endl;
+      if (auto vector_ =
+            dynamic_cast<const typename LinearAlgebra::distributed::Vector<
+              typename VectorType::value_type> *>(&vector))
+        stream << vector_->local_element(i) << std::endl;
+      else
+        stream << vector[i] << std::endl;
   }
 
 } // namespace Tet

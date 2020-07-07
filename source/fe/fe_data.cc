@@ -67,7 +67,7 @@ namespace
     if (dynamic_cast<const DynamicGeometryInfoLine *>(&geometry_info))
       return GeometryInfo<1>::quads_per_cell;
     if (dynamic_cast<const DynamicGeometryInfoTri *>(&geometry_info))
-      return 4;
+      return 1;
     if (dynamic_cast<const DynamicGeometryInfoQuad *>(&geometry_info))
       return GeometryInfo<2>::quads_per_cell;
     if (dynamic_cast<const DynamicGeometryInfoTet *>(&geometry_info))
