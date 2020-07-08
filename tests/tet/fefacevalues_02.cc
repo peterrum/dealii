@@ -162,7 +162,7 @@ test_3(const unsigned int               degree,
        unsigned int &                   counter)
 {
   for (const auto i : all_possible_permutations({0, 1, 2, 3}))
-    for (const auto j : all_possible_permutations({0, 2, 1, 4}))
+    for (const auto j : all_possible_permutations(other_indices))
       {
         deallog << "v-" << counter++ << " : ";
         deallog << "(" << i[0] << " " << i[1] << " " << i[2] << " " << i[3]
@@ -172,7 +172,7 @@ test_3(const unsigned int               degree,
                 << ")";
         deallog << std::endl;
 
-        test_3(i, j, {0.0, 0.0, -1.0}, degree);
+        test_3(i, j, point, degree);
         deallog << std::endl;
       }
 }
@@ -182,7 +182,10 @@ test_3(const unsigned int degree)
 {
   unsigned int counter = 0;
 
-  test_3(degree, {0, 2, 1, 4}, {+0.0, +0.0, -1.0}, counter);
+  test_3(degree, {0, 2, 1, 4}, {+0.0, +0.0, -1.0}, counter); // face 0 mirrored
+  test_3(degree, {0, 1, 3, 4}, {-1.0, +0.0, +0.0}, counter); // face 1
+  test_3(degree, {0, 3, 2, 4}, {+0.0, -1.0, +0.0}, counter); // face 2
+  test_3(degree, {1, 2, 3, 4}, {+1.0, +1.0, +1.0}, counter); // face 3
 }
 
 int
@@ -191,5 +194,5 @@ main()
   initlog();
 
   test_3(1 /*degree*/);
-  // test_3(2 /*degree*/);
+  test_3(2 /*degree*/);
 }
