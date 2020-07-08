@@ -156,10 +156,11 @@ all_possible_permutations(const std::vector<unsigned int> &ref)
 }
 
 void
-test_3(const unsigned int degree)
+test_3(const unsigned int               degree,
+       const std::vector<unsigned int> &other_indices,
+       const Point<3> &                 point,
+       unsigned int &                   counter)
 {
-  unsigned int counter = 0;
-
   for (const auto i : all_possible_permutations({0, 1, 2, 3}))
     for (const auto j : all_possible_permutations({0, 2, 1, 4}))
       {
@@ -174,6 +175,14 @@ test_3(const unsigned int degree)
         test_3(i, j, {0.0, 0.0, -1.0}, degree);
         deallog << std::endl;
       }
+}
+
+void
+test_3(const unsigned int degree)
+{
+  unsigned int counter = 0;
+
+  test_3(degree, {0, 2, 1, 4}, {+0.0, +0.0, -1.0}, counter);
 }
 
 int
