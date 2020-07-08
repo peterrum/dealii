@@ -33,24 +33,34 @@
 using namespace dealii;
 
 void
-test_3(const std::vector<unsigned int> &vertices_1, const unsigned int degree)
+test_3(const std::vector<unsigned int> &vertices_1,
+       const unsigned int               degree,
+       const unsigned int               v)
 {
   const int dim      = 3;
   const int spacedim = 3;
 
   std::vector<Point<spacedim>> vertices;
 
-#if true
-  vertices.emplace_back(0.0, 0.0, 0.0);
-  vertices.emplace_back(1.0, 0.0, 0.0);
-  vertices.emplace_back(0.0, 1.0, 0.0);
-  vertices.emplace_back(0.0, 0.0, 1.0);
-#else
-  vertices.emplace_back(0.0, 0.0, 0.0);
-  vertices.emplace_back(1.0, 1.0, 0.0);
-  vertices.emplace_back(1.0, 0.0, 1.0);
-  vertices.emplace_back(0.0, 1.0, 1.0);
-#endif
+  if (v == 0)
+    {
+      vertices.emplace_back(0.0, 0.0, 0.0);
+      vertices.emplace_back(1.0, 0.0, 0.0);
+      vertices.emplace_back(0.0, 1.0, 0.0);
+      vertices.emplace_back(0.0, 0.0, 1.0);
+    }
+  else if (v == 1)
+    {
+      vertices.emplace_back(0.0, 0.0, 0.0);
+      vertices.emplace_back(1.0, 1.0, 0.0);
+      vertices.emplace_back(1.0, 0.0, 1.0);
+      vertices.emplace_back(0.0, 1.0, 1.0);
+    }
+  else
+    {
+      Assert(false, ExcNotImplemented());
+    }
+
 
   CellData<dim> cell_1(4);
   cell_1.vertices = vertices_1;
@@ -131,7 +141,7 @@ all_possible_permutations(const std::vector<unsigned int> &ref)
 }
 
 void
-test_3(const unsigned int degree)
+test_3(const unsigned int degree, const unsigned int v)
 {
   unsigned int counter = 0;
 
@@ -142,7 +152,7 @@ test_3(const unsigned int degree)
               << ")";
       deallog << std::endl;
 
-      test_3(i, degree);
+      test_3(i, degree, v);
       deallog << std::endl;
     }
 }
@@ -152,6 +162,8 @@ main()
 {
   initlog();
 
-  test_3(1 /*degree*/);
-  test_3(2 /*degree*/);
+  test_3(1 /*degree*/, 0 /*version*/); // 0.500000, 0.500000, 0.500000, 0.866025
+  test_3(2 /*degree*/, 0 /*version*/);
+  test_3(1 /*degree*/, 1 /*version*/); // 0.866025, 0.866025, 0.866025, 0.866025
+  test_3(2 /*degree*/, 1 /*version*/);
 }
