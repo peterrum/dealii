@@ -2169,15 +2169,15 @@ TriaAccessor<structdim, dim, spacedim>::reference_cell_info() const
   static ReferenceCell::internal::Info::Quad   gei_quad;
   static ReferenceCell::internal::Info::Hex    gei_hex;
 
-  switch (structdim) // TODO: use ReferenceCell::Type
+  switch (this->reference_cell_type())
     {
-      case 0:
+      case ReferenceCell::Type::Vertex:
         return gei_vertex;
-      case 1:
+      case ReferenceCell::Type::Line:
         return gei_line;
-      case 2:
+      case ReferenceCell::Type::Quad:
         return gei_quad;
-      case 3:
+      case ReferenceCell::Type::Hex:
         return gei_hex;
       default:
         Assert(false, StandardExceptions::ExcNotImplemented());
