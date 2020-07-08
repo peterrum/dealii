@@ -211,15 +211,15 @@ MappingIsoparametric<dim, spacedim>::InternalData::initialize_face(
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[4].emplace_back(t1);
 
-          t1[0] = -1;
+          t1[0] = 1;
           t1[1] = 0;
           t1[2] = 0; // face 1
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[1].emplace_back(t1);
 
-          t1[0] = -0.70710678118;
+          t1[0] = 0;
           t1[1] = 0;
-          t1[2] = 0.70710678118; // face 1
+          t1[2] = 1; // face 1
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[5].emplace_back(t1);
 
@@ -235,15 +235,15 @@ MappingIsoparametric<dim, spacedim>::InternalData::initialize_face(
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[6].emplace_back(t1);
 
-          t1[0] = 0.70710678118;
-          t1[1] = -0.70710678118;
-          t1[2] = 0; // face 3
+          t1[0] = -0.75983568565;
+          t1[1] = +0.75983568565;
+          t1[2] = +0; // face 3
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[3].emplace_back(t1);
 
-          t1[0] = 0;
-          t1[1] = -0.70710678118;
-          t1[2] = 0.70710678118; // face 3
+          t1[0] = -0.75983568565;
+          t1[1] = +0;
+          t1[2] = +0.75983568565; // face 3
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[7].emplace_back(t1);
         }

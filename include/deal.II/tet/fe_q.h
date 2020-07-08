@@ -312,9 +312,6 @@ namespace Tet
       // offset determines which data set to take (all data sets for all faces
       // are stored contiguously)
 
-      std::cout << "AA " << static_cast<int>(cell->face_orientation(face_no))
-                << std::endl;
-
       const typename PProjector<dim>::DataSetDescriptor offset =
         PProjector<dim>::DataSetDescriptor::face(face_no,
                                                  cell->face_orientation(

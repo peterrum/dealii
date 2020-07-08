@@ -35,23 +35,23 @@ struct PProjector
     const auto &sub_quadrature_points  = quad.get_points();
     const auto &sub_quadrature_weights = quad.get_weights();
 
-    const std::array<std::pair<std::array<Point<3>, 3>, unsigned int>, 4>
-      faces = {{{{Point<3>(0.0, 0.0, 0.0),
-                  Point<3>(1.0, 0.0, 0.0),
-                  Point<3>(0.0, 1.0, 0.0)},
-                 1.0},
-                {{Point<3>(1.0, 0.0, 0.0),
-                  Point<3>(0.0, 0.0, 0.0),
-                  Point<3>(0.0, 0.0, 1.0)},
-                 1.0},
-                {{Point<3>(0.0, 0.0, 0.0),
-                  Point<3>(0.0, 1.0, 0.0),
-                  Point<3>(0.0, 0.0, 1.0)},
-                 1.0},
-                {{Point<3>(0.0, 1.0, 0.0),
-                  Point<3>(1.0, 0.0, 0.0),
-                  Point<3>(0.0, 0.0, 1.0)},
-                 2.0}}};
+    const std::array<std::pair<std::array<Point<3>, 3>, double>, 4> faces = {
+      {{{Point<3>(0.0, 0.0, 0.0),
+         Point<3>(1.0, 0.0, 0.0),
+         Point<3>(0.0, 1.0, 0.0)},
+        1.0},
+       {{Point<3>(1.0, 0.0, 0.0),
+         Point<3>(0.0, 0.0, 0.0),
+         Point<3>(0.0, 0.0, 1.0)},
+        1.0},
+       {{Point<3>(0.0, 0.0, 0.0),
+         Point<3>(0.0, 1.0, 0.0),
+         Point<3>(0.0, 0.0, 1.0)},
+        1.0},
+       {{Point<3>(0.0, 1.0, 0.0),
+         Point<3>(1.0, 0.0, 0.0),
+         Point<3>(0.0, 0.0, 1.0)},
+        1.0}}};
 
     Tet::ScalarPolynomial<2> poly(1);
 
@@ -110,7 +110,78 @@ struct PProjector
                     poly.compute_value(i, sub_quadrature_points[j]);
 
                 points.push_back(mapped_point);
-                weights.push_back(sub_quadrature_weights[j] * face.second);
+
+                const auto &supp_pts = support_points;
+
+                const unsigned int n_shape_functions = 3;
+                const unsigned int dim_              = 2;
+                const unsigned int spacedim          = 3;
+
+                double result[spacedim][dim_];
+
+                std::vector<Tensor<1, dim_>> shape_derivatives(
+                  n_shape_functions);
+
+                for (unsigned int i = 0; i < 3; ++i)
+                  shape_derivatives[i] =
+                    poly.compute_1st_derivative(i, sub_quadrature_points[j]);
+
+                // peel away part of sum to avoid zeroing the
+                // entries and adding for the first time
+                for (unsigned int i = 0; i < spacedim; ++i)
+                  for (unsigned int j = 0; j < dim_; ++j)
+                    result[i][j] = shape_derivatives[0][j] * supp_pts[0][i];
+                for (unsigned int k = 1; k < n_shape_functions; ++k)
+                  for (unsigned int i = 0; i < spacedim; ++i)
+                    for (unsigned int j = 0; j < dim_; ++j)
+                      result[i][j] += shape_derivatives[k][j] * supp_pts[k][i];
+
+                DerivativeForm<1, dim_, spacedim> contravariant;
+
+                for (unsigned int i = 0; i < spacedim; ++i)
+                  for (unsigned int j = 0; j < dim_; ++j)
+                    contravariant[i][j] = result[i][j];
+
+
+                Tensor<1, spacedim> DX_t[dim_];
+                for (unsigned int i = 0; i < spacedim; ++i)
+                  for (unsigned int j = 0; j < dim_; ++j)
+                    DX_t[j][i] = contravariant[i][j];
+
+                Tensor<2, dim_> G; // First fundamental form
+                for (unsigned int i = 0; i < dim_; ++i)
+                  for (unsigned int j = 0; j < dim_; ++j)
+                    G[i][j] = DX_t[i] * DX_t[j];
+
+                weights.push_back(sub_quadrature_weights[j] *
+                                  std::sqrt(determinant(G)));
+
+                //                {
+                //                  const DerivativeForm<1, spacedim, dim_> DX_t
+                //                  =
+                //                    contravariant.transpose();
+                //
+                //                  Tensor<1, spacedim> cell_normal =
+                //                    cross_product_3d(DX_t[0], DX_t[1]);
+                //                  cell_normal /= cell_normal.norm();
+                //
+                //
+                //                  Tensor<1, dim_> aux;
+                //
+                //                  aux[0] = 1;
+                //                  aux[1] = 0;
+                //
+                //                  // then compute the face normal from the
+                //                  face
+                //                  // tangent and the cell normal:
+                //                  auto boundary_forms =
+                //                    cross_product_3d(apply_transformation(contravariant,
+                //                    aux),
+                //                                     cell_normal);
+                //
+                //                  // std::cout << boundary_forms.norm() <<
+                //                  std::endl;
+                //                }
               }
           }
       }
