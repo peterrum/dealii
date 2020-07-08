@@ -199,14 +199,14 @@ MappingIsoparametric<dim, spacedim>::InternalData::initialize_face(
         {
           Tensor<1, dim> t1;
 
-          t1[0] = 1;
-          t1[1] = 0;
+          t1[0] = 0;
+          t1[1] = 1;
           t1[2] = 0; // face 0
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[0].emplace_back(t1);
 
-          t1[0] = 0;
-          t1[1] = 1;
+          t1[0] = 1;
+          t1[1] = 0;
           t1[2] = 0; // face 0
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[4].emplace_back(t1);
@@ -224,14 +224,14 @@ MappingIsoparametric<dim, spacedim>::InternalData::initialize_face(
             unit_tangentials[5].emplace_back(t1);
 
           t1[0] = 0;
-          t1[1] = 1;
-          t1[2] = 0; // face 2
+          t1[1] = 0;
+          t1[2] = 1; // face 2
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[2].emplace_back(t1);
 
           t1[0] = 0;
-          t1[1] = 0;
-          t1[2] = 1; // face 2
+          t1[1] = 1;
+          t1[2] = 0; // face 2
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[6].emplace_back(t1);
 
