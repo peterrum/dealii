@@ -2163,21 +2163,33 @@ template <int structdim, int dim, int spacedim>
 inline const ReferenceCell::internal::Info::Base &
 TriaAccessor<structdim, dim, spacedim>::reference_cell_info() const
 {
-  static ReferenceCell::internal::Info::Base   gei_invalid;
-  static ReferenceCell::internal::Info::Vertex gei_vertex;
-  static ReferenceCell::internal::Info::Line   gei_line;
-  static ReferenceCell::internal::Info::Quad   gei_quad;
-  static ReferenceCell::internal::Info::Hex    gei_hex;
+  static ReferenceCell::internal::Info::Base    gei_invalid;
+  static ReferenceCell::internal::Info::Vertex  gei_vertex;
+  static ReferenceCell::internal::Info::Line    gei_line;
+  static ReferenceCell::internal::Info::Tri     gei_tri;
+  static ReferenceCell::internal::Info::Quad    gei_quad;
+  static ReferenceCell::internal::Info::Tet     gei_tet;
+  static ReferenceCell::internal::Info::Pyramid gei_pyramid;
+  static ReferenceCell::internal::Info::Wedge   gei_wedge;
+  static ReferenceCell::internal::Info::Hex     gei_hex;
 
-  switch (structdim) // TODO: use ReferenceCell::Type
+  switch (this->reference_cell_type())
     {
-      case 0:
+      case ReferenceCell::Type::Vertex:
         return gei_vertex;
-      case 1:
+      case ReferenceCell::Type::Line:
         return gei_line;
-      case 2:
+      case ReferenceCell::Type::Tri:
+        return gei_tri;
+      case ReferenceCell::Type::Quad:
         return gei_quad;
-      case 3:
+      case ReferenceCell::Type::Tet:
+        return gei_tet;
+      case ReferenceCell::Type::Pyramid:
+        return gei_pyramid;
+      case ReferenceCell::Type::Wedge:
+        return gei_wedge;
+      case ReferenceCell::Type::Hex:
         return gei_hex;
       default:
         Assert(false, StandardExceptions::ExcNotImplemented());

@@ -1695,7 +1695,7 @@ namespace internal
               if ((subdomain_id == numbers::invalid_subdomain_id) ||
                   (cell->subdomain_id() == subdomain_id))
                 {
-                  dof_indices.resize(cell->get_fe().dofs_per_cell);
+                  dof_indices.resize(cell->get_fe().n_dofs_per_cell());
 
                   // circumvent cache
                   internal::DoFAccessorImplementation::Implementation::
@@ -1748,7 +1748,7 @@ namespace internal
                 // delete all dofs that live there and that we have
                 // previously assigned a number to (i.e. the ones on
                 // the interface)
-                local_dof_indices.resize(cell->get_fe().dofs_per_cell);
+                local_dof_indices.resize(cell->get_fe().n_dofs_per_cell());
                 cell->get_dof_indices(local_dof_indices);
                 for (const auto &local_dof_index : local_dof_indices)
                   if (local_dof_index != numbers::invalid_dof_index)
@@ -1785,7 +1785,7 @@ namespace internal
             if ((level_subdomain_id == numbers::invalid_subdomain_id) ||
                 (cell->level_subdomain_id() == level_subdomain_id))
               {
-                dof_indices.resize(cell->get_fe().dofs_per_cell);
+                dof_indices.resize(cell->get_fe().n_dofs_per_cell());
 
                 cell->get_mg_dof_indices(dof_indices);
 
@@ -1858,7 +1858,7 @@ namespace internal
                   // really is unused
                   Assert(dof_handler.get_triangulation().vertex_used(
                            (i - dof_handler.object_dof_indices[0][0].begin()) /
-                           dof_handler.get_fe().dofs_per_vertex) == false,
+                           dof_handler.get_fe().n_dofs_per_vertex()) == false,
                          ExcInternalError());
               return;
             }
@@ -1899,7 +1899,7 @@ namespace internal
                         std::integral_constant<int, 0>());
 
                   for (unsigned int d = 0;
-                       d < dof_handler.get_fe(fe_index).dofs_per_vertex;
+                       d < dof_handler.get_fe(fe_index).n_dofs_per_vertex();
                        ++d)
                     {
                       const types::global_dof_index old_dof_index =
@@ -2450,13 +2450,14 @@ namespace internal
             // if the present vertex lives on the current level
             if ((i->get_coarsest_level() <= level) &&
                 (i->get_finest_level() >= level))
-              for (unsigned int d = 0; d < dof_handler.get_fe().dofs_per_vertex;
+              for (unsigned int d = 0;
+                   d < dof_handler.get_fe().n_dofs_per_vertex();
                    ++d)
                 {
                   const dealii::types::global_dof_index idx =
                     i->get_index(level,
                                  d,
-                                 dof_handler.get_fe().dofs_per_vertex);
+                                 dof_handler.get_fe().n_dofs_per_vertex());
 
                   if (idx != numbers::invalid_dof_index)
                     {
@@ -2467,7 +2468,7 @@ namespace internal
                              ExcInternalError());
                       i->set_index(level,
                                    d,
-                                   dof_handler.get_fe().dofs_per_vertex,
+                                   dof_handler.get_fe().n_dofs_per_vertex(),
                                    (indices_we_care_about.size() == 0) ?
                                      (new_numbers[idx]) :
                                      (new_numbers[indices_we_care_about
@@ -2901,7 +2902,8 @@ namespace internal
               // that all cells are either locally owned or ghosts (not
               // artificial), so this call will always yield the true owner
               const types::subdomain_id subdomain_id = cell->subdomain_id();
-              const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
+              const unsigned int        dofs_per_cell =
+                cell->get_fe().n_dofs_per_cell();
               local_dof_indices.resize(dofs_per_cell);
               cell->get_dof_indices(local_dof_indices);
 
@@ -2963,7 +2965,8 @@ namespace internal
               // artificial), so this call will always yield the true owner
               const types::subdomain_id level_subdomain_id =
                 cell->level_subdomain_id();
-              const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
+              const unsigned int dofs_per_cell =
+                cell->get_fe().n_dofs_per_cell();
               local_dof_indices.resize(dofs_per_cell);
               cell->get_mg_dof_indices(local_dof_indices);
 
@@ -3547,14 +3550,14 @@ namespace internal
                    ExcInternalError());
 
             std::vector<dealii::types::global_dof_index> data(
-              cell->get_fe().dofs_per_cell);
+              cell->get_fe().n_dofs_per_cell());
             cell->get_mg_dof_indices(data);
 
             return data;
           };
 
           const auto unpack = [](const auto &cell, const auto &dofs) {
-            Assert(cell->get_fe().dofs_per_cell == dofs.size(),
+            Assert(cell->get_fe().n_dofs_per_cell() == dofs.size(),
                    ExcInternalError());
 
             Assert(cell->level_subdomain_id() !=
@@ -3562,7 +3565,7 @@ namespace internal
                    ExcInternalError());
 
             std::vector<dealii::types::global_dof_index> dof_indices(
-              cell->get_fe().dofs_per_cell);
+              cell->get_fe().n_dofs_per_cell());
             cell->get_mg_dof_indices(dof_indices);
 
             bool complete = true;
@@ -3648,20 +3651,20 @@ namespace internal
             Assert(cell->is_locally_owned(), ExcInternalError());
 
             std::vector<dealii::types::global_dof_index> data(
-              cell->get_fe().dofs_per_cell);
+              cell->get_fe().n_dofs_per_cell());
             cell->get_dof_indices(data);
 
             return data;
           };
 
           const auto unpack = [](const auto &cell, const auto &dofs) {
-            Assert(cell->get_fe().dofs_per_cell == dofs.size(),
+            Assert(cell->get_fe().n_dofs_per_cell() == dofs.size(),
                    ExcInternalError());
 
             Assert(cell->is_ghost(), ExcInternalError());
 
             std::vector<dealii::types::global_dof_index> dof_indices(
-              cell->get_fe().dofs_per_cell);
+              cell->get_fe().n_dofs_per_cell());
             cell->update_cell_dof_indices_cache();
             cell->get_dof_indices(dof_indices);
 
@@ -3934,7 +3937,7 @@ namespace internal
           for (const auto &cell : dof_handler->active_cell_iterators())
             if (!cell->is_artificial())
               {
-                local_dof_indices.resize(cell->get_fe().dofs_per_cell);
+                local_dof_indices.resize(cell->get_fe().n_dofs_per_cell());
                 cell->get_dof_indices(local_dof_indices);
                 if (local_dof_indices.end() !=
                     std::find(local_dof_indices.begin(),
@@ -4034,9 +4037,11 @@ namespace internal
                       // delete all dofs that live there and that we
                       // have previously assigned a number to
                       // (i.e. the ones on the interface)
-                      local_dof_indices.resize(cell->get_fe().dofs_per_cell);
+                      local_dof_indices.resize(
+                        cell->get_fe().n_dofs_per_cell());
                       cell->get_mg_dof_indices(local_dof_indices);
-                      for (unsigned int i = 0; i < cell->get_fe().dofs_per_cell;
+                      for (unsigned int i = 0;
+                           i < cell->get_fe().n_dofs_per_cell();
                            ++i)
                         if (local_dof_indices[i] != numbers::invalid_dof_index)
                           renumbering[local_dof_indices[i]] =
@@ -4169,7 +4174,7 @@ namespace internal
             if (cell->level_subdomain_id() !=
                 dealii::numbers::artificial_subdomain_id)
               {
-                local_dof_indices.resize(cell->get_fe().dofs_per_cell);
+                local_dof_indices.resize(cell->get_fe().n_dofs_per_cell());
                 cell->get_mg_dof_indices(local_dof_indices);
                 if (local_dof_indices.end() !=
                     std::find(local_dof_indices.begin(),
@@ -4362,10 +4367,11 @@ namespace internal
               for (auto cell : dof_handler->active_cell_iterators())
                 if (cell->is_ghost())
                   {
-                    local_dof_indices.resize(cell->get_fe().dofs_per_cell);
+                    local_dof_indices.resize(cell->get_fe().n_dofs_per_cell());
                     cell->get_dof_indices(local_dof_indices);
 
-                    for (unsigned int i = 0; i < cell->get_fe().dofs_per_cell;
+                    for (unsigned int i = 0;
+                         i < cell->get_fe().n_dofs_per_cell();
                          ++i)
                       // delete a DoF index if it has not already been deleted
                       // (e.g., by visiting a neighboring cell, if it is on the
