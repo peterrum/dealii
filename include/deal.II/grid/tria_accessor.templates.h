@@ -2168,6 +2168,7 @@ TriaAccessor<structdim, dim, spacedim>::reference_cell_info() const
   static ReferenceCell::internal::Info::Line    gei_line;
   static ReferenceCell::internal::Info::Tri     gei_tri;
   static ReferenceCell::internal::Info::Quad    gei_quad;
+  static ReferenceCell::internal::Info::Tet     gei_tet;
   static ReferenceCell::internal::Info::Pyramid gei_pyramid;
   static ReferenceCell::internal::Info::Wedge   gei_wedge;
   static ReferenceCell::internal::Info::Hex     gei_hex;
@@ -2182,6 +2183,8 @@ TriaAccessor<structdim, dim, spacedim>::reference_cell_info() const
         return gei_tri;
       case ReferenceCell::Type::Quad:
         return gei_quad;
+      case ReferenceCell::Type::Tet:
+        return gei_tet;
       case ReferenceCell::Type::Pyramid:
         return gei_pyramid;
       case ReferenceCell::Type::Wedge:
