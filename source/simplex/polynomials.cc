@@ -25,7 +25,14 @@ namespace Simplex
     unsigned int
     compute_n_polynomials(const unsigned int dim, const unsigned int degree)
     {
-      if (dim == 2)
+      if (dim == 1)
+        {
+          if (degree == 1)
+            return 2;
+          if (degree == 2)
+            return 3;
+        }
+      else if (dim == 2)
         {
           if (degree == 1)
             return 3;
@@ -60,7 +67,26 @@ namespace Simplex
   ScalarPolynomial<dim>::compute_value(const unsigned int i,
                                        const Point<dim> & p) const
   {
-    if (dim == 2)
+    if (dim == 1)
+      {
+        if (this->degree() == 1)
+          {
+            if (i == 0)
+              return 1.0 - p[0];
+            else if (i == 1)
+              return p[0];
+          }
+        else if (this->degree() == 2)
+          {
+            if (i == 0)
+              return 2.0 * p[0] * p[0] - 3.0 * p[0] + 1;
+            else if (i == 1)
+              return 2.0 * p[0] * p[0] - p[0];
+            else if (i == 2)
+              return -4.0 * p[0] * p[0] + 4.0 * p[0];
+          }
+      }
+    else if (dim == 2)
       {
         if (this->degree() == 1)
           {
@@ -147,7 +173,30 @@ namespace Simplex
   {
     Tensor<1, dim> grad;
 
-    if (dim == 2)
+    if (dim == 1)
+      {
+        if (this->degree() == 1)
+          {
+            if (i == 0)
+              grad[0] = -1.0;
+            else if (i == 1)
+              grad[0] = 1.0;
+          }
+        else if (this->degree() == 2)
+          {
+            if (i == 0)
+              grad[0] = 4.0 * p[0] - 3.0;
+            else if (i == 1)
+              grad[0] = 4.0 * p[0] - 1.0;
+            else if (i == 2)
+              grad[0] = -8.0 * p[0] + 4.0;
+          }
+        else
+          {
+            Assert(false, ExcNotImplemented());
+          }
+      }
+    else if (dim == 2)
       {
         if (this->degree() == 1)
           {
@@ -436,6 +485,7 @@ namespace Simplex
     return std::make_unique<ScalarPolynomial<dim>>(*this);
   }
 
+  template class ScalarPolynomial<1>;
   template class ScalarPolynomial<2>;
   template class ScalarPolynomial<3>;
 
