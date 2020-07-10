@@ -1489,8 +1489,9 @@ public:
   /**
    * Return an array of iterators to all faces of this cell.
    */
-  inline std::array<face_iterator,
-                    GeometryInfo<DoFHandlerType::dimension>::faces_per_cell>
+  boost::container::small_vector<
+    face_iterator,
+    GeometryInfo<DoFHandlerType::dimension>::faces_per_cell>
   face_iterators() const;
 
   /**

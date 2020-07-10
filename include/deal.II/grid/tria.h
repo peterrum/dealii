@@ -25,6 +25,7 @@
 #include <deal.II/base/smartpointer.h>
 #include <deal.II/base/subscriptor.h>
 
+#include <deal.II/grid/entity.h>
 #include <deal.II/grid/tria_description.h>
 #include <deal.II/grid/tria_iterator_selector.h>
 #include <deal.II/grid/tria_levels.h>
@@ -83,12 +84,16 @@ namespace internal
 
     class TriaObjects;
 
+    template <int, int>
+    class Policy;
+
     /**
      * Forward declaration of a class into which we put much of the
      * implementation of the Triangulation class. See the .cc file for more
      * information.
      */
     struct Implementation;
+    struct Implementation2;
   } // namespace TriangulationImplementation
 
   namespace TriaAccessorImplementation
@@ -3304,6 +3309,15 @@ public:
     std::pair<std::pair<cell_iterator, unsigned int>, std::bitset<3>>> &
   get_periodic_face_map() const;
 
+  /**
+   * TODO
+   */
+  void
+  set_use_arbitray_mesh(const bool use_arbitray_mesh)
+  {
+    this->use_arbitray_mesh = use_arbitray_mesh;
+  }
+
 #ifdef DOXYGEN
   /**
    * Write and read the data of this object from a stream for the purpose
@@ -3450,6 +3464,14 @@ protected:
 
 
 private:
+  /**
+   * Policy with the Triangulation-specific tasks related to creation,
+   * refinement, and coarsening.
+   */
+  std::unique_ptr<
+    dealii::internal::TriangulationImplementation::Policy<dim, spacedim>>
+    policy;
+
   /**
    * If add_periodicity() is called, this variable stores the given periodic
    * face pairs on level 0 for later access during the identification of ghost
@@ -3916,6 +3938,14 @@ private:
   std::unique_ptr<std::map<unsigned int, types::manifold_id>>
     vertex_to_manifold_id_map_1d;
 
+  /**
+   * TODO
+   */
+
+  std::vector<std::unique_ptr<DynamicGeometryInfo>> geometry_info;
+
+  bool use_arbitray_mesh = false;
+
   // make a couple of classes friends
   template <int, int, int>
   friend class TriaAccessorBase;
@@ -3930,6 +3960,7 @@ private:
   friend class hp::DoFHandler<dim, spacedim>;
 
   friend struct dealii::internal::TriangulationImplementation::Implementation;
+  friend struct dealii::internal::TriangulationImplementation::Implementation2;
 
   friend class dealii::internal::TriangulationImplementation::TriaObjects;
 

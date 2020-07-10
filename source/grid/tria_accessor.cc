@@ -1833,9 +1833,9 @@ TriaAccessor<structdim, dim, spacedim>::center(
     {
       Assert(use_interpolation == false, ExcNotImplemented());
       Point<spacedim> p;
-      for (const unsigned int v : GeometryInfo<structdim>::vertex_indices())
+      for (const unsigned int v : this->vertex_indices())
         p += vertex(v);
-      return p / GeometryInfo<structdim>::vertices_per_cell;
+      return p / this->n_vertices();
     }
   else
     return get_new_point_on_object(*this, use_interpolation);
@@ -2023,20 +2023,11 @@ template <int dim, int spacedim>
 bool
 CellAccessor<dim, spacedim>::at_boundary() const
 {
-  switch (dim)
-    {
-      case 1:
-        return at_boundary(0) || at_boundary(1);
-      case 2:
-        return (at_boundary(0) || at_boundary(1) || at_boundary(2) ||
-                at_boundary(3));
-      case 3:
-        return (at_boundary(0) || at_boundary(1) || at_boundary(2) ||
-                at_boundary(3) || at_boundary(4) || at_boundary(5));
-      default:
-        Assert(false, ExcNotImplemented());
-        return false;
-    }
+  for (const auto face : this->face_indices())
+    if (at_boundary(face))
+      return true;
+
+  return false;
 }
 
 
@@ -2338,7 +2329,8 @@ CellAccessor<dim, spacedim>::neighbor_of_neighbor_internal(
   const unsigned int neighbor_guess =
     GeometryInfo<dim>::opposite_face[neighbor];
 
-  if (neighbor_cell->face_index(neighbor_guess) == this_face_index)
+  if (neighbor_guess < neighbor_cell->n_faces() &&
+      neighbor_cell->face_index(neighbor_guess) == this_face_index)
     return neighbor_guess;
   else
     // if the guess was false, then
@@ -2346,7 +2338,7 @@ CellAccessor<dim, spacedim>::neighbor_of_neighbor_internal(
     // neighbors and find the number
     // the hard way
     {
-      for (const unsigned int face_no : GeometryInfo<dim>::face_indices())
+      for (const unsigned int face_no : neighbor_cell->face_indices())
         if (neighbor_cell->face_index(face_no) == this_face_index)
           return face_no;
 

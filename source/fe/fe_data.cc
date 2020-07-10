@@ -19,9 +19,166 @@
 
 DEAL_II_NAMESPACE_OPEN
 
+namespace
+{
+  inline unsigned int
+  vertices_per_cell(const DynamicGeometryInfo &geometry_info)
+  {
+    if (dynamic_cast<const DynamicGeometryInfoVertex *>(&geometry_info))
+      return GeometryInfo<0>::vertices_per_cell;
+    if (dynamic_cast<const DynamicGeometryInfoLine *>(&geometry_info))
+      return GeometryInfo<1>::vertices_per_cell;
+    if (dynamic_cast<const DynamicGeometryInfoTri *>(&geometry_info))
+      return 3;
+    if (dynamic_cast<const DynamicGeometryInfoQuad *>(&geometry_info))
+      return GeometryInfo<2>::vertices_per_cell;
+    if (dynamic_cast<const DynamicGeometryInfoTet *>(&geometry_info))
+      return 4;
+    if (dynamic_cast<const DynamicGeometryInfoHex *>(&geometry_info))
+      return GeometryInfo<3>::vertices_per_cell;
+
+    return 0;
+  }
+
+  inline unsigned int
+  lines_per_cell(const DynamicGeometryInfo &geometry_info)
+  {
+    if (dynamic_cast<const DynamicGeometryInfoVertex *>(&geometry_info))
+      return GeometryInfo<0>::lines_per_cell;
+    if (dynamic_cast<const DynamicGeometryInfoLine *>(&geometry_info))
+      return GeometryInfo<1>::lines_per_cell;
+    if (dynamic_cast<const DynamicGeometryInfoTri *>(&geometry_info))
+      return 3;
+    if (dynamic_cast<const DynamicGeometryInfoQuad *>(&geometry_info))
+      return GeometryInfo<2>::lines_per_cell;
+    if (dynamic_cast<const DynamicGeometryInfoTet *>(&geometry_info))
+      return 6;
+    if (dynamic_cast<const DynamicGeometryInfoHex *>(&geometry_info))
+      return GeometryInfo<3>::lines_per_cell;
+
+    return 0;
+  }
+
+  inline unsigned int
+  quads_per_cell(const DynamicGeometryInfo &geometry_info)
+  {
+    if (dynamic_cast<const DynamicGeometryInfoVertex *>(&geometry_info))
+      return GeometryInfo<0>::quads_per_cell;
+    if (dynamic_cast<const DynamicGeometryInfoLine *>(&geometry_info))
+      return GeometryInfo<1>::quads_per_cell;
+    if (dynamic_cast<const DynamicGeometryInfoTri *>(&geometry_info))
+      return 1;
+    if (dynamic_cast<const DynamicGeometryInfoQuad *>(&geometry_info))
+      return GeometryInfo<2>::quads_per_cell;
+    if (dynamic_cast<const DynamicGeometryInfoTet *>(&geometry_info))
+      return 4;
+    if (dynamic_cast<const DynamicGeometryInfoHex *>(&geometry_info))
+      return GeometryInfo<3>::quads_per_cell;
+
+    return 0;
+  }
+
+  inline unsigned int
+  hexes_per_cell(const DynamicGeometryInfo &geometry_info)
+  {
+    if (dynamic_cast<const DynamicGeometryInfoVertex *>(&geometry_info))
+      return GeometryInfo<0>::hexes_per_cell;
+    if (dynamic_cast<const DynamicGeometryInfoLine *>(&geometry_info))
+      return GeometryInfo<1>::hexes_per_cell;
+    if (dynamic_cast<const DynamicGeometryInfoTri *>(&geometry_info))
+      return 0;
+    if (dynamic_cast<const DynamicGeometryInfoQuad *>(&geometry_info))
+      return GeometryInfo<2>::hexes_per_cell;
+    if (dynamic_cast<const DynamicGeometryInfoTet *>(&geometry_info))
+      return 1;
+    if (dynamic_cast<const DynamicGeometryInfoHex *>(&geometry_info))
+      return GeometryInfo<3>::hexes_per_cell;
+
+    return 0;
+  }
+
+  inline unsigned int
+  vertices_per_face(const DynamicGeometryInfo &geometry_info)
+  {
+    if (dynamic_cast<const DynamicGeometryInfoVertex *>(&geometry_info))
+      return GeometryInfo<0>::vertices_per_face;
+    if (dynamic_cast<const DynamicGeometryInfoLine *>(&geometry_info))
+      return GeometryInfo<1>::vertices_per_face;
+    if (dynamic_cast<const DynamicGeometryInfoTri *>(&geometry_info))
+      return 2;
+    if (dynamic_cast<const DynamicGeometryInfoQuad *>(&geometry_info))
+      return GeometryInfo<2>::vertices_per_face;
+    if (dynamic_cast<const DynamicGeometryInfoTet *>(&geometry_info))
+      return 3;
+    if (dynamic_cast<const DynamicGeometryInfoHex *>(&geometry_info))
+      return GeometryInfo<3>::vertices_per_face;
+
+    return 0;
+  }
+
+  inline unsigned int
+  lines_per_face(const DynamicGeometryInfo &geometry_info)
+  {
+    if (dynamic_cast<const DynamicGeometryInfoVertex *>(&geometry_info))
+      return GeometryInfo<0>::lines_per_face;
+    if (dynamic_cast<const DynamicGeometryInfoLine *>(&geometry_info))
+      return GeometryInfo<1>::lines_per_face;
+    if (dynamic_cast<const DynamicGeometryInfoTri *>(&geometry_info))
+      return 1;
+    if (dynamic_cast<const DynamicGeometryInfoQuad *>(&geometry_info))
+      return GeometryInfo<2>::lines_per_face;
+    if (dynamic_cast<const DynamicGeometryInfoTet *>(&geometry_info))
+      return 3;
+    if (dynamic_cast<const DynamicGeometryInfoHex *>(&geometry_info))
+      return GeometryInfo<3>::lines_per_face;
+
+    return 0;
+  }
+
+  inline unsigned int
+  quads_per_face(const DynamicGeometryInfo &geometry_info)
+  {
+    if (dynamic_cast<const DynamicGeometryInfoVertex *>(&geometry_info))
+      return GeometryInfo<0>::quads_per_face;
+    if (dynamic_cast<const DynamicGeometryInfoLine *>(&geometry_info))
+      return GeometryInfo<1>::quads_per_face;
+    if (dynamic_cast<const DynamicGeometryInfoTri *>(&geometry_info))
+      return 0;
+    if (dynamic_cast<const DynamicGeometryInfoQuad *>(&geometry_info))
+      return GeometryInfo<2>::quads_per_face;
+    if (dynamic_cast<const DynamicGeometryInfoTet *>(&geometry_info))
+      return 1;
+    if (dynamic_cast<const DynamicGeometryInfoHex *>(&geometry_info))
+      return GeometryInfo<3>::quads_per_face;
+
+    return 0;
+  }
+} // namespace
+
 template <int dim>
 FiniteElementData<dim>::FiniteElementData(
   const std::vector<unsigned int> &dofs_per_object,
+  const unsigned int               n_components,
+  const unsigned int               degree,
+  const Conformity                 conformity,
+  const BlockIndices &             block_indices)
+  : FiniteElementData(
+      dofs_per_object,
+      dim == 0 ?
+        create_dynamic_geometry_info(EntityType::vertex) :
+        (dim == 1 ? create_dynamic_geometry_info(EntityType::line) :
+                    (dim == 2 ? create_dynamic_geometry_info(EntityType::quad) :
+                                create_dynamic_geometry_info(EntityType::hex))),
+      n_components,
+      degree,
+      conformity,
+      block_indices)
+{}
+
+template <int dim>
+FiniteElementData<dim>::FiniteElementData(
+  const std::vector<unsigned int> &dofs_per_object,
+  const DynamicGeometryInfo &      geometry_info,
   const unsigned int               n_components,
   const unsigned int               degree,
   const Conformity                 conformity,
@@ -30,24 +187,23 @@ FiniteElementData<dim>::FiniteElementData(
   , dofs_per_line(dofs_per_object[1])
   , dofs_per_quad(dim > 1 ? dofs_per_object[2] : 0)
   , dofs_per_hex(dim > 2 ? dofs_per_object[3] : 0)
-  , first_line_index(GeometryInfo<dim>::vertices_per_cell * dofs_per_vertex)
+  , first_line_index(vertices_per_cell(geometry_info) * dofs_per_vertex)
   , first_quad_index(first_line_index +
-                     GeometryInfo<dim>::lines_per_cell * dofs_per_line)
+                     lines_per_cell(geometry_info) * dofs_per_line)
   , first_hex_index(first_quad_index +
-                    GeometryInfo<dim>::quads_per_cell * dofs_per_quad)
-  , first_face_line_index(GeometryInfo<dim - 1>::vertices_per_cell *
-                          dofs_per_vertex)
+                    quads_per_cell(geometry_info) * dofs_per_quad)
+  , first_face_line_index(vertices_per_face(geometry_info) * dofs_per_vertex)
   , first_face_quad_index(
-      (dim == 3 ? GeometryInfo<dim - 1>::vertices_per_cell * dofs_per_vertex :
-                  GeometryInfo<dim>::vertices_per_cell * dofs_per_vertex) +
-      GeometryInfo<dim - 1>::lines_per_cell * dofs_per_line)
-  , dofs_per_face(GeometryInfo<dim>::vertices_per_face * dofs_per_vertex +
-                  GeometryInfo<dim>::lines_per_face * dofs_per_line +
-                  GeometryInfo<dim>::quads_per_face * dofs_per_quad)
-  , dofs_per_cell(GeometryInfo<dim>::vertices_per_cell * dofs_per_vertex +
-                  GeometryInfo<dim>::lines_per_cell * dofs_per_line +
-                  GeometryInfo<dim>::quads_per_cell * dofs_per_quad +
-                  GeometryInfo<dim>::hexes_per_cell * dofs_per_hex)
+      (dim == 3 ? vertices_per_face(geometry_info) * dofs_per_vertex :
+                  vertices_per_cell(geometry_info) * dofs_per_vertex) +
+      lines_per_face(geometry_info) * dofs_per_line)
+  , dofs_per_face(vertices_per_face(geometry_info) * dofs_per_vertex +
+                  lines_per_face(geometry_info) * dofs_per_line +
+                  quads_per_face(geometry_info) * dofs_per_quad)
+  , dofs_per_cell(vertices_per_cell(geometry_info) * dofs_per_vertex +
+                  lines_per_cell(geometry_info) * dofs_per_line +
+                  quads_per_cell(geometry_info) * dofs_per_quad +
+                  hexes_per_cell(geometry_info) * dofs_per_hex)
   , components(n_components)
   , degree(degree)
   , conforming_space(conformity)
