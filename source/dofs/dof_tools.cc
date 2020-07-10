@@ -704,7 +704,7 @@ namespace DoFTools
       // only work on cells that are either locally owned or at least ghost
       // cells
       if (cell->is_artificial() == false)
-        for (const unsigned int face : GeometryInfo<dim>::face_indices())
+        for (const unsigned int face : cell->face_indices())
           if (cell->at_boundary(face))
             if (!check_boundary_id ||
                 (boundary_ids.find(cell->face(face)->boundary_id()) !=
@@ -804,7 +804,7 @@ namespace DoFTools
     // boundary line is also part of a boundary face which we will be
     // visiting sooner or later
     for (const auto &cell : dof_handler.active_cell_iterators())
-      for (const unsigned int face : GeometryInfo<dim>::face_indices())
+      for (const unsigned int face : cell->face_indices())
         if (cell->at_boundary(face))
           if (!check_boundary_id ||
               (boundary_ids.find(cell->face(face)->boundary_id()) !=
@@ -985,7 +985,7 @@ namespace DoFTools
         for (const auto &cell : dof_handler.active_cell_iterators())
           if (!cell->is_artificial())
             {
-              for (const unsigned int face : GeometryInfo<dim>::face_indices())
+              for (const unsigned int face : cell->face_indices())
                 if (cell->face(face)->has_children())
                   {
                     const typename dealii::DoFHandler<dim,
@@ -1029,7 +1029,7 @@ namespace DoFTools
 
         for (const auto &cell : dof_handler.active_cell_iterators())
           if (!cell->is_artificial())
-            for (auto f : GeometryInfo<dim>::face_indices())
+            for (auto f : cell->face_indices())
               {
                 const typename dealii::DoFHandler<dim, spacedim>::face_iterator
                   face = cell->face(f);
@@ -2108,7 +2108,7 @@ namespace DoFTools
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
     for (; cell != endc; ++cell)
-      for (const unsigned int f : GeometryInfo<dim>::face_indices())
+      for (const unsigned int f : cell->face_indices())
         if (cell->at_boundary(f))
           {
             const unsigned int dofs_per_face = cell->get_fe().dofs_per_face;
@@ -2152,7 +2152,7 @@ namespace DoFTools
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
     for (; cell != endc; ++cell)
-      for (const unsigned int f : GeometryInfo<dim>::face_indices())
+      for (const unsigned int f : cell->face_indices())
         if (boundary_ids.find(cell->face(f)->boundary_id()) !=
             boundary_ids.end())
           {
@@ -2535,7 +2535,7 @@ namespace DoFTools
             std::fill(exclude.begin(), exclude.end(), false);
             const unsigned int dpf = fe.dofs_per_face;
 
-            for (const unsigned int face : GeometryInfo<dim>::face_indices())
+            for (const unsigned int face : cell->face_indices())
               if (cell->at_boundary(face) ||
                   cell->neighbor(face)->level() != cell->level())
                 for (unsigned int i = 0; i < dpf; ++i)
@@ -2680,7 +2680,7 @@ namespace DoFTools
     // Identify all vertices active on this level and remember some data
     // about them
     for (cell = dof_handler.begin(level); cell != endc; ++cell)
-      for (const unsigned int v : GeometryInfo<dim>::vertex_indices())
+      for (const unsigned int v : cell->vertex_indices())
         {
           const unsigned int vg = cell->vertex_index(v);
           vertex_dof_count[vg] += cell->get_fe().n_dofs_per_cell();
@@ -2734,7 +2734,7 @@ namespace DoFTools
         indices.resize(fe.n_dofs_per_cell());
         cell->get_mg_dof_indices(indices);
 
-        for (const unsigned int v : GeometryInfo<dim>::vertex_indices())
+        for (const unsigned int v : cell->vertex_indices())
           {
             const unsigned int vg    = cell->vertex_index(v);
             const unsigned int block = vertex_mapping[vg];
