@@ -276,6 +276,58 @@ namespace ReferenceCell
 
 
       /**
+       * Triangle.
+       */
+      struct Tri : public Base
+      {
+        unsigned int
+        n_vertices() const override
+        {
+          return 3;
+        }
+
+        unsigned int
+        n_lines() const override
+        {
+          return 3;
+        }
+
+        unsigned int
+        n_faces() const override
+        {
+          return this->n_lines();
+        }
+
+        std::array<unsigned int, 2>
+        standard_vertex_to_face_and_vertex_index(
+          const unsigned int vertex) const override
+        {
+          AssertIndexRange(vertex, 3);
+
+          static const std::array<std::array<unsigned int, 2>, 3> table = {
+            {{0, 0}, {0, 1}, {1, 1}}};
+
+          return table[vertex];
+        }
+
+        unsigned int
+        standard_to_real_face_vertex(
+          const unsigned int  vertex,
+          const unsigned int  face,
+          const unsigned char line_orientation) const override
+        {
+          (void)face;
+
+          static const std::array<std::array<unsigned int, 2>, 2> table = {
+            {{1, 0}, {0, 1}}};
+
+          return table[line_orientation][vertex];
+        }
+      };
+
+
+
+      /**
        * Quad.
        */
       struct Quad : public TensorProductBase<2>
@@ -298,6 +350,305 @@ namespace ReferenceCell
 
           return GeometryInfo<2>::standard_to_real_line_vertex(
             vertex, line_orientation);
+        }
+      };
+
+
+
+      /**
+       * Tet.
+       */
+      struct Tet : public TensorProductBase<3>
+      {
+        unsigned int
+        n_vertices() const override
+        {
+          return 4;
+        }
+
+        unsigned int
+        n_lines() const override
+        {
+          return 6;
+        }
+
+        unsigned int
+        n_faces() const override
+        {
+          return 4;
+        }
+
+        std::array<unsigned int, 2>
+        standard_line_to_face_and_line_index(
+          const unsigned int line) const override
+        {
+          static const std::array<unsigned int, 2> table[6] = {
+            {0, 0}, {0, 1}, {0, 2}, {1, 1}, {1, 2}, {2, 1}};
+
+          return table[line];
+        }
+
+        unsigned int
+        standard_to_real_face_line(
+          const unsigned int  line,
+          const unsigned int  face,
+          const unsigned char face_orientation) const override
+        {
+          (void)face;
+
+          static const std::array<std::array<unsigned int, 3>, 6> table = {
+            {{2, 1, 0}, {0, 1, 2}, {1, 2, 0}, {0, 2, 1}, {1, 0, 2}, {2, 0, 1}}};
+
+          return table[face_orientation][line];
+        }
+
+        bool
+        combine_face_and_line_orientation(
+          const unsigned int  line,
+          const unsigned char face_orientation_raw,
+          const unsigned char line_orientation) const override
+        {
+          (void)line;
+          (void)face_orientation_raw;
+
+          return line_orientation;
+        }
+
+        std::array<unsigned int, 2>
+        standard_vertex_to_face_and_vertex_index(
+          const unsigned int vertex) const override
+        {
+          AssertIndexRange(vertex, 4);
+
+          static const std::array<unsigned int, 2> table[4] = {{0, 0},
+                                                               {0, 1},
+                                                               {0, 2},
+                                                               {1, 2}};
+
+          return table[vertex];
+        }
+
+        unsigned int
+        standard_to_real_face_vertex(
+          const unsigned int  vertex,
+          const unsigned int  face,
+          const unsigned char face_orientation) const override
+        {
+          AssertIndexRange(face_orientation, 6);
+          (void)face;
+
+          static const std::array<std::array<unsigned int, 3>, 6> table = {
+            {{0, 2, 1}, {0, 1, 2}, {1, 2, 0}, {1, 0, 2}, {2, 1, 0}, {2, 0, 1}}};
+
+          return table[face_orientation][vertex];
+        }
+      };
+
+
+
+      /**
+       * Pyramid.
+       */
+      struct Pyramid : public TensorProductBase<3>
+      {
+        unsigned int
+        n_vertices() const override
+        {
+          return 5;
+        }
+
+        unsigned int
+        n_lines() const override
+        {
+          return 8;
+        }
+
+        unsigned int
+        n_faces() const override
+        {
+          return 5;
+        }
+
+        std::array<unsigned int, 2>
+        standard_line_to_face_and_line_index(
+          const unsigned int line) const override
+        {
+          Assert(false, ExcNotImplemented());
+
+          static const std::array<unsigned int, 2> table[6] = {
+            {0, 0}, {0, 1}, {0, 2}, {1, 1}, {1, 2}, {2, 1}};
+
+          return table[line];
+        }
+
+        unsigned int
+        standard_to_real_face_line(
+          const unsigned int  line,
+          const unsigned int  face,
+          const unsigned char face_orientation) const override
+        {
+          Assert(false, ExcNotImplemented());
+
+          (void)face;
+
+          static const std::array<std::array<unsigned int, 3>, 6> table = {
+            {{2, 1, 0}, {0, 1, 2}, {1, 2, 0}, {0, 2, 1}, {1, 0, 2}, {2, 0, 1}}};
+
+          return table[face_orientation][line];
+        }
+
+        bool
+        combine_face_and_line_orientation(
+          const unsigned int  line,
+          const unsigned char face_orientation_raw,
+          const unsigned char line_orientation) const override
+        {
+          (void)line;
+          (void)face_orientation_raw;
+
+          return line_orientation;
+        }
+
+        std::array<unsigned int, 2>
+        standard_vertex_to_face_and_vertex_index(
+          const unsigned int vertex) const override
+        {
+          static const std::array<unsigned int, 2> table[5] = {
+            {0, 0}, {0, 1}, {0, 2}, {0, 3}, {1, 2}};
+
+          return table[vertex];
+        }
+
+        unsigned int
+        standard_to_real_face_vertex(
+          const unsigned int  vertex,
+          const unsigned int  face,
+          const unsigned char face_orientation) const override
+        {
+          if (face == 0) // Quad
+            {
+              return GeometryInfo<3>::standard_to_real_face_vertex(
+                vertex,
+                get_bit(face_orientation, 0),
+                get_bit(face_orientation, 2),
+                get_bit(face_orientation, 1));
+            }
+          else // Tri
+            {
+              static const std::array<std::array<unsigned int, 3>, 6> table = {
+                {{0, 2, 1},
+                 {0, 1, 2},
+                 {1, 2, 0},
+                 {1, 0, 2},
+                 {2, 1, 0},
+                 {2, 0, 1}}};
+
+              return table[face_orientation][vertex];
+            }
+        }
+      };
+
+
+
+      /**
+       * Wedge.
+       */
+      struct Wedge : public TensorProductBase<3>
+      {
+        unsigned int
+        n_vertices() const override
+        {
+          return 6;
+        }
+
+        unsigned int
+        n_lines() const override
+        {
+          return 9;
+        }
+
+        unsigned int
+        n_faces() const override
+        {
+          return 6;
+        }
+
+        std::array<unsigned int, 2>
+        standard_line_to_face_and_line_index(
+          const unsigned int line) const override
+        {
+          Assert(false, ExcNotImplemented());
+
+          static const std::array<unsigned int, 2> table[6] = {
+            {0, 0}, {0, 1}, {0, 2}, {1, 1}, {1, 2}, {2, 1}};
+
+          return table[line];
+        }
+
+        unsigned int
+        standard_to_real_face_line(
+          const unsigned int  line,
+          const unsigned int  face,
+          const unsigned char face_orientation) const override
+        {
+          Assert(false, ExcNotImplemented());
+
+          (void)face;
+
+          static const std::array<std::array<unsigned int, 3>, 6> table = {
+            {{2, 1, 0}, {0, 1, 2}, {1, 2, 0}, {0, 2, 1}, {1, 0, 2}, {2, 0, 1}}};
+
+          return table[face_orientation][line];
+        }
+
+        bool
+        combine_face_and_line_orientation(
+          const unsigned int  line,
+          const unsigned char face_orientation_raw,
+          const unsigned char line_orientation) const override
+        {
+          (void)line;
+          (void)face_orientation_raw;
+
+          return line_orientation;
+        }
+
+        std::array<unsigned int, 2>
+        standard_vertex_to_face_and_vertex_index(
+          const unsigned int vertex) const override
+        {
+          static const std::array<std::array<unsigned int, 2>, 6> table = {
+            {{0, 1}, {0, 0}, {0, 2}, {1, 0}, {1, 1}, {1, 2}}};
+
+          return table[vertex];
+        }
+
+        unsigned int
+        standard_to_real_face_vertex(
+          const unsigned int  vertex,
+          const unsigned int  face,
+          const unsigned char face_orientation) const override
+        {
+          if (face > 1) // QUAD
+            {
+              return GeometryInfo<3>::standard_to_real_face_vertex(
+                vertex,
+                get_bit(face_orientation, 0),
+                get_bit(face_orientation, 2),
+                get_bit(face_orientation, 1));
+            }
+          else // TRI
+            {
+              static const std::array<std::array<unsigned int, 3>, 6> table = {
+                {{0, 2, 1},
+                 {0, 1, 2},
+                 {1, 2, 0},
+                 {1, 0, 2},
+                 {2, 1, 0},
+                 {2, 0, 1}}};
+
+              return table[face_orientation][vertex];
+            }
         }
       };
 
