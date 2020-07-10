@@ -18,7 +18,7 @@
 
 #include <deal.II/base/config.h>
 
-#include <deal.II/base/qprojector.h>
+#include <deal.II/base/pprojector.h>
 
 #include <deal.II/fe/fe_poly.h>
 
@@ -357,7 +357,7 @@ namespace Simplex
   {
     return get_data(flags,
                     mapping,
-                    QProjector<dim>::project_to_all_faces(quadrature), // TODO
+                    PProjector<dim>::project_to_all_faces(quadrature),
                     output_data);
   }
 

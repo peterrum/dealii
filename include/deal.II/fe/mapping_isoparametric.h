@@ -13,8 +13,8 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef dealii_mapping_p_generic_h
-#define dealii_mapping_p_generic_h
+#ifndef dealii_mapping_isoparametric_h
+#define dealii_mapping_isoparametric_h
 
 
 #include <deal.II/base/config.h>
