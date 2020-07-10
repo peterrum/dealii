@@ -99,7 +99,7 @@ test_3(const std::vector<unsigned int> &vertices_1,
 
 label:
 
-  const auto process = [&](const auto &fu) {
+  const auto process = [&](const auto &fu, const auto &comp) {
     deallog << face_index_1 << " : ";
 
     for (unsigned int q = 0; q < face_quad.size(); ++q)
@@ -111,12 +111,19 @@ label:
     for (unsigned int q = 0; q < face_quad.size(); ++q)
       deallog << fu(fe_face_values_2, q) << " ";
     deallog << std::endl;
+
+    for (unsigned int q = 0; q < face_quad.size(); ++q)
+      Assert(comp(fu(fe_face_values_1, q), fu(fe_face_values_2, q)),
+             ExcNotImplemented());
   };
 
-  process([](const auto &eval, const auto q) { return eval.JxW(q); });
-  process([](const auto &eval, const auto q) { return eval.normal_vector(q); });
-  process(
-    [](const auto &eval, const auto q) { return eval.quadrature_point(q); });
+  process([](const auto &eval, const auto q) { return eval.JxW(q); },
+          [](const auto &a, const auto &b) { return std::abs(a - b) < 10e-8; });
+  process([](const auto &eval, const auto q) { return eval.normal_vector(q); },
+          [](const auto &a, const auto &b) { return (a + b).norm() < 10e-8; });
+  process([](const auto &eval,
+             const auto  q) { return eval.quadrature_point(q); },
+          [](const auto &a, const auto &b) { return (a - b).norm() < 10e-8; });
 }
 
 std::vector<std::vector<unsigned int>>
