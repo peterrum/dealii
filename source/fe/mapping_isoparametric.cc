@@ -926,7 +926,7 @@ namespace internal
 template <int dim, int spacedim>
 MappingIsoparametric<dim, spacedim>::MappingIsoparametric(
   const FiniteElement<dim, spacedim> &fe)
-  : fe(fe)
+  : fe(fe.clone())
   , polynomial_degree(fe.tensor_degree())
 {
   Assert(polynomial_degree >= 1,
@@ -939,7 +939,7 @@ MappingIsoparametric<dim, spacedim>::MappingIsoparametric(
 template <int dim, int spacedim>
 MappingIsoparametric<dim, spacedim>::MappingIsoparametric(
   const MappingIsoparametric<dim, spacedim> &mapping)
-  : fe(mapping.fe)
+  : fe(mapping.fe->clone())
   , polynomial_degree(mapping.polynomial_degree)
 {}
 
@@ -974,8 +974,8 @@ MappingIsoparametric<dim, spacedim>::transform_unit_to_real_cell(
 
   Point<spacedim> mapped_point;
 
-  for (unsigned int i = 0; i < this->fe.n_dofs_per_cell(); ++i)
-    mapped_point += support_points[i] * this->fe.shape_value(i, p);
+  for (unsigned int i = 0; i < this->fe->n_dofs_per_cell(); ++i)
+    mapped_point += support_points[i] * this->fe->shape_value(i, p);
 
   return mapped_point;
 }
@@ -1061,7 +1061,7 @@ MappingIsoparametric<dim, spacedim>::get_data(const UpdateFlags update_flags,
                                               const Quadrature<dim> &q) const
 {
   std::unique_ptr<typename Mapping<dim, spacedim>::InternalDataBase> data_ptr =
-    std::make_unique<InternalData>(this->fe);
+    std::make_unique<InternalData>(*this->fe);
   auto &data = dynamic_cast<InternalData &>(*data_ptr);
   data.initialize(this->requires_update_flags(update_flags), q, q.size());
 
@@ -1077,7 +1077,7 @@ MappingIsoparametric<dim, spacedim>::get_face_data(
   const Quadrature<dim - 1> &quadrature) const
 {
   std::unique_ptr<typename Mapping<dim, spacedim>::InternalDataBase> data_ptr =
-    std::make_unique<InternalData>(this->fe);
+    std::make_unique<InternalData>(*this->fe);
   auto &data = dynamic_cast<InternalData &>(*data_ptr);
   data.initialize_face(this->requires_update_flags(update_flags),
                        PProjector<dim>::project_to_all_faces(quadrature),
@@ -1095,7 +1095,7 @@ MappingIsoparametric<dim, spacedim>::get_subface_data(
   const Quadrature<dim - 1> &quadrature) const
 {
   std::unique_ptr<typename Mapping<dim, spacedim>::InternalDataBase> data_ptr =
-    std::make_unique<InternalData>(this->fe);
+    std::make_unique<InternalData>(*this->fe);
   auto &data = dynamic_cast<InternalData &>(*data_ptr);
   data.initialize_face(this->requires_update_flags(update_flags),
                        QProjector<dim>::project_to_all_subfaces(quadrature),
