@@ -367,7 +367,7 @@ namespace Step46
         stokes_fe.dofs_per_face);
       for (const auto &cell : dof_handler.active_cell_iterators())
         if (cell_is_in_fluid_domain(cell))
-          for (unsigned int face_no : GeometryInfo<dim>::face_indices())
+          for (const auto face_no : cell->face_indices())
             {
               bool face_is_on_interface = false;
 
@@ -640,7 +640,7 @@ namespace Step46
         // boundary and the potential neighbor behind it is part of the fluid
         // domain. Let's start with these conditions:
         if (cell_is_in_solid_domain(cell))
-          for (unsigned int f : GeometryInfo<dim>::face_indices())
+          for (const auto f : cell->face_indices())
             {
               // At this point we know that the current cell is a candidate
               // for integration and that a neighbor behind face
@@ -949,7 +949,7 @@ namespace Step46
     // encountered when assembling interface terms in
     // <code>assemble_system</code>.
     for (const auto &cell : dof_handler.active_cell_iterators())
-      for (unsigned int f : GeometryInfo<dim>::face_indices())
+      for (const auto f : cell->face_indices())
         if (cell_is_in_solid_domain(cell))
           {
             if ((cell->at_boundary(f) == false) &&
