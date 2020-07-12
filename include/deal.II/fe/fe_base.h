@@ -220,6 +220,11 @@ public:
   static const unsigned int dimension = dim;
 
   /**
+   * TODO
+   */
+  const ReferenceCell::Type cell_type;
+
+  /**
    * Number of degrees of freedom on a vertex.
    */
   const unsigned int dofs_per_vertex;
