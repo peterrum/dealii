@@ -46,6 +46,8 @@
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/data_out_dof_data.h>
 
+#include <deal.II/simplex/fe_lib.h>
+
 #include <memory>
 #include <string>
 #include <utility>
@@ -79,9 +81,32 @@ namespace internal
       unsigned int n_q_points = 0;
       if (use_face_values == false)
         {
-          dealii::hp::QCollection<dim> quadrature(
-            QIterated<dim>(QTrapez<1>(), n_subdivisions));
-          n_q_points = quadrature[0].size();
+          const bool do_simplex = std::any_of(
+            finite_elements.begin(), finite_elements.end(), [](const auto &fe) {
+              return (*fe)[0].cell_type == ReferenceCell::Type::Tri ||
+                     (*fe)[0].cell_type == ReferenceCell::Type::Tet;
+            });
+
+          std::unique_ptr<dealii::hp::QCollection<dim>> quadrature;
+
+          UpdateFlags update_flags_ = update_flags;
+
+          if (do_simplex)
+            {
+              Assert(1 <= n_subdivisions && n_subdivisions <= 2,
+                     ExcNotImplemented());
+              quadrature.reset(new dealii::hp::QCollection<dim>(Quadrature<dim>(
+                Simplex::FE_P<dim, spacedim>(n_subdivisions == 1 ? 1 : 2)
+                  .get_unit_support_points())));
+              update_flags_ |= update_quadrature_points;
+            }
+          else
+            quadrature.reset(new dealii::hp::QCollection<dim>(
+              QIterated<dim>(QTrapez<1>(), n_subdivisions)));
+
+          n_q_points = (*quadrature)[0].size();
+
+
           x_fe_values.resize(this->finite_elements.size());
           for (unsigned int i = 0; i < this->finite_elements.size(); ++i)
             {
@@ -96,27 +121,12 @@ namespace internal
                   }
               if (x_fe_values[i].get() == nullptr)
                 {
-                  const dealii::hp::QCollection<dim> quad(Quadrature<dim>(
-                    (*this->finite_elements[i])[0].get_unit_support_points()));
-
                   x_fe_values[i] =
                     std::make_shared<dealii::hp::FEValues<dim, spacedim>>(
                       this->mapping_collection,
                       *this->finite_elements[i],
-                      ((*this->finite_elements[i])[0].cell_type ==
-                         ReferenceCell::Type::Tri ||
-                       (*this->finite_elements[i])[0].cell_type ==
-                         ReferenceCell::Type::Tet) ?
-                        quad :
-                        quadrature,
-                      this->update_flags | update_quadrature_points);
-
-                  n_q_points = ((*this->finite_elements[i])[0].cell_type ==
-                                  ReferenceCell::Type::Tri ||
-                                (*this->finite_elements[i])[0].cell_type ==
-                                  ReferenceCell::Type::Tet) ?
-                                 quad[0].size() :
-                                 quadrature[0].size();
+                      *quadrature,
+                      update_flags_);
                 }
             }
         }
@@ -181,9 +191,32 @@ namespace internal
       if (data.x_fe_values.empty() == false)
         {
           Assert(data.x_fe_face_values.empty() == true, ExcInternalError());
-          dealii::hp::QCollection<dim> quadrature(
-            QIterated<dim>(QTrapez<1>(), n_subdivisions));
+
+          const bool do_simplex = std::any_of(
+            finite_elements.begin(), finite_elements.end(), [](const auto &fe) {
+              return (*fe)[0].cell_type == ReferenceCell::Type::Tri ||
+                     (*fe)[0].cell_type == ReferenceCell::Type::Tet;
+            });
+
+          std::unique_ptr<dealii::hp::QCollection<dim>> quadrature;
+
+          UpdateFlags update_flags_ = update_flags;
+
+          if (do_simplex)
+            {
+              Assert(1 <= n_subdivisions && n_subdivisions <= 2,
+                     ExcNotImplemented());
+              quadrature.reset(new dealii::hp::QCollection<dim>(Quadrature<dim>(
+                Simplex::FE_P<dim, spacedim>(n_subdivisions == 1 ? 1 : 2)
+                  .get_unit_support_points())));
+              update_flags_ |= update_quadrature_points;
+            }
+          else
+            quadrature.reset(new dealii::hp::QCollection<dim>(
+              QIterated<dim>(QTrapez<1>(), n_subdivisions)));
+
           x_fe_values.resize(this->finite_elements.size());
+
           for (unsigned int i = 0; i < this->finite_elements.size(); ++i)
             {
               // check if there is a finite element that is equal to the present
@@ -197,20 +230,12 @@ namespace internal
                   }
               if (x_fe_values[i].get() == nullptr)
                 {
-                  const dealii::hp::QCollection<dim> quad(Quadrature<dim>(
-                    (*this->finite_elements[i])[0].get_unit_support_points()));
-
                   x_fe_values[i] =
                     std::make_shared<dealii::hp::FEValues<dim, spacedim>>(
                       this->mapping_collection,
                       *this->finite_elements[i],
-                      ((*this->finite_elements[i])[0].cell_type ==
-                         ReferenceCell::Type::Tri ||
-                       (*this->finite_elements[i])[0].cell_type ==
-                         ReferenceCell::Type::Tet) ?
-                        quad :
-                        quadrature,
-                      this->update_flags | update_quadrature_points);
+                      *quadrature,
+                      update_flags_);
                 }
             }
         }

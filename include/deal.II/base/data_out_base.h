@@ -322,7 +322,7 @@ namespace DataOutBase
     bool points_are_available;
 
     /**
-     * TODO
+     * Reference-cell type of the underlying cell of this patch.
      */
     ReferenceCell::Type reference_cell_type;
 
@@ -472,7 +472,7 @@ namespace DataOutBase
     bool points_are_available;
 
     /**
-     * TODO
+     * Reference-cell type of the underlying cell of this patch.
      */
     ReferenceCell::Type reference_cell_type;
 
@@ -1362,8 +1362,14 @@ namespace DataOutBase
                const unsigned int d2,
                const unsigned int d3);
 
+    /**
+     * Record a single deal.II cell without subdivisions (e.g. simplex) in the
+     * internal reordered format.
+     */
     void
-    write_cell_(const unsigned int start, const unsigned int n_points);
+    write_cell_single(const unsigned int index,
+                      const unsigned int start,
+                      const unsigned int n_points);
 
     /**
      * Filter and record a data set. If there are multiple values at a given

@@ -490,11 +490,13 @@ namespace DataOutBase
 
 
   void
-  DataOutFilter::write_cell_(const unsigned int start,
-                             const unsigned int n_points)
+  DataOutFilter::write_cell_single(const unsigned int index,
+                                   const unsigned int start,
+                                   const unsigned int n_points)
   {
-    (void)n_points;
+    (void)index;
     (void)start;
+    (void)n_points;
 
     Assert(false, ExcNotImplemented());
   }
@@ -800,11 +802,10 @@ namespace
     n_cells = 0;
     for (const auto &patch : patches)
       {
+        // special treatment of simplices since they are not subdivided
         if (patch.reference_cell_type == ReferenceCell::Type::Tri ||
             patch.reference_cell_type == ReferenceCell::Type::Tet)
           {
-            AssertDimension(patch.n_subdivisions, 1);
-
             n_nodes += patch.data.n_cols();
             n_cells += 1;
 
@@ -876,13 +877,25 @@ namespace
                         "it."));
     }
 
+    /**
+     * Write dim-dimensional cell with @p n_point vertices and first vertex at
+     * number start and further.
+     *
+     * @note All inheriting classes should implement this function.
+     */
     void
-    write_cell_(const unsigned int start, const unsigned int n_points)
+    write_cell_single(const unsigned int index,
+                      const unsigned int start,
+                      const unsigned int n_points)
     {
-      stream << '\t' << n_points;
-      for (unsigned int i = 0; i < n_points; ++i)
-        stream << '\t' << start + i;
-      stream << '\n';
+      (void)index;
+      (void)start;
+      (void)n_points;
+
+      Assert(false,
+             ExcMessage("The derived class you are using needs to "
+                        "reimplement this function if you want to call "
+                        "it."));
     }
 
     /**
@@ -1093,6 +1106,14 @@ namespace
                const unsigned int x_offset,
                const unsigned int y_offset,
                const unsigned int z_offset);
+
+    /**
+     * Print vertices [start, start+n_points[
+     */
+    void
+    write_cell_single(const unsigned int index,
+                      const unsigned int start,
+                      const unsigned int n_points);
 
     /**
      * Write a high-order cell type, i.e., a Lagrange cell
@@ -1486,6 +1507,19 @@ namespace
     stream << '\n';
   }
 
+  void
+  VtkStream::write_cell_single(const unsigned int index,
+                               const unsigned int start,
+                               const unsigned int n_points)
+  {
+    (void)index;
+
+    stream << '\t' << n_points;
+    for (unsigned int i = 0; i < n_points; ++i)
+      stream << '\t' << start + i;
+    stream << '\n';
+  }
+
   template <int dim>
   void
   VtkStream::write_high_order_cell(const unsigned int,
@@ -1748,6 +1782,7 @@ namespace DataOutBase
   Patch<0, spacedim>::Patch()
     : patch_index(no_neighbor)
     , points_are_available(false)
+    , reference_cell_type(ReferenceCell::Type::Invalid)
   {
     Assert(spacedim <= 3, ExcNotImplemented());
   }
@@ -2407,11 +2442,12 @@ namespace DataOutBase
 
     for (const auto &patch : patches)
       {
+        // special treatment of simplices since they are not subdivided, s.t,
+        // no new nodes have to be created, but the precomputed ones can be
+        // used
         if (patch.reference_cell_type == ReferenceCell::Type::Tri ||
             patch.reference_cell_type == ReferenceCell::Type::Tet)
           {
-            AssertDimension(patch.n_subdivisions, 1);
-
             Point<spacedim> node;
 
             for (unsigned int point_no = 0; point_no < patch.data.n_cols();
@@ -2450,17 +2486,16 @@ namespace DataOutBase
   {
     Assert(dim <= 3, ExcNotImplemented());
     unsigned int count                 = 0;
+    unsigned int vertex_count          = 0;
     unsigned int first_vertex_of_patch = 0;
     for (const auto &patch : patches)
       {
+        // special treatment of simplices since they are not subdivided
         if (patch.reference_cell_type == ReferenceCell::Type::Tri ||
             patch.reference_cell_type == ReferenceCell::Type::Tet)
           {
-            AssertDimension(patch.n_subdivisions, 1);
-            out.write_cell_(count, patch.data.n_cols());
-
-            count += patch.data.n_cols();
-
+            out.write_cell_single(count++, vertex_count, patch.data.n_cols());
+            vertex_count += patch.data.n_cols();
             continue;
           }
 
@@ -4911,6 +4946,7 @@ namespace DataOutBase
     // as a cell order and adjust variables accordingly, otherwise
     // each patch is written as a linear cell.
     unsigned int n_points_per_cell = GeometryInfo<dim>::vertices_per_cell;
+    bool         simplex_mesh      = false;
     if (flags.write_higher_order_cells)
       {
         n_cells           = patches.size();
@@ -4922,9 +4958,8 @@ namespace DataOutBase
           if (patch.reference_cell_type == ReferenceCell::Type::Tri ||
               patch.reference_cell_type == ReferenceCell::Type::Tet)
             {
-              AssertDimension(patch.n_subdivisions, 1);
-
               n_points_per_cell = patch.data.n_cols();
+              simplex_mesh      = true;
             }
       }
 
@@ -4968,17 +5003,9 @@ namespace DataOutBase
     // simple
     out << "CELL_TYPES " << n_cells << '\n';
 
-    // need to distinguish between linear and high order cells
-
-    if (flags.write_higher_order_cells)
-      {
-        const unsigned int vtk_cell_id = flags.write_higher_order_cells ?
-                                           vtk_lagrange_cell_type[dim] :
-                                           5 /*vtk_cell_type[dim]*/;
-        for (unsigned int i = 0; i < n_cells; ++i)
-          out << ' ' << vtk_cell_id;
-      }
-    else
+    // need to distinguish between linear cells, simplex cells (linear or
+    // quadratic), and  high order cells
+    if (simplex_mesh)
       {
         for (const auto &patch : patches)
           {
@@ -4996,9 +5023,21 @@ namespace DataOutBase
             else if (patch.reference_cell_type == ReferenceCell::Type::Tet &&
                      patch.data.n_cols() == 10)
               vtk_cell_id = 24;
+            else
+              {
+                Assert(false, ExcNotImplemented());
+              }
 
             out << ' ' << vtk_cell_id;
           }
+      }
+    else
+      {
+        const unsigned int vtk_cell_id = flags.write_higher_order_cells ?
+                                           vtk_lagrange_cell_type[dim] :
+                                           vtk_cell_type[dim];
+        for (unsigned int i = 0; i < n_cells; ++i)
+          out << ' ' << vtk_cell_id;
       }
 
     out << '\n';

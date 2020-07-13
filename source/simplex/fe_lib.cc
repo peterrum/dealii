@@ -399,7 +399,7 @@ namespace Simplex
 
 
   template <int dim, int spacedim>
-  std::unique_ptr<FiniteElement<dim, dim>>
+  std::unique_ptr<FiniteElement<dim, spacedim>>
   FE_P<dim, spacedim>::clone() const
   {
     return std::make_unique<FE_P<dim, spacedim>>(*this);
@@ -426,7 +426,7 @@ namespace Simplex
 
 
   template <int dim, int spacedim>
-  std::unique_ptr<FiniteElement<dim, dim>>
+  std::unique_ptr<FiniteElement<dim, spacedim>>
   FE_DGP<dim, spacedim>::clone() const
   {
     return std::make_unique<FE_DGP<dim, spacedim>>(*this);

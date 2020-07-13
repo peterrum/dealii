@@ -34,7 +34,7 @@ namespace Simplex
    * @note Only implemented for 2D and 3D.
    */
   template <int dim, int spacedim = dim>
-  class FE_Poly : public dealii::FE_Poly<dim>
+  class FE_Poly : public dealii::FE_Poly<dim, spacedim>
   {
   public:
     /**
@@ -114,7 +114,7 @@ namespace Simplex
     /**
      * Internal data. (TODO: needed?)
      */
-    class InternalData : public FiniteElement<dim, dim>::InternalDataBase
+    class InternalData : public FiniteElement<dim, spacedim>::InternalDataBase
     {
     public:
       /**
@@ -182,7 +182,7 @@ namespace Simplex
     /**
      * @copydoc dealii::FiniteElement::clone()
      */
-    std::unique_ptr<FiniteElement<dim, dim>>
+    std::unique_ptr<FiniteElement<dim, spacedim>>
     clone() const override;
 
     /**
@@ -213,7 +213,7 @@ namespace Simplex
     /**
      * @copydoc dealii::FiniteElement::clone()
      */
-    std::unique_ptr<FiniteElement<dim, dim>>
+    std::unique_ptr<FiniteElement<dim, spacedim>>
     clone() const override;
 
     /**
