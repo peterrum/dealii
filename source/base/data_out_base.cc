@@ -292,7 +292,8 @@ namespace DataOutBase
                                         (n_data_sets + spacedim) :
                                         n_data_sets,
                                       patch.data.n_rows()));
-          Assert((n_data_sets == 0) ||
+          Assert(patch.reference_cell_type == ReferenceCell::Type::Wedge ||
+                   (n_data_sets == 0) ||
                    (patch.data.n_cols() ==
                     Utilities::fixed_power<dim>(n_subdivisions + 1)),
                  ExcInvalidDatasetSize(patch.data.n_cols(),
@@ -483,6 +484,20 @@ namespace DataOutBase
               }
           }
       }
+  }
+
+
+
+  void
+  DataOutFilter::write_cell_single(const unsigned int index,
+                                   const unsigned int start,
+                                   const unsigned int n_points)
+  {
+    (void)index;
+    (void)start;
+    (void)n_points;
+
+    Assert(false, ExcNotImplemented());
   }
 
 
@@ -852,6 +867,27 @@ namespace
     }
 
     /**
+     * Write dim-dimensional cell with @p n_point vertices and first vertex at
+     * number start and further.
+     *
+     * @note All inheriting classes should implement this function.
+     */
+    void
+    write_cell_single(const unsigned int index,
+                      const unsigned int start,
+                      const unsigned int n_points)
+    {
+      (void)index;
+      (void)start;
+      (void)n_points;
+
+      Assert(false,
+             ExcMessage("The derived class you are using needs to "
+                        "reimplement this function if you want to call "
+                        "it."));
+    }
+
+    /**
      * Do whatever is necessary to terminate the list of cells. This function is
      * usually only reimplemented if deal.II is compiled with zlib. The default
      * implementation does nothing; derived classes that do not require any
@@ -1059,6 +1095,14 @@ namespace
                const unsigned int x_offset,
                const unsigned int y_offset,
                const unsigned int z_offset);
+
+    /**
+     * Print vertices [start, start+n_points[
+     */
+    void
+    write_cell_single(const unsigned int index,
+                      const unsigned int start,
+                      const unsigned int n_points);
 
     /**
      * Write a high-order cell type, i.e., a Lagrange cell
@@ -1452,6 +1496,19 @@ namespace
     stream << '\n';
   }
 
+  void
+  VtkStream::write_cell_single(const unsigned int index,
+                               const unsigned int start,
+                               const unsigned int n_points)
+  {
+    (void)index;
+
+    stream << '\t' << n_points;
+    for (unsigned int i = 0; i < n_points; ++i)
+      stream << '\t' << start + i;
+    stream << '\n';
+  }
+
   template <int dim>
   void
   VtkStream::write_high_order_cell(const unsigned int,
@@ -1612,6 +1669,7 @@ namespace DataOutBase
     : patch_index(no_neighbor)
     , n_subdivisions(1)
     , points_are_available(false)
+    , reference_cell_type(ReferenceCell::Type::Invalid)
   // all the other data has a constructor of its own, except for the "neighbors"
   // field, which we set to invalid values.
   {
@@ -1689,6 +1747,7 @@ namespace DataOutBase
     std::swap(n_subdivisions, other_patch.n_subdivisions);
     data.swap(other_patch.data);
     std::swap(points_are_available, other_patch.points_are_available);
+    std::swap(reference_cell_type, other_patch.reference_cell_type);
   }
 
 
@@ -1712,6 +1771,7 @@ namespace DataOutBase
   Patch<0, spacedim>::Patch()
     : patch_index(no_neighbor)
     , points_are_available(false)
+    , reference_cell_type(ReferenceCell::Type::Invalid)
   {
     Assert(spacedim <= 3, ExcNotImplemented());
   }
@@ -2371,6 +2431,26 @@ namespace DataOutBase
 
     for (const auto &patch : patches)
       {
+        // special treatment of simplices since they are not subdivided, s.t,
+        // no new nodes have to be created, but the precomputed ones can be
+        // used
+        if (patch.reference_cell_type == ReferenceCell::Type::Wedge)
+          {
+            Point<spacedim> node;
+
+            for (unsigned int point_no = 0; point_no < patch.data.n_cols();
+                 ++point_no)
+              {
+                for (unsigned int d = 0; d < spacedim; ++d)
+                  node[d] =
+                    patch.data(patch.data.size(0) - spacedim + d, point_no);
+
+                out.write_point(count++, node);
+              }
+
+            continue;
+          }
+
         const unsigned int n_subdivisions = patch.n_subdivisions;
         const unsigned int n              = n_subdivisions + 1;
         // Length of loops in all dimensions. If a dimension is not used, a loop
@@ -2397,6 +2477,16 @@ namespace DataOutBase
     unsigned int first_vertex_of_patch = 0;
     for (const auto &patch : patches)
       {
+        // special treatment of simplices since they are not subdivided
+        if (patch.reference_cell_type == ReferenceCell::Type::Wedge)
+          {
+            out.write_cell_single(count++,
+                                  first_vertex_of_patch,
+                                  patch.data.n_cols());
+            first_vertex_of_patch += patch.data.n_cols();
+            continue;
+          }
+
         const unsigned int n_subdivisions = patch.n_subdivisions;
         const unsigned int n              = n_subdivisions + 1;
         // Length of loops in all dimensons
@@ -4836,18 +4926,39 @@ namespace DataOutBase
     }
 
     // first count the number of cells and cells for later use
-    unsigned int n_nodes;
-    unsigned int n_cells;
-    compute_sizes<dim, spacedim>(patches, n_nodes, n_cells);
+    unsigned int n_nodes            = 0;
+    unsigned int n_cells            = 0;
+    unsigned int n_points_an_n_cell = 0;
 
-    // If a user set to output high order cells, we treat n_subdivisions
-    // as a cell order and adjust variables accordingly, otherwise
-    // each patch is written as a linear cell.
-    unsigned int n_points_per_cell = GeometryInfo<dim>::vertices_per_cell;
-    if (flags.write_higher_order_cells)
+    // compute_sizes<dim, spacedim>(patches, n_nodes, n_cells);
+
+    for (const auto &patch : patches)
       {
-        n_cells           = patches.size();
-        n_points_per_cell = n_nodes / n_cells;
+        // special treatment of simplices since they are not subdivided
+        if (patch.reference_cell_type == ReferenceCell::Type::Wedge)
+          {
+            n_nodes += patch.data.n_cols();
+            n_cells += 1;
+            n_points_an_n_cell += patch.data.n_cols() + 1;
+
+            continue;
+          }
+
+        n_nodes += Utilities::fixed_power<dim>(patch.n_subdivisions + 1);
+
+        if (flags.write_higher_order_cells)
+          {
+            n_cells += 1;
+            n_points_an_n_cell +=
+              1 + Utilities::fixed_power<dim>(patch.n_subdivisions + 1);
+          }
+        else
+          {
+            n_cells += Utilities::fixed_power<dim>(patch.n_subdivisions);
+            n_points_an_n_cell +=
+              Utilities::fixed_power<dim>(patch.n_subdivisions) *
+              (1 + GeometryInfo<dim>::vertices_per_cell);
+          }
       }
 
     // in gmv format the vertex coordinates and the data have an order that is a
@@ -4879,8 +4990,7 @@ namespace DataOutBase
     out << '\n';
     /////////////////////////////////
     // now for the cells
-    out << "CELLS " << n_cells << ' ' << n_cells * (n_points_per_cell + 1)
-        << '\n';
+    out << "CELLS " << n_cells << ' ' << n_points_an_n_cell << '\n';
     if (flags.write_higher_order_cells)
       write_high_order_cells(patches, vtk_out);
     else
@@ -4890,12 +5000,25 @@ namespace DataOutBase
     // simple
     out << "CELL_TYPES " << n_cells << '\n';
 
-    // need to distinguish between linear and high order cells
-    const unsigned int vtk_cell_id = flags.write_higher_order_cells ?
-                                       vtk_lagrange_cell_type[dim] :
-                                       vtk_cell_type[dim];
-    for (unsigned int i = 0; i < n_cells; ++i)
-      out << ' ' << vtk_cell_id;
+    // need to distinguish between linear cells, simplex cells (linear or
+    // quadratic), and  high order cells
+    for (const auto &patch : patches)
+      {
+        std::pair<unsigned int, unsigned int> vtk_cell_id = {-1, -1};
+
+        if (flags.write_higher_order_cells)
+          vtk_cell_id = {vtk_lagrange_cell_type[dim], 1};
+        else if (patch.reference_cell_type == ReferenceCell::Type::Wedge &&
+                 patch.data.n_cols() == 6)
+          vtk_cell_id = {13, 1};
+        else
+          vtk_cell_id = {vtk_cell_type[dim],
+                         Utilities::pow(patch.n_subdivisions, dim)};
+
+        for (unsigned int i = 0; i < vtk_cell_id.second; ++i)
+          out << ' ' << vtk_cell_id.first;
+      }
+
     out << '\n';
     ///////////////////////////////////////
     // data output.
@@ -7044,7 +7167,7 @@ DataOutInterface<dim, spacedim>::write_vtu_with_pvtu_record(
     }
 
   // write pvtu record
-  const std::string pvtu_filename =
+  const std::string filename_master =
     filename_without_extension + "_" +
     Utilities::int_to_string(counter, n_digits_for_counter) + ".pvtu";
 
@@ -7061,11 +7184,11 @@ DataOutInterface<dim, spacedim>::write_vtu_with_pvtu_record(
           filename_vector.emplace_back(filename);
         }
 
-      std::ofstream pvtu_output((directory + pvtu_filename).c_str());
-      this->write_pvtu_record(pvtu_output, filename_vector);
+      std::ofstream master_output((directory + filename_master).c_str());
+      this->write_pvtu_record(master_output, filename_vector);
     }
 
-  return pvtu_filename;
+  return filename_master;
 }
 
 

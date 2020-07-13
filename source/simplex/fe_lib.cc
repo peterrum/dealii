@@ -366,8 +366,6 @@ namespace Simplex
 
 } // namespace Simplex
 
-template class Simplex::FE_Wedge<3, 3>;
-
 // explicit instantiations
 #include "fe_lib.inst"
 

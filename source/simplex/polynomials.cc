@@ -715,6 +715,8 @@ namespace Simplex
   template class ScalarPolynomial<1>;
   template class ScalarPolynomial<2>;
   template class ScalarPolynomial<3>;
+  template class ScalarWedgePolynomial<1>;
+  template class ScalarWedgePolynomial<2>;
   template class ScalarWedgePolynomial<3>;
 
 } // namespace Simplex
