@@ -292,7 +292,9 @@ namespace DataOutBase
                                         (n_data_sets + spacedim) :
                                         n_data_sets,
                                       patch.data.n_rows()));
-          Assert((n_data_sets == 0) ||
+          Assert(patch.reference_cell_type == ReferenceCell::Type::Tri ||
+                   patch.reference_cell_type == ReferenceCell::Type::Tet ||
+                   (n_data_sets == 0) ||
                    (patch.data.n_cols() ==
                     Utilities::fixed_power<dim>(n_subdivisions + 1)),
                  ExcInvalidDatasetSize(patch.data.n_cols(),
@@ -483,6 +485,18 @@ namespace DataOutBase
               }
           }
       }
+  }
+
+
+
+  void
+  DataOutFilter::write_cell_(const unsigned int start,
+                             const unsigned int n_points)
+  {
+    (void)n_points;
+    (void)start;
+
+    Assert(false, ExcNotImplemented());
   }
 
 
@@ -786,6 +800,17 @@ namespace
     n_cells = 0;
     for (const auto &patch : patches)
       {
+        if (patch.reference_cell_type == ReferenceCell::Type::Tri ||
+            patch.reference_cell_type == ReferenceCell::Type::Tet)
+          {
+            AssertDimension(patch.n_subdivisions, 1);
+
+            n_nodes += patch.data.n_cols();
+            n_cells += 1;
+
+            continue;
+          }
+
         n_nodes += Utilities::fixed_power<dim>(patch.n_subdivisions + 1);
         n_cells += Utilities::fixed_power<dim>(patch.n_subdivisions);
       }
@@ -849,6 +874,15 @@ namespace
              ExcMessage("The derived class you are using needs to "
                         "reimplement this function if you want to call "
                         "it."));
+    }
+
+    void
+    write_cell_(const unsigned int start, const unsigned int n_points)
+    {
+      stream << '\t' << n_points;
+      for (unsigned int i = 0; i < n_points; ++i)
+        stream << '\t' << start + i;
+      stream << '\n';
     }
 
     /**
@@ -1612,6 +1646,7 @@ namespace DataOutBase
     : patch_index(no_neighbor)
     , n_subdivisions(1)
     , points_are_available(false)
+    , reference_cell_type(ReferenceCell::Type::Invalid)
   // all the other data has a constructor of its own, except for the "neighbors"
   // field, which we set to invalid values.
   {
@@ -1689,6 +1724,7 @@ namespace DataOutBase
     std::swap(n_subdivisions, other_patch.n_subdivisions);
     data.swap(other_patch.data);
     std::swap(points_are_available, other_patch.points_are_available);
+    std::swap(reference_cell_type, other_patch.reference_cell_type);
   }
 
 
@@ -2371,6 +2407,26 @@ namespace DataOutBase
 
     for (const auto &patch : patches)
       {
+        if (patch.reference_cell_type == ReferenceCell::Type::Tri ||
+            patch.reference_cell_type == ReferenceCell::Type::Tet)
+          {
+            AssertDimension(patch.n_subdivisions, 1);
+
+            Point<spacedim> node;
+
+            for (unsigned int point_no = 0; point_no < patch.data.n_cols();
+                 ++point_no)
+              {
+                for (unsigned int d = 0; d < spacedim; ++d)
+                  node[d] =
+                    patch.data(patch.data.size(0) - spacedim + d, point_no);
+
+                out.write_point(count++, node);
+              }
+
+            continue;
+          }
+
         const unsigned int n_subdivisions = patch.n_subdivisions;
         const unsigned int n              = n_subdivisions + 1;
         // Length of loops in all dimensions. If a dimension is not used, a loop
@@ -2397,6 +2453,17 @@ namespace DataOutBase
     unsigned int first_vertex_of_patch = 0;
     for (const auto &patch : patches)
       {
+        if (patch.reference_cell_type == ReferenceCell::Type::Tri ||
+            patch.reference_cell_type == ReferenceCell::Type::Tet)
+          {
+            AssertDimension(patch.n_subdivisions, 1);
+            out.write_cell_(count, patch.data.n_cols());
+
+            count += patch.data.n_cols();
+
+            continue;
+          }
+
         const unsigned int n_subdivisions = patch.n_subdivisions;
         const unsigned int n              = n_subdivisions + 1;
         // Length of loops in all dimensons
@@ -4849,6 +4916,17 @@ namespace DataOutBase
         n_cells           = patches.size();
         n_points_per_cell = n_nodes / n_cells;
       }
+    else
+      {
+        for (const auto &patch : patches)
+          if (patch.reference_cell_type == ReferenceCell::Type::Tri ||
+              patch.reference_cell_type == ReferenceCell::Type::Tet)
+            {
+              AssertDimension(patch.n_subdivisions, 1);
+
+              n_points_per_cell = patch.data.n_cols();
+            }
+      }
 
     // in gmv format the vertex coordinates and the data have an order that is a
     // bit unpleasant (first all x coordinates, then all y coordinate, ...;
@@ -4891,11 +4969,38 @@ namespace DataOutBase
     out << "CELL_TYPES " << n_cells << '\n';
 
     // need to distinguish between linear and high order cells
-    const unsigned int vtk_cell_id = flags.write_higher_order_cells ?
-                                       vtk_lagrange_cell_type[dim] :
-                                       vtk_cell_type[dim];
-    for (unsigned int i = 0; i < n_cells; ++i)
-      out << ' ' << vtk_cell_id;
+
+    if (flags.write_higher_order_cells)
+      {
+        const unsigned int vtk_cell_id = flags.write_higher_order_cells ?
+                                           vtk_lagrange_cell_type[dim] :
+                                           5 /*vtk_cell_type[dim]*/;
+        for (unsigned int i = 0; i < n_cells; ++i)
+          out << ' ' << vtk_cell_id;
+      }
+    else
+      {
+        for (const auto &patch : patches)
+          {
+            unsigned int vtk_cell_id = -1;
+
+            if (patch.reference_cell_type == ReferenceCell::Type::Tri &&
+                patch.data.n_cols() == 3)
+              vtk_cell_id = 5;
+            else if (patch.reference_cell_type == ReferenceCell::Type::Tri &&
+                     patch.data.n_cols() == 6)
+              vtk_cell_id = 22;
+            else if (patch.reference_cell_type == ReferenceCell::Type::Tet &&
+                     patch.data.n_cols() == 4)
+              vtk_cell_id = 10;
+            else if (patch.reference_cell_type == ReferenceCell::Type::Tet &&
+                     patch.data.n_cols() == 10)
+              vtk_cell_id = 24;
+
+            out << ' ' << vtk_cell_id;
+          }
+      }
+
     out << '\n';
     ///////////////////////////////////////
     // data output.

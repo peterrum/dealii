@@ -95,12 +95,29 @@ namespace internal
                     break;
                   }
               if (x_fe_values[i].get() == nullptr)
-                x_fe_values[i] =
-                  std::make_shared<dealii::hp::FEValues<dim, spacedim>>(
-                    this->mapping_collection,
-                    *this->finite_elements[i],
-                    quadrature,
-                    this->update_flags);
+                {
+                  const dealii::hp::QCollection<dim> quad(Quadrature<dim>(
+                    (*this->finite_elements[i])[0].get_unit_support_points()));
+
+                  x_fe_values[i] =
+                    std::make_shared<dealii::hp::FEValues<dim, spacedim>>(
+                      this->mapping_collection,
+                      *this->finite_elements[i],
+                      ((*this->finite_elements[i])[0].cell_type ==
+                         ReferenceCell::Type::Tri ||
+                       (*this->finite_elements[i])[0].cell_type ==
+                         ReferenceCell::Type::Tet) ?
+                        quad :
+                        quadrature,
+                      this->update_flags | update_quadrature_points);
+
+                  n_q_points = ((*this->finite_elements[i])[0].cell_type ==
+                                  ReferenceCell::Type::Tri ||
+                                (*this->finite_elements[i])[0].cell_type ==
+                                  ReferenceCell::Type::Tet) ?
+                                 quad[0].size() :
+                                 quadrature[0].size();
+                }
             }
         }
       else
@@ -179,12 +196,22 @@ namespace internal
                     break;
                   }
               if (x_fe_values[i].get() == nullptr)
-                x_fe_values[i] =
-                  std::make_shared<dealii::hp::FEValues<dim, spacedim>>(
-                    this->mapping_collection,
-                    *this->finite_elements[i],
-                    quadrature,
-                    this->update_flags);
+                {
+                  const dealii::hp::QCollection<dim> quad(Quadrature<dim>(
+                    (*this->finite_elements[i])[0].get_unit_support_points()));
+
+                  x_fe_values[i] =
+                    std::make_shared<dealii::hp::FEValues<dim, spacedim>>(
+                      this->mapping_collection,
+                      *this->finite_elements[i],
+                      ((*this->finite_elements[i])[0].cell_type ==
+                         ReferenceCell::Type::Tri ||
+                       (*this->finite_elements[i])[0].cell_type ==
+                         ReferenceCell::Type::Tet) ?
+                        quad :
+                        quadrature,
+                      this->update_flags | update_quadrature_points);
+                }
             }
         }
       else
