@@ -419,7 +419,7 @@ namespace internal
             dof_handler.fe_collection.size(), dof_handler.fe_collection.size());
 
           for (const auto &cell : dof_handler.active_cell_iterators())
-            for (unsigned int l = 0; l < GeometryInfo<dim>::lines_per_cell; ++l)
+            for (unsigned int l = 0; l < cell->n_lines(); ++l)
               if (cell->line(l)->user_flag_set() == false)
                 {
                   const auto line = cell->line(l);
@@ -2106,7 +2106,7 @@ namespace internal
 
             for (const auto &cell : dof_handler.active_cell_iterators())
               if (!cell->is_artificial())
-                for (unsigned int l = 0; l < GeometryInfo<dim>::lines_per_cell;
+                for (unsigned int l = 0; l < cell->n_lines();
                      ++l)
                   if (cell->line(l)->user_flag_set() == false)
                     {

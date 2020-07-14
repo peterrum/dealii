@@ -42,6 +42,37 @@ namespace Simplex
      */
     FE_Poly(const unsigned int               degree,
             const std::vector<unsigned int> &dpo_vector);
+    
+     FiniteElementDomination::Domination
+ compare_for_domination(
+   const FiniteElement<dim, spacedim> &fe_other,
+   const unsigned int                  codim) const override
+ {
+         (void) fe_other;
+         (void) codim;
+         return FiniteElementDomination::either_element_can_dominate;
+     }
+     
+     std::vector< std::pair< unsigned int, unsigned int > > 
+     hp_vertex_dof_identities	(	const FiniteElement< dim, spacedim > & 	fe_other	)	const override
+     {
+         (void) fe_other;
+         return {{0,0}};
+     }
+     
+     std::vector< std::pair< unsigned int, unsigned int > > 
+     hp_line_dof_identities	(	const FiniteElement< dim, spacedim > & 	fe_other	)	const override
+     {
+         (void) fe_other;
+         
+         std::vector< std::pair< unsigned int, unsigned int > > result;
+         
+         for(unsigned int i = 0; i < this->degree - 1; ++i)
+           result.emplace_back(i,i);
+         
+         return result;
+     }
+
 
   private:
     /**

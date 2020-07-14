@@ -45,7 +45,7 @@ namespace internal
       const unsigned int               n_datasets,
       const unsigned int               n_subdivisions,
       const std::vector<unsigned int> &n_postprocessor_outputs,
-      const Mapping<dim, spacedim> &   mapping,
+      const dealii::hp::MappingCollection<dim, spacedim> &   mapping,
       const std::vector<
         std::shared_ptr<dealii::hp::FECollection<dim, spacedim>>>
         &                                           finite_elements,
@@ -99,16 +99,23 @@ DataOut<dim, DoFHandlerType>::build_one_patch(
     patch;
   patch.n_subdivisions      = n_subdivisions;
   patch.reference_cell_type = cell_and_index->first->reference_cell_type();
-
+  
+  const unsigned int real_mapping_index = (scratch_data.mapping_collection.size() == 1 || scratch_data.n_datasets == 0) ?  0 :
+      (typename DoFHandlerType::cell_iterator(
+            &cell_and_index->first->get_triangulation(),
+            cell_and_index->first->level(),
+            cell_and_index->first->index(),
+            this->dof_data.front()->dof_handler))->active_fe_index();
+  
   // set the vertices of the patch. if the mapping does not preserve locations
   // (e.g. MappingQEulerian), we need to compute the offset of the vertex for
   // the graphical output. Otherwise, we can just use the vertex info.
   for (const unsigned int vertex : cell_and_index->first->vertex_indices())
-    if (scratch_data.mapping_collection[0].preserves_vertex_locations())
+    if (scratch_data.mapping_collection[real_mapping_index].preserves_vertex_locations())
       patch.vertices[vertex] = cell_and_index->first->vertex(vertex);
     else
       patch.vertices[vertex] =
-        scratch_data.mapping_collection[0].transform_unit_to_real_cell(
+        scratch_data.mapping_collection[real_mapping_index].transform_unit_to_real_cell(
           cell_and_index->first,
           GeometryInfo<DoFHandlerType::dimension>::unit_cell_vertex(vertex));
 
@@ -1085,6 +1092,24 @@ template <int dim, typename DoFHandlerType>
 void
 DataOut<dim, DoFHandlerType>::build_patches(
   const Mapping<DoFHandlerType::dimension, DoFHandlerType::space_dimension>
+    &                    mapping,
+  const unsigned int     n_subdivisions_,
+  const CurvedCellRegion curved_region)
+{
+    hp::MappingCollection<DoFHandlerType::dimension, DoFHandlerType::space_dimension>
+    mapping_collection;
+    
+    mapping_collection.push_back(mapping);
+    
+    build_patches(mapping_collection, n_subdivisions_, curved_region);
+}
+
+
+
+template <int dim, typename DoFHandlerType>
+void
+DataOut<dim, DoFHandlerType>::build_patches(
+  const hp::MappingCollection<DoFHandlerType::dimension, DoFHandlerType::space_dimension>
     &                    mapping,
   const unsigned int     n_subdivisions_,
   const CurvedCellRegion curved_region)
