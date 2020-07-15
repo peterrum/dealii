@@ -18,7 +18,7 @@
 
 #include <deal.II/base/config.h>
 
-#include <deal.II/base/qprojector.h>
+#include <deal.II/base/pprojector.h>
 
 #include <deal.II/fe/fe_poly.h>
 
@@ -34,7 +34,7 @@ namespace Simplex
    * @note Only implemented for 2D and 3D.
    */
   template <int dim, int spacedim = dim>
-  class FE_Poly : public dealii::FE_Poly<dim>
+  class FE_Poly : public dealii::FE_Poly<dim, spacedim>
   {
   public:
     /**
@@ -42,6 +42,38 @@ namespace Simplex
      */
     FE_Poly(const unsigned int               degree,
             const std::vector<unsigned int> &dpo_vector);
+
+    FiniteElementDomination::Domination
+    compare_for_domination(const FiniteElement<dim, spacedim> &fe_other,
+                           const unsigned int codim) const override
+    {
+      (void)fe_other;
+      (void)codim;
+      return FiniteElementDomination::either_element_can_dominate;
+    }
+
+    std::vector<std::pair<unsigned int, unsigned int>>
+    hp_vertex_dof_identities(
+      const FiniteElement<dim, spacedim> &fe_other) const override
+    {
+      (void)fe_other;
+      return {{0, 0}};
+    }
+
+    std::vector<std::pair<unsigned int, unsigned int>>
+    hp_line_dof_identities(
+      const FiniteElement<dim, spacedim> &fe_other) const override
+    {
+      (void)fe_other;
+
+      std::vector<std::pair<unsigned int, unsigned int>> result;
+
+      for (unsigned int i = 0; i < this->degree - 1; ++i)
+        result.emplace_back(i, i);
+
+      return result;
+    }
+
 
   private:
     /**
@@ -114,7 +146,7 @@ namespace Simplex
     /**
      * Internal data. (TODO: needed?)
      */
-    class InternalData : public FiniteElement<dim, dim>::InternalDataBase
+    class InternalData : public FiniteElement<dim, spacedim>::InternalDataBase
     {
     public:
       /**
@@ -182,7 +214,7 @@ namespace Simplex
     /**
      * @copydoc dealii::FiniteElement::clone()
      */
-    std::unique_ptr<FiniteElement<dim, dim>>
+    std::unique_ptr<FiniteElement<dim, spacedim>>
     clone() const override;
 
     /**
@@ -213,7 +245,7 @@ namespace Simplex
     /**
      * @copydoc dealii::FiniteElement::clone()
      */
-    std::unique_ptr<FiniteElement<dim, dim>>
+    std::unique_ptr<FiniteElement<dim, spacedim>>
     clone() const override;
 
     /**
@@ -357,7 +389,7 @@ namespace Simplex
   {
     return get_data(flags,
                     mapping,
-                    QProjector<dim>::project_to_all_faces(quadrature), // TODO
+                    PProjector<dim>::project_to_all_faces(quadrature),
                     output_data);
   }
 

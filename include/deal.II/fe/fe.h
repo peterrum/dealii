@@ -3137,9 +3137,9 @@ FiniteElement<dim, spacedim>::face_system_to_component_index(
   //
   // in 1d, the face index is equal
   // to the cell index
-  Assert(is_primitive(this->face_to_cell_index(index, 0)),
-         (typename FiniteElement<dim, spacedim>::ExcShapeFunctionNotPrimitive(
-           index)));
+  // Assert(is_primitive(this->face_to_cell_index(index, 0)),
+  //       (typename FiniteElement<dim, spacedim>::ExcShapeFunctionNotPrimitive(
+  //         index)));
 
   return face_system_to_component_table[index];
 }

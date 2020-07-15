@@ -24,6 +24,8 @@
 #include <deal.II/base/point.h>
 #include <deal.II/base/table.h>
 
+#include <deal.II/grid/reference_cell.h>
+
 #include <deal.II/numerics/data_component_interpretation.h>
 
 // To be able to serialize XDMFEntry
@@ -320,6 +322,11 @@ namespace DataOutBase
     bool points_are_available;
 
     /**
+     * Reference-cell type of the underlying cell of this patch.
+     */
+    ReferenceCell::Type reference_cell_type;
+
+    /**
      * Default constructor. Sets #n_subdivisions to one, #points_are_available
      * to false, and #patch_index to #no_neighbor.
      */
@@ -463,6 +470,11 @@ namespace DataOutBase
      * in the Patch structure.
      */
     bool points_are_available;
+
+    /**
+     * Reference-cell type of the underlying cell of this patch.
+     */
+    ReferenceCell::Type reference_cell_type;
 
     /**
      * Default constructor. Sets #points_are_available
@@ -1351,6 +1363,15 @@ namespace DataOutBase
                const unsigned int d3);
 
     /**
+     * Record a single deal.II cell without subdivisions (e.g. simplex) in the
+     * internal reordered format.
+     */
+    void
+    write_cell_single(const unsigned int index,
+                      const unsigned int start,
+                      const unsigned int n_points);
+
+    /**
      * Filter and record a data set. If there are multiple values at a given
      * vertex and redundant values are being removed, one is arbitrarily
      * chosen as the recorded value. In the future this can be expanded to
@@ -1950,11 +1971,11 @@ namespace DataOutBase
    * Some visualization programs, such as ParaView, can read several separate
    * VTU files to parallelize visualization. In that case, you need a
    * <code>.pvtu</code> file that describes which VTU files form a group. The
-   * DataOutInterface::write_pvtu_record() function can generate such a master
-   * record. Likewise, DataOutInterface::write_visit_record() does the same
-   * for VisIt (although VisIt can also read <code>pvtu</code> records since
-   * version 2.5.1). Finally, for time dependent problems, you may also want
-   * to look at DataOutInterface::write_pvd_record()
+   * DataOutInterface::write_pvtu_record() function can generate such a
+   * centralized record. Likewise, DataOutInterface::write_visit_record() does
+   * the same for VisIt (although VisIt can also read <code>pvtu</code> records
+   * since version 2.5.1). Finally, for time dependent problems, you may also
+   * want to look at DataOutInterface::write_pvd_record()
    *
    * The use of this function is explained in step-40.
    */
@@ -2015,7 +2036,7 @@ namespace DataOutBase
    * parallelize visualization. In that case, you need a
    * <code>.pvtu</code> file that describes which VTU files (written, for
    * example, through the DataOutInterface::write_vtu() function) form a group.
-   * The current function can generate such a master record.
+   * The current function can generate such a centralized record.
    *
    * This function is typically not called by itself from user space, but
    * you may want to call it through DataOutInterface::write_pvtu_record()
@@ -2023,7 +2044,7 @@ namespace DataOutBase
    * would have to provide to the current function by hand.
    *
    * In any case, whether this function is called directly or via
-   * DataOutInterface::write_pvtu_record(), the master record file so
+   * DataOutInterface::write_pvtu_record(), the central record file so
    * written contains a list of (scalar or vector) fields that describes which
    * fields can actually be found in the individual files that comprise the set
    * of parallel VTU files along with the names of these files. This function
@@ -2147,7 +2168,7 @@ namespace DataOutBase
    * piece_names[2].emplace_back("subdomain_01.time_step_2.vtk");
    * piece_names[2].emplace_back("subdomain_02.time_step_2.vtk");
    *
-   * std::ofstream visit_output ("master_file.visit");
+   * std::ofstream visit_output ("solution.visit");
    *
    * DataOutBase::write_visit_record(visit_output, piece_names);
    * @endcode
@@ -2183,7 +2204,7 @@ namespace DataOutBase
    * times_and_piece_names[2].second.emplace_back("subdomain_01.time_step_2.vtk");
    * times_and_piece_names[2].second.emplace_back("subdomain_02.time_step_2.vtk");
    *
-   * std::ofstream visit_output ("master_file.visit");
+   * std::ofstream visit_output ("solution.visit");
    *
    * DataOutBase::write_visit_record(visit_output, times_and_piece_names);
    * @endcode
@@ -2621,9 +2642,9 @@ public:
    * Some visualization programs, such as ParaView, can read several separate
    * VTU files to parallelize visualization. In that case, you need a
    * <code>.pvtu</code> file that describes which VTU files form a group. The
-   * DataOutInterface::write_pvtu_record() function can generate such a master
-   * record. Likewise, DataOutInterface::write_visit_record() does the same
-   * for older versions of VisIt (although VisIt can also read
+   * DataOutInterface::write_pvtu_record() function can generate such a
+   * centralized record. Likewise, DataOutInterface::write_visit_record() does
+   * the same for older versions of VisIt (although VisIt can also read
    * <code>pvtu</code> records since version 2.5.1). Finally,
    * DataOutInterface::write_pvd_record() can be used to group together the
    * files that jointly make up a time dependent simulation.
@@ -2648,9 +2669,9 @@ public:
    * parallelize visualization. In that case, you need a
    * <code>.pvtu</code> file that describes which VTU files (written, for
    * example, through the DataOutInterface::write_vtu() function) form a group.
-   * The current function can generate such a master record.
+   * The current function can generate such a centralized record.
    *
-   * The master record file generated by this function
+   * The central record file generated by this function
    * contains a list of (scalar or vector) fields that describes which
    * fields can actually be found in the individual files that comprise the set
    * of parallel VTU files along with the names of these files. This function
@@ -2726,7 +2747,8 @@ public:
    * generate the .pvtu file, where processor zero is chosen to take over this
    * job.
    *
-   * The return value is the filename of the master file for the pvtu record.
+   * The return value is the filename of the centralized file for the pvtu
+   * record.
    *
    * @note The code simply combines the strings @p directory and
    * @p filename_without_extension, i.e., the user has to make sure that

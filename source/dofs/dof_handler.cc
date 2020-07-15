@@ -460,7 +460,7 @@ namespace internal
           {
             const unsigned int level = cell->level();
 
-            for (const unsigned int vertex : GeometryInfo<1>::vertex_indices())
+            for (const unsigned int vertex : cell->vertex_indices())
               {
                 const unsigned int vertex_index = cell->vertex_index(vertex);
 
@@ -534,7 +534,7 @@ namespace internal
           {
             const unsigned int level = cell->level();
 
-            for (const unsigned int vertex : GeometryInfo<2>::vertex_indices())
+            for (const unsigned int vertex : cell->vertex_indices())
               {
                 const unsigned int vertex_index = cell->vertex_index(vertex);
 
@@ -609,7 +609,7 @@ namespace internal
           {
             const unsigned int level = cell->level();
 
-            for (const unsigned int vertex : GeometryInfo<3>::vertex_indices())
+            for (const unsigned int vertex : cell->vertex_indices())
               {
                 const unsigned int vertex_index = cell->vertex_index(vertex);
 
@@ -1025,7 +1025,7 @@ namespace internal
             dof_handler.tria->n_vertices(), false);
           for (const auto &cell : dof_handler.active_cell_iterators())
             if (!cell->is_artificial())
-              for (const unsigned int v : GeometryInfo<dim>::vertex_indices())
+              for (const unsigned int v : cell->vertex_indices())
                 locally_used_vertices[cell->vertex_index(v)] = true;
 
           std::vector<std::vector<bool>> vertex_fe_association(
@@ -1034,7 +1034,7 @@ namespace internal
 
           for (const auto &cell : dof_handler.active_cell_iterators())
             if (!cell->is_artificial())
-              for (const unsigned int v : GeometryInfo<dim>::vertex_indices())
+              for (const unsigned int v : cell->vertex_indices())
                 vertex_fe_association[cell->active_fe_index()]
                                      [cell->vertex_index(v)] = true;
 
@@ -1268,8 +1268,7 @@ namespace internal
 
             for (const auto &cell : dof_handler.active_cell_iterators())
               if (!cell->is_artificial())
-                for (const unsigned int face :
-                     GeometryInfo<dim>::face_indices())
+                for (const unsigned int face : cell->face_indices())
                   if (cell->face(face)->user_flag_set() == false)
                     {
                       unsigned int fe_slots_needed = 0;
@@ -1351,8 +1350,7 @@ namespace internal
 
             for (const auto &cell : dof_handler.active_cell_iterators())
               if (!cell->is_artificial())
-                for (const unsigned int face :
-                     GeometryInfo<dim>::face_indices())
+                for (const unsigned int face : cell->face_indices())
                   if (!cell->face(face)->user_flag_set())
                     {
                       // Same decision tree as before
@@ -1525,8 +1523,6 @@ namespace internal
         template <int spacedim>
         static void reserve_space(dealii::DoFHandler<3, spacedim> &dof_handler)
         {
-          const unsigned int dim = 3;
-
           Assert(dof_handler.fe_collection.size() > 0,
                  (typename dealii::DoFHandler<1, spacedim>::ExcNoFESelected()));
           Assert(dof_handler.tria->n_levels() > 0,
@@ -1564,8 +1560,7 @@ namespace internal
 
             for (const auto &cell : dof_handler.active_cell_iterators())
               if (!cell->is_artificial())
-                for (unsigned int l = 0; l < GeometryInfo<dim>::lines_per_cell;
-                     ++l)
+                for (unsigned int l = 0; l < cell->n_lines(); ++l)
                   line_fe_association[cell->active_fe_index()]
                                      [cell->line_index(l)] = true;
 
@@ -1712,11 +1707,10 @@ namespace internal
                     .hp_cell_active_fe_indices[cell->level()][cell->index()] =
                     active_fe_indices[cell->active_cell_index()];
             }
-          else if (const dealii::parallel::distributed::Triangulation<dim,
-                                                                      spacedim>
-                     *tr = dynamic_cast<const dealii::parallel::distributed::
-                                          Triangulation<dim, spacedim> *>(
-                       &dof_handler.get_triangulation()))
+          else if (const dealii::parallel::TriangulationBase<dim, spacedim>
+                     *tr = dynamic_cast<
+                       const dealii::parallel::TriangulationBase<dim, spacedim>
+                         *>(&dof_handler.get_triangulation()))
             {
               // For completely distributed meshes, use the function that is
               // able to move data from locally owned cells on one processor to
@@ -2261,7 +2255,7 @@ DoFHandler<dim, spacedim>::n_boundary_dofs() const
   for (const auto &cell : this->active_cell_iterators())
     if (cell->is_locally_owned() && cell->at_boundary())
       {
-        for (auto iface : GeometryInfo<dim>::face_indices())
+        for (auto iface : cell->face_indices())
           {
             const auto face = cell->face(iface);
             if (face->at_boundary())
@@ -2997,7 +2991,7 @@ DoFHandler<dim, spacedim>::setup_policy_and_listeners()
   // policy and attach corresponding callback functions dealing with the
   // transfer of active_fe_indices
   if (dynamic_cast<
-        const dealii::parallel::distributed::Triangulation<dim, spacedim> *>(
+        const dealii::parallel::DistributedTriangulationBase<dim, spacedim> *>(
         &this->get_triangulation()))
     {
       this->policy =

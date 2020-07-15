@@ -17,6 +17,7 @@
 #include <deal.II/base/array_view.h>
 #include <deal.II/base/derivative_form.h>
 #include <deal.II/base/memory_consumption.h>
+#include <deal.II/base/pprojector.h>
 #include <deal.II/base/qprojector.h>
 #include <deal.II/base/quadrature.h>
 #include <deal.II/base/quadrature_lib.h>
@@ -156,21 +157,95 @@ MappingIsoparametric<dim, spacedim>::InternalData::initialize_face(
                  std::vector<Tensor<1, spacedim>>(n_original_q_points));
 
       // Compute tangentials to the unit cell.
-      for (const unsigned int i : GeometryInfo<dim>::face_indices())
+      //      for (const unsigned int i : GeometryInfo<dim>::face_indices())
+      //        {
+      //          unit_tangentials[i].resize(n_original_q_points);
+      //          std::fill(unit_tangentials[i].begin(),
+      //                    unit_tangentials[i].end(),
+      //                    GeometryInfo<dim>::unit_tangential_vectors[i][0]);
+      //          if (dim > 2)
+      //            {
+      //              unit_tangentials[GeometryInfo<dim>::faces_per_cell +
+      //              i].resize(
+      //                n_original_q_points);
+      //              std::fill(
+      //                unit_tangentials[GeometryInfo<dim>::faces_per_cell +
+      //                i].begin(),
+      //                unit_tangentials[GeometryInfo<dim>::faces_per_cell +
+      //                i].end(),
+      //                GeometryInfo<dim>::unit_tangential_vectors[i][1]);
+      //            }
+      //        }
+
+      // AssertDimension(dim, 2);
+
+      if (dim == 2)
         {
-          unit_tangentials[i].resize(n_original_q_points);
-          std::fill(unit_tangentials[i].begin(),
-                    unit_tangentials[i].end(),
-                    GeometryInfo<dim>::unit_tangential_vectors[i][0]);
-          if (dim > 2)
-            {
-              unit_tangentials[GeometryInfo<dim>::faces_per_cell + i].resize(
-                n_original_q_points);
-              std::fill(
-                unit_tangentials[GeometryInfo<dim>::faces_per_cell + i].begin(),
-                unit_tangentials[GeometryInfo<dim>::faces_per_cell + i].end(),
-                GeometryInfo<dim>::unit_tangential_vectors[i][1]);
-            }
+          Tensor<1, dim> t1;
+          t1[0] = 1;
+          t1[1] = 0;
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[0].emplace_back(t1);
+          t1[0] = -0.70710678118;
+          t1[1] = 0.70710678118;
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[1].emplace_back(t1);
+          t1[0] = 0;
+          t1[1] = -1;
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[2].emplace_back(t1);
+        }
+      else
+        {
+          Tensor<1, dim> t1;
+
+          t1[0] = 0;
+          t1[1] = 1;
+          t1[2] = 0; // face 0
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[0].emplace_back(t1);
+
+          t1[0] = 1;
+          t1[1] = 0;
+          t1[2] = 0; // face 0
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[4].emplace_back(t1);
+
+          t1[0] = 1;
+          t1[1] = 0;
+          t1[2] = 0; // face 1
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[1].emplace_back(t1);
+
+          t1[0] = 0;
+          t1[1] = 0;
+          t1[2] = 1; // face 1
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[5].emplace_back(t1);
+
+          t1[0] = 0;
+          t1[1] = 0;
+          t1[2] = 1; // face 2
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[2].emplace_back(t1);
+
+          t1[0] = 0;
+          t1[1] = 1;
+          t1[2] = 0; // face 2
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[6].emplace_back(t1);
+
+          t1[0] = -0.75983568565;
+          t1[1] = +0.75983568565;
+          t1[2] = +0; // face 3
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[3].emplace_back(t1);
+
+          t1[0] = -0.75983568565;
+          t1[1] = +0;
+          t1[2] = +0.75983568565; // face 3
+          for (unsigned int i = 0; i < n_original_q_points; i++)
+            unit_tangentials[7].emplace_back(t1);
         }
     }
 }
@@ -277,7 +352,7 @@ namespace internal
       template <int dim, int spacedim>
       void
       maybe_compute_q_points(
-        const typename QProjector<dim>::DataSetDescriptor data_set,
+        const typename PProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingIsoparametric<dim, spacedim>::InternalData
           &                           data,
         std::vector<Point<spacedim>> &quadrature_points)
@@ -312,7 +387,7 @@ namespace internal
       void
       maybe_update_Jacobians(
         const CellSimilarity::Similarity cell_similarity,
-        const typename dealii::QProjector<dim>::DataSetDescriptor data_set,
+        const typename dealii::PProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingIsoparametric<dim, spacedim>::InternalData
           &data)
       {
@@ -394,7 +469,7 @@ namespace internal
       void
       maybe_update_jacobian_grads(
         const CellSimilarity::Similarity                  cell_similarity,
-        const typename QProjector<dim>::DataSetDescriptor data_set,
+        const typename PProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingIsoparametric<dim, spacedim>::InternalData
           &                                            data,
         std::vector<DerivativeForm<2, dim, spacedim>> &jacobian_grads)
@@ -441,7 +516,7 @@ namespace internal
       void
       maybe_update_jacobian_pushed_forward_grads(
         const CellSimilarity::Similarity                  cell_similarity,
-        const typename QProjector<dim>::DataSetDescriptor data_set,
+        const typename PProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingIsoparametric<dim, spacedim>::InternalData
           &                               data,
         std::vector<Tensor<3, spacedim>> &jacobian_pushed_forward_grads)
@@ -515,7 +590,7 @@ namespace internal
       void
       maybe_update_jacobian_2nd_derivatives(
         const CellSimilarity::Similarity                  cell_similarity,
-        const typename QProjector<dim>::DataSetDescriptor data_set,
+        const typename PProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingIsoparametric<dim, spacedim>::InternalData
           &                                            data,
         std::vector<DerivativeForm<3, dim, spacedim>> &jacobian_2nd_derivatives)
@@ -570,7 +645,7 @@ namespace internal
       void
       maybe_update_jacobian_pushed_forward_2nd_derivatives(
         const CellSimilarity::Similarity                  cell_similarity,
-        const typename QProjector<dim>::DataSetDescriptor data_set,
+        const typename PProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingIsoparametric<dim, spacedim>::InternalData
           &data,
         std::vector<Tensor<4, spacedim>>
@@ -673,7 +748,7 @@ namespace internal
       void
       maybe_update_jacobian_3rd_derivatives(
         const CellSimilarity::Similarity                  cell_similarity,
-        const typename QProjector<dim>::DataSetDescriptor data_set,
+        const typename PProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingIsoparametric<dim, spacedim>::InternalData
           &                                            data,
         std::vector<DerivativeForm<4, dim, spacedim>> &jacobian_3rd_derivatives)
@@ -731,7 +806,7 @@ namespace internal
       void
       maybe_update_jacobian_pushed_forward_3rd_derivatives(
         const CellSimilarity::Similarity                  cell_similarity,
-        const typename QProjector<dim>::DataSetDescriptor data_set,
+        const typename PProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingIsoparametric<dim, spacedim>::InternalData
           &data,
         std::vector<Tensor<5, spacedim>>
@@ -851,7 +926,7 @@ namespace internal
 template <int dim, int spacedim>
 MappingIsoparametric<dim, spacedim>::MappingIsoparametric(
   const FiniteElement<dim, spacedim> &fe)
-  : fe(fe)
+  : fe(fe.clone())
   , polynomial_degree(fe.tensor_degree())
 {
   Assert(polynomial_degree >= 1,
@@ -864,7 +939,7 @@ MappingIsoparametric<dim, spacedim>::MappingIsoparametric(
 template <int dim, int spacedim>
 MappingIsoparametric<dim, spacedim>::MappingIsoparametric(
   const MappingIsoparametric<dim, spacedim> &mapping)
-  : fe(mapping.fe)
+  : fe(mapping.fe->clone())
   , polynomial_degree(mapping.polynomial_degree)
 {}
 
@@ -899,8 +974,8 @@ MappingIsoparametric<dim, spacedim>::transform_unit_to_real_cell(
 
   Point<spacedim> mapped_point;
 
-  for (unsigned int i = 0; i < this->fe.n_dofs_per_cell(); ++i)
-    mapped_point += support_points[i] * this->fe.shape_value(i, p);
+  for (unsigned int i = 0; i < this->fe->n_dofs_per_cell(); ++i)
+    mapped_point += support_points[i] * this->fe->shape_value(i, p);
 
   return mapped_point;
 }
@@ -986,7 +1061,7 @@ MappingIsoparametric<dim, spacedim>::get_data(const UpdateFlags update_flags,
                                               const Quadrature<dim> &q) const
 {
   std::unique_ptr<typename Mapping<dim, spacedim>::InternalDataBase> data_ptr =
-    std::make_unique<InternalData>(this->fe);
+    std::make_unique<InternalData>(*this->fe);
   auto &data = dynamic_cast<InternalData &>(*data_ptr);
   data.initialize(this->requires_update_flags(update_flags), q, q.size());
 
@@ -1002,10 +1077,10 @@ MappingIsoparametric<dim, spacedim>::get_face_data(
   const Quadrature<dim - 1> &quadrature) const
 {
   std::unique_ptr<typename Mapping<dim, spacedim>::InternalDataBase> data_ptr =
-    std::make_unique<InternalData>(this->fe);
+    std::make_unique<InternalData>(*this->fe);
   auto &data = dynamic_cast<InternalData &>(*data_ptr);
   data.initialize_face(this->requires_update_flags(update_flags),
-                       QProjector<dim>::project_to_all_faces(quadrature),
+                       PProjector<dim>::project_to_all_faces(quadrature),
                        quadrature.size());
 
   return data_ptr;
@@ -1020,7 +1095,7 @@ MappingIsoparametric<dim, spacedim>::get_subface_data(
   const Quadrature<dim - 1> &quadrature) const
 {
   std::unique_ptr<typename Mapping<dim, spacedim>::InternalDataBase> data_ptr =
-    std::make_unique<InternalData>(this->fe);
+    std::make_unique<InternalData>(*this->fe);
   auto &data = dynamic_cast<InternalData &>(*data_ptr);
   data.initialize_face(this->requires_update_flags(update_flags),
                        QProjector<dim>::project_to_all_subfaces(quadrature),
@@ -1070,55 +1145,55 @@ MappingIsoparametric<dim, spacedim>::fill_fe_values(
 
   internal::MappingIsoparametricImplementation::maybe_compute_q_points<
     dim,
-    spacedim>(QProjector<dim>::DataSetDescriptor::cell(),
+    spacedim>(PProjector<dim>::DataSetDescriptor::cell(),
               data,
               output_data.quadrature_points);
 
   internal::MappingIsoparametricImplementation::maybe_update_Jacobians<
     dim,
     spacedim>(computed_cell_similarity,
-              QProjector<dim>::DataSetDescriptor::cell(),
+              PProjector<dim>::DataSetDescriptor::cell(),
               data);
 
   internal::MappingIsoparametricImplementation::maybe_update_jacobian_grads<
     dim,
     spacedim>(computed_cell_similarity,
-              QProjector<dim>::DataSetDescriptor::cell(),
+              PProjector<dim>::DataSetDescriptor::cell(),
               data,
               output_data.jacobian_grads);
 
   internal::MappingIsoparametricImplementation::
     maybe_update_jacobian_pushed_forward_grads<dim, spacedim>(
       computed_cell_similarity,
-      QProjector<dim>::DataSetDescriptor::cell(),
+      PProjector<dim>::DataSetDescriptor::cell(),
       data,
       output_data.jacobian_pushed_forward_grads);
 
   internal::MappingIsoparametricImplementation::
     maybe_update_jacobian_2nd_derivatives<dim, spacedim>(
       computed_cell_similarity,
-      QProjector<dim>::DataSetDescriptor::cell(),
+      PProjector<dim>::DataSetDescriptor::cell(),
       data,
       output_data.jacobian_2nd_derivatives);
 
   internal::MappingIsoparametricImplementation::
     maybe_update_jacobian_pushed_forward_2nd_derivatives<dim, spacedim>(
       computed_cell_similarity,
-      QProjector<dim>::DataSetDescriptor::cell(),
+      PProjector<dim>::DataSetDescriptor::cell(),
       data,
       output_data.jacobian_pushed_forward_2nd_derivatives);
 
   internal::MappingIsoparametricImplementation::
     maybe_update_jacobian_3rd_derivatives<dim, spacedim>(
       computed_cell_similarity,
-      QProjector<dim>::DataSetDescriptor::cell(),
+      PProjector<dim>::DataSetDescriptor::cell(),
       data,
       output_data.jacobian_3rd_derivatives);
 
   internal::MappingIsoparametricImplementation::
     maybe_update_jacobian_pushed_forward_3rd_derivatives<dim, spacedim>(
       computed_cell_similarity,
-      QProjector<dim>::DataSetDescriptor::cell(),
+      PProjector<dim>::DataSetDescriptor::cell(),
       data,
       output_data.jacobian_pushed_forward_3rd_derivatives);
 
@@ -1433,7 +1508,7 @@ namespace internal
           &                                               cell,
         const unsigned int                                face_no,
         const unsigned int                                subface_no,
-        const typename QProjector<dim>::DataSetDescriptor data_set,
+        const typename PProjector<dim>::DataSetDescriptor data_set,
         const Quadrature<dim - 1> &                       quadrature,
         const typename dealii::MappingIsoparametric<dim, spacedim>::InternalData
           &data,
@@ -1476,12 +1551,21 @@ namespace internal
           data,
           output_data.jacobian_pushed_forward_3rd_derivatives);
 
+        //********************* TODO *******************************************
+        std::vector<double> weights(quadrature.size());
+
+        auto quad = PProjector<dim>::project_to_all_faces(quadrature);
+
+        for (unsigned int i = 0; i < quadrature.size(); ++i)
+          weights[i] = quad.get_weights()[i + data_set];
+        //********************* TODO *******************************************
+
         maybe_compute_face_data(mapping,
                                 cell,
                                 face_no,
                                 subface_no,
                                 quadrature.size(),
-                                quadrature.get_weights(),
+                                weights,
                                 data,
                                 output_data);
       }
@@ -1524,7 +1608,7 @@ MappingIsoparametric<dim, spacedim>::fill_fe_face_values(
     cell,
     face_no,
     numbers::invalid_unsigned_int,
-    QProjector<dim>::DataSetDescriptor::face(face_no,
+    PProjector<dim>::DataSetDescriptor::face(face_no,
                                              cell->face_orientation(face_no),
                                              cell->face_flip(face_no),
                                              cell->face_rotation(face_no),
@@ -1570,7 +1654,7 @@ MappingIsoparametric<dim, spacedim>::fill_fe_subface_values(
     cell,
     face_no,
     subface_no,
-    QProjector<dim>::DataSetDescriptor::subface(face_no,
+    PProjector<dim>::DataSetDescriptor::subface(face_no,
                                                 subface_no,
                                                 cell->face_orientation(face_no),
                                                 cell->face_flip(face_no),

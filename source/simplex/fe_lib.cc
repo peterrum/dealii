@@ -115,9 +115,9 @@ namespace Simplex
       {
         if (degree == 1)
           {
+            this->unit_support_points.emplace_back(0.0, 0.0);
             this->unit_support_points.emplace_back(1.0, 0.0);
             this->unit_support_points.emplace_back(0.0, 1.0);
-            this->unit_support_points.emplace_back(0.0, 0.0);
 
             // TODO
             this->unit_face_support_points.emplace_back(0.0);
@@ -125,12 +125,12 @@ namespace Simplex
           }
         else if (degree == 2)
           {
+            this->unit_support_points.emplace_back(0.0, 0.0);
             this->unit_support_points.emplace_back(1.0, 0.0);
             this->unit_support_points.emplace_back(0.0, 1.0);
-            this->unit_support_points.emplace_back(0.0, 0.0);
+            this->unit_support_points.emplace_back(0.5, 0.0);
             this->unit_support_points.emplace_back(0.5, 0.5);
             this->unit_support_points.emplace_back(0.0, 0.5);
-            this->unit_support_points.emplace_back(0.5, 0.0);
 
             // TODO
             this->unit_face_support_points.emplace_back(0.0);
@@ -318,9 +318,8 @@ namespace Simplex
     // offset determines which data set to take (all data sets for all faces
     // are stored contiguously)
 
-    // TODO: replace QProjector by PProjector
-    const typename QProjector<dim>::DataSetDescriptor offset =
-      QProjector<dim>::DataSetDescriptor::face(face_no,
+    const typename PProjector<dim>::DataSetDescriptor offset =
+      PProjector<dim>::DataSetDescriptor::face(face_no,
                                                cell->face_orientation(face_no),
                                                cell->face_flip(face_no),
                                                cell->face_rotation(face_no),
@@ -400,7 +399,7 @@ namespace Simplex
 
 
   template <int dim, int spacedim>
-  std::unique_ptr<FiniteElement<dim, dim>>
+  std::unique_ptr<FiniteElement<dim, spacedim>>
   FE_P<dim, spacedim>::clone() const
   {
     return std::make_unique<FE_P<dim, spacedim>>(*this);
@@ -427,7 +426,7 @@ namespace Simplex
 
 
   template <int dim, int spacedim>
-  std::unique_ptr<FiniteElement<dim, dim>>
+  std::unique_ptr<FiniteElement<dim, spacedim>>
   FE_DGP<dim, spacedim>::clone() const
   {
     return std::make_unique<FE_DGP<dim, spacedim>>(*this);
