@@ -1268,8 +1268,7 @@ namespace internal
 
             for (const auto &cell : dof_handler.active_cell_iterators())
               if (!cell->is_artificial())
-                for (const unsigned int face :
-                     cell->face_indices())
+                for (const unsigned int face : cell->face_indices())
                   if (cell->face(face)->user_flag_set() == false)
                     {
                       unsigned int fe_slots_needed = 0;
@@ -1351,8 +1350,7 @@ namespace internal
 
             for (const auto &cell : dof_handler.active_cell_iterators())
               if (!cell->is_artificial())
-                for (const unsigned int face :
-                     cell->face_indices())
+                for (const unsigned int face : cell->face_indices())
                   if (!cell->face(face)->user_flag_set())
                     {
                       // Same decision tree as before
@@ -1562,8 +1560,7 @@ namespace internal
 
             for (const auto &cell : dof_handler.active_cell_iterators())
               if (!cell->is_artificial())
-                for (unsigned int l = 0; l < cell->n_lines();
-                     ++l)
+                for (unsigned int l = 0; l < cell->n_lines(); ++l)
                   line_fe_association[cell->active_fe_index()]
                                      [cell->line_index(l)] = true;
 
@@ -1710,11 +1707,10 @@ namespace internal
                     .hp_cell_active_fe_indices[cell->level()][cell->index()] =
                     active_fe_indices[cell->active_cell_index()];
             }
-          else if (const dealii::parallel::TriangulationBase<dim,
-                                                                      spacedim>
-                     *tr = dynamic_cast<const dealii::parallel::
-                                          TriangulationBase<dim, spacedim> *>(
-                       &dof_handler.get_triangulation()))
+          else if (const dealii::parallel::TriangulationBase<dim, spacedim>
+                     *tr = dynamic_cast<
+                       const dealii::parallel::TriangulationBase<dim, spacedim>
+                         *>(&dof_handler.get_triangulation()))
             {
               // For completely distributed meshes, use the function that is
               // able to move data from locally owned cells on one processor to
@@ -2995,7 +2991,7 @@ DoFHandler<dim, spacedim>::setup_policy_and_listeners()
   // policy and attach corresponding callback functions dealing with the
   // transfer of active_fe_indices
   if (dynamic_cast<
-        const dealii::parallel::distributed::Triangulation<dim, spacedim> *>(
+        const dealii::parallel::DistributedTriangulationBase<dim, spacedim> *>(
         &this->get_triangulation()))
     {
       this->policy =

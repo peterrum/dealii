@@ -44,7 +44,7 @@ namespace internal
         const unsigned int               n_datasets,
         const unsigned int               n_subdivisions,
         const std::vector<unsigned int> &n_postprocessor_outputs,
-        const dealii::hp::MappingCollection<dim, spacedim> &   mapping,
+        const dealii::hp::MappingCollection<dim, spacedim> &mapping,
         const std::vector<
           std::shared_ptr<dealii::hp::FECollection<dim, spacedim>>>
           &                                           finite_elements,
@@ -321,15 +321,16 @@ public:
                               DoFHandlerType::space_dimension> &mapping,
                 const unsigned int     n_subdivisions = 0,
                 const CurvedCellRegion curved_region  = curved_boundary);
-  
+
   /**
    * The same as above but this hp::MappingCollection.
    */
   virtual void
-  build_patches(const hp::MappingCollection<DoFHandlerType::dimension,
-                              DoFHandlerType::space_dimension> &mapping,
-                const unsigned int     n_subdivisions = 0,
-                const CurvedCellRegion curved_region  = curved_boundary);
+  build_patches(
+    const hp::MappingCollection<DoFHandlerType::dimension,
+                                DoFHandlerType::space_dimension> &mapping,
+    const unsigned int     n_subdivisions = 0,
+    const CurvedCellRegion curved_region  = curved_boundary);
 
   /**
    * A function that allows selecting for which cells output should be

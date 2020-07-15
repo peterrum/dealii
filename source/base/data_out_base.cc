@@ -1514,7 +1514,7 @@ namespace
   {
     (void)index;
 
-    stream << '\t' << n_points;
+    stream << n_points;
     for (unsigned int i = 0; i < n_points; ++i)
       stream << '\t' << start + i;
     stream << '\n';
@@ -2486,7 +2486,6 @@ namespace DataOutBase
   {
     Assert(dim <= 3, ExcNotImplemented());
     unsigned int count                 = 0;
-    unsigned int vertex_count          = 0;
     unsigned int first_vertex_of_patch = 0;
     for (const auto &patch : patches)
       {
@@ -2494,8 +2493,10 @@ namespace DataOutBase
         if (patch.reference_cell_type == ReferenceCell::Type::Tri ||
             patch.reference_cell_type == ReferenceCell::Type::Tet)
           {
-            out.write_cell_single(count++, vertex_count, patch.data.n_cols());
-            vertex_count += patch.data.n_cols();
+            out.write_cell_single(count++,
+                                  first_vertex_of_patch,
+                                  patch.data.n_cols());
+            first_vertex_of_patch += patch.data.n_cols();
             continue;
           }
 
@@ -4938,30 +4939,58 @@ namespace DataOutBase
     }
 
     // first count the number of cells and cells for later use
-    unsigned int n_nodes;
-    unsigned int n_cells;
-    compute_sizes<dim, spacedim>(patches, n_nodes, n_cells);
+    unsigned int n_nodes            = 0;
+    unsigned int n_cells            = 0;
+    unsigned int n_points_an_n_cell = 0;
+
+    // compute_sizes<dim, spacedim>(patches, n_nodes, n_cells);
+
+    for (const auto &patch : patches)
+      {
+        // special treatment of simplices since they are not subdivided
+        if (patch.reference_cell_type == ReferenceCell::Type::Tri ||
+            patch.reference_cell_type == ReferenceCell::Type::Tet)
+          {
+            n_nodes += patch.data.n_cols();
+            n_cells += 1;
+            n_points_an_n_cell += patch.data.n_cols() + 1;
+
+            continue;
+          }
+
+        n_nodes += Utilities::fixed_power<dim>(patch.n_subdivisions + 1);
+
+        if (flags.write_higher_order_cells)
+          {
+            n_cells += 1;
+            n_points_an_n_cell +=
+              1 + Utilities::fixed_power<dim>(patch.n_subdivisions + 1);
+          }
+        else
+          {
+            n_cells += Utilities::fixed_power<dim>(patch.n_subdivisions);
+            n_points_an_n_cell +=
+              Utilities::fixed_power<dim>(patch.n_subdivisions) *
+              (1 + GeometryInfo<dim>::vertices_per_cell);
+          }
+      }
 
     // If a user set to output high order cells, we treat n_subdivisions
     // as a cell order and adjust variables accordingly, otherwise
     // each patch is written as a linear cell.
-    unsigned int n_points_per_cell = GeometryInfo<dim>::vertices_per_cell;
-    bool         simplex_mesh      = false;
-    if (flags.write_higher_order_cells)
-      {
-        n_cells           = patches.size();
-        n_points_per_cell = n_nodes / n_cells;
-      }
-    else
-      {
-        for (const auto &patch : patches)
-          if (patch.reference_cell_type == ReferenceCell::Type::Tri ||
-              patch.reference_cell_type == ReferenceCell::Type::Tet)
-            {
-              n_points_per_cell = patch.data.n_cols();
-              simplex_mesh      = true;
-            }
-      }
+
+    //    if (flags.write_higher_order_cells)
+    //      {
+    //        n_cells           = patches.size();
+    //        n_points_per_cell = n_nodes / n_cells;
+    //      }
+    //    else
+    //      {
+    //        for (const auto &patch : patches)
+    //          if (patch.reference_cell_type == ReferenceCell::Type::Tri ||
+    //              patch.reference_cell_type == ReferenceCell::Type::Tet)
+    //              n_points_per_cell = patch.data.n_cols(); // TODO
+    //      }
 
     // in gmv format the vertex coordinates and the data have an order that is a
     // bit unpleasant (first all x coordinates, then all y coordinate, ...;
@@ -4992,8 +5021,7 @@ namespace DataOutBase
     out << '\n';
     /////////////////////////////////
     // now for the cells
-    out << "CELLS " << n_cells << ' ' << n_cells * (n_points_per_cell + 1)
-        << '\n';
+    out << "CELLS " << n_cells << ' ' << n_points_an_n_cell << '\n';
     if (flags.write_higher_order_cells)
       write_high_order_cells(patches, vtk_out);
     else
@@ -5005,39 +5033,30 @@ namespace DataOutBase
 
     // need to distinguish between linear cells, simplex cells (linear or
     // quadratic), and  high order cells
-    if (simplex_mesh)
+    for (const auto &patch : patches)
       {
-        for (const auto &patch : patches)
-          {
-            unsigned int vtk_cell_id = -1;
+        std::pair<unsigned int, unsigned int> vtk_cell_id = {-1, -1};
 
-            if (patch.reference_cell_type == ReferenceCell::Type::Tri &&
-                patch.data.n_cols() == 3)
-              vtk_cell_id = 5;
-            else if (patch.reference_cell_type == ReferenceCell::Type::Tri &&
-                     patch.data.n_cols() == 6)
-              vtk_cell_id = 22;
-            else if (patch.reference_cell_type == ReferenceCell::Type::Tet &&
-                     patch.data.n_cols() == 4)
-              vtk_cell_id = 10;
-            else if (patch.reference_cell_type == ReferenceCell::Type::Tet &&
-                     patch.data.n_cols() == 10)
-              vtk_cell_id = 24;
-            else
-              {
-                Assert(false, ExcNotImplemented());
-              }
+        if (flags.write_higher_order_cells)
+          vtk_cell_id = {vtk_lagrange_cell_type[dim], 1};
+        else if (patch.reference_cell_type == ReferenceCell::Type::Tri &&
+                 patch.data.n_cols() == 3)
+          vtk_cell_id = {5, 1};
+        else if (patch.reference_cell_type == ReferenceCell::Type::Tri &&
+                 patch.data.n_cols() == 6)
+          vtk_cell_id = {22, 1};
+        else if (patch.reference_cell_type == ReferenceCell::Type::Tet &&
+                 patch.data.n_cols() == 4)
+          vtk_cell_id = {10, 1};
+        else if (patch.reference_cell_type == ReferenceCell::Type::Tet &&
+                 patch.data.n_cols() == 10)
+          vtk_cell_id = {24, 1};
+        else
+          vtk_cell_id = {vtk_cell_type[dim],
+                         Utilities::pow(patch.n_subdivisions, dim)};
 
-            out << ' ' << vtk_cell_id;
-          }
-      }
-    else
-      {
-        const unsigned int vtk_cell_id = flags.write_higher_order_cells ?
-                                           vtk_lagrange_cell_type[dim] :
-                                           vtk_cell_type[dim];
-        for (unsigned int i = 0; i < n_cells; ++i)
-          out << ' ' << vtk_cell_id;
+        for (unsigned int i = 0; i < vtk_cell_id.second; ++i)
+          out << ' ' << vtk_cell_id.first;
       }
 
     out << '\n';

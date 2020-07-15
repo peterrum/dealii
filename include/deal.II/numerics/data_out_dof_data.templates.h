@@ -72,18 +72,22 @@ namespace internal
       const UpdateFlags update_flags,
       const bool        use_face_values)
       : ParallelDataBase<dim, spacedim>(
-        n_datasets, 
-            n_subdivisions, n_postprocessor_outputs, dealii::hp::MappingCollection<dim, spacedim>(mapping), finite_elements, update_flags, use_face_values)
-    {
-    }
-    
-    
+          n_datasets,
+          n_subdivisions,
+          n_postprocessor_outputs,
+          dealii::hp::MappingCollection<dim, spacedim>(mapping),
+          finite_elements,
+          update_flags,
+          use_face_values)
+    {}
+
+
     template <int dim, int spacedim>
     ParallelDataBase<dim, spacedim>::ParallelDataBase(
       const unsigned int               n_datasets,
       const unsigned int               n_subdivisions,
       const std::vector<unsigned int> &n_postprocessor_outputs,
-      const dealii::hp::MappingCollection<dim, spacedim> &   mapping,
+      const dealii::hp::MappingCollection<dim, spacedim> &mapping,
       const std::vector<
         std::shared_ptr<dealii::hp::FECollection<dim, spacedim>>>
         &               finite_elements,
@@ -101,29 +105,42 @@ namespace internal
         {
           const bool do_simplex = std::any_of(
             finite_elements.begin(), finite_elements.end(), [](const auto &fe) {
-              return (*fe)[0].cell_type == ReferenceCell::Type::Tri ||
-                     (*fe)[0].cell_type == ReferenceCell::Type::Tet;
+              for (unsigned int i = 0; i < fe->size(); ++i)
+                if ((*fe)[i].cell_type == ReferenceCell::Type::Tri ||
+                    (*fe)[i].cell_type == ReferenceCell::Type::Tet)
+                  return true;
+              return false;
             });
 
-          std::unique_ptr<dealii::hp::QCollection<dim>> quadrature;
+          const bool do_hex = std::any_of(
+            finite_elements.begin(), finite_elements.end(), [](const auto &fe) {
+              for (unsigned int i = 0; i < fe->size(); ++i)
+                if ((*fe)[i].cell_type != ReferenceCell::Type::Tri &&
+                    (*fe)[i].cell_type != ReferenceCell::Type::Tet)
+                  return true;
+              return false;
+            });
 
-          UpdateFlags update_flags_ = update_flags;
+          std::unique_ptr<dealii::Quadrature<dim>> quadrature1;
+          std::unique_ptr<dealii::Quadrature<dim>> quadrature2;
 
           if (do_simplex)
             {
               Assert(1 <= n_subdivisions && n_subdivisions <= 2,
                      ExcNotImplemented());
-              quadrature.reset(new dealii::hp::QCollection<dim>(Quadrature<dim>(
+              quadrature1.reset(new Quadrature<dim>(
                 Simplex::FE_P<dim, spacedim>(n_subdivisions == 1 ? 1 : 2)
-                  .get_unit_support_points())));
-              update_flags_ |= update_quadrature_points;
+                  .get_unit_support_points()));
             }
-          else
-            quadrature.reset(new dealii::hp::QCollection<dim>(
-              QIterated<dim>(QTrapez<1>(), n_subdivisions)));
 
-          n_q_points = (*quadrature)[0].size();
+          if (do_hex)
+            {
+              quadrature2.reset(new Quadrature<dim>(
+                QIterated<dim>(QTrapez<1>(), n_subdivisions)));
+            }
 
+          n_q_points = std::max(do_simplex ? quadrature1->size() : 0,
+                                do_hex ? quadrature2->size() : 1);
 
           x_fe_values.resize(this->finite_elements.size());
           for (unsigned int i = 0; i < this->finite_elements.size(); ++i)
@@ -139,12 +156,25 @@ namespace internal
                   }
               if (x_fe_values[i].get() == nullptr)
                 {
+                  dealii::hp::QCollection<dim> quadrature;
+
+                  for (unsigned int j = 0; j < this->finite_elements[i]->size();
+                       ++j)
+                    if ((*this->finite_elements[i])[j].cell_type ==
+                          ReferenceCell::Type::Tri ||
+                        (*this->finite_elements[i])[j].cell_type ==
+                          ReferenceCell::Type::Tet)
+                      quadrature.push_back(*quadrature1);
+                    else
+                      quadrature.push_back(*quadrature2);
+
                   x_fe_values[i] =
                     std::make_shared<dealii::hp::FEValues<dim, spacedim>>(
                       this->mapping_collection,
                       *this->finite_elements[i],
-                      *quadrature,
-                      update_flags_);
+                      quadrature,
+                      do_simplex ? (update_flags | update_quadrature_points) :
+                                   update_flags);
                 }
             }
         }
@@ -212,26 +242,39 @@ namespace internal
 
           const bool do_simplex = std::any_of(
             finite_elements.begin(), finite_elements.end(), [](const auto &fe) {
-              return (*fe)[0].cell_type == ReferenceCell::Type::Tri ||
-                     (*fe)[0].cell_type == ReferenceCell::Type::Tet;
+              for (unsigned int i = 0; i < fe->size(); ++i)
+                if ((*fe)[i].cell_type == ReferenceCell::Type::Tri ||
+                    (*fe)[i].cell_type == ReferenceCell::Type::Tet)
+                  return true;
+              return false;
             });
 
-          std::unique_ptr<dealii::hp::QCollection<dim>> quadrature;
+          const bool do_hex = std::any_of(
+            finite_elements.begin(), finite_elements.end(), [](const auto &fe) {
+              for (unsigned int i = 0; i < fe->size(); ++i)
+                if ((*fe)[i].cell_type != ReferenceCell::Type::Tri &&
+                    (*fe)[i].cell_type != ReferenceCell::Type::Tet)
+                  return true;
+              return false;
+            });
 
-          UpdateFlags update_flags_ = update_flags;
+          std::unique_ptr<dealii::Quadrature<dim>> quadrature1;
+          std::unique_ptr<dealii::Quadrature<dim>> quadrature2;
 
           if (do_simplex)
             {
               Assert(1 <= n_subdivisions && n_subdivisions <= 2,
                      ExcNotImplemented());
-              quadrature.reset(new dealii::hp::QCollection<dim>(Quadrature<dim>(
+              quadrature1.reset(new Quadrature<dim>(
                 Simplex::FE_P<dim, spacedim>(n_subdivisions == 1 ? 1 : 2)
-                  .get_unit_support_points())));
-              update_flags_ |= update_quadrature_points;
+                  .get_unit_support_points()));
             }
-          else
-            quadrature.reset(new dealii::hp::QCollection<dim>(
-              QIterated<dim>(QTrapez<1>(), n_subdivisions)));
+
+          if (do_hex)
+            {
+              quadrature2.reset(new Quadrature<dim>(
+                QIterated<dim>(QTrapez<1>(), n_subdivisions)));
+            }
 
           x_fe_values.resize(this->finite_elements.size());
 
@@ -248,12 +291,25 @@ namespace internal
                   }
               if (x_fe_values[i].get() == nullptr)
                 {
+                  dealii::hp::QCollection<dim> quadrature;
+
+                  for (unsigned int j = 0; j < this->finite_elements[i]->size();
+                       ++j)
+                    if ((*this->finite_elements[i])[j].cell_type ==
+                          ReferenceCell::Type::Tri ||
+                        (*this->finite_elements[i])[j].cell_type ==
+                          ReferenceCell::Type::Tet)
+                      quadrature.push_back(*quadrature1);
+                    else
+                      quadrature.push_back(*quadrature2);
+
                   x_fe_values[i] =
                     std::make_shared<dealii::hp::FEValues<dim, spacedim>>(
                       this->mapping_collection,
                       *this->finite_elements[i],
-                      *quadrature,
-                      update_flags_);
+                      quadrature,
+                      do_simplex ? (update_flags | update_quadrature_points) :
+                                   update_flags);
                 }
             }
         }
