@@ -22,52 +22,6 @@ DEAL_II_NAMESPACE_OPEN
 namespace
 {
   inline unsigned int
-  vertices_per_cell(const ReferenceCell::Type cell_type)
-  {
-    switch (cell_type)
-      {
-        case ReferenceCell::Type::Vertex:
-          return GeometryInfo<0>::vertices_per_cell;
-        case ReferenceCell::Type::Line:
-          return GeometryInfo<1>::vertices_per_cell;
-        case ReferenceCell::Type::Tri:
-          return 3;
-        case ReferenceCell::Type::Quad:
-          return GeometryInfo<2>::vertices_per_cell;
-        case ReferenceCell::Type::Tet:
-          return 4;
-        case ReferenceCell::Type::Hex:
-          return GeometryInfo<3>::vertices_per_cell;
-        default:
-          Assert(false, ExcNotImplemented());
-          return 0;
-      }
-  }
-
-  inline unsigned int
-  lines_per_cell(const ReferenceCell::Type cell_type)
-  {
-    switch (cell_type)
-      {
-        case ReferenceCell::Type::Vertex:
-          return GeometryInfo<0>::lines_per_cell;
-        case ReferenceCell::Type::Line:
-          return GeometryInfo<1>::lines_per_cell;
-        case ReferenceCell::Type::Tri:
-          return 3;
-        case ReferenceCell::Type::Quad:
-          return GeometryInfo<2>::lines_per_cell;
-        case ReferenceCell::Type::Tet:
-          return 6;
-        case ReferenceCell::Type::Hex:
-          return GeometryInfo<3>::lines_per_cell;
-        default:
-          Assert(false, ExcNotImplemented());
-          return 0;
-      }
-  }
-
-  inline unsigned int
   quads_per_cell(const ReferenceCell::Type cell_type)
   {
     switch (cell_type)
@@ -84,75 +38,6 @@ namespace
           return 4;
         case ReferenceCell::Type::Hex:
           return GeometryInfo<3>::quads_per_cell;
-        default:
-          Assert(false, ExcNotImplemented());
-          return 0;
-      }
-  }
-
-  inline unsigned int
-  hexes_per_cell(const ReferenceCell::Type cell_type)
-  {
-    switch (cell_type)
-      {
-        case ReferenceCell::Type::Vertex:
-          return GeometryInfo<0>::hexes_per_cell;
-        case ReferenceCell::Type::Line:
-          return GeometryInfo<1>::hexes_per_cell;
-        case ReferenceCell::Type::Tri:
-          return 0;
-        case ReferenceCell::Type::Quad:
-          return GeometryInfo<2>::hexes_per_cell;
-        case ReferenceCell::Type::Tet:
-          return 1;
-        case ReferenceCell::Type::Hex:
-          return GeometryInfo<3>::hexes_per_cell;
-        default:
-          Assert(false, ExcNotImplemented());
-          return 0;
-      }
-  }
-
-  inline unsigned int
-  vertices_per_face(const ReferenceCell::Type cell_type)
-  {
-    switch (cell_type)
-      {
-        case ReferenceCell::Type::Vertex:
-          return GeometryInfo<0>::vertices_per_face;
-        case ReferenceCell::Type::Line:
-          return GeometryInfo<1>::vertices_per_face;
-        case ReferenceCell::Type::Tri:
-          return 2;
-        case ReferenceCell::Type::Quad:
-          return GeometryInfo<2>::vertices_per_face;
-        case ReferenceCell::Type::Tet:
-          return 3;
-        case ReferenceCell::Type::Hex:
-          return GeometryInfo<3>::vertices_per_face;
-        default:
-          Assert(false, ExcNotImplemented());
-          return 0;
-      }
-  }
-
-  inline unsigned int
-  lines_per_face(const ReferenceCell::Type cell_type)
-  {
-    switch (cell_type)
-      {
-        case ReferenceCell::Type::Vertex:
-          return GeometryInfo<0>::lines_per_face;
-        case ReferenceCell::Type::Line:
-          return GeometryInfo<1>::lines_per_face;
-        case ReferenceCell::Type::Tri:
-          return 1;
-        case ReferenceCell::Type::Quad:
-          return GeometryInfo<2>::lines_per_face;
-        case ReferenceCell::Type::Tet:
-          return 3;
-        case ReferenceCell::Type::Hex:
-          return GeometryInfo<3>::lines_per_face;
         default:
           Assert(false, ExcNotImplemented());
           return 0;
@@ -214,23 +99,50 @@ FiniteElementData<dim>::FiniteElementData(
   , dofs_per_line(dofs_per_object[1])
   , dofs_per_quad(dim > 1 ? dofs_per_object[2] : 0)
   , dofs_per_hex(dim > 2 ? dofs_per_object[3] : 0)
-  , first_line_index(vertices_per_cell(cell_type) * dofs_per_vertex)
-  , first_quad_index(first_line_index +
-                     lines_per_cell(cell_type) * dofs_per_line)
-  , first_hex_index(first_quad_index +
-                    quads_per_cell(cell_type) * dofs_per_quad)
-  , first_face_line_index(vertices_per_face(cell_type) * dofs_per_vertex)
-  , first_face_quad_index((dim == 3 ?
-                             vertices_per_face(cell_type) * dofs_per_vertex :
-                             vertices_per_cell(cell_type) * dofs_per_vertex) +
-                          lines_per_face(cell_type) * dofs_per_line)
-  , dofs_per_face(vertices_per_face(cell_type) * dofs_per_vertex +
-                  lines_per_face(cell_type) * dofs_per_line +
-                  quads_per_face(cell_type) * dofs_per_quad)
-  , dofs_per_cell(vertices_per_cell(cell_type) * dofs_per_vertex +
-                  lines_per_cell(cell_type) * dofs_per_line +
-                  quads_per_cell(cell_type) * dofs_per_quad +
-                  hexes_per_cell(cell_type) * dofs_per_hex)
+  , first_line_index(
+      ReferenceCell::internal::Info::get_cell(cell_type).n_vertices() *
+      dofs_per_vertex)
+  , first_quad_index(
+      first_line_index +
+      ReferenceCell::internal::Info::get_cell(cell_type).n_lines() *
+        dofs_per_line)
+  , first_hex_index(
+      first_quad_index +
+      (dim == 2 ?
+         1 :
+         (dim == 3 ?
+            ReferenceCell::internal::Info::get_cell(cell_type).n_faces() :
+            0)) *
+        dofs_per_quad)
+  , first_face_line_index(
+      ReferenceCell::internal::Info::get_face(cell_type, 0).n_vertices() *
+      dofs_per_vertex)
+  , first_face_quad_index(
+      (dim == 3 ?
+         ReferenceCell::internal::Info::get_face(cell_type, 0).n_vertices() *
+           dofs_per_vertex :
+         ReferenceCell::internal::Info::get_cell(cell_type).n_vertices() *
+           dofs_per_vertex) +
+      ReferenceCell::internal::Info::get_face(cell_type, 0).n_lines() *
+        dofs_per_line)
+  , dofs_per_face(
+      ReferenceCell::internal::Info::get_face(cell_type, 0).n_vertices() *
+        dofs_per_vertex +
+      ReferenceCell::internal::Info::get_face(cell_type, 0).n_lines() *
+        dofs_per_line +
+      (dim == 3 ? 1 : 0) * dofs_per_quad)
+  , dofs_per_cell(
+      ReferenceCell::internal::Info::get_cell(cell_type).n_vertices() *
+        dofs_per_vertex +
+      ReferenceCell::internal::Info::get_cell(cell_type).n_lines() *
+        dofs_per_line +
+      (dim == 2 ?
+         1 :
+         (dim == 3 ?
+            ReferenceCell::internal::Info::get_cell(cell_type).n_faces() :
+            0)) *
+        dofs_per_quad +
+      (dim == 3 ? 1 : 0) * dofs_per_hex)
   , components(n_components)
   , degree(degree)
   , conforming_space(conformity)
