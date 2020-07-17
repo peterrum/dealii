@@ -419,6 +419,133 @@ namespace internal
            local_index];
       }
 
+      template <int dim, int spacedim, int d>
+      static unsigned int
+      n_dofs(const DoFHandler<dim, spacedim> &dof_handler,
+             const unsigned int               obj_level,
+             const unsigned int               obj_index,
+             const unsigned int               fe_index,
+             const std::integral_constant<int, d> &)
+      {
+        Assert(d == dim || obj_level == 0, ExcNotImplemented());
+        // std::cout << "AA" << std::endl;
+
+        // 1) no hp used -> fe_index == 0
+        if (dof_handler.hp_capability_enabled == false)
+          {
+            AssertDimension(fe_index,
+                            (DoFHandler<dim, spacedim>::default_fe_index));
+
+            if (d == dim)
+              return dof_handler.get_fe().template n_dofs_per_object<dim>();
+            else if (d == 0)
+              return dof_handler.get_fe().n_dofs_per_vertex();
+            else
+              return dof_handler.object_dof_ptr[obj_level][d][obj_index + 1] -
+                     dof_handler.object_dof_ptr[obj_level][d][obj_index];
+          }
+
+        // 2) cell and hp is used -> there is only one fe_index
+        if (d == dim)
+          return dof_handler.get_fe_collection()[fe_index]
+            .template n_dofs_per_object<dim>();
+
+        // 3) general entity and hp is used
+        AssertIndexRange(obj_level, dof_handler.object_dof_indices.size());
+        AssertIndexRange(d, dof_handler.object_dof_indices[obj_level].size());
+
+        unsigned int fe_index_;
+
+        if (dof_handler.hp_capability_enabled)
+          {
+            AssertIndexRange(d, dof_handler.hp_object_fe_ptr.size());
+            AssertIndexRange(obj_index, dof_handler.hp_object_fe_ptr[d].size());
+
+            const auto ptr =
+              std::find(dof_handler.hp_object_fe_indices[d].begin() +
+                          dof_handler.hp_object_fe_ptr[d][obj_index],
+                        dof_handler.hp_object_fe_indices[d].begin() +
+                          dof_handler.hp_object_fe_ptr[d][obj_index + 1],
+                        fe_index);
+
+            Assert(ptr != dof_handler.hp_object_fe_indices[d].begin() +
+                            dof_handler.hp_object_fe_ptr[d][obj_index + 1],
+                   ExcNotImplemented());
+
+            fe_index_ =
+              std::distance(dof_handler.hp_object_fe_indices[d].begin() +
+                              dof_handler.hp_object_fe_ptr[d][obj_index],
+                            ptr);
+          }
+
+        AssertIndexRange(dof_handler.hp_capability_enabled ?
+                           (dof_handler.hp_object_fe_ptr[d][obj_index] +
+                            fe_index_) :
+                           obj_index,
+                         dof_handler.object_dof_ptr[obj_level][d].size());
+
+        //        std::cout << "CC " << dof_handler.object_dof_ptr
+        //             [obj_level][d]
+        //             [dof_handler.hp_capability_enabled ?
+        //                (dof_handler.hp_object_fe_ptr[d][obj_index] +
+        //                fe_index_ + 1) : (obj_index + 1)] << " " <<
+        //                dof_handler.object_dof_ptr
+        //             [obj_level][d]
+        //             [dof_handler.hp_capability_enabled ?
+        //                (dof_handler.hp_object_fe_ptr[d][obj_index] +
+        //                fe_index_) : obj_index] << std::endl;
+
+        return dof_handler
+                 .object_dof_ptr[obj_level][d]
+                                [dof_handler.hp_capability_enabled ?
+                                   (dof_handler.hp_object_fe_ptr[d][obj_index] +
+                                    fe_index_ + 1) :
+                                   (obj_index + 1)] -
+               dof_handler
+                 .object_dof_ptr[obj_level][d]
+                                [dof_handler.hp_capability_enabled ?
+                                   (dof_handler.hp_object_fe_ptr[d][obj_index] +
+                                    fe_index_) :
+                                   obj_index];
+      }
+
+
+      template <int  structdim_,
+                int  dim,
+                int  spacedim,
+                bool level_dof_access,
+                int  d>
+      static DEAL_II_ALWAYS_INLINE unsigned int
+      n_dofs(
+        const dealii::DoFAccessor<structdim_, dim, spacedim, level_dof_access>
+          &                                   accessor,
+        const unsigned int                    fe_index,
+        const std::integral_constant<int, d> &dd)
+      {
+        const auto temp = n_dofs(accessor.get_dof_handler(),
+                                 accessor.level(),
+                                 accessor.index(),
+                                 fe_index,
+                                 dd);
+
+        //  std::cout << temp << std::endl;
+
+        return temp;
+      }
+
+      /**
+       * Fallback for DoFInvalidAccessor.
+       */
+      template <int structdim_, int dim, int spacedim, int d>
+      static DEAL_II_ALWAYS_INLINE unsigned int
+      n_dofs(const dealii::DoFInvalidAccessor<structdim_, dim, spacedim> &,
+             const unsigned int,
+             const std::integral_constant<int, d> &)
+      {
+        Assert(false, ExcInternalError());
+
+        return 0;
+      }
 
       template <int dim, int spacedim>
       static types::global_dof_index
@@ -792,6 +919,49 @@ namespace internal
        * provided @p accessor and @p fe_index and perform the static functions
        * provided by DoFOperation (set/get) on these.
        */
+      template <int dim, int spacedim, bool level_dof_access, int structdim>
+      static unsigned int
+      count_dofs(
+        const dealii::DoFAccessor<structdim, dim, spacedim, level_dof_access>
+          &                accessor,
+        const unsigned int fe_index)
+      {
+        const auto &fe = accessor.get_fe(fe_index);
+
+        unsigned int index = 0;
+
+        // 1) VERTEX dofs
+        for (const auto vertex : accessor.vertex_indices())
+          index += fe.n_dofs_per_vertex();
+
+        // 2) LINE dofs
+        if (structdim == 2 || structdim == 3)
+          for (const auto line : accessor.line_indices())
+            index += n_dofs(*accessor.line(line),
+                            fe_index,
+                            std::integral_constant<int, 1>());
+
+        // 3) QUAD dofs
+        if (structdim == 3)
+          for (const auto quad : accessor.face_indices())
+            index += n_dofs(*accessor.quad(quad),
+                            fe_index,
+                            std::integral_constant<int, 2>());
+
+        // 4) INNER dofs
+        index +=
+          n_dofs(accessor, fe_index, std::integral_constant<int, structdim>());
+
+        return index;
+      }
+
+
+
+      /**
+       * Loop over all degrees of freedom of the object described by the
+       * provided @p accessor and @p fe_index and perform the static functions
+       * provided by DoFOperation (set/get) on these.
+       */
       template <int  dim,
                 int  spacedim,
                 bool level_dof_access,
@@ -806,21 +976,15 @@ namespace internal
         const unsigned int fe_index,
         const DoFOperation &)
       {
-        const unsigned int                                                 //
-          dofs_per_vertex = accessor.get_fe(fe_index).n_dofs_per_vertex(), //
-          dofs_per_line   = accessor.get_fe(fe_index).n_dofs_per_line(),   //
-          dofs_per_quad   = accessor.get_fe(fe_index).n_dofs_per_quad(),   //
-          dofs_per_hex    = accessor.get_fe(fe_index).n_dofs_per_hex();    //
+        AssertDimension(dof_indices.size(), count_dofs());
 
-        const unsigned int inner_dofs =
-          structdim == 1 ? dofs_per_line :
-                           (structdim == 2 ? dofs_per_quad : dofs_per_hex);
+        const auto &fe = accessor.get_fe(fe_index);
 
         unsigned int index = 0;
 
         // 1) VERTEX dofs
         for (const auto vertex : accessor.vertex_indices())
-          for (unsigned int d = 0; d < dofs_per_vertex; ++d, ++index)
+          for (unsigned int d = 0; d < fe.n_dofs_per_vertex(); ++d, ++index)
             DoFOperation::process_vertex_dof(
               accessor, vertex, d, dof_indices[index], fe_index);
 
@@ -833,14 +997,18 @@ namespace internal
         // correct (face/cell-local) ordering.
         if (structdim == 2 || structdim == 3)
           for (const auto line : accessor.line_indices())
-            for (unsigned int d = 0; d < dofs_per_line; ++d, ++index)
-              DoFOperation::process_dof(
-                *accessor.line(line),
-                accessor.get_fe(fe_index)
-                  .adjust_line_dof_index_for_line_orientation(
+            {
+              auto               l = accessor.line(line);
+              const unsigned int dofs_per_line =
+                n_dofs(*l, fe_index, std::integral_constant<int, 1>());
+              for (unsigned int d = 0; d < dofs_per_line; ++d, ++index)
+                DoFOperation::process_dof(
+                  *l,
+                  fe.adjust_line_dof_index_for_line_orientation(
                     d, accessor.line_orientation(line)),
-                dof_indices[index],
-                fe_index);
+                  dof_indices[index],
+                  fe_index);
+            }
 
         // 3) copy dof numbers from the FACE. for faces with the wrong
         // orientation, we have already made sure that we're ok by picking the
@@ -852,19 +1020,25 @@ namespace internal
         // or face_orientation is non-standard
         if (structdim == 3)
           for (const auto quad : accessor.face_indices())
-            for (unsigned int d = 0; d < dofs_per_quad; ++d, ++index)
-              DoFOperation::process_dof(
-                *accessor.quad(quad),
-                accessor.get_fe(fe_index)
-                  .adjust_quad_dof_index_for_face_orientation(
+            {
+              auto               q = accessor.quad(quad);
+              const unsigned int dofs_per_quad =
+                n_dofs(*q, fe_index, std::integral_constant<int, 2>());
+              for (unsigned int d = 0; d < dofs_per_quad; ++d, ++index)
+                DoFOperation::process_dof(
+                  *q,
+                  fe.adjust_quad_dof_index_for_face_orientation(
                     d,
                     accessor.face_orientation(quad),
                     accessor.face_flip(quad),
                     accessor.face_rotation(quad)),
-                dof_indices[index],
-                fe_index);
+                  dof_indices[index],
+                  fe_index);
+            }
 
         // 4) INNER dofs
+        const unsigned int inner_dofs =
+          n_dofs(accessor, fe_index, std::integral_constant<int, structdim>());
         for (unsigned int d = 0; d < inner_dofs; ++d, ++index)
           DoFOperation::process_dof(accessor, d, dof_indices[index], fe_index);
 
@@ -1401,38 +1575,47 @@ DoFAccessor<structdim, dim, spacedim, level_dof_access>::get_dof_indices(
            "been initialized, i.e., it doesn't appear that DoF indices "
            "have been distributed on it."));
 
-  switch (structdim)
-    {
-      case 1:
-        Assert(dof_indices.size() ==
-                 (this->n_vertices() *
-                    this->dof_handler->get_fe(fe_index).n_dofs_per_vertex() +
-                  this->dof_handler->get_fe(fe_index).n_dofs_per_line()),
-               ExcVectorDoesNotMatch());
-        break;
-      case 2:
-        Assert(dof_indices.size() ==
-                 (this->n_vertices() *
-                    this->dof_handler->get_fe(fe_index).n_dofs_per_vertex() +
-                  this->n_lines() *
-                    this->dof_handler->get_fe(fe_index).n_dofs_per_line() +
-                  this->dof_handler->get_fe(fe_index).n_dofs_per_quad()),
-               ExcVectorDoesNotMatch());
-        break;
-      case 3:
-        Assert(dof_indices.size() ==
-                 (this->n_vertices() *
-                    this->dof_handler->get_fe(fe_index).n_dofs_per_vertex() +
-                  this->n_lines() *
-                    this->dof_handler->get_fe(fe_index).n_dofs_per_line() +
-                  this->n_faces() *
-                    this->dof_handler->get_fe(fe_index).n_dofs_per_quad() +
-                  this->dof_handler->get_fe(fe_index).n_dofs_per_hex()),
-               ExcVectorDoesNotMatch());
-        break;
-      default:
-        Assert(false, ExcNotImplemented());
-    }
+  //  switch (structdim)
+  //    {
+  //      case 1:
+  //        Assert(dof_indices.size() ==
+  //                 (this->n_vertices() *
+  //                    this->dof_handler->get_fe(fe_index).n_dofs_per_vertex()
+  //                    +
+  //                  this->dof_handler->get_fe(fe_index).n_dofs_per_line()),
+  //               ExcVectorDoesNotMatch());
+  //        break;
+  //      case 2:
+  //        Assert(dof_indices.size() ==
+  //                 (this->n_vertices() *
+  //                    this->dof_handler->get_fe(fe_index).n_dofs_per_vertex()
+  //                    +
+  //                  this->n_lines() *
+  //                    this->dof_handler->get_fe(fe_index).n_dofs_per_line() +
+  //                  this->dof_handler->get_fe(fe_index).n_dofs_per_quad()),
+  //               ExcVectorDoesNotMatch());
+  //        break;
+  //      case 3:
+  //        {
+  //#ifdef DEBUG
+  //          auto n_dofs =
+  //            this->n_vertices() *
+  //              this->dof_handler->get_fe(fe_index).n_dofs_per_vertex() +
+  //            this->n_lines() *
+  //              this->dof_handler->get_fe(fe_index).n_dofs_per_line() +
+  //            this->dof_handler->get_fe(fe_index).n_dofs_per_hex();
+  //
+  //          for (const auto i : this->face_indices())
+  //            n_dofs +=
+  //            this->dof_handler->get_fe(fe_index).n_dofs_per_quad(i);
+  //
+  //          Assert(dof_indices.size() == n_dofs, ExcVectorDoesNotMatch());
+  //#endif
+  //          break;
+  //        }
+  //      default:
+  //        Assert(false, ExcNotImplemented());
+  //    }
 
 
   // this function really only makes
@@ -1474,39 +1657,6 @@ DoFAccessor<structdim, dim, spacedim, level_dof_access>::get_mg_dof_indices(
       DoFHandler<dim, spacedim>::default_fe_index :
       fe_index_;
 
-  switch (structdim)
-    {
-      case 1:
-        Assert(dof_indices.size() ==
-                 (this->n_vertices() *
-                    this->dof_handler->get_fe(fe_index).n_dofs_per_vertex() +
-                  this->dof_handler->get_fe(fe_index).n_dofs_per_line()),
-               ExcVectorDoesNotMatch());
-        break;
-      case 2:
-        Assert(dof_indices.size() ==
-                 (this->n_vertices() *
-                    this->dof_handler->get_fe(fe_index).n_dofs_per_vertex() +
-                  this->n_lines() *
-                    this->dof_handler->get_fe(fe_index).n_dofs_per_line() +
-                  this->dof_handler->get_fe(fe_index).n_dofs_per_quad()),
-               ExcVectorDoesNotMatch());
-        break;
-      case 3:
-        Assert(dof_indices.size() ==
-                 (this->n_vertices() *
-                    this->dof_handler->get_fe(fe_index).n_dofs_per_vertex() +
-                  this->n_lines() *
-                    this->dof_handler->get_fe(fe_index).n_dofs_per_line() +
-                  this->n_faces() *
-                    this->dof_handler->get_fe(fe_index).n_dofs_per_quad() +
-                  this->dof_handler->get_fe(fe_index).n_dofs_per_hex()),
-               ExcVectorDoesNotMatch());
-        break;
-      default:
-        Assert(false, ExcNotImplemented());
-    }
-
   internal::DoFAccessorImplementation::get_mg_dof_indices(*this,
                                                           level,
                                                           dof_indices,
@@ -1529,47 +1679,55 @@ DoFAccessor<structdim, dim, spacedim, level_dof_access>::set_mg_dof_indices(
       DoFHandler<dim, spacedim>::default_fe_index :
       fe_index_;
 
-  switch (structdim)
-    {
-      case 1:
-        {
-          Assert(dof_indices.size() ==
-                   this->n_vertices() *
-                       this->dof_handler->get_fe(fe_index).n_dofs_per_vertex() +
-                     this->dof_handler->get_fe(fe_index).n_dofs_per_line(),
-                 ExcVectorDoesNotMatch());
-          break;
-        }
-
-      case 2:
-        {
-          Assert(dof_indices.size() ==
-                   this->n_vertices() *
-                       this->dof_handler->get_fe(fe_index).n_dofs_per_vertex() +
-                     this->n_lines() *
-                       this->dof_handler->get_fe(fe_index).n_dofs_per_line() +
-                     this->dof_handler->get_fe(fe_index).n_dofs_per_quad(),
-                 ExcVectorDoesNotMatch());
-          break;
-        }
-
-      case 3:
-        {
-          Assert(dof_indices.size() ==
-                   this->n_vertices() *
-                       this->dof_handler->get_fe(fe_index).n_dofs_per_vertex() +
-                     this->n_lines() *
-                       this->dof_handler->get_fe(fe_index).n_dofs_per_line() +
-                     this->n_faces() *
-                       this->dof_handler->get_fe(fe_index).n_dofs_per_quad() +
-                     this->dof_handler->get_fe(fe_index).n_dofs_per_hex(),
-                 ExcVectorDoesNotMatch());
-          break;
-        }
-
-      default:
-        Assert(false, ExcNotImplemented());
-    }
+  //  switch (structdim)
+  //    {
+  //      case 1:
+  //        {
+  //          Assert(dof_indices.size() ==
+  //                   this->n_vertices() *
+  //                       this->dof_handler->get_fe(fe_index).n_dofs_per_vertex()
+  //                       +
+  //                     this->dof_handler->get_fe(fe_index).n_dofs_per_line(),
+  //                 ExcVectorDoesNotMatch());
+  //          break;
+  //        }
+  //
+  //      case 2:
+  //        {
+  //          Assert(dof_indices.size() ==
+  //                   this->n_vertices() *
+  //                       this->dof_handler->get_fe(fe_index).n_dofs_per_vertex()
+  //                       +
+  //                     this->n_lines() *
+  //                       this->dof_handler->get_fe(fe_index).n_dofs_per_line()
+  //                       +
+  //                     this->dof_handler->get_fe(fe_index).n_dofs_per_quad(),
+  //                 ExcVectorDoesNotMatch());
+  //          break;
+  //        }
+  //
+  //      case 3:
+  //        {
+  //#ifdef DEBUG
+  //          auto n_dofs =
+  //            this->n_vertices() *
+  //              this->dof_handler->get_fe(fe_index).n_dofs_per_vertex() +
+  //            this->n_lines() *
+  //              this->dof_handler->get_fe(fe_index).n_dofs_per_line() +
+  //            this->dof_handler->get_fe(fe_index).n_dofs_per_hex();
+  //
+  //          for (const auto i : this->face_indices())
+  //            n_dofs +=
+  //            this->dof_handler->get_fe(fe_index).n_dofs_per_quad(i);
+  //
+  //          Assert(dof_indices.size() == n_dofs, ExcVectorDoesNotMatch());
+  //#endif
+  //          break;
+  //        }
+  //
+  //      default:
+  //        Assert(false, ExcNotImplemented());
+  //    }
 
   internal::DoFAccessorImplementation::Implementation::set_mg_dof_indices(
     *this, level, dof_indices, fe_index);

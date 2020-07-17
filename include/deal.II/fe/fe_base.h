@@ -220,6 +220,11 @@ public:
   static const unsigned int dimension = dim;
 
   /**
+   * Reference cell type.
+   */
+  const ReferenceCell::Type cell_type;
+
+  /**
    * Number of degrees of freedom on a vertex.
    */
   const unsigned int dofs_per_vertex;
@@ -382,6 +387,14 @@ public:
   unsigned int
   n_dofs_per_quad() const;
 
+
+  /**
+   * Number of dofs of i-th quad. Not including dofs on lower dimensional
+   * objects.
+   */
+  unsigned int
+  n_dofs_per_quad(const unsigned int) const;
+
   /**
    * Number of dofs per hex. Not including dofs on lower dimensional objects.
    */
@@ -394,6 +407,13 @@ public:
    */
   unsigned int
   n_dofs_per_face() const;
+
+  /**
+   * Number of dofs of i-th face, accumulating degrees of freedom of all lower
+   * dimensional objects.
+   */
+  unsigned int
+  n_dofs_per_face(const unsigned int) const;
 
   /**
    * Number of dofs per cell, accumulating degrees of freedom of all lower
@@ -568,6 +588,22 @@ template <int dim>
 inline unsigned int
 FiniteElementData<dim>::n_dofs_per_quad() const
 {
+  //  Assert(dofs_per_quad == 0 || (cell_type != ReferenceCell::Type::Wedge &&
+  //                                cell_type != ReferenceCell::Type::Pyramid),
+  //         ExcNotImplemented());
+  Assert(cell_type != ReferenceCell::Type::Wedge &&
+           cell_type != ReferenceCell::Type::Pyramid,
+         ExcNotImplemented());
+
+  return dofs_per_quad;
+}
+
+
+
+template <int dim>
+inline unsigned int
+FiniteElementData<dim>::n_dofs_per_quad(const unsigned int) const
+{
   return dofs_per_quad;
 }
 
@@ -585,6 +621,15 @@ FiniteElementData<dim>::n_dofs_per_hex() const
 template <int dim>
 inline unsigned int
 FiniteElementData<dim>::n_dofs_per_face() const
+{
+  return dofs_per_face;
+}
+
+
+
+template <int dim>
+inline unsigned int
+FiniteElementData<dim>::n_dofs_per_face(const unsigned int) const
 {
   return dofs_per_face;
 }

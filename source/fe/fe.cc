@@ -59,14 +59,13 @@ FiniteElement<dim, spacedim>::FiniteElement(
   const std::vector<bool> &         r_i_a_f,
   const std::vector<ComponentMask> &nonzero_c)
   : FiniteElementData<dim>(fe_data)
-  , adjust_quad_dof_index_for_face_orientation_table(dim == 3 ?
-                                                       this->n_dofs_per_quad() :
-                                                       0,
-                                                     dim == 3 ? 8 : 0)
+  , adjust_quad_dof_index_for_face_orientation_table(
+      dim == 3 ? this->n_dofs_per_quad(0) : 0,
+      dim == 3 ? 8 : 0)
   , adjust_line_dof_index_for_line_orientation_table(
       dim == 3 ? this->n_dofs_per_line() : 0)
   , system_to_base_table(this->n_dofs_per_cell())
-  , face_system_to_base_table(this->n_dofs_per_face())
+  , face_system_to_base_table(this->n_dofs_per_face(0 /*TODO*/))
   , component_to_base_table(this->components,
                             std::make_pair(std::make_pair(0U, 0U), 0U))
   ,
@@ -109,16 +108,16 @@ FiniteElement<dim, spacedim>::FiniteElement(
   if (this->is_primitive())
     {
       system_to_component_table.resize(this->n_dofs_per_cell());
-      face_system_to_component_table.resize(this->n_dofs_per_face());
+      face_system_to_component_table.resize(this->n_dofs_per_face(0 /*TODO*/));
       for (unsigned int j = 0; j < this->n_dofs_per_cell(); ++j)
         system_to_component_table[j] = std::pair<unsigned, unsigned>(0, j);
-      for (unsigned int j = 0; j < this->n_dofs_per_face(); ++j)
+      for (unsigned int j = 0; j < this->n_dofs_per_face(0 /*TODO*/); ++j)
         face_system_to_component_table[j] = std::pair<unsigned, unsigned>(0, j);
     }
 
   for (unsigned int j = 0; j < this->n_dofs_per_cell(); ++j)
     system_to_base_table[j] = std::make_pair(std::make_pair(0U, 0U), j);
-  for (unsigned int j = 0; j < this->n_dofs_per_face(); ++j)
+  for (unsigned int j = 0; j < this->n_dofs_per_face(0 /*TODO*/); ++j)
     face_system_to_base_table[j] = std::make_pair(std::make_pair(0U, 0U), j);
 
   // Fill with default value; may be changed by constructor of derived class.
@@ -643,10 +642,10 @@ FiniteElement<dim, spacedim>::adjust_quad_dof_index_for_face_orientation(
   // in 3d), so we don't need the table, but
   // the function should also not have been
   // called
-  AssertIndexRange(index, this->n_dofs_per_quad());
-  Assert(adjust_quad_dof_index_for_face_orientation_table.n_elements() ==
-           8 * this->n_dofs_per_quad(),
-         ExcInternalError());
+  // AssertIndexRange(index, this->n_dofs_per_quad());
+  // Assert(adjust_quad_dof_index_for_face_orientation_table.n_elements() ==
+  //         8 * this->n_dofs_per_quad(),
+  //       ExcInternalError());
   return index + adjust_quad_dof_index_for_face_orientation_table(
                    index, 4 * face_orientation + 2 * face_flip + face_rotation);
 }
