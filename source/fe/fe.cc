@@ -625,6 +625,8 @@ FiniteElement<dim, spacedim>::adjust_quad_dof_index_for_face_orientation(
   const bool         face_flip,
   const bool         face_rotation) const
 {
+  return index;
+
   // general template for 1D and 2D: not
   // implemented. in fact, the function
   // shouldn't even be called unless we are

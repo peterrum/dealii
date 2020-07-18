@@ -78,8 +78,10 @@ test_3()
   std::ofstream out("mesh.vtk");
   grid_out.write_vtk(tria, out);
 
+  Simplex::FE_Wedge<dim, spacedim> fe(2);
+
   DoFHandler<dim, spacedim> dof_handler(tria);
-  dof_handler.distribute_dofs(Simplex::FE_Wedge<dim, spacedim>(2));
+  dof_handler.distribute_dofs(fe);
 
   deallog << dof_handler.n_dofs() << std::endl;
 
@@ -91,7 +93,7 @@ test_3()
 #if false
           dof_indices.resize(face <= 1 ? 3 : 4);
 #else
-          dof_indices.resize(face <= 1 ? 7 : 9);
+          dof_indices.resize(fe.n_dofs_per_face(face));
 #endif
           cell->face(face)->get_dof_indices(dof_indices);
 

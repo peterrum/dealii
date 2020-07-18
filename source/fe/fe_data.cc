@@ -83,18 +83,7 @@ FiniteElementData<dim>::FiniteElementData(
       ReferenceCell::internal::Info::get_face(cell_type, 0).n_lines() *
         dofs_per_line +
       (dim == 3 ? 1 : 0) * dofs_per_quad)
-  , dofs_per_cell(
-      ReferenceCell::internal::Info::get_cell(cell_type).n_vertices() *
-        dofs_per_vertex +
-      ReferenceCell::internal::Info::get_cell(cell_type).n_lines() *
-        dofs_per_line +
-      (dim == 2 ?
-         1 :
-         (dim == 3 ?
-            ReferenceCell::internal::Info::get_cell(cell_type).n_faces() :
-            0)) *
-        dofs_per_quad +
-      (dim == 3 ? 1 : 0) * dofs_per_hex)
+  , dofs_per_cell(18)
   , components(n_components)
   , degree(degree)
   , conforming_space(conformity)

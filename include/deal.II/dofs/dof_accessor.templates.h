@@ -932,7 +932,10 @@ namespace internal
 
         // 1) VERTEX dofs
         for (const auto vertex : accessor.vertex_indices())
-          index += fe.n_dofs_per_vertex();
+          {
+            (void)vertex;
+            index += fe.n_dofs_per_vertex();
+          }
 
         // 2) LINE dofs
         if (structdim == 2 || structdim == 3)
@@ -976,7 +979,7 @@ namespace internal
         const unsigned int fe_index,
         const DoFOperation &)
       {
-        AssertDimension(dof_indices.size(), count_dofs());
+        AssertDimension(dof_indices.size(), count_dofs(accessor, fe_index));
 
         const auto &fe = accessor.get_fe(fe_index);
 
