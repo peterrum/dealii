@@ -357,7 +357,8 @@ namespace Simplex
   {
     return get_data(flags,
                     mapping,
-                    QProjector<dim>::project_to_all_faces(quadrature), // TODO
+                    QProjector<dim>::project_to_all_faces(
+                      this->reference_cell_type(), quadrature), // TODO
                     output_data);
   }
 
