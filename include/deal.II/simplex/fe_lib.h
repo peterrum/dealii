@@ -18,8 +18,6 @@
 
 #include <deal.II/base/config.h>
 
-#include <deal.II/base/qprojector.h>
-
 #include <deal.II/fe/fe_poly.h>
 
 #include <deal.II/simplex/polynomials.h>
@@ -32,6 +30,8 @@ namespace Simplex
    * Base class of FE_P and FE_DGP.
    *
    * @note Only implemented for 2D and 3D.
+   *
+   * @ingroup simplex
    */
   template <int dim, int spacedim = dim>
   class FE_Poly : public dealii::FE_Poly<dim, spacedim>
@@ -59,6 +59,8 @@ namespace Simplex
    * Implementation of a scalar Lagrange finite element Pp that yields
    * the finite element space of continuous, piecewise polynomials of
    * degree p.
+   *
+   * @ingroup simplex
    */
   template <int dim, int spacedim = dim>
   class FE_P : public FE_Poly<dim, spacedim>
@@ -90,6 +92,8 @@ namespace Simplex
    * Implementation of a scalar Lagrange finite element Pp that yields
    * the finite element space of discontinuous, piecewise polynomials of
    * degree p.
+   *
+   * @ingroup simplex
    */
   template <int dim, int spacedim = dim>
   class FE_DGP : public FE_Poly<dim, spacedim>
