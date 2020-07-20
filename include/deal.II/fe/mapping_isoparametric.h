@@ -487,6 +487,11 @@ public:
      * #update_volume_elements.
      */
     mutable std::vector<double> volume_elements;
+
+    /**
+     * Projected quadrature weights.
+     */
+    mutable std::vector<double> quadrature_weights;
   };
 
 
