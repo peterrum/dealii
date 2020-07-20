@@ -135,6 +135,9 @@ MappingIsoparametric<dim, spacedim>::InternalData::initialize(
 
   // now also fill the various fields with their correct values
   compute_shape_function_values(q.get_points());
+
+  // copy (projected) quadrature weights
+  quadrature_weights = q.get_weights();
 }
 
 
@@ -1343,11 +1346,11 @@ namespace internal
       maybe_compute_face_data(
         const dealii::MappingIsoparametric<dim, spacedim> &mapping,
         const typename dealii::Triangulation<dim, spacedim>::cell_iterator
-          &                        cell,
-        const unsigned int         face_no,
-        const unsigned int         subface_no,
-        const unsigned int         n_q_points,
-        const std::vector<double> &weights,
+          &                                               cell,
+        const unsigned int                                face_no,
+        const unsigned int                                subface_no,
+        const unsigned int                                n_q_points,
+        const typename QProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingIsoparametric<dim, spacedim>::InternalData
           &data,
         internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
@@ -1467,15 +1470,19 @@ namespace internal
                    ++i)
                 {
                   output_data.JxW_values[i] =
-                    output_data.boundary_forms[i].norm() * weights[i];
+                    output_data.boundary_forms[i].norm() *
+                    data.quadrature_weights[i + data_set];
 
                   if (subface_no != numbers::invalid_unsigned_int)
                     {
+#if false
+                       const double area_ratio =
+                        GeometryInfo<dim>::subface_ratio(
+                          cell->subface_case(face_no), subface_no);
+                       output_data.JxW_values[i] *= area_ratio;
+#else
                       Assert(false, ExcNotImplemented());
-                      // const double area_ratio =
-                      //  GeometryInfo<dim>::subface_ratio(
-                      //    cell->subface_case(face_no), subface_no);
-                      // output_data.JxW_values[i] *= area_ratio;
+#endif
                     }
                 }
 
@@ -1555,22 +1562,12 @@ namespace internal
           data,
           output_data.jacobian_pushed_forward_3rd_derivatives);
 
-        // TODO: pre-compute and store
-        std::vector<double> weights(quadrature.size());
-
-        const auto quad =
-          QProjector<dim>::project_to_all_faces(data.fe.reference_cell_type(),
-                                                quadrature);
-
-        for (unsigned int i = 0; i < quadrature.size(); ++i)
-          weights[i] = quad.get_weights()[i + data_set];
-
         maybe_compute_face_data(mapping,
                                 cell,
                                 face_no,
                                 subface_no,
                                 quadrature.size(),
-                                weights,
+                                data_set,
                                 data,
                                 output_data);
       }

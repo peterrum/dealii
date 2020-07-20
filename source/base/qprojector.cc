@@ -912,7 +912,12 @@ QProjector<2>::project_to_all_subfaces(
   const ReferenceCell::Type reference_cell_type,
   const SubQuadrature &     quadrature)
 {
-  Assert(reference_cell_type == ReferenceCell::Type::Quad, ExcNotImplemented());
+  // For simplex mesh, no mesh refinement is implemented. So this function
+  // should not be necessary in this context, however, unfortunately it
+  // is called by FEInterfaceValues.
+  Assert(reference_cell_type == ReferenceCell::get_simplex(2) ||
+           reference_cell_type == ReferenceCell::Type::Quad,
+         ExcNotImplemented());
   (void)reference_cell_type;
 
   const unsigned int dim = 2;
@@ -970,7 +975,12 @@ QProjector<3>::project_to_all_subfaces(
   const ReferenceCell::Type reference_cell_type,
   const SubQuadrature &     quadrature)
 {
-  Assert(reference_cell_type == ReferenceCell::Type::Hex, ExcNotImplemented());
+  // For simplex mesh, no mesh refinement is implemented. So this function
+  // should not be necessary in this context, however, unfortunately it
+  // is called by FEInterfaceValues.
+  Assert(reference_cell_type == ReferenceCell::get_simplex(3) ||
+           reference_cell_type == ReferenceCell::Type::Hex,
+         ExcNotImplemented());
   (void)reference_cell_type;
 
   const unsigned int dim         = 3;

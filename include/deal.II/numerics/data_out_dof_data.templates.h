@@ -65,7 +65,7 @@ namespace internal
       const unsigned int               n_datasets,
       const unsigned int               n_subdivisions,
       const std::vector<unsigned int> &n_postprocessor_outputs,
-      const dealii::hp::MappingCollection<dim, spacedim> &mapping,
+      const Mapping<dim, spacedim> &   mapping,
       const std::vector<
         std::shared_ptr<dealii::hp::FECollection<dim, spacedim>>>
         &               finite_elements,
@@ -106,8 +106,9 @@ namespace internal
           const bool do_simplex = std::any_of(
             finite_elements.begin(), finite_elements.end(), [](const auto &fe) {
               for (unsigned int i = 0; i < fe->size(); ++i)
-                if ((*fe)[i].cell_type == ReferenceCell::Type::Tri ||
-                    (*fe)[i].cell_type == ReferenceCell::Type::Tet)
+                if ((*fe)[i].reference_cell_type() ==
+                      ReferenceCell::Type::Tri ||
+                    (*fe)[i].reference_cell_type() == ReferenceCell::Type::Tet)
                   return true;
               return false;
             });
@@ -115,8 +116,9 @@ namespace internal
           const bool do_hex = std::any_of(
             finite_elements.begin(), finite_elements.end(), [](const auto &fe) {
               for (unsigned int i = 0; i < fe->size(); ++i)
-                if ((*fe)[i].cell_type != ReferenceCell::Type::Tri &&
-                    (*fe)[i].cell_type != ReferenceCell::Type::Tet)
+                if ((*fe)[i].reference_cell_type() !=
+                      ReferenceCell::Type::Tri &&
+                    (*fe)[i].reference_cell_type() != ReferenceCell::Type::Tet)
                   return true;
               return false;
             });
@@ -160,9 +162,9 @@ namespace internal
 
                   for (unsigned int j = 0; j < this->finite_elements[i]->size();
                        ++j)
-                    if ((*this->finite_elements[i])[j].cell_type ==
+                    if ((*this->finite_elements[i])[j].reference_cell_type() ==
                           ReferenceCell::Type::Tri ||
-                        (*this->finite_elements[i])[j].cell_type ==
+                        (*this->finite_elements[i])[j].reference_cell_type() ==
                           ReferenceCell::Type::Tet)
                       quadrature.push_back(*quadrature1);
                     else
@@ -243,8 +245,9 @@ namespace internal
           const bool do_simplex = std::any_of(
             finite_elements.begin(), finite_elements.end(), [](const auto &fe) {
               for (unsigned int i = 0; i < fe->size(); ++i)
-                if ((*fe)[i].cell_type == ReferenceCell::Type::Tri ||
-                    (*fe)[i].cell_type == ReferenceCell::Type::Tet)
+                if ((*fe)[i].reference_cell_type() ==
+                      ReferenceCell::Type::Tri ||
+                    (*fe)[i].reference_cell_type() == ReferenceCell::Type::Tet)
                   return true;
               return false;
             });
@@ -252,8 +255,9 @@ namespace internal
           const bool do_hex = std::any_of(
             finite_elements.begin(), finite_elements.end(), [](const auto &fe) {
               for (unsigned int i = 0; i < fe->size(); ++i)
-                if ((*fe)[i].cell_type != ReferenceCell::Type::Tri &&
-                    (*fe)[i].cell_type != ReferenceCell::Type::Tet)
+                if ((*fe)[i].reference_cell_type() !=
+                      ReferenceCell::Type::Tri &&
+                    (*fe)[i].reference_cell_type() != ReferenceCell::Type::Tet)
                   return true;
               return false;
             });
@@ -295,9 +299,9 @@ namespace internal
 
                   for (unsigned int j = 0; j < this->finite_elements[i]->size();
                        ++j)
-                    if ((*this->finite_elements[i])[j].cell_type ==
+                    if ((*this->finite_elements[i])[j].reference_cell_type() ==
                           ReferenceCell::Type::Tri ||
-                        (*this->finite_elements[i])[j].cell_type ==
+                        (*this->finite_elements[i])[j].reference_cell_type() ==
                           ReferenceCell::Type::Tet)
                       quadrature.push_back(*quadrature1);
                     else
