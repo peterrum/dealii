@@ -46,6 +46,16 @@ namespace Simplex
      */
     explicit PGauss(const unsigned int n_points);
   };
+
+  template <int dim>
+  class PGaussWedge : public Quadrature<dim>
+  {
+  public:
+    /**
+     * Constructor taking the number of quadrature points @p n_points.
+     */
+    explicit PGaussWedge(const unsigned int n_points);
+  };
 } // namespace Simplex
 
 DEAL_II_NAMESPACE_CLOSE

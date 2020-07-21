@@ -354,7 +354,7 @@ namespace internal
               dof_handler.object_dof_ptr[obj_level][d][obj_index];
             const unsigned int ptr_1 =
               ptr_0 +
-              dof_handler.get_fe(fe_index).template n_dofs_per_object<dim>();
+              dof_handler.get_fe(fe_index).template n_dofs_per_object<dim>(0);
 
             return {ptr_0, ptr_1};
           }
@@ -822,11 +822,11 @@ namespace internal
           {
             const auto &fe = accessor.get_fe(fe_index_);
 
-            const unsigned int                          //
-              dofs_per_vertex = fe.n_dofs_per_vertex(), //
-              dofs_per_line   = fe.n_dofs_per_line(),   //
-              dofs_per_quad   = fe.n_dofs_per_quad(),   //
-              dofs_per_hex    = fe.n_dofs_per_hex();    //
+            const unsigned int                                   //
+              dofs_per_vertex = fe.n_dofs_per_vertex(),          //
+              dofs_per_line   = fe.n_dofs_per_line(),            //
+              dofs_per_quad   = fe.n_dofs_per_quad(0 /*dummy*/), //
+              dofs_per_hex    = fe.n_dofs_per_hex();             //
 
             const unsigned int inner_dofs =
               structdim == 1 ? dofs_per_line :
@@ -968,6 +968,7 @@ namespace internal
               [&](const auto d) {
                 return fe.adjust_quad_dof_index_for_face_orientation(
                   d,
+                  quad,
                   accessor.face_orientation(quad),
                   accessor.face_flip(quad),
                   accessor.face_rotation(quad));
@@ -1213,7 +1214,7 @@ namespace internal
           (void)fe_index;
 
           for (unsigned int d = 0;
-               d < fe.template n_dofs_per_object<structdim_>();
+               d < fe.template n_dofs_per_object<structdim_>(0);
                ++d, ++index)
             index_value[index] = accessor.mg_dof_index(level, mapping(d));
         }
@@ -1293,7 +1294,7 @@ namespace internal
           (void)fe_index;
 
           for (unsigned int d = 0;
-               d < fe.template n_dofs_per_object<structdim_>();
+               d < fe.template n_dofs_per_object<structdim_>(0);
                ++d, ++index)
             accessor.set_mg_dof_index(level, mapping(d), index_value[index]);
         }

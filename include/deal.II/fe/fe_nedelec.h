@@ -223,7 +223,8 @@ public:
    * of freedom on lines.
    */
   virtual std::vector<std::pair<unsigned int, unsigned int>>
-  hp_quad_dof_identities(const FiniteElement<dim> &fe_other) const override;
+  hp_quad_dof_identities(const FiniteElement<dim> &fe_other,
+                         const unsigned int        face_no) const override;
 
   /**
    * Return the matrix interpolating from a face of one element to the face of
@@ -238,7 +239,8 @@ public:
    */
   virtual void
   get_face_interpolation_matrix(const FiniteElement<dim> &source,
-                                FullMatrix<double> &matrix) const override;
+                                FullMatrix<double> &      matrix,
+                                const unsigned int face_no) const override;
 
   /**
    * Return the matrix interpolating from a face of one element to the subface
@@ -254,7 +256,8 @@ public:
   virtual void
   get_subface_interpolation_matrix(const FiniteElement<dim> &source,
                                    const unsigned int        subface,
-                                   FullMatrix<double> &matrix) const override;
+                                   FullMatrix<double> &      matrix,
+                                   const unsigned int face_no) const override;
 
   /**
    * Projection from a fine grid space onto a coarse grid space. If this
