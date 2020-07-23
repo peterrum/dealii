@@ -3303,7 +3303,7 @@ FiniteElement<dim, spacedim>::get_associated_geometry_primitive(
   // are enumerated on the reference cell
   if (cell_dof_index < this->get_first_line_index())
     return GeometryPrimitive::vertex;
-  else if (cell_dof_index < this->get_first_quad_index())
+  else if (cell_dof_index < this->get_first_quad_index(0 /*TODO*/))
     return GeometryPrimitive::line;
   else if (cell_dof_index < this->get_first_hex_index())
     return GeometryPrimitive::quad;

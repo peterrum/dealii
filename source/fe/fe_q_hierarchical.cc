@@ -2198,7 +2198,7 @@ FE_Q_Hierarchical<dim>::has_support_on_face(const unsigned int shape_index,
   // shape functions, since they
   // have no support no-where on
   // the boundary
-  if (((dim == 2) && (shape_index >= this->get_first_quad_index())) ||
+  if (((dim == 2) && (shape_index >= this->get_first_quad_index(0 /*TODO*/))) ||
       ((dim == 3) && (shape_index >= this->get_first_hex_index())))
     return false;
 
@@ -2220,7 +2220,7 @@ FE_Q_Hierarchical<dim>::has_support_on_face(const unsigned int shape_index,
           return true;
       return false;
     }
-  else if (shape_index < this->get_first_quad_index())
+  else if (shape_index < this->get_first_quad_index(0 /*TODO*/))
     // ok, dof is on a line
     {
       const unsigned int line_index =
@@ -2237,7 +2237,7 @@ FE_Q_Hierarchical<dim>::has_support_on_face(const unsigned int shape_index,
     // dof is on a quad
     {
       const unsigned int quad_index =
-        (shape_index - this->get_first_quad_index()) /
+        (shape_index - this->get_first_quad_index(0 /*TODO*/)) /
         this->n_dofs_per_quad(face_index);
       Assert(static_cast<signed int>(quad_index) <
                static_cast<signed int>(GeometryInfo<dim>::quads_per_cell),

@@ -611,7 +611,7 @@ FiniteElement<dim, spacedim>::face_to_cell_index(const unsigned int face_index,
       // ignore vertex and line dofs
       const unsigned int index = face_index - this->get_first_face_quad_index();
 
-      return (this->get_first_quad_index() +
+      return (this->get_first_quad_index(face) +
               face * this->n_dofs_per_quad(face) + index);
     }
 }

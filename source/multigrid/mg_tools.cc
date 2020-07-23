@@ -183,7 +183,7 @@ namespace MGTools
             fe.n_dofs_per_cell() - (dim - 1) * fe.n_dofs_per_face(0 /*TODO*/) :
             fe.n_dofs_per_cell() - GeometryInfo<dim>::faces_per_cell *
                                      fe.n_dofs_per_face(0 /*TODO*/);
-        while (i < fe.get_first_quad_index())
+        while (i < fe.get_first_quad_index(0 /*TODO*/))
           row_lengths[cell_indices[i++]] += increment;
 
         // Now quads in 2D and 3D
@@ -400,7 +400,7 @@ namespace MGTools
         // In all other cases we
         // subtract adjacent faces to be
         // added in the loop below.
-        while (i < fe.get_first_quad_index())
+        while (i < fe.get_first_quad_index(0 /*TODO*/))
           {
             for (unsigned int base = 0; base < fe.n_base_elements(); ++base)
               for (unsigned int mult = 0; mult < fe.element_multiplicity(base);
