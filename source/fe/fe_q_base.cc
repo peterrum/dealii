@@ -1073,7 +1073,7 @@ FE_Q_Base<PolynomialType, dim, spacedim>::face_to_cell_index(
                 this->n_dofs_per_vertex() +
               dof_index_on_vertex);
     }
-  else if (face_index < this->get_first_face_quad_index())
+  else if (face_index < this->get_first_face_quad_index(face))
     // DoF is on a face
     {
       // do the same kind of translation as before. we need to only consider
@@ -1134,7 +1134,8 @@ FE_Q_Base<PolynomialType, dim, spacedim>::face_to_cell_index(
       Assert(dim >= 3, ExcInternalError());
 
       // ignore vertex and line dofs
-      const unsigned int index = face_index - this->get_first_face_quad_index();
+      const unsigned int index =
+        face_index - this->get_first_face_quad_index(face);
 
       // the same is true here as above for the 3d case -- someone will
       // just have to draw a bunch of pictures. in the meantime,

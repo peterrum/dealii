@@ -1008,7 +1008,7 @@ namespace FETools
                      fe.base_element(base).get_first_quad_index(face_no));
 
                   const unsigned int face_index_in_base =
-                    (fe.base_element(base).get_first_face_quad_index() +
+                    (fe.base_element(base).get_first_face_quad_index(face_no) +
                      local_index);
 
                   face_system_to_base_table[total_index] =

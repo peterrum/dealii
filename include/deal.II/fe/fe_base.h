@@ -501,7 +501,7 @@ public:
    * Return first index of dof on a quad for face data.
    */
   unsigned int
-  get_first_face_quad_index() const;
+  get_first_face_quad_index(const unsigned int face_no) const;
 };
 
 
@@ -723,8 +723,10 @@ FiniteElementData<dim>::get_first_face_line_index(
 
 template <int dim>
 unsigned int
-FiniteElementData<dim>::get_first_face_quad_index() const
+FiniteElementData<dim>::get_first_face_quad_index(
+  const unsigned int face_no) const
 {
+  (void)face_no;
   return first_face_quad_index;
 }
 
