@@ -150,8 +150,8 @@ FE_PolyFace<PolynomialType, dim, spacedim>::fill_fe_face_values(
                          ++k)
                       output_data.shape_values(foffset + k, i) =
                         fe_data
-                          .shape_values[k + this->get_first_face_quad_index()]
-                                       [i];
+                          .shape_values[k + this->get_first_face_quad_index(
+                                              face_no)][i];
                   }
               }
               DEAL_II_FALLTHROUGH;
