@@ -927,7 +927,7 @@ void
 FE_Q_Hierarchical<dim>::get_face_interpolation_matrix(
   const FiniteElement<dim> &x_source_fe,
   FullMatrix<double> &      interpolation_matrix,
-  const unsigned int) const
+  const unsigned int        face_no) const
 {
   // this is only implemented, if the
   // source FE is also a
@@ -938,12 +938,12 @@ FE_Q_Hierarchical<dim>::get_face_interpolation_matrix(
                  nullptr),
               (typename FiniteElement<dim>::ExcInterpolationNotImplemented()));
 
-  Assert(interpolation_matrix.n() == this->n_dofs_per_face(),
+  Assert(interpolation_matrix.n() == this->n_dofs_per_face(face_no),
          ExcDimensionMismatch(interpolation_matrix.n(),
-                              this->n_dofs_per_face()));
-  Assert(interpolation_matrix.m() == x_source_fe.n_dofs_per_face(),
+                              this->n_dofs_per_face(face_no)));
+  Assert(interpolation_matrix.m() == x_source_fe.n_dofs_per_face(face_no),
          ExcDimensionMismatch(interpolation_matrix.m(),
-                              x_source_fe.n_dofs_per_face()));
+                              x_source_fe.n_dofs_per_face(face_no)));
 
   // ok, source is a Q_Hierarchical element, so
   // we will be able to do the work
@@ -962,7 +962,7 @@ FE_Q_Hierarchical<dim>::get_face_interpolation_matrix(
   // lead to problems in the
   // hp procedures, which use this
   // method.
-  Assert(this->n_dofs_per_face() <= source_fe.n_dofs_per_face(),
+  Assert(this->n_dofs_per_face(face_no) <= source_fe.n_dofs_per_face(face_no),
          (typename FiniteElement<dim>::ExcInterpolationNotImplemented()));
   interpolation_matrix = 0;
 
@@ -976,7 +976,7 @@ FE_Q_Hierarchical<dim>::get_face_interpolation_matrix(
           // element, which corresponds to 1 on diagonal of the matrix.
           // DoFs which correspond to higher polynomials
           // are zeroed (zero rows in the matrix).
-          for (unsigned int i = 0; i < this->n_dofs_per_face(); ++i)
+          for (unsigned int i = 0; i < this->n_dofs_per_face(face_no); ++i)
             interpolation_matrix(i, i) = 1;
 
           break;
@@ -1016,7 +1016,7 @@ FE_Q_Hierarchical<dim>::get_subface_interpolation_matrix(
   const FiniteElement<dim> &x_source_fe,
   const unsigned int        subface,
   FullMatrix<double> &      interpolation_matrix,
-  const unsigned int) const
+  const unsigned int        face_no) const
 {
   // this is only implemented, if the
   // source FE is also a
@@ -1027,12 +1027,12 @@ FE_Q_Hierarchical<dim>::get_subface_interpolation_matrix(
                  nullptr),
               (typename FiniteElement<dim>::ExcInterpolationNotImplemented()));
 
-  Assert(interpolation_matrix.n() == this->n_dofs_per_face(),
+  Assert(interpolation_matrix.n() == this->n_dofs_per_face(face_no),
          ExcDimensionMismatch(interpolation_matrix.n(),
-                              this->n_dofs_per_face()));
-  Assert(interpolation_matrix.m() == x_source_fe.n_dofs_per_face(),
+                              this->n_dofs_per_face(face_no)));
+  Assert(interpolation_matrix.m() == x_source_fe.n_dofs_per_face(face_no),
          ExcDimensionMismatch(interpolation_matrix.m(),
-                              x_source_fe.n_dofs_per_face()));
+                              x_source_fe.n_dofs_per_face(face_no)));
 
   // ok, source is a Q_Hierarchical element, so
   // we will be able to do the work
@@ -1050,7 +1050,7 @@ FE_Q_Hierarchical<dim>::get_subface_interpolation_matrix(
   // lead to problems in the
   // hp procedures, which use this
   // method.
-  Assert(this->n_dofs_per_face() <= source_fe.n_dofs_per_face(),
+  Assert(this->n_dofs_per_face(face_no) <= source_fe.n_dofs_per_face(face_no),
          (typename FiniteElement<dim>::ExcInterpolationNotImplemented()));
 
   switch (dim)
@@ -1065,7 +1065,8 @@ FE_Q_Hierarchical<dim>::get_subface_interpolation_matrix(
                   interpolation_matrix(1, 0) = 0.5;
                   interpolation_matrix(1, 1) = 0.5;
 
-                  for (unsigned int dof = 2; dof < this->n_dofs_per_face();)
+                  for (unsigned int dof = 2;
+                       dof < this->n_dofs_per_face(face_no);)
                     {
                       interpolation_matrix(1, dof) = -1.0;
                       dof                          = dof + 2;
@@ -1073,14 +1074,16 @@ FE_Q_Hierarchical<dim>::get_subface_interpolation_matrix(
 
                   int factorial_i = 1;
 
-                  for (unsigned int i = 2; i < this->n_dofs_per_face(); ++i)
+                  for (unsigned int i = 2; i < this->n_dofs_per_face(face_no);
+                       ++i)
                     {
                       interpolation_matrix(i, i) = std::pow(0.5, i);
                       factorial_i *= i;
                       int factorial_j  = factorial_i;
                       int factorial_ij = 1;
 
-                      for (unsigned int j = i + 1; j < this->n_dofs_per_face();
+                      for (unsigned int j = i + 1;
+                           j < this->n_dofs_per_face(face_no);
                            ++j)
                         {
                           factorial_ij *= j - i;
@@ -1106,7 +1109,8 @@ FE_Q_Hierarchical<dim>::get_subface_interpolation_matrix(
                   interpolation_matrix(0, 0) = 0.5;
                   interpolation_matrix(0, 1) = 0.5;
 
-                  for (unsigned int dof = 2; dof < this->n_dofs_per_face();)
+                  for (unsigned int dof = 2;
+                       dof < this->n_dofs_per_face(face_no);)
                     {
                       interpolation_matrix(0, dof) = -1.0;
                       dof                          = dof + 2;
@@ -1116,14 +1120,16 @@ FE_Q_Hierarchical<dim>::get_subface_interpolation_matrix(
 
                   int factorial_i = 1;
 
-                  for (unsigned int i = 2; i < this->n_dofs_per_face(); ++i)
+                  for (unsigned int i = 2; i < this->n_dofs_per_face(face_no);
+                       ++i)
                     {
                       interpolation_matrix(i, i) = std::pow(0.5, i);
                       factorial_i *= i;
                       int factorial_j  = factorial_i;
                       int factorial_ij = 1;
 
-                      for (unsigned int j = i + 1; j < this->n_dofs_per_face();
+                      for (unsigned int j = i + 1;
+                           j < this->n_dofs_per_face(face_no);
                            ++j)
                         {
                           factorial_ij *= j - i;

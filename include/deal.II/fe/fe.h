@@ -1286,7 +1286,7 @@ public:
   virtual void
   get_face_interpolation_matrix(const FiniteElement<dim, spacedim> &source,
                                 FullMatrix<double> &                matrix,
-                                const unsigned int face_no) const;
+                                const unsigned int face_no = 0) const;
 
 
   /**
@@ -1304,7 +1304,7 @@ public:
   get_subface_interpolation_matrix(const FiniteElement<dim, spacedim> &source,
                                    const unsigned int                  subface,
                                    FullMatrix<double> &                matrix,
-                                   const unsigned int face_no) const;
+                                   const unsigned int face_no = 0) const;
   //@}
 
 
@@ -1344,7 +1344,7 @@ public:
    */
   virtual std::vector<std::pair<unsigned int, unsigned int>>
   hp_quad_dof_identities(const FiniteElement<dim, spacedim> &fe_other,
-                         const unsigned int                  face_no) const;
+                         const unsigned int face_no = 0 /*TODO*/) const;
 
   /**
    * Return whether this element dominates another one given as argument
@@ -2099,7 +2099,7 @@ public:
    * function.
    */
   bool
-  has_face_support_points(const unsigned int face_no) const;
+  has_face_support_points(const unsigned int face_no = 0 /*TODO*/) const;
 
   /**
    * The function corresponding to the unit_support_point() function, but for
@@ -2107,7 +2107,7 @@ public:
    */
   virtual Point<dim - 1>
   unit_face_support_point(const unsigned int index,
-                          const unsigned int face_no) const;
+                          const unsigned int face_no = 0 /*TODO*/) const;
 
   /**
    * Return a vector of generalized support points.

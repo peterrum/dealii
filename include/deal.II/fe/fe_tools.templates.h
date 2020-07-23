@@ -1033,7 +1033,7 @@ namespace FETools
                       non_primitive_index;
                 }
         }
-      Assert(total_index == fe.n_dofs_per_face(), ExcInternalError());
+      Assert(total_index == fe.n_dofs_per_face(face_no), ExcInternalError());
       Assert(total_index == face_system_to_component_table.size(),
              ExcInternalError());
       Assert(total_index == face_system_to_base_table.size(),
@@ -1954,7 +1954,7 @@ namespace FETools
     Assert(face_fine == 0, ExcNotImplemented());
 
     const unsigned int nc     = GeometryInfo<dim>::max_children_per_face;
-    const unsigned int n      = fe.n_dofs_per_face();
+    const unsigned int n      = fe.n_dofs_per_face(face_no);
     const unsigned int nd     = fe.n_components();
     const unsigned int degree = fe.degree;
 
@@ -2031,7 +2031,7 @@ namespace FETools
               ++face_dof;
             }
         }
-      Assert(face_dof == fe.n_dofs_per_face(), ExcInternalError());
+      Assert(face_dof == fe.n_dofs_per_face(face_no), ExcInternalError());
     }
 
     // Set up meshes, one with a single

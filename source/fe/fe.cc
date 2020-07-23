@@ -65,7 +65,7 @@ FiniteElement<dim, spacedim>::FiniteElement(
   , adjust_line_dof_index_for_line_orientation_table(
       dim == 3 ? this->n_dofs_per_line() : 0)
   , system_to_base_table(this->n_dofs_per_cell())
-  , face_system_to_base_table(this->n_dofs_per_face())
+  , face_system_to_base_table(this->n_dofs_per_face(0 /*TODO*/))
   , component_to_base_table(this->components,
                             std::make_pair(std::make_pair(0U, 0U), 0U))
   ,
@@ -105,19 +105,20 @@ FiniteElement<dim, spacedim>::FiniteElement(
   // initialize some tables in the default way, i.e. if there is only one
   // (vector-)component; if the element is not primitive, leave these tables
   // empty.
+  const unsigned int face_no = 0; // TODO
   if (this->is_primitive())
     {
       system_to_component_table.resize(this->n_dofs_per_cell());
-      face_system_to_component_table.resize(this->n_dofs_per_face());
+      face_system_to_component_table.resize(this->n_dofs_per_face(face_no));
       for (unsigned int j = 0; j < this->n_dofs_per_cell(); ++j)
         system_to_component_table[j] = std::pair<unsigned, unsigned>(0, j);
-      for (unsigned int j = 0; j < this->n_dofs_per_face(); ++j)
+      for (unsigned int j = 0; j < this->n_dofs_per_face(face_no); ++j)
         face_system_to_component_table[j] = std::pair<unsigned, unsigned>(0, j);
     }
 
   for (unsigned int j = 0; j < this->n_dofs_per_cell(); ++j)
     system_to_base_table[j] = std::make_pair(std::make_pair(0U, 0U), j);
-  for (unsigned int j = 0; j < this->n_dofs_per_face(); ++j)
+  for (unsigned int j = 0; j < this->n_dofs_per_face(face_no); ++j)
     face_system_to_base_table[j] = std::make_pair(std::make_pair(0U, 0U), j);
 
   // Fill with default value; may be changed by constructor of derived class.
@@ -543,7 +544,7 @@ FiniteElement<dim, spacedim>::face_to_cell_index(const unsigned int face_index,
                                                  const bool face_flip,
                                                  const bool face_rotation) const
 {
-  AssertIndexRange(face_index, this->n_dofs_per_face());
+  AssertIndexRange(face_index, this->n_dofs_per_face(face));
   AssertIndexRange(face, GeometryInfo<dim>::faces_per_cell);
 
   // TODO: we could presumably solve the 3d case below using the
@@ -795,8 +796,10 @@ bool
 FiniteElement<dim, spacedim>::constraints_are_implemented(
   const internal::SubfaceCase<dim> &subface_case) const
 {
+  const unsigned int face_no = 0; // TODO
   if (subface_case == internal::SubfaceCase<dim>::case_isotropic)
-    return (this->n_dofs_per_face() == 0) || (interface_constraints.m() != 0);
+    return (this->n_dofs_per_face(face_no) == 0) ||
+           (interface_constraints.m() != 0);
   else
     return false;
 }
@@ -817,6 +820,7 @@ const FullMatrix<double> &
 FiniteElement<dim, spacedim>::constraints(
   const internal::SubfaceCase<dim> &subface_case) const
 {
+  const unsigned int face_no = 0; // TODO
   (void)subface_case;
   Assert(subface_case == internal::SubfaceCase<dim>::case_isotropic,
          ExcMessage("Constraints for this element are only implemented "
@@ -824,7 +828,8 @@ FiniteElement<dim, spacedim>::constraints(
                     "(which is always the case in 2d, and in 3d requires "
                     "that the neighboring cell of a coarse cell presents "
                     "exactly four children on the common face)."));
-  Assert((this->n_dofs_per_face() == 0) || (interface_constraints.m() != 0),
+  Assert((this->n_dofs_per_face(face_no) == 0) ||
+           (interface_constraints.m() != 0),
          ExcMessage("The finite element for which you try to obtain "
                     "hanging node constraints does not appear to "
                     "implement them."));
@@ -850,11 +855,11 @@ FiniteElement<dim, spacedim>::interface_constraints_size() const
         return {0U, 0U};
       case 2:
         return {this->n_dofs_per_vertex() + 2 * this->n_dofs_per_line(),
-                this->n_dofs_per_face()};
+                this->n_dofs_per_face(face_no)};
       case 3:
         return {5 * this->n_dofs_per_vertex() + 12 * this->n_dofs_per_line() +
                   4 * this->n_dofs_per_quad(face_no),
-                this->n_dofs_per_face()};
+                this->n_dofs_per_face(face_no)};
       default:
         Assert(false, ExcNotImplemented());
     }
@@ -1049,14 +1054,12 @@ const std::vector<Point<dim - 1>> &
 FiniteElement<dim, spacedim>::get_unit_face_support_points(
   const unsigned int face_no) const
 {
-  (void)face_no;
-
   // a finite element may define
   // support points, but only if
   // there are as many as there are
   // degrees of freedom on a face
   Assert((unit_face_support_points.size() == 0) ||
-           (unit_face_support_points.size() == this->n_dofs_per_face()),
+           (unit_face_support_points.size() == this->n_dofs_per_face(face_no)),
          ExcInternalError());
   return unit_face_support_points;
 }
@@ -1081,10 +1084,8 @@ FiniteElement<dim, spacedim>::unit_face_support_point(
   const unsigned int index,
   const unsigned int face_no) const
 {
-  (void)face_no;
-
-  AssertIndexRange(index, this->n_dofs_per_face());
-  Assert(unit_face_support_points.size() == this->n_dofs_per_face(),
+  AssertIndexRange(index, this->n_dofs_per_face(face_no));
+  Assert(unit_face_support_points.size() == this->n_dofs_per_face(face_no),
          ExcFEHasNoSupportPoints());
   return unit_face_support_points[index];
 }
