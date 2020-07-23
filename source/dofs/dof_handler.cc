@@ -309,7 +309,7 @@ namespace internal
           {
             dof_handler.object_dof_indices[i][2].resize(
               dof_handler.tria->n_raw_cells(i) *
-                dof_handler.get_fe().n_dofs_per_quad(),
+                dof_handler.get_fe().n_dofs_per_quad(0 /*TODO*/),
               numbers::invalid_dof_index);
 
             dof_handler.object_dof_ptr[i][2].reserve(
@@ -317,7 +317,7 @@ namespace internal
             for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
                  j++)
               dof_handler.object_dof_ptr[i][2].push_back(
-                j * dof_handler.get_fe().n_dofs_per_quad());
+                j * dof_handler.get_fe().n_dofs_per_quad(0 /*TODO*/));
 
             dof_handler.cell_dof_cache_indices[i].resize(
               dof_handler.tria->n_raw_cells(i) *
@@ -415,11 +415,11 @@ namespace internal
             for (unsigned int i = 0; i < dof_handler.tria->n_raw_quads() + 1;
                  i++)
               dof_handler.object_dof_ptr[0][2].push_back(
-                i * dof_handler.get_fe().n_dofs_per_quad());
+                i * dof_handler.get_fe().n_dofs_per_quad(0 /*TODO*/));
 
             dof_handler.object_dof_indices[0][2].resize(
               dof_handler.tria->n_raw_quads() *
-                dof_handler.get_fe().n_dofs_per_quad(),
+                dof_handler.get_fe().n_dofs_per_quad(0 /*TODO*/),
               numbers::invalid_dof_index);
           }
       }
@@ -511,9 +511,9 @@ namespace internal
               std::make_unique<
                 internal::DoFHandlerImplementation::DoFLevel<2>>());
             dof_handler.mg_levels.back()->dof_object.dofs =
-              std::vector<types::global_dof_index>(tria.n_raw_quads(i) *
-                                                     fe.n_dofs_per_quad(),
-                                                   numbers::invalid_dof_index);
+              std::vector<types::global_dof_index>(
+                tria.n_raw_quads(i) * fe.n_dofs_per_quad(0 /*TODO*/),
+                numbers::invalid_dof_index);
           }
 
         dof_handler.mg_faces =
@@ -599,7 +599,7 @@ namespace internal
                                                numbers::invalid_dof_index);
         dof_handler.mg_faces->quads.dofs =
           std::vector<types::global_dof_index>(tria.n_raw_quads() *
-                                                 fe.n_dofs_per_quad(),
+                                                 fe.n_dofs_per_quad(0 /*TODO*/),
                                                numbers::invalid_dof_index);
 
         const unsigned int n_vertices = tria.n_vertices();

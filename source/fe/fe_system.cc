@@ -1392,6 +1392,8 @@ template <int dim, int spacedim>
 void
 FESystem<dim, spacedim>::build_interface_constraints()
 {
+  const unsigned int face_no = 0; // TODO
+
   // check whether all base elements implement their interface constraint
   // matrices. if this is not the case, then leave the interface costraints of
   // this composed element empty as well; however, the rest of the element is
@@ -1541,13 +1543,13 @@ FESystem<dim, spacedim>::build_interface_constraints()
                     const unsigned int index_in_quad =
                       (m - 5 * this->n_dofs_per_vertex() -
                        12 * this->n_dofs_per_line()) %
-                      this->n_dofs_per_quad();
-                    Assert(index_in_quad < this->n_dofs_per_quad(),
+                      this->n_dofs_per_quad(face_no);
+                    Assert(index_in_quad < this->n_dofs_per_quad(face_no),
                            ExcInternalError());
                     const unsigned int sub_quad =
                       ((m - 5 * this->n_dofs_per_vertex() -
                         12 * this->n_dofs_per_line()) /
-                       this->n_dofs_per_quad());
+                       this->n_dofs_per_quad(face_no));
                     Assert(sub_quad < 4, ExcInternalError());
 
                     const unsigned int tmp1 = 4 * this->n_dofs_per_vertex() +
@@ -1569,13 +1571,14 @@ FESystem<dim, spacedim>::build_interface_constraints()
                         base_element(m_index.first.first).n_dofs_per_vertex() -
                       4 * base_element(m_index.first.first).n_dofs_per_line();
                     Assert(tmp2 < base_element(m_index.first.first)
-                                    .n_dofs_per_quad(),
+                                    .n_dofs_per_quad(face_no),
                            ExcInternalError());
                     m_index.second =
                       5 *
                         base_element(m_index.first.first).n_dofs_per_vertex() +
                       12 * base_element(m_index.first.first).n_dofs_per_line() +
-                      base_element(m_index.first.first).n_dofs_per_quad() *
+                      base_element(m_index.first.first)
+                          .n_dofs_per_quad(face_no) *
                         sub_quad +
                       tmp2;
                   }
@@ -1811,7 +1814,7 @@ FESystem<dim, spacedim>::initialize(
       // the array into which we want to write should have the correct size
       // already.
       Assert(this->adjust_quad_dof_index_for_face_orientation_table
-                 .n_elements() == 8 * this->n_dofs_per_quad(),
+                 .n_elements() == 8 * this->n_dofs_per_quad(0 /*TODO*/),
              ExcInternalError());
 
       // to obtain the shifts for this composed element, copy the shift
@@ -1831,7 +1834,7 @@ FESystem<dim, spacedim>::initialize(
               index += temp.size(0);
             }
         }
-      Assert(index == this->n_dofs_per_quad(), ExcInternalError());
+      Assert(index == this->n_dofs_per_quad(0 /*TODO*/), ExcInternalError());
 
       // additionally compose the permutation information for lines
       Assert(this->adjust_line_dof_index_for_line_orientation_table.size() ==

@@ -822,11 +822,11 @@ namespace internal
           {
             const auto &fe = accessor.get_fe(fe_index_);
 
-            const unsigned int                          //
-              dofs_per_vertex = fe.n_dofs_per_vertex(), //
-              dofs_per_line   = fe.n_dofs_per_line(),   //
-              dofs_per_quad   = fe.n_dofs_per_quad(),   //
-              dofs_per_hex    = fe.n_dofs_per_hex();    //
+            const unsigned int                                   //
+              dofs_per_vertex = fe.n_dofs_per_vertex(),          //
+              dofs_per_line   = fe.n_dofs_per_line(),            //
+              dofs_per_quad   = fe.n_dofs_per_quad(0 /*dummy*/), //
+              dofs_per_hex    = fe.n_dofs_per_hex();             //
 
             const unsigned int inner_dofs =
               structdim == 1 ? dofs_per_line :

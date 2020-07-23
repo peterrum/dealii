@@ -183,7 +183,10 @@ namespace DoFTools
                ExcInternalError());
         Assert(fe2.n_dofs_per_line() <= fe1.n_dofs_per_line(),
                ExcInternalError());
-        Assert((dim < 3) || (fe2.n_dofs_per_quad() <= fe1.n_dofs_per_quad()),
+
+        const unsigned int face_no = 0; // TODO
+        Assert((dim < 3) ||
+                 (fe2.n_dofs_per_quad(face_no) <= fe1.n_dofs_per_quad(face_no)),
                ExcInternalError());
 
         // the idea here is to designate as many DoFs in fe1 per object (vertex,
@@ -268,9 +271,9 @@ namespace DoFTools
             // same algorithm as above
             unsigned int dofs_added = 0;
             unsigned int i          = 0;
-            while (dofs_added < fe2.n_dofs_per_quad())
+            while (dofs_added < fe2.n_dofs_per_quad(q))
               {
-                Assert(i < fe1.n_dofs_per_quad(), ExcInternalError());
+                Assert(i < fe1.n_dofs_per_quad(q), ExcInternalError());
 
                 primary_dof_list.push_back(index + i);
                 if (check_primary_dof_list(face_interpolation_matrix,
@@ -281,7 +284,7 @@ namespace DoFTools
 
                 ++i;
               }
-            index += fe1.n_dofs_per_quad();
+            index += fe1.n_dofs_per_quad(q);
           }
 
         AssertDimension(index, fe1.n_dofs_per_face());
@@ -846,7 +849,7 @@ namespace DoFTools
                 const unsigned int n_dofs_on_mother = fe.n_dofs_per_face();
                 const unsigned int n_dofs_on_children =
                   (5 * fe.n_dofs_per_vertex() + 12 * fe.n_dofs_per_line() +
-                   4 * fe.n_dofs_per_quad());
+                   4 * fe.n_dofs_per_quad(face));
 
                 // TODO[TL]: think about this and the following in case of
                 // anisotropic refinement
@@ -879,7 +882,8 @@ namespace DoFTools
                   for (unsigned int dof = 0; dof != fe.n_dofs_per_line(); ++dof)
                     dofs_on_mother[next_index++] =
                       this_face->line(line)->dof_index(dof, fe_index);
-                for (unsigned int dof = 0; dof != fe.n_dofs_per_quad(); ++dof)
+                for (unsigned int dof = 0; dof != fe.n_dofs_per_quad(face);
+                     ++dof)
                   dofs_on_mother[next_index++] =
                     this_face->dof_index(dof, fe_index);
                 AssertDimension(next_index, dofs_on_mother.size());
@@ -944,7 +948,7 @@ namespace DoFTools
                     if (cell->neighbor_child_on_subface(face, child)
                           ->is_artificial())
                       continue;
-                    for (unsigned int dof = 0; dof != fe.n_dofs_per_quad();
+                    for (unsigned int dof = 0; dof != fe.n_dofs_per_quad(face);
                          ++dof)
                       dofs_on_children.push_back(
                         this_face->child(child)->dof_index(dof, fe_index));

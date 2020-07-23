@@ -2670,7 +2670,7 @@ namespace VectorTools
               // Loop over these quad-interior dofs.
               unsigned int associated_face_dof_index = 0;
               for (unsigned int quad_dof_idx = 0;
-                   quad_dof_idx < fe.n_dofs_per_quad();
+                   quad_dof_idx < fe.n_dofs_per_quad(face);
                    ++quad_dof_idx)
                 {
                   const unsigned int face_idx =

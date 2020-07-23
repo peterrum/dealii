@@ -393,7 +393,7 @@ public:
    * Number of dofs per quad. Not including dofs on lower dimensional objects.
    */
   unsigned int
-  n_dofs_per_quad() const;
+  n_dofs_per_quad(unsigned int face_no) const;
 
   /**
    * Number of dofs per hex. Not including dofs on lower dimensional objects.
@@ -587,8 +587,9 @@ FiniteElementData<dim>::n_dofs_per_line() const
 
 template <int dim>
 inline unsigned int
-FiniteElementData<dim>::n_dofs_per_quad() const
+FiniteElementData<dim>::n_dofs_per_quad(unsigned int face_no) const
 {
+  (void)face_no;
   return dofs_per_quad;
 }
 

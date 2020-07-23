@@ -83,6 +83,8 @@ namespace FETools
       const std::vector<unsigned int> &                        multiplicities,
       const bool do_tensor_product)
     {
+      const unsigned int face_no = 0; // TODO
+
       AssertDimension(fes.size(), multiplicities.size());
 
       unsigned int multiplied_dofs_per_vertex = 0;
@@ -111,7 +113,7 @@ namespace FETools
             multiplied_dofs_per_line +=
               fes[i]->n_dofs_per_line() * multiplicities[i];
             multiplied_dofs_per_quad +=
-              fes[i]->n_dofs_per_quad() * multiplicities[i];
+              fes[i]->n_dofs_per_quad(face_no) * multiplicities[i];
             multiplied_dofs_per_hex +=
               fes[i]->n_dofs_per_hex() * multiplicities[i];
 
@@ -287,12 +289,12 @@ namespace FETools
           for (unsigned int base = 0; base < fes.size(); ++base)
             for (unsigned int m = 0; m < multiplicities[base]; ++m)
               for (unsigned int local_index = 0;
-                   local_index < fes[base]->n_dofs_per_quad();
+                   local_index < fes[base]->n_dofs_per_quad(quad_number);
                    ++local_index, ++total_index)
                 {
                   const unsigned int index_in_base =
-                    (fes[base]->n_dofs_per_quad() * quad_number + local_index +
-                     fes[base]->get_first_quad_index());
+                    (fes[base]->n_dofs_per_quad(quad_number) * quad_number +
+                     local_index + fes[base]->get_first_quad_index());
 
                   Assert(index_in_base < fes[base]->n_dofs_per_cell(),
                          ExcInternalError());
@@ -509,12 +511,12 @@ namespace FETools
                               comp_start +=
                               fes[base]->n_components() * do_tensor_product)
               for (unsigned int local_index = 0;
-                   local_index < fes[base]->n_dofs_per_quad();
+                   local_index < fes[base]->n_dofs_per_quad(quad_number);
                    ++local_index, ++total_index)
                 {
                   const unsigned int index_in_base =
-                    (fes[base]->n_dofs_per_quad() * quad_number + local_index +
-                     fes[base]->get_first_quad_index());
+                    (fes[base]->n_dofs_per_quad(quad_number) * quad_number +
+                     local_index + fes[base]->get_first_quad_index());
 
                   Assert(comp_start + fes[base]->n_components() <=
                            retval[total_index].size(),
@@ -773,11 +775,13 @@ namespace FETools
                               fe.base_element(base).n_components() *
                               do_tensor_product)
               for (unsigned int local_index = 0;
-                   local_index < fe.base_element(base).n_dofs_per_quad();
+                   local_index <
+                   fe.base_element(base).n_dofs_per_quad(quad_number);
                    ++local_index, ++total_index)
                 {
                   const unsigned int index_in_base =
-                    (fe.base_element(base).n_dofs_per_quad() * quad_number +
+                    (fe.base_element(base).n_dofs_per_quad(quad_number) *
+                       quad_number +
                      local_index +
                      fe.base_element(base).get_first_quad_index());
 
@@ -870,7 +874,8 @@ namespace FETools
       unsigned int total_index = 0;
       for (unsigned int vertex_number = 0;
            vertex_number <
-           ReferenceCell::internal::Info::get_face(fe.reference_cell_type(), 0)
+           ReferenceCell::internal::Info::get_face(fe.reference_cell_type(),
+                                                   face_no)
              .n_vertices();
            ++vertex_number)
         {
@@ -929,7 +934,8 @@ namespace FETools
       // 2. Lines
       for (unsigned int line_number = 0;
            line_number <
-           ReferenceCell::internal::Info::get_face(fe.reference_cell_type(), 0)
+           ReferenceCell::internal::Info::get_face(fe.reference_cell_type(),
+                                                   face_no)
              .n_lines();
            ++line_number)
         {
@@ -991,7 +997,7 @@ namespace FETools
                               fe.base_element(base).n_components() *
                               do_tensor_product)
               for (unsigned int local_index = 0;
-                   local_index < fe.base_element(base).n_dofs_per_quad();
+                   local_index < fe.base_element(base).n_dofs_per_quad(face_no);
                    ++local_index, ++total_index)
                 {
                   // do everything alike for this type of object
@@ -1942,6 +1948,8 @@ namespace FETools
     const unsigned int face_fine,
     const double       threshold)
   {
+    const unsigned int face_no = 0; // TODO
+
     Assert(face_coarse == 0, ExcNotImplemented());
     Assert(face_fine == 0, ExcNotImplemented());
 
@@ -1969,9 +1977,9 @@ namespace FETools
     {
       unsigned int face_dof = 0;
       for (unsigned int i = 0;
-           i <
-           ReferenceCell::internal::Info::get_face(fe.reference_cell_type(), 0)
-             .n_vertices();
+           i < ReferenceCell::internal::Info::get_face(fe.reference_cell_type(),
+                                                       face_no)
+                 .n_vertices();
            ++i)
         {
           const unsigned int offset_c =
@@ -1988,10 +1996,9 @@ namespace FETools
             }
         }
 
-      for (unsigned int i = 1;
-           i <=
-           ReferenceCell::internal::Info::get_face(fe.reference_cell_type(), 0)
-             .n_lines();
+      for (unsigned int i = 1; i <= ReferenceCell::internal::Info::get_face(
+                                      fe.reference_cell_type(), face_no)
+                                      .n_lines();
            ++i)
         {
           const unsigned int offset_c =
@@ -2013,10 +2020,11 @@ namespace FETools
       if (dim == 3)
         {
           const unsigned int offset_c =
-            fe.get_first_quad_index() + face_coarse * fe.n_dofs_per_quad();
+            fe.get_first_quad_index() +
+            face_coarse * fe.n_dofs_per_quad(face_no);
           const unsigned int offset_f =
-            fe.get_first_quad_index() + face_fine * fe.n_dofs_per_quad();
-          for (unsigned int j = 0; j < fe.n_dofs_per_quad(); ++j)
+            fe.get_first_quad_index() + face_fine * fe.n_dofs_per_quad(face_no);
+          for (unsigned int j = 0; j < fe.n_dofs_per_quad(face_no); ++j)
             {
               face_c_dofs[face_dof] = offset_c + j;
               face_f_dofs[face_dof] = offset_f + j;

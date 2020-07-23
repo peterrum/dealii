@@ -299,7 +299,7 @@ template <int dim>
 std::vector<std::pair<unsigned int, unsigned int>>
 FE_Q_Hierarchical<dim>::hp_quad_dof_identities(
   const FiniteElement<dim> &fe_other,
-  const unsigned int) const
+  const unsigned int        face_no) const
 {
   // we can presently only compute
   // these identities if both FEs are
@@ -307,8 +307,8 @@ FE_Q_Hierarchical<dim>::hp_quad_dof_identities(
   // one is an FE_Nothing.
   if (dynamic_cast<const FE_Q_Hierarchical<dim> *>(&fe_other) != nullptr)
     {
-      const unsigned int this_dpq  = this->n_dofs_per_quad();
-      const unsigned int other_dpq = fe_other.n_dofs_per_quad();
+      const unsigned int this_dpq  = this->n_dofs_per_quad(face_no);
+      const unsigned int other_dpq = fe_other.n_dofs_per_quad(face_no);
 
       // we deal with hierarchical 1d polynomials where dofs are enumerated
       // increasingly. Thus we return a vector of pairs for the first N-1, where
@@ -2029,7 +2029,7 @@ FE_Q_Hierarchical<dim>::hierarchic_to_fe_q_hierarchical_numbering(
           for (unsigned int i = 0; i < fe.n_dofs_per_line(); ++i)
             h2l[next_index++] = n + 2 + i;
           // inside quad
-          Assert(fe.n_dofs_per_quad() ==
+          Assert(fe.n_dofs_per_quad(0 /*TODO*/) ==
                    fe.n_dofs_per_line() * fe.n_dofs_per_line(),
                  ExcInternalError());
           for (unsigned int i = 0; i < fe.n_dofs_per_line(); ++i)
@@ -2087,7 +2087,7 @@ FE_Q_Hierarchical<dim>::hierarchic_to_fe_q_hierarchical_numbering(
             h2l[next_index++] = (2 + i) * n2 + n + 1;
 
           // inside quads
-          Assert(fe.n_dofs_per_quad() ==
+          Assert(fe.n_dofs_per_quad(0 /*TODO*/) ==
                    fe.n_dofs_per_line() * fe.n_dofs_per_line(),
                  ExcInternalError());
           // left face
@@ -2117,7 +2117,7 @@ FE_Q_Hierarchical<dim>::hierarchic_to_fe_q_hierarchical_numbering(
 
           // inside hex
           Assert(fe.n_dofs_per_hex() ==
-                   fe.n_dofs_per_quad() * fe.n_dofs_per_line(),
+                   fe.n_dofs_per_quad(0 /*TODO*/) * fe.n_dofs_per_line(),
                  ExcInternalError());
           for (unsigned int i = 0; i < fe.n_dofs_per_line(); ++i)
             for (unsigned int j = 0; j < fe.n_dofs_per_line(); ++j)
@@ -2231,7 +2231,8 @@ FE_Q_Hierarchical<dim>::has_support_on_face(const unsigned int shape_index,
     // dof is on a quad
     {
       const unsigned int quad_index =
-        (shape_index - this->get_first_quad_index()) / this->n_dofs_per_quad();
+        (shape_index - this->get_first_quad_index()) /
+        this->n_dofs_per_quad(face_index);
       Assert(static_cast<signed int>(quad_index) <
                static_cast<signed int>(GeometryInfo<dim>::quads_per_cell),
              ExcInternalError());

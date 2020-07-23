@@ -979,12 +979,14 @@ FE_Q_Base<PolynomialType, dim, spacedim>::
   if (dim < 3)
     return;
 
+  const unsigned int face_no = 0; // TODO
+
   Assert(this->adjust_quad_dof_index_for_face_orientation_table.n_elements() ==
-           8 * this->n_dofs_per_quad(),
+           8 * this->n_dofs_per_quad(face_no),
          ExcInternalError());
 
   const unsigned int n = q_degree - 1;
-  Assert(n * n == this->n_dofs_per_quad(), ExcInternalError());
+  Assert(n * n == this->n_dofs_per_quad(face_no), ExcInternalError());
 
   // the dofs on a face are connected to a n x n matrix. for example, for
   // degree==4 we have the following dofs on a quad
@@ -1004,7 +1006,7 @@ FE_Q_Base<PolynomialType, dim, spacedim>::
   // rotated and mirrored numbers.
 
 
-  for (unsigned int local = 0; local < this->n_dofs_per_quad(); ++local)
+  for (unsigned int local = 0; local < this->n_dofs_per_quad(face_no); ++local)
     // face support points are in lexicographic ordering with x running
     // fastest. invert that (y running fastest)
     {
@@ -1147,12 +1149,12 @@ FE_Q_Base<PolynomialType, dim, spacedim>::face_to_cell_index(
       // the same is true here as above for the 3d case -- someone will
       // just have to draw a bunch of pictures. in the meantime,
       // we can implement the Q2 case in which it is simple
-      Assert((this->n_dofs_per_quad() <= 1) ||
+      Assert((this->n_dofs_per_quad(face) <= 1) ||
                ((face_orientation == true) && (face_flip == false) &&
                 (face_rotation == false)),
              ExcNotImplemented());
-      return (this->get_first_quad_index() + face * this->n_dofs_per_quad() +
-              index);
+      return (this->get_first_quad_index() +
+              face * this->n_dofs_per_quad(face) + index);
     }
 }
 
@@ -1596,7 +1598,8 @@ FE_Q_Base<PolynomialType, dim, spacedim>::has_support_on_face(
     // dof is on a quad
     {
       const unsigned int quad_index =
-        (shape_index - this->get_first_quad_index()) / this->n_dofs_per_quad();
+        (shape_index - this->get_first_quad_index()) /
+        this->n_dofs_per_quad(face_index);
       Assert(static_cast<signed int>(quad_index) <
                static_cast<signed int>(GeometryInfo<dim>::quads_per_cell),
              ExcInternalError());
