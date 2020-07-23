@@ -906,14 +906,16 @@ void
 FE_Enriched<dim, spacedim>::get_subface_interpolation_matrix(
   const FiniteElement<dim, spacedim> &source,
   const unsigned int                  subface,
-  FullMatrix<double> &                matrix) const
+  FullMatrix<double> &                matrix,
+  const unsigned int                  face_no) const
 {
   if (const FE_Enriched<dim, spacedim> *fe_enr_other =
         dynamic_cast<const FE_Enriched<dim, spacedim> *>(&source))
     {
       fe_system->get_subface_interpolation_matrix(fe_enr_other->get_fe_system(),
                                                   subface,
-                                                  matrix);
+                                                  matrix,
+                                                  face_no);
     }
   else
     {

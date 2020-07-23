@@ -140,10 +140,15 @@ namespace CUDAWrappers
       void
       setup_constraint_weigths(unsigned int fe_degree)
       {
+        const unsigned int face_no = 0;
+
         FE_Q<2>            fe_q(fe_degree);
         FullMatrix<double> interpolation_matrix(fe_q.n_dofs_per_face(),
                                                 fe_q.n_dofs_per_face());
-        fe_q.get_subface_interpolation_matrix(fe_q, 0, interpolation_matrix);
+        fe_q.get_subface_interpolation_matrix(fe_q,
+                                              0,
+                                              interpolation_matrix,
+                                              face_no);
 
         std::vector<unsigned int> mapping =
           FETools::lexicographic_to_hierarchic_numbering<1>(fe_degree);

@@ -296,7 +296,8 @@ public:
   virtual void
   get_subface_interpolation_matrix(const FiniteElement<dim> &source,
                                    const unsigned int        subface,
-                                   FullMatrix<double> &matrix) const override;
+                                   FullMatrix<double> &      matrix,
+                                   const unsigned int face_no) const override;
   virtual bool
   hp_constraints_are_implemented() const override;
 

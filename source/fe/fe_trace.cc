@@ -217,11 +217,12 @@ void
 FE_TraceQ<dim, spacedim>::get_face_interpolation_matrix(
   const FiniteElement<dim, spacedim> &source_fe,
   FullMatrix<double> &                interpolation_matrix,
-  const unsigned int) const
+  const unsigned int                  face_no) const
 {
   get_subface_interpolation_matrix(source_fe,
                                    numbers::invalid_unsigned_int,
-                                   interpolation_matrix);
+                                   interpolation_matrix,
+                                   face_no);
 }
 
 
@@ -231,7 +232,8 @@ void
 FE_TraceQ<dim, spacedim>::get_subface_interpolation_matrix(
   const FiniteElement<dim, spacedim> &x_source_fe,
   const unsigned int                  subface,
-  FullMatrix<double> &                interpolation_matrix) const
+  FullMatrix<double> &                interpolation_matrix,
+  const unsigned int                  face_no) const
 {
   // this is the code from FE_FaceQ
   Assert(interpolation_matrix.n() == this->n_dofs_per_face(),
@@ -247,7 +249,8 @@ FE_TraceQ<dim, spacedim>::get_subface_interpolation_matrix(
     {
       fe_q.get_subface_interpolation_matrix(source_fe->fe_q,
                                             subface,
-                                            interpolation_matrix);
+                                            interpolation_matrix,
+                                            face_no);
     }
   else if (dynamic_cast<const FE_Nothing<dim> *>(&x_source_fe) != nullptr)
     {

@@ -133,7 +133,8 @@ void
 FE_DGP<dim, spacedim>::get_subface_interpolation_matrix(
   const FiniteElement<dim, spacedim> &x_source_fe,
   const unsigned int,
-  FullMatrix<double> &interpolation_matrix) const
+  FullMatrix<double> &interpolation_matrix,
+  const unsigned int) const
 {
   // this is only implemented, if the source FE is also a DGP element. in that
   // case, both elements have no dofs on their faces and the face

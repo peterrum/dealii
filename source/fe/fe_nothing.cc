@@ -315,7 +315,8 @@ void
 FE_Nothing<dim, spacedim>::get_subface_interpolation_matrix(
   const FiniteElement<dim, spacedim> & /*source_fe*/,
   const unsigned int /*index*/,
-  FullMatrix<double> &interpolation_matrix) const
+  FullMatrix<double> &interpolation_matrix,
+  const unsigned int) const
 {
   // since this element has no face dofs, the
   // interpolation matrix is necessarily empty

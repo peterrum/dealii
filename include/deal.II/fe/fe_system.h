@@ -928,7 +928,8 @@ public:
   virtual void
   get_subface_interpolation_matrix(const FiniteElement<dim, spacedim> &source,
                                    const unsigned int                  subface,
-                                   FullMatrix<double> &matrix) const override;
+                                   FullMatrix<double> &                matrix,
+                                   const unsigned int face_no) const override;
 
   /**
    * If, on a vertex, several finite elements are active, the hp code first

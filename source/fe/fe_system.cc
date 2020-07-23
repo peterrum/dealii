@@ -1996,10 +1996,9 @@ void
 FESystem<dim, spacedim>::get_subface_interpolation_matrix(
   const FiniteElement<dim, spacedim> &x_source_fe,
   const unsigned int                  subface,
-  FullMatrix<double> &                interpolation_matrix) const
+  FullMatrix<double> &                interpolation_matrix,
+  const unsigned int                  face_no) const
 {
-  const unsigned int face_no = 0; // TODO
-
   AssertThrow(
     (x_source_fe.get_name().find("FESystem<") == 0) ||
       (dynamic_cast<const FESystem<dim, spacedim> *>(&x_source_fe) != nullptr),
@@ -2051,7 +2050,8 @@ FESystem<dim, spacedim>::get_subface_interpolation_matrix(
                                             base.n_dofs_per_face());
           base.get_subface_interpolation_matrix(base_other,
                                                 subface,
-                                                base_to_base_interpolation);
+                                                base_to_base_interpolation,
+                                                face_no);
 
           // now translate entries. we'd like to have something like
           // face_base_to_system_index, but that doesn't exist. rather, all we

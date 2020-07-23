@@ -556,7 +556,8 @@ void
 FE_RaviartThomasNodal<1>::get_subface_interpolation_matrix(
   const FiniteElement<1, 1> & /*x_source_fe*/,
   const unsigned int /*subface*/,
-  FullMatrix<double> & /*interpolation_matrix*/) const
+  FullMatrix<double> & /*interpolation_matrix*/,
+  const unsigned int) const
 {
   Assert(false, ExcImpossibleInDim(1));
 }
@@ -673,7 +674,8 @@ void
 FE_RaviartThomasNodal<dim>::get_subface_interpolation_matrix(
   const FiniteElement<dim> &x_source_fe,
   const unsigned int        subface,
-  FullMatrix<double> &      interpolation_matrix) const
+  FullMatrix<double> &      interpolation_matrix,
+  const unsigned int) const
 {
   // this is only implemented, if the
   // source FE is also a
