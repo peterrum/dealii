@@ -631,10 +631,13 @@ template <int dim, int spacedim>
 unsigned int
 FiniteElement<dim, spacedim>::adjust_quad_dof_index_for_face_orientation(
   const unsigned int index,
+  const unsigned int face,
   const bool         face_orientation,
   const bool         face_flip,
   const bool         face_rotation) const
 {
+  AssertDimension(face, 0);
+
   // general template for 1D and 2D: not
   // implemented. in fact, the function
   // shouldn't even be called unless we are
