@@ -1054,8 +1054,11 @@ FiniteElement<dim, spacedim>::unit_support_point(const unsigned int index) const
 
 template <int dim, int spacedim>
 const std::vector<Point<dim - 1>> &
-FiniteElement<dim, spacedim>::get_unit_face_support_points() const
+FiniteElement<dim, spacedim>::get_unit_face_support_points(
+  const unsigned int face_no) const
 {
+  (void)face_no;
+
   // a finite element may define
   // support points, but only if
   // there are as many as there are
@@ -1070,8 +1073,11 @@ FiniteElement<dim, spacedim>::get_unit_face_support_points() const
 
 template <int dim, int spacedim>
 bool
-FiniteElement<dim, spacedim>::has_face_support_points() const
+FiniteElement<dim, spacedim>::has_face_support_points(
+  const unsigned int face_no) const
 {
+  (void)face_no;
+
   return (unit_face_support_points.size() != 0);
 }
 
@@ -1080,8 +1086,11 @@ FiniteElement<dim, spacedim>::has_face_support_points() const
 template <int dim, int spacedim>
 Point<dim - 1>
 FiniteElement<dim, spacedim>::unit_face_support_point(
-  const unsigned int index) const
+  const unsigned int index,
+  const unsigned int face_no) const
 {
+  (void)face_no;
+
   AssertIndexRange(index, this->n_dofs_per_face());
   Assert(unit_face_support_points.size() == this->n_dofs_per_face(),
          ExcFEHasNoSupportPoints());

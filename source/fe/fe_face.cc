@@ -162,6 +162,8 @@ FE_FaceQ<dim, spacedim>::get_subface_interpolation_matrix(
   const unsigned int                  subface,
   FullMatrix<double> &                interpolation_matrix) const
 {
+  const unsigned int face_no = 0; // TODO
+
   // this function is similar to the respective method in FE_Q
 
   Assert(interpolation_matrix.n() == this->n_dofs_per_face(),
@@ -187,7 +189,7 @@ FE_FaceQ<dim, spacedim>::get_subface_interpolation_matrix(
 
       // generate a quadrature with the unit face support points.
       const Quadrature<dim - 1> face_quadrature(
-        source_fe->get_unit_face_support_points());
+        source_fe->get_unit_face_support_points(face_no));
 
       // Rule of thumb for FP accuracy, that can be expected for a given
       // polynomial degree.  This value is used to cut off values close to

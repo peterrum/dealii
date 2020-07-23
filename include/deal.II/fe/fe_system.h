@@ -867,7 +867,8 @@ public:
    * Implementation of the respective function in the base class.
    */
   virtual Point<dim - 1>
-  unit_face_support_point(const unsigned int index) const override;
+  unit_face_support_point(const unsigned int index,
+                          const unsigned int face_no) const override;
 
   /**
    * Return a list of constant modes of the element. The returns table has as

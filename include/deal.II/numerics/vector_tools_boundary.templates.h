@@ -159,6 +159,8 @@ namespace VectorTools
           dof_values_system.reserve(
             dof.get_fe_collection().max_dofs_per_face());
 
+          const unsigned int face_no = 0; // TODO
+
           // before we start with the loop over all cells create an hp::FEValues
           // object that holds the interpolation points of all finite elements
           // that may ever be in use
@@ -175,13 +177,11 @@ namespace VectorTools
               //
               // to do this, we check whether the FE has support points on the
               // face at all:
-              if (fe.has_face_support_points())
-                q_collection.push_back(
-                  Quadrature<dim - 1>(fe.get_unit_face_support_points()));
+              if (fe.has_face_support_points(face_no))
+                q_collection.push_back(Quadrature<dim - 1>(
+                  fe.get_unit_face_support_points(face_no)));
               else
                 {
-                  const unsigned int face_no = 0; // TODO
-
                   // if not, then we should try a more clever way. the idea is
                   // that a finite element may not offer support points for all
                   // its shape functions, but maybe only some. if it offers
@@ -205,7 +205,8 @@ namespace VectorTools
                       if (component_mask[fe.face_system_to_component_index(
                                              i, face_no)
                                            .first] == true)
-                        unit_support_points[i] = fe.unit_face_support_point(i);
+                        unit_support_points[i] =
+                          fe.unit_face_support_point(i, face_no);
 
                   q_collection.push_back(
                     Quadrature<dim - 1>(unit_support_points));

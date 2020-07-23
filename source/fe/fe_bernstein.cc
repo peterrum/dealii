@@ -111,6 +111,8 @@ FE_Bernstein<dim, spacedim>::get_subface_interpolation_matrix(
   const unsigned int                  subface,
   FullMatrix<double> &                interpolation_matrix) const
 {
+  const unsigned int face_no = 0; // TODO
+
   Assert(interpolation_matrix.m() == x_source_fe.n_dofs_per_face(),
          ExcDimensionMismatch(interpolation_matrix.m(),
                               x_source_fe.n_dofs_per_face()));
@@ -137,7 +139,7 @@ FE_Bernstein<dim, spacedim>::get_subface_interpolation_matrix(
 
       const Quadrature<dim - 1> quad_face_support(
         FE_Q<dim, spacedim>(QIterated<1>(QTrapez<1>(), source_fe->degree))
-          .get_unit_face_support_points());
+          .get_unit_face_support_points(face_no));
 
       // Rule of thumb for FP accuracy, that can be expected for a given
       // polynomial degree.  This value is used to cut off values close to

@@ -858,7 +858,7 @@ FESystem<dim, spacedim>::face_to_cell_index(const unsigned int face_dof_index,
   // the DoFs within their own numbering. thus, translate to
   // the base element numbering and then back
   const std::pair<std::pair<unsigned int, unsigned int>, unsigned int>
-    face_base_index = this->face_system_to_base_index(face_dof_index);
+    face_base_index = this->face_system_to_base_index(face_dof_index, face);
 
   const unsigned int base_face_to_cell_index =
     this->base_element(face_base_index.first.first)
@@ -1881,6 +1881,8 @@ FESystem<dim, spacedim>::get_face_interpolation_matrix(
   const FiniteElement<dim, spacedim> &x_source_fe,
   FullMatrix<double> &                interpolation_matrix) const
 {
+  const unsigned int face_no = 0; // TODO
+
   Assert(interpolation_matrix.n() == this->n_dofs_per_face(),
          ExcDimensionMismatch(interpolation_matrix.n(),
                               this->n_dofs_per_face()));
@@ -1931,15 +1933,17 @@ FESystem<dim, spacedim>::get_face_interpolation_matrix(
           // face_base_to_system_index, but that doesn't exist. rather, all we
           // have is the reverse. well, use that then
           for (unsigned int i = 0; i < this->n_dofs_per_face(); ++i)
-            if (this->face_system_to_base_index(i).first ==
+            if (this->face_system_to_base_index(i, face_no).first ==
                 std::make_pair(base_index, multiplicity))
               for (unsigned int j = 0; j < fe_other_system->n_dofs_per_face();
                    ++j)
-                if (fe_other_system->face_system_to_base_index(j).first ==
+                if (fe_other_system->face_system_to_base_index(j, face_no)
+                      .first ==
                     std::make_pair(base_index_other, multiplicity_other))
                   interpolation_matrix(j, i) = base_to_base_interpolation(
-                    fe_other_system->face_system_to_base_index(j).second,
-                    this->face_system_to_base_index(i).second);
+                    fe_other_system->face_system_to_base_index(j, face_no)
+                      .second,
+                    this->face_system_to_base_index(i, face_no).second);
 
           // advance to the next base element for this and the other fe_system;
           // see if we can simply advance the multiplicity by one, or if have to
@@ -1993,6 +1997,8 @@ FESystem<dim, spacedim>::get_subface_interpolation_matrix(
   const unsigned int                  subface,
   FullMatrix<double> &                interpolation_matrix) const
 {
+  const unsigned int face_no = 0; // TODO
+
   AssertThrow(
     (x_source_fe.get_name().find("FESystem<") == 0) ||
       (dynamic_cast<const FESystem<dim, spacedim> *>(&x_source_fe) != nullptr),
@@ -2050,15 +2056,17 @@ FESystem<dim, spacedim>::get_subface_interpolation_matrix(
           // face_base_to_system_index, but that doesn't exist. rather, all we
           // have is the reverse. well, use that then
           for (unsigned int i = 0; i < this->n_dofs_per_face(); ++i)
-            if (this->face_system_to_base_index(i).first ==
+            if (this->face_system_to_base_index(i, face_no).first ==
                 std::make_pair(base_index, multiplicity))
               for (unsigned int j = 0; j < fe_other_system->n_dofs_per_face();
                    ++j)
-                if (fe_other_system->face_system_to_base_index(j).first ==
+                if (fe_other_system->face_system_to_base_index(j, face_no)
+                      .first ==
                     std::make_pair(base_index_other, multiplicity_other))
                   interpolation_matrix(j, i) = base_to_base_interpolation(
-                    fe_other_system->face_system_to_base_index(j).second,
-                    this->face_system_to_base_index(i).second);
+                    fe_other_system->face_system_to_base_index(j, face_no)
+                      .second,
+                    this->face_system_to_base_index(i, face_no).second);
 
           // advance to the next base element for this and the other fe_system;
           // see if we can simply advance the multiplicity by one, or if have to
@@ -2340,7 +2348,9 @@ FESystem<dim, spacedim>::unit_support_point(const unsigned int index) const
 
 template <int dim, int spacedim>
 Point<dim - 1>
-FESystem<dim, spacedim>::unit_face_support_point(const unsigned int index) const
+FESystem<dim, spacedim>::unit_face_support_point(
+  const unsigned int index,
+  const unsigned int face_no) const
 {
   AssertIndexRange(index, this->n_dofs_per_face());
   Assert((this->unit_face_support_points.size() == this->n_dofs_per_face()) ||
@@ -2353,9 +2363,10 @@ FESystem<dim, spacedim>::unit_face_support_point(const unsigned int index) const
   else
     // no. ask the base element whether it would like to provide this
     // information
-    return (base_element(this->face_system_to_base_index(index).first.first)
-              .unit_face_support_point(
-                this->face_system_to_base_index(index).second));
+    return (
+      base_element(this->face_system_to_base_index(index, face_no).first.first)
+        .unit_face_support_point(
+          this->face_system_to_base_index(index, face_no).second, face_no));
 }
 
 
