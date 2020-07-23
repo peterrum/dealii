@@ -701,8 +701,7 @@ template <int dim>
 unsigned int
 FiniteElementData<dim>::get_first_quad_index(const unsigned int quad_no) const
 {
-  (void)quad_no;
-  return first_quad_index;
+  return first_quad_index + quad_no * n_dofs_per_quad(quad_no);
 }
 
 template <int dim>

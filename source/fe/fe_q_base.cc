@@ -1155,8 +1155,7 @@ FE_Q_Base<PolynomialType, dim, spacedim>::face_to_cell_index(
                ((face_orientation == true) && (face_flip == false) &&
                 (face_rotation == false)),
              ExcNotImplemented());
-      return (this->get_first_quad_index(face) +
-              face * this->n_dofs_per_quad(face) + index);
+      return (this->get_first_quad_index(face) + index);
     }
 }
 
@@ -1548,7 +1547,7 @@ FE_Q_Base<PolynomialType, dim, spacedim>::has_support_on_face(
 
   // first, special-case interior shape functions, since they have no support
   // no-where on the boundary
-  if (((dim == 2) && (shape_index >= this->get_first_quad_index(0 /*TODO*/))) ||
+  if (((dim == 2) && (shape_index >= this->get_first_quad_index(0))) ||
       ((dim == 3) && (shape_index >= this->get_first_hex_index())))
     return false;
 
@@ -1569,7 +1568,7 @@ FE_Q_Base<PolynomialType, dim, spacedim>::has_support_on_face(
 
       return false;
     }
-  else if (shape_index < this->get_first_quad_index(0 /*TODO*/))
+  else if (shape_index < this->get_first_quad_index(0))
     // ok, dof is on a line
     {
       const unsigned int line_index =
@@ -1600,8 +1599,8 @@ FE_Q_Base<PolynomialType, dim, spacedim>::has_support_on_face(
     // dof is on a quad
     {
       const unsigned int quad_index =
-        (shape_index - this->get_first_quad_index(0 /*TODO*/)) /
-        this->n_dofs_per_quad(face_index);
+        (shape_index - this->get_first_quad_index(0)) /
+        this->n_dofs_per_quad(face_index); // this won't work
       Assert(static_cast<signed int>(quad_index) <
                static_cast<signed int>(GeometryInfo<dim>::quads_per_cell),
              ExcInternalError());
