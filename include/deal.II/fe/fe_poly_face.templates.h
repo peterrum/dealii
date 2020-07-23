@@ -144,7 +144,7 @@ FE_PolyFace<PolynomialType, dim, spacedim>::fill_fe_face_values(
                 if (this->n_dofs_per_quad(face_no) != 0)
                   {
                     const unsigned int foffset =
-                      this->get_first_quad_index() +
+                      this->get_first_quad_index(face_no) +
                       this->n_dofs_per_quad(face_no) * face_no;
                     for (unsigned int k = 0; k < this->n_dofs_per_quad(face_no);
                          ++k)

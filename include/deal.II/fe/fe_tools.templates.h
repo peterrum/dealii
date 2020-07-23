@@ -294,7 +294,8 @@ namespace FETools
                 {
                   const unsigned int index_in_base =
                     (fes[base]->n_dofs_per_quad(quad_number) * quad_number +
-                     local_index + fes[base]->get_first_quad_index());
+                     local_index +
+                     fes[base]->get_first_quad_index(quad_number));
 
                   Assert(index_in_base < fes[base]->n_dofs_per_cell(),
                          ExcInternalError());
@@ -516,7 +517,8 @@ namespace FETools
                 {
                   const unsigned int index_in_base =
                     (fes[base]->n_dofs_per_quad(quad_number) * quad_number +
-                     local_index + fes[base]->get_first_quad_index());
+                     local_index +
+                     fes[base]->get_first_quad_index(quad_number));
 
                   Assert(comp_start + fes[base]->n_components() <=
                            retval[total_index].size(),
@@ -783,7 +785,7 @@ namespace FETools
                     (fe.base_element(base).n_dofs_per_quad(quad_number) *
                        quad_number +
                      local_index +
-                     fe.base_element(base).get_first_quad_index());
+                     fe.base_element(base).get_first_quad_index(quad_number));
 
                   system_to_base_table[total_index] =
                     std::make_pair(std::make_pair(base, m), index_in_base);
@@ -1003,7 +1005,7 @@ namespace FETools
                   // do everything alike for this type of object
                   const unsigned int index_in_base =
                     (local_index +
-                     fe.base_element(base).get_first_quad_index());
+                     fe.base_element(base).get_first_quad_index(face_no));
 
                   const unsigned int face_index_in_base =
                     (fe.base_element(base).get_first_face_quad_index() +
@@ -2020,10 +2022,10 @@ namespace FETools
       if (dim == 3)
         {
           const unsigned int offset_c =
-            fe.get_first_quad_index() +
+            fe.get_first_quad_index(face_no) +
             face_coarse * fe.n_dofs_per_quad(face_no);
-          const unsigned int offset_f =
-            fe.get_first_quad_index() + face_fine * fe.n_dofs_per_quad(face_no);
+          const unsigned int offset_f = fe.get_first_quad_index(face_no) +
+                                        face_fine * fe.n_dofs_per_quad(face_no);
           for (unsigned int j = 0; j < fe.n_dofs_per_quad(face_no); ++j)
             {
               face_c_dofs[face_dof] = offset_c + j;

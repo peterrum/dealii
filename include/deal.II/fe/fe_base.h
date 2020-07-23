@@ -483,7 +483,7 @@ public:
    * Return first index of dof on a quad.
    */
   unsigned int
-  get_first_quad_index() const;
+  get_first_quad_index(const unsigned int quad_no) const;
 
   /**
    * Return first index of dof on a hexahedron.
@@ -699,8 +699,9 @@ FiniteElementData<dim>::get_first_line_index() const
 
 template <int dim>
 unsigned int
-FiniteElementData<dim>::get_first_quad_index() const
+FiniteElementData<dim>::get_first_quad_index(const unsigned int quad_no) const
 {
+  (void)quad_no;
   return first_quad_index;
 }
 
