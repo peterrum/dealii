@@ -606,7 +606,8 @@ template <class PolynomialType, int dim, int spacedim>
 void
 FE_Q_Base<PolynomialType, dim, spacedim>::get_face_interpolation_matrix(
   const FiniteElement<dim, spacedim> &source_fe,
-  FullMatrix<double> &                interpolation_matrix) const
+  FullMatrix<double> &                interpolation_matrix,
+  const unsigned int) const
 {
   Assert(dim > 1, ExcImpossibleInDim(1));
   get_subface_interpolation_matrix(source_fe,

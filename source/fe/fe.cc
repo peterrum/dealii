@@ -894,7 +894,8 @@ template <int dim, int spacedim>
 void
 FiniteElement<dim, spacedim>::get_face_interpolation_matrix(
   const FiniteElement<dim, spacedim> &,
-  FullMatrix<double> &) const
+  FullMatrix<double> &,
+  const unsigned int) const
 {
   // by default, no interpolation
   // implemented. so throw exception,

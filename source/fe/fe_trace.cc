@@ -215,7 +215,8 @@ template <int dim, int spacedim>
 void
 FE_TraceQ<dim, spacedim>::get_face_interpolation_matrix(
   const FiniteElement<dim, spacedim> &source_fe,
-  FullMatrix<double> &                interpolation_matrix) const
+  FullMatrix<double> &                interpolation_matrix,
+  const unsigned int) const
 {
   get_subface_interpolation_matrix(source_fe,
                                    numbers::invalid_unsigned_int,

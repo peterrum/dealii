@@ -909,7 +909,8 @@ public:
    */
   virtual void
   get_face_interpolation_matrix(const FiniteElement<dim, spacedim> &source,
-                                FullMatrix<double> &matrix) const override;
+                                FullMatrix<double> &                matrix,
+                                const unsigned int face_no) const override;
 
 
   /**
