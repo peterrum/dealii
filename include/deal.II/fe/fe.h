@@ -1465,7 +1465,8 @@ public:
    * indices. The function is mainly there for use inside the library.
    */
   std::pair<unsigned int, unsigned int>
-  face_system_to_component_index(const unsigned int index) const;
+  face_system_to_component_index(const unsigned int index,
+                                 const unsigned int face = 0) const;
 
   /**
    * For faces with non-standard face_orientation in 3D, the dofs on faces
@@ -3121,8 +3122,10 @@ FiniteElement<dim, spacedim>::component_to_system_index(
 template <int dim, int spacedim>
 inline std::pair<unsigned int, unsigned int>
 FiniteElement<dim, spacedim>::face_system_to_component_index(
-  const unsigned int index) const
+  const unsigned int index,
+  const unsigned int face) const
 {
+  (void)face; // TODO
   AssertIndexRange(index, face_system_to_component_table.size());
 
   // in debug mode, check whether the

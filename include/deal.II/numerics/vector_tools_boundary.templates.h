@@ -131,12 +131,14 @@ namespace VectorTools
                                                    function_values);
 
                   for (unsigned int i = 0; i < fe.n_dofs_per_vertex(); ++i)
-                    if (component_mask[fe.face_system_to_component_index(i)
+                    if (component_mask[fe.face_system_to_component_index(
+                                           i, direction)
                                          .first])
                       boundary_values[cell->vertex_dof_index(
                         direction, i, cell->active_fe_index())] =
                         function_values(
-                          fe.face_system_to_component_index(i).first);
+                          fe.face_system_to_component_index(i, direction)
+                            .first);
                 }
         }
       else // dim > 1
@@ -178,6 +180,8 @@ namespace VectorTools
                   Quadrature<dim - 1>(fe.get_unit_face_support_points()));
               else
                 {
+                  const unsigned int face_no = 0; // TODO
+
                   // if not, then we should try a more clever way. the idea is
                   // that a finite element may not offer support points for all
                   // its shape functions, but maybe only some. if it offers
@@ -198,7 +202,8 @@ namespace VectorTools
 
                   for (unsigned int i = 0; i < fe.n_dofs_per_face(); ++i)
                     if (fe.is_primitive(fe.face_to_cell_index(i, 0)))
-                      if (component_mask[fe.face_system_to_component_index(i)
+                      if (component_mask[fe.face_system_to_component_index(
+                                             i, face_no)
                                            .first] == true)
                         unit_support_points[i] = fe.unit_face_support_point(i);
 
@@ -298,7 +303,8 @@ namespace VectorTools
                               unsigned int component;
                               if (fe.is_primitive())
                                 component =
-                                  fe.face_system_to_component_index(i).first;
+                                  fe.face_system_to_component_index(i, face_no)
+                                    .first;
                               else
                                 {
                                   // non-primitive case. make sure that this

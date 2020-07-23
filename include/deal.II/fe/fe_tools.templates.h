@@ -857,6 +857,8 @@ namespace FETools
       const FiniteElement<dim, spacedim> &fe,
       const bool                          do_tensor_product)
     {
+      const unsigned int face_no = 0; // TODO
+
       // Initialize index tables. do this in the same way as done for the cell
       // tables, except that we now loop over the objects of faces
 
@@ -906,12 +908,14 @@ namespace FETools
                     {
                       const unsigned int comp_in_base =
                         fe.base_element(base)
-                          .face_system_to_component_index(face_index_in_base)
+                          .face_system_to_component_index(face_index_in_base,
+                                                          face_no)
                           .first;
                       const unsigned int comp = comp_start + comp_in_base;
                       const unsigned int face_index_in_comp =
                         fe.base_element(base)
-                          .face_system_to_component_index(face_index_in_base)
+                          .face_system_to_component_index(face_index_in_base,
+                                                          face_no)
                           .second;
                       face_system_to_component_table[total_index] =
                         std::make_pair(comp, face_index_in_comp);
@@ -958,12 +962,14 @@ namespace FETools
                     {
                       const unsigned int comp_in_base =
                         fe.base_element(base)
-                          .face_system_to_component_index(face_index_in_base)
+                          .face_system_to_component_index(face_index_in_base,
+                                                          face_no)
                           .first;
                       const unsigned int comp = comp_start + comp_in_base;
                       const unsigned int face_index_in_comp =
                         fe.base_element(base)
-                          .face_system_to_component_index(face_index_in_base)
+                          .face_system_to_component_index(face_index_in_base,
+                                                          face_no)
                           .second;
                       face_system_to_component_table[total_index] =
                         std::make_pair(comp, face_index_in_comp);
@@ -1004,12 +1010,14 @@ namespace FETools
                     {
                       const unsigned int comp_in_base =
                         fe.base_element(base)
-                          .face_system_to_component_index(face_index_in_base)
+                          .face_system_to_component_index(face_index_in_base,
+                                                          face_no)
                           .first;
                       const unsigned int comp = comp_start + comp_in_base;
                       const unsigned int face_index_in_comp =
                         fe.base_element(base)
-                          .face_system_to_component_index(face_index_in_base)
+                          .face_system_to_component_index(face_index_in_base,
+                                                          face_no)
                           .second;
                       face_system_to_component_table[total_index] =
                         std::make_pair(comp, face_index_in_comp);
