@@ -2319,7 +2319,7 @@ namespace internal
 
                           for (unsigned int d = 0;
                                d <
-                               dof_handler.get_fe(fe_index).n_dofs_per_quad();
+                               dof_handler.get_fe(fe_index).n_dofs_per_quad(q);
                                ++d)
                             {
                               const types::global_dof_index old_dof_index =
@@ -2620,7 +2620,7 @@ namespace internal
           const bool               check_validity)
         {
           if (dof_handler.get_fe().n_dofs_per_line() > 0 ||
-              dof_handler.get_fe().n_dofs_per_quad() > 0)
+              dof_handler.get_fe().n_dofs_per_quad(0 /*TODO*/) > 0)
             {
               // save user flags as they will be modified
               std::vector<bool> user_flags;
@@ -2681,7 +2681,7 @@ namespace internal
                   if (cell->quad(l)->user_flag_set())
                     {
                       for (unsigned int d = 0;
-                           d < dof_handler.get_fe().n_dofs_per_quad();
+                           d < dof_handler.get_fe().n_dofs_per_quad(l);
                            ++d)
                         {
                           const dealii::types::global_dof_index idx =

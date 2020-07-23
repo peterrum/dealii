@@ -59,10 +59,9 @@ FiniteElement<dim, spacedim>::FiniteElement(
   const std::vector<bool> &         r_i_a_f,
   const std::vector<ComponentMask> &nonzero_c)
   : FiniteElementData<dim>(fe_data)
-  , adjust_quad_dof_index_for_face_orientation_table(dim == 3 ?
-                                                       this->n_dofs_per_quad() :
-                                                       0,
-                                                     dim == 3 ? 8 : 0)
+  , adjust_quad_dof_index_for_face_orientation_table(
+      dim == 3 ? this->n_dofs_per_quad(0 /*TODO*/) : 0,
+      dim == 3 ? 8 : 0)
   , adjust_line_dof_index_for_line_orientation_table(
       dim == 3 ? this->n_dofs_per_line() : 0)
   , system_to_base_table(this->n_dofs_per_cell())
@@ -562,7 +561,7 @@ FiniteElement<dim, spacedim>::face_to_cell_index(const unsigned int face_index,
   // other than standard orientation
   if ((face_orientation != true) || (face_flip != false) ||
       (face_rotation != false))
-    Assert((this->n_dofs_per_line() <= 1) && (this->n_dofs_per_quad() <= 1),
+    Assert((this->n_dofs_per_line() <= 1) && (this->n_dofs_per_quad(face) <= 1),
            ExcMessage(
              "The function in this base class can not handle this case. "
              "Rather, the derived class you are using must provide "
@@ -611,8 +610,8 @@ FiniteElement<dim, spacedim>::face_to_cell_index(const unsigned int face_index,
       // ignore vertex and line dofs
       const unsigned int index = face_index - this->get_first_face_quad_index();
 
-      return (this->get_first_quad_index() + face * this->n_dofs_per_quad() +
-              index);
+      return (this->get_first_quad_index() +
+              face * this->n_dofs_per_quad(face) + index);
     }
 }
 
@@ -627,8 +626,6 @@ FiniteElement<dim, spacedim>::adjust_quad_dof_index_for_face_orientation(
   const bool         face_flip,
   const bool         face_rotation) const
 {
-  (void)face; // TODO
-
   // general template for 1D and 2D: not
   // implemented. in fact, the function
   // shouldn't even be called unless we are
@@ -646,9 +643,9 @@ FiniteElement<dim, spacedim>::adjust_quad_dof_index_for_face_orientation(
   // in 3d), so we don't need the table, but
   // the function should also not have been
   // called
-  AssertIndexRange(index, this->n_dofs_per_quad());
+  AssertIndexRange(index, this->n_dofs_per_quad(face));
   Assert(adjust_quad_dof_index_for_face_orientation_table.n_elements() ==
-           8 * this->n_dofs_per_quad(),
+           8 * this->n_dofs_per_quad(face),
          ExcInternalError());
   return index + adjust_quad_dof_index_for_face_orientation_table(
                    index, 4 * face_orientation + 2 * face_flip + face_rotation);
@@ -846,6 +843,7 @@ template <int dim, int spacedim>
 TableIndices<2>
 FiniteElement<dim, spacedim>::interface_constraints_size() const
 {
+  const unsigned int face_no = 0; // TODO
   switch (dim)
     {
       case 1:
@@ -855,7 +853,7 @@ FiniteElement<dim, spacedim>::interface_constraints_size() const
                 this->n_dofs_per_face()};
       case 3:
         return {5 * this->n_dofs_per_vertex() + 12 * this->n_dofs_per_line() +
-                  4 * this->n_dofs_per_quad(),
+                  4 * this->n_dofs_per_quad(face_no),
                 this->n_dofs_per_face()};
       default:
         Assert(false, ExcNotImplemented());

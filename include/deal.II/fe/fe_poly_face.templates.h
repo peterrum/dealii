@@ -141,12 +141,13 @@ FE_PolyFace<PolynomialType, dim, spacedim>::fill_fe_face_values(
             case 3:
               {
                 // Fill data for quad shape functions
-                if (this->n_dofs_per_quad() != 0)
+                if (this->n_dofs_per_quad(face_no) != 0)
                   {
                     const unsigned int foffset =
                       this->get_first_quad_index() +
-                      this->n_dofs_per_quad() * face_no;
-                    for (unsigned int k = 0; k < this->n_dofs_per_quad(); ++k)
+                      this->n_dofs_per_quad(face_no) * face_no;
+                    for (unsigned int k = 0; k < this->n_dofs_per_quad(face_no);
+                         ++k)
                       output_data.shape_values(foffset + k, i) =
                         fe_data
                           .shape_values[k + this->get_first_face_quad_index()]
