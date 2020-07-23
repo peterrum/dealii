@@ -1411,7 +1411,8 @@ namespace MGTools
                               numbers::invalid_unsigned_int;
                             if (fe.is_primitive())
                               component =
-                                fe.face_system_to_component_index(i).first;
+                                fe.face_system_to_component_index(i, face_no)
+                                  .first;
                             else
                               {
                                 // Just pick the first of the components

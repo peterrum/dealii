@@ -1788,6 +1788,8 @@ namespace DoFTools
       const bool                                   face_rotation,
       const number                                 periodicity_factor)
     {
+      const unsigned int face_no = 0; // TODO
+
       static const int dim      = FaceIterator::AccessorType::dimension;
       static const int spacedim = FaceIterator::AccessorType::space_dimension;
 
@@ -1925,7 +1927,8 @@ namespace DoFTools
           // Obey the component mask
           if ((component_mask.n_selected_components(fe.n_components()) !=
                fe.n_components()) &&
-              !component_mask[fe.face_system_to_component_index(i).first])
+              !component_mask[fe.face_system_to_component_index(i, face_no)
+                                .first])
             continue;
 
           // We have to be careful to treat so called "identity
@@ -2120,6 +2123,8 @@ namespace DoFTools
       const FullMatrix<double> &          matrix,
       const std::vector<unsigned int> &   first_vector_components)
     {
+      const unsigned int face_no = 0; // TODO
+
       Assert(matrix.m() == matrix.n(), ExcInternalError());
 
       const unsigned int n_dofs_per_face = fe.n_dofs_per_face();
@@ -2158,7 +2163,7 @@ namespace DoFTools
           std::vector<unsigned int>::const_iterator comp_it =
             std::find(first_vector_components.begin(),
                       first_vector_components.end(),
-                      fe.face_system_to_component_index(i).first);
+                      fe.face_system_to_component_index(i, face_no).first);
           if (comp_it != first_vector_components.end())
             {
               const unsigned int first_vector_component = *comp_it;
@@ -2176,12 +2181,13 @@ namespace DoFTools
 
               for (unsigned int k = 0; k < n_dofs_per_face; ++k)
                 if ((k != i) && (quadrature.point(k) == quadrature.point(i)) &&
-                    (fe.face_system_to_component_index(k).first >=
+                    (fe.face_system_to_component_index(k, face_no).first >=
                      first_vector_component) &&
-                    (fe.face_system_to_component_index(k).first <
+                    (fe.face_system_to_component_index(k, face_no).first <
                      first_vector_component + spacedim))
                   {
-                    vector_dofs[fe.face_system_to_component_index(k).first -
+                    vector_dofs[fe.face_system_to_component_index(k, face_no)
+                                  .first -
                                 first_vector_component] = k;
                     n_found++;
                     if (n_found == dim)

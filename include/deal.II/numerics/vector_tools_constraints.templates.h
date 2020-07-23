@@ -559,7 +559,7 @@ namespace VectorTools
               // then identify which of them correspond to the selected set of
               // vector components
               for (unsigned int i = 0; i < face_dofs.size(); ++i)
-                if (fe.face_system_to_component_index(i).first ==
+                if (fe.face_system_to_component_index(i, face_no).first ==
                     first_vector_component)
                   {
                     // find corresponding other components of vector
@@ -578,12 +578,12 @@ namespace VectorTools
                              .point(k) ==
                            face_quadrature_collection[cell->active_fe_index()]
                              .point(i)) &&
-                          (fe.face_system_to_component_index(k).first >=
-                           first_vector_component) &&
-                          (fe.face_system_to_component_index(k).first <
+                          (fe.face_system_to_component_index(k, face_no)
+                             .first >= first_vector_component) &&
+                          (fe.face_system_to_component_index(k, face_no).first <
                            first_vector_component + dim))
                         vector_dofs.dof_indices
-                          [fe.face_system_to_component_index(k).first -
+                          [fe.face_system_to_component_index(k, face_no).first -
                            first_vector_component] = face_dofs[k];
 
                     for (unsigned int d = 0; d < dim; ++d)
@@ -1136,19 +1136,20 @@ namespace VectorTools
               cell_vector_dofs.resize(fe.n_dofs_per_face());
               for (unsigned int i = 0; i < fe.n_dofs_per_face(); ++i)
                 {
-                  if (fe.face_system_to_component_index(i).first >=
+                  if (fe.face_system_to_component_index(i, face_no).first >=
                         first_vector_component &&
-                      fe.face_system_to_component_index(i).first <
+                      fe.face_system_to_component_index(i, face_no).first <
                         first_vector_component + dim)
                     {
                       const unsigned int component =
-                        fe.face_system_to_component_index(i).first -
+                        fe.face_system_to_component_index(i, face_no).first -
                         first_vector_component;
-                      n_scalar_indices =
-                        std::max(n_scalar_indices,
-                                 fe.face_system_to_component_index(i).second +
-                                   1);
-                      cell_vector_dofs[fe.face_system_to_component_index(i)
+                      n_scalar_indices = std::max(
+                        n_scalar_indices,
+                        fe.face_system_to_component_index(i, face_no).second +
+                          1);
+                      cell_vector_dofs[fe.face_system_to_component_index(
+                                           i, face_no)
                                          .second][component] = face_dofs[i];
 
                       const Point<dim> point = fe_values.quadrature_point(i);
