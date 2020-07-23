@@ -624,7 +624,8 @@ public:
    * Same as above but for faces.
    */
   virtual std::vector<std::pair<unsigned int, unsigned int>>
-  hp_quad_dof_identities(const FiniteElement<dim> &fe_other) const override;
+  hp_quad_dof_identities(const FiniteElement<dim> &fe_other,
+                         const unsigned int        face_no) const override;
 
   /**
    * @copydoc FiniteElement::compare_for_domination()

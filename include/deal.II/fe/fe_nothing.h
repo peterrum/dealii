@@ -206,8 +206,8 @@ public:
     const FiniteElement<dim, spacedim> &fe_other) const override;
 
   virtual std::vector<std::pair<unsigned int, unsigned int>>
-  hp_quad_dof_identities(
-    const FiniteElement<dim, spacedim> &fe_other) const override;
+  hp_quad_dof_identities(const FiniteElement<dim, spacedim> &fe_other,
+                         const unsigned int face_no) const override;
 
   virtual bool
   hp_constraints_are_implemented() const override;

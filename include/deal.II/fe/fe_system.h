@@ -961,8 +961,8 @@ public:
    * of freedom on quads.
    */
   virtual std::vector<std::pair<unsigned int, unsigned int>>
-  hp_quad_dof_identities(
-    const FiniteElement<dim, spacedim> &fe_other) const override;
+  hp_quad_dof_identities(const FiniteElement<dim, spacedim> &fe_other,
+                         const unsigned int face_no) const override;
 
   /**
    * @copydoc FiniteElement::compare_for_domination()
@@ -1159,7 +1159,8 @@ private:
    */
   template <int structdim>
   std::vector<std::pair<unsigned int, unsigned int>>
-  hp_object_dof_identities(const FiniteElement<dim, spacedim> &fe_other) const;
+  hp_object_dof_identities(const FiniteElement<dim, spacedim> &fe_other,
+                           const unsigned int face_no = 0) const;
 
   /**
    * Usually: Fields of cell-independent data.

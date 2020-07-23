@@ -962,12 +962,14 @@ FE_Enriched<dim, spacedim>::hp_line_dof_identities(
 template <int dim, int spacedim>
 std::vector<std::pair<unsigned int, unsigned int>>
 FE_Enriched<dim, spacedim>::hp_quad_dof_identities(
-  const FiniteElement<dim, spacedim> &fe_other) const
+  const FiniteElement<dim, spacedim> &fe_other,
+  const unsigned int                  face_no) const
 {
   if (const FE_Enriched<dim, spacedim> *fe_enr_other =
         dynamic_cast<const FE_Enriched<dim, spacedim> *>(&fe_other))
     {
-      return fe_system->hp_quad_dof_identities(fe_enr_other->get_fe_system());
+      return fe_system->hp_quad_dof_identities(fe_enr_other->get_fe_system(),
+                                               face_no);
     }
   else
     {
