@@ -1477,6 +1477,7 @@ public:
    */
   unsigned int
   adjust_quad_dof_index_for_face_orientation(const unsigned int index,
+                                             const unsigned int face,
                                              const bool face_orientation,
                                              const bool face_flip,
                                              const bool face_rotation) const;
