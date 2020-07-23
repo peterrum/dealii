@@ -174,9 +174,10 @@ FE_PolyFace<PolynomialType, dim, spacedim>::fill_fe_face_values(
                                                                     line) *
                                 this->n_dofs_per_line() +
                               k,
-                            i) = fe_data.shape_values
-                                   [k + (line * this->n_dofs_per_line()) +
-                                    this->get_first_face_line_index()][i];
+                            i) =
+                            fe_data.shape_values
+                              [k + (line * this->n_dofs_per_line()) +
+                               this->get_first_face_line_index(face_no)][i];
                       }
                   }
               }

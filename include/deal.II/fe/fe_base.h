@@ -483,7 +483,7 @@ public:
    * Return first index of dof on a quad.
    */
   unsigned int
-  get_first_quad_index(const unsigned int quad_no) const;
+  get_first_quad_index(const unsigned int quad_no = 0) const;
 
   /**
    * Return first index of dof on a hexahedron.
@@ -495,7 +495,7 @@ public:
    * Return first index of dof on a line for face data.
    */
   unsigned int
-  get_first_face_line_index() const;
+  get_first_face_line_index(const unsigned int face_no) const;
 
   /**
    * Return first index of dof on a quad for face data.
@@ -714,8 +714,10 @@ FiniteElementData<dim>::get_first_hex_index() const
 
 template <int dim>
 unsigned int
-FiniteElementData<dim>::get_first_face_line_index() const
+FiniteElementData<dim>::get_first_face_line_index(
+  const unsigned int face_no) const
 {
+  (void)face_no;
   return first_face_line_index;
 }
 

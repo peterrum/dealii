@@ -1057,7 +1057,7 @@ FE_Q_Base<PolynomialType, dim, spacedim>::face_to_cell_index(
 
   // we need to distinguish between DoFs on vertices, lines and in 3d quads.
   // do so in a sequence of if-else statements
-  if (face_index < this->get_first_face_line_index())
+  if (face_index < this->get_first_face_line_index(face))
     // DoF is on a vertex
     {
       // get the number of the vertex on the face that corresponds to this DoF,
@@ -1078,7 +1078,8 @@ FE_Q_Base<PolynomialType, dim, spacedim>::face_to_cell_index(
     {
       // do the same kind of translation as before. we need to only consider
       // DoFs on the lines, i.e., ignoring those on the vertices
-      const unsigned int index = face_index - this->get_first_face_line_index();
+      const unsigned int index =
+        face_index - this->get_first_face_line_index(face);
 
       const unsigned int face_line         = index / this->n_dofs_per_line();
       const unsigned int dof_index_on_line = index % this->n_dofs_per_line();

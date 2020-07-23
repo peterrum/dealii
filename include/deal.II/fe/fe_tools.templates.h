@@ -959,7 +959,7 @@ namespace FETools
                      fe.base_element(base).get_first_line_index());
 
                   const unsigned int face_index_in_base =
-                    (fe.base_element(base).get_first_face_line_index() +
+                    (fe.base_element(base).get_first_face_line_index(face_no) +
                      fe.base_element(base).n_dofs_per_line() * line_number +
                      local_index);
 
