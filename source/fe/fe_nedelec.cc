@@ -2529,7 +2529,8 @@ template <>
 void
 FE_Nedelec<1>::get_subface_interpolation_matrix(const FiniteElement<1, 1> &,
                                                 const unsigned int,
-                                                FullMatrix<double> &) const
+                                                FullMatrix<double> &,
+                                                const unsigned int) const
 {
   Assert(false, ExcNotImplemented());
 }
@@ -2557,7 +2558,8 @@ void
 FE_Nedelec<dim>::get_subface_interpolation_matrix(
   const FiniteElement<dim> &source,
   const unsigned int        subface,
-  FullMatrix<double> &      interpolation_matrix) const
+  FullMatrix<double> &      interpolation_matrix,
+  const unsigned int) const
 {
   // this is only implemented, if the
   // source FE is also a

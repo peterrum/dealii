@@ -250,7 +250,8 @@ public:
   get_subface_interpolation_matrix(
     const FiniteElement<dim, spacedim> &source_fe,
     const unsigned int                  index,
-    FullMatrix<double> &                interpolation_matrix) const override;
+    FullMatrix<double> &                interpolation_matrix,
+    const unsigned int                  face_no) const override;
 
   /**
    * @return true if the FE dominates any other.

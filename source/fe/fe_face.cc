@@ -147,11 +147,12 @@ void
 FE_FaceQ<dim, spacedim>::get_face_interpolation_matrix(
   const FiniteElement<dim, spacedim> &source_fe,
   FullMatrix<double> &                interpolation_matrix,
-  const unsigned int) const
+  const unsigned int                  face_no) const
 {
   get_subface_interpolation_matrix(source_fe,
                                    numbers::invalid_unsigned_int,
-                                   interpolation_matrix);
+                                   interpolation_matrix,
+                                   face_no);
 }
 
 
@@ -161,10 +162,9 @@ void
 FE_FaceQ<dim, spacedim>::get_subface_interpolation_matrix(
   const FiniteElement<dim, spacedim> &x_source_fe,
   const unsigned int                  subface,
-  FullMatrix<double> &                interpolation_matrix) const
+  FullMatrix<double> &                interpolation_matrix,
+  const unsigned int                  face_no) const
 {
-  const unsigned int face_no = 0; // TODO
-
   // this function is similar to the respective method in FE_Q
 
   Assert(interpolation_matrix.n() == this->n_dofs_per_face(),
@@ -558,11 +558,12 @@ void
 FE_FaceQ<1, spacedim>::get_face_interpolation_matrix(
   const FiniteElement<1, spacedim> &source_fe,
   FullMatrix<double> &              interpolation_matrix,
-  const unsigned int) const
+  const unsigned int                face_no) const
 {
   get_subface_interpolation_matrix(source_fe,
                                    numbers::invalid_unsigned_int,
-                                   interpolation_matrix);
+                                   interpolation_matrix,
+                                   face_no);
 }
 
 
@@ -572,7 +573,8 @@ void
 FE_FaceQ<1, spacedim>::get_subface_interpolation_matrix(
   const FiniteElement<1, spacedim> &x_source_fe,
   const unsigned int /*subface*/,
-  FullMatrix<double> &interpolation_matrix) const
+  FullMatrix<double> &interpolation_matrix,
+  const unsigned int) const
 {
   (void)x_source_fe;
   Assert(interpolation_matrix.n() == this->n_dofs_per_face(),
@@ -870,11 +872,12 @@ void
 FE_FaceP<dim, spacedim>::get_face_interpolation_matrix(
   const FiniteElement<dim, spacedim> &source_fe,
   FullMatrix<double> &                interpolation_matrix,
-  const unsigned int) const
+  const unsigned int                  face_no) const
 {
   get_subface_interpolation_matrix(source_fe,
                                    numbers::invalid_unsigned_int,
-                                   interpolation_matrix);
+                                   interpolation_matrix,
+                                   face_no);
 }
 
 
@@ -884,7 +887,8 @@ void
 FE_FaceP<dim, spacedim>::get_subface_interpolation_matrix(
   const FiniteElement<dim, spacedim> &x_source_fe,
   const unsigned int                  subface,
-  FullMatrix<double> &                interpolation_matrix) const
+  FullMatrix<double> &                interpolation_matrix,
+  const unsigned int) const
 {
   // this function is similar to the respective method in FE_Q
 

@@ -356,12 +356,17 @@ namespace DoFTools
         const unsigned int                   subface,
         std::unique_ptr<FullMatrix<double>> &matrix)
       {
+        const unsigned int face_no = 0; // TODO
+
         if (matrix == nullptr)
           {
             matrix =
               std::make_unique<FullMatrix<double>>(fe2.n_dofs_per_face(),
                                                    fe1.n_dofs_per_face());
-            fe1.get_subface_interpolation_matrix(fe2, subface, *matrix);
+            fe1.get_subface_interpolation_matrix(fe2,
+                                                 subface,
+                                                 *matrix,
+                                                 face_no);
           }
       }
 
@@ -1821,7 +1826,10 @@ namespace DoFTools
               // interpolated from face_1 to face_2 by multiplying from the left
               // with the one that interpolates from face_2 to its child
               const auto &fe = face_1->get_fe(face_1->nth_active_fe_index(0));
-              fe.get_subface_interpolation_matrix(fe, c, subface_interpolation);
+              fe.get_subface_interpolation_matrix(fe,
+                                                  c,
+                                                  subface_interpolation,
+                                                  face_no);
               subface_interpolation.mmult(child_transformation, transformation);
 
               set_periodicity_constraints(face_1,

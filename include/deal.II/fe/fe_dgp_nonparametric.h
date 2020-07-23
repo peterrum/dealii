@@ -410,7 +410,8 @@ public:
   virtual void
   get_subface_interpolation_matrix(const FiniteElement<dim, spacedim> &source,
                                    const unsigned int                  subface,
-                                   FullMatrix<double> &matrix) const override;
+                                   FullMatrix<double> &                matrix,
+                                   const unsigned int face_no) const override;
 
   /**
    * @name Functions to support hp

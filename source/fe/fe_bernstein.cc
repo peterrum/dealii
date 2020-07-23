@@ -96,12 +96,13 @@ void
 FE_Bernstein<dim, spacedim>::get_face_interpolation_matrix(
   const FiniteElement<dim, spacedim> &source_fe,
   FullMatrix<double> &                interpolation_matrix,
-  const unsigned int) const
+  const unsigned int                  face_no) const
 {
   Assert(dim > 1, ExcImpossibleInDim(1));
   get_subface_interpolation_matrix(source_fe,
                                    numbers::invalid_unsigned_int,
-                                   interpolation_matrix);
+                                   interpolation_matrix,
+                                   face_no);
 }
 
 
@@ -110,10 +111,9 @@ void
 FE_Bernstein<dim, spacedim>::get_subface_interpolation_matrix(
   const FiniteElement<dim, spacedim> &x_source_fe,
   const unsigned int                  subface,
-  FullMatrix<double> &                interpolation_matrix) const
+  FullMatrix<double> &                interpolation_matrix,
+  const unsigned int                  face_no) const
 {
-  const unsigned int face_no = 0; // TODO
-
   Assert(interpolation_matrix.m() == x_source_fe.n_dofs_per_face(),
          ExcDimensionMismatch(interpolation_matrix.m(),
                               x_source_fe.n_dofs_per_face()));

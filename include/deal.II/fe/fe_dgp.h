@@ -423,7 +423,8 @@ public:
   virtual void
   get_subface_interpolation_matrix(const FiniteElement<dim, spacedim> &source,
                                    const unsigned int                  subface,
-                                   FullMatrix<double> &matrix) const override;
+                                   FullMatrix<double> &                matrix,
+                                   const unsigned int face_no) const override;
 
   /**
    * This function returns @p true, if the shape function @p shape_index has

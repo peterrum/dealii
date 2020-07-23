@@ -256,7 +256,8 @@ public:
   virtual void
   get_subface_interpolation_matrix(const FiniteElement<dim> &source,
                                    const unsigned int        subface,
-                                   FullMatrix<double> &matrix) const override;
+                                   FullMatrix<double> &      matrix,
+                                   const unsigned int face_no) const override;
 
   /**
    * Projection from a fine grid space onto a coarse grid space. If this

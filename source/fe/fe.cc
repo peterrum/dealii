@@ -912,7 +912,8 @@ void
 FiniteElement<dim, spacedim>::get_subface_interpolation_matrix(
   const FiniteElement<dim, spacedim> &,
   const unsigned int,
-  FullMatrix<double> &) const
+  FullMatrix<double> &,
+  const unsigned int) const
 {
   // by default, no interpolation
   // implemented. so throw exception,
