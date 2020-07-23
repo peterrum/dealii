@@ -456,7 +456,8 @@ FE_RaviartThomasNodal<dim>::hp_line_dof_identities(
 template <int dim>
 std::vector<std::pair<unsigned int, unsigned int>>
 FE_RaviartThomasNodal<dim>::hp_quad_dof_identities(
-  const FiniteElement<dim> &fe_other) const
+  const FiniteElement<dim> &fe_other,
+  const unsigned int) const
 {
   // we can presently only compute
   // these identities if both FEs are

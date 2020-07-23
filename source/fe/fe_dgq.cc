@@ -589,7 +589,8 @@ FE_DGQ<dim, spacedim>::hp_line_dof_identities(
 template <int dim, int spacedim>
 std::vector<std::pair<unsigned int, unsigned int>>
 FE_DGQ<dim, spacedim>::hp_quad_dof_identities(
-  const FiniteElement<dim, spacedim> & /*fe_other*/) const
+  const FiniteElement<dim, spacedim> & /*fe_other*/,
+  const unsigned int) const
 {
   // this element is discontinuous, so by definition there can
   // be no identities between its dofs and those of any neighbor

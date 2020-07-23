@@ -169,8 +169,9 @@ namespace internal
 
                   case 2:
                     {
+                      const unsigned int face_no = 0; // TODO
                       identities = std::make_unique<DoFIdentities>(
-                        fe1.hp_quad_dof_identities(fe2));
+                        fe1.hp_quad_dof_identities(fe2, face_no));
                       break;
                     }
 

@@ -2117,7 +2117,8 @@ template <int dim, int spacedim>
 template <int structdim>
 std::vector<std::pair<unsigned int, unsigned int>>
 FESystem<dim, spacedim>::hp_object_dof_identities(
-  const FiniteElement<dim, spacedim> &fe_other) const
+  const FiniteElement<dim, spacedim> &fe_other,
+  const unsigned int                  face_no) const
 {
   // since dofs on each subobject (vertex, line, ...) are ordered such that
   // first come all from the first base element all multiplicities, then
@@ -2167,7 +2168,8 @@ FESystem<dim, spacedim>::hp_object_dof_identities(
                 base_identities = base.hp_line_dof_identities(base_other);
                 break;
               case 2:
-                base_identities = base.hp_quad_dof_identities(base_other);
+                base_identities =
+                  base.hp_quad_dof_identities(base_other, face_no);
                 break;
               default:
                 Assert(false, ExcNotImplemented());
@@ -2246,9 +2248,10 @@ FESystem<dim, spacedim>::hp_line_dof_identities(
 template <int dim, int spacedim>
 std::vector<std::pair<unsigned int, unsigned int>>
 FESystem<dim, spacedim>::hp_quad_dof_identities(
-  const FiniteElement<dim, spacedim> &fe_other) const
+  const FiniteElement<dim, spacedim> &fe_other,
+  const unsigned int                  face_no) const
 {
-  return hp_object_dof_identities<2>(fe_other);
+  return hp_object_dof_identities<2>(fe_other, face_no);
 }
 
 

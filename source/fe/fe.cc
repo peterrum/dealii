@@ -939,7 +939,8 @@ FiniteElement<dim, spacedim>::hp_line_dof_identities(
 template <int dim, int spacedim>
 std::vector<std::pair<unsigned int, unsigned int>>
 FiniteElement<dim, spacedim>::hp_quad_dof_identities(
-  const FiniteElement<dim, spacedim> &) const
+  const FiniteElement<dim, spacedim> &,
+  const unsigned int) const
 {
   Assert(false, ExcNotImplemented());
   return std::vector<std::pair<unsigned int, unsigned int>>();
