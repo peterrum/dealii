@@ -1398,6 +1398,8 @@ namespace FETools
       const DoFHandler<dim, spacedim> &dof2,
       OutVector &                      u2)
     {
+      const unsigned int face_no = 0; // TODO
+
       const parallel::distributed::Triangulation<dim, spacedim> *tr =
         (dynamic_cast<const parallel::distributed::Triangulation<dim, spacedim>
                         *>(&dof2.get_triangulation()));
@@ -1412,8 +1414,8 @@ namespace FETools
       compute_all_non_local_data(dof2, u2_relevant);
 
       // exclude dofs on more refined ghosted cells
-      const FiniteElement<dim, spacedim> &fe            = dof2.get_fe();
-      const unsigned int                  dofs_per_face = fe.n_dofs_per_face();
+      const FiniteElement<dim, spacedim> &fe = dof2.get_fe();
+      const unsigned int dofs_per_face       = fe.n_dofs_per_face(face_no);
       if (dofs_per_face > 0)
         {
           const unsigned int dofs_per_cell = fe.n_dofs_per_cell();

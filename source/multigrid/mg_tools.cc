@@ -165,7 +165,7 @@ namespace MGTools
         // TODO: This assumes that even in hp context, the dofs per face
         // coincide!
         unsigned int increment =
-          fe.n_dofs_per_cell() - dim * fe.n_dofs_per_face();
+          fe.n_dofs_per_cell() - dim * fe.n_dofs_per_face(0 /*TODO*/);
         while (i < fe.get_first_line_index())
           row_lengths[cell_indices[i++]] += increment;
         // From now on, if an object is
@@ -178,23 +178,25 @@ namespace MGTools
         // In all other cases we
         // subtract adjacent faces to be
         // added in the loop below.
-        increment = (dim > 1) ?
-                      fe.n_dofs_per_cell() - (dim - 1) * fe.n_dofs_per_face() :
-                      fe.n_dofs_per_cell() - GeometryInfo<dim>::faces_per_cell *
-                                               fe.n_dofs_per_face();
+        increment =
+          (dim > 1) ?
+            fe.n_dofs_per_cell() - (dim - 1) * fe.n_dofs_per_face(0 /*TODO*/) :
+            fe.n_dofs_per_cell() - GeometryInfo<dim>::faces_per_cell *
+                                     fe.n_dofs_per_face(0 /*TODO*/);
         while (i < fe.get_first_quad_index())
           row_lengths[cell_indices[i++]] += increment;
 
         // Now quads in 2D and 3D
-        increment = (dim > 2) ?
-                      fe.n_dofs_per_cell() - (dim - 2) * fe.n_dofs_per_face() :
-                      fe.n_dofs_per_cell() - GeometryInfo<dim>::faces_per_cell *
-                                               fe.n_dofs_per_face();
+        increment =
+          (dim > 2) ?
+            fe.n_dofs_per_cell() - (dim - 2) * fe.n_dofs_per_face(0 /*TODO*/) :
+            fe.n_dofs_per_cell() - GeometryInfo<dim>::faces_per_cell *
+                                     fe.n_dofs_per_face(0 /*TODO*/);
         while (i < fe.get_first_hex_index())
           row_lengths[cell_indices[i++]] += increment;
         // Finally, cells in 3D
-        increment = fe.n_dofs_per_cell() -
-                    GeometryInfo<dim>::faces_per_cell * fe.n_dofs_per_face();
+        increment = fe.n_dofs_per_cell() - GeometryInfo<dim>::faces_per_cell *
+                                             fe.n_dofs_per_face(0 /*TODO*/);
         while (i < fe.n_dofs_per_cell())
           row_lengths[cell_indices[i++]] += increment;
 
@@ -225,7 +227,8 @@ namespace MGTools
                 for (unsigned int local_dof = 0;
                      local_dof < fe.n_dofs_per_cell();
                      ++local_dof)
-                  row_lengths[cell_indices[local_dof]] += fe.n_dofs_per_face();
+                  row_lengths[cell_indices[local_dof]] +=
+                    fe.n_dofs_per_face(0 /*TODO*/);
                 continue;
               }
 
@@ -244,7 +247,7 @@ namespace MGTools
             if (flux_coupling != DoFTools::none)
               {
                 const unsigned int dof_increment =
-                  nfe.n_dofs_per_cell() - nfe.n_dofs_per_face();
+                  nfe.n_dofs_per_cell() - nfe.n_dofs_per_face(0 /*TODO*/);
                 for (unsigned int local_dof = 0;
                      local_dof < fe.n_dofs_per_cell();
                      ++local_dof)
@@ -272,10 +275,12 @@ namespace MGTools
             neighbor->get_mg_dof_indices(neighbor_indices);
             for (unsigned int local_dof = 0; local_dof < fe.n_dofs_per_cell();
                  ++local_dof)
-              row_lengths[cell_indices[local_dof]] += nfe.n_dofs_per_face();
+              row_lengths[cell_indices[local_dof]] +=
+                nfe.n_dofs_per_face(0 /*TODO*/);
             for (unsigned int local_dof = 0; local_dof < nfe.n_dofs_per_cell();
                  ++local_dof)
-              row_lengths[neighbor_indices[local_dof]] += fe.n_dofs_per_face();
+              row_lengths[neighbor_indices[local_dof]] +=
+                fe.n_dofs_per_face(0 /*TODO*/);
           }
       }
     user_flags_triangulation.load_user_flags(old_flags);
@@ -378,8 +383,9 @@ namespace MGTools
                                           fe.first_block_of_base(base) +
                                             mult) != DoFTools::none)
                   {
-                    increment = fe.base_element(base).n_dofs_per_cell() -
-                                dim * fe.base_element(base).n_dofs_per_face();
+                    increment =
+                      fe.base_element(base).n_dofs_per_cell() -
+                      dim * fe.base_element(base).n_dofs_per_face(0 /*TODO*/);
                     row_lengths[cell_indices[i]] += increment;
                   }
             ++i;
@@ -407,7 +413,7 @@ namespace MGTools
                       fe.base_element(base).n_dofs_per_cell() -
                       ((dim > 1) ? (dim - 1) :
                                    GeometryInfo<dim>::faces_per_cell) *
-                        fe.base_element(base).n_dofs_per_face();
+                        fe.base_element(base).n_dofs_per_face(0 /*TODO*/);
                     row_lengths[cell_indices[i]] += increment;
                   }
             ++i;
@@ -427,7 +433,7 @@ namespace MGTools
                       fe.base_element(base).n_dofs_per_cell() -
                       ((dim > 2) ? (dim - 2) :
                                    GeometryInfo<dim>::faces_per_cell) *
-                        fe.base_element(base).n_dofs_per_face();
+                        fe.base_element(base).n_dofs_per_face(0 /*TODO*/);
                     row_lengths[cell_indices[i]] += increment;
                   }
             ++i;
@@ -443,9 +449,10 @@ namespace MGTools
                                           fe.first_block_of_base(base) +
                                             mult) != DoFTools::none)
                   {
-                    increment = fe.base_element(base).n_dofs_per_cell() -
-                                GeometryInfo<dim>::faces_per_cell *
-                                  fe.base_element(base).n_dofs_per_face();
+                    increment =
+                      fe.base_element(base).n_dofs_per_cell() -
+                      GeometryInfo<dim>::faces_per_cell *
+                        fe.base_element(base).n_dofs_per_face(0 /*TODO*/);
                     row_lengths[cell_indices[i]] += increment;
                   }
             ++i;
@@ -478,7 +485,8 @@ namespace MGTools
                 for (unsigned int local_dof = 0;
                      local_dof < fe.n_dofs_per_cell();
                      ++local_dof)
-                  row_lengths[cell_indices[local_dof]] += fe.n_dofs_per_face();
+                  row_lengths[cell_indices[local_dof]] +=
+                    fe.n_dofs_per_face(0 /*TODO*/);
                 continue;
               }
 
@@ -506,7 +514,7 @@ namespace MGTools
                     {
                       const unsigned int dof_increment =
                         nfe.base_element(base).n_dofs_per_cell() -
-                        nfe.base_element(base).n_dofs_per_face();
+                        nfe.base_element(base).n_dofs_per_face(0 /*TODO*/);
                       row_lengths[cell_indices[local_dof]] += dof_increment;
                     }
 
@@ -548,7 +556,7 @@ namespace MGTools
                         fe.system_to_component_index(local_dof).first,
                         nfe.first_block_of_base(base) + mult) != DoFTools::none)
                     row_lengths[cell_indices[local_dof]] +=
-                      nfe.base_element(base).n_dofs_per_face();
+                      nfe.base_element(base).n_dofs_per_face(0 /*TODO*/);
             for (unsigned int base = 0; base < fe.n_base_elements(); ++base)
               for (unsigned int mult = 0; mult < fe.element_multiplicity(base);
                    ++mult)
@@ -559,7 +567,7 @@ namespace MGTools
                         nfe.system_to_component_index(local_dof).first,
                         fe.first_block_of_base(base) + mult) != DoFTools::none)
                     row_lengths[neighbor_indices[local_dof]] +=
-                      fe.base_element(base).n_dofs_per_face();
+                      fe.base_element(base).n_dofs_per_face(0 /*TODO*/);
           }
       }
     user_flags_triangulation.load_user_flags(old_flags);
@@ -1328,7 +1336,6 @@ namespace MGTools
               continue;
             const FiniteElement<dim> &fe    = cell->get_fe();
             const unsigned int        level = cell->level();
-            local_dofs.resize(fe.n_dofs_per_face());
 
             for (const unsigned int face_no : GeometryInfo<dim>::face_indices())
               if (cell->at_boundary(face_no) == true)
@@ -1339,6 +1346,7 @@ namespace MGTools
                   // Face is listed in boundary map
                   if (boundary_ids.find(bi) != boundary_ids.end())
                     {
+                      local_dofs.resize(fe.n_dofs_per_face(face_no));
                       face->get_mg_dof_indices(level, local_dofs);
                       dofs_by_level[level].insert(dofs_by_level[level].end(),
                                                   local_dofs.begin(),
@@ -1401,7 +1409,7 @@ namespace MGTools
 
                     // get indices, physical location and boundary values of
                     // dofs on this face
-                    local_dofs.resize(fe.n_dofs_per_face());
+                    local_dofs.resize(fe.n_dofs_per_face(face_no));
                     face->get_mg_dof_indices(level, local_dofs);
                     if (fe_is_system)
                       {
@@ -1470,7 +1478,6 @@ namespace MGTools
     const FiniteElement<dim, spacedim> &fe = mg_dof_handler.get_fe();
 
     const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
-    const unsigned int dofs_per_face = fe.n_dofs_per_face();
 
     std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
 
@@ -1514,7 +1521,8 @@ namespace MGTools
                 // Do refinement face from the coarse side
                 if (neighbor->level() < cell->level())
                   {
-                    for (unsigned int j = 0; j < dofs_per_face; ++j)
+                    for (unsigned int j = 0; j < fe.n_dofs_per_face(face_nr);
+                         ++j)
                       cell_dofs[fe.face_to_cell_index(j, face_nr)] = true;
 
                     has_coarser_neighbor = true;

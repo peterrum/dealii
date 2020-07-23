@@ -80,12 +80,15 @@ FE_BDM<dim>::FE_BDM(const unsigned int deg)
   this->reinit_restriction_and_prolongation_matrices(true, true);
   FETools::compute_embedding_matrices(*this, this->prolongation, true, 1.);
 
+  const unsigned int face_no = 0; // TODO
   FullMatrix<double> face_embeddings[GeometryInfo<dim>::max_children_per_face];
   for (unsigned int i = 0; i < GeometryInfo<dim>::max_children_per_face; ++i)
-    face_embeddings[i].reinit(this->n_dofs_per_face(), this->n_dofs_per_face());
+    face_embeddings[i].reinit(this->n_dofs_per_face(face_no),
+                              this->n_dofs_per_face(face_no));
   FETools::compute_face_embedding_matrices(*this, face_embeddings, 0, 0, 1.);
-  this->interface_constraints.reinit((1 << (dim - 1)) * this->n_dofs_per_face(),
-                                     this->n_dofs_per_face());
+  this->interface_constraints.reinit((1 << (dim - 1)) *
+                                       this->n_dofs_per_face(face_no),
+                                     this->n_dofs_per_face(face_no));
   unsigned int target_row = 0;
   for (unsigned int d = 0; d < GeometryInfo<dim>::max_children_per_face; ++d)
     for (unsigned int i = 0; i < face_embeddings[d].m(); ++i)
@@ -155,15 +158,15 @@ FE_BDM<dim>::convert_generalized_support_point_values_to_dof_values(
       // initialize_support_points()
       if (test_values_face.size() == 0)
         {
-          for (unsigned int i = 0; i < this->n_dofs_per_face(); ++i)
+          for (unsigned int i = 0; i < this->n_dofs_per_face(f); ++i)
             nodal_values[dbase + i] =
               support_point_values[pbase + i]
                                   [GeometryInfo<dim>::unit_normal_direction[f]];
-          pbase += this->n_dofs_per_face();
+          pbase += this->n_dofs_per_face(f);
         }
       else
         {
-          for (unsigned int i = 0; i < this->n_dofs_per_face(); ++i)
+          for (unsigned int i = 0; i < this->n_dofs_per_face(f); ++i)
             {
               double s = 0.;
               for (unsigned int k = 0; k < test_values_face.size(); ++k)
@@ -175,11 +178,12 @@ FE_BDM<dim>::convert_generalized_support_point_values_to_dof_values(
             }
           pbase += test_values_face.size();
         }
-      dbase += this->n_dofs_per_face();
+      dbase += this->n_dofs_per_face(f);
     }
 
   AssertDimension(dbase,
-                  this->n_dofs_per_face() * GeometryInfo<dim>::faces_per_cell);
+                  this->n_dofs_per_face(0 /*TODO*/) *
+                    GeometryInfo<dim>::faces_per_cell);
   AssertDimension(pbase,
                   this->generalized_support_points.size() -
                     test_values_cell.size());
@@ -361,7 +365,8 @@ FE_BDM<dim>::initialize_support_points(const unsigned int deg)
                                                    true,
                                                    false,
                                                    false,
-                                                   this->n_dofs_per_face()));
+                                                   this->n_dofs_per_face(
+                                                     0 /*TODO*/)));
 
   // Currently, for backward compatibility, we do not use moments, but
   // point values on faces in 2D. In 3D, this is impossible, since the

@@ -1647,7 +1647,8 @@ FESystem<dim, spacedim>::initialize(
     // If the system is not primitive, these have not been initialized by
     // FiniteElement
     this->system_to_component_table.resize(this->n_dofs_per_cell());
-    this->face_system_to_component_table.resize(this->n_dofs_per_face());
+    this->face_system_to_component_table.resize(
+      this->n_dofs_per_face(0 /*TODO*/));
 
     FETools::Compositing::build_cell_tables(this->system_to_base_table,
                                             this->system_to_component_table,
@@ -1713,7 +1714,7 @@ FESystem<dim, spacedim>::initialize(
       for (unsigned int base_el = 0; base_el < this->n_base_elements();
            ++base_el)
         if (!base_element(base_el).has_support_points() &&
-            (base_element(base_el).n_dofs_per_face() > 0))
+            (base_element(base_el).n_dofs_per_face(0 /*TODO*/) > 0))
           {
             this->unit_face_support_points.resize(0);
             return;
@@ -1722,9 +1723,9 @@ FESystem<dim, spacedim>::initialize(
 
       // generate unit face support points from unit support points of sub
       // elements
-      this->unit_face_support_points.resize(this->n_dofs_per_face());
+      this->unit_face_support_points.resize(this->n_dofs_per_face(0 /*TODO*/));
 
-      for (unsigned int i = 0; i < this->n_dofs_per_face(); ++i)
+      for (unsigned int i = 0; i < this->n_dofs_per_face(0 /*TODO*/); ++i)
         {
           const unsigned int base_i =
             this->face_system_to_base_table[i].first.first;
@@ -1885,12 +1886,12 @@ FESystem<dim, spacedim>::get_face_interpolation_matrix(
   FullMatrix<double> &                interpolation_matrix,
   const unsigned int                  face_no) const
 {
-  Assert(interpolation_matrix.n() == this->n_dofs_per_face(),
+  Assert(interpolation_matrix.n() == this->n_dofs_per_face(face_no),
          ExcDimensionMismatch(interpolation_matrix.n(),
-                              this->n_dofs_per_face()));
-  Assert(interpolation_matrix.m() == x_source_fe.n_dofs_per_face(),
+                              this->n_dofs_per_face(face_no)));
+  Assert(interpolation_matrix.m() == x_source_fe.n_dofs_per_face(face_no),
          ExcDimensionMismatch(interpolation_matrix.m(),
-                              x_source_fe.n_dofs_per_face()));
+                              x_source_fe.n_dofs_per_face(face_no)));
 
   // since dofs for each base are independent, we only have to stack things up
   // from base element to base element
@@ -1926,8 +1927,8 @@ FESystem<dim, spacedim>::get_face_interpolation_matrix(
                  ExcNotImplemented());
 
           // get the interpolation from the bases
-          base_to_base_interpolation.reinit(base_other.n_dofs_per_face(),
-                                            base.n_dofs_per_face());
+          base_to_base_interpolation.reinit(base_other.n_dofs_per_face(face_no),
+                                            base.n_dofs_per_face(face_no));
           base.get_face_interpolation_matrix(base_other,
                                              base_to_base_interpolation,
                                              face_no);
@@ -1935,10 +1936,11 @@ FESystem<dim, spacedim>::get_face_interpolation_matrix(
           // now translate entries. we'd like to have something like
           // face_base_to_system_index, but that doesn't exist. rather, all we
           // have is the reverse. well, use that then
-          for (unsigned int i = 0; i < this->n_dofs_per_face(); ++i)
+          for (unsigned int i = 0; i < this->n_dofs_per_face(face_no); ++i)
             if (this->face_system_to_base_index(i, face_no).first ==
                 std::make_pair(base_index, multiplicity))
-              for (unsigned int j = 0; j < fe_other_system->n_dofs_per_face();
+              for (unsigned int j = 0;
+                   j < fe_other_system->n_dofs_per_face(face_no);
                    ++j)
                 if (fe_other_system->face_system_to_base_index(j, face_no)
                       .first ==
@@ -2006,12 +2008,12 @@ FESystem<dim, spacedim>::get_subface_interpolation_matrix(
       (dynamic_cast<const FESystem<dim, spacedim> *>(&x_source_fe) != nullptr),
     (typename FiniteElement<dim, spacedim>::ExcInterpolationNotImplemented()));
 
-  Assert(interpolation_matrix.n() == this->n_dofs_per_face(),
+  Assert(interpolation_matrix.n() == this->n_dofs_per_face(face_no),
          ExcDimensionMismatch(interpolation_matrix.n(),
-                              this->n_dofs_per_face()));
-  Assert(interpolation_matrix.m() == x_source_fe.n_dofs_per_face(),
+                              this->n_dofs_per_face(face_no)));
+  Assert(interpolation_matrix.m() == x_source_fe.n_dofs_per_face(face_no),
          ExcDimensionMismatch(interpolation_matrix.m(),
-                              x_source_fe.n_dofs_per_face()));
+                              x_source_fe.n_dofs_per_face(face_no)));
 
   // since dofs for each base are independent, we only have to stack things up
   // from base element to base element
@@ -2048,8 +2050,8 @@ FESystem<dim, spacedim>::get_subface_interpolation_matrix(
                  ExcNotImplemented());
 
           // get the interpolation from the bases
-          base_to_base_interpolation.reinit(base_other.n_dofs_per_face(),
-                                            base.n_dofs_per_face());
+          base_to_base_interpolation.reinit(base_other.n_dofs_per_face(face_no),
+                                            base.n_dofs_per_face(face_no));
           base.get_subface_interpolation_matrix(base_other,
                                                 subface,
                                                 base_to_base_interpolation,
@@ -2058,10 +2060,11 @@ FESystem<dim, spacedim>::get_subface_interpolation_matrix(
           // now translate entries. we'd like to have something like
           // face_base_to_system_index, but that doesn't exist. rather, all we
           // have is the reverse. well, use that then
-          for (unsigned int i = 0; i < this->n_dofs_per_face(); ++i)
+          for (unsigned int i = 0; i < this->n_dofs_per_face(face_no); ++i)
             if (this->face_system_to_base_index(i, face_no).first ==
                 std::make_pair(base_index, multiplicity))
-              for (unsigned int j = 0; j < fe_other_system->n_dofs_per_face();
+              for (unsigned int j = 0;
+                   j < fe_other_system->n_dofs_per_face(face_no);
                    ++j)
                 if (fe_other_system->face_system_to_base_index(j, face_no)
                       .first ==
@@ -2358,8 +2361,9 @@ FESystem<dim, spacedim>::unit_face_support_point(
   const unsigned int index,
   const unsigned int face_no) const
 {
-  AssertIndexRange(index, this->n_dofs_per_face());
-  Assert((this->unit_face_support_points.size() == this->n_dofs_per_face()) ||
+  AssertIndexRange(index, this->n_dofs_per_face(face_no));
+  Assert((this->unit_face_support_points.size() ==
+          this->n_dofs_per_face(face_no)) ||
            (this->unit_face_support_points.size() == 0),
          (typename FiniteElement<dim, spacedim>::ExcFEHasNoSupportPoints()));
 

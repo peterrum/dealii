@@ -2285,7 +2285,7 @@ DoFHandler<dim, spacedim>::n_boundary_dofs() const
             if (face->at_boundary())
               {
                 const unsigned int dofs_per_face =
-                  cell->get_fe().n_dofs_per_face();
+                  cell->get_fe().n_dofs_per_face(iface);
                 dofs_on_face.resize(dofs_per_face);
 
                 face->get_dof_indices(dofs_on_face, cell->active_fe_index());
@@ -2337,7 +2337,7 @@ DoFHandler<dim, spacedim>::n_boundary_dofs(
                 (boundary_ids.find(boundary_id) != boundary_ids.end()))
               {
                 const unsigned int dofs_per_face =
-                  cell->get_fe().n_dofs_per_face();
+                  cell->get_fe().n_dofs_per_face(iface);
                 dofs_on_face.resize(dofs_per_face);
 
                 face->get_dof_indices(dofs_on_face, cell->active_fe_index());
