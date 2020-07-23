@@ -1762,7 +1762,8 @@ public:
    * indices. The function is mainly there for use inside the library.
    */
   std::pair<std::pair<unsigned int, unsigned int>, unsigned int>
-  face_system_to_base_index(const unsigned int index) const;
+  face_system_to_base_index(const unsigned int index,
+                            const unsigned int face_no) const;
 
   /**
    * Given a base element number, return the first block of a BlockVector it
@@ -3164,8 +3165,11 @@ FiniteElement<dim, spacedim>::system_to_base_index(
 template <int dim, int spacedim>
 inline std::pair<std::pair<unsigned int, unsigned int>, unsigned int>
 FiniteElement<dim, spacedim>::face_system_to_base_index(
-  const unsigned int index) const
+  const unsigned int index,
+  const unsigned int face_no) const
 {
+  (void)face_no;
+
   AssertIndexRange(index, face_system_to_base_table.size());
   return face_system_to_base_table[index];
 }
