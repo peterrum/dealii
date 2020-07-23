@@ -2085,7 +2085,7 @@ public:
    * See the class documentation for details on support points.
    */
   const std::vector<Point<dim - 1>> &
-  get_unit_face_support_points() const;
+  get_unit_face_support_points(const unsigned int face_no = 0 /*TODO*/) const;
 
   /**
    * Return whether a finite element has defined support points on faces. If
@@ -2096,14 +2096,15 @@ public:
    * function.
    */
   bool
-  has_face_support_points() const;
+  has_face_support_points(const unsigned int face_no) const;
 
   /**
    * The function corresponding to the unit_support_point() function, but for
    * faces. See there for more information.
    */
   virtual Point<dim - 1>
-  unit_face_support_point(const unsigned int index) const;
+  unit_face_support_point(const unsigned int index,
+                          const unsigned int face_no) const;
 
   /**
    * Return a vector of generalized support points.

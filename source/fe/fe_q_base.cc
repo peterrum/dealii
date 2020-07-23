@@ -617,6 +617,8 @@ FE_Q_Base<PolynomialType, dim, spacedim>::get_subface_interpolation_matrix(
   const unsigned int                  subface,
   FullMatrix<double> &                interpolation_matrix) const
 {
+  const unsigned int face_no = 0; // TODO
+
   Assert(interpolation_matrix.m() == x_source_fe.n_dofs_per_face(),
          ExcDimensionMismatch(interpolation_matrix.m(),
                               x_source_fe.n_dofs_per_face()));
@@ -644,7 +646,7 @@ FE_Q_Base<PolynomialType, dim, spacedim>::get_subface_interpolation_matrix(
 
       // generate a point on this cell and evaluate the shape functions there
       const Quadrature<dim - 1> quad_face_support(
-        source_fe->get_unit_face_support_points());
+        source_fe->get_unit_face_support_points(face_no));
 
       // Rule of thumb for FP accuracy, that can be expected for a given
       // polynomial degree.  This value is used to cut off values close to

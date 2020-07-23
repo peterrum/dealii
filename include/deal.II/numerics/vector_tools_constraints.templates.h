@@ -490,6 +490,8 @@ namespace VectorTools
     for (unsigned int i = 0; i < fe_collection.size(); ++i)
       mapping_collection.push_back(mapping);
 
+    const unsigned int face_no = 0; // TODO
+
     // now also create a quadrature collection for the faces of a cell. fill
     // it with a quadrature formula with the support points on faces for each
     // FE
@@ -497,7 +499,7 @@ namespace VectorTools
     for (unsigned int i = 0; i < fe_collection.size(); ++i)
       {
         const std::vector<Point<dim - 1>> &unit_support_points =
-          fe_collection[i].get_unit_face_support_points();
+          fe_collection[i].get_unit_face_support_points(face_no);
 
         Assert(unit_support_points.size() == fe_collection[i].n_dofs_per_face(),
                ExcInternalError());
@@ -1076,6 +1078,8 @@ namespace VectorTools
     for (unsigned int i = 0; i < fe_collection.size(); ++i)
       mapping_collection.push_back(mapping);
 
+    const unsigned int face_no = 0; // TODO
+
     // now also create a quadrature collection for the faces of a cell. fill
     // it with a quadrature formula with the support points on faces for each
     // FE
@@ -1083,7 +1087,7 @@ namespace VectorTools
     for (unsigned int i = 0; i < fe_collection.size(); ++i)
       {
         const std::vector<Point<dim - 1>> &unit_support_points =
-          fe_collection[i].get_unit_face_support_points();
+          fe_collection[i].get_unit_face_support_points(face_no);
 
         Assert(unit_support_points.size() == fe_collection[i].n_dofs_per_face(),
                ExcInternalError());
