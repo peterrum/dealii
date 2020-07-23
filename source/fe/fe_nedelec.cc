@@ -2422,7 +2422,8 @@ template <int dim>
 void
 FE_Nedelec<dim>::get_face_interpolation_matrix(
   const FiniteElement<dim> &source,
-  FullMatrix<double> &      interpolation_matrix) const
+  FullMatrix<double> &      interpolation_matrix,
+  const unsigned int) const
 {
   // this is only implemented, if the
   // source FE is also a

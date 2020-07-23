@@ -232,9 +232,9 @@ public:
    */
 
   virtual void
-  get_face_interpolation_matrix(
-    const FiniteElement<dim, spacedim> &source_fe,
-    FullMatrix<double> &                interpolation_matrix) const override;
+  get_face_interpolation_matrix(const FiniteElement<dim, spacedim> &source_fe,
+                                FullMatrix<double> &interpolation_matrix,
+                                const unsigned int  face_no) const override;
 
 
   /**

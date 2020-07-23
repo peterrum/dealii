@@ -474,7 +474,8 @@ template <int dim, int spacedim>
 void
 FE_DGPNonparametric<dim, spacedim>::get_face_interpolation_matrix(
   const FiniteElement<dim, spacedim> &x_source_fe,
-  FullMatrix<double> &                interpolation_matrix) const
+  FullMatrix<double> &                interpolation_matrix,
+  const unsigned int) const
 {
   // this is only implemented, if the source
   // FE is also a DGPNonparametric element. in that case,

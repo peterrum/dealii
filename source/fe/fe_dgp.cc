@@ -106,7 +106,8 @@ template <int dim, int spacedim>
 void
 FE_DGP<dim, spacedim>::get_face_interpolation_matrix(
   const FiniteElement<dim, spacedim> &x_source_fe,
-  FullMatrix<double> &                interpolation_matrix) const
+  FullMatrix<double> &                interpolation_matrix,
+  const unsigned int) const
 {
   // this is only implemented, if the source FE is also a DGP element. in that
   // case, both elements have no dofs on their faces and the face

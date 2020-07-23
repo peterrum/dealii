@@ -332,12 +332,14 @@ namespace DoFTools
         const FiniteElement<dim, spacedim> & fe2,
         std::unique_ptr<FullMatrix<double>> &matrix)
       {
+        const unsigned int face_no = 0; // TODO
+
         if (matrix == nullptr)
           {
             matrix =
               std::make_unique<FullMatrix<double>>(fe2.n_dofs_per_face(),
                                                    fe1.n_dofs_per_face());
-            fe1.get_face_interpolation_matrix(fe2, *matrix);
+            fe1.get_face_interpolation_matrix(fe2, *matrix, face_no);
           }
       }
 
