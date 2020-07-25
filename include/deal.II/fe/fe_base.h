@@ -128,6 +128,13 @@ namespace FiniteElementDomination
   inline Domination operator&(const Domination d1, const Domination d2);
 } // namespace FiniteElementDomination
 
+struct PrecomputedFiniteElementData
+{
+  std::vector<std::vector<unsigned int>> dofs_per_object_exclusive;
+  std::vector<std::vector<unsigned int>> dofs_per_object_inclusive;
+  std::vector<std::vector<unsigned int>> first_index;
+  std::vector<std::vector<unsigned int>> first_face_index;
+};
 
 /**
  * A class that declares a number of scalar constant variables that describe
@@ -244,6 +251,11 @@ public:
   const unsigned int dofs_per_quad;
 
   /**
+   * TODO.
+   */
+  const std::vector<unsigned int> n_dofs_on_quad;
+
+  /**
    * Number of degrees of freedom in a hexahedron; not including the degrees
    * of freedom on the quadrilaterals, lines and vertices of the hexahedron.
    */
@@ -280,6 +292,11 @@ public:
    * constituting a face.
    */
   const unsigned int dofs_per_face;
+
+  /**
+   * TODO.
+   */
+  const std::vector<unsigned int> n_dofs_on_face;
 
   /**
    * Total number of degrees of freedom on a cell. This is the accumulated
@@ -369,6 +386,16 @@ public:
                     const unsigned int               n_components,
                     const unsigned int               degree,
                     const Conformity                 conformity = unknown,
+                    const BlockIndices &block_indices = BlockIndices());
+
+  /**
+   *
+   */
+  FiniteElementData(const PrecomputedFiniteElementData &data,
+                    const ReferenceCell::Type           cell_type,
+                    const unsigned int                  n_components,
+                    const unsigned int                  degree,
+                    const Conformity                    conformity = unknown,
                     const BlockIndices &block_indices = BlockIndices());
 
   /**
@@ -589,8 +616,7 @@ template <int dim>
 inline unsigned int
 FiniteElementData<dim>::n_dofs_per_quad(unsigned int face_no) const
 {
-  (void)face_no;
-  return dofs_per_quad;
+  return n_dofs_on_quad[n_dofs_on_quad.size() == 1 ? 0 : face_no];
 }
 
 
@@ -608,8 +634,7 @@ template <int dim>
 inline unsigned int
 FiniteElementData<dim>::n_dofs_per_face(unsigned int face_no) const
 {
-  (void)face_no;
-  return dofs_per_face;
+  return n_dofs_on_face[n_dofs_on_face.size() == 1 ? 0 : face_no];
 }
 
 
