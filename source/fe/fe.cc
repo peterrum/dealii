@@ -62,7 +62,6 @@ FiniteElement<dim, spacedim>::FiniteElement(
   , adjust_line_dof_index_for_line_orientation_table(
       dim == 3 ? this->n_dofs_per_line() : 0)
   , system_to_base_table(this->n_dofs_per_cell())
-  , face_system_to_base_table(this->n_dofs_per_face(0 /*TODO*/))
   , component_to_base_table(this->components,
                             std::make_pair(std::make_pair(0U, 0U), 0U))
   ,
@@ -106,17 +105,31 @@ FiniteElement<dim, spacedim>::FiniteElement(
   if (this->is_primitive())
     {
       system_to_component_table.resize(this->n_dofs_per_cell());
-      face_system_to_component_table.resize(this->n_dofs_per_face(face_no));
       for (unsigned int j = 0; j < this->n_dofs_per_cell(); ++j)
         system_to_component_table[j] = std::pair<unsigned, unsigned>(0, j);
-      for (unsigned int j = 0; j < this->n_dofs_per_face(face_no); ++j)
-        face_system_to_component_table[j] = std::pair<unsigned, unsigned>(0, j);
+
+      face_system_to_component_table.resize(this->n_unique_faces());
+      for (unsigned int f = 0; f < this->n_unique_faces(); ++f)
+        {
+          face_system_to_component_table[f].resize(
+            this->n_dofs_per_face(face_no));
+          for (unsigned int j = 0; j < this->n_dofs_per_face(face_no); ++j)
+            face_system_to_component_table[f][j] =
+              std::pair<unsigned, unsigned>(0, j);
+        }
     }
 
   for (unsigned int j = 0; j < this->n_dofs_per_cell(); ++j)
     system_to_base_table[j] = std::make_pair(std::make_pair(0U, 0U), j);
-  for (unsigned int j = 0; j < this->n_dofs_per_face(face_no); ++j)
-    face_system_to_base_table[j] = std::make_pair(std::make_pair(0U, 0U), j);
+
+  face_system_to_base_table.resize(this->n_unique_faces());
+  for (unsigned int f = 0; f < this->n_unique_faces(); ++f)
+    {
+      face_system_to_base_table[f].resize(this->n_dofs_per_face(f));
+      for (unsigned int j = 0; j < this->n_dofs_per_face(face_no); ++j)
+        face_system_to_base_table[f][j] =
+          std::make_pair(std::make_pair(0U, 0U), j);
+    }
 
   // Fill with default value; may be changed by constructor of derived class.
   base_to_block_indices.reinit(1, 1);
