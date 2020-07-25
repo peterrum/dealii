@@ -639,17 +639,22 @@ namespace ReferenceCell
         unsigned int
         n_faces() const override
         {
-          return 6;
+          return 5;
         }
 
         std::array<unsigned int, 2>
         standard_line_to_face_and_line_index(
           const unsigned int line) const override
         {
-          Assert(false, ExcNotImplemented());
-
-          static const std::array<unsigned int, 2> table[6] = {
-            {0, 0}, {0, 1}, {0, 2}, {1, 1}, {1, 2}, {2, 1}};
+          static const std::array<unsigned int, 2> table[9] = {{0, 0},
+                                                               {0, 2},
+                                                               {0, 1},
+                                                               {1, 0},
+                                                               {1, 1},
+                                                               {1, 2},
+                                                               {2, 0},
+                                                               {2, 1},
+                                                               {3, 1}};
 
           return table[line];
         }
@@ -660,14 +665,26 @@ namespace ReferenceCell
           const unsigned int  face,
           const unsigned char face_orientation) const override
         {
-          Assert(false, ExcNotImplemented());
+          if (face > 1) // QUAD
+            {
+              return GeometryInfo<3>::standard_to_real_face_line(
+                line,
+                get_bit(face_orientation, 0),
+                get_bit(face_orientation, 2),
+                get_bit(face_orientation, 1));
+            }
+          else // TRI
+            {
+              static const std::array<std::array<unsigned int, 3>, 6> table = {
+                {{2, 1, 0},
+                 {0, 1, 2},
+                 {1, 2, 0},
+                 {0, 2, 1},
+                 {1, 0, 2},
+                 {2, 0, 1}}};
 
-          (void)face;
-
-          static const std::array<std::array<unsigned int, 3>, 6> table = {
-            {{2, 1, 0}, {0, 1, 2}, {1, 2, 0}, {0, 2, 1}, {1, 0, 2}, {2, 0, 1}}};
-
-          return table[face_orientation][line];
+              return table[face_orientation][line];
+            }
         }
 
         bool

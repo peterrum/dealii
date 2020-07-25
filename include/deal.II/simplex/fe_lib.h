@@ -119,6 +119,35 @@ namespace Simplex
     get_name() const override;
   };
 
+
+
+  /**
+   * TODO.
+   */
+  template <int dim, int spacedim = dim>
+  class FE_Wedge : public dealii::FE_Poly<dim, spacedim>
+  {
+  public:
+    /**
+     * Constructor.
+     */
+    FE_Wedge(const unsigned int degree);
+
+    /**
+     * @copydoc dealii::FiniteElement::clone()
+     */
+    std::unique_ptr<FiniteElement<dim, spacedim>>
+    clone() const override;
+
+    /**
+     * Return a string that uniquely identifies a finite element. This class
+     * returns <tt>Simplex::FE_DGP<dim>(degree)</tt>, with @p dim and @p degree
+     * replaced by appropriate values.
+     */
+    std::string
+    get_name() const override;
+  };
+
 } // namespace Simplex
 
 DEAL_II_NAMESPACE_CLOSE
