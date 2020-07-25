@@ -50,6 +50,7 @@ FiniteElementData<dim>::FiniteElementData(
   , dofs_per_vertex(dofs_per_object[0])
   , dofs_per_line(dofs_per_object[1])
   , dofs_per_quad(dim > 1 ? dofs_per_object[2] : 0)
+  , n_dofs_on_quad({{0, 0, 1, 1, 1}})
   , dofs_per_hex(dim > 2 ? dofs_per_object[3] : 0)
   , first_line_index(
       ReferenceCell::internal::Info::get_cell(cell_type).n_vertices() *
@@ -83,6 +84,7 @@ FiniteElementData<dim>::FiniteElementData(
       ReferenceCell::internal::Info::get_face(cell_type, 0).n_lines() *
         dofs_per_line +
       (dim == 3 ? 1 : 0) * dofs_per_quad)
+  , n_dofs_on_face({{6, 6, 9, 9, 9}})
   , dofs_per_cell(
       ReferenceCell::internal::Info::get_cell(cell_type).n_vertices() *
         dofs_per_vertex +
@@ -105,6 +107,37 @@ FiniteElementData<dim>::FiniteElementData(
   Assert(dofs_per_object.size() == dim + 1,
          ExcDimensionMismatch(dofs_per_object.size() - 1, dim));
 }
+
+template <int dim>
+FiniteElementData<dim>::FiniteElementData(
+  const PrecomputedFiniteElementData &data,
+  const ReferenceCell::Type           cell_type,
+  const unsigned int                  n_components,
+  const unsigned int                  degree,
+  const Conformity                    conformity,
+  const BlockIndices &                block_indices)
+  : cell_type(cell_type)
+  , dofs_per_vertex(data.dofs_per_object_exclusive[0][0])
+  , dofs_per_line(data.dofs_per_object_exclusive[1][0])
+  , dofs_per_quad(dim > 1 ? data.dofs_per_object_exclusive[2][0] : 0)
+  , n_dofs_on_quad(dim > 1 ? data.dofs_per_object_exclusive[2] :
+                             std::vector<unsigned int>{{0}})
+  , dofs_per_hex(dim > 2 ? data.dofs_per_object_exclusive[3][0] : 0)
+  , first_line_index(data.first_index[1][0])
+  , first_quad_index(dim > 1 ? data.first_index[2][0] : 0)
+  , first_hex_index(dim > 2 ? data.first_index[3][0] : 0)
+  , first_face_line_index(dim > 1 ? data.first_face_index[1][0] : 0)
+  , first_face_quad_index(dim > 2 ? data.first_face_index[2][0] : 0)
+  , dofs_per_face(data.dofs_per_object_inclusive[dim - 1][0])
+  , n_dofs_on_face(data.dofs_per_object_inclusive[dim - 1])
+  , dofs_per_cell(data.dofs_per_object_inclusive[dim][0])
+  , components(n_components)
+  , degree(degree)
+  , conforming_space(conformity)
+  , block_indices_data(block_indices.size() == 0 ?
+                         BlockIndices(1, dofs_per_cell) :
+                         block_indices)
+{}
 
 
 

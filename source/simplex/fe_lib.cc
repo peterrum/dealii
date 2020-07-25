@@ -81,23 +81,25 @@ namespace Simplex
     /**
      * Helper function to set up the dpo vector of FE_Wedge for a given @p degree.
      */
-    std::vector<unsigned int>
+    PrecomputedFiniteElementData
     get_dpo_vector_fe_wedge(const unsigned int degree)
     {
-      std::vector<unsigned int> dpo(4, 0U);
+      PrecomputedFiniteElementData dpo;
 
       // all dofs are internal
       if (degree == 1)
         {
-          dpo[0] = 1;
-          dpo[1] = 0;
-          dpo[2] = 0;
+          dpo.dofs_per_object_exclusive = {{1}, {0}, {0, 0, 0, 0, 0}, {0}};
+          dpo.dofs_per_object_inclusive = {{1}, {2}, {3, 3, 4, 4, 4}, {6}};
+          dpo.first_index               = {{}, {6}, {6}, {6}};
+          dpo.first_face_index = {{}, {3, 3, 4, 4, 4}, {3, 3, 4, 4, 4}};
         }
       else if (degree == 2)
         {
-          dpo[0] = 1;
-          dpo[1] = 1;
-          dpo[2] = 1;
+          dpo.dofs_per_object_exclusive = {{1}, {1}, {0, 0, 1, 1, 1}, {0}};
+          dpo.dofs_per_object_inclusive = {{1}, {3}, {6, 6, 9, 9, 9}, {18}};
+          dpo.first_index               = {{}, {6}, {15, 15, 15, 16, 17}, {18}};
+          dpo.first_face_index = {{}, {3, 3, 4, 4, 4}, {6, 6, 8, 8, 8}};
         }
       else
         {

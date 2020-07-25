@@ -60,7 +60,17 @@ FiniteElement<dim, spacedim>::FiniteElement(
   const std::vector<ComponentMask> &nonzero_c)
   : FiniteElementData<dim>(fe_data)
   , adjust_quad_dof_index_for_face_orientation_table(
-      dim == 3 ? this->n_dofs_per_quad(0 /*TODO*/) : 0,
+      dim == 3 ?
+        [&]() {
+          unsigned int result = 0;
+          for (auto f : ReferenceCell::internal::Info::get_cell(
+                          this->reference_cell_type())
+                          .vertex_indices())
+            result = std::max(this->n_dofs_per_quad(f), result);
+
+          return result;
+        }() /*TODO*/ :
+        0,
       dim == 3 ? 8 : 0)
   , adjust_line_dof_index_for_line_orientation_table(
       dim == 3 ? this->n_dofs_per_line() : 0)
@@ -646,9 +656,9 @@ FiniteElement<dim, spacedim>::adjust_quad_dof_index_for_face_orientation(
   // the function should also not have been
   // called
   AssertIndexRange(index, this->n_dofs_per_quad(face));
-  Assert(adjust_quad_dof_index_for_face_orientation_table.n_elements() ==
-           8 * this->n_dofs_per_quad(face),
-         ExcInternalError());
+  // Assert(adjust_quad_dof_index_for_face_orientation_table.n_elements() ==
+  //         8 * this->n_dofs_per_quad(face),
+  //       ExcInternalError());
   return index + adjust_quad_dof_index_for_face_orientation_table(
                    index, 4 * face_orientation + 2 * face_flip + face_rotation);
 }
