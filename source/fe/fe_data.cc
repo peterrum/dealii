@@ -44,11 +44,11 @@ namespace
     result.dofs_per_object_exclusive[1][0] = dofs_per_line;
 
     // dofs_per_quad
-    const unsigned int dofs_per_quad       = dofs_per_object[2];
+    const unsigned int dofs_per_quad       = dim > 1 ? dofs_per_object[2] : 0;
     result.dofs_per_object_exclusive[2][0] = dofs_per_quad;
 
     // dofs_per_hex
-    const unsigned int dofs_per_hex        = dofs_per_object[3];
+    const unsigned int dofs_per_hex        = dim > 2 ? dofs_per_object[3] : 0;
     result.dofs_per_object_exclusive[3][0] = dofs_per_hex;
 
 
@@ -173,8 +173,8 @@ FiniteElementData<dim>::FiniteElementData(
   , first_line_index(data.first_index[1][0])
   , first_quad_index(dim > 1 ? data.first_index[2][0] : 0)
   , first_hex_index(dim > 2 ? data.first_index[3][0] : 0)
-  , first_face_line_index(dim > 1 ? data.first_face_index[1][0] : 0)
-  , first_face_quad_index(dim > 2 ? data.first_face_index[2][0] : 0)
+  , first_face_line_index(dim >= 1 ? data.first_face_index[1][0] : 0)
+  , first_face_quad_index(dim >= 2 ? data.first_face_index[2][0] : 0)
   , dofs_per_face(data.dofs_per_object_inclusive[dim - 1][0])
   , n_dofs_on_face(data.dofs_per_object_inclusive[dim - 1])
   , dofs_per_cell(data.dofs_per_object_inclusive[dim][0])
