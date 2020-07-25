@@ -1425,7 +1425,7 @@ FESystem<dim, spacedim>::build_interface_constraints()
         // data type, first value in pair is (base element,instance of base
         // element), second is index within this instance
         const std::pair<std::pair<unsigned int, unsigned int>, unsigned int>
-          n_index = this->face_system_to_base_table[n];
+          n_index = this->face_system_to_base_table[face_no][n];
 
         // likewise for the m index. this is more complicated due to the
         // strange ordering we have for the dofs on the refined faces.
@@ -1463,7 +1463,8 @@ FESystem<dim, spacedim>::build_interface_constraints()
                     // then use face_system_to_base_table
                     const unsigned int tmp1 =
                       2 * this->n_dofs_per_vertex() + index_in_line;
-                    m_index.first = this->face_system_to_base_table[tmp1].first;
+                    m_index.first =
+                      this->face_system_to_base_table[face_no][tmp1].first;
 
                     // what we are still missing is the index of m within the
                     // base elements interface_constraints table
@@ -1474,12 +1475,13 @@ FESystem<dim, spacedim>::build_interface_constraints()
                     // dof, we can construct the rest: tmp2 will denote the
                     // index of this shape function among the line shape
                     // functions:
-                    Assert(this->face_system_to_base_table[tmp1].second >=
-                             2 * base_element(m_index.first.first)
-                                   .n_dofs_per_vertex(),
-                           ExcInternalError());
+                    Assert(
+                      this->face_system_to_base_table[face_no][tmp1].second >=
+                        2 *
+                          base_element(m_index.first.first).n_dofs_per_vertex(),
+                      ExcInternalError());
                     const unsigned int tmp2 =
-                      this->face_system_to_base_table[tmp1].second -
+                      this->face_system_to_base_table[face_no][tmp1].second -
                       2 * base_element(m_index.first.first).n_dofs_per_vertex();
                     Assert(tmp2 < base_element(m_index.first.first)
                                     .n_dofs_per_line(),
@@ -1518,14 +1520,16 @@ FESystem<dim, spacedim>::build_interface_constraints()
 
                     const unsigned int tmp1 =
                       4 * this->n_dofs_per_vertex() + index_in_line;
-                    m_index.first = this->face_system_to_base_table[tmp1].first;
+                    m_index.first =
+                      this->face_system_to_base_table[face_no][tmp1].first;
 
-                    Assert(this->face_system_to_base_table[tmp1].second >=
-                             4 * base_element(m_index.first.first)
-                                   .n_dofs_per_vertex(),
-                           ExcInternalError());
+                    Assert(
+                      this->face_system_to_base_table[face_no][tmp1].second >=
+                        4 *
+                          base_element(m_index.first.first).n_dofs_per_vertex(),
+                      ExcInternalError());
                     const unsigned int tmp2 =
-                      this->face_system_to_base_table[tmp1].second -
+                      this->face_system_to_base_table[face_no][tmp1].second -
                       4 * base_element(m_index.first.first).n_dofs_per_vertex();
                     Assert(tmp2 < base_element(m_index.first.first)
                                     .n_dofs_per_line(),
@@ -1556,18 +1560,21 @@ FESystem<dim, spacedim>::build_interface_constraints()
                     const unsigned int tmp1 = 4 * this->n_dofs_per_vertex() +
                                               4 * this->n_dofs_per_line() +
                                               index_in_quad;
-                    Assert(tmp1 < this->face_system_to_base_table.size(),
+                    Assert(tmp1 <
+                             this->face_system_to_base_table[face_no].size(),
                            ExcInternalError());
-                    m_index.first = this->face_system_to_base_table[tmp1].first;
+                    m_index.first =
+                      this->face_system_to_base_table[face_no][tmp1].first;
 
-                    Assert(this->face_system_to_base_table[tmp1].second >=
-                             4 * base_element(m_index.first.first)
-                                   .n_dofs_per_vertex() +
-                               4 * base_element(m_index.first.first)
-                                     .n_dofs_per_line(),
-                           ExcInternalError());
+                    Assert(
+                      this->face_system_to_base_table[face_no][tmp1].second >=
+                        4 * base_element(m_index.first.first)
+                              .n_dofs_per_vertex() +
+                          4 *
+                            base_element(m_index.first.first).n_dofs_per_line(),
+                      ExcInternalError());
                     const unsigned int tmp2 =
-                      this->face_system_to_base_table[tmp1].second -
+                      this->face_system_to_base_table[face_no][tmp1].second -
                       4 *
                         base_element(m_index.first.first).n_dofs_per_vertex() -
                       4 * base_element(m_index.first.first).n_dofs_per_line();
@@ -1648,8 +1655,9 @@ FESystem<dim, spacedim>::initialize(
     // If the system is not primitive, these have not been initialized by
     // FiniteElement
     this->system_to_component_table.resize(this->n_dofs_per_cell());
-    this->face_system_to_component_table.resize(
-      this->n_dofs_per_face(0 /*TODO*/));
+    this->face_system_to_component_table.resize(1); // TODO
+    this->face_system_to_component_table[0].resize(
+      this->n_dofs_per_face(0)); // TODO
 
     FETools::Compositing::build_cell_tables(this->system_to_base_table,
                                             this->system_to_component_table,
@@ -1657,8 +1665,8 @@ FESystem<dim, spacedim>::initialize(
                                             *this);
 
     FETools::Compositing::build_face_tables(
-      this->face_system_to_base_table,
-      this->face_system_to_component_table,
+      this->face_system_to_base_table[0 /*TODO*/],
+      this->face_system_to_component_table[0 /*TODO*/],
       *this);
   }
 
@@ -1729,9 +1737,9 @@ FESystem<dim, spacedim>::initialize(
       for (unsigned int i = 0; i < this->n_dofs_per_face(0 /*TODO*/); ++i)
         {
           const unsigned int base_i =
-            this->face_system_to_base_table[i].first.first;
+            this->face_system_to_base_table[0 /*TODO*/][i].first.first;
           const unsigned int index_in_base =
-            this->face_system_to_base_table[i].second;
+            this->face_system_to_base_table[0 /*TODO*/][i].second;
 
           Assert(index_in_base <
                    base_element(base_i).unit_face_support_points.size(),

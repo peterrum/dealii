@@ -2503,7 +2503,7 @@ protected:
    * information thus makes only sense if a shape function is non-zero in only
    * one component.
    */
-  std::vector<std::pair<unsigned int, unsigned int>>
+  std::vector<std::vector<std::pair<unsigned int, unsigned int>>>
     face_system_to_component_table;
 
   /**
@@ -2528,7 +2528,8 @@ protected:
   /**
    * Likewise for the indices on faces.
    */
-  std::vector<std::pair<std::pair<unsigned int, unsigned int>, unsigned int>>
+  std::vector<
+    std::vector<std::pair<std::pair<unsigned int, unsigned int>, unsigned int>>>
     face_system_to_base_table;
 
   /**
@@ -3130,8 +3131,10 @@ FiniteElement<dim, spacedim>::face_system_to_component_index(
   const unsigned int index,
   const unsigned int face) const
 {
-  (void)face; // TODO
-  AssertIndexRange(index, face_system_to_component_table.size());
+  AssertIndexRange(
+    index,
+    face_system_to_component_table[this->n_unique_quads() == 1 ? 0 : face]
+      .size());
 
   // in debug mode, check whether the
   // function is primitive, since
@@ -3146,11 +3149,12 @@ FiniteElement<dim, spacedim>::face_system_to_component_index(
   //
   // in 1d, the face index is equal
   // to the cell index
-  Assert(is_primitive(this->face_to_cell_index(index, 0)),
+  Assert(is_primitive(this->face_to_cell_index(index, face)),
          (typename FiniteElement<dim, spacedim>::ExcShapeFunctionNotPrimitive(
            index)));
 
-  return face_system_to_component_table[index];
+  return face_system_to_component_table[this->n_unique_quads() == 1 ? 0 : face]
+                                       [index];
 }
 
 
@@ -3172,10 +3176,12 @@ FiniteElement<dim, spacedim>::face_system_to_base_index(
   const unsigned int index,
   const unsigned int face_no) const
 {
-  (void)face_no;
-
-  AssertIndexRange(index, face_system_to_base_table.size());
-  return face_system_to_base_table[index];
+  AssertIndexRange(
+    index,
+    face_system_to_base_table[this->n_unique_quads() == 1 ? 0 : face_no]
+      .size());
+  return face_system_to_base_table[this->n_unique_quads() == 1 ? 0 : face_no]
+                                  [index];
 }
 
 
