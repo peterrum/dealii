@@ -164,6 +164,8 @@ FiniteElementData<dim>::FiniteElementData(
   const Conformity                    conformity,
   const BlockIndices &                block_indices)
   : cell_type(cell_type)
+  , number_unique_quads(data.dofs_per_object_inclusive[2].size())
+  , number_unique_faces(data.dofs_per_object_inclusive[dim - 1].size())
   , dofs_per_vertex(data.dofs_per_object_exclusive[0][0])
   , dofs_per_line(data.dofs_per_object_exclusive[1][0])
   , dofs_per_quad(dim > 1 ? data.dofs_per_object_exclusive[2][0] : 0)

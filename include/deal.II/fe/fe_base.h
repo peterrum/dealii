@@ -232,6 +232,16 @@ private:
    */
   const ReferenceCell::Type cell_type;
 
+  /**
+   * TODO
+   */
+  const unsigned int number_unique_quads;
+
+  /**
+   * TODO
+   */
+  const unsigned int number_unique_faces;
+
 public:
   /**
    * Number of degrees of freedom on a vertex.
@@ -250,11 +260,13 @@ public:
    */
   const unsigned int dofs_per_quad;
 
+private:
   /**
    * TODO.
    */
   const std::vector<unsigned int> n_dofs_on_quad;
 
+public:
   /**
    * Number of degrees of freedom in a hexahedron; not including the degrees
    * of freedom on the quadrilaterals, lines and vertices of the hexahedron.
@@ -293,11 +305,13 @@ public:
    */
   const unsigned int dofs_per_face;
 
+private:
   /**
    * TODO.
    */
   const std::vector<unsigned int> n_dofs_on_face;
 
+public:
   /**
    * Total number of degrees of freedom on a cell. This is the accumulated
    * number of degrees of freedom on all the objects of dimension up to
@@ -403,6 +417,18 @@ public:
    */
   ReferenceCell::Type
   reference_cell_type() const;
+
+  /**
+   * TODO.
+   */
+  unsigned int
+  n_unique_quads() const;
+
+  /**
+   * TODO.
+   */
+  unsigned int
+  n_unique_faces() const;
 
   /**
    * Number of dofs per vertex.
@@ -592,6 +618,25 @@ FiniteElementData<dim>::reference_cell_type() const
 {
   return cell_type;
 }
+
+
+
+template <int dim>
+inline unsigned int
+FiniteElementData<dim>::n_unique_quads() const
+{
+  return number_unique_quads;
+}
+
+
+
+template <int dim>
+inline unsigned int
+FiniteElementData<dim>::n_unique_faces() const
+{
+  return number_unique_faces;
+}
+
 
 
 template <int dim>

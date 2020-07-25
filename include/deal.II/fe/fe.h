@@ -2472,7 +2472,7 @@ protected:
    * no permutation at all. Derived finite element classes have to
    * fill this Table with the correct values.
    */
-  Table<2, int> adjust_quad_dof_index_for_face_orientation_table;
+  std::vector<Table<2, int>> adjust_quad_dof_index_for_face_orientation_table;
 
   /**
    * For lines with non-standard line_orientation in 3D, the dofs on lines

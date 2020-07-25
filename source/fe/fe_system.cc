@@ -1814,9 +1814,10 @@ FESystem<dim, spacedim>::initialize(
     init_tasks += Threads::new_task([&]() {
       // the array into which we want to write should have the correct size
       // already.
-      Assert(this->adjust_quad_dof_index_for_face_orientation_table
-                 .n_elements() == 8 * this->n_dofs_per_quad(0 /*TODO*/),
-             ExcInternalError());
+      Assert(
+        this->adjust_quad_dof_index_for_face_orientation_table[0] /*TODO!!!*/
+            .n_elements() == 8 * this->n_dofs_per_quad(0 /*TODO*/),
+        ExcInternalError());
 
       // to obtain the shifts for this composed element, copy the shift
       // information of the base elements
@@ -1825,12 +1826,12 @@ FESystem<dim, spacedim>::initialize(
         {
           const Table<2, int> &temp =
             this->base_element(b)
-              .adjust_quad_dof_index_for_face_orientation_table;
+              .adjust_quad_dof_index_for_face_orientation_table[0];
           for (unsigned int c = 0; c < this->element_multiplicity(b); ++c)
             {
               for (unsigned int i = 0; i < temp.size(0); ++i)
                 for (unsigned int j = 0; j < 8; ++j)
-                  this->adjust_quad_dof_index_for_face_orientation_table(
+                  this->adjust_quad_dof_index_for_face_orientation_table[0](
                     index + i, j) = temp(i, j);
               index += temp.size(0);
             }

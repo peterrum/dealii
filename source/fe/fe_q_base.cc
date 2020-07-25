@@ -981,8 +981,8 @@ FE_Q_Base<PolynomialType, dim, spacedim>::
 
   const unsigned int face_no = 0; // TODO
 
-  Assert(this->adjust_quad_dof_index_for_face_orientation_table.n_elements() ==
-           8 * this->n_dofs_per_quad(face_no),
+  Assert(this->adjust_quad_dof_index_for_face_orientation_table[0]
+             .n_elements() == 8 * this->n_dofs_per_quad(face_no),
          ExcInternalError());
 
   const unsigned int n = q_degree - 1;
@@ -1013,27 +1013,27 @@ FE_Q_Base<PolynomialType, dim, spacedim>::
       unsigned int i = local % n, j = local / n;
 
       // face_orientation=false, face_flip=false, face_rotation=false
-      this->adjust_quad_dof_index_for_face_orientation_table(local, 0) =
+      this->adjust_quad_dof_index_for_face_orientation_table[0](local, 0) =
         j + i * n - local;
       // face_orientation=false, face_flip=false, face_rotation=true
-      this->adjust_quad_dof_index_for_face_orientation_table(local, 1) =
+      this->adjust_quad_dof_index_for_face_orientation_table[0](local, 1) =
         i + (n - 1 - j) * n - local;
       // face_orientation=false, face_flip=true,  face_rotation=false
-      this->adjust_quad_dof_index_for_face_orientation_table(local, 2) =
+      this->adjust_quad_dof_index_for_face_orientation_table[0](local, 2) =
         (n - 1 - j) + (n - 1 - i) * n - local;
       // face_orientation=false, face_flip=true,  face_rotation=true
-      this->adjust_quad_dof_index_for_face_orientation_table(local, 3) =
+      this->adjust_quad_dof_index_for_face_orientation_table[0](local, 3) =
         (n - 1 - i) + j * n - local;
       // face_orientation=true,  face_flip=false, face_rotation=false
-      this->adjust_quad_dof_index_for_face_orientation_table(local, 4) = 0;
+      this->adjust_quad_dof_index_for_face_orientation_table[0](local, 4) = 0;
       // face_orientation=true,  face_flip=false, face_rotation=true
-      this->adjust_quad_dof_index_for_face_orientation_table(local, 5) =
+      this->adjust_quad_dof_index_for_face_orientation_table[0](local, 5) =
         j + (n - 1 - i) * n - local;
       // face_orientation=true,  face_flip=true,  face_rotation=false
-      this->adjust_quad_dof_index_for_face_orientation_table(local, 6) =
+      this->adjust_quad_dof_index_for_face_orientation_table[0](local, 6) =
         (n - 1 - i) + (n - 1 - j) * n - local;
       // face_orientation=true,  face_flip=true,  face_rotation=true
-      this->adjust_quad_dof_index_for_face_orientation_table(local, 7) =
+      this->adjust_quad_dof_index_for_face_orientation_table[0](local, 7) =
         (n - 1 - j) + i * n - local;
     }
 
