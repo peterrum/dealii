@@ -150,7 +150,7 @@ namespace Simplex
     AssertDimension(dim, 3);
 
     Simplex::PGauss<2> quad_tri(n_points == (3 * 2) ? 3 : 7);
-    QGauss<2>          quad_line(n_points == (3 * 2) ? 2 : 3);
+    QGauss<1>          quad_line(n_points == (3 * 2) ? 2 : 3);
 
     for (unsigned int i = 0; i < quad_line.size(); ++i)
       for (unsigned int j = 0; j < quad_tri.size(); ++j)
