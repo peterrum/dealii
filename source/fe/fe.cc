@@ -167,6 +167,8 @@ FiniteElement<dim, spacedim>::FiniteElement(
           adjust_quad_dof_index_for_face_orientation_table[f].fill(0);
         }
     }
+
+  unit_face_support_points.resize(this->n_unique_faces());
 }
 
 
@@ -1102,10 +1104,12 @@ FiniteElement<dim, spacedim>::get_unit_face_support_points(
   // support points, but only if
   // there are as many as there are
   // degrees of freedom on a face
-  Assert((unit_face_support_points.size() == 0) ||
-           (unit_face_support_points.size() == this->n_dofs_per_face(face_no)),
+  Assert((unit_face_support_points[this->n_unique_faces() == 1 ? 0 : face_no]
+            .size() == 0) ||
+           (unit_face_support_points[this->n_unique_faces() == 1 ? 0 : face_no]
+              .size() == this->n_dofs_per_face(face_no)),
          ExcInternalError());
-  return unit_face_support_points;
+  return unit_face_support_points[this->n_unique_faces() == 1 ? 0 : face_no];
 }
 
 
@@ -1115,9 +1119,8 @@ bool
 FiniteElement<dim, spacedim>::has_face_support_points(
   const unsigned int face_no) const
 {
-  (void)face_no;
-
-  return (unit_face_support_points.size() != 0);
+  return (unit_face_support_points[this->n_unique_faces() == 1 ? 0 : face_no]
+            .size() != 0);
 }
 
 
@@ -1129,9 +1132,11 @@ FiniteElement<dim, spacedim>::unit_face_support_point(
   const unsigned int face_no) const
 {
   AssertIndexRange(index, this->n_dofs_per_face(face_no));
-  Assert(unit_face_support_points.size() == this->n_dofs_per_face(face_no),
+  Assert(unit_face_support_points[this->n_unique_faces() == 1 ? 0 : face_no]
+             .size() == this->n_dofs_per_face(face_no),
          ExcFEHasNoSupportPoints());
-  return unit_face_support_points[index];
+  return unit_face_support_points[this->n_unique_faces() == 1 ? 0 : face_no]
+                                 [index];
 }
 
 
