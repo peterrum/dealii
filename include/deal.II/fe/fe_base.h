@@ -482,6 +482,12 @@ public:
   n_dofs_per_face(unsigned int face_no = 0, unsigned int child = 0) const;
 
   /**
+   * TODO
+   */
+  unsigned int
+  max_n_dofs_per_face() const;
+
+  /**
    * Number of dofs per cell, accumulating degrees of freedom of all lower
    * dimensional objects.
    */
@@ -703,6 +709,15 @@ FiniteElementData<dim>::n_dofs_per_face(unsigned int face_no,
   (void)child_no;
 
   return n_dofs_on_face[n_dofs_on_face.size() == 1 ? 0 : face_no];
+}
+
+
+
+template <int dim>
+inline unsigned int
+FiniteElementData<dim>::max_n_dofs_per_face() const
+{
+  return n_dofs_on_face[0]; // TODO!!!
 }
 
 
