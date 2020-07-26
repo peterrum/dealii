@@ -301,7 +301,7 @@ namespace Simplex
   template <int dim, int spacedim>
   FE_Wedge<dim, spacedim>::FE_Wedge(const unsigned int degree)
     : dealii::FE_Poly<dim, spacedim>(
-        Simplex::ScalarPolynomial<dim>(degree),
+        Simplex::ScalarWedgePolynomial<dim>(degree),
         FiniteElementData<dim>(get_dpo_vector_fe_wedge(degree),
                                ReferenceCell::Type::Wedge,
                                1,
@@ -323,6 +323,22 @@ namespace Simplex
           std::vector<bool>(1, true)))
   {
     AssertDimension(dim, 3);
+
+
+    if (degree == 1)
+      {
+        this->unit_support_points.emplace_back(1.0, 0.0, 0.0);
+        this->unit_support_points.emplace_back(0.0, 1.0, 0.0);
+        this->unit_support_points.emplace_back(0.0, 0.0, 0.0);
+        this->unit_support_points.emplace_back(1.0, 0.0, 1.0);
+        this->unit_support_points.emplace_back(0.0, 1.0, 1.0);
+        this->unit_support_points.emplace_back(0.0, 0.0, 1.0);
+
+        // TODO
+        this->unit_face_support_points[0].emplace_back(1.0, 0.0);
+        this->unit_face_support_points[0].emplace_back(0.0, 1.0);
+        this->unit_face_support_points[0].emplace_back(0.0, 0.0);
+      }
   }
 
 
@@ -349,6 +365,8 @@ namespace Simplex
 
 
 } // namespace Simplex
+
+template class Simplex::FE_Wedge<3, 3>;
 
 // explicit instantiations
 #include "fe_lib.inst"

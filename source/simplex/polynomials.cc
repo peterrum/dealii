@@ -485,9 +485,219 @@ namespace Simplex
     return std::make_unique<ScalarPolynomial<dim>>(*this);
   }
 
+
+
+  template <int dim>
+  ScalarWedgePolynomial<dim>::ScalarWedgePolynomial(const unsigned int degree)
+    : ScalarPolynomialsBase<dim>(degree, compute_n_polynomials(dim, degree))
+  {}
+
+
+
+  template <int dim>
+  double
+  ScalarWedgePolynomial<dim>::compute_value(const unsigned int i,
+                                            const Point<dim> & p) const
+  {
+    AssertDimension(dim, 3);
+
+    if (this->degree() == 1)
+      {
+        if (i == 0)
+          return (1.0 - p[0] - p[1]) * (1.0 - p[2]);
+        else if (i == 1)
+          return (p[0]) * (1.0 - p[2]);
+        else if (i == 2)
+          return (p[1]) * (1.0 - p[2]);
+        else if (i == 3)
+          return (1.0 - p[0] - p[1]) * (p[2]);
+        else if (i == 4)
+          return (p[0]) * (p[2]);
+        else if (i == 5)
+          return (p[1]) * (p[2]);
+      }
+
+    Assert(false, ExcNotImplemented());
+
+    return 0;
+  }
+
+
+
+  template <int dim>
+  Tensor<1, dim>
+  ScalarWedgePolynomial<dim>::compute_grad(const unsigned int i,
+                                           const Point<dim> & p) const
+  {
+    AssertDimension(dim, 3);
+
+    Tensor<1, dim> grad;
+
+
+    if (this->degree() == 1)
+      {
+        if (i == 0)
+          {
+            grad[0] = (-1.0) * (1.0 - p[2]);
+            grad[1] = (-1.0) * (1.0 - p[2]);
+            grad[1] = (1.0 - p[0] - p[1]) * (-1.0);
+          }
+        else if (i == 1)
+          {
+            grad[0] = (+1.0) * (1.0 - p[2]);
+            grad[1] = (+0.0) * (1.0 - p[2]);
+            grad[1] = (p[0]) * (-1.0);
+          }
+        else if (i == 2)
+          {
+            grad[0] = +0.0 * (1.0 - p[2]);
+            grad[1] = +1.0 * (1.0 - p[2]);
+            grad[1] = (p[1]) * (-1.0);
+          }
+        else if (i == 3)
+          {
+            grad[0] = (-1.0) * (p[2]);
+            grad[1] = (-1.0) * (p[2]);
+            grad[1] = (1.0 - p[0] - p[1]) * (+1.0);
+          }
+        else if (i == 4)
+          {
+            grad[0] = (+1.0) * (p[2]);
+            grad[1] = (+0.0) * (p[2]);
+            grad[1] = (p[0]) * (+1.0);
+          }
+        else if (i == 5)
+          {
+            grad[0] = +0.0 * (p[2]);
+            grad[1] = +1.0 * (p[2]);
+            grad[1] = (p[1]) * (+1.0);
+          }
+        else
+          {
+            Assert(false, ExcNotImplemented());
+          }
+      }
+
+    return grad;
+  }
+
+
+
+  template <int dim>
+  Tensor<2, dim>
+  ScalarWedgePolynomial<dim>::compute_grad_grad(const unsigned int i,
+                                                const Point<dim> & p) const
+  {
+    (void)i;
+    (void)p;
+
+    Assert(false, ExcNotImplemented());
+    return Tensor<2, dim>();
+  }
+
+
+
+  template <int dim>
+  void
+  ScalarWedgePolynomial<dim>::evaluate(
+    const Point<dim> &           unit_point,
+    std::vector<double> &        values,
+    std::vector<Tensor<1, dim>> &grads,
+    std::vector<Tensor<2, dim>> &grad_grads,
+    std::vector<Tensor<3, dim>> &third_derivatives,
+    std::vector<Tensor<4, dim>> &fourth_derivatives) const
+  {
+    (void)grads;
+    (void)grad_grads;
+    (void)third_derivatives;
+    (void)fourth_derivatives;
+
+    if (values.size() == this->n())
+      for (unsigned int i = 0; i < this->n(); i++)
+        values[i] = compute_value(i, unit_point);
+
+    if (grads.size() == this->n())
+      for (unsigned int i = 0; i < this->n(); i++)
+        grads[i] = compute_grad(i, unit_point);
+  }
+
+
+
+  template <int dim>
+  Tensor<1, dim>
+  ScalarWedgePolynomial<dim>::compute_1st_derivative(const unsigned int i,
+                                                     const Point<dim> & p) const
+  {
+    return compute_grad(i, p);
+  }
+
+
+
+  template <int dim>
+  Tensor<2, dim>
+  ScalarWedgePolynomial<dim>::compute_2nd_derivative(const unsigned int i,
+                                                     const Point<dim> & p) const
+  {
+    (void)i;
+    (void)p;
+
+    Assert(false, ExcNotImplemented());
+
+    return {};
+  }
+
+
+
+  template <int dim>
+  Tensor<3, dim>
+  ScalarWedgePolynomial<dim>::compute_3rd_derivative(const unsigned int i,
+                                                     const Point<dim> & p) const
+  {
+    (void)i;
+    (void)p;
+
+    Assert(false, ExcNotImplemented());
+
+    return {};
+  }
+
+
+
+  template <int dim>
+  Tensor<4, dim>
+  ScalarWedgePolynomial<dim>::compute_4th_derivative(const unsigned int i,
+                                                     const Point<dim> & p) const
+  {
+    (void)i;
+    (void)p;
+
+    Assert(false, ExcNotImplemented());
+
+    return {};
+  }
+
+
+
+  template <int dim>
+  std::string
+  ScalarWedgePolynomial<dim>::name() const
+  {
+    return "ScalarWedgePolynomial";
+  }
+
+
+
+  template <int dim>
+  std::unique_ptr<ScalarPolynomialsBase<dim>>
+  ScalarWedgePolynomial<dim>::clone() const
+  {
+    return std::make_unique<ScalarWedgePolynomial<dim>>(*this);
+  }
+
   template class ScalarPolynomial<1>;
   template class ScalarPolynomial<2>;
   template class ScalarPolynomial<3>;
+  template class ScalarWedgePolynomial<3>;
 
 } // namespace Simplex
 

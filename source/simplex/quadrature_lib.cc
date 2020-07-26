@@ -143,11 +143,35 @@ namespace Simplex
            ExcMessage("No valid quadrature points!"));
   }
 
+  template <int dim>
+  PGaussWedge<dim>::PGaussWedge(const unsigned int n_points)
+    : Quadrature<dim>()
+  {
+    AssertDimension(dim, 3);
+
+    Simplex::PGauss<2> quad_tri(n_points == (3 * 2) ? 3 : 7);
+    QGauss<2>          quad_line(n_points == (3 * 2) ? 2 : 3);
+
+    for (unsigned int i = 0; i < quad_line.size(); ++i)
+      for (unsigned int j = 0; j < quad_tri.size(); ++j)
+        {
+          this->quadrature_points.emplace_back(quad_tri.point(j)[0],
+                                               quad_tri.point(j)[1],
+                                               quad_line.point(i)[0]);
+          this->weights.emplace_back(quad_tri.weight(j) * quad_line.weight(i));
+        }
+
+    AssertDimension(this->quadrature_points.size(), this->weights.size());
+    Assert(this->quadrature_points.size() > 0,
+           ExcMessage("No valid quadrature points!"));
+  }
+
 } // namespace Simplex
 
 
 template class Simplex::PGauss<1>;
 template class Simplex::PGauss<2>;
 template class Simplex::PGauss<3>;
+template class Simplex::PGaussWedge<3>;
 
 DEAL_II_NAMESPACE_CLOSE
