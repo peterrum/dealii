@@ -2443,7 +2443,7 @@ protected:
    * get_unit_face_support_points() function for a discussion of what
    * contributes a face support point.
    */
-  std::vector<Point<dim - 1>> unit_face_support_points;
+  std::vector<std::vector<Point<dim - 1>>> unit_face_support_points;
 
   /**
    * Support points used for interpolation functions of non-Lagrangian

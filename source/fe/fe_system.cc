@@ -1725,14 +1725,15 @@ FESystem<dim, spacedim>::initialize(
         if (!base_element(base_el).has_support_points() &&
             (base_element(base_el).n_dofs_per_face(0 /*TODO*/) > 0))
           {
-            this->unit_face_support_points.resize(0);
+            this->unit_face_support_points[0 /*TODO*/].resize(0);
             return;
           }
 
 
       // generate unit face support points from unit support points of sub
       // elements
-      this->unit_face_support_points.resize(this->n_dofs_per_face(0 /*TODO*/));
+      this->unit_face_support_points[0 /*TODO*/].resize(
+        this->n_dofs_per_face(0 /*TODO*/));
 
       for (unsigned int i = 0; i < this->n_dofs_per_face(0 /*TODO*/); ++i)
         {
@@ -1741,12 +1742,14 @@ FESystem<dim, spacedim>::initialize(
           const unsigned int index_in_base =
             this->face_system_to_base_table[0 /*TODO*/][i].second;
 
-          Assert(index_in_base <
-                   base_element(base_i).unit_face_support_points.size(),
-                 ExcInternalError());
+          Assert(
+            index_in_base <
+              base_element(base_i).unit_face_support_points[0 /*TODO*/].size(),
+            ExcInternalError());
 
-          this->unit_face_support_points[i] =
-            base_element(base_i).unit_face_support_points[index_in_base];
+          this->unit_face_support_points[0 /*TODO*/][i] =
+            base_element(base_i)
+              .unit_face_support_points[0 /*TODO*/][index_in_base];
         }
     });
 
@@ -2372,14 +2375,19 @@ FESystem<dim, spacedim>::unit_face_support_point(
   const unsigned int face_no) const
 {
   AssertIndexRange(index, this->n_dofs_per_face(face_no));
-  Assert((this->unit_face_support_points.size() ==
-          this->n_dofs_per_face(face_no)) ||
-           (this->unit_face_support_points.size() == 0),
-         (typename FiniteElement<dim, spacedim>::ExcFEHasNoSupportPoints()));
+  Assert(
+    (this->unit_face_support_points[this->n_unique_faces() == 1 ? 0 : face_no]
+       .size() == this->n_dofs_per_face(face_no)) ||
+      (this->unit_face_support_points[this->n_unique_faces() == 1 ? 0 : face_no]
+         .size() == 0),
+    (typename FiniteElement<dim, spacedim>::ExcFEHasNoSupportPoints()));
 
   // let's see whether we have the information pre-computed
-  if (this->unit_face_support_points.size() != 0)
-    return this->unit_face_support_points[index];
+  if (this->unit_face_support_points[this->n_unique_faces() == 1 ? 0 : face_no]
+        .size() != 0)
+    return this
+      ->unit_face_support_points[this->n_unique_faces() == 1 ? 0 : face_no]
+                                [index];
   else
     // no. ask the base element whether it would like to provide this
     // information

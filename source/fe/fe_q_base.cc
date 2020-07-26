@@ -935,7 +935,7 @@ FE_Q_Base<PolynomialType, dim, spacedim>::initialize_unit_face_support_points(
   if (dim == 1)
     return;
 
-  this->unit_face_support_points.resize(
+  this->unit_face_support_points[0].resize(
     Utilities::fixed_power<dim - 1>(q_degree + 1));
 
   // find renumbering of faces and assign from values of quadrature
@@ -951,9 +951,9 @@ FE_Q_Base<PolynomialType, dim, spacedim>::initialize_unit_face_support_points(
 
   // The only thing we have to do is reorder the points from tensor
   // product order to the order in which we enumerate DoFs on cells
-  this->unit_face_support_points.resize(support_quadrature.size());
+  this->unit_face_support_points[0].resize(support_quadrature.size());
   for (unsigned int k = 0; k < support_quadrature.size(); ++k)
-    this->unit_face_support_points[face_index_map[k]] =
+    this->unit_face_support_points[0][face_index_map[k]] =
       support_quadrature.point(k);
 }
 
