@@ -1398,8 +1398,6 @@ namespace FETools
       const DoFHandler<dim, spacedim> &dof2,
       OutVector &                      u2)
     {
-      const unsigned int face_no = 0; // TODO
-
       const parallel::distributed::Triangulation<dim, spacedim> *tr =
         (dynamic_cast<const parallel::distributed::Triangulation<dim, spacedim>
                         *>(&dof2.get_triangulation()));
