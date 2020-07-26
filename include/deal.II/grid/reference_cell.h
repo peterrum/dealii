@@ -45,6 +45,7 @@ namespace ReferenceCell
     Invalid = static_cast<std::uint8_t>(-1)
   };
 
+
   /**
    * Return the correct simplex reference cell type for the given dimension
    * @p dim.
