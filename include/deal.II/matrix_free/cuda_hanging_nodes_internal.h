@@ -140,7 +140,8 @@ namespace CUDAWrappers
       void
       setup_constraint_weigths(unsigned int fe_degree)
       {
-        const unsigned int face_no = 0;
+        const unsigned int face_no =
+          0; // we assume that all faces have the same number of dofs
 
         FE_Q<2>            fe_q(fe_degree);
         FullMatrix<double> interpolation_matrix(fe_q.n_dofs_per_face(face_no),
