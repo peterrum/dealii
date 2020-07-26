@@ -309,7 +309,8 @@ namespace internal
           {
             dof_handler.object_dof_indices[i][2].resize(
               dof_handler.tria->n_raw_cells(i) *
-                dof_handler.get_fe().n_dofs_per_quad(0 /*TODO*/),
+                dof_handler.get_fe().n_dofs_per_quad(
+                  0 /*note: in 2D there is only one quad*/),
               numbers::invalid_dof_index);
 
             dof_handler.object_dof_ptr[i][2].reserve(
@@ -317,7 +318,8 @@ namespace internal
             for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
                  j++)
               dof_handler.object_dof_ptr[i][2].push_back(
-                j * dof_handler.get_fe().n_dofs_per_quad(0 /*TODO*/));
+                j * dof_handler.get_fe().n_dofs_per_quad(
+                      0 /*note: in 2D there is only one quad*/));
 
             dof_handler.cell_dof_cache_indices[i].resize(
               dof_handler.tria->n_raw_cells(i) *
