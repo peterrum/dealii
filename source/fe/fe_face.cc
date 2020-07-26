@@ -518,7 +518,7 @@ FE_FaceQ<1, spacedim>::FE_FaceQ(const unsigned int degree)
       std::vector<bool>(1, true),
       std::vector<ComponentMask>(1, ComponentMask(1, true)))
 {
-  this->unit_face_support_points.resize(1);
+  this->unit_face_support_points[0].resize(1);
 
   // initialize unit support points (this makes it possible to assign initial
   // values to FE_FaceQ)
