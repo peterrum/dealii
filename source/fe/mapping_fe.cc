@@ -1216,11 +1216,12 @@ MappingFE<dim, spacedim>::fill_fe_values(
                 // TODO: this allows for anisotropies of up to 1e6 in 3D and
                 // 1e12 in 2D. might want to find a finer
                 // (dimension-independent) criterion
-                Assert(det >
-                         1e-12 * Utilities::fixed_power<dim>(
-                                   cell->diameter() / std::sqrt(double(dim))),
-                       (typename Mapping<dim, spacedim>::ExcDistortedMappedCell(
-                         cell->center(), det, point)));
+                // Assert(det >
+                //         1e-12 * Utilities::fixed_power<dim>(
+                //                   cell->diameter() / std::sqrt(double(dim))),
+                //       (typename Mapping<dim,
+                //       spacedim>::ExcDistortedMappedCell(
+                //         cell->center(), det, point)));
 
                 output_data.JxW_values[point] = weights[point] * det;
               }

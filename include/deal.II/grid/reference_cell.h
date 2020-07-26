@@ -820,15 +820,15 @@ namespace ReferenceCell
         standard_line_to_face_and_line_index(
           const unsigned int line) const override
         {
-          static const std::array<unsigned int, 2> table[9] = {{0, 0},
-                                                               {0, 2},
-                                                               {0, 1},
-                                                               {1, 0},
-                                                               {1, 1},
-                                                               {1, 2},
-                                                               {2, 0},
-                                                               {2, 1},
-                                                               {3, 1}};
+          static const std::array<unsigned int, 2> table[9] = {{{0, 0}},
+                                                               {{0, 2}},
+                                                               {{0, 1}},
+                                                               {{1, 0}},
+                                                               {{1, 1}},
+                                                               {{1, 2}},
+                                                               {{2, 0}},
+                                                               {{2, 1}},
+                                                               {{3, 1}}};
 
           return table[line];
         }
@@ -850,12 +850,12 @@ namespace ReferenceCell
           else // TRI
             {
               static const std::array<std::array<unsigned int, 3>, 6> table = {
-                {{2, 1, 0},
-                 {0, 1, 2},
-                 {1, 2, 0},
-                 {0, 2, 1},
-                 {1, 0, 2},
-                 {2, 0, 1}}};
+                {{{2, 1, 0}},
+                 {{0, 1, 2}},
+                 {{1, 2, 0}},
+                 {{0, 2, 1}},
+                 {{1, 0, 2}},
+                 {{2, 0, 1}}}};
 
               return table[face_orientation][line];
             }

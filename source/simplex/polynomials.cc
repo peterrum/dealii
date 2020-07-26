@@ -51,6 +51,23 @@ namespace Simplex
 
       return 0;
     }
+
+    unsigned int
+    compute_n_polynomials_wedge(const unsigned int dim,
+                                const unsigned int degree)
+    {
+      if (dim == 3)
+        {
+          if (degree == 1)
+            return 6;
+          if (degree == 2)
+            return 18;
+        }
+
+      Assert(false, ExcNotImplemented());
+
+      return 0;
+    }
   } // namespace
 
 
@@ -489,7 +506,8 @@ namespace Simplex
 
   template <int dim>
   ScalarWedgePolynomial<dim>::ScalarWedgePolynomial(const unsigned int degree)
-    : ScalarPolynomialsBase<dim>(degree, compute_n_polynomials(dim, degree))
+    : ScalarPolynomialsBase<dim>(degree,
+                                 compute_n_polynomials_wedge(dim, degree))
   {}
 
 
