@@ -469,6 +469,12 @@ public:
   n_dofs_per_quad(unsigned int face_no = 0) const;
 
   /**
+   * Number of dofs per quad. Not including dofs on lower dimensional objects.
+   */
+  unsigned int
+  max_dofs_per_quad() const;
+
+  /**
    * Number of dofs per hex. Not including dofs on lower dimensional objects.
    */
   unsigned int
@@ -485,7 +491,7 @@ public:
    * TODO
    */
   unsigned int
-  max_n_dofs_per_face() const;
+  max_dofs_per_face() const;
 
   /**
    * Number of dofs per cell, accumulating degrees of freedom of all lower
@@ -694,6 +700,15 @@ FiniteElementData<dim>::n_dofs_per_quad(unsigned int face_no) const
 
 template <int dim>
 inline unsigned int
+FiniteElementData<dim>::max_dofs_per_quad() const
+{
+  return n_dofs_on_quad[0]; // TODO
+}
+
+
+
+template <int dim>
+inline unsigned int
 FiniteElementData<dim>::n_dofs_per_hex() const
 {
   return dofs_per_hex;
@@ -715,7 +730,7 @@ FiniteElementData<dim>::n_dofs_per_face(unsigned int face_no,
 
 template <int dim>
 inline unsigned int
-FiniteElementData<dim>::max_n_dofs_per_face() const
+FiniteElementData<dim>::max_dofs_per_face() const
 {
   return n_dofs_on_face[0]; // TODO!!!
 }

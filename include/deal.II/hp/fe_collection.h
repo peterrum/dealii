@@ -912,14 +912,12 @@ namespace hp
   unsigned int
   FECollection<dim, spacedim>::max_dofs_per_quad() const
   {
-    const unsigned int face_no = 0; // TODO
-
     Assert(finite_elements.size() > 0, ExcNoFiniteElements());
 
     unsigned int max = 0;
     for (unsigned int i = 0; i < finite_elements.size(); ++i)
-      if (finite_elements[i]->n_dofs_per_quad(face_no) > max)
-        max = finite_elements[i]->n_dofs_per_quad(face_no);
+      if (finite_elements[i]->max_dofs_per_quad() > max)
+        max = finite_elements[i]->max_dofs_per_quad();
 
     return max;
   }
@@ -946,13 +944,12 @@ namespace hp
   unsigned int
   FECollection<dim, spacedim>::max_dofs_per_face() const
   {
-    const unsigned int face_no = 0; // TODO
     Assert(finite_elements.size() > 0, ExcNoFiniteElements());
 
     unsigned int max = 0;
     for (unsigned int i = 0; i < finite_elements.size(); ++i)
-      if (finite_elements[i]->n_dofs_per_face(face_no) > max)
-        max = finite_elements[i]->n_dofs_per_face(face_no);
+      if (finite_elements[i]->max_dofs_per_face() > max)
+        max = finite_elements[i]->max_dofs_per_face();
 
     return max;
   }

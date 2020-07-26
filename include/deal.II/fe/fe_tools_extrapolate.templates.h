@@ -1413,7 +1413,7 @@ namespace FETools
 
       // exclude dofs on more refined ghosted cells
       const FiniteElement<dim, spacedim> &fe = dof2.get_fe();
-      if (fe.max_n_dofs_per_face() > 0)
+      if (fe.max_dofs_per_face() > 0)
         {
           const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
           std::vector<types::global_dof_index> indices(dofs_per_cell);
