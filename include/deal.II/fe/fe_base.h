@@ -283,6 +283,13 @@ public:
    */
   const unsigned int first_quad_index;
 
+private:
+  /**
+   * TODO.
+   */
+  const std::vector<unsigned int> first_index_of_quads;
+
+public:
   /**
    * First index of dof on a hexahedron.
    */
@@ -293,11 +300,25 @@ public:
    */
   const unsigned int first_face_line_index;
 
+private:
+  /**
+   * TODO.
+   */
+  const std::vector<unsigned int> first_line_index_of_faces;
+
+public:
   /**
    * First index of dof on a quad for face data.
    */
   const unsigned int first_face_quad_index;
 
+private:
+  /**
+   * TODO.
+   */
+  const std::vector<unsigned int> first_quad_index_of_faces;
+
+public:
   /**
    * Number of degrees of freedom on a face. This is the accumulated number of
    * degrees of freedom on all the objects of dimension up to <tt>dim-1</tt>
@@ -771,7 +792,10 @@ template <int dim>
 unsigned int
 FiniteElementData<dim>::get_first_quad_index(const unsigned int quad_no) const
 {
-  return first_quad_index + quad_no * n_dofs_per_quad(quad_no);
+  if (first_index_of_quads.size() == 1)
+    return first_index_of_quads[0] + quad_no * n_dofs_per_quad(0);
+  else
+    return first_index_of_quads[quad_no];
 }
 
 template <int dim>
@@ -786,8 +810,9 @@ unsigned int
 FiniteElementData<dim>::get_first_face_line_index(
   const unsigned int face_no) const
 {
-  (void)face_no;
-  return first_face_line_index;
+  return first_line_index_of_faces[first_line_index_of_faces.size() == 1 ?
+                                     0 :
+                                     face_no];
 }
 
 template <int dim>
@@ -795,8 +820,9 @@ unsigned int
 FiniteElementData<dim>::get_first_face_quad_index(
   const unsigned int face_no) const
 {
-  (void)face_no;
-  return first_face_quad_index;
+  return first_quad_index_of_faces[first_quad_index_of_faces.size() == 1 ?
+                                     0 :
+                                     face_no];
 }
 
 
