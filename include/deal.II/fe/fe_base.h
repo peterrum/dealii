@@ -254,12 +254,6 @@ public:
    */
   const unsigned int dofs_per_line;
 
-  /**
-   * Number of degrees of freedom in a quadrilateral; not including the
-   * degrees of freedom on the lines and vertices of the quadrilateral.
-   */
-  const unsigned int dofs_per_quad;
-
 private:
   /**
    * TODO.
@@ -267,6 +261,11 @@ private:
   const std::vector<unsigned int> n_dofs_on_quad;
 
 public:
+  /**
+   * Number of degrees of freedom in a quadrilateral; not including the
+   * degrees of freedom on the lines and vertices of the quadrilateral.
+   */
+  const unsigned int dofs_per_quad;
   /**
    * Number of degrees of freedom in a hexahedron; not including the degrees
    * of freedom on the quadrilaterals, lines and vertices of the hexahedron.
@@ -278,11 +277,6 @@ public:
    */
   const unsigned int first_line_index;
 
-  /**
-   * First index of dof on a quad.
-   */
-  const unsigned int first_quad_index;
-
 private:
   /**
    * TODO.
@@ -291,10 +285,22 @@ private:
 
 public:
   /**
+   * First index of dof on a quad.
+   */
+  const unsigned int first_quad_index;
+
+  /**
    * First index of dof on a hexahedron.
    */
   const unsigned int first_hex_index;
 
+private:
+  /**
+   * TODO.
+   */
+  const std::vector<unsigned int> first_line_index_of_faces;
+
+public:
   /**
    * First index of dof on a line for face data.
    */
@@ -304,7 +310,7 @@ private:
   /**
    * TODO.
    */
-  const std::vector<unsigned int> first_line_index_of_faces;
+  const std::vector<unsigned int> first_quad_index_of_faces;
 
 public:
   /**
@@ -316,7 +322,7 @@ private:
   /**
    * TODO.
    */
-  const std::vector<unsigned int> first_quad_index_of_faces;
+  const std::vector<unsigned int> n_dofs_on_face;
 
 public:
   /**
@@ -326,13 +332,6 @@ public:
    */
   const unsigned int dofs_per_face;
 
-private:
-  /**
-   * TODO.
-   */
-  const std::vector<unsigned int> n_dofs_on_face;
-
-public:
   /**
    * Total number of degrees of freedom on a cell. This is the accumulated
    * number of degrees of freedom on all the objects of dimension up to
