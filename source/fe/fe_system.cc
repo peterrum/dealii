@@ -1710,47 +1710,52 @@ FESystem<dim, spacedim>::initialize(
   // initialize face support points (for dim==2,3). same procedure as above
   if (dim > 1)
     init_tasks += Threads::new_task([&]() {
-      // if one of the base elements has no support points, then it makes no
-      // sense to define support points for the composed element. In that case,
-      // return an empty array to demonstrate that fact (note that we ask
-      // whether the base element has no support points at all, not only none on
-      // the face!)
-      //
-      // on the other hand, if there is an element that simply has no degrees of
-      // freedom on the face at all, then we don't care whether it has support
-      // points or not. this is, for example, the case for the stable Stokes
-      // element Q(p)^dim \times DGP(p-1).
-      for (unsigned int base_el = 0; base_el < this->n_base_elements();
-           ++base_el)
-        if (!base_element(base_el).has_support_points() &&
-            (base_element(base_el).n_dofs_per_face(0 /*TODO*/) > 0))
+      face_loop:
+        for (unsigned int face_no = 0; face_no < this->n_unique_faces();
+             ++face_no)
           {
-            this->unit_face_support_points[0 /*TODO*/].resize(0);
-            return;
+            // if one of the base elements has no support points, then it makes
+            // no sense to define support points for the composed element. In
+            // that case, return an empty array to demonstrate that fact (note
+            // that we ask whether the base element has no support points at
+            // all, not only none on the face!)
+            //
+            // on the other hand, if there is an element that simply has no
+            // degrees of freedom on the face at all, then we don't care whether
+            // it has support points or not. this is, for example, the case for
+            // the stable Stokes element Q(p)^dim \times DGP(p-1).
+            for (unsigned int base_el = 0; base_el < this->n_base_elements();
+                 ++base_el)
+              if (!base_element(base_el).has_support_points() &&
+                  (base_element(base_el).n_dofs_per_face(face_no) > 0))
+                {
+                  this->unit_face_support_points[face_no].resize(0);
+                  goto face_loop;
+                }
+
+
+            // generate unit face support points from unit support points of sub
+            // elements
+            this->unit_face_support_points[face_no].resize(
+              this->n_dofs_per_face(face_no));
+
+            for (unsigned int i = 0; i < this->n_dofs_per_face(face_no); ++i)
+              {
+                const unsigned int base_i =
+                  this->face_system_to_base_table[face_no][i].first.first;
+                const unsigned int index_in_base =
+                  this->face_system_to_base_table[face_no][i].second;
+
+                Assert(index_in_base < base_element(base_i)
+                                         .unit_face_support_points[face_no]
+                                         .size(),
+                       ExcInternalError());
+
+                this->unit_face_support_points[face_no][i] =
+                  base_element(base_i)
+                    .unit_face_support_points[face_no][index_in_base];
+              }
           }
-
-
-      // generate unit face support points from unit support points of sub
-      // elements
-      this->unit_face_support_points[0 /*TODO*/].resize(
-        this->n_dofs_per_face(0 /*TODO*/));
-
-      for (unsigned int i = 0; i < this->n_dofs_per_face(0 /*TODO*/); ++i)
-        {
-          const unsigned int base_i =
-            this->face_system_to_base_table[0 /*TODO*/][i].first.first;
-          const unsigned int index_in_base =
-            this->face_system_to_base_table[0 /*TODO*/][i].second;
-
-          Assert(
-            index_in_base <
-              base_element(base_i).unit_face_support_points[0 /*TODO*/].size(),
-            ExcInternalError());
-
-          this->unit_face_support_points[0 /*TODO*/][i] =
-            base_element(base_i)
-              .unit_face_support_points[0 /*TODO*/][index_in_base];
-        }
     });
 
   // Initialize generalized support points and an (internal) index table
