@@ -479,7 +479,7 @@ public:
    * dimensional objects.
    */
   unsigned int
-  n_dofs_per_face(unsigned int face_no = 0) const;
+  n_dofs_per_face(unsigned int face_no = 0, unsigned int child = 0) const;
 
   /**
    * Number of dofs per cell, accumulating degrees of freedom of all lower
@@ -697,8 +697,11 @@ FiniteElementData<dim>::n_dofs_per_hex() const
 
 template <int dim>
 inline unsigned int
-FiniteElementData<dim>::n_dofs_per_face(unsigned int face_no) const
+FiniteElementData<dim>::n_dofs_per_face(unsigned int face_no,
+                                        unsigned int child_no) const
 {
+  (void)child_no;
+
   return n_dofs_on_face[n_dofs_on_face.size() == 1 ? 0 : face_no];
 }
 
