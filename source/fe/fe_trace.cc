@@ -54,7 +54,10 @@ FE_TraceQ<dim, spacedim>::FE_TraceQ(const unsigned int degree)
     FETools::hierarchic_to_lexicographic_numbering<dim - 1>(degree));
 
   // Initialize face support points
-  this->unit_face_support_points = fe_q.get_unit_face_support_points();
+  AssertDimension(this->n_unique_faces(), fe_q.n_unique_faces());
+  for (unsigned int face_no; face_no < this->n_unique_faces(); ++face_no)
+    this->unit_face_support_points[face_no] =
+      fe_q.get_unit_face_support_points(face_no);
 
   // initialize unit support points (this makes it possible to assign initial
   // values to FE_TraceQ). Note that we simply take the points of fe_q but
@@ -215,11 +218,13 @@ template <int dim, int spacedim>
 void
 FE_TraceQ<dim, spacedim>::get_face_interpolation_matrix(
   const FiniteElement<dim, spacedim> &source_fe,
-  FullMatrix<double> &                interpolation_matrix) const
+  FullMatrix<double> &                interpolation_matrix,
+  const unsigned int                  face_no) const
 {
   get_subface_interpolation_matrix(source_fe,
                                    numbers::invalid_unsigned_int,
-                                   interpolation_matrix);
+                                   interpolation_matrix,
+                                   face_no);
 }
 
 
@@ -229,15 +234,16 @@ void
 FE_TraceQ<dim, spacedim>::get_subface_interpolation_matrix(
   const FiniteElement<dim, spacedim> &x_source_fe,
   const unsigned int                  subface,
-  FullMatrix<double> &                interpolation_matrix) const
+  FullMatrix<double> &                interpolation_matrix,
+  const unsigned int                  face_no) const
 {
   // this is the code from FE_FaceQ
-  Assert(interpolation_matrix.n() == this->n_dofs_per_face(),
+  Assert(interpolation_matrix.n() == this->n_dofs_per_face(face_no),
          ExcDimensionMismatch(interpolation_matrix.n(),
-                              this->n_dofs_per_face()));
-  Assert(interpolation_matrix.m() == x_source_fe.n_dofs_per_face(),
+                              this->n_dofs_per_face(face_no)));
+  Assert(interpolation_matrix.m() == x_source_fe.n_dofs_per_face(face_no),
          ExcDimensionMismatch(interpolation_matrix.m(),
-                              x_source_fe.n_dofs_per_face()));
+                              x_source_fe.n_dofs_per_face(face_no)));
 
   // see if source is a FaceQ element
   if (const FE_TraceQ<dim, spacedim> *source_fe =
@@ -245,7 +251,8 @@ FE_TraceQ<dim, spacedim>::get_subface_interpolation_matrix(
     {
       fe_q.get_subface_interpolation_matrix(source_fe->fe_q,
                                             subface,
-                                            interpolation_matrix);
+                                            interpolation_matrix,
+                                            face_no);
     }
   else if (dynamic_cast<const FE_Nothing<dim> *>(&x_source_fe) != nullptr)
     {

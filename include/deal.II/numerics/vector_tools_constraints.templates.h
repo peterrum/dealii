@@ -490,6 +490,8 @@ namespace VectorTools
     for (unsigned int i = 0; i < fe_collection.size(); ++i)
       mapping_collection.push_back(mapping);
 
+    const unsigned int face_no = 0; // TODO
+
     // now also create a quadrature collection for the faces of a cell. fill
     // it with a quadrature formula with the support points on faces for each
     // FE
@@ -497,9 +499,10 @@ namespace VectorTools
     for (unsigned int i = 0; i < fe_collection.size(); ++i)
       {
         const std::vector<Point<dim - 1>> &unit_support_points =
-          fe_collection[i].get_unit_face_support_points();
+          fe_collection[i].get_unit_face_support_points(face_no);
 
-        Assert(unit_support_points.size() == fe_collection[i].n_dofs_per_face(),
+        Assert(unit_support_points.size() ==
+                 fe_collection[i].n_dofs_per_face(face_no),
                ExcInternalError());
 
         face_quadrature_collection.push_back(
@@ -549,7 +552,7 @@ namespace VectorTools
                 cell->face(face_no);
 
               // get the indices of the dofs on this cell...
-              face_dofs.resize(fe.n_dofs_per_face());
+              face_dofs.resize(fe.n_dofs_per_face(face_no));
               face->get_dof_indices(face_dofs, cell->active_fe_index());
 
               x_fe_face_values.reinit(cell, face_no);
@@ -559,7 +562,7 @@ namespace VectorTools
               // then identify which of them correspond to the selected set of
               // vector components
               for (unsigned int i = 0; i < face_dofs.size(); ++i)
-                if (fe.face_system_to_component_index(i).first ==
+                if (fe.face_system_to_component_index(i, face_no).first ==
                     first_vector_component)
                   {
                     // find corresponding other components of vector
@@ -572,18 +575,19 @@ namespace VectorTools
                         "Error: the finite element does not have enough components "
                         "to define a normal direction."));
 
-                    for (unsigned int k = 0; k < fe.n_dofs_per_face(); ++k)
+                    for (unsigned int k = 0; k < fe.n_dofs_per_face(face_no);
+                         ++k)
                       if ((k != i) &&
                           (face_quadrature_collection[cell->active_fe_index()]
                              .point(k) ==
                            face_quadrature_collection[cell->active_fe_index()]
                              .point(i)) &&
-                          (fe.face_system_to_component_index(k).first >=
-                           first_vector_component) &&
-                          (fe.face_system_to_component_index(k).first <
+                          (fe.face_system_to_component_index(k, face_no)
+                             .first >= first_vector_component) &&
+                          (fe.face_system_to_component_index(k, face_no).first <
                            first_vector_component + dim))
                         vector_dofs.dof_indices
-                          [fe.face_system_to_component_index(k).first -
+                          [fe.face_system_to_component_index(k, face_no).first -
                            first_vector_component] = face_dofs[k];
 
                     for (unsigned int d = 0; d < dim; ++d)
@@ -1076,6 +1080,8 @@ namespace VectorTools
     for (unsigned int i = 0; i < fe_collection.size(); ++i)
       mapping_collection.push_back(mapping);
 
+    const unsigned int face_no = 0; // TODO
+
     // now also create a quadrature collection for the faces of a cell. fill
     // it with a quadrature formula with the support points on faces for each
     // FE
@@ -1083,9 +1089,10 @@ namespace VectorTools
     for (unsigned int i = 0; i < fe_collection.size(); ++i)
       {
         const std::vector<Point<dim - 1>> &unit_support_points =
-          fe_collection[i].get_unit_face_support_points();
+          fe_collection[i].get_unit_face_support_points(face_no);
 
-        Assert(unit_support_points.size() == fe_collection[i].n_dofs_per_face(),
+        Assert(unit_support_points.size() ==
+                 fe_collection[i].n_dofs_per_face(face_no),
                ExcInternalError());
 
         face_quadrature_collection.push_back(
@@ -1123,7 +1130,7 @@ namespace VectorTools
                 cell->face(face_no);
 
               // get the indices of the dofs on this cell...
-              face_dofs.resize(fe.n_dofs_per_face());
+              face_dofs.resize(fe.n_dofs_per_face(face_no));
               face->get_dof_indices(face_dofs, cell->active_fe_index());
 
               x_fe_face_values.reinit(cell, face_no);
@@ -1133,22 +1140,23 @@ namespace VectorTools
               std::map<types::global_dof_index, double> dof_to_b_value;
 
               unsigned int n_scalar_indices = 0;
-              cell_vector_dofs.resize(fe.n_dofs_per_face());
-              for (unsigned int i = 0; i < fe.n_dofs_per_face(); ++i)
+              cell_vector_dofs.resize(fe.n_dofs_per_face(face_no));
+              for (unsigned int i = 0; i < fe.n_dofs_per_face(face_no); ++i)
                 {
-                  if (fe.face_system_to_component_index(i).first >=
+                  if (fe.face_system_to_component_index(i, face_no).first >=
                         first_vector_component &&
-                      fe.face_system_to_component_index(i).first <
+                      fe.face_system_to_component_index(i, face_no).first <
                         first_vector_component + dim)
                     {
                       const unsigned int component =
-                        fe.face_system_to_component_index(i).first -
+                        fe.face_system_to_component_index(i, face_no).first -
                         first_vector_component;
-                      n_scalar_indices =
-                        std::max(n_scalar_indices,
-                                 fe.face_system_to_component_index(i).second +
-                                   1);
-                      cell_vector_dofs[fe.face_system_to_component_index(i)
+                      n_scalar_indices = std::max(
+                        n_scalar_indices,
+                        fe.face_system_to_component_index(i, face_no).second +
+                          1);
+                      cell_vector_dofs[fe.face_system_to_component_index(
+                                           i, face_no)
                                          .second][component] = face_dofs[i];
 
                       const Point<dim> point = fe_values.quadrature_point(i);

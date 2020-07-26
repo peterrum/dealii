@@ -128,6 +128,13 @@ namespace FiniteElementDomination
   inline Domination operator&(const Domination d1, const Domination d2);
 } // namespace FiniteElementDomination
 
+struct PrecomputedFiniteElementData
+{
+  std::vector<std::vector<unsigned int>> dofs_per_object_exclusive;
+  std::vector<std::vector<unsigned int>> dofs_per_object_inclusive;
+  std::vector<std::vector<unsigned int>> first_index;
+  std::vector<std::vector<unsigned int>> first_face_index;
+};
 
 /**
  * A class that declares a number of scalar constant variables that describe
@@ -225,6 +232,16 @@ private:
    */
   const ReferenceCell::Type cell_type;
 
+  /**
+   * TODO
+   */
+  const unsigned int number_unique_quads;
+
+  /**
+   * TODO
+   */
+  const unsigned int number_unique_faces;
+
 public:
   /**
    * Number of degrees of freedom on a vertex.
@@ -237,12 +254,18 @@ public:
    */
   const unsigned int dofs_per_line;
 
+private:
+  /**
+   * TODO.
+   */
+  const std::vector<unsigned int> n_dofs_on_quad;
+
+public:
   /**
    * Number of degrees of freedom in a quadrilateral; not including the
    * degrees of freedom on the lines and vertices of the quadrilateral.
    */
   const unsigned int dofs_per_quad;
-
   /**
    * Number of degrees of freedom in a hexahedron; not including the degrees
    * of freedom on the quadrilaterals, lines and vertices of the hexahedron.
@@ -254,6 +277,13 @@ public:
    */
   const unsigned int first_line_index;
 
+private:
+  /**
+   * TODO.
+   */
+  const std::vector<unsigned int> first_index_of_quads;
+
+public:
   /**
    * First index of dof on a quad.
    */
@@ -264,16 +294,37 @@ public:
    */
   const unsigned int first_hex_index;
 
+private:
+  /**
+   * TODO.
+   */
+  const std::vector<unsigned int> first_line_index_of_faces;
+
+public:
   /**
    * First index of dof on a line for face data.
    */
   const unsigned int first_face_line_index;
 
+private:
+  /**
+   * TODO.
+   */
+  const std::vector<unsigned int> first_quad_index_of_faces;
+
+public:
   /**
    * First index of dof on a quad for face data.
    */
   const unsigned int first_face_quad_index;
 
+private:
+  /**
+   * TODO.
+   */
+  const std::vector<unsigned int> n_dofs_on_face;
+
+public:
   /**
    * Number of degrees of freedom on a face. This is the accumulated number of
    * degrees of freedom on all the objects of dimension up to <tt>dim-1</tt>
@@ -372,10 +423,32 @@ public:
                     const BlockIndices &block_indices = BlockIndices());
 
   /**
+   *
+   */
+  FiniteElementData(const PrecomputedFiniteElementData &data,
+                    const ReferenceCell::Type           cell_type,
+                    const unsigned int                  n_components,
+                    const unsigned int                  degree,
+                    const Conformity                    conformity = unknown,
+                    const BlockIndices &block_indices = BlockIndices());
+
+  /**
    * Return type of reference cell.
    */
   ReferenceCell::Type
   reference_cell_type() const;
+
+  /**
+   * TODO.
+   */
+  unsigned int
+  n_unique_quads() const;
+
+  /**
+   * TODO.
+   */
+  unsigned int
+  n_unique_faces() const;
 
   /**
    * Number of dofs per vertex.
@@ -393,7 +466,13 @@ public:
    * Number of dofs per quad. Not including dofs on lower dimensional objects.
    */
   unsigned int
-  n_dofs_per_quad() const;
+  n_dofs_per_quad(unsigned int face_no = 0) const;
+
+  /**
+   * Number of dofs per quad. Not including dofs on lower dimensional objects.
+   */
+  unsigned int
+  max_dofs_per_quad() const;
 
   /**
    * Number of dofs per hex. Not including dofs on lower dimensional objects.
@@ -406,7 +485,13 @@ public:
    * dimensional objects.
    */
   unsigned int
-  n_dofs_per_face() const;
+  n_dofs_per_face(unsigned int face_no = 0, unsigned int child = 0) const;
+
+  /**
+   * TODO
+   */
+  unsigned int
+  max_dofs_per_face() const;
 
   /**
    * Number of dofs per cell, accumulating degrees of freedom of all lower
@@ -483,7 +568,7 @@ public:
    * Return first index of dof on a quad.
    */
   unsigned int
-  get_first_quad_index() const;
+  get_first_quad_index(const unsigned int quad_no = 0) const;
 
   /**
    * Return first index of dof on a hexahedron.
@@ -495,13 +580,13 @@ public:
    * Return first index of dof on a line for face data.
    */
   unsigned int
-  get_first_face_line_index() const;
+  get_first_face_line_index(const unsigned int face_no) const;
 
   /**
    * Return first index of dof on a quad for face data.
    */
   unsigned int
-  get_first_face_quad_index() const;
+  get_first_face_quad_index(const unsigned int face_no) const;
 };
 
 
@@ -567,6 +652,25 @@ FiniteElementData<dim>::reference_cell_type() const
 }
 
 
+
+template <int dim>
+inline unsigned int
+FiniteElementData<dim>::n_unique_quads() const
+{
+  return number_unique_quads;
+}
+
+
+
+template <int dim>
+inline unsigned int
+FiniteElementData<dim>::n_unique_faces() const
+{
+  return number_unique_faces;
+}
+
+
+
 template <int dim>
 inline unsigned int
 FiniteElementData<dim>::n_dofs_per_vertex() const
@@ -587,9 +691,18 @@ FiniteElementData<dim>::n_dofs_per_line() const
 
 template <int dim>
 inline unsigned int
-FiniteElementData<dim>::n_dofs_per_quad() const
+FiniteElementData<dim>::n_dofs_per_quad(unsigned int face_no) const
 {
-  return dofs_per_quad;
+  return n_dofs_on_quad[n_dofs_on_quad.size() == 1 ? 0 : face_no];
+}
+
+
+
+template <int dim>
+inline unsigned int
+FiniteElementData<dim>::max_dofs_per_quad() const
+{
+  return n_dofs_on_quad[0]; // TODO
 }
 
 
@@ -605,9 +718,21 @@ FiniteElementData<dim>::n_dofs_per_hex() const
 
 template <int dim>
 inline unsigned int
-FiniteElementData<dim>::n_dofs_per_face() const
+FiniteElementData<dim>::n_dofs_per_face(unsigned int face_no,
+                                        unsigned int child_no) const
 {
-  return dofs_per_face;
+  (void)child_no;
+
+  return n_dofs_on_face[n_dofs_on_face.size() == 1 ? 0 : face_no];
+}
+
+
+
+template <int dim>
+inline unsigned int
+FiniteElementData<dim>::max_dofs_per_face() const
+{
+  return n_dofs_on_face[0]; // TODO!!!
 }
 
 
@@ -697,9 +822,12 @@ FiniteElementData<dim>::get_first_line_index() const
 
 template <int dim>
 unsigned int
-FiniteElementData<dim>::get_first_quad_index() const
+FiniteElementData<dim>::get_first_quad_index(const unsigned int quad_no) const
 {
-  return first_quad_index;
+  if (first_index_of_quads.size() == 1)
+    return first_index_of_quads[0] + quad_no * n_dofs_per_quad(0);
+  else
+    return first_index_of_quads[quad_no];
 }
 
 template <int dim>
@@ -711,16 +839,22 @@ FiniteElementData<dim>::get_first_hex_index() const
 
 template <int dim>
 unsigned int
-FiniteElementData<dim>::get_first_face_line_index() const
+FiniteElementData<dim>::get_first_face_line_index(
+  const unsigned int face_no) const
 {
-  return first_face_line_index;
+  return first_line_index_of_faces[first_line_index_of_faces.size() == 1 ?
+                                     0 :
+                                     face_no];
 }
 
 template <int dim>
 unsigned int
-FiniteElementData<dim>::get_first_face_quad_index() const
+FiniteElementData<dim>::get_first_face_quad_index(
+  const unsigned int face_no) const
 {
-  return first_face_quad_index;
+  return first_quad_index_of_faces[first_quad_index_of_faces.size() == 1 ?
+                                     0 :
+                                     face_no];
 }
 
 
