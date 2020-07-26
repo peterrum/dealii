@@ -336,10 +336,12 @@ FE_BDM<dim>::initialize_support_points(const unsigned int deg)
   // considered later. In 2D, we can use point values.
   QGauss<dim - 1> face_points(deg + 1);
 
+  const unsigned int face_no = 0;
+
   // Copy the quadrature formula to the face points.
-  this->generalized_face_support_points.resize(face_points.size());
+  this->generalized_face_support_points[face_no].resize(face_points.size());
   for (unsigned int k = 0; k < face_points.size(); ++k)
-    this->generalized_face_support_points[k] = face_points.point(k);
+    this->generalized_face_support_points[face_no][k] = face_points.point(k);
 
   // In the interior, we only test with polynomials of degree up to
   // deg-2, thus we use deg points. Note that deg>=1 and the lowest

@@ -138,7 +138,8 @@ FE_RT_Bubbles<dim>::initialize_support_points(const unsigned int deg)
   const unsigned int face_no = 0; // TODO
 
   this->generalized_support_points.resize(this->n_dofs_per_cell());
-  this->generalized_face_support_points.resize(this->n_dofs_per_face(face_no));
+  this->generalized_face_support_points[face_no].resize(
+    this->n_dofs_per_face(face_no));
 
   // Index of the point being entered
   unsigned int current = 0;
@@ -152,7 +153,8 @@ FE_RT_Bubbles<dim>::initialize_support_points(const unsigned int deg)
       Assert(face_points.size() == this->n_dofs_per_face(face_no),
              ExcInternalError());
       for (unsigned int k = 0; k < this->n_dofs_per_face(face_no); ++k)
-        this->generalized_face_support_points[k] = face_points.point(k);
+        this->generalized_face_support_points[face_no][k] =
+          face_points.point(k);
       Quadrature<dim> faces =
         QProjector<dim>::project_to_all_faces(face_points);
       for (unsigned int k = 0; k < this->n_dofs_per_face(face_no) *

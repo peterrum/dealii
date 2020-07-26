@@ -2455,7 +2455,7 @@ protected:
    * Face support points used for interpolation functions of non-Lagrangian
    * elements.
    */
-  std::vector<Point<dim - 1>> generalized_face_support_points;
+  std::vector<std::vector<Point<dim - 1>>> generalized_face_support_points;
 
   /**
    * For faces with non-standard face_orientation in 3D, the dofs on faces

@@ -169,6 +169,7 @@ FiniteElement<dim, spacedim>::FiniteElement(
     }
 
   unit_face_support_points.resize(this->n_unique_faces());
+  generalized_face_support_points.resize(this->n_unique_faces());
 }
 
 
