@@ -1865,7 +1865,7 @@ namespace GridTools
                     unsigned int subface = neighbor_face_no_subface_no.second;
 
                     const unsigned int n_dofs_per_face =
-                      cell->get_fe().n_dofs_per_face(f, c);
+                      cell->get_fe().n_dofs_per_face(face_no);
                     local_face_dof_indices.resize(n_dofs_per_face);
 
                     cell->neighbor(f)->face(face_no)->get_dof_indices(

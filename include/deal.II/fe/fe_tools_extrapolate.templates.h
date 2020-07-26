@@ -1415,8 +1415,7 @@ namespace FETools
 
       // exclude dofs on more refined ghosted cells
       const FiniteElement<dim, spacedim> &fe = dof2.get_fe();
-      const unsigned int dofs_per_face       = fe.n_dofs_per_face(face_no);
-      if (dofs_per_face > 0)
+      if (fe.max_n_dofs_per_face() > 0)
         {
           const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
           std::vector<types::global_dof_index> indices(dofs_per_cell);
@@ -1434,7 +1433,8 @@ namespace FETools
                       const typename DoFHandler<dim, spacedim>::cell_iterator
                         neighbor = cell->neighbor(face);
                       if (neighbor->level() != cell->level())
-                        for (unsigned int i = 0; i < dofs_per_face; ++i)
+                        for (unsigned int i = 0; i < fe.n_dofs_per_face(face);
+                             ++i)
                           {
                             const types::global_dof_index index =
                               indices[fe.face_to_cell_index(i, face)];
