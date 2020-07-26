@@ -1041,7 +1041,7 @@ namespace DoFTools
                         {
                           // simply take all DoFs that live on this subface
                           std::vector<types::global_dof_index> ldi(
-                            fe.n_dofs_per_face(f /*TODO*/));
+                            fe.n_dofs_per_face(f, child));
                           face->child(child)->get_dof_indices(ldi);
                           selected_dofs.add_indices(ldi.begin(), ldi.end());
                         }
