@@ -120,6 +120,21 @@ DataOut<dim, DoFHandlerType>::build_one_patch(
 
   const unsigned int n_q_points = fe_patch_values.n_quadrature_points;
 
+  scratch_data.patch_values_scalar.solution_values.resize(n_q_points);
+  scratch_data.patch_values_scalar.solution_gradients.resize(n_q_points);
+  scratch_data.patch_values_scalar.solution_hessians.resize(n_q_points);
+  scratch_data.patch_values_system.solution_values.resize(n_q_points);
+  scratch_data.patch_values_system.solution_gradients.resize(n_q_points);
+  scratch_data.patch_values_system.solution_hessians.resize(n_q_points);
+
+  const auto temp = scratch_data.postprocessed_values;
+
+  for (unsigned int dataset = 0;
+       dataset < scratch_data.postprocessed_values.size();
+       ++dataset)
+    if (scratch_data.postprocessed_values[dataset].size() != 0)
+      scratch_data.postprocessed_values[dataset].resize(n_q_points);
+
   // First fill the geometric information for the patch: Where are the
   // nodes in question located.
   //
@@ -1063,6 +1078,8 @@ DataOut<dim, DoFHandlerType>::build_one_patch(
   // simply swap the contents to avoid the penalty of writing into another
   // processor's memory
   this->patches[patch_idx].swap(patch);
+
+  scratch_data.postprocessed_values = temp;
 }
 
 

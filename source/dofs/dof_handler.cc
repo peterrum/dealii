@@ -1334,7 +1334,7 @@ namespace internal
                           fe_slots_needed = 1;
                           n_face_slots +=
                             dof_handler.get_fe(cell->active_fe_index())
-                              .template n_dofs_per_object<dim - 1>();
+                              .template n_dofs_per_object<dim - 1>(face);
                         }
                       else
                         {
@@ -1344,7 +1344,8 @@ namespace internal
                               .template n_dofs_per_object<dim - 1>() +
                             dof_handler
                               .get_fe(cell->neighbor(face)->active_fe_index())
-                              .template n_dofs_per_object<dim - 1>();
+                              .template n_dofs_per_object<dim - 1>(
+                                cell->neighbor_face_no(face));
                         }
 
                       // mark this face as visited
@@ -1415,7 +1416,7 @@ namespace internal
                           const unsigned int fe = cell->active_fe_index();
                           const unsigned int n_dofs =
                             dof_handler.get_fe(fe)
-                              .template n_dofs_per_object<dim - 1>();
+                              .template n_dofs_per_object<dim - 1>(face);
                           const unsigned int offset =
                             dof_handler
                               .hp_object_fe_ptr[d][cell->face(face)->index()];
@@ -1429,20 +1430,25 @@ namespace internal
                         }
                       else
                         {
-                          unsigned int fe_1 = cell->active_fe_index();
+                          unsigned int fe_1      = cell->active_fe_index();
+                          unsigned int face_no_1 = face;
                           unsigned int fe_2 =
                             cell->neighbor(face)->active_fe_index();
+                          unsigned int face_no_2 = cell->neighbor_face_no(face);
 
                           if (fe_2 < fe_1)
-                            std::swap(fe_1, fe_2);
+                            {
+                              std::swap(fe_1, fe_2);
+                              std::swap(face_no_1, face_no_2);
+                            }
 
                           const unsigned int n_dofs_1 =
                             dof_handler.get_fe(fe_1)
-                              .template n_dofs_per_object<dim - 1>();
+                              .template n_dofs_per_object<dim - 1>(face_no_1);
 
                           const unsigned int n_dofs_2 =
                             dof_handler.get_fe(fe_2)
-                              .template n_dofs_per_object<dim - 1>();
+                              .template n_dofs_per_object<dim - 1>(face_no_2);
 
                           const unsigned int offset =
                             dof_handler
@@ -1452,13 +1458,6 @@ namespace internal
                             cell->active_fe_index());
                           dof_handler.object_dof_ptr[l][d].push_back(
                             dof_handler.object_dof_indices[l][d].size());
-
-                          for (unsigned int i = 0;
-                               i < dof_handler.get_fe(cell->active_fe_index())
-                                     .template n_dofs_per_object<dim - 1>();
-                               i++)
-                            dof_handler.object_dof_indices[l][d].push_back(
-                              numbers::invalid_dof_index);
 
                           dof_handler.hp_object_fe_indices[d][offset + 0] =
                             fe_1;

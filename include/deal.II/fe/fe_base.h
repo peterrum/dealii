@@ -510,7 +510,7 @@ public:
    */
   template <int structdim>
   unsigned int
-  n_dofs_per_object() const;
+  n_dofs_per_object(const unsigned int i = numbers::invalid_unsigned_int) const;
 
   /**
    * Number of components. See
@@ -749,18 +749,21 @@ FiniteElementData<dim>::n_dofs_per_cell() const
 template <int dim>
 template <int structdim>
 inline unsigned int
-FiniteElementData<dim>::n_dofs_per_object() const
+FiniteElementData<dim>::n_dofs_per_object(const unsigned int i) const
 {
+  Assert((structdim == 2 && dim == 3) || i == numbers::invalid_unsigned_int,
+         ExcInternalError());
+
   switch (structdim)
     {
       case 0:
-        return dofs_per_vertex;
+        return n_dofs_per_vertex();
       case 1:
-        return dofs_per_line;
+        return n_dofs_per_line();
       case 2:
-        return dofs_per_quad;
+        return n_dofs_per_quad(i);
       case 3:
-        return dofs_per_hex;
+        return n_dofs_per_hex();
       default:
         Assert(false, ExcInternalError());
     }

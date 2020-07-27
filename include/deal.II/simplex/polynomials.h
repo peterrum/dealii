@@ -147,6 +147,11 @@ namespace Simplex
 
   /**
    * TODO
+   *
+   * The polynomials are created via a tensor product of a
+   * Simplex::ScalarPolynomial<2>(degree) and a
+   * Simplex::ScalarPolynomial<2>(degree), however, are renumerated to batter
+   * match the definition of FiniteElement.
    */
   template <int dim>
   class ScalarWedgePolynomial : public ScalarPolynomialsBase<dim>

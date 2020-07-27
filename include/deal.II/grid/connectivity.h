@@ -1292,6 +1292,8 @@ namespace internal
     {
       std::size_t key_length = 0;
 
+      std::cout << cell_types_index.size() << std::endl;
+
       for (const auto &c : cell_types_index)
         {
           const auto &cell_type =
@@ -1300,6 +1302,8 @@ namespace internal
             key_length =
               std::max(key_length, cell_type->vertices_of_entity(d, e).size());
         }
+
+      std::cout << key_length << std::endl;
 
       if (key_length == 2)
         build_entity_templated<2>(d,
