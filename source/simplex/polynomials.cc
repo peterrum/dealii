@@ -535,6 +535,38 @@ namespace Simplex
           return (p[1]) * (p[2]);
       }
 
+    if (this->degree() == 2)
+      {
+        const static std::array<std::array<unsigned int, 2>, 18> table{
+          {{{0, 0}},
+           {{1, 0}},
+           {{2, 0}},
+           {{0, 1}},
+           {{1, 1}},
+           {{2, 1}},
+           {{3, 0}},
+           {{4, 0}},
+           {{5, 0}},
+           {{3, 1}},
+           {{4, 1}},
+           {{5, 1}},
+           {{0, 2}},
+           {{1, 2}},
+           {{2, 2}},
+           {{3, 2}},
+           {{4, 2}},
+           {{5, 2}}}};
+
+        ScalarPolynomial<2> poly_tri(2);
+        ScalarPolynomial<1> poly_line(2);
+
+        Point<2> p_tri(p[0], p[1]);
+        Point<1> p_line(p[2]);
+
+        return poly_tri.compute_value(table[i][0], p_tri) *
+               poly_line.compute_value(table[i][1], p_line);
+      }
+
     Assert(false, ExcNotImplemented());
 
     return 0;
@@ -594,6 +626,42 @@ namespace Simplex
           {
             Assert(false, ExcNotImplemented());
           }
+      }
+    else if (this->degree() == 2)
+      {
+        const static std::array<std::array<unsigned int, 2>, 18> table{
+          {{{0, 0}},
+           {{1, 0}},
+           {{2, 0}},
+           {{0, 1}},
+           {{1, 1}},
+           {{2, 1}},
+           {{3, 0}},
+           {{4, 0}},
+           {{5, 0}},
+           {{3, 1}},
+           {{4, 1}},
+           {{5, 1}},
+           {{0, 2}},
+           {{1, 2}},
+           {{2, 2}},
+           {{3, 2}},
+           {{4, 2}},
+           {{5, 2}}}};
+
+        ScalarPolynomial<2> poly_tri(2);
+        Point<2>            p_tri(p[0], p[1]);
+        const auto          v_tri = poly_tri.compute_value(table[i][0], p_tri);
+        const auto          g_tri = poly_tri.compute_grad(table[i][0], p_tri);
+
+        ScalarPolynomial<1> poly_line(2);
+        Point<1>            p_line(p[2]);
+        const auto v_line = poly_line.compute_value(table[i][1], p_line);
+        const auto g_line = poly_line.compute_grad(table[i][1], p_line);
+
+        grad[0] = g_tri[0] * v_line;
+        grad[1] = g_tri[1] * v_line;
+        grad[2] = v_tri * g_line[0];
       }
 
     return grad;
