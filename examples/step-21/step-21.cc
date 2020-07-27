@@ -631,7 +631,7 @@ namespace Step21
                                        update_quadrature_points |
                                        update_JxW_values);
 
-    const unsigned int dofs_per_cell = fe.dofs_per_cell;
+    const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
 
     const unsigned int n_q_points      = quadrature_formula.size();
     const unsigned int n_face_q_points = face_quadrature_formula.size();
@@ -785,7 +785,7 @@ namespace Step21
                                               face_quadrature_formula,
                                               update_values);
 
-    const unsigned int dofs_per_cell   = fe.dofs_per_cell;
+    const unsigned int dofs_per_cell   = fe.n_dofs_per_cell();
     const unsigned int n_q_points      = quadrature_formula.size();
     const unsigned int n_face_q_points = face_quadrature_formula.size();
 
@@ -851,7 +851,7 @@ namespace Step21
         //
         // All this is a bit tricky, but has been explained in some detail
         // already in step-9. Take a look there how this is supposed to work!
-        for (unsigned int face_no : GeometryInfo<dim>::face_indices())
+        for (const auto face_no : cell->face_indices())
           {
             fe_face_values.reinit(cell, face_no);
 

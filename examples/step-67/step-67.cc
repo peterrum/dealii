@@ -565,7 +565,7 @@ namespace Euler_DG
   // \frac{\lambda}{2}\left[\mathbf{w}^--\mathbf{w}^+\right]\otimes
   // \mathbf{n^-}$, where the factor $\lambda =
   // \max\left(\|\mathbf{u}^-\|+c^-, \|\mathbf{u}^+\|+c^+\right)$ gives the
-  // maximal wave speed and $c = \sqrt{\lambda p / \rho}$ is the speed of
+  // maximal wave speed and $c = \sqrt{\gamma p / \rho}$ is the speed of
   // sound. Here, we choose two modifications of that expression for reasons
   // of computational efficiency, given the small impact of the flux on the
   // solution. For the above definition of the factor $\lambda$, we would need
@@ -2092,8 +2092,8 @@ namespace Euler_DG
   // than the standard library's `std::ofstream` variants used in most other
   // tutorial programs. A particularly nice feature of the
   // `write_vtu_in_parallel()` function is the fact that it can combine output
-  // from all MPI ranks into a single file, obviating a VTU master file (the
-  // "pvtu" file).
+  // from all MPI ranks into a single file, making it unnecessary to have a
+  // central record of all such files (namely, the "pvtu" file).
   //
   // For parallel programs, it is often instructive to look at the partitioning
   // of cells among processors. To this end, one can pass a vector of numbers

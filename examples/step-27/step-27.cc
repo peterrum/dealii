@@ -329,7 +329,7 @@ namespace Step27
 
     for (const auto &cell : dof_handler.active_cell_iterators())
       {
-        const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
+        const unsigned int dofs_per_cell = cell->get_fe().n_dofs_per_cell();
 
         cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
         cell_matrix = 0;
@@ -570,7 +570,7 @@ namespace Step27
     std::vector<CellData<dim>> cells(n_cells, CellData<dim>());
     for (unsigned int i = 0; i < n_cells; ++i)
       {
-        for (unsigned int j = 0; j < GeometryInfo<dim>::vertices_per_cell; ++j)
+        for (unsigned int j = 0; j < cell_vertices[i].size(); ++j)
           cells[i].vertices[j] = cell_vertices[i][j];
         cells[i].material_id = 0;
       }
@@ -677,7 +677,7 @@ namespace Step27
         // that has to be provided with the <code>local_dof_values</code>,
         // <code>cell->active_fe_index()</code> and a Table to store
         // coefficients.
-        local_dof_values.reinit(cell->get_fe().dofs_per_cell);
+        local_dof_values.reinit(cell->get_fe().n_dofs_per_cell());
         cell->get_dof_values(solution, local_dof_values);
 
         fourier->calculate(local_dof_values,

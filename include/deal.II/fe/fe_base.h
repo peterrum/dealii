@@ -20,6 +20,8 @@
 
 #include <deal.II/base/exceptions.h>
 
+#include <deal.II/grid/reference_cell.h>
+
 #include <deal.II/lac/block_indices.h>
 
 #include <vector>
@@ -217,6 +219,13 @@ public:
    */
   static const unsigned int dimension = dim;
 
+private:
+  /**
+   * Reference cell type.
+   */
+  const ReferenceCell::Type cell_type;
+
+public:
   /**
    * Number of degrees of freedom on a vertex.
    */
@@ -352,6 +361,23 @@ public:
                     const BlockIndices &block_indices = BlockIndices());
 
   /**
+   * The same as above but with the difference that also the type of the
+   * underlying geometric entity can be specified.
+   */
+  FiniteElementData(const std::vector<unsigned int> &dofs_per_object,
+                    const ReferenceCell::Type        cell_type,
+                    const unsigned int               n_components,
+                    const unsigned int               degree,
+                    const Conformity                 conformity = unknown,
+                    const BlockIndices &block_indices = BlockIndices());
+
+  /**
+   * Return type of reference cell.
+   */
+  ReferenceCell::Type
+  reference_cell_type() const;
+
+  /**
    * Number of dofs per vertex.
    */
   unsigned int
@@ -446,6 +472,36 @@ public:
    */
   bool
   operator==(const FiniteElementData &) const;
+
+  /**
+   * Return first index of dof on a line.
+   */
+  unsigned int
+  get_first_line_index() const;
+
+  /**
+   * Return first index of dof on a quad.
+   */
+  unsigned int
+  get_first_quad_index() const;
+
+  /**
+   * Return first index of dof on a hexahedron.
+   */
+  unsigned int
+  get_first_hex_index() const;
+
+  /**
+   * Return first index of dof on a line for face data.
+   */
+  unsigned int
+  get_first_face_line_index() const;
+
+  /**
+   * Return first index of dof on a quad for face data.
+   */
+  unsigned int
+  get_first_face_quad_index() const;
 };
 
 
@@ -501,6 +557,14 @@ namespace FiniteElementDomination
     return neither_element_dominates;
   }
 } // namespace FiniteElementDomination
+
+
+template <int dim>
+inline ReferenceCell::Type
+FiniteElementData<dim>::reference_cell_type() const
+{
+  return cell_type;
+}
 
 
 template <int dim>
@@ -620,6 +684,43 @@ inline bool
 FiniteElementData<dim>::conforms(const Conformity space) const
 {
   return ((space & conforming_space) == space);
+}
+
+
+
+template <int dim>
+unsigned int
+FiniteElementData<dim>::get_first_line_index() const
+{
+  return first_line_index;
+}
+
+template <int dim>
+unsigned int
+FiniteElementData<dim>::get_first_quad_index() const
+{
+  return first_quad_index;
+}
+
+template <int dim>
+unsigned int
+FiniteElementData<dim>::get_first_hex_index() const
+{
+  return first_hex_index;
+}
+
+template <int dim>
+unsigned int
+FiniteElementData<dim>::get_first_face_line_index() const
+{
+  return first_face_line_index;
+}
+
+template <int dim>
+unsigned int
+FiniteElementData<dim>::get_first_face_quad_index() const
+{
+  return first_face_quad_index;
 }
 
 

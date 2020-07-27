@@ -69,6 +69,28 @@ namespace internal
         &               finite_elements,
       const UpdateFlags update_flags,
       const bool        use_face_values)
+      : ParallelDataBase<dim, spacedim>(
+          n_datasets,
+          n_subdivisions,
+          n_postprocessor_outputs,
+          dealii::hp::MappingCollection<dim, spacedim>(mapping),
+          finite_elements,
+          update_flags,
+          use_face_values)
+    {}
+
+
+    template <int dim, int spacedim>
+    ParallelDataBase<dim, spacedim>::ParallelDataBase(
+      const unsigned int               n_datasets,
+      const unsigned int               n_subdivisions,
+      const std::vector<unsigned int> &n_postprocessor_outputs,
+      const dealii::hp::MappingCollection<dim, spacedim> &mapping,
+      const std::vector<
+        std::shared_ptr<dealii::hp::FECollection<dim, spacedim>>>
+        &               finite_elements,
+      const UpdateFlags update_flags,
+      const bool        use_face_values)
       : n_datasets(n_datasets)
       , n_subdivisions(n_subdivisions)
       , postprocessed_values(n_postprocessor_outputs.size())
@@ -1251,7 +1273,7 @@ namespace internal
       const VectorType *vector = &((*vectors)[dof_cell->level()]);
 
       const unsigned int dofs_per_cell =
-        this->dof_handler->get_fe(0).dofs_per_cell;
+        this->dof_handler->get_fe(0).n_dofs_per_cell();
 
       std::vector<types::global_dof_index> dof_indices(dofs_per_cell);
       dof_cell->get_mg_dof_indices(dof_indices);
@@ -1290,7 +1312,7 @@ namespace internal
       const VectorType *vector = &((*vectors)[dof_cell->level()]);
 
       const unsigned int dofs_per_cell =
-        this->dof_handler->get_fe(0).dofs_per_cell;
+        this->dof_handler->get_fe(0).n_dofs_per_cell();
 
       std::vector<types::global_dof_index> dof_indices(dofs_per_cell);
       dof_cell->get_mg_dof_indices(dof_indices);

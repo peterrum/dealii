@@ -247,7 +247,7 @@ namespace internal
 
             if (d == 0)
               dof_handler.object_dof_indices
-                [0][0][obj_index * dof_handler.get_fe().dofs_per_vertex +
+                [0][0][obj_index * dof_handler.get_fe().n_dofs_per_vertex() +
                        local_index] = global_index;
             else
               dof_handler.object_dof_indices
@@ -347,7 +347,7 @@ namespace internal
 
             if (d == 0)
               return dof_handler.object_dof_indices
-                [0][0][obj_index * dof_handler.get_fe().dofs_per_vertex +
+                [0][0][obj_index * dof_handler.get_fe().n_dofs_per_vertex() +
                        local_index];
             else
               return dof_handler.object_dof_indices
@@ -432,7 +432,7 @@ namespace internal
                  "hp::DoFHandler does not implement multilevel DoFs."));
 
         return dof_handler.mg_vertex_dofs[vertex_index].get_index(
-          level, i, dof_handler.get_fe().dofs_per_vertex);
+          level, i, dof_handler.get_fe().n_dofs_per_vertex());
       }
 
 
@@ -450,7 +450,7 @@ namespace internal
                  "hp::DoFHandler does not implement multilevel DoFs."));
 
         return dof_handler.mg_vertex_dofs[vertex_index].set_index(
-          level, i, dof_handler.get_fe().dofs_per_vertex, index);
+          level, i, dof_handler.get_fe().n_dofs_per_vertex(), index);
       }
 
 
@@ -596,109 +596,6 @@ namespace internal
 
 
 
-      template <int dim, int spacedim, bool level_dof_access>
-      static void
-      set_mg_dof_indices(
-        const dealii::DoFAccessor<1, dim, spacedim, level_dof_access> &accessor,
-        const int                                                      level,
-        const std::vector<types::global_dof_index> &dof_indices,
-        const unsigned int                          fe_index)
-      {
-        const FiniteElement<dim, spacedim> &fe =
-          accessor.get_dof_handler().get_fe(fe_index);
-        std::vector<types::global_dof_index>::const_iterator next =
-          dof_indices.begin();
-
-        for (const unsigned int vertex : GeometryInfo<1>::vertex_indices())
-          for (unsigned int dof = 0; dof < fe.dofs_per_vertex; ++dof)
-            accessor.set_mg_vertex_dof_index(
-              level, vertex, dof, *next++, fe_index);
-
-        for (unsigned int dof = 0; dof < fe.dofs_per_line; ++dof)
-          accessor.set_mg_dof_index(level, dof, *next++);
-
-        Assert(next == dof_indices.end(), ExcInternalError());
-      }
-
-
-
-      template <int dim, int spacedim, bool level_dof_access>
-      static void set_mg_dof_indices(
-        dealii::DoFAccessor<2, dim, spacedim, level_dof_access> &accessor,
-        const int                                                level,
-        const std::vector<types::global_dof_index> &             dof_indices,
-        const unsigned int                                       fe_index)
-      {
-        const FiniteElement<dim, spacedim> &fe =
-          accessor.get_dof_handler().get_fe(fe_index);
-        std::vector<types::global_dof_index>::const_iterator next =
-          dof_indices.begin();
-
-        for (const unsigned int vertex : GeometryInfo<2>::vertex_indices())
-          for (unsigned int dof = 0; dof < fe.dofs_per_vertex; ++dof)
-            accessor.set_mg_vertex_dof_index(
-              level, vertex, dof, *next++, fe_index);
-
-        for (unsigned int line = 0; line < GeometryInfo<2>::lines_per_cell;
-             ++line)
-          for (unsigned int dof = 0; dof < fe.dofs_per_line; ++dof)
-            accessor.line(line)->set_mg_dof_index(level, dof, *next++);
-
-        for (unsigned int dof = 0; dof < fe.dofs_per_quad; ++dof)
-          accessor.set_mg_dof_index(level, dof, *next++);
-
-        Assert(next == dof_indices.end(), ExcInternalError());
-      }
-
-
-
-      template <int dim, int spacedim, bool level_dof_access>
-      static void
-      set_mg_dof_indices(
-        const dealii::DoFAccessor<3, dim, spacedim, level_dof_access> &accessor,
-        const int                                                      level,
-        const std::vector<types::global_dof_index> &dof_indices,
-        const unsigned int                          fe_index)
-      {
-        const FiniteElement<dim, spacedim> &fe =
-          accessor.get_dof_handler().get_fe(fe_index);
-        std::vector<types::global_dof_index>::const_iterator next =
-          dof_indices.begin();
-
-        for (const unsigned int vertex : GeometryInfo<3>::vertex_indices())
-          for (unsigned int dof = 0; dof < fe.dofs_per_vertex; ++dof)
-            accessor.set_mg_vertex_dof_index(
-              level, vertex, dof, *next++, fe_index);
-
-        for (unsigned int line = 0; line < GeometryInfo<3>::lines_per_cell;
-             ++line)
-          for (unsigned int dof = 0; dof < fe.dofs_per_line; ++dof)
-            accessor.line(line)->set_mg_dof_index(
-              level,
-              fe.adjust_line_dof_index_for_line_orientation(
-                dof, accessor.line_orientation(line)),
-              *next++);
-
-        for (unsigned int quad = 0; quad < GeometryInfo<3>::quads_per_cell;
-             ++quad)
-          for (unsigned int dof = 0; dof < fe.dofs_per_quad; ++dof)
-            accessor.quad(quad)->set_mg_dof_index(
-              level,
-              fe.adjust_quad_dof_index_for_face_orientation(
-                dof,
-                accessor.face_orientation(quad),
-                accessor.face_flip(quad),
-                accessor.face_rotation(quad)),
-              *next++);
-
-        for (unsigned int dof = 0; dof < fe.dofs_per_hex; ++dof)
-          accessor.set_mg_dof_index(level, dof, *next++);
-
-        Assert(next == dof_indices.end(), ExcInternalError());
-      }
-
-
-
       template <typename InputVector, typename ForwardIterator>
       static void
       extract_subvector_to(const InputVector &            values,
@@ -788,6 +685,58 @@ namespace internal
       }
 #endif
 
+      /**
+       * Loop over all degrees of freedom of the object described by the
+       * provided @p accessor and @p fe_index and count them.
+       */
+      template <int dim, int spacedim, bool level_dof_access, int structdim>
+      static unsigned int
+      n_dof_indices(
+        const dealii::DoFAccessor<structdim, dim, spacedim, level_dof_access>
+          &                accessor,
+        const unsigned int fe_index)
+      {
+        const unsigned int                                                 //
+          dofs_per_vertex = accessor.get_fe(fe_index).n_dofs_per_vertex(), //
+          dofs_per_line   = accessor.get_fe(fe_index).n_dofs_per_line(),   //
+          dofs_per_quad   = accessor.get_fe(fe_index).n_dofs_per_quad(),   //
+          dofs_per_hex    = accessor.get_fe(fe_index).n_dofs_per_hex();    //
+
+        const unsigned int inner_dofs =
+          structdim == 1 ? dofs_per_line :
+                           (structdim == 2 ? dofs_per_quad : dofs_per_hex);
+
+        unsigned int index = 0;
+
+        // 1) VERTEX dofs
+        for (const auto vertex : accessor.vertex_indices())
+          {
+            (void)vertex;
+            index += dofs_per_vertex;
+          }
+
+        // 2) LINE dofs
+        if (structdim == 2 || structdim == 3)
+          for (const auto line : accessor.line_indices())
+            {
+              (void)line;
+              index += dofs_per_line;
+            }
+
+        // 3) FACE dofs
+        if (structdim == 3)
+          for (const auto face : accessor.face_indices())
+            {
+              (void)face;
+              index += dofs_per_quad;
+            }
+
+        // 4) INNER dofs
+        index += inner_dofs;
+
+        return index;
+      }
+
 
 
       /**
@@ -804,16 +753,18 @@ namespace internal
       static void
       process_dof_indices(
         const dealii::DoFAccessor<structdim, dim, spacedim, level_dof_access>
-          &                accessor,
-        DoFIndicesType &   dof_indices,
-        const unsigned int fe_index,
-        const DoFOperation &)
+          &                 accessor,
+        DoFIndicesType &    dof_indices,
+        const unsigned int  fe_index,
+        const DoFOperation &dof_operation)
       {
-        const unsigned int                                             //
-          dofs_per_vertex = accessor.get_fe(fe_index).dofs_per_vertex, //
-          dofs_per_line   = accessor.get_fe(fe_index).dofs_per_line,   //
-          dofs_per_quad   = accessor.get_fe(fe_index).dofs_per_quad,   //
-          dofs_per_hex    = accessor.get_fe(fe_index).dofs_per_hex;    //
+        AssertDimension(dof_indices.size(), n_dof_indices(accessor, fe_index));
+
+        const unsigned int                                                 //
+          dofs_per_vertex = accessor.get_fe(fe_index).n_dofs_per_vertex(), //
+          dofs_per_line   = accessor.get_fe(fe_index).n_dofs_per_line(),   //
+          dofs_per_quad   = accessor.get_fe(fe_index).n_dofs_per_quad(),   //
+          dofs_per_hex    = accessor.get_fe(fe_index).n_dofs_per_hex();    //
 
         const unsigned int inner_dofs =
           structdim == 1 ? dofs_per_line :
@@ -822,10 +773,9 @@ namespace internal
         unsigned int index = 0;
 
         // 1) VERTEX dofs
-        for (const unsigned int vertex :
-             GeometryInfo<structdim>::vertex_indices())
+        for (const auto vertex : accessor.vertex_indices())
           for (unsigned int d = 0; d < dofs_per_vertex; ++d, ++index)
-            DoFOperation::process_vertex_dof(
+            dof_operation.process_vertex_dof(
               accessor, vertex, d, dof_indices[index], fe_index);
 
         // 2) copy dof numbers from the LINE. for lines with the wrong
@@ -836,11 +786,9 @@ namespace internal
         // adjust the shape function indices that we see to correspond to the
         // correct (face/cell-local) ordering.
         if (structdim == 2 || structdim == 3)
-          for (unsigned int line = 0;
-               line < GeometryInfo<structdim>::lines_per_cell;
-               ++line)
+          for (const auto line : accessor.line_indices())
             for (unsigned int d = 0; d < dofs_per_line; ++d, ++index)
-              DoFOperation::process_dof(
+              dof_operation.process_dof(
                 *accessor.line(line),
                 accessor.get_fe(fe_index)
                   .adjust_line_dof_index_for_line_orientation(
@@ -857,11 +805,9 @@ namespace internal
         // correct (cell-local) ordering. The same applies, if the face_rotation
         // or face_orientation is non-standard
         if (structdim == 3)
-          for (unsigned int quad = 0;
-               quad < GeometryInfo<structdim>::quads_per_cell;
-               ++quad)
+          for (const auto quad : accessor.face_indices())
             for (unsigned int d = 0; d < dofs_per_quad; ++d, ++index)
-              DoFOperation::process_dof(
+              dof_operation.process_dof(
                 *accessor.quad(quad),
                 accessor.get_fe(fe_index)
                   .adjust_quad_dof_index_for_face_orientation(
@@ -874,7 +820,7 @@ namespace internal
 
         // 4) INNER dofs
         for (unsigned int d = 0; d < inner_dofs; ++d, ++index)
-          DoFOperation::process_dof(accessor, d, dof_indices[index], fe_index);
+          dof_operation.process_dof(accessor, d, dof_indices[index], fe_index);
 
         AssertDimension(dof_indices.size(), index);
       }
@@ -891,14 +837,14 @@ namespace internal
         /**
          * Return vertex DoF index.
          */
-        static DEAL_II_ALWAYS_INLINE void
+        DEAL_II_ALWAYS_INLINE void
         process_vertex_dof(
           const dealii::DoFAccessor<structdim, dim, spacedim, level_dof_access>
             &                      accessor,
           const unsigned int       vertex,
           const unsigned int       d,
           types::global_dof_index &index_value,
-          const unsigned int       fe_index)
+          const unsigned int       fe_index) const
         {
           index_value = accessor.vertex_dof_index(vertex, d, fe_index);
         }
@@ -907,13 +853,13 @@ namespace internal
          * Return DoF index for lines, quads, and inner degrees of freedom.
          */
         template <int structdim_>
-        static DEAL_II_ALWAYS_INLINE void
+        DEAL_II_ALWAYS_INLINE void
         process_dof(
           const dealii::DoFAccessor<structdim_, dim, spacedim, level_dof_access>
             &                      accessor,
           const unsigned int       d,
           types::global_dof_index &index_value,
-          const unsigned int       fe_index)
+          const unsigned int       fe_index) const
         {
           index_value = accessor.dof_index(d, fe_index);
         }
@@ -922,12 +868,12 @@ namespace internal
          * Fallback for DoFInvalidAccessor.
          */
         template <int structdim_>
-        static DEAL_II_ALWAYS_INLINE void
+        DEAL_II_ALWAYS_INLINE void
         process_dof(
           const dealii::DoFInvalidAccessor<structdim_, dim, spacedim> &,
           const unsigned int,
           types::global_dof_index &,
-          const unsigned int)
+          const unsigned int) const
         {
           Assert(false, ExcInternalError());
         }
@@ -945,14 +891,14 @@ namespace internal
         /**
          * Set vertex DoF index.
          */
-        static DEAL_II_ALWAYS_INLINE void
+        DEAL_II_ALWAYS_INLINE void
         process_vertex_dof(
           const dealii::DoFAccessor<structdim, dim, spacedim, level_dof_access>
             &                            accessor,
           const unsigned int             vertex,
           const unsigned int             d,
           const types::global_dof_index &index_value,
-          const unsigned int             fe_index)
+          const unsigned int             fe_index) const
         {
           accessor.set_vertex_dof_index(vertex, d, index_value, fe_index);
         }
@@ -961,13 +907,13 @@ namespace internal
          * Set DoF index for lines, quads, and inner degrees of freedom.
          */
         template <int structdim_>
-        static DEAL_II_ALWAYS_INLINE void
+        DEAL_II_ALWAYS_INLINE void
         process_dof(
           const dealii::DoFAccessor<structdim_, dim, spacedim, level_dof_access>
             &                            accessor,
           const unsigned int             d,
           const types::global_dof_index &index_value,
-          const unsigned int             fe_index)
+          const unsigned int             fe_index) const
         {
           accessor.set_dof_index(d, index_value, fe_index);
         }
@@ -976,15 +922,147 @@ namespace internal
          * Fallback for DoFInvalidAccessor.
          */
         template <int structdim_>
-        static DEAL_II_ALWAYS_INLINE void
+        DEAL_II_ALWAYS_INLINE void
         process_dof(
           const dealii::DoFInvalidAccessor<structdim_, dim, spacedim> &,
           const unsigned int,
           const types::global_dof_index &,
-          const unsigned int)
+          const unsigned int) const
         {
           Assert(false, ExcInternalError());
         }
+      };
+
+
+
+      /**
+       * An internal struct encapsulating the task of getting level (vertex)
+       * DoF indices.
+       */
+      template <int dim, int spacedim, bool level_dof_access, int structdim>
+      struct MGDoFIndexGetter
+      {
+        /**
+         * Constructor.
+         */
+        MGDoFIndexGetter(const unsigned int level)
+          : level(level)
+        {}
+
+        /**
+         * Return vertex DoF index.
+         */
+        DEAL_II_ALWAYS_INLINE void
+        process_vertex_dof(
+          const dealii::DoFAccessor<structdim, dim, spacedim, level_dof_access>
+            &                      accessor,
+          const unsigned int       vertex,
+          const unsigned int       d,
+          types::global_dof_index &index_value,
+          const unsigned int       fe_index) const
+        {
+          (void)fe_index;
+          index_value = accessor.mg_vertex_dof_index(level, vertex, d);
+        }
+
+        /**
+         * Return DoF index for lines, quads, and inner degrees of freedom.
+         */
+        template <int structdim_>
+        DEAL_II_ALWAYS_INLINE void
+        process_dof(
+          const dealii::DoFAccessor<structdim_, dim, spacedim, level_dof_access>
+            &                      accessor,
+          const unsigned int       d,
+          types::global_dof_index &index_value,
+          const unsigned int       fe_index) const
+        {
+          (void)fe_index;
+          index_value = accessor.mg_dof_index(level, d);
+        }
+
+        /**
+         * Fallback for DoFInvalidAccessor.
+         */
+        template <int structdim_>
+        DEAL_II_ALWAYS_INLINE void
+        process_dof(
+          const dealii::DoFInvalidAccessor<structdim_, dim, spacedim> &,
+          const unsigned int,
+          types::global_dof_index &,
+          const unsigned int) const
+        {
+          Assert(false, ExcInternalError());
+        }
+
+      private:
+        const unsigned int level;
+      };
+
+
+
+      /**
+       * An internal struct encapsulating the task of setting level (vertex)
+       * DoF indices.
+       */
+      template <int dim, int spacedim, bool level_dof_access, int structdim>
+      struct MGDoFIndexSetter
+      {
+        /**
+         * Constructor.
+         */
+        MGDoFIndexSetter(const unsigned int level)
+          : level(level)
+        {}
+
+        /**
+         * Set vertex DoF index.
+         */
+        DEAL_II_ALWAYS_INLINE void
+        process_vertex_dof(
+          const dealii::DoFAccessor<structdim, dim, spacedim, level_dof_access>
+            &                            accessor,
+          const unsigned int             vertex,
+          const unsigned int             d,
+          const types::global_dof_index &index_value,
+          const unsigned int             fe_index) const
+        {
+          (void)fe_index;
+          accessor.set_mg_vertex_dof_index(level, vertex, d, index_value);
+        }
+
+        /**
+         * Set DoF index for lines, quads, and inner degrees of freedom.
+         */
+        template <int structdim_>
+        DEAL_II_ALWAYS_INLINE void
+        process_dof(
+          const dealii::DoFAccessor<structdim_, dim, spacedim, level_dof_access>
+            &                            accessor,
+          const unsigned int             d,
+          const types::global_dof_index &index_value,
+          const unsigned int             fe_index) const
+        {
+          (void)fe_index;
+          accessor.set_mg_dof_index(level, d, index_value);
+        }
+
+        /**
+         * Fallback for DoFInvalidAccessor.
+         */
+        template <int structdim_>
+        DEAL_II_ALWAYS_INLINE void
+        process_dof(
+          const dealii::DoFInvalidAccessor<structdim_, dim, spacedim> &,
+          const unsigned int,
+          const types::global_dof_index &,
+          const unsigned int) const
+        {
+          Assert(false, ExcInternalError());
+        }
+
+      private:
+        const unsigned int level;
       };
 
 
@@ -1029,6 +1107,52 @@ namespace internal
           dof_indices,
           fe_index,
           DoFIndexSetter<dim, spacedim, level_dof_access, structdim>());
+      }
+
+
+
+      template <int dim, int spacedim, bool level_dof_access, int structdim>
+      static void
+      get_mg_dof_indices(
+        const dealii::DoFAccessor<structdim, dim, spacedim, level_dof_access>
+          &                                   accessor,
+        const int                             level,
+        std::vector<types::global_dof_index> &dof_indices,
+        const unsigned int                    fe_index)
+      {
+        process_dof_indices(
+          accessor,
+          dof_indices,
+          fe_index,
+          MGDoFIndexGetter<dim, spacedim, level_dof_access, structdim>(level));
+      }
+
+
+
+      template <int dim, int spacedim, bool level_dof_access, int structdim>
+      static void
+      set_mg_dof_indices(
+        const dealii::DoFAccessor<structdim, dim, spacedim, level_dof_access>
+          &                                         accessor,
+        const int                                   level,
+        const std::vector<types::global_dof_index> &dof_indices,
+        const unsigned int                          fe_index)
+      {
+        // Note: this function is as general as `get_mg_dof_indices()`. This
+        // assert is placed here since it is currently only used by the
+        // function DoFCellAccessor::set_mg_dof_indices(), which is called by
+        // internal::DoFHandlerImplementation::Policy::Implementation::distribute_mg_dofs().
+        // In the case of new use cases, this assert can be removed.
+        Assert(
+          dim == structdim,
+          ExcMessage(
+            "This function is intended to be used for DoFCellAccessor, i.e., dimension == structdim."));
+
+        process_dof_indices(
+          accessor,
+          dof_indices,
+          fe_index,
+          MGDoFIndexSetter<dim, spacedim, level_dof_access, structdim>(level));
       }
     };
   } // namespace DoFAccessorImplementation
@@ -1194,14 +1318,14 @@ DoFAccessor<structdim, dim, spacedim, level_dof_access>::mg_vertex_dof_index(
       fe_index_;
   (void)fe_index;
   Assert(this->dof_handler != nullptr, ExcInvalidObject());
-  AssertIndexRange(vertex, GeometryInfo<structdim>::vertices_per_cell);
-  AssertIndexRange(i, this->dof_handler->get_fe(fe_index).dofs_per_vertex);
+  AssertIndexRange(vertex, this->n_vertices());
+  AssertIndexRange(i, this->dof_handler->get_fe(fe_index).n_dofs_per_vertex());
 
   Assert(dof_handler->hp_capability_enabled == false,
          ExcMessage("hp::DoFHandler does not implement multilevel DoFs."));
 
   return this->dof_handler->mg_vertex_dofs[this->vertex_index(vertex)]
-    .get_index(level, i, this->dof_handler->get_fe().dofs_per_vertex);
+    .get_index(level, i, this->dof_handler->get_fe().n_dofs_per_vertex());
 }
 
 
@@ -1246,14 +1370,14 @@ DoFAccessor<structdim, dim, spacedim, level_dof_access>::
       fe_index_;
   (void)fe_index;
   Assert(this->dof_handler != nullptr, ExcInvalidObject());
-  AssertIndexRange(vertex, GeometryInfo<structdim>::vertices_per_cell);
-  AssertIndexRange(i, this->dof_handler->get_fe(fe_index).dofs_per_vertex);
+  AssertIndexRange(vertex, this->n_vertices());
+  AssertIndexRange(i, this->dof_handler->get_fe(fe_index).n_dofs_per_vertex());
 
   Assert(dof_handler->hp_capability_enabled == false,
          ExcMessage("hp::DoFHandler does not implement multilevel DoFs."));
 
   this->dof_handler->mg_vertex_dofs[this->vertex_index(vertex)].set_index(
-    level, i, this->dof_handler->get_fe().dofs_per_vertex, index);
+    level, i, this->dof_handler->get_fe().n_dofs_per_vertex(), index);
 }
 
 
@@ -1282,115 +1406,6 @@ DoFAccessor<structdim, dim, spacedim, level_dof_access>::get_fe(
 }
 
 
-
-namespace internal
-{
-  namespace DoFAccessorImplementation
-  {
-    template <int dim, int spacedim, bool level_dof_access>
-    void
-    get_mg_dof_indices(
-      const dealii::DoFAccessor<1, dim, spacedim, level_dof_access> &accessor,
-      const int                                                      level,
-      std::vector<types::global_dof_index> &dof_indices,
-      const unsigned int                    fe_index)
-    {
-      const DoFHandler<dim, spacedim> &handler = accessor.get_dof_handler();
-
-      const FiniteElement<dim, spacedim> &fe = handler.get_fe(fe_index);
-      std::vector<types::global_dof_index>::iterator next = dof_indices.begin();
-
-      for (const unsigned int vertex : GeometryInfo<1>::vertex_indices())
-        for (unsigned int dof = 0; dof < fe.dofs_per_vertex; ++dof)
-          *next++ = accessor.mg_vertex_dof_index(level, vertex, dof);
-
-      for (unsigned int dof = 0; dof < fe.dofs_per_line; ++dof)
-        *next++ = accessor.mg_dof_index(level, dof);
-
-      Assert(next == dof_indices.end(), ExcInternalError());
-    }
-
-
-
-    template <int dim, int spacedim, bool level_dof_access>
-    void
-    get_mg_dof_indices(
-      const dealii::DoFAccessor<2, dim, spacedim, level_dof_access> &accessor,
-      const int                                                      level,
-      std::vector<types::global_dof_index> &dof_indices,
-      const unsigned int                    fe_index)
-    {
-      const DoFHandler<dim, spacedim> &handler = accessor.get_dof_handler();
-
-      const FiniteElement<dim, spacedim> &fe = handler.get_fe(fe_index);
-      std::vector<types::global_dof_index>::iterator next = dof_indices.begin();
-
-      for (const unsigned int vertex : GeometryInfo<2>::vertex_indices())
-        for (unsigned int dof = 0; dof < fe.dofs_per_vertex; ++dof)
-          *next++ = accessor.mg_vertex_dof_index(level, vertex, dof);
-
-      for (unsigned int line = 0; line < GeometryInfo<2>::lines_per_cell;
-           ++line)
-        for (unsigned int dof = 0; dof < fe.dofs_per_line; ++dof)
-          *next++ = accessor.line(line)->mg_dof_index(level, dof);
-
-      for (unsigned int dof = 0; dof < fe.dofs_per_quad; ++dof)
-        *next++ = accessor.mg_dof_index(level, dof);
-
-      Assert(next == dof_indices.end(), ExcInternalError());
-    }
-
-
-
-    template <int dim, int spacedim, bool level_dof_access>
-    void
-    get_mg_dof_indices(
-      const dealii::DoFAccessor<3, dim, spacedim, level_dof_access> &accessor,
-      const int                                                      level,
-      std::vector<types::global_dof_index> &dof_indices,
-      const unsigned int                    fe_index)
-    {
-      const DoFHandler<dim, spacedim> &handler = accessor.get_dof_handler();
-
-      const FiniteElement<dim, spacedim> &fe = handler.get_fe(fe_index);
-      std::vector<types::global_dof_index>::iterator next = dof_indices.begin();
-
-      for (const unsigned int vertex : GeometryInfo<3>::vertex_indices())
-        for (unsigned int dof = 0; dof < fe.dofs_per_vertex; ++dof)
-          *next++ = accessor.mg_vertex_dof_index(level, vertex, dof);
-
-      for (unsigned int line = 0; line < GeometryInfo<3>::lines_per_cell;
-           ++line)
-        for (unsigned int dof = 0; dof < fe.dofs_per_line; ++dof)
-          *next++ = accessor.line(line)->mg_dof_index(
-            level,
-            accessor.get_fe(fe_index)
-              .adjust_line_dof_index_for_line_orientation(
-                dof, accessor.line_orientation(line)));
-
-      for (unsigned int quad = 0; quad < GeometryInfo<3>::quads_per_cell;
-           ++quad)
-        for (unsigned int dof = 0; dof < fe.dofs_per_quad; ++dof)
-          *next++ = accessor.quad(quad)->mg_dof_index(
-            level,
-            accessor.get_fe(fe_index)
-              .adjust_quad_dof_index_for_face_orientation(
-                dof,
-                accessor.face_orientation(quad),
-                accessor.face_flip(quad),
-                accessor.face_rotation(quad)));
-
-      for (unsigned int dof = 0; dof < fe.dofs_per_hex; ++dof)
-        *next++ = accessor.mg_dof_index(level, dof);
-
-      Assert(next == dof_indices.end(), ExcInternalError());
-    }
-
-
-  } // namespace DoFAccessorImplementation
-} // namespace internal
-
-
 template <int structdim, int dim, int spacedim, bool level_dof_access>
 inline void
 DoFAccessor<structdim, dim, spacedim, level_dof_access>::get_dof_indices(
@@ -1412,55 +1427,15 @@ DoFAccessor<structdim, dim, spacedim, level_dof_access>::get_dof_indices(
            "been initialized, i.e., it doesn't appear that DoF indices "
            "have been distributed on it."));
 
-  switch (structdim)
-    {
-      case 1:
-        Assert(dof_indices.size() ==
-                 (GeometryInfo<1>::vertices_per_cell *
-                    this->dof_handler->get_fe(fe_index).dofs_per_vertex +
-                  this->dof_handler->get_fe(fe_index).dofs_per_line),
-               ExcVectorDoesNotMatch());
-        break;
-      case 2:
-        Assert(dof_indices.size() ==
-                 (GeometryInfo<2>::vertices_per_cell *
-                    this->dof_handler->get_fe(fe_index).dofs_per_vertex +
-                  GeometryInfo<2>::lines_per_cell *
-                    this->dof_handler->get_fe(fe_index).dofs_per_line +
-                  this->dof_handler->get_fe(fe_index).dofs_per_quad),
-               ExcVectorDoesNotMatch());
-        break;
-      case 3:
-        Assert(dof_indices.size() ==
-                 (GeometryInfo<3>::vertices_per_cell *
-                    this->dof_handler->get_fe(fe_index).dofs_per_vertex +
-                  GeometryInfo<3>::lines_per_cell *
-                    this->dof_handler->get_fe(fe_index).dofs_per_line +
-                  GeometryInfo<3>::faces_per_cell *
-                    this->dof_handler->get_fe(fe_index).dofs_per_quad +
-                  this->dof_handler->get_fe(fe_index).dofs_per_hex),
-               ExcVectorDoesNotMatch());
-        break;
-      default:
-        Assert(false, ExcNotImplemented());
-    }
-
-
-  // this function really only makes
-  // sense if either a) there are
-  // degrees of freedom defined on
-  // the present object, or b) the
-  // object is non-active objects but
-  // all degrees of freedom are
-  // located on vertices, since
-  // otherwise there are degrees of
-  // freedom on sub-objects which are
-  // not allocated for this
-  // non-active thing
+  // this function really only makes sense if either a) there are degrees of
+  // freedom defined on the present object, or b) the object is non-active
+  // objects but all degrees of freedom are located on vertices, since
+  // otherwise there are degrees of freedom on sub-objects which are not
+  // allocated for this non-active thing
   Assert(this->fe_index_is_active(fe_index) ||
-           (this->dof_handler->get_fe(fe_index).dofs_per_cell ==
-            GeometryInfo<structdim>::vertices_per_cell *
-              this->dof_handler->get_fe(fe_index).dofs_per_vertex),
+           (this->dof_handler->get_fe(fe_index).n_dofs_per_cell() ==
+            this->n_vertices() *
+              this->dof_handler->get_fe(fe_index).n_dofs_per_vertex()),
          ExcInternalError());
 
   // now do the actual work
@@ -1485,52 +1460,8 @@ DoFAccessor<structdim, dim, spacedim, level_dof_access>::get_mg_dof_indices(
       DoFHandler<dim, spacedim>::default_fe_index :
       fe_index_;
 
-  switch (structdim)
-    {
-      case 1:
-        {
-          Assert(dof_indices.size() ==
-                   GeometryInfo<1>::vertices_per_cell *
-                       this->dof_handler->get_fe(fe_index).dofs_per_vertex +
-                     this->dof_handler->get_fe(fe_index).dofs_per_line,
-                 ExcVectorDoesNotMatch());
-          break;
-        }
-
-      case 2:
-        {
-          Assert(dof_indices.size() ==
-                   GeometryInfo<2>::vertices_per_cell *
-                       this->dof_handler->get_fe(fe_index).dofs_per_vertex +
-                     GeometryInfo<2>::lines_per_cell *
-                       this->dof_handler->get_fe(fe_index).dofs_per_line +
-                     this->dof_handler->get_fe(fe_index).dofs_per_quad,
-                 ExcVectorDoesNotMatch());
-          break;
-        }
-
-      case 3:
-        {
-          Assert(dof_indices.size() ==
-                   GeometryInfo<3>::vertices_per_cell *
-                       this->dof_handler->get_fe(fe_index).dofs_per_vertex +
-                     GeometryInfo<3>::lines_per_cell *
-                       this->dof_handler->get_fe(fe_index).dofs_per_line +
-                     GeometryInfo<3>::faces_per_cell *
-                       this->dof_handler->get_fe(fe_index).dofs_per_quad +
-                     this->dof_handler->get_fe(fe_index).dofs_per_hex,
-                 ExcVectorDoesNotMatch());
-          break;
-        }
-
-      default:
-        Assert(false, ExcNotImplemented());
-    }
-
-  internal::DoFAccessorImplementation::get_mg_dof_indices(*this,
-                                                          level,
-                                                          dof_indices,
-                                                          fe_index);
+  internal::DoFAccessorImplementation::Implementation::get_mg_dof_indices(
+    *this, level, dof_indices, fe_index);
 }
 
 
@@ -1548,48 +1479,6 @@ DoFAccessor<structdim, dim, spacedim, level_dof_access>::set_mg_dof_indices(
      fe_index_ == DoFHandler<dim, spacedim>::invalid_fe_index) ?
       DoFHandler<dim, spacedim>::default_fe_index :
       fe_index_;
-
-  switch (structdim)
-    {
-      case 1:
-        {
-          Assert(dof_indices.size() ==
-                   GeometryInfo<1>::vertices_per_cell *
-                       this->dof_handler->get_fe(fe_index).dofs_per_vertex +
-                     this->dof_handler->get_fe(fe_index).dofs_per_line,
-                 ExcVectorDoesNotMatch());
-          break;
-        }
-
-      case 2:
-        {
-          Assert(dof_indices.size() ==
-                   GeometryInfo<2>::vertices_per_cell *
-                       this->dof_handler->get_fe(fe_index).dofs_per_vertex +
-                     GeometryInfo<2>::lines_per_cell *
-                       this->dof_handler->get_fe(fe_index).dofs_per_line +
-                     this->dof_handler->get_fe(fe_index).dofs_per_quad,
-                 ExcVectorDoesNotMatch());
-          break;
-        }
-
-      case 3:
-        {
-          Assert(dof_indices.size() ==
-                   GeometryInfo<3>::vertices_per_cell *
-                       this->dof_handler->get_fe(fe_index).dofs_per_vertex +
-                     GeometryInfo<3>::lines_per_cell *
-                       this->dof_handler->get_fe(fe_index).dofs_per_line +
-                     GeometryInfo<3>::faces_per_cell *
-                       this->dof_handler->get_fe(fe_index).dofs_per_quad +
-                     this->dof_handler->get_fe(fe_index).dofs_per_hex,
-                 ExcVectorDoesNotMatch());
-          break;
-        }
-
-      default:
-        Assert(false, ExcNotImplemented());
-    }
 
   internal::DoFAccessorImplementation::Implementation::set_mg_dof_indices(
     *this, level, dof_indices, fe_index);
@@ -2033,7 +1922,7 @@ namespace internal
         // FE_Nothing
         if (accessor.has_children())
           return;
-        const unsigned int dofs_per_cell = accessor.get_fe().dofs_per_cell;
+        const unsigned int dofs_per_cell = accessor.get_fe().n_dofs_per_cell();
         if (dofs_per_cell == 0)
           return;
 
@@ -2386,7 +2275,7 @@ inline typename DoFCellAccessor<dimension_,
 DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::face(
   const unsigned int i) const
 {
-  AssertIndexRange(i, GeometryInfo<dimension_>::faces_per_cell);
+  AssertIndexRange(i, this->n_faces());
 
   return dealii::internal::DoFCellAccessorImplementation::get_face(
     *this, i, std::integral_constant<int, dimension_>());
@@ -2395,20 +2284,20 @@ DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::face(
 
 
 template <int dimension_, int space_dimension_, bool level_dof_access>
-inline std::array<typename DoFCellAccessor<dimension_,
-                                           space_dimension_,
-                                           level_dof_access>::face_iterator,
-                  GeometryInfo<dimension_>::faces_per_cell>
+inline boost::container::small_vector<
+  typename DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::
+    face_iterator,
+  GeometryInfo<dimension_>::faces_per_cell>
 DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::
   face_iterators() const
 {
-  std::array<typename DoFCellAccessor<dimension_,
-                                      space_dimension_,
-                                      level_dof_access>::face_iterator,
-             GeometryInfo<dimension_>::faces_per_cell>
-    face_iterators;
+  boost::container::small_vector<
+    typename DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::
+      face_iterator,
+    GeometryInfo<dimension_>::faces_per_cell>
+    face_iterators(this->n_faces());
 
-  for (unsigned int i : GeometryInfo<dimension_>::face_indices())
+  for (unsigned int i : this->face_indices())
     face_iterators[i] =
       dealii::internal::DoFCellAccessorImplementation::get_face(
         *this, i, std::integral_constant<int, dimension_>());
@@ -2427,9 +2316,9 @@ DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::
          ExcMessage("get_dof_indices() only works on active cells."));
   Assert(this->is_artificial() == false,
          ExcMessage("Can't ask for DoF indices on artificial cells."));
-  AssertDimension(dof_indices.size(), this->get_fe().dofs_per_cell);
+  AssertDimension(dof_indices.size(), this->get_fe().n_dofs_per_cell());
 
-  const auto dofs_per_cell = this->get_fe().dofs_per_cell;
+  const auto dofs_per_cell = this->get_fe().n_dofs_per_cell();
   if (dofs_per_cell > 0)
     {
       const types::global_dof_index *cache =
@@ -2508,7 +2397,7 @@ DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::get_dof_values(
   Assert(this->dof_handler != nullptr, typename BaseClass::ExcInvalidObject());
 
   Assert(static_cast<unsigned int>(local_values_end - local_values_begin) ==
-           this->get_fe().dofs_per_cell,
+           this->get_fe().n_dofs_per_cell(),
          typename DoFCellAccessor::ExcVectorDoesNotMatch());
   Assert(values.size() == this->get_dof_handler().n_dofs(),
          typename DoFCellAccessor::ExcVectorDoesNotMatch());
@@ -2518,11 +2407,11 @@ DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::get_dof_values(
       this->dof_handler,
       this->present_level,
       this->present_index,
-      this->get_fe().dofs_per_cell);
+      this->get_fe().n_dofs_per_cell());
   dealii::internal::DoFAccessorImplementation::Implementation::
     extract_subvector_to(values,
                          cache,
-                         cache + this->get_fe().dofs_per_cell,
+                         cache + this->get_fe().n_dofs_per_cell(),
                          local_values_begin);
 }
 
@@ -2542,7 +2431,7 @@ DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::get_dof_values(
   Assert(this->is_active(), ExcMessage("Cell must be active."));
 
   Assert(static_cast<unsigned int>(local_values_end - local_values_begin) ==
-           this->get_fe().dofs_per_cell,
+           this->get_fe().n_dofs_per_cell(),
          typename DoFCellAccessor::ExcVectorDoesNotMatch());
   Assert(values.size() == this->get_dof_handler().n_dofs(),
          typename DoFCellAccessor::ExcVectorDoesNotMatch());
@@ -2553,7 +2442,7 @@ DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::get_dof_values(
       this->dof_handler,
       this->present_level,
       this->present_index,
-      this->get_fe().dofs_per_cell);
+      this->get_fe().n_dofs_per_cell());
 
   constraints.get_dof_values(values,
                              *cache,
@@ -2575,7 +2464,7 @@ DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::set_dof_values(
   Assert(this->is_active(), ExcMessage("Cell must be active."));
 
   Assert(static_cast<unsigned int>(local_values.size()) ==
-           this->get_fe().dofs_per_cell,
+           this->get_fe().n_dofs_per_cell(),
          typename DoFCellAccessor::ExcVectorDoesNotMatch());
   Assert(values.size() == this->get_dof_handler().n_dofs(),
          typename DoFCellAccessor::ExcVectorDoesNotMatch());
@@ -2587,9 +2476,9 @@ DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::set_dof_values(
       this->dof_handler,
       this->present_level,
       this->present_index,
-      this->get_fe().dofs_per_cell);
+      this->get_fe().n_dofs_per_cell());
 
-  for (unsigned int i = 0; i < this->get_fe().dofs_per_cell; ++i, ++cache)
+  for (unsigned int i = 0; i < this->get_fe().n_dofs_per_cell(); ++i, ++cache)
     internal::ElementAccess<OutputVector>::set(local_values(i), *cache, values);
 }
 
@@ -2795,7 +2684,7 @@ DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::
   Assert(this->dof_handler != nullptr,
          (typename std::decay<decltype(*this)>::type::ExcInvalidObject()));
   Assert(static_cast<unsigned int>(local_source_end - local_source_begin) ==
-           this->get_fe().dofs_per_cell,
+           this->get_fe().n_dofs_per_cell(),
          (typename std::decay<decltype(*this)>::type::ExcVectorDoesNotMatch()));
   Assert(this->dof_handler->n_dofs() == global_destination.size(),
          (typename std::decay<decltype(*this)>::type::ExcVectorDoesNotMatch()));
@@ -2826,7 +2715,8 @@ DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::
 {
   Assert(this->dof_handler != nullptr,
          (typename std::decay<decltype(*this)>::type::ExcInvalidObject()));
-  Assert(local_source_end - local_source_begin == this->get_fe().dofs_per_cell,
+  Assert(local_source_end - local_source_begin ==
+           this->get_fe().n_dofs_per_cell(),
          (typename std::decay<decltype(*this)>::type::ExcVectorDoesNotMatch()));
   Assert(this->dof_handler->n_dofs() == global_destination.size(),
          (typename std::decay<decltype(*this)>::type::ExcVectorDoesNotMatch()));
@@ -2857,9 +2747,9 @@ DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::
 {
   Assert(this->dof_handler != nullptr,
          (typename std::decay<decltype(*this)>::type::ExcInvalidObject()));
-  Assert(local_source.m() == this->get_fe().dofs_per_cell,
+  Assert(local_source.m() == this->get_fe().n_dofs_per_cell(),
          (typename std::decay<decltype(*this)>::type::ExcMatrixDoesNotMatch()));
-  Assert(local_source.n() == this->get_fe().dofs_per_cell,
+  Assert(local_source.n() == this->get_fe().n_dofs_per_cell(),
          (typename std::decay<decltype(*this)>::type::ExcMatrixDoesNotMatch()));
   Assert(this->dof_handler->n_dofs() == global_destination.m(),
          (typename std::decay<decltype(*this)>::type::ExcMatrixDoesNotMatch()));
@@ -2892,22 +2782,22 @@ DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::
 {
   Assert(this->dof_handler != nullptr,
          (typename std::decay<decltype(*this)>::type::ExcInvalidObject()));
-  Assert(local_matrix.m() == this->get_fe().dofs_per_cell,
+  Assert(local_matrix.m() == this->get_fe().n_dofs_per_cell(),
          (typename std::decay<decltype(*this)>::type::ExcMatrixDoesNotMatch()));
-  Assert(local_matrix.n() == this->get_fe().dofs_per_cell,
+  Assert(local_matrix.n() == this->get_fe().n_dofs_per_cell(),
          (typename std::decay<decltype(*this)>::type::ExcVectorDoesNotMatch()));
   Assert(this->dof_handler->n_dofs() == global_matrix.m(),
          (typename std::decay<decltype(*this)>::type::ExcMatrixDoesNotMatch()));
   Assert(this->dof_handler->n_dofs() == global_matrix.n(),
          (typename std::decay<decltype(*this)>::type::ExcMatrixDoesNotMatch()));
-  Assert(local_vector.size() == this->get_fe().dofs_per_cell,
+  Assert(local_vector.size() == this->get_fe().n_dofs_per_cell(),
          (typename std::decay<decltype(*this)>::type::ExcVectorDoesNotMatch()));
   Assert(this->dof_handler->n_dofs() == global_vector.size(),
          (typename std::decay<decltype(*this)>::type::ExcVectorDoesNotMatch()));
 
   Assert(!this->has_children(), ExcMessage("Cell must be active."));
 
-  const unsigned int             n_dofs = this->get_fe().dofs_per_cell;
+  const unsigned int             n_dofs = this->get_fe().n_dofs_per_cell();
   const types::global_dof_index *dofs =
     dealii::internal::DoFAccessorImplementation::Implementation::get_cache_ptr(
       this->dof_handler, this->level(), this->present_index, n_dofs);

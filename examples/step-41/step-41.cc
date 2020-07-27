@@ -276,7 +276,7 @@ namespace Step41
                             update_values | update_gradients |
                               update_quadrature_points | update_JxW_values);
 
-    const unsigned int dofs_per_cell = fe.dofs_per_cell;
+    const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
     const unsigned int n_q_points    = quadrature_formula.size();
 
     FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
@@ -350,7 +350,7 @@ namespace Step41
                             quadrature_formula,
                             update_values | update_JxW_values);
 
-    const unsigned int dofs_per_cell = fe.dofs_per_cell;
+    const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
     const unsigned int n_q_points    = quadrature_formula.size();
 
     FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
@@ -443,10 +443,9 @@ namespace Step41
     std::vector<bool>   dof_touched(dof_handler.n_dofs(), false);
 
     for (const auto &cell : dof_handler.active_cell_iterators())
-      for (unsigned int v = 0; v < GeometryInfo<dim>::vertices_per_cell; ++v)
+      for (const auto v : cell->vertex_indices())
         {
-          Assert(dof_handler.get_fe().dofs_per_cell ==
-                   GeometryInfo<dim>::vertices_per_cell,
+          Assert(dof_handler.get_fe().n_dofs_per_cell() == cell->n_vertices(),
                  ExcNotImplemented());
 
           const unsigned int dof_index = cell->vertex_dof_index(v, 0);

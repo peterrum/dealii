@@ -541,7 +541,7 @@ namespace Step29
 
     const unsigned int n_q_points      = quadrature_formula.size(),
                        n_face_q_points = face_quadrature_formula.size(),
-                       dofs_per_cell   = fe.dofs_per_cell;
+                       dofs_per_cell   = fe.n_dofs_per_cell();
 
     // The FEValues objects will evaluate the shape functions for us.  For the
     // part of the bilinear form that involves integration on $\Omega$, we'll
@@ -651,7 +651,7 @@ namespace Step29
         // is at the boundary, and second has the correct boundary indicator
         // associated with $\Gamma_2$, the part of the boundary where we have
         // absorbing boundary conditions:
-        for (unsigned int face_no : GeometryInfo<dim>::face_indices())
+        for (const auto face_no : cell->face_indices())
           if (cell->face(face_no)->at_boundary() &&
               (cell->face(face_no)->boundary_id() == 0))
             {

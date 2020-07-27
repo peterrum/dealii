@@ -230,9 +230,7 @@ namespace Step65
         for (const auto &face : cell->face_iterators())
           {
             bool face_at_sphere_boundary = true;
-            for (unsigned int v = 0;
-                 v < GeometryInfo<dim - 1>::vertices_per_cell;
-                 ++v)
+            for (const auto v : face->vertex_indices())
               {
                 if (std::abs(face->vertex(v).norm_square() - 0.25) > 1e-12)
                   face_at_sphere_boundary = false;
@@ -381,7 +379,7 @@ namespace Step65
                             update_values | update_gradients |
                               update_quadrature_points | update_JxW_values);
 
-    const unsigned int dofs_per_cell = fe.dofs_per_cell;
+    const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
     const unsigned int n_q_points    = quadrature_formula.size();
 
     FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);

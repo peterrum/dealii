@@ -2231,11 +2231,8 @@ namespace DataOutBase
 
 
 
-  TecplotFlags::TecplotFlags(const char * tecplot_binary_file_name,
-                             const char * zone_name,
-                             const double solution_time)
-    : tecplot_binary_file_name(tecplot_binary_file_name)
-    , zone_name(zone_name)
+  TecplotFlags::TecplotFlags(const char *zone_name, const double solution_time)
+    : zone_name(zone_name)
     , solution_time(solution_time)
   {}
 
@@ -2244,9 +2241,7 @@ namespace DataOutBase
   std::size_t
   TecplotFlags::memory_consumption() const
   {
-    return sizeof(*this) +
-           MemoryConsumption::memory_consumption(tecplot_binary_file_name) +
-           MemoryConsumption::memory_consumption(zone_name);
+    return sizeof(*this) + MemoryConsumption::memory_consumption(zone_name);
   }
 
 
@@ -6848,19 +6843,6 @@ DataOutInterface<dim, spacedim>::write_tecplot(std::ostream &out) const
 
 template <int dim, int spacedim>
 void
-DataOutInterface<dim, spacedim>::write_tecplot_binary(std::ostream &out) const
-{
-  DataOutBase::write_tecplot_binary(get_patches(),
-                                    get_dataset_names(),
-                                    get_nonscalar_data_ranges(),
-                                    tecplot_flags,
-                                    out);
-}
-
-
-
-template <int dim, int spacedim>
-void
 DataOutInterface<dim, spacedim>::write_vtk(std::ostream &out) const
 {
   DataOutBase::write_vtk(get_patches(),
@@ -7062,7 +7044,7 @@ DataOutInterface<dim, spacedim>::write_vtu_with_pvtu_record(
     }
 
   // write pvtu record
-  const std::string filename_master =
+  const std::string pvtu_filename =
     filename_without_extension + "_" +
     Utilities::int_to_string(counter, n_digits_for_counter) + ".pvtu";
 
@@ -7079,11 +7061,11 @@ DataOutInterface<dim, spacedim>::write_vtu_with_pvtu_record(
           filename_vector.emplace_back(filename);
         }
 
-      std::ofstream master_output((directory + filename_master).c_str());
-      this->write_pvtu_record(master_output, filename_vector);
+      std::ofstream pvtu_output((directory + pvtu_filename).c_str());
+      this->write_pvtu_record(pvtu_output, filename_vector);
     }
 
-  return filename_master;
+  return pvtu_filename;
 }
 
 
@@ -7804,10 +7786,6 @@ DataOutInterface<dim, spacedim>::write(
 
       case DataOutBase::tecplot:
         write_tecplot(out);
-        break;
-
-      case DataOutBase::tecplot_binary:
-        write_tecplot_binary(out);
         break;
 
       case DataOutBase::vtk:

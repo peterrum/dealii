@@ -228,14 +228,14 @@ FE_P1NC::fill_fe_values(
   // compute on the cell
   if (flags & update_values)
     for (unsigned int i = 0; i < n_q_points; ++i)
-      for (unsigned int k = 0; k < this->dofs_per_cell; ++k)
+      for (unsigned int k = 0; k < this->n_dofs_per_cell(); ++k)
         output_data.shape_values[k][i] =
           (coeffs[k][0] * mapping_data.quadrature_points[i](0) +
            coeffs[k][1] * mapping_data.quadrature_points[i](1) + coeffs[k][2]);
 
   if (flags & update_gradients)
     for (unsigned int i = 0; i < n_q_points; ++i)
-      for (unsigned int k = 0; k < this->dofs_per_cell; ++k)
+      for (unsigned int k = 0; k < this->n_dofs_per_cell(); ++k)
         output_data.shape_gradients[k][i] =
           Point<2>(coeffs[k][0], coeffs[k][1]);
 }
@@ -262,11 +262,13 @@ FE_P1NC::fill_fe_face_values(
 
   // compute on the face
   const Quadrature<2> quadrature_on_face =
-    QProjector<2>::project_to_face(quadrature, face_no);
+    QProjector<2>::project_to_face(this->reference_cell_type(),
+                                   quadrature,
+                                   face_no);
 
   if (flags & update_values)
     for (unsigned int i = 0; i < quadrature_on_face.size(); ++i)
-      for (unsigned int k = 0; k < this->dofs_per_cell; ++k)
+      for (unsigned int k = 0; k < this->n_dofs_per_cell(); ++k)
         {
           const Point<2> quadrature_point =
             mapping.transform_unit_to_real_cell(cell,
@@ -279,7 +281,7 @@ FE_P1NC::fill_fe_face_values(
 
   if (flags & update_gradients)
     for (unsigned int i = 0; i < quadrature_on_face.size(); ++i)
-      for (unsigned int k = 0; k < this->dofs_per_cell; ++k)
+      for (unsigned int k = 0; k < this->n_dofs_per_cell(); ++k)
         output_data.shape_gradients[k][i] =
           Point<2>(coeffs[k][0], coeffs[k][1]);
 }
@@ -306,13 +308,13 @@ FE_P1NC::fill_fe_subface_values(
     get_linear_shape_coefficients(cell);
 
   // compute on the subface
-  const Quadrature<2> quadrature_on_subface =
-    QProjector<2>::project_to_subface(quadrature, face_no, sub_no);
+  const Quadrature<2> quadrature_on_subface = QProjector<2>::project_to_subface(
+    this->reference_cell_type(), quadrature, face_no, sub_no);
 
   if (flags & update_values)
     for (unsigned int i = 0; i < quadrature_on_subface.size(); ++i)
       {
-        for (unsigned int k = 0; k < this->dofs_per_cell; ++k)
+        for (unsigned int k = 0; k < this->n_dofs_per_cell(); ++k)
           {
             const Point<2> quadrature_point =
               mapping.transform_unit_to_real_cell(
@@ -326,7 +328,7 @@ FE_P1NC::fill_fe_subface_values(
 
   if (flags & update_gradients)
     for (unsigned int i = 0; i < quadrature_on_subface.size(); ++i)
-      for (unsigned int k = 0; k < this->dofs_per_cell; ++k)
+      for (unsigned int k = 0; k < this->n_dofs_per_cell(); ++k)
         output_data.shape_gradients[k][i] =
           Point<2>(coeffs[k][0], coeffs[k][1]);
 }

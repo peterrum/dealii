@@ -70,23 +70,6 @@ public:
   initialize(const DoFHandler<dim, spacedim> &dof);
 
   /**
-   * Fill the internal data structures with values extracted from the dof
-   * handler object and apply the boundary values provided.
-   *
-   * This function internally calls the initialize() function above and the
-   * constrains degrees on the external boundary of the domain by calling
-   * MGTools::make_boundary_list() with the given second and third argument.
-   *
-   * @deprecated Use initialize() followed by make_zero_boundary_constraints() instead
-   */
-  template <int dim, int spacedim>
-  DEAL_II_DEPRECATED void
-  initialize(const DoFHandler<dim, spacedim> &dof,
-             const std::map<types::boundary_id, const Function<spacedim> *>
-               &                  function_map,
-             const ComponentMask &component_mask = ComponentMask());
-
-  /**
    * Fill the internal data structures with information
    * about Dirichlet boundary dofs.
    *
@@ -205,16 +188,6 @@ public:
   get_level_constraints(const unsigned int level) const;
 
   /**
-   * Return the AffineConstraints object for a given level, containing
-   * periodicity constraints (if enabled on the triangulation).
-   *
-   * @deprecated Use get_level_constraints instead, which has a more descriptive name.
-   */
-  DEAL_II_DEPRECATED
-  const AffineConstraints<double> &
-  get_level_constraint_matrix(const unsigned int level) const;
-
-  /**
    * Return the user defined constraint matrix for a given level. These
    * constraints are set using the function add_user_constraints() and
    * should not contain constraints for DoF indices set in
@@ -277,7 +250,7 @@ MGConstrainedDoFs::initialize(const DoFHandler<dim, spacedim> &dof)
       for (; cell != endc; ++cell)
         if (cell->level_subdomain_id() != numbers::artificial_subdomain_id)
           {
-            for (auto f : GeometryInfo<dim>::face_indices())
+            for (auto f : cell->face_indices())
               if (cell->has_periodic_neighbor(f) &&
                   cell->periodic_neighbor(f)->level() == cell->level())
                 {
@@ -300,7 +273,7 @@ MGConstrainedDoFs::initialize(const DoFHandler<dim, spacedim> &dof)
                     }
 
                   const unsigned int dofs_per_face =
-                    cell->face(f)->get_fe(0).dofs_per_face;
+                    cell->face(f)->get_fe(0).n_dofs_per_face();
                   std::vector<types::global_dof_index> dofs_1(dofs_per_face);
                   std::vector<types::global_dof_index> dofs_2(dofs_per_face);
 
@@ -335,27 +308,6 @@ MGConstrainedDoFs::initialize(const DoFHandler<dim, spacedim> &dof)
   MGTools::extract_inner_interface_dofs(dof, refinement_edge_indices);
 }
 
-
-template <int dim, int spacedim>
-inline void
-MGConstrainedDoFs::initialize(
-  const DoFHandler<dim, spacedim> &                               dof,
-  const std::map<types::boundary_id, const Function<spacedim> *> &function_map,
-  const ComponentMask &component_mask)
-{
-  initialize(dof);
-
-  // allocate an IndexSet for each global level. Contents will be
-  // overwritten inside make_boundary_list.
-  const unsigned int n_levels = dof.get_triangulation().n_global_levels();
-  // At this point boundary_indices is empty.
-  boundary_indices.resize(n_levels);
-
-  MGTools::make_boundary_list(dof,
-                              function_map,
-                              boundary_indices,
-                              component_mask);
-}
 
 
 template <int dim, int spacedim>
@@ -529,14 +481,6 @@ MGConstrainedDoFs::get_level_constraints(const unsigned int level) const
 {
   AssertIndexRange(level, level_constraints.size());
   return level_constraints[level];
-}
-
-
-
-inline const AffineConstraints<double> &
-MGConstrainedDoFs::get_level_constraint_matrix(const unsigned int level) const
-{
-  return get_level_constraints(level);
 }
 
 

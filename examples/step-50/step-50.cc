@@ -547,7 +547,7 @@ void LaplaceProblem<dim, degree>::setup_system()
           TrilinosWrappers::SparsityPattern dsp(locally_owned_dofs,
                                                 locally_owned_dofs,
                                                 locally_relevant_dofs,
-                                                MPI_COMM_WORLD);
+                                                mpi_communicator);
           DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints);
           dsp.compress();
           system_matrix.reinit(dsp);
@@ -744,7 +744,7 @@ void LaplaceProblem<dim, degree>::assemble_system()
                           update_values | update_gradients |
                             update_quadrature_points | update_JxW_values);
 
-  const unsigned int dofs_per_cell = fe.dofs_per_cell;
+  const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
   const unsigned int n_q_points    = quadrature_formula.size();
 
   FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
@@ -816,7 +816,7 @@ void LaplaceProblem<dim, degree>::assemble_multigrid()
                           update_values | update_gradients |
                             update_quadrature_points | update_JxW_values);
 
-  const unsigned int dofs_per_cell = fe.dofs_per_cell;
+  const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
   const unsigned int n_q_points    = quadrature_formula.size();
 
   FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
@@ -1451,10 +1451,10 @@ void LaplaceProblem<dim, degree>::output_results(const unsigned int cycle)
 
   data_out.build_patches();
 
-  const std::string master = data_out.write_vtu_with_pvtu_record(
+  const std::string pvtu_filename = data_out.write_vtu_with_pvtu_record(
     "", "solution", cycle, mpi_communicator, 2 /*n_digits*/, 1 /*n_groups*/);
 
-  pcout << "   Wrote " << master << std::endl;
+  pcout << "   Wrote " << pvtu_filename << std::endl;
 }
 
 

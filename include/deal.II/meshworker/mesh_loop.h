@@ -317,6 +317,9 @@ namespace MeshWorker
       // user.
       copy = sample_copy_data;
 
+      // Store the dimension in which we are working for later use
+      const auto dim = cell->get_triangulation().dimension;
+
       const bool ignore_subdomain =
         (cell->get_triangulation().locally_owned_subdomain() ==
          numbers::invalid_subdomain_id);
@@ -340,9 +343,7 @@ namespace MeshWorker
         cell_worker(cell, scratch, copy);
 
       if (flags & (work_on_faces | work_on_boundary))
-        for (const unsigned int face_no :
-             GeometryInfo<CellIteratorBaseType::AccessorType::Container::
-                            dimension>::face_indices())
+        for (const unsigned int face_no : cell->face_indices())
           {
             if (cell->at_boundary(face_no) &&
                 !cell->has_periodic_neighbor(face_no))
@@ -392,10 +393,10 @@ namespace MeshWorker
                 const bool periodic_neighbor =
                   cell->has_periodic_neighbor(face_no);
 
-                if ((!periodic_neighbor &&
-                     cell->neighbor_is_coarser(face_no)) ||
-                    (periodic_neighbor &&
-                     cell->periodic_neighbor_is_coarser(face_no)))
+                if (dim > 1 && ((!periodic_neighbor &&
+                                 cell->neighbor_is_coarser(face_no)) ||
+                                (periodic_neighbor &&
+                                 cell->periodic_neighbor_is_coarser(face_no))))
                   {
                     Assert(cell->is_active(), ExcInternalError());
                     Assert(neighbor->is_active(), ExcInternalError());
@@ -430,6 +431,41 @@ namespace MeshWorker
                         face_worker(neighbor,
                                     neighbor_face_no.first,
                                     neighbor_face_no.second,
+                                    cell,
+                                    face_no,
+                                    numbers::invalid_unsigned_int,
+                                    scratch,
+                                    copy);
+                      }
+                  }
+                else if (dim == 1 && cell->level() > neighbor->level())
+                  {
+                    // In one dimension, there is no other check to do
+                    const unsigned int neighbor_face_no =
+                      periodic_neighbor ?
+                        cell->periodic_neighbor_face_no(face_no) :
+                        cell->neighbor_face_no(face_no);
+                    Assert(periodic_neighbor ||
+                             neighbor->face(neighbor_face_no) ==
+                               cell->face(face_no),
+                           ExcInternalError());
+
+                    face_worker(cell,
+                                face_no,
+                                numbers::invalid_unsigned_int,
+                                neighbor,
+                                neighbor_face_no,
+                                numbers::invalid_unsigned_int,
+                                scratch,
+                                copy);
+
+                    if (flags & assemble_own_interior_faces_both)
+                      {
+                        // If own faces are to be assembled from both sides,
+                        // call the faceworker again with swapped arguments.
+                        face_worker(neighbor,
+                                    neighbor_face_no,
+                                    numbers::invalid_unsigned_int,
                                     cell,
                                     face_no,
                                     numbers::invalid_unsigned_int,

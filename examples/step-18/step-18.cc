@@ -924,7 +924,7 @@ namespace Step18
                             update_values | update_gradients |
                               update_quadrature_points | update_JxW_values);
 
-    const unsigned int dofs_per_cell = fe.dofs_per_cell;
+    const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
     const unsigned int n_q_points    = quadrature_formula.size();
 
     FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
@@ -1257,9 +1257,8 @@ namespace Step18
     // The function also writes a record files (with suffix `.pvd`) for Paraview
     // that describes how all of these output files combine into the data for
     // this single time step:
-    const std::string pvtu_master_filename =
-      data_out.write_vtu_with_pvtu_record(
-        "./", "solution", timestep_no, mpi_communicator, 4);
+    const std::string pvtu_filename = data_out.write_vtu_with_pvtu_record(
+      "./", "solution", timestep_no, mpi_communicator, 4);
 
     // The record files must be written only once and not by each processor,
     // so we do this on processor 0:
@@ -1271,7 +1270,7 @@ namespace Step18
         // from the previous timesteps.
         static std::vector<std::pair<double, std::string>> times_and_names;
         times_and_names.push_back(
-          std::pair<double, std::string>(present_time, pvtu_master_filename));
+          std::pair<double, std::string>(present_time, pvtu_filename));
         std::ofstream pvd_output("solution.pvd");
         DataOutBase::write_pvd_record(pvd_output, times_and_names);
       }
@@ -1483,7 +1482,7 @@ namespace Step18
   // points, see @ref GlossSupport "support points"). For such a case, one
   // could construct a custom quadrature rule using
   // FiniteElement::get_unit_support_points(). The first
-  // <code>GeometryInfo@<dim@>::%vertices_per_cell*fe.dofs_per_vertex</code>
+  // <code>cell-&gt;n_vertices()*fe.dofs_per_vertex</code>
   // quadrature points will then correspond to the vertices of the cell and
   // are ordered consistent with <code>cell-@>vertex(i)</code>, taking into
   // account that support points for vector elements will be duplicated
@@ -1516,7 +1515,7 @@ namespace Step18
 
     std::vector<bool> vertex_touched(triangulation.n_vertices(), false);
     for (auto &cell : dof_handler.active_cell_iterators())
-      for (unsigned int v = 0; v < GeometryInfo<dim>::vertices_per_cell; ++v)
+      for (const auto v : cell->vertex_indices())
         if (vertex_touched[cell->vertex_index(v)] == false)
           {
             vertex_touched[cell->vertex_index(v)] = true;

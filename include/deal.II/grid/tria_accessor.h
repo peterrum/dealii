@@ -25,6 +25,7 @@
 #include <deal.II/base/point.h>
 
 #include <deal.II/grid/cell_id.h>
+#include <deal.II/grid/reference_cell.h>
 #include <deal.II/grid/tria_iterator_base.h>
 #include <deal.II/grid/tria_iterator_selector.h>
 
@@ -1606,6 +1607,12 @@ public:
     const TriaIterator<TriaAccessor<structdim, dim, spacedim>> &o) const;
 
   /**
+   * Reference cell type of the current object.
+   */
+  ReferenceCell::Type
+  reference_cell_type() const;
+
+  /**
    * Number of vertices.
    */
   unsigned int
@@ -1652,6 +1659,13 @@ public:
    * @}
    */
 
+protected:
+  /**
+   * Return additional information related to the current geometric entity
+   * type.
+   */
+  inline const ReferenceCell::internal::Info::Base &
+  reference_cell_info() const;
 
 private:
   /**
@@ -2670,6 +2684,12 @@ public:
    */
   bool
   used() const;
+
+  /**
+   * Reference cell type of the current object.
+   */
+  ReferenceCell::Type
+  reference_cell_type() const;
 
   /**
    * Number of vertices.

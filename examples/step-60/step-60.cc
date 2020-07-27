@@ -70,8 +70,8 @@
 // class. The structure of deal.II, as many modern numerical libraries, is
 // organized following a Directed Acyclic Graph (DAG). A DAG is a directed graph
 // with topological ordering: each node structurally represents an object, and
-// is connected to child nodes by one (or more) oriented edges, from the parent
-// to the child. The most significant example of this structure is the
+// is connected to non-root nodes by one (or more) oriented edges, from the
+// parent to the child. The most significant example of this structure is the
 // Triangulation and its Triangulation::cell_iterator structure. From a
 // Triangulation (the main node), we can access each cell (children nodes of the
 // triangulation). From the cells themselves we can access over all vertices of
@@ -772,7 +772,7 @@ namespace Step60
         for (auto &cell : cells)
           {
             cell->set_refine_flag();
-            for (unsigned int face_no : GeometryInfo<spacedim>::face_indices())
+            for (const auto face_no : cell->face_indices())
               if (!cell->at_boundary(face_no))
                 cell->neighbor(face_no)->set_refine_flag();
           }

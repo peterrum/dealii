@@ -20,6 +20,7 @@
 
 #ifdef DEAL_II_COMPILER_CUDA_AWARE
 
+#  include <deal.II/base/cuda_size.h>
 #  include <deal.II/base/utilities.h>
 
 #  include <deal.II/dofs/dof_accessor.h>
@@ -103,10 +104,8 @@ namespace CUDAWrappers
 
     namespace internal
     {
-      // TODO: use a template parameter instead of a macro
-#  define DEAL_II_MAX_ELEM_DEGREE 10
-      __constant__ double constraint_weights[(DEAL_II_MAX_ELEM_DEGREE + 1) *
-                                             (DEAL_II_MAX_ELEM_DEGREE + 1)];
+      __constant__ double
+        constraint_weights[(mf_max_elem_degree + 1) * (mf_max_elem_degree + 1)];
 
       // Here is the system for how we store constraint types in a binary mask.
       // This is not a complete contradiction-free system, i.e., there are
@@ -142,24 +141,24 @@ namespace CUDAWrappers
       setup_constraint_weigths(unsigned int fe_degree)
       {
         FE_Q<2>            fe_q(fe_degree);
-        FullMatrix<double> interpolation_matrix(fe_q.dofs_per_face,
-                                                fe_q.dofs_per_face);
+        FullMatrix<double> interpolation_matrix(fe_q.n_dofs_per_face(),
+                                                fe_q.n_dofs_per_face());
         fe_q.get_subface_interpolation_matrix(fe_q, 0, interpolation_matrix);
 
         std::vector<unsigned int> mapping =
           FETools::lexicographic_to_hierarchic_numbering<1>(fe_degree);
 
-        FullMatrix<double> mapped_matrix(fe_q.dofs_per_face,
-                                         fe_q.dofs_per_face);
-        for (unsigned int i = 0; i < fe_q.dofs_per_face; ++i)
-          for (unsigned int j = 0; j < fe_q.dofs_per_face; ++j)
+        FullMatrix<double> mapped_matrix(fe_q.n_dofs_per_face(),
+                                         fe_q.n_dofs_per_face());
+        for (unsigned int i = 0; i < fe_q.n_dofs_per_face(); ++i)
+          for (unsigned int j = 0; j < fe_q.n_dofs_per_face(); ++j)
             mapped_matrix(i, j) = interpolation_matrix(mapping[i], mapping[j]);
 
         cudaError_t error_code =
           cudaMemcpyToSymbol(internal::constraint_weights,
                              &mapped_matrix[0][0],
-                             sizeof(double) * fe_q.dofs_per_face *
-                               fe_q.dofs_per_face);
+                             sizeof(double) * fe_q.n_dofs_per_face() *
+                               fe_q.n_dofs_per_face());
         AssertCuda(error_code);
       }
     } // namespace internal
