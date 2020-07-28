@@ -444,10 +444,8 @@ namespace FEValuesViews
         &shape_function_data,
       std::vector<typename ProductType<Number, double>::type> &values)
     {
-      const unsigned int dofs_per_cell = dof_values.size();
-      const unsigned int n_quadrature_points =
-        dofs_per_cell > 0 ? shape_values.n_cols() : values.size();
-      AssertDimension(values.size(), n_quadrature_points);
+      const unsigned int dofs_per_cell       = dof_values.size();
+      const unsigned int n_quadrature_points = values.size();
 
       std::fill(values.begin(),
                 values.end(),
@@ -488,10 +486,8 @@ namespace FEValuesViews
         typename ProductType<Number, dealii::Tensor<order, spacedim>>::type>
         &derivatives)
     {
-      const unsigned int dofs_per_cell = dof_values.size();
-      const unsigned int n_quadrature_points =
-        dofs_per_cell > 0 ? shape_derivatives[0].size() : derivatives.size();
-      AssertDimension(derivatives.size(), n_quadrature_points);
+      const unsigned int dofs_per_cell       = dof_values.size();
+      const unsigned int n_quadrature_points = derivatives.size();
 
       std::fill(
         derivatives.begin(),
@@ -531,10 +527,8 @@ namespace FEValuesViews
       std::vector<typename Scalar<dim, spacedim>::template OutputType<
         Number>::laplacian_type> &laplacians)
     {
-      const unsigned int dofs_per_cell = dof_values.size();
-      const unsigned int n_quadrature_points =
-        dofs_per_cell > 0 ? shape_hessians[0].size() : laplacians.size();
-      AssertDimension(laplacians.size(), n_quadrature_points);
+      const unsigned int dofs_per_cell       = dof_values.size();
+      const unsigned int n_quadrature_points = laplacians.size();
 
       std::fill(laplacians.begin(),
                 laplacians.end(),
@@ -576,10 +570,8 @@ namespace FEValuesViews
         typename ProductType<Number, dealii::Tensor<1, spacedim>>::type>
         &values)
     {
-      const unsigned int dofs_per_cell = dof_values.size();
-      const unsigned int n_quadrature_points =
-        dofs_per_cell > 0 ? shape_values.n_cols() : values.size();
-      AssertDimension(values.size(), n_quadrature_points);
+      const unsigned int dofs_per_cell       = dof_values.size();
+      const unsigned int n_quadrature_points = values.size();
 
       std::fill(
         values.begin(),
@@ -639,10 +631,8 @@ namespace FEValuesViews
         typename ProductType<Number, dealii::Tensor<order + 1, spacedim>>::type>
         &derivatives)
     {
-      const unsigned int dofs_per_cell = dof_values.size();
-      const unsigned int n_quadrature_points =
-        dofs_per_cell > 0 ? shape_derivatives[0].size() : derivatives.size();
-      AssertDimension(derivatives.size(), n_quadrature_points);
+      const unsigned int dofs_per_cell       = dof_values.size();
+      const unsigned int n_quadrature_points = derivatives.size();
 
       std::fill(
         derivatives.begin(),
@@ -708,10 +698,7 @@ namespace FEValuesViews
         &symmetric_gradients)
     {
       const unsigned int dofs_per_cell       = dof_values.size();
-      const unsigned int n_quadrature_points = dofs_per_cell > 0 ?
-                                                 shape_gradients[0].size() :
-                                                 symmetric_gradients.size();
-      AssertDimension(symmetric_gradients.size(), n_quadrature_points);
+      const unsigned int n_quadrature_points = symmetric_gradients.size();
 
       std::fill(
         symmetric_gradients.begin(),
@@ -778,10 +765,8 @@ namespace FEValuesViews
       std::vector<typename Vector<dim, spacedim>::template OutputType<
         Number>::divergence_type> &divergences)
     {
-      const unsigned int dofs_per_cell = dof_values.size();
-      const unsigned int n_quadrature_points =
-        dofs_per_cell > 0 ? shape_gradients[0].size() : divergences.size();
-      AssertDimension(divergences.size(), n_quadrature_points);
+      const unsigned int dofs_per_cell       = dof_values.size();
+      const unsigned int n_quadrature_points = divergences.size();
 
       std::fill(divergences.begin(),
                 divergences.end(),
@@ -843,10 +828,8 @@ namespace FEValuesViews
         Number,
         typename dealii::internal::CurlType<spacedim>::type>::type> &curls)
     {
-      const unsigned int dofs_per_cell = dof_values.size();
-      const unsigned int n_quadrature_points =
-        dofs_per_cell > 0 ? shape_gradients[0].size() : curls.size();
-      AssertDimension(curls.size(), n_quadrature_points);
+      const unsigned int dofs_per_cell       = dof_values.size();
+      const unsigned int n_quadrature_points = curls.size();
 
       std::fill(curls.begin(),
                 curls.end(),
@@ -1106,10 +1089,8 @@ namespace FEValuesViews
       std::vector<typename Vector<dim, spacedim>::template OutputType<
         Number>::laplacian_type> &laplacians)
     {
-      const unsigned int dofs_per_cell = dof_values.size();
-      const unsigned int n_quadrature_points =
-        dofs_per_cell > 0 ? shape_hessians[0].size() : laplacians.size();
-      AssertDimension(laplacians.size(), n_quadrature_points);
+      const unsigned int dofs_per_cell       = dof_values.size();
+      const unsigned int n_quadrature_points = laplacians.size();
 
       std::fill(laplacians.begin(),
                 laplacians.end(),
@@ -1177,10 +1158,8 @@ namespace FEValuesViews
                              dealii::SymmetricTensor<2, spacedim>>::type>
         &values)
     {
-      const unsigned int dofs_per_cell = dof_values.size();
-      const unsigned int n_quadrature_points =
-        dofs_per_cell > 0 ? shape_values.n_cols() : values.size();
-      AssertDimension(values.size(), n_quadrature_points);
+      const unsigned int dofs_per_cell       = dof_values.size();
+      const unsigned int n_quadrature_points = values.size();
 
       std::fill(
         values.begin(),
@@ -1249,10 +1228,8 @@ namespace FEValuesViews
       std::vector<typename SymmetricTensor<2, dim, spacedim>::
                     template OutputType<Number>::divergence_type> &divergences)
     {
-      const unsigned int dofs_per_cell = dof_values.size();
-      const unsigned int n_quadrature_points =
-        dofs_per_cell > 0 ? shape_gradients[0].size() : divergences.size();
-      AssertDimension(divergences.size(), n_quadrature_points);
+      const unsigned int dofs_per_cell       = dof_values.size();
+      const unsigned int n_quadrature_points = divergences.size();
 
       std::fill(divergences.begin(),
                 divergences.end(),
@@ -1358,10 +1335,8 @@ namespace FEValuesViews
         typename ProductType<Number, dealii::Tensor<2, spacedim>>::type>
         &values)
     {
-      const unsigned int dofs_per_cell = dof_values.size();
-      const unsigned int n_quadrature_points =
-        dofs_per_cell > 0 ? shape_values.n_cols() : values.size();
-      AssertDimension(values.size(), n_quadrature_points);
+      const unsigned int dofs_per_cell       = dof_values.size();
+      const unsigned int n_quadrature_points = values.size();
 
       std::fill(
         values.begin(),
@@ -1429,10 +1404,8 @@ namespace FEValuesViews
       std::vector<typename Tensor<2, dim, spacedim>::template OutputType<
         Number>::divergence_type> &divergences)
     {
-      const unsigned int dofs_per_cell = dof_values.size();
-      const unsigned int n_quadrature_points =
-        dofs_per_cell > 0 ? shape_gradients[0].size() : divergences.size();
-      AssertDimension(divergences.size(), n_quadrature_points);
+      const unsigned int dofs_per_cell       = dof_values.size();
+      const unsigned int n_quadrature_points = divergences.size();
 
       std::fill(divergences.begin(),
                 divergences.end(),
@@ -1500,10 +1473,8 @@ namespace FEValuesViews
       std::vector<typename Tensor<2, dim, spacedim>::template OutputType<
         Number>::gradient_type> &gradients)
     {
-      const unsigned int dofs_per_cell = dof_values.size();
-      const unsigned int n_quadrature_points =
-        dofs_per_cell > 0 ? shape_gradients[0].size() : gradients.size();
-      AssertDimension(gradients.size(), n_quadrature_points);
+      const unsigned int dofs_per_cell       = dof_values.size();
+      const unsigned int n_quadrature_points = gradients.size();
 
       std::fill(gradients.begin(),
                 gradients.end(),
@@ -2191,9 +2162,9 @@ namespace FEValuesViews
     Assert(fe_values->update_flags & update_hessians,
            (typename FEValuesBase<dim, spacedim>::ExcAccessToUninitializedField(
              "update_hessians")));
-    Assert(laplacians.size() == fe_values->n_quadrature_points,
+    Assert(laplacians.size() == fe_values->n_quadrature_points /*TODO ?*/,
            ExcDimensionMismatch(laplacians.size(),
-                                fe_values->n_quadrature_points));
+                                fe_values->n_quadrature_points /*TODO ?*/));
     Assert(fe_values->present_cell.get() != nullptr,
            ExcMessage("FEValues object is not reinit'ed to any cell"));
     Assert(
@@ -2227,9 +2198,9 @@ namespace FEValuesViews
     Assert(fe_values->update_flags & update_hessians,
            (typename FEValuesBase<dim, spacedim>::ExcAccessToUninitializedField(
              "update_hessians")));
-    Assert(laplacians.size() == fe_values->n_quadrature_points,
+    Assert(laplacians.size() == fe_values->n_quadrature_points /*TODO ?*/,
            ExcDimensionMismatch(laplacians.size(),
-                                fe_values->n_quadrature_points));
+                                fe_values->n_quadrature_points /*TODO ?*/));
     Assert(fe_values->present_cell.get() != nullptr,
            ExcMessage("FEValues object is not reinit'ed to any cell"));
     AssertDimension(dof_values.size(), fe_values->dofs_per_cell);
@@ -3176,7 +3147,7 @@ namespace internal
     if (dofs_per_cell == 0)
       return;
 
-    const unsigned int n_quadrature_points = shape_values.n_cols();
+    const unsigned int n_quadrature_points = values.size();
     const unsigned int n_components        = fe.n_components();
 
     // Assert that we can write all components into the result vectors
@@ -3269,10 +3240,8 @@ namespace internal
     const dealii::Table<2, Tensor<order, spacedim>> &shape_derivatives,
     std::vector<Tensor<order, spacedim, Number>> &   derivatives)
   {
-    const unsigned int dofs_per_cell = shape_derivatives.size()[0];
-    const unsigned int n_quadrature_points =
-      dofs_per_cell > 0 ? shape_derivatives[0].size() : derivatives.size();
-    AssertDimension(derivatives.size(), n_quadrature_points);
+    const unsigned int dofs_per_cell       = shape_derivatives.size()[0];
+    const unsigned int n_quadrature_points = derivatives.size();
 
     // initialize with zero
     std::fill_n(derivatives.begin(),
@@ -3328,7 +3297,7 @@ namespace internal
       return;
 
 
-    const unsigned int n_quadrature_points = shape_derivatives[0].size();
+    const unsigned int n_quadrature_points = derivatives.size();
     const unsigned int n_components        = fe.n_components();
 
     // Assert that we can write all components into the result vectors
@@ -3417,10 +3386,8 @@ namespace internal
     const dealii::Table<2, Tensor<2, spacedim>> &shape_hessians,
     std::vector<Number> &                        laplacians)
   {
-    const unsigned int dofs_per_cell = shape_hessians.size()[0];
-    const unsigned int n_quadrature_points =
-      dofs_per_cell > 0 ? shape_hessians[0].size() : laplacians.size();
-    AssertDimension(laplacians.size(), n_quadrature_points);
+    const unsigned int dofs_per_cell       = shape_hessians.size()[0];
+    const unsigned int n_quadrature_points = laplacians.size();
 
     // initialize with zero
     std::fill_n(laplacians.begin(),
@@ -3473,7 +3440,7 @@ namespace internal
       return;
 
 
-    const unsigned int n_quadrature_points = shape_hessians[0].size();
+    const unsigned int n_quadrature_points = laplacians.size();
     const unsigned int n_components        = fe.n_components();
 
     // Assert that we can write all components into the result vectors
