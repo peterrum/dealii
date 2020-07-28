@@ -38,6 +38,8 @@
 #include <deal.II/grid/tria.h>
 #include <deal.II/grid/tria_iterator.h>
 
+#include <deal.II/hp/q_collection.h>
+
 #include <algorithm>
 #include <memory>
 #include <type_traits>
@@ -2087,7 +2089,12 @@ public:
   /**
    * Number of quadrature points.
    */
-  const unsigned int n_quadrature_points;
+  unsigned int n_quadrature_points;
+
+  /**
+   * TODO.
+   */
+  const unsigned int max_quadrature_points;
 
   /**
    * Number of shape functions per cell. If we use this base class to evaluate
@@ -3745,6 +3752,16 @@ public:
                    const Quadrature<dim - 1> &         quadrature);
 
   /**
+   * TODO.
+   */
+  FEFaceValuesBase(const unsigned int                  n_q_points,
+                   const unsigned int                  dofs_per_cell,
+                   const UpdateFlags                   update_flags,
+                   const Mapping<dim, spacedim> &      mapping,
+                   const FiniteElement<dim, spacedim> &fe,
+                   const hp::QCollection<dim - 1> &    quadrature);
+
+  /**
    * Boundary form of the transformation of the cell at the <tt>i</tt>th
    * quadrature point.  See
    * @ref GlossBoundaryForm.
@@ -3794,7 +3811,7 @@ protected:
   /**
    * Store a copy of the quadrature formula here.
    */
-  const Quadrature<dim - 1> quadrature;
+  const hp::QCollection<dim - 1> quadrature;
 };
 
 
@@ -5682,7 +5699,7 @@ template <int dim, int spacedim>
 inline const Quadrature<dim - 1> &
 FEFaceValuesBase<dim, spacedim>::get_quadrature() const
 {
-  return quadrature;
+  return quadrature[0];
 }
 
 

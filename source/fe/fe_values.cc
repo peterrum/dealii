@@ -3076,6 +3076,7 @@ FEValuesBase<dim, spacedim>::FEValuesBase(
   const Mapping<dim, spacedim> &      mapping,
   const FiniteElement<dim, spacedim> &fe)
   : n_quadrature_points(n_q_points)
+  , max_quadrature_points(n_q_points)
   , dofs_per_cell(dofs_per_cell)
   , mapping(&mapping, typeid(*this).name())
   , fe(&fe, typeid(*this).name())
@@ -4209,6 +4210,7 @@ FEValuesBase<dim, spacedim>::memory_consumption() const
 {
   return (sizeof(this->update_flags) +
           MemoryConsumption::memory_consumption(n_quadrature_points) +
+          MemoryConsumption::memory_consumption(max_quadrature_points) +
           sizeof(cell_similarity) +
           MemoryConsumption::memory_consumption(dofs_per_cell) +
           MemoryConsumption::memory_consumption(mapping) +
@@ -4433,8 +4435,8 @@ FEValues<dim, spacedim>::initialize(const UpdateFlags update_flags)
 
   // initialize the base classes
   if (flags & update_mapping)
-    this->mapping_output.initialize(this->n_quadrature_points, flags);
-  this->finite_element_output.initialize(this->n_quadrature_points,
+    this->mapping_output.initialize(this->max_quadrature_points, flags);
+  this->finite_element_output.initialize(this->max_quadrature_points,
                                          *this->fe,
                                          flags);
 
@@ -4599,12 +4601,30 @@ FEValues<dim, spacedim>::memory_consumption() const
 
 template <int dim, int spacedim>
 FEFaceValuesBase<dim, spacedim>::FEFaceValuesBase(
+  const unsigned int                  n_q_points,
+  const unsigned int                  dofs_per_cell,
+  const UpdateFlags                   flags,
+  const Mapping<dim, spacedim> &      mapping,
+  const FiniteElement<dim, spacedim> &fe,
+  const Quadrature<dim - 1> &         quadrature)
+  : FEFaceValuesBase<dim, spacedim>(n_q_points,
+                                    dofs_per_cell,
+                                    flags,
+                                    mapping,
+                                    fe,
+                                    hp::QCollection<dim - 1>(quadrature))
+{}
+
+
+
+template <int dim, int spacedim>
+FEFaceValuesBase<dim, spacedim>::FEFaceValuesBase(
   const unsigned int n_q_points,
   const unsigned int dofs_per_cell,
   const UpdateFlags,
   const Mapping<dim, spacedim> &      mapping,
   const FiniteElement<dim, spacedim> &fe,
-  const Quadrature<dim - 1> &         quadrature)
+  const hp::QCollection<dim - 1> &    quadrature)
   : FEValuesBase<dim, spacedim>(n_q_points,
                                 dofs_per_cell,
                                 update_default,
@@ -4692,8 +4712,8 @@ FEFaceValues<dim, spacedim>::initialize(const UpdateFlags update_flags)
 
   // initialize the base classes
   if (flags & update_mapping)
-    this->mapping_output.initialize(this->n_quadrature_points, flags);
-  this->finite_element_output.initialize(this->n_quadrature_points,
+    this->mapping_output.initialize(this->max_quadrature_points, flags);
+  this->finite_element_output.initialize(this->max_quadrature_points,
                                          *this->fe,
                                          flags);
 
@@ -4706,7 +4726,7 @@ FEFaceValues<dim, spacedim>::initialize(const UpdateFlags update_flags)
                         *this->fe,
                         flags,
                         *this->mapping,
-                        this->quadrature,
+                        this->quadrature[0],
                         this->finite_element_output);
   Threads::Task<
     std::unique_ptr<typename Mapping<dim, spacedim>::InternalDataBase>>
@@ -4715,7 +4735,7 @@ FEFaceValues<dim, spacedim>::initialize(const UpdateFlags update_flags)
     mapping_get_data = Threads::new_task(&Mapping<dim, spacedim>::get_face_data,
                                          *this->mapping,
                                          flags,
-                                         this->quadrature);
+                                         this->quadrature[0]);
 
   this->update_flags = flags;
 
@@ -4819,14 +4839,14 @@ FEFaceValues<dim, spacedim>::do_reinit(const unsigned int face_no)
     {
       this->get_mapping().fill_fe_face_values(*this->present_cell,
                                               face_no,
-                                              this->quadrature,
+                                              this->quadrature[0],
                                               *this->mapping_data,
                                               this->mapping_output);
     }
 
   this->get_fe().fill_fe_face_values(*this->present_cell,
                                      face_no,
-                                     this->quadrature,
+                                     this->quadrature[0],
                                      this->get_mapping(),
                                      *this->mapping_data,
                                      this->mapping_output,
@@ -4891,8 +4911,8 @@ FESubfaceValues<dim, spacedim>::initialize(const UpdateFlags update_flags)
 
   // initialize the base classes
   if (flags & update_mapping)
-    this->mapping_output.initialize(this->n_quadrature_points, flags);
-  this->finite_element_output.initialize(this->n_quadrature_points,
+    this->mapping_output.initialize(this->max_quadrature_points, flags);
+  this->finite_element_output.initialize(this->max_quadrature_points,
                                          *this->fe,
                                          flags);
 
@@ -4906,7 +4926,7 @@ FESubfaceValues<dim, spacedim>::initialize(const UpdateFlags update_flags)
                         *this->fe,
                         flags,
                         *this->mapping,
-                        this->quadrature,
+                        this->quadrature[0],
                         this->finite_element_output);
   Threads::Task<
     std::unique_ptr<typename Mapping<dim, spacedim>::InternalDataBase>>
@@ -4916,7 +4936,7 @@ FESubfaceValues<dim, spacedim>::initialize(const UpdateFlags update_flags)
       Threads::new_task(&Mapping<dim, spacedim>::get_subface_data,
                         *this->mapping,
                         flags,
-                        this->quadrature);
+                        this->quadrature[0]);
 
   this->update_flags = flags;
 
@@ -5120,7 +5140,7 @@ FESubfaceValues<dim, spacedim>::do_reinit(const unsigned int face_no,
       this->get_mapping().fill_fe_subface_values(*this->present_cell,
                                                  face_no,
                                                  subface_no,
-                                                 this->quadrature,
+                                                 this->quadrature[0],
                                                  *this->mapping_data,
                                                  this->mapping_output);
     }
@@ -5128,7 +5148,7 @@ FESubfaceValues<dim, spacedim>::do_reinit(const unsigned int face_no,
   this->get_fe().fill_fe_subface_values(*this->present_cell,
                                         face_no,
                                         subface_no,
-                                        this->quadrature,
+                                        this->quadrature[0],
                                         this->get_mapping(),
                                         *this->mapping_data,
                                         this->mapping_output,
