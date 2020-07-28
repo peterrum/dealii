@@ -2767,9 +2767,9 @@ protected:
    * it is no longer necessary.
    */
   virtual std::unique_ptr<InternalDataBase>
-  get_face_data(const UpdateFlags             update_flags,
-                const Mapping<dim, spacedim> &mapping,
-                const Quadrature<dim - 1> &   quadrature,
+  get_face_data(const UpdateFlags               update_flags,
+                const Mapping<dim, spacedim> &  mapping,
+                const hp::QCollection<dim - 1> &quadrature,
                 dealii::internal::FEValuesImplementation::
                   FiniteElementRelatedData<dim, spacedim> &output_data) const;
 
@@ -2964,7 +2964,7 @@ protected:
   fill_fe_face_values(
     const typename Triangulation<dim, spacedim>::cell_iterator &cell,
     const unsigned int                                          face_no,
-    const Quadrature<dim - 1> &                                 quadrature,
+    const hp::QCollection<dim - 1> &                            quadrature,
     const Mapping<dim, spacedim> &                              mapping,
     const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,
     const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,

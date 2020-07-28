@@ -1065,9 +1065,9 @@ protected:
   virtual std::unique_ptr<
     typename FiniteElement<dim, spacedim>::InternalDataBase>
   get_face_data(
-    const UpdateFlags             update_flags,
-    const Mapping<dim, spacedim> &mapping,
-    const Quadrature<dim - 1> &   quadrature,
+    const UpdateFlags               update_flags,
+    const Mapping<dim, spacedim> &  mapping,
+    const hp::QCollection<dim - 1> &quadrature,
     dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,
                                                                        spacedim>
       &output_data) const override;
@@ -1101,7 +1101,7 @@ protected:
   fill_fe_face_values(
     const typename Triangulation<dim, spacedim>::cell_iterator &cell,
     const unsigned int                                          face_no,
-    const Quadrature<dim - 1> &                                 quadrature,
+    const hp::QCollection<dim - 1> &                            quadrature,
     const Mapping<dim, spacedim> &                              mapping,
     const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,
     const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
@@ -1145,7 +1145,7 @@ protected:
     const typename Triangulation<dim, spacedim>::cell_iterator &cell,
     const unsigned int                                          face_no,
     const unsigned int                                          sub_no,
-    const Quadrature<dim_1> &                                   quadrature,
+    const hp::QCollection<dim_1> &                              quadrature,
     const CellSimilarity::Similarity                            cell_similarity,
     const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,
     const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_data,

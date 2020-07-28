@@ -1284,9 +1284,9 @@ FiniteElement<dim, spacedim>::compute_n_nonzero_components(
 template <int dim, int spacedim>
 std::unique_ptr<typename FiniteElement<dim, spacedim>::InternalDataBase>
 FiniteElement<dim, spacedim>::get_face_data(
-  const UpdateFlags             flags,
-  const Mapping<dim, spacedim> &mapping,
-  const Quadrature<dim - 1> &   quadrature,
+  const UpdateFlags               flags,
+  const Mapping<dim, spacedim> &  mapping,
+  const hp::QCollection<dim - 1> &quadrature,
   dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,
                                                                      spacedim>
     &output_data) const

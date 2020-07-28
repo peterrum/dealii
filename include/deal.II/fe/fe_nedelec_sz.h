@@ -188,7 +188,7 @@ protected:
   fill_fe_face_values(
     const typename Triangulation<dim, dim>::cell_iterator &cell,
     const unsigned int                                     face_no,
-    const Quadrature<dim - 1> &                            quadrature,
+    const hp::QCollection<dim - 1> &                       quadrature,
     const Mapping<dim, dim> &                              mapping,
     const typename Mapping<dim, dim>::InternalDataBase &   mapping_internal,
     const dealii::internal::FEValuesImplementation::MappingRelatedData<dim, dim>
