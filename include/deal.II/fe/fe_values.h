@@ -3744,8 +3744,7 @@ public:
    * is <tt>2*dim*(1<<(dim-1))</tt>, i.e. the number of faces times the number
    * of subfaces per face.
    */
-  FEFaceValuesBase(const unsigned int                  n_q_points,
-                   const unsigned int                  dofs_per_cell,
+  FEFaceValuesBase(const unsigned int                  dofs_per_cell,
                    const UpdateFlags                   update_flags,
                    const Mapping<dim, spacedim> &      mapping,
                    const FiniteElement<dim, spacedim> &fe,
@@ -3754,8 +3753,7 @@ public:
   /**
    * TODO.
    */
-  FEFaceValuesBase(const unsigned int                  n_q_points,
-                   const unsigned int                  dofs_per_cell,
+  FEFaceValuesBase(const unsigned int                  dofs_per_cell,
                    const UpdateFlags                   update_flags,
                    const Mapping<dim, spacedim> &      mapping,
                    const FiniteElement<dim, spacedim> &fe,
