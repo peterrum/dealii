@@ -3855,12 +3855,27 @@ public:
                const UpdateFlags                   update_flags);
 
   /**
+   * TODO
+   */
+  FEFaceValues(const Mapping<dim, spacedim> &      mapping,
+               const FiniteElement<dim, spacedim> &fe,
+               const hp::QCollection<dim - 1> &    quadrature,
+               const UpdateFlags                   update_flags);
+
+  /**
    * Constructor. This constructor is equivalent to the other one except that
    * it makes the object use a $Q_1$ mapping (i.e., an object of type
    * MappingQGeneric(1)) implicitly.
    */
   FEFaceValues(const FiniteElement<dim, spacedim> &fe,
                const Quadrature<dim - 1> &         quadrature,
+               const UpdateFlags                   update_flags);
+
+  /**
+   * TODO.
+   */
+  FEFaceValues(const FiniteElement<dim, spacedim> &fe,
+               const hp::QCollection<dim - 1> &    quadrature,
                const UpdateFlags                   update_flags);
 
   /**

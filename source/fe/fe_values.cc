@@ -4639,6 +4639,20 @@ FEFaceValues<dim, spacedim>::FEFaceValues(
   const FiniteElement<dim, spacedim> &fe,
   const Quadrature<dim - 1> &         quadrature,
   const UpdateFlags                   update_flags)
+  : FEFaceValues<dim, spacedim>(mapping,
+                                fe,
+                                hp::QCollection<dim - 1>(quadrature),
+                                update_flags)
+{}
+
+
+
+template <int dim, int spacedim>
+FEFaceValues<dim, spacedim>::FEFaceValues(
+  const Mapping<dim, spacedim> &      mapping,
+  const FiniteElement<dim, spacedim> &fe,
+  const hp::QCollection<dim - 1> &    quadrature,
+  const UpdateFlags                   update_flags)
   : FEFaceValuesBase<dim, spacedim>(fe.n_dofs_per_cell(),
                                     update_flags,
                                     mapping,
@@ -4654,6 +4668,18 @@ template <int dim, int spacedim>
 FEFaceValues<dim, spacedim>::FEFaceValues(
   const FiniteElement<dim, spacedim> &fe,
   const Quadrature<dim - 1> &         quadrature,
+  const UpdateFlags                   update_flags)
+  : FEFaceValues<dim, spacedim>(fe,
+                                hp::QCollection<dim - 1>(quadrature),
+                                update_flags)
+{}
+
+
+
+template <int dim, int spacedim>
+FEFaceValues<dim, spacedim>::FEFaceValues(
+  const FiniteElement<dim, spacedim> &fe,
+  const hp::QCollection<dim - 1> &    quadrature,
   const UpdateFlags                   update_flags)
   : FEFaceValuesBase<dim, spacedim>(fe.n_dofs_per_cell(),
                                     update_flags,
