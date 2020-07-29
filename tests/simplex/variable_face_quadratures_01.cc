@@ -17,7 +17,12 @@
 // Test Simplex::PGauss: output its quadrature points and weights.
 
 
+#include <deal.II/base/qprojector.h>
+#include <deal.II/base/quadrature_lib.h>
+
 #include <deal.II/fe/mapping_fe.h>
+
+#include <deal.II/hp/q_collection.h>
 
 #include "../tests.h"
 
@@ -32,28 +37,23 @@ template <>
 void
 test<2>()
 {
+  const unsigned int dim = 2;
 
-//    FE_Q<1> fe;
-//    MappingFE<2> mapping(fe);
-//
-//    mapping.get_face_data();
-    
-  const auto quad = QProjector<2>::project_to_all_faces(ReferenceCell::Type::Quad, 
-          hp::QCollection<1> (QGauss<1>(1), QGauss<1>(2),QGauss<1>(3), QGauss<1>(4)));
+  const hp::QCollection<dim - 1> quad_ref(QGauss<dim - 1>(1),
+                                          QGauss<dim - 1>(2),
+                                          QGauss<dim - 1>(3),
+                                          QGauss<dim - 1>(4));
+
+  const auto quad =
+    QProjector<dim>::project_to_all_faces(ReferenceCell::Type::Quad, quad_ref);
 
   const auto print = [&](const unsigned int face_no) {
-    deallog << "face_no=" << face_no
-            << ":" << std::endl;
+    deallog << "face_no=" << face_no << ":" << std::endl;
     for (unsigned int
            q = 0,
-           i =
-             QProjector<dim>::DataSetDescriptor::face(ReferenceCell::Type::Quad,
-                                                      face_no,
-                                                      false,
-                                                      false,
-                                                      false,
-                                                      quad);
-         q < n_points;
+           i = QProjector<dim>::DataSetDescriptor::face(
+             ReferenceCell::Type::Quad, face_no, false, false, false, quad_ref);
+         q < quad_ref[face_no].size();
          ++q, ++i)
       {
         deallog << quad.point(i) << " ";
@@ -65,7 +65,6 @@ test<2>()
 
   for (unsigned int i = 0; i < 4 /*TODO*/; ++i)
     print(i);
-  
 }
 
 int
