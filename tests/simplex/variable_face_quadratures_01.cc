@@ -28,9 +28,28 @@
 
 #include <deal.II/hp/q_collection.h>
 
+#include <deal.II/numerics/vector_tools.h>
+
 #include "../tests.h"
 
 using namespace dealii;
+
+template <int dim>
+class Fu : public Function<dim>
+{
+public:
+  Fu(const unsigned int component)
+    : component(component)
+  {}
+
+  virtual double
+  value(const Point<dim> &p, const unsigned int = 0) const
+  {
+    return p[component];
+  }
+
+  const unsigned int component;
+};
 
 template <int dim>
 void
@@ -149,10 +168,29 @@ test<2>()
     Triangulation<dim> tria;
     GridGenerator::hyper_cube(tria);
 
-    for (const auto &cell : tria.active_cell_iterators())
+    DoFHandler<dim> dof_handler(tria);
+    dof_handler.distribute_dofs(fe);
+
+    Vector<double> vector_0(dof_handler.n_dofs());
+    Vector<double> vector_1(dof_handler.n_dofs());
+
+    VectorTools::interpolate(mapping, dof_handler, Fu<dim>(0), vector_0);
+    VectorTools::interpolate(mapping, dof_handler, Fu<dim>(1), vector_1);
+
+    for (const auto &cell : dof_handler.active_cell_iterators())
       for (const auto face_no : cell->face_indices())
         {
           fe_face_values.reinit(cell, face_no);
+
+          std::vector<double> values_0(quad_ref[face_no].size());
+          std::vector<double> values_1(quad_ref[face_no].size());
+          fe_face_values.get_function_values(vector_0, values_0);
+          fe_face_values.get_function_values(vector_1, values_1);
+
+          for (unsigned int q = 0; q < values_0.size(); ++q)
+            deallog << values_0[q] << " " << values_1[q] << " " << std::endl;
+
+          deallog << std::endl;
         }
   }
 }

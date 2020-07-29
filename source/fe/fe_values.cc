@@ -3088,10 +3088,8 @@ namespace internal
                      std::vector<Number> &           values)
   {
     // scalar finite elements, so shape_values.size() == dofs_per_cell
-    const unsigned int dofs_per_cell = shape_values.n_rows();
-    const unsigned int n_quadrature_points =
-      dofs_per_cell > 0 ? shape_values.n_cols() : values.size();
-    AssertDimension(values.size(), n_quadrature_points);
+    const unsigned int dofs_per_cell       = shape_values.n_rows();
+    const unsigned int n_quadrature_points = values.size();
 
     // initialize with zero
     std::fill_n(values.begin(),
