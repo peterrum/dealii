@@ -1142,7 +1142,7 @@ FESystem<dim, spacedim>::fill_fe_face_values(
                cell,
                face_no,
                invalid_face_number,
-               quadrature[0 /*TODO*/],
+               quadrature,
                CellSimilarity::none,
                mapping_internal,
                fe_internal,
@@ -1238,16 +1238,19 @@ FESystem<dim, spacedim>::compute_fill(
 
         // fill_fe_face_values needs argument Quadrature<dim-1> for both cases
         // dim_1==dim-1 and dim_1=dim. Hence the following workaround
-        const Quadrature<dim> *    cell_quadrature = nullptr;
-        const Quadrature<dim - 1> *face_quadrature = nullptr;
-        const unsigned int         n_q_points      = quadrature.size();
+        const Quadrature<dim> *         cell_quadrature     = nullptr;
+        const hp::QCollection<dim - 1> *face_quadrature     = nullptr;
+        const Quadrature<dim - 1> *     sub_face_quadrature = nullptr;
+        const unsigned int              n_q_points = quadrature.size() == 1 ?
+                                          quadrature[0].size() :
+                                          quadrature[face_no].size();
 
         // static cast to the common base class of quadrature being either
         // Quadrature<dim> or Quadrature<dim-1>:
-        const Subscriptor *quadrature_base_pointer = &quadrature;
 
         if (face_no == invalid_face_number)
           {
+            const Subscriptor *quadrature_base_pointer = &quadrature[0];
             Assert(dim_1 == dim, ExcDimensionMismatch(dim_1, dim));
             Assert(dynamic_cast<const Quadrature<dim> *>(
                      quadrature_base_pointer) != nullptr,
@@ -1256,14 +1259,26 @@ FESystem<dim, spacedim>::compute_fill(
             cell_quadrature =
               static_cast<const Quadrature<dim> *>(quadrature_base_pointer);
           }
+        else if (sub_no == invalid_face_number)
+          {
+            const Subscriptor *quadrature_base_pointer = &quadrature;
+            Assert(dim_1 == dim - 1, ExcDimensionMismatch(dim_1, dim - 1));
+            Assert(dynamic_cast<const hp::QCollection<dim - 1> *>(
+                     quadrature_base_pointer) != nullptr,
+                   ExcInternalError());
+
+            face_quadrature = static_cast<const hp::QCollection<dim - 1> *>(
+              quadrature_base_pointer);
+          }
         else
           {
+            const Subscriptor *quadrature_base_pointer = &quadrature[0];
             Assert(dim_1 == dim - 1, ExcDimensionMismatch(dim_1, dim - 1));
             Assert(dynamic_cast<const Quadrature<dim - 1> *>(
                      quadrature_base_pointer) != nullptr,
                    ExcInternalError());
 
-            face_quadrature =
+            sub_face_quadrature =
               static_cast<const Quadrature<dim - 1> *>(quadrature_base_pointer);
           }
 
@@ -1287,8 +1302,7 @@ FESystem<dim, spacedim>::compute_fill(
         else if (sub_no == invalid_face_number)
           base_fe.fill_fe_face_values(cell,
                                       face_no,
-                                      hp::QCollection<dim - 1>(
-                                        *face_quadrature /*TODO*/),
+                                      *face_quadrature,
                                       mapping,
                                       mapping_internal,
                                       mapping_data,
@@ -1298,7 +1312,7 @@ FESystem<dim, spacedim>::compute_fill(
           base_fe.fill_fe_subface_values(cell,
                                          face_no,
                                          sub_no,
-                                         *face_quadrature,
+                                         *sub_face_quadrature,
                                          mapping,
                                          mapping_internal,
                                          mapping_data,
