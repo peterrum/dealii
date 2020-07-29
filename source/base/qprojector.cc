@@ -599,8 +599,14 @@ QProjector<2>::project_to_all_faces(
 
   unsigned int n_points_total = 0;
 
-  for (unsigned int i = 0; i < quadrature.size(); ++i)
-    n_points_total += quadrature[i].size();
+  if (quadrature.size() == 1)
+    n_points_total = quadrature[0].size() * GeometryInfo<dim>::faces_per_cell;
+  else
+    {
+      AssertDimension(quadrature.size(), GeometryInfo<dim>::faces_per_cell);
+      for (unsigned int i = 0; i < quadrature.size(); ++i)
+        n_points_total += quadrature[i].size();
+    }
 
   // first fix quadrature points
   std::vector<Point<dim>> q_points;
@@ -651,7 +657,7 @@ QProjector<3>::project_to_all_faces(
   const ReferenceCell::Type reference_cell_type,
   const hp::QCollection<2> &quadrature)
 {
-  AssertDimension(quadrature[0 /*TODO*/].size(), 1);
+  AssertDimension(quadrature.size(), 1);
 
   if (reference_cell_type == ReferenceCell::Type::Tet)
     {
@@ -1333,10 +1339,15 @@ QProjector<dim>::DataSetDescriptor::face(
       case 1:
       case 2:
         {
-          unsigned int result = 0;
-          for (unsigned int i = 0; i < face_no; ++i)
-            result += quadrature[i].size();
-          return result;
+          if (quadrature.size() == 1)
+            return quadrature[0].size() * face_no;
+          else
+            {
+              unsigned int result = 0;
+              for (unsigned int i = 0; i < face_no; ++i)
+                result += quadrature[i].size();
+              return result;
+            }
         }
       case 3:
         {

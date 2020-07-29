@@ -131,8 +131,10 @@ FE_PolyFace<PolynomialType, dim, spacedim>::fill_fe_face_values(
          ExcInternalError());
   const InternalData &fe_data = static_cast<const InternalData &>(fe_internal);
 
+  AssertDimension(quadrature.size(), 1);
+
   if (fe_data.update_each & update_values)
-    for (unsigned int i = 0; i < quadrature.size(); ++i)
+    for (unsigned int i = 0; i < quadrature[0].size(); ++i)
       {
         for (unsigned int k = 0; k < this->n_dofs_per_cell(); ++k)
           output_data.shape_values(k, i) = 0.;
