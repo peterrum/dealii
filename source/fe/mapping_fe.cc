@@ -1067,7 +1067,7 @@ MappingFE<dim, spacedim>::get_face_data(
   auto &data = dynamic_cast<InternalData &>(*data_ptr);
   data.initialize_face(this->requires_update_flags(update_flags),
                        QProjector<dim>::project_to_all_faces(
-                         this->fe->reference_cell_type(), quadrature[0]),
+                         this->fe->reference_cell_type(), quadrature),
                        quadrature.max_n_quadrature_points());
 
   return data_ptr;
@@ -1588,8 +1588,8 @@ MappingFE<dim, spacedim>::fill_fe_face_values(
                                              cell->face_orientation(face_no),
                                              cell->face_flip(face_no),
                                              cell->face_rotation(face_no),
-                                             quadrature[0].size()),
-    quadrature[0],
+                                             quadrature),
+    quadrature[quadrature.size() == 1 ? 0 : face_no],
     data,
     output_data);
 }
