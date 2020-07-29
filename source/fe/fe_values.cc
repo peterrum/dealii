@@ -4840,6 +4840,9 @@ FEFaceValues<dim, spacedim>::do_reinit(const unsigned int face_no)
                                      this->mapping_output,
                                      *this->fe_data,
                                      this->finite_element_output);
+
+  this->n_quadrature_points =
+    this->quadrature[this->quadrature.size() == 1 ? 0 : face_no].size();
 }
 
 

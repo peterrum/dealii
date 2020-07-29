@@ -183,13 +183,19 @@ test<2>()
     VectorTools::interpolate(mapping, dof_handler, Fu<dim>(0), vector_0);
     VectorTools::interpolate(mapping, dof_handler, Fu<dim>(1), vector_1);
 
+    std::vector<double> values_0, values_1;
+
+    values_0.reserve(fe_face_values.n_quadrature_points);
+    values_1.reserve(fe_face_values.n_quadrature_points);
+
     for (const auto &cell : dof_handler.active_cell_iterators())
       for (const auto face_no : cell->face_indices())
         {
           fe_face_values.reinit(cell, face_no);
 
-          std::vector<double> values_0(quad_ref[face_no].size());
-          std::vector<double> values_1(quad_ref[face_no].size());
+          values_0.resize(fe_face_values.n_quadrature_points);
+          values_1.resize(fe_face_values.n_quadrature_points);
+
           fe_face_values.get_function_values(vector_0, values_0);
           fe_face_values.get_function_values(vector_1, values_1);
 
