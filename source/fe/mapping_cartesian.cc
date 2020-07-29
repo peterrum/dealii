@@ -442,7 +442,7 @@ MappingCartesian<dim, spacedim>::fill_fe_face_values(
   internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
     &output_data) const
 {
-  AssertDimension(quadrature.size(), 0);
+  AssertDimension(quadrature.size(), 1);
 
   // convert data object to internal
   // data for this class. fails with

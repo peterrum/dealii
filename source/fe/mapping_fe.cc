@@ -1558,7 +1558,7 @@ MappingFE<dim, spacedim>::fill_fe_face_values(
   internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
     &output_data) const
 {
-  AssertDimension(quadrature.size(), 0);
+  AssertDimension(quadrature.size(), 1);
 
   // ensure that the following cast is really correct:
   Assert((dynamic_cast<const InternalData *>(&internal_data) != nullptr),

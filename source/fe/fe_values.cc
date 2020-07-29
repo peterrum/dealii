@@ -3147,8 +3147,9 @@ namespace internal
     if (dofs_per_cell == 0)
       return;
 
-    const unsigned int n_quadrature_points = values.size();
-    const unsigned int n_components        = fe.n_components();
+    const unsigned int n_quadrature_points =
+      quadrature_points_fastest ? values[0].size() : values.size();
+    const unsigned int n_components = fe.n_components();
 
     // Assert that we can write all components into the result vectors
     const unsigned result_components = n_components * component_multiple;
@@ -3297,8 +3298,9 @@ namespace internal
       return;
 
 
-    const unsigned int n_quadrature_points = derivatives.size();
-    const unsigned int n_components        = fe.n_components();
+    const unsigned int n_quadrature_points =
+      quadrature_points_fastest ? derivatives[0].size() : derivatives.size();
+    const unsigned int n_components = fe.n_components();
 
     // Assert that we can write all components into the result vectors
     const unsigned result_components = n_components * component_multiple;
