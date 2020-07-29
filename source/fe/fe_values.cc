@@ -4723,7 +4723,7 @@ FEFaceValues<dim, spacedim>::initialize(const UpdateFlags update_flags)
     mapping_get_data = Threads::new_task(&Mapping<dim, spacedim>::get_face_data,
                                          *this->mapping,
                                          flags,
-                                         this->quadrature[0]);
+                                         this->quadrature);
 
   this->update_flags = flags;
 
@@ -4827,7 +4827,7 @@ FEFaceValues<dim, spacedim>::do_reinit(const unsigned int face_no)
     {
       this->get_mapping().fill_fe_face_values(*this->present_cell,
                                               face_no,
-                                              this->quadrature[0],
+                                              this->quadrature,
                                               *this->mapping_data,
                                               this->mapping_output);
     }

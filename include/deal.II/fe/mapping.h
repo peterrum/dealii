@@ -26,6 +26,8 @@
 
 #include <deal.II/grid/tria.h>
 
+#include <deal.II/hp/q_collection.h>
+
 #include <array>
 #include <cmath>
 #include <memory>
@@ -739,8 +741,8 @@ protected:
    * the returned object, knowing its real (derived) type.
    */
   virtual std::unique_ptr<InternalDataBase>
-  get_face_data(const UpdateFlags          update_flags,
-                const Quadrature<dim - 1> &quadrature) const = 0;
+  get_face_data(const UpdateFlags               update_flags,
+                const hp::QCollection<dim - 1> &quadrature) const = 0;
 
   /**
    * Like get_data() and get_face_data(), but in preparation for later calls
@@ -894,7 +896,7 @@ protected:
   fill_fe_face_values(
     const typename Triangulation<dim, spacedim>::cell_iterator &cell,
     const unsigned int                                          face_no,
-    const Quadrature<dim - 1> &                                 quadrature,
+    const hp::QCollection<dim - 1> &                            quadrature,
     const typename Mapping<dim, spacedim>::InternalDataBase &   internal_data,
     dealii::internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
       &output_data) const = 0;
