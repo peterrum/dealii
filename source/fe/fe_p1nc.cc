@@ -160,7 +160,7 @@ std::unique_ptr<FiniteElement<2, 2>::InternalDataBase>
 FE_P1NC::get_face_data(
   const UpdateFlags update_flags,
   const Mapping<2, 2> &,
-  const Quadrature<1> &quadrature,
+  const hp::QCollection<1> &quadrature,
   dealii::internal::FEValuesImplementation::FiniteElementRelatedData<2, 2>
     &output_data) const
 {
@@ -246,7 +246,7 @@ void
 FE_P1NC::fill_fe_face_values(
   const Triangulation<2, 2>::cell_iterator &cell,
   const unsigned int                        face_no,
-  const Quadrature<1> &                     quadrature,
+  const hp::QCollection<1> &                quadrature,
   const Mapping<2, 2> &                     mapping,
   const Mapping<2, 2>::InternalDataBase &,
   const dealii::internal::FEValuesImplementation::MappingRelatedData<2, 2> &,
@@ -263,7 +263,7 @@ FE_P1NC::fill_fe_face_values(
   // compute on the face
   const Quadrature<2> quadrature_on_face =
     QProjector<2>::project_to_face(this->reference_cell_type(),
-                                   quadrature,
+                                   quadrature[0 /*TODO*/],
                                    face_no);
 
   if (flags & update_values)

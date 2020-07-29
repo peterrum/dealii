@@ -111,8 +111,8 @@ template <class PolynomialType, int dim, int spacedim>
 void
 FE_PolyFace<PolynomialType, dim, spacedim>::fill_fe_face_values(
   const typename Triangulation<dim, spacedim>::cell_iterator &,
-  const unsigned int         face_no,
-  const Quadrature<dim - 1> &quadrature,
+  const unsigned int              face_no,
+  const hp::QCollection<dim - 1> &quadrature,
   const Mapping<dim, spacedim> &,
   const typename Mapping<dim, spacedim>::InternalDataBase &,
   const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,

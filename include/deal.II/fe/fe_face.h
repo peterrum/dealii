@@ -353,7 +353,7 @@ protected:
   get_face_data(
     const UpdateFlags update_flags,
     const Mapping<1, spacedim> & /*mapping*/,
-    const Quadrature<0> &quadrature,
+    const hp::QCollection<0> &quadrature,
     dealii::internal::FEValuesImplementation::FiniteElementRelatedData<1,
                                                                        spacedim>
       & /*output_data*/) const override
@@ -363,7 +363,7 @@ protected:
       std::make_unique<typename FiniteElement<1, spacedim>::InternalDataBase>();
     data_ptr->update_each = requires_update_flags(update_flags);
 
-    const unsigned int n_q_points = quadrature.size();
+    const unsigned int n_q_points = quadrature[0].size();
     AssertDimension(n_q_points, 1);
     (void)n_q_points;
 
@@ -386,7 +386,10 @@ protected:
                                                                        spacedim>
       &output_data) const override
   {
-    return get_face_data(update_flags, mapping, quadrature, output_data);
+    return get_face_data(update_flags,
+                         mapping,
+                         hp::QCollection<0>(quadrature),
+                         output_data);
   }
 
   virtual void
@@ -408,7 +411,7 @@ protected:
   fill_fe_face_values(
     const typename Triangulation<1, spacedim>::cell_iterator &cell,
     const unsigned int                                        face_no,
-    const Quadrature<0> &                                     quadrature,
+    const hp::QCollection<0> &                                quadrature,
     const Mapping<1, spacedim> &                              mapping,
     const typename Mapping<1, spacedim>::InternalDataBase &   mapping_internal,
     const dealii::internal::FEValuesImplementation::MappingRelatedData<1,

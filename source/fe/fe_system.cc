@@ -971,9 +971,9 @@ FESystem<dim, spacedim>::get_data(
 template <int dim, int spacedim>
 std::unique_ptr<typename FiniteElement<dim, spacedim>::InternalDataBase>
 FESystem<dim, spacedim>::get_face_data(
-  const UpdateFlags             flags,
-  const Mapping<dim, spacedim> &mapping,
-  const Quadrature<dim - 1> &   quadrature,
+  const UpdateFlags               flags,
+  const Mapping<dim, spacedim> &  mapping,
+  const hp::QCollection<dim - 1> &quadrature,
   dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,
                                                                      spacedim>
     & /*output_data*/) const
@@ -1007,7 +1007,7 @@ FESystem<dim, spacedim>::get_face_data(
       internal::FEValuesImplementation::FiniteElementRelatedData<dim, spacedim>
         &base_fe_output_object = data.get_fe_output_object(base_no);
       base_fe_output_object.initialize(
-        quadrature.size(),
+        quadrature.max_n_quadrature_points(),
         base_element(base_no),
         flags | base_element(base_no).requires_update_flags(flags));
 
@@ -1127,7 +1127,7 @@ void
 FESystem<dim, spacedim>::fill_fe_face_values(
   const typename Triangulation<dim, spacedim>::cell_iterator &cell,
   const unsigned int                                          face_no,
-  const Quadrature<dim - 1> &                                 quadrature,
+  const hp::QCollection<dim - 1> &                            quadrature,
   const Mapping<dim, spacedim> &                              mapping,
   const typename Mapping<dim, spacedim>::InternalDataBase &   mapping_internal,
   const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
@@ -1142,7 +1142,7 @@ FESystem<dim, spacedim>::fill_fe_face_values(
                cell,
                face_no,
                invalid_face_number,
-               quadrature,
+               quadrature[0 /*TODO*/],
                CellSimilarity::none,
                mapping_internal,
                fe_internal,
@@ -1191,7 +1191,7 @@ FESystem<dim, spacedim>::compute_fill(
   const typename Triangulation<dim, spacedim>::cell_iterator &cell,
   const unsigned int                                          face_no,
   const unsigned int                                          sub_no,
-  const Quadrature<dim_1> &                                   quadrature,
+  const hp::QCollection<dim_1> &                              quadrature,
   const CellSimilarity::Similarity                            cell_similarity,
   const typename Mapping<dim, spacedim>::InternalDataBase &   mapping_internal,
   const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_internal,
@@ -1287,7 +1287,8 @@ FESystem<dim, spacedim>::compute_fill(
         else if (sub_no == invalid_face_number)
           base_fe.fill_fe_face_values(cell,
                                       face_no,
-                                      *face_quadrature,
+                                      hp::QCollection<dim - 1>(
+                                        *face_quadrature /*TODO*/),
                                       mapping,
                                       mapping_internal,
                                       mapping_data,

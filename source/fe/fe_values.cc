@@ -4716,7 +4716,7 @@ FEFaceValues<dim, spacedim>::initialize(const UpdateFlags update_flags)
                         *this->fe,
                         flags,
                         *this->mapping,
-                        this->quadrature[0],
+                        this->quadrature,
                         this->finite_element_output);
   Threads::Task<
     std::unique_ptr<typename Mapping<dim, spacedim>::InternalDataBase>>
@@ -4836,7 +4836,7 @@ FEFaceValues<dim, spacedim>::do_reinit(const unsigned int face_no)
 
   this->get_fe().fill_fe_face_values(*this->present_cell,
                                      face_no,
-                                     this->quadrature[0],
+                                     this->quadrature,
                                      this->get_mapping(),
                                      *this->mapping_data,
                                      this->mapping_output,

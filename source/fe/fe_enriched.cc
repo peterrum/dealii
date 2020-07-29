@@ -365,9 +365,9 @@ FE_Enriched<dim, spacedim>::setup_data(
 template <int dim, int spacedim>
 std::unique_ptr<typename FiniteElement<dim, spacedim>::InternalDataBase>
 FE_Enriched<dim, spacedim>::get_face_data(
-  const UpdateFlags             update_flags,
-  const Mapping<dim, spacedim> &mapping,
-  const Quadrature<dim - 1> &   quadrature,
+  const UpdateFlags               update_flags,
+  const Mapping<dim, spacedim> &  mapping,
+  const hp::QCollection<dim - 1> &quadrature,
   internal::FEValuesImplementation::FiniteElementRelatedData<dim, spacedim>
     &output_data) const
 {
@@ -377,7 +377,7 @@ FE_Enriched<dim, spacedim>::get_face_data(
                       typename FESystem<dim, spacedim>::InternalData>(
                       std::move(data)),
                     update_flags,
-                    quadrature);
+                    quadrature[0]);
 }
 
 
@@ -549,7 +549,7 @@ void
 FE_Enriched<dim, spacedim>::fill_fe_face_values(
   const typename Triangulation<dim, spacedim>::cell_iterator &cell,
   const unsigned int                                          face_no,
-  const Quadrature<dim - 1> &                                 quadrature,
+  const hp::QCollection<dim - 1> &                            quadrature,
   const Mapping<dim, spacedim> &                              mapping,
   const typename Mapping<dim, spacedim>::InternalDataBase &   mapping_internal,
   const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
@@ -575,7 +575,7 @@ FE_Enriched<dim, spacedim>::fill_fe_face_values(
 
   if (is_enriched)
     multiply_by_enrichment(
-      quadrature, fe_data, mapping_data, cell, output_data);
+      quadrature[0 /*TODO*/], fe_data, mapping_data, cell, output_data);
 }
 
 

@@ -2026,7 +2026,7 @@ void
 FE_NedelecSZ<dim, spacedim>::fill_fe_face_values(
   const typename Triangulation<dim, dim>::cell_iterator &cell,
   const unsigned int                                     face_no,
-  const Quadrature<dim - 1> &                            quadrature,
+  const hp::QCollection<dim - 1> &                       quadrature,
   const Mapping<dim, dim> &                              mapping,
   const typename Mapping<dim, dim>::InternalDataBase &   mapping_internal,
   const dealii::internal::FEValuesImplementation::MappingRelatedData<dim, dim>
@@ -2057,18 +2057,18 @@ FE_NedelecSZ<dim, spacedim>::fill_fe_face_values(
   // (fe_internal/fe_data) which was not filled in by get_data.
   fill_edge_values(cell,
                    QProjector<dim>::project_to_all_faces(
-                     this->reference_cell_type(), quadrature),
+                     this->reference_cell_type(), quadrature[0 /*TODO*/]),
                    fe_data);
   if (dim == 3 && this->degree > 1)
     {
       fill_face_values(cell,
                        QProjector<dim>::project_to_all_faces(
-                         this->reference_cell_type(), quadrature),
+                         this->reference_cell_type(), quadrature[0 /*TODO*/]),
                        fe_data);
     }
 
   const UpdateFlags  flags(fe_data.update_each);
-  const unsigned int n_q_points = quadrature.size();
+  const unsigned int n_q_points = quadrature[0 /*TODO*/].size();
   const auto         offset =
     QProjector<dim>::DataSetDescriptor::face(this->reference_cell_type(),
                                              face_no,
