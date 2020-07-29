@@ -3625,12 +3625,27 @@ public:
            const UpdateFlags                   update_flags);
 
   /**
+   * TODO
+   */
+  FEValues(const Mapping<dim, spacedim> &      mapping,
+           const FiniteElement<dim, spacedim> &fe,
+           const hp::QCollection<dim> &        quadrature,
+           const UpdateFlags                   update_flags);
+
+  /**
    * Constructor. This constructor is equivalent to the other one except that
    * it makes the object use a $Q_1$ mapping (i.e., an object of type
    * MappingQGeneric(1)) implicitly.
    */
   FEValues(const FiniteElement<dim, spacedim> &fe,
            const Quadrature<dim> &             quadrature,
+           const UpdateFlags                   update_flags);
+
+  /**
+   * TODO
+   */
+  FEValues(const FiniteElement<dim, spacedim> &fe,
+           const hp::QCollection<dim> &        quadrature,
            const UpdateFlags                   update_flags);
 
   /**
@@ -4017,12 +4032,27 @@ public:
                   const UpdateFlags                   update_flags);
 
   /**
+   * TODO.
+   */
+  FESubfaceValues(const Mapping<dim, spacedim> &      mapping,
+                  const FiniteElement<dim, spacedim> &fe,
+                  const hp::QCollection<dim - 1> &    face_quadrature,
+                  const UpdateFlags                   update_flags);
+
+  /**
    * Constructor. This constructor is equivalent to the other one except that
    * it makes the object use a $Q_1$ mapping (i.e., an object of type
    * MappingQGeneric(1)) implicitly.
    */
   FESubfaceValues(const FiniteElement<dim, spacedim> &fe,
                   const Quadrature<dim - 1> &         face_quadrature,
+                  const UpdateFlags                   update_flags);
+
+  /**
+   * TODO
+   */
+  FESubfaceValues(const FiniteElement<dim, spacedim> &fe,
+                  const hp::QCollection<dim - 1> &    face_quadrature,
                   const UpdateFlags                   update_flags);
 
   /**

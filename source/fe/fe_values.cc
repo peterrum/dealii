@@ -4369,6 +4369,18 @@ FEValues<dim, spacedim>::FEValues(const Mapping<dim, spacedim> &      mapping,
 
 
 template <int dim, int spacedim>
+FEValues<dim, spacedim>::FEValues(const Mapping<dim, spacedim> &      mapping,
+                                  const FiniteElement<dim, spacedim> &fe,
+                                  const hp::QCollection<dim> &        q,
+                                  const UpdateFlags update_flags)
+  : FEValues(mapping, fe, q[0], update_flags)
+{
+  AssertDimension(q.size(), 1);
+}
+
+
+
+template <int dim, int spacedim>
 FEValues<dim, spacedim>::FEValues(const FiniteElement<dim, spacedim> &fe,
                                   const Quadrature<dim> &             q,
                                   const UpdateFlags update_flags)
@@ -4380,6 +4392,17 @@ FEValues<dim, spacedim>::FEValues(const FiniteElement<dim, spacedim> &fe,
   , quadrature(q)
 {
   initialize(update_flags);
+}
+
+
+
+template <int dim, int spacedim>
+FEValues<dim, spacedim>::FEValues(const FiniteElement<dim, spacedim> &fe,
+                                  const hp::QCollection<dim> &        q,
+                                  const UpdateFlags update_flags)
+  : FEValues(fe, q[0], update_flags)
+{
+  AssertDimension(q.size(), 1);
 }
 
 
@@ -4878,6 +4901,19 @@ FESubfaceValues<dim, spacedim>::FESubfaceValues(
 
 template <int dim, int spacedim>
 FESubfaceValues<dim, spacedim>::FESubfaceValues(
+  const Mapping<dim, spacedim> &      mapping,
+  const FiniteElement<dim, spacedim> &fe,
+  const hp::QCollection<dim - 1> &    quadrature,
+  const UpdateFlags                   update_flags)
+  : FESubfaceValues(mapping, fe, quadrature[0], update_flags)
+{
+  AssertDimension(quadrature.size(), 1);
+}
+
+
+
+template <int dim, int spacedim>
+FESubfaceValues<dim, spacedim>::FESubfaceValues(
   const FiniteElement<dim, spacedim> &fe,
   const Quadrature<dim - 1> &         quadrature,
   const UpdateFlags                   update_flags)
@@ -4888,6 +4924,18 @@ FESubfaceValues<dim, spacedim>::FESubfaceValues(
                                     quadrature)
 {
   initialize(update_flags);
+}
+
+
+
+template <int dim, int spacedim>
+FESubfaceValues<dim, spacedim>::FESubfaceValues(
+  const FiniteElement<dim, spacedim> &fe,
+  const hp::QCollection<dim - 1> &    quadrature,
+  const UpdateFlags                   update_flags)
+  : FESubfaceValues(fe, quadrature[0], update_flags)
+{
+  AssertDimension(quadrature.size(), 1);
 }
 
 

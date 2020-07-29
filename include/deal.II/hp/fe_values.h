@@ -81,6 +81,16 @@ namespace hp
       const UpdateFlags                                       update_flags);
 
     /**
+     * TODO.
+     */
+    FEValuesBase(
+      const MappingCollection<dim, FEValuesType::space_dimension>
+        &mapping_collection,
+      const FECollection<dim, FEValuesType::space_dimension> &fe_collection,
+      const std::vector<QCollection<q_dim>> &                 q_collection,
+      const UpdateFlags                                       update_flags);
+
+    /**
      * Constructor. This constructor is equivalent to the other one except
      * that it makes the object use a $Q_1$ mapping (i.e., an object of type
      * MappingQGeneric(1)) implicitly.
@@ -88,6 +98,14 @@ namespace hp
     FEValuesBase(
       const FECollection<dim, FEValuesType::space_dimension> &fe_collection,
       const QCollection<q_dim> &                              q_collection,
+      const UpdateFlags                                       update_flags);
+
+    /**
+     * TODO
+     */
+    FEValuesBase(
+      const FECollection<dim, FEValuesType::space_dimension> &fe_collection,
+      const std::vector<QCollection<q_dim>> &                 q_collection,
       const UpdateFlags                                       update_flags);
 
     /**
@@ -198,6 +216,11 @@ namespace hp
      * Copy of the quadrature collection object provided to the constructor.
      */
     const QCollection<q_dim> q_collection;
+
+    /**
+     * TODO.
+     */
+    const std::vector<QCollection<q_dim>> q_collections;
 
   private:
     /**
@@ -416,6 +439,14 @@ namespace hp
                  const hp::QCollection<dim - 1> &            q_collection,
                  const UpdateFlags                           update_flags);
 
+    /**
+     * TODO
+     */
+    FEFaceValues(const hp::MappingCollection<dim, spacedim> &mapping_collection,
+                 const hp::FECollection<dim, spacedim> &     fe_collection,
+                 const std::vector<hp::QCollection<dim - 1>> &q_collection,
+                 const UpdateFlags                            update_flags);
+
 
     /**
      * Constructor. This constructor is equivalent to the other one except
@@ -425,6 +456,13 @@ namespace hp
     FEFaceValues(const hp::FECollection<dim, spacedim> &fe_collection,
                  const hp::QCollection<dim - 1> &       q_collection,
                  const UpdateFlags                      update_flags);
+
+    /**
+     * TODO
+     */
+    FEFaceValues(const hp::FECollection<dim, spacedim> &      fe_collection,
+                 const std::vector<hp::QCollection<dim - 1>> &q_collection,
+                 const UpdateFlags                            update_flags);
 
     /**
      * Reinitialize the object for the given cell and face.
