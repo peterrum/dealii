@@ -1335,11 +1335,13 @@ namespace internal
              update_JxW_values | update_inverse_jacobians))
           {
             if (update_flags & update_boundary_forms)
-              AssertDimension(output_data.boundary_forms.size(), n_q_points);
+              AssertIndexRange(n_q_points,
+                               output_data.boundary_forms.size() + 1);
             if (update_flags & update_normal_vectors)
-              AssertDimension(output_data.normal_vectors.size(), n_q_points);
+              AssertIndexRange(n_q_points,
+                               output_data.normal_vectors.size() + 1);
             if (update_flags & update_JxW_values)
-              AssertDimension(output_data.JxW_values.size(), n_q_points);
+              AssertIndexRange(n_q_points, output_data.JxW_values.size() + 1);
 
             Assert(data.aux.size() + 1 >= dim, ExcInternalError());
 
@@ -1405,7 +1407,7 @@ namespace internal
                     //
                     // to compute the cell normal, use the same method used in
                     // fill_fe_values for cells above
-                    AssertDimension(data.contravariant.size(), n_q_points);
+                    AssertIndexRange(n_q_points, data.contravariant.size() + 1);
 
                     for (unsigned int point = 0; point < n_q_points; ++point)
                       {
@@ -1438,8 +1440,7 @@ namespace internal
               }
 
             if (update_flags & update_JxW_values)
-              for (unsigned int i = 0; i < output_data.boundary_forms.size();
-                   ++i)
+              for (unsigned int i = 0; i < n_q_points; ++i)
                 {
                   output_data.JxW_values[i] =
                     output_data.boundary_forms[i].norm() *
@@ -1459,8 +1460,7 @@ namespace internal
                 }
 
             if (update_flags & update_normal_vectors)
-              for (unsigned int i = 0; i < output_data.normal_vectors.size();
-                   ++i)
+              for (unsigned int i = 0; i < n_q_points; ++i)
                 output_data.normal_vectors[i] =
                   Point<spacedim>(output_data.boundary_forms[i] /
                                   output_data.boundary_forms[i].norm());
@@ -1558,8 +1558,6 @@ MappingFE<dim, spacedim>::fill_fe_face_values(
   internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
     &output_data) const
 {
-  AssertDimension(quadrature.size(), 1);
-
   // ensure that the following cast is really correct:
   Assert((dynamic_cast<const InternalData *>(&internal_data) != nullptr),
          ExcInternalError());

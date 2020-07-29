@@ -20,7 +20,10 @@
 #include <deal.II/base/qprojector.h>
 #include <deal.II/base/quadrature_lib.h>
 
+#include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/mapping_fe.h>
+
+#include <deal.II/grid/grid_generator.h>
 
 #include <deal.II/hp/q_collection.h>
 
@@ -39,32 +42,92 @@ test<2>()
 {
   const unsigned int dim = 2;
 
-  const hp::QCollection<dim - 1> quad_ref(QGauss<dim - 1>(1),
-                                          QGauss<dim - 1>(2),
-                                          QGauss<dim - 1>(3),
-                                          QGauss<dim - 1>(4));
+  // test: QProjector::project_to_all_faces
+  {
+    const hp::QCollection<dim - 1> quad_ref(QGauss<dim - 1>(1),
+                                            QGauss<dim - 1>(2),
+                                            QGauss<dim - 1>(3),
+                                            QGauss<dim - 1>(4));
 
-  const auto quad =
-    QProjector<dim>::project_to_all_faces(ReferenceCell::Type::Quad, quad_ref);
+    const auto quad =
+      QProjector<dim>::project_to_all_faces(ReferenceCell::Type::Quad,
+                                            quad_ref);
 
-  const auto print = [&](const unsigned int face_no) {
-    deallog << "face_no=" << face_no << ":" << std::endl;
-    for (unsigned int
-           q = 0,
-           i = QProjector<dim>::DataSetDescriptor::face(
-             ReferenceCell::Type::Quad, face_no, false, false, false, quad_ref);
-         q < quad_ref[face_no].size();
-         ++q, ++i)
-      {
-        deallog << quad.point(i) << " ";
-        deallog << quad.weight(i) << " ";
-        deallog << std::endl;
-      }
+    const auto print = [&](const unsigned int face_no) {
+      deallog << "face_no=" << face_no << ":" << std::endl;
+      for (unsigned int q = 0,
+                        i = QProjector<dim>::DataSetDescriptor::face(
+                          ReferenceCell::Type::Quad,
+                          face_no,
+                          false,
+                          false,
+                          false,
+                          quad_ref);
+           q < quad_ref[face_no].size();
+           ++q, ++i)
+        {
+          deallog << quad.point(i) << " ";
+          deallog << quad.weight(i) << " ";
+          deallog << std::endl;
+        }
+      deallog << std::endl;
+    };
+
+    for (unsigned int i = 0; i < 4 /*TODO*/; ++i)
+      print(i);
+
     deallog << std::endl;
-  };
+  }
 
-  for (unsigned int i = 0; i < 4 /*TODO*/; ++i)
-    print(i);
+  // test: Mapping
+  {
+    const hp::QCollection<dim - 1> quad_ref(QGauss<dim - 1>(1),
+                                            QGauss<dim - 1>(2),
+                                            QGauss<dim - 1>(3),
+                                            QGauss<dim - 1>(4));
+
+    MappingFE<dim> mapping(FE_Q<dim>(1));
+    FE_Q<dim> fe(3);
+
+    const UpdateFlags flags = mapping.requires_update_flags(
+      update_values | update_quadrature_points | update_JxW_values);
+
+    auto data_ref = mapping.get_face_data(flags, quad_ref);
+
+    internal::FEValuesImplementation::MappingRelatedData<dim> data;
+    data.initialize(quad_ref.max_n_quadrature_points(), flags);
+
+    Triangulation<dim> tria;
+    GridGenerator::hyper_cube(tria);
+
+    for (const auto &cell : tria.active_cell_iterators())
+      for (const auto face_no : cell->face_indices())
+        {
+          mapping.fill_fe_face_values(cell, face_no, quad_ref, *data_ref, data);
+
+          deallog << "face_no=" << face_no << ":" << std::endl;
+          for (unsigned int q = 0; q < quad_ref[face_no].size(); ++q)
+            {
+              deallog << data.quadrature_points[q] << " ";
+              deallog << data.JxW_values[q] << " ";
+              deallog << std::endl;
+            }
+          deallog << std::endl;
+        }
+    
+  internal::FEValuesImplementation::FiniteElementRelatedData<dim> data_fe;
+  data_fe.initialize(quad_ref.max_n_quadrature_points(), fe, flags);
+
+  auto data_fe_ref =fe.get_face_data(flags, mapping, quad_ref, data_fe);
+   
+  for (const auto &cell : tria.active_cell_iterators())
+    for (const auto face_no : cell->face_indices())
+      {
+        fe.fill_fe_face_values(cell, face_no, quad_ref, mapping, *data_ref, data, *data_fe_ref, data_fe);
+      }
+    
+    
+  }
 }
 
 int

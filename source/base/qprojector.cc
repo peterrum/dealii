@@ -526,10 +526,10 @@ QProjector<2>::project_to_all_faces(
   const ReferenceCell::Type reference_cell_type,
   const hp::QCollection<1> &quadrature)
 {
-  AssertDimension(quadrature.size(), 1);
-
   if (reference_cell_type == ReferenceCell::Type::Tri)
     {
+      AssertDimension(quadrature.size(), 1);
+
       // the quadrature rule to be projected ...
       const auto &sub_quadrature_points  = quadrature[0 /*TODO*/].get_points();
       const auto &sub_quadrature_weights = quadrature[0 /*TODO*/].get_weights();
@@ -595,18 +595,24 @@ QProjector<2>::project_to_all_faces(
 
   const unsigned int dim = 2;
 
-  const unsigned int n_points = quadrature[0 /*TODO*/].size(),
-                     n_faces  = GeometryInfo<dim>::faces_per_cell;
+  const unsigned int n_faces = GeometryInfo<dim>::faces_per_cell;
+
+  unsigned int n_points_total = 0;
+
+  for (unsigned int i = 0; i < quadrature.size(); ++i)
+    n_points_total += quadrature[i].size();
 
   // first fix quadrature points
   std::vector<Point<dim>> q_points;
-  q_points.reserve(n_points * n_faces);
-  std::vector<Point<dim>> help(n_points);
+  q_points.reserve(n_points_total);
+  std::vector<Point<dim>> help;
+  help.reserve(quadrature.max_n_quadrature_points());
 
   // project to each face and append
   // results
   for (unsigned int face = 0; face < n_faces; ++face)
     {
+      help.resize(quadrature[quadrature.size() == 1 ? 0 : face].size());
       project_to_face(quadrature[quadrature.size() == 1 ? 0 : face],
                       face,
                       help);
@@ -615,15 +621,15 @@ QProjector<2>::project_to_all_faces(
 
   // next copy over weights
   std::vector<double> weights;
-  weights.reserve(n_points * n_faces);
+  weights.reserve(n_points_total);
   for (unsigned int face = 0; face < n_faces; ++face)
     std::copy(
       quadrature[quadrature.size() == 1 ? 0 : face].get_weights().begin(),
       quadrature[quadrature.size() == 1 ? 0 : face].get_weights().end(),
       std::back_inserter(weights));
 
-  Assert(q_points.size() == n_points * n_faces, ExcInternalError());
-  Assert(weights.size() == n_points * n_faces, ExcInternalError());
+  Assert(q_points.size() == n_points_total, ExcInternalError());
+  Assert(weights.size() == n_points_total, ExcInternalError());
 
   return Quadrature<dim>(q_points, weights);
 }
@@ -1300,13 +1306,13 @@ QProjector<dim>::DataSetDescriptor::face(
   const bool                      face_rotation,
   const hp::QCollection<dim - 1> &quadrature)
 {
-  AssertDimension(quadrature[0 /*TODO*/].size(), 1);
-
   const unsigned int n_quadrature_points = quadrature[0 /*TODO*/].size();
 
   if (reference_cell_type == ReferenceCell::Type::Tri ||
       reference_cell_type == ReferenceCell::Type::Tet)
     {
+      AssertDimension(quadrature.size(), 1);
+
       if (dim == 2)
         return {(2 * face_no + face_orientation) * n_quadrature_points};
       else if (dim == 3)
@@ -1326,9 +1332,12 @@ QProjector<dim>::DataSetDescriptor::face(
     {
       case 1:
       case 2:
-        return face_no * n_quadrature_points;
-
-
+        {
+          unsigned int result = 0;
+          for (unsigned int i = 0; i < face_no; ++i)
+            result += quadrature[i].size();
+          return result;
+        }
       case 3:
         {
           // in 3d, we have to account for faces that
