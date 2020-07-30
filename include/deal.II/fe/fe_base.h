@@ -534,7 +534,8 @@ public:
    */
   template <int structdim>
   unsigned int
-  n_dofs_per_object(const unsigned int i = numbers::invalid_unsigned_int) const;
+  n_dofs_per_object(
+    const unsigned int i = 0 /*numbers::invalid_unsigned_int*/) const;
 
   /**
    * Number of components. See
@@ -775,9 +776,6 @@ template <int structdim>
 inline unsigned int
 FiniteElementData<dim>::n_dofs_per_object(const unsigned int i) const
 {
-  Assert((structdim == 2 && dim == 3) || i == numbers::invalid_unsigned_int,
-         ExcInternalError());
-
   switch (structdim)
     {
       case 0:
@@ -785,7 +783,11 @@ FiniteElementData<dim>::n_dofs_per_object(const unsigned int i) const
       case 1:
         return n_dofs_per_line();
       case 2:
-        return n_dofs_per_quad(i);
+        // Assert(!(structdim == 2 && dim == 3) || i !=
+        // numbers::invalid_unsigned_int,
+        //         ExcInternalError());
+
+        return n_dofs_per_quad((structdim == 2 && dim == 3) ? i : 0);
       case 3:
         return n_dofs_per_hex();
       default:
