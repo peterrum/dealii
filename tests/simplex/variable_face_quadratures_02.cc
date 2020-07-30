@@ -14,7 +14,7 @@
 // ---------------------------------------------------------------------
 
 
-// Test Simplex::PGauss: output its quadrature points and weights.
+// Test hp::FEFaceValues for different face quadrature rules.
 
 
 #include <deal.II/base/qprojector.h>

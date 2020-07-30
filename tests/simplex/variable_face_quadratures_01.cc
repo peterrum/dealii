@@ -14,7 +14,7 @@
 // ---------------------------------------------------------------------
 
 
-// Test Simplex::PGauss: output its quadrature points and weights.
+// Test FEFaceValues for different face quadrature rules.
 
 
 #include <deal.II/base/qprojector.h>
@@ -252,10 +252,70 @@ test<2>()
   }
 }
 
+template <>
+void
+test<3>()
+{
+  const unsigned int dim = 3;
+
+  // test FEFaceValues for FE_System(FE_Q)
+  {
+    const hp::QCollection<dim - 1> quad_ref(QGauss<dim - 1>(1),
+                                            QGauss<dim - 1>(2),
+                                            QGauss<dim - 1>(3),
+                                            QGauss<dim - 1>(4),
+                                            QGauss<dim - 1>(1),
+                                            QGauss<dim - 1>(2));
+
+    MappingFE<dim> mapping(FE_Q<dim>(1));
+    FESystem<dim>  fe(FE_Q<dim>{3}, dim);
+
+    const UpdateFlags flags =
+      update_values | update_quadrature_points | update_JxW_values;
+
+
+    FEFaceValues<dim> fe_face_values(mapping, fe, quad_ref, flags);
+
+    Triangulation<dim> tria;
+    GridGenerator::hyper_cube(tria);
+
+    DoFHandler<dim> dof_handler(tria);
+    dof_handler.distribute_dofs(fe);
+
+    Vector<double> vector_0(dof_handler.n_dofs());
+
+    VectorTools::interpolate(mapping, dof_handler, Fu<dim>(), vector_0);
+
+    for (const auto &cell : dof_handler.active_cell_iterators())
+      for (const auto face_no : cell->face_indices())
+        {
+          fe_face_values.reinit(cell, face_no);
+
+          std::vector<Vector<double>> values_0(quad_ref[face_no].size(),
+                                               Vector<double>(dim));
+          fe_face_values.get_function_values(vector_0, values_0);
+
+          deallog << "face_no=" << face_no << ":" << std::endl;
+
+          for (unsigned int q = 0; q < values_0.size(); ++q)
+            deallog << values_0[q][0] << " " << values_0[q][1] << " "
+                    << values_0[q][2] << " " << std::endl;
+
+          deallog << std::endl;
+        }
+  }
+}
+
 int
 main()
 {
   initlog();
 
+  deallog.push("dim=2");
   test<2>();
+  deallog.pop();
+
+  deallog.push("dim=3");
+  test<3>();
+  deallog.pop();
 }
