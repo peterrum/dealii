@@ -147,8 +147,9 @@ FE_NedelecSZ<dim, spacedim>::get_data(
   const unsigned int faces_per_cell    = GeometryInfo<dim>::faces_per_cell;
 
   const unsigned int n_line_dofs = this->n_dofs_per_line() * lines_per_cell;
-  const unsigned int n_face_dofs =
-    this->n_dofs_per_quad(0 /*TODO*/) * faces_per_cell;
+
+  // we assume that all quads have the same numer of dofs
+  const unsigned int n_face_dofs = this->n_dofs_per_quad(0) * faces_per_cell;
 
   const UpdateFlags  flags(data.update_each);
   const unsigned int n_q_points = quadrature.size();
@@ -1696,7 +1697,8 @@ FE_NedelecSZ<dim, spacedim>::fill_face_values(
           // Loop through quad points:
           for (unsigned int m = 0; m < faces_per_cell; ++m)
             {
-              const unsigned int shift_m(m * this->n_dofs_per_quad(0 /*TODO*/));
+              // we assume that all quads have the same numer of dofs
+              const unsigned int shift_m(m * this->n_dofs_per_quad(0));
               // Calculate the offsets for each face-based shape function:
               //
               // Type-1 (gradients)
