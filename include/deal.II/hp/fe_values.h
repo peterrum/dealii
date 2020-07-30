@@ -81,7 +81,9 @@ namespace hp
       const UpdateFlags                                       update_flags);
 
     /**
-     * TODO.
+     * Like the above function but taking a vector quadrature collections.
+     * For hp::FEFaceValues, the ith entry of the quadrature collections are
+     * interpreted as the face quadrature rules to be applied the ith face.
      */
     FEValuesBase(
       const MappingCollection<dim, FEValuesType::space_dimension>
@@ -101,7 +103,9 @@ namespace hp
       const UpdateFlags                                       update_flags);
 
     /**
-     * TODO
+     * Like the above function but taking a vector quadrature collections.
+     * For hp::FEFaceValues, the ith entry of the quadrature collections are
+     * interpreted as the face quadrature rules to be applied the ith face.
      */
     FEValuesBase(
       const FECollection<dim, FEValuesType::space_dimension> &fe_collection,
@@ -218,7 +222,12 @@ namespace hp
     const QCollection<q_dim> q_collection;
 
     /**
-     * TODO.
+     * Vector of quadrature collections. For hp::FEFaceValues, the ith entry of
+     * the quadrature collections are interpreted as the face quadrature rules
+     * to be applied the ith face.
+     *
+     * The variable q_collection collects the first quadrature rule of each
+     * quadrature collection of the vector.
      */
     const std::vector<QCollection<q_dim>> q_collections;
 
@@ -440,11 +449,17 @@ namespace hp
                  const UpdateFlags                           update_flags);
 
     /**
-     * TODO
+     * Like the function above, but taking a vector of collection of quadrature
+     * rules. This allows to assign each face a different quadrature rule: the
+     * ith entry of a collection is used as the face quadrature rule on the ith
+     * face.
+     *
+     * In the case that the collections only contains a single face quadrature,
+     * this quadrature rule is use on all faces.
      */
     FEFaceValues(const hp::MappingCollection<dim, spacedim> &mapping_collection,
                  const hp::FECollection<dim, spacedim> &     fe_collection,
-                 const std::vector<hp::QCollection<dim - 1>> &q_collection,
+                 const std::vector<hp::QCollection<dim - 1>> &q_collections,
                  const UpdateFlags                            update_flags);
 
 
@@ -458,10 +473,16 @@ namespace hp
                  const UpdateFlags                      update_flags);
 
     /**
-     * TODO
+     * Like the function above, but taking a vector of collection of quadrature
+     * rules. This allows to assign each face a different quadrature rule: the
+     * ith entry of a collection is used as the face quadrature rule on the ith
+     * face.
+     *
+     * In the case that the collections only contains a single face quadrature,
+     * this quadrature rule is use on all faces.
      */
     FEFaceValues(const hp::FECollection<dim, spacedim> &      fe_collection,
-                 const std::vector<hp::QCollection<dim - 1>> &q_collection,
+                 const std::vector<hp::QCollection<dim - 1>> &q_collections,
                  const UpdateFlags                            update_flags);
 
     /**
