@@ -1512,55 +1512,57 @@ namespace internal
         internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
           &output_data)
       {
+        const unsigned int n_q_points = quadrature.size();
+
         maybe_compute_q_points<dim, spacedim>(data_set,
                                               data,
                                               output_data.quadrature_points,
-                                              quadrature.size());
+                                              n_q_points);
         maybe_update_Jacobians<dim, spacedim>(CellSimilarity::none,
                                               data_set,
                                               data,
-                                              quadrature.size());
+                                              n_q_points);
         maybe_update_jacobian_grads<dim, spacedim>(CellSimilarity::none,
                                                    data_set,
                                                    data,
                                                    output_data.jacobian_grads,
-                                                   quadrature.size());
+                                                   n_q_points);
         maybe_update_jacobian_pushed_forward_grads<dim, spacedim>(
           CellSimilarity::none,
           data_set,
           data,
           output_data.jacobian_pushed_forward_grads,
-          quadrature.size());
+          n_q_points);
         maybe_update_jacobian_2nd_derivatives<dim, spacedim>(
           CellSimilarity::none,
           data_set,
           data,
           output_data.jacobian_2nd_derivatives,
-          quadrature.size());
+          n_q_points);
         maybe_update_jacobian_pushed_forward_2nd_derivatives<dim, spacedim>(
           CellSimilarity::none,
           data_set,
           data,
           output_data.jacobian_pushed_forward_2nd_derivatives,
-          quadrature.size());
+          n_q_points);
         maybe_update_jacobian_3rd_derivatives<dim, spacedim>(
           CellSimilarity::none,
           data_set,
           data,
           output_data.jacobian_3rd_derivatives,
-          quadrature.size());
+          n_q_points);
         maybe_update_jacobian_pushed_forward_3rd_derivatives<dim, spacedim>(
           CellSimilarity::none,
           data_set,
           data,
           output_data.jacobian_pushed_forward_3rd_derivatives,
-          quadrature.size());
+          n_q_points);
 
         maybe_compute_face_data(mapping,
                                 cell,
                                 face_no,
                                 subface_no,
-                                quadrature.size(),
+                                n_q_points,
                                 data_set,
                                 data,
                                 output_data);
