@@ -128,11 +128,29 @@ namespace FiniteElementDomination
   inline Domination operator&(const Domination d1, const Domination d2);
 } // namespace FiniteElementDomination
 
+/**
+ * Internal data structure for setting up FiniteElementData.
+ */
 struct PrecomputedFiniteElementData
 {
+  /**
+   * Exclusive number of degrees of freedom per object.
+   */
   std::vector<std::vector<unsigned int>> dofs_per_object_exclusive;
+
+  /**
+   * Inclusive number of degrees of freedom per object.
+   */
   std::vector<std::vector<unsigned int>> dofs_per_object_inclusive;
+
+  /**
+   * First index of an object.
+   */
   std::vector<std::vector<unsigned int>> first_index;
+
+  /**
+   * First index of an object within a face.
+   */
   std::vector<std::vector<unsigned int>> first_face_index;
 };
 
@@ -233,12 +251,14 @@ private:
   const ReferenceCell::Type cell_type;
 
   /**
-   * TODO
+   * Number of unique quads. If all quads have the same type, the value is
+   * one; else it equals the number of quads.
    */
   const unsigned int number_unique_quads;
 
   /**
-   * TODO
+   * Number of unique faces. If all faces have the same type, the value is
+   * one; else it equals the number of faces.
    */
   const unsigned int number_unique_faces;
 
@@ -256,7 +276,8 @@ public:
 
 private:
   /**
-   * TODO.
+   * Number of degrees of freedom on quads. If all quads have the same
+   * number of degrees freedoms the values equal dofs_per_quad.
    */
   const std::vector<unsigned int> n_dofs_on_quad;
 
@@ -279,7 +300,9 @@ public:
 
 private:
   /**
-   * TODO.
+   * First index of a quad. If all quads have the same number of degrees of
+   * freedom, only the first index of the first quad is stored since the
+   * indices of the others can be simply recomputed.
    */
   const std::vector<unsigned int> first_index_of_quads;
 
@@ -296,7 +319,7 @@ public:
 
 private:
   /**
-   * TODO.
+   * Index of the first line of all faces.
    */
   const std::vector<unsigned int> first_line_index_of_faces;
 
@@ -308,7 +331,7 @@ public:
 
 private:
   /**
-   * TODO.
+   * Index of the first quad of all faces.
    */
   const std::vector<unsigned int> first_quad_index_of_faces;
 
@@ -320,7 +343,8 @@ public:
 
 private:
   /**
-   * TODO.
+   * Number of degrees of freedom on faces. If all faces have the same
+   * number of degrees freedoms the values equal dofs_per_quad.
    */
   const std::vector<unsigned int> n_dofs_on_face;
 

@@ -1469,7 +1469,7 @@ public:
    */
   std::pair<unsigned int, unsigned int>
   face_system_to_component_index(const unsigned int index,
-                                 const unsigned int face = 0) const;
+                                 const unsigned int face = 0 /*TODO*/) const;
 
   /**
    * For faces with non-standard face_orientation in 3D, the dofs on faces
@@ -3133,7 +3133,7 @@ FiniteElement<dim, spacedim>::face_system_to_component_index(
 {
   AssertIndexRange(
     index,
-    face_system_to_component_table[this->n_unique_quads() == 1 ? 0 : face]
+    face_system_to_component_table[this->n_unique_faces() == 1 ? 0 : face]
       .size());
 
   // in debug mode, check whether the
@@ -3153,7 +3153,7 @@ FiniteElement<dim, spacedim>::face_system_to_component_index(
          (typename FiniteElement<dim, spacedim>::ExcShapeFunctionNotPrimitive(
            index)));
 
-  return face_system_to_component_table[this->n_unique_quads() == 1 ? 0 : face]
+  return face_system_to_component_table[this->n_unique_faces() == 1 ? 0 : face]
                                        [index];
 }
 
@@ -3178,9 +3178,9 @@ FiniteElement<dim, spacedim>::face_system_to_base_index(
 {
   AssertIndexRange(
     index,
-    face_system_to_base_table[this->n_unique_quads() == 1 ? 0 : face_no]
+    face_system_to_base_table[this->n_unique_faces() == 1 ? 0 : face_no]
       .size());
-  return face_system_to_base_table[this->n_unique_quads() == 1 ? 0 : face_no]
+  return face_system_to_base_table[this->n_unique_faces() == 1 ? 0 : face_no]
                                   [index];
 }
 

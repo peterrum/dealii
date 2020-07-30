@@ -1341,7 +1341,7 @@ namespace internal
                           fe_slots_needed = 2;
                           n_face_slots +=
                             dof_handler.get_fe(cell->active_fe_index())
-                              .template n_dofs_per_object<dim - 1>() +
+                              .template n_dofs_per_object<dim - 1>(face) +
                             dof_handler
                               .get_fe(cell->neighbor(face)->active_fe_index())
                               .template n_dofs_per_object<dim - 1>(
