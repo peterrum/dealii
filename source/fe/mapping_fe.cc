@@ -435,7 +435,6 @@ namespace internal
         if (update_flags & update_covariant_transformation)
           if (cell_similarity != CellSimilarity::translation)
             {
-              const unsigned int n_q_points = data.contravariant.size();
               for (unsigned int point = 0; point < n_q_points; ++point)
                 {
                   data.covariant[point] =
@@ -446,7 +445,6 @@ namespace internal
         if (update_flags & update_volume_elements)
           if (cell_similarity != CellSimilarity::translation)
             {
-              const unsigned int n_q_points = data.contravariant.size();
               for (unsigned int point = 0; point < n_q_points; ++point)
                 data.volume_elements[point] =
                   data.contravariant[point].determinant();
@@ -465,12 +463,13 @@ namespace internal
         const CellSimilarity::Similarity                  cell_similarity,
         const typename QProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingFE<dim, spacedim>::InternalData &data,
-        std::vector<DerivativeForm<2, dim, spacedim>> &jacobian_grads)
+        std::vector<DerivativeForm<2, dim, spacedim>> &jacobian_grads,
+        const unsigned int                             n_q_points)
       {
         const UpdateFlags update_flags = data.update_each;
         if (update_flags & update_jacobian_grads)
           {
-            const unsigned int n_q_points = jacobian_grads.size();
+            AssertIndexRange(n_q_points, jacobian_grads.size() + 1);
 
             if (cell_similarity != CellSimilarity::translation)
               for (unsigned int point = 0; point < n_q_points; ++point)
@@ -511,13 +510,14 @@ namespace internal
         const CellSimilarity::Similarity                  cell_similarity,
         const typename QProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingFE<dim, spacedim>::InternalData &data,
-        std::vector<Tensor<3, spacedim>> &jacobian_pushed_forward_grads)
+        std::vector<Tensor<3, spacedim>> &jacobian_pushed_forward_grads,
+        const unsigned int                n_q_points)
       {
         const UpdateFlags update_flags = data.update_each;
         if (update_flags & update_jacobian_pushed_forward_grads)
           {
-            const unsigned int n_q_points =
-              jacobian_pushed_forward_grads.size();
+            AssertIndexRange(n_q_points,
+                             jacobian_pushed_forward_grads.size() + 1);
 
             if (cell_similarity != CellSimilarity::translation)
               {
@@ -584,12 +584,13 @@ namespace internal
         const CellSimilarity::Similarity                  cell_similarity,
         const typename QProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingFE<dim, spacedim>::InternalData &data,
-        std::vector<DerivativeForm<3, dim, spacedim>> &jacobian_2nd_derivatives)
+        std::vector<DerivativeForm<3, dim, spacedim>> &jacobian_2nd_derivatives,
+        const unsigned int                             n_q_points)
       {
         const UpdateFlags update_flags = data.update_each;
         if (update_flags & update_jacobian_2nd_derivatives)
           {
-            const unsigned int n_q_points = jacobian_2nd_derivatives.size();
+            AssertIndexRange(n_q_points, jacobian_2nd_derivatives.size() + 1);
 
             if (cell_similarity != CellSimilarity::translation)
               {
@@ -639,13 +640,15 @@ namespace internal
         const typename QProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingFE<dim, spacedim>::InternalData &data,
         std::vector<Tensor<4, spacedim>>
-          &jacobian_pushed_forward_2nd_derivatives)
+          &                jacobian_pushed_forward_2nd_derivatives,
+        const unsigned int n_q_points)
       {
         const UpdateFlags update_flags = data.update_each;
         if (update_flags & update_jacobian_pushed_forward_2nd_derivatives)
           {
-            const unsigned int n_q_points =
-              jacobian_pushed_forward_2nd_derivatives.size();
+            AssertIndexRange(n_q_points,
+                             jacobian_pushed_forward_2nd_derivatives.size() +
+                               1);
 
             if (cell_similarity != CellSimilarity::translation)
               {
@@ -740,12 +743,13 @@ namespace internal
         const CellSimilarity::Similarity                  cell_similarity,
         const typename QProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingFE<dim, spacedim>::InternalData &data,
-        std::vector<DerivativeForm<4, dim, spacedim>> &jacobian_3rd_derivatives)
+        std::vector<DerivativeForm<4, dim, spacedim>> &jacobian_3rd_derivatives,
+        const unsigned int                             n_q_points)
       {
         const UpdateFlags update_flags = data.update_each;
         if (update_flags & update_jacobian_3rd_derivatives)
           {
-            const unsigned int n_q_points = jacobian_3rd_derivatives.size();
+            AssertIndexRange(n_q_points, jacobian_3rd_derivatives.size() + 1);
 
             if (cell_similarity != CellSimilarity::translation)
               {
@@ -798,13 +802,15 @@ namespace internal
         const typename QProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingFE<dim, spacedim>::InternalData &data,
         std::vector<Tensor<5, spacedim>>
-          &jacobian_pushed_forward_3rd_derivatives)
+          &                jacobian_pushed_forward_3rd_derivatives,
+        const unsigned int n_q_points)
       {
         const UpdateFlags update_flags = data.update_each;
         if (update_flags & update_jacobian_pushed_forward_3rd_derivatives)
           {
-            const unsigned int n_q_points =
-              jacobian_pushed_forward_3rd_derivatives.size();
+            AssertIndexRange(n_q_points,
+                             jacobian_pushed_forward_3rd_derivatives.size() +
+                               1);
 
             if (cell_similarity != CellSimilarity::translation)
               {
@@ -1146,42 +1152,48 @@ MappingFE<dim, spacedim>::fill_fe_values(
     computed_cell_similarity,
     QProjector<dim>::DataSetDescriptor::cell(),
     data,
-    output_data.jacobian_grads);
+    output_data.jacobian_grads,
+    n_q_points);
 
   internal::MappingFEImplementation::maybe_update_jacobian_pushed_forward_grads<
     dim,
     spacedim>(computed_cell_similarity,
               QProjector<dim>::DataSetDescriptor::cell(),
               data,
-              output_data.jacobian_pushed_forward_grads);
+              output_data.jacobian_pushed_forward_grads,
+              n_q_points);
 
   internal::MappingFEImplementation::maybe_update_jacobian_2nd_derivatives<
     dim,
     spacedim>(computed_cell_similarity,
               QProjector<dim>::DataSetDescriptor::cell(),
               data,
-              output_data.jacobian_2nd_derivatives);
+              output_data.jacobian_2nd_derivatives,
+              n_q_points);
 
   internal::MappingFEImplementation::
     maybe_update_jacobian_pushed_forward_2nd_derivatives<dim, spacedim>(
       computed_cell_similarity,
       QProjector<dim>::DataSetDescriptor::cell(),
       data,
-      output_data.jacobian_pushed_forward_2nd_derivatives);
+      output_data.jacobian_pushed_forward_2nd_derivatives,
+      n_q_points);
 
   internal::MappingFEImplementation::maybe_update_jacobian_3rd_derivatives<
     dim,
     spacedim>(computed_cell_similarity,
               QProjector<dim>::DataSetDescriptor::cell(),
               data,
-              output_data.jacobian_3rd_derivatives);
+              output_data.jacobian_3rd_derivatives,
+              n_q_points);
 
   internal::MappingFEImplementation::
     maybe_update_jacobian_pushed_forward_3rd_derivatives<dim, spacedim>(
       computed_cell_similarity,
       QProjector<dim>::DataSetDescriptor::cell(),
       data,
-      output_data.jacobian_pushed_forward_3rd_derivatives);
+      output_data.jacobian_pushed_forward_3rd_derivatives,
+      n_q_points);
 
   const UpdateFlags          update_flags = data.update_each;
   const std::vector<double> &weights      = quadrature.get_weights();
@@ -1511,32 +1523,38 @@ namespace internal
         maybe_update_jacobian_grads<dim, spacedim>(CellSimilarity::none,
                                                    data_set,
                                                    data,
-                                                   output_data.jacobian_grads);
+                                                   output_data.jacobian_grads,
+                                                   quadrature.size());
         maybe_update_jacobian_pushed_forward_grads<dim, spacedim>(
           CellSimilarity::none,
           data_set,
           data,
-          output_data.jacobian_pushed_forward_grads);
+          output_data.jacobian_pushed_forward_grads,
+          quadrature.size());
         maybe_update_jacobian_2nd_derivatives<dim, spacedim>(
           CellSimilarity::none,
           data_set,
           data,
-          output_data.jacobian_2nd_derivatives);
+          output_data.jacobian_2nd_derivatives,
+          quadrature.size());
         maybe_update_jacobian_pushed_forward_2nd_derivatives<dim, spacedim>(
           CellSimilarity::none,
           data_set,
           data,
-          output_data.jacobian_pushed_forward_2nd_derivatives);
+          output_data.jacobian_pushed_forward_2nd_derivatives,
+          quadrature.size());
         maybe_update_jacobian_3rd_derivatives<dim, spacedim>(
           CellSimilarity::none,
           data_set,
           data,
-          output_data.jacobian_3rd_derivatives);
+          output_data.jacobian_3rd_derivatives,
+          quadrature.size());
         maybe_update_jacobian_pushed_forward_3rd_derivatives<dim, spacedim>(
           CellSimilarity::none,
           data_set,
           data,
-          output_data.jacobian_pushed_forward_3rd_derivatives);
+          output_data.jacobian_pushed_forward_3rd_derivatives,
+          quadrature.size());
 
         maybe_compute_face_data(mapping,
                                 cell,

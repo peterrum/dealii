@@ -1328,17 +1328,25 @@ QProjector<dim>::DataSetDescriptor::face(
       reference_cell_type == ReferenceCell::Type::Tet)
     {
       unsigned int offset = 0;
-      for (unsigned int i = 0; i < face_no; ++i)
-        offset += quadrature[i].size();
+
+      if (quadrature.size() == 1)
+        offset = quadrature[0].size() * face_no;
+      else
+        for (unsigned int i = 0; i < face_no; ++i)
+          offset += quadrature[i].size();
 
       if (dim == 2)
-        return {2 * offset + face_orientation * quadrature[face_no].size()};
+        return {2 * offset +
+                face_orientation *
+                  quadrature[quadrature.size() == 1 ? 0 : face_no].size()};
       else if (dim == 3)
         {
           const unsigned int orientation =
             (face_flip * 2 + face_rotation) * 2 + face_orientation;
 
-          return {6 * offset + orientation * quadrature[face_no].size()};
+          return {6 * offset +
+                  orientation *
+                    quadrature[quadrature.size() == 1 ? 0 : face_no].size()};
         }
     }
 
