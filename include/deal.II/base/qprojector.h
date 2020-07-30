@@ -234,21 +234,12 @@ public:
    *   this function that takes the reference cell type instead.
    */
   DEAL_II_DEPRECATED static Quadrature<dim>
-  project_to_all_faces(const hp::QCollection<dim - 1> &quadrature);
+  project_to_all_faces(const Quadrature<dim - 1> &quadrature);
 
   /**
-   * TODO
-   */
-  DEAL_II_DEPRECATED static Quadrature<dim>
-  project_to_all_faces(const Quadrature<dim - 1> &quadrature)
-  {
-    return project_to_all_faces(hp::QCollection<dim - 1>(quadrature));
-  }
-
-  /**
-   * Take a face quadrature formula and generate a cell quadrature formula
-   * from it where the quadrature points of the given argument are projected
-   * on all faces.
+   * Take a collection of face quadrature formulas and generate a cell
+   * quadrature formula from it where the quadrature points of the given
+   * argument are projected on all faces.
    *
    * The weights of the new rule are replications of the original weights.
    * Thus, the sum of the weights is not one, but the number of faces, which
@@ -266,15 +257,12 @@ public:
                        const hp::QCollection<dim - 1> &quadrature);
 
   /**
-   * TODO
+   * Like the above function but taking only a single face quadrature
+   * formula.
    */
-  DEAL_II_DEPRECATED static Quadrature<dim>
+  static Quadrature<dim>
   project_to_all_faces(const ReferenceCell::Type  reference_cell_type,
-                       const Quadrature<dim - 1> &quadrature)
-  {
-    return project_to_all_faces(reference_cell_type,
-                                hp::QCollection<dim - 1>(quadrature));
-  }
+                       const Quadrature<dim - 1> &quadrature);
 
   /**
    * Take a face quadrature formula and generate a cell quadrature formula
@@ -608,6 +596,26 @@ inline QProjector<dim>::DataSetDescriptor::operator unsigned int() const
 }
 
 
+
+template <int dim>
+Quadrature<dim> inline QProjector<dim>::project_to_all_faces(
+  const Quadrature<dim - 1> &quadrature)
+{
+  return project_to_all_faces(ReferenceCell::get_hypercube(dim - 1),
+                              quadrature);
+}
+
+
+template <int dim>
+Quadrature<dim> inline QProjector<dim>::project_to_all_faces(
+  const ReferenceCell::Type  reference_cell_type,
+  const Quadrature<dim - 1> &quadrature)
+{
+  return project_to_all_faces(reference_cell_type,
+                              hp::QCollection<dim - 1>(quadrature));
+}
+
+
 /* -------------- declaration of explicit specializations ------------- */
 
 #ifndef DOXYGEN
@@ -647,9 +655,6 @@ QProjector<3>::project_to_face(const ReferenceCell::Type reference_cell_type,
                                const unsigned int        face_no,
                                std::vector<Point<3>> &   q_points);
 
-template <>
-Quadrature<1>
-QProjector<1>::project_to_all_faces(const hp::QCollection<0> &quadrature);
 template <>
 Quadrature<1>
 QProjector<1>::project_to_all_faces(

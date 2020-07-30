@@ -358,6 +358,8 @@ protected:
                                                                        spacedim>
       & /*output_data*/) const override
   {
+    AssertDimension(quadrature.size(), 1);
+
     // generate a new data object and initialize some fields
     auto data_ptr =
       std::make_unique<typename FiniteElement<1, spacedim>::InternalDataBase>();

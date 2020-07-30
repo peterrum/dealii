@@ -2087,12 +2087,22 @@ public:
   static const unsigned int space_dimension = spacedim;
 
   /**
-   * Number of quadrature points.
+   * Number of quadrature points of the current object. Its value is
+   * initialized by the value of max_quadrature_points and is updated,
+   * e.g., if FEFaceValues::reinit() is called for a new cell/face.
+   *
+   * @note The default value equals to the value of max_quadrature_points.
    */
   unsigned int n_quadrature_points;
 
   /**
-   * TODO.
+   * Maximum number of quadrature points. This value might be different from
+   * n_quadrature_points, e.g., if a QCollection with different face quadrature
+   * rules has been passed to initialize FEFaceValues.
+   *
+   * This is mostly useful to initialize arrays to allocate the maximum amount
+   * of memory that may be used when re-sizing later on to a the current
+   * number of quadrature points given by n_quadrature_points.
    */
   const unsigned int max_quadrature_points;
 
@@ -3625,7 +3635,10 @@ public:
            const UpdateFlags                   update_flags);
 
   /**
-   * TODO
+   * Like the function above, but taking a collection of quadrature rules.
+   *
+   * @note We require, in contrast to FEFaceValues that the number of quadrature
+   *   rules in the collection is one.
    */
   FEValues(const Mapping<dim, spacedim> &      mapping,
            const FiniteElement<dim, spacedim> &fe,
@@ -3642,7 +3655,10 @@ public:
            const UpdateFlags                   update_flags);
 
   /**
-   * TODO
+   * Like the function above, but taking a collection of quadrature rules.
+   *
+   * @note We require, in contrast to FEFaceValues that the number of quadrature
+   *   rules in the collection is one.
    */
   FEValues(const FiniteElement<dim, spacedim> &fe,
            const hp::QCollection<dim> &        quadrature,
@@ -3766,7 +3782,10 @@ public:
                    const Quadrature<dim - 1> &         quadrature);
 
   /**
-   * TODO.
+   * Like the function above, but taking a collection of quadrature rules. This
+   * allows to assign each face a different quadrature rule. In the case that
+   * the collection only contains a single face quadrature, this quadrature
+   * rule is use on all faces.
    */
   FEFaceValuesBase(const unsigned int                  dofs_per_cell,
                    const UpdateFlags                   update_flags,
@@ -3870,7 +3889,10 @@ public:
                const UpdateFlags                   update_flags);
 
   /**
-   * TODO
+   * Like the function above, but taking a collection of quadrature rules. This
+   * allows to assign each face a different quadrature rule. In the case that
+   * the collection only contains a single face quadrature, this quadrature
+   * rule is use on all faces.
    */
   FEFaceValues(const Mapping<dim, spacedim> &      mapping,
                const FiniteElement<dim, spacedim> &fe,
@@ -3887,7 +3909,10 @@ public:
                const UpdateFlags                   update_flags);
 
   /**
-   * TODO.
+   * Like the function above, but taking a collection of quadrature rules. This
+   * allows to assign each face a different quadrature rule. In the case that
+   * the collection only contains a single face quadrature, this quadrature
+   * rule is use on all faces.
    */
   FEFaceValues(const FiniteElement<dim, spacedim> &fe,
                const hp::QCollection<dim - 1> &    quadrature,
@@ -4032,7 +4057,10 @@ public:
                   const UpdateFlags                   update_flags);
 
   /**
-   * TODO.
+   * Like the function above, but taking a collection of quadrature rules.
+   *
+   * @note We require, in contrast to FEFaceValues that the number of quadrature
+   *   rules in the collection is one.
    */
   FESubfaceValues(const Mapping<dim, spacedim> &      mapping,
                   const FiniteElement<dim, spacedim> &fe,
@@ -4049,7 +4077,10 @@ public:
                   const UpdateFlags                   update_flags);
 
   /**
-   * TODO
+   * Like the function above, but taking a collection of quadrature rules.
+   *
+   * @note We require, in contrast to FEFaceValues that the number of quadrature
+   *   rules in the collection is one.
    */
   FESubfaceValues(const FiniteElement<dim, spacedim> &fe,
                   const hp::QCollection<dim - 1> &    face_quadrature,

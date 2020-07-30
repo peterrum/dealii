@@ -4619,7 +4619,13 @@ FEFaceValuesBase<dim, spacedim>::FEFaceValuesBase(
                                 fe)
   , present_face_index(numbers::invalid_unsigned_int)
   , quadrature(quadrature)
-{}
+{
+  Assert(quadrature.size() == 1 ||
+           quadrature.size() ==
+             ReferenceCell::internal::Info::get_cell(fe.reference_cell_type())
+               .n_faces(),
+         ExcInternalError());
+}
 
 
 

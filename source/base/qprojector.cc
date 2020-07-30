@@ -467,14 +467,6 @@ QProjector<3>::project_to_subface(const ReferenceCell::Type reference_cell_type,
 
 template <>
 Quadrature<1>
-QProjector<1>::project_to_all_faces(const hp::QCollection<0> &quadrature)
-{
-  return project_to_all_faces(ReferenceCell::Type::Line, quadrature);
-}
-
-
-template <>
-Quadrature<1>
 QProjector<1>::project_to_all_faces(
   const ReferenceCell::Type reference_cell_type,
   const hp::QCollection<0> &quadrature)
@@ -638,15 +630,6 @@ QProjector<2>::project_to_all_faces(
   Assert(weights.size() == n_points_total, ExcInternalError());
 
   return Quadrature<dim>(q_points, weights);
-}
-
-
-
-template <>
-Quadrature<2>
-QProjector<2>::project_to_all_faces(const hp::QCollection<1> &quadrature)
-{
-  return project_to_all_faces(ReferenceCell::Type::Quad, quadrature);
 }
 
 
@@ -853,15 +836,6 @@ QProjector<3>::project_to_all_faces(
   Assert(weights.size() == n_points * n_faces * 8, ExcInternalError());
 
   return Quadrature<dim>(q_points, weights);
-}
-
-
-
-template <>
-Quadrature<3>
-QProjector<3>::project_to_all_faces(const hp::QCollection<2> &quadrature)
-{
-  return project_to_all_faces(ReferenceCell::Type::Hex, quadrature);
 }
 
 
