@@ -351,13 +351,13 @@ namespace internal
       maybe_compute_q_points(
         const typename QProjector<dim>::DataSetDescriptor              data_set,
         const typename dealii::MappingFE<dim, spacedim>::InternalData &data,
-        std::vector<Point<spacedim>> &quadrature_points)
+        std::vector<Point<spacedim>> &quadrature_points,
+        const unsigned int            n_q_points)
       {
         const UpdateFlags update_flags = data.update_each;
 
         if (update_flags & update_quadrature_points)
-          for (unsigned int point = 0; point < quadrature_points.size();
-               ++point)
+          for (unsigned int point = 0; point < n_q_points; ++point)
             {
               const double *  shape = &data.shape(point + data_set, 0);
               Point<spacedim> result =
@@ -384,7 +384,8 @@ namespace internal
       maybe_update_Jacobians(
         const CellSimilarity::Similarity cell_similarity,
         const typename dealii::QProjector<dim>::DataSetDescriptor      data_set,
-        const typename dealii::MappingFE<dim, spacedim>::InternalData &data)
+        const typename dealii::MappingFE<dim, spacedim>::InternalData &data,
+        const unsigned int n_q_points)
       {
         const UpdateFlags update_flags = data.update_each;
 
@@ -394,8 +395,6 @@ namespace internal
           // need to recompute jacobians...
           if (cell_similarity != CellSimilarity::translation)
             {
-              const unsigned int n_q_points = data.contravariant.size();
-
               std::fill(data.contravariant.begin(),
                         data.contravariant.end(),
                         DerivativeForm<1, dim, spacedim>());
@@ -1134,10 +1133,14 @@ MappingFE<dim, spacedim>::fill_fe_values(
   internal::MappingFEImplementation::maybe_compute_q_points<dim, spacedim>(
     QProjector<dim>::DataSetDescriptor::cell(),
     data,
-    output_data.quadrature_points);
+    output_data.quadrature_points,
+    n_q_points);
 
   internal::MappingFEImplementation::maybe_update_Jacobians<dim, spacedim>(
-    computed_cell_similarity, QProjector<dim>::DataSetDescriptor::cell(), data);
+    computed_cell_similarity,
+    QProjector<dim>::DataSetDescriptor::cell(),
+    data,
+    n_q_points);
 
   internal::MappingFEImplementation::maybe_update_jacobian_grads<dim, spacedim>(
     computed_cell_similarity,
@@ -1499,10 +1502,12 @@ namespace internal
       {
         maybe_compute_q_points<dim, spacedim>(data_set,
                                               data,
-                                              output_data.quadrature_points);
+                                              output_data.quadrature_points,
+                                              quadrature.size());
         maybe_update_Jacobians<dim, spacedim>(CellSimilarity::none,
                                               data_set,
-                                              data);
+                                              data,
+                                              quadrature.size());
         maybe_update_jacobian_grads<dim, spacedim>(CellSimilarity::none,
                                                    data_set,
                                                    data,

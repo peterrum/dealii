@@ -1324,20 +1324,21 @@ QProjector<dim>::DataSetDescriptor::face(
   const bool                      face_rotation,
   const hp::QCollection<dim - 1> &quadrature)
 {
-  const unsigned int n_quadrature_points = quadrature[0 /*TODO*/].size();
-
   if (reference_cell_type == ReferenceCell::Type::Tri ||
       reference_cell_type == ReferenceCell::Type::Tet)
     {
-      AssertDimension(quadrature.size(), 1);
+      unsigned int offset = 0;
+      for (unsigned int i = 0; i < face_no; ++i)
+        offset += quadrature[i].size();
 
       if (dim == 2)
-        return {(2 * face_no + face_orientation) * n_quadrature_points};
+        return {2 * offset + face_orientation * quadrature[face_no].size()};
       else if (dim == 3)
         {
           const unsigned int orientation =
             (face_flip * 2 + face_rotation) * 2 + face_orientation;
-          return {(6 * face_no + orientation) * n_quadrature_points};
+
+          return {6 * offset + orientation * quadrature[face_no].size()};
         }
     }
 
@@ -1398,7 +1399,7 @@ QProjector<dim>::DataSetDescriptor::face(
             return (face_no +
                     offset[face_orientation][face_flip][face_rotation] *
                       GeometryInfo<dim>::faces_per_cell) *
-                   n_quadrature_points;
+                   quadrature[0].size();
           else
             {
               unsigned int n_points_i = 0;
@@ -1414,10 +1415,6 @@ QProjector<dim>::DataSetDescriptor::face(
                       offset[face_orientation][face_flip][face_rotation] *
                         n_points);
             }
-
-          return (
-            (face_no + offset[face_orientation][face_flip][face_rotation]) *
-            n_quadrature_points);
         }
 
       default:
