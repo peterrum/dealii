@@ -956,6 +956,8 @@ FE_PolyTensor<dim, spacedim>::fill_fe_face_values(
                                                                      spacedim>
     &output_data) const
 {
+  AssertDimension(quadrature.size(), 1);
+
   // convert data object to internal
   // data for this class. fails with
   // an exception if that is not
@@ -964,7 +966,7 @@ FE_PolyTensor<dim, spacedim>::fill_fe_face_values(
          ExcInternalError());
   const InternalData &fe_data = static_cast<const InternalData &>(fe_internal);
 
-  const unsigned int n_q_points = quadrature[0 /*TODO*/].size();
+  const unsigned int n_q_points = quadrature[0].size();
   // offset determines which data set
   // to take (all data sets for all
   // faces are stored contiguously)

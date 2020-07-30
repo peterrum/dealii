@@ -2035,6 +2035,8 @@ FE_NedelecSZ<dim, spacedim>::fill_fe_face_values(
   dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim, dim>
     &data) const
 {
+  AssertDimension(quadrature.size(), 1);
+
   // Note for future improvement:
   // We don't have the full quadrature - should use QProjector to create the 2D
   // quadrature.
@@ -2057,18 +2059,18 @@ FE_NedelecSZ<dim, spacedim>::fill_fe_face_values(
   // (fe_internal/fe_data) which was not filled in by get_data.
   fill_edge_values(cell,
                    QProjector<dim>::project_to_all_faces(
-                     this->reference_cell_type(), quadrature[0 /*TODO*/]),
+                     this->reference_cell_type(), quadrature[0]),
                    fe_data);
   if (dim == 3 && this->degree > 1)
     {
       fill_face_values(cell,
                        QProjector<dim>::project_to_all_faces(
-                         this->reference_cell_type(), quadrature[0 /*TODO*/]),
+                         this->reference_cell_type(), quadrature[0]),
                        fe_data);
     }
 
   const UpdateFlags  flags(fe_data.update_each);
-  const unsigned int n_q_points = quadrature[0 /*TODO*/].size();
+  const unsigned int n_q_points = quadrature[0].size();
   const auto         offset =
     QProjector<dim>::DataSetDescriptor::face(this->reference_cell_type(),
                                              face_no,

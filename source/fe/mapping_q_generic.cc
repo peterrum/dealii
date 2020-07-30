@@ -2691,6 +2691,8 @@ MappingQGeneric<dim, spacedim>::get_face_data(
   const UpdateFlags               update_flags,
   const hp::QCollection<dim - 1> &quadrature) const
 {
+  AssertDimension(quadrature.size(), 1);
+
   std::unique_ptr<typename Mapping<dim, spacedim>::InternalDataBase> data_ptr =
     std::make_unique<InternalData>(polynomial_degree);
   auto &data = dynamic_cast<InternalData &>(*data_ptr);

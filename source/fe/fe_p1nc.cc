@@ -164,11 +164,13 @@ FE_P1NC::get_face_data(
   dealii::internal::FEValuesImplementation::FiniteElementRelatedData<2, 2>
     &output_data) const
 {
+  AssertDimension(quadrature.size(), 1);
+
   auto data_ptr = std::make_unique<FiniteElement<2, 2>::InternalDataBase>();
 
   data_ptr->update_each = requires_update_flags(update_flags);
 
-  const unsigned int n_q_points = quadrature.size();
+  const unsigned int n_q_points = quadrature[0].size();
   output_data.initialize(n_q_points, FE_P1NC(), data_ptr->update_each);
 
   // this is a linear element, so its second derivatives are zero
@@ -254,6 +256,8 @@ FE_P1NC::fill_fe_face_values(
   dealii::internal::FEValuesImplementation::FiniteElementRelatedData<2, 2>
     &output_data) const
 {
+  AssertDimension(quadrature.size(), 1);
+
   const UpdateFlags flags(fe_internal.update_each);
 
   // linear shape functions
@@ -263,7 +267,7 @@ FE_P1NC::fill_fe_face_values(
   // compute on the face
   const Quadrature<2> quadrature_on_face =
     QProjector<2>::project_to_face(this->reference_cell_type(),
-                                   quadrature[0 /*TODO*/],
+                                   quadrature[0],
                                    face_no);
 
   if (flags & update_values)

@@ -28,7 +28,8 @@ namespace hp
   namespace
   {
     /**
-     * TODO.
+     * Given a quadrature collection, create a vector of quadrature collections
+     * with each containing one quadrature rule from the input collection.
      */
     template <int q_dim>
     std::vector<QCollection<q_dim>>
@@ -43,7 +44,8 @@ namespace hp
     }
 
     /**
-     * TODO.
+     * Given a vector of quadrature collections, extract the first quadrature
+     * rule of each collection and construct with these a new collection.
      */
     template <int q_dim>
     QCollection<q_dim>

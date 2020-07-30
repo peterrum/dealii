@@ -1100,34 +1100,6 @@ protected:
     const typename Triangulation<dim, spacedim>::cell_iterator &cell,
     const unsigned int                                          face_no,
     const unsigned int                                          sub_no,
-    const Quadrature<dim_1> &                                   quadrature,
-    const CellSimilarity::Similarity                            cell_similarity,
-    const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,
-    const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_data,
-    const internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
-      &mapping_data,
-    internal::FEValuesImplementation::FiniteElementRelatedData<dim, spacedim>
-      &output_data) const
-  {
-    compute_fill(mapping,
-                 cell,
-                 face_no,
-                 sub_no,
-                 hp::QCollection<dim_1>(quadrature),
-                 cell_similarity,
-                 mapping_internal,
-                 fe_data,
-                 mapping_data,
-                 output_data);
-  }
-
-  template <int dim_1>
-  void
-  compute_fill(
-    const Mapping<dim, spacedim> &                              mapping,
-    const typename Triangulation<dim, spacedim>::cell_iterator &cell,
-    const unsigned int                                          face_no,
-    const unsigned int                                          sub_no,
     const hp::QCollection<dim_1> &                              quadrature,
     const CellSimilarity::Similarity                            cell_similarity,
     const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,

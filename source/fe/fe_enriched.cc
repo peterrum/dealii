@@ -371,6 +371,8 @@ FE_Enriched<dim, spacedim>::get_face_data(
   internal::FEValuesImplementation::FiniteElementRelatedData<dim, spacedim>
     &output_data) const
 {
+  AssertDimension(quadrature.size(), 1);
+
   auto data =
     fe_system->get_face_data(update_flags, mapping, quadrature, output_data);
   return setup_data(Utilities::dynamic_unique_cast<
