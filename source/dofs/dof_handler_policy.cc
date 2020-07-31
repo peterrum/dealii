@@ -1574,6 +1574,11 @@ namespace internal
                       fe_indices,
                       /*codim=*/dim - 2);
 
+                  const unsigned int most_dominating_fe_index_face_no =
+                    cell->active_fe_index() == most_dominating_fe_index ?
+                      q :
+                      cell->neighbor_face_no(q);
+
                   // if we found the most dominating element, then use
                   // this to eliminate some of the degrees of freedom
                   // by identification. otherwise, the code that
@@ -1593,7 +1598,8 @@ namespace internal
                               dof_handler.get_fe(most_dominating_fe_index),
                               dof_handler.get_fe(other_fe_index),
                               quad_dof_identities[most_dominating_fe_index]
-                                                 [other_fe_index]);
+                                                 [other_fe_index],
+                              most_dominating_fe_index_face_no);
 
                             DoFIdentities &identities =
                               *quad_dof_identities[most_dominating_fe_index]
@@ -2629,7 +2635,7 @@ namespace internal
           const bool               check_validity)
         {
           if (dof_handler.get_fe().n_dofs_per_line() > 0 ||
-              dof_handler.get_fe().n_dofs_per_quad(0 /*TODO*/) > 0)
+              dof_handler.get_fe().max_dofs_per_quad() > 0)
             {
               // save user flags as they will be modified
               std::vector<bool> user_flags;

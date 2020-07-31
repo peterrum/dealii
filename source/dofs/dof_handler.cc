@@ -553,7 +553,8 @@ namespace internal
                 internal::DoFHandlerImplementation::DoFLevel<2>>());
             dof_handler.mg_levels.back()->dof_object.dofs =
               std::vector<types::global_dof_index>(
-                tria.n_raw_quads(i) * fe.n_dofs_per_quad(0 /*TODO*/),
+                tria.n_raw_quads(i) *
+                  fe.n_dofs_per_quad(0 /*note: in 2D there is only one quad*/),
                 numbers::invalid_dof_index);
           }
 
@@ -638,10 +639,13 @@ namespace internal
           std::vector<types::global_dof_index>(tria.n_raw_lines() *
                                                  fe.n_dofs_per_line(),
                                                numbers::invalid_dof_index);
-        dof_handler.mg_faces->quads.dofs =
-          std::vector<types::global_dof_index>(tria.n_raw_quads() *
-                                                 fe.n_dofs_per_quad(0 /*TODO*/),
-                                               numbers::invalid_dof_index);
+
+        // TODO: the implementation makes the assumption that all faces have the
+        // same number of dofs
+        AssertDimension(fe.n_unique_faces(), 1);
+        dof_handler.mg_faces->quads.dofs = std::vector<types::global_dof_index>(
+          tria.n_raw_quads() * fe.n_dofs_per_quad(0 /*=face_no*/),
+          numbers::invalid_dof_index);
 
         const unsigned int n_vertices = tria.n_vertices();
 
