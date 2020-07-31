@@ -77,6 +77,37 @@ namespace Simplex
 
       return dpo;
     }
+
+    /**
+     * Helper function to set up the dpo vector of FE_Wedge for a given @p degree.
+     */
+    PrecomputedFiniteElementData
+    get_dpo_vector_fe_wedge(const unsigned int degree)
+    {
+      PrecomputedFiniteElementData dpo;
+
+      // all dofs are internal
+      if (degree == 1)
+        {
+          dpo.dofs_per_object_exclusive = {{1}, {0}, {0, 0, 0, 0, 0}, {0}};
+          dpo.dofs_per_object_inclusive = {{1}, {2}, {3, 3, 4, 4, 4}, {6}};
+          dpo.first_index               = {{}, {6}, {6}, {6}};
+          dpo.first_face_index = {{}, {3, 3, 4, 4, 4}, {3, 3, 4, 4, 4}};
+        }
+      else if (degree == 2)
+        {
+          dpo.dofs_per_object_exclusive = {{1}, {1}, {0, 0, 1, 1, 1}, {0}};
+          dpo.dofs_per_object_inclusive = {{1}, {3}, {6, 6, 9, 9, 9}, {18}};
+          dpo.first_index               = {{}, {6}, {15, 15, 15, 16, 17}, {18}};
+          dpo.first_face_index = {{}, {3, 3, 4, 4, 4}, {6, 6, 8, 8, 8}};
+        }
+      else
+        {
+          Assert(false, ExcNotImplemented());
+        }
+
+      return dpo;
+    }
   } // namespace
 
 
@@ -261,6 +292,72 @@ namespace Simplex
   {
     std::ostringstream namebuf;
     namebuf << "FE_DGP<" << dim << ">(" << this->degree << ")";
+
+    return namebuf.str();
+  }
+
+
+
+  template <int dim, int spacedim>
+  FE_Wedge<dim, spacedim>::FE_Wedge(const unsigned int degree)
+    : dealii::FE_Poly<dim, spacedim>(
+        Simplex::ScalarWedgePolynomial<dim>(degree),
+        FiniteElementData<dim>(get_dpo_vector_fe_wedge(degree),
+                               ReferenceCell::Type::Wedge,
+                               1,
+                               degree,
+                               FiniteElementData<dim>::L2),
+        std::vector<bool>(FiniteElementData<dim>(get_dpo_vector_fe_wedge(
+                                                   degree),
+                                                 ReferenceCell::Type::Wedge,
+                                                 1,
+                                                 degree)
+                            .dofs_per_cell,
+                          true),
+        std::vector<ComponentMask>(
+          FiniteElementData<dim>(get_dpo_vector_fe_wedge(degree),
+                                 ReferenceCell::Type::Wedge,
+                                 1,
+                                 degree)
+            .dofs_per_cell,
+          std::vector<bool>(1, true)))
+  {
+    AssertDimension(dim, 3);
+
+
+    if (degree == 1)
+      {
+        this->unit_support_points.emplace_back(1.0, 0.0, 0.0);
+        this->unit_support_points.emplace_back(0.0, 1.0, 0.0);
+        this->unit_support_points.emplace_back(0.0, 0.0, 0.0);
+        this->unit_support_points.emplace_back(1.0, 0.0, 1.0);
+        this->unit_support_points.emplace_back(0.0, 1.0, 1.0);
+        this->unit_support_points.emplace_back(0.0, 0.0, 1.0);
+
+        // TODO
+        this->unit_face_support_points[0].emplace_back(1.0, 0.0);
+        this->unit_face_support_points[0].emplace_back(0.0, 1.0);
+        this->unit_face_support_points[0].emplace_back(0.0, 0.0);
+      }
+  }
+
+
+
+  template <int dim, int spacedim>
+  std::unique_ptr<FiniteElement<dim, spacedim>>
+  FE_Wedge<dim, spacedim>::clone() const
+  {
+    return std::make_unique<FE_Wedge<dim, spacedim>>(*this);
+  }
+
+
+
+  template <int dim, int spacedim>
+  std::string
+  FE_Wedge<dim, spacedim>::get_name() const
+  {
+    std::ostringstream namebuf;
+    namebuf << "FE_Wedge<" << dim << ">(" << this->degree << ")";
 
     return namebuf.str();
   }
