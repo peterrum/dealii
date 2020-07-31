@@ -175,7 +175,11 @@ namespace DoFTools
         const FullMatrix<double> &          face_interpolation_matrix,
         std::vector<bool> &                 primary_dof_mask)
       {
-        const unsigned int face_no = 0; // TODO
+        // TODO: the implementation makes the assumption that all faces have the
+        // same number of dofs
+        AssertDimension(fe1.n_unique_faces(), 1);
+        AssertDimension(fe2.n_unique_faces(), 1);
+        const unsigned int face_no = 0;
 
         Assert(fe1.n_dofs_per_face(face_no) >= fe2.n_dofs_per_face(face_no),
                ExcInternalError());
@@ -310,7 +314,11 @@ namespace DoFTools
         const FullMatrix<double> &          face_interpolation_matrix,
         std::unique_ptr<std::vector<bool>> &primary_dof_mask)
       {
-        const unsigned int face_no = 0; // TODO
+        // TODO: the implementation makes the assumption that all faces have the
+        // same number of dofs
+        AssertDimension(fe1.n_unique_faces(), 1);
+        AssertDimension(fe2.n_unique_faces(), 1);
+        const unsigned int face_no = 0;
 
         if (primary_dof_mask == nullptr)
           {
@@ -337,7 +345,11 @@ namespace DoFTools
         const FiniteElement<dim, spacedim> & fe2,
         std::unique_ptr<FullMatrix<double>> &matrix)
       {
-        const unsigned int face_no = 0; // TODO
+        // TODO: the implementation makes the assumption that all faces have the
+        // same number of dofs
+        AssertDimension(fe1.n_unique_faces(), 1);
+        AssertDimension(fe2.n_unique_faces(), 1);
+        const unsigned int face_no = 0;
 
         if (matrix == nullptr)
           {
@@ -360,7 +372,11 @@ namespace DoFTools
         const unsigned int                   subface,
         std::unique_ptr<FullMatrix<double>> &matrix)
       {
-        const unsigned int face_no = 0; // TODO
+        // TODO: the implementation makes the assumption that all faces have the
+        // same number of dofs
+        AssertDimension(fe1.n_unique_faces(), 1);
+        AssertDimension(fe2.n_unique_faces(), 1);
+        const unsigned int face_no = 0;
 
         if (matrix == nullptr)
           {
@@ -1178,7 +1194,7 @@ namespace DoFTools
                             // the face DoFs from the cell DoFs.
                             dependent_dofs.resize(
                               subface->get_fe(subface_fe_index)
-                                .n_dofs_per_face(face /*TODO*/));
+                                .n_dofs_per_face(face, c));
                             subface->get_dof_indices(dependent_dofs,
                                                      subface_fe_index);
 
@@ -1804,8 +1820,6 @@ namespace DoFTools
       const bool                                   face_rotation,
       const number                                 periodicity_factor)
     {
-      const unsigned int face_no = 0; // TODO
-
       static const int dim      = FaceIterator::AccessorType::dimension;
       static const int spacedim = FaceIterator::AccessorType::space_dimension;
 
@@ -1813,6 +1827,14 @@ namespace DoFTools
       Assert(!face_1->has_children(), ExcInternalError());
 
       Assert(face_1->n_active_fe_indices() == 1, ExcInternalError());
+
+      // TODO: the implementation makes the assumption that all faces have the
+      // same number of dofs
+      AssertDimension(
+        face_1->get_fe(face_1->nth_active_fe_index(0)).n_unique_faces(), 1);
+      AssertDimension(
+        face_2->get_fe(face_2->nth_active_fe_index(0)).n_unique_faces(), 1);
+      const unsigned int face_no = 0;
 
       // If face_2 does have children, then we need to iterate over these
       // children and set periodic constraints in the inverse direction:
@@ -2143,7 +2165,10 @@ namespace DoFTools
       const FullMatrix<double> &          matrix,
       const std::vector<unsigned int> &   first_vector_components)
     {
-      const unsigned int face_no = 0; // TODO
+      // TODO: the implementation makes the assumption that all faces have the
+      // same number of dofs
+      AssertDimension(fe.n_unique_faces(), 1);
+      const unsigned int face_no = 0;
 
       Assert(matrix.m() == matrix.n(), ExcInternalError());
 
@@ -2247,7 +2272,13 @@ namespace DoFTools
     const std::vector<unsigned int> &            first_vector_components,
     const number                                 periodicity_factor)
   {
-    const unsigned int face_no = 0; // TODO
+    // TODO: the implementation makes the assumption that all faces have the
+    // same number of dofs
+    AssertDimension(
+      face_1->get_fe(face_1->nth_active_fe_index(0)).n_unique_faces(), 1);
+    AssertDimension(
+      face_2->get_fe(face_2->nth_active_fe_index(0)).n_unique_faces(), 1);
+    const unsigned int face_no = 0;
 
     static const int dim      = FaceIterator::AccessorType::dimension;
     static const int spacedim = FaceIterator::AccessorType::space_dimension;
