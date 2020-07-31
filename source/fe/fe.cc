@@ -101,7 +101,6 @@ FiniteElement<dim, spacedim>::FiniteElement(
   // initialize some tables in the default way, i.e. if there is only one
   // (vector-)component; if the element is not primitive, leave these tables
   // empty.
-  const unsigned int face_no = 0; // TODO
   if (this->is_primitive())
     {
       system_to_component_table.resize(this->n_dofs_per_cell());
@@ -111,9 +110,8 @@ FiniteElement<dim, spacedim>::FiniteElement(
       face_system_to_component_table.resize(this->n_unique_faces());
       for (unsigned int f = 0; f < this->n_unique_faces(); ++f)
         {
-          face_system_to_component_table[f].resize(
-            this->n_dofs_per_face(face_no));
-          for (unsigned int j = 0; j < this->n_dofs_per_face(face_no); ++j)
+          face_system_to_component_table[f].resize(this->n_dofs_per_face(f));
+          for (unsigned int j = 0; j < this->n_dofs_per_face(f); ++j)
             face_system_to_component_table[f][j] =
               std::pair<unsigned, unsigned>(0, j);
         }
@@ -126,7 +124,7 @@ FiniteElement<dim, spacedim>::FiniteElement(
   for (unsigned int f = 0; f < this->n_unique_faces(); ++f)
     {
       face_system_to_base_table[f].resize(this->n_dofs_per_face(f));
-      for (unsigned int j = 0; j < this->n_dofs_per_face(face_no); ++j)
+      for (unsigned int j = 0; j < this->n_dofs_per_face(f); ++j)
         face_system_to_base_table[f][j] =
           std::make_pair(std::make_pair(0U, 0U), j);
     }
@@ -843,7 +841,11 @@ bool
 FiniteElement<dim, spacedim>::constraints_are_implemented(
   const internal::SubfaceCase<dim> &subface_case) const
 {
-  const unsigned int face_no = 0; // TODO
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
+  const unsigned int face_no = 0;
+
   if (subface_case == internal::SubfaceCase<dim>::case_isotropic)
     return (this->n_dofs_per_face(face_no) == 0) ||
            (interface_constraints.m() != 0);
@@ -867,7 +869,11 @@ const FullMatrix<double> &
 FiniteElement<dim, spacedim>::constraints(
   const internal::SubfaceCase<dim> &subface_case) const
 {
-  const unsigned int face_no = 0; // TODO
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
+  const unsigned int face_no = 0;
+
   (void)subface_case;
   Assert(subface_case == internal::SubfaceCase<dim>::case_isotropic,
          ExcMessage("Constraints for this element are only implemented "
@@ -895,7 +901,11 @@ template <int dim, int spacedim>
 TableIndices<2>
 FiniteElement<dim, spacedim>::interface_constraints_size() const
 {
-  const unsigned int face_no = 0; // TODO
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
+  const unsigned int face_no = 0;
+
   switch (dim)
     {
       case 1:

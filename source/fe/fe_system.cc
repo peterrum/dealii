@@ -1392,7 +1392,10 @@ template <int dim, int spacedim>
 void
 FESystem<dim, spacedim>::build_interface_constraints()
 {
-  const unsigned int face_no = 0; // TODO
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
+  const unsigned int face_no = 0;
 
   // check whether all base elements implement their interface constraint
   // matrices. if this is not the case, then leave the interface costraints of
@@ -1836,37 +1839,40 @@ FESystem<dim, spacedim>::initialize(
   // initialize quad dof index permutation in 3d and higher
   if (dim >= 3)
     init_tasks += Threads::new_task([&]() {
-      // the array into which we want to write should have the correct size
-      // already.
-      Assert(
-        this->adjust_quad_dof_index_for_face_orientation_table[0] /*TODO!!!*/
-            .n_elements() == 8 * this->n_dofs_per_quad(0 /*TODO*/),
-        ExcInternalError());
-
-      // to obtain the shifts for this composed element, copy the shift
-      // information of the base elements
-      unsigned int index = 0;
-      for (unsigned int b = 0; b < this->n_base_elements(); ++b)
+      for (unsigned int face_no = 0; face_no < this->n_unique_faces();
+           ++face_no)
         {
-          const Table<2, int> &temp =
-            this->base_element(b)
-              .adjust_quad_dof_index_for_face_orientation_table[0];
-          for (unsigned int c = 0; c < this->element_multiplicity(b); ++c)
+          // the array into which we want to write should have the correct size
+          // already.
+          Assert(this->adjust_quad_dof_index_for_face_orientation_table[face_no]
+                     .n_elements() == 8 * this->n_dofs_per_quad(face_no),
+                 ExcInternalError());
+
+          // to obtain the shifts for this composed element, copy the shift
+          // information of the base elements
+          unsigned int index = 0;
+          for (unsigned int b = 0; b < this->n_base_elements(); ++b)
             {
-              for (unsigned int i = 0; i < temp.size(0); ++i)
-                for (unsigned int j = 0; j < 8; ++j)
-                  this->adjust_quad_dof_index_for_face_orientation_table[0](
-                    index + i, j) = temp(i, j);
-              index += temp.size(0);
+              const Table<2, int> &temp =
+                this->base_element(b)
+                  .adjust_quad_dof_index_for_face_orientation_table[face_no];
+              for (unsigned int c = 0; c < this->element_multiplicity(b); ++c)
+                {
+                  for (unsigned int i = 0; i < temp.size(0); ++i)
+                    for (unsigned int j = 0; j < 8; ++j)
+                      this->adjust_quad_dof_index_for_face_orientation_table
+                        [face_no](index + i, j) = temp(i, j);
+                  index += temp.size(0);
+                }
             }
+          Assert(index == this->n_dofs_per_quad(face_no), ExcInternalError());
         }
-      Assert(index == this->n_dofs_per_quad(0 /*TODO*/), ExcInternalError());
 
       // additionally compose the permutation information for lines
       Assert(this->adjust_line_dof_index_for_line_orientation_table.size() ==
                this->n_dofs_per_line(),
              ExcInternalError());
-      index = 0;
+      unsigned int index = 0;
       for (unsigned int b = 0; b < this->n_base_elements(); ++b)
         {
           const std::vector<int> &temp2 =
