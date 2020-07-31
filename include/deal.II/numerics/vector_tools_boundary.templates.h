@@ -159,7 +159,8 @@ namespace VectorTools
           dof_values_system.reserve(
             dof.get_fe_collection().max_dofs_per_face());
 
-          const unsigned int face_no = 0; // TODO
+          // TODO: get support for each face -> PR #10764
+          const unsigned int face_no = 0;
 
           // before we start with the loop over all cells create an hp::FEValues
           // object that holds the interpolation points of all finite elements
@@ -201,7 +202,7 @@ namespace VectorTools
                     fe.n_dofs_per_face(face_no));
 
                   for (unsigned int i = 0; i < fe.n_dofs_per_face(face_no); ++i)
-                    if (fe.is_primitive(fe.face_to_cell_index(i, 0)))
+                    if (fe.is_primitive(fe.face_to_cell_index(i, face_no)))
                       if (component_mask[fe.face_system_to_component_index(
                                              i, face_no)
                                            .first] == true)
@@ -938,8 +939,6 @@ namespace VectorTools
                             std::vector<double> &dof_values,
                             std::vector<bool> &  dofs_processed)
     {
-      const unsigned int face_no = 0; // TODO
-
       const double tol =
         0.5 * cell->face(face)->line(line)->diameter() / cell->get_fe().degree;
       const unsigned int dim      = 3;
@@ -1037,7 +1036,7 @@ namespace VectorTools
 
           // Compute the degrees of
           // freedom.
-          for (unsigned int i = 0; i < fe.n_dofs_per_face(face_no); ++i)
+          for (unsigned int i = 0; i < fe.n_dofs_per_face(face); ++i)
             if (((dynamic_cast<const FESystem<dim> *>(&fe) != nullptr) &&
                  (fe.system_to_base_index(fe.face_to_cell_index(i, face))
                     .first == base_indices) &&
@@ -1594,8 +1593,12 @@ namespace VectorTools
     // corresponding degrees of freedom.
     const unsigned int    superdegree = dof_handler.get_fe().degree;
     const QGauss<dim - 1> reference_face_quadrature(2 * superdegree);
-    const unsigned int    dofs_per_face =
-      dof_handler.get_fe().n_dofs_per_face(0 /*TODO*/);
+
+    // TODO: the implementation makes the assumption that all faces have the
+    // same number of dofs
+    AssertDimension(dof_handler.get_fe().n_unique_faces(), 1);
+    const unsigned int dofs_per_face = dof_handler.get_fe().n_dofs_per_face(0);
+
     const hp::FECollection<dim> &fe_collection(dof_handler.get_fe_collection());
     const hp::MappingCollection<dim> mapping_collection(mapping);
     hp::QCollection<dim>             face_quadrature_collection;

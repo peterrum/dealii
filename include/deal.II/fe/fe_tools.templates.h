@@ -83,8 +83,6 @@ namespace FETools
       const std::vector<unsigned int> &                        multiplicities,
       const bool do_tensor_product)
     {
-      const unsigned int face_no = 0; // TODO
-
       AssertDimension(fes.size(), multiplicities.size());
 
       unsigned int multiplied_dofs_per_vertex = 0;
@@ -108,12 +106,17 @@ namespace FETools
       for (unsigned int i = 0; i < fes.size(); i++)
         if (multiplicities[i] > 0)
           {
+            // TODO: the implementation makes the assumption that all faces have
+            // the same number of dofs -> don't construct DPO but
+            // PrecomputedFiniteElementData
+            AssertDimension(fes[i]->n_unique_quads(), 1);
+
             multiplied_dofs_per_vertex +=
               fes[i]->n_dofs_per_vertex() * multiplicities[i];
             multiplied_dofs_per_line +=
               fes[i]->n_dofs_per_line() * multiplicities[i];
             multiplied_dofs_per_quad +=
-              fes[i]->n_dofs_per_quad(face_no) * multiplicities[i];
+              fes[i]->n_dofs_per_quad(0) * multiplicities[i];
             multiplied_dofs_per_hex +=
               fes[i]->n_dofs_per_hex() * multiplicities[i];
 
@@ -998,7 +1001,7 @@ namespace FETools
                   // do everything alike for this type of object
                   const unsigned int index_in_base =
                     (local_index +
-                     fe.base_element(base).get_first_quad_index(0));
+                     fe.base_element(base).get_first_quad_index(face_no));
 
                   const unsigned int face_index_in_base =
                     (fe.base_element(base).get_first_face_quad_index(face_no) +

@@ -490,7 +490,10 @@ namespace VectorTools
     for (unsigned int i = 0; i < fe_collection.size(); ++i)
       mapping_collection.push_back(mapping);
 
-    const unsigned int face_no = 0; // TODO
+    // TODO: the implementation makes the assumption that all faces have the
+    // same number of dofs
+    AssertDimension(dof_handler.get_fe().n_unique_faces(), 1);
+    const unsigned int face_no = 0;
 
     // now also create a quadrature collection for the faces of a cell. fill
     // it with a quadrature formula with the support points on faces for each
@@ -1080,7 +1083,10 @@ namespace VectorTools
     for (unsigned int i = 0; i < fe_collection.size(); ++i)
       mapping_collection.push_back(mapping);
 
-    const unsigned int face_no = 0; // TODO
+    // TODO: the implementation makes the assumption that all faces have the
+    // same number of dofs
+    AssertDimension(dof_handler.get_fe().n_unique_faces(), 1);
+    const unsigned int face_no = 0;
 
     // now also create a quadrature collection for the faces of a cell. fill
     // it with a quadrature formula with the support points on faces for each
