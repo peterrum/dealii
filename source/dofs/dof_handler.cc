@@ -309,7 +309,8 @@ namespace internal
           {
             dof_handler.object_dof_indices[i][2].resize(
               dof_handler.tria->n_raw_cells(i) *
-                dof_handler.get_fe().n_dofs_per_quad(),
+                dof_handler.get_fe().n_dofs_per_quad(
+                  0 /*note: in 2D there is only one quad*/),
               numbers::invalid_dof_index);
 
             dof_handler.object_dof_ptr[i][2].reserve(
@@ -317,7 +318,8 @@ namespace internal
             for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
                  j++)
               dof_handler.object_dof_ptr[i][2].push_back(
-                j * dof_handler.get_fe().n_dofs_per_quad());
+                j * dof_handler.get_fe().n_dofs_per_quad(
+                      0 /*note: in 2D there is only one quad*/));
 
             dof_handler.cell_dof_cache_indices[i].resize(
               dof_handler.tria->n_raw_cells(i) *
@@ -357,6 +359,8 @@ namespace internal
       template <int spacedim>
       static void reserve_space(DoFHandler<3, spacedim> &dof_handler)
       {
+        const unsigned int dim = 3;
+
         dof_handler.object_dof_indices[0][0].resize(
           dof_handler.tria->n_vertices() *
             dof_handler.get_fe().n_dofs_per_vertex(),
@@ -410,17 +414,54 @@ namespace internal
               numbers::invalid_dof_index);
 
             // faces
-            dof_handler.object_dof_ptr[0][2].reserve(
-              dof_handler.tria->n_raw_quads() + 1);
-            for (unsigned int i = 0; i < dof_handler.tria->n_raw_quads() + 1;
-                 i++)
-              dof_handler.object_dof_ptr[0][2].push_back(
-                i * dof_handler.get_fe().n_dofs_per_quad());
+            {
+              dof_handler.object_dof_ptr[0][2].assign(
+                dof_handler.tria->n_raw_quads() + 1, -1);
+              // determine for each face the number of dofs
+              for (const auto &cell : dof_handler.tria->cell_iterators())
+                for (const auto face_index : cell->face_indices())
+                  {
+                    const auto &face = cell->face(face_index);
+                    const auto  n_dofs_per_quad =
+                      dof_handler.get_fe().n_dofs_per_quad(face_index);
 
-            dof_handler.object_dof_indices[0][2].resize(
-              dof_handler.tria->n_raw_quads() *
-                dof_handler.get_fe().n_dofs_per_quad(),
-              numbers::invalid_dof_index);
+                    auto &n_dofs_per_quad_target =
+                      dof_handler.object_dof_ptr[0][2][face->index() + 1];
+
+
+                    // make sure that either the face has not been visited or
+                    // the face has the same number of dofs assigned
+                    Assert(
+                      (n_dofs_per_quad_target ==
+                         static_cast<
+                           typename DoFHandler<dim, spacedim>::offset_type>(
+                           -1) ||
+                       n_dofs_per_quad_target == n_dofs_per_quad),
+                      ExcNotImplemented());
+
+                    n_dofs_per_quad_target = n_dofs_per_quad;
+                  }
+
+              // convert the absolute numbers to CRS
+              dof_handler.object_dof_ptr[0][2][0] = 0;
+              for (unsigned int i = 1; i < dof_handler.tria->n_raw_quads() + 1;
+                   i++)
+                {
+                  if (dof_handler.object_dof_ptr[0][2][i] ==
+                      static_cast<
+                        typename DoFHandler<dim, spacedim>::offset_type>(-1))
+                    dof_handler.object_dof_ptr[0][2][i] =
+                      dof_handler.object_dof_ptr[0][2][i - 1];
+                  else
+                    dof_handler.object_dof_ptr[0][2][i] +=
+                      dof_handler.object_dof_ptr[0][2][i - 1];
+                }
+
+              // allocate memory for indices
+              dof_handler.object_dof_indices[0][2].resize(
+                dof_handler.object_dof_ptr[0][2].back(),
+                numbers::invalid_dof_index);
+            }
           }
       }
 
@@ -511,9 +552,10 @@ namespace internal
               std::make_unique<
                 internal::DoFHandlerImplementation::DoFLevel<2>>());
             dof_handler.mg_levels.back()->dof_object.dofs =
-              std::vector<types::global_dof_index>(tria.n_raw_quads(i) *
-                                                     fe.n_dofs_per_quad(),
-                                                   numbers::invalid_dof_index);
+              std::vector<types::global_dof_index>(
+                tria.n_raw_quads(i) *
+                  fe.n_dofs_per_quad(0 /*note: in 2D there is only one quad*/),
+                numbers::invalid_dof_index);
           }
 
         dof_handler.mg_faces =
@@ -597,10 +639,13 @@ namespace internal
           std::vector<types::global_dof_index>(tria.n_raw_lines() *
                                                  fe.n_dofs_per_line(),
                                                numbers::invalid_dof_index);
-        dof_handler.mg_faces->quads.dofs =
-          std::vector<types::global_dof_index>(tria.n_raw_quads() *
-                                                 fe.n_dofs_per_quad(),
-                                               numbers::invalid_dof_index);
+
+        // TODO: the implementation makes the assumption that all faces have the
+        // same number of dofs
+        AssertDimension(fe.n_unique_faces(), 1);
+        dof_handler.mg_faces->quads.dofs = std::vector<types::global_dof_index>(
+          tria.n_raw_quads() * fe.n_dofs_per_quad(0 /*=face_no*/),
+          numbers::invalid_dof_index);
 
         const unsigned int n_vertices = tria.n_vertices();
 
@@ -1293,17 +1338,18 @@ namespace internal
                           fe_slots_needed = 1;
                           n_face_slots +=
                             dof_handler.get_fe(cell->active_fe_index())
-                              .template n_dofs_per_object<dim - 1>();
+                              .template n_dofs_per_object<dim - 1>(face);
                         }
                       else
                         {
                           fe_slots_needed = 2;
                           n_face_slots +=
                             dof_handler.get_fe(cell->active_fe_index())
-                              .template n_dofs_per_object<dim - 1>() +
+                              .template n_dofs_per_object<dim - 1>(face) +
                             dof_handler
                               .get_fe(cell->neighbor(face)->active_fe_index())
-                              .template n_dofs_per_object<dim - 1>();
+                              .template n_dofs_per_object<dim - 1>(
+                                cell->neighbor_face_no(face));
                         }
 
                       // mark this face as visited
@@ -1374,7 +1420,7 @@ namespace internal
                           const unsigned int fe = cell->active_fe_index();
                           const unsigned int n_dofs =
                             dof_handler.get_fe(fe)
-                              .template n_dofs_per_object<dim - 1>();
+                              .template n_dofs_per_object<dim - 1>(face);
                           const unsigned int offset =
                             dof_handler
                               .hp_object_fe_ptr[d][cell->face(face)->index()];
@@ -1388,20 +1434,25 @@ namespace internal
                         }
                       else
                         {
-                          unsigned int fe_1 = cell->active_fe_index();
+                          unsigned int fe_1      = cell->active_fe_index();
+                          unsigned int face_no_1 = face;
                           unsigned int fe_2 =
                             cell->neighbor(face)->active_fe_index();
+                          unsigned int face_no_2 = cell->neighbor_face_no(face);
 
                           if (fe_2 < fe_1)
-                            std::swap(fe_1, fe_2);
+                            {
+                              std::swap(fe_1, fe_2);
+                              std::swap(face_no_1, face_no_2);
+                            }
 
                           const unsigned int n_dofs_1 =
                             dof_handler.get_fe(fe_1)
-                              .template n_dofs_per_object<dim - 1>();
+                              .template n_dofs_per_object<dim - 1>(face_no_1);
 
                           const unsigned int n_dofs_2 =
                             dof_handler.get_fe(fe_2)
-                              .template n_dofs_per_object<dim - 1>();
+                              .template n_dofs_per_object<dim - 1>(face_no_2);
 
                           const unsigned int offset =
                             dof_handler
@@ -1411,13 +1462,6 @@ namespace internal
                             cell->active_fe_index());
                           dof_handler.object_dof_ptr[l][d].push_back(
                             dof_handler.object_dof_indices[l][d].size());
-
-                          for (unsigned int i = 0;
-                               i < dof_handler.get_fe(cell->active_fe_index())
-                                     .template n_dofs_per_object<dim - 1>();
-                               i++)
-                            dof_handler.object_dof_indices[l][d].push_back(
-                              numbers::invalid_dof_index);
 
                           dof_handler.hp_object_fe_indices[d][offset + 0] =
                             fe_1;
@@ -2285,7 +2329,7 @@ DoFHandler<dim, spacedim>::n_boundary_dofs() const
             if (face->at_boundary())
               {
                 const unsigned int dofs_per_face =
-                  cell->get_fe().n_dofs_per_face();
+                  cell->get_fe().n_dofs_per_face(iface);
                 dofs_on_face.resize(dofs_per_face);
 
                 face->get_dof_indices(dofs_on_face, cell->active_fe_index());
@@ -2337,7 +2381,7 @@ DoFHandler<dim, spacedim>::n_boundary_dofs(
                 (boundary_ids.find(boundary_id) != boundary_ids.end()))
               {
                 const unsigned int dofs_per_face =
-                  cell->get_fe().n_dofs_per_face();
+                  cell->get_fe().n_dofs_per_face(iface);
                 dofs_on_face.resize(dofs_per_face);
 
                 face->get_dof_indices(dofs_on_face, cell->active_fe_index());
