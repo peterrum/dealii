@@ -393,7 +393,8 @@ public:
    */
   virtual void
   get_face_interpolation_matrix(const FiniteElement<dim, spacedim> &source,
-                                FullMatrix<double> &matrix) const override;
+                                FullMatrix<double> &                matrix,
+                                const unsigned int face_no) const override;
 
   /**
    * Return the matrix interpolating from a face of one element to the face
@@ -409,7 +410,8 @@ public:
   virtual void
   get_subface_interpolation_matrix(const FiniteElement<dim, spacedim> &source,
                                    const unsigned int                  subface,
-                                   FullMatrix<double> &matrix) const override;
+                                   FullMatrix<double> &                matrix,
+                                   const unsigned int face_no) const override;
 
   /**
    * @name Functions to support hp
@@ -457,8 +459,8 @@ public:
    * course empty.
    */
   virtual std::vector<std::pair<unsigned int, unsigned int>>
-  hp_quad_dof_identities(
-    const FiniteElement<dim, spacedim> &fe_other) const override;
+  hp_quad_dof_identities(const FiniteElement<dim, spacedim> &fe_other,
+                         const unsigned int face_no) const override;
 
   /**
    * Return whether this element implements its hanging node constraints in

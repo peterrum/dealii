@@ -119,6 +119,81 @@ namespace Simplex
     get_name() const override;
   };
 
+
+
+  /**
+   * TODO.
+   */
+  template <int dim, int spacedim = dim>
+  class FE_Wedge : public dealii::FE_Poly<dim, spacedim>
+  {
+  public:
+    /**
+     * Constructor.
+     */
+    FE_Wedge(const unsigned int degree);
+
+    /**
+     * @copydoc dealii::FiniteElement::clone()
+     */
+    std::unique_ptr<FiniteElement<dim, spacedim>>
+    clone() const override;
+
+    /**
+     * Return a string that uniquely identifies a finite element. This class
+     * returns <tt>Simplex::FE_DGP<dim>(degree)</tt>, with @p dim and @p degree
+     * replaced by appropriate values.
+     */
+    std::string
+    get_name() const override;
+
+    FiniteElementDomination::Domination
+    compare_for_domination(const FiniteElement<dim, spacedim> &fe_other,
+                           const unsigned int codim) const override
+    {
+      (void)fe_other; // TODO
+      (void)codim;    // TODO
+      return FiniteElementDomination::this_element_dominates;
+    }
+
+    std::vector<std::pair<unsigned int, unsigned int>>
+    hp_vertex_dof_identities(
+      const FiniteElement<dim, spacedim> &fe_other) const override
+    {
+      (void)fe_other; // TODO
+      return {{0, 0}};
+    }
+
+    std::vector<std::pair<unsigned int, unsigned int>>
+    hp_line_dof_identities(
+      const FiniteElement<dim, spacedim> &fe_other) const override
+    {
+      (void)fe_other; // TODO
+
+      std::vector<std::pair<unsigned int, unsigned int>> result;
+
+      for (unsigned int i = 0; i < this->degree - 1; ++i)
+        result.emplace_back(i, i);
+
+      return result;
+    }
+
+    std::vector<std::pair<unsigned int, unsigned int>>
+    hp_quad_dof_identities(const FiniteElement<dim, spacedim> &fe_other,
+                           const unsigned int face_no = 0) const override
+    {
+      (void)fe_other; // TODO
+
+      std::vector<std::pair<unsigned int, unsigned int>> result;
+
+      std::cout << this->n_dofs_per_quad(face_no) << std::endl;
+      for (unsigned int i = 0; i < this->n_dofs_per_quad(face_no); ++i)
+        result.emplace_back(i, i);
+
+      return result;
+    }
+  };
+
 } // namespace Simplex
 
 DEAL_II_NAMESPACE_CLOSE

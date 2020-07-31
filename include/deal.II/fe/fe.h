@@ -1285,7 +1285,8 @@ public:
    */
   virtual void
   get_face_interpolation_matrix(const FiniteElement<dim, spacedim> &source,
-                                FullMatrix<double> &matrix) const;
+                                FullMatrix<double> &                matrix,
+                                const unsigned int face_no = 0) const;
 
 
   /**
@@ -1302,7 +1303,8 @@ public:
   virtual void
   get_subface_interpolation_matrix(const FiniteElement<dim, spacedim> &source,
                                    const unsigned int                  subface,
-                                   FullMatrix<double> &matrix) const;
+                                   FullMatrix<double> &                matrix,
+                                   const unsigned int face_no = 0) const;
   //@}
 
 
@@ -1341,7 +1343,8 @@ public:
    * of freedom on quads.
    */
   virtual std::vector<std::pair<unsigned int, unsigned int>>
-  hp_quad_dof_identities(const FiniteElement<dim, spacedim> &fe_other) const;
+  hp_quad_dof_identities(const FiniteElement<dim, spacedim> &fe_other,
+                         const unsigned int face_no = 0 /*TODO*/) const;
 
   /**
    * Return whether this element dominates another one given as argument
@@ -1465,7 +1468,8 @@ public:
    * indices. The function is mainly there for use inside the library.
    */
   std::pair<unsigned int, unsigned int>
-  face_system_to_component_index(const unsigned int index) const;
+  face_system_to_component_index(const unsigned int index,
+                                 const unsigned int face = 0 /*TODO*/) const;
 
   /**
    * For faces with non-standard face_orientation in 3D, the dofs on faces
@@ -1477,6 +1481,7 @@ public:
    */
   unsigned int
   adjust_quad_dof_index_for_face_orientation(const unsigned int index,
+                                             const unsigned int face,
                                              const bool face_orientation,
                                              const bool face_flip,
                                              const bool face_rotation) const;
@@ -1760,7 +1765,8 @@ public:
    * indices. The function is mainly there for use inside the library.
    */
   std::pair<std::pair<unsigned int, unsigned int>, unsigned int>
-  face_system_to_base_index(const unsigned int index) const;
+  face_system_to_base_index(const unsigned int index,
+                            const unsigned int face_no) const;
 
   /**
    * Given a base element number, return the first block of a BlockVector it
@@ -2082,7 +2088,7 @@ public:
    * See the class documentation for details on support points.
    */
   const std::vector<Point<dim - 1>> &
-  get_unit_face_support_points() const;
+  get_unit_face_support_points(const unsigned int face_no = 0 /*TODO*/) const;
 
   /**
    * Return whether a finite element has defined support points on faces. If
@@ -2093,14 +2099,15 @@ public:
    * function.
    */
   bool
-  has_face_support_points() const;
+  has_face_support_points(const unsigned int face_no = 0 /*TODO*/) const;
 
   /**
    * The function corresponding to the unit_support_point() function, but for
    * faces. See there for more information.
    */
   virtual Point<dim - 1>
-  unit_face_support_point(const unsigned int index) const;
+  unit_face_support_point(const unsigned int index,
+                          const unsigned int face_no = 0 /*TODO*/) const;
 
   /**
    * Return a vector of generalized support points.
@@ -2436,7 +2443,7 @@ protected:
    * get_unit_face_support_points() function for a discussion of what
    * contributes a face support point.
    */
-  std::vector<Point<dim - 1>> unit_face_support_points;
+  std::vector<std::vector<Point<dim - 1>>> unit_face_support_points;
 
   /**
    * Support points used for interpolation functions of non-Lagrangian
@@ -2448,7 +2455,7 @@ protected:
    * Face support points used for interpolation functions of non-Lagrangian
    * elements.
    */
-  std::vector<Point<dim - 1>> generalized_face_support_points;
+  std::vector<std::vector<Point<dim - 1>>> generalized_face_support_points;
 
   /**
    * For faces with non-standard face_orientation in 3D, the dofs on faces
@@ -2465,7 +2472,7 @@ protected:
    * no permutation at all. Derived finite element classes have to
    * fill this Table with the correct values.
    */
-  Table<2, int> adjust_quad_dof_index_for_face_orientation_table;
+  std::vector<Table<2, int>> adjust_quad_dof_index_for_face_orientation_table;
 
   /**
    * For lines with non-standard line_orientation in 3D, the dofs on lines
@@ -2496,7 +2503,7 @@ protected:
    * information thus makes only sense if a shape function is non-zero in only
    * one component.
    */
-  std::vector<std::pair<unsigned int, unsigned int>>
+  std::vector<std::vector<std::pair<unsigned int, unsigned int>>>
     face_system_to_component_table;
 
   /**
@@ -2521,7 +2528,8 @@ protected:
   /**
    * Likewise for the indices on faces.
    */
-  std::vector<std::pair<std::pair<unsigned int, unsigned int>, unsigned int>>
+  std::vector<
+    std::vector<std::pair<std::pair<unsigned int, unsigned int>, unsigned int>>>
     face_system_to_base_table;
 
   /**
@@ -3120,9 +3128,13 @@ FiniteElement<dim, spacedim>::component_to_system_index(
 template <int dim, int spacedim>
 inline std::pair<unsigned int, unsigned int>
 FiniteElement<dim, spacedim>::face_system_to_component_index(
-  const unsigned int index) const
+  const unsigned int index,
+  const unsigned int face) const
 {
-  AssertIndexRange(index, face_system_to_component_table.size());
+  AssertIndexRange(
+    index,
+    face_system_to_component_table[this->n_unique_faces() == 1 ? 0 : face]
+      .size());
 
   // in debug mode, check whether the
   // function is primitive, since
@@ -3137,11 +3149,12 @@ FiniteElement<dim, spacedim>::face_system_to_component_index(
   //
   // in 1d, the face index is equal
   // to the cell index
-  Assert(is_primitive(this->face_to_cell_index(index, 0)),
+  Assert(is_primitive(this->face_to_cell_index(index, face)),
          (typename FiniteElement<dim, spacedim>::ExcShapeFunctionNotPrimitive(
            index)));
 
-  return face_system_to_component_table[index];
+  return face_system_to_component_table[this->n_unique_faces() == 1 ? 0 : face]
+                                       [index];
 }
 
 
@@ -3160,10 +3173,15 @@ FiniteElement<dim, spacedim>::system_to_base_index(
 template <int dim, int spacedim>
 inline std::pair<std::pair<unsigned int, unsigned int>, unsigned int>
 FiniteElement<dim, spacedim>::face_system_to_base_index(
-  const unsigned int index) const
+  const unsigned int index,
+  const unsigned int face_no) const
 {
-  AssertIndexRange(index, face_system_to_base_table.size());
-  return face_system_to_base_table[index];
+  AssertIndexRange(
+    index,
+    face_system_to_base_table[this->n_unique_faces() == 1 ? 0 : face_no]
+      .size());
+  return face_system_to_base_table[this->n_unique_faces() == 1 ? 0 : face_no]
+                                  [index];
 }
 
 
@@ -3291,7 +3309,7 @@ FiniteElement<dim, spacedim>::get_associated_geometry_primitive(
   // are enumerated on the reference cell
   if (cell_dof_index < this->get_first_line_index())
     return GeometryPrimitive::vertex;
-  else if (cell_dof_index < this->get_first_quad_index())
+  else if (cell_dof_index < this->get_first_quad_index(0))
     return GeometryPrimitive::line;
   else if (cell_dof_index < this->get_first_hex_index())
     return GeometryPrimitive::quad;
