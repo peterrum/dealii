@@ -287,6 +287,14 @@ public:
    * degrees of freedom on the lines and vertices of the quadrilateral.
    */
   const unsigned int dofs_per_quad;
+
+private:
+  /**
+   * Maximum number of degrees of freedom on any quad.
+   */
+  const unsigned int dofs_per_quad_max;
+
+public:
   /**
    * Number of degrees of freedom in a hexahedron; not including the degrees
    * of freedom on the quadrilaterals, lines and vertices of the hexahedron.
@@ -356,6 +364,13 @@ public:
    */
   const unsigned int dofs_per_face;
 
+private:
+  /**
+   * Maximum number of degrees of freedom on any face.
+   */
+  const unsigned int dofs_per_face_max;
+
+public:
   /**
    * Total number of degrees of freedom on a cell. This is the accumulated
    * number of degrees of freedom on all the objects of dimension up to
@@ -463,13 +478,15 @@ public:
   reference_cell_type() const;
 
   /**
-   * TODO.
+   * Number of unique quads. If all quads have the same type, the value is
+   * one; else it equals the number of quads.
    */
   unsigned int
   n_unique_quads() const;
 
   /**
-   * TODO.
+   * Number of unique faces. If all faces have the same type, the value is
+   * one; else it equals the number of faces.
    */
   unsigned int
   n_unique_faces() const;
@@ -493,7 +510,8 @@ public:
   n_dofs_per_quad(unsigned int face_no = 0) const;
 
   /**
-   * Number of dofs per quad. Not including dofs on lower dimensional objects.
+   * Maximum number of dofs per quad. Not including dofs on lower dimensional
+   * objects.
    */
   unsigned int
   max_dofs_per_quad() const;
@@ -512,7 +530,8 @@ public:
   n_dofs_per_face(unsigned int face_no = 0, unsigned int child = 0) const;
 
   /**
-   * TODO
+   * Maximum number of dofs per face, accumulating degrees of freedom of all
+   * lower dimensional objects.
    */
   unsigned int
   max_dofs_per_face() const;
@@ -727,7 +746,7 @@ template <int dim>
 inline unsigned int
 FiniteElementData<dim>::max_dofs_per_quad() const
 {
-  return n_dofs_on_quad[0]; // TODO
+  return dofs_per_quad_max;
 }
 
 
@@ -757,7 +776,7 @@ template <int dim>
 inline unsigned int
 FiniteElementData<dim>::max_dofs_per_face() const
 {
-  return n_dofs_on_face[0]; // TODO!!!
+  return dofs_per_face_max;
 }
 
 

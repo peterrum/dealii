@@ -171,6 +171,8 @@ FiniteElementData<dim>::FiniteElementData(
   , n_dofs_on_quad(dim > 1 ? data.dofs_per_object_exclusive[2] :
                              std::vector<unsigned int>{{0}})
   , dofs_per_quad(n_dofs_on_quad[0])
+  , dofs_per_quad_max(
+      *max_element(n_dofs_on_quad.begin(), n_dofs_on_quad.end()))
   , dofs_per_hex(dim > 2 ? data.dofs_per_object_exclusive[3][0] : 0)
   , first_line_index(data.first_index[1][0])
   , first_index_of_quads(data.first_index[2])
@@ -181,7 +183,9 @@ FiniteElementData<dim>::FiniteElementData(
   , first_quad_index_of_faces(data.first_face_index[2])
   , first_face_quad_index(first_quad_index_of_faces[0])
   , n_dofs_on_face(data.dofs_per_object_inclusive[dim - 1])
-  , dofs_per_face(data.dofs_per_object_inclusive[dim - 1][0])
+  , dofs_per_face(n_dofs_on_face[0])
+  , dofs_per_face_max(
+      *max_element(n_dofs_on_face.begin(), n_dofs_on_face.end()))
   , dofs_per_cell(data.dofs_per_object_inclusive[dim][0])
   , components(n_components)
   , degree(degree)
