@@ -108,7 +108,11 @@ FE_Nedelec<dim>::FE_Nedelec(const unsigned int order)
 #endif
   FullMatrix<double> face_embeddings[GeometryInfo<dim>::max_children_per_face];
 
-  const unsigned int face_no = 0; // TODO
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
+  const unsigned int face_no = 0;
+
   for (unsigned int i = 0; i < GeometryInfo<dim>::max_children_per_face; ++i)
     face_embeddings[i].reinit(this->n_dofs_per_face(face_no),
                               this->n_dofs_per_face(face_no));
@@ -259,7 +263,10 @@ FE_Nedelec<2>::initialize_support_points(const unsigned int order)
 {
   const int dim = 2;
 
-  const unsigned int face_no = 0; // TODO
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
+  const unsigned int face_no = 0;
 
   // Create polynomial basis.
   const std::vector<Polynomials::Polynomial<double>> &lobatto_polynomials =
@@ -354,7 +361,10 @@ FE_Nedelec<3>::initialize_support_points(const unsigned int order)
 {
   const int dim = 3;
 
-  const unsigned int face_no = 0; // TODO
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
+  const unsigned int face_no = 0;
 
   // Create polynomial basis.
   const std::vector<Polynomials::Polynomial<double>> &lobatto_polynomials =
@@ -3124,7 +3134,10 @@ FE_Nedelec<dim>::convert_generalized_support_point_values_to_dof_values(
   const std::vector<Vector<double>> &support_point_values,
   std::vector<double> &              nodal_values) const
 {
-  const unsigned int face_no = 0; // TODO
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
+  const unsigned int face_no = 0;
 
   const unsigned int deg = this->degree - 1;
   Assert(support_point_values.size() == this->generalized_support_points.size(),

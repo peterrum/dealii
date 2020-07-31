@@ -83,7 +83,10 @@ FE_RaviartThomasNodal<dim>::FE_RaviartThomasNodal(const unsigned int deg)
         this->prolongation[ref_case - 1][i].reinit(n_dofs, n_dofs);
     }
 
-  const unsigned int face_no = 0; // TODO
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
+  const unsigned int face_no = 0;
 
   // Fill prolongation matrices with embedding operators
   FETools::compute_embedding_matrices(*this, this->prolongation);
@@ -152,7 +155,10 @@ template <int dim>
 void
 FE_RaviartThomasNodal<dim>::initialize_support_points(const unsigned int deg)
 {
-  const unsigned int face_no = 0; // TODO
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
+  const unsigned int face_no = 0;
 
   this->generalized_support_points.resize(this->n_dofs_per_cell());
   this->generalized_face_support_points[face_no].resize(
@@ -491,7 +497,9 @@ FE_RaviartThomasNodal<dim>::hp_quad_dof_identities(
       // this works exactly like the line
       // case above
       const unsigned int p = this->n_dofs_per_quad(face_no);
-      const unsigned int q = fe_q_other->n_dofs_per_quad(face_no);
+
+      AssertDimension(fe_q_other->n_unique_faces(), 1);
+      const unsigned int q = fe_q_other->n_dofs_per_quad(0);
 
       std::vector<std::pair<unsigned int, unsigned int>> identities;
 

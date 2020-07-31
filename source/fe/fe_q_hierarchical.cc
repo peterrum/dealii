@@ -299,7 +299,7 @@ template <int dim>
 std::vector<std::pair<unsigned int, unsigned int>>
 FE_Q_Hierarchical<dim>::hp_quad_dof_identities(
   const FiniteElement<dim> &fe_other,
-  const unsigned int        face_no) const
+  const unsigned int) const
 {
   // we can presently only compute
   // these identities if both FEs are
@@ -307,6 +307,11 @@ FE_Q_Hierarchical<dim>::hp_quad_dof_identities(
   // one is an FE_Nothing.
   if (dynamic_cast<const FE_Q_Hierarchical<dim> *>(&fe_other) != nullptr)
     {
+      // TODO: the implementation makes the assumption that all faces have the
+      // same number of dofs
+      AssertDimension(this->n_unique_faces(), 1);
+      const unsigned int face_no = 0;
+
       const unsigned int this_dpq  = this->n_dofs_per_quad(face_no);
       const unsigned int other_dpq = fe_other.n_dofs_per_quad(face_no);
 
@@ -1909,6 +1914,9 @@ FE_Q_Hierarchical<dim>::initialize_generalized_face_support_points()
 {
   const unsigned int codim = dim - 1;
 
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
   const unsigned int face_no = 0;
 
   // number of points: (degree+1)^codim
@@ -2038,7 +2046,7 @@ FE_Q_Hierarchical<dim>::hierarchic_to_fe_q_hierarchical_numbering(
           for (unsigned int i = 0; i < fe.n_dofs_per_line(); ++i)
             h2l[next_index++] = n + 2 + i;
           // inside quad
-          Assert(fe.n_dofs_per_quad(0 /*TODO*/) ==
+          Assert(fe.n_dofs_per_quad(0 /*only one quad in 2D*/) ==
                    fe.n_dofs_per_line() * fe.n_dofs_per_line(),
                  ExcInternalError());
           for (unsigned int i = 0; i < fe.n_dofs_per_line(); ++i)
@@ -2095,8 +2103,13 @@ FE_Q_Hierarchical<dim>::hierarchic_to_fe_q_hierarchical_numbering(
           for (unsigned int i = 0; i < fe.n_dofs_per_line(); ++i)
             h2l[next_index++] = (2 + i) * n2 + n + 1;
 
+          // TODO: the implementation makes the assumption that all faces have
+          // the same number of dofs
+          AssertDimension(fe.n_unique_faces(), 1);
+          const unsigned int face_no = 0;
+
           // inside quads
-          Assert(fe.n_dofs_per_quad(0 /*TODO*/) ==
+          Assert(fe.n_dofs_per_quad(face_no) ==
                    fe.n_dofs_per_line() * fe.n_dofs_per_line(),
                  ExcInternalError());
           // left face
@@ -2126,7 +2139,7 @@ FE_Q_Hierarchical<dim>::hierarchic_to_fe_q_hierarchical_numbering(
 
           // inside hex
           Assert(fe.n_dofs_per_hex() ==
-                   fe.n_dofs_per_quad(0 /*TODO*/) * fe.n_dofs_per_line(),
+                   fe.n_dofs_per_quad(face_no) * fe.n_dofs_per_line(),
                  ExcInternalError());
           for (unsigned int i = 0; i < fe.n_dofs_per_line(); ++i)
             for (unsigned int j = 0; j < fe.n_dofs_per_line(); ++j)
@@ -2201,7 +2214,8 @@ FE_Q_Hierarchical<dim>::has_support_on_face(const unsigned int shape_index,
   // shape functions, since they
   // have no support no-where on
   // the boundary
-  if (((dim == 2) && (shape_index >= this->get_first_quad_index(0))) ||
+  if (((dim == 2) && (shape_index >=
+                      this->get_first_quad_index(0 /*only one quad in 2D*/))) ||
       ((dim == 3) && (shape_index >= this->get_first_hex_index())))
     return false;
 
@@ -2240,8 +2254,8 @@ FE_Q_Hierarchical<dim>::has_support_on_face(const unsigned int shape_index,
     // dof is on a quad
     {
       const unsigned int quad_index =
-        (shape_index - this->get_first_quad_index(0)) /
-        this->n_dofs_per_quad(face_index); // this won't work
+        (shape_index - this->get_first_quad_index(0 /*first quad*/)) /
+        this->n_dofs_per_quad(face_index);
       Assert(static_cast<signed int>(quad_index) <
                static_cast<signed int>(GeometryInfo<dim>::quads_per_cell),
              ExcInternalError());

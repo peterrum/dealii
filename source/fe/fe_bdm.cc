@@ -80,7 +80,9 @@ FE_BDM<dim>::FE_BDM(const unsigned int deg)
   this->reinit_restriction_and_prolongation_matrices(true, true);
   FETools::compute_embedding_matrices(*this, this->prolongation, true, 1.);
 
-  const unsigned int face_no = 0; // TODO
+  AssertDimension(this->n_unique_faces(), 1);
+  const unsigned int face_no = 0;
+
   FullMatrix<double> face_embeddings[GeometryInfo<dim>::max_children_per_face];
   for (unsigned int i = 0; i < GeometryInfo<dim>::max_children_per_face; ++i)
     face_embeddings[i].reinit(this->n_dofs_per_face(face_no),
@@ -181,8 +183,11 @@ FE_BDM<dim>::convert_generalized_support_point_values_to_dof_values(
       dbase += this->n_dofs_per_face(f);
     }
 
+  AssertDimension(this->n_unique_faces(), 1);
+  const unsigned int face_no = 0;
+
   AssertDimension(dbase,
-                  this->n_dofs_per_face(0 /*TODO*/) *
+                  this->n_dofs_per_face(face_no) *
                     GeometryInfo<dim>::faces_per_cell);
   AssertDimension(pbase,
                   this->generalized_support_points.size() -
@@ -336,6 +341,9 @@ FE_BDM<dim>::initialize_support_points(const unsigned int deg)
   // considered later. In 2D, we can use point values.
   QGauss<dim - 1> face_points(deg + 1);
 
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
   const unsigned int face_no = 0;
 
   // Copy the quadrature formula to the face points.
@@ -362,13 +370,13 @@ FE_BDM<dim>::initialize_support_points(const unsigned int deg)
        k < face_points.size() * GeometryInfo<dim>::faces_per_cell;
        ++k)
     this->generalized_support_points[k] = faces.point(
-      k + QProjector<dim>::DataSetDescriptor::face(this->reference_cell_type(),
-                                                   0,
-                                                   true,
-                                                   false,
-                                                   false,
-                                                   this->n_dofs_per_face(
-                                                     0 /*TODO*/)));
+      k +
+      QProjector<dim>::DataSetDescriptor::face(this->reference_cell_type(),
+                                               0,
+                                               true,
+                                               false,
+                                               false,
+                                               this->n_dofs_per_face(face_no)));
 
   // Currently, for backward compatibility, we do not use moments, but
   // point values on faces in 2D. In 3D, this is impossible, since the
