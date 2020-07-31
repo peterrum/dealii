@@ -75,7 +75,11 @@ FE_RT_Bubbles<dim>::FE_RT_Bubbles(const unsigned int deg)
       for (unsigned int i = 0; i < nc; ++i)
         this->prolongation[ref_case - 1][i].reinit(n_dofs, n_dofs);
     }
-  const unsigned int face_no = 0; // TODO
+
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
+  const unsigned int face_no = 0;
 
   // Fill prolongation matrices with embedding operators
   // set tolerance to 1, as embedding error accumulate quickly
@@ -135,7 +139,10 @@ template <int dim>
 void
 FE_RT_Bubbles<dim>::initialize_support_points(const unsigned int deg)
 {
-  const unsigned int face_no = 0; // TODO
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
+  const unsigned int face_no = 0;
 
   this->generalized_support_points.resize(this->n_dofs_per_cell());
   this->generalized_face_support_points[face_no].resize(

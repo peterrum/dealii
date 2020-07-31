@@ -87,7 +87,10 @@ FE_RaviartThomas<dim>::FE_RaviartThomas(const unsigned int deg)
   FETools::compute_embedding_matrices(*this, this->prolongation);
   initialize_restriction();
 
-  const unsigned int face_no = 0; // TODO
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
+  const unsigned int face_no = 0;
 
   // TODO[TL]: for anisotropic refinement we will probably need a table of
   // submatrices with an array for each refine case
@@ -156,6 +159,9 @@ FE_RaviartThomas<dim>::initialize_support_points(const unsigned int deg)
   QGauss<dim>        cell_quadrature(deg + 1);
   const unsigned int n_interior_points = (deg > 0) ? cell_quadrature.size() : 0;
 
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
   const unsigned int face_no = 0;
 
   unsigned int n_face_points = (dim > 1) ? 1 : 0;
@@ -366,9 +372,14 @@ FE_RaviartThomas<dim>::initialize_restriction()
       polynomials[dd] = std::make_unique<AnisotropicPolynomials<dim>>(poly);
     }
 
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
+  const unsigned int face_no = 0;
+
   QGauss<dim>        q_cell(this->degree);
   const unsigned int start_cell_dofs =
-    GeometryInfo<dim>::faces_per_cell * this->n_dofs_per_face(0 /*TODO*/);
+    GeometryInfo<dim>::faces_per_cell * this->n_dofs_per_face(face_no);
 
   // Store shape values, since the
   // evaluation suffers if not
@@ -522,8 +533,13 @@ FE_RaviartThomas<dim>::convert_generalized_support_point_values_to_dof_values(
               GeometryInfo<dim>::unit_normal_direction[face]);
         }
 
+  // TODO: the implementation makes the assumption that all faces have the
+  // same number of dofs
+  AssertDimension(this->n_unique_faces(), 1);
+  const unsigned int face_no = 0;
+
   const unsigned int start_cell_dofs =
-    GeometryInfo<dim>::faces_per_cell * this->n_dofs_per_face(0 /*TODO*/);
+    GeometryInfo<dim>::faces_per_cell * this->n_dofs_per_face(face_no);
   const unsigned int start_cell_points =
     GeometryInfo<dim>::faces_per_cell * n_face_points;
 

@@ -340,7 +340,8 @@ FE_FaceQ<dim, spacedim>::hp_line_dof_identities(
           // equivalencies to be recorded
           return std::vector<std::pair<unsigned int, unsigned int>>();
         }
-      else if (fe_other.n_dofs_per_face(0 /*TODO*/) == 0)
+      else if (fe_other.n_unique_faces() == 1 &&
+               fe_other.n_dofs_per_face(0) == 0)
         {
           // if the other element has no elements on faces at all,
           // then it would be impossible to enforce any kind of
@@ -418,7 +419,8 @@ FE_FaceQ<dim, spacedim>::hp_quad_dof_identities(
           // equivalencies to be recorded
           return std::vector<std::pair<unsigned int, unsigned int>>();
         }
-      else if (fe_other.n_dofs_per_face(0 /*TODO*/) == 0)
+      else if (fe_other.n_unique_faces() == 1 &&
+               fe_other.n_dofs_per_face(0) == 0)
         {
           // if the other element has no elements on faces at all,
           // then it would be impossible to enforce any kind of
