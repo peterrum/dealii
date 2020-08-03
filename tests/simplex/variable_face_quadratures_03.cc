@@ -82,7 +82,7 @@ test<2>()
     FEFaceValues<dim> fe_face_values(mapping, fe, quad_ref, flags);
 
     Triangulation<dim> tria;
-    Simplex::GridGenerator::subdivided_hyper_cube(tria, 1);
+    GridGenerator::subdivided_hyper_cube_with_simplices(tria, 1);
 
     DoFHandler<dim> dof_handler(tria);
     dof_handler.distribute_dofs(fe);
@@ -136,7 +136,7 @@ test<3>()
     FEFaceValues<dim> fe_face_values(mapping, fe, quad_ref, flags);
 
     Triangulation<dim> tria;
-    Simplex::GridGenerator::subdivided_hyper_cube(tria, 1);
+    GridGenerator::subdivided_hyper_cube_with_simplices(tria, 1);
 
     DoFHandler<dim> dof_handler(tria);
     dof_handler.distribute_dofs(fe);
