@@ -2528,7 +2528,10 @@ namespace internal
       return true;
     }
 
-    template <typename Function1a, typename Function1b>
+    template <typename Function1a,
+              typename Function1b,
+              typename Function2a,
+              typename Function2b>
     static bool
     process_and_io(
       Number2 *                                                  dst_ptr,
@@ -2549,7 +2552,9 @@ namespace internal
       const unsigned int                                 face_orientation,
       const Table<2, unsigned int> &                     orientation_map,
       const Function1a &                                 function_1a,
-      const Function1b &                                 function_1b)
+      const Function1b &                                 function_1b,
+      const Function2a &                                 function_2a,
+      const Function2b &                                 function_2b)
     {
       if (face_orientation)
         adjust_for_face_orientation(face_orientation,
@@ -2729,33 +2734,23 @@ namespace internal
                   const unsigned int ind2 =
                     index_array[2 * i + 1] * VectorizedArrayType::size();
                   for (unsigned int comp = 0; comp < n_components; ++comp)
-                    {
-                      VectorizedArrayType val =
-                        temp1[i + 2 * comp * dofs_per_face] -
-                        grad_weight *
-                          temp1[i + dofs_per_face + 2 * comp * dofs_per_face];
-                      VectorizedArrayType grad =
-                        grad_weight *
-                        temp1[i + dofs_per_face + 2 * comp * dofs_per_face];
-                      do_vectorized_scatter_add(
-                        val,
-                        indices,
-                        dst_ptr + ind1 +
-                          comp * static_dofs_per_component *
-                            VectorizedArrayType::size() +
-                          dof_info.component_dof_indices_offset
-                              [active_fe_index][first_selected_component] *
-                            VectorizedArrayType::size());
-                      do_vectorized_scatter_add(
-                        grad,
-                        indices,
-                        dst_ptr + ind2 +
-                          comp * static_dofs_per_component *
-                            VectorizedArrayType::size() +
-                          dof_info.component_dof_indices_offset
-                              [active_fe_index][first_selected_component] *
-                            VectorizedArrayType::size());
-                    }
+                    function_2a(
+                      temp1[i + 2 * comp * dofs_per_face],
+                      temp1[i + dofs_per_face + 2 * comp * dofs_per_face],
+                      dst_ptr + ind1 +
+                        comp * static_dofs_per_component *
+                          VectorizedArrayType::size() +
+                        dof_info.component_dof_indices_offset
+                            [active_fe_index][first_selected_component] *
+                          VectorizedArrayType::size(),
+                      dst_ptr + ind2 +
+                        comp * static_dofs_per_component *
+                          VectorizedArrayType::size() +
+                        dof_info.component_dof_indices_offset
+                            [active_fe_index][first_selected_component] *
+                          VectorizedArrayType::size(),
+                      grad_weight,
+                      indices);
                 }
             }
           else
@@ -2769,15 +2764,15 @@ namespace internal
                   const unsigned int ind =
                     index_array[i] * VectorizedArrayType::size();
                   for (unsigned int comp = 0; comp < n_components; ++comp)
-                    do_vectorized_scatter_add(
+                    function_2b(
                       temp1[i + 2 * comp * dofs_per_face],
-                      indices,
                       dst_ptr + ind +
                         comp * static_dofs_per_component *
                           VectorizedArrayType::size() +
                         dof_info.component_dof_indices_offset
                             [active_fe_index][first_selected_component] *
-                          VectorizedArrayType::size());
+                          VectorizedArrayType::size(),
+                      indices);
                 }
             }
         }
@@ -3027,40 +3022,55 @@ namespace internal
       const unsigned int                                 face_orientation,
       const Table<2, unsigned int> &                     orientation_map)
     {
-      return process_and_io(dst_ptr,
-                            data,
-                            dof_info,
-                            values_array,
-                            values_quad,
-                            gradients_quad,
-                            scratch_data,
-                            integrate_values,
-                            integrate_gradients,
-                            active_fe_index,
-                            first_selected_component,
-                            cell,
-                            face_no,
-                            subface_index,
-                            dof_access_index,
-                            face_orientation,
-                            orientation_map,
-                            [](const auto &temp_1,
-                               const auto &temp_2,
-                               auto        dst_ptr_1,
-                               auto        dst_ptr_2,
-                               const auto &grad_weight) {
-                              // case 1a)
-                              const VectorizedArrayType val =
-                                temp_1 - grad_weight * temp_2;
-                              const VectorizedArrayType grad =
-                                grad_weight * temp_2;
-                              do_vectorized_add(val, dst_ptr_1);
-                              do_vectorized_add(grad, dst_ptr_2);
-                            },
-                            [](const auto &temp, auto dst_ptr) {
-                              // case 1b)
-                              do_vectorized_add(temp, dst_ptr);
-                            });
+      return process_and_io( //
+        dst_ptr,
+        data,
+        dof_info,
+        values_array,
+        values_quad,
+        gradients_quad,
+        scratch_data,
+        integrate_values,
+        integrate_gradients,
+        active_fe_index,
+        first_selected_component,
+        cell,
+        face_no,
+        subface_index,
+        dof_access_index,
+        face_orientation,
+        orientation_map,
+        [](const auto &temp_1,
+           const auto &temp_2,
+           auto        dst_ptr_1,
+           auto        dst_ptr_2,
+           const auto &grad_weight) {
+          // case 1a)
+          const VectorizedArrayType val  = temp_1 - grad_weight * temp_2;
+          const VectorizedArrayType grad = grad_weight * temp_2;
+          do_vectorized_add(val, dst_ptr_1);
+          do_vectorized_add(grad, dst_ptr_2);
+        },
+        [](const auto &temp, auto dst_ptr) {
+          // case 1b)
+          do_vectorized_add(temp, dst_ptr);
+        },
+        [](const auto &temp_1,
+           const auto &temp_2,
+           auto        dst_ptr_1,
+           auto        dst_ptr_2,
+           const auto &grad_weight,
+           const auto &indices) {
+          // case 2a)
+          const VectorizedArrayType val  = temp_1 - grad_weight * temp_2;
+          const VectorizedArrayType grad = grad_weight * temp_2;
+          do_vectorized_scatter_add(val, indices, dst_ptr_1);
+          do_vectorized_scatter_add(grad, indices, dst_ptr_2);
+        },
+        [](const auto &temp, auto dst_ptr, const auto &indices) {
+          // case 2b)
+          do_vectorized_scatter_add(temp, indices, dst_ptr);
+        });
     }
 
     static void
