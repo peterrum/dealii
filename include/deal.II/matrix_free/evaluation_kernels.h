@@ -2531,13 +2531,13 @@ namespace internal
     template <typename Function1a,
               typename Function1b,
               typename Function2a,
-              typename Function2b>
+              typename Function2b,
+              typename Function5>
     static bool
     process_and_io(
       Number2 *                                                  dst_ptr,
       const MatrixFreeFunctions::ShapeInfo<VectorizedArrayType> &data,
       const MatrixFreeFunctions::DoFInfo &                       dof_info,
-      VectorizedArrayType *                                      values_array,
       VectorizedArrayType *                                      values_quad,
       VectorizedArrayType *                                      gradients_quad,
       VectorizedArrayType *                                      scratch_data,
@@ -2554,7 +2554,8 @@ namespace internal
       const Function1a &                                 function_1a,
       const Function1b &                                 function_1b,
       const Function2a &                                 function_2a,
-      const Function2b &                                 function_2b)
+      const Function2b &                                 function_2b,
+      const Function5 &                                  function_5)
     {
       if (face_orientation)
         adjust_for_face_orientation(face_orientation,
@@ -2834,15 +2835,14 @@ namespace internal
                           indices[v] + (comp * static_dofs_per_component +
                                         index_array[2 * i + 1]) *
                                          strides[v];
-                      VectorizedArrayType val =
-                        temp1[i + 2 * comp * dofs_per_face] -
-                        grad_weight *
-                          temp1[i + dofs_per_face + 2 * comp * dofs_per_face];
-                      VectorizedArrayType grad =
-                        grad_weight *
-                        temp1[i + dofs_per_face + 2 * comp * dofs_per_face];
-                      do_vectorized_scatter_add(val, ind1, dst_ptr);
-                      do_vectorized_scatter_add(grad, ind2, dst_ptr);
+                      function_2a(
+                        temp1[i + 2 * comp * dofs_per_face],
+                        temp1[i + dofs_per_face + 2 * comp * dofs_per_face],
+                        dst_ptr,
+                        dst_ptr,
+                        grad_weight,
+                        ind1,
+                        ind2);
                     }
               else
                 {
@@ -2888,8 +2888,9 @@ namespace internal
                           indices[v] +
                           (comp * static_dofs_per_component + index_array[i]) *
                             strides[v];
-                      do_vectorized_scatter_add(
-                        temp1[i + 2 * comp * dofs_per_face], ind, dst_ptr);
+                      function_2b(temp1[i + 2 * comp * dofs_per_face],
+                                  dst_ptr,
+                                  ind);
                     }
               else
                 {
@@ -2982,12 +2983,7 @@ namespace internal
       // the face-normal interpolation
       else
         {
-          FEFaceNormalEvaluationImpl<dim,
-                                     fe_degree,
-                                     n_components,
-                                     VectorizedArrayType>::
-            template interpolate<false, false>(
-              data, temp1, values_array, integrate_gradients, face_no);
+          function_5(temp1);
           return false;
         }
 
@@ -3018,7 +3014,6 @@ namespace internal
         dst_ptr,
         data,
         dof_info,
-        values_array,
         values_quad,
         gradients_quad,
         scratch_data,
@@ -3063,6 +3058,15 @@ namespace internal
         [](const auto &temp, auto dst_ptr, const auto &indices) {
           // case 2b)
           do_vectorized_scatter_add(temp, indices, dst_ptr);
+        },
+        [&](const auto &temp1) {
+          // case 5)
+          FEFaceNormalEvaluationImpl<dim,
+                                     fe_degree,
+                                     n_components,
+                                     VectorizedArrayType>::
+            template interpolate<false, false>(
+              data, temp1, values_array, integrate_gradients, face_no);
         });
     }
 
