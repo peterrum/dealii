@@ -2559,22 +2559,27 @@ namespace internal
                                     values_quad,
                                     gradients_quad);
 
-      const unsigned int     side = face_no % 2;
+      const unsigned int side = face_no % 2;
+
       constexpr unsigned int static_dofs_per_component =
         fe_degree > -1 ? Utilities::pow(fe_degree + 1, dim) :
                          numbers::invalid_unsigned_int;
+      constexpr unsigned int static_dofs_per_face =
+        fe_degree > -1 ? Utilities::pow(fe_degree + 1, dim - 1) :
+                         numbers::invalid_unsigned_int;
       const unsigned int dofs_per_face =
         fe_degree > -1 ?
-          Utilities::pow(fe_degree + 1, dim - 1) :
+          static_dofs_per_face :
           Utilities::pow(data.data.front().fe_degree + 1, dim - 1);
 
       constexpr unsigned int stack_array_size_threshold = 100;
 
-      VectorizedArrayType temp_data[dofs_per_face < stack_array_size_threshold ?
-                                      n_components * 2 * dofs_per_face :
-                                      1];
+      VectorizedArrayType
+        temp_data[static_dofs_per_face < stack_array_size_threshold ?
+                    n_components * 2 * dofs_per_face :
+                    1];
       VectorizedArrayType *__restrict temp1;
-      if (dofs_per_face < stack_array_size_threshold)
+      if (static_dofs_per_face < stack_array_size_threshold)
         temp1 = &temp_data[0];
       else
         temp1 = scratch_data;
@@ -2620,10 +2625,10 @@ namespace internal
       if (((integrate_gradients == false &&
             data.data.front().nodal_at_cell_boundaries == true) ||
            (data.element_type ==
-              internal::MatrixFreeFunctions::tensor_symmetric_hermite &&
+              MatrixFreeFunctions::tensor_symmetric_hermite &&
             fe_degree > 1)) &&
           dof_info.index_storage_variants[dof_access_index][cell] ==
-            internal::MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
+            MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
               interleaved_contiguous)
         {
           AssertDimension(
@@ -2699,10 +2704,10 @@ namespace internal
       else if (((integrate_gradients == false &&
                  data.data.front().nodal_at_cell_boundaries == true) ||
                 (data.element_type ==
-                   internal::MatrixFreeFunctions::tensor_symmetric_hermite &&
+                   MatrixFreeFunctions::tensor_symmetric_hermite &&
                  fe_degree > 1)) &&
                dof_info.index_storage_variants[dof_access_index][cell] ==
-                 internal::MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
+                 MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
                    interleaved_contiguous_strided)
         {
           AssertDimension(
@@ -2788,10 +2793,10 @@ namespace internal
       else if (((integrate_gradients == false &&
                  data.data.front().nodal_at_cell_boundaries == true) ||
                 (data.element_type ==
-                   internal::MatrixFreeFunctions::tensor_symmetric_hermite &&
+                   MatrixFreeFunctions::tensor_symmetric_hermite &&
                  fe_degree > 1)) &&
                dof_info.index_storage_variants[dof_access_index][cell] ==
-                 internal::MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
+                 MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
                    interleaved_contiguous_mixed_strides)
         {
           const unsigned int *strides =
@@ -2918,10 +2923,10 @@ namespace internal
       else if (((integrate_gradients == false &&
                  data.data.front().nodal_at_cell_boundaries == true) ||
                 (data.element_type ==
-                   internal::MatrixFreeFunctions::tensor_symmetric_hermite &&
+                   MatrixFreeFunctions::tensor_symmetric_hermite &&
                  fe_degree > 1)) &&
                dof_info.index_storage_variants[dof_access_index][cell] ==
-                 internal::MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
+                 MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
                    contiguous &&
                dof_info.n_vectorization_lanes_filled[dof_access_index][cell] ==
                  VectorizedArrayType::size())
@@ -2933,7 +2938,7 @@ namespace internal
 
           if (integrate_gradients == true &&
               data.element_type ==
-                internal::MatrixFreeFunctions::tensor_symmetric_hermite)
+                MatrixFreeFunctions::tensor_symmetric_hermite)
             {
               // we know that the gradient weights for the Hermite case on the
               // right (side==1) are the negative from the value at the left
@@ -2942,6 +2947,7 @@ namespace internal
                 data.data.front().shape_data_on_face[0][fe_degree + 2 - side];
               AssertDimension(data.face_to_cell_index_hermite.size(1),
                               2 * dofs_per_face);
+
               const unsigned int *index_array =
                 &data.face_to_cell_index_hermite(face_no, 0);
               for (unsigned int i = 0; i < dofs_per_face; ++i)
@@ -2979,16 +2985,16 @@ namespace internal
               const unsigned int *index_array =
                 &data.face_to_cell_index_nodal(face_no, 0);
               for (unsigned int i = 0; i < dofs_per_face; ++i)
-                {
-                  const unsigned int ind = index_array[i];
-                  for (unsigned int comp = 0; comp < n_components; ++comp)
+                for (unsigned int comp = 0; comp < n_components; ++comp)
+                  {
+                    const unsigned int ind = index_array[i];
                     do_vectorized_scatter_add(
                       temp1[i + 2 * comp * dofs_per_face],
                       indices,
                       dst_ptr + comp * static_dofs_per_component + ind +
                         dof_info.component_dof_indices_offset
                           [active_fe_index][first_selected_component]);
-                }
+                  }
             }
         }
 
