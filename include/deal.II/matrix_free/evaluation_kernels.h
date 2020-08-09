@@ -2190,6 +2190,142 @@ namespace internal
         });
     }
 
+    static bool
+    integrate_scatter(
+      Number2 *                                                  dst_ptr,
+      const MatrixFreeFunctions::ShapeInfo<VectorizedArrayType> &data,
+      const MatrixFreeFunctions::DoFInfo &                       dof_info,
+      VectorizedArrayType *                                      values_array,
+      VectorizedArrayType *                                      values_quad,
+      VectorizedArrayType *                                      gradients_quad,
+      VectorizedArrayType *                                      scratch_data,
+      const bool         integrate_values,
+      const bool         integrate_gradients,
+      const unsigned int active_fe_index,
+      const unsigned int first_selected_component,
+      const unsigned int cell,
+      const unsigned int face_no,
+      const unsigned int subface_index,
+      const MatrixFreeFunctions::DoFInfo::DoFAccessIndex dof_access_index,
+      const unsigned int                                 face_orientation,
+      const Table<2, unsigned int> &                     orientation_map)
+    {
+      return process_and_io( //
+        true /*=integrate*/,
+        dst_ptr,
+        data,
+        dof_info,
+        values_quad,
+        gradients_quad,
+        scratch_data,
+        integrate_values,
+        integrate_gradients,
+        active_fe_index,
+        first_selected_component,
+        cell,
+        face_no,
+        subface_index,
+        dof_access_index,
+        face_orientation,
+        orientation_map,
+        [](const auto &temp_1,
+           const auto &temp_2,
+           auto        dst_ptr_1,
+           auto        dst_ptr_2,
+           const auto &grad_weight) {
+          // case 1a)
+          const VectorizedArrayType val  = temp_1 - grad_weight * temp_2;
+          const VectorizedArrayType grad = grad_weight * temp_2;
+          do_vectorized_add(val, dst_ptr_1);
+          do_vectorized_add(grad, dst_ptr_2);
+        },
+        [](const auto &temp, auto dst_ptr) {
+          // case 1b)
+          do_vectorized_add(temp, dst_ptr);
+        },
+        [](const auto &temp_1,
+           const auto &temp_2,
+           auto        dst_ptr_1,
+           auto        dst_ptr_2,
+           const auto &grad_weight,
+           const auto &indices_1,
+           const auto &indices_2) {
+          // case 2a)
+          const VectorizedArrayType val  = temp_1 - grad_weight * temp_2;
+          const VectorizedArrayType grad = grad_weight * temp_2;
+          do_vectorized_scatter_add(val, indices_1, dst_ptr_1);
+          do_vectorized_scatter_add(grad, indices_2, dst_ptr_2);
+        },
+        [](const auto &temp, auto dst_ptr, const auto &indices) {
+          // case 2b)
+          do_vectorized_scatter_add(temp, indices, dst_ptr);
+        },
+        [](const auto &temp_1,
+           const auto &temp_2,
+           auto &      dst_ptr_1,
+           auto &      dst_ptr_2,
+           const auto &grad_weight) {
+          // case 3a)
+          const Number val  = temp_1 - grad_weight * temp_2;
+          const Number grad = grad_weight * temp_2;
+          dst_ptr_1 += val;
+          dst_ptr_2 += grad;
+        },
+        [](const auto &temp, auto &dst_ptr) {
+          // case 3b)
+          dst_ptr += temp;
+        },
+        [&](const auto &temp1) {
+          // case 5)
+          FEFaceNormalEvaluationImpl<dim,
+                                     fe_degree,
+                                     n_components,
+                                     VectorizedArrayType>::
+            template interpolate<false, false>(
+              data, temp1, values_array, integrate_gradients, face_no);
+        },
+        [&](auto &temp1, const auto &dofs_per_face) {
+          if (fe_degree > -1 &&
+              subface_index >= GeometryInfo<dim>::max_children_per_cell &&
+              data.element_type <=
+                internal::MatrixFreeFunctions::tensor_symmetric)
+            internal::FEFaceEvaluationImpl<
+              true,
+              dim,
+              fe_degree,
+              n_q_points_1d,
+              n_components,
+              VectorizedArrayType>::integrate_in_face(data,
+                                                      temp1,
+                                                      values_quad,
+                                                      gradients_quad,
+                                                      scratch_data +
+                                                        2 * n_components *
+                                                          dofs_per_face,
+                                                      integrate_values,
+                                                      integrate_gradients,
+                                                      subface_index);
+          else
+            internal::FEFaceEvaluationImpl<
+              false,
+              dim,
+              fe_degree,
+              n_q_points_1d,
+              n_components,
+              VectorizedArrayType>::integrate_in_face(data,
+                                                      temp1,
+                                                      values_quad,
+                                                      gradients_quad,
+                                                      scratch_data +
+                                                        2 * n_components *
+                                                          dofs_per_face,
+                                                      integrate_values,
+                                                      integrate_gradients,
+                                                      subface_index);
+        });
+    }
+
+  private:
     template <typename Number2_,
               typename Function1a,
               typename Function1b,
@@ -2650,141 +2786,6 @@ namespace internal
                                     gradients_quad);
 
       return true;
-    }
-
-    static bool
-    integrate_scatter(
-      Number2 *                                                  dst_ptr,
-      const MatrixFreeFunctions::ShapeInfo<VectorizedArrayType> &data,
-      const MatrixFreeFunctions::DoFInfo &                       dof_info,
-      VectorizedArrayType *                                      values_array,
-      VectorizedArrayType *                                      values_quad,
-      VectorizedArrayType *                                      gradients_quad,
-      VectorizedArrayType *                                      scratch_data,
-      const bool         integrate_values,
-      const bool         integrate_gradients,
-      const unsigned int active_fe_index,
-      const unsigned int first_selected_component,
-      const unsigned int cell,
-      const unsigned int face_no,
-      const unsigned int subface_index,
-      const MatrixFreeFunctions::DoFInfo::DoFAccessIndex dof_access_index,
-      const unsigned int                                 face_orientation,
-      const Table<2, unsigned int> &                     orientation_map)
-    {
-      return process_and_io( //
-        true /*=integrate*/,
-        dst_ptr,
-        data,
-        dof_info,
-        values_quad,
-        gradients_quad,
-        scratch_data,
-        integrate_values,
-        integrate_gradients,
-        active_fe_index,
-        first_selected_component,
-        cell,
-        face_no,
-        subface_index,
-        dof_access_index,
-        face_orientation,
-        orientation_map,
-        [](const auto &temp_1,
-           const auto &temp_2,
-           auto        dst_ptr_1,
-           auto        dst_ptr_2,
-           const auto &grad_weight) {
-          // case 1a)
-          const VectorizedArrayType val  = temp_1 - grad_weight * temp_2;
-          const VectorizedArrayType grad = grad_weight * temp_2;
-          do_vectorized_add(val, dst_ptr_1);
-          do_vectorized_add(grad, dst_ptr_2);
-        },
-        [](const auto &temp, auto dst_ptr) {
-          // case 1b)
-          do_vectorized_add(temp, dst_ptr);
-        },
-        [](const auto &temp_1,
-           const auto &temp_2,
-           auto        dst_ptr_1,
-           auto        dst_ptr_2,
-           const auto &grad_weight,
-           const auto &indices_1,
-           const auto &indices_2) {
-          // case 2a)
-          const VectorizedArrayType val  = temp_1 - grad_weight * temp_2;
-          const VectorizedArrayType grad = grad_weight * temp_2;
-          do_vectorized_scatter_add(val, indices_1, dst_ptr_1);
-          do_vectorized_scatter_add(grad, indices_2, dst_ptr_2);
-        },
-        [](const auto &temp, auto dst_ptr, const auto &indices) {
-          // case 2b)
-          do_vectorized_scatter_add(temp, indices, dst_ptr);
-        },
-        [](const auto &temp_1,
-           const auto &temp_2,
-           auto &      dst_ptr_1,
-           auto &      dst_ptr_2,
-           const auto &grad_weight) {
-          // case 3a)
-          const Number val  = temp_1 - grad_weight * temp_2;
-          const Number grad = grad_weight * temp_2;
-          dst_ptr_1 += val;
-          dst_ptr_2 += grad;
-        },
-        [](const auto &temp, auto &dst_ptr) {
-          // case 3b)
-          dst_ptr += temp;
-        },
-        [&](const auto &temp1) {
-          // case 5)
-          FEFaceNormalEvaluationImpl<dim,
-                                     fe_degree,
-                                     n_components,
-                                     VectorizedArrayType>::
-            template interpolate<false, false>(
-              data, temp1, values_array, integrate_gradients, face_no);
-        },
-        [&](auto &temp1, const auto &dofs_per_face) {
-          if (fe_degree > -1 &&
-              subface_index >= GeometryInfo<dim>::max_children_per_cell &&
-              data.element_type <=
-                internal::MatrixFreeFunctions::tensor_symmetric)
-            internal::FEFaceEvaluationImpl<
-              true,
-              dim,
-              fe_degree,
-              n_q_points_1d,
-              n_components,
-              VectorizedArrayType>::integrate_in_face(data,
-                                                      temp1,
-                                                      values_quad,
-                                                      gradients_quad,
-                                                      scratch_data +
-                                                        2 * n_components *
-                                                          dofs_per_face,
-                                                      integrate_values,
-                                                      integrate_gradients,
-                                                      subface_index);
-          else
-            internal::FEFaceEvaluationImpl<
-              false,
-              dim,
-              fe_degree,
-              n_q_points_1d,
-              n_components,
-              VectorizedArrayType>::integrate_in_face(data,
-                                                      temp1,
-                                                      values_quad,
-                                                      gradients_quad,
-                                                      scratch_data +
-                                                        2 * n_components *
-                                                          dofs_per_face,
-                                                      integrate_values,
-                                                      integrate_gradients,
-                                                      subface_index);
-        });
     }
 
     static void
