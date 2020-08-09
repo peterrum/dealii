@@ -2534,7 +2534,8 @@ namespace internal
               typename Function2b,
               typename Function3a,
               typename Function3b,
-              typename Function5>
+              typename Function5,
+              typename Function0>
     static bool
     process_and_io(
       Number2 *                                                  dst_ptr,
@@ -2559,8 +2560,11 @@ namespace internal
       const Function2b &                                 function_2b,
       const Function3a &                                 function_3a,
       const Function3b &                                 function_3b,
-      const Function5 &                                  function_5)
+      const Function5 &                                  function_5,
+      const Function0 &                                  function_0)
     {
+      (void)subface_index;
+
       if (face_orientation)
         adjust_for_face_orientation(face_orientation,
                                     orientation_map,
@@ -2597,42 +2601,7 @@ namespace internal
       else
         temp1 = scratch_data;
 
-      if (fe_degree > -1 &&
-          subface_index >= GeometryInfo<dim>::max_children_per_cell &&
-          data.element_type <= internal::MatrixFreeFunctions::tensor_symmetric)
-        internal::FEFaceEvaluationImpl<
-          true,
-          dim,
-          fe_degree,
-          n_q_points_1d,
-          n_components,
-          VectorizedArrayType>::integrate_in_face(data,
-                                                  temp1,
-                                                  values_quad,
-                                                  gradients_quad,
-                                                  scratch_data +
-                                                    2 * n_components *
-                                                      dofs_per_face,
-                                                  integrate_values,
-                                                  integrate_gradients,
-                                                  subface_index);
-      else
-        internal::FEFaceEvaluationImpl<
-          false,
-          dim,
-          fe_degree,
-          n_q_points_1d,
-          n_components,
-          VectorizedArrayType>::integrate_in_face(data,
-                                                  temp1,
-                                                  values_quad,
-                                                  gradients_quad,
-                                                  scratch_data +
-                                                    2 * n_components *
-                                                      dofs_per_face,
-                                                  integrate_values,
-                                                  integrate_gradients,
-                                                  subface_index);
+      function_0(temp1, dofs_per_face);
 
       // case 1: contiguous and interleaved indices
       if (((integrate_gradients == false &&
@@ -3083,6 +3052,45 @@ namespace internal
                                      VectorizedArrayType>::
             template interpolate<false, false>(
               data, temp1, values_array, integrate_gradients, face_no);
+        },
+        [&](auto &temp1, const auto &dofs_per_face) {
+          if (fe_degree > -1 &&
+              subface_index >= GeometryInfo<dim>::max_children_per_cell &&
+              data.element_type <=
+                internal::MatrixFreeFunctions::tensor_symmetric)
+            internal::FEFaceEvaluationImpl<
+              true,
+              dim,
+              fe_degree,
+              n_q_points_1d,
+              n_components,
+              VectorizedArrayType>::integrate_in_face(data,
+                                                      temp1,
+                                                      values_quad,
+                                                      gradients_quad,
+                                                      scratch_data +
+                                                        2 * n_components *
+                                                          dofs_per_face,
+                                                      integrate_values,
+                                                      integrate_gradients,
+                                                      subface_index);
+          else
+            internal::FEFaceEvaluationImpl<
+              false,
+              dim,
+              fe_degree,
+              n_q_points_1d,
+              n_components,
+              VectorizedArrayType>::integrate_in_face(data,
+                                                      temp1,
+                                                      values_quad,
+                                                      gradients_quad,
+                                                      scratch_data +
+                                                        2 * n_components *
+                                                          dofs_per_face,
+                                                      integrate_values,
+                                                      integrate_gradients,
+                                                      subface_index);
         });
     }
 
