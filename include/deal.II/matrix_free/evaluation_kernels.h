@@ -2532,6 +2532,8 @@ namespace internal
               typename Function1b,
               typename Function2a,
               typename Function2b,
+              typename Function3a,
+              typename Function3b,
               typename Function5>
     static bool
     process_and_io(
@@ -2555,6 +2557,8 @@ namespace internal
       const Function1b &                                 function_1b,
       const Function2a &                                 function_2a,
       const Function2b &                                 function_2b,
+      const Function3a &                                 function_3a,
+      const Function3b &                                 function_3b,
       const Function5 &                                  function_5)
     {
       if (face_orientation)
@@ -2858,15 +2862,12 @@ namespace internal
                             indices[v] + (comp * static_dofs_per_component +
                                           index_array[2 * i + 1]) *
                                            strides[v];
-                          Number val =
-                            temp1[i + 2 * comp * dofs_per_face][v] -
-                            grad_weight[0] * temp1[i + dofs_per_face +
-                                                   2 * comp * dofs_per_face][v];
-                          Number grad =
-                            grad_weight[0] * temp1[i + dofs_per_face +
-                                                   2 * comp * dofs_per_face][v];
-                          dst_ptr[ind1] += val;
-                          dst_ptr[ind2] += grad;
+                          function_3a(temp1[i + 2 * comp * dofs_per_face][v],
+                                      temp1[i + dofs_per_face +
+                                            2 * comp * dofs_per_face][v],
+                                      dst_ptr[ind1],
+                                      dst_ptr[ind2],
+                                      grad_weight[0]);
                         }
                 }
             }
@@ -2902,8 +2903,8 @@ namespace internal
                             indices[v] + (comp * static_dofs_per_component +
                                           index_array[i]) *
                                            strides[v];
-                          dst_ptr[ind1] +=
-                            temp1[i + 2 * comp * dofs_per_face][v];
+                          function_3b(temp1[i + 2 * comp * dofs_per_face][v],
+                                      dst_ptr[ind1]);
                         }
                 }
             }
@@ -3058,6 +3059,21 @@ namespace internal
         [](const auto &temp, auto dst_ptr, const auto &indices) {
           // case 2b)
           do_vectorized_scatter_add(temp, indices, dst_ptr);
+        },
+        [](const auto &temp_1,
+           const auto &temp_2,
+           auto &      dst_ptr_1,
+           auto &      dst_ptr_2,
+           const auto &grad_weight) {
+          // case 3a)
+          const Number val  = temp_1 - grad_weight * temp_2;
+          const Number grad = grad_weight * temp_2;
+          dst_ptr_1 += val;
+          dst_ptr_2 += grad;
+        },
+        [](const auto &temp, auto &dst_ptr) {
+          // case 3b)
+          dst_ptr += temp;
         },
         [&](const auto &temp1) {
           // case 5)
