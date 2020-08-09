@@ -2528,6 +2528,7 @@ namespace internal
       return true;
     }
 
+    template <typename Function1a, typename Function1b>
     static bool
     process_and_io(
       Number2 *                                                  dst_ptr,
@@ -2546,7 +2547,9 @@ namespace internal
       const unsigned int subface_index,
       const MatrixFreeFunctions::DoFInfo::DoFAccessIndex dof_access_index,
       const unsigned int                                 face_orientation,
-      const Table<2, unsigned int> &                     orientation_map)
+      const Table<2, unsigned int> &                     orientation_map,
+      const Function1a &                                 function_1a,
+      const Function1b &                                 function_1b)
     {
       if (face_orientation)
         adjust_for_face_orientation(face_orientation,
@@ -2660,25 +2663,16 @@ namespace internal
                   AssertIndexRange(ind1, data.dofs_per_component_on_cell);
                   AssertIndexRange(ind2, data.dofs_per_component_on_cell);
                   for (unsigned int comp = 0; comp < n_components; ++comp)
-                    {
-                      VectorizedArrayType val =
-                        temp1[i + 2 * comp * dofs_per_face] -
-                        grad_weight *
-                          temp1[i + dofs_per_face + 2 * comp * dofs_per_face];
-                      VectorizedArrayType grad =
-                        grad_weight *
-                        temp1[i + dofs_per_face + 2 * comp * dofs_per_face];
-                      do_vectorized_add(val,
-                                        dst_ptr + dof_index +
-                                          (ind1 +
-                                           comp * static_dofs_per_component) *
-                                            VectorizedArrayType::size());
-                      do_vectorized_add(grad,
-                                        dst_ptr + dof_index +
-                                          (ind2 +
-                                           comp * static_dofs_per_component) *
-                                            VectorizedArrayType::size());
-                    }
+                    function_1a(
+                      temp1[i + 2 * comp * dofs_per_face],
+                      temp1[i + dofs_per_face + 2 * comp * dofs_per_face],
+                      dst_ptr + dof_index +
+                        (ind1 + comp * static_dofs_per_component) *
+                          VectorizedArrayType::size(),
+                      dst_ptr + dof_index +
+                        (ind2 + comp * static_dofs_per_component) *
+                          VectorizedArrayType::size(),
+                      grad_weight);
                 }
             }
           else
@@ -2691,11 +2685,10 @@ namespace internal
                 {
                   const unsigned int ind = index_array[i];
                   for (unsigned int comp = 0; comp < n_components; ++comp)
-                    do_vectorized_add(temp1[i + 2 * comp * dofs_per_face],
-                                      dst_ptr + dof_index +
-                                        (ind +
-                                         comp * static_dofs_per_component) *
-                                          VectorizedArrayType::size());
+                    function_1b(temp1[i + 2 * comp * dofs_per_face],
+                                dst_ptr + dof_index +
+                                  (ind + comp * static_dofs_per_component) *
+                                    VectorizedArrayType::size());
                 }
             }
         }
@@ -3050,7 +3043,24 @@ namespace internal
                             subface_index,
                             dof_access_index,
                             face_orientation,
-                            orientation_map);
+                            orientation_map,
+                            [](const auto &temp_1,
+                               const auto &temp_2,
+                               auto        dst_ptr_1,
+                               auto        dst_ptr_2,
+                               const auto &grad_weight) {
+                              // case 1a)
+                              const VectorizedArrayType val =
+                                temp_1 - grad_weight * temp_2;
+                              const VectorizedArrayType grad =
+                                grad_weight * temp_2;
+                              do_vectorized_add(val, dst_ptr_1);
+                              do_vectorized_add(grad, dst_ptr_2);
+                            },
+                            [](const auto &temp, auto dst_ptr) {
+                              // case 1b)
+                              do_vectorized_add(temp, dst_ptr);
+                            });
     }
 
     static void
