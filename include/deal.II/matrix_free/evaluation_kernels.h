@@ -2538,6 +2538,7 @@ namespace internal
               typename Function0>
     static bool
     process_and_io(
+      const bool                                                 integrate,
       Number2 *                                                  dst_ptr,
       const MatrixFreeFunctions::ShapeInfo<VectorizedArrayType> &data,
       const MatrixFreeFunctions::DoFInfo &                       dof_info,
@@ -2565,7 +2566,7 @@ namespace internal
     {
       (void)subface_index;
 
-      if (face_orientation)
+      if (integrate && face_orientation)
         adjust_for_face_orientation(face_orientation,
                                     orientation_map,
                                     true,
@@ -2601,7 +2602,8 @@ namespace internal
       else
         temp1 = scratch_data;
 
-      function_0(temp1, dofs_per_face);
+      if (integrate)
+        function_0(temp1, dofs_per_face);
 
       // case 1: contiguous and interleaved indices
       if (((integrate_gradients == false &&
@@ -2957,6 +2959,20 @@ namespace internal
           return false;
         }
 
+      if (!integrate && face_orientation)
+        adjust_for_face_orientation(face_orientation,
+                                    orientation_map,
+                                    false,
+                                    integrate_values,
+                                    integrate_gradients,
+                                    data.n_q_points_face,
+                                    scratch_data,
+                                    values_quad,
+                                    gradients_quad);
+
+      if (!integrate)
+        function_0(temp1, dofs_per_face);
+
       return true;
     }
 
@@ -2981,6 +2997,7 @@ namespace internal
       const Table<2, unsigned int> &                     orientation_map)
     {
       return process_and_io( //
+        true /*=integrate*/,
         dst_ptr,
         data,
         dof_info,
