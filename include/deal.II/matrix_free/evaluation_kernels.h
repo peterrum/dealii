@@ -2750,6 +2750,7 @@ namespace internal
                             [active_fe_index][first_selected_component] *
                           VectorizedArrayType::size(),
                       grad_weight,
+                      indices,
                       indices);
                 }
             }
@@ -2943,27 +2944,18 @@ namespace internal
                   const unsigned int ind1 = index_array[2 * i];
                   const unsigned int ind2 = index_array[2 * i + 1];
                   for (unsigned int comp = 0; comp < n_components; ++comp)
-                    {
-                      VectorizedArrayType val =
-                        temp1[i + 2 * comp * dofs_per_face] -
-                        grad_weight *
-                          temp1[i + dofs_per_face + 2 * comp * dofs_per_face];
-                      VectorizedArrayType grad =
-                        grad_weight *
-                        temp1[i + dofs_per_face + 2 * comp * dofs_per_face];
-                      do_vectorized_scatter_add(
-                        val,
-                        indices,
-                        dst_ptr + comp * static_dofs_per_component + ind1 +
-                          dof_info.component_dof_indices_offset
-                            [active_fe_index][first_selected_component]);
-                      do_vectorized_scatter_add(
-                        grad,
-                        indices,
-                        dst_ptr + comp * static_dofs_per_component + ind2 +
-                          dof_info.component_dof_indices_offset
-                            [active_fe_index][first_selected_component]);
-                    }
+                    function_2a(
+                      temp1[i + 2 * comp * dofs_per_face],
+                      temp1[i + dofs_per_face + 2 * comp * dofs_per_face],
+                      dst_ptr + comp * static_dofs_per_component + ind1 +
+                        dof_info.component_dof_indices_offset
+                          [active_fe_index][first_selected_component],
+                      dst_ptr + comp * static_dofs_per_component + ind2 +
+                        dof_info.component_dof_indices_offset
+                          [active_fe_index][first_selected_component],
+                      grad_weight,
+                      indices,
+                      indices);
                 }
             }
           else
@@ -2976,12 +2968,12 @@ namespace internal
                 for (unsigned int comp = 0; comp < n_components; ++comp)
                   {
                     const unsigned int ind = index_array[i];
-                    do_vectorized_scatter_add(
-                      temp1[i + 2 * comp * dofs_per_face],
-                      indices,
-                      dst_ptr + comp * static_dofs_per_component + ind +
-                        dof_info.component_dof_indices_offset
-                          [active_fe_index][first_selected_component]);
+                    function_2b(temp1[i + 2 * comp * dofs_per_face],
+                                dst_ptr + comp * static_dofs_per_component +
+                                  ind +
+                                  dof_info.component_dof_indices_offset
+                                    [active_fe_index][first_selected_component],
+                                indices);
                   }
             }
         }
@@ -3060,12 +3052,13 @@ namespace internal
            auto        dst_ptr_1,
            auto        dst_ptr_2,
            const auto &grad_weight,
-           const auto &indices) {
+           const auto &indices_1,
+           const auto &indices_2) {
           // case 2a)
           const VectorizedArrayType val  = temp_1 - grad_weight * temp_2;
           const VectorizedArrayType grad = grad_weight * temp_2;
-          do_vectorized_scatter_add(val, indices, dst_ptr_1);
-          do_vectorized_scatter_add(grad, indices, dst_ptr_2);
+          do_vectorized_scatter_add(val, indices_1, dst_ptr_1);
+          do_vectorized_scatter_add(grad, indices_2, dst_ptr_2);
         },
         [](const auto &temp, auto dst_ptr, const auto &indices) {
           // case 2b)
