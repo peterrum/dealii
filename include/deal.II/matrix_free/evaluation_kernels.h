@@ -2529,7 +2529,7 @@ namespace internal
     }
 
     static bool
-    integrate_scatter(
+    process_and_io(
       Number2 *                                                  dst_ptr,
       const MatrixFreeFunctions::ShapeInfo<VectorizedArrayType> &data,
       const MatrixFreeFunctions::DoFInfo &                       dof_info,
@@ -3012,6 +3012,45 @@ namespace internal
         }
 
       return true;
+    }
+
+    static bool
+    integrate_scatter(
+      Number2 *                                                  dst_ptr,
+      const MatrixFreeFunctions::ShapeInfo<VectorizedArrayType> &data,
+      const MatrixFreeFunctions::DoFInfo &                       dof_info,
+      VectorizedArrayType *                                      values_array,
+      VectorizedArrayType *                                      values_quad,
+      VectorizedArrayType *                                      gradients_quad,
+      VectorizedArrayType *                                      scratch_data,
+      const bool         integrate_values,
+      const bool         integrate_gradients,
+      const unsigned int active_fe_index,
+      const unsigned int first_selected_component,
+      const unsigned int cell,
+      const unsigned int face_no,
+      const unsigned int subface_index,
+      const MatrixFreeFunctions::DoFInfo::DoFAccessIndex dof_access_index,
+      const unsigned int                                 face_orientation,
+      const Table<2, unsigned int> &                     orientation_map)
+    {
+      return process_and_io(dst_ptr,
+                            data,
+                            dof_info,
+                            values_array,
+                            values_quad,
+                            gradients_quad,
+                            scratch_data,
+                            integrate_values,
+                            integrate_gradients,
+                            active_fe_index,
+                            first_selected_component,
+                            cell,
+                            face_no,
+                            subface_index,
+                            dof_access_index,
+                            face_orientation,
+                            orientation_map);
     }
 
     static void
