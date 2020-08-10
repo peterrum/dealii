@@ -2398,7 +2398,9 @@ namespace internal
       if (integrate)
         function_0(temp1, dofs_per_face);
 
-      const unsigned int  dummy = 0;
+      const unsigned int dummy = 0;
+
+      // re-orientation
       const unsigned int *orientation =
         (data.data.front().nodal_at_cell_boundaries == true) ?
           &data.face_orientations[face_orientation][0] :
@@ -2409,6 +2411,19 @@ namespace internal
                  i :
                  orientation[i];
       };
+
+      // face_to_cell_index_hermite
+      const unsigned int *index_array_hermite =
+        (data.data.front().nodal_at_cell_boundaries == true && fe_degree > 1 &&
+         data.element_type == MatrixFreeFunctions::tensor_symmetric_hermite) ?
+          &data.face_to_cell_index_hermite(face_no, 0) :
+          &dummy;
+
+      // face_to_cell_index_nodal
+      const unsigned int *index_array_nodal =
+        (data.data.front().nodal_at_cell_boundaries == true) ?
+          &data.face_to_cell_index_nodal(face_no, 0) :
+          &dummy;
 
       // case 1: contiguous and interleaved indices
       if (((do_gradients == false &&
@@ -2438,14 +2453,10 @@ namespace internal
               // (side==0), so we only read out one of them.
               const VectorizedArrayType grad_weight =
                 data.data.front().shape_data_on_face[0][fe_degree + side_];
-              AssertDimension(data.face_to_cell_index_hermite.size(1),
-                              2 * dofs_per_face);
-              const unsigned int *index_array =
-                &data.face_to_cell_index_hermite(face_no, 0);
               for (unsigned int i = 0; i < dofs_per_face; ++i)
                 {
-                  const unsigned int ind1 = index_array[2 * i];
-                  const unsigned int ind2 = index_array[2 * i + 1];
+                  const unsigned int ind1 = index_array_hermite[2 * i];
+                  const unsigned int ind2 = index_array_hermite[2 * i + 1];
                   AssertIndexRange(ind1, data.dofs_per_component_on_cell);
                   AssertIndexRange(ind2, data.dofs_per_component_on_cell);
                   const unsigned int i_ = reorientate(i);
@@ -2464,14 +2475,10 @@ namespace internal
             }
           else
             {
-              AssertDimension(data.face_to_cell_index_nodal.size(1),
-                              dofs_per_face);
-              const unsigned int *index_array =
-                &data.face_to_cell_index_nodal(face_no, 0);
               for (unsigned int i = 0; i < dofs_per_face; ++i)
                 {
                   const unsigned int i_  = reorientate(i);
-                  const unsigned int ind = index_array[i];
+                  const unsigned int ind = index_array_nodal[i];
                   for (unsigned int comp = 0; comp < n_components; ++comp)
                     function_1b(temp1[i_ + 2 * comp * dofs_per_face],
                                 global_vector_ptr + dof_index +
@@ -2505,19 +2512,15 @@ namespace internal
               // (side==0), so we only read out one of them.
               const VectorizedArrayType grad_weight =
                 data.data.front().shape_data_on_face[0][fe_degree + side_];
-              AssertDimension(data.face_to_cell_index_hermite.size(1),
-                              2 * dofs_per_face);
 
-              const unsigned int *index_array =
-                &data.face_to_cell_index_hermite(face_no, 0);
               for (unsigned int i = 0; i < dofs_per_face; ++i)
                 {
                   const unsigned int i_ = reorientate(i);
 
                   const unsigned int ind1 =
-                    index_array[2 * i] * VectorizedArrayType::size();
-                  const unsigned int ind2 =
-                    index_array[2 * i + 1] * VectorizedArrayType::size();
+                    index_array_hermite[2 * i] * VectorizedArrayType::size();
+                  const unsigned int ind2 = index_array_hermite[2 * i + 1] *
+                                            VectorizedArrayType::size();
                   for (unsigned int comp = 0; comp < n_components; ++comp)
                     function_2a(
                       temp1[i_ + 2 * comp * dofs_per_face],
@@ -2541,16 +2544,12 @@ namespace internal
             }
           else
             {
-              AssertDimension(data.face_to_cell_index_nodal.size(1),
-                              dofs_per_face);
-              const unsigned int *index_array =
-                &data.face_to_cell_index_nodal(face_no, 0);
               for (unsigned int i = 0; i < dofs_per_face; ++i)
                 {
                   const unsigned int i_ = reorientate(i);
 
                   const unsigned int ind =
-                    index_array[i] * VectorizedArrayType::size();
+                    index_array_nodal[i] * VectorizedArrayType::size();
                   for (unsigned int comp = 0; comp < n_components; ++comp)
                     function_2b(
                       temp1[i_ + 2 * comp * dofs_per_face],
@@ -2596,11 +2595,7 @@ namespace internal
               // (side==0), so we only read out one of them.
               const VectorizedArrayType grad_weight =
                 data.data.front().shape_data_on_face[0][fe_degree + side_];
-              AssertDimension(data.face_to_cell_index_hermite.size(1),
-                              2 * dofs_per_face);
 
-              const unsigned int *index_array =
-                &data.face_to_cell_index_hermite(face_no, 0);
               if (n_filled_lanes == VectorizedArrayType::size())
                 for (unsigned int comp = 0; comp < n_components; ++comp)
                   for (unsigned int i = 0; i < dofs_per_face; ++i)
@@ -2612,7 +2607,7 @@ namespace internal
                            ++v)
                         ind1[v] =
                           indices[v] + (comp * static_dofs_per_component +
-                                        index_array[2 * i]) *
+                                        index_array_hermite[2 * i]) *
                                          strides[v];
                       unsigned int ind2[VectorizedArrayType::size()];
                       DEAL_II_OPENMP_SIMD_PRAGMA
@@ -2620,7 +2615,7 @@ namespace internal
                            ++v)
                         ind2[v] =
                           indices[v] + (comp * static_dofs_per_component +
-                                        index_array[2 * i + 1]) *
+                                        index_array_hermite[2 * i + 1]) *
                                          strides[v];
                       function_2a(
                         temp1[i_ + 2 * comp * dofs_per_face],
@@ -2646,11 +2641,11 @@ namespace internal
                           const unsigned int i_ = reorientate(i);
                           const unsigned int ind1 =
                             indices[v] + (comp * static_dofs_per_component +
-                                          index_array[2 * i]) *
+                                          index_array_hermite[2 * i]) *
                                            strides[v];
                           const unsigned int ind2 =
                             indices[v] + (comp * static_dofs_per_component +
-                                          index_array[2 * i + 1]) *
+                                          index_array_hermite[2 * i + 1]) *
                                            strides[v];
                           function_3a(temp1[i_ + 2 * comp * dofs_per_face][v],
                                       temp1[i_ + dofs_per_face +
@@ -2663,10 +2658,6 @@ namespace internal
             }
           else
             {
-              AssertDimension(data.face_to_cell_index_nodal.size(1),
-                              dofs_per_face);
-              const unsigned int *index_array =
-                &data.face_to_cell_index_nodal(face_no, 0);
               if (n_filled_lanes == VectorizedArrayType::size())
                 for (unsigned int comp = 0; comp < n_components; ++comp)
                   for (unsigned int i = 0; i < dofs_per_face; ++i)
@@ -2676,9 +2667,9 @@ namespace internal
                       for (unsigned int v = 0; v < VectorizedArrayType::size();
                            ++v)
                         ind[v] =
-                          indices[v] +
-                          (comp * static_dofs_per_component + index_array[i]) *
-                            strides[v];
+                          indices[v] + (comp * static_dofs_per_component +
+                                        index_array_nodal[i]) *
+                                         strides[v];
                       const unsigned int i_ = reorientate(i);
                       function_2b(temp1[i_ + 2 * comp * dofs_per_face],
                                   global_vector_ptr,
@@ -2697,7 +2688,7 @@ namespace internal
                         {
                           const unsigned int ind1 =
                             indices[v] + (comp * static_dofs_per_component +
-                                          index_array[i]) *
+                                          index_array_nodal[i]) *
                                            strides[v];
                           const unsigned int i_ = reorientate(i);
                           function_3b(temp1[i_ + 2 * comp * dofs_per_face][v],
@@ -2733,15 +2724,11 @@ namespace internal
               // (side==0), so we only read out one of them.
               const VectorizedArrayType grad_weight =
                 data.data.front().shape_data_on_face[0][fe_degree + side_];
-              AssertDimension(data.face_to_cell_index_hermite.size(1),
-                              2 * dofs_per_face);
 
-              const unsigned int *index_array =
-                &data.face_to_cell_index_hermite(face_no, 0);
               for (unsigned int i = 0; i < dofs_per_face; ++i)
                 {
-                  const unsigned int ind1 = index_array[2 * i];
-                  const unsigned int ind2 = index_array[2 * i + 1];
+                  const unsigned int ind1 = index_array_hermite[2 * i];
+                  const unsigned int ind2 = index_array_hermite[2 * i + 1];
                   const unsigned int i_   = reorientate(i);
 
                   for (unsigned int comp = 0; comp < n_components; ++comp)
@@ -2763,14 +2750,10 @@ namespace internal
             }
           else
             {
-              AssertDimension(data.face_to_cell_index_nodal.size(1),
-                              dofs_per_face);
-              const unsigned int *index_array =
-                &data.face_to_cell_index_nodal(face_no, 0);
               for (unsigned int i = 0; i < dofs_per_face; ++i)
                 for (unsigned int comp = 0; comp < n_components; ++comp)
                   {
-                    const unsigned int ind = index_array[i];
+                    const unsigned int ind = index_array_nodal[i];
                     const unsigned int i_  = reorientate(i);
 
                     function_2b(temp1[i_ + 2 * comp * dofs_per_face],
