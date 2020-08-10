@@ -2176,17 +2176,6 @@ namespace internal
                                                      evaluate_values,
                                                      evaluate_gradients,
                                                      subface_index);
-
-          if (face_orientation)
-            adjust_for_face_orientation(face_orientation,
-                                        orientation_map,
-                                        false,
-                                        evaluate_values,
-                                        evaluate_gradients,
-                                        data.n_q_points_face,
-                                        scratch_data,
-                                        values_quad,
-                                        gradients_quad);
         });
     }
 
@@ -2365,7 +2354,7 @@ namespace internal
     {
       (void)subface_index;
 
-      if (integrate && face_orientation)
+      if (integrate && (face_orientation > 0))
         adjust_for_face_orientation(face_orientation,
                                     orientation_map,
                                     true,
@@ -2774,7 +2763,7 @@ namespace internal
       if (!integrate)
         function_0(temp1, dofs_per_face);
 
-      if (!integrate && face_orientation)
+      if (!integrate && (face_orientation > 0))
         adjust_for_face_orientation(face_orientation,
                                     orientation_map,
                                     false,
@@ -2831,7 +2820,7 @@ namespace internal
               }
         }
     }
-  };
+  }; // namespace internal
 
 
 
