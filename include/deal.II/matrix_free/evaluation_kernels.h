@@ -2265,7 +2265,8 @@ namespace internal
           dst_ptr += temp;
         },
         [&](const auto &temp1) {
-          // case 5)
+          // case 5: default vector access, must be handled separately, just do
+          // the face-normal interpolation
           FEFaceNormalEvaluationImpl<dim,
                                      fe_degree,
                                      n_components,
@@ -2326,15 +2327,15 @@ namespace internal
               typename Function0>
     static bool
     process_and_io(
-      const bool                                                 integrate,
-      Number2_ *                                                 dst_ptr,
+      const bool integrate,
+      Number2_ * global_vector_ptr,
       const MatrixFreeFunctions::ShapeInfo<VectorizedArrayType> &data,
       const MatrixFreeFunctions::DoFInfo &                       dof_info,
       VectorizedArrayType *                                      values_quad,
       VectorizedArrayType *                                      gradients_quad,
       VectorizedArrayType *                                      scratch_data,
-      const bool         integrate_values,
-      const bool         integrate_gradients,
+      const bool                                                 do_values,
+      const bool                                                 do_gradients,
       const unsigned int active_fe_index,
       const unsigned int first_selected_component,
       const unsigned int cell,
@@ -2358,8 +2359,8 @@ namespace internal
         adjust_for_face_orientation(face_orientation,
                                     orientation_map,
                                     true,
-                                    integrate_values,
-                                    integrate_gradients,
+                                    do_values,
+                                    do_gradients,
                                     data.n_q_points_face,
                                     scratch_data,
                                     values_quad,
@@ -2396,7 +2397,7 @@ namespace internal
         function_0(temp1, dofs_per_face);
 
       // case 1: contiguous and interleaved indices
-      if (((integrate_gradients == false &&
+      if (((do_gradients == false &&
             data.data.front().nodal_at_cell_boundaries == true) ||
            (data.element_type ==
               MatrixFreeFunctions::tensor_symmetric_hermite &&
@@ -2416,7 +2417,7 @@ namespace internal
                                                  [first_selected_component] *
               VectorizedArrayType::size();
 
-          if (fe_degree > 1 && integrate_gradients == true)
+          if (fe_degree > 1 && do_gradients == true)
             {
               // we know that the gradient weights for the Hermite case on the
               // right (side==1) are the negative from the value at the left
@@ -2437,10 +2438,10 @@ namespace internal
                     function_1a(
                       temp1[i + 2 * comp * dofs_per_face],
                       temp1[i + dofs_per_face + 2 * comp * dofs_per_face],
-                      dst_ptr + dof_index +
+                      global_vector_ptr + dof_index +
                         (ind1 + comp * static_dofs_per_component) *
                           VectorizedArrayType::size(),
-                      dst_ptr + dof_index +
+                      global_vector_ptr + dof_index +
                         (ind2 + comp * static_dofs_per_component) *
                           VectorizedArrayType::size(),
                       grad_weight);
@@ -2457,7 +2458,7 @@ namespace internal
                   const unsigned int ind = index_array[i];
                   for (unsigned int comp = 0; comp < n_components; ++comp)
                     function_1b(temp1[i + 2 * comp * dofs_per_face],
-                                dst_ptr + dof_index +
+                                global_vector_ptr + dof_index +
                                   (ind + comp * static_dofs_per_component) *
                                     VectorizedArrayType::size());
                 }
@@ -2465,7 +2466,7 @@ namespace internal
         }
 
       // case 2: contiguous and interleaved indices with fixed stride
-      else if (((integrate_gradients == false &&
+      else if (((do_gradients == false &&
                  data.data.front().nodal_at_cell_boundaries == true) ||
                 (data.element_type ==
                    MatrixFreeFunctions::tensor_symmetric_hermite &&
@@ -2481,7 +2482,7 @@ namespace internal
             &dof_info
                .dof_indices_contiguous[dof_access_index]
                                       [cell * VectorizedArrayType::size()];
-          if (fe_degree > 1 && integrate_gradients == true)
+          if (fe_degree > 1 && do_gradients == true)
             {
               // we know that the gradient weights for the Hermite case on the
               // right (side==1) are the negative from the value at the left
@@ -2503,13 +2504,13 @@ namespace internal
                     function_2a(
                       temp1[i + 2 * comp * dofs_per_face],
                       temp1[i + dofs_per_face + 2 * comp * dofs_per_face],
-                      dst_ptr + ind1 +
+                      global_vector_ptr + ind1 +
                         comp * static_dofs_per_component *
                           VectorizedArrayType::size() +
                         dof_info.component_dof_indices_offset
                             [active_fe_index][first_selected_component] *
                           VectorizedArrayType::size(),
-                      dst_ptr + ind2 +
+                      global_vector_ptr + ind2 +
                         comp * static_dofs_per_component *
                           VectorizedArrayType::size() +
                         dof_info.component_dof_indices_offset
@@ -2533,7 +2534,7 @@ namespace internal
                   for (unsigned int comp = 0; comp < n_components; ++comp)
                     function_2b(
                       temp1[i + 2 * comp * dofs_per_face],
-                      dst_ptr + ind +
+                      global_vector_ptr + ind +
                         comp * static_dofs_per_component *
                           VectorizedArrayType::size() +
                         dof_info.component_dof_indices_offset
@@ -2545,7 +2546,7 @@ namespace internal
         }
 
       // case 3: contiguous and interleaved indices with mixed stride
-      else if (((integrate_gradients == false &&
+      else if (((do_gradients == false &&
                  data.data.front().nodal_at_cell_boundaries == true) ||
                 (data.element_type ==
                    MatrixFreeFunctions::tensor_symmetric_hermite &&
@@ -2568,7 +2569,7 @@ namespace internal
           const unsigned int n_filled_lanes =
             dof_info.n_vectorization_lanes_filled[dof_access_index][cell];
 
-          if (fe_degree > 1 && integrate_gradients == true)
+          if (fe_degree > 1 && do_gradients == true)
             {
               // we know that the gradient weights for the Hermite case on the
               // right (side==1) are the negative from the value at the left
@@ -2603,8 +2604,8 @@ namespace internal
                       function_2a(
                         temp1[i + 2 * comp * dofs_per_face],
                         temp1[i + dofs_per_face + 2 * comp * dofs_per_face],
-                        dst_ptr,
-                        dst_ptr,
+                        global_vector_ptr,
+                        global_vector_ptr,
                         grad_weight,
                         ind1,
                         ind2);
@@ -2632,8 +2633,8 @@ namespace internal
                           function_3a(temp1[i + 2 * comp * dofs_per_face][v],
                                       temp1[i + dofs_per_face +
                                             2 * comp * dofs_per_face][v],
-                                      dst_ptr[ind1],
-                                      dst_ptr[ind2],
+                                      global_vector_ptr[ind1],
+                                      global_vector_ptr[ind2],
                                       grad_weight[0]);
                         }
                 }
@@ -2657,7 +2658,7 @@ namespace internal
                           (comp * static_dofs_per_component + index_array[i]) *
                             strides[v];
                       function_2b(temp1[i + 2 * comp * dofs_per_face],
-                                  dst_ptr,
+                                  global_vector_ptr,
                                   ind);
                     }
               else
@@ -2676,14 +2677,14 @@ namespace internal
                                           index_array[i]) *
                                            strides[v];
                           function_3b(temp1[i + 2 * comp * dofs_per_face][v],
-                                      dst_ptr[ind1]);
+                                      global_vector_ptr[ind1]);
                         }
                 }
             }
         }
 
       // case 4: contiguous indices without interleaving
-      else if (((integrate_gradients == false &&
+      else if (((do_gradients == false &&
                  data.data.front().nodal_at_cell_boundaries == true) ||
                 (data.element_type ==
                    MatrixFreeFunctions::tensor_symmetric_hermite &&
@@ -2699,7 +2700,7 @@ namespace internal
                .dof_indices_contiguous[dof_access_index]
                                       [cell * VectorizedArrayType::size()];
 
-          if (integrate_gradients == true &&
+          if (do_gradients == true &&
               data.element_type ==
                 MatrixFreeFunctions::tensor_symmetric_hermite)
             {
@@ -2721,10 +2722,12 @@ namespace internal
                     function_2a(
                       temp1[i + 2 * comp * dofs_per_face],
                       temp1[i + dofs_per_face + 2 * comp * dofs_per_face],
-                      dst_ptr + comp * static_dofs_per_component + ind1 +
+                      global_vector_ptr + comp * static_dofs_per_component +
+                        ind1 +
                         dof_info.component_dof_indices_offset
                           [active_fe_index][first_selected_component],
-                      dst_ptr + comp * static_dofs_per_component + ind2 +
+                      global_vector_ptr + comp * static_dofs_per_component +
+                        ind2 +
                         dof_info.component_dof_indices_offset
                           [active_fe_index][first_selected_component],
                       grad_weight,
@@ -2743,8 +2746,8 @@ namespace internal
                   {
                     const unsigned int ind = index_array[i];
                     function_2b(temp1[i + 2 * comp * dofs_per_face],
-                                dst_ptr + comp * static_dofs_per_component +
-                                  ind +
+                                global_vector_ptr +
+                                  comp * static_dofs_per_component + ind +
                                   dof_info.component_dof_indices_offset
                                     [active_fe_index][first_selected_component],
                                 indices);
@@ -2752,8 +2755,7 @@ namespace internal
             }
         }
 
-      // case 5: default vector access, must be handled separately, just do
-      // the face-normal interpolation
+      // case 5: default vector access
       else
         {
           function_5(temp1);
@@ -2767,8 +2769,8 @@ namespace internal
         adjust_for_face_orientation(face_orientation,
                                     orientation_map,
                                     false,
-                                    integrate_values,
-                                    integrate_gradients,
+                                    do_values,
+                                    do_gradients,
                                     data.n_q_points_face,
                                     scratch_data,
                                     values_quad,
