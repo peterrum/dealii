@@ -2088,10 +2088,10 @@ namespace internal
         active_fe_index,
         first_selected_component,
         cell,
-        face_no,
+        std::array<unsigned int, 1>{{face_no}},
         subface_index,
         dof_access_index,
-        face_orientation,
+        std::array<unsigned int, 1>{{face_orientation}},
         orientation_map,
         [](auto &      temp_1,
            auto &      temp_2,
@@ -2212,10 +2212,10 @@ namespace internal
         active_fe_index,
         first_selected_component,
         cell,
-        face_no,
+        std::array<unsigned int, 1>{{face_no}},
         subface_index,
         dof_access_index,
-        face_orientation,
+        std::array<unsigned int, 1>{{face_orientation}},
         orientation_map,
         [](const auto &temp_1,
            const auto &temp_2,
@@ -2316,7 +2316,8 @@ namespace internal
     }
 
   private:
-    template <typename Number2_,
+    template <std::size_t n_face_orientations,
+              typename Number2_,
               typename Function1a,
               typename Function1b,
               typename Function2a,
@@ -2339,36 +2340,39 @@ namespace internal
       const unsigned int active_fe_index,
       const unsigned int first_selected_component,
       const unsigned int cell,
-      const unsigned int face_no,
-      const unsigned int subface_index,
-      const MatrixFreeFunctions::DoFInfo::DoFAccessIndex dof_access_index,
-      const unsigned int                                 face_orientation,
-      const Table<2, unsigned int> &                     orientation_map,
-      const Function1a &                                 function_1a,
-      const Function1b &                                 function_1b,
-      const Function2a &                                 function_2a,
-      const Function2b &                                 function_2b,
-      const Function3a &                                 function_3a,
-      const Function3b &                                 function_3b,
-      const Function5 &                                  function_5,
-      const Function0 &                                  function_0)
+      const std::array<unsigned int, n_face_orientations> face_no,
+      const unsigned int                                  subface_index,
+      const MatrixFreeFunctions::DoFInfo::DoFAccessIndex  dof_access_index,
+      const std::array<unsigned int, n_face_orientations> face_orientation,
+      const Table<2, unsigned int> &                      orientation_map,
+      const Function1a &                                  function_1a,
+      const Function1b &                                  function_1b,
+      const Function2a &                                  function_2a,
+      const Function2b &                                  function_2b,
+      const Function3a &                                  function_3a,
+      const Function3b &                                  function_3b,
+      const Function5 &                                   function_5,
+      const Function0 &                                   function_0)
     {
       (void)subface_index;
 
       if (integrate &&
-          (face_orientation > 0 &&
+          (face_orientation[0] > 0 &&
            subface_index < GeometryInfo<dim>::max_children_per_cell))
-        adjust_for_face_orientation(face_orientation,
-                                    orientation_map,
-                                    true,
-                                    do_values,
-                                    do_gradients,
-                                    data.n_q_points_face,
-                                    scratch_data,
-                                    values_quad,
-                                    gradients_quad);
+        {
+          AssertDimension(face_orientation.size(), 1);
+          adjust_for_face_orientation(face_orientation[0],
+                                      orientation_map,
+                                      true,
+                                      do_values,
+                                      do_gradients,
+                                      data.n_q_points_face,
+                                      scratch_data,
+                                      values_quad,
+                                      gradients_quad);
+        }
 
-      const unsigned int side = face_no % 2;
+      const unsigned int side = face_no[0] % 2;
 
       const unsigned int side_ = integrate ? (2 - side) : (1 + side);
 
@@ -2412,16 +2416,14 @@ namespace internal
       // re-orientation
       const unsigned int *orientation =
         (data.data.front().nodal_at_cell_boundaries == true) ?
-          &data.face_orientations[face_orientation][0] :
+          &data.face_orientations[face_orientation[0]][0] :
           &dummy;
       const auto reorientate = [&](const unsigned int, const unsigned int i) {
-        return (dim < 3 || face_orientation == 0 ||
+        return (dim < 3 || face_orientation[0] == 0 ||
                 subface_index < GeometryInfo<dim>::max_children_per_cell) ?
                  i :
                  orientation[i];
       };
-
-      const unsigned int n_face_orientations = 1;
 
       // face_to_cell_index_hermite
       std::array<const unsigned int *, n_face_orientations> index_array_hermite;
@@ -2429,7 +2431,7 @@ namespace internal
       index_array_hermite[0] =
         (data.data.front().nodal_at_cell_boundaries == true && fe_degree > 1 &&
          data.element_type == MatrixFreeFunctions::tensor_symmetric_hermite) ?
-          &data.face_to_cell_index_hermite(face_no, 0) :
+          &data.face_to_cell_index_hermite(face_no[0], 0) :
           &dummy;
 
       // face_to_cell_index_nodal
@@ -2437,7 +2439,7 @@ namespace internal
 
       index_array_nodal[0] =
         (data.data.front().nodal_at_cell_boundaries == true) ?
-          &data.face_to_cell_index_nodal(face_no, 0) :
+          &data.face_to_cell_index_nodal(face_no[0], 0) :
           &dummy;
 
       // case 1: contiguous and interleaved indices
@@ -3016,17 +3018,20 @@ namespace internal
         function_0(temp1, dofs_per_face);
 
       if (!integrate &&
-          (face_orientation > 0 &&
+          (face_orientation[0] > 0 &&
            subface_index < GeometryInfo<dim>::max_children_per_cell))
-        adjust_for_face_orientation(face_orientation,
-                                    orientation_map,
-                                    false,
-                                    do_values,
-                                    do_gradients,
-                                    data.n_q_points_face,
-                                    scratch_data,
-                                    values_quad,
-                                    gradients_quad);
+        {
+          AssertDimension(face_orientation.size(), 1);
+          adjust_for_face_orientation(face_orientation[0],
+                                      orientation_map,
+                                      false,
+                                      do_values,
+                                      do_gradients,
+                                      data.n_q_points_face,
+                                      scratch_data,
+                                      values_quad,
+                                      gradients_quad);
+        }
 
       return true;
     }
