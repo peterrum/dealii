@@ -2384,21 +2384,6 @@ namespace internal
                                                   (1 + (face_no[0] % 2)))] :
           VectorizedArrayType(0.0 /*dummy*/);
 
-      if (n_face_orientations > 0 &&
-          data.data.front().nodal_at_cell_boundaries == true && fe_degree > 1 &&
-          data.element_type == MatrixFreeFunctions::tensor_symmetric_hermite)
-        {
-          const unsigned int n_filled_lanes =
-            dof_info.n_vectorization_lanes_filled[dof_access_index][cell];
-
-          for (unsigned int v = 1; v < n_filled_lanes; ++v)
-            grad_weight[v] =
-              data.data.front()
-                .shape_data_on_face[0][fe_degree +
-                                       (integrate ? (2 - (face_no[v] % 2)) :
-                                                    (1 + (face_no[v] % 2)))][v];
-        }
-
       constexpr unsigned int static_dofs_per_component =
         fe_degree > -1 ? Utilities::pow(fe_degree + 1, dim) :
                          numbers::invalid_unsigned_int;
@@ -2442,6 +2427,25 @@ namespace internal
           &data.face_to_cell_index_hermite(face_no[0], 0) :
           &dummy;
 
+      if (n_face_orientations > 0 &&
+          data.data.front().nodal_at_cell_boundaries == true && fe_degree > 1 &&
+          data.element_type == MatrixFreeFunctions::tensor_symmetric_hermite)
+        {
+          const unsigned int n_filled_lanes =
+            dof_info.n_vectorization_lanes_filled[dof_access_index][cell];
+
+          for (unsigned int v = 1; v < n_filled_lanes; ++v)
+            {
+              grad_weight[v] =
+                data.data.front().shape_data_on_face
+                  [0][fe_degree + (integrate ? (2 - (face_no[v] % 2)) :
+                                               (1 + (face_no[v] % 2)))][v];
+
+              index_array_hermite[v] =
+                &data.face_to_cell_index_hermite(face_no[v], 0);
+            }
+        }
+
       // face_to_cell_index_nodal
       std::array<const unsigned int *, n_face_orientations> index_array_nodal;
 
@@ -2449,6 +2453,17 @@ namespace internal
         (data.data.front().nodal_at_cell_boundaries == true) ?
           &data.face_to_cell_index_nodal(face_no[0], 0) :
           &dummy;
+
+      if (n_face_orientations > 0 &&
+          (data.data.front().nodal_at_cell_boundaries == true))
+        {
+          const unsigned int n_filled_lanes =
+            dof_info.n_vectorization_lanes_filled[dof_access_index][cell];
+
+          for (unsigned int v = 1; v < n_filled_lanes; ++v)
+            index_array_nodal[v] =
+              &data.face_to_cell_index_nodal(face_no[v], 0);
+        }
 
       const auto reorientate = [&](const unsigned int v, const unsigned int i) {
         return (dim < 3 || face_orientation[0] == 0 ||
