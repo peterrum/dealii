@@ -2372,6 +2372,15 @@ namespace internal
 
       const unsigned int side_ = integrate ? (2 - side) : (1 + side);
 
+      // we know that the gradient weights for the Hermite case on the
+      // right (side==1) are the negative from the value at the left
+      // (side==0), so we only read out one of them.
+      const VectorizedArrayType grad_weight =
+        (data.data.front().nodal_at_cell_boundaries == true && fe_degree > 1 &&
+         data.element_type == MatrixFreeFunctions::tensor_symmetric_hermite) ?
+          data.data.front().shape_data_on_face[0][fe_degree + side_] :
+          VectorizedArrayType(0.0 /*dummy*/);
+
       constexpr unsigned int static_dofs_per_component =
         fe_degree > -1 ? Utilities::pow(fe_degree + 1, dim) :
                          numbers::invalid_unsigned_int;
@@ -2452,11 +2461,6 @@ namespace internal
 
           if (fe_degree > 1 && do_gradients == true)
             {
-              // we know that the gradient weights for the Hermite case on the
-              // right (side==1) are the negative from the value at the left
-              // (side==0), so we only read out one of them.
-              const VectorizedArrayType grad_weight =
-                data.data.front().shape_data_on_face[0][fe_degree + side_];
               for (unsigned int i = 0; i < dofs_per_face; ++i)
                 {
                   const unsigned int ind1 =
@@ -2513,12 +2517,6 @@ namespace internal
                                       [cell * VectorizedArrayType::size()];
           if (fe_degree > 1 && do_gradients == true)
             {
-              // we know that the gradient weights for the Hermite case on the
-              // right (side==1) are the negative from the value at the left
-              // (side==0), so we only read out one of them.
-              const VectorizedArrayType grad_weight =
-                data.data.front().shape_data_on_face[0][fe_degree + side_];
-
               for (unsigned int i = 0; i < dofs_per_face; ++i)
                 {
                   const unsigned int i_ = reorientate(0, i);
@@ -2598,12 +2596,6 @@ namespace internal
 
           if (fe_degree > 1 && do_gradients == true)
             {
-              // we know that the gradient weights for the Hermite case on the
-              // right (side==1) are the negative from the value at the left
-              // (side==0), so we only read out one of them.
-              const VectorizedArrayType grad_weight =
-                data.data.front().shape_data_on_face[0][fe_degree + side_];
-
               if (n_filled_lanes == VectorizedArrayType::size())
                 for (unsigned int comp = 0; comp < n_components; ++comp)
                   for (unsigned int i = 0; i < dofs_per_face; ++i)
@@ -2729,12 +2721,6 @@ namespace internal
               data.element_type ==
                 MatrixFreeFunctions::tensor_symmetric_hermite)
             {
-              // we know that the gradient weights for the Hermite case on the
-              // right (side==1) are the negative from the value at the left
-              // (side==0), so we only read out one of them.
-              const VectorizedArrayType grad_weight =
-                data.data.front().shape_data_on_face[0][fe_degree + side_];
-
               for (unsigned int i = 0; i < dofs_per_face; ++i)
                 {
                   const unsigned int ind1 =
