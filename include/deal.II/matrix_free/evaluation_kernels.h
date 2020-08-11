@@ -2372,18 +2372,32 @@ namespace internal
                                       gradients_quad);
         }
 
-      const unsigned int side = face_no[0] % 2;
-
-      const unsigned int side_ = integrate ? (2 - side) : (1 + side);
-
       // we know that the gradient weights for the Hermite case on the
       // right (side==1) are the negative from the value at the left
       // (side==0), so we only read out one of them.
-      const VectorizedArrayType grad_weight =
+      VectorizedArrayType grad_weight =
         (data.data.front().nodal_at_cell_boundaries == true && fe_degree > 1 &&
          data.element_type == MatrixFreeFunctions::tensor_symmetric_hermite) ?
-          data.data.front().shape_data_on_face[0][fe_degree + side_] :
+          data.data.front()
+            .shape_data_on_face[0][fe_degree + (integrate ?
+                                                  (2 - (face_no[0] % 2)) :
+                                                  (1 + (face_no[0] % 2)))] :
           VectorizedArrayType(0.0 /*dummy*/);
+
+      if (n_face_orientations > 0 &&
+          data.data.front().nodal_at_cell_boundaries == true && fe_degree > 1 &&
+          data.element_type == MatrixFreeFunctions::tensor_symmetric_hermite)
+        {
+          const unsigned int n_filled_lanes =
+            dof_info.n_vectorization_lanes_filled[dof_access_index][cell];
+
+          for (unsigned int v = 1; v < n_filled_lanes; ++v)
+            grad_weight[v] =
+              data.data.front()
+                .shape_data_on_face[0][fe_degree +
+                                       (integrate ? (2 - (face_no[v] % 2)) :
+                                                    (1 + (face_no[v] % 2)))][v];
+        }
 
       constexpr unsigned int static_dofs_per_component =
         fe_degree > -1 ? Utilities::pow(fe_degree + 1, dim) :
@@ -2414,16 +2428,10 @@ namespace internal
       const unsigned int dummy = 0;
 
       // re-orientation
-      const unsigned int *orientation =
-        (data.data.front().nodal_at_cell_boundaries == true) ?
-          &data.face_orientations[face_orientation[0]][0] :
-          &dummy;
-      const auto reorientate = [&](const unsigned int, const unsigned int i) {
-        return (dim < 3 || face_orientation[0] == 0 ||
-                subface_index < GeometryInfo<dim>::max_children_per_cell) ?
-                 i :
-                 orientation[i];
-      };
+      std::array<const unsigned int *, n_face_orientations> orientation;
+      orientation[0] = (data.data.front().nodal_at_cell_boundaries == true) ?
+                         &data.face_orientations[face_orientation[0]][0] :
+                         &dummy;
 
       // face_to_cell_index_hermite
       std::array<const unsigned int *, n_face_orientations> index_array_hermite;
@@ -2441,6 +2449,13 @@ namespace internal
         (data.data.front().nodal_at_cell_boundaries == true) ?
           &data.face_to_cell_index_nodal(face_no[0], 0) :
           &dummy;
+
+      const auto reorientate = [&](const unsigned int v, const unsigned int i) {
+        return (dim < 3 || face_orientation[0] == 0 ||
+                subface_index < GeometryInfo<dim>::max_children_per_cell) ?
+                 i :
+                 orientation[v][i];
+      };
 
       // case 1: contiguous and interleaved indices
       if (((do_gradients == false &&
@@ -2581,11 +2596,10 @@ namespace internal
                     {
                       const unsigned int i_ = reorientate(0, i);
 
-                      const unsigned int ind1 =
-                        index_array_hermite[0 /*TODO*/][2 * i] *
-                        VectorizedArrayType::size();
+                      const unsigned int ind1 = index_array_hermite[0][2 * i] *
+                                                VectorizedArrayType::size();
                       const unsigned int ind2 =
-                        index_array_hermite[0 /*TODO*/][2 * i + 1] *
+                        index_array_hermite[0][2 * i + 1] *
                         VectorizedArrayType::size();
                       for (unsigned int comp = 0; comp < n_components; ++comp)
                         function_2a(
@@ -2610,7 +2624,6 @@ namespace internal
                   else
                     {
                       Assert(false, ExcNotImplemented());
-
 
                       const unsigned int n_filled_lanes =
                         dof_info
