@@ -2056,6 +2056,7 @@ namespace internal
           data, temp1, values_array, integrate_gradients, face_no);
     }
 
+    template <std::size_t n_face_orientations>
     static bool
     gather_evaluate(
       const Number2 *                                            src_ptr,
@@ -2069,11 +2070,11 @@ namespace internal
       const unsigned int active_fe_index,
       const unsigned int first_selected_component,
       const unsigned int cell,
-      const unsigned int face_no,
-      const unsigned int subface_index,
-      const MatrixFreeFunctions::DoFInfo::DoFAccessIndex dof_access_index,
-      const unsigned int                                 face_orientation,
-      const Table<2, unsigned int> &                     orientation_map)
+      const std::array<unsigned int, n_face_orientations> face_no,
+      const unsigned int                                  subface_index,
+      const MatrixFreeFunctions::DoFInfo::DoFAccessIndex  dof_access_index,
+      const std::array<unsigned int, n_face_orientations> face_orientation,
+      const Table<2, unsigned int> &                      orientation_map)
     {
       return process_and_io( //
         false /*=evaluate*/,
@@ -2088,10 +2089,10 @@ namespace internal
         active_fe_index,
         first_selected_component,
         cell,
-        std::array<unsigned int, 1>{{face_no}},
+        face_no,
         subface_index,
         dof_access_index,
-        std::array<unsigned int, 1>{{face_orientation}},
+        face_orientation,
         orientation_map,
         [](auto &      temp_1,
            auto &      temp_2,
@@ -2179,6 +2180,7 @@ namespace internal
         });
     }
 
+    template <std::size_t n_face_orientations>
     static bool
     integrate_scatter(
       Number2 *                                                  dst_ptr,
@@ -2193,11 +2195,11 @@ namespace internal
       const unsigned int active_fe_index,
       const unsigned int first_selected_component,
       const unsigned int cell,
-      const unsigned int face_no,
-      const unsigned int subface_index,
-      const MatrixFreeFunctions::DoFInfo::DoFAccessIndex dof_access_index,
-      const unsigned int                                 face_orientation,
-      const Table<2, unsigned int> &                     orientation_map)
+      const std::array<unsigned int, n_face_orientations> face_no,
+      const unsigned int                                  subface_index,
+      const MatrixFreeFunctions::DoFInfo::DoFAccessIndex  dof_access_index,
+      const std::array<unsigned int, n_face_orientations> face_orientation,
+      const Table<2, unsigned int> &                      orientation_map)
     {
       return process_and_io( //
         true /*=integrate*/,
@@ -2212,10 +2214,10 @@ namespace internal
         active_fe_index,
         first_selected_component,
         cell,
-        std::array<unsigned int, 1>{{face_no}},
+        face_no,
         subface_index,
         dof_access_index,
-        std::array<unsigned int, 1>{{face_orientation}},
+        face_orientation,
         orientation_map,
         [](const auto &temp_1,
            const auto &temp_2,
@@ -2267,12 +2269,15 @@ namespace internal
         [&](const auto &temp1) {
           // case 5: default vector access, must be handled separately, just do
           // the face-normal interpolation
+
+          AssertDimension(face_no.size(), 1);
+
           FEFaceNormalEvaluationImpl<dim,
                                      fe_degree,
                                      n_components,
                                      VectorizedArrayType>::
             template interpolate<false, false>(
-              data, temp1, values_array, integrate_gradients, face_no);
+              data, temp1, values_array, integrate_gradients, face_no[0]);
         },
         [&](auto &temp1, const auto &dofs_per_face) {
           if (fe_degree > -1 &&
