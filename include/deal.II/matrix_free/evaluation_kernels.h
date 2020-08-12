@@ -3020,16 +3020,14 @@ namespace internal
           else
             {
               // case 5: default vector access
-              if (n_face_orientations > 1)
-                function_5(temp1);
+              function_5(temp1);
               return false;
             }
         }
       else
         {
           // case 5: default vector access
-          if (n_face_orientations > 1)
-            function_5(temp1);
+          function_5(temp1);
           return false;
         }
 
