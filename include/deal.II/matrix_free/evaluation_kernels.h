@@ -2419,28 +2419,44 @@ namespace internal
 
       // re-orientation
       std::array<const unsigned int *, n_face_orientations> orientation;
-      orientation[0] = (data.data.front().nodal_at_cell_boundaries == true) ?
-                         &data.face_orientations[face_orientation[0]][0] :
-                         &dummy;
+      if (n_face_orientations == 1)
+        orientation[0] = (data.data.front().nodal_at_cell_boundaries == true) ?
+                           &data.face_orientations[face_orientation[0]][0] :
+                           &dummy;
+      else
+        {
+          for (unsigned int v = 0; v < VectorizedArrayType::size(); ++v)
+            {
+              if (cells[v] == numbers::invalid_unsigned_int)
+                continue;
+
+              orientation[v] =
+                (data.data.front().nodal_at_cell_boundaries == true) ?
+                  &data.face_orientations[face_orientation[v]][0] :
+                  &dummy;
+            }
+        }
 
       // face_to_cell_index_hermite
       std::array<const unsigned int *, n_face_orientations> index_array_hermite;
 
-      index_array_hermite[0] =
-        (data.data.front().nodal_at_cell_boundaries == true && fe_degree > 1 &&
-         data.element_type == MatrixFreeFunctions::tensor_symmetric_hermite) ?
-          &data.face_to_cell_index_hermite(face_no[0], 0) :
-          &dummy;
+      if (n_face_orientations == 1)
+        index_array_hermite[0] =
+          (data.data.front().nodal_at_cell_boundaries == true &&
+           fe_degree > 1 &&
+           data.element_type == MatrixFreeFunctions::tensor_symmetric_hermite) ?
+            &data.face_to_cell_index_hermite(face_no[0], 0) :
+            &dummy;
 
       if (n_face_orientations > 1 &&
           data.data.front().nodal_at_cell_boundaries == true && fe_degree > 1 &&
           data.element_type == MatrixFreeFunctions::tensor_symmetric_hermite)
         {
-          const unsigned int n_filled_lanes =
-            dof_info.n_vectorization_lanes_filled[dof_access_index][cell];
-
-          for (unsigned int v = 1; v < n_filled_lanes; ++v)
+          for (unsigned int v = 0; v < VectorizedArrayType::size(); ++v)
             {
+              if (cells[v] == numbers::invalid_unsigned_int)
+                continue;
+
               grad_weight[v] =
                 data.data.front().shape_data_on_face
                   [0][fe_degree + (integrate ? (2 - (face_no[v] % 2)) :
@@ -2454,20 +2470,23 @@ namespace internal
       // face_to_cell_index_nodal
       std::array<const unsigned int *, n_face_orientations> index_array_nodal;
 
-      index_array_nodal[0] =
-        (data.data.front().nodal_at_cell_boundaries == true) ?
-          &data.face_to_cell_index_nodal(face_no[0], 0) :
-          &dummy;
+      if (n_face_orientations == 1)
+        index_array_nodal[0] =
+          (data.data.front().nodal_at_cell_boundaries == true) ?
+            &data.face_to_cell_index_nodal(face_no[0], 0) :
+            &dummy;
 
       if (n_face_orientations > 1 &&
           (data.data.front().nodal_at_cell_boundaries == true))
         {
-          const unsigned int n_filled_lanes =
-            dof_info.n_vectorization_lanes_filled[dof_access_index][cell];
+          for (unsigned int v = 0; v < VectorizedArrayType::size(); ++v)
+            {
+              if (cells[v] == numbers::invalid_unsigned_int)
+                continue;
 
-          for (unsigned int v = 1; v < n_filled_lanes; ++v)
-            index_array_nodal[v] =
-              &data.face_to_cell_index_nodal(face_no[v], 0);
+              index_array_nodal[v] =
+                &data.face_to_cell_index_nodal(face_no[v], 0);
+            }
         }
 
       const auto reorientate = [&](const unsigned int v, const unsigned int i) {
@@ -2972,24 +2991,20 @@ namespace internal
                           }
                         else
                           {
-                            Assert(false, ExcNotImplemented());
-
-                            const unsigned int n_filled_lanes =
-                              dof_info
-                                .n_vectorization_lanes_filled[dof_access_index]
-                                                             [cell];
-
-                            for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                              function_3b(
-                                temp1[reorientate(v, i) +
-                                      2 * comp * dofs_per_face][v],
-                                global_vector_ptr
-                                  [comp * static_dofs_per_component +
-                                   index_array_nodal[v][i] +
-                                   dof_info.component_dof_indices_offset
-                                     [active_fe_index]
-                                     [first_selected_component] +
-                                   indices[v]]);
+                            for (unsigned int v = 0;
+                                 v < VectorizedArrayType::size();
+                                 ++v)
+                              if (cells[v] != numbers::invalid_unsigned_int)
+                                function_3b(
+                                  temp1[reorientate(v, i) +
+                                        2 * comp * dofs_per_face][v],
+                                  global_vector_ptr
+                                    [comp * static_dofs_per_component +
+                                     index_array_nodal[v][i] +
+                                     dof_info.component_dof_indices_offset
+                                       [active_fe_index]
+                                       [first_selected_component] +
+                                     indices[v]]);
                           }
                       }
                 }

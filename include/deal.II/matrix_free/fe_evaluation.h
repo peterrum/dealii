@@ -754,6 +754,9 @@ public:
   std::array<unsigned int, VectorizedArrayType::size()>
   get_cell_ids() const;
 
+  std::array<unsigned int, VectorizedArrayType::size()>
+  get_cell_or_face_ids() const;
+
   //@}
 
   /**
@@ -3142,6 +3145,81 @@ public:
    * points is inaccurate and this value must be used instead.
    */
   const unsigned int n_q_points;
+
+
+private:
+  std::array<unsigned int, VectorizedArrayType::size()>
+  compute_face_no_data()
+  {
+    std::array<unsigned int, VectorizedArrayType::size()> face_no_data;
+
+
+    if (this->dof_access_index ==
+        internal::MatrixFreeFunctions::DoFInfo::dof_access_cell)
+      {
+        if (this->is_interior_face == true)
+          {
+            std::fill(
+              face_no_data.begin(),
+              face_no_data.begin() +
+                this->dof_info->n_vectorization_lanes_filled
+                  [internal::MatrixFreeFunctions::DoFInfo::dof_access_cell]
+                  [this->cell],
+              this->face_no);
+          }
+        else
+          {
+            std::fill(face_no_data.begin(),
+                      face_no_data.end(),
+                      numbers::invalid_unsigned_int);
+
+            for (unsigned int i = 0;
+                 i < this->dof_info->n_vectorization_lanes_filled
+                       [internal::MatrixFreeFunctions::DoFInfo::dof_access_cell]
+                       [this->cell];
+                 i++)
+              {
+                // compute actual (non vectorized) cell ID
+                const unsigned int cell_this =
+                  this->cell * VectorizedArrayType::size() + i;
+                // compute face ID
+                const unsigned int face_index =
+                  this->matrix_info->get_cell_and_face_to_plain_faces()(
+                    this->cell, this->face_no, i);
+
+                Assert(face_index != numbers::invalid_unsigned_int,
+                       ExcNotInitialized());
+
+                // get cell ID on both sides of face
+                auto cell_m =
+                  this->matrix_info
+                    ->get_face_info(face_index / VectorizedArrayType::size())
+                    .cells_interior[face_index % VectorizedArrayType::size()];
+
+                // compare the IDs with the given cell ID
+                face_no_data[i] =
+                  (cell_m == cell_this) ?
+                    this->matrix_info
+                      ->get_face_info(face_index / VectorizedArrayType::size())
+                      .exterior_face_no :
+                    this->matrix_info
+                      ->get_face_info(face_index / VectorizedArrayType::size())
+                      .interior_face_no;
+              }
+          }
+      }
+    else
+      {
+        std::fill(
+          face_no_data.begin(),
+          face_no_data.begin() +
+            this->dof_info->n_vectorization_lanes_filled[this->dof_access_index]
+                                                        [this->cell],
+          this->face_no);
+      }
+
+    return face_no_data;
+  }
 };
 
 
@@ -8142,29 +8220,71 @@ FEFaceEvaluation<dim,
     ExcMessage(
       "Only EvaluationFlags::values and EvaluationFlags::gradients are supported."));
 
-  if (!internal::FEFaceEvaluationSelector<dim,
-                                          fe_degree,
-                                          n_q_points_1d,
-                                          n_components,
-                                          Number,
-                                          VectorizedArrayType>::
-        gather_evaluate(input_vector.begin(),
-                        *this->data,
-                        *this->dof_info,
-                        this->begin_values(),
-                        this->begin_gradients(),
-                        this->scratch_data,
-                        evaluation_flag & EvaluationFlags::values,
-                        evaluation_flag & EvaluationFlags::gradients,
-                        this->active_fe_index,
-                        this->first_selected_component,
-                        std::array<unsigned int, 1>{{this->cell}},
-                        std::array<unsigned int, 1>{{this->face_no}},
-                        this->subface_index,
-                        this->dof_access_index,
-                        std::array<unsigned int, 1>{{this->face_orientation}},
-                        this->mapping_data->descriptor[this->active_fe_index]
-                          .face_orientations))
+  const auto fu = [&]() {
+    if (this->dof_access_index ==
+          internal::MatrixFreeFunctions::DoFInfo::dof_access_cell &&
+        this->is_interior_face == false)
+      {
+        const auto cells    = this->get_cell_ids();
+        const auto face_nos = compute_face_no_data();
+
+        // TODO!
+        std::array<unsigned int, VectorizedArrayType::size()> face_orientations;
+        face_orientations.fill(0);
+
+        return internal::FEFaceEvaluationSelector<dim,
+                                                  fe_degree,
+                                                  n_q_points_1d,
+                                                  n_components,
+                                                  Number,
+                                                  VectorizedArrayType>::
+          gather_evaluate(input_vector.begin(),
+                          *this->data,
+                          *this->dof_info,
+                          this->begin_values(),
+                          this->begin_gradients(),
+                          this->scratch_data,
+                          evaluation_flag & EvaluationFlags::values,
+                          evaluation_flag & EvaluationFlags::gradients,
+                          this->active_fe_index,
+                          this->first_selected_component,
+                          cells,
+                          face_nos,
+                          this->subface_index,
+                          this->dof_access_index,
+                          face_orientations,
+                          this->mapping_data->descriptor[this->active_fe_index]
+                            .face_orientations);
+      }
+    else
+      {
+        return internal::FEFaceEvaluationSelector<dim,
+                                                  fe_degree,
+                                                  n_q_points_1d,
+                                                  n_components,
+                                                  Number,
+                                                  VectorizedArrayType>::
+          gather_evaluate(input_vector.begin(),
+                          *this->data,
+                          *this->dof_info,
+                          this->begin_values(),
+                          this->begin_gradients(),
+                          this->scratch_data,
+                          evaluation_flag & EvaluationFlags::values,
+                          evaluation_flag & EvaluationFlags::gradients,
+                          this->active_fe_index,
+                          this->first_selected_component,
+                          std::array<unsigned int, 1>{{this->cell}},
+                          std::array<unsigned int, 1>{{this->face_no}},
+                          this->subface_index,
+                          this->dof_access_index,
+                          std::array<unsigned int, 1>{{this->face_orientation}},
+                          this->mapping_data->descriptor[this->active_fe_index]
+                            .face_orientations);
+      }
+  };
+
+  if (!fu())
     {
       this->read_dof_values(input_vector);
       this->evaluate(evaluation_flag);
