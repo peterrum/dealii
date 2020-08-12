@@ -2506,6 +2506,8 @@ namespace internal
               MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
                 interleaved_contiguous)
             {
+              AssertDimension(n_face_orientations, 1);
+
               AssertDimension(
                 dof_info.n_vectorization_lanes_filled[dof_access_index][cell],
                 VectorizedArrayType::size());
@@ -2582,6 +2584,8 @@ namespace internal
                    MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
                      interleaved_contiguous_strided)
             {
+              AssertDimension(n_face_orientations, 1);
+
               AssertDimension(
                 dof_info.n_vectorization_lanes_filled[dof_access_index][cell],
                 VectorizedArrayType::size());
@@ -2667,6 +2671,8 @@ namespace internal
                    MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
                      interleaved_contiguous_mixed_strides)
             {
+              AssertDimension(n_face_orientations, 1);
+
               const unsigned int *strides =
                 &dof_info.dof_indices_interleave_strides
                    [dof_access_index][cell * VectorizedArrayType::size()];
@@ -2815,9 +2821,10 @@ namespace internal
             }
 
           // case 4: contiguous indices without interleaving
-          else if (dof_info.index_storage_variants[dof_access_index][cell] ==
-                   MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
-                     contiguous)
+          else if (n_face_orientations > 1 ||
+                   dof_info.index_storage_variants[dof_access_index][cell] ==
+                     MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
+                       contiguous)
             {
               const unsigned int *indices =
                 &dof_info
@@ -2999,21 +3006,30 @@ namespace internal
                                   temp1[reorientate(v, i) +
                                         2 * comp * dofs_per_face][v],
                                   global_vector_ptr
-                                    [comp * static_dofs_per_component +
-                                     index_array_nodal[v][i] +
+                                    [index_array_nodal[v][i] +
+                                     comp * static_dofs_per_component +
                                      dof_info.component_dof_indices_offset
                                        [active_fe_index]
                                        [first_selected_component] +
-                                     indices[v]]);
+                                     dof_info.dof_indices_contiguous
+                                       [dof_access_index][cells[v]]]);
                           }
                       }
                 }
             }
+          else
+            {
+              // case 5: default vector access
+              if (n_face_orientations > 1)
+                function_5(temp1);
+              return false;
+            }
         }
-      // case 5: default vector access
       else
         {
-          function_5(temp1);
+          // case 5: default vector access
+          if (n_face_orientations > 1)
+            function_5(temp1);
           return false;
         }
 
