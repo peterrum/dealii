@@ -1870,6 +1870,71 @@ namespace internal
 
 
 
+  /**
+   * Helper class to interpolate values and gradients from cell to face
+   * quadrature points.
+   */
+  template <int dim, int n_points_1d, int n_components, typename Number>
+  struct FEFaceNormalQuadratureEvaluationImpl
+  {
+    template <bool do_evaluate, bool add_into_output>
+    static void
+    interpolate(const internal::MatrixFreeFunctions::ShapeInfo<Number> &data,
+                const Number *                                          input,
+                Number *                                                output,
+                const bool         do_gradients,
+                const unsigned int face_no)
+    {
+      AssertDimension(n_points_1d, data.data.front().quadrature.size());
+
+      internal::EvaluatorTensorProduct<internal::evaluate_general,
+                                       dim,
+                                       n_points_1d,
+                                       n_points_1d,
+                                       Number>
+        evalf(data.data.front().quadrature_data_on_face[face_no % 2],
+              AlignedVector<Number>(),
+              AlignedVector<Number>());
+
+      const unsigned int in_stride =
+        do_evaluate ? data.n_q_points : data.n_q_points_face;
+      const unsigned int out_stride =
+        do_evaluate ? data.n_q_points_face : data.n_q_points;
+      const unsigned int face_direction = face_no / 2;
+      for (unsigned int c = 0; c < n_components; c++)
+        {
+          if (do_gradients)
+            {
+              if (face_direction == 0)
+                evalf.template apply_face<0, do_evaluate, add_into_output, 1>(
+                  input, output);
+              else if (face_direction == 1)
+                evalf.template apply_face<1, do_evaluate, add_into_output, 1>(
+                  input, output);
+              else
+                evalf.template apply_face<2, do_evaluate, add_into_output, 1>(
+                  input, output);
+            }
+          else
+            {
+              if (face_direction == 0)
+                evalf.template apply_face<0, do_evaluate, add_into_output, 0>(
+                  input, output);
+              else if (face_direction == 1)
+                evalf.template apply_face<1, do_evaluate, add_into_output, 0>(
+                  input, output);
+              else
+                evalf.template apply_face<2, do_evaluate, add_into_output, 0>(
+                  input, output);
+            }
+          input += in_stride;
+          output += out_stride;
+        }
+    }
+  };
+
+
+
   // internal helper function for reading data; base version of different types
   template <typename VectorizedArrayType, typename Number2>
   void
