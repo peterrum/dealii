@@ -2490,7 +2490,8 @@ namespace internal
         }
 
       const auto reorientate = [&](const unsigned int v, const unsigned int i) {
-        return (dim < 3 || face_orientation[0] == 0 ||
+        return (dim < 3 ||
+                face_orientation[n_face_orientations == 1 ? 0 : v] == 0 ||
                 subface_index < GeometryInfo<dim>::max_children_per_cell) ?
                  i :
                  orientation[v][i];
@@ -2502,9 +2503,10 @@ namespace internal
            fe_degree > 1))
         {
           // case 1: contiguous and interleaved indices
-          if (dof_info.index_storage_variants[dof_access_index][cell] ==
-              MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
-                interleaved_contiguous)
+          if (n_face_orientations == 1 &&
+              dof_info.index_storage_variants[dof_access_index][cell] ==
+                MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
+                  interleaved_contiguous)
             {
               AssertDimension(n_face_orientations, 1);
 
@@ -2580,9 +2582,10 @@ namespace internal
             }
 
           // case 2: contiguous and interleaved indices with fixed stride
-          else if (dof_info.index_storage_variants[dof_access_index][cell] ==
-                   MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
-                     interleaved_contiguous_strided)
+          else if (n_face_orientations == 1 &&
+                   dof_info.index_storage_variants[dof_access_index][cell] ==
+                     MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
+                       interleaved_contiguous_strided)
             {
               AssertDimension(n_face_orientations, 1);
 
@@ -2667,9 +2670,10 @@ namespace internal
             }
 
           // case 3: contiguous and interleaved indices with mixed stride
-          else if (dof_info.index_storage_variants[dof_access_index][cell] ==
-                   MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
-                     interleaved_contiguous_mixed_strides)
+          else if (n_face_orientations == 1 &&
+                   dof_info.index_storage_variants[dof_access_index][cell] ==
+                     MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
+                       interleaved_contiguous_mixed_strides)
             {
               AssertDimension(n_face_orientations, 1);
 

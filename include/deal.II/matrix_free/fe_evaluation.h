@@ -3153,6 +3153,9 @@ public:
 
 
 private:
+  /**
+   * Return face number of each face of the current face batch.
+   */
   std::array<unsigned int, VectorizedArrayType::size()>
   compute_face_no_data()
   {
@@ -3221,6 +3224,85 @@ private:
             this->dof_info->n_vectorization_lanes_filled[this->dof_access_index]
                                                         [this->cell],
           this->face_no);
+      }
+
+    return face_no_data;
+  }
+
+  /**
+   * Determine the orientation of each face of the current face batch.
+   */
+  std::array<unsigned int, VectorizedArrayType::size()>
+  compute_face_orientations()
+  {
+    std::array<unsigned int, VectorizedArrayType::size()> face_no_data;
+
+
+    if (this->dof_access_index ==
+        internal::MatrixFreeFunctions::DoFInfo::dof_access_cell)
+      {
+        if (this->is_interior_face == true)
+          {
+            Assert(false, ExcNotImplemented());
+          }
+        else
+          {
+            std::fill(face_no_data.begin(), face_no_data.end(), 0);
+
+            if (dim == 3)
+              {
+                for (unsigned int i = 0;
+                     i <
+                     this->dof_info->n_vectorization_lanes_filled
+                       [internal::MatrixFreeFunctions::DoFInfo::dof_access_cell]
+                       [this->cell];
+                     i++)
+                  {
+                    // compute actual (non vectorized) cell ID
+                    const unsigned int cell_this =
+                      this->cell * VectorizedArrayType::size() + i;
+                    // compute face ID
+                    const unsigned int face_index =
+                      this->matrix_info->get_cell_and_face_to_plain_faces()(
+                        this->cell, this->face_no, i);
+
+                    Assert(face_index != numbers::invalid_unsigned_int,
+                           ExcNotInitialized());
+
+                    const unsigned int macro =
+                      face_index / VectorizedArrayType::size();
+                    const unsigned int lane =
+                      face_index % VectorizedArrayType::size();
+
+                    const auto &faces = this->matrix_info->get_face_info(macro);
+
+                    // get cell ID on both sides of face
+                    auto cell_m = faces.cells_interior[lane];
+
+                    const bool is_interior_face = cell_m != cell_this;
+                    const bool fo_interior_face = faces.face_orientation >= 8;
+
+                    unsigned int face_orientation = faces.face_orientation % 8;
+
+                    if (is_interior_face != fo_interior_face)
+                      {
+                        // invert (see also:
+                        // Triangulation::update_periodic_face_map())
+                        static const std::array<unsigned int, 8> table{
+                          {0, 1, 0, 3, 6, 5, 4, 7}};
+
+                        face_orientation = table[face_orientation];
+                      }
+
+                    // compare the IDs with the given cell ID
+                    face_no_data[i] = face_orientation;
+                  }
+              }
+          }
+      }
+    else
+      {
+        Assert(false, ExcNotImplemented());
       }
 
     return face_no_data;
@@ -8289,12 +8371,9 @@ FEFaceEvaluation<dim,
           internal::MatrixFreeFunctions::DoFInfo::dof_access_cell &&
         this->is_interior_face == false)
       {
-        const auto cells    = this->get_cell_or_face_ids();
-        const auto face_nos = compute_face_no_data();
-
-        // TODO!
-        std::array<unsigned int, VectorizedArrayType::size()> face_orientations;
-        face_orientations.fill(0);
+        const auto cells             = this->get_cell_or_face_ids();
+        const auto face_nos          = this->compute_face_no_data();
+        const auto face_orientations = this->compute_face_orientations();
 
         return internal::FEFaceEvaluationSelector<dim,
                                                   fe_degree,
