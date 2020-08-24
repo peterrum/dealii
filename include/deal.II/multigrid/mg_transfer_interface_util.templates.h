@@ -792,20 +792,6 @@ namespace MGTransferUtilities
       std::vector<types::global_dof_index> indices_src(dofs_per_cell);
       std::vector<types::global_dof_index> indices_dst(dofs_per_cell);
 
-      // helper function to translate global to local index
-      const auto make_local = [&is_extended_locally_owned,
-                               &is_extendende_ghosts](const unsigned int i) {
-        if (is_extended_locally_owned.is_element(i))
-          return is_extended_locally_owned.index_within_set(i);
-        else if (is_extendende_ghosts.is_element(i))
-          return is_extended_locally_owned.n_elements() +
-                 is_extendende_ghosts.index_within_set(i);
-
-        Assert(false, ExcNotImplemented());
-
-        return typename IndexSet::size_type(0);
-      };
-
       // loop over all active locally owned cells
       for (auto cell_dst : dof_handler_dst.active_cell_iterators())
         {
@@ -827,7 +813,8 @@ namespace MGTransferUtilities
                     indices_dst[j]))
                 transfer.indices[dof_handler_dst.locally_owned_dofs()
                                    .index_within_set(indices_dst[j])] =
-                  make_local(indices_src[j]);
+                  transfer.extended_partitioner->global_to_local(
+                    indices_src[j]);
             }
         }
     }
@@ -874,8 +861,8 @@ namespace MGTransferUtilities
         }
       }
 
-      // helper function: to process the fine level cells; function @p fu_1 is
-      // performed on cells that are not refined and @fu_2 is performed on
+      // helper function: to process the fine level cells; function @p fu_non_refined is
+      // performed on cells that are not refined and @fu_refined is performed on
       // children of cells that are refined
       const auto process_cells =
         [&view, &dof_handler_coarse](const auto &fu_non_refined,
@@ -1299,316 +1286,332 @@ namespace MGTransferUtilities
       transfer.constraint_coarse.copy_from(constraint_coarse);
 
       const auto comm = get_mpi_comm(dof_handler_coarse);
-      {{IndexSet locally_relevant_dofs;
-      DoFTools::extract_locally_relevant_dofs(dof_handler_fine,
-                                              locally_relevant_dofs);
+      {
+        IndexSet locally_relevant_dofs;
+        DoFTools::extract_locally_relevant_dofs(dof_handler_fine,
+                                                locally_relevant_dofs);
 
-      transfer.partitioner_fine.reset(new Utilities::MPI::Partitioner(
-        dof_handler_fine.locally_owned_dofs(), locally_relevant_dofs, comm));
-      transfer.vec_fine.reinit(transfer.partitioner_fine);
+        transfer.partitioner_fine.reset(new Utilities::MPI::Partitioner(
+          dof_handler_fine.locally_owned_dofs(), locally_relevant_dofs, comm));
+        transfer.vec_fine.reinit(transfer.partitioner_fine);
+      }
+      {
+        IndexSet locally_relevant_dofs;
+        DoFTools::extract_locally_relevant_dofs(dof_handler_coarse,
+                                                locally_relevant_dofs);
+
+        transfer.partitioner_coarse.reset(new Utilities::MPI::Partitioner(
+          dof_handler_coarse.locally_owned_dofs(),
+          locally_relevant_dofs,
+          comm));
+        transfer.vec_coarse.reinit(transfer.partitioner_coarse);
+      }
+
+      {
+        std::vector<std::vector<unsigned int>> lexicographic_numbering_fine(
+          fe_index_pairs.size());
+        std::vector<std::vector<unsigned int>> lexicographic_numbering_coarse(
+          fe_index_pairs.size());
+        std::vector<std::vector<types::global_dof_index>>
+          local_dof_indices_coarse(fe_index_pairs.size());
+        std::vector<std::vector<types::global_dof_index>>
+          local_dof_indices_fine(fe_index_pairs.size());
+
+        for (const auto fe_index_pair : fe_index_pairs)
+          {
+            local_dof_indices_coarse[fe_index_pair.second].resize(
+              transfer.schemes[fe_index_pair.second].n_dofs_coarse_cell);
+            local_dof_indices_fine[fe_index_pair.second].resize(
+              transfer.schemes[fe_index_pair.second].n_dofs_fine_cell);
+
+            transfer.schemes[fe_index_pair.second]
+              .level_dof_indices_fine.resize(
+                transfer.schemes[fe_index_pair.second].n_dofs_fine_cell *
+                transfer.schemes[fe_index_pair.second].n_coarse_cells);
+            transfer.schemes[fe_index_pair.second]
+              .level_dof_indices_coarse.resize(
+                transfer.schemes[fe_index_pair.second].n_dofs_coarse_cell *
+                transfer.schemes[fe_index_pair.second].n_coarse_cells);
+
+
+            // ------------------- lexicographic_numbering  --------------------
+            {
+              const Quadrature<1> dummy_quadrature(
+                std::vector<Point<1>>(1, Point<1>()));
+              internal::MatrixFreeFunctions::ShapeInfo<Number> shape_info;
+              shape_info.reinit(dummy_quadrature,
+                                dof_handler_fine.get_fe(
+                                  fe_index_pair.first.second),
+                                0);
+              lexicographic_numbering_fine[fe_index_pair.second] =
+                shape_info.lexicographic_numbering;
+
+              shape_info.reinit(dummy_quadrature,
+                                dof_handler_coarse.get_fe(
+                                  fe_index_pair.first.first),
+                                0);
+              lexicographic_numbering_coarse[fe_index_pair.second] =
+                shape_info.lexicographic_numbering;
+            }
+          }
+
+        // ------------------------------ indices  -----------------------------
+        std::vector<unsigned int *> level_dof_indices_coarse_(
+          fe_index_pairs.size());
+        std::vector<unsigned int *> level_dof_indices_fine_(
+          fe_index_pairs.size());
+
+        for (unsigned int i = 0; i < fe_index_pairs.size(); i++)
+          {
+            level_dof_indices_coarse_[i] =
+              &transfer.schemes[i].level_dof_indices_coarse[0];
+            level_dof_indices_fine_[i] =
+              &transfer.schemes[i].level_dof_indices_fine[0];
+          }
+
+        process_cells([&](const auto &cell_coarse, const auto &cell_fine) {
+          const auto fe_pair_no =
+            fe_index_pairs[std::pair<unsigned int, unsigned int>(
+              cell_coarse->active_fe_index(), cell_fine->active_fe_index())];
+
+          cell_coarse->get_dof_indices(local_dof_indices_coarse[fe_pair_no]);
+          for (unsigned int i = 0;
+               i < transfer.schemes[fe_pair_no].n_dofs_coarse_cell;
+               i++)
+            level_dof_indices_coarse_[fe_pair_no][i] =
+              transfer.partitioner_coarse->global_to_local(
+                local_dof_indices_coarse
+                  [fe_pair_no][lexicographic_numbering_coarse[fe_pair_no][i]]);
+
+
+          cell_fine->get_dof_indices(local_dof_indices_fine[fe_pair_no]);
+          for (unsigned int i = 0;
+               i < transfer.schemes[fe_pair_no].n_dofs_fine_cell;
+               i++)
+            level_dof_indices_fine_[fe_pair_no][i] =
+              transfer.partitioner_fine->global_to_local(
+                local_dof_indices_fine
+                  [fe_pair_no][lexicographic_numbering_fine[fe_pair_no][i]]);
+
+
+          level_dof_indices_coarse_[fe_pair_no] +=
+            transfer.schemes[fe_pair_no].n_dofs_coarse_cell;
+          level_dof_indices_fine_[fe_pair_no] +=
+            transfer.schemes[fe_pair_no].n_dofs_fine_cell;
+        });
+      }
+
+      // ------------------------- prolongation matrix -------------------------
+      for (auto const &fe_index_pair_ : fe_index_pairs)
+        {
+          const auto &fe_index_pair = fe_index_pair_.first;
+          const auto &fe_index_no   = fe_index_pair_.second;
+
+          AssertDimension(
+            dof_handler_fine.get_fe(fe_index_pair.second).n_base_elements(), 1);
+          std::string fe_name_fine =
+            dof_handler_fine.get_fe(fe_index_pair.second)
+              .base_element(0)
+              .get_name();
+          {
+            const std::size_t template_starts = fe_name_fine.find_first_of('<');
+            Assert(fe_name_fine[template_starts + 1] ==
+                     (dim == 1 ? '1' : (dim == 2 ? '2' : '3')),
+                   ExcInternalError());
+            fe_name_fine[template_starts + 1] = '1';
+          }
+          const std::unique_ptr<FiniteElement<1>> fe_fine(
+            FETools::get_fe_by_name<1, 1>(fe_name_fine));
+
+          std::vector<unsigned int> renumbering_fine(fe_fine->dofs_per_cell);
+          {
+            AssertIndexRange(fe_fine->dofs_per_vertex, 2);
+            renumbering_fine[0] = 0;
+            for (unsigned int i = 0; i < fe_fine->dofs_per_line; ++i)
+              renumbering_fine[i + fe_fine->dofs_per_vertex] =
+                GeometryInfo<1>::vertices_per_cell * fe_fine->dofs_per_vertex +
+                i;
+            if (fe_fine->dofs_per_vertex > 0)
+              renumbering_fine[fe_fine->dofs_per_cell -
+                               fe_fine->dofs_per_vertex] =
+                fe_fine->dofs_per_vertex;
+          }
+
+
+
+          AssertDimension(
+            dof_handler_coarse.get_fe(fe_index_pair.first).n_base_elements(),
+            1);
+          std::string fe_name_coarse =
+            dof_handler_coarse.get_fe(fe_index_pair.first)
+              .base_element(0)
+              .get_name();
+          {
+            const std::size_t template_starts =
+              fe_name_coarse.find_first_of('<');
+            Assert(fe_name_coarse[template_starts + 1] ==
+                     (dim == 1 ? '1' : (dim == 2 ? '2' : '3')),
+                   ExcInternalError());
+            fe_name_coarse[template_starts + 1] = '1';
+          }
+          const std::unique_ptr<FiniteElement<1>> fe_coarse(
+            FETools::get_fe_by_name<1, 1>(fe_name_coarse));
+
+          std::vector<unsigned int> renumbering_coarse(
+            fe_coarse->dofs_per_cell);
+          {
+            AssertIndexRange(fe_coarse->dofs_per_vertex, 2);
+            renumbering_coarse[0] = 0;
+            for (unsigned int i = 0; i < fe_coarse->dofs_per_line; ++i)
+              renumbering_coarse[i + fe_coarse->dofs_per_vertex] =
+                GeometryInfo<1>::vertices_per_cell *
+                  fe_coarse->dofs_per_vertex +
+                i;
+            if (fe_coarse->dofs_per_vertex > 0)
+              renumbering_coarse[fe_coarse->dofs_per_cell -
+                                 fe_coarse->dofs_per_vertex] =
+                fe_coarse->dofs_per_vertex;
+          }
+
+
+
+          FullMatrix<double> matrix(fe_fine->dofs_per_cell,
+                                    fe_coarse->dofs_per_cell);
+          FETools::get_projection_matrix(*fe_coarse, *fe_fine, matrix);
+          transfer.schemes[fe_index_no].prolongation_matrix_1d.resize(
+            fe_fine->dofs_per_cell * fe_coarse->dofs_per_cell);
+
+          for (unsigned int i = 0, k = 0; i < fe_coarse->dofs_per_cell; ++i)
+            for (unsigned int j = 0; j < fe_fine->dofs_per_cell; ++j, ++k)
+              transfer.schemes[fe_index_no].prolongation_matrix_1d[k] =
+                matrix(renumbering_fine[j], renumbering_coarse[i]);
+        }
+
+      // ------------------------------- weights -------------------------------
+      const bool fine_element_is_continuous = Utilities::MPI::max(
+        static_cast<unsigned int>(
+          transfer.schemes.size() > 0 ?
+            transfer.schemes.front().fine_element_is_continuous :
+            false),
+        comm);
+      if (fine_element_is_continuous)
+        {
+          for (auto &scheme : transfer.schemes)
+            scheme.weights.resize(scheme.n_coarse_cells *
+                                  scheme.n_dofs_fine_cell);
+
+          LinearAlgebra::distributed::Vector<Number> touch_count;
+          touch_count.reinit(transfer.partitioner_fine);
+
+          std::vector<unsigned int *> level_dof_indices_fine_(
+            fe_index_pairs.size());
+          std::vector<Number *> weights_(fe_index_pairs.size());
+
+          for (unsigned int i = 0; i < fe_index_pairs.size(); i++)
+            level_dof_indices_fine_[i] =
+              &transfer.schemes[i].level_dof_indices_fine[0];
+
+          process_cells([&](const auto &cell_coarse, const auto &cell_fine) {
+            const auto fe_pair_no =
+              fe_index_pairs[std::pair<unsigned int, unsigned int>(
+                cell_coarse->active_fe_index(), cell_fine->active_fe_index())];
+
+            for (unsigned int i = 0;
+                 i < transfer.schemes[fe_pair_no].n_dofs_fine_cell;
+                 i++)
+              if (constraint_fine.is_constrained(
+                    transfer.partitioner_fine->local_to_global(
+                      level_dof_indices_fine_[fe_pair_no][i])) == false)
+                touch_count.local_element(
+                  level_dof_indices_fine_[fe_pair_no][i]) += 1;
+
+            level_dof_indices_fine_[fe_pair_no] +=
+              transfer.schemes[fe_pair_no].n_dofs_fine_cell;
+          });
+
+          touch_count.compress(VectorOperation::add);
+          touch_count.update_ghost_values();
+
+          for (unsigned int i = 0; i < fe_index_pairs.size(); i++)
+            {
+              level_dof_indices_fine_[i] =
+                &transfer.schemes[i].level_dof_indices_fine[0];
+              weights_[i] = &transfer.schemes[i].weights[0];
+            }
+
+          process_cells([&](const auto &cell_coarse, const auto &cell_fine) {
+            const auto fe_pair_no =
+              fe_index_pairs[std::pair<unsigned int, unsigned int>(
+                cell_coarse->active_fe_index(), cell_fine->active_fe_index())];
+
+            for (unsigned int i = 0;
+                 i < transfer.schemes[fe_pair_no].n_dofs_fine_cell;
+                 i++)
+              if (constraint_fine.is_constrained(
+                    transfer.partitioner_fine->local_to_global(
+                      level_dof_indices_fine_[fe_pair_no][i])) == true)
+                weights_[fe_pair_no][i] = Number(0.);
+              else
+                weights_[fe_pair_no][i] =
+                  Number(1.) / touch_count.local_element(
+                                 level_dof_indices_fine_[fe_pair_no][i]);
+
+            level_dof_indices_fine_[fe_pair_no] +=
+              transfer.schemes[fe_pair_no].n_dofs_fine_cell;
+            weights_[fe_pair_no] +=
+              transfer.schemes[fe_pair_no].n_dofs_fine_cell;
+          });
+        }
     }
-    {
-      IndexSet locally_relevant_dofs;
-      DoFTools::extract_locally_relevant_dofs(dof_handler_coarse,
-                                              locally_relevant_dofs);
+  };
 
-      transfer.partitioner_coarse.reset(new Utilities::MPI::Partitioner(
-        dof_handler_coarse.locally_owned_dofs(), locally_relevant_dofs, comm));
-      transfer.vec_coarse.reinit(transfer.partitioner_coarse);
-    }
-  }
 
+
+  template <int dim, typename Number, typename MeshType>
+  void
+  setup_vector_repartitioner(const MeshType &                  dof_handler_src,
+                             const MeshType &                  dof_handler_dst,
+                             VectorRepartitioner<dim, Number> &transfer)
   {
-    std::vector<std::vector<unsigned int>> lexicographic_numbering_fine(
-      fe_index_pairs.size());
-    std::vector<std::vector<unsigned int>> lexicographic_numbering_coarse(
-      fe_index_pairs.size());
-    std::vector<std::vector<types::global_dof_index>> local_dof_indices_coarse(
-      fe_index_pairs.size());
-    std::vector<std::vector<types::global_dof_index>> local_dof_indices_fine(
-      fe_index_pairs.size());
-
-    for (const auto fe_index_pair : fe_index_pairs)
-      {
-        local_dof_indices_coarse[fe_index_pair.second].resize(
-          transfer.schemes[fe_index_pair.second].n_dofs_coarse_cell);
-        local_dof_indices_fine[fe_index_pair.second].resize(
-          transfer.schemes[fe_index_pair.second].n_dofs_fine_cell);
-
-        transfer.schemes[fe_index_pair.second].level_dof_indices_fine.resize(
-          transfer.schemes[fe_index_pair.second].n_dofs_fine_cell *
-          transfer.schemes[fe_index_pair.second].n_coarse_cells);
-        transfer.schemes[fe_index_pair.second].level_dof_indices_coarse.resize(
-          transfer.schemes[fe_index_pair.second].n_dofs_coarse_cell *
-          transfer.schemes[fe_index_pair.second].n_coarse_cells);
-
-
-        // ------------------- lexicographic_numbering  --------------------
-        {
-          const Quadrature<1> dummy_quadrature(
-            std::vector<Point<1>>(1, Point<1>()));
-          internal::MatrixFreeFunctions::ShapeInfo<Number> shape_info;
-          shape_info.reinit(dummy_quadrature,
-                            dof_handler_fine.get_fe(fe_index_pair.first.second),
-                            0);
-          lexicographic_numbering_fine[fe_index_pair.second] =
-            shape_info.lexicographic_numbering;
-
-          shape_info.reinit(dummy_quadrature,
-                            dof_handler_coarse.get_fe(
-                              fe_index_pair.first.first),
-                            0);
-          lexicographic_numbering_coarse[fe_index_pair.second] =
-            shape_info.lexicographic_numbering;
-        }
-      }
-
-    // ------------------------------ indices  -----------------------------
-    std::vector<unsigned int *> level_dof_indices_coarse_(
-      fe_index_pairs.size());
-    std::vector<unsigned int *> level_dof_indices_fine_(fe_index_pairs.size());
-
-    for (unsigned int i = 0; i < fe_index_pairs.size(); i++)
-      {
-        level_dof_indices_coarse_[i] =
-          &transfer.schemes[i].level_dof_indices_coarse[0];
-        level_dof_indices_fine_[i] =
-          &transfer.schemes[i].level_dof_indices_fine[0];
-      }
-
-    process_cells([&](const auto &cell_coarse, const auto &cell_fine) {
-      const auto fe_pair_no =
-        fe_index_pairs[std::pair<unsigned int, unsigned int>(
-          cell_coarse->active_fe_index(), cell_fine->active_fe_index())];
-
-      cell_coarse->get_dof_indices(local_dof_indices_coarse[fe_pair_no]);
-      for (unsigned int i = 0;
-           i < transfer.schemes[fe_pair_no].n_dofs_coarse_cell;
-           i++)
-        level_dof_indices_coarse_[fe_pair_no][i] =
-          transfer.partitioner_coarse->global_to_local(
-            local_dof_indices_coarse
-              [fe_pair_no][lexicographic_numbering_coarse[fe_pair_no][i]]);
-
-
-      cell_fine->get_dof_indices(local_dof_indices_fine[fe_pair_no]);
-      for (unsigned int i = 0;
-           i < transfer.schemes[fe_pair_no].n_dofs_fine_cell;
-           i++)
-        level_dof_indices_fine_[fe_pair_no][i] =
-          transfer.partitioner_fine->global_to_local(
-            local_dof_indices_fine
-              [fe_pair_no][lexicographic_numbering_fine[fe_pair_no][i]]);
-
-
-      level_dof_indices_coarse_[fe_pair_no] +=
-        transfer.schemes[fe_pair_no].n_dofs_coarse_cell;
-      level_dof_indices_fine_[fe_pair_no] +=
-        transfer.schemes[fe_pair_no].n_dofs_fine_cell;
-    });
+    Implementation::setup_vector_repartitioner(dof_handler_src,
+                                               dof_handler_dst,
+                                               transfer);
   }
 
-  // ------------------------- prolongation matrix -------------------------
-  for (auto const &fe_index_pair_ : fe_index_pairs)
-    {
-      const auto &fe_index_pair = fe_index_pair_.first;
-      const auto &fe_index_no   = fe_index_pair_.second;
 
-      AssertDimension(
-        dof_handler_fine.get_fe(fe_index_pair.second).n_base_elements(), 1);
-      std::string fe_name_fine = dof_handler_fine.get_fe(fe_index_pair.second)
-                                   .base_element(0)
-                                   .get_name();
-      {
-        const std::size_t template_starts = fe_name_fine.find_first_of('<');
-        Assert(fe_name_fine[template_starts + 1] ==
-                 (dim == 1 ? '1' : (dim == 2 ? '2' : '3')),
-               ExcInternalError());
-        fe_name_fine[template_starts + 1] = '1';
-      }
-      const std::unique_ptr<FiniteElement<1>> fe_fine(
-        FETools::get_fe_by_name<1, 1>(fe_name_fine));
 
-      std::vector<unsigned int> renumbering_fine(fe_fine->dofs_per_cell);
-      {
-        AssertIndexRange(fe_fine->dofs_per_vertex, 2);
-        renumbering_fine[0] = 0;
-        for (unsigned int i = 0; i < fe_fine->dofs_per_line; ++i)
-          renumbering_fine[i + fe_fine->dofs_per_vertex] =
-            GeometryInfo<1>::vertices_per_cell * fe_fine->dofs_per_vertex + i;
-        if (fe_fine->dofs_per_vertex > 0)
-          renumbering_fine[fe_fine->dofs_per_cell - fe_fine->dofs_per_vertex] =
-            fe_fine->dofs_per_vertex;
-      }
+  template <int dim, typename Number, typename MeshType>
+  void
+  setup_global_coarsening_transfer(
+    const MeshType &                 dof_handler_fine,
+    const MeshType &                 dof_handler_coarse,
+    const AffineConstraints<Number> &constraint_fine,
+    const AffineConstraints<Number> &constraint_coarse,
+    MGTwoLevelTransfer<dim, Number> &transfer)
+  {
+    Implementation::setup_global_coarsening_transfer(dof_handler_fine,
+                                                     dof_handler_coarse,
+                                                     constraint_fine,
+                                                     constraint_coarse,
+                                                     transfer);
+  }
 
 
 
-      AssertDimension(
-        dof_handler_coarse.get_fe(fe_index_pair.first).n_base_elements(), 1);
-      std::string fe_name_coarse =
-        dof_handler_coarse.get_fe(fe_index_pair.first)
-          .base_element(0)
-          .get_name();
-      {
-        const std::size_t template_starts = fe_name_coarse.find_first_of('<');
-        Assert(fe_name_coarse[template_starts + 1] ==
-                 (dim == 1 ? '1' : (dim == 2 ? '2' : '3')),
-               ExcInternalError());
-        fe_name_coarse[template_starts + 1] = '1';
-      }
-      const std::unique_ptr<FiniteElement<1>> fe_coarse(
-        FETools::get_fe_by_name<1, 1>(fe_name_coarse));
-
-      std::vector<unsigned int> renumbering_coarse(fe_coarse->dofs_per_cell);
-      {
-        AssertIndexRange(fe_coarse->dofs_per_vertex, 2);
-        renumbering_coarse[0] = 0;
-        for (unsigned int i = 0; i < fe_coarse->dofs_per_line; ++i)
-          renumbering_coarse[i + fe_coarse->dofs_per_vertex] =
-            GeometryInfo<1>::vertices_per_cell * fe_coarse->dofs_per_vertex + i;
-        if (fe_coarse->dofs_per_vertex > 0)
-          renumbering_coarse[fe_coarse->dofs_per_cell -
-                             fe_coarse->dofs_per_vertex] =
-            fe_coarse->dofs_per_vertex;
-      }
-
-
-
-      FullMatrix<double> matrix(fe_fine->dofs_per_cell,
-                                fe_coarse->dofs_per_cell);
-      FETools::get_projection_matrix(*fe_coarse, *fe_fine, matrix);
-      transfer.schemes[fe_index_no].prolongation_matrix_1d.resize(
-        fe_fine->dofs_per_cell * fe_coarse->dofs_per_cell);
-
-      for (unsigned int i = 0, k = 0; i < fe_coarse->dofs_per_cell; ++i)
-        for (unsigned int j = 0; j < fe_fine->dofs_per_cell; ++j, ++k)
-          transfer.schemes[fe_index_no].prolongation_matrix_1d[k] =
-            matrix(renumbering_fine[j], renumbering_coarse[i]);
-    }
-
-  // ------------------------------- weights -------------------------------
-  const bool fine_element_is_continuous = Utilities::MPI::max(
-    static_cast<unsigned int>(
-      transfer.schemes.size() > 0 ?
-        transfer.schemes.front().fine_element_is_continuous :
-        false),
-    comm);
-  if (fine_element_is_continuous)
-    {
-      for (auto &scheme : transfer.schemes)
-        scheme.weights.resize(scheme.n_coarse_cells * scheme.n_dofs_fine_cell);
-
-      LinearAlgebra::distributed::Vector<Number> touch_count;
-      touch_count.reinit(transfer.partitioner_fine);
-
-      std::vector<unsigned int *> level_dof_indices_fine_(
-        fe_index_pairs.size());
-      std::vector<Number *> weights_(fe_index_pairs.size());
-
-      for (unsigned int i = 0; i < fe_index_pairs.size(); i++)
-        level_dof_indices_fine_[i] =
-          &transfer.schemes[i].level_dof_indices_fine[0];
-
-      process_cells([&](const auto &cell_coarse, const auto &cell_fine) {
-        const auto fe_pair_no =
-          fe_index_pairs[std::pair<unsigned int, unsigned int>(
-            cell_coarse->active_fe_index(), cell_fine->active_fe_index())];
-
-        for (unsigned int i = 0;
-             i < transfer.schemes[fe_pair_no].n_dofs_fine_cell;
-             i++)
-          if (constraint_fine.is_constrained(
-                transfer.partitioner_fine->local_to_global(
-                  level_dof_indices_fine_[fe_pair_no][i])) == false)
-            touch_count.local_element(level_dof_indices_fine_[fe_pair_no][i]) +=
-              1;
-
-        level_dof_indices_fine_[fe_pair_no] +=
-          transfer.schemes[fe_pair_no].n_dofs_fine_cell;
-      });
-
-      touch_count.compress(VectorOperation::add);
-      touch_count.update_ghost_values();
-
-      for (unsigned int i = 0; i < fe_index_pairs.size(); i++)
-        {
-          level_dof_indices_fine_[i] =
-            &transfer.schemes[i].level_dof_indices_fine[0];
-          weights_[i] = &transfer.schemes[i].weights[0];
-        }
-
-      process_cells([&](const auto &cell_coarse, const auto &cell_fine) {
-        const auto fe_pair_no =
-          fe_index_pairs[std::pair<unsigned int, unsigned int>(
-            cell_coarse->active_fe_index(), cell_fine->active_fe_index())];
-
-        for (unsigned int i = 0;
-             i < transfer.schemes[fe_pair_no].n_dofs_fine_cell;
-             i++)
-          if (constraint_fine.is_constrained(
-                transfer.partitioner_fine->local_to_global(
-                  level_dof_indices_fine_[fe_pair_no][i])) == true)
-            weights_[fe_pair_no][i] = Number(0.);
-          else
-            weights_[fe_pair_no][i] =
-              Number(1.) /
-              touch_count.local_element(level_dof_indices_fine_[fe_pair_no][i]);
-
-        level_dof_indices_fine_[fe_pair_no] +=
-          transfer.schemes[fe_pair_no].n_dofs_fine_cell;
-        weights_[fe_pair_no] += transfer.schemes[fe_pair_no].n_dofs_fine_cell;
-      });
-    }
-} // namespace MGTransferUtilities
-}
-;
-
-
-template <int dim, typename Number, typename MeshType>
-void
-setup_vector_repartitioner(const MeshType &                  dof_handler_src,
-                           const MeshType &                  dof_handler_dst,
-                           VectorRepartitioner<dim, Number> &transfer)
-{
-  Implementation::setup_vector_repartitioner(dof_handler_src,
-                                             dof_handler_dst,
-                                             transfer);
-}
-
-
-
-template <int dim, typename Number, typename MeshType>
-void
-setup_global_coarsening_transfer(
-  const MeshType &                 dof_handler_fine,
-  const MeshType &                 dof_handler_coarse,
-  const AffineConstraints<Number> &constraint_fine,
-  const AffineConstraints<Number> &constraint_coarse,
-  MGTwoLevelTransfer<dim, Number> &transfer)
-{
-  Implementation::setup_global_coarsening_transfer(dof_handler_fine,
-                                                   dof_handler_coarse,
-                                                   constraint_fine,
-                                                   constraint_coarse,
-                                                   transfer);
-}
-
-
-
-template <int dim, typename Number, typename MeshType>
-void
-setup_polynomial_transfer(const MeshType &                 dof_handler_fine,
-                          const MeshType &                 dof_handler_coarse,
-                          const AffineConstraints<Number> &constraint_fine,
-                          const AffineConstraints<Number> &constraint_coarse,
-                          MGTwoLevelTransfer<dim, Number> &transfer)
-{
-  Implementation::setup_polynomial_transfer(dof_handler_fine,
-                                            dof_handler_coarse,
-                                            constraint_fine,
-                                            constraint_coarse,
-                                            transfer);
-}
+  template <int dim, typename Number, typename MeshType>
+  void
+  setup_polynomial_transfer(const MeshType &                 dof_handler_fine,
+                            const MeshType &                 dof_handler_coarse,
+                            const AffineConstraints<Number> &constraint_fine,
+                            const AffineConstraints<Number> &constraint_coarse,
+                            MGTwoLevelTransfer<dim, Number> &transfer)
+  {
+    Implementation::setup_polynomial_transfer(dof_handler_fine,
+                                              dof_handler_coarse,
+                                              constraint_fine,
+                                              constraint_coarse,
+                                              transfer);
+  }
 
 } // namespace MGTransferUtilities
 
