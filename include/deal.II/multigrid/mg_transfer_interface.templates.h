@@ -27,6 +27,9 @@ DEAL_II_NAMESPACE_OPEN
 
 namespace
 {
+  /**
+   * Helper class to select the right templated implementation.
+   */
   class CellTransfer
   {
   public:
@@ -69,6 +72,9 @@ namespace
     const int n;
   };
 
+  /**
+   * Helper class containing the cell-wise prolongation operation.
+   */
   template <int dim, typename Number>
   class CellProlongator
   {
@@ -103,6 +109,9 @@ namespace
     Number *                     evaluation_data_fine;
   };
 
+  /**
+   * Helper class containing the cell-wise restriction operation.
+   */
   template <int dim, typename Number>
   class CellRestrictor
   {

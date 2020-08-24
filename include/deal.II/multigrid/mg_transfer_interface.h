@@ -47,7 +47,7 @@ namespace MGTransferUtilities
  *   MGTransferUtilities to setup the Transfer operators.
  */
 template <typename Number>
-struct TransferScheme
+struct MGTransferScheme
 {
   /**
    * Number of coarse cells.
@@ -97,7 +97,7 @@ struct TransferScheme
   std::vector<unsigned int> level_dof_indices_coarse;
 
   /**
-   * DoF indices of the children of the coarse cells.
+   * DoF indices of the fine cells.
    */
   std::vector<unsigned int> level_dof_indices_fine;
 
@@ -145,7 +145,7 @@ private:
   /**
    * Transfer schemes.
    */
-  std::vector<TransferScheme<Number>> schemes;
+  std::vector<MGTransferScheme<Number>> schemes;
 
   /**
    * Partitioner needed by the intermediate vector.
@@ -153,18 +153,18 @@ private:
   std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_fine;
 
   /**
-   * TODO: needed?
+   * Partitioner needed by the intermediate vector.
    */
   std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_coarse;
 
   /**
    * Internal vector needed for collecting all degrees of freedom of the
-   * children cells.
+   * fine cells.
    */
   mutable LinearAlgebra::distributed::Vector<Number> vec_fine;
 
   /**
-   * TODO: needed?
+   * Internal vector on that the actual prolongation/restriction is performed.
    */
   mutable LinearAlgebra::distributed::Vector<Number> vec_coarse;
 
@@ -293,7 +293,7 @@ public:
 private:
   /**
    * Partitioner needed by an intermediate vector, which is needed for
-   * collecting all degrees of freedom of the children cells.
+   * collecting all degrees of freedom of the destination cells.
    */
   std::shared_ptr<const Utilities::MPI::Partitioner> extended_partitioner;
 
@@ -316,7 +316,7 @@ private:
 template <typename Number>
 template <typename Stream>
 void
-TransferScheme<Number>::print(Stream &out) const
+MGTransferScheme<Number>::print(Stream &out) const
 {
   out << "weights:" << std::endl;
   for (const auto w : weights)

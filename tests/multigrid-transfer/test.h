@@ -51,7 +51,7 @@ print(const LinearAlgebra::distributed::Vector<Number> &vec)
 
 template <typename Number>
 void
-print(const TransferScheme<Number> &scheme)
+print(const MGTransferScheme<Number> &scheme)
 {
   deallog << "weights:" << std::endl;
   for (const auto w : scheme.weights)
