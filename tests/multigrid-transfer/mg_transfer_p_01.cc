@@ -93,12 +93,12 @@ do_test(const FiniteElement<dim> &fe_fine, const FiniteElement<dim> &fe_coarse)
   constraint_fine.close();
 
   // setup transfer operator
-  Transfer<dim, Number> transfer;
-  MGTransferUtil::setup_polynomial_transfer(dof_handler_fine,
-                                            dof_handler_coarse,
-                                            constraint_fine,
-                                            constraint_coarse,
-                                            transfer);
+  MGTwoLevelTransfer<dim, Number> transfer;
+  MGTransferUtilities::setup_polynomial_transfer(dof_handler_fine,
+                                                 dof_handler_coarse,
+                                                 constraint_fine,
+                                                 constraint_coarse,
+                                                 transfer);
 
   test_transfer_operator(transfer, dof_handler_fine, dof_handler_coarse);
 }
@@ -143,7 +143,7 @@ main(int argc, char **argv)
   for (unsigned int fe_degree_fine = 1; fe_degree_fine < 5; fe_degree_fine++)
     for (unsigned int fe_degree_coarse = 1; fe_degree_coarse < 5;
          fe_degree_coarse++)
-      if (MGTransferUtil::polynomial_transfer_supported(fe_degree_fine,
-                                                        fe_degree_coarse))
+      if (MGTransferUtilities::polynomial_transfer_supported(fe_degree_fine,
+                                                             fe_degree_coarse))
         test<2, double>(fe_degree_fine, fe_degree_coarse);
 }

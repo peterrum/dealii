@@ -25,7 +25,7 @@ test()
   for (unsigned int i = 1; i < 25; i++)
     {
       for (unsigned int j = 1; j < 25; j++)
-        if (MGTransferUtil::polynomial_transfer_supported(i, j))
+        if (MGTransferUtilities::polynomial_transfer_supported(i, j))
           deallog << 1 << " ";
         else
           deallog << "  ";

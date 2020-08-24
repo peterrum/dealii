@@ -17,40 +17,40 @@
 
 for (deal_II_dimension : DIMENSIONS; S1 : REAL_SCALARS)
   {
-    template void MGTransferUtil::setup_global_coarsening_transfer(
-      const DoFHandler<deal_II_dimension> &dof_handler_fine,
-      const DoFHandler<deal_II_dimension> &dof_handler_coarse,
-      const AffineConstraints<S1> &        constraint_fine,
-      const AffineConstraints<S1> &        constraint_coarse,
-      Transfer<deal_II_dimension, S1> &    transfer);
+    template void MGTransferUtilities::setup_global_coarsening_transfer(
+      const DoFHandler<deal_II_dimension> &      dof_handler_fine,
+      const DoFHandler<deal_II_dimension> &      dof_handler_coarse,
+      const AffineConstraints<S1> &              constraint_fine,
+      const AffineConstraints<S1> &              constraint_coarse,
+      MGTwoLevelTransfer<deal_II_dimension, S1> &transfer);
 
-    template void MGTransferUtil::setup_global_coarsening_transfer(
-      const hp::DoFHandler<deal_II_dimension> &dof_handler_fine,
-      const hp::DoFHandler<deal_II_dimension> &dof_handler_coarse,
-      const AffineConstraints<S1> &            constraint_fine,
-      const AffineConstraints<S1> &            constraint_coarse,
-      Transfer<deal_II_dimension, S1> &        transfer);
+    template void MGTransferUtilities::setup_global_coarsening_transfer(
+      const hp::DoFHandler<deal_II_dimension> &  dof_handler_fine,
+      const hp::DoFHandler<deal_II_dimension> &  dof_handler_coarse,
+      const AffineConstraints<S1> &              constraint_fine,
+      const AffineConstraints<S1> &              constraint_coarse,
+      MGTwoLevelTransfer<deal_II_dimension, S1> &transfer);
 
-    template void MGTransferUtil::setup_polynomial_transfer(
-      const DoFHandler<deal_II_dimension> &dof_handler_fine,
-      const DoFHandler<deal_II_dimension> &dof_handler_coarse,
-      const AffineConstraints<S1> &        constraint_fine,
-      const AffineConstraints<S1> &        constraint_coarse,
-      Transfer<deal_II_dimension, S1> &    transfer);
+    template void MGTransferUtilities::setup_polynomial_transfer(
+      const DoFHandler<deal_II_dimension> &      dof_handler_fine,
+      const DoFHandler<deal_II_dimension> &      dof_handler_coarse,
+      const AffineConstraints<S1> &              constraint_fine,
+      const AffineConstraints<S1> &              constraint_coarse,
+      MGTwoLevelTransfer<deal_II_dimension, S1> &transfer);
 
-    template void MGTransferUtil::setup_polynomial_transfer(
-      const hp::DoFHandler<deal_II_dimension> &dof_handler_fine,
-      const hp::DoFHandler<deal_II_dimension> &dof_handler_coarse,
-      const AffineConstraints<S1> &            constraint_fine,
-      const AffineConstraints<S1> &            constraint_coarse,
-      Transfer<deal_II_dimension, S1> &        transfer);
+    template void MGTransferUtilities::setup_polynomial_transfer(
+      const hp::DoFHandler<deal_II_dimension> &  dof_handler_fine,
+      const hp::DoFHandler<deal_II_dimension> &  dof_handler_coarse,
+      const AffineConstraints<S1> &              constraint_fine,
+      const AffineConstraints<S1> &              constraint_coarse,
+      MGTwoLevelTransfer<deal_II_dimension, S1> &transfer);
 
-    template void MGTransferUtil::setup_vector_repartitioner(
+    template void MGTransferUtilities::setup_vector_repartitioner(
       const DoFHandler<deal_II_dimension> &       dof_handler_fine,
       const DoFHandler<deal_II_dimension> &       dof_handler_coarse,
       VectorRepartitioner<deal_II_dimension, S1> &transfer);
 
-    template void MGTransferUtil::setup_vector_repartitioner(
+    template void MGTransferUtilities::setup_vector_repartitioner(
       const hp::DoFHandler<deal_II_dimension> &   dof_handler_fine,
       const hp::DoFHandler<deal_II_dimension> &   dof_handler_coarse,
       VectorRepartitioner<deal_II_dimension, S1> &transfer);

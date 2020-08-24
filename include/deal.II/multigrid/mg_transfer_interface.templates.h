@@ -144,7 +144,7 @@ namespace
 
 template <int dim, typename Number>
 void
-Transfer<dim, Number>::prolongate(
+MGTwoLevelTransfer<dim, Number>::prolongate(
   const unsigned int                                to_level,
   LinearAlgebra::distributed::Vector<Number> &      dst,
   const LinearAlgebra::distributed::Vector<Number> &src) const
@@ -164,9 +164,9 @@ Transfer<dim, Number>::prolongate(
   for (const auto &scheme : schemes)
     {
       AlignedVector<VectorizedArray<Number>> evaluation_data_fine(
-        scheme.n_cell_dofs_fine);
+        scheme.n_dofs_fine_cell);
       AlignedVector<VectorizedArray<Number>> evaluation_data_coarse(
-        scheme.n_cell_dofs_fine);
+        scheme.n_dofs_fine_cell);
 
       CellProlongator<dim, VectorizedArray<Number>> cell_prolongator(
         scheme.prolongation_matrix_1d,
@@ -174,24 +174,25 @@ Transfer<dim, Number>::prolongate(
         evaluation_data_fine.begin());
       CellTransfer cell_transfer(scheme.degree_fine, scheme.degree_coarse);
 
-      for (unsigned int cell = 0; cell < scheme.n_cells_coarse;
+      for (unsigned int cell = 0; cell < scheme.n_coarse_cells;
            cell += vec_size)
         {
-          const unsigned int n_lanes = cell + vec_size > scheme.n_cells_coarse ?
-                                         scheme.n_cells_coarse - cell :
-                                         vec_size;
+          const unsigned int n_lanes =
+            (cell + vec_size > scheme.n_coarse_cells) ?
+              (scheme.n_coarse_cells - cell) :
+              vec_size;
 
           // read from source vector
           {
             const unsigned int *indices =
               &scheme
-                 .level_dof_indices_coarse[cell * scheme.n_cell_dofs_coarse];
+                 .level_dof_indices_coarse[cell * scheme.n_dofs_coarse_cell];
             for (unsigned int v = 0; v < n_lanes; ++v)
               {
-                for (unsigned int i = 0; i < scheme.n_cell_dofs_coarse; ++i)
+                for (unsigned int i = 0; i < scheme.n_dofs_coarse_cell; ++i)
                   evaluation_data_coarse[i][v] =
                     this->vec_coarse.local_element(indices[i]);
-                indices += scheme.n_cell_dofs_coarse;
+                indices += scheme.n_dofs_coarse_cell;
               }
           }
 
@@ -207,12 +208,12 @@ Transfer<dim, Number>::prolongate(
 
           if (scheme.fine_element_is_continuous)
             {
-              const Number *w = &scheme.weights[cell * scheme.n_cell_dofs_fine];
+              const Number *w = &scheme.weights[cell * scheme.n_dofs_fine_cell];
               for (unsigned int v = 0; v < n_lanes; ++v)
                 {
-                  for (unsigned int i = 0; i < scheme.n_cell_dofs_fine; ++i)
+                  for (unsigned int i = 0; i < scheme.n_dofs_fine_cell; ++i)
                     evaluation_data_fine[i][v] *= w[i];
-                  w += scheme.n_cell_dofs_fine;
+                  w += scheme.n_dofs_fine_cell;
                 }
             }
 
@@ -220,13 +221,13 @@ Transfer<dim, Number>::prolongate(
           // write into dst vector
           {
             const unsigned int *indices =
-              &scheme.level_dof_indices_fine[cell * scheme.n_cell_dofs_fine];
+              &scheme.level_dof_indices_fine[cell * scheme.n_dofs_fine_cell];
             for (unsigned int v = 0; v < n_lanes; ++v)
               {
-                for (unsigned int i = 0; i < scheme.n_cell_dofs_fine; ++i)
+                for (unsigned int i = 0; i < scheme.n_dofs_fine_cell; ++i)
                   this->vec_fine.local_element(indices[i]) +=
                     evaluation_data_fine[i][v];
-                indices += scheme.n_cell_dofs_fine;
+                indices += scheme.n_dofs_fine_cell;
               }
           }
         }
@@ -245,7 +246,7 @@ Transfer<dim, Number>::prolongate(
 
 template <int dim, typename Number>
 void
-Transfer<dim, Number>::restrict_and_add(
+MGTwoLevelTransfer<dim, Number>::restrict_and_add(
   const unsigned int                                from_level,
   LinearAlgebra::distributed::Vector<Number> &      dst,
   const LinearAlgebra::distributed::Vector<Number> &src) const
@@ -262,9 +263,9 @@ Transfer<dim, Number>::restrict_and_add(
   for (const auto &scheme : schemes)
     {
       AlignedVector<VectorizedArray<Number>> evaluation_data_fine(
-        scheme.n_cell_dofs_fine);
+        scheme.n_dofs_fine_cell);
       AlignedVector<VectorizedArray<Number>> evaluation_data_coarse(
-        scheme.n_cell_dofs_fine);
+        scheme.n_dofs_fine_cell);
 
       CellRestrictor<dim, VectorizedArray<Number>> cell_restrictor(
         scheme.prolongation_matrix_1d,
@@ -272,34 +273,35 @@ Transfer<dim, Number>::restrict_and_add(
         evaluation_data_coarse.begin());
       CellTransfer cell_transfer(scheme.degree_fine, scheme.degree_coarse);
 
-      for (unsigned int cell = 0; cell < scheme.n_cells_coarse;
+      for (unsigned int cell = 0; cell < scheme.n_coarse_cells;
            cell += vec_size)
         {
-          const unsigned int n_lanes = cell + vec_size > scheme.n_cells_coarse ?
-                                         scheme.n_cells_coarse - cell :
-                                         vec_size;
+          const unsigned int n_lanes =
+            (cell + vec_size > scheme.n_coarse_cells) ?
+              (scheme.n_coarse_cells - cell) :
+              vec_size;
 
           // read from source vector
           {
             const unsigned int *indices =
-              &scheme.level_dof_indices_fine[cell * scheme.n_cell_dofs_fine];
+              &scheme.level_dof_indices_fine[cell * scheme.n_dofs_fine_cell];
             for (unsigned int v = 0; v < n_lanes; ++v)
               {
-                for (unsigned int i = 0; i < scheme.n_cell_dofs_fine; ++i)
+                for (unsigned int i = 0; i < scheme.n_dofs_fine_cell; ++i)
                   evaluation_data_fine[i][v] =
                     this->vec_fine.local_element(indices[i]);
-                indices += scheme.n_cell_dofs_fine;
+                indices += scheme.n_dofs_fine_cell;
               }
           }
 
           if (scheme.fine_element_is_continuous)
             {
-              const Number *w = &scheme.weights[cell * scheme.n_cell_dofs_fine];
+              const Number *w = &scheme.weights[cell * scheme.n_dofs_fine_cell];
               for (unsigned int v = 0; v < n_lanes; ++v)
                 {
-                  for (unsigned int i = 0; i < scheme.n_cell_dofs_fine; ++i)
+                  for (unsigned int i = 0; i < scheme.n_dofs_fine_cell; ++i)
                     evaluation_data_fine[i][v] *= w[i];
-                  w += scheme.n_cell_dofs_fine;
+                  w += scheme.n_dofs_fine_cell;
                 }
             }
 
@@ -318,15 +320,15 @@ Transfer<dim, Number>::restrict_and_add(
           {
             const unsigned int *indices =
               &scheme
-                 .level_dof_indices_coarse[cell * scheme.n_cell_dofs_coarse];
+                 .level_dof_indices_coarse[cell * scheme.n_dofs_coarse_cell];
             for (unsigned int v = 0; v < n_lanes; ++v)
               {
-                for (unsigned int i = 0; i < scheme.n_cell_dofs_coarse; ++i)
+                for (unsigned int i = 0; i < scheme.n_dofs_coarse_cell; ++i)
                   constraint_coarse.distribute_local_to_global(
                     partitioner_coarse->local_to_global(indices[i]),
                     evaluation_data_coarse[i][v],
                     this->vec_coarse);
-                indices += scheme.n_cell_dofs_coarse;
+                indices += scheme.n_dofs_coarse_cell;
               }
           }
         }

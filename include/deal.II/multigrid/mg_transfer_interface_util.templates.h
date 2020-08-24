@@ -36,7 +36,7 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-namespace MGTransferUtil
+namespace MGTransferUtilities
 {
   namespace
   {
@@ -113,13 +113,13 @@ namespace MGTransferUtil
 
     template <int dim>
     std::vector<std::vector<unsigned int>>
-    get_child_offsets(const unsigned int n_cell_dofs_coarse,
+    get_child_offsets(const unsigned int n_dofs_coarse_cell,
                       const unsigned int fe_shift_1d,
                       const unsigned int fe_degree)
     {
       std::vector<std::vector<unsigned int>> cell_local_chilren_indices(
         GeometryInfo<dim>::max_children_per_cell,
-        std::vector<unsigned int>(n_cell_dofs_coarse));
+        std::vector<unsigned int>(n_dofs_coarse_cell));
       {
         for (unsigned int c = 0; c < GeometryInfo<dim>::max_children_per_cell;
              c++)
@@ -841,7 +841,7 @@ namespace MGTransferUtil
       const MeshType &                 dof_handler_coarse,
       const AffineConstraints<Number> &constraint_fine,
       const AffineConstraints<Number> &constraint_coarse,
-      Transfer<dim, Number> &          transfer)
+      MGTwoLevelTransfer<dim, Number> &transfer)
     {
       const GlobalCoarseningFineDoFHandlerView<MeshType> view(
         dof_handler_fine, dof_handler_coarse);
@@ -914,11 +914,11 @@ namespace MGTransferUtil
                       dof_handler_fine.get_fe(0).dofs_per_cell);
 
       // number of dofs on coarse and fine cells
-      transfer.schemes[0].n_cell_dofs_coarse =
-        transfer.schemes[0].n_cell_dofs_fine =
-          transfer.schemes[1].n_cell_dofs_coarse =
+      transfer.schemes[0].n_dofs_coarse_cell =
+        transfer.schemes[0].n_dofs_fine_cell =
+          transfer.schemes[1].n_dofs_coarse_cell =
             dof_handler_coarse.get_fe(0).dofs_per_cell;
-      transfer.schemes[1].n_cell_dofs_fine =
+      transfer.schemes[1].n_dofs_fine_cell =
         dof_handler_coarse.get_fe(0).dofs_per_cell *
         GeometryInfo<dim>::max_children_per_cell;
 
@@ -935,23 +935,23 @@ namespace MGTransferUtil
 
       // count coarse cells for each scheme (0, 1)
       {
-        transfer.schemes[0].n_cells_coarse = 0; // reset
-        transfer.schemes[1].n_cells_coarse = 0;
+        transfer.schemes[0].n_coarse_cells = 0; // reset
+        transfer.schemes[1].n_coarse_cells = 0;
 
         // count by looping over all coarse cells
         process_cells(
           [&](const auto &, const auto &) {
-            transfer.schemes[0].n_cells_coarse++;
+            transfer.schemes[0].n_coarse_cells++;
           },
           [&](const auto &, const auto &, const auto c) {
             if (c == 0)
-              transfer.schemes[1].n_cells_coarse++;
+              transfer.schemes[1].n_coarse_cells++;
           });
       }
 
 
       const auto cell_local_chilren_indices =
-        get_child_offsets<dim>(transfer.schemes[0].n_cell_dofs_coarse,
+        get_child_offsets<dim>(transfer.schemes[0].n_dofs_coarse_cell,
                                dof_handler_fine.get_fe(0).degree + 1,
                                dof_handler_fine.get_fe(0).degree);
 
@@ -959,21 +959,21 @@ namespace MGTransferUtil
       // indices
       {
         transfer.schemes[0].level_dof_indices_fine.resize(
-          transfer.schemes[0].n_cell_dofs_fine *
-          transfer.schemes[0].n_cells_coarse);
+          transfer.schemes[0].n_dofs_fine_cell *
+          transfer.schemes[0].n_coarse_cells);
         transfer.schemes[0].level_dof_indices_coarse.resize(
-          transfer.schemes[0].n_cell_dofs_coarse *
-          transfer.schemes[0].n_cells_coarse);
+          transfer.schemes[0].n_dofs_coarse_cell *
+          transfer.schemes[0].n_coarse_cells);
 
         transfer.schemes[1].level_dof_indices_fine.resize(
-          transfer.schemes[1].n_cell_dofs_fine *
-          transfer.schemes[1].n_cells_coarse);
+          transfer.schemes[1].n_dofs_fine_cell *
+          transfer.schemes[1].n_coarse_cells);
         transfer.schemes[1].level_dof_indices_coarse.resize(
-          transfer.schemes[1].n_cell_dofs_coarse *
-          transfer.schemes[1].n_cells_coarse);
+          transfer.schemes[1].n_dofs_coarse_cell *
+          transfer.schemes[1].n_coarse_cells);
 
         std::vector<types::global_dof_index> local_dof_indices(
-          transfer.schemes[0].n_cell_dofs_coarse);
+          transfer.schemes[0].n_dofs_coarse_cell);
 
         // ---------------------- lexicographic_numbering ----------------------
         std::vector<unsigned int> lexicographic_numbering;
@@ -1002,7 +1002,7 @@ namespace MGTransferUtil
             {
               cell_coarse->get_dof_indices(local_dof_indices);
               for (unsigned int i = 0;
-                   i < transfer.schemes[0].n_cell_dofs_coarse;
+                   i < transfer.schemes[0].n_dofs_coarse_cell;
                    i++)
                 level_dof_indices_coarse_0[i] =
                   transfer.partitioner_coarse->global_to_local(
@@ -1013,7 +1013,7 @@ namespace MGTransferUtil
             {
               cell_fine.get_dof_indices(local_dof_indices);
               for (unsigned int i = 0;
-                   i < transfer.schemes[0].n_cell_dofs_coarse;
+                   i < transfer.schemes[0].n_dofs_coarse_cell;
                    i++)
                 level_dof_indices_fine_0[i] =
                   transfer.partitioner_fine->global_to_local(
@@ -1023,8 +1023,8 @@ namespace MGTransferUtil
             // move pointers
             {
               level_dof_indices_coarse_0 +=
-                transfer.schemes[0].n_cell_dofs_coarse;
-              level_dof_indices_fine_0 += transfer.schemes[0].n_cell_dofs_fine;
+                transfer.schemes[0].n_dofs_coarse_cell;
+              level_dof_indices_fine_0 += transfer.schemes[0].n_dofs_fine_cell;
             }
           },
           [&](const auto &cell_coarse, const auto &cell_fine, const auto c) {
@@ -1033,7 +1033,7 @@ namespace MGTransferUtil
               {
                 cell_coarse->get_dof_indices(local_dof_indices);
                 for (unsigned int i = 0;
-                     i < transfer.schemes[1].n_cell_dofs_coarse;
+                     i < transfer.schemes[1].n_dofs_coarse_cell;
                      i++)
                   level_dof_indices_coarse_1[i] =
                     transfer.partitioner_coarse->global_to_local(
@@ -1044,7 +1044,7 @@ namespace MGTransferUtil
             {
               cell_fine.get_dof_indices(local_dof_indices);
               for (unsigned int i = 0;
-                   i < transfer.schemes[1].n_cell_dofs_coarse;
+                   i < transfer.schemes[1].n_dofs_coarse_cell;
                    i++)
                 level_dof_indices_fine_1[cell_local_chilren_indices[c][i]] =
                   transfer.partitioner_fine->global_to_local(
@@ -1055,9 +1055,9 @@ namespace MGTransferUtil
             if (c + 1 == GeometryInfo<dim>::max_children_per_cell)
               {
                 level_dof_indices_coarse_1 +=
-                  transfer.schemes[1].n_cell_dofs_coarse;
+                  transfer.schemes[1].n_dofs_coarse_cell;
                 level_dof_indices_fine_1 +=
-                  transfer.schemes[1].n_cell_dofs_fine;
+                  transfer.schemes[1].n_dofs_fine_cell;
               }
           });
       }
@@ -1150,7 +1150,7 @@ namespace MGTransferUtil
           touch_count_.reinit(partitioner_fine_);
 
           std::vector<types::global_dof_index> local_dof_indices(
-            transfer.schemes[0].n_cell_dofs_coarse);
+            transfer.schemes[0].n_dofs_coarse_cell);
 
           for (auto cell : dof_handler_fine.active_cell_iterators())
             {
@@ -1182,11 +1182,11 @@ namespace MGTransferUtil
           touch_count.update_ghost_values();
 
           transfer.schemes[0].weights.resize(
-            transfer.schemes[0].n_cells_coarse *
-            transfer.schemes[0].n_cell_dofs_fine);
+            transfer.schemes[0].n_coarse_cells *
+            transfer.schemes[0].n_dofs_fine_cell);
           transfer.schemes[1].weights.resize(
-            transfer.schemes[1].n_cells_coarse *
-            transfer.schemes[1].n_cell_dofs_fine);
+            transfer.schemes[1].n_coarse_cells *
+            transfer.schemes[1].n_dofs_fine_cell);
 
           Number *      weights_0 = &transfer.schemes[0].weights[0];
           Number *      weights_1 = &transfer.schemes[1].weights[0];
@@ -1197,16 +1197,16 @@ namespace MGTransferUtil
 
           process_cells(
             [&](const auto &, const auto &) {
-              for (unsigned int i = 0; i < transfer.schemes[0].n_cell_dofs_fine;
+              for (unsigned int i = 0; i < transfer.schemes[0].n_dofs_fine_cell;
                    i++)
                 weights_0[i] = touch_count.local_element(dof_indices_fine_0[i]);
 
-              dof_indices_fine_0 += transfer.schemes[0].n_cell_dofs_fine;
-              weights_0 += transfer.schemes[0].n_cell_dofs_fine;
+              dof_indices_fine_0 += transfer.schemes[0].n_dofs_fine_cell;
+              weights_0 += transfer.schemes[0].n_dofs_fine_cell;
             },
             [&](const auto &, const auto &, const auto c) {
               for (unsigned int i = 0;
-                   i < transfer.schemes[1].n_cell_dofs_coarse;
+                   i < transfer.schemes[1].n_dofs_coarse_cell;
                    i++)
                 weights_1[cell_local_chilren_indices[c][i]] =
                   touch_count.local_element(
@@ -1215,8 +1215,8 @@ namespace MGTransferUtil
               // move pointers (only once at the end)
               if (c + 1 == GeometryInfo<dim>::max_children_per_cell)
                 {
-                  dof_indices_fine_1 += transfer.schemes[1].n_cell_dofs_fine;
-                  weights_1 += transfer.schemes[1].n_cell_dofs_fine;
+                  dof_indices_fine_1 += transfer.schemes[1].n_dofs_fine_cell;
+                  weights_1 += transfer.schemes[1].n_dofs_fine_cell;
                 }
             });
         }
@@ -1231,7 +1231,7 @@ namespace MGTransferUtil
       const MeshType &                 dof_handler_coarse,
       const AffineConstraints<Number> &constraint_fine,
       const AffineConstraints<Number> &constraint_coarse,
-      Transfer<dim, Number> &          transfer)
+      MGTwoLevelTransfer<dim, Number> &transfer)
     {
       AssertDimension(dof_handler_fine.get_triangulation().n_active_cells(),
                       dof_handler_coarse.get_triangulation().n_active_cells());
@@ -1270,20 +1270,20 @@ namespace MGTransferUtil
       // extract number of coarse cells
       {
         for (auto &scheme : transfer.schemes)
-          scheme.n_cells_coarse = 0;
+          scheme.n_coarse_cells = 0;
         process_cells([&](const auto &cell_coarse, const auto &cell_fine) {
           transfer
             .schemes[fe_index_pairs[std::pair<unsigned int, unsigned int>(
               cell_coarse->active_fe_index(), cell_fine->active_fe_index())]]
-            .n_cells_coarse++;
+            .n_coarse_cells++;
         });
       }
 
       for (const auto fe_index_pair : fe_index_pairs)
         {
-          transfer.schemes[fe_index_pair.second].n_cell_dofs_coarse =
+          transfer.schemes[fe_index_pair.second].n_dofs_coarse_cell =
             dof_handler_coarse.get_fe(fe_index_pair.first.first).dofs_per_cell;
-          transfer.schemes[fe_index_pair.second].n_cell_dofs_fine =
+          transfer.schemes[fe_index_pair.second].n_dofs_fine_cell =
             dof_handler_fine.get_fe(fe_index_pair.first.second).dofs_per_cell;
 
           transfer.schemes[fe_index_pair.second].degree_coarse =
@@ -1331,16 +1331,16 @@ namespace MGTransferUtil
     for (const auto fe_index_pair : fe_index_pairs)
       {
         local_dof_indices_coarse[fe_index_pair.second].resize(
-          transfer.schemes[fe_index_pair.second].n_cell_dofs_coarse);
+          transfer.schemes[fe_index_pair.second].n_dofs_coarse_cell);
         local_dof_indices_fine[fe_index_pair.second].resize(
-          transfer.schemes[fe_index_pair.second].n_cell_dofs_fine);
+          transfer.schemes[fe_index_pair.second].n_dofs_fine_cell);
 
         transfer.schemes[fe_index_pair.second].level_dof_indices_fine.resize(
-          transfer.schemes[fe_index_pair.second].n_cell_dofs_fine *
-          transfer.schemes[fe_index_pair.second].n_cells_coarse);
+          transfer.schemes[fe_index_pair.second].n_dofs_fine_cell *
+          transfer.schemes[fe_index_pair.second].n_coarse_cells);
         transfer.schemes[fe_index_pair.second].level_dof_indices_coarse.resize(
-          transfer.schemes[fe_index_pair.second].n_cell_dofs_coarse *
-          transfer.schemes[fe_index_pair.second].n_cells_coarse);
+          transfer.schemes[fe_index_pair.second].n_dofs_coarse_cell *
+          transfer.schemes[fe_index_pair.second].n_coarse_cells);
 
 
         // ------------------- lexicographic_numbering  --------------------
@@ -1383,7 +1383,7 @@ namespace MGTransferUtil
 
       cell_coarse->get_dof_indices(local_dof_indices_coarse[fe_pair_no]);
       for (unsigned int i = 0;
-           i < transfer.schemes[fe_pair_no].n_cell_dofs_coarse;
+           i < transfer.schemes[fe_pair_no].n_dofs_coarse_cell;
            i++)
         level_dof_indices_coarse_[fe_pair_no][i] =
           transfer.partitioner_coarse->global_to_local(
@@ -1393,7 +1393,7 @@ namespace MGTransferUtil
 
       cell_fine->get_dof_indices(local_dof_indices_fine[fe_pair_no]);
       for (unsigned int i = 0;
-           i < transfer.schemes[fe_pair_no].n_cell_dofs_fine;
+           i < transfer.schemes[fe_pair_no].n_dofs_fine_cell;
            i++)
         level_dof_indices_fine_[fe_pair_no][i] =
           transfer.partitioner_fine->global_to_local(
@@ -1402,9 +1402,9 @@ namespace MGTransferUtil
 
 
       level_dof_indices_coarse_[fe_pair_no] +=
-        transfer.schemes[fe_pair_no].n_cell_dofs_coarse;
+        transfer.schemes[fe_pair_no].n_dofs_coarse_cell;
       level_dof_indices_fine_[fe_pair_no] +=
-        transfer.schemes[fe_pair_no].n_cell_dofs_fine;
+        transfer.schemes[fe_pair_no].n_dofs_fine_cell;
     });
   }
 
@@ -1496,7 +1496,7 @@ namespace MGTransferUtil
   if (fine_element_is_continuous)
     {
       for (auto &scheme : transfer.schemes)
-        scheme.weights.resize(scheme.n_cells_coarse * scheme.n_cell_dofs_fine);
+        scheme.weights.resize(scheme.n_coarse_cells * scheme.n_dofs_fine_cell);
 
       LinearAlgebra::distributed::Vector<Number> touch_count;
       touch_count.reinit(transfer.partitioner_fine);
@@ -1515,7 +1515,7 @@ namespace MGTransferUtil
             cell_coarse->active_fe_index(), cell_fine->active_fe_index())];
 
         for (unsigned int i = 0;
-             i < transfer.schemes[fe_pair_no].n_cell_dofs_fine;
+             i < transfer.schemes[fe_pair_no].n_dofs_fine_cell;
              i++)
           if (constraint_fine.is_constrained(
                 transfer.partitioner_fine->local_to_global(
@@ -1524,7 +1524,7 @@ namespace MGTransferUtil
               1;
 
         level_dof_indices_fine_[fe_pair_no] +=
-          transfer.schemes[fe_pair_no].n_cell_dofs_fine;
+          transfer.schemes[fe_pair_no].n_dofs_fine_cell;
       });
 
       touch_count.compress(VectorOperation::add);
@@ -1543,7 +1543,7 @@ namespace MGTransferUtil
             cell_coarse->active_fe_index(), cell_fine->active_fe_index())];
 
         for (unsigned int i = 0;
-             i < transfer.schemes[fe_pair_no].n_cell_dofs_fine;
+             i < transfer.schemes[fe_pair_no].n_dofs_fine_cell;
              i++)
           if (constraint_fine.is_constrained(
                 transfer.partitioner_fine->local_to_global(
@@ -1555,11 +1555,11 @@ namespace MGTransferUtil
               touch_count.local_element(level_dof_indices_fine_[fe_pair_no][i]);
 
         level_dof_indices_fine_[fe_pair_no] +=
-          transfer.schemes[fe_pair_no].n_cell_dofs_fine;
-        weights_[fe_pair_no] += transfer.schemes[fe_pair_no].n_cell_dofs_fine;
+          transfer.schemes[fe_pair_no].n_dofs_fine_cell;
+        weights_[fe_pair_no] += transfer.schemes[fe_pair_no].n_dofs_fine_cell;
       });
     }
-} // namespace MGTransferUtil
+} // namespace MGTransferUtilities
 }
 ;
 
@@ -1584,7 +1584,7 @@ setup_global_coarsening_transfer(
   const MeshType &                 dof_handler_coarse,
   const AffineConstraints<Number> &constraint_fine,
   const AffineConstraints<Number> &constraint_coarse,
-  Transfer<dim, Number> &          transfer)
+  MGTwoLevelTransfer<dim, Number> &transfer)
 {
   Implementation::setup_global_coarsening_transfer(dof_handler_fine,
                                                    dof_handler_coarse,
@@ -1601,7 +1601,7 @@ setup_polynomial_transfer(const MeshType &                 dof_handler_fine,
                           const MeshType &                 dof_handler_coarse,
                           const AffineConstraints<Number> &constraint_fine,
                           const AffineConstraints<Number> &constraint_coarse,
-                          Transfer<dim, Number> &          transfer)
+                          MGTwoLevelTransfer<dim, Number> &transfer)
 {
   Implementation::setup_polynomial_transfer(dof_handler_fine,
                                             dof_handler_coarse,
@@ -1610,7 +1610,7 @@ setup_polynomial_transfer(const MeshType &                 dof_handler_fine,
                                             transfer);
 }
 
-} // namespace MGTransferUtil
+} // namespace MGTransferUtilities
 
 DEAL_II_NAMESPACE_CLOSE
 

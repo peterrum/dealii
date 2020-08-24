@@ -76,7 +76,7 @@ print(const TransferScheme<Number> &scheme)
 
 template <int dim, typename Number>
 void
-print(const Transfer<dim, Number> &transfer)
+print(const MGTwoLevelTransfer<dim, Number> &transfer)
 {
   transfer.print_internal(deallog);
 }
@@ -84,9 +84,9 @@ print(const Transfer<dim, Number> &transfer)
 
 template <int dim, typename Number, typename MeshType>
 void
-test_transfer_operator(const Transfer<dim, Number> &transfer,
-                       const MeshType &             dof_handler_fine,
-                       const MeshType &             dof_handler_coarse)
+test_transfer_operator(const MGTwoLevelTransfer<dim, Number> &transfer,
+                       const MeshType &                       dof_handler_fine,
+                       const MeshType &dof_handler_coarse)
 {
   AffineConstraints<Number> constraint_fine;
   DoFTools::make_hanging_node_constraints(dof_handler_fine, constraint_fine);

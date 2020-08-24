@@ -29,7 +29,7 @@ DEAL_II_NAMESPACE_OPEN
 
 // Forward declarations
 #ifndef DOXYGEN
-namespace MGTransferUtil
+namespace MGTransferUtilities
 {
   class Implementation;
 }
@@ -42,9 +42,9 @@ namespace MGTransferUtil
  * scheme for transfer between children and parent cells, as well as, one
  * transfer scheme for cells that are not refined).
  *
- * @note Normally, this data structure does not to be filled by users, but, one
- *   can use the can use the utility functions provided in the namespace
- *   MGTransferUtil to setup the Transfer operators.
+ * @note Normally, this data structure does not need to be filled by users, but, one
+ *   can use the utility functions provided in the namespace
+ *   MGTransferUtilities to setup the Transfer operators.
  */
 template <typename Number>
 struct TransferScheme
@@ -52,17 +52,17 @@ struct TransferScheme
   /**
    * Number of coarse cells.
    */
-  unsigned int n_cells_coarse;
+  unsigned int n_coarse_cells;
 
   /**
    * Number of degrees of freedom of a coarse cell.
    */
-  unsigned int n_cell_dofs_coarse;
+  unsigned int n_dofs_coarse_cell;
 
   /**
    * Number of degrees of freedom of fine cell.
    */
-  unsigned int n_cell_dofs_fine;
+  unsigned int n_dofs_fine_cell;
 
   /**
    * Polynomial degree of the finite element of the coarse cells.
@@ -115,7 +115,7 @@ struct TransferScheme
  * Class for transfer between two multigrid levels.
  */
 template <int dim, typename Number>
-class Transfer
+class MGTwoLevelTransfer
 {
 public:
   /**
@@ -173,7 +173,7 @@ private:
    */
   AffineConstraints<Number> constraint_coarse;
 
-  friend class MGTransferUtil::Implementation;
+  friend class MGTransferUtilities::Implementation;
 };
 
 
@@ -208,10 +208,13 @@ public:
   using Number = typename MatrixType::value_type;
 
   /**
-   * Constructor.
+   * Constructor taking an operator for each l level (minimum requirement is
+   * that the operator provides the function initialize_dof_vector()) and l-1
+   * transfer operators.
    */
-  MGTransferMatrixFreeNew(const MGLevelObject<MatrixType> &           matrices,
-                          const MGLevelObject<Transfer<dim, Number>> &transfer);
+  MGTransferMatrixFreeNew(
+    const MGLevelObject<MatrixType> &                     matrices,
+    const MGLevelObject<MGTwoLevelTransfer<dim, Number>> &transfer);
 
   /**
    * Perform prolongation.
@@ -259,8 +262,8 @@ public:
       &src) const;
 
 private:
-  const MGLevelObject<MatrixType> &           matrices;
-  const MGLevelObject<Transfer<dim, Number>> &transfer;
+  const MGLevelObject<MatrixType> &                     matrices;
+  const MGLevelObject<MGTwoLevelTransfer<dim, Number>> &transfer;
 };
 
 
@@ -299,7 +302,7 @@ private:
    */
   std::vector<unsigned int> indices;
 
-  friend class MGTransferUtil::Implementation;
+  friend class MGTransferUtilities::Implementation;
 };
 
 
@@ -341,7 +344,7 @@ TransferScheme<Number>::print(Stream &out) const
 template <int dim, typename Number>
 template <typename Stream>
 void
-Transfer<dim, Number>::print_internal(Stream &out) const
+MGTwoLevelTransfer<dim, Number>::print_internal(Stream &out) const
 {
   for (const auto &scheme : schemes)
     scheme.print(out);
@@ -351,11 +354,13 @@ Transfer<dim, Number>::print_internal(Stream &out) const
 
 template <typename MatrixType>
 MGTransferMatrixFreeNew<MatrixType>::MGTransferMatrixFreeNew(
-  const MGLevelObject<MatrixType> &           matrices,
-  const MGLevelObject<Transfer<dim, Number>> &transfer)
+  const MGLevelObject<MatrixType> &                     matrices,
+  const MGLevelObject<MGTwoLevelTransfer<dim, Number>> &transfer)
   : matrices(matrices)
   , transfer(transfer)
-{}
+{
+  AssertDimension(matrices.size(), transfer.size() + 1);
+}
 
 
 
@@ -366,7 +371,9 @@ MGTransferMatrixFreeNew<MatrixType>::prolongate(
   dealii::LinearAlgebra::distributed::Vector<Number> &      dst,
   const dealii::LinearAlgebra::distributed::Vector<Number> &src) const
 {
-  this->transfer[to_level].prolongate(0 /*dummy*/, dst, src);
+  this->transfer[to_level].prolongate(numbers::invalid_unsigned_int /*dummy*/,
+                                      dst,
+                                      src);
 }
 
 
@@ -378,7 +385,8 @@ MGTransferMatrixFreeNew<MatrixType>::restrict_and_add(
   dealii::LinearAlgebra::distributed::Vector<Number> &      dst,
   const dealii::LinearAlgebra::distributed::Vector<Number> &src) const
 {
-  this->transfer[from_level].restrict_and_add(0 /*dummy*/, dst, src);
+  this->transfer[from_level].restrict_and_add(
+    numbers::invalid_unsigned_int /*dummy*/, dst, src);
 }
 
 

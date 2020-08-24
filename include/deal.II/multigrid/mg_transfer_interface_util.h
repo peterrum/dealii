@@ -24,7 +24,7 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-namespace MGTransferUtil
+namespace MGTransferUtilities
 {
   /**
    * Check if the polynomial transfer between @p fe_degree_fine and
@@ -48,7 +48,7 @@ namespace MGTransferUtil
     const MeshType &                 dof_handler_coarse,
     const AffineConstraints<Number> &constraint_fine,
     const AffineConstraints<Number> &constraint_coarse,
-    Transfer<dim, Number> &          transfer);
+    MGTwoLevelTransfer<dim, Number> &transfer);
 
   /**
    * Set up polynomial coarsening transfer @p transfer between the given
@@ -63,7 +63,7 @@ namespace MGTransferUtil
                             const MeshType &                 dof_handler_coarse,
                             const AffineConstraints<Number> &constraint_fine,
                             const AffineConstraints<Number> &constraint_coarse,
-                            Transfer<dim, Number> &          transfer);
+                            MGTwoLevelTransfer<dim, Number> &transfer);
 
   /**
    * Set up vector repartitioner @p transfer between dof-handler
@@ -75,7 +75,7 @@ namespace MGTransferUtil
                              const MeshType &dof_handler_coarse,
                              VectorRepartitioner<dim, Number> &transfer);
 
-} // namespace MGTransferUtil
+} // namespace MGTransferUtilities
 
 DEAL_II_NAMESPACE_CLOSE
 
