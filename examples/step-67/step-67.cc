@@ -78,7 +78,7 @@ namespace Euler_DG
   constexpr unsigned int dimension            = 2;
   constexpr unsigned int n_global_refinements = 3;
   constexpr unsigned int fe_degree            = 5;
-  constexpr unsigned int n_q_points_1d        = fe_degree + 2;
+  constexpr unsigned int n_q_points_1d        = fe_degree + 1;
 
   using Number = double;
 
@@ -790,6 +790,9 @@ namespace Euler_DG
     std::set<types::boundary_id>   wall_boundaries;
     std::unique_ptr<Function<dim>> body_force;
 
+    dealii::internal::MatrixFreeFunctions::ShapeInfo<VectorizedArray<Number>>
+      shi_get;
+
     void local_apply_inverse_mass_matrix(
       const MatrixFree<dim, Number> &                   data,
       LinearAlgebra::distributed::Vector<Number> &      dst,
@@ -879,6 +882,10 @@ namespace Euler_DG
 
     data.reinit(
       mapping, dof_handlers, constraints, quadratures, additional_data);
+
+    shi_get.reinit(dealii::QGaussLobatto<1>{n_points_1d},
+                   dealii::FE_DGQArbitraryNodes<dim>(
+                     data.get_shape_info().data[0].quadrature));
   }
 
 
@@ -1065,20 +1072,25 @@ namespace Euler_DG
       constant_body_force = evaluate_function<dim, Number, dim>(
         *constant_function, Point<dim, VectorizedArray<Number>>());
 
-    dealii::internal::MatrixFreeFunctions::ShapeInfo<VectorizedArray<Number>>
-      shi_get(dealii::QGaussLobatto<1>{n_points_1d},
-              dealii::FE_DGQArbitraryNodes<dim>(
-                data.get_shape_info().data[0].quadrature));
-
     const dealii::internal::EvaluatorTensorProduct<
-      dealii::internal::EvaluatorVariant::evaluate_general,
+      dealii::internal::EvaluatorVariant::evaluate_evenodd,
       dim,
       n_points_1d,
       n_points_1d,
       VectorizedArray<Number>>
       eval(AlignedVector<VectorizedArray<Number>>(),
-           data.get_shape_info().data[0].shape_gradients_collocation,
+           data.get_shape_info().data[0].shape_gradients_collocation_eo,
            AlignedVector<VectorizedArray<Number>>());
+
+    const dealii::internal::EvaluatorTensorProduct<
+      dealii::internal::EvaluatorVariant::evaluate_evenodd,
+      dim,
+      degree + 1,
+      n_points_1d,
+      VectorizedArray<Number>>
+      eval_inv(AlignedVector<VectorizedArray<Number>>(),
+               AlignedVector<VectorizedArray<Number>>(),
+               data.get_shape_info().data[0].inverse_shape_values_eo);
 
     AlignedVector<VectorizedArray<Number>> buffer(phi.static_n_q_points *
                                                   phi.n_components);
@@ -1243,7 +1255,31 @@ namespace Euler_DG
                 shi_get, phi_m.begin_values(), phi.begin_values(), false, face);
           }
 
-        phi.integrate_scatter(EvaluationFlags::values, dst);
+        for (unsigned int q = 0; q < phi.static_n_q_points; ++q)
+          {
+            const auto factor = VectorizedArray<Number>(1.0) / phi.JxW(q);
+            for (unsigned int c = 0; c < dim + 2; ++c)
+              phi.begin_dof_values()[c * phi.static_n_q_points + q] =
+                phi.begin_values()[c * phi.static_n_q_points + q] * factor;
+          }
+
+        for (unsigned int c = 0; c < dim + 2; ++c)
+          {
+            if (dim >= 3)
+              eval_inv.template hessians<2, false, false>(
+                phi.begin_dof_values() + c * phi.static_n_q_points,
+                phi.begin_dof_values() + c * phi.static_n_q_points);
+            if (dim >= 2)
+              eval_inv.template hessians<1, false, false>(
+                phi.begin_dof_values() + c * phi.static_n_q_points,
+                phi.begin_dof_values() + c * phi.static_n_q_points);
+            if (dim >= 1)
+              eval_inv.template hessians<0, false, false>(
+                phi.begin_dof_values() + c * phi.static_n_q_points,
+                phi.begin_dof_values() + c * phi.static_n_q_points);
+          }
+
+        phi.set_dof_values(dst);
       }
   }
 
@@ -1760,6 +1796,35 @@ namespace Euler_DG
         true,
         MatrixFree<dim, Number>::DataAccessOnFaces::values);
     }
+
+    {
+      unsigned int start_range = 0;
+      unsigned int end_range   = next_ri.local_size();
+
+      const Number ai = factor_ai;
+      const Number bi = factor_solution;
+      if (ai == Number())
+        {
+          DEAL_II_OPENMP_SIMD_PRAGMA
+          for (unsigned int i = start_range; i < end_range; ++i)
+            {
+              const Number k_i          = next_ri.local_element(i);
+              const Number sol_i        = solution.local_element(i);
+              solution.local_element(i) = sol_i + bi * k_i;
+            }
+        }
+      else
+        {
+          DEAL_II_OPENMP_SIMD_PRAGMA
+          for (unsigned int i = start_range; i < end_range; ++i)
+            {
+              const Number k_i          = next_ri.local_element(i);
+              const Number sol_i        = solution.local_element(i);
+              solution.local_element(i) = sol_i + bi * k_i;
+              next_ri.local_element(i)  = sol_i + ai * k_i;
+            }
+        }
+    }
 #else
     {
       TimerOutput::Scope t(timer, "rk_stage - integrals L_h");
@@ -1779,8 +1844,6 @@ namespace Euler_DG
                 MatrixFree<dim, Number>::DataAccessOnFaces::values,
                 MatrixFree<dim, Number>::DataAccessOnFaces::values);
     }
-#endif
-
 
     {
       TimerOutput::Scope t(timer, "rk_stage - inv mass + vec upd");
@@ -1816,6 +1879,7 @@ namespace Euler_DG
             }
         });
     }
+#endif
   }
 
 
