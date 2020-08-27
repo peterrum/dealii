@@ -978,6 +978,66 @@ namespace Euler_DG
   }
 
 
+  template <int dim, int fe_degree, int n_components, typename Number>
+  struct FEFaceNormalEvaluationImpl
+  {
+    template <bool do_evaluate, bool add_into_output>
+    static void
+    interpolate(const internal::MatrixFreeFunctions::ShapeInfo<Number> &data,
+                const Number *                                          input,
+                Number *                                                output,
+                const bool         do_gradients,
+                const unsigned int face_no)
+    {
+      internal::EvaluatorTensorProduct<internal::evaluate_general,
+                                       dim,
+                                       fe_degree + 1,
+                                       0,
+                                       Number>
+        evalf(data.data.front().shape_data_on_face[face_no % 2],
+              AlignedVector<Number>(),
+              AlignedVector<Number>(),
+              data.data.front().fe_degree + 1,
+              0);
+
+      const unsigned int in_stride = do_evaluate ?
+                                       data.dofs_per_component_on_cell :
+                                       data.dofs_per_component_on_face;
+      const unsigned int out_stride = do_evaluate ?
+                                        data.dofs_per_component_on_face :
+                                        data.dofs_per_component_on_cell;
+      const unsigned int face_direction = face_no / 2;
+      for (unsigned int c = 0; c < n_components; c++)
+        {
+          if (do_gradients)
+            {
+              if (face_direction == 0)
+                evalf.template apply_face<0, do_evaluate, add_into_output, 1>(
+                  input, output);
+              else if (face_direction == 1)
+                evalf.template apply_face<1, do_evaluate, add_into_output, 1>(
+                  input, output);
+              else
+                evalf.template apply_face<2, do_evaluate, add_into_output, 1>(
+                  input, output);
+            }
+          else
+            {
+              if (face_direction == 0)
+                evalf.template apply_face<0, do_evaluate, add_into_output, 0>(
+                  input, output);
+              else if (face_direction == 1)
+                evalf.template apply_face<1, do_evaluate, add_into_output, 0>(
+                  input, output);
+              else
+                evalf.template apply_face<2, do_evaluate, add_into_output, 0>(
+                  input, output);
+            }
+          input += in_stride;
+          output += out_stride;
+        }
+    }
+  };
 
   // @sect4{Local evaluators}
 
@@ -992,6 +1052,8 @@ namespace Euler_DG
 
     FEFaceEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi_m(data,
                                                                       true);
+    FEFaceEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi_m_(data,
+                                                                       true);
     FEFaceEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi_p(data,
                                                                       false);
 
@@ -1003,10 +1065,31 @@ namespace Euler_DG
       constant_body_force = evaluate_function<dim, Number, dim>(
         *constant_function, Point<dim, VectorizedArray<Number>>());
 
+    dealii::internal::MatrixFreeFunctions::ShapeInfo<VectorizedArray<Number>>
+      shi_get(dealii::QGaussLobatto<1>{n_points_1d},
+              dealii::FE_DGQArbitraryNodes<dim>(
+                data.get_shape_info().data[0].quadrature));
+
+    const dealii::internal::EvaluatorTensorProduct<
+      dealii::internal::EvaluatorVariant::evaluate_general,
+      dim,
+      n_points_1d,
+      n_points_1d,
+      VectorizedArray<Number>>
+      eval(AlignedVector<VectorizedArray<Number>>(),
+           data.get_shape_info().data[0].shape_gradients_collocation,
+           AlignedVector<VectorizedArray<Number>>());
+
+    AlignedVector<VectorizedArray<Number>> buffer(phi.static_n_q_points *
+                                                  phi.n_components);
+
     for (unsigned int cell = cell_range.first; cell < cell_range.second; ++cell)
       {
         phi.reinit(cell);
         phi.gather_evaluate(src, EvaluationFlags::values);
+
+        for (unsigned int i = 0; i < phi.static_n_q_points * (dim + 2); ++i)
+          buffer[i] = phi.begin_values()[i];
 
         for (unsigned int q = 0; q < phi.n_q_points; ++q)
           {
@@ -1029,12 +1112,30 @@ namespace Euler_DG
               }
           }
 
-        phi.integrate_scatter(((body_force.get() != nullptr) ?
-                                 EvaluationFlags::values :
-                                 EvaluationFlags::nothing) |
-                                EvaluationFlags::gradients,
-                              dst);
+        if (body_force.get() == nullptr)
+          {
+            for (unsigned int i = 0; i < phi.static_n_q_points * (dim + 2); ++i)
+              phi.begin_values()[i] = 0.0;
+          }
 
+        VectorizedArray<Number> *values_ptr  = phi.begin_values();
+        VectorizedArray<Number> *grdient_ptr = phi.begin_gradients();
+
+        for (unsigned int c = 0; c < dim + 2; ++c)
+          {
+            if (dim >= 1)
+              eval.template gradients<0, false, true>(
+                grdient_ptr + phi.static_n_q_points * 0, values_ptr);
+            if (dim >= 2)
+              eval.template gradients<1, false, true>(
+                grdient_ptr + phi.static_n_q_points * 1, values_ptr);
+            if (dim >= 3)
+              eval.template gradients<2, false, true>(
+                grdient_ptr + phi.static_n_q_points * 2, values_ptr);
+
+            values_ptr += phi.static_n_q_points;
+            grdient_ptr += phi.static_n_q_points * dim;
+          }
 
         for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell;
              ++face)
@@ -1042,13 +1143,23 @@ namespace Euler_DG
             const auto boundary_id =
               data.get_faces_by_cells_boundary_id(cell, face)[0];
 
+            phi_m.reinit(cell, face);
+            phi_m_.reinit(cell, face);
+
+            // evaluate(values)
+            FEFaceNormalEvaluationImpl<dim,
+                                       n_points_1d - 1,
+                                       dim + 2,
+                                       VectorizedArray<Number>>::
+              template interpolate<true, false>(
+                shi_get, buffer.data(), phi_m.begin_values(), false, face);
+
             if (boundary_id == numbers::internal_face_boundary_id)
               {
                 phi_p.reinit(cell, face);
                 phi_p.gather_evaluate(src, EvaluationFlags::values);
-
-                phi_m.reinit(cell, face);
-                phi_m.gather_evaluate(src, EvaluationFlags::values);
+                phi_m_.reinit(cell, face);
+                phi_m_.gather_evaluate(src, EvaluationFlags::values);
 
                 for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
                   {
@@ -1058,14 +1169,9 @@ namespace Euler_DG
                                                 phi_m.get_normal_vector(q));
                     phi_m.submit_value(-numerical_flux, q);
                   }
-
-                phi_m.integrate_scatter(EvaluationFlags::values, dst);
               }
             else
               {
-                phi_m.reinit(cell, face);
-                phi_m.gather_evaluate(src, EvaluationFlags::values);
-
                 for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
                   {
                     const auto w_m    = phi_m.get_value(q);
@@ -1126,10 +1232,18 @@ namespace Euler_DG
 
                     phi_m.submit_value(-flux, q);
                   }
-
-                phi_m.integrate_scatter(EvaluationFlags::values, dst);
               }
+
+            // integrate(values)
+            FEFaceNormalEvaluationImpl<dim,
+                                       n_points_1d - 1,
+                                       dim + 2,
+                                       VectorizedArray<Number>>::
+              template interpolate<false, true>(
+                shi_get, phi_m.begin_values(), phi.begin_values(), false, face);
           }
+
+        phi.integrate_scatter(EvaluationFlags::values, dst);
       }
   }
 
@@ -1629,6 +1743,7 @@ namespace Euler_DG
     LinearAlgebra::distributed::Vector<Number> &      solution,
     LinearAlgebra::distributed::Vector<Number> &      next_ri) const
   {
+#ifdef USE_ECL
     {
       TimerOutput::Scope t(timer, "rk_stage - integrals L_h");
 
@@ -1637,7 +1752,6 @@ namespace Euler_DG
       for (auto &i : subsonic_outflow_boundaries)
         i.second->set_time(current_time);
 
-#ifdef USE_ECL
       data.loop_cell_centric(
         &EulerOperator::local_apply_ecl,
         this,
@@ -1645,7 +1759,16 @@ namespace Euler_DG
         current_ri,
         true,
         MatrixFree<dim, Number>::DataAccessOnFaces::values);
+    }
 #else
+    {
+      TimerOutput::Scope t(timer, "rk_stage - integrals L_h");
+
+      for (auto &i : inflow_boundaries)
+        i.second->set_time(current_time);
+      for (auto &i : subsonic_outflow_boundaries)
+        i.second->set_time(current_time);
+
       data.loop(&EulerOperator::local_apply_cell,
                 &EulerOperator::local_apply_face,
                 &EulerOperator::local_apply_boundary_face,
@@ -1655,8 +1778,8 @@ namespace Euler_DG
                 true,
                 MatrixFree<dim, Number>::DataAccessOnFaces::values,
                 MatrixFree<dim, Number>::DataAccessOnFaces::values);
-#endif
     }
+#endif
 
 
     {
