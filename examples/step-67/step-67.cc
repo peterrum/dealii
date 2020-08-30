@@ -1808,7 +1808,7 @@ namespace Euler_DG
           DEAL_II_OPENMP_SIMD_PRAGMA
           for (unsigned int i = start_range; i < end_range; ++i)
             {
-              const Number k_i          = next_ri.local_element(i);
+              const Number k_i          = vec_ki.local_element(i);
               const Number sol_i        = solution.local_element(i);
               solution.local_element(i) = sol_i + bi * k_i;
             }
@@ -1818,7 +1818,7 @@ namespace Euler_DG
           DEAL_II_OPENMP_SIMD_PRAGMA
           for (unsigned int i = start_range; i < end_range; ++i)
             {
-              const Number k_i          = next_ri.local_element(i);
+              const Number k_i          = vec_ki.local_element(i);
               const Number sol_i        = solution.local_element(i);
               solution.local_element(i) = sol_i + bi * k_i;
               next_ri.local_element(i)  = sol_i + ai * k_i;
