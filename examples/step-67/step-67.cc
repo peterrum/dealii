@@ -375,38 +375,69 @@ namespace Euler_DG
                            const double    current_time,
                            const double    time_step,
                            VectorType &    solution,
-                           VectorType &    vec_ri,
-                           VectorType &    vec_ki) const
-    {
-      AssertDimension(ai.size() + 1, bi.size());
+                           VectorType &    vec_Ti,
+                           VectorType &    vec_Ki) const
+    {      AssertDimension(ai.size() + 1, bi.size());
 
-      pde_operator.perform_stage(current_time,
-                                 bi[0] * time_step,
-                                 ai[0] * time_step,
-                                 solution,
-                                 vec_ri,
-                                 solution,
-                                 vec_ri);
-      double sum_previous_bi = 0;
-      for (unsigned int stage = 1; stage < bi.size(); ++stage)
+#ifdef USE_ECL
+      if (true)
         {
-          const double c_i = sum_previous_bi + ai[stage - 1];
-          pde_operator.perform_stage(current_time + c_i * time_step,
-                                     bi[stage] * time_step,
-                                     (stage == bi.size() - 1 ?
-                                        0 :
-                                        ai[stage] * time_step),
-                                     vec_ri,
-                                     vec_ki,
-                                     solution,
-                                     vec_ri);
-          sum_previous_bi += bi[stage - 1];
+          double sum_previous_bi = 0;
+          for (unsigned int stage = 0; stage < bi.size(); ++stage)
+            {
+              const double c_i =
+                stage == 0 ? 0 : sum_previous_bi + ai[stage - 1];
+
+              // Source and destination registers are swapped after each stage
+              pde_operator.perform_stage(
+                current_time + c_i * time_step,
+                bi[stage] * time_step,
+                (stage == bi.size() - 1 ? 0 : ai[stage] * time_step),
+                ((stage + sw) % 2 == 0 ? vec_Ki : vec_Ti),
+                ((stage + sw) % 2 == 0 ? vec_Ti : vec_Ki),
+                solution,
+                vec_Ti /*dummy*/);
+
+              if (stage > 0)
+                sum_previous_bi += bi[stage - 1];
+            }
+          // Switch for odd stages
+          sw = sw == 0;
         }
+#else
+      if (true)
+        {
+          pde_operator.perform_stage(current_time,
+                                     bi[0] * time_step,
+                                     ai[0] * time_step,
+                                     solution,
+                                     vec_Ti,
+                                     solution,
+                                     vec_Ti);
+          double sum_previous_bi = 0;
+          for (unsigned int stage = 1; stage < bi.size(); ++stage)
+            {
+              const double c_i = sum_previous_bi + ai[stage - 1];
+              pde_operator.perform_stage(current_time + c_i * time_step,
+                                         bi[stage] * time_step,
+                                         (stage == bi.size() - 1 ?
+                                            0 :
+                                            ai[stage] * time_step),
+                                         vec_Ti,
+                                         vec_Ki,
+                                         solution,
+                                         vec_Ti);
+              sum_previous_bi += bi[stage - 1];
+            }
+        }
+#endif
     }
 
   private:
     std::vector<double> bi;
     std::vector<double> ai;
+    
+    mutable unsigned int sw = 0;
   };
 
 
@@ -1554,6 +1585,7 @@ namespace Euler_DG
         i.second->set_time(current_time);
 
       FEEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi(data);
+      FEEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi_(data);
 
       FEFaceEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi_m(data,
                                                                         true);
@@ -1601,6 +1633,7 @@ namespace Euler_DG
                  ++cell)
               {
                 phi.reinit(cell);
+                phi_.reinit(cell);
                 phi.gather_evaluate(src, EvaluationFlags::values);
 
                 for (unsigned int i = 0; i < phi.static_n_q_points * (dim + 2);
@@ -1799,7 +1832,42 @@ namespace Euler_DG
                         phi.begin_dof_values() + c * phi.static_n_q_points);
                   }
 
-                phi.set_dof_values(dst);
+                  // RK Stage
+                  const Number ai = factor_ai;
+                  const Number bi = factor_solution;
+
+                  // Abuse the FEFaceEvaluation for reading and writing the
+                  // solution vector
+                  phi_.read_dof_values(solution);
+
+                  if (ai == Number())
+                    {
+                      for (unsigned int q = 0; q < phi.static_dofs_per_cell;
+                           ++q)
+                        {
+                          phi_.begin_dof_values()[q] +=
+                            bi * phi.begin_dof_values()[q];
+                          // Needed as source vector for the next timestep
+                          phi.begin_dof_values()[q] =
+                            phi_.begin_dof_values()[q];
+                        }
+                    }
+                  else
+                    {
+                      for (unsigned int q = 0; q < phi.static_dofs_per_cell;
+                           ++q)
+                        {
+                          const auto K_i = phi.begin_dof_values()[q];
+
+                          phi.begin_dof_values()[q] =
+                            phi_.begin_dof_values()[q] + (ai * K_i);
+
+                          phi_.begin_dof_values()[q] += bi * K_i;
+                        }
+                    }
+
+                  phi.set_dof_values(dst);
+                  phi_.set_dof_values(solution);
               }
           },
           vec_ki,
@@ -1808,6 +1876,7 @@ namespace Euler_DG
           MatrixFree<dim, Number>::DataAccessOnFaces::values);
     }
 
+    if(false)
     {
       unsigned int start_range = 0;
       unsigned int end_range   = next_ri.local_size();
@@ -2614,6 +2683,10 @@ namespace Euler_DG
     rk_register_2.reinit(solution);
 
     euler_operator.project(ExactSolution<dim>(time), solution);
+    
+#ifdef USE_ECL
+    rk_register_2 = solution;
+#endif
 
     double min_vertex_distance = std::numeric_limits<double>::max();
     for (const auto &cell : triangulation.active_cell_iterators())
