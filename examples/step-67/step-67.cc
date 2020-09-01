@@ -377,7 +377,8 @@ namespace Euler_DG
                            VectorType &    solution,
                            VectorType &    vec_Ti,
                            VectorType &    vec_Ki) const
-    {      AssertDimension(ai.size() + 1, bi.size());
+    {
+      AssertDimension(ai.size() + 1, bi.size());
 
 #ifdef USE_ECL
       if (true)
@@ -436,7 +437,7 @@ namespace Euler_DG
   private:
     std::vector<double> bi;
     std::vector<double> ai;
-    
+
     mutable unsigned int sw = 0;
   };
 
@@ -1832,42 +1833,39 @@ namespace Euler_DG
                         phi.begin_dof_values() + c * phi.static_n_q_points);
                   }
 
-                  // RK Stage
-                  const Number ai = factor_ai;
-                  const Number bi = factor_solution;
+                // RK Stage
+                const Number ai = factor_ai;
+                const Number bi = factor_solution;
 
-                  // Abuse the FEFaceEvaluation for reading and writing the
-                  // solution vector
-                  phi_.read_dof_values(solution);
+                // Abuse the FEFaceEvaluation for reading and writing the
+                // solution vector
+                phi_.read_dof_values(solution);
 
-                  if (ai == Number())
-                    {
-                      for (unsigned int q = 0; q < phi.static_dofs_per_cell;
-                           ++q)
-                        {
-                          phi_.begin_dof_values()[q] +=
-                            bi * phi.begin_dof_values()[q];
-                          // Needed as source vector for the next timestep
-                          phi.begin_dof_values()[q] =
-                            phi_.begin_dof_values()[q];
-                        }
-                    }
-                  else
-                    {
-                      for (unsigned int q = 0; q < phi.static_dofs_per_cell;
-                           ++q)
-                        {
-                          const auto K_i = phi.begin_dof_values()[q];
+                if (ai == Number())
+                  {
+                    for (unsigned int q = 0; q < phi.static_dofs_per_cell; ++q)
+                      {
+                        phi_.begin_dof_values()[q] +=
+                          bi * phi.begin_dof_values()[q];
+                        // Needed as source vector for the next timestep
+                        phi.begin_dof_values()[q] = phi_.begin_dof_values()[q];
+                      }
+                  }
+                else
+                  {
+                    for (unsigned int q = 0; q < phi.static_dofs_per_cell; ++q)
+                      {
+                        const auto K_i = phi.begin_dof_values()[q];
 
-                          phi.begin_dof_values()[q] =
-                            phi_.begin_dof_values()[q] + (ai * K_i);
+                        phi.begin_dof_values()[q] =
+                          phi_.begin_dof_values()[q] + (ai * K_i);
 
-                          phi_.begin_dof_values()[q] += bi * K_i;
-                        }
-                    }
+                        phi_.begin_dof_values()[q] += bi * K_i;
+                      }
+                  }
 
-                  phi.set_dof_values(dst);
-                  phi_.set_dof_values(solution);
+                phi.set_dof_values(dst);
+                phi_.set_dof_values(solution);
               }
           },
           vec_ki,
@@ -1876,35 +1874,35 @@ namespace Euler_DG
           MatrixFree<dim, Number>::DataAccessOnFaces::values);
     }
 
-    if(false)
-    {
-      unsigned int start_range = 0;
-      unsigned int end_range   = next_ri.local_size();
+    if (false)
+      {
+        unsigned int start_range = 0;
+        unsigned int end_range   = next_ri.local_size();
 
-      const Number ai = factor_ai;
-      const Number bi = factor_solution;
-      if (ai == Number())
-        {
-          DEAL_II_OPENMP_SIMD_PRAGMA
-          for (unsigned int i = start_range; i < end_range; ++i)
-            {
-              const Number k_i          = vec_ki.local_element(i);
-              const Number sol_i        = solution.local_element(i);
-              solution.local_element(i) = sol_i + bi * k_i;
-            }
-        }
-      else
-        {
-          DEAL_II_OPENMP_SIMD_PRAGMA
-          for (unsigned int i = start_range; i < end_range; ++i)
-            {
-              const Number k_i          = vec_ki.local_element(i);
-              const Number sol_i        = solution.local_element(i);
-              solution.local_element(i) = sol_i + bi * k_i;
-              next_ri.local_element(i)  = sol_i + ai * k_i;
-            }
-        }
-    }
+        const Number ai = factor_ai;
+        const Number bi = factor_solution;
+        if (ai == Number())
+          {
+            DEAL_II_OPENMP_SIMD_PRAGMA
+            for (unsigned int i = start_range; i < end_range; ++i)
+              {
+                const Number k_i          = vec_ki.local_element(i);
+                const Number sol_i        = solution.local_element(i);
+                solution.local_element(i) = sol_i + bi * k_i;
+              }
+          }
+        else
+          {
+            DEAL_II_OPENMP_SIMD_PRAGMA
+            for (unsigned int i = start_range; i < end_range; ++i)
+              {
+                const Number k_i          = vec_ki.local_element(i);
+                const Number sol_i        = solution.local_element(i);
+                solution.local_element(i) = sol_i + bi * k_i;
+                next_ri.local_element(i)  = sol_i + ai * k_i;
+              }
+          }
+      }
 #else
     {
       TimerOutput::Scope t(timer, "rk_stage - integrals L_h");
@@ -1941,8 +1939,8 @@ namespace Euler_DG
               DEAL_II_OPENMP_SIMD_PRAGMA
               for (unsigned int i = start_range; i < end_range; ++i)
                 {
-                  const Number k_i          = next_ri.local_element(i);
-                  const Number sol_i        = solution.local_element(i);
+                  const Number k_i = next_ri.local_element(i);
+                  const Number sol_i = solution.local_element(i);
                   solution.local_element(i) = sol_i + bi * k_i;
                 }
             }
@@ -1951,10 +1949,10 @@ namespace Euler_DG
               DEAL_II_OPENMP_SIMD_PRAGMA
               for (unsigned int i = start_range; i < end_range; ++i)
                 {
-                  const Number k_i          = next_ri.local_element(i);
-                  const Number sol_i        = solution.local_element(i);
+                  const Number k_i = next_ri.local_element(i);
+                  const Number sol_i = solution.local_element(i);
                   solution.local_element(i) = sol_i + bi * k_i;
-                  next_ri.local_element(i)  = sol_i + ai * k_i;
+                  next_ri.local_element(i) = sol_i + ai * k_i;
                 }
             }
         });
@@ -2683,7 +2681,7 @@ namespace Euler_DG
     rk_register_2.reinit(solution);
 
     euler_operator.project(ExactSolution<dim>(time), solution);
-    
+
 #ifdef USE_ECL
     rk_register_2 = solution;
 #endif
