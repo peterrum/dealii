@@ -62,10 +62,7 @@ template <int dim, typename Number>
 void
 do_test(const FiniteElement<dim> &fe_fine, const FiniteElement<dim> &fe_coarse)
 {
-  parallel::distributed::Triangulation<dim> tria(
-    MPI_COMM_WORLD,
-    Triangulation<dim>::limit_level_difference_at_vertices,
-    parallel::distributed::Triangulation<dim>::construct_multigrid_hierarchy);
+  parallel::distributed::Triangulation<dim> tria(MPI_COMM_WORLD);
 
   // create grid
   GridGenerator::hyper_cube(tria);

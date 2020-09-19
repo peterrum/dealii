@@ -118,7 +118,9 @@ test(const MPI_Comm &comm)
 
   VectorRepartitioner<dim, double> vr;
 
-  MGTransferUtil::setup_vector_repartitioner(dof_handler_1, dof_handler_2, vr);
+  MGTransferUtilities::setup_vector_repartitioner(dof_handler_1,
+                                                  dof_handler_2,
+                                                  vr);
 
   vr.update_forwards(vec2, vec1);
 

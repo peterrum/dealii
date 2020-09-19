@@ -55,7 +55,7 @@ test(const MPI_Comm &comm)
   };
 
   // create translator: CellID <-> unique ID
-  MGTransferUtil::CellIDTranslator<dim> cell_id_translator(
+  MGTransferUtilities::CellIDTranslator<dim> cell_id_translator(
     deterimine_n_coarse_cells(basetria), basetria.n_global_levels());
 
 

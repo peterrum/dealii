@@ -65,10 +65,7 @@ template <int dim, typename Number>
 void
 do_test()
 {
-  parallel::distributed::Triangulation<dim> tria(
-    MPI_COMM_WORLD,
-    Triangulation<dim>::limit_level_difference_at_vertices,
-    parallel::distributed::Triangulation<dim>::construct_multigrid_hierarchy);
+  parallel::distributed::Triangulation<dim> tria(MPI_COMM_WORLD);
 
   // create grid
   GridGenerator::subdivided_hyper_cube(tria, 2);

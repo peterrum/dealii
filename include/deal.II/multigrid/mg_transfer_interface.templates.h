@@ -93,12 +93,13 @@ namespace
     {
       internal::FEEvaluationImplBasisChange<
         internal::evaluate_general,
+        internal::EvaluatorQuantity::value,
         dim,
         degree_coarse + 1,
         degree_fine + 1,
-        1,
         Number,
-        Number>::do_forward(prolongation_matrix_1d,
+        Number>::do_forward(1,
+                            prolongation_matrix_1d,
                             evaluation_data_coarse,
                             evaluation_data_fine);
     }
@@ -130,12 +131,13 @@ namespace
     {
       internal::FEEvaluationImplBasisChange<
         internal::evaluate_general,
+        internal::EvaluatorQuantity::value,
         dim,
         degree_coarse + 1,
         degree_fine + 1,
-        1,
         Number,
-        Number>::do_backward(prolongation_matrix_1d,
+        Number>::do_backward(1,
+                             prolongation_matrix_1d,
                              false,
                              evaluation_data_fine,
                              evaluation_data_coarse);

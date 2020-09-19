@@ -359,7 +359,8 @@ MGTransferMatrixFreeNew<MatrixType>::MGTransferMatrixFreeNew(
   : matrices(matrices)
   , transfer(transfer)
 {
-  AssertDimension(matrices.size(), transfer.size() + 1);
+  AssertDimension(matrices.max_level() - matrices.min_level(),
+                  transfer.max_level() - transfer.min_level());
 }
 
 
