@@ -126,8 +126,8 @@ namespace parallel
 
   template <int dim, int spacedim>
   std::function<unsigned int(
-    const typename Triangulation<dim, spacedim>::cell_iterator &cell,
-    const typename Triangulation<dim, spacedim>::CellStatus     status)>
+    const typename dealii::Triangulation<dim, spacedim>::cell_iterator &cell,
+    const typename dealii::Triangulation<dim, spacedim>::CellStatus     status)>
   CellWeights<dim, spacedim>::make_weighting_callback(
     const DoFHandler<dim, spacedim> &dof_handler,
     const typename CellWeights<dim, spacedim>::WeightingFunction
@@ -142,17 +142,19 @@ namespace parallel
       ExcMessage(
         "parallel::CellWeights requires a parallel::TriangulationBase object."));
 
-    return [&dof_handler, tria, weighting_function](
-             const typename Triangulation<dim, spacedim>::cell_iterator &cell,
-             const typename Triangulation<dim, spacedim>::CellStatus     status)
-             -> unsigned int {
-      return CellWeights<dim, spacedim>::weighting_callback(cell,
-                                                            status,
-                                                            std::cref(
-                                                              dof_handler),
-                                                            std::cref(*tria),
-                                                            weighting_function);
-    };
+    return
+      [&dof_handler, tria, weighting_function](
+        const typename dealii::Triangulation<dim, spacedim>::cell_iterator
+          &                                                             cell,
+        const typename dealii::Triangulation<dim, spacedim>::CellStatus status)
+        -> unsigned int {
+        return CellWeights<dim, spacedim>::weighting_callback(
+          cell,
+          status,
+          std::cref(dof_handler),
+          std::cref(*tria),
+          weighting_function);
+      };
   }
 
 
@@ -160,10 +162,10 @@ namespace parallel
   template <int dim, int spacedim>
   unsigned int
   CellWeights<dim, spacedim>::weighting_callback(
-    const typename Triangulation<dim, spacedim>::cell_iterator &cell_,
-    const typename Triangulation<dim, spacedim>::CellStatus     status,
-    const DoFHandler<dim, spacedim> &                           dof_handler,
-    const parallel::TriangulationBase<dim, spacedim> &          triangulation,
+    const typename dealii::Triangulation<dim, spacedim>::cell_iterator &cell_,
+    const typename dealii::Triangulation<dim, spacedim>::CellStatus     status,
+    const DoFHandler<dim, spacedim> &                 dof_handler,
+    const parallel::TriangulationBase<dim, spacedim> &triangulation,
     const typename CellWeights<dim, spacedim>::WeightingFunction
       &weighting_function)
   {

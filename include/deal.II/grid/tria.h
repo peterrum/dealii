@@ -320,9 +320,12 @@ namespace internal
 
 
 /**
- * Triangulations denote a hierarchy of levels of elements which together form
- * a @p dim -dimensional manifold in @p spacedim spatial dimensions (if
- * spacedim is not specified it takes the default value @p spacedim=dim).
+ * A triangulation is a collection of cells that, jointly, cover the domain
+ * on which one typically wants to solve a partial differential equation.
+ * This domain, and the mesh that covers it, represents a @p dim -dimensional manifold
+ * and lives in @p spacedim spatial dimensions, where @p dim and @p spacedim
+ * are the template arguments of this class. (If @p spacedim is not specified,
+ * it takes the default value `spacedim=dim`.)
  *
  * Thus, for example, an object of type @p Triangulation<1,1> (or simply @p
  * Triangulation<1> since @p spacedim==dim by default) is used to represent
@@ -331,6 +334,16 @@ namespace internal
  * objects such as @p Triangulation<1,2> or @p Triangulation<2,3> (that are
  * associated with curves in 2D or surfaces in 3D) are the ones one wants to
  * use in the boundary element method.
+ *
+ * The name of the class is mostly hierarchical and is not meant to imply that
+ * a Triangulation can only consist of triangles. Instead, triangulations
+ * consist of line segments in 1d (i.e., if `dim==1`), and of three-dimensional
+ * cells (if `dim==3`). Moreover, historically, deal.II only supported
+ * quadrilaterals (cells with four vertices: deformed rectangles) in 2d
+ * and hexahedra (cells with six sides and eight vertices that are deformed
+ * boxes), neither of which are triangles. In other words, the term
+ * "triangulation" in the deal.II language is synonymous with "mesh" and is
+ * to be understood separate from its linguistic origin.
  *
  * This class is written to be as independent of the dimension as possible
  * (thus the complex construction of the
@@ -1697,7 +1710,9 @@ public:
 
   /**
    * Return a constant reference to a Manifold object used for this
-   * triangulation.  Number is the same as in @p set_manifold
+   * triangulation. @p number is the same as in set_manifold().
+   *
+   * @note If no manifold could be found, the default flat manifold is returned.
    *
    * @ingroup manifold
    *
@@ -1802,9 +1817,9 @@ public:
    * the geometry of the domain, and in this case ignoring the exception is
    * probably unwise.
    *
-   * @note This function is used in step-14 .
+   * @note This function is used in step-14 and step-19.
    *
-   * @note This function triggers the create signal after doing its work. See
+   * @note This function triggers the "create" signal after doing its work. See
    * the section on signals in the general documentation of this class.
    *
    * @note The check for distorted cells is only done if dim==spacedim, as
@@ -1820,8 +1835,11 @@ public:
    * Create a triangulation from the provided
    * TriangulationDescription::Description.
    *
+   * @note Don't forget to attach the manifolds with set_manifold() before
+   *   calling this function if manifolds are needed.
+   *
    * @note The namespace TriangulationDescription::Utilities contains functions
-   *       to create TriangulationDescription::Description.
+   *   to create TriangulationDescription::Description.
    *
    * @param construction_data The data needed for this process.
    */
@@ -1868,17 +1886,25 @@ public:
   set_all_refine_flags();
 
   /**
-   * Refine all cells @p times times, by alternatingly calling
-   * set_all_refine_flags and execute_coarsening_and_refinement.
+   * Refine all cells @p times times. In other words, in each one of
+   * the @p times iterations, loop over all cells and refine each cell
+   * uniformly into $2^\text{dim}$ children. In practice, this
+   * function repeats the following operations @p times times: call
+   * set_all_refine_flags() followed by
+   * execute_coarsening_and_refinement(). The end result is that the
+   * number of cells increases by a factor of
+   * $(2^\text{dim})^\text{times}=2^{\text{dim} \times \text{times}}$.
    *
-   * The latter function may throw an exception if it creates cells that are
-   * distorted (see its documentation for an explanation). This exception will
-   * be propagated through this function if that happens, and you may not get
-   * the actual number of refinement steps in that case.
+   * The execute_coarsening_and_refinement() function called in this
+   * loop may throw an exception if it creates cells that are
+   * distorted (see its documentation for an explanation). This
+   * exception will be propagated through this function if that
+   * happens, and you may not get the actual number of refinement
+   * steps in that case.
    *
    * @note This function triggers the pre- and post-refinement signals before
    * and after doing each individual refinement cycle (i.e. more than once if
-   * times > 1) . See the section on signals in the general documentation of
+   * `times > 1`) . See the section on signals in the general documentation of
    * this class.
    */
   void
@@ -2138,6 +2164,8 @@ public:
      * expensive for a process to handle this particular cell. If several
      * functions are connected to this signal, their return values will be
      * summed to calculate the final weight.
+     *
+     * This function is used in step-68.
      */
     boost::signals2::signal<unsigned int(const cell_iterator &,
                                          const CellStatus),

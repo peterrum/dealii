@@ -103,6 +103,29 @@ namespace Particles
                const unsigned int                  n_properties = 0);
 
     /**
+     * Copy the state of particle handler @p particle_handler into the
+     * current object. This will copy
+     * all particles and properties and leave this object
+     * as an identical copy of @p particle_handler. Existing
+     * particles in this object are deleted. Be aware that this
+     * does not copy functions that are connected to the signals of
+     * @p particle_handler, nor does it connect the current object's member
+     * functions to triangulation signals, which must be done by the caller
+     * if necessary, that is if the @p particle_handler had
+     * connected functions.
+     *
+     * This function is expensive as it has to duplicate all data
+     * in @p particle_handler, and insert it into this object,
+     * which may be a significant amount of data. However, it can
+     * be useful to save the state of a particle
+     * collection at a certain point in time and reset this
+     * state later under certain conditions, for example if
+     * a timestep has to be undone and repeated.
+     */
+    void
+    copy_from(const ParticleHandler<dim, spacedim> &particle_handler);
+
+    /**
      * Clear all particle related data.
      */
     void
@@ -177,6 +200,26 @@ namespace Particles
 
     /**
      * Return the number of particles that live on the given cell.
+     *
+     * @note While this function is used in step-19, it is not an efficient
+     *   function to use if the number of particles is large. That is because
+     *   to find the particles that are located in one cell costs
+     *   ${\cal O)(\log N)$ where $N$ is the number of overall particles. Since
+     *   you will likely do this for every cell, and assuming that the number
+     *   of particles and the number of cells are roughly proportional,
+     *   you end up with an ${\cal O)(N \log N)$ algorithm. A better approach
+     *   is to use the fact that internally, particles are arranged in the
+     *   order of the active cells they are in. In other words, if you iterate
+     *   over all particles, you will encounter them in the same order as
+     *   you walk over the active cells. You can exploit this by keeping an
+     *   iterator to the first particle of the first cell, and when you move
+     *   to the next cell, you increment the particle iterator as well until
+     *   you find a particle located on that next cell. Counting how many
+     *   steps this took will then give you the number you are looking for,
+     *   at a cost of ${\cal O)(\log N)$ when accumulated over all cells.
+     *   This is the approach used in step-70, for example. The approach is
+     *   also detailed in the "Possibilities for extensions section"
+     *   of step-19.
      */
     types::particle_index
     n_particles_in_cell(
@@ -190,6 +233,25 @@ namespace Particles
      *
      * The number of elements in the returned range equals what the
      * n_particles_in_cell() function returns.
+     *
+     * @note While this function is used in step-19, it is not an efficient
+     *   function to use if the number of particles is large. That is because
+     *   to find the particles that are located in one cell costs
+     *   ${\cal O)(\log N)$ where $N$ is the number of overall particles. Since
+     *   you will likely do this for every cell, and assuming that the number
+     *   of particles and the number of cells are roughly proportional,
+     *   you end up with an ${\cal O)(N \log N)$ algorithm. A better approach
+     *   is to use the fact that internally, particles are arranged in the
+     *   order of the active cells they are in. In other words, if you iterate
+     *   over all particles, you will encounter them in the same order as
+     *   you walk over the active cells. You can exploit this by keeping an
+     *   iterator to the first particle of the first cell, and when you move
+     *   to the next cell, you increment the particle iterator as well until
+     *   you find a particle located on that next cell. This is the approach
+     *   used in step-70, for example, and has an overall cost of
+     *   ${\cal O)(\log N)$ when accumulated over all cells. The approach is
+     *   also detailed in the "Possibilities for extensions section"
+     *   of step-19.
      */
     particle_iterator_range
     particles_in_cell(
@@ -202,6 +264,25 @@ namespace Particles
      *
      * The number of elements in the returned range equals what the
      * n_particles_in_cell() function returns.
+     *
+     * @note While this function is used in step-19, it is not an efficient
+     *   function to use if the number of particles is large. That is because
+     *   to find the particles that are located in one cell costs
+     *   ${\cal O)(\log N)$ where $N$ is the number of overall particles. Since
+     *   you will likely do this for every cell, and assuming that the number
+     *   of particles and the number of cells are roughly proportional,
+     *   you end up with an ${\cal O)(N \log N)$ algorithm. A better approach
+     *   is to use the fact that internally, particles are arranged in the
+     *   order of the active cells they are in. In other words, if you iterate
+     *   over all particles, you will encounter them in the same order as
+     *   you walk over the active cells. You can exploit this by keeping an
+     *   iterator to the first particle of the first cell, and when you move
+     *   to the next cell, you increment the particle iterator as well until
+     *   you find a particle located on that next cell. This is the approach
+     *   used in step-70, for example, and has an overall cost of
+     *   ${\cal O)(\log N)$ when accumulated over all cells. The approach is
+     *   also detailed in the "Possibilities for extensions section"
+     *   of step-19.
      */
     particle_iterator_range
     particles_in_cell(
@@ -675,6 +756,8 @@ namespace Particles
        *
        * The connected function receives an iterator to the particle in
        * question, and its last known cell association.
+       *
+       * This signal is used in step-19.
        */
       boost::signals2::signal<void(
         const typename Particles::ParticleIterator<dim, spacedim> &particle,

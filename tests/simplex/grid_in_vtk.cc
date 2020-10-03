@@ -14,7 +14,7 @@
 // ---------------------------------------------------------------------
 
 
-// Read a file in the MSH format with (linear) triangular and tetrahedral
+// Read a file in the VTK format with (linear) triangular and tetrahedral
 // elements created by the GMSH program.
 
 #include <deal.II/grid/grid_in.h>

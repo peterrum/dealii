@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2017 by the deal.II authors
+// Copyright (C) 2020 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -13,6 +13,5 @@
 //
 // ---------------------------------------------------------------------
 
-
-#define SPLIT_INSTANTIATIONS_INDEX 1
-#include "vector_tools_project.cc"
+#define SPLIT_INSTANTIATIONS_INDEX 3
+#include "evaluation_template_factory.cc"

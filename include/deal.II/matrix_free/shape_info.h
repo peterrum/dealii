@@ -227,25 +227,37 @@ namespace internal
        * (the vertices) in one data structure. Sorting is first the values,
        * then gradients, then second derivatives.
        */
-      AlignedVector<Number> shape_data_on_face[2];
+      std::array<AlignedVector<Number>, 2> shape_data_on_face;
+
+      /**
+       * Collects all data of 1D nodal shape values (defined by the Lagrange
+       * polynomials in the points of the quadrature rule) evaluated at the
+       * point 0 and 1 (the vertices) in one data structure.
+       *
+       * This data structure can be used to interpolate from the cell to the
+       * face quadrature points.
+       *
+       * @note In contrast to shape_data_on_face, only the vales are evaluated.
+       */
+      std::array<AlignedVector<Number>, 2> quadrature_data_on_face;
 
       /**
        * Stores one-dimensional values of shape functions on subface. Since
        * there are two subfaces, store two variants.
        */
-      AlignedVector<Number> values_within_subface[2];
+      std::array<AlignedVector<Number>, 2> values_within_subface;
 
       /**
        * Stores one-dimensional gradients of shape functions on subface. Since
        * there are two subfaces, store two variants.
        */
-      AlignedVector<Number> gradients_within_subface[2];
+      std::array<AlignedVector<Number>, 2> gradients_within_subface;
 
       /**
        * Stores one-dimensional gradients of shape functions on subface. Since
        * there are two subfaces, store two variants.
        */
-      AlignedVector<Number> hessians_within_subface[2];
+      std::array<AlignedVector<Number>, 2> hessians_within_subface;
 
       /**
        * We store a copy of the one-dimensional quadrature formula

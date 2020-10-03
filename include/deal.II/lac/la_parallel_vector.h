@@ -19,6 +19,7 @@
 #include <deal.II/base/config.h>
 
 #include <deal.II/base/memory_space.h>
+#include <deal.II/base/memory_space_data.h>
 #include <deal.II/base/mpi.h>
 #include <deal.II/base/numbers.h>
 #include <deal.II/base/partitioner.h>
@@ -372,9 +373,6 @@ namespace LinearAlgebra
        * standard containers. Also, there is a global function
        * <tt>swap(u,v)</tt> that simply calls <tt>u.swap(v)</tt>, again in
        * analogy to standard functions.
-       *
-       * This function is virtual in order to allow for derived classes to
-       * handle memory separately.
        */
       void
       swap(Vector<Number, MemorySpace> &v);
@@ -1257,8 +1255,7 @@ namespace LinearAlgebra
 
       /**
        * Temporary storage that holds the data that is sent to this processor
-       * in @p compress() or sent from this processor in
-       * @p update_ghost_values.
+       * in compress() or sent from this processor in update_ghost_values().
        */
       mutable ::dealii::MemorySpace::MemorySpaceData<Number, MemorySpace>
         import_data;
@@ -1274,7 +1271,7 @@ namespace LinearAlgebra
 
 #ifdef DEAL_II_WITH_MPI
       /**
-       * A vector that collects all requests from @p compress() operations.
+       * A vector that collects all requests from compress() operations.
        * This class uses persistent MPI communicators, i.e., the communication
        * channels are stored during successive calls to a given function. This
        * reduces the overhead involved with setting up the MPI machinery, but
@@ -1284,22 +1281,22 @@ namespace LinearAlgebra
       std::vector<MPI_Request> compress_requests;
 
       /**
-       * A vector that collects all requests from @p update_ghost_values()
+       * A vector that collects all requests from update_ghost_values()
        * operations. This class uses persistent MPI communicators.
        */
       mutable std::vector<MPI_Request> update_ghost_values_requests;
 #endif
 
       /**
-       * A lock that makes sure that the @p compress and @p
-       * update_ghost_values functions give reasonable results also when used
+       * A lock that makes sure that the compress() and update_ghost_values()
+       * functions give reasonable results also when used
        * with several threads.
        */
       mutable std::mutex mutex;
 
       /**
        * A helper function that clears the compress_requests and
-       * update_ghost_values_requests field. Used in reinit functions.
+       * update_ghost_values_requests field. Used in reinit() functions.
        */
       void
       clear_mpi_requests();

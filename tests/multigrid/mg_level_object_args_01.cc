@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2017 by the deal.II authors
+// Copyright (C) 2019 - 2020 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -14,5 +14,28 @@
 // ---------------------------------------------------------------------
 
 
-#define SPLIT_INSTANTIATIONS_INDEX 2
-#include "vector_tools_project.cc"
+// Test optional arguments of MGLevelObject.
+
+#include <deal.II/base/mg_level_object.h>
+
+#include <deal.II/dofs/dof_handler.h>
+
+#include <deal.II/grid/tria.h>
+
+#include "../tests.h"
+
+using namespace dealii;
+
+int
+main()
+{
+  initlog();
+
+  Triangulation<2> tria;
+
+  MGLevelObject<DoFHandler<2>> dof_handlers(0, 3, tria, true);
+
+  dof_handlers.resize(0, 5, tria, true);
+
+  deallog << "OK!" << std::endl;
+}
