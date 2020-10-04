@@ -1,0 +1,49 @@
+
+DEAL:2d::Testing FE_DGQ<2>(1)
+DEAL:2d::Number of degrees of freedom: 136
+DEAL:2d:cg::Starting value 11.6619
+DEAL:2d:cg::Convergence step 8 value 4.73847e-07
+DEAL:2d::Testing FE_DGQ<2>(1)
+DEAL:2d::Number of degrees of freedom: 328
+DEAL:2d:cg::Starting value 18.1108
+DEAL:2d:cg::Convergence step 9 value 1.58095e-06
+DEAL:2d::Testing FE_DGQ<2>(1)
+DEAL:2d::Number of degrees of freedom: 820
+DEAL:2d:cg::Starting value 28.6356
+DEAL:2d:cg::Convergence step 10 value 7.10953e-07
+DEAL:2d::Testing FE_DGQ<2>(1)
+DEAL:2d::Number of degrees of freedom: 2020
+DEAL:2d:cg::Starting value 44.9444
+DEAL:2d:cg::Convergence step 10 value 1.25212e-06
+DEAL:2d::Testing FE_DGQ<2>(2)
+DEAL:2d::Number of degrees of freedom: 306
+DEAL:2d:cg::Starting value 17.4929
+DEAL:2d:cg::Convergence step 8 value 6.24199e-07
+DEAL:2d::Testing FE_DGQ<2>(2)
+DEAL:2d::Number of degrees of freedom: 738
+DEAL:2d:cg::Starting value 27.1662
+DEAL:2d:cg::Convergence step 9 value 9.95124e-07
+DEAL:2d::Testing FE_DGQ<2>(2)
+DEAL:2d::Number of degrees of freedom: 1845
+DEAL:2d:cg::Starting value 42.9535
+DEAL:2d:cg::Convergence step 9 value 2.06949e-06
+DEAL:2d::Testing FE_DGQ<2>(2)
+DEAL:2d::Number of degrees of freedom: 4545
+DEAL:2d:cg::Starting value 67.4166
+DEAL:2d:cg::Convergence step 9 value 6.29106e-06
+DEAL:3d::Testing FE_DGQ<3>(1)
+DEAL:3d::Number of degrees of freedom: 232
+DEAL:3d:cg::Starting value 15.2315
+DEAL:3d:cg::Convergence step 9 value 2.09411e-07
+DEAL:3d::Testing FE_DGQ<3>(1)
+DEAL:3d::Number of degrees of freedom: 960
+DEAL:3d:cg::Starting value 30.9839
+DEAL:3d:cg::Convergence step 9 value 1.20650e-06
+DEAL:3d::Testing FE_DGQ<3>(1)
+DEAL:3d::Number of degrees of freedom: 4600
+DEAL:3d:cg::Starting value 67.8233
+DEAL:3d:cg::Convergence step 10 value 1.40353e-06
+DEAL:3d::Testing FE_DGQ<3>(1)
+DEAL:3d::Number of degrees of freedom: 22464
+DEAL:3d:cg::Starting value 149.880
+DEAL:3d:cg::Convergence step 10 value 4.85651e-06
