@@ -176,8 +176,17 @@ public:
       data.get_task_info().refinement_edge_face_partition_data[0],
       data.get_task_info().refinement_edge_face_partition_data[1]);
     src.update_ghost_values();
-    local_apply_edge_down(data, dst, src, face_range);
-    dst.compress(VectorOperation::add);
+
+    LinearAlgebra::distributed::Vector<number> dst_, src_;
+
+    initialize_dof_vector(src_);
+    initialize_dof_vector(dst_);
+
+    src_.copy_locally_owned_data_from(src);
+    local_apply_edge_down(data, dst_, src_, face_range);
+    dst_.compress(VectorOperation::add);
+    dst.copy_locally_owned_data_from(dst_);
+
     const_cast<LinearAlgebra::distributed::Vector<number> &>(src)
       .zero_out_ghosts();
   }
@@ -825,6 +834,9 @@ do_test(const DoFHandler<dim> &dof, const bool also_test_parallel = false)
       smoother_data[level].smoothing_range     = 20.;
       smoother_data[level].degree              = 5;
       smoother_data[level].eig_cg_n_iterations = 15;
+
+      smoother_data[level].preconditioner = std::make_shared<
+        DiagonalMatrix<LinearAlgebra::distributed::Vector<number>>>();
       smoother_data[level].preconditioner->get_vector() =
         mg_matrices[level].get_matrix_diagonal_inverse();
     }
