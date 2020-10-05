@@ -570,8 +570,47 @@ MatrixFree<dim, Number, VectorizedArrayType>::initialize_dof_handlers(
                cell_level_index.size() == tria.n_active_cells(),
              ExcInternalError());
     }
+  else if ((additional_data.edge_matrix == true) && (level > 0))
+    {
+      for (const auto &cell : tria.cell_iterators_on_level(level))
+        {
+          if (cell->is_artificial())
+            continue;
+
+          for (const auto f : cell->face_indices())
+            {
+              bool flag = false;
+
+              if ((cell->at_boundary(f) == false ||
+                   cell->has_periodic_neighbor(f)) &&
+                  cell->neighbor_or_periodic_neighbor(f)->level() <
+                    cell->level())
+                {
+                  const auto n = cell->neighbor_or_periodic_neighbor(f);
+
+                  if (n->level_subdomain_id() !=
+                      numbers::artificial_subdomain_id)
+                    flag = true;
+
+                  if (n->level_subdomain_id() == my_pid)
+                    cell_level_index.emplace_back(n->level(), n->index());
+                }
+
+              if (flag && (cell->level_subdomain_id() == my_pid))
+                cell_level_index.emplace_back(cell->level(), cell->index());
+            }
+        }
+
+      std::sort(cell_level_index.begin(), cell_level_index.end());
+      auto last = std::unique(cell_level_index.begin(), cell_level_index.end());
+      cell_level_index.erase(last, cell_level_index.end());
+
+      std::cout << "cells: " << cell_level_index.size() << std::endl;
+    }
   else
     {
+      Assert(additional_data.edge_matrix == false, ExcNotImplemented());
+
       AssertIndexRange(level, tria.n_global_levels());
       if (level < tria.n_levels())
         {
@@ -1368,11 +1407,8 @@ MatrixFree<dim, Number, VectorizedArrayType>::initialize_indices(
     {
       face_setup.generate_faces(dof_handlers[0]->get_triangulation(),
                                 cell_level_index,
-                                task_info);
-      if (additional_data.mapping_update_flags_inner_faces != update_default)
-        Assert(face_setup.refinement_edge_faces.empty(),
-               ExcNotImplemented("Setting up data structures on MG levels with "
-                                 "hanging nodes is currently not supported."));
+                                task_info,
+                                additional_data.edge_matrix);
       face_info.faces.clear();
 
       std::vector<bool> hard_vectorization_boundary(

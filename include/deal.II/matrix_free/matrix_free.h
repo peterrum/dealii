@@ -227,7 +227,8 @@ public:
       const bool         initialize_mapping  = true,
       const bool         overlap_communication_computation    = true,
       const bool         hold_all_faces_to_owned_cells        = false,
-      const bool         cell_vectorization_categories_strict = false)
+      const bool         cell_vectorization_categories_strict = false,
+      const bool         edge_matrix                          = false)
       : tasks_parallel_scheme(tasks_parallel_scheme)
       , tasks_block_size(tasks_block_size)
       , mapping_update_flags(mapping_update_flags)
@@ -243,6 +244,7 @@ public:
       , hold_all_faces_to_owned_cells(hold_all_faces_to_owned_cells)
       , cell_vectorization_categories_strict(
           cell_vectorization_categories_strict)
+      , edge_matrix(edge_matrix)
     {}
 
     /**
@@ -268,6 +270,7 @@ public:
       , cell_vectorization_category(other.cell_vectorization_category)
       , cell_vectorization_categories_strict(
           other.cell_vectorization_categories_strict)
+      , edge_matrix(other.edge_matrix)
     {}
 
     // remove with level_mg_handler
@@ -297,6 +300,7 @@ public:
       cell_vectorization_category   = other.cell_vectorization_category;
       cell_vectorization_categories_strict =
         other.cell_vectorization_categories_strict;
+      edge_matrix = other.edge_matrix;
 
       return *this;
     }
@@ -529,6 +533,11 @@ public:
      * them in a single vectorized array.
      */
     bool cell_vectorization_categories_strict;
+
+    /**
+     * TODO.
+     */
+    bool edge_matrix;
   };
 
   /**

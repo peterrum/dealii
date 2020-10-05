@@ -1845,7 +1845,9 @@ namespace internal
                     }
                   if (is_boundary_face == false &&
                       faces[face].cells_exterior[v] !=
-                        numbers::invalid_unsigned_int)
+                        numbers::invalid_unsigned_int &&
+                      faces[face].cells_exterior[v] !=
+                        static_cast<unsigned int>(-2))
                     {
                       typename dealii::Triangulation<dim>::cell_iterator
                         cell_it(&tria,
@@ -1869,6 +1871,12 @@ namespace internal
                                 dummy_fe,
                                 quadrature,
                                 mapping_info.update_flags_inner_faces);
+                          std::cout
+                            << cell_it->id() << " "
+                            << static_cast<int>(faces[face].exterior_face_no)
+                            << " "
+                            << static_cast<int>(faces[face].subface_index)
+                            << std::endl;
                           fe_subface_values_container[my_q][0]->reinit(
                             cell_it,
                             faces[face].exterior_face_no,

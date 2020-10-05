@@ -94,7 +94,8 @@ namespace internal
       generate_faces(
         const dealii::Triangulation<dim> &                        triangulation,
         const std::vector<std::pair<unsigned int, unsigned int>> &cell_levels,
-        TaskInfo &                                                task_info);
+        TaskInfo &                                                task_info,
+        const bool edge_matrix = false);
 
       /**
        * Fills the information about the cell, the face number, and numbers
@@ -725,7 +726,8 @@ namespace internal
     FaceSetup<dim>::generate_faces(
       const dealii::Triangulation<dim> &                        triangulation,
       const std::vector<std::pair<unsigned int, unsigned int>> &cell_levels,
-      TaskInfo &                                                task_info)
+      TaskInfo &                                                task_info,
+      const bool                                                edge_matrix)
     {
       // step 1: create the inverse map between cell iterators and the
       // cell_level_index field
@@ -780,6 +782,25 @@ namespace internal
                         info.cells_exterior[0] = numbers::invalid_unsigned_int;
                         info.interior_face_no  = f;
                         info.exterior_face_no  = dcell->face(f)->boundary_id();
+                        info.subface_index =
+                          GeometryInfo<dim>::max_children_per_cell;
+                        info.face_orientation = 0;
+                        boundary_faces.push_back(info);
+
+                        face_visited[dcell->face(f)->index()]++;
+                      }
+                    // faces with hanging nodes -> treat as boundary face if
+                    // we are not dealing with edge matrices
+                    else if ((edge_matrix == false) &&
+                             (face_is_owned[dcell->face(f)->index()] ==
+                              FaceCategory::multigrid_refinement_edge))
+                      {
+                        ++boundary_counter;
+                        FaceToCellTopology<1> info;
+                        info.cells_interior[0] = cell;
+                        info.cells_exterior[0] = numbers::invalid_unsigned_int;
+                        info.interior_face_no  = f;
+                        info.exterior_face_no  = -2; // TODO
                         info.subface_index =
                           GeometryInfo<dim>::max_children_per_cell;
                         info.face_orientation = 0;
@@ -911,15 +932,26 @@ namespace internal
                                          dcell->periodic_neighbor_face_no(f))
                                        ->index()] = 1;
                               }
+
+                            // faces with hanging nodes
                             if (face_is_owned[dcell->face(f)->index()] ==
                                 FaceCategory::multigrid_refinement_edge)
                               {
-                                refinement_edge_faces.push_back(
-                                  create_face(f,
-                                              dcell,
-                                              cell,
-                                              neighbor,
-                                              refinement_edge_faces.size()));
+                                Assert(edge_matrix == true,
+                                       ExcNotImplemented());
+
+                                std::pair<unsigned int, unsigned int>
+                                  level_index(neighbor->level(),
+                                              neighbor->index());
+
+                                const auto result =
+                                  map_to_vectorized.find(level_index);
+
+                                Assert(result != map_to_vectorized.end(),
+                                       ExcNotImplemented());
+
+                                inner_ghost_faces.push_back(create_face(
+                                  f, dcell, cell, neighbor, result->second));
                               }
                           }
                       }
@@ -937,6 +969,7 @@ namespace internal
       task_info.refinement_edge_face_partition_data[0] = 0;
       task_info.refinement_edge_face_partition_data[1] =
         refinement_edge_faces.size();
+      std::cout << "@@ " << refinement_edge_faces.size() << std::endl;
     }
 
 
