@@ -40,8 +40,6 @@
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/block_vector_base.h>
 #include <deal.II/lac/la_parallel_vector.h>
-#include <deal.II/lac/la_sm_partitioner.h>
-#include <deal.II/lac/la_sm_vector.h>
 #include <deal.II/lac/vector_operation.h>
 
 #include <deal.II/matrix_free/dof_info.h>
@@ -1502,12 +1500,6 @@ public:
   initialize_dof_vector(LinearAlgebra::distributed::Vector<Number2> &vec,
                         const unsigned int dof_handler_index = 0) const;
 
-  template <typename Number2>
-  void
-  initialize_dof_vector(LinearAlgebra::SharedMPI::Vector<Number2> &vec,
-                        const MPI_Comm &                           comm_sm,
-                        const unsigned int dof_handler_index = 0) const;
-
   /**
    * Return the partitioner that represents the locally owned data and the
    * ghost indices where access is needed to for the cell loop. The
@@ -1520,10 +1512,6 @@ public:
    */
   const std::shared_ptr<const Utilities::MPI::Partitioner> &
   get_vector_partitioner(const unsigned int dof_handler_index = 0) const;
-
-  const std::shared_ptr<const LinearAlgebra::SharedMPI::Partitioner> &
-  get_vector_partitioner(const MPI_Comm &   sm_comm,
-                         const unsigned int dof_handler_index = 0) const;
 
   /**
    * Return the set of cells that are owned by the processor.
@@ -2061,13 +2049,6 @@ private:
    */
   std::vector<internal::MatrixFreeFunctions::DoFInfo> dof_info;
 
-  // TODO: move it to DoFInfo
-  mutable std::map<
-    unsigned int,
-    std::map<const MPI_Comm,
-             std::shared_ptr<const LinearAlgebra::SharedMPI::Partitioner>>>
-    partitioner_sm;
-
   /**
    * Contains the weights for constraints stored in DoFInfo. Filled into a
    * separate field since several vector components might share similar
@@ -2195,49 +2176,12 @@ MatrixFree<dim, Number, VectorizedArrayType>::initialize_dof_vector(
 
 
 template <int dim, typename Number, typename VectorizedArrayType>
-template <typename Number2>
-inline void
-MatrixFree<dim, Number, VectorizedArrayType>::initialize_dof_vector(
-  LinearAlgebra::SharedMPI::Vector<Number2> &vec,
-  const MPI_Comm &                           comm_sm,
-  const unsigned int                         comp) const
-{
-  AssertIndexRange(comp, n_components());
-
-  const auto &part = dof_info[comp].vector_partitioner;
-
-  if (partitioner_sm[comp][comm_sm] == nullptr)
-    partitioner_sm[comp][comm_sm] =
-      std::make_shared<LinearAlgebra::SharedMPI::Partitioner>(
-        part->locally_owned_range(),
-        part->ghost_indices(),
-        part->get_mpi_communicator(),
-        comm_sm);
-
-  vec.reinit(part, partitioner_sm[comp][comm_sm]);
-}
-
-
-
-template <int dim, typename Number, typename VectorizedArrayType>
 inline const std::shared_ptr<const Utilities::MPI::Partitioner> &
 MatrixFree<dim, Number, VectorizedArrayType>::get_vector_partitioner(
   const unsigned int comp) const
 {
   AssertIndexRange(comp, n_components());
   return dof_info[comp].vector_partitioner;
-}
-
-
-
-template <int dim, typename Number, typename VectorizedArrayType>
-inline const std::shared_ptr<const LinearAlgebra::SharedMPI::Partitioner> &
-MatrixFree<dim, Number, VectorizedArrayType>::get_vector_partitioner(
-  const MPI_Comm &   comm_sm,
-  const unsigned int comp) const
-{
-  AssertIndexRange(comp, n_components());
-  return partitioner_sm[comp][comm_sm];
 }
 
 
@@ -3765,55 +3709,6 @@ namespace internal
                   {
                     const_cast<LinearAlgebra::distributed::Vector<Number> &>(
                       vec)
-                      .local_element(j + part.local_size()) = 0.;
-                  }
-            }
-
-          // let vector know that it's not ghosted anymore
-          vec.set_ghost_state(false);
-#  endif
-        }
-    }
-
-    void
-    reset_ghost_values(
-      const LinearAlgebra::SharedMPI::Vector<Number> &vec) const
-    {
-      return; // TODO: why do we need this function?
-              // I am reseting the ghost_values during compression
-
-
-      if (ghosts_were_set == true)
-        return;
-
-      if (vector_face_access ==
-            dealii::MatrixFree<dim, Number, VectorizedArrayType>::
-              DataAccessOnFaces::unspecified ||
-          vec.size() == 0)
-        vec.zero_out_ghosts();
-      else
-        {
-#  ifdef DEAL_II_WITH_MPI
-          AssertDimension(requests.size(), tmp_data.size());
-
-          const unsigned int mf_component = find_vector_in_mf(vec);
-          const Utilities::MPI::Partitioner &part =
-            get_partitioner(mf_component);
-          if (&part ==
-              matrix_free.get_dof_info(mf_component).vector_partitioner.get())
-            vec.zero_out_ghosts();
-          else if (part.n_ghost_indices() > 0)
-            {
-              for (std::vector<std::pair<unsigned int, unsigned int>>::
-                     const_iterator my_ghosts =
-                       part.ghost_indices_within_larger_ghost_set().begin();
-                   my_ghosts !=
-                   part.ghost_indices_within_larger_ghost_set().end();
-                   ++my_ghosts)
-                for (unsigned int j = my_ghosts->first; j < my_ghosts->second;
-                     j++)
-                  {
-                    const_cast<LinearAlgebra::SharedMPI::Vector<Number> &>(vec)
                       .local_element(j + part.local_size()) = 0.;
                   }
             }

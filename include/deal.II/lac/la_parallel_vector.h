@@ -346,6 +346,12 @@ namespace LinearAlgebra
              const IndexSet &ghost_indices,
              const MPI_Comm  communicator);
 
+      void
+      reinit(const size_type local_size,
+             const size_type ghost_size,
+             const MPI_Comm  comm,
+             const MPI_Comm  comm_sm);
+
       /**
        * Same as above, but without ghost entries.
        */
@@ -1120,6 +1126,9 @@ namespace LinearAlgebra
       void
       set_ghost_state(const bool ghosted) const;
 
+      const std::vector<Number *> &
+      other_values() const;
+
       //@}
 
       /**
@@ -1305,7 +1314,8 @@ namespace LinearAlgebra
        * A helper function that is used to resize the val array.
        */
       void
-      resize_val(const size_type new_allocated_size);
+      resize_val(const size_type new_allocated_size,
+                 const MPI_Comm  comm_sm = MPI_COMM_SELF);
 
       // Make all other vector types friends.
       template <typename Number2, typename MemorySpace2>
@@ -1704,6 +1714,15 @@ namespace LinearAlgebra
     Vector<Number, MemorySpace>::set_ghost_state(const bool ghosted) const
     {
       vector_is_ghosted = ghosted;
+    }
+
+
+
+    template <typename Number, typename MemorySpace>
+    const std::vector<Number *> &
+    Vector<Number, MemorySpace>::other_values() const
+    {
+      return data.others;
     }
 
 #endif
