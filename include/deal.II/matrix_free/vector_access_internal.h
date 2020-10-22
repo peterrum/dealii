@@ -227,6 +227,15 @@ namespace internal
 
 
 
+    template <typename VectorNumberType>
+    void
+    process_dof(const VectorNumberType &global, Number &local) const
+    {
+      local = global;
+    }
+
+
+
     template <typename VectorType>
     void
     process_dofs_vectorized(const unsigned int   dofs_per_cell,
@@ -379,6 +388,14 @@ namespace internal
     process_dof(const unsigned int index, VectorType &vec, Number &res) const
     {
       vector_access_add(vec, index, res);
+    }
+
+
+    template <typename VectorNumberType>
+    void
+    process_dof(VectorNumberType &global, Number &local) const
+    {
+      global += local;
     }
 
 
@@ -543,6 +560,15 @@ namespace internal
     process_dof(const unsigned int index, VectorType &vec, Number &res) const
     {
       vector_access(vec, index) = res;
+    }
+
+
+
+    template <typename VectorNumberType>
+    void
+    process_dof(VectorNumberType &global, Number &local) const
+    {
+      global = local;
     }
 
 

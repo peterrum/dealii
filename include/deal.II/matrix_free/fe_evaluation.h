@@ -4745,6 +4745,55 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
   else
     for (unsigned int comp = 0; comp < n_components; ++comp)
       {
+        if (false /*TODO*/)
+          {
+            std::array<typename VectorType::value_type *,
+                       VectorizedArrayType::size()>
+              vector_ptrs = {};
+
+            if (this->dof_info->index_storage_variants[ind][this->cell] ==
+                  internal::MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
+                    contiguous &&
+                this->data->dofs_per_component_on_cell > 0)
+              for (unsigned int v = 0; v < n_filled_lanes; ++v)
+                if (mask[v] == true)
+                  vector_ptrs[v] =
+                    &internal::vector_access(*src[comp], dof_indices[v]);
+
+            for (unsigned int i = 0; i < this->data->dofs_per_component_on_cell;
+                 ++i)
+              operation.process_empty(values_dofs[comp][i]);
+            if (this->dof_info->index_storage_variants[ind][this->cell] ==
+                internal::MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
+                  contiguous)
+              {
+                if (n_components == 1 || n_fe_components == 1)
+                  {
+                    for (unsigned int v = 0; v < n_filled_lanes; ++v)
+                      if (mask[v] == true)
+                        for (unsigned int i = 0;
+                             i < this->data->dofs_per_component_on_cell;
+                             ++i)
+                          operation.process_dof(vector_ptrs[v][i],
+                                                values_dofs[comp][i][v]);
+                  }
+                else
+                  {
+                    for (unsigned int v = 0; v < n_filled_lanes; ++v)
+                      if (mask[v] == true)
+                        for (unsigned int i = 0;
+                             i < this->data->dofs_per_component_on_cell;
+                             ++i)
+                          operation.process_dof(
+                            vector_ptrs
+                              [v][i + comp *
+                                        this->data->dofs_per_component_on_cell],
+                            values_dofs[comp][i][v]);
+                  }
+              }
+            continue;
+          }
+
         for (unsigned int i = 0; i < this->data->dofs_per_component_on_cell;
              ++i)
           operation.process_empty(values_dofs[comp][i]);
