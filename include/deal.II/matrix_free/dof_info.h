@@ -245,6 +245,14 @@ namespace internal
         const MPI_Comm                            communicator_sm);
 
       /**
+       * TODO
+       */
+      void
+      compress_for_shared_memory_usage(
+        std::array<std::vector<std::pair<unsigned int, unsigned int>>, 3>
+          &cell_indices_contiguous_sm);
+
+      /**
        * Compute a renumbering of the degrees of freedom to improve the data
        * access patterns for this class that can be utilized by the categories
        * in the IndexStorageVariants enum. For example, the index ordering can

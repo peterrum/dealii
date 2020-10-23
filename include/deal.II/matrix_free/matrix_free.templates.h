@@ -21,6 +21,7 @@
 
 #include <deal.II/base/memory_consumption.h>
 #include <deal.II/base/mpi.h>
+#include <deal.II/base/mpi_consensus_algorithms.h>
 #include <deal.II/base/polynomials_piecewise.h>
 #include <deal.II/base/tensor_product_polynomials.h>
 #include <deal.II/base/utilities.h>
@@ -337,9 +338,6 @@ MatrixFree<dim, Number, VectorizedArrayType>::internal_reinit(
             Utilities::MPI::this_mpi_process(task_info.communicator);
           task_info.n_procs =
             Utilities::MPI::n_mpi_processes(task_info.communicator);
-
-          Assert(additional_data.communicator_sm == MPI_COMM_SELF,
-                 ExcNotImplemented());
 
 #ifndef DEAL_II_WITH_MPI
           Assert(false, ExcInternalError());
@@ -1511,6 +1509,211 @@ MatrixFree<dim, Number, VectorizedArrayType>::initialize_indices(
 
   for (auto &di : dof_info)
     di.compute_vector_zero_access_pattern(task_info, face_info.faces);
+
+#ifdef DEALII_WITH_MPI
+  {
+    // non-buffering mode is only supported if the indices of all cells are
+    // of all dof_info are contiguous.
+    bool is_non_buffering_sm_supported = true;
+    for (const auto &di : dof_info)
+      for (const auto &v : di.index_storage_variants[2])
+        is_non_buffering_sm_supported &=
+          (v == internal::MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
+                  contiguous);
+
+    const MPI_Comm communicator_sm = this->task_info.communicator_sm;
+
+    if (is_non_buffering_sm_supported)
+      {
+        // TODO: move into Utilities::MPI
+        const auto procs_of_sm = [](const MPI_Comm &comm,
+                                    const MPI_Comm &comm_shared) {
+          const unsigned int rank = Utilities::MPI::this_mpi_process(comm);
+          const unsigned int size =
+            Utilities::MPI::n_mpi_processes(comm_shared);
+
+          std::vector<unsigned int> ranks(size);
+          MPI_Allgather(
+            &rank, 1, MPI_UNSIGNED, ranks.data(), 1, MPI_INT, comm_shared);
+
+          return ranks;
+        };
+
+        // gather the ranks of the shared-memory domain
+        const std::vector<unsigned int> sm_procs =
+          procs_of_sm(task_info.communicator, communicator_sm);
+
+        // get my rank within the shared-memory domain
+        const unsigned int my_sm_pid = std::distance(
+          sm_procs.begin(),
+          std::find(sm_procs.begin(), sm_procs.end(), task_info.my_pid));
+
+        // process any dof_info
+        const auto  di_index = 0;
+        const auto &di       = dof_info[di_index];
+
+        std::array<std::vector<std::pair<unsigned int, unsigned int>>, 3>
+          cell_indices_contiguous_sm;
+
+        // collect for each cell: sm rank + offset
+        cell_indices_contiguous_sm[2] = [&]() {
+          // result
+          std::vector<std::pair<unsigned int, unsigned int>> cells(
+            di.dof_indices_contiguous[2].size(),
+            {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int});
+
+          // locally-owned cells
+          std::vector<std::pair<unsigned int, types::global_cell_index>>
+            cells_locally_owned;
+          cells_locally_owned.reserve(n_cell_batches() * n_lanes);
+
+          // shared-ghost cells (categorized according to sm-rank)
+          std::vector<
+            std::vector<std::pair<unsigned int, types::global_cell_index>>>
+            cells_shared_ghosts(sm_procs.size());
+
+          for (unsigned int cell = 0;
+               cell < n_cell_batches() + n_ghost_cell_batches();
+               ++cell)
+            for (unsigned int v = 0; v < this->n_components_filled(cell); ++v)
+              {
+                const unsigned int index = cell * n_lanes + v;
+
+                // determine global cell index
+                const unsigned int local_dof_index =
+                  di.dof_indices_contiguous[2][index];
+                const types::global_cell_index global_cell_index =
+                  di.vector_partitioner->local_to_global(local_dof_index) /
+                  this->get_dofs_per_cell(di_index);
+
+                // determine sm rank
+                unsigned int sm_rank = my_sm_pid;
+
+                if (cell < n_cell_batches())
+                  {
+                    // locally-owned cell
+                    cells_locally_owned.emplace_back(index, global_cell_index);
+                  }
+                else
+                  {
+                    // ghost cell
+                    const auto ptr = std::find(
+                      sm_procs.begin(),
+                      sm_procs.end(),
+                      get_cell_iterator(cell, v, di_index)->subdomain_id());
+
+                    if (ptr != sm_procs.end())
+                      {
+                        // shared ghost cell:
+                        sm_rank = std::distance(sm_procs.begin(), ptr);
+                        cells_shared_ghosts[sm_rank].emplace_back(
+                          index, global_cell_index);
+                      }
+                    else
+                      {
+                        // remote ghost cell: nothing to do since the values are
+                        // communicated (i.e. locally available)
+                      }
+                  }
+
+                // write back result
+                cells[cell * n_lanes + v] = {
+                  sm_rank, local_dof_index / this->get_dofs_per_cell(di_index)};
+              }
+
+          // get offsets of shared cells
+          Utilities::MPI::ConsensusAlgorithms::
+            AnonymousProcess<dealii::types::global_dof_index, unsigned int>
+              process(
+                [&]() {
+                  std::vector<unsigned int> targets;
+                  for (unsigned int i = 0; i < cells_shared_ghosts.size(); ++i)
+                    if (cells_shared_ghosts[i].size() > 0)
+                      targets.push_back(i);
+                  return targets;
+                },
+                [&](const auto other_rank, auto &send_buffer) {
+                  auto &source = cells_shared_ghosts[other_rank];
+                  std::sort(source.begin(),
+                            source.end(),
+                            [](const auto &a, const auto &b) {
+                              return a.second < b.second;
+                            });
+
+                  send_buffer.reserve(source.size());
+                  for (const auto &i : source)
+                    send_buffer.push_back(i.second);
+                },
+                [&](const auto &other_rank,
+                    const auto &buffer_recv,
+                    auto &      request_buffer) {
+                  (void)other_rank;
+
+                  request_buffer.reserve(buffer_recv.size());
+
+                  unsigned int j = 0;
+
+                  for (unsigned int i = 0; i < buffer_recv.size(); ++i, ++j)
+                    {
+                      for (; j < cells_locally_owned.size(); ++j)
+                        if (cells_locally_owned[j].first == buffer_recv[i])
+                          {
+                            request_buffer.push_back(
+                              cells_locally_owned[j].first);
+                            break;
+                          }
+                    }
+
+                  AssertDimension(request_buffer.size(), buffer_recv.size());
+                },
+                [&](const auto other_rank, auto &recv_buffer) {
+                  recv_buffer.resize(cells_shared_ghosts[other_rank].size());
+                },
+                [&](const auto other_rank, const auto &recv_buffer) {
+                  for (unsigned int i = 0; i < recv_buffer.size(); ++i)
+                    {
+                      cells[cells_shared_ghosts[other_rank][i].first] = {
+                        other_rank, recv_buffer[i]};
+                    }
+                });
+
+          Utilities::MPI::ConsensusAlgorithms::Selector<
+            dealii::types::global_dof_index,
+            unsigned int>(process, communicator_sm)
+            .run();
+
+          return cells;
+        }();
+
+        // process faces (0: interior; 1: exterior)
+        for (unsigned int i = 0; i < 2; ++i)
+          {
+            cell_indices_contiguous_sm[i].resize(
+              di.dof_indices_contiguous[i].size(),
+              {numbers::invalid_unsigned_int, numbers::invalid_unsigned_int});
+
+            for (unsigned int face_index = 0;
+                 face_index < cell_indices_contiguous_sm[i].size();
+                 ++face_index)
+              {
+                const unsigned int cell_index =
+                  (i == 0) ? get_face_info(face_index / n_lanes)
+                               .cells_interior[face_index % n_lanes];
+                  : get_face_info(face_index / n_lanes).cells_exterior[face_index % n_lanes];
+
+                  if (cell_index == numbers::invalid_unsigned_int)
+                    continue;
+
+                  cell_indices_contiguous_sm[i][face_index] =
+                    cell_indices_contiguous_sm[2][cell_index];
+              }
+          }
+
+        for (auto &di : dof_info)
+          di.compress_for_shared_memory_usage(cell_indices_contiguous_sm);
+      }
+  }
+#endif
 
   indices_are_initialized = true;
 }
