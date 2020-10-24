@@ -337,12 +337,46 @@ MatrixFree<dim, Number, VectorizedArrayType>::internal_reinit(
             Utilities::MPI::this_mpi_process(task_info.communicator);
           task_info.n_procs =
             Utilities::MPI::n_mpi_processes(task_info.communicator);
+
+          Assert(additional_data.communicator_sm == MPI_COMM_SELF,
+                 ExcNotImplemented());
+
+#ifndef DEAL_II_WITH_MPI
+          Assert(false, ExcInternalError());
+#else
+          if (true)
+            {
+              task_info.communicator_sm = additional_data.communicator_sm;
+            }
+#  if DEAL_II_MPI_VERSION_GTE(3, 0)
+          else if (true)
+            {
+              MPI_Comm comm_sm;
+              MPI_Comm_split(task_info.communicator,
+                             task_info.my_pid == 2,
+                             task_info.my_pid,
+                             &comm_sm);
+              task_info.communicator_sm = comm_sm;
+            }
+          else
+            {
+              MPI_Comm comm_sm;
+              MPI_Comm_split_type(task_info.communicator,
+                                  MPI_COMM_TYPE_SHARED,
+                                  task_info.my_pid,
+                                  MPI_INFO_NULL,
+                                  &comm_sm);
+              task_info.communicator_sm = comm_sm;
+            }
+#  endif
+#endif
         }
       else
         {
-          task_info.communicator = MPI_COMM_SELF;
-          task_info.my_pid       = 0;
-          task_info.n_procs      = 1;
+          task_info.communicator    = MPI_COMM_SELF;
+          task_info.communicator_sm = MPI_COMM_SELF;
+          task_info.my_pid          = 0;
+          task_info.n_procs         = 1;
         }
 
       initialize_dof_handlers(dof_handler, additional_data);
@@ -781,10 +815,15 @@ namespace internal
           std::make_shared<Utilities::MPI::Partitioner>(locally_owned_dofs[no],
                                                         task_info.communicator);
 
-        dof_info[no].vector_exchanger =
-          std::make_shared<internal::MatrixFreeFunctions::VectorDataExchange::
-                             PartitionerWrapper>(
-            dof_info[no].vector_partitioner);
+        if (false)
+          dof_info[no].vector_exchanger =
+            std::make_shared<internal::MatrixFreeFunctions::VectorDataExchange::
+                               PartitionerWrapper>(
+              dof_info[no].vector_partitioner);
+        else
+          dof_info[no].vector_exchanger = std::make_shared<
+            internal::MatrixFreeFunctions::VectorDataExchange::Full>(
+            dof_info[no].vector_partitioner, task_info.communicator_sm);
 
         // initialize the arrays for indices
         const unsigned int n_components_total =
@@ -924,7 +963,8 @@ namespace internal
                             dof_info[no].ghost_dofs.push_back(dof_index);
                         }
             }
-          dof_info[no].assign_ghosts(cells_with_ghosts);
+          dof_info[no].assign_ghosts(cells_with_ghosts,
+                                     task_info.communicator_sm);
         }
     }
 
@@ -1465,7 +1505,8 @@ MatrixFree<dim, Number, VectorizedArrayType>::initialize_indices(
           VectorizedArrayType::size(),
           face_setup.inner_faces,
           face_setup.inner_ghost_faces,
-          is_fe_dg[count++] && additional_data.hold_all_faces_to_owned_cells);
+          is_fe_dg[count++] && additional_data.hold_all_faces_to_owned_cells,
+          task_info.communicator_sm);
     }
 
   for (auto &di : dof_info)
