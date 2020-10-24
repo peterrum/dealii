@@ -243,7 +243,9 @@ public:
       , hold_all_faces_to_owned_cells(hold_all_faces_to_owned_cells)
       , cell_vectorization_categories_strict(
           cell_vectorization_categories_strict)
-    {}
+    {
+      this->communicator_sm = MPI_COMM_SELF;
+    }
 
     /**
      * Copy constructor.
@@ -268,6 +270,7 @@ public:
       , cell_vectorization_category(other.cell_vectorization_category)
       , cell_vectorization_categories_strict(
           other.cell_vectorization_categories_strict)
+      , communicator_sm(other.communicator_sm)
     {}
 
     // remove with level_mg_handler
@@ -297,6 +300,7 @@ public:
       cell_vectorization_category   = other.cell_vectorization_category;
       cell_vectorization_categories_strict =
         other.cell_vectorization_categories_strict;
+      communicator_sm = other.communicator_sm;
 
       return *this;
     }
@@ -529,6 +533,11 @@ public:
      * them in a single vectorized array.
      */
     bool cell_vectorization_categories_strict;
+
+    /**
+     * Shared-memory MPI communicator. Default: MPI_COMM_SELF.
+     */
+    MPI_Comm communicator_sm;
   };
 
   /**
@@ -2157,7 +2166,8 @@ MatrixFree<dim, Number, VectorizedArrayType>::initialize_dof_vector(
   const unsigned int comp) const
 {
   AssertIndexRange(comp, n_components());
-  vec.reinit(dof_info[comp].vector_partitioner->size());
+  vec.reinit(
+    dof_info[comp].vector_partitioner->size() /*, task_info.communicator_sm*/);
 }
 
 
