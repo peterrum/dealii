@@ -187,7 +187,8 @@ namespace internal
        * access to all vector entries.
        */
       void
-      assign_ghosts(const std::vector<unsigned int> &boundary_cells);
+      assign_ghosts(const std::vector<unsigned int> &boundary_cells,
+                    const MPI_Comm                   communicator_sm);
 
       /**
        * This method reorders the way cells are gone through based on a given
@@ -240,7 +241,8 @@ namespace internal
         const unsigned int                        n_lanes,
         const std::vector<FaceToCellTopology<1>> &inner_faces,
         const std::vector<FaceToCellTopology<1>> &ghosted_faces,
-        const bool                                fill_cell_centric);
+        const bool                                fill_cell_centric,
+        const MPI_Comm                            communicator_sm);
 
       /**
        * Compute a renumbering of the degrees of freedom to improve the data
@@ -487,6 +489,17 @@ namespace internal
        * cells (2) according to CellOrFaceAccess.
        */
       std::array<std::vector<unsigned int>, 3> dof_indices_contiguous;
+
+      /**
+       * The same as above but for shared-memory usage. The first value of the
+       * pair is identifying the owning process and the second the index
+       * within that locally-owned data of that process.
+       *
+       * @note This data structure is only set up if all entries in
+       *   index_storage_variants[2] are IndexStorageVariants::contiguous.
+       */
+      std::array<std::vector<std::pair<unsigned int, unsigned int>>, 3>
+        dof_indices_contiguous_sm;
 
       /**
        * Compressed index storage for faster access than through @p
