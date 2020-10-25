@@ -83,8 +83,10 @@ namespace Utilities
                                    const MPI_Comm & comm)
         : process(process)
         , comm(comm)
-        , my_rank(this_mpi_process(comm))
-        , n_procs(n_mpi_processes(comm))
+        , my_rank(Utilities::MPI::job_supports_mpi() ? this_mpi_process(comm) :
+                                                       0)
+        , n_procs(Utilities::MPI::job_supports_mpi() ? n_mpi_processes(comm) :
+                                                       1)
       {}
 
 
@@ -557,22 +559,26 @@ namespace Utilities
       Selector<T1, T2>::Selector(Process<T1, T2> &process, const MPI_Comm &comm)
         : Interface<T1, T2>(process, comm)
       {
-        // Depending on the number of processes we switch between
-        // implementations. We reduce the threshold for debug mode to be able to
-        // test also the non-blocking implementation. This feature is tested by:
-        // tests/multigrid/transfer_matrix_free_06.with_mpi=true.with_p4est=true.with_trilinos=true.mpirun=15.output
+        if (Utilities::MPI::job_supports_mpi() == false)
+          {
+            // Depending on the number of processes we switch between
+            // implementations. We reduce the threshold for debug mode to be
+            // able to test also the non-blocking implementation. This feature
+            // is tested by:
+            // tests/multigrid/transfer_matrix_free_06.with_mpi=true.with_p4est=true.with_trilinos=true.mpirun=15.output
 #ifdef DEAL_II_WITH_MPI
 #  if DEAL_II_MPI_VERSION_GTE(3, 0)
 #    ifdef DEBUG
-        if (Utilities::MPI::n_mpi_processes(comm) > 14)
+            if (Utilities::MPI::n_mpi_processes(comm) > 14)
 #    else
-        if (Utilities::MPI::n_mpi_processes(comm) > 99)
+            if (Utilities::MPI::n_mpi_processes(comm) > 99)
 #    endif
-          consensus_algo.reset(new NBX<T1, T2>(process, comm));
-        else
+              consensus_algo.reset(new NBX<T1, T2>(process, comm));
+            else
 #  endif
 #endif
-          consensus_algo.reset(new PEX<T1, T2>(process, comm));
+              consensus_algo.reset(new PEX<T1, T2>(process, comm));
+          }
       }
 
 
@@ -581,7 +587,8 @@ namespace Utilities
       void
       Selector<T1, T2>::run()
       {
-        consensus_algo->run();
+        if (consensus_algo)
+          consensus_algo->run();
       }
 
 
