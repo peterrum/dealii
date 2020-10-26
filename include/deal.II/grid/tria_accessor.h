@@ -45,6 +45,12 @@ class TriaIterator;
 template <typename Accessor>
 class TriaActiveIterator;
 
+namespace parallel
+{
+  template <int dim, int spacedim>
+  class TriangulationBase;
+}
+
 template <int dim, int spacedim>
 class Manifold;
 #endif
@@ -3444,6 +3450,35 @@ public:
    */
 
   /**
+   * Return global active cell index for an active cell.
+   */
+  types::global_cell_index
+  global_active_cell_index() const;
+
+  /**
+   * Return local index inside of the partitioner returned by
+   * global_active_cell_index_partitioner().
+   *
+   * @note For a serial Triangulation, the returned value is the same as
+   *   returned by active_cell_index().
+   */
+  types::global_cell_index
+  global_active_cell_index_local() const;
+
+  /**
+   * Return global level cell index for a level cell.
+   */
+  types::global_cell_index
+  global_level_cell_index() const;
+
+  /**
+   * Return local index inside of the partitioner returned by
+   * global_level_cell_index_partitioner().
+   */
+  types::global_cell_index
+  global_level_cell_index_local() const;
+
+  /**
    * @name Dealing with codim 1 cell orientation
    */
   /**
@@ -3726,7 +3761,19 @@ private:
    * refinement.
    */
   void
-  set_active_cell_index(const unsigned int active_cell_index);
+  set_active_cell_index(const unsigned int active_cell_index) const;
+
+  /**
+   * Set global active cell index for a cell.
+   */
+  void
+  set_global_active_cell_index(const types::global_cell_index index) const;
+
+  /**
+   * Set global level cell index for a level cell.
+   */
+  void
+  set_global_level_cell_index(const types::global_cell_index index) const;
 
   /**
    * Set the parent of a cell.
@@ -3745,6 +3792,9 @@ private:
 
   template <int, int>
   friend class Triangulation;
+
+  template <int, int>
+  friend class parallel::TriangulationBase;
 
   friend struct dealii::internal::TriangulationImplementation::Implementation;
 };
