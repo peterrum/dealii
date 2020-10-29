@@ -323,28 +323,28 @@ namespace internal
       namespace internal
       {
         void
-        compress(std::vector<unsigned int> &recv_sm_ptr,
-                 std::vector<unsigned int> &recv_sm_indices,
-                 std::vector<unsigned int> &recv_sm_len)
+        compress(std::vector<unsigned int> &sm_export_ptr,
+                 std::vector<unsigned int> &sm_export_indices,
+                 std::vector<unsigned int> &sm_export_len)
         {
           std::vector<unsigned int> recv_ptr = {0};
           std::vector<unsigned int> recv_indices;
           std::vector<unsigned int> recv_len;
 
-          for (unsigned int i = 0; i + 1 < recv_sm_ptr.size(); i++)
+          for (unsigned int i = 0; i + 1 < sm_export_ptr.size(); i++)
             {
-              if (recv_sm_ptr[i] != recv_sm_ptr[i + 1])
+              if (sm_export_ptr[i] != sm_export_ptr[i + 1])
                 {
-                  recv_indices.push_back(recv_sm_indices[recv_sm_ptr[i]]);
+                  recv_indices.push_back(sm_export_indices[sm_export_ptr[i]]);
                   recv_len.push_back(1);
 
-                  for (unsigned int j = recv_sm_ptr[i] + 1;
-                       j < recv_sm_ptr[i + 1];
+                  for (unsigned int j = sm_export_ptr[i] + 1;
+                       j < sm_export_ptr[i + 1];
                        j++)
                     if (recv_indices.back() + recv_len.back() !=
-                        recv_sm_indices[j])
+                        sm_export_indices[j])
                       {
-                        recv_indices.push_back(recv_sm_indices[j]);
+                        recv_indices.push_back(sm_export_indices[j]);
                         recv_len.push_back(1);
                       }
                     else
@@ -353,12 +353,12 @@ namespace internal
               recv_ptr.push_back(recv_indices.size());
             }
 
-          recv_sm_ptr = recv_ptr;
-          recv_sm_ptr.shrink_to_fit();
-          recv_sm_indices = recv_indices;
-          recv_sm_indices.shrink_to_fit();
-          recv_sm_len = recv_len;
-          recv_sm_len.shrink_to_fit();
+          sm_export_ptr = recv_ptr;
+          sm_export_ptr.shrink_to_fit();
+          sm_export_indices = recv_indices;
+          sm_export_indices.shrink_to_fit();
+          sm_export_len = recv_len;
+          sm_export_len.shrink_to_fit();
         }
 
         std::vector<unsigned int>
@@ -402,10 +402,6 @@ namespace internal
       Full::Full(
         const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
         const MPI_Comm &communicator_sm)
-        : recv_sm_ptr{0}
-        , send_remote_ptr{0}
-        , send_remote_offset{0}
-        , send_sm_ptr{0}
       {
         const IndexSet &is_locally_owned = partitioner->locally_owned_range();
         const IndexSet &is_locally_ghost = partitioner->ghost_indices();
@@ -427,6 +423,16 @@ namespace internal
         this->n_local_elements  = is_locally_owned.n_elements();
         this->n_ghost_elements  = is_locally_ghost.n_elements();
         this->n_global_elements = is_locally_owned.size();
+
+        sm_export_data.first = {0};
+        sm_import_data.first = {0};
+
+
+        std::vector<unsigned int> sm_export_indices_;
+        std::vector<unsigned int> sm_export_len_;
+
+        std::vector<unsigned int> sm_import_indices;
+        std::vector<unsigned int> sm_import_len;
 
         if (Utilities::MPI::job_supports_mpi() == false)
           return; // nothing to do in serial case
@@ -455,12 +461,28 @@ namespace internal
           consensus_algorithm(process, comm);
         consensus_algorithm.run();
 
-        std::vector<MPI_Request> recv_sm_req;
-        std::vector<MPI_Request> send_sm_req;
+        std::vector<unsigned int> send_remote_indices; // import_indices_data
+        std::vector<unsigned int> send_remote_len;     // import_indices_data
+
+        std::vector<MPI_Request> sm_export_req;
+        std::vector<MPI_Request> sm_import_req;
+
+        std::vector<unsigned int> sm_export_indices;
+        std::vector<unsigned int> sm_export_len;
+
+        std::vector<unsigned int> sm_import_indices_;
+        std::vector<unsigned int> sm_import_len_;
+
+        std::vector<unsigned int> shifts_indices; //
+        std::vector<unsigned int> shifts_len;     //
 
         for (const auto &pair : ghost_indices_within_larger_ghost_set)
-          for (unsigned int c = 0, k = pair.first; k < pair.second; ++c, ++k)
-            shifts.push_back(k);
+          for (unsigned int k = pair.first; k < pair.second; ++k)
+            shifts_indices.push_back(k);
+
+        std::vector<unsigned int> shifts_ptr_ = {0}; //
+        std::vector<unsigned int> shifts_indices_;   //
+        std::vector<unsigned int> shifts_len_;       //
 
         {
           std::map<unsigned int, std::vector<types::global_dof_index>>
@@ -471,7 +493,7 @@ namespace internal
 
           unsigned int offset = 0;
 
-          recv_sm_ptr_ = {0};
+          sm_export_data_this.first = {0};
 
           for (const auto &rank_and_local_indices : rank_to_local_indices)
             {
@@ -482,37 +504,57 @@ namespace internal
               if (ptr == sm_ranks.end())
                 {
                   // remote process
-                  recv_remote_ranks.push_back(rank_and_local_indices.first);
-                  recv_remote_ptr.emplace_back(
-                    shifts[offset], rank_and_local_indices.second.size());
+                  ghost_targets_data.emplace_back(
+                    rank_and_local_indices.first,
+                    std::pair<unsigned int, unsigned int>{
+                      shifts_indices[offset],
+                      rank_and_local_indices.second.size()});
 
-                  shifts_ptr.push_back(offset);
+                  for (unsigned int i = 0;
+                       i < rank_and_local_indices.second.size();
+                       ++i)
+                    shifts_indices_.push_back(shifts_indices[i + offset]);
+                  shifts_ptr_.push_back(shifts_indices_.size());
+
+                  ghost_indices_subset_data.first.push_back(offset);
+
+                  unsigned int i =
+                    n_ghost_indices_in_larger_set_by_remote_rank.size();
+
+                  n_ghost_indices_in_larger_set_by_remote_rank.push_back(
+                    (shifts_indices[ghost_indices_subset_data.first[i] +
+                                    (ghost_targets_data[i].second.second - 1)] -
+                     shifts_indices[ghost_indices_subset_data.first[i]]) +
+                    1);
                 }
               else
                 {
                   // shared process
-                  recv_sm_ranks.push_back(std::distance(sm_ranks.begin(), ptr));
-                  recv_sm_ptr.push_back(recv_sm_ptr.back() +
-                                        rank_and_local_indices.second.size());
-                  recv_sm_offset.push_back(is_locally_owned.n_elements() +
-                                           offset);
+                  sm_ghost_ranks.push_back(
+                    std::distance(sm_ranks.begin(), ptr));
+                  sm_export_data.first.push_back(
+                    sm_export_data.first.back() +
+                    rank_and_local_indices.second.size());
 
                   for (unsigned int i = offset, c = 0;
                        c < rank_and_local_indices.second.size();
                        ++c, ++i)
-                    recv_sm_indices_.push_back(shifts[i] +
-                                               is_locally_owned.n_elements());
-                  recv_sm_ptr_.push_back(recv_sm_indices_.size());
+                    sm_export_indices_.push_back(shifts_indices[i] +
+                                                 is_locally_owned.n_elements());
+                  sm_export_data_this.first.push_back(
+                    sm_export_indices_.size());
                 }
               offset += rank_and_local_indices.second.size();
             }
-          recv_sm_req.resize(recv_sm_ranks.size());
+          sm_export_req.resize(sm_ghost_ranks.size());
 
-          recv_sm_indices.resize(recv_sm_ptr.back());
+          sm_export_indices.resize(sm_export_data.first.back());
         }
 
         {
           const auto rank_to_global_indices = process.get_requesters();
+
+          import_indices_data.first = {0};
 
           for (const auto &rank_and_global_indices : rank_to_global_indices)
             {
@@ -523,136 +565,143 @@ namespace internal
               if (ptr == sm_ranks.end())
                 {
                   // remote process
-                  send_remote_ranks.push_back(rank_and_global_indices.first);
+                  const unsigned int prev = send_remote_indices.size();
 
                   for (const auto &i : rank_and_global_indices.second)
                     send_remote_indices.push_back(
                       is_locally_owned.index_within_set(i));
 
-                  send_remote_ptr.push_back(send_remote_indices.size());
+                  import_targets_data.emplace_back(
+                    rank_and_global_indices.first,
+                    std::pair<unsigned int, unsigned int>{
+                      prev, send_remote_indices.size() - prev});
+
+                  import_indices_data.first.push_back(
+                    send_remote_indices.size());
                 }
               else
                 {
                   // shared process
-                  send_sm_ranks.push_back(std::distance(sm_ranks.begin(), ptr));
+                  sm_import_ranks.push_back(
+                    std::distance(sm_ranks.begin(), ptr));
 
                   for (const auto &i : rank_and_global_indices.second)
-                    send_sm_indices.push_back(
+                    sm_import_indices.push_back(
                       is_locally_owned.index_within_set(i));
 
-                  send_sm_ptr.push_back(send_sm_indices.size());
+                  sm_import_data.first.push_back(sm_import_indices.size());
                 }
             }
-          send_sm_req.resize(send_sm_ranks.size());
+          sm_import_req.resize(sm_import_ranks.size());
 
-          send_sm_ptr_ = send_sm_ptr;
-          send_sm_indices_.resize(send_sm_ptr.back());
+          sm_import_data_this.first = sm_import_data.first;
+          sm_import_indices_.resize(sm_import_data.first.back());
         }
 
 
         {
-          for (unsigned int i = 0; i < recv_sm_ranks.size(); i++)
-            MPI_Isend(recv_sm_indices_.data() + recv_sm_ptr_[i],
-                      recv_sm_ptr_[i + 1] - recv_sm_ptr_[i],
+          for (unsigned int i = 0; i < sm_ghost_ranks.size(); i++)
+            MPI_Isend(sm_export_indices_.data() + sm_export_data_this.first[i],
+                      sm_export_data_this.first[i + 1] -
+                        sm_export_data_this.first[i],
                       MPI_UNSIGNED,
-                      recv_sm_ranks[i],
+                      sm_ghost_ranks[i],
                       4,
                       comm_sm,
-                      recv_sm_req.data() + i);
+                      sm_export_req.data() + i);
 
-          for (unsigned int i = 0; i < send_sm_ranks.size(); i++)
-            MPI_Irecv(send_sm_indices_.data() + send_sm_ptr_[i],
-                      send_sm_ptr_[i + 1] - send_sm_ptr_[i],
+          for (unsigned int i = 0; i < sm_import_ranks.size(); i++)
+            MPI_Irecv(sm_import_indices_.data() + sm_import_data_this.first[i],
+                      sm_import_data_this.first[i + 1] -
+                        sm_import_data_this.first[i],
                       MPI_UNSIGNED,
-                      send_sm_ranks[i],
+                      sm_import_ranks[i],
                       4,
                       comm_sm,
-                      send_sm_req.data() + i);
+                      sm_import_req.data() + i);
 
-          MPI_Waitall(recv_sm_req.size(),
-                      recv_sm_req.data(),
+          MPI_Waitall(sm_export_req.size(),
+                      sm_export_req.data(),
                       MPI_STATUSES_IGNORE);
-          MPI_Waitall(send_sm_req.size(),
-                      send_sm_req.data(),
-                      MPI_STATUSES_IGNORE);
-        }
-
-        {
-          for (unsigned int i = 0; i < send_sm_ranks.size(); i++)
-            MPI_Isend(send_sm_indices.data() + send_sm_ptr[i],
-                      send_sm_ptr[i + 1] - send_sm_ptr[i],
-                      MPI_UNSIGNED,
-                      send_sm_ranks[i],
-                      2,
-                      comm_sm,
-                      send_sm_req.data() + i);
-
-          for (unsigned int i = 0; i < recv_sm_ranks.size(); i++)
-            MPI_Irecv(recv_sm_indices.data() + recv_sm_ptr[i],
-                      recv_sm_ptr[i + 1] - recv_sm_ptr[i],
-                      MPI_UNSIGNED,
-                      recv_sm_ranks[i],
-                      2,
-                      comm_sm,
-                      recv_sm_req.data() + i);
-
-          MPI_Waitall(recv_sm_req.size(),
-                      recv_sm_req.data(),
-                      MPI_STATUSES_IGNORE);
-          MPI_Waitall(send_sm_req.size(),
-                      send_sm_req.data(),
+          MPI_Waitall(sm_import_req.size(),
+                      sm_import_req.data(),
                       MPI_STATUSES_IGNORE);
         }
 
         {
-          send_sm_offset.resize(send_sm_ranks.size());
-
-          for (unsigned int i = 0; i < send_sm_ranks.size(); i++)
-            MPI_Irecv(send_sm_offset.data() + i,
-                      1,
+          for (unsigned int i = 0; i < sm_import_ranks.size(); i++)
+            MPI_Isend(sm_import_indices.data() + sm_import_data.first[i],
+                      sm_import_data.first[i + 1] - sm_import_data.first[i],
                       MPI_UNSIGNED,
-                      send_sm_ranks[i],
-                      3,
+                      sm_import_ranks[i],
+                      2,
                       comm_sm,
-                      send_sm_req.data() + i);
+                      sm_import_req.data() + i);
 
-          for (unsigned int i = 0; i < recv_sm_ranks.size(); i++)
-            MPI_Isend(recv_sm_offset.data() + i,
-                      1,
+          for (unsigned int i = 0; i < sm_ghost_ranks.size(); i++)
+            MPI_Irecv(sm_export_indices.data() + sm_export_data.first[i],
+                      sm_export_data.first[i + 1] - sm_export_data.first[i],
                       MPI_UNSIGNED,
-                      recv_sm_ranks[i],
-                      3,
+                      sm_ghost_ranks[i],
+                      2,
                       comm_sm,
-                      recv_sm_req.data() + i);
+                      sm_export_req.data() + i);
 
-          MPI_Waitall(recv_sm_req.size(),
-                      recv_sm_req.data(),
+          MPI_Waitall(sm_export_req.size(),
+                      sm_export_req.data(),
                       MPI_STATUSES_IGNORE);
-          MPI_Waitall(send_sm_req.size(),
-                      send_sm_req.data(),
+          MPI_Waitall(sm_import_req.size(),
+                      sm_import_req.data(),
                       MPI_STATUSES_IGNORE);
         }
 
-        internal::compress(recv_sm_ptr, recv_sm_indices, recv_sm_len);
+        internal::compress(sm_export_data.first,
+                           sm_export_indices,
+                           sm_export_len);
 
-        internal::compress(send_remote_ptr,
+        internal::compress(import_indices_data.first,
                            send_remote_indices,
                            send_remote_len);
-        send_remote_offset.clear();
-        send_remote_offset.push_back(0);
 
-        for (unsigned int r = 0, c = 0; r < send_remote_ranks.size(); r++)
-          {
-            for (unsigned int i = send_remote_ptr[r];
-                 i < send_remote_ptr[r + 1];
-                 i++)
-              c += send_remote_len[i];
-            send_remote_offset.push_back(c);
-          }
+        internal::compress(sm_import_data.first,
+                           sm_import_indices,
+                           sm_import_len);
+        internal::compress(sm_export_data_this.first,
+                           sm_export_indices_,
+                           sm_export_len_);
+        internal::compress(sm_import_data_this.first,
+                           sm_import_indices_,
+                           sm_import_len_);
 
-        internal::compress(send_sm_ptr, send_sm_indices, send_sm_len);
-        internal::compress(recv_sm_ptr_, recv_sm_indices_, recv_sm_len_);
-        internal::compress(send_sm_ptr_, send_sm_indices_, send_sm_len_);
+        for (unsigned int i = 0; i < send_remote_len.size(); ++i)
+          import_indices_data.second.emplace_back(send_remote_indices[i],
+                                                  send_remote_len[i]);
+
+        for (unsigned int i = 0; i < sm_export_indices.size(); ++i)
+          sm_export_data.second.emplace_back(sm_export_indices[i],
+                                             sm_export_len[i]);
+
+        for (unsigned int i = 0; i < sm_export_indices_.size(); ++i)
+          sm_export_data_this.second.emplace_back(sm_export_indices_[i],
+                                                  sm_export_len_[i]);
+
+        for (unsigned int i = 0; i < sm_import_indices.size(); ++i)
+          sm_import_data.second.emplace_back(sm_import_indices[i],
+                                             sm_import_len[i]);
+
+        for (unsigned int i = 0; i < sm_import_indices_.size(); ++i)
+          sm_import_data_this.second.emplace_back(sm_import_indices_[i],
+                                                  sm_import_len_[i]);
+
+        ghost_indices_subset_data.first = shifts_ptr_;
+
+        internal::compress(ghost_indices_subset_data.first,
+                           shifts_indices_,
+                           shifts_len_);
+
+        for (unsigned int i = 0; i < shifts_indices_.size(); ++i)
+          ghost_indices_subset_data.second.emplace_back(shifts_indices_[i],
+                                                        shifts_len_[i]);
 
 #endif
       }
@@ -829,66 +878,69 @@ namespace internal
 #else
         (void)data_others;
 
-        requests.resize(send_sm_ranks.size() + recv_sm_ranks.size() +
-                        recv_remote_ranks.size() + send_remote_ranks.size());
+        requests.resize(sm_import_ranks.size() + sm_ghost_ranks.size() +
+                        ghost_targets_data.size() + import_targets_data.size());
 
         int dummy;
         // receive a signal that relevant sm neighbors are ready
-        for (unsigned int i = 0; i < recv_sm_ranks.size(); i++)
+        for (unsigned int i = 0; i < sm_ghost_ranks.size(); i++)
           MPI_Irecv(&dummy,
                     0,
                     MPI_INT,
-                    recv_sm_ranks[i],
+                    sm_ghost_ranks[i],
                     communication_channel + 2,
                     comm_sm,
-                    requests.data() + send_sm_ranks.size() + i);
+                    requests.data() + sm_import_ranks.size() + i);
 
         // signal to all relevant sm neighbors that this process is ready
-        for (unsigned int i = 0; i < send_sm_ranks.size(); i++)
+        for (unsigned int i = 0; i < sm_import_ranks.size(); i++)
           MPI_Isend(&dummy,
                     0,
                     MPI_INT,
-                    send_sm_ranks[i],
+                    sm_import_ranks[i],
                     communication_channel + 2,
                     comm_sm,
                     requests.data() + i);
 
         // receive data from remote processes
-        for (unsigned int i = 0; i < recv_remote_ranks.size(); i++)
+        for (unsigned int i = 0; i < ghost_targets_data.size(); i++)
           {
             const unsigned int offset =
-              (shifts[shifts_ptr[i] + (recv_remote_ptr[i].second - 1)] -
-               shifts[shifts_ptr[i]]) +
-              1 - recv_remote_ptr[i].second;
+              n_ghost_indices_in_larger_set_by_remote_rank[i] -
+              ghost_targets_data[i].second.second;
 
-            MPI_Irecv(buffer.data() + recv_remote_ptr[i].first + offset,
-                      recv_remote_ptr[i].second,
+            MPI_Irecv(buffer.data() + ghost_targets_data[i].second.first +
+                        offset,
+                      ghost_targets_data[i].second.second,
                       Utilities::MPI::internal::mpi_type_id(buffer.data()),
-                      recv_remote_ranks[i],
+                      ghost_targets_data[i].first,
                       communication_channel + 3,
                       comm,
-                      requests.data() + send_sm_ranks.size() +
-                        recv_sm_ranks.size() + i);
+                      requests.data() + sm_import_ranks.size() +
+                        sm_ghost_ranks.size() + i);
           }
 
         // send data to remote processes
-        for (unsigned int i = 0, k = 0; i < send_remote_ranks.size(); i++)
+        for (unsigned int i = 0, k = 0; i < import_targets_data.size(); i++)
           {
-            for (unsigned int j = send_remote_ptr[i];
-                 j < send_remote_ptr[i + 1];
+            for (unsigned int j = import_indices_data.first[i];
+                 j < import_indices_data.first[i + 1];
                  j++)
-              for (unsigned int l = 0; l < send_remote_len[j]; l++, k++)
-                temporary_storage[k] = data_this[send_remote_indices[j] + l];
+              for (unsigned int l = 0; l < import_indices_data.second[j].second;
+                   l++, k++)
+                temporary_storage[k] =
+                  data_this[import_indices_data.second[j].first + l];
 
             // send data away
-            MPI_Isend(temporary_storage.data() + send_remote_offset[i],
-                      send_remote_offset[i + 1] - send_remote_offset[i],
+            MPI_Isend(temporary_storage.data() +
+                        import_targets_data[i].second.first,
+                      import_targets_data[i].second.second,
                       Utilities::MPI::internal::mpi_type_id(data_this.data()),
-                      send_remote_ranks[i],
+                      import_targets_data[i].first,
                       communication_channel + 3,
                       comm,
-                      requests.data() + send_sm_ranks.size() +
-                        recv_sm_ranks.size() + recv_remote_ranks.size() + i);
+                      requests.data() + sm_import_ranks.size() +
+                        sm_ghost_ranks.size() + ghost_targets_data.size() + i);
           }
 #endif
       }
@@ -914,27 +966,28 @@ namespace internal
 #else
 
         AssertDimension(requests.size(),
-                        send_sm_ranks.size() + recv_sm_ranks.size() +
-                          recv_remote_ranks.size() + send_remote_ranks.size());
+                        sm_import_ranks.size() + sm_ghost_ranks.size() +
+                          ghost_targets_data.size() +
+                          import_targets_data.size());
 
         const auto split =
           [&](const unsigned int i) -> std::pair<unsigned int, unsigned int> {
           AssertIndexRange(i,
-                           (recv_sm_ranks.size() + recv_remote_ranks.size()));
+                           (sm_ghost_ranks.size() + ghost_targets_data.size()));
 
-          if (i < recv_sm_ranks.size())
+          if (i < sm_ghost_ranks.size())
             return {0, i};
           else
-            return {1, i - recv_sm_ranks.size()};
+            return {1, i - sm_ghost_ranks.size()};
         };
 
         for (unsigned int c = 0;
-             c < recv_sm_ranks.size() + recv_remote_ranks.size();
+             c < sm_ghost_ranks.size() + ghost_targets_data.size();
              c++)
           {
             int i;
-            MPI_Waitany(recv_sm_ranks.size() + recv_remote_ranks.size(),
-                        requests.data() + send_sm_ranks.size(),
+            MPI_Waitany(sm_ghost_ranks.size() + ghost_targets_data.size(),
+                        requests.data() + sm_import_ranks.size(),
                         &i,
                         MPI_STATUS_IGNORE);
 
@@ -944,28 +997,30 @@ namespace internal
             if (s.first == 0)
               {
                 const Number *__restrict__ data_others_ptr =
-                  data_others[recv_sm_ranks[i]].data();
+                  data_others[sm_ghost_ranks[i]].data();
                 Number *__restrict__ data_this_ptr = ghost_array.data();
 
-                for (unsigned int lo = recv_sm_ptr[i],
-                                  ko = recv_sm_ptr_[i],
+                for (unsigned int lo = sm_export_data.first[i],
+                                  ko = sm_export_data_this.first[i],
                                   li = 0,
                                   ki = 0;
-                     (lo < recv_sm_ptr[i + 1]) && (ko < recv_sm_ptr_[i + 1]);)
+                     (lo < sm_export_data.first[i + 1]) &&
+                     (ko < sm_export_data_this.first[i + 1]);)
                   {
-                    for (; (li < recv_sm_len[lo]) && (ki < recv_sm_len_[ko]);
+                    for (; (li < sm_export_data.second[lo].second) &&
+                           (ki < sm_export_data_this.second[ko].second);
                          ++li, ++ki)
-                      data_this_ptr[recv_sm_indices_[ko] + ki -
+                      data_this_ptr[sm_export_data_this.second[ko].first + ki -
                                     n_local_elements] =
-                        data_others_ptr[recv_sm_indices[lo] + li];
+                        data_others_ptr[sm_export_data.second[lo].first + li];
 
-                    if (li == recv_sm_len[lo])
+                    if (li == sm_export_data.second[lo].second)
                       {
                         lo++;   // increment outer counter
                         li = 0; // reset inner counter
                       }
 
-                    if (ki == recv_sm_len_[ko])
+                    if (ki == sm_export_data_this.second[ko].second)
                       {
                         ko++;   // increment outer counter
                         ki = 0; // reset inner counter
@@ -975,23 +1030,47 @@ namespace internal
             else /*if(s.second == 1)*/
               {
                 const unsigned int offset =
-                  (shifts[shifts_ptr[i] + (recv_remote_ptr[i].second - 1)] -
-                   shifts[shifts_ptr[i]]) +
-                  1 - recv_remote_ptr[i].second;
+                  n_ghost_indices_in_larger_set_by_remote_rank[i] -
+                  ghost_targets_data[i].second.second;
 
-                for (unsigned int c = 0; c < recv_remote_ptr[i].second; ++c)
+                for (unsigned int c  = 0,
+                                  ko = ghost_indices_subset_data.first[i],
+                                  ki = 0;
+                     c < ghost_targets_data[i].second.second;
+                     ++c)
                   {
-                    const unsigned int idx_1 = shifts[shifts_ptr[i] + c];
+                    AssertIndexRange(ko,
+                                     ghost_indices_subset_data.second.size());
+
+                    const unsigned int idx_1 =
+                      ghost_indices_subset_data.second[ko].first + ki;
                     const unsigned int idx_2 =
-                      recv_remote_ptr[i].first + c + offset;
+                      ghost_targets_data[i].second.first + c + offset;
+
+                    AssertIndexRange(idx_1, ghost_array.size());
+                    AssertIndexRange(idx_2, ghost_array.size());
 
                     if (idx_1 == idx_2)
-                      continue;
+                      {
+                        // noting to do
+                      }
+                    else if (idx_1 < idx_2)
+                      {
+                        ghost_array[idx_1] = ghost_array[idx_2];
+                        ghost_array[idx_2] = 0.0;
+                      }
+                    else
+                      {
+                        Assert(false, ExcNotImplemented());
+                      }
 
-                    AssertIndexRange(idx_1, idx_2);
+                    ++ki;
 
-                    ghost_array[idx_1] = ghost_array[idx_2];
-                    ghost_array[idx_2] = 0.0;
+                    if (ki == ghost_indices_subset_data.second[ko].second)
+                      {
+                        ko++;   // increment outer counter
+                        ki = 0; // reset inner counter
+                      }
                   }
               }
           }
@@ -1032,64 +1111,87 @@ namespace internal
 
         Assert(operation == dealii::VectorOperation::add, ExcNotImplemented());
 
-        requests.resize(recv_sm_ranks.size() + send_sm_ranks.size() +
-                        recv_remote_ranks.size() + send_remote_ranks.size());
+        requests.resize(sm_ghost_ranks.size() + sm_import_ranks.size() +
+                        ghost_targets_data.size() + import_targets_data.size());
 
         int dummy;
-        for (unsigned int i = 0; i < recv_sm_ranks.size(); i++)
+        for (unsigned int i = 0; i < sm_ghost_ranks.size(); i++)
           MPI_Isend(&dummy,
                     0,
                     MPI_INT,
-                    recv_sm_ranks[i],
+                    sm_ghost_ranks[i],
                     communication_channel + 1,
                     comm_sm,
                     requests.data() + i);
 
-        for (unsigned int i = 0; i < send_sm_ranks.size(); i++)
+        for (unsigned int i = 0; i < sm_import_ranks.size(); i++)
           MPI_Irecv(&dummy,
                     0,
                     MPI_INT,
-                    send_sm_ranks[i],
+                    sm_import_ranks[i],
                     communication_channel + 1,
                     comm_sm,
-                    requests.data() + recv_sm_ranks.size() + i);
+                    requests.data() + sm_ghost_ranks.size() + i);
 
-        for (unsigned int i = 0; i < recv_remote_ranks.size(); i++)
+        for (unsigned int i = 0; i < ghost_targets_data.size(); i++)
           {
-            for (unsigned int c = 0; c < recv_remote_ptr[i].second; ++c)
+            for (unsigned int c  = 0,
+                              ko = ghost_indices_subset_data.first[i],
+                              ki = 0;
+                 c < ghost_targets_data[i].second.second;
+                 ++c)
               {
-                const unsigned int idx_1 = shifts[shifts_ptr[i] + c];
-                const unsigned int idx_2 = recv_remote_ptr[i].first + c;
+                AssertIndexRange(ko, ghost_indices_subset_data.second.size());
+
+                const unsigned int idx_1 =
+                  ghost_indices_subset_data.second[ko].first + ki;
+                const unsigned int idx_2 =
+                  ghost_targets_data[i].second.first + c;
+
+                AssertIndexRange(idx_1, buffer.size());
+                AssertIndexRange(idx_2, buffer.size());
 
                 if (idx_1 == idx_2)
-                  continue;
+                  {
+                    // nothing to do
+                  }
+                else if (idx_2 < idx_1)
+                  {
+                    buffer[idx_2] = buffer[idx_1];
+                    buffer[idx_1] = 0.0;
+                  }
+                else
+                  {
+                    Assert(false, ExcNotImplemented());
+                  }
 
-                Assert(idx_2 < idx_1, ExcNotImplemented());
-
-                buffer[idx_2] = buffer[idx_1];
-                buffer[idx_1] = 0.0;
+                if (++ki == ghost_indices_subset_data.second[ko].second)
+                  {
+                    ko++;   // increment outer counter
+                    ki = 0; // reset inner counter
+                  }
               }
 
-            MPI_Isend(buffer.data() + recv_remote_ptr[i].first,
-                      recv_remote_ptr[i].second,
+            MPI_Isend(buffer.data() + ghost_targets_data[i].second.first,
+                      ghost_targets_data[i].second.second,
                       Utilities::MPI::internal::mpi_type_id(buffer.data()),
-                      recv_remote_ranks[i],
+                      ghost_targets_data[i].first,
                       communication_channel + 0,
                       comm,
-                      requests.data() + recv_sm_ranks.size() +
-                        send_sm_ranks.size() + i);
+                      requests.data() + sm_ghost_ranks.size() +
+                        sm_import_ranks.size() + i);
           }
 
-        for (unsigned int i = 0; i < send_remote_ranks.size(); i++)
-          MPI_Irecv(temporary_storage.data() + send_remote_offset[i],
-                    send_remote_offset[i + 1] - send_remote_offset[i],
-                    Utilities::MPI::internal::mpi_type_id(
-                      temporary_storage.data()),
-                    send_remote_ranks[i],
-                    communication_channel + 0,
-                    comm,
-                    requests.data() + recv_sm_ranks.size() +
-                      send_sm_ranks.size() + recv_remote_ranks.size() + i);
+        for (unsigned int i = 0; i < import_targets_data.size(); i++)
+          MPI_Irecv(
+            temporary_storage.data() + import_targets_data[i].second.first,
+            import_targets_data[i].second.second,
+            Utilities::MPI::internal::mpi_type_id(temporary_storage.data()),
+            import_targets_data[i].first,
+            communication_channel + 0,
+            comm,
+            requests.data() + sm_ghost_ranks.size() + sm_import_ranks.size() +
+              ghost_targets_data.size() + i);
 #endif
       }
 
@@ -1121,32 +1223,33 @@ namespace internal
         Assert(operation == dealii::VectorOperation::add, ExcNotImplemented());
 
         AssertDimension(requests.size(),
-                        recv_sm_ranks.size() + send_sm_ranks.size() +
-                          recv_remote_ranks.size() + send_remote_ranks.size());
+                        sm_ghost_ranks.size() + sm_import_ranks.size() +
+                          ghost_targets_data.size() +
+                          import_targets_data.size());
 
         const auto split =
           [&](const unsigned int i) -> std::pair<unsigned int, unsigned int> {
           AssertIndexRange(i,
-                           (send_sm_ranks.size() + recv_remote_ranks.size() +
-                            send_remote_ranks.size()));
+                           (sm_import_ranks.size() + ghost_targets_data.size() +
+                            import_targets_data.size()));
 
-          if (i < send_sm_ranks.size())
+          if (i < sm_import_ranks.size())
             return {0, i};
-          else if (i < (send_sm_ranks.size() + recv_remote_ranks.size()))
-            return {2, i - send_sm_ranks.size()};
+          else if (i < (sm_import_ranks.size() + ghost_targets_data.size()))
+            return {2, i - sm_import_ranks.size()};
           else
-            return {1, i - send_sm_ranks.size() - recv_remote_ranks.size()};
+            return {1, i - sm_import_ranks.size() - ghost_targets_data.size()};
         };
 
         for (unsigned int c = 0;
-             c < send_sm_ranks.size() + send_remote_ranks.size() +
-                   recv_remote_ranks.size();
+             c < sm_import_ranks.size() + import_targets_data.size() +
+                   ghost_targets_data.size();
              c++)
           {
             int i;
-            MPI_Waitany(send_sm_ranks.size() + send_remote_ranks.size() +
-                          recv_remote_ranks.size(),
-                        requests.data() + recv_sm_ranks.size(),
+            MPI_Waitany(sm_import_ranks.size() + import_targets_data.size() +
+                          ghost_targets_data.size(),
+                        requests.data() + sm_ghost_ranks.size(),
                         &i,
                         MPI_STATUS_IGNORE);
 
@@ -1156,29 +1259,33 @@ namespace internal
             if (s.first == 0)
               {
                 Number *__restrict__ data_others_ptr =
-                  const_cast<Number *>(data_others[send_sm_ranks[i]].data());
+                  const_cast<Number *>(data_others[sm_import_ranks[i]].data());
                 Number *__restrict__ data_this_ptr = data_this.data();
 
-                for (unsigned int lo = send_sm_ptr[i],
-                                  ko = send_sm_ptr_[i],
+                for (unsigned int lo = sm_import_data.first[i],
+                                  ko = sm_import_data_this.first[i],
                                   li = 0,
                                   ki = 0;
-                     (lo < send_sm_ptr[i + 1]) && (ko < send_sm_ptr_[i + 1]);)
+                     (lo < sm_import_data.first[i + 1]) &&
+                     (ko < sm_import_data_this.first[i + 1]);)
                   {
-                    for (; (li < send_sm_len[lo]) && (ki < send_sm_len_[ko]);
+                    for (; (li < sm_import_data.second[lo].second) &&
+                           (ki < sm_import_data_this.second[ko].second);
                          ++li, ++ki)
                       {
-                        data_this_ptr[send_sm_indices[lo] + li] +=
-                          data_others_ptr[send_sm_indices_[ko] + ki];
-                        data_others_ptr[send_sm_indices_[ko] + ki] = 0.0;
+                        data_this_ptr[sm_import_data.second[lo].first + li] +=
+                          data_others_ptr[sm_import_data_this.second[ko].first +
+                                          ki];
+                        data_others_ptr[sm_import_data_this.second[ko].first +
+                                        ki] = 0.0;
                       }
 
-                    if (li == send_sm_len[lo])
+                    if (li == sm_import_data.second[lo].second)
                       {
                         lo++;   // increment outer counter
                         li = 0; // reset inner counter
                       }
-                    if (ki == send_sm_len_[ko])
+                    if (ki == sm_import_data_this.second[ko].second)
                       {
                         ko++;   // increment outer counter
                         ki = 0; // reset inner counter
@@ -1187,19 +1294,22 @@ namespace internal
               }
             else if (s.first == 1)
               {
-                for (unsigned int j = send_remote_ptr[i],
-                                  k = send_remote_offset[i];
-                     j < send_remote_ptr[i + 1];
+                for (unsigned int j = import_indices_data.first[i],
+                                  k = import_targets_data[i].second.first;
+                     j < import_indices_data.first[i + 1];
                      j++)
-                  for (unsigned int l = 0; l < send_remote_len[j]; l++)
-                    data_this[send_remote_indices[j] + l] +=
+                  for (unsigned int l = 0;
+                       l < import_indices_data.second[j].second;
+                       l++)
+                    data_this[import_indices_data.second[j].first + l] +=
                       temporary_storage[k++];
               }
             else /*if (s.first == 2)*/
               {
-                std::memset(buffer.data() + recv_remote_ptr[i].first,
+                std::memset(buffer.data() + ghost_targets_data[i].second.first,
                             0.0,
-                            (recv_remote_ptr[i].second) * sizeof(Number));
+                            (ghost_targets_data[i].second.second) *
+                              sizeof(Number));
               }
           }
 
@@ -1228,7 +1338,10 @@ namespace internal
       unsigned int
       Full::n_import_indices() const
       {
-        return send_remote_offset.back();
+        if (import_targets_data.size() == 0)
+          return 0;
+        return import_targets_data.back().second.first +
+               import_targets_data.back().second.second;
       }
 
 
@@ -1236,7 +1349,7 @@ namespace internal
       unsigned int
       Full::n_import_sm_procs() const
       {
-        return send_sm_ranks.size() + recv_sm_ranks.size(); // TODO
+        return sm_import_ranks.size() + sm_ghost_ranks.size(); // TODO
       }
 
 
