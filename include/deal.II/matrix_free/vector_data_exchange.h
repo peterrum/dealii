@@ -407,6 +407,11 @@ namespace internal
         MPI_Comm comm_sm;
 
         /**
+         * Number of ghost vector entries.
+         */
+        unsigned int n_ghost_elements;
+
+        /**
          * Number of locally-owned vector entries.
          */
         unsigned int n_local_elements;
@@ -417,135 +422,92 @@ namespace internal
         types::global_dof_index n_global_elements;
 
         /**
-         * Number of ghost vector entries.
+         * A variable caching the number of ghost indices in a larger set of
+         * indices by rank.
          */
-        unsigned int n_ghost_elements;
+        std::vector<unsigned int> n_ghost_indices_in_larger_set_by_remote_rank;
 
         /**
-         * Remote ranks from where data is received.
+         * The set of indices that appear for an IndexSet that is a subset of a
+         * larger set for each rank in a compressed manner.
          */
-        std::vector<unsigned int> recv_remote_ranks;
+        std::pair<std::vector<unsigned int>,
+                  std::vector<std::pair<unsigned int, unsigned int>>>
+          ghost_indices_subset_data;
 
         /**
-         * Pointer into the receive buffer.
+         * An array that contains information which processors my ghost indices
+         * belong to, at which offset and how many those indices are
          */
-        std::vector<std::pair<types::global_dof_index, types::global_dof_index>>
-          recv_remote_ptr;
+        std::vector<
+          std::pair<unsigned int, std::pair<unsigned int, unsigned int>>>
+          ghost_targets_data;
 
         /**
-         * TODO
+         * The set of processors and length of data field which send us their
+         * ghost data.
+         *
+         * @note Structured as ghost_targets_data.
          */
-        std::vector<unsigned int> shifts;
+        std::vector<
+          std::pair<unsigned int, std::pair<unsigned int, unsigned int>>>
+          import_targets_data;
 
         /**
-         * TODO
+         * An array that caches the number of chunks in the import indices per
+         * MPI rank. The length is import_indices_data.size()+1.
+         *
+         * The set of (local) indices that we are importing during compress()
+         * from remote processes, i.e., others' ghosts that belong to the local
+         * range.
          */
-        std::vector<unsigned int> shifts_ptr;
+        std::pair<std::vector<unsigned int>,
+                  std::vector<std::pair<unsigned int, unsigned int>>>
+          import_indices_data;
 
         /**
-         * Shared-memory ranks from where data is copied.
+         * Shared-memory ranks from which data is copied from during
+         * export_to_ghosted_array_finish().
          */
-        std::vector<unsigned int> recv_sm_ranks;
+        std::vector<unsigned int> sm_ghost_ranks;
 
         /**
-         * Pointer into the receive buffer.
+         * Indices from where to copy data from during
+         * export_to_ghosted_array_finish().
          */
-        std::vector<unsigned int> recv_sm_ptr;
+        std::pair<std::vector<unsigned int>,
+                  std::vector<std::pair<unsigned int, unsigned int>>>
+          sm_export_data;
 
         /**
-         * Indices to be copied from shared-memory neighbor.
+         * Indices where to copy data to during
+         * export_to_ghosted_array_finish().
          */
-        std::vector<unsigned int> recv_sm_indices;
+        std::pair<std::vector<unsigned int>,
+                  std::vector<std::pair<unsigned int, unsigned int>>>
+          sm_export_data_this;
 
         /**
-         * The same as above, but, compressed: number of entries to be copied.
+         * Shared-memory ranks from where to copy data from during
+         * import_from_ghosted_array_finish().
          */
-        std::vector<unsigned int> recv_sm_len;
+        std::vector<unsigned int> sm_import_ranks;
 
         /**
-         * The same as above, but, compressed: offset.
+         * Indices from where to copy data from during
+         * import_from_ghosted_array_finish().
          */
-        std::vector<unsigned int> recv_sm_offset;
+        std::pair<std::vector<unsigned int>,
+                  std::vector<std::pair<unsigned int, unsigned int>>>
+          sm_import_data;
 
         /**
-         * Remote ranks to where data is sent.
+         * Indices where to copy data to during
+         * import_from_ghosted_array_finish().
          */
-        std::vector<unsigned int> send_remote_ranks;
-
-        /**
-         * Pointer into the send buffer.
-         */
-        std::vector<unsigned int> send_remote_ptr;
-
-        /**
-         * Indices to be sent.
-         */
-        std::vector<unsigned int> send_remote_indices;
-
-        /**
-         * The same as above, but, compressed: number of entries to be copied.
-         */
-        std::vector<unsigned int> send_remote_len;
-
-        /**
-         * The same as above, but, compressed: offset.
-         */
-        std::vector<unsigned int> send_remote_offset;
-
-        /**
-         * Shared-memory ranks from where data is copied during compress.
-         */
-        std::vector<unsigned int> send_sm_ranks;
-
-        /**
-         * Pointer into buffer.
-         */
-        std::vector<unsigned int> send_sm_ptr;
-
-        /**
-         * Indices to be read during compress.
-         */
-        std::vector<unsigned int> send_sm_indices;
-
-        /**
-         * The same as above, but, compressed: number of entries to be copied.
-         */
-        std::vector<unsigned int> send_sm_len;
-
-        /**
-         * The same as above, but, compressed: offset.
-         */
-        std::vector<unsigned int> send_sm_offset;
-
-        /**
-         * TODO
-         */
-        std::vector<unsigned int> recv_sm_indices_;
-
-        /**
-         * TODO
-         */
-        std::vector<unsigned int> recv_sm_ptr_;
-
-        /**
-         * TODO
-         */
-        std::vector<unsigned int> recv_sm_len_;
-
-        /**
-         * TODO
-         */
-        std::vector<unsigned int> send_sm_indices_;
-
-        /**
-         * TODO
-         */
-        std::vector<unsigned int> send_sm_ptr_;
-
-        /**
-         * TODO
-         */
-        std::vector<unsigned int> send_sm_len_;
+        std::pair<std::vector<unsigned int>,
+                  std::vector<std::pair<unsigned int, unsigned int>>>
+          sm_import_data_this;
       };
 
     } // namespace VectorDataExchange
