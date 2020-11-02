@@ -399,27 +399,27 @@ namespace internal
         /**
          * Global communicator.
          */
-        MPI_Comm comm;
+        const MPI_Comm comm;
 
         /**
          * Shared-memory sub-communicator.
          */
-        MPI_Comm comm_sm;
-
-        /**
-         * Number of ghost vector entries.
-         */
-        unsigned int n_ghost_elements;
+        const MPI_Comm comm_sm;
 
         /**
          * Number of locally-owned vector entries.
          */
-        unsigned int n_local_elements;
+        const unsigned int n_local_elements;
+
+        /**
+         * Number of ghost vector entries.
+         */
+        const unsigned int n_ghost_elements;
 
         /**
          * Number of global vector entries.
          */
-        types::global_dof_index n_global_elements;
+        const types::global_dof_index n_global_elements;
 
         /**
          * A variable caching the number of ghost indices in a larger set of

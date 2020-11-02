@@ -399,8 +399,8 @@ namespace internal
 
           result.first = recv_ptr;
 
-          for (unsigned int i = 0; i < sm_export_indices.size(); ++i)
-            result.second.emplace_back(sm_export_indices[i], sm_export_len[i]);
+          for (unsigned int i = 0; i < recv_indices.size(); ++i)
+            result.second.emplace_back(recv_indices[i], recv_len[i]);
 
           return result;
         }
@@ -692,6 +692,12 @@ namespace internal
           MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
         }
 
+        // store data structures and - if needed - compress them
+
+        this->ghost_indices_subset_data =
+          internal::compress_to_contiguous_ranges(
+            ghost_indices_subset_data_ptr, ghost_indices_subset_data_indices);
+
         {
           std::vector<unsigned int> sm_export_data_len;
 
@@ -752,22 +758,6 @@ namespace internal
           for (unsigned int i = 0; i < sm_import_data_this_indices.size(); ++i)
             sm_import_data_this.second.emplace_back(
               sm_import_data_this_indices[i], sm_import_data_this_len[i]);
-        }
-
-        {
-          std::vector<unsigned int> ghost_indices_subset_data_len;
-
-          internal::compress(ghost_indices_subset_data_ptr,
-                             ghost_indices_subset_data_indices,
-                             ghost_indices_subset_data_len);
-
-          ghost_indices_subset_data.first = ghost_indices_subset_data_ptr;
-
-          for (unsigned int i = 0; i < ghost_indices_subset_data_indices.size();
-               ++i)
-            ghost_indices_subset_data.second.emplace_back(
-              ghost_indices_subset_data_indices[i],
-              ghost_indices_subset_data_len[i]);
         }
 
 #endif
