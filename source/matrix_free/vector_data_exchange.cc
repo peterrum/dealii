@@ -521,9 +521,10 @@ namespace internal
                     sm_export_data_ptr.back() +
                     rank_and_local_indices.second.size());
 
-                  for (unsigned int i = compressed_offset, c = 0;
-                       c < rank_and_local_indices.second.size();
-                       ++c, ++i)
+                  for (unsigned int i = compressed_offset;
+                       i <
+                       rank_and_local_indices.second.size() + compressed_offset;
+                       ++i)
                     sm_export_data_this_indices.push_back(
                       shifts_indices[i] + is_locally_owned.n_elements());
 

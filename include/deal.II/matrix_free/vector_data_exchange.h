@@ -250,8 +250,9 @@ namespace internal
 
 
       /**
-       * Similar to the above but that the provided partitioner is pre-processed
-       * and indices of degrees of freedom that are shared are identified.
+       * Similar to the above but using the internal data structures in the
+       * partitioner in order to identify indices of degrees of freedom that are
+       * in the same shared memory region.
        */
       class Full : public Base
       {
