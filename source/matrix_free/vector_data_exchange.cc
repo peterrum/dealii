@@ -361,6 +361,50 @@ namespace internal
           sm_export_len.shrink_to_fit();
         }
 
+        std::pair<std::vector<unsigned int>,
+                  std::vector<std::pair<unsigned int, unsigned int>>>
+        compress_to_contiguous_ranges(
+          const std::vector<unsigned int> &sm_export_ptr,
+          const std::vector<unsigned int> &sm_export_indices)
+        {
+          std::vector<unsigned int> recv_ptr = {0};
+          std::vector<unsigned int> recv_indices;
+          std::vector<unsigned int> recv_len;
+
+          for (unsigned int i = 0; i + 1 < sm_export_ptr.size(); i++)
+            {
+              if (sm_export_ptr[i] != sm_export_ptr[i + 1])
+                {
+                  recv_indices.push_back(sm_export_indices[sm_export_ptr[i]]);
+                  recv_len.push_back(1);
+
+                  for (unsigned int j = sm_export_ptr[i] + 1;
+                       j < sm_export_ptr[i + 1];
+                       j++)
+                    if (recv_indices.back() + recv_len.back() !=
+                        sm_export_indices[j])
+                      {
+                        recv_indices.push_back(sm_export_indices[j]);
+                        recv_len.push_back(1);
+                      }
+                    else
+                      recv_len.back()++;
+                }
+              recv_ptr.push_back(recv_indices.size());
+            }
+
+          std::pair<std::vector<unsigned int>,
+                    std::vector<std::pair<unsigned int, unsigned int>>>
+            result;
+
+          result.first = recv_ptr;
+
+          for (unsigned int i = 0; i < sm_export_indices.size(); ++i)
+            result.second.emplace_back(sm_export_indices[i], sm_export_len[i]);
+
+          return result;
+        }
+
         std::vector<unsigned int>
         procs_of_sm(const MPI_Comm &comm, const MPI_Comm &comm_shared)
         {
@@ -402,30 +446,22 @@ namespace internal
       Full::Full(
         const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
         const MPI_Comm &communicator_sm)
+        : comm(partitioner->get_mpi_communicator())
+        , comm_sm(communicator_sm)
+        , n_local_elements(partitioner->locally_owned_range().n_elements())
+        , n_ghost_elements(partitioner->ghost_indices().n_elements())
+        , n_global_elements(partitioner->locally_owned_range().size())
       {
-        const IndexSet &is_locally_owned = partitioner->locally_owned_range();
-        const IndexSet &is_locally_ghost = partitioner->ghost_indices();
-        const MPI_Comm &communicator     = partitioner->get_mpi_communicator();
-        const std::vector<std::pair<unsigned int, unsigned int>>
-          ghost_indices_within_larger_ghost_set =
-            partitioner->ghost_indices_within_larger_ghost_set();
-
-        this->comm    = communicator;
-        this->comm_sm = communicator_sm;
-
 #ifndef DEAL_II_WITH_MPI
         Assert(false, ExcNeedsMPI());
-
-        (void)is_locally_owned;
-        (void)is_locally_ghost;
-        (void)ghost_indices_within_larger_ghost_set;
 #else
-        this->n_local_elements  = is_locally_owned.n_elements();
-        this->n_ghost_elements  = is_locally_ghost.n_elements();
-        this->n_global_elements = is_locally_owned.size();
-
         if (Utilities::MPI::job_supports_mpi() == false)
           return; // nothing to do in serial case
+
+        const auto &is_locally_owned = partitioner->locally_owned_range();
+        const auto &is_locally_ghost = partitioner->ghost_indices();
+        const auto &ghost_indices_within_larger_ghost_set =
+          partitioner->ghost_indices_within_larger_ghost_set();
 
         // temporal uncompressed data structures  for ghost_indices_subset_data
         std::vector<unsigned int> ghost_indices_subset_data_ptr = {0};
