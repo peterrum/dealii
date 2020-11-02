@@ -430,7 +430,7 @@ namespace internal
         if (Utilities::MPI::job_supports_mpi() == false)
           return; // nothing to do in serial case
 
-        sm_export_data_this.first = {0}; // TODO
+        std::vector<unsigned int> sm_export_data_this_ptr = {0};
         std::vector<unsigned int> sm_export_data_this_indices;
 
         std::vector<unsigned int> sm_import_data_indices;
@@ -542,7 +542,7 @@ namespace internal
                        ++c, ++i)
                     sm_export_data_this_indices.push_back(
                       shifts_indices[i] + is_locally_owned.n_elements());
-                  sm_export_data_this.first.push_back(
+                  sm_export_data_this_ptr.push_back(
                     sm_export_data_this_indices.size());
                 }
               offset += rank_and_local_indices.second.size();
@@ -603,9 +603,9 @@ namespace internal
 
           for (unsigned int i = 0; i < sm_ghost_ranks.size(); i++)
             MPI_Isend(sm_export_data_this_indices.data() +
-                        sm_export_data_this.first[i],
-                      sm_export_data_this.first[i + 1] -
-                        sm_export_data_this.first[i],
+                        sm_export_data_this_ptr[i],
+                      sm_export_data_this_ptr[i + 1] -
+                        sm_export_data_this_ptr[i],
                       MPI_UNSIGNED,
                       sm_ghost_ranks[i],
                       4,
@@ -690,9 +690,11 @@ namespace internal
         {
           std::vector<unsigned int> sm_export_data_this_len;
 
-          internal::compress(sm_export_data_this.first,
+          internal::compress(sm_export_data_this_ptr,
                              sm_export_data_this_indices,
                              sm_export_data_this_len);
+
+          sm_export_data_this.first = sm_export_data_this_ptr;
 
           for (unsigned int i = 0; i < sm_export_data_this_indices.size(); ++i)
             sm_export_data_this.second.emplace_back(
@@ -714,11 +716,11 @@ namespace internal
         {
           std::vector<unsigned int> ghost_indices_subset_data_len;
 
-          ghost_indices_subset_data.first = ghost_indices_subset_data_ptr;
-
-          internal::compress(ghost_indices_subset_data.first,
+          internal::compress(ghost_indices_subset_data_ptr,
                              ghost_indices_subset_data_indices,
                              ghost_indices_subset_data_len);
+
+          ghost_indices_subset_data.first = ghost_indices_subset_data_ptr;
 
           for (unsigned int i = 0; i < ghost_indices_subset_data_indices.size();
                ++i)
