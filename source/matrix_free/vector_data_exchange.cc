@@ -437,9 +437,6 @@ namespace internal
         std::vector<unsigned int> send_remote_indices; // import_indices_data
         std::vector<unsigned int> send_remote_len;     // import_indices_data
 
-        std::vector<MPI_Request> sm_export_req;
-        std::vector<MPI_Request> sm_import_req;
-
         std::vector<unsigned int> sm_export_indices;
         std::vector<unsigned int> sm_export_len;
 
@@ -556,7 +553,6 @@ namespace internal
                 }
               offset += rank_and_local_indices.second.size();
             }
-          sm_export_req.resize(sm_ghost_ranks.size());
 
           sm_export_indices.resize(sm_export_data.first.back());
         }
@@ -603,7 +599,6 @@ namespace internal
                   sm_import_data.first.push_back(sm_import_indices.size());
                 }
             }
-          sm_import_req.resize(sm_import_ranks.size());
 
           sm_import_data_this.first = sm_import_data.first;
           sm_import_indices_.resize(sm_import_data.first.back());
@@ -611,6 +606,9 @@ namespace internal
 
 
         {
+          std::vector<MPI_Request> requests(sm_ghost_ranks.size() +
+                                            sm_import_ranks.size());
+
           for (unsigned int i = 0; i < sm_ghost_ranks.size(); i++)
             MPI_Isend(sm_export_indices_.data() + sm_export_data_this.first[i],
                       sm_export_data_this.first[i + 1] -
@@ -619,7 +617,7 @@ namespace internal
                       sm_ghost_ranks[i],
                       4,
                       comm_sm,
-                      sm_export_req.data() + i);
+                      requests.data() + i);
 
           for (unsigned int i = 0; i < sm_import_ranks.size(); i++)
             MPI_Irecv(sm_import_indices_.data() + sm_import_data_this.first[i],
@@ -629,17 +627,15 @@ namespace internal
                       sm_import_ranks[i],
                       4,
                       comm_sm,
-                      sm_import_req.data() + i);
+                      requests.data() + sm_ghost_ranks.size() + i);
 
-          MPI_Waitall(sm_export_req.size(),
-                      sm_export_req.data(),
-                      MPI_STATUSES_IGNORE);
-          MPI_Waitall(sm_import_req.size(),
-                      sm_import_req.data(),
-                      MPI_STATUSES_IGNORE);
+          MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
         }
 
         {
+          std::vector<MPI_Request> requests(sm_import_ranks.size() +
+                                            sm_ghost_ranks.size());
+
           for (unsigned int i = 0; i < sm_import_ranks.size(); i++)
             MPI_Isend(sm_import_indices.data() + sm_import_data.first[i],
                       sm_import_data.first[i + 1] - sm_import_data.first[i],
@@ -647,7 +643,7 @@ namespace internal
                       sm_import_ranks[i],
                       2,
                       comm_sm,
-                      sm_import_req.data() + i);
+                      requests.data() + i);
 
           for (unsigned int i = 0; i < sm_ghost_ranks.size(); i++)
             MPI_Irecv(sm_export_indices.data() + sm_export_data.first[i],
@@ -656,14 +652,9 @@ namespace internal
                       sm_ghost_ranks[i],
                       2,
                       comm_sm,
-                      sm_export_req.data() + i);
+                      requests.data() + sm_import_ranks.size() + i);
 
-          MPI_Waitall(sm_export_req.size(),
-                      sm_export_req.data(),
-                      MPI_STATUSES_IGNORE);
-          MPI_Waitall(sm_import_req.size(),
-                      sm_import_req.data(),
-                      MPI_STATUSES_IGNORE);
+          MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
         }
 
         {
