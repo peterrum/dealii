@@ -509,31 +509,33 @@ namespace internal
           for (unsigned int i = 0; i < owning_ranks_of_ghosts.size(); i++)
             rank_to_local_indices[owning_ranks_of_ghosts[i]].push_back(i);
 
-          unsigned int offset = 0;
+          unsigned int compressed_offset = 0;
 
           for (const auto &rank_and_local_indices : rank_to_local_indices)
             {
-              const auto ptr = std::find(sm_ranks.begin(),
-                                         sm_ranks.end(),
-                                         rank_and_local_indices.first);
+              const auto sm_ranks_ptr = std::find(sm_ranks.begin(),
+                                                  sm_ranks.end(),
+                                                  rank_and_local_indices.first);
 
-              if (ptr == sm_ranks.end()) // remote process
+              if (sm_ranks_ptr == sm_ranks.end()) // remote process
                 {
                   ghost_targets_data.emplace_back(
-                    rank_and_local_indices.first,
-                    std::pair<unsigned int, unsigned int>{
-                      shifts_indices[offset],
-                      rank_and_local_indices.second.size()});
+                    rank_and_local_indices.first,          // rank
+                    std::make_pair(                        //
+                      shifts_indices[compressed_offset],   // offset
+                      rank_and_local_indices.second.size() // length
+                      ));
 
                   for (unsigned int i = 0;
                        i < rank_and_local_indices.second.size();
                        ++i)
                     ghost_indices_subset_data_indices.push_back(
-                      shifts_indices[i + offset]);
+                      shifts_indices[i + compressed_offset]);
+
                   ghost_indices_subset_data_ptr.push_back(
                     ghost_indices_subset_data_indices.size());
 
-                  ghost_indices_subset_data.first.push_back(offset);
+                  ghost_indices_subset_data.first.push_back(compressed_offset);
 
                   unsigned int i =
                     n_ghost_indices_in_larger_set_by_remote_rank.size();
@@ -547,13 +549,13 @@ namespace internal
               else // shared process
                 {
                   sm_ghost_ranks.push_back(
-                    std::distance(sm_ranks.begin(), ptr));
+                    std::distance(sm_ranks.begin(), sm_ranks_ptr));
 
                   sm_export_data_ptr.push_back(
                     sm_export_data_ptr.back() +
                     rank_and_local_indices.second.size());
 
-                  for (unsigned int i = offset, c = 0;
+                  for (unsigned int i = compressed_offset, c = 0;
                        c < rank_and_local_indices.second.size();
                        ++c, ++i)
                     sm_export_data_this_indices.push_back(
@@ -562,7 +564,7 @@ namespace internal
                   sm_export_data_this_ptr.push_back(
                     sm_export_data_this_indices.size());
                 }
-              offset += rank_and_local_indices.second.size();
+              compressed_offset += rank_and_local_indices.second.size();
             }
 
           sm_export_data_indices.resize(sm_export_data_ptr.back());
