@@ -430,10 +430,12 @@ namespace internal
         if (Utilities::MPI::job_supports_mpi() == false)
           return; // nothing to do in serial case
 
+        sm_export_data_this.first = {0}; // TODO
         std::vector<unsigned int> sm_export_data_this_indices;
 
         std::vector<unsigned int> sm_import_data_indices;
 
+        import_indices_data.first = {0}; // TODO
         std::vector<unsigned int> import_indices_data_indices;
 
         std::vector<unsigned int> sm_export_data_indices;
@@ -491,8 +493,6 @@ namespace internal
             rank_to_local_indices[owning_ranks_of_ghosts[i]].push_back(i);
 
           unsigned int offset = 0;
-
-          sm_export_data_this.first = {0};
 
           for (const auto &rank_and_local_indices : rank_to_local_indices)
             {
@@ -554,8 +554,6 @@ namespace internal
         // process requesters
         {
           const auto rank_to_global_indices = process.get_requesters();
-
-          import_indices_data.first = {0};
 
           for (const auto &rank_and_global_indices : rank_to_global_indices)
             {
