@@ -424,28 +424,32 @@ namespace internal
         this->n_ghost_elements  = is_locally_ghost.n_elements();
         this->n_global_elements = is_locally_owned.size();
 
-        sm_export_data.first = {0};
-        sm_import_data.first = {0};
-
         if (Utilities::MPI::job_supports_mpi() == false)
           return; // nothing to do in serial case
 
-        std::vector<unsigned int> sm_export_data_this_ptr = {0};
-        std::vector<unsigned int> sm_export_data_this_indices;
+        // temporal uncompressed data structures  for ghost_indices_subset_data
+        std::vector<unsigned int> ghost_indices_subset_data_ptr = {0};
+        std::vector<unsigned int> ghost_indices_subset_data_indices;
 
-        std::vector<unsigned int> sm_import_data_indices;
-
+        // ... for import_indices_data
         import_indices_data.first = {0}; // TODO
         std::vector<unsigned int> import_indices_data_indices;
 
+        // ... for sm_export_data
+        sm_export_data.first = {0}; // TODO
         std::vector<unsigned int> sm_export_data_indices;
 
+        // ... for sm_export_data_this
+        std::vector<unsigned int> sm_export_data_this_ptr = {0};
+        std::vector<unsigned int> sm_export_data_this_indices;
+
+        // ... for sm_import_data
+        sm_import_data.first = {0}; // TODO
+        std::vector<unsigned int> sm_import_data_indices;
+
+        // ... for sm_import_data_this
+        sm_import_data_this.first = {}; // TODO
         std::vector<unsigned int> sm_import_data_this_indices;
-
-        std::vector<unsigned int> shifts_indices;
-
-        std::vector<unsigned int> ghost_indices_subset_data_ptr = {0};
-        std::vector<unsigned int> ghost_indices_subset_data_indices;
 
         // collect ranks of processes of shared-memory domain
         const auto sm_ranks = [&]() {
@@ -479,6 +483,7 @@ namespace internal
 
         // decompress ghost_indices_within_larger_ghost_set for simpler
         // data access during setup
+        std::vector<unsigned int> shifts_indices;
         for (const auto &pair : ghost_indices_within_larger_ghost_set)
           for (unsigned int k = pair.first; k < pair.second; ++k)
             shifts_indices.push_back(k);
