@@ -322,45 +322,6 @@ namespace internal
 
       namespace internal
       {
-        void
-        compress(std::vector<unsigned int> &sm_export_ptr,
-                 std::vector<unsigned int> &sm_export_indices,
-                 std::vector<unsigned int> &sm_export_len)
-        {
-          std::vector<unsigned int> recv_ptr = {0};
-          std::vector<unsigned int> recv_indices;
-          std::vector<unsigned int> recv_len;
-
-          for (unsigned int i = 0; i + 1 < sm_export_ptr.size(); i++)
-            {
-              if (sm_export_ptr[i] != sm_export_ptr[i + 1])
-                {
-                  recv_indices.push_back(sm_export_indices[sm_export_ptr[i]]);
-                  recv_len.push_back(1);
-
-                  for (unsigned int j = sm_export_ptr[i] + 1;
-                       j < sm_export_ptr[i + 1];
-                       j++)
-                    if (recv_indices.back() + recv_len.back() !=
-                        sm_export_indices[j])
-                      {
-                        recv_indices.push_back(sm_export_indices[j]);
-                        recv_len.push_back(1);
-                      }
-                    else
-                      recv_len.back()++;
-                }
-              recv_ptr.push_back(recv_indices.size());
-            }
-
-          sm_export_ptr = recv_ptr;
-          sm_export_ptr.shrink_to_fit();
-          sm_export_indices = recv_indices;
-          sm_export_indices.shrink_to_fit();
-          sm_export_len = recv_len;
-          sm_export_len.shrink_to_fit();
-        }
-
         std::pair<std::vector<unsigned int>,
                   std::vector<std::pair<unsigned int, unsigned int>>>
         compress_to_contiguous_ranges(
@@ -468,11 +429,11 @@ namespace internal
         std::vector<unsigned int> ghost_indices_subset_data_indices;
 
         // ... for import_indices_data
-        import_indices_data.first = {0}; // TODO
+        std::vector<unsigned int> import_indices_data_ptr = {0};
         std::vector<unsigned int> import_indices_data_indices;
 
         // ... for sm_export_data
-        sm_export_data.first = {0}; // TODO
+        std::vector<unsigned int> sm_export_data_ptr = {0};
         std::vector<unsigned int> sm_export_data_indices;
 
         // ... for sm_export_data_this
@@ -480,11 +441,11 @@ namespace internal
         std::vector<unsigned int> sm_export_data_this_indices;
 
         // ... for sm_import_data
-        sm_import_data.first = {0}; // TODO
+        std::vector<unsigned int> sm_import_data_ptr = {0}; // TODO
         std::vector<unsigned int> sm_import_data_indices;
 
         // ... for sm_import_data_this
-        sm_import_data_this.first = {}; // TODO
+        std::vector<unsigned int> sm_import_data_this_ptr = {};
         std::vector<unsigned int> sm_import_data_this_indices;
 
         // collect ranks of processes of shared-memory domain
@@ -574,8 +535,8 @@ namespace internal
                   // shared process
                   sm_ghost_ranks.push_back(
                     std::distance(sm_ranks.begin(), ptr));
-                  sm_export_data.first.push_back(
-                    sm_export_data.first.back() +
+                  sm_export_data_ptr.push_back(
+                    sm_export_data_ptr.back() +
                     rank_and_local_indices.second.size());
 
                   for (unsigned int i = offset, c = 0;
@@ -589,7 +550,7 @@ namespace internal
               offset += rank_and_local_indices.second.size();
             }
 
-          sm_export_data_indices.resize(sm_export_data.first.back());
+          sm_export_data_indices.resize(sm_export_data_ptr.back());
         }
 
         // process requesters
@@ -616,7 +577,7 @@ namespace internal
                     std::pair<unsigned int, unsigned int>{
                       prev, import_indices_data_indices.size() - prev});
 
-                  import_indices_data.first.push_back(
+                  import_indices_data_ptr.push_back(
                     import_indices_data_indices.size());
                 }
               else
@@ -629,12 +590,12 @@ namespace internal
                     sm_import_data_indices.push_back(
                       is_locally_owned.index_within_set(i));
 
-                  sm_import_data.first.push_back(sm_import_data_indices.size());
+                  sm_import_data_ptr.push_back(sm_import_data_indices.size());
                 }
             }
 
-          sm_import_data_this.first = sm_import_data.first;
-          sm_import_data_this_indices.resize(sm_import_data.first.back());
+          sm_import_data_this_ptr = sm_import_data_ptr;
+          sm_import_data_this_indices.resize(sm_import_data_ptr.back());
         }
 
 
@@ -655,9 +616,9 @@ namespace internal
 
           for (unsigned int i = 0; i < sm_import_ranks.size(); i++)
             MPI_Irecv(sm_import_data_this_indices.data() +
-                        sm_import_data_this.first[i],
-                      sm_import_data_this.first[i + 1] -
-                        sm_import_data_this.first[i],
+                        sm_import_data_this_ptr[i],
+                      sm_import_data_this_ptr[i + 1] -
+                        sm_import_data_this_ptr[i],
                       MPI_UNSIGNED,
                       sm_import_ranks[i],
                       4,
@@ -672,8 +633,8 @@ namespace internal
                                             sm_ghost_ranks.size());
 
           for (unsigned int i = 0; i < sm_import_ranks.size(); i++)
-            MPI_Isend(sm_import_data_indices.data() + sm_import_data.first[i],
-                      sm_import_data.first[i + 1] - sm_import_data.first[i],
+            MPI_Isend(sm_import_data_indices.data() + sm_import_data_ptr[i],
+                      sm_import_data_ptr[i + 1] - sm_import_data_ptr[i],
                       MPI_UNSIGNED,
                       sm_import_ranks[i],
                       2,
@@ -681,8 +642,8 @@ namespace internal
                       requests.data() + i);
 
           for (unsigned int i = 0; i < sm_ghost_ranks.size(); i++)
-            MPI_Irecv(sm_export_data_indices.data() + sm_export_data.first[i],
-                      sm_export_data.first[i + 1] - sm_export_data.first[i],
+            MPI_Irecv(sm_export_data_indices.data() + sm_export_data_ptr[i],
+                      sm_export_data_ptr[i + 1] - sm_export_data_ptr[i],
                       MPI_UNSIGNED,
                       sm_ghost_ranks[i],
                       2,
@@ -692,73 +653,31 @@ namespace internal
           MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
         }
 
-        // store data structures and - if needed - compress them
+        // store data structures and, if needed, compress them
 
         this->ghost_indices_subset_data =
           internal::compress_to_contiguous_ranges(
             ghost_indices_subset_data_ptr, ghost_indices_subset_data_indices);
 
-        {
-          std::vector<unsigned int> sm_export_data_len;
+        this->import_indices_data =
+          internal::compress_to_contiguous_ranges(import_indices_data_ptr,
+                                                  import_indices_data_indices);
 
-          internal::compress(sm_export_data.first,
-                             sm_export_data_indices,
-                             sm_export_data_len);
+        this->sm_export_data =
+          internal::compress_to_contiguous_ranges(sm_export_data_ptr,
+                                                  sm_export_data_indices);
 
-          for (unsigned int i = 0; i < sm_export_data_indices.size(); ++i)
-            sm_export_data.second.emplace_back(sm_export_data_indices[i],
-                                               sm_export_data_len[i]);
-        }
+        this->sm_export_data_this =
+          internal::compress_to_contiguous_ranges(sm_export_data_this_ptr,
+                                                  sm_export_data_this_indices);
 
-        {
-          std::vector<unsigned int> import_indices_data_len;
+        this->sm_import_data =
+          internal::compress_to_contiguous_ranges(sm_import_data_ptr,
+                                                  sm_import_data_indices);
 
-          internal::compress(import_indices_data.first,
-                             import_indices_data_indices,
-                             import_indices_data_len);
-
-          for (unsigned int i = 0; i < import_indices_data_indices.size(); ++i)
-            import_indices_data.second.emplace_back(
-              import_indices_data_indices[i], import_indices_data_len[i]);
-        }
-
-        {
-          std::vector<unsigned int> sm_import_data_len;
-
-          internal::compress(sm_import_data.first,
-                             sm_import_data_indices,
-                             sm_import_data_len);
-
-          for (unsigned int i = 0; i < sm_import_data_indices.size(); ++i)
-            sm_import_data.second.emplace_back(sm_import_data_indices[i],
-                                               sm_import_data_len[i]);
-        }
-
-        {
-          std::vector<unsigned int> sm_export_data_this_len;
-
-          internal::compress(sm_export_data_this_ptr,
-                             sm_export_data_this_indices,
-                             sm_export_data_this_len);
-
-          sm_export_data_this.first = sm_export_data_this_ptr;
-
-          for (unsigned int i = 0; i < sm_export_data_this_indices.size(); ++i)
-            sm_export_data_this.second.emplace_back(
-              sm_export_data_this_indices[i], sm_export_data_this_len[i]);
-        }
-
-        {
-          std::vector<unsigned int> sm_import_data_this_len;
-
-          internal::compress(sm_import_data_this.first,
-                             sm_import_data_this_indices,
-                             sm_import_data_this_len);
-
-          for (unsigned int i = 0; i < sm_import_data_this_indices.size(); ++i)
-            sm_import_data_this.second.emplace_back(
-              sm_import_data_this_indices[i], sm_import_data_this_len[i]);
-        }
+        this->sm_import_data_this =
+          internal::compress_to_contiguous_ranges(sm_import_data_this_ptr,
+                                                  sm_import_data_this_indices);
 
 #endif
       }
