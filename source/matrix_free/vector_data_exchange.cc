@@ -557,7 +557,7 @@ namespace internal
                       rank_and_global_indices.second.n_elements() // length
                       ));
 
-                  for (const auto &i : rank_and_global_indices.second)
+                  for (const auto i : rank_and_global_indices.second)
                     import_indices_data_indices.push_back(
                       is_locally_owned.index_within_set(i));
 
@@ -569,7 +569,7 @@ namespace internal
                   sm_import_ranks.push_back(
                     std::distance(sm_ranks.begin(), sm_ranks_ptr));
 
-                  for (const auto &i : rank_and_global_indices.second)
+                  for (const auto i : rank_and_global_indices.second)
                     sm_import_data_this_indices.push_back(
                       is_locally_owned.index_within_set(i));
 
@@ -1329,6 +1329,14 @@ namespace internal
       Full::size() const
       {
         return n_global_elements;
+      }
+
+
+
+      const MPI_Comm &
+      Full::get_sm_mpi_communicator() const
+      {
+        return this->comm_sm;
       }
 
 

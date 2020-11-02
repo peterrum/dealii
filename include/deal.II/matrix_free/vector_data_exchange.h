@@ -276,6 +276,9 @@ namespace internal
         virtual types::global_dof_index
         size() const override;
 
+        const MPI_Comm &
+        get_sm_mpi_communicator() const;
+
         void
         export_to_ghosted_array_start(
           const unsigned int                          communication_channel,
