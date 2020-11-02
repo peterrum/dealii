@@ -395,9 +395,7 @@ namespace internal
 
         std::vector<std::array<unsigned int, 3>> ghost_targets_data;
 
-        std::vector<
-          std::pair<unsigned int, std::pair<unsigned int, unsigned int>>>
-          import_targets_data;
+        std::vector<std::array<unsigned int, 3>> import_targets_data;
 
         std::vector<unsigned int> sm_ghost_ranks;
 
@@ -548,12 +546,13 @@ namespace internal
 
               if (sm_ranks_ptr == sm_ranks.end()) // remote process
                 {
-                  import_targets_data.emplace_back(
-                    rank_and_global_indices.first,                // rank
-                    std::make_pair(                               //
-                      import_indices_data_indices.size(),         // offset
-                      rank_and_global_indices.second.n_elements() // length
-                      ));
+                  import_targets_data.emplace_back(std::array<unsigned int, 3>{{
+                    rank_and_global_indices.first, // rank
+                    static_cast<unsigned int>(
+                      import_indices_data_indices.size()), // offset
+                    static_cast<unsigned int>(
+                      rank_and_global_indices.second.n_elements()) // length
+                  }});
 
                   for (const auto i : rank_and_global_indices.second)
                     import_indices_data_indices.push_back(
@@ -900,11 +899,10 @@ namespace internal
                   data_this[import_indices_data.second[j].first + l];
 
             // send data away
-            MPI_Isend(temporary_storage.data() +
-                        import_targets_data[i].second.first,
-                      import_targets_data[i].second.second,
+            MPI_Isend(temporary_storage.data() + import_targets_data[i][1],
+                      import_targets_data[i][2],
                       Utilities::MPI::internal::mpi_type_id(data_this.data()),
-                      import_targets_data[i].first,
+                      import_targets_data[i][0],
                       communication_channel + 1,
                       comm,
                       requests.data() + sm_import_ranks.size() +
@@ -1150,15 +1148,15 @@ namespace internal
           }
 
         for (unsigned int i = 0; i < import_targets_data.size(); i++)
-          MPI_Irecv(
-            temporary_storage.data() + import_targets_data[i].second.first,
-            import_targets_data[i].second.second,
-            Utilities::MPI::internal::mpi_type_id(temporary_storage.data()),
-            import_targets_data[i].first,
-            communication_channel + 0,
-            comm,
-            requests.data() + sm_ghost_ranks.size() + sm_import_ranks.size() +
-              ghost_targets_data.size() + i);
+          MPI_Irecv(temporary_storage.data() + import_targets_data[i][1],
+                    import_targets_data[i][2],
+                    Utilities::MPI::internal::mpi_type_id(
+                      temporary_storage.data()),
+                    import_targets_data[i][0],
+                    communication_channel + 0,
+                    comm,
+                    requests.data() + sm_ghost_ranks.size() +
+                      sm_import_ranks.size() + ghost_targets_data.size() + i);
 #endif
       }
 
@@ -1262,7 +1260,7 @@ namespace internal
             else if (s.first == 1)
               {
                 for (unsigned int j = import_indices_data.first[i],
-                                  k = import_targets_data[i].second.first;
+                                  k = import_targets_data[i][1];
                      j < import_indices_data.first[i + 1];
                      j++)
                   for (unsigned int l = 0;
@@ -1306,8 +1304,7 @@ namespace internal
       {
         if (import_targets_data.size() == 0)
           return 0;
-        return import_targets_data.back().second.first +
-               import_targets_data.back().second.second;
+        return import_targets_data.back()[1] + import_targets_data.back()[2];
       }
 
 

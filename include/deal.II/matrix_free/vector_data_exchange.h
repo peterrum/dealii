@@ -451,9 +451,7 @@ namespace internal
          *
          * @note Structured as ghost_targets_data.
          */
-        std::vector<
-          std::pair<unsigned int, std::pair<unsigned int, unsigned int>>>
-          import_targets_data;
+        std::vector<std::array<unsigned int, 3>> import_targets_data;
 
         /**
          * An array that caches the number of chunks in the import indices per
