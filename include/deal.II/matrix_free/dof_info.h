@@ -493,7 +493,7 @@ namespace internal
       /**
        * The same as above but for shared-memory usage. The first value of the
        * pair is identifying the owning process and the second the index
-       * within that locally-owned data of that process.
+       * within the locally-owned data of that process.
        *
        * @note This data structure is only set up if all entries in
        *   index_storage_variants[2] are IndexStorageVariants::contiguous.

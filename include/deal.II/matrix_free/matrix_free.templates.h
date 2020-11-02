@@ -341,10 +341,8 @@ MatrixFree<dim, Number, VectorizedArrayType>::internal_reinit(
           Assert(additional_data.communicator_sm == MPI_COMM_SELF,
                  ExcNotImplemented());
 
-#ifndef DEAL_II_WITH_MPI
-          Assert(false, ExcInternalError());
-#else
-          if (true)
+#ifdef DEAL_II_WITH_MPI
+          if (false)
             {
               task_info.communicator_sm = additional_data.communicator_sm;
             }

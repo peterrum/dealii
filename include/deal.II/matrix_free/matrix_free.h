@@ -243,9 +243,8 @@ public:
       , hold_all_faces_to_owned_cells(hold_all_faces_to_owned_cells)
       , cell_vectorization_categories_strict(
           cell_vectorization_categories_strict)
-    {
-      this->communicator_sm = MPI_COMM_SELF;
-    }
+      , communicator_sm(MPI_COMM_SELF)
+    {}
 
     /**
      * Copy constructor.
@@ -2166,8 +2165,7 @@ MatrixFree<dim, Number, VectorizedArrayType>::initialize_dof_vector(
   const unsigned int comp) const
 {
   AssertIndexRange(comp, n_components());
-  vec.reinit(
-    dof_info[comp].vector_partitioner->size() /*, task_info.communicator_sm*/);
+  vec.reinit(dof_info[comp].vector_partitioner->size());
 }
 
 
@@ -2180,7 +2178,7 @@ MatrixFree<dim, Number, VectorizedArrayType>::initialize_dof_vector(
   const unsigned int                           comp) const
 {
   AssertIndexRange(comp, n_components());
-  vec.reinit(dof_info[comp].vector_partitioner);
+  vec.reinit(dof_info[comp].vector_partitioner, task_info.communicator_sm);
 }
 
 
@@ -3297,7 +3295,8 @@ namespace internal
 
           const auto &part = get_partitioner(mf_component);
 
-          if (part.n_ghost_indices() == 0 && part.n_import_indices() == 0)
+          if (part.n_ghost_indices() == 0 && part.n_import_indices() == 0 &&
+              part.n_import_sm_procs() == 0)
             return;
 
           tmp_data[component_in_block_vector] =
@@ -3603,6 +3602,9 @@ namespace internal
                 tmp_data[component_in_block_vector]);
               tmp_data[component_in_block_vector] = nullptr;
             }
+
+          if (Utilities::MPI::job_supports_mpi())
+            MPI_Barrier(matrix_free.get_task_info().communicator_sm);
 #  endif
         }
     }

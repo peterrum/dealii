@@ -366,40 +366,6 @@ namespace internal
           return result;
         }
 
-        std::vector<unsigned int>
-        procs_of_sm(const MPI_Comm &comm, const MPI_Comm &comm_shared)
-        {
-          std::vector<unsigned int> ranks_shared;
-
-#ifndef DEAL_II_WITH_MPI
-          Assert(false, ExcNeedsMPI());
-          (void)comm;
-          (void)comm_shared;
-#else
-          // extract information from comm
-          int rank_;
-          MPI_Comm_rank(comm, &rank_);
-
-          const unsigned int rank = rank_;
-
-          // extract information from sm-comm
-          int size_shared;
-          MPI_Comm_size(comm_shared, &size_shared);
-
-          // gather ranks
-          ranks_shared.resize(size_shared);
-          MPI_Allgather(&rank,
-                        1,
-                        MPI_UNSIGNED,
-                        ranks_shared.data(),
-                        1,
-                        MPI_INT,
-                        comm_shared);
-#endif
-
-          return ranks_shared;
-        }
-
       } // namespace internal
 
 
