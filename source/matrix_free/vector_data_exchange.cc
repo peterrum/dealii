@@ -441,11 +441,11 @@ namespace internal
         std::vector<unsigned int> sm_export_data_this_indices;
 
         // ... for sm_import_data
-        std::vector<unsigned int> sm_import_data_ptr = {0}; // TODO
+        std::vector<unsigned int> sm_import_data_ptr = {};
         std::vector<unsigned int> sm_import_data_indices;
 
         // ... for sm_import_data_this
-        std::vector<unsigned int> sm_import_data_this_ptr = {};
+        std::vector<unsigned int> sm_import_data_this_ptr = {0};
         std::vector<unsigned int> sm_import_data_this_indices;
 
         // collect ranks of processes of shared-memory domain
@@ -587,18 +587,19 @@ namespace internal
                     std::distance(sm_ranks.begin(), ptr));
 
                   for (const auto &i : rank_and_global_indices.second)
-                    sm_import_data_indices.push_back(
+                    sm_import_data_this_indices.push_back(
                       is_locally_owned.index_within_set(i));
 
-                  sm_import_data_ptr.push_back(sm_import_data_indices.size());
+                  sm_import_data_this_ptr.push_back(
+                    sm_import_data_this_indices.size());
                 }
             }
 
-          sm_import_data_this_ptr = sm_import_data_ptr;
-          sm_import_data_this_indices.resize(sm_import_data_ptr.back());
+          sm_import_data_ptr = sm_import_data_this_ptr;
+          sm_import_data_indices.resize(sm_import_data_this_ptr.back());
         }
 
-
+        // send sm_export_data_this to sm-neighbor -> sm_import_data
         {
           std::vector<MPI_Request> requests(sm_ghost_ranks.size() +
                                             sm_import_ranks.size());
@@ -615,10 +616,8 @@ namespace internal
                       requests.data() + i);
 
           for (unsigned int i = 0; i < sm_import_ranks.size(); i++)
-            MPI_Irecv(sm_import_data_this_indices.data() +
-                        sm_import_data_this_ptr[i],
-                      sm_import_data_this_ptr[i + 1] -
-                        sm_import_data_this_ptr[i],
+            MPI_Irecv(sm_import_data_indices.data() + sm_import_data_ptr[i],
+                      sm_import_data_ptr[i + 1] - sm_import_data_ptr[i],
                       MPI_UNSIGNED,
                       sm_import_ranks[i],
                       4,
@@ -628,13 +627,16 @@ namespace internal
           MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
         }
 
+        // send sm_import_data_this to sm-neighbor -> sm_export_data_indices
         {
           std::vector<MPI_Request> requests(sm_import_ranks.size() +
                                             sm_ghost_ranks.size());
 
           for (unsigned int i = 0; i < sm_import_ranks.size(); i++)
-            MPI_Isend(sm_import_data_indices.data() + sm_import_data_ptr[i],
-                      sm_import_data_ptr[i + 1] - sm_import_data_ptr[i],
+            MPI_Isend(sm_import_data_this_indices.data() +
+                        sm_import_data_this_ptr[i],
+                      sm_import_data_this_ptr[i + 1] -
+                        sm_import_data_this_ptr[i],
                       MPI_UNSIGNED,
                       sm_import_ranks[i],
                       2,
@@ -1238,30 +1240,30 @@ namespace internal
                   const_cast<Number *>(data_others[sm_import_ranks[i]].data());
                 Number *__restrict__ data_this_ptr = data_this.data();
 
-                for (unsigned int lo = sm_import_data.first[i],
-                                  ko = sm_import_data_this.first[i],
+                for (unsigned int lo = sm_import_data_this.first[i],
+                                  ko = sm_import_data.first[i],
                                   li = 0,
                                   ki = 0;
-                     (lo < sm_import_data.first[i + 1]) &&
-                     (ko < sm_import_data_this.first[i + 1]);)
+                     (lo < sm_import_data_this.first[i + 1]) &&
+                     (ko < sm_import_data.first[i + 1]);)
                   {
-                    for (; (li < sm_import_data.second[lo].second) &&
-                           (ki < sm_import_data_this.second[ko].second);
+                    for (; (li < sm_import_data_this.second[lo].second) &&
+                           (ki < sm_import_data.second[ko].second);
                          ++li, ++ki)
                       {
-                        data_this_ptr[sm_import_data.second[lo].first + li] +=
-                          data_others_ptr[sm_import_data_this.second[ko].first +
-                                          ki];
-                        data_others_ptr[sm_import_data_this.second[ko].first +
-                                        ki] = 0.0;
+                        data_this_ptr[sm_import_data_this.second[lo].first +
+                                      li] +=
+                          data_others_ptr[sm_import_data.second[ko].first + ki];
+                        data_others_ptr[sm_import_data.second[ko].first + ki] =
+                          0.0;
                       }
 
-                    if (li == sm_import_data.second[lo].second)
+                    if (li == sm_import_data_this.second[lo].second)
                       {
                         lo++;   // increment outer counter
                         li = 0; // reset inner counter
                       }
-                    if (ki == sm_import_data_this.second[ko].second)
+                    if (ki == sm_import_data.second[ko].second)
                       {
                         ko++;   // increment outer counter
                         ki = 0; // reset inner counter
