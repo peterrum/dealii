@@ -443,9 +443,7 @@ namespace internal
          * An array that contains information which processors my ghost indices
          * belong to, at which offset and how many those indices are
          */
-        std::vector<
-          std::pair<unsigned int, std::pair<unsigned int, unsigned int>>>
-          ghost_targets_data;
+        std::vector<std::array<unsigned int, 3>> ghost_targets_data;
 
         /**
          * The set of processors and length of data field which send us their

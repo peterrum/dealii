@@ -393,9 +393,7 @@ namespace internal
         // temporal data strucutures
         std::vector<unsigned int> n_ghost_indices_in_larger_set_by_remote_rank;
 
-        std::vector<
-          std::pair<unsigned int, std::pair<unsigned int, unsigned int>>>
-          ghost_targets_data;
+        std::vector<std::array<unsigned int, 3>> ghost_targets_data;
 
         std::vector<
           std::pair<unsigned int, std::pair<unsigned int, unsigned int>>>
@@ -485,12 +483,12 @@ namespace internal
 
               if (sm_ranks_ptr == sm_ranks.end()) // remote process
                 {
-                  ghost_targets_data.emplace_back(
-                    rank_and_local_indices.first,          // rank
-                    std::make_pair(                        //
-                      shifts_indices[compressed_offset],   // offset
-                      rank_and_local_indices.second.size() // length
-                      ));
+                  ghost_targets_data.emplace_back(std::array<unsigned int, 3>{{
+                    rank_and_local_indices.first,      // rank
+                    shifts_indices[compressed_offset], // offset
+                    static_cast<unsigned int>(
+                      rank_and_local_indices.second.size()) // length
+                  }});
 
                   for (unsigned int i = 0;
                        i < rank_and_local_indices.second.size();
@@ -508,7 +506,7 @@ namespace internal
 
                   n_ghost_indices_in_larger_set_by_remote_rank.push_back(
                     (shifts_indices[ghost_indices_subset_data.first[i] +
-                                    (ghost_targets_data[i].second.second - 1)] -
+                                    (ghost_targets_data[i][2] - 1)] -
                      shifts_indices[ghost_indices_subset_data.first[i]]) +
                     1);
                 }
@@ -878,13 +876,12 @@ namespace internal
           {
             const unsigned int offset =
               n_ghost_indices_in_larger_set_by_remote_rank[i] -
-              ghost_targets_data[i].second.second;
+              ghost_targets_data[i][2];
 
-            MPI_Irecv(buffer.data() + ghost_targets_data[i].second.first +
-                        offset,
-                      ghost_targets_data[i].second.second,
+            MPI_Irecv(buffer.data() + ghost_targets_data[i][1] + offset,
+                      ghost_targets_data[i][2],
                       Utilities::MPI::internal::mpi_type_id(buffer.data()),
-                      ghost_targets_data[i].first,
+                      ghost_targets_data[i][0],
                       communication_channel + 1,
                       comm,
                       requests.data() + sm_import_ranks.size() +
@@ -1002,12 +999,12 @@ namespace internal
               {
                 const unsigned int offset =
                   n_ghost_indices_in_larger_set_by_remote_rank[i] -
-                  ghost_targets_data[i].second.second;
+                  ghost_targets_data[i][2];
 
                 for (unsigned int c  = 0,
                                   ko = ghost_indices_subset_data.first[i],
                                   ki = 0;
-                     c < ghost_targets_data[i].second.second;
+                     c < ghost_targets_data[i][2];
                      ++c)
                   {
                     AssertIndexRange(ko,
@@ -1016,7 +1013,7 @@ namespace internal
                     const unsigned int idx_1 =
                       ghost_indices_subset_data.second[ko].first + ki;
                     const unsigned int idx_2 =
-                      ghost_targets_data[i].second.first + c + offset;
+                      ghost_targets_data[i][1] + c + offset;
 
                     AssertIndexRange(idx_1, ghost_array.size());
                     AssertIndexRange(idx_2, ghost_array.size());
@@ -1109,15 +1106,14 @@ namespace internal
             for (unsigned int c  = 0,
                               ko = ghost_indices_subset_data.first[i],
                               ki = 0;
-                 c < ghost_targets_data[i].second.second;
+                 c < ghost_targets_data[i][2];
                  ++c)
               {
                 AssertIndexRange(ko, ghost_indices_subset_data.second.size());
 
                 const unsigned int idx_1 =
                   ghost_indices_subset_data.second[ko].first + ki;
-                const unsigned int idx_2 =
-                  ghost_targets_data[i].second.first + c;
+                const unsigned int idx_2 = ghost_targets_data[i][1] + c;
 
                 AssertIndexRange(idx_1, buffer.size());
                 AssertIndexRange(idx_2, buffer.size());
@@ -1143,10 +1139,10 @@ namespace internal
                   }
               }
 
-            MPI_Isend(buffer.data() + ghost_targets_data[i].second.first,
-                      ghost_targets_data[i].second.second,
+            MPI_Isend(buffer.data() + ghost_targets_data[i][1],
+                      ghost_targets_data[i][2],
                       Utilities::MPI::internal::mpi_type_id(buffer.data()),
-                      ghost_targets_data[i].first,
+                      ghost_targets_data[i][0],
                       communication_channel + 0,
                       comm,
                       requests.data() + sm_ghost_ranks.size() +
@@ -1277,10 +1273,9 @@ namespace internal
               }
             else /*if (s.first == 2)*/
               {
-                std::memset(buffer.data() + ghost_targets_data[i].second.first,
+                std::memset(buffer.data() + ghost_targets_data[i][1],
                             0.0,
-                            (ghost_targets_data[i].second.second) *
-                              sizeof(Number));
+                            (ghost_targets_data[i][2]) * sizeof(Number));
               }
           }
 
