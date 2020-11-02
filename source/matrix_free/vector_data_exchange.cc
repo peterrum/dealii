@@ -517,9 +517,8 @@ namespace internal
                                          sm_ranks.end(),
                                          rank_and_local_indices.first);
 
-              if (ptr == sm_ranks.end())
+              if (ptr == sm_ranks.end()) // remote process
                 {
-                  // remote process
                   ghost_targets_data.emplace_back(
                     rank_and_local_indices.first,
                     std::pair<unsigned int, unsigned int>{
@@ -545,11 +544,11 @@ namespace internal
                      shifts_indices[ghost_indices_subset_data.first[i]]) +
                     1);
                 }
-              else
+              else // shared process
                 {
-                  // shared process
                   sm_ghost_ranks.push_back(
                     std::distance(sm_ranks.begin(), ptr));
+
                   sm_export_data_ptr.push_back(
                     sm_export_data_ptr.back() +
                     rank_and_local_indices.second.size());
@@ -559,6 +558,7 @@ namespace internal
                        ++c, ++i)
                     sm_export_data_this_indices.push_back(
                       shifts_indices[i] + is_locally_owned.n_elements());
+
                   sm_export_data_this_ptr.push_back(
                     sm_export_data_this_indices.size());
                 }
@@ -574,32 +574,31 @@ namespace internal
 
           for (const auto &rank_and_global_indices : rank_to_global_indices)
             {
-              const auto ptr = std::find(sm_ranks.begin(),
-                                         sm_ranks.end(),
-                                         rank_and_global_indices.first);
+              const auto sm_ranks_ptr =
+                std::find(sm_ranks.begin(),
+                          sm_ranks.end(),
+                          rank_and_global_indices.first);
 
-              if (ptr == sm_ranks.end())
+              if (sm_ranks_ptr == sm_ranks.end()) // remote process
                 {
-                  // remote process
-                  const unsigned int prev = import_indices_data_indices.size();
+                  import_targets_data.emplace_back(
+                    rank_and_global_indices.first,                // rank
+                    std::make_pair(                               //
+                      import_indices_data_indices.size(),         // offset
+                      rank_and_global_indices.second.n_elements() // length
+                      ));
 
                   for (const auto &i : rank_and_global_indices.second)
                     import_indices_data_indices.push_back(
                       is_locally_owned.index_within_set(i));
 
-                  import_targets_data.emplace_back(
-                    rank_and_global_indices.first,
-                    std::pair<unsigned int, unsigned int>{
-                      prev, import_indices_data_indices.size() - prev});
-
                   import_indices_data_ptr.push_back(
                     import_indices_data_indices.size());
                 }
-              else
+              else // shared process
                 {
-                  // shared process
                   sm_import_ranks.push_back(
-                    std::distance(sm_ranks.begin(), ptr));
+                    std::distance(sm_ranks.begin(), sm_ranks_ptr));
 
                   for (const auto &i : rank_and_global_indices.second)
                     sm_import_data_this_indices.push_back(
