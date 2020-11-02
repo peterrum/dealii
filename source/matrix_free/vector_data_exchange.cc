@@ -405,7 +405,7 @@ namespace internal
 
         std::vector<unsigned int> sm_import_ranks;
 
-        // temporal uncompressed data structures for ghost_indices_subset_data
+        // temporary uncompressed data structures for ghost_indices_subset_data
         std::vector<unsigned int> ghost_indices_subset_data_ptr = {0};
         std::vector<unsigned int> ghost_indices_subset_data_indices;
 
@@ -859,7 +859,7 @@ namespace internal
                     0,
                     MPI_INT,
                     sm_ghost_ranks[i],
-                    communication_channel + 2,
+                    communication_channel + 0,
                     comm_sm,
                     requests.data() + sm_import_ranks.size() + i);
 
@@ -869,7 +869,7 @@ namespace internal
                     0,
                     MPI_INT,
                     sm_import_ranks[i],
-                    communication_channel + 2,
+                    communication_channel + 0,
                     comm_sm,
                     requests.data() + i);
 
@@ -885,7 +885,7 @@ namespace internal
                       ghost_targets_data[i].second.second,
                       Utilities::MPI::internal::mpi_type_id(buffer.data()),
                       ghost_targets_data[i].first,
-                      communication_channel + 3,
+                      communication_channel + 1,
                       comm,
                       requests.data() + sm_import_ranks.size() +
                         sm_ghost_ranks.size() + i);
@@ -908,7 +908,7 @@ namespace internal
                       import_targets_data[i].second.second,
                       Utilities::MPI::internal::mpi_type_id(data_this.data()),
                       import_targets_data[i].first,
-                      communication_channel + 3,
+                      communication_channel + 1,
                       comm,
                       requests.data() + sm_import_ranks.size() +
                         sm_ghost_ranks.size() + ghost_targets_data.size() + i);
@@ -967,9 +967,9 @@ namespace internal
 
             if (s.first == 0)
               {
-                const Number *__restrict__ data_others_ptr =
+                const Number *DEAL_II_RESTRICT data_others_ptr =
                   data_others[sm_ghost_ranks[i]].data();
-                Number *__restrict__ data_this_ptr = ghost_array.data();
+                Number *DEAL_II_RESTRICT data_this_ptr = ghost_array.data();
 
                 for (unsigned int lo = sm_export_data.first[i],
                                   ko = sm_export_data_this.first[i],
@@ -1229,9 +1229,9 @@ namespace internal
 
             if (s.first == 0)
               {
-                Number *__restrict__ data_others_ptr =
+                Number *DEAL_II_RESTRICT data_others_ptr =
                   const_cast<Number *>(data_others[sm_import_ranks[i]].data());
-                Number *__restrict__ data_this_ptr = data_this.data();
+                Number *DEAL_II_RESTRICT data_this_ptr = data_this.data();
 
                 for (unsigned int lo = sm_import_data_this.first[i],
                                   ko = sm_import_data.first[i],
