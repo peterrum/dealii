@@ -3306,7 +3306,7 @@ namespace internal
           AssertDimension(requests.size(), tmp_data.size());
 
           part.export_to_ghosted_array_start(
-            component_in_block_vector + channel_shift,
+            component_in_block_vector * 2 + channel_shift,
             ArrayView<const Number>(vec.begin(), part.local_size()),
             vec.shared_vector_data(),
             ArrayView<Number>(const_cast<Number *>(vec.begin()) +
@@ -3505,7 +3505,7 @@ namespace internal
 
           part.import_from_ghosted_array_start(
             dealii::VectorOperation::add,
-            component_in_block_vector + channel_shift,
+            component_in_block_vector * 2 + channel_shift,
             ArrayView<Number>(vec.begin(), part.local_size()),
             vec.shared_vector_data(),
             ArrayView<Number>(vec.begin() + part.local_size(),
