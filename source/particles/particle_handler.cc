@@ -1179,7 +1179,9 @@ namespace Particles
     // First clear the current ghost_particle information
     ghost_particles.clear();
 
+    // Clear ghost particles data structures and invalidate cache
     ghost_particles_by_domain.clear();
+    ghost_particles_cache.valid = false;
 
 
     const std::set<types::subdomain_id> ghost_owners =
@@ -1242,7 +1244,10 @@ namespace Particles
 
 #ifdef DEAL_II_WITH_MPI
     // First clear the current ghost_particle information
-    ghost_particles.clear();
+    // ghost_particles.clear();
+    if (!ghost_particles_cache.valid)
+      create_ghost_praticles_cache(ghost_particles_by_domain);
+
 
     send_recv_particles(ghost_particles_by_domain, ghost_particles);
 #endif
@@ -1484,6 +1489,346 @@ namespace Particles
 #endif
 
 
+#ifdef DEAL_II_WITH_MPI
+  template <int dim, int spacedim>
+  void
+  ParticleHandler<dim, spacedim>::send_recv_particles_properties_and_location(
+    const std::map<types::subdomain_id, std::vector<particle_iterator>>
+      &particles_to_send,
+    std::multimap<internal::LevelInd, Particle<dim, spacedim>>
+      &updated_particles)
+  {
+    const auto &neighbors     = ghost_particles_cache.neighbors;
+    const auto &send_pointers = ghost_particles_cache.send_pointers;
+    const auto &recv_pointers = ghost_particles_cache.recv_pointers;
+    const auto &ghost_particles_cells_ids =
+      ghost_particles_cache.ghost_particles_cells_ids;
+
+
+    const auto parallel_triangulation =
+      dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
+        &*triangulation);
+    Assert(
+      parallel_triangulation,
+      ExcMessage(
+        "This function is only implemented for parallel::TriangulationBase objects."));
+
+    std::vector<char> send_data;
+
+    // Fill data to send
+    if (send_pointers.back() > 0)
+      {
+        // Allocate space for sending particle data
+        send_data.resize(send_pointers.back());
+        void *data = static_cast<void *>(&send_data.front());
+
+        // Serialize the data sorted by receiving process
+        for (unsigned int i = 0; i < neighbors.size(); ++i)
+          {
+            for (unsigned int j = 0;
+                 j < particles_to_send.at(neighbors[i]).size();
+                 ++j)
+              {
+                // If no target cells are given, use the iterator information
+                particles_to_send.at(neighbors[i])[j]->write_data(data);
+                if (store_callback)
+                  data =
+                    store_callback(particles_to_send.at(neighbors[i])[j], data);
+              }
+          }
+      }
+
+    // Set up the space for the received particle data
+    std::vector<char> recv_data(recv_pointers.back());
+
+    // Exchange the particle data between domains
+    {
+      std::vector<MPI_Request> requests(2 * neighbors.size());
+      unsigned int             send_ops = 0;
+      unsigned int             recv_ops = 0;
+
+      const int mpi_tag = Utilities::MPI::internal::Tags::
+        particle_handler_send_recv_particles_send;
+
+      for (unsigned int i = 0; i < neighbors.size(); ++i)
+        if (recv_pointers[i + 1] - recv_pointers[i] > 0)
+          {
+            const int ierr =
+              MPI_Irecv(recv_data.data() + recv_pointers[i],
+                        recv_pointers[i + 1] - recv_pointers[i],
+                        MPI_CHAR,
+                        neighbors[i],
+                        mpi_tag,
+                        parallel_triangulation->get_communicator(),
+                        &(requests[send_ops]));
+            AssertThrowMPI(ierr);
+            send_ops++;
+          }
+
+      for (unsigned int i = 0; i < neighbors.size(); ++i)
+        if (send_pointers[i + 1] - send_pointers[i] > 0)
+          {
+            const int ierr =
+              MPI_Isend(send_data.data() + send_pointers[i],
+                        send_pointers[i + 1] - send_pointers[i],
+                        MPI_CHAR,
+                        neighbors[i],
+                        mpi_tag,
+                        parallel_triangulation->get_communicator(),
+                        &(requests[send_ops + recv_ops]));
+            AssertThrowMPI(ierr);
+            recv_ops++;
+          }
+      const int ierr =
+        MPI_Waitall(send_ops + recv_ops, requests.data(), MPI_STATUSES_IGNORE);
+      AssertThrowMPI(ierr);
+    }
+
+    // Put the received particles into the domain if they are in the
+    // triangulation
+    const void * recv_data_it    = static_cast<const void *>(recv_data.data());
+    unsigned int cell_id_counter = 0;
+
+    while (reinterpret_cast<std::size_t>(recv_data_it) -
+             reinterpret_cast<std::size_t>(recv_data.data()) <
+           recv_pointers.back())
+      {
+        const auto cell =
+          ghost_particles_cells_ids[cell_id_counter].to_cell(*triangulation);
+
+        auto recv_particle = updated_particles.find(
+          internal::LevelInd(cell->level(), cell->index()));
+
+        recv_particle->second =
+          Particle<dim, spacedim>(recv_data_it, property_pool.get());
+
+        if (load_callback)
+          recv_data_it =
+            load_callback(particle_iterator(updated_particles, recv_particle),
+                          recv_data_it);
+
+        cell_id_counter++;
+      }
+
+    AssertThrow(recv_data_it == recv_data.data() + recv_data.size(),
+                ExcMessage(
+                  "The amount of data that was read into new particles "
+                  "does not match the amount of data sent around."));
+  }
+#endif
+
+#ifdef DEAL_II_WITH_MPI
+  template <int dim, int spacedim>
+  void
+  ParticleHandler<dim, spacedim>::create_ghost_praticles_cache(
+    const std::map<types::subdomain_id, std::vector<particle_iterator>>
+      &particles_to_send)
+  {
+    Assert(ghost_particles_cache.valid == false,
+           ExcMessage(
+             "The ghost particles cache should only be updated if invalid"));
+    ghost_particles_cache.valid = true;
+
+    auto &neighbors               = ghost_particles_cache.neighbors;
+    auto &send_pointers_particles = ghost_particles_cache.send_pointers;
+    auto &recv_pointers_particles = ghost_particles_cache.recv_pointers;
+    auto &ghost_particles_cells_ids =
+      ghost_particles_cache.ghost_particles_cells_ids;
+
+
+    std::vector<unsigned int> send_pointers_ids;
+    std::vector<unsigned int> recv_pointers_ids;
+
+    const auto parallel_triangulation =
+      dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
+        &*triangulation);
+    Assert(
+      parallel_triangulation,
+      ExcMessage(
+        "This function is only implemented for parallel::TriangulationBase objects."));
+
+    // Determine the communication pattern
+    const std::set<types::subdomain_id> ghost_owners =
+      parallel_triangulation->ghost_owners();
+    neighbors.resize(ghost_owners.size());
+    std::copy(ghost_owners.begin(), ghost_owners.end(), neighbors.begin());
+
+    send_pointers_particles.reserve(neighbors.size() + 1);
+    send_pointers_particles.push_back(0);
+    send_pointers_ids.reserve(neighbors.size() + 1);
+    send_pointers_ids.push_back(0);
+
+    unsigned int n_total_send_particles = 0;
+    for (auto send_particles = particles_to_send.begin();
+         send_particles != particles_to_send.end();
+         ++send_particles)
+      n_total_send_particles += send_particles->second.size();
+
+    const unsigned int cellid_size = sizeof(CellId::binary_type);
+
+    // Containers for the amount and offsets of data we will send
+    // to other processors and the data itself.
+    std::vector<unsigned int> n_send_particles(neighbors.size());
+    std::vector<char>         send_data;
+
+    const unsigned int particle_size =
+      n_total_send_particles > 0 ? (begin()->serialized_size_in_bytes() +
+                                    (size_callback ? size_callback() : 0)) :
+                                   0;
+
+    // Only serialize things if there are particles to be send.
+    // We can not return early even if no particles
+    // are send, because we might receive particles from other processes
+    if (n_total_send_particles > 0)
+      {
+        // BB
+        // Data to be sent will only be cell id
+        send_data.resize(n_total_send_particles * cellid_size);
+        void *data = static_cast<void *>(&send_data.front());
+
+        // Serialize the data sorted by receiving process
+        for (unsigned int i = 0; i < neighbors.size(); ++i)
+          {
+            const unsigned int n_particles_to_send =
+              particles_to_send.at(neighbors[i]).size();
+            for (unsigned int j = 0; j < n_particles_to_send; ++j)
+              {
+                // If no target cells are given, use the iterator information
+                auto cell =
+                  particles_to_send.at(neighbors[i])[j]->get_surrounding_cell(
+                    *triangulation);
+
+                const CellId::binary_type cellid =
+                  cell->id().template to_binary<dim>();
+                memcpy(data, &cellid, cellid_size);
+                data = static_cast<char *>(data) + cellid_size;
+              }
+            send_pointers_particles.push_back(send_pointers_particles.back() +
+                                              n_particles_to_send *
+                                                particle_size);
+            n_send_particles.push_back(n_particles_to_send);
+            send_pointers_ids.push_back(send_pointers_ids.back() +
+                                        n_particles_to_send * cellid_size);
+          }
+      }
+
+    // Containers for the data we will receive from other processors
+    std::vector<unsigned int> n_recv_particles(neighbors.size());
+
+    // Notify other processors how many particles we will send
+    {
+      const int mpi_tag = Utilities::MPI::internal::Tags::
+        particle_handler_send_recv_particles_setup;
+
+      std::vector<MPI_Request> n_requests(2 * neighbors.size());
+      for (unsigned int i = 0; i < neighbors.size(); ++i)
+        {
+          const int ierr = MPI_Irecv(n_recv_particles.data() + i,
+                                     1,
+                                     MPI_UNSIGNED,
+                                     neighbors[i],
+                                     mpi_tag,
+                                     parallel_triangulation->get_communicator(),
+                                     &(n_requests[2 * i]));
+          AssertThrowMPI(ierr);
+        }
+      for (unsigned int i = 0; i < neighbors.size(); ++i)
+        {
+          const int ierr = MPI_Isend((n_send_particles.data() + i),
+                                     1,
+                                     MPI_UNSIGNED,
+                                     neighbors[i],
+                                     mpi_tag,
+                                     parallel_triangulation->get_communicator(),
+                                     &(n_requests[2 * i + 1]));
+          AssertThrowMPI(ierr);
+        }
+      const int ierr = MPI_Waitall(2 * neighbors.size(),
+                                   n_requests.data(),
+                                   MPI_STATUSES_IGNORE);
+      AssertThrowMPI(ierr);
+    }
+
+    // Determine how many particles and data we will receive
+    for (unsigned int neighbor_id = 0; neighbor_id < neighbors.size();
+         ++neighbor_id)
+      {
+        recv_pointers_particles.push_back(recv_pointers_particles.back() +
+                                          n_recv_particles[neighbor_id] *
+                                            particle_size);
+        recv_pointers_ids.push_back(recv_pointers_ids.back() +
+                                    n_recv_particles[neighbor_id] *
+                                      cellid_size);
+      }
+
+    // Set up the space for the received particle data
+    std::vector<char> recv_data(recv_pointers_ids.back());
+
+    // Exchange the particle data between domains
+    {
+      std::vector<MPI_Request> requests(2 * neighbors.size());
+      unsigned int             send_ops = 0;
+      unsigned int             recv_ops = 0;
+
+      const int mpi_tag = Utilities::MPI::internal::Tags::
+        particle_handler_send_recv_particles_send;
+
+      for (unsigned int i = 0; i < neighbors.size(); ++i)
+        if (recv_pointers_ids[i + 1] - recv_pointers_ids[i] > 0)
+          {
+            const int ierr =
+              MPI_Irecv(recv_data.data() + recv_pointers_ids[i],
+                        recv_pointers_ids[i + 1] - recv_pointers_ids[i],
+                        MPI_CHAR,
+                        neighbors[i],
+                        mpi_tag,
+                        parallel_triangulation->get_communicator(),
+                        &(requests[send_ops]));
+            AssertThrowMPI(ierr);
+            send_ops++;
+          }
+
+      for (unsigned int i = 0; i < neighbors.size(); ++i)
+        if (send_pointers_ids[i + 1] - send_pointers_ids[i] > 0)
+          {
+            const int ierr =
+              MPI_Isend(send_data.data() + send_pointers_ids[i],
+                        send_pointers_ids[i + 1] - send_pointers_ids[i],
+                        MPI_CHAR,
+                        neighbors[i],
+                        mpi_tag,
+                        parallel_triangulation->get_communicator(),
+                        &(requests[send_ops + recv_ops]));
+            AssertThrowMPI(ierr);
+            recv_ops++;
+          }
+      const int ierr =
+        MPI_Waitall(send_ops + recv_ops, requests.data(), MPI_STATUSES_IGNORE);
+      AssertThrowMPI(ierr);
+    }
+
+    // Put the received particles into the domain if they are in the
+    // triangulation
+    const void *recv_data_it = static_cast<const void *>(recv_data.data());
+
+    while (reinterpret_cast<std::size_t>(recv_data_it) -
+             reinterpret_cast<std::size_t>(recv_data.data()) <
+           recv_pointers_ids.back())
+      {
+        CellId::binary_type binary_cellid;
+        memcpy(&binary_cellid, recv_data_it, cellid_size);
+        const CellId id(binary_cellid);
+        ghost_particles_cells_ids.push_back(id);
+        recv_data_it = static_cast<const char *>(recv_data_it) + cellid_size;
+      }
+
+    AssertThrow(recv_data_it == recv_data.data() + recv_data.size(),
+                ExcMessage(
+                  "The amount of data that was read into new particles "
+                  "does not match the amount of data sent around."));
+  }
+#endif
+
 
   template <int dim, int spacedim>
   void
@@ -1705,8 +2050,8 @@ namespace Particles
 
     switch (status)
       {
-        case parallel::distributed::Triangulation<dim, spacedim>::CELL_PERSIST:
-          {
+          case parallel::distributed::Triangulation<dim,
+                                                    spacedim>::CELL_PERSIST: {
             auto position_hint = particles.end();
             for (const auto &particle : loaded_particles_on_cell)
               {
@@ -1725,8 +2070,8 @@ namespace Particles
           }
           break;
 
-        case parallel::distributed::Triangulation<dim, spacedim>::CELL_COARSEN:
-          {
+          case parallel::distributed::Triangulation<dim,
+                                                    spacedim>::CELL_COARSEN: {
             typename std::multimap<internal::LevelInd,
                                    Particle<dim, spacedim>>::iterator
               position_hint = particles.end();
@@ -1751,8 +2096,8 @@ namespace Particles
           }
           break;
 
-        case parallel::distributed::Triangulation<dim, spacedim>::CELL_REFINE:
-          {
+          case parallel::distributed::Triangulation<dim,
+                                                    spacedim>::CELL_REFINE: {
             std::vector<
               typename std::multimap<internal::LevelInd,
                                      Particle<dim, spacedim>>::iterator>
