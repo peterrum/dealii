@@ -705,7 +705,7 @@ namespace Particles
      * member variable.
      */
     void
-    exchange_ghost_particles();
+    exchange_ghost_particles(const bool enable_ghost_cache = false);
 
     /**
      * Update all particles that live in cells that are ghost cells to
@@ -943,6 +943,23 @@ namespace Particles
           std::vector<
             typename Triangulation<dim, spacedim>::active_cell_iterator>>());
 
+    // TODO - Change comments
+
+    void
+    send_recv_cache_particles(
+      const std::map<types::subdomain_id, std::vector<particle_iterator>>
+        &particles_to_send,
+      std::multimap<internal::LevelInd, Particle<dim, spacedim>>
+        &received_particles,
+      const std::map<
+        types::subdomain_id,
+        std::vector<
+          typename Triangulation<dim, spacedim>::active_cell_iterator>>
+        &new_cells_for_particles = std::map<
+          types::subdomain_id,
+          std::vector<
+            typename Triangulation<dim, spacedim>::active_cell_iterator>>());
+
 
     // TODO - Change comments
     /**
@@ -984,7 +1001,9 @@ namespace Particles
       std::vector<types::subdomain_id> neighbors;
       std::vector<unsigned int>        send_pointers;
       std::vector<unsigned int>        recv_pointers;
-      std::vector<CellId>              ghost_particles_cells_ids;
+      std::vector<typename std::multimap<internal::LevelInd,
+                                         Particle<dim, spacedim>>::iterator>
+        ghost_particles_iterators;
     };
 
     GhostParticlesCache ghost_particles_cache;

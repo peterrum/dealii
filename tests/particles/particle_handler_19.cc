@@ -75,7 +75,7 @@ test()
       }
 
 
-    particle_handler.exchange_ghost_particles();
+    particle_handler.exchange_ghost_particles(true);
 
     for (auto particle = particle_handler.begin();
          particle != particle_handler.end();
@@ -110,7 +110,10 @@ test()
         particle->get_properties()[0] += 10;
         particle->set_location(location);
       }
+
+    // Update the ghost particles
     particle_handler.update_ghost_particles();
+
 
     for (auto particle = particle_handler.begin();
          particle != particle_handler.end();

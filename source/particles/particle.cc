@@ -152,8 +152,8 @@ namespace Particles
 
   template <int dim, int spacedim>
   Particle<dim, spacedim> &
-  Particle<dim, spacedim>::
-  operator=(Particle<dim, spacedim> &&particle) noexcept
+  Particle<dim, spacedim>::operator=(
+    Particle<dim, spacedim> &&particle) noexcept
   {
     if (this != &particle)
       {
@@ -175,6 +175,14 @@ namespace Particles
 
   template <int dim, int spacedim>
   Particle<dim, spacedim>::~Particle()
+  {
+    if (property_pool != nullptr && properties != PropertyPool::invalid_handle)
+      property_pool->deallocate_properties_array(properties);
+  }
+
+  template <int dim, int spacedim>
+  void
+  Particle<dim, spacedim>::free_properties()
   {
     if (property_pool != nullptr && properties != PropertyPool::invalid_handle)
       property_pool->deallocate_properties_array(properties);
