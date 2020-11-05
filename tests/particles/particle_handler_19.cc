@@ -43,7 +43,7 @@ test()
     tr.refine_global(2);
     MappingQ<dim, spacedim> mapping(1);
 
-    Particles::ParticleHandler<dim, spacedim> particle_handler(tr, mapping, 1);
+    Particles::ParticleHandler<dim, spacedim> particle_handler(tr, mapping, 2);
 
     Point<spacedim> position;
     Point<dim>      reference_position;
@@ -72,6 +72,8 @@ test()
       {
         particle->get_properties()[0] =
           10 + Utilities::MPI::this_mpi_process(tr.get_communicator());
+        particle->get_properties()[1] =
+          100 + Utilities::MPI::this_mpi_process(tr.get_communicator());
       }
 
 
@@ -82,8 +84,8 @@ test()
          ++particle)
       deallog << "Particle id : " << particle->get_id()
               << " location : " << particle->get_location()
-              << " property : " << particle->get_properties()[0]
-              << " is local on process : "
+              << " property : " << particle->get_properties()[0] << " and "
+              << particle->get_properties()[1] << " is local on process : "
               << Utilities::MPI::this_mpi_process(tr.get_communicator())
               << std::endl;
 
@@ -92,8 +94,8 @@ test()
          ++particle)
       deallog << "Particle id : " << particle->get_id()
               << " location : " << particle->get_location()
-              << " property : " << particle->get_properties()[0]
-              << " is ghost on process : "
+              << " property : " << particle->get_properties()[0] << " and "
+              << particle->get_properties()[1] << " is ghost on process : "
               << Utilities::MPI::this_mpi_process(tr.get_communicator())
               << std::endl;
 
@@ -108,6 +110,7 @@ test()
         auto location = particle->get_location();
         location[0] += 0.1;
         particle->get_properties()[0] += 10;
+        particle->get_properties()[1] += 100;
         particle->set_location(location);
       }
 
@@ -120,8 +123,8 @@ test()
          ++particle)
       deallog << "Particle id : " << particle->get_id()
               << " location : " << particle->get_location()
-              << " property : " << particle->get_properties()[0]
-              << " is local on process : "
+              << " property : " << particle->get_properties()[0] << " and "
+              << particle->get_properties()[1] << " is local on process : "
               << Utilities::MPI::this_mpi_process(tr.get_communicator())
               << std::endl;
 
@@ -130,15 +133,14 @@ test()
          ++particle)
       deallog << "Particle id : " << particle->get_id()
               << " location : " << particle->get_location()
-              << " property : " << particle->get_properties()[0]
-              << " is ghost on process : "
+              << " property : " << particle->get_properties()[0] << " and "
+              << particle->get_properties()[1] << " is ghost on process : "
               << Utilities::MPI::this_mpi_process(tr.get_communicator())
               << std::endl;
   }
 
   deallog << "OK" << std::endl;
 }
-
 
 
 int
