@@ -1564,18 +1564,12 @@ namespace Particles
 
     // Setup send_pointers_particle cache;
     auto &send_pointers_particles = ghost_particles_cache.send_pointers;
-    send_pointers_particles.clear();
-    send_pointers_particles.reserve(n_neighbors + 1);
-    send_pointers_particles.push_back(0);
-
-    unsigned int total_send_data = 0;
+    send_pointers_particles = std::vector<unsigned int>(n_neighbors + 1, 0);
 
     // Only serialize things if there are particles to be send.
     // We can not return early even if no particles
     // are send, because we might receive particles from other processes
-    if (!(n_send_particles > 0))
-      send_pointers_particles.push_back(0);
-    else
+    if (n_send_particles > 0)
       {
         // Allocate space for sending particle data
         const unsigned int individual_particle_data_size =
@@ -1589,8 +1583,6 @@ namespace Particles
         send_data.resize(n_send_particles *
                          individual_total_particle_data_size);
 
-        total_send_data =
-          n_send_particles * individual_total_particle_data_size;
         void *data = static_cast<void *>(&send_data.front());
 
         // Serialize the data sorted by receiving process
@@ -1630,9 +1622,9 @@ namespace Particles
             n_send_update_per_neighbors[i] =
               n_particles_to_send * individual_particle_data_size;
 
-            send_pointers_particles.push_back(send_pointers_particles.back() +
-                                              n_particles_to_send *
-                                                individual_particle_data_size);
+            send_pointers_particles[i + 1] =
+              send_pointers_particles[i] +
+              n_particles_to_send * individual_particle_data_size;
           }
       }
 
@@ -1640,7 +1632,6 @@ namespace Particles
     std::vector<unsigned int> n_recv_data_per_neighbors(n_neighbors);
     std::vector<unsigned int> recv_offsets(n_neighbors);
 
-    std::cout << " This is the first send operation" << std::endl;
     {
       const int mpi_tag = Utilities::MPI::internal::Tags::
         particle_handler_send_recv_particles_setup;
@@ -1727,64 +1718,7 @@ namespace Particles
           n_recv_update_per_neighbors[neighbor_id]);
       }
 
-
-
-    // Set up the space for the received particle data
-    MPI_Barrier(parallel_triangulation->get_communicator());
-
     std::vector<char> recv_data(total_recv_data);
-    std::cout << " This is the third send operation" << std::endl;
-    if (Utilities::MPI::this_mpi_process(
-          parallel_triangulation->get_communicator()) == 0)
-      {
-        std::cout << "Proc 0 " << std::endl;
-        std::cout << "Total receive data : " << total_recv_data << std::endl;
-        std::cout << "Total receive data : " << recv_pointers_particles.back()
-                  << std::endl;
-
-        std::cout << "Total send data : " << total_send_data << std::endl;
-        std::cout << "Total send data : " << send_pointers_particles.back()
-                  << std::endl;
-
-
-        for (unsigned int i = 0; i < n_neighbors; ++i)
-          {
-            std::cout << " neigh : " << neighbors[i]
-                      << " recv : " << recv_offsets[i]
-                      << " send : " << send_offsets[i]
-                      << " recv n : " << n_recv_data_per_neighbors[i]
-                      << " send n : " << n_send_data_per_neighbors[i]
-
-                      << std::endl;
-          }
-      }
-    MPI_Barrier(parallel_triangulation->get_communicator());
-
-    if (Utilities::MPI::this_mpi_process(
-          parallel_triangulation->get_communicator()) == 1)
-      {
-        std::cout << "Proc 1 " << std::endl;
-        std::cout << "Total receive data : " << total_recv_data << std::endl;
-        std::cout << "Total receive data : " << recv_pointers_particles.back()
-                  << std::endl;
-
-        std::cout << "Total send data : " << total_send_data << std::endl;
-        std::cout << "Total send data : " << send_pointers_particles.back()
-                  << std::endl;
-
-
-        for (unsigned int i = 0; i < n_neighbors; ++i)
-          {
-            std::cout << " neigh : " << neighbors[i]
-                      << " recv : " << recv_offsets[i]
-                      << " send : " << send_offsets[i]
-                      << " recv n : " << n_recv_data_per_neighbors[i]
-                      << " send n : " << n_send_data_per_neighbors[i]
-
-                      << std::endl;
-          }
-      }
-    MPI_Barrier(parallel_triangulation->get_communicator());
 
 
     // Exchange the particle data between domains
@@ -1829,9 +1763,6 @@ namespace Particles
         MPI_Waitall(send_ops + recv_ops, requests.data(), MPI_STATUSES_IGNORE);
       AssertThrowMPI(ierr);
     }
-
-    std::cout << " This is the end of the send operation" << std::endl;
-
 
     // Put the received particles into the domain if they are in the
     // triangulation
@@ -1936,10 +1867,6 @@ namespace Particles
       for (unsigned int i = 0; i < neighbors.size(); ++i)
         if ((recv_pointers[i + 1] - recv_pointers[i]) > 0)
           {
-            std::cout << "Receiving shazam - "
-                      << Utilities::MPI::this_mpi_process(
-                           parallel_triangulation->get_communicator())
-                      << std::endl;
             const int ierr =
               MPI_Irecv(recv_data.data() + recv_pointers[i],
                         recv_pointers[i + 1] - recv_pointers[i],
@@ -1955,11 +1882,6 @@ namespace Particles
       for (unsigned int i = 0; i < neighbors.size(); ++i)
         if ((send_pointers[i + 1] - send_pointers[i]) > 0)
           {
-            std::cout << "Sending shazam - "
-                      << Utilities::MPI::this_mpi_process(
-                           parallel_triangulation->get_communicator())
-                      << " " << (send_pointers[i + 1] - send_pointers[i])
-                      << std::endl;
             const int ierr =
               MPI_Isend(send_data.data() + send_pointers[i],
                         send_pointers[i + 1] - send_pointers[i],
@@ -1985,49 +1907,6 @@ namespace Particles
     auto &ghost_particles_iterators =
       ghost_particles_cache.ghost_particles_iterators;
     unsigned int particle_iterator_counter = 0;
-
-    MPI_Barrier(parallel_triangulation->get_communicator());
-
-    if (Utilities::MPI::this_mpi_process(
-          parallel_triangulation->get_communicator()) == 0)
-      {
-        std::cout << "Proc 0 " << std::endl;
-        std::cout << " Number of ghost particles in the cache "
-                  << ghost_particles_iterators.size() << std::endl;
-
-        std::cout << " Content of the send pointers " << std::endl;
-        for (unsigned int i = 0; i < send_pointers.size(); ++i)
-          {
-            std::cout << send_pointers[i] << std::endl;
-          }
-
-        std::cout << " Content of the receive pointers " << std::endl;
-        for (unsigned int i = 0; i < recv_pointers.size(); ++i)
-          {
-            std::cout << recv_pointers[i] << std::endl;
-          }
-      }
-    MPI_Barrier(parallel_triangulation->get_communicator());
-    if (Utilities::MPI::this_mpi_process(
-          parallel_triangulation->get_communicator()) == 1)
-      {
-        std::cout << "Proc 1 " << std::endl;
-        std::cout << " Number of ghost particles in the cache "
-                  << ghost_particles_iterators.size() << std::endl;
-
-        std::cout << " Content of the send pointers " << std::endl;
-        for (unsigned int i = 0; i < send_pointers.size(); ++i)
-          {
-            std::cout << send_pointers[i] << std::endl;
-          }
-
-        std::cout << " Content of the receive pointers " << std::endl;
-        for (unsigned int i = 0; i < recv_pointers.size(); ++i)
-          {
-            std::cout << recv_pointers[i] << std::endl;
-          }
-      }
-
 
     while (reinterpret_cast<std::size_t>(recv_data_it) -
              reinterpret_cast<std::size_t>(recv_data.data()) <
