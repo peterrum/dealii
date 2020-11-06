@@ -152,8 +152,8 @@ namespace Particles
 
   template <int dim, int spacedim>
   Particle<dim, spacedim> &
-  Particle<dim, spacedim>::operator=(
-    Particle<dim, spacedim> &&particle) noexcept
+  Particle<dim, spacedim>::
+  operator=(Particle<dim, spacedim> &&particle) noexcept
   {
     if (this != &particle)
       {
