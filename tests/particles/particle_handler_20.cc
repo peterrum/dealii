@@ -52,21 +52,20 @@ test()
     for (unsigned int p = 0; p < n_particles; ++p)
       {
         if (Utilities::MPI::this_mpi_process(tr.get_communicator()) == 0)
-          for (unsigned int i = 0; i < dim; ++i)
-            position(i) = 0.410 + 0.01 * p;
-        else
-          for (unsigned int i = 0; i < dim; ++i)
-            position(i) = 0.510 + 0.01 * p;
+          {
+            for (unsigned int i = 0; i < dim; ++i)
+              position(i) = 0.410 + 0.01 * p;
 
-        Particles::Particle<dim, spacedim> particle(
-          position,
-          reference_position,
-          Utilities::MPI::this_mpi_process(tr.get_communicator()) *
-              n_particles +
-            p);
-        typename Triangulation<dim, spacedim>::active_cell_iterator cell =
-          tr.begin_active();
-        particle_handler.insert_particle(particle, cell);
+            Particles::Particle<dim, spacedim> particle(
+              position,
+              reference_position,
+              Utilities::MPI::this_mpi_process(tr.get_communicator()) *
+                  n_particles +
+                p);
+            typename Triangulation<dim, spacedim>::active_cell_iterator cell =
+              tr.begin_active();
+            particle_handler.insert_particle(particle, cell);
+          }
       }
 
     particle_handler.sort_particles_into_subdomains_and_cells();
