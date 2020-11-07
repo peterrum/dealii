@@ -941,25 +941,8 @@ namespace Particles
         &new_cells_for_particles = std::map<
           types::subdomain_id,
           std::vector<
-            typename Triangulation<dim, spacedim>::active_cell_iterator>>());
-
-    // TODO - Change comments
-
-    void
-    send_recv_cache_particles(
-      const std::map<types::subdomain_id, std::vector<particle_iterator>>
-        &particles_to_send,
-      std::multimap<internal::LevelInd, Particle<dim, spacedim>>
-        &received_particles,
-      const std::map<
-        types::subdomain_id,
-        std::vector<
-          typename Triangulation<dim, spacedim>::active_cell_iterator>>
-        &new_cells_for_particles = std::map<
-          types::subdomain_id,
-          std::vector<
-            typename Triangulation<dim, spacedim>::active_cell_iterator>>());
-
+            typename Triangulation<dim, spacedim>::active_cell_iterator>>(),
+      const bool enable_cache = false);
 
     // TODO - Change comments
     /**
