@@ -1327,7 +1327,7 @@ namespace Particles
 
     // Containers for the amount and offsets of data we will send
     // to other processors and the data itself.
-    std::vector<unsigned int> n_send_data_per_neighbors(n_neighbors, 0);
+    std::vector<unsigned int> n_send_data(n_neighbors, 0);
     std::vector<unsigned int> send_offsets(n_neighbors, 0);
     std::vector<char>         send_data;
 
@@ -1384,12 +1384,12 @@ namespace Particles
                   data =
                     store_callback(particles_to_send.at(neighbors[i])[j], data);
               }
-            n_send_data_per_neighbors[i] = n_particles_to_send;
+            n_send_data[i] = n_particles_to_send;
           }
       }
 
     // Containers for the data we will receive from other processors
-    std::vector<unsigned int> n_recv_data_per_neighbors(n_neighbors);
+    std::vector<unsigned int> n_recv_data(n_neighbors);
     std::vector<unsigned int> recv_offsets(n_neighbors);
 
     {
@@ -1399,7 +1399,7 @@ namespace Particles
       std::vector<MPI_Request> n_requests(2 * n_neighbors);
       for (unsigned int i = 0; i < n_neighbors; ++i)
         {
-          const int ierr = MPI_Irecv(&(n_recv_data_per_neighbors[i]),
+          const int ierr = MPI_Irecv(&(n_recv_data[i]),
                                      1,
                                      MPI_UNSIGNED,
                                      neighbors[i],
@@ -1410,7 +1410,7 @@ namespace Particles
         }
       for (unsigned int i = 0; i < n_neighbors; ++i)
         {
-          const int ierr = MPI_Isend(&(n_send_data_per_neighbors[i]),
+          const int ierr = MPI_Isend(&(n_send_data[i]),
                                      1,
                                      MPI_UNSIGNED,
                                      neighbors[i],
@@ -1430,10 +1430,11 @@ namespace Particles
       {
         recv_offsets[neighbor_id] =
           total_recv_data * individual_total_particle_data_size;
-        total_recv_data += n_recv_data_per_neighbors[neighbor_id] *
-                           individual_total_particle_data_size;
+        total_recv_data +=
+          n_recv_data[neighbor_id] * individual_total_particle_data_size;
       }
 
+    // Set up the space for the received particle data
     std::vector<char> recv_data(total_recv_data);
 
     // Exchange the particle data between domains
@@ -1446,12 +1447,11 @@ namespace Particles
         particle_handler_send_recv_particles_send;
 
       for (unsigned int i = 0; i < n_neighbors; ++i)
-        if (n_recv_data_per_neighbors[i] > 0)
+        if (n_recv_data[i] > 0)
           {
             const int ierr =
               MPI_Irecv(&(recv_data[recv_offsets[i]]),
-                        n_recv_data_per_neighbors[i] *
-                          individual_total_particle_data_size,
+                        n_recv_data[i] * individual_total_particle_data_size,
                         MPI_CHAR,
                         neighbors[i],
                         mpi_tag,
@@ -1462,12 +1462,11 @@ namespace Particles
           }
 
       for (unsigned int i = 0; i < n_neighbors; ++i)
-        if (n_send_data_per_neighbors[i] > 0)
+        if (n_send_data[i] > 0)
           {
             const int ierr =
               MPI_Isend(&(send_data[send_offsets[i]]),
-                        n_send_data_per_neighbors[i] *
-                          individual_total_particle_data_size,
+                        n_send_data[i] * individual_total_particle_data_size,
                         MPI_CHAR,
                         neighbors[i],
                         mpi_tag,
@@ -1499,7 +1498,7 @@ namespace Particles
         for (unsigned int i = 0; i < n_neighbors; ++i)
           send_pointers_particles[i + 1] =
             send_pointers_particles[i] +
-            n_send_data_per_neighbors[i] * individual_particle_data_size;
+            n_send_data[i] * individual_particle_data_size;
 
         auto &recv_pointers_particles = ghost_particles_cache.recv_pointers;
         recv_pointers_particles.assign(n_neighbors + 1, 0);
@@ -1507,7 +1506,7 @@ namespace Particles
         for (unsigned int i = 0; i < n_neighbors; ++i)
           recv_pointers_particles[i + 1] =
             recv_pointers_particles[i] +
-            n_recv_data_per_neighbors[i] * individual_particle_data_size;
+            n_recv_data[i] * individual_particle_data_size;
 
         ghost_particles_cache.neighbors = neighbors;
       }
