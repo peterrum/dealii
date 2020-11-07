@@ -1176,7 +1176,9 @@ namespace Particles
     else
       return;
 
-#ifdef DEAL_II_WITH_MPI
+#ifndef DEAL_II_WITH_MPI
+    (void)enable_cache;
+#else
     // First clear the current ghost_particle information
     ghost_particles.clear();
 
@@ -1298,9 +1300,6 @@ namespace Particles
                                                      ghost_owners.end());
     const unsigned int                     n_neighbors = neighbors.size();
 
-    if (build_cache)
-      ghost_particles_cache.neighbors = neighbors;
-
     if (send_cells.size() != 0)
       Assert(particles_to_send.size() == send_cells.size(), ExcInternalError());
 
@@ -1331,18 +1330,6 @@ namespace Particles
     std::vector<unsigned int> n_send_data_per_neighbors(n_neighbors, 0);
     std::vector<unsigned int> send_offsets(n_neighbors, 0);
     std::vector<char>         send_data;
-
-    // Setup send_pointers_particle cache;
-    auto &send_pointers_particles = ghost_particles_cache.send_pointers;
-    auto &recv_pointers_particles = ghost_particles_cache.recv_pointers;
-    if (build_cache)
-      {
-        send_pointers_particles.assign(n_neighbors + 1, 0);
-
-        recv_pointers_particles.clear();
-        recv_pointers_particles.reserve(n_neighbors + 1);
-        recv_pointers_particles.push_back(0);
-      }
 
     // TODO: is size cachable?
     const unsigned int individual_particle_data_size =
@@ -1398,11 +1385,6 @@ namespace Particles
                     store_callback(particles_to_send.at(neighbors[i])[j], data);
               }
             n_send_data_per_neighbors[i] = n_particles_to_send;
-
-            if (build_cache)
-              send_pointers_particles[i + 1] =
-                send_pointers_particles[i] +
-                n_particles_to_send * individual_particle_data_size;
           }
       }
 
@@ -1450,12 +1432,6 @@ namespace Particles
           total_recv_data * individual_total_particle_data_size;
         total_recv_data += n_recv_data_per_neighbors[neighbor_id] *
                            individual_total_particle_data_size;
-
-        if (build_cache)
-          recv_pointers_particles.push_back(
-            recv_pointers_particles.back() +
-            n_recv_data_per_neighbors[neighbor_id] *
-              individual_particle_data_size);
       }
 
     std::vector<char> recv_data(total_recv_data);
@@ -1514,7 +1490,27 @@ namespace Particles
       ghost_particles_cache.ghost_particles_iterators;
 
     if (build_cache)
-      ghost_particles_iterators.clear();
+      {
+        ghost_particles_iterators.clear();
+
+        auto &send_pointers_particles = ghost_particles_cache.send_pointers;
+        send_pointers_particles.assign(n_neighbors + 1, 0);
+
+        for (unsigned int i = 0; i < n_neighbors; ++i)
+          send_pointers_particles[i + 1] =
+            send_pointers_particles[i] +
+            n_send_data_per_neighbors[i] * individual_particle_data_size;
+
+        auto &recv_pointers_particles = ghost_particles_cache.recv_pointers;
+        recv_pointers_particles.assign(n_neighbors + 1, 0);
+
+        for (unsigned int i = 0; i < n_neighbors; ++i)
+          recv_pointers_particles[i + 1] =
+            recv_pointers_particles[i] +
+            n_recv_data_per_neighbors[i] * individual_particle_data_size;
+
+        ghost_particles_cache.neighbors = neighbors;
+      }
 
     while (reinterpret_cast<std::size_t>(recv_data_it) -
              reinterpret_cast<std::size_t>(recv_data.data()) <
@@ -1539,7 +1535,7 @@ namespace Particles
             load_callback(particle_iterator(received_particles, recv_particle),
                           recv_data_it);
 
-        if (build_cache)
+        if (build_cache) // TODO: is this safe?
           ghost_particles_iterators.push_back(recv_particle);
       }
 
