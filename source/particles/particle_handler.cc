@@ -1345,19 +1345,22 @@ namespace Particles
         recv_pointers_particles.push_back(0);
       }
 
+    // TODO: is size cachable?
+    const unsigned int individual_particle_data_size =
+      Utilities::MPI::max(n_send_particles > 0 ?
+                            ((begin()->serialized_size_in_bytes() +
+                              (size_callback ? size_callback() : 0))) :
+                            0,
+                          parallel_triangulation->get_communicator());
+
+    const unsigned int individual_total_particle_data_size =
+      individual_particle_data_size + cellid_size;
+
     // Only serialize things if there are particles to be send.
     // We can not return early even if no particles
     // are send, because we might receive particles from other processes
     if (n_send_particles > 0)
       {
-        // Allocate space for sending particle data
-        const unsigned int individual_particle_data_size =
-          (begin()->serialized_size_in_bytes() +
-           (size_callback ? size_callback() : 0));
-
-        const unsigned int individual_total_particle_data_size =
-          individual_particle_data_size + cellid_size;
-
         // Allocate space for sending particle data
         send_data.resize(n_send_particles *
                          individual_total_particle_data_size);
