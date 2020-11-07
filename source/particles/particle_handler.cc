@@ -1335,9 +1335,15 @@ namespace Particles
 
     // Setup send_pointers_particle cache;
     auto &send_pointers_particles = ghost_particles_cache.send_pointers;
-
+    auto &recv_pointers_particles = ghost_particles_cache.recv_pointers;
     if (build_cache)
-      send_pointers_particles = std::vector<unsigned int>(n_neighbors + 1, 0);
+      {
+        send_pointers_particles.assign(n_neighbors + 1, 0);
+
+        recv_pointers_particles.clear();
+        recv_pointers_particles.reserve(n_neighbors + 1);
+        recv_pointers_particles.push_back(0);
+      }
 
     // Only serialize things if there are particles to be send.
     // We can not return early even if no particles
@@ -1474,15 +1480,6 @@ namespace Particles
       MPI_Barrier(parallel_triangulation->get_communicator());
     }
 
-    // Setup send_pointers_particle cache;
-    auto &recv_pointers_particles = ghost_particles_cache.recv_pointers;
-    if (build_cache)
-      {
-        recv_pointers_particles.clear();
-        recv_pointers_particles.reserve(n_neighbors + 1);
-        recv_pointers_particles.push_back(0);
-      }
-
     // Determine how many particles and data we will receive
     unsigned int total_recv_data = 0;
     for (unsigned int neighbor_id = 0; neighbor_id < n_neighbors; ++neighbor_id)
@@ -1548,6 +1545,7 @@ namespace Particles
     // Store the particle iterators in the cache
     auto &ghost_particles_iterators =
       ghost_particles_cache.ghost_particles_iterators;
+
     if (build_cache)
       ghost_particles_iterators.clear();
 
@@ -1583,7 +1581,6 @@ namespace Particles
                   "The amount of data that was read into new particles "
                   "does not match the amount of data sent around."));
   }
-
 #endif
 
 
