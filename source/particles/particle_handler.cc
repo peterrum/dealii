@@ -1329,7 +1329,6 @@ namespace Particles
     // Containers for the amount and offsets of data we will send
     // to other processors and the data itself.
     std::vector<unsigned int> n_send_data_per_neighbors(n_neighbors, 0);
-    std::vector<unsigned int> n_send_update_per_neighbors(n_neighbors, 0);
     std::vector<unsigned int> send_offsets(n_neighbors, 0);
     std::vector<char>         send_data;
 
@@ -1398,11 +1397,7 @@ namespace Particles
                   data =
                     store_callback(particles_to_send.at(neighbors[i])[j], data);
               }
-            n_send_data_per_neighbors[i] =
-              n_particles_to_send * individual_total_particle_data_size;
-
-            n_send_update_per_neighbors[i] =
-              n_particles_to_send * individual_particle_data_size;
+            n_send_data_per_neighbors[i] = n_particles_to_send;
 
             if (build_cache)
               send_pointers_particles[i + 1] =
@@ -1447,53 +1442,20 @@ namespace Particles
       AssertThrowMPI(ierr);
     }
 
-    std::vector<unsigned int> n_recv_update_per_neighbors(n_neighbors);
-
-    {
-      const int mpi_tag = Utilities::MPI::internal::Tags::
-        particle_handler_send_recv_particles_cache_setup;
-
-      std::vector<MPI_Request> n_requests(2 * n_neighbors);
-      for (unsigned int i = 0; i < n_neighbors; ++i)
-        {
-          const int ierr = MPI_Irecv(&(n_recv_update_per_neighbors[i]),
-                                     1,
-                                     MPI_UNSIGNED,
-                                     neighbors[i],
-                                     mpi_tag,
-                                     parallel_triangulation->get_communicator(),
-                                     &(n_requests[2 * i]));
-          AssertThrowMPI(ierr);
-        }
-      for (unsigned int i = 0; i < n_neighbors; ++i)
-        {
-          const int ierr = MPI_Isend(&(n_send_update_per_neighbors[i]),
-                                     1,
-                                     MPI_UNSIGNED,
-                                     neighbors[i],
-                                     mpi_tag,
-                                     parallel_triangulation->get_communicator(),
-                                     &(n_requests[2 * i + 1]));
-          AssertThrowMPI(ierr);
-        }
-      const int ierr =
-        MPI_Waitall(2 * n_neighbors, n_requests.data(), MPI_STATUSES_IGNORE);
-      AssertThrowMPI(ierr);
-
-      MPI_Barrier(parallel_triangulation->get_communicator());
-    }
-
     // Determine how many particles and data we will receive
     unsigned int total_recv_data = 0;
     for (unsigned int neighbor_id = 0; neighbor_id < n_neighbors; ++neighbor_id)
       {
-        recv_offsets[neighbor_id] = total_recv_data;
-        total_recv_data += n_recv_data_per_neighbors[neighbor_id];
+        recv_offsets[neighbor_id] =
+          total_recv_data * individual_total_particle_data_size;
+        total_recv_data += n_recv_data_per_neighbors[neighbor_id] *
+                           individual_total_particle_data_size;
 
         if (build_cache)
           recv_pointers_particles.push_back(
             recv_pointers_particles.back() +
-            n_recv_update_per_neighbors[neighbor_id]);
+            n_recv_data_per_neighbors[neighbor_id] *
+              individual_particle_data_size);
       }
 
     std::vector<char> recv_data(total_recv_data);
@@ -1512,7 +1474,8 @@ namespace Particles
           {
             const int ierr =
               MPI_Irecv(&(recv_data[recv_offsets[i]]),
-                        n_recv_data_per_neighbors[i],
+                        n_recv_data_per_neighbors[i] *
+                          individual_total_particle_data_size,
                         MPI_CHAR,
                         neighbors[i],
                         mpi_tag,
@@ -1527,7 +1490,8 @@ namespace Particles
           {
             const int ierr =
               MPI_Isend(&(send_data[send_offsets[i]]),
-                        n_send_data_per_neighbors[i],
+                        n_send_data_per_neighbors[i] *
+                          individual_total_particle_data_size,
                         MPI_CHAR,
                         neighbors[i],
                         mpi_tag,
