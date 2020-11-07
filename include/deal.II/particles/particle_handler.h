@@ -705,7 +705,7 @@ namespace Particles
      * member variable.
      */
     void
-    exchange_ghost_particles();
+    exchange_ghost_particles(const bool enable_ghost_cache = false);
 
     /**
      * Update all particles that live in cells that are ghost cells to
@@ -941,7 +941,56 @@ namespace Particles
         &new_cells_for_particles = std::map<
           types::subdomain_id,
           std::vector<
-            typename Triangulation<dim, spacedim>::active_cell_iterator>>());
+            typename Triangulation<dim, spacedim>::active_cell_iterator>>(),
+      const bool enable_cache = false);
+
+    // TODO - Change comments
+    /**
+     * Transfer particles that have crossed subdomain boundaries to other
+     * processors.
+     * All received particles and their new cells will be appended to the
+     * @p received_particles vector.
+     *
+     * @param [in] particles_to_send All particles that should be sent and
+     * their new subdomain_ids are in this map.
+     *
+     * @param [in,out] received_particles Vector that stores all received
+     * particles. Note that it is not required nor checked that the list
+     * is empty, received particles are simply attached to the end of
+     * the vector.
+     *
+     * @param [in] new_cells_for_particles Optional vector of cell
+     * iterators with the same structure as @p particles_to_send. If this
+     * parameter is given it should contain the cell iterator for every
+     * particle to be send in which the particle belongs. This parameter
+     * is necessary if the cell information of the particle iterator is
+     * outdated (e.g. after particle movement).
+     */
+    void
+    send_recv_particles_properties_and_location(
+      const std::map<types::subdomain_id, std::vector<particle_iterator>>
+        &particles_to_send,
+      std::multimap<internal::LevelInd, Particle<dim, spacedim>>
+        &received_particles);
+
+    void
+    create_ghost_praticles_cache(
+      const std::map<types::subdomain_id, std::vector<particle_iterator>>
+        &particles_to_send);
+
+    struct GhostParticlesCache
+    {
+      bool                             valid = false;
+      std::vector<types::subdomain_id> neighbors;
+      std::vector<unsigned int>        send_pointers;
+      std::vector<unsigned int>        recv_pointers;
+      std::vector<typename std::multimap<internal::LevelInd,
+                                         Particle<dim, spacedim>>::iterator>
+        ghost_particles_iterators;
+    };
+
+    GhostParticlesCache ghost_particles_cache;
+
 #endif
 
     /**
