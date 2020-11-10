@@ -284,8 +284,7 @@ namespace Euler_DG
                                         ai[stage] * time_step),
                                      (stage % 2 == 0 ? vec_ki : vec_ri),
                                      (stage % 2 == 0 ? vec_ri : vec_ki),
-                                     solution,
-                                     vec_ri /*dummy*/);
+                                     solution);
 
           if (stage > 0)
             sum_previous_bi += bi[stage - 1];
@@ -531,8 +530,7 @@ namespace Euler_DG
                   const Number       factor_ai,
                   const LinearAlgebra::distributed::Vector<Number> &current_ri,
                   LinearAlgebra::distributed::Vector<Number> &      vec_ki,
-                  LinearAlgebra::distributed::Vector<Number> &      solution,
-                  LinearAlgebra::distributed::Vector<Number> &next_ri) const;
+                  LinearAlgebra::distributed::Vector<Number> &solution) const;
 
     void project(const Function<dim> &                       function,
                  LinearAlgebra::distributed::Vector<Number> &solution) const;
@@ -691,12 +689,9 @@ namespace Euler_DG
     const Number                                      factor_ai,
     const LinearAlgebra::distributed::Vector<Number> &current_ri,
     LinearAlgebra::distributed::Vector<Number> &      vec_ki,
-    LinearAlgebra::distributed::Vector<Number> &      solution,
-    LinearAlgebra::distributed::Vector<Number> &      next_ri) const
+    LinearAlgebra::distributed::Vector<Number> &      solution) const
   {
     TimerOutput::Scope t(timer, "rk_stage - integrals L_h");
-
-    (void)next_ri;
 
     for (auto &i : inflow_boundaries)
       i.second->set_time(current_time);
