@@ -467,10 +467,6 @@ namespace Euler_DG
 
     void set_body_force(std::unique_ptr<Function<dim>> body_force);
 
-    void apply(const double                                      current_time,
-               const LinearAlgebra::distributed::Vector<Number> &src,
-               LinearAlgebra::distributed::Vector<Number> &      dst) const;
-
     void
     perform_stage(const unsigned int stage,
                   const Number       cur_time,
@@ -620,43 +616,6 @@ namespace Euler_DG
     AssertDimension(body_force->n_components, dim);
 
     this->body_force = std::move(body_force);
-  }
-
-
-
-  template <int dim, int degree, int n_points_1d>
-  void EulerOperator<dim, degree, n_points_1d>::apply(
-    const double                                      current_time,
-    const LinearAlgebra::distributed::Vector<Number> &src,
-    LinearAlgebra::distributed::Vector<Number> &      dst) const
-  {
-    {
-      TimerOutput::Scope t(timer, "apply - integrals");
-
-      for (auto &i : inflow_boundaries)
-        i.second->set_time(current_time);
-      for (auto &i : subsonic_outflow_boundaries)
-        i.second->set_time(current_time);
-
-      data.loop(&EulerOperator::local_apply_cell,
-                &EulerOperator::local_apply_face,
-                &EulerOperator::local_apply_boundary_face,
-                this,
-                dst,
-                src,
-                true,
-                MatrixFree<dim, Number>::DataAccessOnFaces::values,
-                MatrixFree<dim, Number>::DataAccessOnFaces::values);
-    }
-
-    {
-      TimerOutput::Scope t(timer, "apply - inverse mass");
-
-      data.cell_loop(&EulerOperator::local_apply_inverse_mass_matrix,
-                     this,
-                     dst,
-                     dst);
-    }
   }
 
 
