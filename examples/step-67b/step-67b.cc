@@ -63,7 +63,7 @@ namespace Euler_DG
   constexpr unsigned int fe_degree            = 5;
   constexpr unsigned int n_q_points_1d        = fe_degree + 2;
 
-  constexpr unsigned int group_size = 1;
+  constexpr unsigned int group_size = numbers::invalid_unsigned_int;
 
   using Number = double;
 
