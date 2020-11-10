@@ -14,7 +14,7 @@
  * ---------------------------------------------------------------------
 
  *
- * Author: Martin Kronbichler, Peter Munch, 2020
+ * Author: Martin Kronbichler, Peter Munch, David Scheider, 2020
  */
 
 #include <deal.II/base/conditional_ostream.h>
