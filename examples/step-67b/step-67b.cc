@@ -14,7 +14,7 @@
  * ---------------------------------------------------------------------
 
  *
- * Author: Martin Kronbichler, Peter Munch, David Scheider, 2020
+ * Author: Martin Kronbichler, Peter Munch, David Schneider, 2020
  */
 
 #include <deal.II/base/conditional_ostream.h>
@@ -57,11 +57,23 @@ namespace Euler_DG
 {
   using namespace dealii;
 
+#if false
   constexpr unsigned int testcase             = 1;
   constexpr unsigned int dimension            = 2;
   constexpr unsigned int n_global_refinements = 3;
   constexpr unsigned int fe_degree            = 5;
   constexpr unsigned int n_q_points_1d        = fe_degree + 2;
+
+  constexpr unsigned int max_time_steps = numbers::invalid_unsigned_int;
+#else
+  constexpr unsigned int testcase             = 1;
+  constexpr unsigned int dimension            = 3;
+  constexpr unsigned int n_global_refinements = 2;
+  constexpr unsigned int fe_degree            = 5;
+  constexpr unsigned int n_q_points_1d        = fe_degree + 2;
+
+  constexpr unsigned int max_time_steps = 100;
+#endif
 
   constexpr unsigned int group_size = numbers::invalid_unsigned_int;
 
@@ -1484,7 +1496,7 @@ namespace Euler_DG
 
     unsigned int timestep_number = 0;
 
-    while (time < final_time - 1e-12)
+    while (time < final_time - 1e-12 && timestep_number < max_time_steps)
       {
         ++timestep_number;
         if (timestep_number % 5 == 0)

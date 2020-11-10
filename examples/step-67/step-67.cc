@@ -73,11 +73,23 @@ namespace Euler_DG
   // the final time up to which we run the simulation, and a variable
   // `output_tick` that specifies in which intervals we want to write output
   // (assuming that the tick is larger than the time step size).
-  constexpr unsigned int testcase             = 0;
+#if false
+  constexpr unsigned int testcase             = 1;
   constexpr unsigned int dimension            = 2;
   constexpr unsigned int n_global_refinements = 3;
   constexpr unsigned int fe_degree            = 5;
   constexpr unsigned int n_q_points_1d        = fe_degree + 2;
+
+  constexpr unsigned int max_time_steps = numbers::invalid_unsigned_int;
+#else
+  constexpr unsigned int testcase             = 1;
+  constexpr unsigned int dimension            = 3;
+  constexpr unsigned int n_global_refinements = 2;
+  constexpr unsigned int fe_degree            = 5;
+  constexpr unsigned int n_q_points_1d        = fe_degree + 2;
+
+  constexpr unsigned int max_time_steps = 100;
+#endif
 
   using Number = double;
 
@@ -2279,7 +2291,7 @@ namespace Euler_DG
     // mostly done by the TimerOutput::print_wall_time_statistics() function.
     unsigned int timestep_number = 0;
 
-    while (time < final_time - 1e-12)
+    while (time < final_time - 1e-12 && timestep_number < max_time_steps)
       {
         ++timestep_number;
         if (timestep_number % 5 == 0)
