@@ -465,6 +465,7 @@ namespace Euler_DG
       const MPI_Comm &   comm,
       const unsigned int group_size = numbers::invalid_unsigned_int)
     {
+#ifdef DEAL_II_WITH_MPI
       if (group_size == 1)
         {
           this->comm = MPI_COMM_SELF;
@@ -482,12 +483,18 @@ namespace Euler_DG
           MPI_Comm_split_type(
             comm, MPI_COMM_TYPE_SHARED, rank, MPI_INFO_NULL, &this->comm);
         }
+#else
+      (void)group_size;
+      this->comm = MPI_COMM_SELF;
+#endif
     }
 
     ~SubCommunicatorWrapper()
     {
+#ifdef DEAL_II_WITH_MPI
       if (this->comm != MPI_COMM_SELF)
         MPI_Comm_free(&comm);
+#endif
     }
 
     const MPI_Comm &get_communicator() const
@@ -691,8 +698,6 @@ namespace Euler_DG
     LinearAlgebra::distributed::Vector<Number> &      vec_ki,
     LinearAlgebra::distributed::Vector<Number> &      solution) const
   {
-    TimerOutput::Scope t(timer, "rk_stage - integrals L_h");
-
     for (auto &i : inflow_boundaries)
       i.second->set_time(current_time);
     for (auto &i : subsonic_outflow_boundaries)
