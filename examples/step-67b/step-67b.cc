@@ -63,6 +63,8 @@ namespace Euler_DG
   constexpr unsigned int fe_degree            = 5;
   constexpr unsigned int n_q_points_1d        = fe_degree + 2;
 
+  constexpr unsigned int group_size = 1;
+
   using Number = double;
 
   constexpr double gamma       = 1.4;
@@ -445,6 +447,49 @@ namespace Euler_DG
 
 
 
+  class SubCommunicatorWrapper
+  {
+  public:
+    SubCommunicatorWrapper(
+      const MPI_Comm &   comm,
+      const unsigned int group_size = numbers::invalid_unsigned_int)
+    {
+      if (group_size == 1)
+        {
+          this->comm = MPI_COMM_SELF;
+        }
+      else if (group_size != numbers::invalid_unsigned_int)
+        {
+          const auto rank = Utilities::MPI::this_mpi_process(comm);
+
+          MPI_Comm_split(comm, rank / group_size, rank, &this->comm);
+        }
+      else
+        {
+          const auto rank = Utilities::MPI::this_mpi_process(comm);
+
+          MPI_Comm_split_type(
+            comm, MPI_COMM_TYPE_SHARED, rank, MPI_INFO_NULL, &this->comm);
+        }
+    }
+
+    ~SubCommunicatorWrapper()
+    {
+      if (this->comm != MPI_COMM_SELF)
+        MPI_Comm_free(&comm);
+    }
+
+    const MPI_Comm &get_communicator() const
+    {
+      return comm;
+    }
+
+  private:
+    MPI_Comm comm;
+  };
+
+
+
   template <int dim, int degree, int n_points_1d>
   class EulerOperator
   {
@@ -491,6 +536,8 @@ namespace Euler_DG
     initialize_vector(LinearAlgebra::distributed::Vector<Number> &vector) const;
 
   private:
+    SubCommunicatorWrapper subcommunicator;
+
     MatrixFree<dim, Number> data;
 
     TimerOutput &timer;
@@ -507,7 +554,8 @@ namespace Euler_DG
 
   template <int dim, int degree, int n_points_1d>
   EulerOperator<dim, degree, n_points_1d>::EulerOperator(TimerOutput &timer)
-    : timer(timer)
+    : subcommunicator(MPI_COMM_WORLD, group_size)
+    , timer(timer)
   {}
 
 
@@ -538,6 +586,9 @@ namespace Euler_DG
 
     MatrixFreeTools::categorize_by_boundary_ids(dof_handler.get_triangulation(),
                                                 additional_data);
+
+    additional_data.communicator_sm = subcommunicator.get_communicator();
+    additional_data.use_vector_data_exchanger_full = true;
 
     data.reinit(
       mapping, dof_handlers, constraints, quadratures, additional_data);
