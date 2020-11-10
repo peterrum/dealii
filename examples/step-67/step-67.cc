@@ -1514,14 +1514,6 @@ namespace Euler_DG
         for (auto &i : subsonic_outflow_boundaries)
           i.second->set_time(current_time);
 
-        FEEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi(data);
-        FEEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi_temp(data);
-
-        FEFaceEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi_m(data,
-                                                                          true);
-        FEFaceEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi_p(
-          data, false);
-
         Tensor<1, dim, VectorizedArray<Number>> constant_body_force;
         const Functions::ConstantFunction<dim> *constant_function =
           dynamic_cast<Functions::ConstantFunction<dim> *>(body_force.get());
@@ -1530,23 +1522,32 @@ namespace Euler_DG
           constant_body_force = evaluate_function<dim, Number, dim>(
             *constant_function, Point<dim, VectorizedArray<Number>>());
 
-        const dealii::internal::EvaluatorTensorProduct<
-          dealii::internal::EvaluatorVariant::evaluate_evenodd,
-          dim,
-          n_points_1d,
-          n_points_1d,
-          VectorizedArray<Number>>
-          eval(AlignedVector<VectorizedArray<Number>>(),
-               data.get_shape_info().data[0].shape_gradients_collocation_eo,
-               AlignedVector<VectorizedArray<Number>>());
-
-        AlignedVector<VectorizedArray<Number>> buffer(phi.static_n_q_points *
-                                                      phi.n_components);
-
         data.template loop_cell_centric<
           LinearAlgebra::distributed::Vector<Number>,
           LinearAlgebra::distributed::Vector<Number>>(
           [&](const auto &, auto &dst, const auto &src, const auto cell_range) {
+            FEEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi(data);
+            FEEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi_temp(
+              data);
+
+            FEFaceEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi_m(
+              data, true);
+            FEFaceEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi_p(
+              data, false);
+
+            const dealii::internal::EvaluatorTensorProduct<
+              dealii::internal::EvaluatorVariant::evaluate_evenodd,
+              dim,
+              n_points_1d,
+              n_points_1d,
+              VectorizedArray<Number>>
+              eval(AlignedVector<VectorizedArray<Number>>(),
+                   data.get_shape_info().data[0].shape_gradients_collocation_eo,
+                   AlignedVector<VectorizedArray<Number>>());
+
+            AlignedVector<VectorizedArray<Number>> buffer(
+              phi.static_n_q_points * phi.n_components);
+
             for (unsigned int cell = cell_range.first; cell < cell_range.second;
                  ++cell)
               {
@@ -1637,9 +1638,9 @@ namespace Euler_DG
                     internal::FEFaceNormalEvaluationImpl<
                       dim,
                       n_points_1d - 1,
-                      dim + 2,
                       VectorizedArray<Number>>::
                       template interpolate_quadrature<true, false>(
+                        dim + 2,
                         data.get_shape_info(),
                         buffer.data(),
                         phi_m.begin_values(),
@@ -1731,9 +1732,9 @@ namespace Euler_DG
                     internal::FEFaceNormalEvaluationImpl<
                       dim,
                       n_points_1d - 1,
-                      dim + 2,
                       VectorizedArray<Number>>::
                       template interpolate_quadrature<false, true>(
+                        dim + 2,
                         data.get_shape_info(),
                         phi_m.begin_values(),
                         phi.begin_values(),
