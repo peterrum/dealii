@@ -426,14 +426,14 @@ namespace Euler_DG
 
 
   // General-purpose utility functions from step-67.
-  template <int dim, typename Number>
-  VectorizedArray<Number>
-  evaluate_function(const Function<dim> &                      function,
-                    const Point<dim, VectorizedArray<Number>> &p_vectorized,
-                    const unsigned int                         component)
+  template <int dim, typename VectorizedArrayType>
+  VectorizedArrayType
+  evaluate_function(const Function<dim> &                  function,
+                    const Point<dim, VectorizedArrayType> &p_vectorized,
+                    const unsigned int                     component)
   {
-    VectorizedArray<Number> result;
-    for (unsigned int v = 0; v < VectorizedArray<Number>::size(); ++v)
+    VectorizedArrayType result;
+    for (unsigned int v = 0; v < VectorizedArrayType::size(); ++v)
       {
         Point<dim> p;
         for (unsigned int d = 0; d < dim; ++d)
@@ -444,14 +444,14 @@ namespace Euler_DG
   }
 
 
-  template <int dim, typename Number, int n_components = dim + 2>
-  Tensor<1, n_components, VectorizedArray<Number>>
-  evaluate_function(const Function<dim> &                      function,
-                    const Point<dim, VectorizedArray<Number>> &p_vectorized)
+  template <int dim, typename VectorizedArrayType, int n_components = dim + 2>
+  Tensor<1, n_components, VectorizedArrayType>
+  evaluate_function(const Function<dim> &                  function,
+                    const Point<dim, VectorizedArrayType> &p_vectorized)
   {
     AssertDimension(function.n_components, n_components);
-    Tensor<1, n_components, VectorizedArray<Number>> result;
-    for (unsigned int v = 0; v < VectorizedArray<Number>::size(); ++v)
+    Tensor<1, n_components, VectorizedArrayType> result;
+    for (unsigned int v = 0; v < VectorizedArrayType::size(); ++v)
       {
         Point<dim> p;
         for (unsigned int d = 0; d < dim; ++d)
@@ -696,8 +696,9 @@ namespace Euler_DG
           dynamic_cast<Functions::ConstantFunction<dim> *>(body_force.get());
 
         if (constant_function)
-          constant_body_force = evaluate_function<dim, Number, dim>(
-            *constant_function, Point<dim, VectorizedArray<Number>>());
+          constant_body_force =
+            evaluate_function<dim, VectorizedArray<Number>, dim>(
+              *constant_function, Point<dim, VectorizedArray<Number>>());
 
         const dealii::internal::EvaluatorTensorProduct<
           dealii::internal::EvaluatorVariant::evaluate_evenodd,
@@ -756,7 +757,7 @@ namespace Euler_DG
                     const Tensor<1, dim, VectorizedArray<Number>> force =
                       constant_function ?
                         constant_body_force :
-                        evaluate_function<dim, Number, dim>(
+                        evaluate_function<dim, VectorizedArray<Number>, dim>(
                           *body_force, phi.quadrature_point(q));
 
                     Tensor<1, dim + 2, VectorizedArray<Number>> forcing;
