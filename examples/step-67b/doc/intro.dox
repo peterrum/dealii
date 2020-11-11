@@ -2,22 +2,22 @@
 <br>
 
 <i>
-This program was contributed by Martin Kronbichler, Peter Munch, and David 
+This program was contributed by Martin Kronbichler, Peter Munch, and David
 Schneider. Many of the features shown here have been added to deal.II during
-and for the development of the deal.II-based, efficient, matrix-free 
+and for the development of the deal.II-based, efficient, matrix-free
 finite-element library for high-dimensional partial differential equations
 hyper.deal (see https://github.com/hyperdeal/hyperdeal). For more details and
 for the application of these features in slightly different contexts (high-
 dimensional advection equation and Vlasov-Poisson equations) see the release
-paper "P. Munch, K. Kormann, M. Kronbichler, hyper.deal: An efficient, 
-matrix-free finite-element library for high-dimensional partial differential 
-equations, 2020"
+paper "P. Munch, K. Kormann, M. Kronbichler, hyper.deal: An efficient,
+matrix-free finite-element library for high-dimensional partial differential
+equations, 2020".
 
 This work was partly supported by the German Research Foundation (DFG) through
 the project "High-order discontinuous Galerkin for the exa-scale" (ExaDG)
 within the priority program "Software for Exascale Computing" (SPPEXA) and
-by the Bavarian government through the project "High-order matrix-free finite 
-element implementations with hybrid parallelization and improved data locality" 
+by the Bavarian government through the project "High-order matrix-free finite
+element implementations with hybrid parallelization and improved data locality"
 within the KONWIHR program.
 </i>
 
@@ -27,13 +27,18 @@ within the KONWIHR program.
 This tutorial program solves the Euler equations of fluid dynamics using an
 explicit time integrator with the matrix-free framework applied to a
 high-order discontinuous Galerkin discretization in space. The numerical
-approach used here is identical to that used in step-67, however, we use 
+approach used here is identical to that used in step-67, however, we use
 different advanced MatrixFree features to reach even higher throughput.
 
 The two main feature of this tutorial are:
 - the usage of shared memory features from MPI-3.0 and
 - the usage of cell-centric loops which allows to write to the global vector only
   once.
+
+Further topics we discuss in this tutorial are the usage and benefits of the
+template argument VectorizedArrayType (instead of simply using
+VectorizedArray<Number>), as well as, the possibility to pass lambdas to
+MatrixFree loops.
 
 For details on the numerics, we refer to the documentation of step-67. We
 concentrate here only on the differences.
