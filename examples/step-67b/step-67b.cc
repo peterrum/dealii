@@ -532,10 +532,10 @@ namespace Euler_DG
     void set_body_force(std::unique_ptr<Function<dim>> body_force);
 
     void
-    perform_stage(const unsigned int stage,
-                  const Number       cur_time,
-                  const Number       factor_solution,
-                  const Number       factor_ai,
+    perform_stage(const unsigned int                                stage,
+                  const Number                                      cur_time,
+                  const Number                                      bi,
+                  const Number                                      ai,
                   const LinearAlgebra::distributed::Vector<Number> &current_ri,
                   LinearAlgebra::distributed::Vector<Number> &      vec_ki,
                   LinearAlgebra::distributed::Vector<Number> &solution) const;
@@ -693,8 +693,8 @@ namespace Euler_DG
   void EulerOperator<dim, degree, n_points_1d>::perform_stage(
     const unsigned int                                stage,
     const Number                                      current_time,
-    const Number                                      factor_solution,
-    const Number                                      factor_ai,
+    const Number                                      bi,
+    const Number                                      ai,
     const LinearAlgebra::distributed::Vector<Number> &current_ri,
     LinearAlgebra::distributed::Vector<Number> &      vec_ki,
     LinearAlgebra::distributed::Vector<Number> &      solution) const
@@ -736,15 +736,18 @@ namespace Euler_DG
         AlignedVector<VectorizedArray<Number>> buffer(phi.static_n_q_points *
                                                       phi.n_components);
 
+        // Loop over all cell batches.
         for (unsigned int cell = cell_range.first; cell < cell_range.second;
              ++cell)
           {
             phi.reinit(cell);
 
-            if (factor_ai != Number())
+            if (ai != Number())
               phi_temp.reinit(cell);
 
-            if (factor_ai != Number() && stage == 0)
+            // Read values from global vector and compute the values at the
+            // quadrature points.
+            if (ai != Number() && stage == 0)
               {
                 phi.read_dof_values(src);
 
@@ -760,9 +763,14 @@ namespace Euler_DG
                 phi.gather_evaluate(src, EvaluationFlags::values);
               }
 
+            // Buffer the computed values at the quadrature points, since
+            // these are overridden by FEEvaluation::submit_value() in the next
+            // step, however, are needed later on for the face integrals.
             for (unsigned int i = 0; i < phi.static_n_q_points * (dim + 2); ++i)
               buffer[i] = phi.begin_values()[i];
 
+            // Apply cell integral at the cell quadrature points. See also the
+            // function EulerOperator::local_apply_cell() from step-67.
             for (unsigned int q = 0; q < phi.n_q_points; ++q)
               {
                 const auto w_q = phi.get_value(q);
@@ -983,34 +991,29 @@ namespace Euler_DG
 
             // Perform Runge-Kutta update and write results back to global
             // vectors.
-            {
-              const Number ai = factor_ai;
-              const Number bi = factor_solution;
+            if (ai == Number())
+              {
+                for (unsigned int q = 0; q < phi.static_dofs_per_cell; ++q)
+                  phi.begin_dof_values()[q] = bi * phi.begin_dof_values()[q];
+                phi.distribute_local_to_global(solution);
+              }
+            else
+              {
+                if (stage != 0)
+                  phi_temp.read_dof_values(solution);
 
-              if (ai == Number())
-                {
-                  for (unsigned int q = 0; q < phi.static_dofs_per_cell; ++q)
-                    phi.begin_dof_values()[q] = bi * phi.begin_dof_values()[q];
-                  phi.distribute_local_to_global(solution);
-                }
-              else
-                {
-                  if (stage != 0)
-                    phi_temp.read_dof_values(solution);
+                for (unsigned int q = 0; q < phi.static_dofs_per_cell; ++q)
+                  {
+                    const auto K_i = phi.begin_dof_values()[q];
 
-                  for (unsigned int q = 0; q < phi.static_dofs_per_cell; ++q)
-                    {
-                      const auto K_i = phi.begin_dof_values()[q];
+                    phi.begin_dof_values()[q] =
+                      phi_temp.begin_dof_values()[q] + (ai * K_i);
 
-                      phi.begin_dof_values()[q] =
-                        phi_temp.begin_dof_values()[q] + (ai * K_i);
-
-                      phi_temp.begin_dof_values()[q] += bi * K_i;
-                    }
-                  phi.set_dof_values(dst);
-                  phi_temp.set_dof_values(solution);
-                }
-            }
+                    phi_temp.begin_dof_values()[q] += bi * K_i;
+                  }
+                phi.set_dof_values(dst);
+                phi_temp.set_dof_values(solution);
+              }
           }
       },
       vec_ki,
@@ -1020,7 +1023,7 @@ namespace Euler_DG
   }
 
 
-
+  // From here the code of step-67 has not changed.
   template <int dim, int degree, int n_points_1d>
   void EulerOperator<dim, degree, n_points_1d>::project(
     const Function<dim> &                       function,
