@@ -78,7 +78,8 @@ namespace Euler_DG
 
   constexpr unsigned int group_size = numbers::invalid_unsigned_int;
 
-  using Number = double;
+  using Number              = double;
+  using VectorizedArrayType = VectorizedArray<double>;
 
   constexpr double gamma       = 1.4;
   constexpr double final_time  = testcase == 0 ? 10 : 2.0;
@@ -682,7 +683,7 @@ namespace Euler_DG
     // boundary-face integrals.
     data.template loop_cell_centric<LinearAlgebra::distributed::Vector<Number>,
                                     LinearAlgebra::distributed::Vector<Number>>(
-      [&](const auto &, auto &dst, const auto &src, const auto cell_range) {
+      [&](const auto &data, auto &dst, const auto &src, const auto cell_range) {
         FEEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi(data);
         FEEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi_temp(data);
 
@@ -691,27 +692,27 @@ namespace Euler_DG
         FEFaceEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi_p(
           data, false);
 
-        Tensor<1, dim, VectorizedArray<Number>> constant_body_force;
+        Tensor<1, dim, VectorizedArrayType>     constant_body_force;
         const Functions::ConstantFunction<dim> *constant_function =
           dynamic_cast<Functions::ConstantFunction<dim> *>(body_force.get());
 
         if (constant_function)
           constant_body_force =
-            evaluate_function<dim, VectorizedArray<Number>, dim>(
-              *constant_function, Point<dim, VectorizedArray<Number>>());
+            evaluate_function<dim, VectorizedArrayType, dim>(
+              *constant_function, Point<dim, VectorizedArrayType>());
 
         const dealii::internal::EvaluatorTensorProduct<
           dealii::internal::EvaluatorVariant::evaluate_evenodd,
           dim,
           n_points_1d,
           n_points_1d,
-          VectorizedArray<Number>>
-          eval(AlignedVector<VectorizedArray<Number>>(),
+          VectorizedArrayType>
+          eval(AlignedVector<VectorizedArrayType>(),
                data.get_shape_info().data[0].shape_gradients_collocation_eo,
-               AlignedVector<VectorizedArray<Number>>());
+               AlignedVector<VectorizedArrayType>());
 
-        AlignedVector<VectorizedArray<Number>> buffer(phi.static_n_q_points *
-                                                      phi.n_components);
+        AlignedVector<VectorizedArrayType> buffer(phi.static_n_q_points *
+                                                  phi.n_components);
 
         // Loop over all cell batches.
         for (unsigned int cell = cell_range.first; cell < cell_range.second;
@@ -754,13 +755,13 @@ namespace Euler_DG
                 phi.submit_gradient(euler_flux<dim>(w_q), q);
                 if (body_force.get() != nullptr)
                   {
-                    const Tensor<1, dim, VectorizedArray<Number>> force =
+                    const Tensor<1, dim, VectorizedArrayType> force =
                       constant_function ?
                         constant_body_force :
-                        evaluate_function<dim, VectorizedArray<Number>, dim>(
+                        evaluate_function<dim, VectorizedArrayType, dim>(
                           *body_force, phi.quadrature_point(q));
 
-                    Tensor<1, dim + 2, VectorizedArray<Number>> forcing;
+                    Tensor<1, dim + 2, VectorizedArrayType> forcing;
                     for (unsigned int d = 0; d < dim; ++d)
                       forcing[d + 1] = w_q[0] * force[d];
                     for (unsigned int d = 0; d < dim; ++d)
@@ -826,7 +827,7 @@ namespace Euler_DG
                 // interpolation.
                 internal::FEFaceNormalEvaluationImpl<dim,
                                                      n_points_1d - 1,
-                                                     VectorizedArray<Number>>::
+                                                     VectorizedArrayType>::
                   template interpolate_quadrature<true, false>(
                     dim + 2,
                     data.get_shape_info(),
@@ -871,7 +872,7 @@ namespace Euler_DG
 
                         bool at_outflow = false;
 
-                        Tensor<1, dim + 2, VectorizedArray<Number>> w_p;
+                        Tensor<1, dim + 2, VectorizedArrayType> w_p;
 
                         if (wall_boundaries.find(boundary_id) !=
                             wall_boundaries.end())
@@ -911,7 +912,7 @@ namespace Euler_DG
 
                         if (at_outflow)
                           for (unsigned int v = 0;
-                               v < VectorizedArray<Number>::size();
+                               v < VectorizedArrayType::size();
                                ++v)
                             {
                               if (rho_u_dot_n[v] < -1e-12)
@@ -927,7 +928,7 @@ namespace Euler_DG
                 // add into cell contribution via a simple 1D interpolation.
                 internal::FEFaceNormalEvaluationImpl<dim,
                                                      n_points_1d - 1,
-                                                     VectorizedArray<Number>>::
+                                                     VectorizedArrayType>::
                   template interpolate_quadrature<false, true>(
                     dim + 2,
                     data.get_shape_info(),
@@ -943,7 +944,7 @@ namespace Euler_DG
             // step-67.
             for (unsigned int q = 0; q < phi.static_n_q_points; ++q)
               {
-                const auto factor = VectorizedArray<Number>(1.0) / phi.JxW(q);
+                const auto factor = VectorizedArrayType(1.0) / phi.JxW(q);
                 for (unsigned int c = 0; c < dim + 2; ++c)
                   phi.begin_values()[c * phi.static_n_q_points + q] =
                     phi.begin_values()[c * phi.static_n_q_points + q] * factor;
@@ -957,14 +958,14 @@ namespace Euler_DG
               dim,
               degree + 1,
               n_points_1d,
-              VectorizedArray<Number>,
-              VectorizedArray<Number>>::do_backward(dim + 2,
-                                                    data.get_shape_info()
-                                                      .data[0]
-                                                      .inverse_shape_values_eo,
-                                                    false,
-                                                    phi.begin_values(),
-                                                    phi.begin_dof_values());
+              VectorizedArrayType,
+              VectorizedArrayType>::do_backward(dim + 2,
+                                                data.get_shape_info()
+                                                  .data[0]
+                                                  .inverse_shape_values_eo,
+                                                false,
+                                                phi.begin_values(),
+                                                phi.begin_dof_values());
 
             // Perform Runge-Kutta update and write results back to global
             // vectors.
@@ -1118,7 +1119,7 @@ namespace Euler_DG
       {
         phi.reinit(cell);
         phi.gather_evaluate(solution, EvaluationFlags::values);
-        VectorizedArray<Number> local_errors_squared[3] = {};
+        VectorizedArrayType local_errors_squared[3] = {};
         for (unsigned int q = 0; q < phi.n_q_points; ++q)
           {
             const auto error =
@@ -1160,16 +1161,16 @@ namespace Euler_DG
       {
         phi.reinit(cell);
         phi.gather_evaluate(solution, EvaluationFlags::values);
-        VectorizedArray<Number> local_max = 0.;
+        VectorizedArrayType local_max = 0.;
         for (unsigned int q = 0; q < phi.n_q_points; ++q)
           {
             const auto solution = phi.get_value(q);
             const auto velocity = euler_velocity<dim>(solution);
             const auto pressure = euler_pressure<dim>(solution);
 
-            const auto inverse_jacobian = phi.inverse_jacobian(q);
-            const auto convective_speed = inverse_jacobian * velocity;
-            VectorizedArray<Number> convective_limit = 0.;
+            const auto          inverse_jacobian = phi.inverse_jacobian(q);
+            const auto          convective_speed = inverse_jacobian * velocity;
+            VectorizedArrayType convective_limit = 0.;
             for (unsigned int d = 0; d < dim; ++d)
               convective_limit =
                 std::max(convective_limit, std::abs(convective_speed[d]));
@@ -1177,14 +1178,14 @@ namespace Euler_DG
             const auto speed_of_sound =
               std::sqrt(gamma * pressure * (1. / solution[0]));
 
-            Tensor<1, dim, VectorizedArray<Number>> eigenvector;
+            Tensor<1, dim, VectorizedArrayType> eigenvector;
             for (unsigned int d = 0; d < dim; ++d)
               eigenvector[d] = 1.;
             for (unsigned int i = 0; i < 5; ++i)
               {
                 eigenvector = transpose(inverse_jacobian) *
                               (inverse_jacobian * eigenvector);
-                VectorizedArray<Number> eigenvector_norm = 0.;
+                VectorizedArrayType eigenvector_norm = 0.;
                 for (unsigned int d = 0; d < dim; ++d)
                   eigenvector_norm =
                     std::max(eigenvector_norm, std::abs(eigenvector[d]));
@@ -1547,7 +1548,7 @@ namespace Euler_DG
   void EulerProblem<dim>::run()
   {
     {
-      const unsigned int n_vect_number = VectorizedArray<Number>::size();
+      const unsigned int n_vect_number = VectorizedArrayType::size();
       const unsigned int n_vect_bits   = 8 * sizeof(Number) * n_vect_number;
 
       pcout << "Running with "
