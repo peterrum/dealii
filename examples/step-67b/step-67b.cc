@@ -275,7 +275,6 @@ namespace Euler_DG
         {
           const double c_i = stage == 0 ? 0 : sum_previous_bi + ai[stage - 1];
 
-          // Source and destination registers are swapped after each stage
           pde_operator.perform_stage(stage,
                                      current_time + c_i * time_step,
                                      bi[stage] * time_step,
@@ -629,6 +628,9 @@ namespace Euler_DG
     for (auto &i : subsonic_outflow_boundaries)
       i.second->set_time(current_time);
 
+    // Run a cell-centric loop by calling MatrixFree::loop_cell_centric() and
+    // providing a lambda containing the effect of the cell, face and
+    // boundary-face integrals.
     data.template loop_cell_centric<LinearAlgebra::distributed::Vector<Number>,
                                     LinearAlgebra::distributed::Vector<Number>>(
       [&](const auto &, auto &dst, const auto &src, const auto cell_range) {
