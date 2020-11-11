@@ -434,7 +434,8 @@ namespace Step48
     additional_data.tasks_parallel_scheme =
       MatrixFree<dim>::AdditionalData::TasksParallelScheme::partition_partition;
 
-    matrix_free_data.reinit(dof_handler,
+    matrix_free_data.reinit(StaticMappingQ1<dim>::mapping,
+                            dof_handler,
                             constraints,
                             QGaussLobatto<1>(fe_degree + 1),
                             additional_data);

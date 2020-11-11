@@ -814,7 +814,8 @@ namespace Step37
         (update_gradients | update_JxW_values | update_quadrature_points);
       std::shared_ptr<MatrixFree<dim, double>> system_mf_storage(
         new MatrixFree<dim, double>());
-      system_mf_storage->reinit(dof_handler,
+      system_mf_storage->reinit(StaticMappingQ1<dim>::mapping,
+                                dof_handler,
                                 constraints,
                                 QGauss<1>(fe.degree + 1),
                                 additional_data);
@@ -869,7 +870,8 @@ namespace Step37
         additional_data.mg_level = level;
         std::shared_ptr<MatrixFree<dim, float>> mg_mf_storage_level(
           new MatrixFree<dim, float>());
-        mg_mf_storage_level->reinit(dof_handler,
+        mg_mf_storage_level->reinit(StaticMappingQ1<dim>::mapping,
+                                    dof_handler,
                                     level_constraints,
                                     QGauss<1>(fe.degree + 1),
                                     additional_data);

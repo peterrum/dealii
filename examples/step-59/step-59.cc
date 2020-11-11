@@ -1022,7 +1022,8 @@ namespace Step59
          update_quadrature_points);
       const auto system_mf_storage =
         std::make_shared<MatrixFree<dim, double>>();
-      system_mf_storage->reinit(dof_handler,
+      system_mf_storage->reinit(StaticMappingQ1<dim>::mapping,
+                                dof_handler,
                                 dummy,
                                 QGauss<1>(fe.degree + 1),
                                 additional_data);
@@ -1054,7 +1055,8 @@ namespace Step59
         additional_data.mg_level = level;
         const auto mg_mf_storage_level =
           std::make_shared<MatrixFree<dim, float>>();
-        mg_mf_storage_level->reinit(dof_handler,
+        mg_mf_storage_level->reinit(StaticMappingQ1<dim>::mapping,
+                                    dof_handler,
                                     dummy,
                                     QGauss<1>(fe.degree + 1),
                                     additional_data);
