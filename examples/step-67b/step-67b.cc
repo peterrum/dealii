@@ -57,6 +57,7 @@ namespace Euler_DG
 {
   using namespace dealii;
 
+  // Same input parameters as in step-67.
 #if true
   constexpr unsigned int testcase             = 1;
   constexpr unsigned int dimension            = 2;
@@ -84,95 +85,17 @@ namespace Euler_DG
   constexpr double output_tick = testcase == 0 ? 1 : 0.05;
 
   const double courant_number = 0.15 / std::pow(fe_degree, 1.5);
+
+  // Runge-Kutta related functions copied from step-67 and slightly modified
+  // with the purpose to minimize global vector access.
   enum LowStorageRungeKuttaScheme
   {
-    stage_3_order_3, /* Kennedy, Carpenter, Lewis, 2000 */
-    stage_5_order_4, /* Kennedy, Carpenter, Lewis, 2000 */
-    stage_7_order_4, /* Tselios, Simos, 2007 */
-    stage_9_order_5, /* Kennedy, Carpenter, Lewis, 2000 */
+    stage_3_order_3,
+    stage_5_order_4,
+    stage_7_order_4,
+    stage_9_order_5,
   };
   constexpr LowStorageRungeKuttaScheme lsrk_scheme = stage_5_order_4;
-
-  enum EulerNumericalFlux
-  {
-    lax_friedrichs_modified,
-    harten_lax_vanleer,
-  };
-  constexpr EulerNumericalFlux numerical_flux_type = lax_friedrichs_modified;
-
-
-
-  template <int dim>
-  class ExactSolution : public Function<dim>
-  {
-  public:
-    ExactSolution(const double time)
-      : Function<dim>(dim + 2, time)
-    {}
-
-    virtual double value(const Point<dim> & p,
-                         const unsigned int component = 0) const override;
-  };
-
-
-
-  template <int dim>
-  double ExactSolution<dim>::value(const Point<dim> & x,
-                                   const unsigned int component) const
-  {
-    const double t = this->get_time();
-
-    switch (testcase)
-      {
-        case 0:
-          {
-            Assert(dim == 2, ExcNotImplemented());
-            const double beta = 5;
-
-            Point<dim> x0;
-            x0[0] = 5.;
-            const double radius_sqr =
-              (x - x0).norm_square() - 2. * (x[0] - x0[0]) * t + t * t;
-            const double factor =
-              beta / (numbers::PI * 2) * std::exp(1. - radius_sqr);
-            const double density_log = std::log2(
-              std::abs(1. - (gamma - 1.) / gamma * 0.25 * factor * factor));
-            const double density = std::exp2(density_log * (1. / (gamma - 1.)));
-            const double u       = 1. - factor * (x[1] - x0[1]);
-            const double v       = factor * (x[0] - t - x0[0]);
-
-            if (component == 0)
-              return density;
-            else if (component == 1)
-              return density * u;
-            else if (component == 2)
-              return density * v;
-            else
-              {
-                const double pressure =
-                  std::exp2(density_log * (gamma / (gamma - 1.)));
-                return pressure / (gamma - 1.) +
-                       0.5 * (density * u * u + density * v * v);
-              }
-          }
-
-        case 1:
-          {
-            if (component == 0)
-              return 1.;
-            else if (component == 1)
-              return 0.4;
-            else if (component == dim + 1)
-              return 3.097857142857143;
-            else
-              return 0.;
-          }
-
-        default:
-          Assert(false, ExcNotImplemented());
-          return 0.;
-      }
-  }
 
 
 
@@ -294,6 +217,89 @@ namespace Euler_DG
     std::vector<double> bi;
     std::vector<double> ai;
   };
+
+
+  // Euler specific utility functions from step-67.
+  enum EulerNumericalFlux
+  {
+    lax_friedrichs_modified,
+    harten_lax_vanleer,
+  };
+  constexpr EulerNumericalFlux numerical_flux_type = lax_friedrichs_modified;
+
+
+
+  template <int dim>
+  class ExactSolution : public Function<dim>
+  {
+  public:
+    ExactSolution(const double time)
+      : Function<dim>(dim + 2, time)
+    {}
+
+    virtual double value(const Point<dim> & p,
+                         const unsigned int component = 0) const override;
+  };
+
+
+
+  template <int dim>
+  double ExactSolution<dim>::value(const Point<dim> & x,
+                                   const unsigned int component) const
+  {
+    const double t = this->get_time();
+
+    switch (testcase)
+      {
+        case 0:
+          {
+            Assert(dim == 2, ExcNotImplemented());
+            const double beta = 5;
+
+            Point<dim> x0;
+            x0[0] = 5.;
+            const double radius_sqr =
+              (x - x0).norm_square() - 2. * (x[0] - x0[0]) * t + t * t;
+            const double factor =
+              beta / (numbers::PI * 2) * std::exp(1. - radius_sqr);
+            const double density_log = std::log2(
+              std::abs(1. - (gamma - 1.) / gamma * 0.25 * factor * factor));
+            const double density = std::exp2(density_log * (1. / (gamma - 1.)));
+            const double u       = 1. - factor * (x[1] - x0[1]);
+            const double v       = factor * (x[0] - t - x0[0]);
+
+            if (component == 0)
+              return density;
+            else if (component == 1)
+              return density * u;
+            else if (component == 2)
+              return density * v;
+            else
+              {
+                const double pressure =
+                  std::exp2(density_log * (gamma / (gamma - 1.)));
+                return pressure / (gamma - 1.) +
+                       0.5 * (density * u * u + density * v * v);
+              }
+          }
+
+        case 1:
+          {
+            if (component == 0)
+              return 1.;
+            else if (component == 1)
+              return 0.4;
+            else if (component == dim + 1)
+              return 3.097857142857143;
+            else
+              return 0.;
+          }
+
+        default:
+          Assert(false, ExcNotImplemented());
+          return 0.;
+      }
+  }
 
 
 
@@ -419,6 +425,7 @@ namespace Euler_DG
 
 
 
+  // General-purpose utility functions from step-67.
   template <int dim, typename Number>
   VectorizedArray<Number>
   evaluate_function(const Function<dim> &                      function,
@@ -457,6 +464,14 @@ namespace Euler_DG
 
 
 
+  // A class storing a MPI sub-communicator. It furthermore handles the creation
+  // and freeing of the sub-communicator. The user can specify the size of
+  // the sub-communicator. If the size is set to -1, all MPI processes of a
+  // shared-memory domain are combined to a group. The specified size
+  // decisive for the benefit of the shared-memory capabilities of MatrixFree
+  // and such setting to size to -1 is a wise choice. By setting, the size to
+  // 1 users explicity disable the MPI-3.0 shared-memory features of MatrixFree
+  // and rely completely on MPI-2.0 features, such like, MPI_ISend and MPI_Recv.
   class SubCommunicatorWrapper
   {
   public:
@@ -464,7 +479,7 @@ namespace Euler_DG
       const MPI_Comm &   comm,
       const unsigned int group_size = numbers::invalid_unsigned_int)
     {
-#ifdef DEAL_II_WITH_MPI
+#if defined(DEAL_II_WITH_MPI) && DEAL_II_MPI_VERSION_GTE(3, 0)
       if (group_size == 1)
         {
           this->comm = MPI_COMM_SELF;
@@ -569,6 +584,8 @@ namespace Euler_DG
 
 
 
+  // New constructor. Create sub-communicator by calling the constructor
+  // of SubCommunicatorWrapper with a user-specified group size.
   template <int dim, int degree, int n_points_1d>
   EulerOperator<dim, degree, n_points_1d>::EulerOperator(TimerOutput &timer)
     : subcommunicator(MPI_COMM_WORLD, group_size)
@@ -577,6 +594,9 @@ namespace Euler_DG
 
 
 
+  // Modified reinit() function to setup the internal data structures in
+  // MatrixFree in a way that it is usable by the cell-centric loops and
+  // the MPI-3.0 shared-memory capabilities are used.
   template <int dim, int degree, int n_points_1d>
   void EulerOperator<dim, degree, n_points_1d>::reinit(
     const Mapping<dim> &   mapping,
@@ -601,9 +621,16 @@ namespace Euler_DG
     additional_data.tasks_parallel_scheme =
       MatrixFree<dim, Number>::AdditionalData::none;
 
+    // Categorize cells so that all lanes have the same boundary IDs for each
+    // face. This is strictly not necessary, however, allows to write simpler
+    // code in EulerOperator::perform_stage() without masking since it is
+    // guaranteed that all cells grouped together (in a VectorizedArray)
+    // have to perform exactly the same operation.
     MatrixFreeTools::categorize_by_boundary_ids(dof_handler.get_triangulation(),
                                                 additional_data);
 
+    // Enable MPI-3.0 shared-memory capabilities within MatrixFree by providing
+    // the sub-communicator.
     additional_data.communicator_sm = subcommunicator.get_communicator();
     additional_data.use_vector_data_exchanger_full = true;
 
@@ -612,7 +639,9 @@ namespace Euler_DG
   }
 
 
-
+  // This function does an entire stage of a Runge--Kutta update and is -
+  // alongside the slightly modified setup - the heart of this tutorial compared
+  // to step-67.
   template <int dim, int degree, int n_points_1d>
   void EulerOperator<dim, degree, n_points_1d>::perform_stage(
     const unsigned int                                stage,
