@@ -1,1 +1,1 @@
-An explicit time integrator for the Euler equations with matrix-free implementation.
+An alternative implementation for an explicit time integrator for the Euler equations with matrix-free implementation.
