@@ -47,6 +47,11 @@ namespace hp
   {
   public:
     /**
+     * Dimension.
+     */
+    static const int dimension = dim;
+
+    /**
      * Default constructor. Leads to an empty collection that can later be
      * filled using push_back().
      */

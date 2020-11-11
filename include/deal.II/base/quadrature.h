@@ -84,6 +84,11 @@ class Quadrature : public Subscriptor
 {
 public:
   /**
+   * Dimension.
+   */
+  static const int dimension = dim;
+
+  /**
    * Define an alias for a quadrature that acts on an object of one dimension
    * less. For cells, this would then be a face quadrature.
    */

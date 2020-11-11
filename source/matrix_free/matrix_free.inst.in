@@ -43,6 +43,20 @@ for (deal_II_dimension : DIMENSIONS;
         const std::vector<hp::QCollection<1>> &,
         const AdditionalData &);
 
+#if deal_II_dimension > 1
+    template void MatrixFree<deal_II_dimension,
+                             deal_II_scalar_vectorized::value_type,
+                             deal_II_scalar_vectorized>::
+      internal_reinit<deal_II_scalar_vectorized::value_type>(
+        const Mapping<deal_II_dimension> &,
+        const std::vector<const DoFHandler<deal_II_dimension> *> &,
+        const std::vector<
+          const AffineConstraints<deal_II_scalar_vectorized::value_type> *> &,
+        const std::vector<IndexSet> &,
+        const std::vector<hp::QCollection<deal_II_dimension>> &,
+        const AdditionalData &);
+#endif
+
     template const DoFHandler<deal_II_dimension> &
     MatrixFree<deal_II_dimension,
                deal_II_scalar_vectorized::value_type,
@@ -64,6 +78,19 @@ for (deal_II_dimension : DIMENSIONS;
         const std::vector<IndexSet> &,
         const std::vector<hp::QCollection<1>> &,
         const AdditionalData &);
+
+#if deal_II_dimension > 1
+    template void MatrixFree<deal_II_dimension,
+                             deal_II_float_vectorized::value_type,
+                             deal_II_float_vectorized>::
+      internal_reinit<double>(
+        const Mapping<deal_II_dimension> &,
+        const std::vector<const DoFHandler<deal_II_dimension> *> &,
+        const std::vector<const AffineConstraints<double> *> &,
+        const std::vector<IndexSet> &,
+        const std::vector<hp::QCollection<deal_II_dimension>> &,
+        const AdditionalData &);
+#endif
   }
 
 

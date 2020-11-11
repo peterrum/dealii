@@ -275,14 +275,14 @@ MatrixFree<dim, Number, VectorizedArrayType>::copy_from(
 
 
 template <int dim, typename Number, typename VectorizedArrayType>
-template <typename number2>
+template <typename number2, int q_dim>
 void
 MatrixFree<dim, Number, VectorizedArrayType>::internal_reinit(
   const Mapping<dim> &                                   mapping,
   const std::vector<const DoFHandler<dim, dim> *> &      dof_handler,
   const std::vector<const AffineConstraints<number2> *> &constraint,
   const std::vector<IndexSet> &                          locally_owned_dofs,
-  const std::vector<hp::QCollection<1>> &                quad,
+  const std::vector<hp::QCollection<q_dim>> &            quad,
   const typename MatrixFree<dim, Number, VectorizedArrayType>::AdditionalData
     &additional_data)
 {

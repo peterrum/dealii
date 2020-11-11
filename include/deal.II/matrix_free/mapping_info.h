@@ -320,7 +320,29 @@ namespace internal
        * CellIterator::level() and CellIterator::index(), in order to allow
        * for different kinds of iterators, e.g. standard DoFHandler,
        * multigrid, etc.)  on a fixed Triangulation. In addition, a mapping
-       * and several quadrature formulas are given.
+       * and several 1D quadrature formulas are given.
+       */
+      template <int q_dim>
+      void
+      initialize(
+        const dealii::Triangulation<dim> &                        tria,
+        const std::vector<std::pair<unsigned int, unsigned int>> &cells,
+        const FaceInfo<VectorizedArrayType::size()> &             faces,
+        const std::vector<unsigned int> &                  active_fe_index,
+        const Mapping<dim> &                               mapping,
+        const std::vector<dealii::hp::QCollection<q_dim>> &quad,
+        const UpdateFlags                                  update_flags_cells,
+        const UpdateFlags update_flags_boundary_faces,
+        const UpdateFlags update_flags_inner_faces,
+        const UpdateFlags update_flags_faces_by_cells);
+
+      /**
+       * Compute the information in the given cells and faces. The cells are
+       * specified by the level and the index within the level (as given by
+       * CellIterator::level() and CellIterator::index(), in order to allow
+       * for different kinds of iterators, e.g. standard DoFHandler,
+       * multigrid, etc.)  on a fixed Triangulation. In addition, a mapping
+       * and several 1D quadrature formulas are given.
        */
       void
       initialize(
@@ -642,6 +664,37 @@ namespace internal
     {
       AssertIndexRange(cell_no, cell_type.size());
       return cell_type[cell_no];
+    }
+
+
+
+    template <int dim, typename Number, typename VectorizedArrayType>
+    template <int q_dim>
+    inline void
+    MappingInfo<dim, Number, VectorizedArrayType>::initialize(
+      const dealii::Triangulation<dim> &                        tria,
+      const std::vector<std::pair<unsigned int, unsigned int>> &cells,
+      const FaceInfo<VectorizedArrayType::size()> &             faces,
+      const std::vector<unsigned int> &                         active_fe_index,
+      const Mapping<dim> &                                      mapping,
+      const std::vector<dealii::hp::QCollection<q_dim>> &       quad,
+      const UpdateFlags update_flags_cells,
+      const UpdateFlags update_flags_boundary_faces,
+      const UpdateFlags update_flags_inner_faces,
+      const UpdateFlags update_flags_faces_by_cells)
+    {
+      AssertThrow(false, ExcNotImplemented());
+
+      (void)tria;
+      (void)cells;
+      (void)faces;
+      (void)active_fe_index;
+      (void)mapping;
+      (void)quad;
+      (void)update_flags_cells;
+      (void)update_flags_boundary_faces;
+      (void)update_flags_inner_faces;
+      (void)update_flags_faces_by_cells;
     }
 
   } // end of namespace MatrixFreeFunctions

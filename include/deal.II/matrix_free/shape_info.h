@@ -318,6 +318,19 @@ namespace internal
                 const unsigned int        base_element = 0);
 
       /**
+       * Initializes the data fields. Takes a arbitrary-dimensional quadrature
+       * formula and a finite element as arguments and evaluates the shape
+       * functions, gradients and Hessians on the one-dimensional unit cell.
+       *
+       * @note Not implemented yet.
+       */
+      template <int dim, int q_dim>
+      void
+      reinit(const Quadrature<q_dim> & quad,
+             const FiniteElement<dim> &fe_dim,
+             const unsigned int        base_element = 0);
+
+      /**
        * Initializes the data fields. Takes a one-dimensional quadrature
        * formula and a finite element as arguments and evaluates the shape
        * functions, gradients and Hessians on the one-dimensional unit cell.
@@ -544,6 +557,21 @@ namespace internal
       AssertIndexRange(dimension, n_dimensions);
       AssertIndexRange(component, n_components);
       return *(data_access(dimension, component));
+    }
+
+
+    template <typename Number>
+    template <int dim, int q_dim>
+    void
+    ShapeInfo<Number>::reinit(const Quadrature<q_dim> & quad,
+                              const FiniteElement<dim> &fe_dim,
+                              const unsigned int        base_element)
+    {
+      AssertThrow(false, ExcNotImplemented());
+
+      (void)quad;
+      (void)fe_dim;
+      (void)base_element;
     }
 
   } // end of namespace MatrixFreeFunctions
