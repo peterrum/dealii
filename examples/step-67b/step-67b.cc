@@ -523,6 +523,7 @@ namespace Euler_DG
 
 
 
+  // Euler operator from step-67 with some changes as detailed below.
   template <int dim, int degree, int n_points_1d>
   class EulerOperator
   {
@@ -568,6 +569,9 @@ namespace Euler_DG
     initialize_vector(LinearAlgebra::distributed::Vector<Number> &vector) const;
 
   private:
+    // Instance of SubCommunicatorWrapper containing the sub-communicator, which
+    // we need to pass to MatrixFree::reinit() to be able to exploit MPI-3.0
+    // shared-memory capabilities.
     SubCommunicatorWrapper subcommunicator;
 
     MatrixFree<dim, Number> data;
@@ -642,6 +646,22 @@ namespace Euler_DG
   // This function does an entire stage of a Runge--Kutta update and is -
   // alongside the slightly modified setup - the heart of this tutorial compared
   // to step-67.
+  //
+  // In contrast to step-67, we are not executing the whole advection step
+  // (using MatrixFree::loop()) and inverse mass-matrix step
+  // (using MatrixFree::cell_loop()) in sequence but evaluate everything in
+  // one go inside of MatrixFree::loop_cell_centric(). This function expects
+  // a single function that is executed on each locally-owned (macro) cell as
+  // parameter so that we need to loop over all face of that cell and perform
+  // needed integration steps on our own.
+  //
+  // This function very much contains copies of the following functions from
+  // step-67 so that comments related the evaluation of the weak form are
+  // skipped here:
+  // - EulerDG::EulerOperator::local_apply_cell
+  // - EulerDG::EulerOperator::local_apply_face
+  // - EulerDG::EulerOperator::local_apply_boundary_face
+  // - EulerDG::EulerOperator::local_apply_inverse_mass_matrix
   template <int dim, int degree, int n_points_1d>
   void EulerOperator<dim, degree, n_points_1d>::perform_stage(
     const unsigned int                                stage,
