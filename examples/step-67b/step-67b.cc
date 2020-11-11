@@ -57,7 +57,7 @@ namespace Euler_DG
 {
   using namespace dealii;
 
-#if false
+#if true
   constexpr unsigned int testcase             = 1;
   constexpr unsigned int dimension            = 2;
   constexpr unsigned int n_global_refinements = 3;
@@ -785,6 +785,11 @@ namespace Euler_DG
                   }
               }
 
+            // Test with the gradient of the test functions in the quadrature
+            // points. We skip the interpolation back to the support points
+            // of the element, since we first collect all contributions in the
+            // cell quadrature points and only perform the interpolation back
+            // as the final step.
             {
               auto *values_ptr  = phi.begin_values();
               auto *grdient_ptr = phi.begin_gradients();
@@ -809,15 +814,31 @@ namespace Euler_DG
                 }
             }
 
+            // Loop over all faces of the current cell.
             for (unsigned int face = 0;
                  face < GeometryInfo<dim>::faces_per_cell;
                  ++face)
               {
-                const auto boundary_id =
-                  data.get_faces_by_cells_boundary_id(cell, face)[0];
+                // Determine the boundary ID of the current face. Since we have
+                // set up MatrixFree in a way that all filled lanes have
+                // guaranteed the same boundary ID, we can select the the
+                // boundary ID of the first lane.
+                const auto boundary_ids =
+                  data.get_faces_by_cells_boundary_id(cell, face);
+
+                Assert(std::equal(boundary_ids.begin(),
+                                  boundary_ids.begin() +
+                                    data.n_active_entries_per_cell_batch(cell),
+                                  boundary_ids.begin()),
+                       ExcMessage("Boundary IDs of lanes differ."));
+
+                const auto boundary_id = boundary_ids[0];
 
                 phi_m.reinit(cell, face);
 
+                // Interpolate the values at cell quadrature points to the
+                // quadrature point of the current face via a simple 1
+                // interpolation.
                 internal::FEFaceNormalEvaluationImpl<dim,
                                                      n_points_1d - 1,
                                                      VectorizedArray<Number>>::
@@ -829,8 +850,13 @@ namespace Euler_DG
                     false,
                     face);
 
+                // Check if face is an internal or a boundary face and
+                // select a different code path based on this information.
                 if (boundary_id == numbers::internal_face_boundary_id)
                   {
+                    // Process internal face. These lines of code are a copy of
+                    // the function EulerDG::EulerOperator::local_apply_face
+                    // from step-67.
                     phi_p.reinit(cell, face);
                     phi_p.gather_evaluate(src, EvaluationFlags::values);
 
@@ -845,6 +871,10 @@ namespace Euler_DG
                   }
                 else
                   {
+                    // Process boundary face. These lines of code are a copy of
+                    // the function
+                    // EulerDG::EulerOperator::local_apply_boundary_face from
+                    // step-67.
                     for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
                       {
                         const auto w_m    = phi_m.get_value(q);
@@ -908,6 +938,8 @@ namespace Euler_DG
                       }
                   }
 
+                // Evaluate local integrals related to cell by quadrature and
+                // add into cell contribution via a simple 1D interpolation.
                 internal::FEFaceNormalEvaluationImpl<dim,
                                                      n_points_1d - 1,
                                                      VectorizedArray<Number>>::
@@ -920,6 +952,10 @@ namespace Euler_DG
                     face);
               }
 
+            // Apply inverse mass matrix in the cell quadrature points. See
+            // also the function
+            // EulerDG::EulerOperator::local_apply_inverse_mass_matrix() from
+            // step-67.
             for (unsigned int q = 0; q < phi.static_n_q_points; ++q)
               {
                 const auto factor = VectorizedArray<Number>(1.0) / phi.JxW(q);
@@ -928,6 +964,8 @@ namespace Euler_DG
                     phi.begin_values()[c * phi.static_n_q_points + q] * factor;
               }
 
+            // Transformation from collocation space to the original
+            // Gauss-Lobatto space.
             internal::FEEvaluationImplBasisChange<
               dealii::internal::EvaluatorVariant::evaluate_evenodd,
               internal::EvaluatorQuantity::hessian,
@@ -943,7 +981,8 @@ namespace Euler_DG
                                                     phi.begin_values(),
                                                     phi.begin_dof_values());
 
-            // RK Stage
+            // Perform Runge-Kutta update and write results back to global
+            // vectors.
             {
               const Number ai = factor_ai;
               const Number bi = factor_solution;
