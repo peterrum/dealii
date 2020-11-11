@@ -785,31 +785,29 @@ namespace Euler_DG
                   }
               }
 
-            if (body_force.get() == nullptr)
-              {
-                for (unsigned int i = 0; i < phi.static_n_q_points * (dim + 2);
-                     ++i)
-                  phi.begin_values()[i] = 0.0;
-              }
+            {
+              auto *values_ptr  = phi.begin_values();
+              auto *grdient_ptr = phi.begin_gradients();
 
-            VectorizedArray<Number> *values_ptr  = phi.begin_values();
-            VectorizedArray<Number> *grdient_ptr = phi.begin_gradients();
+              for (unsigned int c = 0; c < dim + 2; ++c)
+                {
+                  if (dim >= 1 && body_force.get() == nullptr)
+                    eval.template gradients<0, false, false>(
+                      grdient_ptr + phi.static_n_q_points * 0, values_ptr);
+                  else if (dim >= 1)
+                    eval.template gradients<0, false, true>(
+                      grdient_ptr + phi.static_n_q_points * 0, values_ptr);
+                  if (dim >= 2)
+                    eval.template gradients<1, false, true>(
+                      grdient_ptr + phi.static_n_q_points * 1, values_ptr);
+                  if (dim >= 3)
+                    eval.template gradients<2, false, true>(
+                      grdient_ptr + phi.static_n_q_points * 2, values_ptr);
 
-            for (unsigned int c = 0; c < dim + 2; ++c)
-              {
-                if (dim >= 1)
-                  eval.template gradients<0, false, true>(
-                    grdient_ptr + phi.static_n_q_points * 0, values_ptr);
-                if (dim >= 2)
-                  eval.template gradients<1, false, true>(
-                    grdient_ptr + phi.static_n_q_points * 1, values_ptr);
-                if (dim >= 3)
-                  eval.template gradients<2, false, true>(
-                    grdient_ptr + phi.static_n_q_points * 2, values_ptr);
-
-                values_ptr += phi.static_n_q_points;
-                grdient_ptr += phi.static_n_q_points * dim;
-              }
+                  values_ptr += phi.static_n_q_points;
+                  grdient_ptr += phi.static_n_q_points * dim;
+                }
+            }
 
             for (unsigned int face = 0;
                  face < GeometryInfo<dim>::faces_per_cell;
