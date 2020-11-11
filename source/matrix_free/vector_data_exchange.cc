@@ -1347,7 +1347,7 @@ namespace internal
       Full::reset_ghost_values_impl(const ArrayView<Number> &ghost_array) const
       {
         return; // TODO
-        
+
         // reset ghost values coming from shared-memory neighbors
         // TODO: only needed if values are buffered
         for (const auto &i : sm_export_data_this.second)
