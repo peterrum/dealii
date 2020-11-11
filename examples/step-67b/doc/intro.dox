@@ -30,7 +30,7 @@ high-order discontinuous Galerkin discretization in space. The numerical
 approach used here is identical to that used in step-67, however, we use
 different advanced MatrixFree features to reach even higher throughput.
 
-The two main feature of this tutorial are:
+The two main features of this tutorial are:
 - the usage of shared memory features from MPI-3.0 and
 - the usage of cell-centric loops which allows to write to the global vector only
   once.
@@ -43,11 +43,72 @@ MatrixFree loops.
 For details on the numerics, we refer to the documentation of step-67. We
 concentrate here only on the differences.
 
+<h3>Shared-memory and hybrid parallelization with MPI-3.0</h3>
+
+There exist many shared-memory libraries that are based on threads, e.g., TBB,
+OpenMP, or TaskFlow. Integrating such libraries into existing MPI programs
+allows to use shared memory, however, comes with an overhead for the programmer,
+since all parallelizable code sections have to be found and transformed
+according to the library used, including the difficulty when some third-party
+numerical library like an iterative solver package only relies on MPI.
+
+TODO: Motivation for MPI-3.0
+
+TODO: commands
+
+TODO: comment: that these comments are part of L:d:V
+
+TODO: what does MatrixFree do
+
+TODO: how do you have to configure MatrixFree
+
+
 <h3>Cell-centric loops</h3>
 
+``Cell-centric loops'' process a cell and in direct succession processing all its
+2d faces (i.e., visiting all faces twice). Their benefit has become clear for
+modern CPU processor architecture in the literature [25], although this kind of
+loop implies that fluxes have to be computed twice (for each side of an interior
+face). The reasons for the advantage of ECL are twofold:
+- On the one hand, entries in the solution vector are written exactly only once
+  back to main memory in the case of ECL, while in the case of FCL at least once
+  despite of cache-efficient scheduling of cell and face loops-due to cache
+  capacity misses.
+- On the other hand, since each entry of the solution vector is accessed only
+  exactly once, no synchronization between threads is needed while accessing
+  the solution vector in the case of ECL. This absence of race conditions during
+  writing into the destination vector makes ECL particularly suitable for
+  shared-memory parallelization.
+
+One should also note that although fluxes are computed twice in the case of ECL,
+this does not automatically translate into doubling of the computation, since
+values already interpolated to the cell quadrature points can be interpolated
+to a face with a single 1D sweep.
+
+For cell-centric loop implementations the function `MatrixFree::loop_cell_centric()`
+can be used, to which a user can pass a function that should be performed on
+each cell.
+
+The functions provided to a `MatrixFree::loop()`:
+
 TODO
 
-<h3>Shared-memory parallelization with MPI-3.0</h3>
+might in principal look like this in the context of cell-centric loops:
 
 TODO
+
+It should be noted that `FEFaceEvaluation` are initialized now with to numbers,
+the cell number and the local face number (<2*dim). The given example only
+highlights how to transform face-centric loops to cell-centric loops and the
+result is by no mean efficient, since data is read and written multiple times
+from and to the global vector, as well as, computations are performed
+redundantly.Below, we will discuss advanced techniques that target these issues.
+
+To be able to use `MatrixFree::loop_cell_centric()` following flags have to be
+enabled of `MatirxFree::AdditionalData`:
+
+TODO
+
+Currently, cell-centric loops in deal.II only work for uniformly refined meshes.
+
 
