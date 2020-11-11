@@ -704,14 +704,6 @@ namespace Euler_DG
     for (auto &i : subsonic_outflow_boundaries)
       i.second->set_time(current_time);
 
-    Tensor<1, dim, VectorizedArray<Number>> constant_body_force;
-    const Functions::ConstantFunction<dim> *constant_function =
-      dynamic_cast<Functions::ConstantFunction<dim> *>(body_force.get());
-
-    if (constant_function)
-      constant_body_force = evaluate_function<dim, Number, dim>(
-        *constant_function, Point<dim, VectorizedArray<Number>>());
-
     data.template loop_cell_centric<LinearAlgebra::distributed::Vector<Number>,
                                     LinearAlgebra::distributed::Vector<Number>>(
       [&](const auto &, auto &dst, const auto &src, const auto cell_range) {
@@ -722,6 +714,14 @@ namespace Euler_DG
                                                                           true);
         FEFaceEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi_p(
           data, false);
+
+        Tensor<1, dim, VectorizedArray<Number>> constant_body_force;
+        const Functions::ConstantFunction<dim> *constant_function =
+          dynamic_cast<Functions::ConstantFunction<dim> *>(body_force.get());
+
+        if (constant_function)
+          constant_body_force = evaluate_function<dim, Number, dim>(
+            *constant_function, Point<dim, VectorizedArray<Number>>());
 
         const dealii::internal::EvaluatorTensorProduct<
           dealii::internal::EvaluatorVariant::evaluate_evenodd,
