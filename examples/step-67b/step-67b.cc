@@ -484,6 +484,7 @@ namespace Euler_DG
             comm, MPI_COMM_TYPE_SHARED, rank, MPI_INFO_NULL, &this->comm);
         }
 #else
+      (void)comm;
       (void)group_size;
       this->comm = MPI_COMM_SELF;
 #endif
