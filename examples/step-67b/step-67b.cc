@@ -78,9 +78,23 @@ namespace Euler_DG
 
   constexpr unsigned int group_size = numbers::invalid_unsigned_int;
 
-  using Number              = double;
-  using VectorizedArrayType = VectorizedArray<double>;
+  using Number = double;
 
+  // Here, the type of the data strucure is chosen for vectorization. In the
+  // default case, VectorizedArray<Number> is used, i.e., the highest
+  // instruction set architecture extension available on the given hardware with
+  // the maximum number of vector lanes is used. However, one might reduce
+  // the number of filled lanes, e.g., to reduce the pressure on the cache
+  // in the case that high polynial degrees and a high number of quadrature
+  // points are used. A possible further reason to reduce the number of filled
+  // is to simplify debugging: instead of having to have a look at, e.g., 8
+  // cells one can concentrate on a single cell.
+  //
+  // Note that once std::simd is part of C++, this will be the place one could
+  // specify to use these.
+  using VectorizedArrayType = VectorizedArray<Number>;
+
+  // The followin parameters have not changed.
   constexpr double gamma       = 1.4;
   constexpr double final_time  = testcase == 0 ? 10 : 2.0;
   constexpr double output_tick = testcase == 0 ? 1 : 0.05;
@@ -575,7 +589,7 @@ namespace Euler_DG
     // shared-memory capabilities.
     SubCommunicatorWrapper subcommunicator;
 
-    MatrixFree<dim, Number> data;
+    MatrixFree<dim, Number, VectorizedArrayType> data;
 
     TimerOutput &timer;
 
@@ -613,7 +627,8 @@ namespace Euler_DG
     const std::vector<Quadrature<1>> quadratures = {QGauss<1>(n_q_points_1d),
                                                     QGauss<1>(fe_degree + 1)};
 
-    typename MatrixFree<dim, Number>::AdditionalData additional_data;
+    typename MatrixFree<dim, Number, VectorizedArrayType>::AdditionalData
+      additional_data;
     additional_data.mapping_update_flags =
       (update_gradients | update_JxW_values | update_quadrature_points |
        update_values);
@@ -624,7 +639,7 @@ namespace Euler_DG
       (update_JxW_values | update_quadrature_points | update_normal_vectors |
        update_values);
     additional_data.tasks_parallel_scheme =
-      MatrixFree<dim, Number>::AdditionalData::none;
+      MatrixFree<dim, Number, VectorizedArrayType>::AdditionalData::none;
 
     // Categorize cells so that all lanes have the same boundary IDs for each
     // face. This is strictly not necessary, however, allows to write simpler
@@ -684,13 +699,23 @@ namespace Euler_DG
     data.template loop_cell_centric<LinearAlgebra::distributed::Vector<Number>,
                                     LinearAlgebra::distributed::Vector<Number>>(
       [&](const auto &data, auto &dst, const auto &src, const auto cell_range) {
-        FEEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi(data);
-        FEEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi_temp(data);
+        using FECellIntegral = FEEvaluation<dim,
+                                            degree,
+                                            n_points_1d,
+                                            dim + 2,
+                                            Number,
+                                            VectorizedArrayType>;
+        using FEFaceIntegral = FEFaceEvaluation<dim,
+                                                degree,
+                                                n_points_1d,
+                                                dim + 2,
+                                                Number,
+                                                VectorizedArrayType>;
 
-        FEFaceEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi_m(data,
-                                                                          true);
-        FEFaceEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi_p(
-          data, false);
+        FECellIntegral phi(data);
+        FECellIntegral phi_temp(data);
+        FEFaceIntegral phi_m(data, true);
+        FEFaceIntegral phi_p(data, false);
 
         Tensor<1, dim, VectorizedArrayType>     constant_body_force;
         const Functions::ConstantFunction<dim> *constant_function =
@@ -997,7 +1022,7 @@ namespace Euler_DG
       vec_ki,
       current_ri,
       true,
-      MatrixFree<dim, Number>::DataAccessOnFaces::values);
+      MatrixFree<dim, Number, VectorizedArrayType>::DataAccessOnFaces::values);
   }
 
 
@@ -1086,8 +1111,13 @@ namespace Euler_DG
     const Function<dim> &                       function,
     LinearAlgebra::distributed::Vector<Number> &solution) const
   {
-    FEEvaluation<dim, degree, degree + 1, dim + 2, Number> phi(data, 0, 1);
-    MatrixFreeOperators::CellwiseInverseMassMatrix<dim, degree, dim + 2, Number>
+    FEEvaluation<dim, degree, degree + 1, dim + 2, Number, VectorizedArrayType>
+      phi(data, 0, 1);
+    MatrixFreeOperators::CellwiseInverseMassMatrix<dim,
+                                                   degree,
+                                                   dim + 2,
+                                                   Number,
+                                                   VectorizedArrayType>
       inverse(phi);
     solution.zero_out_ghosts();
     for (unsigned int cell = 0; cell < data.n_macro_cells(); ++cell)
@@ -1113,7 +1143,8 @@ namespace Euler_DG
   {
     TimerOutput::Scope t(timer, "compute errors");
     double             errors_squared[3] = {};
-    FEEvaluation<dim, degree, n_points_1d, dim + 2, Number> phi(data, 0, 0);
+    FEEvaluation<dim, degree, n_points_1d, dim + 2, Number, VectorizedArrayType>
+      phi(data, 0, 0);
 
     for (unsigned int cell = 0; cell < data.n_cell_batches(); ++cell)
       {
@@ -1155,7 +1186,8 @@ namespace Euler_DG
   {
     TimerOutput::Scope t(timer, "compute transport speed");
     Number             max_transport = 0;
-    FEEvaluation<dim, degree, degree + 1, dim + 2, Number> phi(data, 0, 1);
+    FEEvaluation<dim, degree, degree + 1, dim + 2, Number, VectorizedArrayType>
+      phi(data, 0, 1);
 
     for (unsigned int cell = 0; cell < data.n_cell_batches(); ++cell)
       {
