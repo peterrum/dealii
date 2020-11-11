@@ -615,81 +615,6 @@ namespace Euler_DG
 
 
   template <int dim, int degree, int n_points_1d>
-  void EulerOperator<dim, degree, n_points_1d>::initialize_vector(
-    LinearAlgebra::distributed::Vector<Number> &vector) const
-  {
-    data.initialize_dof_vector(vector);
-  }
-
-
-
-  template <int dim, int degree, int n_points_1d>
-  void EulerOperator<dim, degree, n_points_1d>::set_inflow_boundary(
-    const types::boundary_id       boundary_id,
-    std::unique_ptr<Function<dim>> inflow_function)
-  {
-    AssertThrow(subsonic_outflow_boundaries.find(boundary_id) ==
-                    subsonic_outflow_boundaries.end() &&
-                  wall_boundaries.find(boundary_id) == wall_boundaries.end(),
-                ExcMessage("You already set the boundary with id " +
-                           std::to_string(static_cast<int>(boundary_id)) +
-                           " to another type of boundary before now setting " +
-                           "it as inflow"));
-    AssertThrow(inflow_function->n_components == dim + 2,
-                ExcMessage("Expected function with dim+2 components"));
-
-    inflow_boundaries[boundary_id] = std::move(inflow_function);
-  }
-
-
-  template <int dim, int degree, int n_points_1d>
-  void EulerOperator<dim, degree, n_points_1d>::set_subsonic_outflow_boundary(
-    const types::boundary_id       boundary_id,
-    std::unique_ptr<Function<dim>> outflow_function)
-  {
-    AssertThrow(inflow_boundaries.find(boundary_id) ==
-                    inflow_boundaries.end() &&
-                  wall_boundaries.find(boundary_id) == wall_boundaries.end(),
-                ExcMessage("You already set the boundary with id " +
-                           std::to_string(static_cast<int>(boundary_id)) +
-                           " to another type of boundary before now setting " +
-                           "it as subsonic outflow"));
-    AssertThrow(outflow_function->n_components == dim + 2,
-                ExcMessage("Expected function with dim+2 components"));
-
-    subsonic_outflow_boundaries[boundary_id] = std::move(outflow_function);
-  }
-
-
-  template <int dim, int degree, int n_points_1d>
-  void EulerOperator<dim, degree, n_points_1d>::set_wall_boundary(
-    const types::boundary_id boundary_id)
-  {
-    AssertThrow(inflow_boundaries.find(boundary_id) ==
-                    inflow_boundaries.end() &&
-                  subsonic_outflow_boundaries.find(boundary_id) ==
-                    subsonic_outflow_boundaries.end(),
-                ExcMessage("You already set the boundary with id " +
-                           std::to_string(static_cast<int>(boundary_id)) +
-                           " to another type of boundary before now setting " +
-                           "it as wall boundary"));
-
-    wall_boundaries.insert(boundary_id);
-  }
-
-
-  template <int dim, int degree, int n_points_1d>
-  void EulerOperator<dim, degree, n_points_1d>::set_body_force(
-    std::unique_ptr<Function<dim>> body_force)
-  {
-    AssertDimension(body_force->n_components, dim);
-
-    this->body_force = std::move(body_force);
-  }
-
-
-
-  template <int dim, int degree, int n_points_1d>
   void EulerOperator<dim, degree, n_points_1d>::perform_stage(
     const unsigned int                                stage,
     const Number                                      current_time,
@@ -1023,7 +948,86 @@ namespace Euler_DG
   }
 
 
+
   // From here the code of step-67 has not changed.
+  template <int dim, int degree, int n_points_1d>
+  void EulerOperator<dim, degree, n_points_1d>::initialize_vector(
+    LinearAlgebra::distributed::Vector<Number> &vector) const
+  {
+    data.initialize_dof_vector(vector);
+  }
+
+
+
+  template <int dim, int degree, int n_points_1d>
+  void EulerOperator<dim, degree, n_points_1d>::set_inflow_boundary(
+    const types::boundary_id       boundary_id,
+    std::unique_ptr<Function<dim>> inflow_function)
+  {
+    AssertThrow(subsonic_outflow_boundaries.find(boundary_id) ==
+                    subsonic_outflow_boundaries.end() &&
+                  wall_boundaries.find(boundary_id) == wall_boundaries.end(),
+                ExcMessage("You already set the boundary with id " +
+                           std::to_string(static_cast<int>(boundary_id)) +
+                           " to another type of boundary before now setting " +
+                           "it as inflow"));
+    AssertThrow(inflow_function->n_components == dim + 2,
+                ExcMessage("Expected function with dim+2 components"));
+
+    inflow_boundaries[boundary_id] = std::move(inflow_function);
+  }
+
+
+
+  template <int dim, int degree, int n_points_1d>
+  void EulerOperator<dim, degree, n_points_1d>::set_subsonic_outflow_boundary(
+    const types::boundary_id       boundary_id,
+    std::unique_ptr<Function<dim>> outflow_function)
+  {
+    AssertThrow(inflow_boundaries.find(boundary_id) ==
+                    inflow_boundaries.end() &&
+                  wall_boundaries.find(boundary_id) == wall_boundaries.end(),
+                ExcMessage("You already set the boundary with id " +
+                           std::to_string(static_cast<int>(boundary_id)) +
+                           " to another type of boundary before now setting " +
+                           "it as subsonic outflow"));
+    AssertThrow(outflow_function->n_components == dim + 2,
+                ExcMessage("Expected function with dim+2 components"));
+
+    subsonic_outflow_boundaries[boundary_id] = std::move(outflow_function);
+  }
+
+
+
+  template <int dim, int degree, int n_points_1d>
+  void EulerOperator<dim, degree, n_points_1d>::set_wall_boundary(
+    const types::boundary_id boundary_id)
+  {
+    AssertThrow(inflow_boundaries.find(boundary_id) ==
+                    inflow_boundaries.end() &&
+                  subsonic_outflow_boundaries.find(boundary_id) ==
+                    subsonic_outflow_boundaries.end(),
+                ExcMessage("You already set the boundary with id " +
+                           std::to_string(static_cast<int>(boundary_id)) +
+                           " to another type of boundary before now setting " +
+                           "it as wall boundary"));
+
+    wall_boundaries.insert(boundary_id);
+  }
+
+
+
+  template <int dim, int degree, int n_points_1d>
+  void EulerOperator<dim, degree, n_points_1d>::set_body_force(
+    std::unique_ptr<Function<dim>> body_force)
+  {
+    AssertDimension(body_force->n_components, dim);
+
+    this->body_force = std::move(body_force);
+  }
+
+
+
   template <int dim, int degree, int n_points_1d>
   void EulerOperator<dim, degree, n_points_1d>::project(
     const Function<dim> &                       function,
