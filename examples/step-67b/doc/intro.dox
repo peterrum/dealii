@@ -7,8 +7,8 @@ Schneider. Many of the features shown here have been added to deal.II during
 and for the development of the deal.II-based, efficient, matrix-free
 finite-element library for high-dimensional partial differential equations
 hyper.deal (see https://github.com/hyperdeal/hyperdeal). For more details and
-for the application of these features in slightly different contexts (high-
-dimensional advection equation and Vlasov-Poisson equations) see the release
+for applications of the presented features in slightly different contexts
+(high-dimensional advection equation and Vlasov-Poisson equations) see the release
 paper "P. Munch, K. Kormann, M. Kronbichler, hyper.deal: An efficient,
 matrix-free finite-element library for high-dimensional partial differential
 equations, 2020".
@@ -28,12 +28,12 @@ This tutorial program solves the Euler equations of fluid dynamics using an
 explicit time integrator with the matrix-free framework applied to a
 high-order discontinuous Galerkin discretization in space. The numerical
 approach used here is identical to that used in step-67, however, we use
-different advanced MatrixFree features to reach even higher throughput.
+different advanced MatrixFree techniques to reach even a higher throughput.
 
 The two main features of this tutorial are:
 - the usage of shared memory features from MPI-3.0 and
 - the usage of cell-centric loops which allows to write to the global vector only
-  once.
+  once and as such is ideal for the usage of shared memory.
 
 Further topics we discuss in this tutorial are the usage and benefits of the
 template argument VectorizedArrayType (instead of simply using
@@ -41,59 +41,160 @@ VectorizedArray<Number>), as well as, the possibility to pass lambdas to
 MatrixFree loops.
 
 For details on the numerics, we refer to the documentation of step-67. We
-concentrate here only on the differences.
+concentrate here only on the key differences.
 
 <h3>Shared-memory and hybrid parallelization with MPI-3.0</h3>
 
-There exist many shared-memory libraries that are based on threads, e.g., TBB,
+<h4>Motivation</h4>
+
+There exist many shared-memory libraries that are based on threads, like, TBB,
 OpenMP, or TaskFlow. Integrating such libraries into existing MPI programs
 allows to use shared memory, however, comes with an overhead for the programmer,
 since all parallelizable code sections have to be found and transformed
 according to the library used, including the difficulty when some third-party
 numerical library like an iterative solver package only relies on MPI.
 
-TODO: Motivation for MPI-3.0
+Considering a purely MPI-parallelized FEM application, one can identify that
+the major time and memory benefit of using shared memory would come from
+accessing the part of the solution vector owned by the processes on the same
+compute node without the need to make explicit copies and buffering them.
+Fur this propose, MPI-3.0 provides shared-memory features based on so called
+windows.
 
-TODO: commands
+<h4>Basic MPI-3.0 commands</h4>
 
-TODO: comment: that these comments are part of L:d:V
+In particular, following MPI-3.0 commands are mentionable. A new MPI
+communicator <code>comm_sm</code>, which consists of processes from the
+communicator <code>comm</code> that have access to the same shared memory, can
+be created via:
+
+@code
+MPI_Comm_split_type (comm, MPI_COMM_TYPE_SHARED, rank ,MPI_INFO_NULL, &comm_sm );
+@endcode
+
+The following code snippet shows the simplified allocation routines of
+shared memory for the value type <code>T</code> and the size
+<code>local_size</code>, as well as, how to query pointers to the data belonging
+to processes in the same shared memory domain:
+
+@code
+MPI_Win          win;         // window
+T *              data_this;   // pointer to locally-owned data
+std::vector<T *> data_others; // pointers to shared data
+
+// configure shared memory
+MPI_Info info;
+MPI_Info_create(&info);
+MPI_Info_set(info, "alloc_shared_noncontig", "true");
+
+// allocate shared memory
+MPI_Win_allocate_shared(local_size * sizeof(T), sizeof(T), info, comm_sm, &data_this, &win);
+
+// get pointers to the shared data owned by the processes is same sm domain
+data_others.resize(size_sm);
+for (int i = 0, int disp_unit, MPI_Aint ssize; i < size_sm; i++)
+  MPI_Win_shared_query(win, i, &ssize, &disp_unit, &data_others[i]);
+
+Assert(data_this==data_others[rank_sm], ExcMessage("Something went wrong!"));
+@endcode
+
+Once the data is not needed anymore, the window has to be freed, which also
+frees the locally-owned data:
+
+@code
+MPI_Win_free(&win)
+@endcode
+
+<h4>MPI-3.0 and LinearAlgebra::distributed::Vector</h4>
+
+The commands mentioned in the last sections are integrated into
+LinearAlgebra::distributed::Vector and are used to allocate shared memory if
+an optional (second) communicator is provided to the reinit()-functions.
+
+For example, a vector can be set up with a partitioner (containing the global
+communicator) and a sub-communicator (containing the processes on the same
+compute node):
+@code
+vec.reinit(partitioner, comm_sm);
+@endcode
+
+Locally owned values and ghost values can be processed as usual. However, now
+users also have read-access to the values of the shared-memory neighbors via
+the function:
+@code
+const std::vector<ArrayView<const Number>> &
+LinearAlgebra::distributed::Vector::shared_vector_data() const;
+@endcode
+
+<h4>MPI-3.0 and MatrixFree</h4>
+
+While LinearAlgebra::distributed::Vector provides the option to allocate
+shared memory and to access the values of shared memory of neighboring processes
+in a coordinated way, it does not actually exploits the benefits of the
+usage of shared memory itself.
 
 TODO: what does MatrixFree do
 
-TODO: how do you have to configure MatrixFree
+To be able to use the shared-memory capabilities of MatrixFree, MatrixFree
+has to be appropriately configured by providing the user-created sub-communicator:
+
+@code
+typename MatrixFree<dim, Number>::AdditionalData additional_data;
+
+// set flags as usual (not shown)
+
+additional_data.communicator_sm = comm_sm;
+
+data.reinit(mapping, dof_handler, constraint, quadrature, additional_data);
+@endcode
 
 
 <h3>Cell-centric loops</h3>
 
-``Cell-centric loops'' process a cell and in direct succession processing all its
+<h4>Motivation</h4>
+
+"Face-centric loops" (short FCL) visit cells and faces (inner and boundary ones) in
+separate loops. As a consequence each entity is only visited once and fluxes
+between cells are evaluated only once. How to perform face-centric loops
+with the help of MatrixFree::loop() by providing three functions (one for
+the cell integrals, one for the inner, and one for the boundary faces) has
+been presented in step-59 and step-67.
+
+"Cell-centric loops" (short CCL or ECL in the hyper.deal release paper), in
+contrast, process a cell and in direct succession processing all its
 2d faces (i.e., visiting all faces twice). Their benefit has become clear for
-modern CPU processor architecture in the literature [25], although this kind of
+modern CPU processor architecture in the literature (Martin Kronbichler and
+Katharina Kormann. 2019. Fast Matrix-Free Evaluation of Discontinuous Galerkin
+Finite Element Operators.), although this kind of
 loop implies that fluxes have to be computed twice (for each side of an interior
-face). The reasons for the advantage of ECL are twofold:
+face). The reasons for the advantage of CCL are twofold:
 - On the one hand, entries in the solution vector are written exactly only once
-  back to main memory in the case of ECL, while in the case of FCL at least once
+  back to main memory in the case of CCL, while in the case of FCL at least once
   despite of cache-efficient scheduling of cell and face loops-due to cache
   capacity misses.
 - On the other hand, since each entry of the solution vector is accessed only
   exactly once, no synchronization between threads is needed while accessing
-  the solution vector in the case of ECL. This absence of race conditions during
-  writing into the destination vector makes ECL particularly suitable for
+  the solution vector in the case of CCL. This absence of race conditions during
+  writing into the destination vector makes CCL particularly suitable for
   shared-memory parallelization.
 
-One should also note that although fluxes are computed twice in the case of ECL,
+One should also note that although fluxes are computed twice in the case of CCL,
 this does not automatically translate into doubling of the computation, since
 values already interpolated to the cell quadrature points can be interpolated
 to a face with a single 1D sweep.
+
+<h4>Cell-centric loops and MatrixFree</h4>
 
 For cell-centric loop implementations the function `MatrixFree::loop_cell_centric()`
 can be used, to which a user can pass a function that should be performed on
 each cell.
 
-The functions provided to a `MatrixFree::loop()`:
+In the first step, the functions provided to a `MatrixFree::loop()`:
 
 TODO
 
-might in principal look like this in the context of cell-centric loops:
+might in principal be merged in the context of cell-centric loops in the
+following way:
 
 TODO
 
@@ -102,7 +203,7 @@ the cell number and the local face number (<2*dim). The given example only
 highlights how to transform face-centric loops to cell-centric loops and the
 result is by no mean efficient, since data is read and written multiple times
 from and to the global vector, as well as, computations are performed
-redundantly.Below, we will discuss advanced techniques that target these issues.
+redundantly. Below, we will discuss advanced techniques that target these issues.
 
 To be able to use `MatrixFree::loop_cell_centric()` following flags have to be
 enabled of `MatirxFree::AdditionalData`:

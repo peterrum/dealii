@@ -17,6 +17,8 @@
  * Author: Martin Kronbichler, Peter Munch, David Schneider, 2020
  */
 
+// @sect3{Parameters and utility functions}
+
 #include <deal.II/base/conditional_ostream.h>
 #include <deal.II/base/function.h>
 #include <deal.II/base/logstream.h>
@@ -478,6 +480,7 @@ namespace Euler_DG
   }
 
 
+  // @sect3{MPI-3.0 shared memory}
 
   // A class storing a MPI sub-communicator. It furthermore handles the creation
   // and freeing of the sub-communicator. The user can specify the size of
@@ -536,7 +539,7 @@ namespace Euler_DG
     MPI_Comm comm;
   };
 
-
+  // @sect3{Euler operator using a cell-centric loop}
 
   // Euler operator from step-67 with some changes as detailed below.
   template <int dim, int degree, int n_points_1d>
