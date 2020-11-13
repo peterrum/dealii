@@ -307,7 +307,7 @@ matrix_free.template loop_cell_centric<VectorType, VectorType>(
 @endcode
 
 It should be noted that `FEFaceEvaluation` are initialized now with two numbers,
-the cell number and the local face number (<code><2*dim$</code>). The given example only
+the cell number and the local face number (<code><2*dim</code>). The given example only
 highlights how to transform face-centric loops to cell-centric loops and the
 result is by no mean efficient, since data is read and written multiple times
 from and to the global vector, as well as, computations are performed
