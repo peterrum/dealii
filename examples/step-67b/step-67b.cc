@@ -19,6 +19,7 @@
 
 // @sect3{Parameters and utility functions}
 
+// The same includes as in step-67.
 #include <deal.II/base/conditional_ostream.h>
 #include <deal.II/base/function.h>
 #include <deal.II/base/logstream.h>
@@ -43,6 +44,7 @@
 
 #include <deal.II/matrix_free/fe_evaluation.h>
 #include <deal.II/matrix_free/matrix_free.h>
+#include <deal.II/matrix_free/operators.h>
 
 #include <deal.II/numerics/data_out.h>
 
@@ -50,7 +52,7 @@
 #include <iomanip>
 #include <iostream>
 
-#include <deal.II/matrix_free/operators.h>
+// One new include: for categorizing of cells according to their boundary IDs.
 #include <deal.II/matrix_free/tools.h>
 
 
@@ -86,14 +88,9 @@ namespace Euler_DG
   // default case, VectorizedArray<Number> is used, i.e., the highest
   // instruction set architecture extension available on the given hardware with
   // the maximum number of vector lanes is used. However, one might reduce
-  // the number of filled lanes, e.g., to reduce the pressure on the cache
-  // in the case that high polynial degrees and a high number of quadrature
-  // points are used. A possible further reason to reduce the number of filled
-  // is to simplify debugging: instead of having to have a look at, e.g., 8
-  // cells one can concentrate on a single cell.
-  //
-  // Note that once std::simd is part of C++, this will be the place one could
-  // specify to use these.
+  // the number of filled lanes, e.g., by writing
+  // <code>using VectorizedArrayType = VectorizedArray<Number, 4></code> to only
+  // process 4 cells.
   using VectorizedArrayType = VectorizedArray<Number>;
 
   // The followin parameters have not changed.
@@ -485,11 +482,12 @@ namespace Euler_DG
   // A class storing a MPI sub-communicator. It furthermore handles the creation
   // and freeing of the sub-communicator. The user can specify the size of
   // the sub-communicator. If the size is set to -1, all MPI processes of a
-  // shared-memory domain are combined to a group. The specified size
+  // shared-memory domain are combined to a group. The specified size is
   // decisive for the benefit of the shared-memory capabilities of MatrixFree
   // and such setting to size to -1 is a wise choice. By setting, the size to
   // 1 users explicity disable the MPI-3.0 shared-memory features of MatrixFree
-  // and rely completely on MPI-2.0 features, such like, MPI_ISend and MPI_Recv.
+  // and rely completely on MPI-2.0 features, such like, <code>MPI_Isend</code>
+  // and <code>MPI_Irecv</code>.
   class SubCommunicatorWrapper
   {
   public:
@@ -607,7 +605,8 @@ namespace Euler_DG
 
 
   // New constructor. Create sub-communicator by calling the constructor
-  // of SubCommunicatorWrapper with a user-specified group size.
+  // of SubCommunicatorWrapper with a user-specified group size (see
+  // parameters).
   template <int dim, int degree, int n_points_1d>
   EulerOperator<dim, degree, n_points_1d>::EulerOperator(TimerOutput &timer)
     : subcommunicator(MPI_COMM_WORLD, group_size)
@@ -646,9 +645,9 @@ namespace Euler_DG
 
     // Categorize cells so that all lanes have the same boundary IDs for each
     // face. This is strictly not necessary, however, allows to write simpler
-    // code in EulerOperator::perform_stage() without masking since it is
+    // code in EulerOperator::perform_stage() without masking, since it is
     // guaranteed that all cells grouped together (in a VectorizedArray)
-    // have to perform exactly the same operation.
+    // have to perform exactly the same operation also on the faces.
     MatrixFreeTools::categorize_by_boundary_ids(dof_handler.get_triangulation(),
                                                 additional_data);
 
@@ -677,10 +676,10 @@ namespace Euler_DG
   // This function very much contains copies of the following functions from
   // step-67 so that comments related the evaluation of the weak form are
   // skipped here:
-  // - EulerDG::EulerOperator::local_apply_cell
-  // - EulerDG::EulerOperator::local_apply_face
-  // - EulerDG::EulerOperator::local_apply_boundary_face
-  // - EulerDG::EulerOperator::local_apply_inverse_mass_matrix
+  // - <code>EulerDG::EulerOperator::local_apply_cell</code>
+  // - <code>EulerDG::EulerOperator::local_apply_face</code>
+  // - <code>EulerDG::EulerOperator::local_apply_boundary_face</code>
+  // - <code>EulerDG::EulerOperator::local_apply_inverse_mass_matrix</code>
   template <int dim, int degree, int n_points_1d>
   void EulerOperator<dim, degree, n_points_1d>::perform_stage(
     const unsigned int                                stage,
@@ -776,7 +775,8 @@ namespace Euler_DG
               buffer[i] = phi.begin_values()[i];
 
             // Apply cell integral at the cell quadrature points. See also the
-            // function EulerOperator::local_apply_cell() from step-67.
+            // function <code>EulerOperator::local_apply_cell()</code> from
+            // step-67.
             for (unsigned int q = 0; q < phi.n_q_points; ++q)
               {
                 const auto w_q = phi.get_value(q);
@@ -851,7 +851,7 @@ namespace Euler_DG
                 phi_m.reinit(cell, face);
 
                 // Interpolate the values at cell quadrature points to the
-                // quadrature point of the current face via a simple 1
+                // quadrature point of the current face via a simple 1D
                 // interpolation.
                 internal::FEFaceNormalEvaluationImpl<dim,
                                                      n_points_1d - 1,
@@ -869,7 +869,8 @@ namespace Euler_DG
                 if (boundary_id == numbers::internal_face_boundary_id)
                   {
                     // Process internal face. These lines of code are a copy of
-                    // the function EulerDG::EulerOperator::local_apply_face
+                    // the function
+                    // <code>EulerDG::EulerOperator::local_apply_face</code>
                     // from step-67.
                     phi_p.reinit(cell, face);
                     phi_p.gather_evaluate(src, EvaluationFlags::values);
@@ -887,8 +888,8 @@ namespace Euler_DG
                   {
                     // Process boundary face. These lines of code are a copy of
                     // the function
-                    // EulerDG::EulerOperator::local_apply_boundary_face from
-                    // step-67.
+                    // <code>EulerDG::EulerOperator::local_apply_boundary_face</code>
+                    // from step-67.
                     for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
                       {
                         const auto w_m    = phi_m.get_value(q);
@@ -968,8 +969,8 @@ namespace Euler_DG
 
             // Apply inverse mass matrix in the cell quadrature points. See
             // also the function
-            // EulerDG::EulerOperator::local_apply_inverse_mass_matrix() from
-            // step-67.
+            // <code>EulerDG::EulerOperator::local_apply_inverse_mass_matrix()</code>
+            // from step-67.
             for (unsigned int q = 0; q < phi.static_n_q_points; ++q)
               {
                 const auto factor = VectorizedArrayType(1.0) / phi.JxW(q);

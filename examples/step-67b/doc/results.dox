@@ -50,7 +50,7 @@ By the modifications shown in this tutorial, we were able to achieve a speedup o
 <h3>Possibilities for extensions</h3>
 
 The algorithms are easily extendable to higher dimensions: a high-dimensional
-<a href="https://github.com/hyperdeal/hyperdeal/blob/a9e67b4e625ff1dde2fed93ad91cdfacfaa3acdf/include/hyper.deal/operators/advection/advection_operation.h#L219-L569">advection operator based on cell-centric loops</a> 
+<a href="https://github.com/hyperdeal/hyperdeal/blob/a9e67b4e625ff1dde2fed93ad91cdfacfaa3acdf/include/hyper.deal/operators/advection/advection_operation.h#L219-L569">advection operator based on cell-centric loops</a>
 is part of the hyper.deal library. An extension of cell-centric loops is more
 involved.
 
@@ -72,10 +72,10 @@ compute node or its influence can be reduced in a hybrid context.
 
 <h4>Block Gauss-Seidl like preconditioners</h4>
 
-Cell-centric loops could be used to create block Gauss-Seidl preconditioners 
+Cell-centric loops could be used to create block Gauss-Seidl preconditioners
 that are multiplicative within one process and additive over processes. These
-type of preconditioners use, in contrast to Jacobi type preconditioners, during
-flux computation already updated values from neighboring cells. The following
+type of preconditioners use during flux computation, in contrast to Jacobi type
+preconditioners, already updated values from neighboring cells. The following
 pseudo-code visualizes how this could in principal be achieved:
 
 @code
@@ -116,7 +116,7 @@ data.template loop_cell_centric<VectorType, VectorType>(
               }
           }
 
-        // continue as above and apply your favorite algorithm to invert 
+        // continue as above and apply your favorite algorithm to invert
         // the cell-local operator (not shown)
 
         // make cells as updated
@@ -135,11 +135,11 @@ MatrixFree and the range-based-iteration capabilities of VectorizedArray.
 Please note that in the given example, we process <code>VectorizedArrayType::size()</code>
 number of blocks, since each lane corresponds to one block. We consider blocks
 as updated if all blocks processed by a vector register have been updated. In
-the case of Cartesian meshes this is a reasonable approach, however, for 
+the case of Cartesian meshes this is a reasonable approach, however, for
 general unstructured meshes this conservative approach might lead to a decrease of the
 efficiency of the preconditioner. A reduction of cells processed in parallel
 by explicitly reducing the number of lanes used by <code>VectorizedArrayType</code>
 might increase the quality of the preconditioner, but with the cost that each
-iteration might be more expensive. This dilemma leads us to a further 
+iteration might be more expensive. This dilemma leads us to a further
 "possibility for extension": vectorization within an element.
 
