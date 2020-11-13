@@ -133,7 +133,19 @@ shared memory and to access the values of shared memory of neighboring processes
 in a coordinated way, it does not actually exploits the benefits of the
 usage of shared memory itself.
 
-TODO: what does MatrixFree do
+The MatrixFree infrastructure, however, does:
+- On the one hand, within  the matrix-free loop MatrixFree::loop(),
+  MatrixFree::cell_loop() and  MatrixFree::loop_cell_centric() only ghost
+  values are updated that indeed need to be updated. Ghost values from
+  shared-memory neighbors can be accessed directly, making buffering, i.e.,
+  copying of the values into the ghost region of a vector possibly redundant.
+  To deal with possible race conditions, necessary synchronizations are
+  performed within MatrixFree. In the case that values have to be buffered,
+  values are copied directly from the neighboring shared-memory process
+  bypassing more expensive MPI operations based on MPI_ISend and MPI_IRecv.
+- On the other hand, classes like FEvaluation and FEFaceEvaluation can read
+  directly from the shared memory so that buffering values is indeed
+  not necessary in certain cases.
 
 To be able to use the shared-memory capabilities of MatrixFree, MatrixFree
 has to be appropriately configured by providing the user-created sub-communicator:
@@ -191,15 +203,108 @@ each cell.
 
 In the first step, the functions provided to a `MatrixFree::loop()`:
 
-TODO
+@code
+matrix_free.template loop<VectorType, VectorType>(
+  [&](const auto &data, auto &dst, const auto &src, const auto range) {
+    FEEvaluation<dim, degree, degree + 1, 1, Number> phi(data);
+    for (unsigned int cell = range.first; cell < range.second; ++cell)
+      {
+        phi.reinit(cell);
+        phi.gather_evaluate(src, cell_evaluation_flags);
+
+        // some operations on the cell quadrature points
+
+        phi.integrate_scatter(cell_evaluation_flags, dst);
+      }
+  },
+  [&](const auto &data, auto &dst, const auto &src, const auto range) {
+    FEFaceEvaluation<dim, degree, degree + 1, 1, Number> phi_m(data, true);
+    FEFaceEvaluation<dim, degree, degree + 1, 1, Number> phi_p(data, false);
+
+    for (unsigned int face = range.first; face < range.second; ++face)
+      {
+        phi_m.reinit(face);
+        phi_m.gather_evaluate(src, face_evaluation_flags);
+        phi_p.reinit(face);
+        phi_p.gather_evaluate(src, face_evaluation_flags);
+
+        // some operations on the face quadrature points
+
+        phi_m.integrate_scatter(face_evaluation_flags, dst);
+        phi_p.integrate_scatter(face_evaluation_flags, dst);
+      }
+  },
+  [&](const auto &data, auto &dst, const auto &src, const auto range) {
+    FEFaceEvaluation<dim, degree, degree + 1, 1, Number> phi_m(data, true);
+
+    for (unsigned int face = range.first; face < range.second; ++face)
+      {
+        phi_m.reinit(face);
+        phi_m.gather_evaluate(src, face_evaluation_flags);
+
+        // some operations on the face quadrature points
+
+        phi_m.integrate_scatter(face_evaluation_flags, dst);
+      }
+  },
+  dst,
+  src);
+@endcode
 
 might in principal be merged in the context of cell-centric loops in the
 following way:
 
-TODO
+@code
+matrix_free.template loop_cell_centric<VectorType, VectorType>(
+  [&](const auto &data, auto &dst, const auto &src, const auto range) {
+    FEEvaluation<dim, degree, degree + 1, 1, Number>     phi(data);
+    FEFaceEvaluation<dim, degree, degree + 1, 1, Number> phi_m(data, true);
+    FEFaceEvaluation<dim, degree, degree + 1, 1, Number> phi_p(data, false);
+
+    for (unsigned int cell = range.first; cell < range.second; ++cell)
+      {
+        phi.reinit(cell);
+        phi.gather_evaluate(src, cell_evaluation_flags);
+
+        // some operations on the cell quadrature points
+
+        phi.integrate_scatter(cell_evaluation_flags, dst);
+
+        // loop over all faces of cell
+        for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell; ++face)
+          {
+            if (data.get_faces_by_cells_boundary_id(cell, face)[0] ==
+                numbers::internal_face_boundary_id)
+              {
+                // internal face
+                phi_m.reinit(cell, face);
+                phi_m.gather_evaluate(src, face_evaluation_flags);
+                phi_p.reinit(cell, face);
+                phi_p.gather_evaluate(src, face_evaluation_flags);
+
+                // some operations on the face quadrature points
+
+                phi_m.integrate_scatter(face_evaluation_flags, dst);
+              }
+            else
+              {
+                // boundary face
+                phi_m.reinit(cell, face);
+                phi_m.gather_evaluate(src, face_evaluation_flags);
+
+                // some operations on the face quadrature points
+
+                phi_m.integrate_scatter(face_evaluation_flags, dst);
+              }
+          }
+      }
+  },
+  dst,
+  src);
+@endcode
 
 It should be noted that `FEFaceEvaluation` are initialized now with to numbers,
-the cell number and the local face number (<2*dim). The given example only
+the cell number and the local face number ($<2*dim$). The given example only
 highlights how to transform face-centric loops to cell-centric loops and the
 result is by no mean efficient, since data is read and written multiple times
 from and to the global vector, as well as, computations are performed
@@ -208,8 +313,147 @@ redundantly. Below, we will discuss advanced techniques that target these issues
 To be able to use `MatrixFree::loop_cell_centric()` following flags have to be
 enabled of `MatirxFree::AdditionalData`:
 
-TODO
+@code
+typename MatrixFree<dim, Number>::AdditionalData additional_data;
+
+// set flags as usual (not shown)
+
+additional_data.hold_all_faces_to_owned_cells       = true;
+additional_data.mapping_update_flags_faces_by_cells =
+  additional_data.mapping_update_flags_inner_faces |
+  additional_data.mapping_update_flags_boundary_faces;
+
+data.reinit(mapping, dof_handler, constraint, quadrature, additional_data);
+@endcode
+
+In particular, these flags enable that the internal data structures are set up
+for all faces o fthe cells.
 
 Currently, cell-centric loops in deal.II only work for uniformly refined meshes.
 
 
+<h3>Providing lambdas to MatrixFree loops</h3>
+
+The examples given above already used lambdas, what have been provided to
+matrix-free loops. The following short examples present how to transform between
+the version where a class and a pointer to its methods are used and lambdas are
+used.
+
+In the following code, a class and a pointer one of its methods that should
+be interpreted as cell integral are passed to MatrixFree::loop():
+
+@code
+void
+local_apply_cell(const MatrixFree<dim, Number> &              data,
+                 VectorType &                                 dst,
+                 const VectorType &                           src,
+                 const std::pair<unsigned int, unsigned int> &range) const
+{
+  FEEvaluation<dim, degree, degree + 1, 1, Number> phi(data);
+  for (unsigned int cell = range.first; cell < range.second; ++cell)
+    {
+      phi.reinit(cell);
+      phi.gather_evaluate(src, cell_evaluation_flags);
+
+      // some operations on the quadrature points
+
+      phi.integrate_scatter(cell_evaluation_flags, dst);
+    }
+}
+@endcode
+
+@code
+matrix_free.cell_loop(&Operator::local_apply_cell, this, dst, src);
+@endcode
+
+However, it is also possible to pass an anonymous function via a lambda function
+with the same result:
+
+@code
+matrix_free.template cell_loop<VectorType, VectorType>(
+  [&](const auto &data, auto &dst, const auto &src, const auto range) {
+    FEEvaluation<dim, degree, degree + 1, 1, Number> phi(data);
+    for (unsigned int cell = range.first; cell < range.second; ++cell)
+      {
+        phi.reinit(cell);
+        phi.gather_evaluate(src, cell_evaluation_flags);
+
+        // some operations on the quadrature points
+
+        phi.integrate_scatter(cell_evaluation_flags, dst);
+      }
+  },
+  dst,
+  src);
+@endcode
+
+<h3>VectorizedArrayType</h3>
+
+The class VectorizedArray<Number> is a key component to achieve the high
+node-level performance of the matrix-free algorithms in deal.II [45, 46].
+It is a wrapper class around a short vector of $n$ entries of type Number and
+maps arithmetic operations to appropriate single-instruction/multiple-data
+(SIMD) concepts by intrinsic functions. The length of the vector can be
+queried by VectorizedArray::size() and its underlying number type by
+VectorizedArray::value_type.
+
+In the default case, the vector length is set at compile time of the library to
+match the highest value supported by the given processor architecture.
+Now, a second optional template argument can be
+specified as <code>VectorizedArray<Number, size></code>, where size explicitly
+controls the  vector length within the capabilities of a particular instruction
+set. A full list of supported vector lengths is presented in the following table:
+
+<table align="center" class="doxtable">
+  <tr>
+   <th>double</th>
+   <th>float</th>
+   <th>ISA</th>
+  </tr>
+  <tr>
+   <td><code>VectorizedArray<double, 1></code></td>
+   <td><code>VectorizedArray<float, 1></code></td>
+   <td>(auto-vectorization)</td>
+  </tr>
+  <tr>
+   <td><code>VectorizedArray<double, 2></code></td>
+   <td><code>VectorizedArray<float, 4></code></td>
+   <td>SSE2/AltiVec</td>
+  </tr>
+  <tr>
+   <td><code>VectorizedArray<double, 4></code></td>
+   <td><code>VectorizedArray<float, 8></code></td>
+   <td>AVX/AVX2</td>
+  </tr>
+  <tr>
+   <td><code>VectorizedArray<double, 8></code></td>
+   <td><code>VectorizedArray<float, 16></code></td>
+   <td>AVX-512</td>
+  </tr>
+</table>
+
+This allows users to select the vector length/ISA and, as a consequence, the
+number of cells to be processed at once in matrix-free operator evaluations,
+possibly reducing the pressure on the caches, an issue severe for very high
+degrees (and dimensions).
+
+This interface of VectorizedArray also enables replacement by any type with
+a matching interface. Specifically, this prepares deal.II for the std::simd
+class that is slated to become part of the C++23 standard. The following table
+compares the deal.II-speciic SIMD classes and the equivalent C++23 classes:
+
+
+<table align="center" class="doxtable">
+  <tr>
+   <th>VectorizedArray (deal.II)</th>
+   <th>std::simd (C++23)</th>
+  </tr>
+  <tr>
+   <td><code>VectorizedArray<Number></code></td>
+   <td><code>std::experimental::native_simd<Number></code></td>
+  </tr>
+  <tr>
+   <td><code>VectorizedArray<Number, size></code></td>
+   <td><code>std::experimental::ixed_size_simd<Number, size></code></td>
+  </tr>
+</table>

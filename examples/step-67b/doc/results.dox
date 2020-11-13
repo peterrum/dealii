@@ -123,4 +123,4 @@ data.template loop_cell_centric<VectorType, VectorType>(
 @endcode
 
 For this purpose, one can exploited the cell-data vector capabilities of
-MatrixFree.
+MatrixFree and the range-based-iteration capabilities of VectorizedArray.
