@@ -165,6 +165,8 @@ namespace internal
 
     if (type == MatrixFreeFunctions::tensor_none)
       {
+        AssertDimension(n_components, 1);
+
         const unsigned int n_dofs     = shape_info.dofs_per_component_on_cell;
         const unsigned int n_q_points = shape_info.n_q_points;
 
@@ -466,6 +468,8 @@ namespace internal
   {
     if (type == MatrixFreeFunctions::tensor_none)
       {
+        AssertDimension(n_components, 1);
+
         const unsigned int n_dofs     = shape_info.dofs_per_component_on_cell;
         const unsigned int n_q_points = shape_info.n_q_points;
 
