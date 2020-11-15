@@ -89,6 +89,13 @@ namespace internal
     static const EvaluatorVariant variant = evaluate_evenodd;
   };
 
+  template <bool is_long>
+  struct EvaluatorSelector<MatrixFreeFunctions::tensor_none, is_long>
+  {
+    static const EvaluatorVariant variant =
+      evaluate_evenodd; // make it compile^^
+  };
+
 
 
   /**
@@ -155,6 +162,37 @@ namespace internal
   {
     if (evaluation_flag == EvaluationFlags::nothing)
       return;
+
+    if (type == MatrixFreeFunctions::tensor_none)
+      {
+        AssertDimension(n_components, 1);
+
+        const unsigned int n_dofs     = shape_info.dofs_per_component_on_cell;
+        const unsigned int n_q_points = shape_info.n_q_points;
+
+        if (evaluation_flag & EvaluationFlags::values)
+          for (unsigned int q = 0, c = 0; q < shape_info.n_q_points; ++q)
+            {
+              values_quad[q] = 0.0;
+              for (unsigned int i = 0; i < n_dofs; ++i, ++c)
+                values_quad[q] +=
+                  shape_info.data[0].shape_values[c] * values_dofs_actual[i];
+            }
+
+        if (evaluation_flag & EvaluationFlags::gradients)
+          for (unsigned int d = 0; d < dim; ++d)
+            for (unsigned int q = 0; q < n_q_points; ++q)
+              {
+                gradients_quad[n_q_points * d + q] = 0.0;
+                for (unsigned int i = 0; i < n_dofs; ++i)
+                  gradients_quad[n_q_points * d + q] +=
+                    shape_info.data[0].shape_gradients[d * n_dofs * n_q_points +
+                                                       i * n_q_points + q] *
+                    values_dofs_actual[i];
+              }
+
+        return;
+      }
 
     const EvaluatorVariant variant =
       EvaluatorSelector<type, (fe_degree + n_q_points_1d > 4)>::variant;
@@ -428,6 +466,39 @@ namespace internal
     Number *                                      scratch_data,
     const bool                                    add_into_values_array)
   {
+    if (type == MatrixFreeFunctions::tensor_none)
+      {
+        AssertDimension(n_components, 1);
+
+        const unsigned int n_dofs     = shape_info.dofs_per_component_on_cell;
+        const unsigned int n_q_points = shape_info.n_q_points;
+
+        if (add_into_values_array == false)
+          for (unsigned int i = 0; i < n_dofs; ++i)
+            values_dofs_actual[i] = 0.0;
+
+        if (integration_flag & EvaluationFlags::values)
+          for (unsigned int q = 0, c = 0; q < shape_info.n_q_points; ++q)
+            {
+              for (unsigned int i = 0; i < n_dofs; ++i, ++c)
+                values_dofs_actual[i] +=
+                  shape_info.data[0].shape_values[c] * values_quad[q];
+            }
+
+        if (integration_flag & EvaluationFlags::gradients)
+          for (unsigned int d = 0; d < dim; ++d)
+            for (unsigned int q = 0; q < n_q_points; ++q)
+              {
+                for (unsigned int i = 0; i < n_dofs; ++i)
+                  values_dofs_actual[i] +=
+                    shape_info.data[0].shape_gradients[d * n_dofs * n_q_points +
+                                                       i * n_q_points + q] *
+                    gradients_quad[n_q_points * d + q];
+              }
+
+        return;
+      }
+
     const EvaluatorVariant variant =
       EvaluatorSelector<type, (fe_degree + n_q_points_1d > 4)>::variant;
     using Eval = EvaluatorTensorProduct<variant,
@@ -1499,6 +1570,22 @@ namespace internal
                               hessians_quad,
                               scratch_data);
         }
+      else if (shape_info.element_type ==
+               internal::MatrixFreeFunctions::tensor_none)
+        {
+          internal::FEEvaluationImpl<internal::MatrixFreeFunctions::tensor_none,
+                                     dim,
+                                     fe_degree,
+                                     n_q_points_1d,
+                                     Number>::evaluate(n_components,
+                                                       evaluation_flag,
+                                                       shape_info,
+                                                       values_dofs_actual,
+                                                       values_quad,
+                                                       gradients_quad,
+                                                       hessians_quad,
+                                                       scratch_data);
+        }
       else
         {
           internal::FEEvaluationImpl<
@@ -1644,6 +1731,22 @@ namespace internal
                                gradients_quad,
                                scratch_data,
                                sum_into_values_array);
+        }
+      else if (shape_info.element_type ==
+               internal::MatrixFreeFunctions::tensor_none)
+        {
+          internal::FEEvaluationImpl<internal::MatrixFreeFunctions::tensor_none,
+                                     dim,
+                                     fe_degree,
+                                     n_q_points_1d,
+                                     Number>::integrate(n_components,
+                                                        integration_flag,
+                                                        shape_info,
+                                                        values_dofs_actual,
+                                                        values_quad,
+                                                        gradients_quad,
+                                                        scratch_data,
+                                                        sum_into_values_array);
         }
       else
         {
