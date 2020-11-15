@@ -22,7 +22,7 @@ Time:       0, dt:   0.0003, norm rho:  5.385e-16, rho * u:  1.916e-16, energy: 
 +--------------------------------------+------------------+------------+------------------+
 @endcode
 
-As a reference, the results of step-67 using FCL is:
+As a reference, the results of step-67 using FCL are:
 
 @code
 Running with 40 MPI processes
@@ -51,30 +51,30 @@ By the modifications shown in this tutorial, we were able to achieve a speedup o
 
 The algorithms are easily extendable to higher dimensions: a high-dimensional
 <a href="https://github.com/hyperdeal/hyperdeal/blob/a9e67b4e625ff1dde2fed93ad91cdfacfaa3acdf/include/hyper.deal/operators/advection/advection_operation.h#L219-L569">advection operator based on cell-centric loops</a>
-is part of the hyper.deal library. An extension of cell-centric loops is more
-involved.
+is part of the hyper.deal library. An extension of cell-centric loops
+to locally-refined meshes is more involved.
 
-<h4>Extension to the compressible Navier-Stokes equation</h4>
+<h4>Extension to the compressible Navier-Stokes equations</h4>
 
 The solver presented in this tutorial program can also be extended to the
 compressible Navier–Stokes equations by adding viscous terms, as also
 suggested in step-67. To keep as much of the performance obtained here despite
 the additional cost of elliptic terms, e.g. via an interior penalty method, that
-tutorial suggested to switch the basis from FE_DGQ to FE_DGQHermite like in
+tutorial has proposed to switch the basis from FE_DGQ to FE_DGQHermite like in
 the step-59 tutorial program. The reasoning behind this switch is that in the
 case of FE_DGQ all values of neighboring cells (i.e., $k+1$ layers) are needed,
 whilst in the case of FE_DGQHermite only 2 layers, making the latter
-significantly more suitable for higher degrees. The additional layers have to be
-on the one hand loaded from main memory while flux computation while one the
-other hand have to be communicated. Using the shared memory capabilities
+significantly more suitable for higher degrees. The additional layers have to be,
+on the one hand, loaded from main memory during flux computation and, one the
+other hand, have to be communicated. Using the shared-memory capabilities
 introduced in this tutorial, the second point can be eliminated on a single
 compute node or its influence can be reduced in a hybrid context.
 
-<h4>Block Gauss-Seidl like preconditioners</h4>
+<h4>Block Gauss-Seidl-like preconditioners</h4>
 
 Cell-centric loops could be used to create block Gauss-Seidl preconditioners
 that are multiplicative within one process and additive over processes. These
-type of preconditioners use during flux computation, in contrast to Jacobi type
+type of preconditioners use during flux computation, in contrast to Jacobi-type
 preconditioners, already updated values from neighboring cells. The following
 pseudo-code visualizes how this could in principal be achieved:
 
@@ -129,14 +129,14 @@ data.template loop_cell_centric<VectorType, VectorType>(
   MatrixFree<dim, Number, VectorizedArrayType>::DataAccessOnFaces::values);
 @endcode
 
-For this purpose, one can exploited the cell-data vector capabilities of
-MatrixFree and the range-based-iteration capabilities of VectorizedArray.
+For this purpose, one can exploit the cell-data vector capabilities of
+MatrixFree and the range-based iteration capabilities of VectorizedArray.
 
-Please note that in the given example, we process <code>VectorizedArrayType::size()</code>
+Please note that in the given example we process <code>VectorizedArrayType::size()</code>
 number of blocks, since each lane corresponds to one block. We consider blocks
 as updated if all blocks processed by a vector register have been updated. In
 the case of Cartesian meshes this is a reasonable approach, however, for
-general unstructured meshes this conservative approach might lead to a decrease of the
+general unstructured meshes this conservative approach might lead to a decrease in the
 efficiency of the preconditioner. A reduction of cells processed in parallel
 by explicitly reducing the number of lanes used by <code>VectorizedArrayType</code>
 might increase the quality of the preconditioner, but with the cost that each

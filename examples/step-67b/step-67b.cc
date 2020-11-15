@@ -19,7 +19,7 @@
 
 // @sect3{Parameters and utility functions}
 
-// The same includes as in step-67.
+// The same includes as in step-67:
 #include <deal.II/base/conditional_ostream.h>
 #include <deal.II/base/function.h>
 #include <deal.II/base/logstream.h>
@@ -52,7 +52,7 @@
 #include <iomanip>
 #include <iostream>
 
-// One new include: for categorizing of cells according to their boundary IDs.
+// A new include for categorizing of cells according to their boundary IDs:
 #include <deal.II/matrix_free/tools.h>
 
 
@@ -61,7 +61,7 @@ namespace Euler_DG
 {
   using namespace dealii;
 
-  // Same input parameters as in step-67.
+  // The same input parameters as in step-67:
 #if true
   constexpr unsigned int testcase             = 1;
   constexpr unsigned int dimension            = 2;
@@ -86,22 +86,22 @@ namespace Euler_DG
 
   // Here, the type of the data strucure is chosen for vectorization. In the
   // default case, VectorizedArray<Number> is used, i.e., the highest
-  // instruction set architecture extension available on the given hardware with
+  // instruction-set-architecture extension available on the given hardware with
   // the maximum number of vector lanes is used. However, one might reduce
   // the number of filled lanes, e.g., by writing
   // <code>using VectorizedArrayType = VectorizedArray<Number, 4></code> to only
   // process 4 cells.
   using VectorizedArrayType = VectorizedArray<Number>;
 
-  // The followin parameters have not changed.
+  // The following parameters have not changed:
   constexpr double gamma       = 1.4;
   constexpr double final_time  = testcase == 0 ? 10 : 2.0;
   constexpr double output_tick = testcase == 0 ? 1 : 0.05;
 
   const double courant_number = 0.15 / std::pow(fe_degree, 1.5);
 
-  // Runge-Kutta related functions copied from step-67 and slightly modified
-  // with the purpose to minimize global vector access.
+  // Runge-Kutta-related functions copied from step-67 and slightly modified
+  // with the purpose to minimize global vector access:
   enum LowStorageRungeKuttaScheme
   {
     stage_3_order_3,
@@ -233,7 +233,7 @@ namespace Euler_DG
   };
 
 
-  // Euler specific utility functions from step-67.
+  // Euler-specific utility functions from step-67:
   enum EulerNumericalFlux
   {
     lax_friedrichs_modified,
@@ -439,7 +439,7 @@ namespace Euler_DG
 
 
 
-  // General-purpose utility functions from step-67.
+  // General-purpose utility functions from step-67:
   template <int dim, typename VectorizedArrayType>
   VectorizedArrayType
   evaluate_function(const Function<dim> &                  function,
@@ -479,15 +479,17 @@ namespace Euler_DG
 
   // @sect3{MPI-3.0 shared memory}
 
-  // A class storing a MPI sub-communicator. It furthermore handles the creation
+  // The following code snippet shows a class storing an MPI sub-communicator.
+  // It furthermore handles the creation
   // and freeing of the sub-communicator. The user can specify the size of
   // the sub-communicator. If the size is set to -1, all MPI processes of a
   // shared-memory domain are combined to a group. The specified size is
   // decisive for the benefit of the shared-memory capabilities of MatrixFree
-  // and such setting to size to -1 is a wise choice. By setting, the size to
-  // 1 users explicity disable the MPI-3.0 shared-memory features of MatrixFree
-  // and rely completely on MPI-2.0 features, such like, <code>MPI_Isend</code>
-  // and <code>MPI_Irecv</code>.
+  // and, therefore, setting the <code>size</code> to <code>-1</code> is a
+  // reasonable choice. By setting, the size to <code>1</code> users explicity
+  // disable the MPI-3.0 shared-memory features of MatrixFree and rely
+  // completely on MPI-2.0 features, like <code>MPI_Isend</code> and
+  // <code>MPI_Irecv</code>.
   class SubCommunicatorWrapper
   {
   public:
@@ -539,7 +541,7 @@ namespace Euler_DG
 
   // @sect3{Euler operator using a cell-centric loop}
 
-  // Euler operator from step-67 with some changes as detailed below.
+  // Euler operator from step-67 with some changes as detailed below:
   template <int dim, int degree, int n_points_1d>
   class EulerOperator
   {
@@ -587,7 +589,7 @@ namespace Euler_DG
   private:
     // Instance of SubCommunicatorWrapper containing the sub-communicator, which
     // we need to pass to MatrixFree::reinit() to be able to exploit MPI-3.0
-    // shared-memory capabilities.
+    // shared-memory capabilities:
     SubCommunicatorWrapper subcommunicator;
 
     MatrixFree<dim, Number, VectorizedArrayType> data;
@@ -604,9 +606,9 @@ namespace Euler_DG
 
 
 
-  // New constructor. Create sub-communicator by calling the constructor
-  // of SubCommunicatorWrapper with a user-specified group size (see
-  // parameters).
+  // New constructor, which creates a sub-communicator by calling the
+  // constructor of SubCommunicatorWrapper with a user-specified group size (see
+  // parameters):
   template <int dim, int degree, int n_points_1d>
   EulerOperator<dim, degree, n_points_1d>::EulerOperator(TimerOutput &timer)
     : subcommunicator(MPI_COMM_WORLD, group_size)
@@ -617,7 +619,7 @@ namespace Euler_DG
 
   // Modified reinit() function to setup the internal data structures in
   // MatrixFree in a way that it is usable by the cell-centric loops and
-  // the MPI-3.0 shared-memory capabilities are used.
+  // the MPI-3.0 shared-memory capabilities are used:
   template <int dim, int degree, int n_points_1d>
   void EulerOperator<dim, degree, n_points_1d>::reinit(
     const Mapping<dim> &   mapping,
@@ -652,7 +654,7 @@ namespace Euler_DG
                                                 additional_data);
 
     // Enable MPI-3.0 shared-memory capabilities within MatrixFree by providing
-    // the sub-communicator.
+    // the sub-communicator:
     additional_data.communicator_sm = subcommunicator.get_communicator();
     additional_data.use_vector_data_exchanger_full = true;
 
@@ -661,21 +663,21 @@ namespace Euler_DG
   }
 
 
-  // This function does an entire stage of a Runge--Kutta update and is -
-  // alongside the slightly modified setup - the heart of this tutorial compared
-  // to step-67.
+  // The following function does an entire stage of a Runge--Kutta update and is
+  // - alongside the slightly modified setup - the heart of this tutorial
+  // compared to step-67.
   //
-  // In contrast to step-67, we are not executing the whole advection step
-  // (using MatrixFree::loop()) and inverse mass-matrix step
-  // (using MatrixFree::cell_loop()) in sequence but evaluate everything in
+  // In contrast to step-67, we are not executing the advection step
+  // (using MatrixFree::loop()) and the inverse mass-matrix step
+  // (using MatrixFree::cell_loop()) in sequence, but evaluate everything in
   // one go inside of MatrixFree::loop_cell_centric(). This function expects
   // a single function that is executed on each locally-owned (macro) cell as
-  // parameter so that we need to loop over all face of that cell and perform
+  // parameter so that we need to loop over all faces of that cell and perform
   // needed integration steps on our own.
   //
-  // This function very much contains copies of the following functions from
-  // step-67 so that comments related the evaluation of the weak form are
-  // skipped here:
+  // The following function contains to a large extent copies of the following
+  // functions from step-67 so that comments related the evaluation of the weak
+  // form are skipped here:
   // - <code>EulerDG::EulerOperator::local_apply_cell</code>
   // - <code>EulerDG::EulerOperator::local_apply_face</code>
   // - <code>EulerDG::EulerOperator::local_apply_boundary_face</code>
@@ -696,8 +698,8 @@ namespace Euler_DG
       i.second->set_time(current_time);
 
     // Run a cell-centric loop by calling MatrixFree::loop_cell_centric() and
-    // providing a lambda containing the effect of the cell, face and
-    // boundary-face integrals.
+    // providing a lambda containing the effects of the cell, face and
+    // boundary-face integrals:
     data.template loop_cell_centric<LinearAlgebra::distributed::Vector<Number>,
                                     LinearAlgebra::distributed::Vector<Number>>(
       [&](const auto &data, auto &dst, const auto &src, const auto cell_range) {
@@ -741,7 +743,7 @@ namespace Euler_DG
         AlignedVector<VectorizedArrayType> buffer(phi.static_n_q_points *
                                                   phi.n_components);
 
-        // Loop over all cell batches.
+        // Loop over all cell batches:
         for (unsigned int cell = cell_range.first; cell < cell_range.second;
              ++cell)
           {
@@ -751,7 +753,7 @@ namespace Euler_DG
               phi_temp.reinit(cell);
 
             // Read values from global vector and compute the values at the
-            // quadrature points.
+            // quadrature points:
             if (ai != Number() && stage == 0)
               {
                 phi.read_dof_values(src);
@@ -770,13 +772,13 @@ namespace Euler_DG
 
             // Buffer the computed values at the quadrature points, since
             // these are overridden by FEEvaluation::submit_value() in the next
-            // step, however, are needed later on for the face integrals.
+            // step, however, are needed later on for the face integrals:
             for (unsigned int i = 0; i < phi.static_n_q_points * (dim + 2); ++i)
               buffer[i] = phi.begin_values()[i];
 
-            // Apply cell integral at the cell quadrature points. See also the
-            // function <code>EulerOperator::local_apply_cell()</code> from
-            // step-67.
+            // Apply the cell integral at the cell quadrature points. See also
+            // the function <code>EulerOperator::local_apply_cell()</code> from
+            // step-67:
             for (unsigned int q = 0; q < phi.n_q_points; ++q)
               {
                 const auto w_q = phi.get_value(q);
@@ -828,14 +830,14 @@ namespace Euler_DG
                 }
             }
 
-            // Loop over all faces of the current cell.
+            // Loop over all faces of the current cell:
             for (unsigned int face = 0;
                  face < GeometryInfo<dim>::faces_per_cell;
                  ++face)
               {
                 // Determine the boundary ID of the current face. Since we have
                 // set up MatrixFree in a way that all filled lanes have
-                // guaranteed the same boundary ID, we can select the the
+                // guaranteed the same boundary ID, we can select the
                 // boundary ID of the first lane.
                 const auto boundary_ids =
                   data.get_faces_by_cells_boundary_id(cell, face);
@@ -850,9 +852,9 @@ namespace Euler_DG
 
                 phi_m.reinit(cell, face);
 
-                // Interpolate the values at cell quadrature points to the
-                // quadrature point of the current face via a simple 1D
-                // interpolation.
+                // Interpolate the values from the cell quadrature points to the
+                // quadrature points of the current face via a simple 1D
+                // interpolation:
                 internal::FEFaceNormalEvaluationImpl<dim,
                                                      n_points_1d - 1,
                                                      VectorizedArrayType>::
@@ -864,14 +866,14 @@ namespace Euler_DG
                     false,
                     face);
 
-                // Check if face is an internal or a boundary face and
-                // select a different code path based on this information.
+                // Check if the face is an internal or a boundary face and
+                // select a different code path based on this information:
                 if (boundary_id == numbers::internal_face_boundary_id)
                   {
-                    // Process internal face. These lines of code are a copy of
-                    // the function
+                    // Process and internal face. The following lines of code
+                    // are a copy of the function
                     // <code>EulerDG::EulerOperator::local_apply_face</code>
-                    // from step-67.
+                    // from step-67:
                     phi_p.reinit(cell, face);
                     phi_p.gather_evaluate(src, EvaluationFlags::values);
 
@@ -886,10 +888,10 @@ namespace Euler_DG
                   }
                 else
                   {
-                    // Process boundary face. These lines of code are a copy of
-                    // the function
+                    // Process a boundary face. These following lines of code
+                    // are a copy of the function
                     // <code>EulerDG::EulerOperator::local_apply_boundary_face</code>
-                    // from step-67.
+                    // from step-67:
                     for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
                       {
                         const auto w_m    = phi_m.get_value(q);
@@ -954,7 +956,7 @@ namespace Euler_DG
                   }
 
                 // Evaluate local integrals related to cell by quadrature and
-                // add into cell contribution via a simple 1D interpolation.
+                // add into cell contribution via a simple 1D interpolation:
                 internal::FEFaceNormalEvaluationImpl<dim,
                                                      n_points_1d - 1,
                                                      VectorizedArrayType>::
@@ -970,7 +972,7 @@ namespace Euler_DG
             // Apply inverse mass matrix in the cell quadrature points. See
             // also the function
             // <code>EulerDG::EulerOperator::local_apply_inverse_mass_matrix()</code>
-            // from step-67.
+            // from step-67:
             for (unsigned int q = 0; q < phi.static_n_q_points; ++q)
               {
                 const auto factor = VectorizedArrayType(1.0) / phi.JxW(q);
@@ -979,8 +981,8 @@ namespace Euler_DG
                     phi.begin_values()[c * phi.static_n_q_points + q] * factor;
               }
 
-            // Transformation from collocation space to the original
-            // Gauss-Lobatto space.
+            // Transform vales from collocation space to the original
+            // Gauss-Lobatto space:
             internal::FEEvaluationImplBasisChange<
               dealii::internal::EvaluatorVariant::evaluate_evenodd,
               internal::EvaluatorQuantity::hessian,
@@ -997,7 +999,7 @@ namespace Euler_DG
                                                 phi.begin_dof_values());
 
             // Perform Runge-Kutta update and write results back to global
-            // vectors.
+            // vectors:
             if (ai == Number())
               {
                 for (unsigned int q = 0; q < phi.static_dofs_per_cell; ++q)
@@ -1031,7 +1033,7 @@ namespace Euler_DG
 
 
 
-  // From here the code of step-67 has not changed.
+  // From here, the code of step-67 has not changed.
   template <int dim, int degree, int n_points_1d>
   void EulerOperator<dim, degree, n_points_1d>::initialize_vector(
     LinearAlgebra::distributed::Vector<Number> &vector) const
