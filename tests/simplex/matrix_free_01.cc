@@ -68,9 +68,7 @@ test(const FiniteElement<dim, spacedim> &fe)
           phi.reinit(cell);
           phi.gather_evaluate(src, false, true);
 
-          std::cout << phi.dofs_per_cell << std::endl;
-
-          for (unsigned int q = 0; q < phi.dofs_per_cell; ++q)
+          for (unsigned int q = 0; q < phi.n_q_points; ++q)
             phi.submit_gradient(phi.get_gradient(q), q);
 
           phi.integrate_scatter(false, true, dst);

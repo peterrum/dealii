@@ -165,7 +165,30 @@ namespace internal
 
     if (type == MatrixFreeFunctions::tensor_none)
       {
-        Assert(false, ExcNotImplemented());
+        const unsigned int n_dofs     = shape_info.dofs_per_component_on_cell;
+        const unsigned int n_q_points = shape_info.n_q_points;
+
+        if (evaluation_flag & EvaluationFlags::values)
+          for (unsigned int q = 0, c = 0; q < shape_info.n_q_points; ++q)
+            {
+              values_quad[q] = 0.0;
+              for (unsigned int i = 0; i < n_dofs; ++i, ++c)
+                values_quad[q] +=
+                  shape_info.data[0].shape_values[c] * values_dofs_actual[i];
+            }
+
+        if (evaluation_flag & EvaluationFlags::gradients)
+          for (unsigned int d = 0; d < dim; ++d)
+            for (unsigned int q = 0; q < n_q_points; ++q)
+              {
+                gradients_quad[n_q_points * d + q] = 0.0;
+                for (unsigned int i = 0; i < n_dofs; ++i)
+                  gradients_quad[n_q_points * d + q] +=
+                    shape_info.data[0].shape_gradients[d * n_dofs * n_q_points +
+                                                       i * n_q_points + q] *
+                    values_dofs_actual[i];
+              }
+
         return;
       }
 
@@ -443,7 +466,32 @@ namespace internal
   {
     if (type == MatrixFreeFunctions::tensor_none)
       {
-        Assert(false, ExcNotImplemented());
+        const unsigned int n_dofs     = shape_info.dofs_per_component_on_cell;
+        const unsigned int n_q_points = shape_info.n_q_points;
+
+        if (add_into_values_array == false)
+          for (unsigned int i = 0; i < n_dofs; ++i)
+            values_dofs_actual[i] = 0.0;
+
+        if (integration_flag & EvaluationFlags::values)
+          for (unsigned int q = 0, c = 0; q < shape_info.n_q_points; ++q)
+            {
+              for (unsigned int i = 0; i < n_dofs; ++i, ++c)
+                values_dofs_actual[i] +=
+                  shape_info.data[0].shape_values[c] * values_quad[q];
+            }
+
+        if (integration_flag & EvaluationFlags::gradients)
+          for (unsigned int d = 0; d < dim; ++d)
+            for (unsigned int q = 0; q < n_q_points; ++q)
+              {
+                for (unsigned int i = 0; i < n_dofs; ++i)
+                  values_dofs_actual[i] +=
+                    shape_info.data[0].shape_gradients[d * n_dofs * n_q_points +
+                                                       i * n_q_points + q] *
+                    gradients_quad[n_q_points * d + q];
+              }
+
         return;
       }
 
