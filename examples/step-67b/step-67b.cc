@@ -1126,7 +1126,7 @@ namespace Euler_DG
                                                    VectorizedArrayType>
       inverse(phi);
     solution.zero_out_ghosts();
-    for (unsigned int cell = 0; cell < data.n_macro_cells(); ++cell)
+    for (unsigned int cell = 0; cell < data.n_cell_batches(); ++cell)
       {
         phi.reinit(cell);
         for (unsigned int q = 0; q < phi.n_q_points; ++q)
