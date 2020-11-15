@@ -23,6 +23,7 @@
 
 #include <deal.II/grid/tria.h>
 
+#include <deal.II/matrix_free/fe_evaluation.h>
 #include <deal.II/matrix_free/matrix_free.h>
 
 #include <deal.II/simplex/fe_lib.h>
@@ -52,6 +53,31 @@ test(const FiniteElement<dim, spacedim> &fe)
   Simplex::QGauss<dim> quadrature(1);
 
   matrix_free.reinit(mapping, dof_handler, constraints, quadrature);
+
+  Vector<double> dst, src;
+
+  matrix_free.initialize_dof_vector(dst);
+  matrix_free.initialize_dof_vector(src);
+
+  matrix_free.template cell_loop<Vector<double>, Vector<double>>(
+    [](const auto &data, auto &dst, const auto &src, const auto cells) {
+      FEEvaluation<dim, -1, 0, 1, double> phi(data);
+
+      for (unsigned int cell = cells.first; cell < cells.second; ++cell)
+        {
+          phi.reinit(cell);
+          phi.gather_evaluate(src, false, true);
+
+          std::cout << phi.dofs_per_cell << std::endl;
+
+          for (unsigned int q = 0; q < phi.dofs_per_cell; ++q)
+            phi.submit_gradient(phi.get_gradient(q), q);
+
+          phi.integrate_scatter(false, true, dst);
+        }
+    },
+    dst,
+    src);
 }
 
 int
