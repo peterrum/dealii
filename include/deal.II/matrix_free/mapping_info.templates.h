@@ -28,6 +28,8 @@
 #include <deal.II/fe/fe_values.h>
 #include <deal.II/fe/mapping_q_generic.h>
 
+#include <deal.II/hp/fe_values.h>
+
 #include <deal.II/matrix_free/evaluation_template_factory.h>
 #include <deal.II/matrix_free/mapping_info.h>
 
@@ -650,16 +652,14 @@ namespace internal
       evaluate_on_cell(const dealii::Triangulation<dim> &           tria,
                        const std::pair<unsigned int, unsigned int> *cells,
                        const unsigned int                           my_q,
-                       GeometryType &                               cell_t_prev,
-                       GeometryType *                               cell_t,
-                       dealii::FEValues<dim, dim> &                 fe_val,
+                       const unsigned int              active_fe_index,
+                       GeometryType &                  cell_t_prev,
+                       GeometryType *                  cell_t,
+                       dealii::hp::FEValues<dim, dim> &hp_fe_val,
                        LocalData<dim,
                                  typename VectorizedArrayType::value_type,
-                                 VectorizedArrayType> &             cell_data)
+                                 VectorizedArrayType> &cell_data)
       {
-        const unsigned int n_q_points   = fe_val.n_quadrature_points;
-        const UpdateFlags  update_flags = fe_val.get_update_flags();
-
         cell_data.const_jac = Tensor<2, dim, VectorizedArrayType>();
 
         // this should be the same value as used in HashValue::scaling (but we
@@ -670,7 +670,19 @@ namespace internal
           {
             typename dealii::Triangulation<dim>::cell_iterator cell_it(
               &tria, cells[j].first, cells[j].second);
-            fe_val.reinit(cell_it);
+            hp_fe_val.reinit(cell_it,
+                             numbers::invalid_unsigned_int,
+                             numbers::invalid_unsigned_int,
+                             active_fe_index);
+
+            const auto &fe_val = hp_fe_val.get_present_fe_values();
+
+            const unsigned int n_q_points   = fe_val.n_quadrature_points;
+            const UpdateFlags  update_flags = fe_val.get_update_flags();
+
+            if (j == 0)
+              cell_data.resize(n_q_points);
+
             cell_t[j] = general;
 
             // extract quadrature points and store them temporarily. if we have
@@ -872,23 +884,12 @@ namespace internal
         GeometryType cell_t[VectorizedArrayType::size()];
         GeometryType cell_t_prev = general;
 
-        // fe_values object that is used to compute the mapping data. for
-        // the hp case there might be more than one finite element. since we
-        // manually select the active FE index and not via a
-        // hp::DoFHandler<dim>::active_cell_iterator, we need to manually
-        // select the correct finite element, so just hold a vector of
-        // FEValues
-        std::vector<std::vector<std::shared_ptr<dealii::FEValues<dim>>>>
-          fe_values(mapping_info.cell_data.size());
-
         const unsigned int n_active_fe_indices =
           active_fe_index.size() > 0 ?
             (*std::max_element(active_fe_index.begin(), active_fe_index.end()) +
              1) :
             1;
 
-        for (unsigned int i = 0; i < fe_values.size(); ++i)
-          fe_values[i].resize(n_active_fe_indices);
         const UpdateFlags update_flags = mapping_info.update_flags_cells;
         const UpdateFlags update_flags_feval =
           (update_flags & update_jacobians ? update_jacobians :
@@ -900,6 +901,37 @@ namespace internal
 
         const unsigned int end_cell = std::min(mapping_info.cell_type.size(),
                                                std::size_t(cell_range.second));
+
+        // create dummy MappingCollection (TODO: get from somewhere else)
+        dealii::hp::MappingCollection<dim> mapping_collection(mapping);
+
+        // create dummy FECollection (TODO: get from somewhere else)
+        dealii::hp::FECollection<dim> fe_collection;
+        for (unsigned int i = 0; i < n_active_fe_indices; ++i)
+          fe_collection.push_back(dummy_fe);
+
+        // create dummy QCollections (TODO: get from somewhere else)
+        std::vector<dealii::hp::QCollection<dim>> q_collections(
+          mapping_info.cell_data.size());
+
+        for (unsigned int my_q = 0; my_q < mapping_info.cell_data.size();
+             ++my_q)
+          for (const auto &quad : mapping_info.cell_data[my_q].descriptor)
+            q_collections[my_q].push_back(quad.quadrature);
+
+        // fe_values object that is used to compute the mapping data. for
+        // the hp case there might be more than one finite element.
+        std::vector<std::shared_ptr<dealii::hp::FEValues<dim>>> fe_values(
+          mapping_info.cell_data.size());
+
+        for (unsigned int my_q = 0; my_q < mapping_info.cell_data.size();
+             ++my_q)
+          fe_values[my_q] =
+            std::make_shared<dealii::hp::FEValues<dim>>(mapping_collection,
+                                                        fe_collection,
+                                                        q_collections[my_q],
+                                                        update_flags_feval);
+
         // loop over given cells
         for (unsigned int cell = cell_range.first; cell < end_cell; ++cell)
           for (unsigned int my_q = 0; my_q < mapping_info.cell_data.size();
@@ -909,25 +941,6 @@ namespace internal
               // for vectorization_width cells, and then find the most
               // general type of cell for appropriate vectorized formats. then
               // fill this data in
-              const unsigned int fe_index =
-                active_fe_index.size() > 0 ? active_fe_index[cell] : 0;
-              const unsigned int hp_quad_index =
-                mapping_info.cell_data[my_q].descriptor.size() == 1 ? 0 :
-                                                                      fe_index;
-              const unsigned int n_q_points = mapping_info.cell_data[my_q]
-                                                .descriptor[hp_quad_index]
-                                                .n_q_points;
-              if (fe_values[my_q][fe_index].get() == nullptr)
-                fe_values[my_q][fe_index] =
-                  std::make_shared<dealii::FEValues<dim>>(
-                    mapping,
-                    dummy_fe,
-                    mapping_info.cell_data[my_q]
-                      .descriptor[hp_quad_index]
-                      .quadrature,
-                    update_flags_feval);
-              dealii::FEValues<dim> &fe_val = *fe_values[my_q][fe_index];
-              cell_data.resize(n_q_points);
 
               // if the fe index has changed from the previous cell, set the
               // old cell type to invalid (otherwise, we might detect
@@ -941,10 +954,15 @@ namespace internal
               evaluate_on_cell(tria,
                                &cells[cell * VectorizedArrayType::size()],
                                my_q,
+                               active_fe_index[cell],
                                cell_t_prev,
                                cell_t,
-                               fe_val,
+                               *fe_values[my_q],
                                cell_data);
+
+              const auto &fe_val = fe_values[my_q]->get_present_fe_values();
+
+              const unsigned int n_q_points = fe_val.n_quadrature_points;
 
               // now reorder the data into vectorized types. if we are here
               // for the first time, we need to find out whether the Jacobian
