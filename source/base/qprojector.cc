@@ -1215,7 +1215,7 @@ QProjector<dim>::DataSetDescriptor::face(
       else if (dim == 3)
         {
           const unsigned int orientation =
-            (face_flip * 2 + face_rotation) * 2 + face_orientation;
+            face_flip * 4 + face_rotation * 2 + face_orientation;
           return {(6 * face_no + orientation) * n_quadrature_points};
         }
     }

@@ -285,6 +285,10 @@ namespace internal
        * end points of the unit cell.
        */
       bool nodal_at_cell_boundaries;
+
+      /**
+       */
+      AlignedVector<Number> shape_values_face;
     };
 
 

@@ -2546,8 +2546,45 @@ namespace internal
         const unsigned int            face_orientation,
         const Table<2, unsigned int> &orientation_map)
     {
-      Assert(data.element_type != MatrixFreeFunctions::tensor_none,
-             ExcNotImplemented());
+      if (data.element_type == MatrixFreeFunctions::tensor_none)
+        {
+          const unsigned int n_dofs     = data.dofs_per_component_on_cell;
+          const unsigned int n_q_points = data.n_q_points_face;
+
+          using Eval = EvaluatorTensorProduct<evaluate_general,
+                                              1,
+                                              0,
+                                              0,
+                                              VectorizedArrayType,
+                                              VectorizedArrayType>;
+
+          if (evaluate_values)
+            {
+              const auto shape_values =
+                data.data.front().shape_values_face.data() +
+                n_q_points * (face_no * 6 + face_orientation);
+              auto values_quad_ptr        = values_quad;
+              auto values_dofs_actual_ptr = values_array;
+
+              Eval eval(shape_values, nullptr, nullptr, n_dofs, n_q_points);
+              for (unsigned int c = 0; c < n_components; ++c)
+                {
+                  eval.template values<0, true, false>(values_dofs_actual_ptr,
+                                                       values_quad_ptr);
+
+                  values_quad_ptr += n_q_points;
+                  values_dofs_actual_ptr += n_dofs;
+                }
+            }
+
+          if (evaluate_gradients)
+            {
+              Assert(false, ExcNotImplemented());
+            }
+
+
+          return true;
+        }
 
       constexpr unsigned int static_dofs_per_face =
         fe_degree > -1 ? Utilities::pow(fe_degree + 1, dim - 1) :
@@ -2639,8 +2676,45 @@ namespace internal
         const unsigned int            face_orientation,
         const Table<2, unsigned int> &orientation_map)
     {
-      Assert(data.element_type != MatrixFreeFunctions::tensor_none,
-             ExcNotImplemented());
+      if (data.element_type == MatrixFreeFunctions::tensor_none)
+        {
+          const unsigned int n_dofs     = data.dofs_per_component_on_cell;
+          const unsigned int n_q_points = data.n_q_points_face;
+
+          using Eval = EvaluatorTensorProduct<evaluate_general,
+                                              1,
+                                              0,
+                                              0,
+                                              VectorizedArrayType,
+                                              VectorizedArrayType>;
+
+          if (integrate_values)
+            {
+              const auto shape_values =
+                data.data.front().shape_values_face.data() +
+                n_q_points * (face_no * 6 + face_orientation);
+              auto values_quad_ptr        = values_quad;
+              auto values_dofs_actual_ptr = values_array;
+
+              Eval eval(shape_values, nullptr, nullptr, n_dofs, n_q_points);
+              for (unsigned int c = 0; c < n_components; ++c)
+                {
+                  eval.template values<0, false, false>(values_quad_ptr,
+                                                        values_dofs_actual_ptr);
+
+                  values_quad_ptr += n_q_points;
+                  values_dofs_actual_ptr += n_dofs;
+                }
+            }
+
+          if (integrate_gradients)
+            {
+              Assert(false, ExcNotImplemented());
+            }
+
+
+          return true;
+        }
 
       if (face_orientation)
         adjust_for_face_orientation(dim,
@@ -3479,9 +3553,10 @@ namespace internal
         const Table<2, unsigned int> &orientation_map)
     {
       if (src_ptr == nullptr)
-        {
-          return false;
-        }
+        return false;
+
+      if (data.element_type == MatrixFreeFunctions::tensor_none)
+        return false;
 
       (void)sm_ptr;
 
