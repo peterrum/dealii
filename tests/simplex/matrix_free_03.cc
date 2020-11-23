@@ -131,9 +131,9 @@ main(int argc, char **argv)
   typename MatrixFree<dim, double>::AdditionalData additional_data;
   additional_data.mapping_update_flags = update_gradients | update_values;
   additional_data.mapping_update_flags_boundary_faces =
-    update_gradients | update_values;
+    update_gradients | update_values | update_quadrature_points;
   additional_data.mapping_update_flags_inner_faces =
-    update_gradients | update_values;
+    update_gradients | update_values | update_quadrature_points;
 
   MatrixFree<dim, double> matrix_free;
   matrix_free.reinit(mapping, dof_handler, constraints, quad, additional_data);
@@ -166,8 +166,13 @@ main(int argc, char **argv)
           phi_p.gather_evaluate(src, true, false);
 
           for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
-            deallog << phi_m.get_value(q) << " " << phi_p.get_value(q)
-                    << std::endl;
+            {
+              deallog << phi_m.quadrature_point(q)[0] << std::endl;
+              deallog << phi_m.get_value(q) << std::endl;
+              deallog << phi_p.quadrature_point(q)[0] << std::endl;
+              deallog << phi_p.get_value(q) << std::endl;
+              deallog << std::endl;
+            }
         }
     },
     [&](const auto &, auto &, const auto &, const auto) {},

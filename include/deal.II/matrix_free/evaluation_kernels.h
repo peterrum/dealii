@@ -2558,11 +2558,14 @@ namespace internal
                                               VectorizedArrayType,
                                               VectorizedArrayType>;
 
+          deallog << face_no << " " << face_orientation << std::endl;
+
           if (evaluate_values)
             {
               const auto shape_values =
                 data.data.front().shape_values_face.data() +
-                n_q_points * (face_no * 6 + face_orientation);
+                n_q_points * n_dofs *
+                  (face_no * (dim == 2 ? 2 : 6) + face_orientation);
               auto values_quad_ptr        = values_quad;
               auto values_dofs_actual_ptr = values_array;
 
@@ -2692,7 +2695,8 @@ namespace internal
             {
               const auto shape_values =
                 data.data.front().shape_values_face.data() +
-                n_q_points * (face_no * 6 + face_orientation);
+                n_q_points * n_dofs *
+                  (face_no * (dim == 2 ? 2 : 6) + face_orientation);
               auto values_quad_ptr        = values_quad;
               auto values_dofs_actual_ptr = values_array;
 
