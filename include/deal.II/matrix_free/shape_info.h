@@ -287,8 +287,14 @@ namespace internal
       bool nodal_at_cell_boundaries;
 
       /**
+       * TODO
        */
       AlignedVector<Number> shape_values_face;
+
+      /**
+       * TODO
+       */
+      AlignedVector<Number> shape_gradients_face;
     };
 
 

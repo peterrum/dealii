@@ -2558,8 +2558,6 @@ namespace internal
                                               VectorizedArrayType,
                                               VectorizedArrayType>;
 
-          deallog << face_no << " " << face_orientation << std::endl;
-
           if (evaluate_values)
             {
               const auto shape_values =
@@ -2582,7 +2580,31 @@ namespace internal
 
           if (evaluate_gradients)
             {
-              Assert(false, ExcNotImplemented());
+              const auto shape_gradients =
+                data.data.front().shape_gradients_face.data() +
+                n_q_points * n_dofs *
+                  (face_no * (dim == 2 ? 2 : 6) + face_orientation) * dim;
+
+              auto gradients_quad_ptr     = gradients_quad;
+              auto values_dofs_actual_ptr = values_array;
+
+              for (unsigned int c = 0; c < n_components; ++c)
+                {
+                  for (unsigned int d = 0; d < dim; ++d)
+                    {
+                      Eval eval(nullptr,
+                                shape_gradients + n_q_points * n_dofs * d,
+                                nullptr,
+                                n_dofs,
+                                n_q_points);
+
+                      eval.template gradients<0, true, false>(
+                        values_dofs_actual_ptr, gradients_quad_ptr);
+
+                      gradients_quad_ptr += n_q_points;
+                    }
+                  values_dofs_actual_ptr += n_dofs;
+                }
             }
 
 
@@ -2713,7 +2735,35 @@ namespace internal
 
           if (integrate_gradients)
             {
-              Assert(false, ExcNotImplemented());
+              const auto shape_gradients =
+                data.data.front().shape_gradients_face.data() +
+                n_q_points * n_dofs *
+                  (face_no * (dim == 2 ? 2 : 6) + face_orientation) * dim;
+
+              auto gradients_quad_ptr     = gradients_quad;
+              auto values_dofs_actual_ptr = values_array;
+
+              for (unsigned int c = 0; c < n_components; ++c)
+                {
+                  for (unsigned int d = 0; d < dim; ++d)
+                    {
+                      Eval eval(nullptr,
+                                shape_gradients + n_q_points * n_dofs * d,
+                                nullptr,
+                                n_dofs,
+                                n_q_points);
+
+                      if ((integrate_values == false) && d == 0)
+                        eval.template gradients<0, false, false>(
+                          gradients_quad_ptr, values_dofs_actual_ptr);
+                      else
+                        eval.template gradients<0, false, true>(
+                          gradients_quad_ptr, values_dofs_actual_ptr);
+
+                      gradients_quad_ptr += n_q_points;
+                    }
+                  values_dofs_actual_ptr += n_dofs;
+                }
             }
 
 

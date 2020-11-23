@@ -18,6 +18,7 @@
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
 
+#include <deal.II/fe/fe_dgq.h>
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/mapping_fe.h>
 
@@ -114,11 +115,21 @@ main(int argc, char **argv)
 
   // create mesh, select relevant FEM ingredients, and set up DoFHandler
   Triangulation<dim> tria;
+
+#if true
   GridGenerator::subdivided_hyper_cube_with_simplices(tria, dim == 2 ? 16 : 8);
 
-  Simplex::FE_P<dim>   fe(degree);
+  Simplex::FE_DGP<dim> fe(degree);
   Simplex::QGauss<dim> quad(degree + 1);
   MappingFE<dim>       mapping(Simplex::FE_P<dim>(1));
+#else
+  GridGenerator::subdivided_hyper_cube(tria, dim == 2 ? 16 : 8);
+
+  FE_DGQ<dim>    fe(degree);
+  QGauss<dim>    quad(degree + 1);
+  MappingFE<dim> mapping(FE_Q<dim>(1));
+
+#endif
 
   DoFHandler<dim> dof_handler(tria);
   dof_handler.distribute_dofs(fe);
@@ -144,8 +155,6 @@ main(int argc, char **argv)
   matrix_free.initialize_dof_vector(x);
   matrix_free.initialize_dof_vector(b);
 
-
-
   VectorTools::interpolate(mapping,
                            dof_handler,
                            RightHandSideFunction<dim>(1),
@@ -160,10 +169,10 @@ main(int argc, char **argv)
       for (unsigned int cell = cells.first; cell < cells.second; ++cell)
         {
           phi_m.reinit(cell);
-          phi_m.gather_evaluate(src, true, false);
+          phi_m.gather_evaluate(src, true, true);
 
           phi_p.reinit(cell);
-          phi_p.gather_evaluate(src, true, false);
+          phi_p.gather_evaluate(src, true, true);
 
           for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
             {
@@ -172,6 +181,16 @@ main(int argc, char **argv)
               deallog << phi_p.quadrature_point(q)[0] << std::endl;
               deallog << phi_p.get_value(q) << std::endl;
               deallog << std::endl;
+            }
+
+          for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
+            {
+              for (unsigned int d = 0; d < dim; ++d)
+                {
+                  deallog << phi_m.get_gradient(q)[d] << std::endl;
+                  deallog << phi_p.get_gradient(q)[d] << std::endl;
+                  deallog << std::endl;
+                }
             }
         }
     },

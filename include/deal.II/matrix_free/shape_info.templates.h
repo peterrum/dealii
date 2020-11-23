@@ -191,6 +191,8 @@ namespace internal
           auto &shape_values      = univariate_shape_data.shape_values;
           auto &shape_values_face = univariate_shape_data.shape_values_face;
           auto &shape_gradients   = univariate_shape_data.shape_gradients;
+          auto &shape_gradients_face =
+            univariate_shape_data.shape_gradients_face;
 
           const unsigned int n_dofs = fe->n_dofs_per_cell();
 
@@ -228,6 +230,9 @@ namespace internal
           shape_values_face.resize(n_faces * n_face_orientations * n_dofs *
                                    n_q_points_face);
 
+          shape_gradients_face.resize(n_faces * n_face_orientations * n_dofs *
+                                      n_q_points_face * dim);
+
           for (unsigned int f = 0; f < n_faces; ++f)
             for (unsigned int o = 0; o < n_face_orientations; ++o)
               {
@@ -248,6 +253,18 @@ namespace internal
                                         i * n_q_points_face + q] =
                         fe->shape_value(i,
                                         projected_quad_face.point(q + offset));
+
+                      const auto grad =
+                        fe->shape_grad(i,
+                                       projected_quad_face.point(q + offset));
+
+                      for (int d = 0; d < dim; ++d)
+                        shape_gradients_face[f * n_face_orientations * n_dofs *
+                                               n_q_points_face * dim +
+                                             o * n_dofs * n_q_points_face *
+                                               dim +
+                                             d * n_dofs * n_q_points_face +
+                                             i * n_q_points_face + q] = grad[d];
                     }
               }
 
