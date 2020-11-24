@@ -81,7 +81,6 @@ SmoothSolution<dim>::value_list(const std::vector<Point<dim>> &points,
     values[i] = 0.0;
 }
 
-// The corresponding right-hand side of the smooth function.
 template <int dim>
 class SmoothRightHandSide : public Function<dim>
 {
@@ -231,7 +230,7 @@ public:
                 VectorizedArray<number> average_value = fe_eval.get_value(q);
                 VectorizedArray<number> average_valgrad =
                   -fe_eval.get_normal_derivative(q);
-                average_valgrad += average_value * sigmaF * 2.0;
+                average_valgrad += average_value * sigmaF;
                 fe_eval.submit_normal_derivative(-average_value, q);
                 fe_eval.submit_value(average_valgrad, q);
               }
@@ -383,7 +382,6 @@ test(const unsigned int degree)
     const auto exact_solution = std::make_shared<SmoothSolution<dim>>();
     const auto rhs_function   = std::make_shared<SmoothRightHandSide<dim>>();
 
-    // This function assembles the cell integrals.
     const auto cell_worker =
       [&](const auto &cell, auto &scratch_data, auto &copy_data) {
         const FEValues<dim> &fe_v          = scratch_data.reinit(cell);
@@ -413,7 +411,6 @@ test(const unsigned int degree)
             }
       };
 
-    // This function assembles face integrals on the boundary.
     const auto boundary_worker = [&](const auto &        cell,
                                      const unsigned int &face_no,
                                      auto &              scratch_data,
@@ -431,10 +428,7 @@ test(const unsigned int degree)
       std::vector<double> g(n_q_points);
       exact_solution->value_list(q_points, g);
 
-      // const double extent1 = cell->extent_in_direction(
-      //  GeometryInfo<dim>::unit_normal_direction[face_no]);
-      const double penalty =
-        PENALTY; // compute_penalty(degree, extent1, extent1);
+      const double penalty = PENALTY;
 
       for (unsigned int point = 0; point < n_q_points; ++point)
         {
@@ -474,10 +468,6 @@ test(const unsigned int degree)
         }
     };
 
-    // This function assembles face integrals on interior faces.
-    // To reinitialize FEInterfaceValues, we need to pass cells,
-    // face and subface indices (for adaptive refinement)
-    // to the reinit() function of FEInterfaceValues.
     const auto face_worker = [&](const auto &        cell,
                                  const unsigned int &f,
                                  const unsigned int &sf,
@@ -501,12 +491,7 @@ test(const unsigned int degree)
       const std::vector<double> &        JxW     = fe_iv.get_JxW_values();
       const std::vector<Tensor<1, dim>> &normals = fe_iv.get_normal_vectors();
 
-      // const double extent1 =
-      //  cell->extent_in_direction(GeometryInfo<dim>::unit_normal_direction[f]);
-      // const double extent2 = ncell->extent_in_direction(
-      //  GeometryInfo<dim>::unit_normal_direction[nf]);
-      const double penalty =
-        PENALTY; // compute_penalty(degree, extent1, extent2);
+      const double penalty = PENALTY;
 
       for (unsigned int point = 0; point < n_q_points; ++point)
         {
@@ -532,11 +517,6 @@ test(const unsigned int degree)
         }
     };
 
-    // The following lambda function will copy data to
-    // the global matrix and right-hand side.
-    // Though there are no hanging node constraints in DG discretization,
-    // we define an empty AffineConstraints oject that
-    // allows us to use distribute_local_to_global functionality.
     AffineConstraints<double> constraints;
     constraints.close();
     const auto copier = [&](const auto &c) {
@@ -546,7 +526,6 @@ test(const unsigned int degree)
                                              system_matrix,
                                              system_rhs);
 
-      // Copy data from interior face assembly to the global matrix.
       for (auto &cdf : c.face_data)
         {
           constraints.distribute_local_to_global(cdf.cell_matrix,
@@ -554,11 +533,6 @@ test(const unsigned int degree)
                                                  system_matrix);
         }
     };
-
-    // Here we define ScratchData and CopyData objects,
-    // and pass them together with the lambda functions
-    // above to MeshWorker::mesh_loop. In addition, we
-    // need to specify that we want to assemble interior faces once.
 
     UpdateFlags cell_flags = update_values | update_gradients |
                              update_quadrature_points | update_JxW_values;
