@@ -1,0 +1,64 @@
+<br>
+
+<i>This program was contributed by Marc Fehling, Peter M&uuml;nch and
+Wolfgang Bangerth.
+<br>
+This material is based upon work partly supported by the National
+Science Foundation under Award No. ??? and Forschungszentrum J&uuml;lich
+GmbH. Any opinions, findings, and conclusions or recommendations
+expressed in this publication are those of the author and do not
+necessarily reflect the views of the National Science Foundation or of
+Forschungszentrum J&uuml;lich Gmbh.
+</i>
+
+
+@note As a prerequisite of this program, you need to have the gsl
+library and the p4est library installed as well as either PETSc or
+Trilinos. The installation of deal.II together with these additional
+libraries is described in the <a href="../../readme.html" target="body">
+README</a> file. Note also that to work properly with PETSc, this
+program needs access to the Hypre preconditioner package implementing
+algebraic multigrid; it can be installed as part of PETSc but has to be
+explicitly enabled during PETSc configuration; see the page linked to
+from the installation instructions for PETSc.
+
+
+
+<a name="Intro"></a>
+<h1>Introduction</h1>
+
+Text.
+
+Benchmark for solving the Laplacian equation on hp adaptive grids in
+parallel.
+
+
+<h3>The testcase</h3>
+
+Text.
+
+Reentrant corner typically invokes a singularity for elliptic equations
+cite Susanne Brenner. We choose a L-shaped domain with the reentrant
+corner in the origin of the coordinate system.
+
+As the simplest elliptic equation, we choose the Laplace equation. To be
+able to determine the actual error, we manufacture a boundary value
+problem with a known solution. On the above mentioned domain, one
+solution to the Laplace equation looks as follows in polar coordinates
+\f$(r, \varphi)\f$. See also cite Susanne Brenner or William Mitchell
+\f[
+u = r \sin(2/3 \varphi)
+/f]
+
+The singularity becomes obvious by investigating the solution's gradient
+in the vicinity of the reentrant corner, i.e., the origin
+LaTeX
+\lim \nabla u = \lim ... \rightarrow \infty
+LaTeX
+
+As we know where the singularity will be located, we expect that our hp
+decision algorithm decides for h adaptation in this particular region,
+and p adaptation anywhere else.
+
+So let us figure out if that is actually the case, and how hp adaptation
+performs compared to pure h adaptation.
