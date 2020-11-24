@@ -573,5 +573,7 @@ main(int argc, char **argv)
   Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
 
   test<2>(/*degree=*/1);
-  // test<3>(/*degree=*/2);
+  test<2>(/*degree=*/2);
+  test<3>(/*degree=*/1);
+  test<3>(/*degree=*/2);
 }
