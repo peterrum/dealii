@@ -3864,6 +3864,9 @@ namespace internal
     {
       (void)sm_ptr;
 
+      if (data.element_type == MatrixFreeFunctions::tensor_none)
+        return false;
+
       if (dst_ptr == nullptr)
         {
           AssertDimension(n_face_orientations, 1);
