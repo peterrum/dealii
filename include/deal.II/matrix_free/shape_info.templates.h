@@ -239,24 +239,23 @@ namespace internal
                 const auto offset = QProjector<dim>::DataSetDescriptor::face(
                   reference_cell_type,
                   f,
-                  o ^ 1,        // face_orientation
-                  (o >> 2) ^ 1, // face_flip
-                  (o >> 1) ^ 1, // face_rotation
+                  (o ^ 1) & 1,  // face_orientation
+                  (o >> 2) & 1, // face_flip
+                  (o >> 1) & 1, // face_rotation
                   n_q_points_face);
 
                 for (unsigned int i = 0; i < n_dofs; ++i)
                   for (unsigned int q = 0; q < n_q_points_face; ++q)
                     {
+                      const auto point = projected_quad_face.point(q + offset);
+
                       shape_values_face[f * n_face_orientations * n_dofs *
                                           n_q_points_face +
                                         o * n_dofs * n_q_points_face +
                                         i * n_q_points_face + q] =
-                        fe->shape_value(i,
-                                        projected_quad_face.point(q + offset));
+                        fe->shape_value(i, point);
 
-                      const auto grad =
-                        fe->shape_grad(i,
-                                       projected_quad_face.point(q + offset));
+                      const auto grad = fe->shape_grad(i, point);
 
                       for (int d = 0; d < dim; ++d)
                         shape_gradients_face[f * n_face_orientations * n_dofs *

@@ -71,10 +71,26 @@ public:
   void
   rhs(VectorType &vec) const
   {
-    vec = 1.0;
+    const int dummy = 0;
+
+    matrix_free.template cell_loop<VectorType, int>(
+      [&](const auto &data, auto &dst, const auto &, const auto cells) {
+        FEEvaluation<dim, -1, 0, 1, double> phi(data);
+        for (unsigned int cell = cells.first; cell < cells.second; ++cell)
+          {
+            phi.reinit(cell);
+            for (unsigned int q = 0; q < phi.n_q_points; ++q)
+              phi.submit_value(1.0, q);
+
+            phi.integrate_scatter(true, false, dst);
+          }
+      },
+      vec,
+      dummy,
+      true);
   }
 
-  const int fe_degree = 1; /*TODO*/
+  const int fe_degree = 5; /*TODO*/
 
 
   void
@@ -112,12 +128,12 @@ public:
             fe_eval_neighbor.read_dof_values(src);
             fe_eval_neighbor.evaluate(EvaluationFlags::values |
                                       EvaluationFlags::gradients);
-            VectorizedArray<number> sigmaF =
-              (std::abs((fe_eval.get_normal_vector(0) *
-                         fe_eval.inverse_jacobian(0))[dim - 1]) +
-               std::abs((fe_eval.get_normal_vector(0) *
-                         fe_eval_neighbor.inverse_jacobian(0))[dim - 1])) *
-              (number)(std::max(fe_degree, 1) * (fe_degree + 1.0));
+            VectorizedArray<number> sigmaF = 10.0;
+            //  (std::abs((fe_eval.get_normal_vector(0) *
+            //             fe_eval.inverse_jacobian(0))[dim - 1]) +
+            //   std::abs((fe_eval.get_normal_vector(0) *
+            //             fe_eval_neighbor.inverse_jacobian(0))[dim - 1])) *
+            //  (number)(std::max(fe_degree, 1) * (fe_degree + 1.0));
 
             for (unsigned int q = 0; q < fe_eval.n_q_points; ++q)
               {
@@ -150,10 +166,10 @@ public:
             fe_eval.read_dof_values(src);
             fe_eval.evaluate(EvaluationFlags::values |
                              EvaluationFlags::gradients);
-            VectorizedArray<number> sigmaF =
-              std::abs((fe_eval.get_normal_vector(0) *
-                        fe_eval.inverse_jacobian(0))[dim - 1]) *
-              number(std::max(fe_degree, 1) * (fe_degree + 1.0)) * 2.0;
+            VectorizedArray<number> sigmaF = 10.0;
+            //  std::abs((fe_eval.get_normal_vector(0) *
+            //            fe_eval.inverse_jacobian(0))[dim - 1]) *
+            //  number(std::max(fe_degree, 1) * (fe_degree + 1.0)) * 2.0;
 
             for (unsigned int q = 0; q < fe_eval.n_q_points; ++q)
               {
@@ -172,14 +188,6 @@ public:
       },
       dst,
       src);
-
-    dst.print(std::cout);
-    src.print(std::cout);
-
-    number alpha = dst * src;
-
-    std::cout << alpha << " " << dst.l2_norm() << " " << src.l2_norm()
-              << std::endl;
   }
 
 private:
@@ -217,10 +225,18 @@ test(const unsigned int degree)
     [&](const auto &poisson_operator,
         auto &      x,
         auto &      b) -> std::pair<unsigned int, double> {
-    ReductionControl reduction_control;
+    ReductionControl reduction_control(1000);
     SolverCG<typename std::remove_reference<decltype(x)>::type> solver(
       reduction_control);
-    solver.solve(poisson_operator, x, b, PreconditionIdentity());
+
+    try
+      {
+        solver.solve(poisson_operator, x, b, PreconditionIdentity());
+      }
+    catch (const std::exception &e)
+      {
+        deallog << e.what() << std::endl;
+      }
 
     if (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0)
       printf("Solved in %d iterations.\n", reduction_control.last_step());
@@ -277,5 +293,6 @@ main(int argc, char **argv)
 
   Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
 
-  test<2>(/*degree=*/1);
+  test<2>(/*degree=*/2);
+  test<3>(/*degree=*/2);
 }

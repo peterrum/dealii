@@ -91,15 +91,18 @@ template <int dim>
 class RightHandSideFunction : public Function<dim>
 {
 public:
-  RightHandSideFunction(const unsigned int n_components)
-    : Function<dim>(n_components)
+  RightHandSideFunction(const unsigned int component)
+    : Function<dim>(1)
+    , component(component)
   {}
 
   virtual double
-  value(const Point<dim> &p, const unsigned int component = 0) const
+  value(const Point<dim> &p, const unsigned int = 0) const
   {
     return p[component];
   }
+
+  const unsigned int component;
 };
 
 
@@ -110,20 +113,21 @@ main(int argc, char **argv)
 
   Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
 
-  const unsigned int dim    = 2; // only 2D is working for now
-  const unsigned int degree = 1;
+  const unsigned int dim    = 3; // only 2D is working for now
+  const unsigned int degree = 2;
 
   // create mesh, select relevant FEM ingredients, and set up DoFHandler
   Triangulation<dim> tria;
 
-#if true
-  GridGenerator::subdivided_hyper_cube_with_simplices(tria, dim == 2 ? 16 : 8);
+#if 1
+  GridGenerator::subdivided_hyper_cube_with_simplices(tria,
+                                                      1 /*dim == 2 ? 16 : 8*/);
 
   Simplex::FE_DGP<dim> fe(degree);
   Simplex::QGauss<dim> quad(degree + 1);
   MappingFE<dim>       mapping(Simplex::FE_P<dim>(1));
 #else
-  GridGenerator::subdivided_hyper_cube(tria, dim == 2 ? 16 : 8);
+  GridGenerator::subdivided_hyper_cube(tria, 1 /*dim == 2 ? 16 : 8*/);
 
   FE_DGQ<dim>    fe(degree);
   QGauss<dim>    quad(degree + 1);
@@ -151,51 +155,88 @@ main(int argc, char **argv)
 
   using VectorType = LinearAlgebra::distributed::Vector<double>;
 
-  VectorType x, b;
-  matrix_free.initialize_dof_vector(x);
-  matrix_free.initialize_dof_vector(b);
+  for (unsigned int i = 0; i < dim; ++i)
+    {
+      VectorType x, b;
+      matrix_free.initialize_dof_vector(x);
+      matrix_free.initialize_dof_vector(b);
 
-  VectorTools::interpolate(mapping,
-                           dof_handler,
-                           RightHandSideFunction<dim>(1),
-                           b);
+      VectorTools::interpolate(mapping,
+                               dof_handler,
+                               RightHandSideFunction<dim>(i),
+                               b);
 
 
-  matrix_free.template loop<VectorType, VectorType>(
-    [&](const auto &, auto &, const auto &, const auto) {},
-    [&](const auto &, auto &, const auto &src, const auto cells) {
-      FEFaceEvaluation<dim, -1, 0, 1, double> phi_m(matrix_free, true);
-      FEFaceEvaluation<dim, -1, 0, 1, double> phi_p(matrix_free, false);
-      for (unsigned int cell = cells.first; cell < cells.second; ++cell)
-        {
-          phi_m.reinit(cell);
-          phi_m.gather_evaluate(src, true, true);
-
-          phi_p.reinit(cell);
-          phi_p.gather_evaluate(src, true, true);
-
-          for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
+      matrix_free.template loop<VectorType, VectorType>(
+        [&](const auto &, auto &, const auto &, const auto) {},
+        [&](const auto &, auto &, const auto &src, const auto cells) {
+          FEFaceEvaluation<dim, -1, 0, 1, double> phi_m(matrix_free, true);
+          FEFaceEvaluation<dim, -1, 0, 1, double> phi_p(matrix_free, false);
+          for (unsigned int cell = cells.first; cell < cells.second; ++cell)
             {
-              deallog << phi_m.quadrature_point(q)[0] << std::endl;
-              deallog << phi_m.get_value(q) << std::endl;
-              deallog << phi_p.quadrature_point(q)[0] << std::endl;
-              deallog << phi_p.get_value(q) << std::endl;
-              deallog << std::endl;
-            }
+              phi_m.reinit(cell);
+              phi_m.gather_evaluate(src, true, true);
 
-          for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
-            {
-              for (unsigned int d = 0; d < dim; ++d)
+              phi_p.reinit(cell);
+              phi_p.gather_evaluate(src, true, true);
+
+              if (false)
+                for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
+                  {
+                    deallog << "I " << phi_m.quadrature_point(q)[0]
+                            << std::endl;
+                    deallog << "I " << phi_m.get_value(q) << std::endl;
+                    deallog << "I " << phi_p.quadrature_point(q)[0]
+                            << std::endl;
+                    deallog << "I " << phi_p.get_value(q) << std::endl;
+                    deallog << "I " << std::endl;
+                  }
+
+              for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
                 {
-                  deallog << phi_m.get_gradient(q)[d] << std::endl;
-                  deallog << phi_p.get_gradient(q)[d] << std::endl;
-                  deallog << std::endl;
+                  for (unsigned int d = 0; d < dim; ++d)
+                    {
+                      deallog << "I " << phi_m.get_gradient(q)[d] << std::endl;
+                      deallog << "I " << phi_p.get_gradient(q)[d] << std::endl;
+                      // deallog << "I " <<  std::endl;
+                    }
+                  deallog << "I " << std::endl;
                 }
             }
-        }
-    },
-    [&](const auto &, auto &, const auto &, const auto) {},
-    x,
-    b,
-    true);
+        },
+        [&](const auto &, auto &, const auto &src, const auto cells) {
+          FEFaceEvaluation<dim, -1, 0, 1, double> phi_m(matrix_free, true);
+          for (unsigned int cell = cells.first; cell < cells.second; ++cell)
+            {
+              phi_m.reinit(cell);
+              phi_m.gather_evaluate(src, true, true);
+
+              if (false)
+                for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
+                  {
+                    deallog << "B " << phi_m.quadrature_point(q)[0]
+                            << std::endl;
+                    deallog << "B " << phi_m.get_value(q) << std::endl;
+                    deallog << "B " << std::endl;
+                  }
+
+              for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
+                {
+                  for (unsigned int d = 0; d < dim; ++d)
+                    {
+                      deallog << "B " << phi_m.get_gradient(q)[d] << std::endl;
+                      // deallog << "B "  << phi_m.begin_gradients ()[q + d *
+                      // phi_m.n_q_points] << std::endl; deallog << "B "  <<
+                      // std::endl;
+                    }
+                  deallog << "B " << std::endl;
+                }
+            }
+        },
+        x,
+        b,
+        true);
+
+      deallog << std::endl << std::endl << std::endl;
+    }
 }

@@ -1733,6 +1733,7 @@ namespace internal
       reorder_face_derivative_indices(const unsigned int face_no,
                                       const unsigned int index)
       {
+        return index;
         Assert(index < dim, ExcInternalError());
         if (dim == 3)
           {
