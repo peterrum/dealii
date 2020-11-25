@@ -1481,6 +1481,25 @@ public:
     const unsigned int                           fe_index,
     const unsigned int                           dof_handler_index = 0) const;
 
+  /**
+   * TODO
+   */
+  std::pair<unsigned int, unsigned int>
+  create_inner_face_subrange_hp_by_index(
+    const std::pair<unsigned int, unsigned int> &range,
+    const unsigned int                           fe_index_interior,
+    const unsigned int                           fe_index_exterior,
+    const unsigned int                           dof_handler_index = 0) const;
+
+  /**
+   * TODO
+   */
+  std::pair<unsigned int, unsigned int>
+  create_boundary_face_subrange_hp_by_index(
+    const std::pair<unsigned int, unsigned int> &range,
+    const unsigned int                           fe_index,
+    const unsigned int                           dof_handler_index = 0) const;
+
   //@}
 
   /**

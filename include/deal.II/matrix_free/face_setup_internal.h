@@ -1023,8 +1023,11 @@ namespace internal
      * to batch similar faces together for vectorization.
      */
     inline bool
-    compare_faces_for_vectorization(const FaceToCellTopology<1> &face1,
-                                    const FaceToCellTopology<1> &face2)
+    compare_faces_for_vectorization(
+      const FaceToCellTopology<1> &    face1,
+      const FaceToCellTopology<1> &    face2,
+      const std::vector<unsigned int> &active_fe_indices,
+      const unsigned int               length)
     {
       if (face1.interior_face_no != face2.interior_face_no)
         return false;
@@ -1034,6 +1037,19 @@ namespace internal
         return false;
       if (face1.face_orientation != face2.face_orientation)
         return false;
+
+      if (active_fe_indices.size() > 0)
+        {
+          if (active_fe_indices[face1.cells_interior[0] / length] !=
+              active_fe_indices[face2.cells_interior[0] / length])
+            return false;
+
+          if (face2.cells_exterior[0] != numbers::invalid_unsigned_int)
+            if (active_fe_indices[face1.cells_exterior[0] / length] !=
+                active_fe_indices[face2.cells_exterior[0] / length])
+              return false;
+        }
+
       return true;
     }
 
@@ -1056,6 +1072,29 @@ namespace internal
       operator()(const FaceToCellTopology<length> &face1,
                  const FaceToCellTopology<length> &face2) const
       {
+        // check if active fe indices match
+        if (active_fe_indices.size() > 0)
+          {
+            // ... for interior faces
+            if (active_fe_indices[face1.cells_interior[0] / length] <
+                active_fe_indices[face2.cells_interior[0] / length])
+              return true;
+            else if (active_fe_indices[face1.cells_interior[0] / length] >
+                     active_fe_indices[face2.cells_interior[0] / length])
+              return false;
+
+            // ... for exterior faces
+            if (face2.cells_exterior[0] != numbers::invalid_unsigned_int)
+              {
+                if (active_fe_indices[face1.cells_exterior[0] / length] <
+                    active_fe_indices[face2.cells_exterior[0] / length])
+                  return true;
+                else if (active_fe_indices[face1.cells_exterior[0] / length] >
+                         active_fe_indices[face2.cells_exterior[0] / length])
+                  return false;
+              }
+          }
+
         for (unsigned int i = 0; i < length; ++i)
           if (face1.cells_interior[i] < face2.cells_interior[i])
             return true;
@@ -1074,28 +1113,6 @@ namespace internal
           return true;
         else if (face1.exterior_face_no > face2.exterior_face_no)
           return false;
-
-        // check if active fe indices match
-        if (active_fe_indices.size() > 0)
-          {
-            // ... for interior faces
-            for (unsigned int i = 0; i < length; ++i)
-              if (active_fe_indices[face1.cells_interior[i]] <
-                  active_fe_indices[face2.cells_interior[i]])
-                return true;
-              else if (active_fe_indices[face1.cells_interior[i]] >
-                       active_fe_indices[face2.cells_interior[i]])
-                return false;
-
-            // ... for exterior faces
-            for (unsigned int i = 0; i < length; ++i)
-              if (active_fe_indices[face1.cells_exterior[i]] <
-                  active_fe_indices[face2.cells_exterior[i]])
-                return true;
-              else if (active_fe_indices[face1.cells_exterior[i]] >
-                       active_fe_indices[face2.cells_exterior[i]])
-                return false;
-          }
 
         // we do not need to check for subface_index and orientation because
         // those cannot be different if when all the other values are the
@@ -1149,7 +1166,9 @@ namespace internal
                 {
                   // Compare current face with first face of type type
                   if (compare_faces_for_vectorization(faces_in[face],
-                                                      faces_in[face_type[0]]))
+                                                      faces_in[face_type[0]],
+                                                      active_fe_indices,
+                                                      vectorization_width))
                     {
                       face_type.push_back(face);
                       goto face_found;
