@@ -40,7 +40,7 @@ namespace internal
           if (quad == Simplex::QGauss<dim>(i))
             return Simplex::QGauss<dim - 1>(i);
 
-      Assert(false, ExcNotImplemented());
+      // Assert(false, ExcNotImplemented());
 
       return Quadrature<dim - 1>();
     }

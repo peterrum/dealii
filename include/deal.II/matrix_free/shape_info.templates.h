@@ -218,6 +218,9 @@ namespace internal
           const auto quad_face           = get_face_quadrature(quad);
           this->n_q_points_face          = quad_face.size();
 
+          if (this->n_q_points_face == 0)
+            return;
+
           const unsigned int n_face_orientations = dim == 2 ? 2 : 6;
           const unsigned int n_faces =
             ReferenceCell::internal::Info::get_cell(reference_cell_type)

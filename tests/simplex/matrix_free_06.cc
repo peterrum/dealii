@@ -291,6 +291,14 @@ test(const unsigned version, const unsigned int degree)
   hp::MappingCollection<dim> mappings(mapping1, mapping2);
 
   DoFHandler<dim> dof_handler(tria);
+
+  for (const auto &cell : dof_handler.active_cell_iterators())
+    if (cell->reference_cell_type() == ReferenceCell::Type::Tri ||
+        cell->reference_cell_type() == ReferenceCell::Type::Tet)
+      cell->set_active_fe_index(0);
+    else
+      cell->set_active_fe_index(1);
+
   dof_handler.distribute_dofs(fes);
 
   AffineConstraints<double> constraints;

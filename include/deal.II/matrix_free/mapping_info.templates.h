@@ -1827,7 +1827,8 @@ namespace internal
 
               const unsigned int fe_index =
                 active_fe_index.size() > 0 ?
-                  active_fe_index[faces[face].cells_interior[0]] :
+                  active_fe_index[faces[face].cells_interior[0] /
+                                  VectorizedArrayType::size()] :
                   0;
               const unsigned int hp_quad_index =
                 mapping_info.cell_data[my_q].descriptor.size() == 1 ? 0 :
@@ -1999,9 +2000,39 @@ namespace internal
                       if (faces[face].subface_index >=
                           GeometryInfo<dim>::max_children_per_cell)
                         {
-                          fe_face_values.reinit(cell_it,
-                                                faces[face].exterior_face_no);
-                          actual_fe_face_values = &fe_face_values;
+                          const unsigned int fe_index =
+                            active_fe_index.size() > 0 ?
+                              active_fe_index[faces[face].cells_exterior[0] /
+                                              VectorizedArrayType::size()] :
+                              0;
+                          const unsigned int hp_quad_index =
+                            mapping_info.cell_data[my_q].descriptor.size() ==
+                                1 ?
+                              0 :
+                              fe_index;
+                          const unsigned int hp_mapping_index =
+                            mapping_in.size() == 1 ? 0 : fe_index;
+
+                          const auto &mapping = mapping_in[hp_mapping_index];
+                          const Quadrature<dim - 1> &quadrature =
+                            mapping_info.face_data[my_q]
+                              .descriptor[hp_quad_index]
+                              .quadrature;
+
+                          if (fe_face_values_container[my_q][fe_index] ==
+                              nullptr)
+                            fe_face_values_container[my_q][fe_index] =
+                              std::make_shared<FEFaceValues<dim>>(
+                                mapping,
+                                dummy_fe,
+                                quadrature,
+                                mapping_info.update_flags_boundary_faces);
+
+                          fe_face_values_container[my_q][fe_index]->reinit(
+                            cell_it, faces[face].exterior_face_no);
+
+                          actual_fe_face_values =
+                            fe_face_values_container[my_q][fe_index].get();
                         }
                       else
                         {
