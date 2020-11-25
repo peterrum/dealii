@@ -3864,12 +3864,9 @@ namespace internal
     {
       (void)sm_ptr;
 
-      if (data.element_type == MatrixFreeFunctions::tensor_none)
-        return false;
-
-      if (dst_ptr == nullptr)
+      if (dst_ptr == nullptr ||
+          data.element_type == MatrixFreeFunctions::tensor_none)
         {
-          AssertDimension(n_face_orientations, 1);
           AssertDimension(n_face_orientations, 1);
 
           // for block vectors simply integrate

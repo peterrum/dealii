@@ -176,12 +176,12 @@ public:
             fe_eval.reinit(face);
             fe_eval_neighbor.reinit(face);
 
-            fe_eval.read_dof_values(src);
-            fe_eval.evaluate(EvaluationFlags::values |
-                             EvaluationFlags::gradients);
-            fe_eval_neighbor.read_dof_values(src);
-            fe_eval_neighbor.evaluate(EvaluationFlags::values |
+            fe_eval.gather_evaluate(src,
+                                    EvaluationFlags::values |
                                       EvaluationFlags::gradients);
+            fe_eval_neighbor.gather_evaluate(src,
+                                             EvaluationFlags::values |
+                                               EvaluationFlags::gradients);
             VectorizedArray<number> sigmaF = PENALTY;
             //  (std::abs((fe_eval.get_normal_vector(0) *
             //             fe_eval.inverse_jacobian(0))[dim - 1]) +
@@ -203,12 +203,12 @@ public:
                 fe_eval.submit_value(average_valgrad, q);
                 fe_eval_neighbor.submit_value(-average_valgrad, q);
               }
-            fe_eval.integrate(EvaluationFlags::values |
-                              EvaluationFlags::gradients);
-            fe_eval.distribute_local_to_global(dst);
-            fe_eval_neighbor.integrate(EvaluationFlags::values |
-                                       EvaluationFlags::gradients);
-            fe_eval_neighbor.distribute_local_to_global(dst);
+            fe_eval.integrate_scatter(EvaluationFlags::values |
+                                        EvaluationFlags::gradients,
+                                      dst);
+            fe_eval_neighbor.integrate_scatter(EvaluationFlags::values |
+                                                 EvaluationFlags::gradients,
+                                               dst);
           }
       },
       [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
@@ -235,9 +235,9 @@ public:
                 fe_eval.submit_value(average_valgrad, q);
               }
 
-            fe_eval.integrate(EvaluationFlags::values |
-                              EvaluationFlags::gradients);
-            fe_eval.distribute_local_to_global(dst);
+            fe_eval.integrate_scatter(EvaluationFlags::values |
+                                        EvaluationFlags::gradients,
+                                      dst);
           }
       },
       dst,
