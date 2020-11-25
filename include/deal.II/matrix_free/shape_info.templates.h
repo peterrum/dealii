@@ -240,8 +240,8 @@ namespace internal
                   reference_cell_type,
                   f,
                   (o ^ 1) & 1,  // face_orientation
-                  (o >> 2) & 1, // face_flip
-                  (o >> 1) & 1, // face_rotation
+                  (o >> 1) & 1, // face_flip
+                  (o >> 2) & 1, // face_rotation
                   n_q_points_face);
 
                 for (unsigned int i = 0; i < n_dofs; ++i)

@@ -283,7 +283,21 @@ test(const unsigned int degree)
   Triangulation<dim> tria;
 
 #if true
-  GridGenerator::subdivided_hyper_cube_with_simplices(tria, dim == 2 ? 16 : 8);
+  unsigned int n_subdivisions = 0;
+
+  if (dim == 2 && degree == 1)
+    n_subdivisions = 16;
+
+  if (dim == 2 && degree == 2)
+    n_subdivisions = 8;
+
+  if (dim == 3 && degree == 1)
+    n_subdivisions = 8;
+
+  if (dim == 3 && degree == 2)
+    n_subdivisions = 4;
+
+  GridGenerator::subdivided_hyper_cube_with_simplices(tria, n_subdivisions);
 
   Simplex::FE_DGP<dim>     fe(degree);
   Simplex::QGauss<dim>     quadrature(degree + 1);
@@ -308,7 +322,7 @@ test(const unsigned int degree)
     [&](const auto &poisson_operator,
         auto &      x,
         auto &      b) -> std::pair<unsigned int, double> {
-    ReductionControl reduction_control(1000);
+    ReductionControl reduction_control(1000, 1e-7, 1e-3);
     SolverCG<typename std::remove_reference<decltype(x)>::type> solver(
       reduction_control);
 
@@ -334,6 +348,24 @@ test(const unsigned int degree)
     data_out.build_patches(mapping, 2);
     data_out.write_vtu_with_pvtu_record("./", "result", 0, MPI_COMM_WORLD);
 #endif
+
+    Vector<double> difference(tria.n_active_cells());
+
+    deallog << "dim=" << dim << " ";
+    deallog << "degree=" << degree << " ";
+
+    VectorTools::integrate_difference(mapping,
+                                      dof_handler,
+                                      x,
+                                      Functions::ZeroFunction<dim>(),
+                                      difference,
+                                      quadrature,
+                                      VectorTools::NormType::L2_norm);
+
+    deallog << VectorTools::compute_global_error(tria,
+                                                 difference,
+                                                 VectorTools::NormType::L2_norm)
+            << std::endl;
 
     return {reduction_control.last_step(), reduction_control.last_value()};
   };
@@ -568,7 +600,7 @@ main(int argc, char **argv)
 {
   initlog();
 
-  // deallog.depth_file(1);
+  deallog.depth_file(1);
 
   Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
 

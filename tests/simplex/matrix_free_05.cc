@@ -193,14 +193,15 @@ public:
               {
                 const auto term1 = (fe_eval.get_normal_derivative(q) +
                                     fe_eval_neighbor.get_normal_derivative(q)) *
-                                   (-0.5);
+                                   (-0.5) * 1.0;
 
                 const auto term2 =
                   (fe_eval.get_value(q) - fe_eval_neighbor.get_value(q)) *
-                  (-0.5);
+                  (-0.5) * 1.0;
 
-                const auto term3 = sigmaF * (fe_eval.get_value(q) -
-                                             fe_eval_neighbor.get_value(q));
+                const auto term3 =
+                  sigmaF *
+                  (fe_eval.get_value(q) - fe_eval_neighbor.get_value(q)) * 1.0;
 
                 const auto average_value   = term2;
                 const auto average_valgrad = term1 + term3;
@@ -537,16 +538,18 @@ test(const unsigned int degree)
                 (-diffusion_coefficient *              // - nu
                    fe_iv.jump(i, point) *              // [v_h]
                    (fe_iv.average_gradient(j, point) * // ({grad u_h} .
-                    normals[point])                    //  n)
+                    normals[point]) *
+                   1.0 //  n)
 
                  - diffusion_coefficient *               // - nu
                      (fe_iv.average_gradient(i, point) * // (grad v_h .
                       normals[point]) *                  //  n)
-                     fe_iv.jump(j, point)                // [u_h]
+                     fe_iv.jump(j, point) *
+                     1.0 // [u_h]
 
                  + diffusion_coefficient * penalty * // + nu sigma
                      fe_iv.jump(i, point) *          // [v_h]
-                     fe_iv.jump(j, point)            // [u_h]
+                     fe_iv.jump(j, point) * 1.0      // [u_h]
 
                  ) *
                 JxW[point]; // dx
@@ -626,8 +629,8 @@ main(int argc, char **argv)
 
   Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
 
-  test<2>(/*degree=*/1);
+  // test<2>(/*degree=*/1);
   // test<2>(/*degree=*/2);
-  // test<3>(/*degree=*/1);
+  test<3>(/*degree=*/1);
   // test<3>(/*degree=*/2);
 }

@@ -1,5 +1,9 @@
 
-DEAL:cg::Starting value 0.0255155
-DEAL:cg::Convergence step 144 value 0.000237204
-DEAL:cg::Starting value 0.0255155
-DEAL:cg::Convergence step 144 value 0.000237204
+DEAL::dim=2 degree=1 0.0412453
+DEAL::dim=2 degree=1 0.0412453
+DEAL::dim=2 degree=2 0.0412685
+DEAL::dim=2 degree=2 0.0412685
+DEAL::dim=3 degree=1 0.0258555
+DEAL::dim=3 degree=1 0.0258555
+DEAL::dim=3 degree=2 0.0250053
+DEAL::dim=3 degree=2 0.0250053
