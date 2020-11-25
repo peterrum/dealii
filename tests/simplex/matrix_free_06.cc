@@ -127,15 +127,23 @@ public:
     const int dummy = 0;
 
     matrix_free.template cell_loop<VectorType, int>(
-      [&](const auto &data, auto &dst, const auto &, const auto cells) {
-        FEEvaluation<dim, -1, 0, 1, double> phi(data);
-        for (unsigned int cell = cells.first; cell < cells.second; ++cell)
+      [&](const auto &data, auto &dst, const auto &, const auto cell_range) {
+        for (unsigned int i = 0; i < 2; ++i)
           {
-            phi.reinit(cell);
-            for (unsigned int q = 0; q < phi.n_q_points; ++q)
-              phi.submit_value(1.0, q);
+            const auto cell_subrange =
+              data.create_cell_subrange_hp_by_index(cell_range, i);
 
-            phi.integrate_scatter(true, false, dst);
+            FEEvaluation<dim, -1, 0, 1, double> phi(matrix_free, 0, 0, 0, i, i);
+            for (unsigned int cell = cell_subrange.first;
+                 cell < cell_subrange.second;
+                 ++cell)
+              {
+                phi.reinit(cell);
+                for (unsigned int q = 0; q < phi.n_q_points; ++q)
+                  phi.submit_value(1.0, q);
+
+                phi.integrate_scatter(true, false, dst);
+              }
           }
       },
       vec,
