@@ -55,7 +55,7 @@
 
 using namespace dealii;
 
-const double PENALTY = 8;
+const double PENALTY = 16;
 
 
 template <int dim>
@@ -283,7 +283,8 @@ test(const unsigned int degree)
   Triangulation<dim> tria;
 
 #if true
-  GridGenerator::subdivided_hyper_cube_with_simplices(tria, dim == 2 ? 16 : 8);
+  GridGenerator::subdivided_hyper_cube_with_simplices(
+    tria, (dim == 2 && degree == 1) ? 16 : 3);
 
   Simplex::FE_DGP<dim>     fe(degree);
   Simplex::QGauss<dim>     quadrature(degree + 1);
@@ -308,7 +309,14 @@ test(const unsigned int degree)
     [&](const auto &poisson_operator,
         auto &      x,
         auto &      b) -> std::pair<unsigned int, double> {
-    ReductionControl reduction_control(1000);
+    deallog << std::scientific << std::setprecision(9)
+            << poisson_operator.l1_norm() << " "
+            << poisson_operator.linfty_norm() << " "
+            << poisson_operator.frobenius_norm() << " " << x.l2_norm() << " "
+            << b.l2_norm() << std::endl;
+
+    return {0, 0};
+    ReductionControl reduction_control(10000, 1e-7, 1e-2);
     SolverCG<typename std::remove_reference<decltype(x)>::type> solver(
       reduction_control);
 
@@ -338,6 +346,15 @@ test(const unsigned int degree)
     return {reduction_control.last_step(), reduction_control.last_value()};
   };
 
+  DynamicSparsityPattern dsp(dof_handler.n_dofs());
+  SparsityPattern        sparsity_pattern;
+  DoFTools::make_flux_sparsity_pattern(dof_handler, dsp);
+  sparsity_pattern.copy_from(dsp);
+
+  SparseMatrix<double> system_matrix_mf, system_matrix_mb;
+  system_matrix_mb.reinit(sparsity_pattern);
+  system_matrix_mf.reinit(sparsity_pattern);
+
   const auto mf_algo = [&]() {
     typename MatrixFree<dim, double>::AdditionalData additional_data;
     additional_data.mapping_update_flags = update_gradients | update_values;
@@ -354,17 +371,11 @@ test(const unsigned int degree)
 
     PoissonOperator<dim> poisson_operator(matrix_free);
 
-    DynamicSparsityPattern dsp(dof_handler.n_dofs());
-    SparsityPattern        sparsity_pattern;
-    DoFTools::make_flux_sparsity_pattern(dof_handler, dsp);
-    sparsity_pattern.copy_from(dsp);
-
-    SparseMatrix<double> system_matrix;
-    system_matrix.reinit(sparsity_pattern);
-
     LinearAlgebra::distributed::Vector<double> x, b;
     poisson_operator.initialize_dof_vector(x);
     poisson_operator.initialize_dof_vector(b);
+
+    system_matrix_mf = 0.0;
 
     for (unsigned int i = 0; i < x.size(); ++i)
       {
@@ -376,7 +387,7 @@ test(const unsigned int degree)
           {
             if (x[j] != 0.0)
               {
-                system_matrix.set(j, i, x[j]);
+                system_matrix_mf.set(j, i, x[j]);
                 x[j] = 0.0;
               }
           }
@@ -386,7 +397,7 @@ test(const unsigned int degree)
 
     poisson_operator.rhs(b);
 
-    return solve_and_postprocess(system_matrix, x, b);
+    return solve_and_postprocess(system_matrix_mf, x, b);
   };
 
   const auto mb_algo = [&]() {
@@ -394,14 +405,6 @@ test(const unsigned int degree)
 
     solution.reinit(dof_handler.n_dofs());
     system_rhs.reinit(dof_handler.n_dofs());
-
-    DynamicSparsityPattern dsp(dof_handler.n_dofs());
-    SparsityPattern        sparsity_pattern;
-    DoFTools::make_flux_sparsity_pattern(dof_handler, dsp);
-    sparsity_pattern.copy_from(dsp);
-
-    SparseMatrix<double> system_matrix;
-    system_matrix.reinit(sparsity_pattern);
 
     const double diffusion_coefficient = 1.0;
 
@@ -549,14 +552,14 @@ test(const unsigned int degree)
       constraints.distribute_local_to_global(c.cell_matrix,
                                              c.cell_rhs,
                                              c.local_dof_indices,
-                                             system_matrix,
+                                             system_matrix_mb,
                                              system_rhs);
 
       for (auto &cdf : c.face_data)
         {
           constraints.distribute_local_to_global(cdf.cell_matrix,
                                                  cdf.joint_dof_indices,
-                                                 system_matrix);
+                                                 system_matrix_mb);
         }
     };
 
@@ -581,11 +584,29 @@ test(const unsigned int degree)
                           boundary_worker,
                           face_worker);
 
-    return solve_and_postprocess(system_matrix, solution, system_rhs);
+    return solve_and_postprocess(system_matrix_mb, solution, system_rhs);
   };
 
   mf_algo();
+  // mf_algo();
   mb_algo();
+  // mb_algo();
+
+  // return;
+
+  auto it_mf = system_matrix_mf.begin();
+  auto it_mb = system_matrix_mb.begin();
+
+  for (; it_mb != system_matrix_mb.end(); ++it_mb, ++it_mf)
+    {
+      // deallog << it_mb->value() << " " << it_mf->value() << std::endl;
+
+      if (std::abs(it_mb->value() - it_mf->value()) > 1e-10)
+        {
+          deallog << "@@@@@@@@@@" << std::endl;
+          return;
+        }
+    }
 }
 
 
@@ -598,8 +619,8 @@ main(int argc, char **argv)
 
   Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
 
-  test<2>(/*degree=*/1);
-  test<2>(/*degree=*/2);
-  // test<3>(/*degree=*/1);
+  // test<2>(/*degree=*/1);
+  // test<2>(/*degree=*/2);
+  test<3>(/*degree=*/1);
   // test<3>(/*degree=*/2);
 }

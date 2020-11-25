@@ -558,8 +558,8 @@ test(const unsigned int degree)
     return solve_and_postprocess(system_matrix, solution, system_rhs);
   };
 
-  mf_algo();
   mb_algo();
+  mf_algo();
 }
 
 
