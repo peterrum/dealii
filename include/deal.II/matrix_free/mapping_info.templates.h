@@ -455,7 +455,8 @@ namespace internal
           // Could call these functions in parallel, but not useful because
           // the work inside is nicely split up already
           initialize_cells(tria, cells, active_fe_index, *mapping);
-          initialize_faces(tria, cells, face_info.faces, *mapping);
+          initialize_faces(
+            tria, cells, face_info.faces, active_fe_index, *mapping);
           initialize_faces_by_cells(tria, cells, *mapping);
         }
     }
@@ -492,7 +493,8 @@ namespace internal
           // Could call these functions in parallel, but not useful because
           // the work inside is nicely split up already
           initialize_cells(tria, cells, active_fe_index, *mapping);
-          initialize_faces(tria, cells, face_info.faces, *mapping);
+          initialize_faces(
+            tria, cells, face_info.faces, active_fe_index, *mapping);
           initialize_faces_by_cells(tria, cells, *mapping);
         }
     }
@@ -1772,6 +1774,7 @@ namespace internal
         const std::vector<std::pair<unsigned int, unsigned int>> &cells,
         const std::vector<FaceToCellTopology<VectorizedArrayType::size()>>
           &                                            faces,
+        const std::vector<unsigned int> &              active_fe_index,
         const dealii::hp::MappingCollection<dim> &     mapping_in,
         MappingInfo<dim, Number, VectorizedArrayType> &mapping_info,
         std::pair<
@@ -1779,24 +1782,25 @@ namespace internal
             MappingInfoStorage<dim - 1, dim, Number, VectorizedArrayType>>,
           CompressedFaceData<dim, Number, VectorizedArrayType>> &data)
       {
-        AssertDimension(mapping_in.size(), 1);
-        const auto &mapping = mapping_in[0];
-
         FE_Nothing<dim> dummy_fe;
+
+        const unsigned int n_active_fe_indices =
+          active_fe_index.size() > 0 ?
+            (*std::max_element(active_fe_index.begin(), active_fe_index.end()) +
+             1) :
+            1;
 
         std::vector<std::vector<std::shared_ptr<FEFaceValues<dim>>>>
           fe_face_values_container(mapping_info.face_data.size());
         for (unsigned int my_q = 0; my_q < mapping_info.face_data.size();
              ++my_q)
-          fe_face_values_container[my_q].resize(
-            mapping_info.face_data[my_q].descriptor.size());
+          fe_face_values_container[my_q].resize(n_active_fe_indices);
 
         std::vector<std::vector<std::shared_ptr<FEFaceValues<dim>>>>
           fe_boundary_face_values_container(mapping_info.face_data.size());
         for (unsigned int my_q = 0; my_q < mapping_info.face_data.size();
              ++my_q)
-          fe_boundary_face_values_container[my_q].resize(
-            mapping_info.face_data[my_q].descriptor.size());
+          fe_boundary_face_values_container[my_q].resize(n_active_fe_indices);
 
         std::vector<std::vector<std::shared_ptr<FESubfaceValues<dim>>>>
           fe_subface_values_container(mapping_info.face_data.size());
@@ -1814,25 +1818,42 @@ namespace internal
           for (unsigned int my_q = 0; my_q < mapping_info.face_data.size();
                ++my_q)
             {
+#ifndef DEAL_II_WITH_SIMPLEX_SUPPORT
               // currently only non-hp case...
-              Assert(mapping_info.face_data[my_q].descriptor.size() == 1,
-                     ExcNotImplemented());
+              AssertDimension(mapping_in.size(), 1);
+              AssertDimension(mapping_info.face_data[my_q].descriptor.size(),
+                              1);
+#endif
+
+              const unsigned int fe_index =
+                active_fe_index.size() > 0 ?
+                  active_fe_index[faces[face].cells_interior[0]] :
+                  0;
+              const unsigned int hp_quad_index =
+                mapping_info.cell_data[my_q].descriptor.size() == 1 ? 0 :
+                                                                      fe_index;
+              const unsigned int hp_mapping_index =
+                mapping_in.size() == 1 ? 0 : fe_index;
+
+              const auto &               mapping = mapping_in[hp_mapping_index];
               const Quadrature<dim - 1> &quadrature =
-                mapping_info.face_data[my_q].descriptor[0].quadrature;
+                mapping_info.face_data[my_q]
+                  .descriptor[hp_quad_index]
+                  .quadrature;
 
               const bool is_boundary_face =
                 faces[face].cells_exterior[0] == numbers::invalid_unsigned_int;
 
               if (is_boundary_face &&
-                  fe_boundary_face_values_container[my_q][0] == nullptr)
-                fe_boundary_face_values_container[my_q][0] =
+                  fe_boundary_face_values_container[my_q][fe_index] == nullptr)
+                fe_boundary_face_values_container[my_q][fe_index] =
                   std::make_shared<FEFaceValues<dim>>(
                     mapping,
                     dummy_fe,
                     quadrature,
                     mapping_info.update_flags_boundary_faces);
-              else if (fe_face_values_container[my_q][0] == nullptr)
-                fe_face_values_container[my_q][0] =
+              else if (fe_face_values_container[my_q][fe_index] == nullptr)
+                fe_face_values_container[my_q][fe_index] =
                   std::make_shared<FEFaceValues<dim>>(
                     mapping,
                     dummy_fe,
@@ -1840,8 +1861,9 @@ namespace internal
                     mapping_info.update_flags_inner_faces);
 
               FEFaceValues<dim> &fe_face_values =
-                is_boundary_face ? *fe_boundary_face_values_container[my_q][0] :
-                                   *fe_face_values_container[my_q][0];
+                is_boundary_face ?
+                  *fe_boundary_face_values_container[my_q][fe_index] :
+                  *fe_face_values_container[my_q][fe_index];
               const unsigned int n_q_points =
                 fe_face_values.n_quadrature_points;
               face_data.resize(n_q_points);
@@ -2423,6 +2445,7 @@ namespace internal
       const dealii::Triangulation<dim> &                                  tria,
       const std::vector<std::pair<unsigned int, unsigned int>> &          cells,
       const std::vector<FaceToCellTopology<VectorizedArrayType::size()>> &faces,
+      const std::vector<unsigned int> &         active_fe_index,
       const dealii::hp::MappingCollection<dim> &mapping)
     {
       face_type.resize(faces.size(), general);
@@ -2466,6 +2489,7 @@ namespace internal
               tria,
               cells,
               faces,
+              active_fe_index,
               mapping,
               *this,
               data_faces_local.back());
