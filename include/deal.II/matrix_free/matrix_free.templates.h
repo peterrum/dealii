@@ -1652,10 +1652,13 @@ MatrixFree<dim, Number, VectorizedArrayType>::initialize_indices(
     // contiguous for all dof_info objects.
     bool is_non_buffering_sm_supported = true;
     for (const auto &di : dof_info)
-      for (const auto &v : di.index_storage_variants[2])
-        is_non_buffering_sm_supported &=
-          (v == internal::MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
-                  contiguous);
+      {
+        is_non_buffering_sm_supported &= di.dofs_per_cell.size() == 1;
+        for (const auto &v : di.index_storage_variants[2])
+          is_non_buffering_sm_supported &=
+            (v == internal::MatrixFreeFunctions::DoFInfo::IndexStorageVariants::
+                    contiguous);
+      }
 
     is_non_buffering_sm_supported =
       Utilities::MPI::min(static_cast<unsigned int>(

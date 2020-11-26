@@ -14,7 +14,7 @@
 // ---------------------------------------------------------------------
 
 
-// Solve Poisson problem problem on a mixed mesh with DG.
+// Solve Poisson problem problem on a mixed mesh with DG and MatrixFree.
 
 #include <deal.II/distributed/tria.h>
 
@@ -53,8 +53,6 @@
 #include "./tests.h"
 
 using namespace dealii;
-
-const double PENALTY = 8;
 
 
 template <int dim>
@@ -103,6 +101,35 @@ SmoothRightHandSide<dim>::value_list(const std::vector<Point<dim>> &points,
     values[i] = 1.0;
 }
 
+double
+get_penalty_parameter(const unsigned int i,
+                      const unsigned int j,
+                      const unsigned int degree)
+{
+  if (degree == 1)
+    {
+      if (i != j)
+        return 8.0;
+      if (i == 0)
+        return 8.0;
+      if (i == 1)
+        return 64.0;
+    }
+  else if (degree == 2)
+    {
+      if (i != j)
+        return 32.0;
+      if (i == 0)
+        return 32.0;
+      if (i == 1)
+        return 64.0;
+    }
+
+  Assert(false, ExcNotImplemented());
+
+  return 0.0;
+}
+
 
 template <int dim>
 class PoissonOperator
@@ -111,8 +138,10 @@ public:
   using VectorType = LinearAlgebra::distributed::Vector<double>;
   using number     = double;
 
-  PoissonOperator(const MatrixFree<dim, double> &matrix_free)
+  PoissonOperator(const MatrixFree<dim, double> &matrix_free,
+                  const unsigned int             degree)
     : matrix_free(matrix_free)
+    , degree(degree)
   {}
 
   void
@@ -133,6 +162,9 @@ public:
             const auto cell_subrange =
               data.create_cell_subrange_hp_by_index(cell_range, i);
 
+            if (cell_subrange.second <= cell_subrange.first)
+              continue;
+
             FEEvaluation<dim, -1, 0, 1, double> phi(matrix_free, 0, 0, 0, i, i);
             for (unsigned int cell = cell_subrange.first;
                  cell < cell_subrange.second;
@@ -150,9 +182,6 @@ public:
       dummy,
       true);
   }
-
-  const int fe_degree = 5; /*TODO*/
-
 
   void
   vmult(VectorType &dst, const VectorType &src) const
@@ -203,7 +232,8 @@ public:
                                             EvaluationFlags::gradients);
                   fe_eval_neighbor.gather_evaluate(
                     src, EvaluationFlags::values | EvaluationFlags::gradients);
-                  VectorizedArray<number> sigmaF = PENALTY;
+                  VectorizedArray<number> sigmaF =
+                    get_penalty_parameter(i, j, degree);
 
                   for (unsigned int q = 0; q < fe_eval.n_q_points; ++q)
                     {
@@ -244,7 +274,8 @@ public:
                 fe_eval.read_dof_values(src);
                 fe_eval.evaluate(EvaluationFlags::values |
                                  EvaluationFlags::gradients);
-                VectorizedArray<number> sigmaF = PENALTY;
+                VectorizedArray<number> sigmaF =
+                  get_penalty_parameter(i, i, degree);
 
                 for (unsigned int q = 0; q < fe_eval.n_q_points; ++q)
                   {
@@ -265,10 +296,13 @@ public:
       },
       dst,
       src);
+    // std::cout << dst.l2_norm() << " " << src.l2_norm() << std::endl;
+    // exit(0);
   }
 
 private:
   const MatrixFree<dim, double> &matrix_free;
+  const unsigned int             degree;
 };
 
 template <int dim>
@@ -277,7 +311,7 @@ test(const unsigned version, const unsigned int degree)
 {
   Triangulation<dim> tria;
 
-  unsigned int subdivisions = 16;
+  unsigned int subdivisions = degree == 1 ? 16 : 8;
 
   if (version == 0)
     GridGenerator::subdivided_hyper_cube_with_simplices(tria, subdivisions);
@@ -286,8 +320,8 @@ test(const unsigned version, const unsigned int degree)
   else if (version == 2)
     GridGenerator::subdivided_hyper_cube_with_simplices_mix(tria, subdivisions);
 
-  Simplex::FE_P<dim>    fe1(degree);
-  FE_Q<dim>             fe2(degree);
+  Simplex::FE_DGP<dim>  fe1(degree);
+  FE_DGQ<dim>           fe2(degree);
   hp::FECollection<dim> fes(fe1, fe2);
 
   Simplex::QGauss<dim> quad1(degree + 1);
@@ -316,7 +350,7 @@ test(const unsigned version, const unsigned int degree)
     [&](const auto &poisson_operator,
         auto &      x,
         auto &      b) -> std::pair<unsigned int, double> {
-    ReductionControl reduction_control(1000, 1e-7, 1e-3);
+    ReductionControl reduction_control(1000, 1e-7, 1e-2);
     SolverCG<typename std::remove_reference<decltype(x)>::type> solver(
       reduction_control);
 
@@ -339,8 +373,13 @@ test(const unsigned version, const unsigned int degree)
     data_out.attach_dof_handler(dof_handler);
     x.update_ghost_values();
     data_out.add_data_vector(dof_handler, x, "solution");
-    data_out.build_patches(mappings, 2);
-    data_out.write_vtu_with_pvtu_record("./", "result", 0, MPI_COMM_WORLD);
+    data_out.build_patches(mappings, degree);
+    data_out.write_vtu_with_pvtu_record("./",
+                                        "result-" + std::to_string(dim) + "-" +
+                                          std::to_string(degree) + "-" +
+                                          std::to_string(version),
+                                        0,
+                                        MPI_COMM_WORLD);
 #endif
 
     Vector<double> difference(tria.n_active_cells());
@@ -378,7 +417,7 @@ test(const unsigned version, const unsigned int degree)
     matrix_free.reinit(
       mappings, dof_handler, constraints, quads, additional_data);
 
-    PoissonOperator<dim> poisson_operator(matrix_free);
+    PoissonOperator<dim> poisson_operator(matrix_free, degree);
 
     LinearAlgebra::distributed::Vector<double> x, b;
     poisson_operator.initialize_dof_vector(x);
@@ -404,4 +443,7 @@ main(int argc, char **argv)
 
   for (unsigned int i = 0; i < 3; ++i)
     test<2>(i, /*degree=*/1);
+
+  for (unsigned int i = 0; i < 3; ++i)
+    test<2>(i, /*degree=*/2);
 }
