@@ -1506,6 +1506,12 @@ public:
     const unsigned int                           fe_index,
     const unsigned int                           dof_handler_index = 0) const;
 
+  unsigned int
+  n_active_fe_indices() const
+  {
+    return shape_info.size(2);
+  }
+
   //@}
 
   /**
@@ -4550,8 +4556,17 @@ namespace internal
     cell(const std::pair<unsigned int, unsigned int> &cell_range) override
     {
       if (cell_function != nullptr && cell_range.second > cell_range.first)
-        (container.*
-         cell_function)(matrix_free, this->dst, this->src, cell_range);
+        for (unsigned int i = 0; i < matrix_free.n_active_fe_indices(); ++i)
+          {
+            const auto cell_subrange =
+              matrix_free.create_cell_subrange_hp_by_index(cell_range, i);
+
+            if (cell_subrange.second <= cell_subrange.first)
+              continue;
+
+            (container.*
+             cell_function)(matrix_free, this->dst, this->src, cell_subrange);
+          }
     }
 
     // Runs the assembler on interior faces. If no function is given, nothing
@@ -4560,8 +4575,19 @@ namespace internal
     face(const std::pair<unsigned int, unsigned int> &face_range) override
     {
       if (face_function != nullptr && face_range.second > face_range.first)
-        (container.*
-         face_function)(matrix_free, this->dst, this->src, face_range);
+        for (unsigned int i = 0; i < matrix_free.n_active_fe_indices(); ++i)
+          for (unsigned int j = 0; j < matrix_free.n_active_fe_indices(); ++j)
+            {
+              const auto face_subrange =
+                matrix_free.create_inner_face_subrange_hp_by_index(face_range,
+                                                                   i,
+                                                                   j);
+
+              if (face_subrange.second <= face_subrange.first)
+                continue;
+              (container.*
+               face_function)(matrix_free, this->dst, this->src, face_subrange);
+            }
     }
 
     // Runs the assembler on boundary faces. If no function is given, nothing
@@ -4570,8 +4596,20 @@ namespace internal
     boundary(const std::pair<unsigned int, unsigned int> &face_range) override
     {
       if (boundary_function != nullptr && face_range.second > face_range.first)
-        (container.*
-         boundary_function)(matrix_free, this->dst, this->src, face_range);
+        for (unsigned int i = 0; i < matrix_free.n_active_fe_indices(); ++i)
+          {
+            const auto face_subrange =
+              matrix_free.create_boundary_face_subrange_hp_by_index(face_range,
+                                                                    i);
+
+            if (face_subrange.second <= face_subrange.first)
+              continue;
+
+            (container.*boundary_function)(matrix_free,
+                                           this->dst,
+                                           this->src,
+                                           face_subrange);
+          }
     }
 
     // Starts the communication for the update ghost values operation. We
