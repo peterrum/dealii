@@ -170,11 +170,41 @@ namespace Step75
 
 
 
+  enum AdaptationType
+  {
+    h,
+    hpLegendre,
+    hpFourier,
+    hpHistory
+  };
+
+
+
+  enum PreconditionerType
+  {
+    AMG,
+    pAMG,
+    pGMG
+  };
+
+
+
+  enum SolverType
+  {
+    Matrix,
+    MatrixFree,
+    MatrixFreeCUDA
+  };
+
+
+
   template <int dim>
   class LaplaceProblem
   {
   public:
-    LaplaceProblem();
+    LaplaceProblem(AdaptationType     adaptation,
+                   PreconditionerType preconditioner,
+                   SolverType         solver);
 
     void run(const unsigned int n_cycles);
 
@@ -221,7 +251,9 @@ namespace Step75
 
 
   template <int dim>
-  LaplaceProblem<dim>::LaplaceProblem()
+  LaplaceProblem<dim>::LaplaceProblem(AdaptationType     adaptation,
+                                      PreconditionerType preconditioner,
+                                      SolverType         solver);
     : mpi_communicator(MPI_COMM_WORLD)
     , triangulation(mpi_communicator,
                     typename Triangulation<dim>::MeshSmoothing(
@@ -238,376 +270,382 @@ namespace Step75
                       pcout,
                       TimerOutput::summary,
                       TimerOutput::wall_times)
-  {
-    for (unsigned int degree = min_degree; degree <= max_degree; ++degree)
-      {
-        fe_collection.push_back(FE_Q<dim>(degree));
-        quadrature_collection.push_back(QGauss<dim>(degree + 1));
-        face_quadrature_collection.push_back(QGauss<dim - 1>(degree + 1));
-      }
+    {
+      Assert(adaptation == AdaptationType::hpLegendre, ExcNotImplemented());
+      Assert(preconditioner == PreconditionerType::AMG, ExcNotImplemented());
+      Assert(solver == SolverType::Matrix, ExcNotImplemented());
 
-    legendre = std::make_unique<FESeries::Legendre<dim>>(
-      SmoothnessEstimator::Legendre::default_fe_series(fe_collection));
-
-    fe_values_collection =
-      std::make_unique<hp::FEValues<dim>>(fe_collection,
-                                          quadrature_collection,
-                                          update_gradients |
-                                            update_quadrature_points |
-                                            update_JxW_values);
-    fe_values_collection->precalculate_fe_values();
-  }
-
-
-
-  template <int dim>
-  void LaplaceProblem<dim>::create_coarse_grid()
-  {
-    std::vector<unsigned int> repetitions(dim, 2);
-    Point<dim>                bottom_left, top_right;
-    for (unsigned int d = 0; d < dim; ++d)
-      {
-        bottom_left[d] = -1.;
-        top_right[d]   = 1.;
-      }
-
-    std::vector<int> cells_to_remove(dim, 1);
-    cells_to_remove[0] = -1;
-
-    // TODO
-    // expand domain by 1 cell in z direction for 3d case
-
-    GridGenerator::subdivided_hyper_L(
-      triangulation, repetitions, bottom_left, top_right, cells_to_remove);
-  }
-
-
-
-  template <int dim>
-  void LaplaceProblem<dim>::setup_system()
-  {
-    TimerOutput::Scope t(computing_timer, "setup");
-
-    dof_handler.distribute_dofs(fe_collection);
-
-    locally_owned_dofs = dof_handler.locally_owned_dofs();
-    DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
-
-    locally_relevant_solution.reinit(locally_owned_dofs,
-                                     locally_relevant_dofs,
-                                     mpi_communicator);
-    system_rhs.reinit(locally_owned_dofs, mpi_communicator);
-
-    constraints.clear();
-    constraints.reinit(locally_relevant_dofs);
-    DoFTools::make_hanging_node_constraints(dof_handler, constraints);
-    VectorTools::interpolate_boundary_values(dof_handler,
-                                             0,
-                                             Solution<dim>(),
-                                             constraints);
-
-#ifdef DEBUG
-    // We have not dealt with chains of constraints on ghost cells yet.
-    // Thus, we are content with verifying their consistency for now.
-    IndexSet locally_active_dofs;
-    DoFTools::extract_locally_active_dofs(dof_handler, locally_active_dofs);
-    AssertThrow(constraints.is_consistent_in_parallel(
-                  Utilities::MPI::all_gather(mpi_communicator,
-                                             dof_handler.locally_owned_dofs()),
-                  locally_active_dofs,
-                  mpi_communicator,
-                  /*verbose=*/true),
-                ExcMessage(
-                  "AffineConstraints object contains inconsistencies!"));
-#endif
-    constraints.close();
-
-    DynamicSparsityPattern dsp(locally_relevant_dofs);
-    DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false);
-    SparsityTools::distribute_sparsity_pattern(dsp,
-                                               dof_handler.locally_owned_dofs(),
-                                               mpi_communicator,
-                                               locally_relevant_dofs);
-
-    system_matrix.reinit(locally_owned_dofs,
-                         locally_owned_dofs,
-                         dsp,
-                         mpi_communicator);
-  }
-
-
-
-  template <int dim>
-  void LaplaceProblem<dim>::assemble_system()
-  {
-    TimerOutput::Scope t(computing_timer, "assemble");
-
-    FullMatrix<double> cell_matrix;
-    Vector<double>     cell_rhs;
-
-    std::vector<types::global_dof_index> local_dof_indices;
-
-    for (const auto &cell : dof_handler.active_cell_iterators())
-      if (cell->is_locally_owned())
+      for (unsigned int degree = min_degree; degree <= max_degree; ++degree)
         {
-          const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
-
-          cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
-          cell_matrix = 0;
-
-          cell_rhs.reinit(dofs_per_cell);
-          cell_rhs = 0;
-
-          fe_values_collection->reinit(cell);
-
-          const FEValues<dim> &fe_values =
-            fe_values_collection->get_present_fe_values();
-
-          for (unsigned int q_point = 0;
-               q_point < fe_values.n_quadrature_points;
-               ++q_point)
-            for (unsigned int i = 0; i < dofs_per_cell; ++i)
-              {
-                for (unsigned int j = 0; j < dofs_per_cell; ++j)
-                  cell_matrix(i, j) +=
-                    (fe_values.shape_grad(i, q_point) * // grad phi_i(x_q)
-                     fe_values.shape_grad(j, q_point) * // grad phi_j(x_q)
-                     fe_values.JxW(q_point));           // dx
-              }
-
-          local_dof_indices.resize(dofs_per_cell);
-          cell->get_dof_indices(local_dof_indices);
-
-          constraints.distribute_local_to_global(cell_matrix,
-                                                 cell_rhs,
-                                                 local_dof_indices,
-                                                 system_matrix,
-                                                 system_rhs);
+          fe_collection.push_back(FE_Q<dim>(degree));
+          quadrature_collection.push_back(QGauss<dim>(degree + 1));
+          face_quadrature_collection.push_back(QGauss<dim - 1>(degree + 1));
         }
 
-    system_matrix.compress(VectorOperation::add);
-    system_rhs.compress(VectorOperation::add);
-  }
+      legendre = std::make_unique<FESeries::Legendre<dim>>(
+        SmoothnessEstimator::Legendre::default_fe_series(fe_collection));
+
+      fe_values_collection =
+        std::make_unique<hp::FEValues<dim>>(fe_collection,
+                                            quadrature_collection,
+                                            update_gradients |
+                                              update_quadrature_points |
+                                              update_JxW_values);
+      fe_values_collection->precalculate_fe_values();
+    }
 
 
 
-  template <int dim>
-  void LaplaceProblem<dim>::solve()
-  {
-    TimerOutput::Scope t(computing_timer, "solve");
+    template <int dim>
+    void LaplaceProblem<dim>::create_coarse_grid()
+    {
+      std::vector<unsigned int> repetitions(dim, 2);
+      Point<dim>                bottom_left, top_right;
+      for (unsigned int d = 0; d < dim; ++d)
+        {
+          bottom_left[d] = -1.;
+          top_right[d]   = 1.;
+        }
 
-    LA::MPI::Vector completely_distributed_solution(locally_owned_dofs,
-                                                    mpi_communicator);
+      std::vector<int> cells_to_remove(dim, 1);
+      cells_to_remove[0] = -1;
 
-    SolverControl solver_control(system_rhs.size(),
-                                 1e-12 * system_rhs.l2_norm());
+      // TODO
+      // expand domain by 1 cell in z direction for 3d case
+
+      GridGenerator::subdivided_hyper_L(
+        triangulation, repetitions, bottom_left, top_right, cells_to_remove);
+    }
+
+
+
+    template <int dim>
+    void LaplaceProblem<dim>::setup_system()
+    {
+      TimerOutput::Scope t(computing_timer, "setup");
+
+      dof_handler.distribute_dofs(fe_collection);
+
+      locally_owned_dofs = dof_handler.locally_owned_dofs();
+      DoFTools::extract_locally_relevant_dofs(dof_handler,
+                                              locally_relevant_dofs);
+
+      locally_relevant_solution.reinit(locally_owned_dofs,
+                                       locally_relevant_dofs,
+                                       mpi_communicator);
+      system_rhs.reinit(locally_owned_dofs, mpi_communicator);
+
+      constraints.clear();
+      constraints.reinit(locally_relevant_dofs);
+      DoFTools::make_hanging_node_constraints(dof_handler, constraints);
+      VectorTools::interpolate_boundary_values(dof_handler,
+                                               0,
+                                               Solution<dim>(),
+                                               constraints);
+
+#ifdef DEBUG
+      // We have not dealt with chains of constraints on ghost cells yet.
+      // Thus, we are content with verifying their consistency for now.
+      IndexSet locally_active_dofs;
+      DoFTools::extract_locally_active_dofs(dof_handler, locally_active_dofs);
+      AssertThrow(
+        constraints.is_consistent_in_parallel(
+          Utilities::MPI::all_gather(mpi_communicator,
+                                     dof_handler.locally_owned_dofs()),
+          locally_active_dofs,
+          mpi_communicator,
+          /*verbose=*/true),
+        ExcMessage("AffineConstraints object contains inconsistencies!"));
+#endif
+      constraints.close();
+
+      DynamicSparsityPattern dsp(locally_relevant_dofs);
+      DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false);
+      SparsityTools::distribute_sparsity_pattern(
+        dsp,
+        dof_handler.locally_owned_dofs(),
+        mpi_communicator,
+        locally_relevant_dofs);
+
+      system_matrix.reinit(locally_owned_dofs,
+                           locally_owned_dofs,
+                           dsp,
+                           mpi_communicator);
+    }
+
+
+
+    template <int dim>
+    void LaplaceProblem<dim>::assemble_system()
+    {
+      TimerOutput::Scope t(computing_timer, "assemble");
+
+      FullMatrix<double> cell_matrix;
+      Vector<double>     cell_rhs;
+
+      std::vector<types::global_dof_index> local_dof_indices;
+
+      for (const auto &cell : dof_handler.active_cell_iterators())
+        if (cell->is_locally_owned())
+          {
+            const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
+
+            cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
+            cell_matrix = 0;
+
+            cell_rhs.reinit(dofs_per_cell);
+            cell_rhs = 0;
+
+            fe_values_collection->reinit(cell);
+
+            const FEValues<dim> &fe_values =
+              fe_values_collection->get_present_fe_values();
+
+            for (unsigned int q_point = 0;
+                 q_point < fe_values.n_quadrature_points;
+                 ++q_point)
+              for (unsigned int i = 0; i < dofs_per_cell; ++i)
+                {
+                  for (unsigned int j = 0; j < dofs_per_cell; ++j)
+                    cell_matrix(i, j) +=
+                      (fe_values.shape_grad(i, q_point) * // grad phi_i(x_q)
+                       fe_values.shape_grad(j, q_point) * // grad phi_j(x_q)
+                       fe_values.JxW(q_point));           // dx
+                }
+
+            local_dof_indices.resize(dofs_per_cell);
+            cell->get_dof_indices(local_dof_indices);
+
+            constraints.distribute_local_to_global(cell_matrix,
+                                                   cell_rhs,
+                                                   local_dof_indices,
+                                                   system_matrix,
+                                                   system_rhs);
+          }
+
+      system_matrix.compress(VectorOperation::add);
+      system_rhs.compress(VectorOperation::add);
+    }
+
+
+
+    template <int dim>
+    void LaplaceProblem<dim>::solve()
+    {
+      TimerOutput::Scope t(computing_timer, "solve");
+
+      LA::MPI::Vector completely_distributed_solution(locally_owned_dofs,
+                                                      mpi_communicator);
+
+      SolverControl solver_control(system_rhs.size(),
+                                   1e-12 * system_rhs.l2_norm());
 #ifdef USE_PETSC_LA
-    LA::SolverCG cg(solver_control, mpi_communicator);
+      LA::SolverCG cg(solver_control, mpi_communicator);
 #else
-    LA::SolverCG cg(solver_control);
+      LA::SolverCG cg(solver_control);
 #endif
 
-    LA::MPI::PreconditionAMG                 preconditioner;
-    LA::MPI::PreconditionAMG::AdditionalData data;
+      LA::MPI::PreconditionAMG                 preconditioner;
+      LA::MPI::PreconditionAMG::AdditionalData data;
 #ifdef USE_PETSC_LA
-    data.symmetric_operator = true;
+      data.symmetric_operator = true;
 #else
-    data.elliptic              = true;
-    data.higher_order_elements = true;
+      data.elliptic              = true;
+      data.higher_order_elements = true;
 #endif
-    preconditioner.initialize(system_matrix, data);
+      preconditioner.initialize(system_matrix, data);
 
-    cg.solve(system_matrix,
-             completely_distributed_solution,
-             system_rhs,
-             preconditioner);
+      cg.solve(system_matrix,
+               completely_distributed_solution,
+               system_rhs,
+               preconditioner);
 
-    pcout << "   Solved in " << solver_control.last_step() << " iterations."
-          << std::endl;
+      pcout << "   Solved in " << solver_control.last_step() << " iterations."
+            << std::endl;
 
-    constraints.distribute(completely_distributed_solution);
+      constraints.distribute(completely_distributed_solution);
 
-    locally_relevant_solution = completely_distributed_solution;
-  }
+      locally_relevant_solution = completely_distributed_solution;
+    }
 
 
 
-  template <int dim>
-  void LaplaceProblem<dim>::compute_errors()
-  {
-    TimerOutput::Scope t(computing_timer, "compute errors");
+    template <int dim>
+    void LaplaceProblem<dim>::compute_errors()
+    {
+      TimerOutput::Scope t(computing_timer, "compute errors");
 
-    Vector<float> difference_per_cell(triangulation.n_active_cells());
-    VectorTools::integrate_difference(dof_handler,
-                                      locally_relevant_solution,
-                                      Solution<dim>(),
-                                      difference_per_cell,
-                                      quadrature_collection,
-                                      VectorTools::L2_norm);
-    const double L2_error =
-      VectorTools::compute_global_error(triangulation,
+      Vector<float> difference_per_cell(triangulation.n_active_cells());
+      VectorTools::integrate_difference(dof_handler,
+                                        locally_relevant_solution,
+                                        Solution<dim>(),
                                         difference_per_cell,
+                                        quadrature_collection,
                                         VectorTools::L2_norm);
+      const double L2_error =
+        VectorTools::compute_global_error(triangulation,
+                                          difference_per_cell,
+                                          VectorTools::L2_norm);
 
-    VectorTools::integrate_difference(dof_handler,
-                                      locally_relevant_solution,
-                                      Solution<dim>(),
-                                      difference_per_cell,
-                                      quadrature_collection,
-                                      VectorTools::H1_norm);
-    const double H1_error =
-      VectorTools::compute_global_error(triangulation,
+      VectorTools::integrate_difference(dof_handler,
+                                        locally_relevant_solution,
+                                        Solution<dim>(),
                                         difference_per_cell,
+                                        quadrature_collection,
                                         VectorTools::H1_norm);
+      const double H1_error =
+        VectorTools::compute_global_error(triangulation,
+                                          difference_per_cell,
+                                          VectorTools::H1_norm);
 
-    pcout << "L2 error: " << L2_error << std::endl
-          << "H1 error: " << H1_error << std::endl;
-  }
-
-
-
-  template <int dim>
-  void LaplaceProblem<dim>::prepare_adaptation()
-  {
-    Vector<float> estimated_error_per_cell(triangulation.n_active_cells()),
-      hp_decision_indicators(triangulation.n_active_cells());
-
-    {
-      TimerOutput::Scope t(computing_timer, "estimate error");
-
-      KellyErrorEstimator<dim>::estimate(
-        dof_handler,
-        face_quadrature_collection,
-        std::map<types::boundary_id, const Function<dim> *>(),
-        locally_relevant_solution,
-        estimated_error_per_cell,
-        /*component_mask=*/ComponentMask(),
-        /*coefficients=*/nullptr,
-        /*n_threads=*/numbers::invalid_unsigned_int,
-        /*subdomain_id=*/numbers::invalid_subdomain_id,
-        /*material_id=*/numbers::invalid_material_id,
-        /*strategy=*/
-        KellyErrorEstimator<
-          dim>::Strategy::face_diameter_over_twice_max_degree);
-    }
-    {
-      TimerOutput::Scope t(computing_timer, "flag adaptation");
-
-      parallel::distributed::GridRefinement::refine_and_coarsen_fixed_number(
-        triangulation, estimated_error_per_cell, 0.3, 0.03);
+      pcout << "L2 error: " << L2_error << std::endl
+            << "H1 error: " << H1_error << std::endl;
     }
 
+
+
+    template <int dim>
+    void LaplaceProblem<dim>::prepare_adaptation()
     {
-      TimerOutput::Scope t(computing_timer, "estimate smoothness");
+      Vector<float> estimated_error_per_cell(triangulation.n_active_cells()),
+        hp_decision_indicators(triangulation.n_active_cells());
 
-      SmoothnessEstimator::Legendre::coefficient_decay(
-        *legendre,
-        dof_handler,
-        locally_relevant_solution,
-        hp_decision_indicators,
-        /*regression_strategy=*/VectorTools::Linfty_norm,
-        /*smallest_abs_coefficient=*/1e-10,
-        /*only_flagged_cells=*/true);
-    }
-    {
-      TimerOutput::Scope t(computing_timer, "decide hp");
-
-      hp::Refinement::p_adaptivity_fixed_number(dof_handler,
-                                                hp_decision_indicators,
-                                                0.9,
-                                                0.9);
-      hp::Refinement::choose_p_over_h(dof_handler);
-
-      if (triangulation.n_levels() > max_level)
-        for (const auto &cell :
-             triangulation.active_cell_iterators_on_level(max_level))
-          cell->clear_refine_flag();
-
-      for (const auto &cell :
-           triangulation.active_cell_iterators_on_level(min_level))
-        cell->clear_coarsen_flag();
-    }
-  }
-
-
-
-  template <int dim>
-  void LaplaceProblem<dim>::output_results(const unsigned int cycle) const
-  {
-    Vector<float> fe_degrees(triangulation.n_active_cells());
-    for (const auto &cell : dof_handler.active_cell_iterators())
-      if (cell->is_locally_owned())
-        fe_degrees(cell->active_cell_index()) =
-          fe_collection[cell->active_fe_index()].degree;
-
-    Vector<float> subdomain(triangulation.n_active_cells());
-    for (unsigned int i = 0; i < subdomain.size(); ++i)
-      subdomain(i) = triangulation.locally_owned_subdomain();
-
-    DataOut<dim> data_out;
-
-    data_out.attach_dof_handler(dof_handler);
-    data_out.add_data_vector(locally_relevant_solution, "solution");
-    data_out.add_data_vector(fe_degrees, "fe_degree");
-    data_out.add_data_vector(subdomain, "subdomain");
-    data_out.build_patches();
-
-    data_out.write_vtu_with_pvtu_record(
-      "./", "solution", cycle, mpi_communicator, 2, 8);
-  }
-
-
-
-  template <int dim>
-  void LaplaceProblem<dim>::run(const unsigned int n_cycles)
-  {
-    pcout << "Running with "
-#ifdef USE_PETSC_LA
-          << "PETSc"
-#else
-          << "Trilinos"
-#endif
-          << " on " << Utilities::MPI::n_mpi_processes(mpi_communicator)
-          << " MPI rank(s)..." << std::endl;
-
-    for (unsigned int cycle = 0; cycle < n_cycles; ++cycle)
       {
-        pcout << "Cycle " << cycle << ':' << std::endl;
+        TimerOutput::Scope t(computing_timer, "estimate error");
 
-        if (cycle == 0)
-          {
-            create_coarse_grid();
-            triangulation.refine_global(min_level);
-          }
-        else
-          {
-            prepare_adaptation();
-            triangulation.execute_coarsening_and_refinement();
-          }
-
-        setup_system();
-
-        pcout << "   Number of active cells:       "
-              << triangulation.n_global_active_cells() << std::endl
-              << "   Number of degrees of freedom: " << dof_handler.n_dofs()
-              << std::endl;
-
-        assemble_system();
-        solve();
-        compute_errors();
-
-        if (Utilities::MPI::n_mpi_processes(mpi_communicator) <= 32)
-          {
-            TimerOutput::Scope t(computing_timer, "output");
-            output_results(cycle);
-          }
-
-        computing_timer.print_summary();
-        computing_timer.reset();
-
-        pcout << std::endl;
+        KellyErrorEstimator<dim>::estimate(
+          dof_handler,
+          face_quadrature_collection,
+          std::map<types::boundary_id, const Function<dim> *>(),
+          locally_relevant_solution,
+          estimated_error_per_cell,
+          /*component_mask=*/ComponentMask(),
+          /*coefficients=*/nullptr,
+          /*n_threads=*/numbers::invalid_unsigned_int,
+          /*subdomain_id=*/numbers::invalid_subdomain_id,
+          /*material_id=*/numbers::invalid_material_id,
+          /*strategy=*/
+          KellyErrorEstimator<
+            dim>::Strategy::face_diameter_over_twice_max_degree);
       }
-  }
+      {
+        TimerOutput::Scope t(computing_timer, "flag adaptation");
+
+        parallel::distributed::GridRefinement::refine_and_coarsen_fixed_number(
+          triangulation, estimated_error_per_cell, 0.3, 0.03);
+      }
+
+      {
+        TimerOutput::Scope t(computing_timer, "estimate smoothness");
+
+        SmoothnessEstimator::Legendre::coefficient_decay(
+          *legendre,
+          dof_handler,
+          locally_relevant_solution,
+          hp_decision_indicators,
+          /*regression_strategy=*/VectorTools::Linfty_norm,
+          /*smallest_abs_coefficient=*/1e-10,
+          /*only_flagged_cells=*/true);
+      }
+      {
+        TimerOutput::Scope t(computing_timer, "decide hp");
+
+        hp::Refinement::p_adaptivity_fixed_number(dof_handler,
+                                                  hp_decision_indicators,
+                                                  0.9,
+                                                  0.9);
+        hp::Refinement::choose_p_over_h(dof_handler);
+
+        if (triangulation.n_levels() > max_level)
+          for (const auto &cell :
+               triangulation.active_cell_iterators_on_level(max_level))
+            cell->clear_refine_flag();
+
+        for (const auto &cell :
+             triangulation.active_cell_iterators_on_level(min_level))
+          cell->clear_coarsen_flag();
+      }
+    }
+
+
+
+    template <int dim>
+    void LaplaceProblem<dim>::output_results(const unsigned int cycle) const
+    {
+      Vector<float> fe_degrees(triangulation.n_active_cells());
+      for (const auto &cell : dof_handler.active_cell_iterators())
+        if (cell->is_locally_owned())
+          fe_degrees(cell->active_cell_index()) =
+            fe_collection[cell->active_fe_index()].degree;
+
+      Vector<float> subdomain(triangulation.n_active_cells());
+      for (unsigned int i = 0; i < subdomain.size(); ++i)
+        subdomain(i) = triangulation.locally_owned_subdomain();
+
+      DataOut<dim> data_out;
+
+      data_out.attach_dof_handler(dof_handler);
+      data_out.add_data_vector(locally_relevant_solution, "solution");
+      data_out.add_data_vector(fe_degrees, "fe_degree");
+      data_out.add_data_vector(subdomain, "subdomain");
+      data_out.build_patches();
+
+      data_out.write_vtu_with_pvtu_record(
+        "./", "solution", cycle, mpi_communicator, 2, 8);
+    }
+
+
+
+    template <int dim>
+    void LaplaceProblem<dim>::run(const unsigned int n_cycles)
+    {
+      pcout << "Running with "
+#ifdef USE_PETSC_LA
+            << "PETSc"
+#else
+            << "Trilinos"
+#endif
+            << " on " << Utilities::MPI::n_mpi_processes(mpi_communicator)
+            << " MPI rank(s)..." << std::endl;
+
+      for (unsigned int cycle = 0; cycle < n_cycles; ++cycle)
+        {
+          pcout << "Cycle " << cycle << ':' << std::endl;
+
+          if (cycle == 0)
+            {
+              create_coarse_grid();
+              triangulation.refine_global(min_level);
+            }
+          else
+            {
+              prepare_adaptation();
+              triangulation.execute_coarsening_and_refinement();
+            }
+
+          setup_system();
+
+          pcout << "   Number of active cells:       "
+                << triangulation.n_global_active_cells() << std::endl
+                << "   Number of degrees of freedom: " << dof_handler.n_dofs()
+                << std::endl;
+
+          assemble_system();
+          solve();
+          compute_errors();
+
+          if (Utilities::MPI::n_mpi_processes(mpi_communicator) <= 32)
+            {
+              TimerOutput::Scope t(computing_timer, "output");
+              output_results(cycle);
+            }
+
+          computing_timer.print_summary();
+          computing_timer.reset();
+
+          pcout << std::endl;
+        }
+    }
 } // namespace Step75
 
 
@@ -621,7 +659,9 @@ int main(int argc, char *argv[])
 
       Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
 
-      LaplaceProblem<2> laplace_problem_2d;
+      LaplaceProblem<2> laplace_problem_2d(AdaptationType::hpLegendre,
+                                           PreconditionerType::AMG,
+                                           SolverType::Matrix);
       laplace_problem_2d.run(/*n_cycles=*/8);
     }
   catch (std::exception &exc)
