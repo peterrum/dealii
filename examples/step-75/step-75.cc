@@ -92,7 +92,7 @@ namespace LA
 // TODO
 // includes need cleanup
 
-namespace Step99
+namespace Step75
 {
   using namespace dealii;
 
@@ -608,7 +608,7 @@ namespace Step99
         pcout << std::endl;
       }
   }
-} // namespace Step99
+} // namespace Step75
 
 
 
@@ -617,7 +617,7 @@ int main(int argc, char *argv[])
   try
     {
       using namespace dealii;
-      using namespace Step99;
+      using namespace Step75;
 
       Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
 
