@@ -93,6 +93,9 @@ public:
   using VectorType = LinearAlgebra::distributed::Vector<double>;
   using number     = double;
 
+  using FECellIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
+  using FEFaceIntegrator = FEFaceEvaluation<dim, -1, 0, 1, number>;
+
   PoissonOperator(const MatrixFree<dim, double> &matrix_free,
                   const unsigned int             degree)
     : matrix_free(matrix_free)
@@ -120,7 +123,8 @@ public:
             if (cell_subrange.second <= cell_subrange.first)
               continue;
 
-            FEEvaluation<dim, -1, 0, 1, double> phi(matrix_free, 0, 0, 0, i, i);
+            FECellIntegrator phi(matrix_free, 0, 0, 0, i, i);
+
             for (unsigned int cell = cell_subrange.first;
                  cell < cell_subrange.second;
                  ++cell)
@@ -151,7 +155,8 @@ public:
             if (cell_subrange.second <= cell_subrange.first)
               continue;
 
-            FEEvaluation<dim, -1, 0, 1, double> phi(matrix_free, 0, 0, 0, i, i);
+            FECellIntegrator phi(matrix_free, 0, 0, 0, i, i);
+
             for (unsigned int cell = cell_subrange.first;
                  cell < cell_subrange.second;
                  ++cell)
@@ -174,10 +179,8 @@ public:
               if (face_subrange.second <= face_subrange.first)
                 continue;
 
-              FEFaceEvaluation<dim, -1, 0, 1, number> fe_eval(
-                data, true, 0, 0, 0, i, i);
-              FEFaceEvaluation<dim, -1, 0, 1, number> fe_eval_neighbor(
-                data, false, 0, 0, 0, j, j);
+              FEFaceIntegrator fe_eval(data, true, 0, 0, 0, i, i);
+              FEFaceIntegrator fe_eval_neighbor(data, false, 0, 0, 0, j, j);
 
               for (unsigned int face = face_subrange.first;
                    face < face_subrange.second;
@@ -227,8 +230,8 @@ public:
             if (face_subrange.second <= face_subrange.first)
               continue;
 
-            FEFaceEvaluation<dim, -1, 0, 1, number> fe_eval(
-              data, true, 0, 0, 0, i, i);
+            FEFaceIntegrator fe_eval(data, true, 0, 0, 0, i, i);
+
             for (unsigned int face = face_subrange.first;
                  face < face_subrange.second;
                  face++)
