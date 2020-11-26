@@ -55,52 +55,6 @@
 using namespace dealii;
 
 
-template <int dim>
-class SmoothSolution : public Function<dim>
-{
-public:
-  SmoothSolution()
-    : Function<dim>()
-  {}
-  virtual void
-  value_list(const std::vector<Point<dim>> &points,
-             std::vector<double> &          values,
-             const unsigned int             component = 0) const override;
-};
-
-template <int dim>
-void
-SmoothSolution<dim>::value_list(const std::vector<Point<dim>> &points,
-                                std::vector<double> &          values,
-                                const unsigned int /*component*/) const
-{
-  for (unsigned int i = 0; i < values.size(); ++i)
-    values[i] = 0.0;
-}
-
-template <int dim>
-class SmoothRightHandSide : public Function<dim>
-{
-public:
-  SmoothRightHandSide()
-    : Function<dim>()
-  {}
-  virtual void
-  value_list(const std::vector<Point<dim>> &points,
-             std::vector<double> &          values,
-             const unsigned int /*component*/ = 0) const override;
-};
-
-template <int dim>
-void
-SmoothRightHandSide<dim>::value_list(const std::vector<Point<dim>> &points,
-                                     std::vector<double> &          values,
-                                     const unsigned int /*component*/) const
-{
-  for (unsigned int i = 0; i < values.size(); ++i)
-    values[i] = 1.0;
-}
-
 double
 get_penalty_parameter(const unsigned int i,
                       const unsigned int j,
@@ -129,6 +83,7 @@ get_penalty_parameter(const unsigned int i,
 
   return 0.0;
 }
+
 
 
 template <int dim>
@@ -193,18 +148,19 @@ public:
             const auto cell_subrange =
               data.create_cell_subrange_hp_by_index(cell_range, i);
 
+            if (cell_subrange.second <= cell_subrange.first)
+              continue;
+
             FEEvaluation<dim, -1, 0, 1, double> phi(matrix_free, 0, 0, 0, i, i);
             for (unsigned int cell = cell_subrange.first;
                  cell < cell_subrange.second;
                  ++cell)
               {
                 phi.reinit(cell);
-                phi.read_dof_values(src);
-                phi.evaluate(EvaluationFlags::gradients);
+                phi.gather_evaluate(src, EvaluationFlags::gradients);
                 for (unsigned int q = 0; q < phi.n_q_points; ++q)
                   phi.submit_gradient(phi.get_gradient(q), q);
-                phi.integrate(EvaluationFlags::gradients);
-                phi.set_dof_values(dst);
+                phi.integrate_scatter(EvaluationFlags::gradients, dst);
               }
           }
       },
@@ -214,6 +170,9 @@ public:
             {
               const auto face_subrange =
                 data.create_inner_face_subrange_hp_by_index(face_range, i, j);
+
+              if (face_subrange.second <= face_subrange.first)
+                continue;
 
               FEFaceEvaluation<dim, -1, 0, 1, number> fe_eval(
                 data, true, 0, 0, 0, i, i);
@@ -264,6 +223,10 @@ public:
           {
             const auto face_subrange =
               data.create_boundary_face_subrange_hp_by_index(face_range, i);
+
+            if (face_subrange.second <= face_subrange.first)
+              continue;
+
             FEFaceEvaluation<dim, -1, 0, 1, number> fe_eval(
               data, true, 0, 0, 0, i, i);
             for (unsigned int face = face_subrange.first;
@@ -271,9 +234,9 @@ public:
                  face++)
               {
                 fe_eval.reinit(face);
-                fe_eval.read_dof_values(src);
-                fe_eval.evaluate(EvaluationFlags::values |
-                                 EvaluationFlags::gradients);
+                fe_eval.gather_evaluate(src,
+                                        EvaluationFlags::values |
+                                          EvaluationFlags::gradients);
                 VectorizedArray<number> sigmaF =
                   get_penalty_parameter(i, i, degree);
 
@@ -295,9 +258,8 @@ public:
           }
       },
       dst,
-      src);
-    // std::cout << dst.l2_norm() << " " << src.l2_norm() << std::endl;
-    // exit(0);
+      src,
+      true);
   }
 
 private:
