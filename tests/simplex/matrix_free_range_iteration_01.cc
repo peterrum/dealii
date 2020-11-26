@@ -91,67 +91,33 @@ test()
     inner_faces[i].resize(2);
 
   matrix_free.template loop<VectorType, VectorType>(
-    [&](const auto &data, auto &dst, const auto &src, const auto cell_range) {
-      for (unsigned int i = 0; i < 2; ++i)
-        {
-          const auto cell_subrange =
-            data.create_cell_subrange_hp_by_index(cell_range, i);
+    [&](const auto &data, auto &dst, const auto &src, const auto range) {
+      const auto i = data.get_cell_active_fe_index(range);
 
-          for (unsigned int cell = cell_subrange.first;
-               cell < cell_subrange.second;
-               ++cell)
-            {
-              for (unsigned int v = 0;
-                   v < data.n_active_entries_per_cell_batch(cell);
-                   ++v)
-                {
-                  cells[i].push_back(data.get_cell_iterator(cell, v)->id());
-                }
-            }
-        }
+      for (unsigned int cell = range.first; cell < range.second; ++cell)
+        for (unsigned int v = 0; v < data.n_active_entries_per_cell_batch(cell);
+             ++v)
+          cells[i].push_back(data.get_cell_iterator(cell, v)->id());
     },
-    [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
-      for (unsigned int i = 0; i < 2; ++i)
-        for (unsigned int j = 0; j < 2; ++j)
-          {
-            const auto face_subrange =
-              data.create_inner_face_subrange_hp_by_index(face_range, i, j);
+    [&](const auto &data, auto &dst, const auto &src, const auto range) {
+      const auto i = data.get_inner_face_active_fe_index(range);
 
-            for (unsigned int face = face_subrange.first;
-                 face < face_subrange.second;
-                 ++face)
-              {
-                for (unsigned int v = 0;
-                     v < data.n_active_entries_per_face_batch(face);
-                     ++v)
-                  {
-                    inner_faces[i][j].emplace_back(
-                      data.get_face_iterator(face, v, true).first->id(),
-                      data.get_face_iterator(face, v, false).first->id());
-                  }
-              }
-          }
+      for (unsigned int face = range.first; face < range.second; ++face)
+        for (unsigned int v = 0; v < data.n_active_entries_per_face_batch(face);
+             ++v)
+          inner_faces[i.first][i.second].emplace_back(
+            data.get_face_iterator(face, v, true).first->id(),
+            data.get_face_iterator(face, v, false).first->id());
     },
-    [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
-      for (unsigned int i = 0; i < 2; ++i)
-        {
-          const auto face_subrange =
-            data.create_boundary_face_subrange_hp_by_index(face_range, i);
+    [&](const auto &data, auto &dst, const auto &src, const auto range) {
+      const auto i = data.get_boundary_face_active_fe_index(range);
 
-          for (unsigned int face = face_subrange.first;
-               face < face_subrange.second;
-               ++face)
-            {
-              for (unsigned int v = 0;
-                   v < data.n_active_entries_per_face_batch(face);
-                   ++v)
-                {
-                  boundary_faces[i].emplace_back(
-                    data.get_face_iterator(face, v).first->id(),
-                    data.get_face_iterator(face, v).second);
-                }
-            }
-        }
+      for (unsigned int face = range.first; face < range.second; ++face)
+        for (unsigned int v = 0; v < data.n_active_entries_per_face_batch(face);
+             ++v)
+          boundary_faces[i].emplace_back(
+            data.get_face_iterator(face, v).first->id(),
+            data.get_face_iterator(face, v).second);
     },
     dst,
     src);

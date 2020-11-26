@@ -1512,6 +1512,46 @@ public:
     return shape_info.size(2);
   }
 
+  unsigned int
+  get_cell_active_fe_index(
+    const std::pair<unsigned int, unsigned int> range) const
+  {
+    const auto &fe_indices = dof_info[0].cell_active_fe_index;
+
+    if (fe_indices.empty() == true)
+      return 0;
+
+    return fe_indices[range.first];
+  }
+
+  std::pair<unsigned int, unsigned int>
+  get_inner_face_active_fe_index(
+    const std::pair<unsigned int, unsigned int> range) const
+  {
+    const auto &fe_indices = dof_info[0].cell_active_fe_index;
+
+    if (fe_indices.empty() == true)
+      return {0, 0};
+
+    return {fe_indices[face_info.faces[range.first].cells_interior[0] /
+                       VectorizedArrayType::size()],
+            fe_indices[face_info.faces[range.first].cells_exterior[0] /
+                       VectorizedArrayType::size()]};
+  }
+
+  unsigned int
+  get_boundary_face_active_fe_index(
+    const std::pair<unsigned int, unsigned int> range) const
+  {
+    const auto &fe_indices = dof_info[0].cell_active_fe_index;
+
+    if (fe_indices.empty() == true)
+      return 0;
+
+    return fe_indices[face_info.faces[range.first].cells_interior[0] /
+                      VectorizedArrayType::size()];
+  }
+
   //@}
 
   /**
