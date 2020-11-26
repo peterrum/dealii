@@ -45,16 +45,16 @@ As the simplest elliptic equation, we choose the Laplace equation. To be
 able to determine the actual error, we manufacture a boundary value
 problem with a known solution. On the above mentioned domain, one
 solution to the Laplace equation looks as follows in polar coordinates
-\f$(r, \varphi)\f$. See also cite Susanne Brenner or William Mitchell
+$(r, \varphi)$. See also cite Susanne Brenner or William Mitchell
 \f[
 u = r \sin(2/3 \varphi)
 /f]
 
 The singularity becomes obvious by investigating the solution's gradient
 in the vicinity of the reentrant corner, i.e., the origin
-LaTeX
+\f[
 \lim \nabla u = \lim ... \rightarrow \infty
-LaTeX
+\f]
 
 As we know where the singularity will be located, we expect that our hp
 decision algorithm decides for h adaptation in this particular region,
