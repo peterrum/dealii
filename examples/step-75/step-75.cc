@@ -15,7 +15,7 @@
 
  *
  * Author: Marc Fehling, Colorado State University, 2020
- *         Peter Munch, , 2020
+ *         Peter Munch, Technical University of Munich and Helmholtz-Zentrum Geesthacht, 2020
  *         Wolfgang Bangerth, Colorado State University, 2020
  */
 
