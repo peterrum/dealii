@@ -190,7 +190,9 @@ namespace internal
           // grant write access to common univariate shape data
           auto &shape_values      = univariate_shape_data.shape_values;
           auto &shape_values_face = univariate_shape_data.shape_values_face;
-          auto &shape_gradients   = univariate_shape_data.shape_gradients;
+          auto &shape_values_face_offset =
+            univariate_shape_data.shape_values_face_offset;
+          auto &shape_gradients = univariate_shape_data.shape_gradients;
           auto &shape_gradients_face =
             univariate_shape_data.shape_gradients_face;
 
@@ -233,6 +235,8 @@ namespace internal
           shape_gradients_face.resize(n_faces * n_face_orientations * n_dofs *
                                       n_q_points_face * dim);
 
+          shape_values_face_offset.reinit(n_faces, n_face_orientations);
+
           for (unsigned int f = 0; f < n_faces; ++f)
             for (unsigned int o = 0; o < n_face_orientations; ++o)
               {
@@ -243,6 +247,9 @@ namespace internal
                   (o >> 1) & 1, // face_flip
                   (o >> 2) & 1, // face_rotation
                   n_q_points_face);
+
+                shape_values_face_offset[f][o] =
+                  n_q_points_face * n_dofs * (f * (dim == 2 ? 2 : 6) + o);
 
                 for (unsigned int i = 0; i < n_dofs; ++i)
                   for (unsigned int q = 0; q < n_q_points_face; ++q)

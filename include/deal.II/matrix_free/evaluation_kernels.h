@@ -2550,6 +2550,7 @@ namespace internal
         {
           const unsigned int n_dofs     = data.dofs_per_component_on_cell;
           const unsigned int n_q_points = data.n_q_points_face;
+          const auto         shape_info = data.data.front();
 
           using Eval = EvaluatorTensorProduct<evaluate_general,
                                               1,
@@ -2561,9 +2562,8 @@ namespace internal
           if (evaluate_values)
             {
               const auto shape_values =
-                data.data.front().shape_values_face.data() +
-                n_q_points * n_dofs *
-                  (face_no * (dim == 2 ? 2 : 6) + face_orientation);
+                shape_info.shape_values_face.data() +
+                shape_info.shape_values_face_offset[face_no][face_orientation];
               auto values_quad_ptr        = values_quad;
               auto values_dofs_actual_ptr = values_array;
 
@@ -2581,9 +2581,9 @@ namespace internal
           if (evaluate_gradients)
             {
               const auto shape_gradients =
-                data.data.front().shape_gradients_face.data() +
-                n_q_points * n_dofs *
-                  (face_no * (dim == 2 ? 2 : 6) + face_orientation) * dim;
+                shape_info.shape_gradients_face.data() +
+                shape_info.shape_values_face_offset[face_no][face_orientation] *
+                  dim;
 
               auto gradients_quad_ptr     = gradients_quad;
               auto values_dofs_actual_ptr = values_array;
@@ -2705,6 +2705,7 @@ namespace internal
         {
           const unsigned int n_dofs     = data.dofs_per_component_on_cell;
           const unsigned int n_q_points = data.n_q_points_face;
+          const auto         shape_info = data.data.front();
 
           using Eval = EvaluatorTensorProduct<evaluate_general,
                                               1,
@@ -2716,9 +2717,8 @@ namespace internal
           if (integrate_values)
             {
               const auto shape_values =
-                data.data.front().shape_values_face.data() +
-                n_q_points * n_dofs *
-                  (face_no * (dim == 2 ? 2 : 6) + face_orientation);
+                shape_info.shape_values_face.data() +
+                shape_info.shape_values_face_offset[face_no][face_orientation];
               auto values_quad_ptr        = values_quad;
               auto values_dofs_actual_ptr = values_array;
 
@@ -2736,9 +2736,9 @@ namespace internal
           if (integrate_gradients)
             {
               const auto shape_gradients =
-                data.data.front().shape_gradients_face.data() +
-                n_q_points * n_dofs *
-                  (face_no * (dim == 2 ? 2 : 6) + face_orientation) * dim;
+                shape_info.shape_gradients_face.data() +
+                shape_info.shape_values_face_offset[face_no][face_orientation] *
+                  dim;
 
               auto gradients_quad_ptr     = gradients_quad;
               auto values_dofs_actual_ptr = values_array;
