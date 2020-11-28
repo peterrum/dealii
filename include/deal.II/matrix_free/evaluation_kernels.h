@@ -2562,8 +2562,8 @@ namespace internal
           if (evaluate_values)
             {
               const auto shape_values =
-                shape_info.shape_values_face.data() +
-                shape_info.shape_values_face_offset[face_no][face_orientation];
+                &shape_info.shape_values_face(face_no, face_orientation, 0);
+
               auto values_quad_ptr        = values_quad;
               auto values_dofs_actual_ptr = values_array;
 
@@ -2580,20 +2580,20 @@ namespace internal
 
           if (evaluate_gradients)
             {
-              const auto shape_gradients =
-                shape_info.shape_gradients_face.data() +
-                shape_info.shape_values_face_offset[face_no][face_orientation] *
-                  dim;
-
               auto gradients_quad_ptr     = gradients_quad;
               auto values_dofs_actual_ptr = values_array;
+
+              std::array<const VectorizedArrayType *, dim> shape_gradients;
+              for (unsigned int d = 0; d < dim; ++d)
+                shape_gradients[d] = &shape_info.shape_gradients_face(
+                  face_no, face_orientation, d, 0);
 
               for (unsigned int c = 0; c < n_components; ++c)
                 {
                   for (unsigned int d = 0; d < dim; ++d)
                     {
                       Eval eval(nullptr,
-                                shape_gradients + n_q_points * n_dofs * d,
+                                shape_gradients[d],
                                 nullptr,
                                 n_dofs,
                                 n_q_points);
@@ -2717,8 +2717,8 @@ namespace internal
           if (integrate_values)
             {
               const auto shape_values =
-                shape_info.shape_values_face.data() +
-                shape_info.shape_values_face_offset[face_no][face_orientation];
+                &shape_info.shape_values_face(face_no, face_orientation, 0);
+
               auto values_quad_ptr        = values_quad;
               auto values_dofs_actual_ptr = values_array;
 
@@ -2735,20 +2735,20 @@ namespace internal
 
           if (integrate_gradients)
             {
-              const auto shape_gradients =
-                shape_info.shape_gradients_face.data() +
-                shape_info.shape_values_face_offset[face_no][face_orientation] *
-                  dim;
-
               auto gradients_quad_ptr     = gradients_quad;
               auto values_dofs_actual_ptr = values_array;
+
+              std::array<const VectorizedArrayType *, dim> shape_gradients;
+              for (unsigned int d = 0; d < dim; ++d)
+                shape_gradients[d] = &shape_info.shape_gradients_face(
+                  face_no, face_orientation, d, 0);
 
               for (unsigned int c = 0; c < n_components; ++c)
                 {
                   for (unsigned int d = 0; d < dim; ++d)
                     {
                       Eval eval(nullptr,
-                                shape_gradients + n_q_points * n_dofs * d,
+                                shape_gradients[d],
                                 nullptr,
                                 n_dofs,
                                 n_q_points);

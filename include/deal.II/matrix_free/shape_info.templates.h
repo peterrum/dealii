@@ -190,9 +190,7 @@ namespace internal
           // grant write access to common univariate shape data
           auto &shape_values      = univariate_shape_data.shape_values;
           auto &shape_values_face = univariate_shape_data.shape_values_face;
-          auto &shape_values_face_offset =
-            univariate_shape_data.shape_values_face_offset;
-          auto &shape_gradients = univariate_shape_data.shape_gradients;
+          auto &shape_gradients   = univariate_shape_data.shape_gradients;
           auto &shape_gradients_face =
             univariate_shape_data.shape_gradients_face;
 
@@ -229,13 +227,11 @@ namespace internal
             QProjector<dim>::project_to_all_faces(reference_cell_type,
                                                   quad_face);
 
-          shape_values_face.resize(n_faces * n_face_orientations * n_dofs *
-                                   n_q_points_face);
+          shape_values_face.reinit(
+            {n_faces, n_face_orientations, n_dofs * n_q_points_face});
 
-          shape_gradients_face.resize(n_faces * n_face_orientations * n_dofs *
-                                      n_q_points_face * dim);
-
-          shape_values_face_offset.reinit(n_faces, n_face_orientations);
+          shape_gradients_face.reinit(
+            {n_faces, n_face_orientations, dim, n_dofs * n_q_points_face});
 
           for (unsigned int f = 0; f < n_faces; ++f)
             for (unsigned int o = 0; o < n_face_orientations; ++o)
@@ -248,29 +244,19 @@ namespace internal
                   (o >> 2) & 1, // face_rotation
                   n_q_points_face);
 
-                shape_values_face_offset[f][o] =
-                  n_q_points_face * n_dofs * (f * (dim == 2 ? 2 : 6) + o);
-
                 for (unsigned int i = 0; i < n_dofs; ++i)
                   for (unsigned int q = 0; q < n_q_points_face; ++q)
                     {
                       const auto point = projected_quad_face.point(q + offset);
 
-                      shape_values_face[f * n_face_orientations * n_dofs *
-                                          n_q_points_face +
-                                        o * n_dofs * n_q_points_face +
-                                        i * n_q_points_face + q] =
+                      shape_values_face(f, o, i * n_q_points_face + q) =
                         fe->shape_value(i, point);
 
                       const auto grad = fe->shape_grad(i, point);
 
                       for (int d = 0; d < dim; ++d)
-                        shape_gradients_face[f * n_face_orientations * n_dofs *
-                                               n_q_points_face * dim +
-                                             o * n_dofs * n_q_points_face *
-                                               dim +
-                                             d * n_dofs * n_q_points_face +
-                                             i * n_q_points_face + q] = grad[d];
+                        shape_gradients_face(f, o, d, i * n_q_points_face + q) =
+                          grad[d];
                     }
               }
 

@@ -288,32 +288,17 @@ namespace internal
 
       /**
        * Stores the shape values of the finite element evaluated on all
-       * quadrature points for all faces (no tensor-product structure
-       * exploited). To access the shape values for a given face `face_no` and
-       * its orientation `d`, shape_values_face_offset can be used to query a
-       * pointer into this array. The code would look like:
-       * <code>shape_values_face.data() +
-       * shape_values_face_offset[face_no][orientation]</code>.
+       * quadrature points for all faces and orientations (no tensor-product
+       * structure exploited).
        */
-      AlignedVector<Number> shape_values_face;
-
-      /**
-       * Table with into shape_values_face for a given pair of face number
-       * and its orientation.
-       */
-      dealii::Table<2, unsigned int> shape_values_face_offset;
+      Table<3, Number> shape_values_face;
 
       /**
        * Stores the shape gradients of the finite element evaluated on all
-       * quadrature points for all faces and directions (no tensor-product
-       * structure  exploited). To access the needed shape gradient for,
-       * shape_values_face_offset can be used to. For a given face number
-       * `face_no`, orientation `orientation`, and direction `d`, the code would
-       * look like <code>shape_gradients_face.data() +
-       * shape_values_face_offset[face_no][orientation]*dim + n_dofs *
-       * n_q_points_face * d</code>.
+       * quadrature points for all faces, orientations, and directions
+       * (no tensor-product structure  exploited).
        */
-      AlignedVector<Number> shape_gradients_face;
+      Table<4, Number> shape_gradients_face;
     };
 
 
