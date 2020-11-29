@@ -254,8 +254,11 @@ namespace Step75
                         VectorType &                      system_rhs) = 0;
 
 
+    virtual void vmult(VectorType &dst, const VectorType &src) const = 0;
 
     virtual const TrilinosWrappers::SparseMatrix &get_system_matrix() const = 0;
+
+    virtual void initialize_dof_vector(VectorType &vec) const = 0;
   };
 
   template <int dim, typename number>
@@ -340,7 +343,12 @@ namespace Step75
 #endif
     }
 
-    void initialize_dof_vector(VectorType &vec) const
+    void vmult(VectorType &dst, const VectorType &src) const override
+    {
+      system_matrix.vmult(dst, src);
+    }
+
+    void initialize_dof_vector(VectorType &vec) const override
     {
       this->initialize_dof_vector_dealii(vec);
     }
@@ -386,10 +394,10 @@ namespace Step75
 
       this->initialize_dof_vector(system_rhs);
 
-      // constrained_indices.clear();
-      // for (auto i : this->matrix_free.get_constrained_dofs())
-      //  constrained_indices.push_back(i);
-      // constrained_values.resize(constrained_indices.size());
+      constrained_indices.clear();
+      for (auto i : this->matrix_free.get_constrained_dofs())
+        constrained_indices.push_back(i);
+      constrained_values.resize(constrained_indices.size());
 
       AffineConstraints<number> constraints_without_dbc;
 
@@ -440,6 +448,43 @@ namespace Step75
       }
     }
 
+
+
+    void vmult(VectorType &dst, const VectorType &src) const override
+    {
+      dst = 0.0; // TODO: needed?
+
+      for (unsigned int i = 0; i < constrained_indices.size(); ++i)
+        {
+          constrained_values[i] =
+            std::pair<number, number>(src.local_element(constrained_indices[i]),
+                                      dst.local_element(
+                                        constrained_indices[i]));
+
+          const_cast<LinearAlgebra::distributed::Vector<number> &>(src)
+            .local_element(constrained_indices[i]) = 0.;
+        }
+
+      // do loop
+      this->matrix_free.template cell_loop<VectorType, VectorType>(
+        [&](const auto &, auto &dst, const auto &src, const auto range) {
+          do_cell_integral_range(matrix_free, dst, src, range);
+        },
+        dst,
+        src,
+        /* dst = 0 */ false);
+
+      // set constrained dofs as the sum of current dst value and src value
+      for (unsigned int i = 0; i < constrained_indices.size(); ++i)
+        {
+          const_cast<LinearAlgebra::distributed::Vector<number> &>(src)
+            .local_element(constrained_indices[i]) =
+            constrained_values[i].first;
+          dst.local_element(constrained_indices[i]) =
+            constrained_values[i].first;
+        }
+    }
+
     using FECellIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
 
     // Perform cell integral on a cell batch.
@@ -482,7 +527,7 @@ namespace Step75
         }
     }
 
-    void initialize_dof_vector(VectorType &vec) const
+    void initialize_dof_vector(VectorType &vec) const override
     {
       matrix_free.initialize_dof_vector(vec);
     }
@@ -622,6 +667,9 @@ namespace Step75
 
     AffineConstraints<number> constraints;
 
+    std::vector<unsigned int> constrained_indices;
+
+    mutable std::vector<std::pair<number, number>> constrained_values;
 
     mutable TrilinosWrappers::SparseMatrix system_matrix;
 
@@ -1166,21 +1214,26 @@ namespace Step75
   template <int dim>
   template <typename Operator>
   void LaplaceProblem<dim>::solve(
-    const Operator &                                  laplace_operator,
+    const Operator &                                  system_matrix,
     LinearAlgebra::distributed::Vector<double> &      locally_relevant_solution,
     const LinearAlgebra::distributed::Vector<double> &system_rhs)
   {
     TimerOutput::Scope t(computing_timer, "solve");
 
-    LinearAlgebra::distributed::Vector<double> completely_distributed_solution(
-      locally_owned_dofs, mpi_communicator);
+    LinearAlgebra::distributed::Vector<double> locally_relevant_solution_;
+    LinearAlgebra::distributed::Vector<double> system_rhs_;
 
-    SolverControl solver_control(system_rhs.size(),
-                                 1e-12 * system_rhs.l2_norm());
+    system_matrix.initialize_dof_vector(locally_relevant_solution_);
+    system_matrix.initialize_dof_vector(system_rhs_);
+
+    system_rhs_.copy_locally_owned_data_from(system_rhs);
+
+    SolverControl solver_control(system_rhs_.size(),
+                                 1e-12 * system_rhs_.l2_norm());
 #ifdef USE_PETSC_LA
     LA::SolverCG cg(solver_control, mpi_communicator);
 #else
-    LA::SolverCG cg(solver_control);
+    SolverCG<LinearAlgebra::distributed::Vector<double>> cg(solver_control);
 #endif
 
     LA::MPI::PreconditionAMG                 preconditioner;
@@ -1192,21 +1245,21 @@ namespace Step75
     data.higher_order_elements = true;
 #endif
 
-    const auto &system_matrix = laplace_operator.get_system_matrix();
-
-    preconditioner.initialize(system_matrix, data);
+    preconditioner.initialize(system_matrix.get_system_matrix(), data);
 
     cg.solve(system_matrix,
-             completely_distributed_solution,
-             system_rhs,
+             locally_relevant_solution_,
+             system_rhs_,
              preconditioner);
 
     pcout << "   Solved in " << solver_control.last_step() << " iterations."
           << std::endl;
 
-    constraints.distribute(completely_distributed_solution);
+    constraints.distribute(locally_relevant_solution_);
 
-    locally_relevant_solution = completely_distributed_solution;
+    locally_relevant_solution.copy_locally_owned_data_from(
+      locally_relevant_solution_);
+    locally_relevant_solution.update_ghost_values();
   }
 
 
