@@ -30,7 +30,7 @@
 // uncomment the following \#define if you have PETSc and Trilinos installed
 // and you prefer using Trilinos in this example:
 // @code
-// #define FORCE_USE_OF_TRILINOS
+#define FORCE_USE_OF_TRILINOS
 // @endcode
 
 // This will either import PETSc or TrilinosWrappers into the namespace
@@ -48,6 +48,9 @@ namespace LA
 #  error DEAL_II_WITH_PETSC or DEAL_II_WITH_TRILINOS required
 #endif
 } // namespace LA
+
+#include <deal.II/lac/la_parallel_vector.h>
+
 
 #include <deal.II/lac/vector.h>
 #include <deal.II/lac/full_matrix.h>
@@ -249,9 +252,9 @@ namespace Step75
 
     AffineConstraints<double> constraints;
 
-    LA::MPI::SparseMatrix system_matrix;
-    LA::MPI::Vector       locally_relevant_solution;
-    LA::MPI::Vector       system_rhs;
+    LA::MPI::SparseMatrix                      system_matrix;
+    LinearAlgebra::distributed::Vector<double> locally_relevant_solution;
+    LinearAlgebra::distributed::Vector<double> system_rhs;
 
     Vector<float> estimated_error_per_cell, hp_decision_indicators;
 
@@ -471,8 +474,8 @@ namespace Step75
   {
     TimerOutput::Scope t(computing_timer, "solve");
 
-    LA::MPI::Vector completely_distributed_solution(locally_owned_dofs,
-                                                    mpi_communicator);
+    LinearAlgebra::distributed::Vector<double> completely_distributed_solution(
+      locally_owned_dofs, mpi_communicator);
 
     SolverControl solver_control(system_rhs.size(),
                                  1e-12 * system_rhs.l2_norm());
