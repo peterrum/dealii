@@ -681,21 +681,26 @@ namespace Step75
   class AdaptationStrategy
   {
   public:
-    AdaptationStrategy(const ParameterHandler &params,
-                       const DoFHandler<dim> & dof_handler)
+    AdaptationStrategy(const ParameterHandler &                   params,
+                       DoFHandler<dim> &                          dof_handler,
+                       parallel::distributed::Triangulation<dim> &triangulation)
       : params(params)
       , dof_handler(dof_handler)
-      , triangulation(dof_handler.get_triangulation())
+      , triangulation(triangulation)
     {
       for (unsigned int degree = min_degree; degree <= max_degree; ++degree)
         face_quadrature_collection.push_back(QGauss<dim - 1>(degree + 1));
     };
 
-  private:
+    virtual void
+    adapt_resolution(const LinearAlgebra::distributed::Vector<double>
+                       &locally_relevant_solution);
+
+  protected:
     void flag_adaptation(const LinearAlgebra::distributed::Vector<double>
                            &locally_relevant_solution);
     virtual void decide_hp(const LinearAlgebra::distributed::Vector<double>
-                             &locally_relevant_solution) = 0;
+                             &locally_relevant_solution);
     void         limit_levels();
     virtual void execute_refinement();
 
@@ -711,6 +716,18 @@ namespace Step75
 
     Vector<float> estimated_error_per_cell;
   };
+
+
+
+  template <int dim>
+  void AdaptationStrategy<dim>::adapt_resolution(
+    const LinearAlgebra::distributed::Vector<double> &locally_relevant_solution)
+  {
+    flag_adaptation(locally_relevant_solution);
+    decide_hp(locally_relevant_solution);
+    limit_levels();
+    execute_refinement();
+  }
 
 
 
@@ -737,6 +754,14 @@ namespace Step75
     parallel::distributed::GridRefinement::refine_and_coarsen_fixed_number(
       triangulation, estimated_error_per_cell, 0.3, 0.03);
   }
+
+
+
+  template <int dim>
+  void AdaptationStrategy<dim>::decide_hp(
+    const LinearAlgebra::distributed::Vector<double>
+      & /*locally_relevant_solution*/)
+  {}
 
 
 
@@ -768,34 +793,27 @@ namespace Step75
 
 
   template <int dim>
-  class hStrategy : public AdaptationStrategy<dim>
-  {
-  public:
-    virtual void decide_hp(){};
-  };
-
-
-
-  template <int dim>
   class hpLegendreStrategy : public AdaptationStrategy<dim>
   {
   public:
-    hpLegendreStrategy(const ParameterHandler &params,
-                       const DoFHandler<dim> & dof_handler)
-      : AdaptationStrategy<dim>(params, dof_handler)
-      , legendre(SmoothnessEstimator::Legendre::default_fe_series(
-          dof_handler.get_fe_collection()))
+    hpLegendreStrategy(const ParameterHandler &                   params,
+                       DoFHandler<dim> &                          dof_handler,
+                       parallel::distributed::Triangulation<dim> &triangulation,
+                       hp::FECollection<dim> &                    fe_collection)
+      : AdaptationStrategy<dim>(params, dof_handler, triangulation)
+      , legendre(
+          SmoothnessEstimator::Legendre::default_fe_series(fe_collection))
     {
       legendre.precalculate_all_transformation_matrices();
     };
-    virtual void decide_hp(const LinearAlgebra::distributed::Vector<double>
-                             &locally_relevant_solution);
-    virtual void execute_refinement();
 
   private:
+    void decide_hp(const LinearAlgebra::distributed::Vector<double>
+                     &locally_relevant_solution) override;
+
     FESeries::Legendre<dim> legendre;
 
-    Vector<double> hp_decision_indicators;
+    Vector<float> hp_decision_indicators;
   };
 
 
@@ -828,22 +846,22 @@ namespace Step75
   class hpFourierStrategy : public AdaptationStrategy<dim>
   {
   public:
-    hpFourierStrategy(const ParameterHandler &params,
-                      const DoFHandler<dim> & dof_handler)
-      : AdaptationStrategy<dim>(params, dof_handler)
-      , fourier(SmoothnessEstimator::Fourier::default_fe_series(
-          dof_handler.get_fe_collection()))
+    hpFourierStrategy(const ParameterHandler &                   params,
+                      DoFHandler<dim> &                          dof_handler,
+                      parallel::distributed::Triangulation<dim> &triangulation,
+                      hp::FECollection<dim> &                    fe_collection)
+      : AdaptationStrategy<dim>(params, dof_handler, triangulation)
+      , fourier(SmoothnessEstimator::Fourier::default_fe_series(fe_collection))
     {
       fourier.precalculate_all_transformation_matrices();
     };
-    virtual void decide_hp(const LinearAlgebra::distributed::Vector<double>
-                             &locally_relevant_solution);
-    virtual void execute_refinement();
+    void decide_hp(const LinearAlgebra::distributed::Vector<double>
+                     &locally_relevant_solution) override;
 
   private:
     FESeries::Fourier<dim> fourier;
 
-    Vector<double> hp_decision_indicators;
+    Vector<float> hp_decision_indicators;
   };
 
 
@@ -875,26 +893,78 @@ namespace Step75
   template <int dim>
   class hpHistoryStrategy : public AdaptationStrategy<dim>
   {
-    hpHistoryStrategy(const ParameterHandler &params,
-                      const DoFHandler<dim> & dof_handler)
-      : AdaptationStrategy<dim>(params, dof_handler)
-      , error_predictor(dof_handler){};
-    virtual void decide_hp(const LinearAlgebra::distributed::Vector<double>
-                             &locally_relevant_solution);
-    virtual void execute_refinement();
+  public:
+    hpHistoryStrategy(const ParameterHandler &                   params,
+                      DoFHandler<dim> &                          dof_handler,
+                      parallel::distributed::Triangulation<dim> &triangulation)
+      : AdaptationStrategy<dim>(params, dof_handler, triangulation)
+      , error_predictor(dof_handler)
+      , init_step(true){};
+
+    void adapt_resolution(const LinearAlgebra::distributed::Vector<double>
+                            &locally_relevant_solution) override;
 
   private:
+    void decide_hp(const LinearAlgebra::distributed::Vector<double>
+                     &locally_relevant_solution) override;
+    void execute_refinement() override;
+
+
     parallel::distributed::ErrorPredictor<dim> error_predictor;
 
-    Vector<double> hp_decision_indicators;
-    Vector<double> predicted_error_per_cell;
+    bool          init_step;
+    Vector<float> hp_decision_indicators;
+    Vector<float> predicted_error_per_cell;
   };
+
+
+  template <int dim>
+  void hpHistoryStrategy<dim>::adapt_resolution(
+    const LinearAlgebra::distributed::Vector<double> &locally_relevant_solution)
+  {
+    if (init_step)
+      {
+        this->estimated_error_per_cell.grow_or_shrink(
+          this->triangulation.n_active_cells());
+
+        KellyErrorEstimator<dim>::estimate(
+          this->dof_handler,
+          this->face_quadrature_collection,
+          std::map<types::boundary_id, const Function<dim> *>(),
+          locally_relevant_solution,
+          this->estimated_error_per_cell,
+          /*component_mask=*/ComponentMask(),
+          /*coefficients=*/nullptr,
+          /*n_threads=*/numbers::invalid_unsigned_int,
+          /*subdomain_id=*/numbers::invalid_subdomain_id,
+          /*material_id=*/numbers::invalid_material_id,
+          /*strategy=*/
+          KellyErrorEstimator<
+            dim>::Strategy::face_diameter_over_twice_max_degree);
+
+        for (const auto &cell : this->triangulation.active_cell_iterators())
+          if (cell->is_locally_owned())
+            cell->set_refine_flag();
+
+        execute_refinement();
+
+        init_step = false;
+      }
+    else
+      {
+        this->flag_adaptation(locally_relevant_solution);
+        decide_hp(locally_relevant_solution);
+        this->limit_levels();
+        execute_refinement();
+      }
+  }
 
 
 
   template <int dim>
   void hpHistoryStrategy<dim>::decide_hp(
-    const LinearAlgebra::distributed::Vector<double> &locally_relevant_solution)
+    const LinearAlgebra::distributed::Vector<double>
+      & /*locally_relevant_solution*/)
   {
     hp_decision_indicators.grow_or_shrink(this->triangulation.n_active_cells());
 
@@ -959,9 +1029,6 @@ namespace Step75
           const LinearAlgebra::distributed::Vector<double> &system_rhs);
 
     void compute_errors();
-    void flag_adaptation();
-    void decide_hp();
-    void limit_levels();
     void output_results(const unsigned int cycle) const;
 
     MPI_Comm mpi_communicator;
@@ -977,15 +1044,9 @@ namespace Step75
     hp::MappingCollection<dim> mapping_collection;
     hp::FECollection<dim>      fe_collection;
     hp::QCollection<dim>       quadrature_collection;
-    hp::QCollection<dim - 1>   face_quadrature_collection;
-    const unsigned int         min_degree, max_degree;
 
     std::unique_ptr<hp::FEValues<dim>>       fe_values_collection;
-    std::unique_ptr<FESeries::Legendre<dim>> legendre;
-    std::unique_ptr<FESeries::Fourier<dim>>  fourier;
-
-    Vector<float>                              predicted_error_per_cell;
-    parallel::distributed::ErrorPredictor<dim> error_predictor;
+    std::unique_ptr<AdaptationStrategy<dim>> adaptation_strategy;
 
     IndexSet locally_owned_dofs;
     IndexSet locally_relevant_dofs;
@@ -995,8 +1056,6 @@ namespace Step75
     LA::MPI::SparseMatrix                      system_matrix;
     LinearAlgebra::distributed::Vector<double> locally_relevant_solution;
     LinearAlgebra::distributed::Vector<double> system_rhs;
-
-    Vector<float> estimated_error_per_cell, hp_decision_indicators;
 
     ConditionalOStream pcout;
     TimerOutput        computing_timer;
@@ -1019,9 +1078,6 @@ namespace Step75
     , min_level(5)
     , max_level(dim <= 2 ? 10 : 8)
     , dof_handler(triangulation)
-    , min_degree(2)
-    , max_degree(dim <= 2 ? 7 : 5)
-    , error_predictor(dof_handler)
     , pcout(std::cout,
             (Utilities::MPI::this_mpi_process(mpi_communicator) == 0))
     , computing_timer(mpi_communicator,
@@ -1037,6 +1093,8 @@ namespace Step75
     Assert(min_level <= max_level,
            ExcMessage(
              "Triangulation level limits have been incorrectly set up."));
+    // TODO: move min/max degrees to parameterhandler
+    const unsigned int min_degree = 2, max_degree = dim <= 2 ? 7 : 5;
     Assert(min_degree <= max_degree,
            ExcMessage("FECollection degrees have been incorrectly set up."));
 
@@ -1046,7 +1104,6 @@ namespace Step75
       {
         fe_collection.push_back(FE_Q<dim>(degree));
         quadrature_collection.push_back(QGauss<dim>(degree + 1));
-        face_quadrature_collection.push_back(QGauss<dim - 1>(degree + 1));
       }
 
     fe_values_collection =
@@ -1059,19 +1116,28 @@ namespace Step75
 
     switch (adaptation_type)
       {
+        case AdaptationType::h:
+          adaptation_strategy =
+            std::make_unique<AdaptationStrategy<dim>>(ParameterHandler(),
+                                                      dof_handler,
+                                                      triangulation);
+          break;
         case AdaptationType::hpLegendre:
-          legendre = std::make_unique<FESeries::Legendre<dim>>(
-            SmoothnessEstimator::Legendre::default_fe_series(fe_collection));
-          legendre->precalculate_all_transformation_matrices();
+          adaptation_strategy = std::make_unique<hpLegendreStrategy<dim>>(
+            ParameterHandler(), dof_handler, triangulation, fe_collection);
           break;
-
         case AdaptationType::hpFourier:
-          fourier = std::make_unique<FESeries::Fourier<dim>>(
-            SmoothnessEstimator::Fourier::default_fe_series(fe_collection));
-          fourier->precalculate_all_transformation_matrices();
+          adaptation_strategy = std::make_unique<hpFourierStrategy<dim>>(
+            ParameterHandler(), dof_handler, triangulation, fe_collection);
           break;
-
+        case AdaptationType::hpHistory:
+          adaptation_strategy =
+            std::make_unique<hpHistoryStrategy<dim>>(ParameterHandler(),
+                                                     dof_handler,
+                                                     triangulation);
+          break;
         default:
+          AssertThrow(false, ExcNotImplemented());
           break;
       }
   }
@@ -1326,113 +1392,6 @@ namespace Step75
 
 
   template <int dim>
-  void LaplaceProblem<dim>::flag_adaptation()
-  {
-    TimerOutput::Scope t(computing_timer, "flag adaptation");
-
-    estimated_error_per_cell.grow_or_shrink(triangulation.n_active_cells());
-
-    KellyErrorEstimator<dim>::estimate(
-      dof_handler,
-      face_quadrature_collection,
-      std::map<types::boundary_id, const Function<dim> *>(),
-      locally_relevant_solution,
-      estimated_error_per_cell,
-      /*component_mask=*/ComponentMask(),
-      /*coefficients=*/nullptr,
-      /*n_threads=*/numbers::invalid_unsigned_int,
-      /*subdomain_id=*/numbers::invalid_subdomain_id,
-      /*material_id=*/numbers::invalid_material_id,
-      /*strategy=*/
-      KellyErrorEstimator<dim>::Strategy::face_diameter_over_twice_max_degree);
-
-    parallel::distributed::GridRefinement::refine_and_coarsen_fixed_number(
-      triangulation, estimated_error_per_cell, 0.3, 0.03);
-  }
-
-
-
-  template <int dim>
-  void LaplaceProblem<dim>::decide_hp()
-  {
-    TimerOutput::Scope t(computing_timer, "decide hp");
-
-    hp_decision_indicators.grow_or_shrink(triangulation.n_active_cells());
-
-    switch (adaptation_type)
-      {
-        case AdaptationType::hpLegendre:
-          SmoothnessEstimator::Legendre::coefficient_decay(
-            *legendre,
-            dof_handler,
-            locally_relevant_solution,
-            hp_decision_indicators,
-            /*regression_strategy=*/VectorTools::Linfty_norm,
-            /*smallest_abs_coefficient=*/1e-10,
-            /*only_flagged_cells=*/true);
-          break;
-
-        case AdaptationType::hpFourier:
-          SmoothnessEstimator::Fourier::coefficient_decay(
-            *fourier,
-            dof_handler,
-            locally_relevant_solution,
-            hp_decision_indicators,
-            /*regression_strategy=*/VectorTools::Linfty_norm,
-            /*smallest_abs_coefficient=*/1e-10,
-            /*only_flagged_cells=*/true);
-          break;
-
-        case AdaptationType::hpHistory:
-          {
-            for (unsigned int i = 0; i < triangulation.n_active_cells(); ++i)
-              hp_decision_indicators(i) =
-                predicted_error_per_cell(i) - estimated_error_per_cell(i);
-
-            const float global_minimum = Utilities::MPI::min(
-              *std::min_element(hp_decision_indicators.begin(),
-                                hp_decision_indicators.end()),
-              mpi_communicator);
-            if (global_minimum < 0)
-              for (auto &indicator : hp_decision_indicators)
-                indicator -= global_minimum;
-          }
-          break;
-
-        default:
-          Assert(false, ExcNotImplemented());
-          break;
-      }
-
-    hp::Refinement::p_adaptivity_fixed_number(dof_handler,
-                                              hp_decision_indicators,
-                                              0.9,
-                                              0.9);
-    hp::Refinement::choose_p_over_h(dof_handler);
-  }
-
-
-
-  template <int dim>
-  void LaplaceProblem<dim>::limit_levels()
-  {
-    Assert(triangulation.n_levels() >= min_level + 1 &&
-             triangulation.n_levels() <= max_level + 1,
-           ExcInternalError());
-
-    if (triangulation.n_levels() > max_level)
-      for (const auto &cell :
-           triangulation.active_cell_iterators_on_level(max_level))
-        cell->clear_refine_flag();
-
-    for (const auto &cell :
-         triangulation.active_cell_iterators_on_level(min_level))
-      cell->clear_coarsen_flag();
-  }
-
-
-
-  template <int dim>
   void LaplaceProblem<dim>::output_results(const unsigned int cycle) const
   {
     Vector<float> fe_degrees(triangulation.n_active_cells());
@@ -1497,12 +1456,8 @@ namespace Step75
               }
             else
               {
-                flag_adaptation();
-                if (adaptation_type != AdaptationType::h)
-                  decide_hp();
-                limit_levels();
-
-                triangulation.execute_coarsening_and_refinement();
+                adaptation_strategy->adapt_resolution(
+                  locally_relevant_solution);
               }
           }
         else
@@ -1514,49 +1469,8 @@ namespace Step75
               }
             else
               {
-                if (cycle == 0)
-                  {
-                    estimated_error_per_cell.grow_or_shrink(
-                      triangulation.n_active_cells());
-
-                    KellyErrorEstimator<dim>::estimate(
-                      dof_handler,
-                      face_quadrature_collection,
-                      std::map<types::boundary_id, const Function<dim> *>(),
-                      locally_relevant_solution,
-                      estimated_error_per_cell,
-                      /*component_mask=*/ComponentMask(),
-                      /*coefficients=*/nullptr,
-                      /*n_threads=*/numbers::invalid_unsigned_int,
-                      /*subdomain_id=*/numbers::invalid_subdomain_id,
-                      /*material_id=*/numbers::invalid_material_id,
-                      /*strategy=*/
-                      KellyErrorEstimator<
-                        dim>::Strategy::face_diameter_over_twice_max_degree);
-
-                    for (const auto &cell :
-                         triangulation.active_cell_iterators())
-                      if (cell->is_locally_owned())
-                        cell->set_refine_flag();
-                  }
-                else
-                  {
-                    flag_adaptation();
-                    decide_hp();
-                    limit_levels();
-                  }
-
-                error_predictor.prepare_for_coarsening_and_refinement(
-                  estimated_error_per_cell,
-                  /*gamma_p=*/std::sqrt(0.4),
-                  /*gamma_h=*/2.,
-                  /*gamma_n=*/1.);
-
-                triangulation.execute_coarsening_and_refinement();
-
-                predicted_error_per_cell.grow_or_shrink(
-                  triangulation.n_active_cells());
-                error_predictor.unpack(predicted_error_per_cell);
+                adaptation_strategy->adapt_resolution(
+                  locally_relevant_solution);
               }
           }
 
