@@ -484,7 +484,7 @@ namespace Step75
 
     void initialize_dof_vector(VectorType &vec) const
     {
-      this->initialize_dof_vector_dealii(vec);
+      matrix_free.initialize_dof_vector(vec);
     }
 
     void initialize_dof_vector_dealii(VectorType &vec) const
@@ -1166,7 +1166,7 @@ namespace Step75
   template <int dim>
   template <typename Operator>
   void LaplaceProblem<dim>::solve(
-    const Operator &                                  system_matrix,
+    const Operator &                                  laplace_operator,
     LinearAlgebra::distributed::Vector<double> &      locally_relevant_solution,
     const LinearAlgebra::distributed::Vector<double> &system_rhs)
   {
@@ -1191,9 +1191,12 @@ namespace Step75
     data.elliptic              = true;
     data.higher_order_elements = true;
 #endif
-    preconditioner.initialize(system_matrix.get_system_matrix(), data);
 
-    cg.solve(system_matrix.get_system_matrix(),
+    const auto &system_matrix = laplace_operator.get_system_matrix();
+
+    preconditioner.initialize(system_matrix, data);
+
+    cg.solve(system_matrix,
              completely_distributed_solution,
              system_rhs,
              preconditioner);
@@ -1395,7 +1398,7 @@ namespace Step75
 
     std::shared_ptr<LaplaceOperator<dim, double>> laplace_operator;
 
-    if (true)
+    if (false)
       laplace_operator =
         std::make_shared<LaplaceOperatorMatrixBased<dim, double>>();
     else
