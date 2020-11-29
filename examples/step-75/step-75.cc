@@ -202,6 +202,143 @@ namespace Step75
     MatrixFreeCUDA
   };
 
+  template <typename MeshType>
+  MPI_Comm get_mpi_comm(const MeshType &mesh)
+  {
+    const auto *tria_parallel = dynamic_cast<
+      const parallel::TriangulationBase<MeshType::dimension,
+                                        MeshType::space_dimension> *>(
+      &(mesh.get_triangulation()));
+
+    return tria_parallel != nullptr ? tria_parallel->get_communicator() :
+                                      MPI_COMM_SELF;
+  }
+
+  template <int dim, int spacedim>
+  std::shared_ptr<const Utilities::MPI::Partitioner>
+  create_dealii_partitioner(const DoFHandler<dim, spacedim> &dof_handler,
+                            unsigned int                     mg_level)
+  {
+    IndexSet locally_relevant_dofs;
+
+    if (mg_level == numbers::invalid_unsigned_int)
+      DoFTools::extract_locally_relevant_dofs(dof_handler,
+                                              locally_relevant_dofs);
+    else
+      DoFTools::extract_locally_relevant_level_dofs(dof_handler,
+                                                    mg_level,
+                                                    locally_relevant_dofs);
+
+    return std::make_shared<const Utilities::MPI::Partitioner>(
+      mg_level == numbers::invalid_unsigned_int ?
+        dof_handler.locally_owned_dofs() :
+        dof_handler.locally_owned_mg_dofs(mg_level),
+      locally_relevant_dofs,
+      get_mpi_comm(dof_handler));
+  }
+
+  template <int dim, typename number>
+  class LaplaceOperator
+  {
+  public:
+    using VectorType = LinearAlgebra::distributed::Vector<number>;
+
+    virtual void reinit(const hp::MappingCollection<dim> &mapping_collection,
+                        const DoFHandler<dim> &           dof_handler,
+                        const hp::QCollection<dim> &      quadrature_collection,
+                        const AffineConstraints<number> & constraints,
+                        VectorType &                      system_rhs)
+    {
+#ifndef DEAL_II_WITH_TRILINOS
+      Assert(false, StandardExceptions::ExcNotImplemented());
+      (void)mapping_collection;
+      (void)dof_handler;
+      (void)quadrature_collection;
+      (void)constraints;
+      (void)system_rhs;
+#else
+
+      this->partitioner_dealii =
+        create_dealii_partitioner(dof_handler, numbers::invalid_unsigned_int);
+
+      TrilinosWrappers::SparsityPattern dsp(dof_handler.locally_owned_dofs(),
+                                            get_mpi_comm(dof_handler));
+      DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false);
+      dsp.compress();
+
+      system_matrix.reinit(dsp);
+
+      initialize_dof_vector(system_rhs);
+
+      hp::FEValues<dim> hp_fe_values(mapping_collection,
+                                     dof_handler.get_fe_collection(),
+                                     quadrature_collection,
+                                     update_values | update_gradients |
+                                       update_quadrature_points |
+                                       update_JxW_values);
+
+      FullMatrix<double>                   cell_matrix;
+      Vector<double>                       cell_rhs;
+      std::vector<types::global_dof_index> local_dof_indices;
+      for (const auto &cell : dof_handler.active_cell_iterators())
+        {
+          if (cell->is_locally_owned() == false)
+            continue;
+
+          const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
+          cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
+          cell_matrix = 0;
+          cell_rhs.reinit(dofs_per_cell);
+          cell_rhs = 0;
+          hp_fe_values.reinit(cell);
+          const FEValues<dim> &fe_values = hp_fe_values.get_present_fe_values();
+
+          for (unsigned int q_point = 0;
+               q_point < fe_values.n_quadrature_points;
+               ++q_point)
+            for (unsigned int i = 0; i < dofs_per_cell; ++i)
+              {
+                for (unsigned int j = 0; j < dofs_per_cell; ++j)
+                  cell_matrix(i, j) +=
+                    (fe_values.shape_grad(i, q_point) * // grad phi_i(x_q)
+                     fe_values.shape_grad(j, q_point) * // grad phi_j(x_q)
+                     fe_values.JxW(q_point));           // dx
+              }
+          local_dof_indices.resize(dofs_per_cell);
+          cell->get_dof_indices(local_dof_indices);
+
+          constraints.distribute_local_to_global(cell_matrix,
+                                                 cell_rhs,
+                                                 local_dof_indices,
+                                                 system_matrix,
+                                                 system_rhs);
+        }
+
+      system_rhs.compress(VectorOperation::values::add);
+      system_matrix.compress(VectorOperation::values::add);
+#endif
+    }
+
+    void initialize_dof_vector(VectorType &vec) const
+    {
+      this->initialize_dof_vector_dealii(vec);
+    }
+
+    void initialize_dof_vector_dealii(VectorType &vec) const
+    {
+      vec.reinit(partitioner_dealii);
+    }
+
+    const TrilinosWrappers::SparseMatrix &get_system_matrix() const
+    {
+      return this->system_matrix;
+    }
+
+
+    mutable TrilinosWrappers::SparseMatrix system_matrix;
+
+    std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_dealii;
+  };
 
 
   template <int dim>
@@ -218,7 +355,13 @@ namespace Step75
     void create_coarse_grid();
     void setup_system();
     void assemble_system();
-    void solve();
+
+    template <typename Operator>
+    void
+    solve(const Operator &                            system_matrix,
+          LinearAlgebra::distributed::Vector<double> &locally_relevant_solution,
+          const LinearAlgebra::distributed::Vector<double> &system_rhs);
+
     void compute_errors();
     void flag_adaptation();
     void decide_hp();
@@ -234,11 +377,12 @@ namespace Step75
     parallel::distributed::Triangulation<dim> triangulation;
     const unsigned int                        min_level, max_level;
 
-    DoFHandler<dim>          dof_handler;
-    hp::FECollection<dim>    fe_collection;
-    hp::QCollection<dim>     quadrature_collection;
-    hp::QCollection<dim - 1> face_quadrature_collection;
-    const unsigned int       min_degree, max_degree;
+    DoFHandler<dim>            dof_handler;
+    hp::MappingCollection<dim> mapping_collection;
+    hp::FECollection<dim>      fe_collection;
+    hp::QCollection<dim>       quadrature_collection;
+    hp::QCollection<dim - 1>   face_quadrature_collection;
+    const unsigned int         min_degree, max_degree;
 
     std::unique_ptr<hp::FEValues<dim>>       fe_values_collection;
     std::unique_ptr<FESeries::Legendre<dim>> legendre;
@@ -299,6 +443,8 @@ namespace Step75
              "Triangulation level limits have been incorrectly set up."));
     Assert(min_degree <= max_degree,
            ExcMessage("FECollection degrees have been incorrectly set up."));
+
+    mapping_collection.push_back(MappingQ1<dim>());
 
     for (unsigned int degree = min_degree; degree <= max_degree; ++degree)
       {
@@ -470,7 +616,11 @@ namespace Step75
 
 
   template <int dim>
-  void LaplaceProblem<dim>::solve()
+  template <typename Operator>
+  void LaplaceProblem<dim>::solve(
+    const Operator &                                  system_matrix,
+    LinearAlgebra::distributed::Vector<double> &      locally_relevant_solution,
+    const LinearAlgebra::distributed::Vector<double> &system_rhs)
   {
     TimerOutput::Scope t(computing_timer, "solve");
 
@@ -493,9 +643,9 @@ namespace Step75
     data.elliptic              = true;
     data.higher_order_elements = true;
 #endif
-    preconditioner.initialize(system_matrix, data);
+    preconditioner.initialize(system_matrix.get_system_matrix(), data);
 
-    cg.solve(system_matrix,
+    cg.solve(system_matrix.get_system_matrix(),
              completely_distributed_solution,
              system_rhs,
              preconditioner);
@@ -695,6 +845,8 @@ namespace Step75
           << " on " << Utilities::MPI::n_mpi_processes(mpi_communicator)
           << " MPI rank(s)..." << std::endl;
 
+    LaplaceOperator<dim, double> laplace_operator;
+
     for (int cycle = adaptation_type != AdaptationType::hpHistory ? 0 : -1;
          cycle < (int)n_cycles;
          ++cycle)
@@ -780,8 +932,13 @@ namespace Step75
               << "   Number of degrees of freedom: " << dof_handler.n_dofs()
               << std::endl;
 
-        assemble_system();
-        solve();
+        laplace_operator.reinit(mapping_collection,
+                                dof_handler,
+                                quadrature_collection,
+                                constraints,
+                                system_rhs);
+
+        solve(laplace_operator, locally_relevant_solution, system_rhs);
         compute_errors();
 
         if (cycle >= 0 &&
