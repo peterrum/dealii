@@ -1441,37 +1441,23 @@ namespace Step75
       laplace_operator =
         std::make_shared<LaplaceOperatorMatrixFree<dim, double>>();
 
-    for (int cycle = adaptation_type != AdaptationType::hpHistory ? 0 : -1;
-         cycle < (int)n_cycles;
+    for (unsigned int cycle = 0;
+         cycle < (adaptation_type != AdaptationType::hpHistory ? n_cycles :
+                                                                 n_cycles + 1);
          ++cycle)
       {
         pcout << "Cycle " << cycle << ':' << std::endl;
 
-        if (adaptation_type != AdaptationType::hpHistory)
+        if (cycle == 0)
           {
-            if (cycle == 0)
-              {
-                create_coarse_grid();
-                triangulation.refine_global(min_level);
-              }
-            else
-              {
-                adaptation_strategy->adapt_resolution(
-                  locally_relevant_solution);
-              }
+            create_coarse_grid();
+            triangulation.refine_global(
+              adaptation_type != AdaptationType::hpHistory ? min_level :
+                                                             min_level - 1);
           }
         else
           {
-            if (cycle == -1)
-              {
-                create_coarse_grid();
-                triangulation.refine_global(min_level - 1);
-              }
-            else
-              {
-                adaptation_strategy->adapt_resolution(
-                  locally_relevant_solution);
-              }
+            adaptation_strategy->adapt_resolution(locally_relevant_solution);
           }
 
         setup_system();
@@ -1490,8 +1476,7 @@ namespace Step75
         solve(*laplace_operator, locally_relevant_solution, system_rhs);
         compute_errors();
 
-        if (cycle >= 0 &&
-            Utilities::MPI::n_mpi_processes(mpi_communicator) <= 32)
+        if (Utilities::MPI::n_mpi_processes(mpi_communicator) <= 32)
           {
             TimerOutput::Scope t(computing_timer, "output");
             output_results(cycle);
