@@ -74,6 +74,8 @@ namespace LA
 #include <deal.II/distributed/grid_refinement.h>
 
 
+#include <deal.II/distributed/error_predictor.h>
+
 #include <deal.II/hp/fe_collection.h>
 #include <deal.II/hp/refinement.h>
 
@@ -202,9 +204,9 @@ namespace Step75
   class LaplaceProblem
   {
   public:
-    LaplaceProblem(AdaptationType     adaptation,
-                   PreconditionerType preconditioner,
-                   SolverType         solver);
+    LaplaceProblem(AdaptationType     adaptation_type,
+                   PreconditionerType preconditioner_type,
+                   SolverType         solver_type);
 
     void run(const unsigned int n_cycles);
 
@@ -214,10 +216,16 @@ namespace Step75
     void assemble_system();
     void solve();
     void compute_errors();
-    void prepare_adaptation();
+    void flag_adaptation();
+    void decide_hp();
+    void limit_levels();
     void output_results(const unsigned int cycle) const;
 
     MPI_Comm mpi_communicator;
+
+    const AdaptationType     adaptation_type;
+    const PreconditionerType preconditioner_type;
+    const SolverType         solver_type;
 
     parallel::distributed::Triangulation<dim> triangulation;
     const unsigned int                        min_level, max_level;
@@ -230,10 +238,10 @@ namespace Step75
 
     std::unique_ptr<hp::FEValues<dim>>       fe_values_collection;
     std::unique_ptr<FESeries::Legendre<dim>> legendre;
+    std::unique_ptr<FESeries::Fourier<dim>>  fourier;
 
-    // TODO
-    // Add more hp adaptation strategies: fourier, history
-    // Switch between them with enum in constructor
+    Vector<float>                              predicted_error_per_cell;
+    parallel::distributed::ErrorPredictor<dim> error_predictor;
 
     IndexSet locally_owned_dofs;
     IndexSet locally_relevant_dofs;
@@ -244,6 +252,8 @@ namespace Step75
     LA::MPI::Vector       locally_relevant_solution;
     LA::MPI::Vector       system_rhs;
 
+    Vector<float> estimated_error_per_cell, hp_decision_indicators;
+
     ConditionalOStream pcout;
     TimerOutput        computing_timer;
   };
@@ -251,10 +261,13 @@ namespace Step75
 
 
   template <int dim>
-  LaplaceProblem<dim>::LaplaceProblem(AdaptationType     adaptation,
-                                      PreconditionerType preconditioner,
-                                      SolverType         solver);
+  LaplaceProblem<dim>::LaplaceProblem(AdaptationType     adaptation_type,
+                                      PreconditionerType preconditioner_type,
+                                      SolverType         solver_type);
     : mpi_communicator(MPI_COMM_WORLD)
+    , adaptation_type(adaptation_type)
+    , preconditioner_type(preconditioner_type)
+    , solver_type(solver_type)
     , triangulation(mpi_communicator,
                     typename Triangulation<dim>::MeshSmoothing(
                       Triangulation<dim>::smoothing_on_refinement |
@@ -264,6 +277,7 @@ namespace Step75
     , dof_handler(triangulation)
     , min_degree(2)
     , max_degree(dim <= 2 ? 7 : 5)
+    , error_predictor(dof_handler)
     , pcout(std::cout,
             (Utilities::MPI::this_mpi_process(mpi_communicator) == 0))
     , computing_timer(mpi_communicator,
@@ -271,9 +285,17 @@ namespace Step75
                       TimerOutput::summary,
                       TimerOutput::wall_times)
     {
-      Assert(adaptation == AdaptationType::hpLegendre, ExcNotImplemented());
-      Assert(preconditioner == PreconditionerType::AMG, ExcNotImplemented());
-      Assert(solver == SolverType::Matrix, ExcNotImplemented());
+      Assert(preconditioner_type == PreconditionerType::AMG,
+             ExcNotImplemented());
+      Assert(solver_type == SolverType::Matrix, ExcNotImplemented());
+
+      TimerOutput::Scope t(computing_timer, "init");
+
+      Assert(min_level <= max_level,
+             ExcMessage(
+               "Triangulation level limits have been incorrectly set up."));
+      Assert(min_degree <= max_degree,
+             ExcMessage("FECollection degrees have been incorrectly set up."));
 
       for (unsigned int degree = min_degree; degree <= max_degree; ++degree)
         {
@@ -282,9 +304,6 @@ namespace Step75
           face_quadrature_collection.push_back(QGauss<dim - 1>(degree + 1));
         }
 
-      legendre = std::make_unique<FESeries::Legendre<dim>>(
-        SmoothnessEstimator::Legendre::default_fe_series(fe_collection));
-
       fe_values_collection =
         std::make_unique<hp::FEValues<dim>>(fe_collection,
                                             quadrature_collection,
@@ -292,6 +311,24 @@ namespace Step75
                                               update_quadrature_points |
                                               update_JxW_values);
       fe_values_collection->precalculate_fe_values();
+
+      switch (adaptation_type)
+        {
+          case AdaptationType::hpLegendre:
+            legendre = std::make_unique<FESeries::Legendre<dim>>(
+              SmoothnessEstimator::Legendre::default_fe_series(fe_collection));
+            legendre->precalculate_all_transformation_matrices();
+            break;
+
+          case AdaptationType::hpFourier:
+            fourier = std::make_unique<FESeries::Fourier<dim>>(
+              SmoothnessEstimator::Fourier::default_fe_series(fe_collection));
+            fourier->precalculate_all_transformation_matrices();
+            break;
+
+          case default:
+            break;
+        }
     }
 
 
@@ -299,6 +336,8 @@ namespace Step75
     template <int dim>
     void LaplaceProblem<dim>::create_coarse_grid()
     {
+      TimerOutput::Scope t(computing_timer, "coarse grid");
+
       std::vector<unsigned int> repetitions(dim, 2);
       Point<dim>                bottom_left, top_right;
       for (unsigned int d = 0; d < dim; ++d)
@@ -500,71 +539,117 @@ namespace Step75
 
       pcout << "L2 error: " << L2_error << std::endl
             << "H1 error: " << H1_error << std::endl;
+
+      // TODO
+      // Store errors in Convergence table
     }
 
 
 
     template <int dim>
-    void LaplaceProblem<dim>::prepare_adaptation()
+    void LaplaceProblem<dim>::flag_adaptation()
     {
-      Vector<float> estimated_error_per_cell(triangulation.n_active_cells()),
-        hp_decision_indicators(triangulation.n_active_cells());
+      TimerOutput::Scope t(computing_timer, "flag adaptation");
 
-      {
-        TimerOutput::Scope t(computing_timer, "estimate error");
+      estimated_error_per_cell.grow_or_shrink(triangulation.n_active_cells());
 
-        KellyErrorEstimator<dim>::estimate(
-          dof_handler,
-          face_quadrature_collection,
-          std::map<types::boundary_id, const Function<dim> *>(),
-          locally_relevant_solution,
-          estimated_error_per_cell,
-          /*component_mask=*/ComponentMask(),
-          /*coefficients=*/nullptr,
-          /*n_threads=*/numbers::invalid_unsigned_int,
-          /*subdomain_id=*/numbers::invalid_subdomain_id,
-          /*material_id=*/numbers::invalid_material_id,
-          /*strategy=*/
-          KellyErrorEstimator<
-            dim>::Strategy::face_diameter_over_twice_max_degree);
-      }
-      {
-        TimerOutput::Scope t(computing_timer, "flag adaptation");
+      KellyErrorEstimator<dim>::estimate(
+        dof_handler,
+        face_quadrature_collection,
+        std::map<types::boundary_id, const Function<dim> *>(),
+        locally_relevant_solution,
+        estimated_error_per_cell,
+        /*component_mask=*/ComponentMask(),
+        /*coefficients=*/nullptr,
+        /*n_threads=*/numbers::invalid_unsigned_int,
+        /*subdomain_id=*/numbers::invalid_subdomain_id,
+        /*material_id=*/numbers::invalid_material_id,
+        /*strategy=*/
+        KellyErrorEstimator<
+          dim>::Strategy::face_diameter_over_twice_max_degree);
 
-        parallel::distributed::GridRefinement::refine_and_coarsen_fixed_number(
-          triangulation, estimated_error_per_cell, 0.3, 0.03);
-      }
+      parallel::distributed::GridRefinement::refine_and_coarsen_fixed_number(
+        triangulation, estimated_error_per_cell, 0.3, 0.03);
+    }
 
-      {
-        TimerOutput::Scope t(computing_timer, "estimate smoothness");
 
-        SmoothnessEstimator::Legendre::coefficient_decay(
-          *legendre,
-          dof_handler,
-          locally_relevant_solution,
-          hp_decision_indicators,
-          /*regression_strategy=*/VectorTools::Linfty_norm,
-          /*smallest_abs_coefficient=*/1e-10,
-          /*only_flagged_cells=*/true);
-      }
-      {
-        TimerOutput::Scope t(computing_timer, "decide hp");
 
-        hp::Refinement::p_adaptivity_fixed_number(dof_handler,
-                                                  hp_decision_indicators,
-                                                  0.9,
-                                                  0.9);
-        hp::Refinement::choose_p_over_h(dof_handler);
+    template <int dim>
+    void LaplaceProblem<dim>::decide_hp()
+    {
+      TimerOutput::Scope t(computing_timer, "decide hp");
 
-        if (triangulation.n_levels() > max_level)
-          for (const auto &cell :
-               triangulation.active_cell_iterators_on_level(max_level))
-            cell->clear_refine_flag();
+      hp_decision_indicators.grow_or_shrink(triangulation.n_active_cells());
 
+      switch (adaptation_type)
+        {
+          case AdaptationType::hpLegendre:
+            SmoothnessEstimator::Legendre::coefficient_decay(
+              *legendre,
+              dof_handler,
+              locally_relevant_solution,
+              hp_decision_indicators,
+              /*regression_strategy=*/VectorTools::Linfty_norm,
+              /*smallest_abs_coefficient=*/1e-10,
+              /*only_flagged_cells=*/true);
+            break;
+
+          case AdaptationType::hpFourier:
+            SmoothnessEstimator::Fourier::coefficient_decay(
+              *fourier,
+              dof_handler,
+              locally_relevant_solution,
+              hp_decision_indicators,
+              /*regression_strategy=*/VectorTools::Linfty_norm,
+              /*smallest_abs_coefficient=*/1e-10,
+              /*only_flagged_cells=*/true);
+            break;
+
+          case AdaptationType::hpHistory:
+            {
+              for (unsigned int i = 0; i < triangulation.n_active_cells(); ++i)
+                hp_decision_indicators(i) =
+                  predicted_error_per_cell(i) - estimated_error_per_cell(i);
+
+              const float global_minimum = Utilities::MPI::min(
+                *std::min_element(hp_decision_indicators.begin(),
+                                  hp_decision_indicators.end()),
+                mpi_communicator);
+              if (global_minimum < 0)
+                for (auto &indicator : hp_decision_indicators)
+                  indicator -= global_minimum;
+            }
+            break;
+
+          default:
+            Assert(false, ExcNotImplemented());
+            break;
+        }
+
+      hp::Refinement::p_adaptivity_fixed_number(dof_handler,
+                                                hp_decision_indicators,
+                                                0.9,
+                                                0.9);
+      hp::Refinement::choose_p_over_h(dof_handler);
+    }
+
+
+
+    template <int dim>
+    void LaplaceProblem<dim>::limit_levels()
+    {
+      Assert(triangulation.n_levels() >= min_level + 1 &&
+               triangulation.n_levels() <= max_level + 1,
+             ExcInternalError());
+
+      if (triangulation.n_levels() > max_level)
         for (const auto &cell :
-             triangulation.active_cell_iterators_on_level(min_level))
-          cell->clear_coarsen_flag();
-      }
+             triangulation.active_cell_iterators_on_level(max_level))
+          cell->clear_refine_flag();
+
+      for (const auto &cell :
+           triangulation.active_cell_iterators_on_level(min_level))
+        cell->clear_coarsen_flag();
     }
 
 
@@ -579,8 +664,8 @@ namespace Step75
             fe_collection[cell->active_fe_index()].degree;
 
       Vector<float> subdomain(triangulation.n_active_cells());
-      for (unsigned int i = 0; i < subdomain.size(); ++i)
-        subdomain(i) = triangulation.locally_owned_subdomain();
+      for (auto &subd : subdomain)
+        subd = triangulation.locally_owned_subdomain();
 
       DataOut<dim> data_out;
 
@@ -588,6 +673,8 @@ namespace Step75
       data_out.add_data_vector(locally_relevant_solution, "solution");
       data_out.add_data_vector(fe_degrees, "fe_degree");
       data_out.add_data_vector(subdomain, "subdomain");
+      data_out.add_data_vector(estimated_error_per_cell, "error");
+      data_out.add_data_vector(hp_decision_indicators, "hp_indicator");
       data_out.build_patches();
 
       data_out.write_vtu_with_pvtu_record(
@@ -608,19 +695,82 @@ namespace Step75
             << " on " << Utilities::MPI::n_mpi_processes(mpi_communicator)
             << " MPI rank(s)..." << std::endl;
 
-      for (unsigned int cycle = 0; cycle < n_cycles; ++cycle)
+      for (int cycle = adaptation_type != AdaptationType::hpHistory ? 0 : -1;
+           cycle < n_cycles;
+           ++cycle)
         {
           pcout << "Cycle " << cycle << ':' << std::endl;
 
-          if (cycle == 0)
+          if (adaptation_type != AdaptationType::hpHistory)
             {
-              create_coarse_grid();
-              triangulation.refine_global(min_level);
+              if (cycle == 0)
+                {
+                  create_coarse_grid();
+                  triangulation.refine_global(min_level);
+                }
+              else
+                {
+                  flag_adaptation();
+                  if (adaptation_type != AdaptationType::h)
+                    decide_hp();
+                  limit_levels();
+
+                  triangulation.execute_coarsening_and_refinement();
+                }
             }
           else
             {
-              prepare_adaptation();
-              triangulation.execute_coarsening_and_refinement();
+              if (cycle == -1)
+                {
+                  create_coarse_grid();
+                  triangulation.refine_global(min_level - 1);
+                }
+              else
+                {
+                  if (cycle == 0)
+                    {
+                      estimated_error_per_cell.grow_or_shrink(
+                        triangulation.n_active_cells());
+
+                      KellyErrorEstimator<dim>::estimate(
+                        dof_handler,
+                        face_quadrature_collection,
+                        std::map<types::boundary_id, const Function<dim> *>(),
+                        locally_relevant_solution,
+                        estimated_error_per_cell,
+                        /*component_mask=*/ComponentMask(),
+                        /*coefficients=*/nullptr,
+                        /*n_threads=*/numbers::invalid_unsigned_int,
+                        /*subdomain_id=*/numbers::invalid_subdomain_id,
+                        /*material_id=*/numbers::invalid_material_id,
+                        /*strategy=*/
+                        KellyErrorEstimator<
+                          dim>::Strategy::face_diameter_over_twice_max_degree);
+
+                      for (const auto &cell :
+                           triangulation.n_active_cell_iterators())
+                        if (cell->is_locally_owned())
+                          cell->set_refine_flag();
+                    }
+                  else
+                    {
+                      flag_adaptation();
+                      decide_hp();
+                      limit_levels();
+                    }
+
+                  error_predictor.prepare_for_coarsening_and_refinement(
+                    estimated_error_per_cell,
+                    /*gamma_p=*/std::sqrt(0.4),
+                    /*gamma_h=*/2.,
+                    /*gamma_n=*/1.);
+
+                  triangulation.execute_coarsening_and_refinement();
+
+                  predicted_error_per_cell.grow_or_shrink(
+                    triangulation.n_active_cells());
+                  error_predictor.unpack(predicted_error_per_cell);
+                }
             }
 
           setup_system();
@@ -634,7 +784,8 @@ namespace Step75
           solve();
           compute_errors();
 
-          if (Utilities::MPI::n_mpi_processes(mpi_communicator) <= 32)
+          if (cycle >= 0 &&
+              Utilities::MPI::n_mpi_processes(mpi_communicator) <= 32)
             {
               TimerOutput::Scope t(computing_timer, "output");
               output_results(cycle);
