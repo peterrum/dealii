@@ -91,6 +91,9 @@ namespace LA
 #include <deal.II/base/mpi.h>
 #include <deal.II/base/parameter_handler.h>
 
+#include <deal.II/matrix_free/matrix_free.h>
+#include <deal.II/matrix_free/fe_evaluation.h>
+
 
 #include <fstream>
 #include <memory>
@@ -248,7 +251,24 @@ namespace Step75
                         const DoFHandler<dim> &           dof_handler,
                         const hp::QCollection<dim> &      quadrature_collection,
                         const AffineConstraints<number> & constraints,
-                        VectorType &                      system_rhs)
+                        VectorType &                      system_rhs) = 0;
+
+
+
+    virtual const TrilinosWrappers::SparseMatrix &get_system_matrix() const = 0;
+  };
+
+  template <int dim, typename number>
+  class LaplaceOperatorMatrixBased : public LaplaceOperator<dim, number>
+  {
+  public:
+    using VectorType = LinearAlgebra::distributed::Vector<number>;
+
+    void reinit(const hp::MappingCollection<dim> &mapping_collection,
+                const DoFHandler<dim> &           dof_handler,
+                const hp::QCollection<dim> &      quadrature_collection,
+                const AffineConstraints<number> & constraints,
+                VectorType &                      system_rhs) override
     {
 #ifndef DEAL_II_WITH_TRILINOS
       Assert(false, StandardExceptions::ExcNotImplemented());
@@ -330,10 +350,151 @@ namespace Step75
       vec.reinit(partitioner_dealii);
     }
 
-    const TrilinosWrappers::SparseMatrix &get_system_matrix() const
+    const TrilinosWrappers::SparseMatrix &get_system_matrix() const override
     {
       return this->system_matrix;
     }
+
+
+    mutable TrilinosWrappers::SparseMatrix system_matrix;
+
+    std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_dealii;
+  };
+
+  template <int dim, typename number>
+  class LaplaceOperatorMatrixFree : public LaplaceOperator<dim, number>
+  {
+  public:
+    using VectorType = LinearAlgebra::distributed::Vector<number>;
+
+    void reinit(const hp::MappingCollection<dim> &mapping,
+                const DoFHandler<dim> &           dof_handler,
+                const hp::QCollection<dim> &      quad,
+                const AffineConstraints<number> & constraints,
+                VectorType &                      system_rhs) override
+    {
+      this->partitioner_dealii =
+        create_dealii_partitioner(dof_handler, numbers::invalid_unsigned_int);
+
+      typename MatrixFree<dim, number>::AdditionalData data;
+      data.mapping_update_flags =
+        update_values | update_gradients | update_quadrature_points;
+
+      matrix_free.reinit(mapping, dof_handler, constraints, quad, data);
+
+      this->initialize_dof_vector(system_rhs);
+
+      // constrained_indices.clear();
+      // for (auto i : this->matrix_free.get_constrained_dofs())
+      //  constrained_indices.push_back(i);
+      // constrained_values.resize(constrained_indices.size());
+
+      AffineConstraints<number> constraints_without_dbc;
+
+      IndexSet locally_relevant_dofs;
+      DoFTools::extract_locally_relevant_dofs(dof_handler,
+                                              locally_relevant_dofs);
+      constraints_without_dbc.reinit(locally_relevant_dofs);
+
+      DoFTools::make_hanging_node_constraints(dof_handler,
+                                              constraints_without_dbc);
+      constraints_without_dbc.close();
+
+      VectorType b, x;
+
+      this->initialize_dof_vector(b);
+      this->initialize_dof_vector(x);
+
+
+      // compute right-hand side vector
+      {
+        typename dealii::MatrixFree<dim, number>::AdditionalData data;
+        data.mapping_update_flags =
+          update_values | update_gradients | update_quadrature_points;
+
+        dealii::MatrixFree<dim, number> matrix_free;
+        matrix_free.reinit(
+          mapping, dof_handler, constraints_without_dbc, quad, data);
+
+        // set constrained
+        constraints.distribute(x);
+
+        // perform matrix-vector multiplication (with unconstrained system and
+        // constrained set in vector)
+
+        matrix_free.template cell_loop<VectorType, VectorType>(
+          [&](const auto &, auto &dst, const auto &src, const auto range) {
+            do_cell_integral_range(matrix_free, dst, src, range);
+          },
+          b,
+          x,
+          /* dst = 0 */ false);
+
+        // clear constrained values
+        constraints.set_zero(b);
+
+        // move to the right-hand side
+        system_rhs -= b;
+      }
+    }
+
+    using FECellIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
+
+    // Perform cell integral on a cell batch.
+    void do_cell_integral(FECellIntegrator &integrator)
+    {
+      for (unsigned int q = 0; q < integrator.n_q_points; ++q)
+        integrator.submit_gradient(integrator.get_gradient(q), q);
+    }
+
+    // Perform cell integral on a cell-batch range.
+    void do_cell_integral_range(
+      const dealii::MatrixFree<dim, number> &     matrix_free,
+      VectorType &                                dst,
+      const VectorType &                          src,
+      const std::pair<unsigned int, unsigned int> cell_range)
+    {
+      for (unsigned int i = 0;
+           i < matrix_free.get_dof_handler().get_fe_collection().size();
+           ++i)
+        {
+          const auto cell_subrange =
+            matrix_free.create_cell_subrange_hp_by_index(cell_range, i);
+
+          if (cell_subrange.second <= cell_subrange.first)
+            continue;
+          FECellIntegrator integrator(matrix_free, 0, 0, 0, i, i);
+
+          for (unsigned cell = cell_subrange.first; cell < cell_subrange.second;
+               ++cell)
+            {
+              integrator.reinit(cell);
+
+              integrator.gather_evaluate(src, false, true, false);
+
+              do_cell_integral(integrator);
+
+              integrator.integrate_scatter(false, true, dst);
+            }
+        }
+    }
+
+    void initialize_dof_vector(VectorType &vec) const
+    {
+      this->initialize_dof_vector_dealii(vec);
+    }
+
+    void initialize_dof_vector_dealii(VectorType &vec) const
+    {
+      vec.reinit(partitioner_dealii);
+    }
+
+    const TrilinosWrappers::SparseMatrix &get_system_matrix() const override
+    {
+      return this->system_matrix;
+    }
+
+    dealii::MatrixFree<dim, number> matrix_free;
 
 
     mutable TrilinosWrappers::SparseMatrix system_matrix;
@@ -1106,7 +1267,14 @@ namespace Step75
           << " on " << Utilities::MPI::n_mpi_processes(mpi_communicator)
           << " MPI rank(s)..." << std::endl;
 
-    LaplaceOperator<dim, double> laplace_operator;
+    std::shared_ptr<LaplaceOperator<dim, double>> laplace_operator;
+
+    if (true)
+      laplace_operator =
+        std::make_shared<LaplaceOperatorMatrixBased<dim, double>>();
+    else
+      laplace_operator =
+        std::make_shared<LaplaceOperatorMatrixFree<dim, double>>();
 
     for (int cycle = adaptation_type != AdaptationType::hpHistory ? 0 : -1;
          cycle < (int)n_cycles;
@@ -1193,13 +1361,13 @@ namespace Step75
               << "   Number of degrees of freedom: " << dof_handler.n_dofs()
               << std::endl;
 
-        laplace_operator.reinit(mapping_collection,
-                                dof_handler,
-                                quadrature_collection,
-                                constraints,
-                                system_rhs);
+        laplace_operator->reinit(mapping_collection,
+                                 dof_handler,
+                                 quadrature_collection,
+                                 constraints,
+                                 system_rhs);
 
-        solve(laplace_operator, locally_relevant_solution, system_rhs);
+        solve(*laplace_operator, locally_relevant_solution, system_rhs);
         compute_errors();
 
         if (cycle >= 0 &&
