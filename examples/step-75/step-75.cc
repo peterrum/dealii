@@ -373,6 +373,8 @@ namespace Step75
                 const AffineConstraints<number> & constraints,
                 VectorType &                      system_rhs) override
     {
+      this->constraints.copy_from(constraints);
+
       this->partitioner_dealii =
         create_dealii_partitioner(dof_handler, numbers::invalid_unsigned_int);
 
@@ -441,7 +443,7 @@ namespace Step75
     using FECellIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
 
     // Perform cell integral on a cell batch.
-    void do_cell_integral(FECellIntegrator &integrator)
+    void do_cell_integral(FECellIntegrator &integrator) const
     {
       for (unsigned int q = 0; q < integrator.n_q_points; ++q)
         integrator.submit_gradient(integrator.get_gradient(q), q);
@@ -452,7 +454,7 @@ namespace Step75
       const dealii::MatrixFree<dim, number> &     matrix_free,
       VectorType &                                dst,
       const VectorType &                          src,
-      const std::pair<unsigned int, unsigned int> cell_range)
+      const std::pair<unsigned int, unsigned int> cell_range) const
     {
       for (unsigned int i = 0;
            i < matrix_free.get_dof_handler().get_fe_collection().size();
@@ -463,6 +465,7 @@ namespace Step75
 
           if (cell_subrange.second <= cell_subrange.first)
             continue;
+
           FECellIntegrator integrator(matrix_free, 0, 0, 0, i, i);
 
           for (unsigned cell = cell_subrange.first; cell < cell_subrange.second;
@@ -491,10 +494,133 @@ namespace Step75
 
     const TrilinosWrappers::SparseMatrix &get_system_matrix() const override
     {
+      this->init_system_matrix(system_matrix);
+      this->calculate_system_matrix(system_matrix);
+
       return this->system_matrix;
     }
 
+
+    void init_system_matrix(TrilinosWrappers::SparseMatrix &system_matrix) const
+    {
+      const DoFHandler<dim> &dof_handler = this->matrix_free.get_dof_handler();
+
+      MPI_Comm comm = get_mpi_comm(dof_handler);
+
+      TrilinosWrappers::SparsityPattern dsp(dof_handler.locally_owned_dofs(),
+                                            comm);
+
+      DoFTools::make_sparsity_pattern(dof_handler, dsp, this->constraints);
+
+      dsp.compress();
+      system_matrix.reinit(dsp);
+    }
+
+    void
+    calculate_system_matrix(TrilinosWrappers::SparseMatrix &system_matrix) const
+    {
+      this->matrix_free.template cell_loop<TrilinosWrappers::SparseMatrix,
+                                           TrilinosWrappers::SparseMatrix>(
+
+        [&](const auto &, auto &dst, const auto &, const auto cell_range) {
+          for (unsigned int i = 0;
+               i < matrix_free.get_dof_handler().get_fe_collection().size();
+               ++i)
+            {
+              const auto cell_subrange =
+                matrix_free.create_cell_subrange_hp_by_index(cell_range, i);
+
+              if (cell_subrange.second <= cell_subrange.first)
+                continue;
+
+              FECellIntegrator integrator(matrix_free, 0, 0, 0, i, i);
+
+              unsigned int const dofs_per_cell = integrator.dofs_per_cell;
+
+              for (auto cell = cell_subrange.first; cell < cell_subrange.second;
+                   ++cell)
+                {
+                  unsigned int const n_filled_lanes =
+                    matrix_free.n_active_entries_per_cell_batch(cell);
+
+                  FullMatrix<TrilinosScalar>
+                    matrices[VectorizedArray<double>::size()];
+
+                  std::fill_n(matrices,
+                              VectorizedArray<double>::size(),
+                              FullMatrix<TrilinosScalar>(dofs_per_cell,
+                                                         dofs_per_cell));
+
+                  integrator.reinit(cell);
+
+                  for (unsigned int j = 0; j < dofs_per_cell; ++j)
+                    {
+                      for (unsigned int i = 0; i < integrator.dofs_per_cell;
+                           ++i)
+                        integrator.begin_dof_values()[i] =
+                          static_cast<double>(i == j);
+
+                      integrator.evaluate(false, true, false);
+
+                      do_cell_integral(integrator);
+
+                      integrator.integrate(false, true);
+
+                      for (unsigned int i = 0; i < dofs_per_cell; ++i)
+                        for (unsigned int v = 0; v < n_filled_lanes; ++v)
+                          matrices[v](i, j) =
+                            integrator.begin_dof_values()[i][v];
+                    }
+
+
+                  // finally assemble local matrices into global matrix
+                  for (unsigned int v = 0; v < n_filled_lanes; v++)
+                    {
+                      auto cell_v = matrix_free.get_cell_iterator(cell, v);
+
+                      std::vector<types::global_dof_index> dof_indices(
+                        dofs_per_cell);
+
+                      if (matrix_free.get_mg_level() !=
+                          numbers::invalid_unsigned_int)
+                        cell_v->get_mg_dof_indices(dof_indices);
+                      else
+                        cell_v->get_dof_indices(dof_indices);
+
+                      auto temp = dof_indices;
+                      for (unsigned int j = 0; j < dof_indices.size(); j++)
+                        dof_indices[j] =
+                          temp[matrix_free
+                                 .get_shape_info(
+                                   0,
+                                   0,
+                                   0,
+                                   integrator.get_active_fe_index(),
+                                   integrator.get_active_quadrature_index())
+                                 .lexicographic_numbering[j]];
+
+                      constraints.distribute_local_to_global(matrices[v],
+                                                             dof_indices,
+                                                             dof_indices,
+                                                             dst);
+                    }
+                }
+            }
+        },
+        system_matrix,
+        system_matrix);
+
+      system_matrix.compress(VectorOperation::add);
+
+      const auto p = system_matrix.local_range();
+      for (auto i = p.first; i < p.second; i++)
+        if (system_matrix(i, i) == 0.0 && constraints.is_constrained(i))
+          system_matrix.add(i, i, 1);
+    }
+
     dealii::MatrixFree<dim, number> matrix_free;
+
+    AffineConstraints<number> constraints;
 
 
     mutable TrilinosWrappers::SparseMatrix system_matrix;
