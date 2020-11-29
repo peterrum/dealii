@@ -1210,6 +1210,36 @@ namespace Step75
   }
 
 
+  template <typename VectorType>
+  class PreconditionerBase
+  {
+  public:
+    virtual void vmult(VectorType &dst, const VectorType &src) const = 0;
+  };
+
+  template <typename VectorType>
+  class PreconditionerAMG : public PreconditionerBase<VectorType>
+  {
+  public:
+    template <typename Operator>
+    PreconditionerAMG(const Operator &system_matrix)
+    {
+      LA::MPI::PreconditionAMG::AdditionalData data;
+      data.elliptic              = true;
+      data.higher_order_elements = true;
+      preconditioner.initialize(system_matrix.get_system_matrix(), data);
+    }
+
+    void vmult(VectorType &dst, const VectorType &src) const override
+    {
+      preconditioner.vmult(dst, src);
+    }
+
+  private:
+    LA::MPI::PreconditionAMG preconditioner;
+  };
+
+
 
   template <int dim>
   template <typename Operator>
@@ -1230,27 +1260,21 @@ namespace Step75
 
     SolverControl solver_control(system_rhs_.size(),
                                  1e-12 * system_rhs_.l2_norm());
-#ifdef USE_PETSC_LA
-    LA::SolverCG cg(solver_control, mpi_communicator);
-#else
+
+    std::shared_ptr<
+      PreconditionerBase<LinearAlgebra::distributed::Vector<double>>>
+      preconditioner;
+
+    if (true)
+      preconditioner = std::make_shared<
+        PreconditionerAMG<LinearAlgebra::distributed::Vector<double>>>(
+        system_matrix);
+
     SolverCG<LinearAlgebra::distributed::Vector<double>> cg(solver_control);
-#endif
-
-    LA::MPI::PreconditionAMG                 preconditioner;
-    LA::MPI::PreconditionAMG::AdditionalData data;
-#ifdef USE_PETSC_LA
-    data.symmetric_operator = true;
-#else
-    data.elliptic              = true;
-    data.higher_order_elements = true;
-#endif
-
-    preconditioner.initialize(system_matrix.get_system_matrix(), data);
-
     cg.solve(system_matrix,
              locally_relevant_solution_,
              system_rhs_,
-             preconditioner);
+             *preconditioner);
 
     pcout << "   Solved in " << solver_control.last_step() << " iterations."
           << std::endl;
