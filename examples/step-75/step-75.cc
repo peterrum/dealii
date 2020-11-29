@@ -21,6 +21,10 @@
  */
 
 
+// @sect4{Include files}
+//
+// Include files
+// TODO: need cleanup
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/function.h>
 #include <deal.II/base/timer.h>
@@ -99,13 +103,87 @@ namespace LA
 #include <memory>
 #include <iostream>
 
-// TODO
-// includes need cleanup
-
 namespace Step75
 {
   using namespace dealii;
 
+  // @sect4{Utility functions}
+
+  // Helper functions for this tutorial.
+  template <typename MeshType>
+  MPI_Comm get_mpi_comm(const MeshType &mesh)
+  {
+    const auto *tria_parallel = dynamic_cast<
+      const parallel::TriangulationBase<MeshType::dimension,
+                                        MeshType::space_dimension> *>(
+      &(mesh.get_triangulation()));
+
+    return tria_parallel != nullptr ? tria_parallel->get_communicator() :
+                                      MPI_COMM_SELF;
+  }
+
+
+
+  template <int dim, int spacedim>
+  std::shared_ptr<const Utilities::MPI::Partitioner>
+  create_dealii_partitioner(const DoFHandler<dim, spacedim> &dof_handler,
+                            unsigned int                     mg_level)
+  {
+    IndexSet locally_relevant_dofs;
+
+    if (mg_level == numbers::invalid_unsigned_int)
+      DoFTools::extract_locally_relevant_dofs(dof_handler,
+                                              locally_relevant_dofs);
+    else
+      DoFTools::extract_locally_relevant_level_dofs(dof_handler,
+                                                    mg_level,
+                                                    locally_relevant_dofs);
+
+    return std::make_shared<const Utilities::MPI::Partitioner>(
+      mg_level == numbers::invalid_unsigned_int ?
+        dof_handler.locally_owned_dofs() :
+        dof_handler.locally_owned_mg_dofs(mg_level),
+      locally_relevant_dofs,
+      get_mpi_comm(dof_handler));
+  }
+
+
+
+  // @sect3{The <code>Parameter</code> class implementation}
+
+  // Parameter class.
+  // TODO: Replace enums by Parameter class.
+  enum AdaptationType
+  {
+    h,
+    hpLegendre,
+    hpFourier,
+    hpHistory
+  };
+
+
+
+  enum PreconditionerType
+  {
+    AMG,
+    pAMG,
+    pGMG
+  };
+
+
+
+  enum SolverType
+  {
+    Matrix,
+    MatrixFree,
+    MatrixFreeCUDA
+  };
+
+
+
+  // @sect3{The <code>Solution</code> class template}
+
+  // Analytic solution for the scenario described above.
   template <int dim>
   class Solution : public Function<dim>
   {
@@ -180,67 +258,9 @@ namespace Step75
 
 
 
-  enum AdaptationType
-  {
-    h,
-    hpLegendre,
-    hpFourier,
-    hpHistory
-  };
+  // @sect3{The <code>LaplaceOperator</code> class template}
 
-
-
-  enum PreconditionerType
-  {
-    AMG,
-    pAMG,
-    pGMG
-  };
-
-
-
-  enum SolverType
-  {
-    Matrix,
-    MatrixFree,
-    MatrixFreeCUDA
-  };
-
-  template <typename MeshType>
-  MPI_Comm get_mpi_comm(const MeshType &mesh)
-  {
-    const auto *tria_parallel = dynamic_cast<
-      const parallel::TriangulationBase<MeshType::dimension,
-                                        MeshType::space_dimension> *>(
-      &(mesh.get_triangulation()));
-
-    return tria_parallel != nullptr ? tria_parallel->get_communicator() :
-                                      MPI_COMM_SELF;
-  }
-
-  template <int dim, int spacedim>
-  std::shared_ptr<const Utilities::MPI::Partitioner>
-  create_dealii_partitioner(const DoFHandler<dim, spacedim> &dof_handler,
-                            unsigned int                     mg_level)
-  {
-    IndexSet locally_relevant_dofs;
-
-    if (mg_level == numbers::invalid_unsigned_int)
-      DoFTools::extract_locally_relevant_dofs(dof_handler,
-                                              locally_relevant_dofs);
-    else
-      DoFTools::extract_locally_relevant_level_dofs(dof_handler,
-                                                    mg_level,
-                                                    locally_relevant_dofs);
-
-    return std::make_shared<const Utilities::MPI::Partitioner>(
-      mg_level == numbers::invalid_unsigned_int ?
-        dof_handler.locally_owned_dofs() :
-        dof_handler.locally_owned_mg_dofs(mg_level),
-      locally_relevant_dofs,
-      get_mpi_comm(dof_handler));
-  }
-
+  // Operator class template for solver.
   template <int dim, typename number>
   class LaplaceOperator
   {
@@ -260,6 +280,8 @@ namespace Step75
 
     virtual void initialize_dof_vector(VectorType &vec) const = 0;
   };
+
+
 
   template <int dim, typename number>
   class LaplaceOperatorMatrixBased : public LaplaceOperator<dim, number>
@@ -368,6 +390,8 @@ namespace Step75
 
     std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_dealii;
   };
+
+
 
   template <int dim, typename number>
   class LaplaceOperatorMatrixFree : public LaplaceOperator<dim, number>
@@ -677,6 +701,44 @@ namespace Step75
   };
 
 
+
+  // @sect3{The <code>Preconditioner</code> class template}
+
+  // Preconditioner for the equation system.
+  template <typename VectorType>
+  class PreconditionerBase
+  {
+  public:
+    virtual void vmult(VectorType &dst, const VectorType &src) const = 0;
+  };
+
+  template <typename VectorType>
+  class PreconditionerAMG : public PreconditionerBase<VectorType>
+  {
+  public:
+    template <typename Operator>
+    PreconditionerAMG(const Operator &system_matrix)
+    {
+      LA::MPI::PreconditionAMG::AdditionalData data;
+      data.elliptic              = true;
+      data.higher_order_elements = true;
+      preconditioner.initialize(system_matrix.get_system_matrix(), data);
+    }
+
+    void vmult(VectorType &dst, const VectorType &src) const override
+    {
+      preconditioner.vmult(dst, src);
+    }
+
+  private:
+    LA::MPI::PreconditionAMG preconditioner;
+  };
+
+
+
+  // @sect3{The <code>AdaptationStrategy</code> class template}
+
+  // Different strategies to perform hp adaptation.
   template <int dim>
   class AdaptationStrategy
   {
@@ -1007,6 +1069,9 @@ namespace Step75
 
 
 
+  // @sect3{The <code>LaplaceProblem</code> class template}
+
+  // Solving the Laplace equation on subsequently refined function spaces.
   template <int dim>
   class LaplaceProblem
   {
@@ -1276,36 +1341,6 @@ namespace Step75
   }
 
 
-  template <typename VectorType>
-  class PreconditionerBase
-  {
-  public:
-    virtual void vmult(VectorType &dst, const VectorType &src) const = 0;
-  };
-
-  template <typename VectorType>
-  class PreconditionerAMG : public PreconditionerBase<VectorType>
-  {
-  public:
-    template <typename Operator>
-    PreconditionerAMG(const Operator &system_matrix)
-    {
-      LA::MPI::PreconditionAMG::AdditionalData data;
-      data.elliptic              = true;
-      data.higher_order_elements = true;
-      preconditioner.initialize(system_matrix.get_system_matrix(), data);
-    }
-
-    void vmult(VectorType &dst, const VectorType &src) const override
-    {
-      preconditioner.vmult(dst, src);
-    }
-
-  private:
-    LA::MPI::PreconditionAMG preconditioner;
-  };
-
-
 
   template <int dim>
   template <typename Operator>
@@ -1492,6 +1527,9 @@ namespace Step75
 
 
 
+// @sect4{main()}
+
+// The final function.
 int main(int argc, char *argv[])
 {
   try
