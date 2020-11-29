@@ -89,6 +89,7 @@ namespace LA
 
 #include <deal.II/base/geometric_utilities.h>
 #include <deal.II/base/mpi.h>
+#include <deal.II/base/parameter_handler.h>
 
 
 #include <fstream>
@@ -339,6 +340,266 @@ namespace Step75
 
     std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_dealii;
   };
+
+
+  template <int dim>
+  class AdaptationStrategy
+  {
+  public:
+    AdaptationStrategy(const ParameterHandler &params,
+                       const DoFHandler<dim> & dof_handler)
+      : params(params)
+      , dof_handler(dof_handler)
+      , triangulation(dof_handler.get_triangulation())
+    {
+      for (unsigned int degree = min_degree; degree <= max_degree; ++degree)
+        face_quadrature_collection.push_back(QGauss<dim - 1>(degree + 1));
+    };
+
+  private:
+    void flag_adaptation(const LinearAlgebra::distributed::Vector<double>
+                           &locally_relevant_solution);
+    virtual void decide_hp(const LinearAlgebra::distributed::Vector<double>
+                             &locally_relevant_solution) = 0;
+    void         limit_levels();
+    virtual void execute_refinement();
+
+    const ParameterHandler &params;
+    const unsigned int      min_level = 5, max_level = dim <= 2 ? 10 : 8;
+    const unsigned int      min_degree = 2, max_degree = dim <= 2 ? 7 : 5;
+
+
+    DoFHandler<dim> &                          dof_handler;
+    parallel::distributed::Triangulation<dim> &triangulation;
+
+    hp::QCollection<dim - 1> face_quadrature_collection;
+
+    Vector<float> estimated_error_per_cell;
+  };
+
+
+
+  template <int dim>
+  void AdaptationStrategy<dim>::flag_adaptation(
+    const LinearAlgebra::distributed::Vector<double> &locally_relevant_solution)
+  {
+    estimated_error_per_cell.grow_or_shrink(triangulation.n_active_cells());
+
+    KellyErrorEstimator<dim>::estimate(
+      dof_handler,
+      face_quadrature_collection,
+      std::map<types::boundary_id, const Function<dim> *>(),
+      locally_relevant_solution,
+      estimated_error_per_cell,
+      /*component_mask=*/ComponentMask(),
+      /*coefficients=*/nullptr,
+      /*n_threads=*/numbers::invalid_unsigned_int,
+      /*subdomain_id=*/numbers::invalid_subdomain_id,
+      /*material_id=*/numbers::invalid_material_id,
+      /*strategy=*/
+      KellyErrorEstimator<dim>::Strategy::face_diameter_over_twice_max_degree);
+
+    parallel::distributed::GridRefinement::refine_and_coarsen_fixed_number(
+      triangulation, estimated_error_per_cell, 0.3, 0.03);
+  }
+
+
+
+  template <int dim>
+  void AdaptationStrategy<dim>::limit_levels()
+  {
+    Assert(triangulation.n_levels() >= min_level + 1 &&
+             triangulation.n_levels() <= max_level + 1,
+           ExcInternalError());
+
+    if (triangulation.n_levels() > max_level)
+      for (const auto &cell :
+           triangulation.active_cell_iterators_on_level(max_level))
+        cell->clear_refine_flag();
+
+    for (const auto &cell :
+         triangulation.active_cell_iterators_on_level(min_level))
+      cell->clear_coarsen_flag();
+  }
+
+
+
+  template <int dim>
+  void AdaptationStrategy<dim>::execute_refinement()
+  {
+    triangulation.execute_coarsening_and_refinement();
+  }
+
+
+
+  template <int dim>
+  class hStrategy : public AdaptationStrategy<dim>
+  {
+  public:
+    virtual void decide_hp(){};
+  };
+
+
+
+  template <int dim>
+  class hpLegendreStrategy : public AdaptationStrategy<dim>
+  {
+  public:
+    hpLegendreStrategy(const ParameterHandler &params,
+                       const DoFHandler<dim> & dof_handler)
+      : AdaptationStrategy<dim>(params, dof_handler)
+      , legendre(SmoothnessEstimator::Legendre::default_fe_series(
+          dof_handler.get_fe_collection()))
+    {
+      legendre.precalculate_all_transformation_matrices();
+    };
+    virtual void decide_hp(const LinearAlgebra::distributed::Vector<double>
+                             &locally_relevant_solution);
+    virtual void execute_refinement();
+
+  private:
+    FESeries::Legendre<dim> legendre;
+
+    Vector<double> hp_decision_indicators;
+  };
+
+
+
+  template <int dim>
+  void hpLegendreStrategy<dim>::decide_hp(
+    const LinearAlgebra::distributed::Vector<double> &locally_relevant_solution)
+  {
+    hp_decision_indicators.grow_or_shrink(this->triangulation.n_active_cells());
+
+    SmoothnessEstimator::Legendre::coefficient_decay(
+      legendre,
+      this->dof_handler,
+      locally_relevant_solution,
+      hp_decision_indicators,
+      /*regression_strategy=*/VectorTools::Linfty_norm,
+      /*smallest_abs_coefficient=*/1e-10,
+      /*only_flagged_cells=*/true);
+
+    hp::Refinement::p_adaptivity_fixed_number(this->dof_handler,
+                                              hp_decision_indicators,
+                                              0.9,
+                                              0.9);
+    hp::Refinement::choose_p_over_h(this->dof_handler);
+  }
+
+
+
+  template <int dim>
+  class hpFourierStrategy : public AdaptationStrategy<dim>
+  {
+  public:
+    hpFourierStrategy(const ParameterHandler &params,
+                      const DoFHandler<dim> & dof_handler)
+      : AdaptationStrategy<dim>(params, dof_handler)
+      , fourier(SmoothnessEstimator::Fourier::default_fe_series(
+          dof_handler.get_fe_collection()))
+    {
+      fourier.precalculate_all_transformation_matrices();
+    };
+    virtual void decide_hp(const LinearAlgebra::distributed::Vector<double>
+                             &locally_relevant_solution);
+    virtual void execute_refinement();
+
+  private:
+    FESeries::Fourier<dim> fourier;
+
+    Vector<double> hp_decision_indicators;
+  };
+
+
+
+  template <int dim>
+  void hpFourierStrategy<dim>::decide_hp(
+    const LinearAlgebra::distributed::Vector<double> &locally_relevant_solution)
+  {
+    hp_decision_indicators.grow_or_shrink(this->triangulation.n_active_cells());
+
+    SmoothnessEstimator::Fourier::coefficient_decay(
+      fourier,
+      this->dof_handler,
+      locally_relevant_solution,
+      hp_decision_indicators,
+      /*regression_strategy=*/VectorTools::Linfty_norm,
+      /*smallest_abs_coefficient=*/1e-10,
+      /*only_flagged_cells=*/true);
+
+    hp::Refinement::p_adaptivity_fixed_number(this->dof_handler,
+                                              hp_decision_indicators,
+                                              0.9,
+                                              0.9);
+    hp::Refinement::choose_p_over_h(this->dof_handler);
+  }
+
+
+
+  template <int dim>
+  class hpHistoryStrategy : public AdaptationStrategy<dim>
+  {
+    hpHistoryStrategy(const ParameterHandler &params,
+                      const DoFHandler<dim> & dof_handler)
+      : AdaptationStrategy<dim>(params, dof_handler)
+      , error_predictor(dof_handler){};
+    virtual void decide_hp(const LinearAlgebra::distributed::Vector<double>
+                             &locally_relevant_solution);
+    virtual void execute_refinement();
+
+  private:
+    parallel::distributed::ErrorPredictor<dim> error_predictor;
+
+    Vector<double> hp_decision_indicators;
+    Vector<double> predicted_error_per_cell;
+  };
+
+
+
+  template <int dim>
+  void hpHistoryStrategy<dim>::decide_hp(
+    const LinearAlgebra::distributed::Vector<double> &locally_relevant_solution)
+  {
+    hp_decision_indicators.grow_or_shrink(this->triangulation.n_active_cells());
+
+    for (unsigned int i = 0; i < this->triangulation.n_active_cells(); ++i)
+      hp_decision_indicators(i) =
+        predicted_error_per_cell(i) - this->estimated_error_per_cell(i);
+
+    const float global_minimum =
+      Utilities::MPI::min(*std::min_element(hp_decision_indicators.begin(),
+                                            hp_decision_indicators.end()),
+                          get_mpi_comm(this->triangulation));
+    if (global_minimum < 0)
+      for (auto &indicator : hp_decision_indicators)
+        indicator -= global_minimum;
+
+    hp::Refinement::p_adaptivity_fixed_number(this->dof_handler,
+                                              hp_decision_indicators,
+                                              0.9,
+                                              0.9);
+    hp::Refinement::choose_p_over_h(this->dof_handler);
+  }
+
+
+
+  template <int dim>
+  void hpHistoryStrategy<dim>::execute_refinement()
+  {
+    error_predictor.prepare_for_coarsening_and_refinement(
+      this->estimated_error_per_cell,
+      /*gamma_p=*/std::sqrt(0.4),
+      /*gamma_h=*/2.,
+      /*gamma_n=*/1.);
+
+    this->triangulation.execute_coarsening_and_refinement();
+
+    predicted_error_per_cell.grow_or_shrink(
+      this->triangulation.n_active_cells());
+    error_predictor.unpack(predicted_error_per_cell);
+  }
+
 
 
   template <int dim>
