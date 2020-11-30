@@ -98,6 +98,8 @@ namespace LA
 #include <deal.II/matrix_free/matrix_free.h>
 #include <deal.II/matrix_free/fe_evaluation.h>
 
+#include <deal.II/multigrid/mg_transfer_global_coarsening.h>
+
 
 #include <fstream>
 #include <memory>
@@ -704,34 +706,116 @@ namespace Step75
 
   // @sect3{The <code>Preconditioner</code> class template}
 
-  // Preconditioner for the equation system.
-  template <typename VectorType>
-  class PreconditionerBase
+  class SolverAMG
   {
   public:
-    virtual void vmult(VectorType &dst, const VectorType &src) const = 0;
-  };
-
-  template <typename VectorType>
-  class PreconditionerAMG : public PreconditionerBase<VectorType>
-  {
-  public:
-    template <typename Operator>
-    PreconditionerAMG(const Operator &system_matrix)
+    template <typename VectorType, typename Operator>
+    static void solve(SolverControl &   solver_control,
+                      const Operator &  system_matrix,
+                      VectorType &      dst,
+                      const VectorType &src)
     {
       LA::MPI::PreconditionAMG::AdditionalData data;
       data.elliptic              = true;
       data.higher_order_elements = true;
+
+      LA::MPI::PreconditionAMG preconditioner;
       preconditioner.initialize(system_matrix.get_system_matrix(), data);
-    }
 
-    void vmult(VectorType &dst, const VectorType &src) const override
+      SolverCG<LinearAlgebra::distributed::Vector<double>> cg(solver_control);
+      cg.solve(system_matrix, dst, src, preconditioner);
+    }
+  };
+
+
+
+  std::vector<unsigned int> create_p_sequence(const unsigned int degree,
+                                              const std::string  p_sequence)
+  {
+    std::vector<unsigned int> degrees;
+    degrees.push_back(degree);
+
+    unsigned int previous_fe_degree = degree;
+    while (previous_fe_degree > 1)
+      {
+        unsigned int level_degree = [](const unsigned int previous_fe_degree,
+                                       const std::string  p_sequence) {
+          if (p_sequence == "bisect")
+            return std::max(previous_fe_degree / 2, 1u);
+          else if (p_sequence == "decreasebyone")
+            return std::max(previous_fe_degree - 1, 1u);
+          else if (p_sequence == "gotoone")
+            return 1u;
+
+          AssertThrow(false, ExcNotImplemented());
+          return 0u;
+        }(previous_fe_degree, p_sequence);
+
+        degrees.push_back(level_degree);
+        previous_fe_degree = level_degree;
+      }
+
+    std::reverse(degrees.begin(), degrees.end());
+
+    return degrees;
+  }
+
+
+
+  class SolverGMG
+  {
+  public:
+    template <typename VectorType, typename Operator, int dim>
+    static void solve(SolverControl &                  solver_control,
+                      const Operator &                 system_matrix,
+                      VectorType &                     dst,
+                      const VectorType &               src,
+                      const hp::MappingCollection<dim> mapping_collection,
+                      const DoFHandler<dim> &          dof_handler,
+                      const hp::QCollection<dim> &     quadrature_collection)
     {
-      preconditioner.vmult(dst, src);
-    }
+      Assert(false, ExcNotImplemented());
 
-  private:
-    LA::MPI::PreconditionAMG preconditioner;
+      (void)solver_control;
+      (void)system_matrix;
+      (void)dst;
+      (void)src;
+      (void)mapping_collection;
+      (void)dof_handler;
+      (void)quadrature_collection;
+
+      std::string p_sequence;
+
+      MGLevelObject<DoFHandler<dim>> dof_handlers;
+
+      // Vector of transfer operators for each pair of levels
+      MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfers;
+
+      // Vector of transfer operators for each pair of levels
+      MGLevelObject<std::shared_ptr<Operator>> operators;
+
+      const auto get_max_active_fe_index = [&](const auto &dof_handler) {
+        unsigned int min = 0;
+
+        for (auto &cell : dof_handler.active_cell_iterators())
+          {
+            if (cell->is_locally_owned())
+              min = std::max(min, cell->active_fe_index());
+          }
+
+        return Utilities::MPI::max(min, MPI_COMM_WORLD);
+      };
+
+      const unsigned int n_levels =
+        create_p_sequence(get_max_active_fe_index(dof_handler) + 1, p_sequence)
+          .size();
+
+      unsigned int minlevel = 0;
+      unsigned int maxlevel = n_levels - 1;
+
+      // 2) allocate memory for all levels
+      dof_handlers.resize(minlevel, maxlevel, dof_handler.get_triangulation());
+    }
   };
 
 
@@ -1362,20 +1446,22 @@ namespace Step75
     SolverControl solver_control(system_rhs_.size(),
                                  1e-12 * system_rhs_.l2_norm());
 
-    std::shared_ptr<
-      PreconditionerBase<LinearAlgebra::distributed::Vector<double>>>
-      preconditioner;
 
     if (true)
-      preconditioner = std::make_shared<
-        PreconditionerAMG<LinearAlgebra::distributed::Vector<double>>>(
-        system_matrix);
+      SolverAMG::solve(solver_control,
+                       system_matrix,
+                       locally_relevant_solution_,
+                       system_rhs_);
+    else
+      SolverGMG::solve(solver_control,
+                       system_matrix,
+                       locally_relevant_solution_,
+                       system_rhs_,
+                       mapping_collection,
+                       dof_handler,
+                       quadrature_collection);
 
-    SolverCG<LinearAlgebra::distributed::Vector<double>> cg(solver_control);
-    cg.solve(system_matrix,
-             locally_relevant_solution_,
-             system_rhs_,
-             *preconditioner);
+
 
     pcout << "   Solved in " << solver_control.last_step() << " iterations."
           << std::endl;
