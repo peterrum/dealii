@@ -772,8 +772,9 @@ namespace Step75
       (void)dof_handler;
       (void)quadrature_collection;
 
-      std::string p_sequence;
+      const std::string p_sequence = "decreasebyone"; // TODO
 
+      // TODO
       MGLevelObject<DoFHandler<dim>> dof_handlers;
 
       // Vector of transfer operators for each pair of levels
@@ -803,6 +804,106 @@ namespace Step75
 
       // 2) allocate memory for all levels
       dof_handlers.resize(minlevel, maxlevel, dof_handler.get_triangulation());
+
+      // loop over levels
+      for (unsigned int i = 0, l = maxlevel; i < n_levels; ++i, --l)
+        {
+          if (l == maxlevel) // set FEs on fine level
+            {
+              auto &dof_handler_mg = dof_handlers[l];
+
+              auto cell_other = dof_handler.begin_active();
+              for (auto &cell : dof_handler_mg.active_cell_iterators())
+                {
+                  if (cell->is_locally_owned())
+                    cell->set_active_fe_index(cell_other->active_fe_index());
+                  cell_other++;
+                }
+            }
+          else // set FEs on coarse level
+            {
+              auto &dof_handler_fine   = dof_handlers[l + 1];
+              auto &dof_handler_coarse = dof_handlers[l + 0];
+
+              auto cell_other = dof_handler_fine.begin_active();
+              for (auto &cell : dof_handler_coarse.active_cell_iterators())
+                {
+                  if (cell->is_locally_owned())
+                    cell->set_active_fe_index(
+                      generate_level_degree(cell_other->active_fe_index() + 1,
+                                            p_sequence) -
+                      1);
+                  cell_other++;
+                }
+            }
+
+          // create dof_handler
+          dof_handlers[l].distribute_dofs(dof_handler.get_fe_collection());
+        }
+
+      // 2) allocate memory for all levels
+      transfers.resize(minlevel, maxlevel);
+      operators.resize(minlevel, maxlevel);
+
+      // 3) create objects on each multigrid level
+      MGLevelObject<AffineConstraints<typename VectorType::value_type>>
+        constraints(minlevel, maxlevel);
+
+      for (unsigned int level = minlevel; level <= maxlevel; level++)
+        {
+          const auto &dof_handler = dof_handlers[level];
+          auto &      constraint  = constraints[level];
+
+          // b) setup constraint
+          {
+            constraint.clear();
+
+            IndexSet locally_relevant_dofs;
+            DoFTools::extract_locally_relevant_dofs(dof_handler,
+                                                    locally_relevant_dofs);
+            constraint.reinit(locally_relevant_dofs);
+
+
+            DoFTools::make_hanging_node_constraints(dof_handler, constraint);
+            VectorTools::interpolate_boundary_values(
+              dof_handler, 0, Functions::ZeroFunction<dim>(), constraint);
+            constraint.close();
+          }
+
+          // c) setup operator
+          {
+            VectorType dummy;
+            operators[level]->reinit(mapping_collection,
+                                     dof_handler,
+                                     quadrature_collection,
+                                     constraint,
+                                     dummy);
+          }
+        }
+
+      // 4) set up intergrid operators
+      for (unsigned int level = minlevel; level < maxlevel; level++)
+        transfers[level + 1].reinit_polynomial_transfer(dof_handlers[level + 1],
+                                                        dof_handlers[level],
+                                                        constraints[level + 1],
+                                                        constraints[level]);
+    }
+
+  private:
+    static unsigned int
+    generate_level_degree(const unsigned int previous_fe_degree,
+                          const std::string &p_sequence)
+    {
+      if (p_sequence == "bisect")
+        return std::max(previous_fe_degree / 2, 1u);
+      else if (p_sequence == "decreasebyone")
+        return std::max(previous_fe_degree - 1, 1u);
+      else if (p_sequence == "gotoone")
+        return 1;
+
+      Assert(false, StandardExceptions::ExcNotImplemented());
+
+      return 1;
     }
   };
 
