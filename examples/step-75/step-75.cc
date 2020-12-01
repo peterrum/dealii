@@ -98,8 +98,13 @@ namespace LA
 #include <deal.II/matrix_free/matrix_free.h>
 #include <deal.II/matrix_free/fe_evaluation.h>
 
+#include <deal.II/multigrid/mg_coarse.h>
+#include <deal.II/multigrid/mg_constrained_dofs.h>
+#include <deal.II/multigrid/mg_matrix.h>
+#include <deal.II/multigrid/mg_smoother.h>
+#include <deal.II/multigrid/mg_tools.h>
 #include <deal.II/multigrid/mg_transfer_global_coarsening.h>
-
+#include <deal.II/multigrid/multigrid.h>
 
 #include <fstream>
 #include <memory>
@@ -251,11 +256,13 @@ namespace Step75
   // @sect3{The <code>LaplaceOperator</code> class template}
 
   // Operator class template for solver.
-  template <int dim, typename number>
-  class LaplaceOperator
+  template <int dim_, typename number>
+  class LaplaceOperator : public Subscriptor
   {
   public:
-    using VectorType = LinearAlgebra::distributed::Vector<number>;
+    static const int dim = dim_;
+    using value_type     = number;
+    using VectorType     = LinearAlgebra::distributed::Vector<number>;
 
     virtual void reinit(const hp::MappingCollection<dim> &mapping_collection,
                         const DoFHandler<dim> &           dof_handler,
@@ -269,6 +276,31 @@ namespace Step75
     virtual const TrilinosWrappers::SparseMatrix &get_system_matrix() const = 0;
 
     virtual void initialize_dof_vector(VectorType &vec) const = 0;
+
+    virtual void compute_inverse_diagonal(VectorType &diagonal) const
+    {
+      (void)diagonal;
+      Assert(false, ExcNotImplemented());
+    }
+
+    types::global_dof_index m() const
+    {
+      Assert(false, ExcNotImplemented());
+      return 0;
+    }
+
+    number el(unsigned int, unsigned int) const
+    {
+      Assert(false, ExcNotImplemented());
+      return 0;
+    }
+
+    void Tvmult(VectorType &dst, const VectorType &src) const
+    {
+      Assert(false, ExcNotImplemented());
+      (void)dst;
+      (void)src;
+    }
   };
 
 
@@ -752,6 +784,36 @@ namespace Step75
 
   class SolverGMG
   {
+    struct CoarseSolverParameters
+    {
+      std::string  type;
+      unsigned int maxiter         = 100;
+      double       abstol          = 1e-10;
+      double       reltol          = 1e-6;
+      unsigned int smoother_sweeps = 1;
+      unsigned int n_cycles        = 1;
+      std::string  smoother_type;
+    };
+
+    struct SmootherParameters
+    {
+      std::string  type;
+      double       smoothing_range     = 30;
+      unsigned int degree              = 2;
+      unsigned int eig_cg_n_iterations = 10;
+    };
+
+    struct TestMultigridParameters
+    {
+      std::string            solver_type;
+      unsigned int           maxiter  = 100;
+      double                 abstol   = 1e-10;
+      double                 reltol   = 1e-6;
+      unsigned int           v_cycles = 1;
+      SmootherParameters     smoother;
+      CoarseSolverParameters coarse_solver;
+    };
+
   public:
     template <typename VectorType, typename Operator, int dim>
     static void solve(SolverControl &                  solver_control,
@@ -781,7 +843,10 @@ namespace Step75
       MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfers;
 
       // Vector of transfer operators for each pair of levels
-      MGLevelObject<std::shared_ptr<Operator>> operators;
+      MGLevelObject<
+        LaplaceOperatorMatrixFree<dim,
+                                  typename VectorType::value_type /*TODO*/>>
+        operators;
 
       const auto get_max_active_fe_index = [&](const auto &dof_handler) {
         unsigned int min = 0;
@@ -873,11 +938,11 @@ namespace Step75
           // c) setup operator
           {
             VectorType dummy;
-            operators[level]->reinit(mapping_collection,
-                                     dof_handler,
-                                     quadrature_collection,
-                                     constraint,
-                                     dummy);
+            operators[level].reinit(mapping_collection,
+                                    dof_handler,
+                                    quadrature_collection,
+                                    constraint,
+                                    dummy);
           }
         }
 
@@ -887,6 +952,16 @@ namespace Step75
                                                         dof_handlers[level],
                                                         constraints[level + 1],
                                                         constraints[level]);
+
+      MGTransferGlobalCoarsening<
+        LaplaceOperatorMatrixFree<dim,
+                                  typename VectorType::value_type /*TODO*/>,
+        VectorType>
+        transfer(operators, transfers);
+
+      TestMultigridParameters mg_data; // TODO
+      mg_solve(
+        dst, src, mg_data, dof_handler, system_matrix, operators, transfer);
     }
 
   private:
@@ -904,6 +979,179 @@ namespace Step75
       Assert(false, StandardExceptions::ExcNotImplemented());
 
       return 1;
+    }
+
+    template <typename VectorType,
+              int dim,
+              typename SystemMatrixType,
+              typename LevelMatrixType,
+              typename MGTransferType>
+    static unsigned int
+    mg_solve(VectorType &                          dst,
+             const VectorType &                    src,
+             const TestMultigridParameters &       mg_data,
+             const DoFHandler<dim> &               dof,
+             const SystemMatrixType &              fine_matrix,
+             const MGLevelObject<LevelMatrixType> &mg_matrices,
+             const MGTransferType &                mg_transfer)
+    {
+      AssertThrow(mg_data.smoother.type == "chebyshev", ExcNotImplemented());
+
+      const unsigned int min_level = mg_matrices.min_level();
+      const unsigned int max_level = mg_matrices.max_level();
+
+      using Number                     = typename VectorType::value_type;
+      using SmootherPreconditionerType = dealii::DiagonalMatrix<VectorType>;
+      using SmootherType               = PreconditionChebyshev<LevelMatrixType,
+                                                 VectorType,
+                                                 SmootherPreconditionerType>;
+
+      using PreconditionerType =
+        dealii::PreconditionMG<dim, VectorType, MGTransferType>;
+
+      // 1) initialize level mg_matrices
+      dealii::mg::Matrix<VectorType> mg_matrix(mg_matrices);
+
+      // 2) initialize smoothers
+      dealii::MGLevelObject<typename SmootherType::AdditionalData>
+        smoother_data(min_level, max_level);
+
+      // ... initialize levels
+      for (unsigned int level = min_level; level <= max_level; level++)
+        {
+          // ... initialize smoother
+          smoother_data[level].preconditioner =
+            std::make_shared<SmootherPreconditionerType>();
+          mg_matrices[level].compute_inverse_diagonal(
+            smoother_data[level].preconditioner->get_vector());
+          smoother_data[level].smoothing_range =
+            mg_data.smoother.smoothing_range;
+          smoother_data[level].degree = mg_data.smoother.degree;
+          smoother_data[level].eig_cg_n_iterations =
+            mg_data.smoother.eig_cg_n_iterations;
+        }
+
+      // ... collect in one object
+      dealii::MGSmootherPrecondition<LevelMatrixType, SmootherType, VectorType>
+        mg_smoother;
+      mg_smoother.initialize(mg_matrices, smoother_data);
+
+      // 3) initialize coarse-grid solver
+      dealii::ReductionControl coarse_grid_solver_control(
+        mg_data.coarse_solver.maxiter,
+        mg_data.coarse_solver.abstol,
+        mg_data.coarse_solver.reltol,
+        false,
+        false);
+      dealii::SolverCG<VectorType> coarse_grid_solver(
+        coarse_grid_solver_control);
+
+      PreconditionIdentity precondition_identity;
+      PreconditionChebyshev<LevelMatrixType,
+                            VectorType,
+                            dealii::DiagonalMatrix<VectorType>>
+        precondition_chebyshev;
+
+#ifdef DEAL_II_WITH_TRILINOS
+      TrilinosWrappers::PreconditionAMG precondition_amg;
+#endif
+
+      std::shared_ptr<MGCoarseGridBase<VectorType>> mg_coarse;
+
+      if (mg_data.coarse_solver.type == "cg")
+        {
+          // CG with identity matrix as preconditioner
+          auto temp = new dealii::MGCoarseGridIterativeSolver<
+            VectorType,
+            dealii::SolverCG<VectorType>,
+            LevelMatrixType,
+            PreconditionIdentity>();
+
+          temp->initialize(coarse_grid_solver,
+                           mg_matrices[min_level],
+                           precondition_identity);
+
+          mg_coarse.reset(temp);
+        }
+      else if (mg_data.coarse_solver.type == "cg_with_chebyshev")
+        {
+          // CG with Chebyshev as preconditioner
+
+          typename SmootherType::AdditionalData smoother_data;
+
+          smoother_data.preconditioner =
+            std::make_shared<dealii::DiagonalMatrix<VectorType>>();
+          mg_matrices[min_level].compute_inverse_diagonal(
+            smoother_data.preconditioner->get_vector());
+          smoother_data.smoothing_range = mg_data.smoother.smoothing_range;
+          smoother_data.degree          = mg_data.smoother.degree;
+          smoother_data.eig_cg_n_iterations =
+            mg_data.smoother.eig_cg_n_iterations;
+
+          precondition_chebyshev.initialize(mg_matrices[min_level],
+                                            smoother_data);
+
+          auto temp = new dealii::MGCoarseGridIterativeSolver<
+            VectorType,
+            dealii::SolverCG<VectorType>,
+            LevelMatrixType,
+            decltype(precondition_chebyshev)>();
+
+          temp->initialize(coarse_grid_solver,
+                           mg_matrices[min_level],
+                           precondition_chebyshev);
+
+          mg_coarse.reset(temp);
+        }
+      else if (mg_data.coarse_solver.type == "cg_with_amg")
+        {
+#ifdef DEAL_II_WITH_TRILINOS
+          TrilinosWrappers::PreconditionAMG::AdditionalData amg_data;
+          amg_data.smoother_sweeps = mg_data.coarse_solver.smoother_sweeps;
+          amg_data.n_cycles        = mg_data.coarse_solver.n_cycles;
+          amg_data.smoother_type = mg_data.coarse_solver.smoother_type.c_str();
+
+          // CG with AMG as preconditioner
+          precondition_amg.initialize(
+            mg_matrices[min_level].get_system_matrix(), amg_data);
+
+          auto temp = new dealii::MGCoarseGridIterativeSolver<
+            VectorType,
+            dealii::SolverCG<VectorType>,
+            LevelMatrixType,
+            decltype(precondition_amg)>();
+
+          temp->initialize(coarse_grid_solver,
+                           mg_matrices[min_level],
+                           precondition_amg);
+
+          mg_coarse.reset(temp);
+#else
+          AssertThrow(false, ExcNotImplemented());
+#endif
+        }
+      else
+        {
+          AssertThrow(false, ExcNotImplemented());
+        }
+
+      // 4) create multigrid object
+      Multigrid<VectorType> mg(
+        mg_matrix, *mg_coarse, mg_transfer, mg_smoother, mg_smoother);
+
+      // 5) convert it to a preconditioner
+      PreconditionerType preconditioner(dof, mg, mg_transfer);
+
+      // 6) solve with CG preconditioned with multigrid
+      dealii::ReductionControl solver_control(mg_data.maxiter,
+                                              mg_data.abstol,
+                                              mg_data.reltol);
+
+      dealii::SolverCG<VectorType> solver(solver_control);
+
+      solver.solve(fine_matrix, dst, src, preconditioner);
+
+      return solver_control.last_step();
     }
   };
 
