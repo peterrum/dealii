@@ -205,9 +205,6 @@ namespace Step75
     gradient(const Point<dim> & p,
              const unsigned int component = 0) const override;
 
-    virtual double laplacian(const Point<dim> & p,
-                             const unsigned int component = 0) const override;
-
   private:
     const double alpha;
   };
@@ -247,15 +244,6 @@ namespace Step75
     ret[1] = ret_sphere[0] * std::sin(p_sphere[1]) +
              ret_sphere[1] * std::cos(p_sphere[1]);
     return ret;
-  }
-
-
-
-  template <int dim>
-  double Solution<dim>::laplacian(const Point<dim> & /*p*/,
-                                  const unsigned int /*component*/) const
-  {
-    return 0.;
   }
 
 
