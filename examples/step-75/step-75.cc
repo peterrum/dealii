@@ -94,6 +94,7 @@ namespace LA
 #include <deal.II/base/geometric_utilities.h>
 #include <deal.II/base/mpi.h>
 #include <deal.II/base/parameter_handler.h>
+#include <deal.II/base/parameter_acceptor.h>
 
 #include <deal.II/matrix_free/matrix_free.h>
 #include <deal.II/matrix_free/fe_evaluation.h>
@@ -159,32 +160,135 @@ namespace Step75
   // @sect3{The <code>Parameter</code> class implementation}
 
   // Parameter class.
-  // TODO: Replace enums by Parameter class.
-  enum AdaptationType
+
+  // forward declarations
+  template <int dim>
+  class LaplaceProblem;
+
+  template <int dim>
+  class AdaptationStrategy;
+
+  class SolverAMG;
+  class SolverGMG;
+
+  template <int dim, typename number>
+  class LaplaceOperator;
+
+
+
+  class AdaptationParameters : public ParameterAcceptor
   {
-    h,
-    hpLegendre,
-    hpFourier,
-    hpHistory
+  public:
+    AdaptationParameters();
+
+  private:
+    std::string  type;
+    unsigned int min_level, max_level;
+    unsigned int min_degree, max_degree;
+
+    // double refine_fraction, coarsen_fraction;
+    // double hp_refine_fraction, hp_coarsen_fraction;
+
+    template <int dim>
+    friend class AdaptationStrategy;
+    template <int dim>
+    friend class LaplaceProblem;
   };
 
 
-
-  enum PreconditionerType
+  AdaptationParameters::AdaptationParameters()
+    : ParameterAcceptor("adaptation")
   {
-    AMG,
-    pAMG,
-    pGMG
+    type = "hp_Legendre";
+    add_parameter("type", type);
+
+    min_level = 5;
+    add_parameter("minlevel", min_level);
+
+    max_level = 10;
+    add_parameter("maxlevel", max_level);
+
+    min_degree = 2;
+    add_parameter("mindegree", min_degree);
+
+    max_degree = 7;
+    add_parameter("maxdegree", max_degree);
+  }
+
+
+
+  class OperatorParameters : public ParameterAcceptor
+  {
+  public:
+    OperatorParameters();
+
+  private:
+    std::string type;
+
+    template <int dim, typename number>
+    friend class LaplaceOperator;
+    template <int dim>
+    friend class LaplaceProblem;
   };
 
-
-
-  enum SolverType
+  OperatorParameters::OperatorParameters()
+    : ParameterAcceptor("operator")
   {
-    Matrix,
-    MatrixFree,
-    MatrixFreeCUDA
+    type = "MatrixFree";
+    add_parameter("type", type);
+  }
+
+
+
+  class SolverParameters : public ParameterAcceptor
+  {
+  public:
+    SolverParameters();
+
+  private:
+    std::string type;
+
+    friend class SolverAMG;
+    friend class SolverGMG;
+    template <int dim>
+    friend class LaplaceProblem;
   };
+
+  SolverParameters::SolverParameters()
+    : ParameterAcceptor("solver")
+  {
+    type = "AMG";
+    add_parameter("type", type);
+  }
+
+
+
+  class ProblemParameters : public ParameterAcceptor
+  {
+  public:
+    ProblemParameters();
+
+  private:
+    unsigned int dim;
+    unsigned int n_cycles;
+
+    AdaptationParameters prm_adaptation;
+    OperatorParameters   prm_operator;
+    SolverParameters     prm_solver;
+
+    template <int dim>
+    friend class LaplaceProblem;
+  };
+
+  ProblemParameters::ProblemParameters()
+    : ParameterAcceptor("problem")
+  {
+    dim = 2;
+    add_parameter("dimension", dim);
+
+    n_cycles = 8;
+    add_parameter("ncycles", n_cycles);
+  }
 
 
 
@@ -1164,14 +1268,15 @@ namespace Step75
   class AdaptationStrategy
   {
   public:
-    AdaptationStrategy(const ParameterHandler &                   params,
+    AdaptationStrategy(const AdaptationParameters &               prm,
                        DoFHandler<dim> &                          dof_handler,
                        parallel::distributed::Triangulation<dim> &triangulation)
-      : params(params)
+      : prm(prm)
       , dof_handler(dof_handler)
       , triangulation(triangulation)
     {
-      for (unsigned int degree = min_degree; degree <= max_degree; ++degree)
+      for (unsigned int degree = prm.min_degree; degree <= prm.max_degree;
+           ++degree)
         face_quadrature_collection.push_back(QGauss<dim - 1>(degree + 1));
     };
 
@@ -1187,10 +1292,7 @@ namespace Step75
     void         limit_levels();
     virtual void execute_refinement();
 
-    const ParameterHandler &params;
-    const unsigned int      min_level = 5, max_level = dim <= 2 ? 10 : 8;
-    const unsigned int      min_degree = 2, max_degree = dim <= 2 ? 7 : 5;
-
+    const AdaptationParameters &prm;
 
     DoFHandler<dim> &                          dof_handler;
     parallel::distributed::Triangulation<dim> &triangulation;
@@ -1251,17 +1353,17 @@ namespace Step75
   template <int dim>
   void AdaptationStrategy<dim>::limit_levels()
   {
-    Assert(triangulation.n_levels() >= min_level + 1 &&
-             triangulation.n_levels() <= max_level + 1,
+    Assert(triangulation.n_levels() >= prm.min_level + 1 &&
+             triangulation.n_levels() <= prm.max_level + 1,
            ExcInternalError());
 
-    if (triangulation.n_levels() > max_level)
+    if (triangulation.n_levels() > prm.max_level)
       for (const auto &cell :
-           triangulation.active_cell_iterators_on_level(max_level))
+           triangulation.active_cell_iterators_on_level(prm.max_level))
         cell->clear_refine_flag();
 
     for (const auto &cell :
-         triangulation.active_cell_iterators_on_level(min_level))
+         triangulation.active_cell_iterators_on_level(prm.min_level))
       cell->clear_coarsen_flag();
   }
 
@@ -1279,11 +1381,11 @@ namespace Step75
   class hpLegendreStrategy : public AdaptationStrategy<dim>
   {
   public:
-    hpLegendreStrategy(const ParameterHandler &                   params,
+    hpLegendreStrategy(const AdaptationParameters &               prm,
                        DoFHandler<dim> &                          dof_handler,
                        parallel::distributed::Triangulation<dim> &triangulation,
                        hp::FECollection<dim> &                    fe_collection)
-      : AdaptationStrategy<dim>(params, dof_handler, triangulation)
+      : AdaptationStrategy<dim>(prm, dof_handler, triangulation)
       , legendre(
           SmoothnessEstimator::Legendre::default_fe_series(fe_collection))
     {
@@ -1329,11 +1431,11 @@ namespace Step75
   class hpFourierStrategy : public AdaptationStrategy<dim>
   {
   public:
-    hpFourierStrategy(const ParameterHandler &                   params,
+    hpFourierStrategy(const AdaptationParameters &               prm,
                       DoFHandler<dim> &                          dof_handler,
                       parallel::distributed::Triangulation<dim> &triangulation,
                       hp::FECollection<dim> &                    fe_collection)
-      : AdaptationStrategy<dim>(params, dof_handler, triangulation)
+      : AdaptationStrategy<dim>(prm, dof_handler, triangulation)
       , fourier(SmoothnessEstimator::Fourier::default_fe_series(fe_collection))
     {
       fourier.precalculate_all_transformation_matrices();
@@ -1377,10 +1479,10 @@ namespace Step75
   class hpHistoryStrategy : public AdaptationStrategy<dim>
   {
   public:
-    hpHistoryStrategy(const ParameterHandler &                   params,
+    hpHistoryStrategy(const AdaptationParameters &               prm,
                       DoFHandler<dim> &                          dof_handler,
                       parallel::distributed::Triangulation<dim> &triangulation)
-      : AdaptationStrategy<dim>(params, dof_handler, triangulation)
+      : AdaptationStrategy<dim>(prm, dof_handler, triangulation)
       , error_predictor(dof_handler)
       , init_step(true){};
 
@@ -1497,11 +1599,9 @@ namespace Step75
   class LaplaceProblem
   {
   public:
-    LaplaceProblem(AdaptationType     adaptation_type,
-                   PreconditionerType preconditioner_type,
-                   SolverType         solver_type);
+    LaplaceProblem(const ProblemParameters &prm);
 
-    void run(const unsigned int n_cycles);
+    void run();
 
   private:
     void create_coarse_grid();
@@ -1519,9 +1619,7 @@ namespace Step75
 
     MPI_Comm mpi_communicator;
 
-    const AdaptationType     adaptation_type;
-    const PreconditionerType preconditioner_type;
-    const SolverType         solver_type;
+    const ProblemParameters &prm;
 
     parallel::distributed::Triangulation<dim> triangulation;
     const unsigned int                        min_level, max_level;
@@ -1550,13 +1648,9 @@ namespace Step75
 
 
   template <int dim>
-  LaplaceProblem<dim>::LaplaceProblem(AdaptationType     adaptation_type,
-                                      PreconditionerType preconditioner_type,
-                                      SolverType         solver_type)
+  LaplaceProblem<dim>::LaplaceProblem(const ProblemParameters &prm)
     : mpi_communicator(MPI_COMM_WORLD)
-    , adaptation_type(adaptation_type)
-    , preconditioner_type(preconditioner_type)
-    , solver_type(solver_type)
+    , prm(prm)
     , triangulation(mpi_communicator,
                     typename Triangulation<dim>::MeshSmoothing(
                       Triangulation<dim>::smoothing_on_refinement |
@@ -1571,22 +1665,19 @@ namespace Step75
                       TimerOutput::summary,
                       TimerOutput::wall_times)
   {
-    Assert(preconditioner_type == PreconditionerType::AMG, ExcNotImplemented());
-    Assert(solver_type == SolverType::Matrix, ExcNotImplemented());
-
     TimerOutput::Scope t(computing_timer, "init");
 
-    Assert(min_level <= max_level,
+    Assert(prm.prm_adaptation.min_level <= prm.prm_adaptation.max_level,
            ExcMessage(
              "Triangulation level limits have been incorrectly set up."));
-    // TODO: move min/max degrees to parameterhandler
-    const unsigned int min_degree = 2, max_degree = dim <= 2 ? 7 : 5;
-    Assert(min_degree <= max_degree,
+    Assert(prm.prm_adaptation.min_degree <= prm.prm_adaptation.max_degree,
            ExcMessage("FECollection degrees have been incorrectly set up."));
 
     mapping_collection.push_back(MappingQ1<dim>());
 
-    for (unsigned int degree = min_degree; degree <= max_degree; ++degree)
+    for (unsigned int degree = prm.prm_adaptation.min_degree;
+         degree <= prm.prm_adaptation.max_degree;
+         ++degree)
       {
         fe_collection.push_back(FE_Q<dim>(degree));
         quadrature_collection.push_back(QGauss<dim>(degree + 1));
@@ -1600,32 +1691,24 @@ namespace Step75
                                             update_JxW_values);
     fe_values_collection->precalculate_fe_values();
 
-    switch (adaptation_type)
-      {
-        case AdaptationType::h:
-          adaptation_strategy =
-            std::make_unique<AdaptationStrategy<dim>>(ParameterHandler(),
-                                                      dof_handler,
-                                                      triangulation);
-          break;
-        case AdaptationType::hpLegendre:
-          adaptation_strategy = std::make_unique<hpLegendreStrategy<dim>>(
-            ParameterHandler(), dof_handler, triangulation, fe_collection);
-          break;
-        case AdaptationType::hpFourier:
-          adaptation_strategy = std::make_unique<hpFourierStrategy<dim>>(
-            ParameterHandler(), dof_handler, triangulation, fe_collection);
-          break;
-        case AdaptationType::hpHistory:
-          adaptation_strategy =
-            std::make_unique<hpHistoryStrategy<dim>>(ParameterHandler(),
-                                                     dof_handler,
-                                                     triangulation);
-          break;
-        default:
-          AssertThrow(false, ExcNotImplemented());
-          break;
-      }
+    if (prm.prm_adaptation.type == "h")
+      adaptation_strategy =
+        std::make_unique<AdaptationStrategy<dim>>(prm.prm_adaptation,
+                                                  dof_handler,
+                                                  triangulation);
+    else if (prm.prm_adaptation.type == "hp_Legendre")
+      adaptation_strategy = std::make_unique<hpLegendreStrategy<dim>>(
+        prm.prm_adaptation, dof_handler, triangulation, fe_collection);
+    else if (prm.prm_adaptation.type == "hp_Fourier")
+      adaptation_strategy = std::make_unique<hpFourierStrategy<dim>>(
+        prm.prm_adaptation, dof_handler, triangulation, fe_collection);
+    else if (prm.prm_adaptation.type == "hp_History")
+      adaptation_strategy =
+        std::make_unique<hpHistoryStrategy<dim>>(prm.prm_adaptation,
+                                                 dof_handler,
+                                                 triangulation);
+    else
+      AssertThrow(false, ExcNotImplemented());
   }
 
 
@@ -1783,13 +1866,12 @@ namespace Step75
     SolverControl solver_control(system_rhs_.size(),
                                  1e-12 * system_rhs_.l2_norm());
 
-
-    if (true)
+    if (prm.prm_solver.type == "AMG")
       SolverAMG::solve(solver_control,
                        system_matrix,
                        locally_relevant_solution_,
                        system_rhs_);
-    else
+    else if (prm.prm_solver.type == "GMG")
       SolverGMG::solve(solver_control,
                        system_matrix,
                        locally_relevant_solution_,
@@ -1797,8 +1879,8 @@ namespace Step75
                        mapping_collection,
                        dof_handler,
                        quadrature_collection);
-
-
+    else
+      Assert(false, ExcNotImplemented());
 
     pcout << "   Solved in " << solver_control.last_step() << " iterations."
           << std::endl;
@@ -1879,7 +1961,7 @@ namespace Step75
 
 
   template <int dim>
-  void LaplaceProblem<dim>::run(const unsigned int n_cycles)
+  void LaplaceProblem<dim>::run()
   {
     pcout << "Running with "
 #ifdef USE_PETSC_LA
@@ -1892,16 +1974,18 @@ namespace Step75
 
     std::shared_ptr<LaplaceOperator<dim, double>> laplace_operator;
 
-    if (false)
+    if (prm.prm_operator.type == "MatrixBased")
       laplace_operator =
         std::make_shared<LaplaceOperatorMatrixBased<dim, double>>();
-    else
+    else if (prm.prm_operator.type == "MatrixFree")
       laplace_operator =
         std::make_shared<LaplaceOperatorMatrixFree<dim, double>>();
+    else
+      Assert(false, ExcNotImplemented());
 
     for (unsigned int cycle = 0;
-         cycle < (adaptation_type != AdaptationType::hpHistory ? n_cycles :
-                                                                 n_cycles + 1);
+         cycle < (prm.prm_adaptation.type != "hpHistory" ? prm.n_cycles :
+                                                           prm.n_cycles + 1);
          ++cycle)
       {
         pcout << "Cycle " << cycle << ':' << std::endl;
@@ -1909,9 +1993,9 @@ namespace Step75
         if (cycle == 0)
           {
             create_coarse_grid();
-            triangulation.refine_global(
-              adaptation_type != AdaptationType::hpHistory ? min_level :
-                                                             min_level - 1);
+            triangulation.refine_global(prm.prm_adaptation.type != "hpHistory" ?
+                                          prm.prm_adaptation.min_level :
+                                          prm.prm_adaptation.min_level - 1);
           }
         else
           {
@@ -1962,10 +2046,26 @@ int main(int argc, char *argv[])
 
       Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
 
-      LaplaceProblem<2> laplace_problem_2d(AdaptationType::hpLegendre,
-                                           PreconditionerType::AMG,
-                                           SolverType::Matrix);
-      laplace_problem_2d.run(/*n_cycles=*/8);
+      ProblemParameters prm_problem;
+
+      const std::string filename        = (argc > 1) ? argv[1] : "",
+                        output_filename = (argc > 1) ? "" : "default.json";
+      ParameterAcceptor::initialize(filename, output_filename);
+
+      const int dim =
+        ParameterAcceptor::prm.get_integer({"problem"}, "dimension");
+      if (dim == 2)
+        {
+          LaplaceProblem<2> laplace_problem(prm_problem);
+          laplace_problem.run();
+        }
+      else if (dim == 3)
+        {
+          LaplaceProblem<3> laplace_problem(prm_problem);
+          laplace_problem.run();
+        }
+      else
+        Assert(false, ExcNotImplemented());
     }
   catch (std::exception &exc)
     {
