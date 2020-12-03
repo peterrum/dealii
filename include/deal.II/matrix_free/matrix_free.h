@@ -4652,11 +4652,34 @@ namespace internal
           }
     }
 
-    // Runs the assembler on interior faces. If no function is given, nothing
-    // is done
     virtual void
-    face(const std::pair<unsigned int, unsigned int> &face_range) override
+    cell(const unsigned int range_index) override
     {
+      const std::pair<unsigned int, unsigned int> cell_range{
+        matrix_free.get_task_info().cell_partition_data[range_index],
+        matrix_free.get_task_info().cell_partition_data[range_index + 1]};
+
+      if (cell_function != nullptr && cell_range.second > cell_range.first)
+        for (unsigned int i = 0; i < matrix_free.n_active_fe_indices(); ++i)
+          {
+            const auto cell_subrange =
+              matrix_free.create_cell_subrange_hp_by_index(cell_range, i);
+
+            if (cell_subrange.second <= cell_subrange.first)
+              continue;
+
+            (container.*
+             cell_function)(matrix_free, this->dst, this->src, cell_subrange);
+          }
+    }
+
+    virtual void
+    face(const unsigned int range_index) override
+    {
+      const std::pair<unsigned int, unsigned int> face_range{
+        matrix_free.get_task_info().face_partition_data[range_index],
+        matrix_free.get_task_info().face_partition_data[range_index + 1]};
+
       if (face_function != nullptr && face_range.second > face_range.first)
         for (unsigned int i = 0; i < matrix_free.n_active_fe_indices(); ++i)
           for (unsigned int j = 0; j < matrix_free.n_active_fe_indices(); ++j)
@@ -4673,11 +4696,13 @@ namespace internal
             }
     }
 
-    // Runs the assembler on boundary faces. If no function is given, nothing
-    // is done
     virtual void
-    boundary(const std::pair<unsigned int, unsigned int> &face_range) override
+    boundary(const unsigned int range_index) override
     {
+      const std::pair<unsigned int, unsigned int> face_range{
+        matrix_free.get_task_info().boundary_partition_data[range_index],
+        matrix_free.get_task_info().boundary_partition_data[range_index + 1]};
+
       if (boundary_function != nullptr && face_range.second > face_range.first)
         for (unsigned int i = 0; i < matrix_free.n_active_fe_indices(); ++i)
           {
