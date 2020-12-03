@@ -78,15 +78,20 @@ namespace internal
     virtual void
     cell(const std::pair<unsigned int, unsigned int> &cell_range) = 0;
 
+    /// Runs the cell work specified by MatrixFree::loop or
+    /// MatrixFree::cell_loop
+    virtual void
+    cell(const unsigned int range_index) = 0;
+
     /// Runs the body of the work on interior faces specified by
     /// MatrixFree::loop
     virtual void
-    face(const std::pair<unsigned int, unsigned int> &face_range) = 0;
+    face(const unsigned int range_index) = 0;
 
     /// Runs the body of the work on boundary faces specified by
     /// MatrixFree::loop
     virtual void
-    boundary(const std::pair<unsigned int, unsigned int> &face_range) = 0;
+    boundary(const unsigned int range_index) = 0;
   };
 
 
@@ -495,6 +500,36 @@ namespace internal
        * partition_row_index.
        */
       std::vector<unsigned int> ghost_face_partition_data;
+
+      /**
+       * TODO
+       */
+      std::vector<unsigned int> cell_partition_data_hp_ptr;
+
+      /**
+       * TODO
+       */
+      std::vector<unsigned int> cell_partition_data_hp;
+
+      /**
+       * TODO
+       */
+      std::vector<unsigned int> face_partition_data_hp_ptr;
+
+      /**
+       * TODO
+       */
+      std::vector<unsigned int> face_partition_data_hp;
+
+      /**
+       * TODO
+       */
+      std::vector<unsigned int> boundary_partition_data_hp_ptr;
+
+      /**
+       * TODO
+       */
+      std::vector<unsigned int> boundary_partition_data_hp;
 
       /**
        * This is a linear storage of all partitions of faces for multigrid
