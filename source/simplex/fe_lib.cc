@@ -588,7 +588,7 @@ namespace Simplex
   template <int dim, int spacedim>
   FE_PyramidP<dim, spacedim>::FE_PyramidP(const unsigned int degree)
     : dealii::FE_Poly<dim, spacedim>(
-        Simplex::ScalarWedgePolynomial<dim>(degree),
+        Simplex::ScalarPyramidPolynomial<dim>(degree),
         FiniteElementData<dim>(get_dpo_vector_fe_pyramid(degree),
                                ReferenceCell::Type::Wedge,
                                1,

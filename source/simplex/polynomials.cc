@@ -743,17 +743,31 @@ namespace Simplex
     AssertIndexRange(this->degree(), 2);
 
     const double Q14 = 0.25;
+    double       ration;
+
+    const double r = p[0];
+    const double s = p[1];
+    const double t = p[2];
+
+    if (fabs(t - 1.0) > 1.0e-14)
+      {
+        ration = (r * s * t) / (1.0 - t);
+      }
+    else
+      {
+        ration = 0.0;
+      }
 
     if (i == 0)
-      return Q14 * (1.0 - p[0]) * (1.0 - p[1]) * (1.0 - p[2]);
+      return Q14 * ((1.0 - r) * (1.0 - s) - t + ration);
     if (i == 1)
-      return Q14 * (1.0 + p[0]) * (1.0 - p[1]) * (1.0 - p[2]);
+      return Q14 * ((1.0 + r) * (1.0 - s) - t - ration);
     if (i == 2)
-      return Q14 * (1.0 - p[0]) * (1.0 + p[1]) * (1.0 - p[2]);
+      return Q14 * ((1.0 - r) * (1.0 + s) - t - ration);
     if (i == 3)
-      return Q14 * (1.0 + p[0]) * (1.0 + p[1]) * (1.0 - p[2]);
+      return Q14 * ((1.0 + r) * (1.0 + s) - t + ration);
     else
-      return p[2];
+      return t;
   }
 
 
@@ -770,29 +784,53 @@ namespace Simplex
 
     if (this->degree() == 1)
       {
+        const double Q14 = 0.25;
+
+        const double r = p[0];
+        const double s = p[1];
+        const double t = p[2];
+
+        double rationdr;
+        double rationds;
+        double rationdt;
+
+        if (fabs(t - 1.0) > 1.0e-14)
+          {
+            rationdr = s * t / (1.0 - t);
+            rationds = r * t / (1.0 - t);
+            rationdt = r * s / ((1.0 - t) * (1.0 - t));
+          }
+        else
+          {
+            rationdr = 1.0;
+            rationds = 1.0;
+            rationdt = 1.0;
+          }
+
+
         if (i == 0)
           {
-            grad[0] = (-1.0) * (1.0 - p[1]) * (1.0 - p[2]);
-            grad[1] = (1.0 - p[0]) * (-1.0) * (1.0 - p[2]);
-            grad[2] = (1.0 - p[0]) * (1.0 - p[1]) * (-1.0);
+            grad[0] = Q14 * (-1.0 * (1.0 - s) + rationdr);
+            grad[1] = Q14 * (-1.0 * (1.0 - r) + rationds);
+            grad[2] = Q14 * (rationdt - 1.0);
           }
         else if (i == 1)
           {
-            grad[0] = (+1.0) * (1.0 - p[1]) * (1.0 - p[2]);
-            grad[1] = (1.0 - p[0]) * (-1.0) * (1.0 - p[2]);
-            grad[2] = (1.0 - p[0]) * (1.0 - p[1]) * (-1.0);
+            grad[0] = Q14 * (1.0 * (1.0 - s) - rationdr);
+            grad[1] = Q14 * (-1.0 * (1.0 + r) - rationds);
+            grad[2] = Q14 * (-1.0 * rationdt - 1.0);
           }
         else if (i == 2)
           {
-            grad[0] = (-1.0) * (1.0 - p[1]) * (1.0 - p[2]);
-            grad[1] = (1.0 - p[0]) * (+1.0) * (1.0 - p[2]);
-            grad[2] = (1.0 - p[0]) * (1.0 - p[1]) * (-1.0);
+            grad[0] = Q14 * (-1.0 * (1.0 + s) - rationdr);
+            grad[1] = Q14 * (1.0 * (1.0 - r) - rationds);
+            grad[2] = Q14 * (-1.0 * rationdt - 1.0);
           }
         else if (i == 3)
           {
-            grad[0] = (+1.0) * (1.0 - p[1]) * (1.0 - p[2]);
-            grad[1] = (1.0 - p[0]) * (+1.0) * (1.0 - p[2]);
-            grad[2] = (1.0 - p[0]) * (1.0 - p[1]) * (-1.0);
+            grad[0] = Q14 * (1.0 * (1.0 + s) + rationdr);
+            grad[1] = Q14 * (1.0 * (1.0 + r) + rationds);
+            grad[2] = Q14 * (rationdt - 1.0);
           }
         else if (i == 4)
           {
