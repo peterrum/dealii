@@ -572,6 +572,77 @@ MatrixFree<dim, Number, VectorizedArrayType>::internal_reinit(
         }
     }
 
+  {
+    task_info.cell_partition_data_hp_ptr = {0};
+    task_info.cell_partition_data_hp     = {};
+
+    for (unsigned int part = 0; part < task_info.partition_row_index.size() - 2;
+         ++part)
+      for (unsigned int i = task_info.partition_row_index[part];
+           i < task_info.partition_row_index[part + 1];
+           ++i)
+        {
+          if (task_info.cell_partition_data[i + 1] >
+              task_info.cell_partition_data[i])
+            {
+              std::pair<unsigned int, unsigned int> range{
+                task_info.cell_partition_data[i],
+                task_info.cell_partition_data[i + 1]};
+
+              if (range.second <= range.first)
+                continue;
+
+              for (unsigned int i = 0; i < this->n_active_fe_indices(); ++i)
+                {
+                  const auto cell_subrange =
+                    this->create_cell_subrange_hp_by_index(range, i);
+
+                  if (cell_subrange.second <= cell_subrange.first)
+                    continue;
+
+                  task_info.cell_partition_data_hp.push_back(
+                    cell_subrange.first);
+                  task_info.cell_partition_data_hp.push_back(
+                    cell_subrange.second);
+                }
+            }
+
+          AssertDimension(i + 1, task_info.cell_partition_data_hp_ptr.size());
+
+          task_info.cell_partition_data_hp_ptr.push_back(
+            task_info.cell_partition_data_hp.size() / 2);
+
+          //              if (face_partition_data.empty() == false)
+          //                {
+          //                  if (face_partition_data[i + 1] >
+          //                  face_partition_data[i])
+          //                  {
+          //                    std::pair<unsigned int, unsigned int>
+          //                    range{face_partition_data[i],
+          //                    face_partition_data[i + 1]};
+          //
+          //                  }
+          //
+          //                  if (boundary_partition_data[i + 1] >
+          //                  boundary_partition_data[i])
+          //                  {
+          //
+          //                    std::pair<unsigned int, unsigned int> range
+          //                    {boundary_partition_data[i],
+          //                    boundary_partition_data[i + 1]};
+          //                  }
+          //                }
+        }
+
+    // for(const auto i : task_info.cell_partition_data_hp_ptr)
+    //    std::cout << i << " ";
+    // std::cout << std::endl;
+    //
+    // for(const auto i : task_info.cell_partition_data_hp)
+    //    std::cout << i << " ";
+    // std::cout << std::endl;
+  }
+
   // Evaluates transformations from unit to real cell, Jacobian determinants,
   // quadrature points in real space, based on the ordering of the cells
   // determined in @p extract_local_to_global_indices.

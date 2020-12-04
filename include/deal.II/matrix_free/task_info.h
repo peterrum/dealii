@@ -501,6 +501,9 @@ namespace internal
        */
       std::vector<unsigned int> ghost_face_partition_data;
 
+      std::vector<unsigned int> cell_partition_data_hp_ptr;
+      std::vector<unsigned int> cell_partition_data_hp;
+
       /**
        * This is a linear storage of all partitions of faces for multigrid
        * levels that have a coarser neighbor and are only included in certain

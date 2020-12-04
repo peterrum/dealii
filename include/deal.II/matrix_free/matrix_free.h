@@ -4655,22 +4655,18 @@ namespace internal
     virtual void
     cell(const unsigned int range_index) override
     {
-      const std::pair<unsigned int, unsigned int> cell_range{
-        matrix_free.get_task_info().cell_partition_data[range_index],
-        matrix_free.get_task_info().cell_partition_data[range_index + 1]};
+      if (cell_function == nullptr)
+        return;
 
-      if (cell_function != nullptr && cell_range.second > cell_range.first)
-        for (unsigned int i = 0; i < matrix_free.n_active_fe_indices(); ++i)
-          {
-            const auto cell_subrange =
-              matrix_free.create_cell_subrange_hp_by_index(cell_range, i);
+      const auto &ptr  = matrix_free.get_task_info().cell_partition_data_hp_ptr;
+      const auto &data = matrix_free.get_task_info().cell_partition_data_hp;
 
-            if (cell_subrange.second <= cell_subrange.first)
-              continue;
-
-            (container.*
-             cell_function)(matrix_free, this->dst, this->src, cell_subrange);
-          }
+      for (unsigned int i = ptr[range_index]; i < ptr[range_index + 1]; ++i)
+        (container.*
+         cell_function)(matrix_free,
+                        this->dst,
+                        this->src,
+                        std::make_pair(data[2 * i], data[2 * i + 1]));
     }
 
     virtual void
