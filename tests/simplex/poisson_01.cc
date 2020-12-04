@@ -566,17 +566,15 @@ test_pyramid(const MPI_Comm &comm, const Parameters<dim> &params)
                     ".vtk");
   grid_out.write_vtk(*tria, out);
 
-  return;
-
   // 3) Select components
-  Simplex::FE_WedgeP<dim> fe(params.degree);
+  Simplex::FE_PyramidP<dim> fe(params.degree);
 
-  Simplex::QGaussWedge<dim> quad(params.degree + 1);
+  Simplex::QGaussPyramid<dim> quad(params.degree + 1);
 
   Quadrature<dim - 1> face_quad; // not needed
 
-  Simplex::FE_WedgeP<dim> fe_mapping(1);
-  MappingFE<dim>          mapping(fe_mapping);
+  Simplex::FE_PyramidP<dim> fe_mapping(1);
+  MappingFE<dim>            mapping(fe_mapping);
 
   // 4) Perform test (independent of mesh type)
   test(*tria, fe, quad, face_quad, mapping, params.p2[0], false);
@@ -658,8 +656,8 @@ main(int argc, char **argv)
       deallog << "Solve problem on PYRAMID mesh:" << std::endl;
 
       params.file_name_out = "mesh-pyramid";
-      params.p1            = Point<3>(2.2, 0, 0);
-      params.p2            = Point<3>(3.2, 1, 1);
+      params.p1            = Point<3>(3.3, 0, 0);
+      params.p2            = Point<3>(4.3, 1, 1);
 
       params.degree = 1;
 
