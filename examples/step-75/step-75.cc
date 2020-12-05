@@ -90,6 +90,7 @@ namespace LA
 
 #include <deal.II/matrix_free/matrix_free.h>
 #include <deal.II/matrix_free/fe_evaluation.h>
+#include <deal.II/matrix_free/tools.h>
 
 #include <deal.II/multigrid/mg_coarse.h>
 #include <deal.II/multigrid/mg_constrained_dofs.h>
@@ -369,6 +370,11 @@ namespace Step75
 
     virtual void vmult(VectorType &dst, const VectorType &src) const = 0;
 
+    void Tvmult(VectorType &dst, const VectorType &src) const
+    {
+      this->vmult(dst, src);
+    }
+
     virtual const TrilinosWrappers::SparseMatrix &get_system_matrix() const = 0;
 
     virtual void initialize_dof_vector(VectorType &vec) const = 0;
@@ -389,13 +395,6 @@ namespace Step75
     {
       Assert(false, ExcNotImplemented());
       return 0;
-    }
-
-    void Tvmult(VectorType &dst, const VectorType &src) const
-    {
-      Assert(false, ExcNotImplemented());
-      (void)dst;
-      (void)src;
     }
   };
 
@@ -636,6 +635,16 @@ namespace Step75
         integrator.submit_gradient(integrator.get_gradient(q), q);
     }
 
+    void do_cell_integral_local(FECellIntegrator &integrator) const
+    {
+      integrator.evaluate(false, true, false);
+
+      for (unsigned int q = 0; q < integrator.n_q_points; ++q)
+        integrator.submit_gradient(integrator.get_gradient(q), q);
+
+      integrator.integrate(false, true);
+    }
+
     // Perform cell integral on a cell-batch range.
     void do_cell_integral_range(
       const dealii::MatrixFree<dim, number> &     matrix_free,
@@ -665,6 +674,15 @@ namespace Step75
     void initialize_dof_vector_dealii(VectorType &vec) const
     {
       vec.reinit(partitioner_dealii);
+    }
+
+    virtual void compute_inverse_diagonal(VectorType &diagonal) const override
+    {
+      MatrixFreeTools::compute_diagonal(
+        matrix_free,
+        diagonal,
+        &LaplaceOperatorMatrixFree::do_cell_integral_local,
+        this);
     }
 
     const TrilinosWrappers::SparseMatrix &get_system_matrix() const override
