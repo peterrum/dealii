@@ -745,89 +745,12 @@ namespace Step75
     void
     calculate_system_matrix(TrilinosWrappers::SparseMatrix &system_matrix) const
     {
-      this->matrix_free.template cell_loop<TrilinosWrappers::SparseMatrix,
-                                           TrilinosWrappers::SparseMatrix>(
-
-        [&](const auto &, auto &dst, const auto &, const auto range) {
-          FECellIntegrator integrator(matrix_free, range);
-
-          unsigned int const dofs_per_cell = integrator.dofs_per_cell;
-
-          for (auto cell = range.first; cell < range.second; ++cell)
-            {
-              unsigned int const n_filled_lanes =
-                matrix_free.n_active_entries_per_cell_batch(cell);
-
-              FullMatrix<TrilinosScalar>
-                matrices[VectorizedArray<double>::size()];
-
-              std::fill_n(matrices,
-                          VectorizedArray<double>::size(),
-                          FullMatrix<TrilinosScalar>(dofs_per_cell,
-                                                     dofs_per_cell));
-
-              integrator.reinit(cell);
-
-              for (unsigned int j = 0; j < dofs_per_cell; ++j)
-                {
-                  for (unsigned int i = 0; i < integrator.dofs_per_cell; ++i)
-                    integrator.begin_dof_values()[i] =
-                      static_cast<double>(i == j);
-
-                  integrator.evaluate(false, true, false);
-
-                  do_cell_integral(integrator);
-
-                  integrator.integrate(false, true);
-
-                  for (unsigned int i = 0; i < dofs_per_cell; ++i)
-                    for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                      matrices[v](i, j) = integrator.begin_dof_values()[i][v];
-                }
-
-
-              // finally assemble local matrices into global matrix
-              for (unsigned int v = 0; v < n_filled_lanes; v++)
-                {
-                  auto cell_v = matrix_free.get_cell_iterator(cell, v);
-
-                  std::vector<types::global_dof_index> dof_indices(
-                    dofs_per_cell);
-
-                  if (matrix_free.get_mg_level() !=
-                      numbers::invalid_unsigned_int)
-                    cell_v->get_mg_dof_indices(dof_indices);
-                  else
-                    cell_v->get_dof_indices(dof_indices);
-
-                  auto temp = dof_indices;
-                  for (unsigned int j = 0; j < dof_indices.size(); j++)
-                    dof_indices[j] =
-                      temp[matrix_free
-                             .get_shape_info(
-                               0,
-                               0,
-                               0,
-                               integrator.get_active_fe_index(),
-                               integrator.get_active_quadrature_index())
-                             .lexicographic_numbering[j]];
-
-                  constraints.distribute_local_to_global(matrices[v],
-                                                         dof_indices,
-                                                         dof_indices,
-                                                         dst);
-                }
-            }
-        },
+      MatrixFreeTools::compute_matrix(
+        matrix_free,
+        constraints,
         system_matrix,
-        system_matrix);
-
-      system_matrix.compress(VectorOperation::add);
-
-      const auto p = system_matrix.local_range();
-      for (auto i = p.first; i < p.second; i++)
-        if (system_matrix(i, i) == 0.0 && constraints.is_constrained(i))
-          system_matrix.add(i, i, 1);
+        &LaplaceOperatorMatrixFree::do_cell_integral_local,
+        this);
     }
 
     dealii::MatrixFree<dim, number> matrix_free;

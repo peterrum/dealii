@@ -96,6 +96,58 @@ namespace MatrixFreeTools
     const unsigned int quad_no                  = 0,
     const unsigned int first_selected_component = 0);
 
+  /**
+   * TODO
+   */
+  template <int dim,
+            int fe_degree,
+            int n_q_points_1d,
+            int n_components,
+            typename Number,
+            typename VectorizedArrayType,
+            typename MatrixType>
+  void
+  compute_matrix(
+    const MatrixFree<dim, Number, VectorizedArrayType> &            matrix_free,
+    const AffineConstraints<Number> &                               constraints,
+    MatrixType &                                                    matrix,
+    const std::function<void(FEEvaluation<dim,
+                                          fe_degree,
+                                          n_q_points_1d,
+                                          n_components,
+                                          Number,
+                                          VectorizedArrayType> &)> &local_vmult,
+    const unsigned int                                              dof_no  = 0,
+    const unsigned int                                              quad_no = 0,
+    const unsigned int first_selected_component = 0);
+
+  /**
+   * Same as above but with a class and a function pointer.
+   */
+  template <typename CLASS,
+            int dim,
+            int fe_degree,
+            int n_q_points_1d,
+            int n_components,
+            typename Number,
+            typename VectorizedArrayType,
+            typename MatrixType>
+  void
+  compute_matrix(
+    const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+    const AffineConstraints<Number> &                   constraints,
+    MatrixType &                                        matrix,
+    void (CLASS::*cell_operation)(FEEvaluation<dim,
+                                               fe_degree,
+                                               n_q_points_1d,
+                                               n_components,
+                                               Number,
+                                               VectorizedArrayType> &) const,
+    const CLASS *      owning_class,
+    const unsigned int dof_no                   = 0,
+    const unsigned int quad_no                  = 0,
+    const unsigned int first_selected_component = 0);
+
 
   // implementations
 
@@ -568,6 +620,153 @@ namespace MatrixFreeTools
       dof_no,
       quad_no,
       first_selected_component);
+  }
+
+  template <int dim,
+            int fe_degree,
+            int n_q_points_1d,
+            int n_components,
+            typename Number,
+            typename VectorizedArrayType,
+            typename MatrixType>
+  void
+  compute_matrix(
+    const MatrixFree<dim, Number, VectorizedArrayType> &            matrix_free,
+    const AffineConstraints<Number> &                               constraints,
+    MatrixType &                                                    matrix,
+    const std::function<void(FEEvaluation<dim,
+                                          fe_degree,
+                                          n_q_points_1d,
+                                          n_components,
+                                          Number,
+                                          VectorizedArrayType> &)> &local_vmult,
+    const unsigned int                                              dof_no,
+    const unsigned int                                              quad_no,
+    const unsigned int first_selected_component)
+  {
+    matrix_free.template cell_loop<MatrixType, MatrixType>(
+
+      [&](const auto &, auto &dst, const auto &, const auto range) {
+        FEEvaluation<dim,
+                     fe_degree,
+                     n_q_points_1d,
+                     n_components,
+                     Number,
+                     VectorizedArrayType>
+          integrator(matrix_free, range);
+
+        unsigned int const dofs_per_cell = integrator.dofs_per_cell;
+
+        for (auto cell = range.first; cell < range.second; ++cell)
+          {
+            unsigned int const n_filled_lanes =
+              matrix_free.n_active_entries_per_cell_batch(cell);
+
+            FullMatrix<TrilinosScalar>
+              matrices[VectorizedArray<double>::size()];
+
+            std::fill_n(matrices,
+                        VectorizedArray<double>::size(),
+                        FullMatrix<TrilinosScalar>(dofs_per_cell,
+                                                   dofs_per_cell));
+
+            integrator.reinit(cell);
+
+            for (unsigned int j = 0; j < dofs_per_cell; ++j)
+              {
+                for (unsigned int i = 0; i < integrator.dofs_per_cell; ++i)
+                  integrator.begin_dof_values()[i] =
+                    static_cast<double>(i == j);
+
+                local_vmult(integrator);
+
+                for (unsigned int i = 0; i < dofs_per_cell; ++i)
+                  for (unsigned int v = 0; v < n_filled_lanes; ++v)
+                    matrices[v](i, j) = integrator.begin_dof_values()[i][v];
+              }
+
+
+            // finally assemble local matrices into global matrix
+            for (unsigned int v = 0; v < n_filled_lanes; v++)
+              {
+                auto cell_v = matrix_free.get_cell_iterator(cell, v);
+
+                std::vector<types::global_dof_index> dof_indices(dofs_per_cell);
+
+                if (matrix_free.get_mg_level() != numbers::invalid_unsigned_int)
+                  cell_v->get_mg_dof_indices(dof_indices);
+                else
+                  cell_v->get_dof_indices(dof_indices);
+
+                auto temp = dof_indices;
+                for (unsigned int j = 0; j < dof_indices.size(); j++)
+                  dof_indices[j] =
+                    temp[matrix_free
+                           .get_shape_info(
+                             dof_no,
+                             quad_no,
+                             first_selected_component,
+                             integrator.get_active_fe_index(),
+                             integrator.get_active_quadrature_index())
+                           .lexicographic_numbering[j]];
+
+                constraints.distribute_local_to_global(matrices[v],
+                                                       dof_indices,
+                                                       dof_indices,
+                                                       dst);
+              }
+          }
+      },
+      matrix,
+      matrix);
+
+    matrix.compress(VectorOperation::add);
+
+    const auto p = matrix.local_range();
+    for (auto i = p.first; i < p.second; i++)
+      if (matrix(i, i) == 0.0 && constraints.is_constrained(i))
+        matrix.add(i, i, 1);
+  }
+
+  template <typename CLASS,
+            int dim,
+            int fe_degree,
+            int n_q_points_1d,
+            int n_components,
+            typename Number,
+            typename VectorizedArrayType,
+            typename MatrixType>
+  void
+  compute_matrix(
+    const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+    const AffineConstraints<Number> &                   constraints,
+    MatrixType &                                        matrix,
+    void (CLASS::*cell_operation)(FEEvaluation<dim,
+                                               fe_degree,
+                                               n_q_points_1d,
+                                               n_components,
+                                               Number,
+                                               VectorizedArrayType> &) const,
+    const CLASS *      owning_class,
+    const unsigned int dof_no,
+    const unsigned int quad_no,
+    const unsigned int first_selected_component)
+  {
+    compute_matrix<dim,
+                   fe_degree,
+                   n_q_points_1d,
+                   n_components,
+                   Number,
+                   VectorizedArrayType,
+                   MatrixType>(matrix_free,
+                               constraints,
+                               matrix,
+                               [&](auto &feeval) {
+                                 (owning_class->*cell_operation)(feeval);
+                               },
+                               dof_no,
+                               quad_no,
+                               first_selected_component);
   }
 
 } // namespace MatrixFreeTools
