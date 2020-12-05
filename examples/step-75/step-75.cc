@@ -641,31 +641,19 @@ namespace Step75
       const dealii::MatrixFree<dim, number> &     matrix_free,
       VectorType &                                dst,
       const VectorType &                          src,
-      const std::pair<unsigned int, unsigned int> cell_range) const
+      const std::pair<unsigned int, unsigned int> range) const
     {
-      for (unsigned int i = 0;
-           i < matrix_free.get_dof_handler().get_fe_collection().size();
-           ++i)
+      FECellIntegrator integrator(matrix_free, range);
+
+      for (unsigned cell = range.first; cell < range.second; ++cell)
         {
-          const auto cell_subrange =
-            matrix_free.create_cell_subrange_hp_by_index(cell_range, i);
+          integrator.reinit(cell);
 
-          if (cell_subrange.second <= cell_subrange.first)
-            continue;
+          integrator.gather_evaluate(src, false, true, false);
 
-          FECellIntegrator integrator(matrix_free, 0, 0, 0, i, i);
+          do_cell_integral(integrator);
 
-          for (unsigned cell = cell_subrange.first; cell < cell_subrange.second;
-               ++cell)
-            {
-              integrator.reinit(cell);
-
-              integrator.gather_evaluate(src, false, true, false);
-
-              do_cell_integral(integrator);
-
-              integrator.integrate_scatter(false, true, dst);
-            }
+          integrator.integrate_scatter(false, true, dst);
         }
     }
 
@@ -709,88 +697,74 @@ namespace Step75
       this->matrix_free.template cell_loop<TrilinosWrappers::SparseMatrix,
                                            TrilinosWrappers::SparseMatrix>(
 
-        [&](const auto &, auto &dst, const auto &, const auto cell_range) {
-          for (unsigned int i = 0;
-               i < matrix_free.get_dof_handler().get_fe_collection().size();
-               ++i)
+        [&](const auto &, auto &dst, const auto &, const auto range) {
+          FECellIntegrator integrator(matrix_free, range);
+
+          unsigned int const dofs_per_cell = integrator.dofs_per_cell;
+
+          for (auto cell = range.first; cell < range.second; ++cell)
             {
-              const auto cell_subrange =
-                matrix_free.create_cell_subrange_hp_by_index(cell_range, i);
+              unsigned int const n_filled_lanes =
+                matrix_free.n_active_entries_per_cell_batch(cell);
 
-              if (cell_subrange.second <= cell_subrange.first)
-                continue;
+              FullMatrix<TrilinosScalar>
+                matrices[VectorizedArray<double>::size()];
 
-              FECellIntegrator integrator(matrix_free, 0, 0, 0, i, i);
+              std::fill_n(matrices,
+                          VectorizedArray<double>::size(),
+                          FullMatrix<TrilinosScalar>(dofs_per_cell,
+                                                     dofs_per_cell));
 
-              unsigned int const dofs_per_cell = integrator.dofs_per_cell;
+              integrator.reinit(cell);
 
-              for (auto cell = cell_subrange.first; cell < cell_subrange.second;
-                   ++cell)
+              for (unsigned int j = 0; j < dofs_per_cell; ++j)
                 {
-                  unsigned int const n_filled_lanes =
-                    matrix_free.n_active_entries_per_cell_batch(cell);
+                  for (unsigned int i = 0; i < integrator.dofs_per_cell; ++i)
+                    integrator.begin_dof_values()[i] =
+                      static_cast<double>(i == j);
 
-                  FullMatrix<TrilinosScalar>
-                    matrices[VectorizedArray<double>::size()];
+                  integrator.evaluate(false, true, false);
 
-                  std::fill_n(matrices,
-                              VectorizedArray<double>::size(),
-                              FullMatrix<TrilinosScalar>(dofs_per_cell,
-                                                         dofs_per_cell));
+                  do_cell_integral(integrator);
 
-                  integrator.reinit(cell);
+                  integrator.integrate(false, true);
 
-                  for (unsigned int j = 0; j < dofs_per_cell; ++j)
-                    {
-                      for (unsigned int i = 0; i < integrator.dofs_per_cell;
-                           ++i)
-                        integrator.begin_dof_values()[i] =
-                          static_cast<double>(i == j);
-
-                      integrator.evaluate(false, true, false);
-
-                      do_cell_integral(integrator);
-
-                      integrator.integrate(false, true);
-
-                      for (unsigned int i = 0; i < dofs_per_cell; ++i)
-                        for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                          matrices[v](i, j) =
-                            integrator.begin_dof_values()[i][v];
-                    }
+                  for (unsigned int i = 0; i < dofs_per_cell; ++i)
+                    for (unsigned int v = 0; v < n_filled_lanes; ++v)
+                      matrices[v](i, j) = integrator.begin_dof_values()[i][v];
+                }
 
 
-                  // finally assemble local matrices into global matrix
-                  for (unsigned int v = 0; v < n_filled_lanes; v++)
-                    {
-                      auto cell_v = matrix_free.get_cell_iterator(cell, v);
+              // finally assemble local matrices into global matrix
+              for (unsigned int v = 0; v < n_filled_lanes; v++)
+                {
+                  auto cell_v = matrix_free.get_cell_iterator(cell, v);
 
-                      std::vector<types::global_dof_index> dof_indices(
-                        dofs_per_cell);
+                  std::vector<types::global_dof_index> dof_indices(
+                    dofs_per_cell);
 
-                      if (matrix_free.get_mg_level() !=
-                          numbers::invalid_unsigned_int)
-                        cell_v->get_mg_dof_indices(dof_indices);
-                      else
-                        cell_v->get_dof_indices(dof_indices);
+                  if (matrix_free.get_mg_level() !=
+                      numbers::invalid_unsigned_int)
+                    cell_v->get_mg_dof_indices(dof_indices);
+                  else
+                    cell_v->get_dof_indices(dof_indices);
 
-                      auto temp = dof_indices;
-                      for (unsigned int j = 0; j < dof_indices.size(); j++)
-                        dof_indices[j] =
-                          temp[matrix_free
-                                 .get_shape_info(
-                                   0,
-                                   0,
-                                   0,
-                                   integrator.get_active_fe_index(),
-                                   integrator.get_active_quadrature_index())
-                                 .lexicographic_numbering[j]];
+                  auto temp = dof_indices;
+                  for (unsigned int j = 0; j < dof_indices.size(); j++)
+                    dof_indices[j] =
+                      temp[matrix_free
+                             .get_shape_info(
+                               0,
+                               0,
+                               0,
+                               integrator.get_active_fe_index(),
+                               integrator.get_active_quadrature_index())
+                             .lexicographic_numbering[j]];
 
-                      constraints.distribute_local_to_global(matrices[v],
-                                                             dof_indices,
-                                                             dof_indices,
-                                                             dst);
-                    }
+                  constraints.distribute_local_to_global(matrices[v],
+                                                         dof_indices,
+                                                         dof_indices,
+                                                         dst);
                 }
             }
         },
