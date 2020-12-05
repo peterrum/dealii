@@ -42,15 +42,7 @@
 // if we are using PETSc (see solve() for an example where this is necessary)
 namespace LA
 {
-#if defined(DEAL_II_WITH_PETSC) && !defined(DEAL_II_PETSC_WITH_COMPLEX) && \
-  !(defined(DEAL_II_WITH_TRILINOS) && defined(FORCE_USE_OF_TRILINOS))
-  using namespace dealii::LinearAlgebraPETSc;
-#  define USE_PETSC_LA
-#elif defined(DEAL_II_WITH_TRILINOS)
   using namespace dealii::LinearAlgebraTrilinos;
-#else
-#  error DEAL_II_WITH_PETSC or DEAL_II_WITH_TRILINOS required
-#endif
 } // namespace LA
 
 #include <deal.II/lac/la_parallel_vector.h>
@@ -928,16 +920,45 @@ namespace Step75
                       const DoFHandler<dim> &          dof_handler,
                       const hp::QCollection<dim> &     quadrature_collection)
     {
-      Assert(false, ExcNotImplemented());
+      if (const auto op = dynamic_cast<
+            const LaplaceOperatorMatrixFree<dim,
+                                            typename VectorType::value_type> *>(
+            &system_matrix))
+        solve_internal(solver_control,
+                       *op,
+                       dst,
+                       src,
+                       mapping_collection,
+                       dof_handler,
+                       quadrature_collection);
+      else if (const auto op = dynamic_cast<const LaplaceOperatorMatrixBased<
+                 dim,
+                 typename VectorType::value_type> *>(&system_matrix))
+        solve_internal(solver_control,
+                       *op,
+                       dst,
+                       src,
+                       mapping_collection,
+                       dof_handler,
+                       quadrature_collection);
+      else
+        Assert(false, ExcNotImplemented());
+    }
 
-      (void)solver_control;
-      (void)system_matrix;
-      (void)dst;
-      (void)src;
-      (void)mapping_collection;
-      (void)dof_handler;
-      (void)quadrature_collection;
+  private:
+    template <typename VectorType, typename Operator, int dim>
+    static void
+    solve_internal(SolverControl &                  solver_control,
+                   const Operator &                 system_matrix,
+                   VectorType &                     dst,
+                   const VectorType &               src,
+                   const hp::MappingCollection<dim> mapping_collection,
+                   const DoFHandler<dim> &          dof_handler,
+                   const hp::QCollection<dim> &     quadrature_collection)
+    {
+      (void)solver_control; // TODO
 
+      // parameters
       const std::string p_sequence = "decreasebyone"; // TODO
 
       // TODO
@@ -947,10 +968,7 @@ namespace Step75
       MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfers;
 
       // Vector of transfer operators for each pair of levels
-      MGLevelObject<
-        LaplaceOperatorMatrixFree<dim,
-                                  typename VectorType::value_type /*TODO*/>>
-        operators;
+      MGLevelObject<Operator> operators;
 
       const auto get_max_active_fe_index = [&](const auto &dof_handler) {
         unsigned int min = 0;
@@ -1057,18 +1075,14 @@ namespace Step75
                                                         constraints[level + 1],
                                                         constraints[level]);
 
-      MGTransferGlobalCoarsening<
-        LaplaceOperatorMatrixFree<dim,
-                                  typename VectorType::value_type /*TODO*/>,
-        VectorType>
-        transfer(operators, transfers);
+      MGTransferGlobalCoarsening<Operator, VectorType> transfer(operators,
+                                                                transfers);
 
       TestMultigridParameters mg_data; // TODO
       mg_solve(
         dst, src, mg_data, dof_handler, system_matrix, operators, transfer);
     }
 
-  private:
     static unsigned int
     generate_level_degree(const unsigned int previous_fe_degree,
                           const std::string &p_sequence)
