@@ -173,42 +173,42 @@ namespace dealii
                   {
                     CellData<dim> tri;
                     tri.vertices = {
-                      quad[0], quad[4], quad[2], quad[6], quad[8]};
+                      quad[0], quad[2], quad[4], quad[6], quad[8]};
                     cells.push_back(tri);
                   }
                   // TRI cell 1
                   {
                     CellData<dim> tri;
                     tri.vertices = {
-                      quad[3], quad[2], quad[7], quad[6], quad[8]};
+                      quad[2], quad[3], quad[6], quad[7], quad[8]};
                     cells.push_back(tri);
                   }
                   // TRI cell 2
                   {
                     CellData<dim> tri;
                     tri.vertices = {
-                      quad[4], quad[5], quad[6], quad[7], quad[8]};
+                      quad[6], quad[7], quad[4], quad[5], quad[8]};
                     cells.push_back(tri);
                   }
                   // TRI cell 3
                   {
                     CellData<dim> tri;
                     tri.vertices = {
-                      quad[5], quad[1], quad[7], quad[3], quad[8]};
+                      quad[1], quad[5], quad[3], quad[7], quad[8]};
                     cells.push_back(tri);
                   }
                   // TRI cell 4
                   {
                     CellData<dim> tri;
                     tri.vertices = {
-                      quad[1], quad[0], quad[3], quad[2], quad[8]};
+                      quad[0], quad[1], quad[2], quad[3], quad[8]};
                     cells.push_back(tri);
                   }
                   // TRI cell 5
                   {
                     CellData<dim> tri;
                     tri.vertices = {
-                      quad[0], quad[1], quad[4], quad[5], quad[8]};
+                      quad[0], quad[4], quad[1], quad[5], quad[8]};
                     cells.push_back(tri);
                   }
                 }

@@ -742,6 +742,7 @@ namespace Simplex
     AssertDimension(dim, 3);
     AssertIndexRange(this->degree(), 2);
 
+#if true
     const double Q14 = 0.25;
     double       ration;
 
@@ -768,6 +769,21 @@ namespace Simplex
       return Q14 * ((1.0 + r) * (1.0 + s) - t + ration);
     else
       return t;
+
+#else
+    const double Q14 = 0.25;
+
+    if (i == 0)
+      return Q14 * (1.0 - p[0]) * (1.0 - p[1]) * (1.0 - p[2]);
+    if (i == 1)
+      return Q14 * (1.0 + p[0]) * (1.0 - p[1]) * (1.0 - p[2]);
+    if (i == 2)
+      return Q14 * (1.0 - p[0]) * (1.0 + p[1]) * (1.0 - p[2]);
+    if (i == 3)
+      return Q14 * (1.0 + p[0]) * (1.0 + p[1]) * (1.0 - p[2]);
+    else
+      return p[2];
+#endif
   }
 
 
@@ -784,6 +800,7 @@ namespace Simplex
 
     if (this->degree() == 1)
       {
+#if true
         const double Q14 = 0.25;
 
         const double r = p[0];
@@ -842,6 +859,43 @@ namespace Simplex
           {
             Assert(false, ExcNotImplemented());
           }
+#else
+        const double Q14 = 0.25;
+        if (i == 0)
+          {
+            grad[0] = Q14 * (-1.0) * (1.0 - p[1]) * (1.0 - p[2]);
+            grad[1] = Q14 * (1.0 - p[0]) * (-1.0) * (1.0 - p[2]);
+            grad[2] = Q14 * (1.0 - p[0]) * (1.0 - p[1]) * (-1.0);
+          }
+        else if (i == 1)
+          {
+            grad[0] = Q14 * (+1.0) * (1.0 - p[1]) * (1.0 - p[2]);
+            grad[1] = Q14 * (1.0 + p[0]) * (-1.0) * (1.0 - p[2]);
+            grad[2] = Q14 * (1.0 + p[0]) * (1.0 - p[1]) * (-1.0);
+          }
+        else if (i == 2)
+          {
+            grad[0] = Q14 * (-1.0) * (1.0 + p[1]) * (1.0 - p[2]);
+            grad[1] = Q14 * (1.0 - p[0]) * (+1.0) * (1.0 - p[2]);
+            grad[2] = Q14 * (1.0 - p[0]) * (1.0 + p[1]) * (-1.0);
+          }
+        else if (i == 3)
+          {
+            grad[0] = Q14 * (+1.0) * (1.0 + p[1]) * (1.0 - p[2]);
+            grad[1] = Q14 * (1.0 + p[0]) * (+1.0) * (1.0 - p[2]);
+            grad[2] = Q14 * (1.0 + p[0]) * (1.0 + p[1]) * (-1.0);
+          }
+        else if (i == 4)
+          {
+            grad[0] = 0.0;
+            grad[1] = 0.0;
+            grad[2] = 1.0;
+          }
+        else
+          {
+            Assert(false, ExcNotImplemented());
+          }
+#endif
       }
 
     return grad;
