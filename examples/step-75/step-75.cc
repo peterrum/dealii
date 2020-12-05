@@ -385,7 +385,7 @@ namespace Step75
       Assert(false, ExcNotImplemented());
     }
 
-    types::global_dof_index m() const
+    virtual types::global_dof_index m() const
     {
       Assert(false, ExcNotImplemented());
       return 0;
@@ -590,6 +590,10 @@ namespace Step75
     }
 
 
+    types::global_dof_index m() const override
+    {
+      return matrix_free.get_dof_handler().n_dofs();
+    }
 
     void vmult(VectorType &dst, const VectorType &src) const override
     {
@@ -874,21 +878,21 @@ namespace Step75
   {
     struct CoarseSolverParameters
     {
-      std::string  type;
-      unsigned int maxiter         = 100;
-      double       abstol          = 1e-10;
-      double       reltol          = 1e-6;
+      std::string  type            = "cg";
+      unsigned int maxiter         = 10000;
+      double       abstol          = 1e-20;
+      double       reltol          = 1e-4;
       unsigned int smoother_sweeps = 1;
       unsigned int n_cycles        = 1;
-      std::string  smoother_type;
+      std::string  smoother_type   = "ILU";
     };
 
     struct SmootherParameters
     {
-      std::string  type;
-      double       smoothing_range     = 30;
-      unsigned int degree              = 2;
-      unsigned int eig_cg_n_iterations = 10;
+      std::string  type                = "chebyshev";
+      double       smoothing_range     = 20;
+      unsigned int degree              = 5;
+      unsigned int eig_cg_n_iterations = 20;
     };
 
     struct TestMultigridParameters
@@ -948,8 +952,6 @@ namespace Step75
                    const DoFHandler<dim> &          dof_handler,
                    const hp::QCollection<dim> &     quadrature_collection)
     {
-      (void)solver_control; // TODO
-
       // parameters
       const std::string p_sequence = "decreasebyone"; // TODO
 
@@ -1071,8 +1073,14 @@ namespace Step75
                                                                 transfers);
 
       TestMultigridParameters mg_data; // TODO
-      mg_solve(
-        dst, src, mg_data, dof_handler, system_matrix, operators, transfer);
+      mg_solve(solver_control,
+               dst,
+               src,
+               mg_data,
+               dof_handler,
+               system_matrix,
+               operators,
+               transfer);
     }
 
     static unsigned int
@@ -1096,14 +1104,14 @@ namespace Step75
               typename SystemMatrixType,
               typename LevelMatrixType,
               typename MGTransferType>
-    static unsigned int
-    mg_solve(VectorType &                          dst,
-             const VectorType &                    src,
-             const TestMultigridParameters &       mg_data,
-             const DoFHandler<dim> &               dof,
-             const SystemMatrixType &              fine_matrix,
-             const MGLevelObject<LevelMatrixType> &mg_matrices,
-             const MGTransferType &                mg_transfer)
+    static void mg_solve(SolverControl &                       solver_control,
+                         VectorType &                          dst,
+                         const VectorType &                    src,
+                         const TestMultigridParameters &       mg_data,
+                         const DoFHandler<dim> &               dof,
+                         const SystemMatrixType &              fine_matrix,
+                         const MGLevelObject<LevelMatrixType> &mg_matrices,
+                         const MGTransferType &                mg_transfer)
     {
       AssertThrow(mg_data.smoother.type == "chebyshev", ExcNotImplemented());
 
@@ -1253,15 +1261,9 @@ namespace Step75
       PreconditionerType preconditioner(dof, mg, mg_transfer);
 
       // 6) solve with CG preconditioned with multigrid
-      dealii::ReductionControl solver_control(mg_data.maxiter,
-                                              mg_data.abstol,
-                                              mg_data.reltol);
-
       dealii::SolverCG<VectorType> solver(solver_control);
 
       solver.solve(fine_matrix, dst, src, preconditioner);
-
-      return solver_control.last_step();
     }
   };
 
