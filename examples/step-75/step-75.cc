@@ -250,7 +250,7 @@ namespace Step75
   SolverParameters::SolverParameters()
     : ParameterAcceptor("solver")
   {
-    type = "AMG";
+    type = "GMG";
     add_parameter("type", type);
   }
 
@@ -379,17 +379,9 @@ namespace Step75
 
     virtual void initialize_dof_vector(VectorType &vec) const = 0;
 
-    virtual void compute_inverse_diagonal(VectorType &diagonal) const
-    {
-      (void)diagonal;
-      Assert(false, ExcNotImplemented());
-    }
+    virtual void compute_inverse_diagonal(VectorType &diagonal) const = 0;
 
-    virtual types::global_dof_index m() const
-    {
-      Assert(false, ExcNotImplemented());
-      return 0;
-    }
+    virtual types::global_dof_index m() const = 0;
 
     number el(unsigned int, unsigned int) const
     {
@@ -500,6 +492,29 @@ namespace Step75
     const TrilinosWrappers::SparseMatrix &get_system_matrix() const override
     {
       return this->system_matrix;
+    }
+
+    virtual void compute_inverse_diagonal(VectorType &diagonal) const override
+    {
+      this->initialize_dof_vector(diagonal);
+
+#ifdef DEAL_II_WITH_TRILINOS
+      for (auto entry : system_matrix)
+        if (entry.row() == entry.column())
+          diagonal[entry.row()] = 1.0 / entry.value();
+#else
+      Assert(false, ExcNotImplemented());
+#endif
+    }
+
+    virtual types::global_dof_index m() const override
+    {
+#ifdef DEAL_II_WITH_TRILINOS
+      return system_matrix.m();
+#else
+      Assert(false, ExcNotImplemented());
+      return 0;
+#endif
     }
 
 
@@ -687,6 +702,20 @@ namespace Step75
         diagonal,
         &LaplaceOperatorMatrixFree::do_cell_integral_local,
         this);
+
+      const std::vector<unsigned int> &constrained_dofs =
+        matrix_free.get_constrained_dofs();
+      for (unsigned int i = 0; i < constrained_dofs.size(); ++i)
+        diagonal.local_element(constrained_dofs[i]) = 1.;
+
+      // 3. Calculate inverse
+      for (unsigned int i = 0; i < diagonal.local_size(); ++i)
+        {
+          if (std::abs(diagonal.local_element(i)) > 1.0e-10)
+            diagonal.local_element(i) = 1.0 / diagonal.local_element(i);
+          else
+            diagonal.local_element(i) = 1.0;
+        }
     }
 
     const TrilinosWrappers::SparseMatrix &get_system_matrix() const override
@@ -878,7 +907,7 @@ namespace Step75
   {
     struct CoarseSolverParameters
     {
-      std::string  type            = "cg";
+      std::string  type            = "cg_with_amg"; // "cg";
       unsigned int maxiter         = 10000;
       double       abstol          = 1e-20;
       double       reltol          = 1e-4;
