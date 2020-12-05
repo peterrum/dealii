@@ -267,24 +267,21 @@ test(const Triangulation<dim, spacedim> &tria,
   deallog << std::endl;
 
 
-
-  Vector<double> difference(tria.n_active_cells());
-
-  VectorTools::integrate_difference(mapping,
-                                    dof_handler,
-                                    solution,
-                                    Functions::ZeroFunction<dim>(),
-                                    difference,
-                                    quad,
-                                    VectorTools::NormType::L2_norm);
-
-  deallog << VectorTools::compute_global_error(tria,
-                                               difference,
-                                               VectorTools::NormType::L2_norm)
-          << std::endl;
-
   if (false)
     {
+      Vector<double> difference(tria.n_active_cells());
+
+      VectorTools::integrate_difference(mapping,
+                                        dof_handler,
+                                        solution,
+                                        Functions::ZeroFunction<dim>(),
+                                        difference,
+                                        quad,
+                                        VectorTools::NormType::L2_norm);
+
+      deallog << VectorTools::compute_global_error(
+                   tria, difference, VectorTools::NormType::L2_norm)
+              << std::endl;
       DataOut<dim> data_out;
 
       data_out.attach_dof_handler(dof_handler);
@@ -676,7 +673,7 @@ main(int argc, char **argv)
       deallog << "Solve problem on PYRAMID mesh:" << std::endl;
 
       params.file_name_out = "mesh-pyramid";
-      params.repetitions   = std::vector<unsigned int>{20, 20, 20};
+      params.repetitions   = std::vector<unsigned int>{10, 10, 10};
       params.p1            = Point<3>(3.3, 0, 0);
       params.p2            = Point<3>(4.3, 1, 1);
 

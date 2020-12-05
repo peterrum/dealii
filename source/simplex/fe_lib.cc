@@ -590,20 +590,20 @@ namespace Simplex
     : dealii::FE_Poly<dim, spacedim>(
         Simplex::ScalarPyramidPolynomial<dim>(degree),
         FiniteElementData<dim>(get_dpo_vector_fe_pyramid(degree),
-                               ReferenceCell::Type::Wedge,
+                               ReferenceCell::Type::Pyramid,
                                1,
                                degree,
                                FiniteElementData<dim>::L2),
         std::vector<bool>(FiniteElementData<dim>(get_dpo_vector_fe_pyramid(
                                                    degree),
-                                                 ReferenceCell::Type::Wedge,
+                                                 ReferenceCell::Type::Pyramid,
                                                  1,
                                                  degree)
                             .dofs_per_cell,
                           true),
         std::vector<ComponentMask>(
           FiniteElementData<dim>(get_dpo_vector_fe_pyramid(degree),
-                                 ReferenceCell::Type::Wedge,
+                                 ReferenceCell::Type::Pyramid,
                                  1,
                                  degree)
             .dofs_per_cell,

@@ -3,29 +3,41 @@ DEAL::Solve problem on TRI mesh:
 DEAL::   on parallel::fullydistributed::Triangulation
 DEAL:cg::Starting value 0.245798
 DEAL:cg::Convergence step 114 value 6.62438e-13
+DEAL::19.8718 0.245798
 DEAL::   with 114 CG iterations needed to obtain convergence
 DEAL::
 DEAL::Solve problem on QUAD mesh:
 DEAL::   on parallel::distributed::Triangulation
 DEAL:cg::Starting value 0.244628
 DEAL:cg::Convergence step 98 value 8.55703e-13
+DEAL::19.8718 0.244628
 DEAL::   with 98 CG iterations needed to obtain convergence
 DEAL::
 DEAL::Solve problem on TET mesh:
 DEAL::   on parallel::fullydistributed::Triangulation
 DEAL:cg::Starting value 0.0607616
 DEAL:cg::Convergence step 156 value 9.07675e-13
+DEAL::86.0846 0.0607616
 DEAL::   with 156 CG iterations needed to obtain convergence
 DEAL::
 DEAL::Solve problem on HEX mesh:
 DEAL::   on parallel::distributed::Triangulation
 DEAL:cg::Starting value 0.0573704
 DEAL:cg::Convergence step 134 value 8.23917e-13
+DEAL::91.0639 0.0573704
 DEAL::   with 134 CG iterations needed to obtain convergence
 DEAL::
 DEAL::Solve problem on WEDGE mesh:
 DEAL::   on parallel::fullydistributed::Triangulation
 DEAL:cg::Starting value 0.0132550
 DEAL:cg::Convergence step 186 value 8.72381e-13
+DEAL::35.0874 0.0132550
 DEAL::   with 186 CG iterations needed to obtain convergence
+DEAL::
+DEAL::Solve problem on PYRAMID mesh:
+DEAL::   on parallel::fullydistributed::Triangulation
+DEAL:cg::Starting value 0.0230669
+DEAL:cg::Convergence step 79 value 7.70260e-13
+DEAL::17.5890 0.0230669
+DEAL::   with 79 CG iterations needed to obtain convergence
 DEAL::
