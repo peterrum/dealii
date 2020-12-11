@@ -543,8 +543,7 @@ namespace Step75
         create_dealii_partitioner(dof_handler, numbers::invalid_unsigned_int);
 
       typename MatrixFree<dim, number>::AdditionalData data;
-      data.mapping_update_flags =
-        update_values | update_gradients | update_quadrature_points;
+      data.mapping_update_flags = update_gradients;
 
       matrix_free.reinit(mapping, dof_handler, constraints, quad, data);
 
@@ -574,10 +573,6 @@ namespace Step75
 
       // compute right-hand side vector
       {
-        typename dealii::MatrixFree<dim, number>::AdditionalData data;
-        data.mapping_update_flags =
-          update_values | update_gradients | update_quadrature_points;
-
         dealii::MatrixFree<dim, number> matrix_free;
         matrix_free.reinit(
           mapping, dof_handler, constraints_without_dbc, quad, data);
@@ -587,14 +582,8 @@ namespace Step75
 
         // perform matrix-vector multiplication (with unconstrained system and
         // constrained set in vector)
-
-        matrix_free.template cell_loop<VectorType, VectorType>(
-          [&](const auto &, auto &dst, const auto &src, const auto range) {
-            do_cell_integral_range(matrix_free, dst, src, range);
-          },
-          b,
-          x,
-          /* dst = 0 */ false);
+        matrix_free.cell_loop(
+          &LaplaceOperatorMatrixFree::do_cell_integral_range, this, b, x);
 
         // clear constrained values
         constraints.set_zero(b);
