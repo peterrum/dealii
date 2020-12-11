@@ -412,120 +412,156 @@ namespace Step75
                 const DoFHandler<dim> &           dof_handler,
                 const hp::QCollection<dim> &      quadrature_collection,
                 const AffineConstraints<number> & constraints,
-                VectorType &                      system_rhs) override
-    {
-#ifndef DEAL_II_WITH_TRILINOS
-      Assert(false, StandardExceptions::ExcNotImplemented());
-      (void)mapping_collection;
-      (void)dof_handler;
-      (void)quadrature_collection;
-      (void)constraints;
-      (void)system_rhs;
-#else
+                VectorType &                      system_rhs) override;
 
-      this->partitioner =
-        create_dealii_partitioner(dof_handler, numbers::invalid_unsigned_int);
+    types::global_dof_index m() const override;
 
-      TrilinosWrappers::SparsityPattern dsp(dof_handler.locally_owned_dofs(),
-                                            get_mpi_comm(dof_handler));
-      DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false);
-      dsp.compress();
+    void initialize_dof_vector(VectorType &vec) const override;
 
-      system_matrix.reinit(dsp);
+    void vmult(VectorType &dst, const VectorType &src) const override;
 
-      initialize_dof_vector(system_rhs);
+    void compute_inverse_diagonal(VectorType &diagonal) const override;
 
-      hp::FEValues<dim> hp_fe_values(mapping_collection,
-                                     dof_handler.get_fe_collection(),
-                                     quadrature_collection,
-                                     update_values | update_gradients |
-                                       update_quadrature_points |
-                                       update_JxW_values);
-
-      FullMatrix<double>                   cell_matrix;
-      Vector<double>                       cell_rhs;
-      std::vector<types::global_dof_index> local_dof_indices;
-      for (const auto &cell : dof_handler.active_cell_iterators())
-        {
-          if (cell->is_locally_owned() == false)
-            continue;
-
-          const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
-          cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
-          cell_matrix = 0;
-          cell_rhs.reinit(dofs_per_cell);
-          cell_rhs = 0;
-          hp_fe_values.reinit(cell);
-          const FEValues<dim> &fe_values = hp_fe_values.get_present_fe_values();
-
-          for (unsigned int q_point = 0;
-               q_point < fe_values.n_quadrature_points;
-               ++q_point)
-            for (unsigned int i = 0; i < dofs_per_cell; ++i)
-              {
-                for (unsigned int j = 0; j < dofs_per_cell; ++j)
-                  cell_matrix(i, j) +=
-                    (fe_values.shape_grad(i, q_point) * // grad phi_i(x_q)
-                     fe_values.shape_grad(j, q_point) * // grad phi_j(x_q)
-                     fe_values.JxW(q_point));           // dx
-              }
-          local_dof_indices.resize(dofs_per_cell);
-          cell->get_dof_indices(local_dof_indices);
-
-          constraints.distribute_local_to_global(cell_matrix,
-                                                 cell_rhs,
-                                                 local_dof_indices,
-                                                 system_matrix,
-                                                 system_rhs);
-        }
-
-      system_rhs.compress(VectorOperation::values::add);
-      system_matrix.compress(VectorOperation::values::add);
-#endif
-    }
-
-    virtual types::global_dof_index m() const override
-    {
-#ifdef DEAL_II_WITH_TRILINOS
-      return system_matrix.m();
-#else
-      Assert(false, ExcNotImplemented());
-      return 0;
-#endif
-    }
-
-    void initialize_dof_vector(VectorType &vec) const override
-    {
-      vec.reinit(partitioner);
-    }
-
-    void vmult(VectorType &dst, const VectorType &src) const override
-    {
-      system_matrix.vmult(dst, src);
-    }
-
-    virtual void compute_inverse_diagonal(VectorType &diagonal) const override
-    {
-      this->initialize_dof_vector(diagonal);
-
-#ifdef DEAL_II_WITH_TRILINOS
-      for (auto entry : system_matrix)
-        if (entry.row() == entry.column())
-          diagonal[entry.row()] = 1.0 / entry.value();
-#else
-      Assert(false, ExcNotImplemented());
-#endif
-    }
-
-    const TrilinosWrappers::SparseMatrix &get_system_matrix() const override
-    {
-      return this->system_matrix;
-    }
+    const TrilinosWrappers::SparseMatrix &get_system_matrix() const override;
 
   private:
     mutable TrilinosWrappers::SparseMatrix             system_matrix;
     std::shared_ptr<const Utilities::MPI::Partitioner> partitioner;
   };
+
+
+
+  template <int dim, typename number>
+  void LaplaceOperatorMatrixBased<dim, number>::reinit(
+    const hp::MappingCollection<dim> &mapping_collection,
+    const DoFHandler<dim> &           dof_handler,
+    const hp::QCollection<dim> &      quadrature_collection,
+    const AffineConstraints<number> & constraints,
+    VectorType &                      system_rhs)
+  {
+#ifndef DEAL_II_WITH_TRILINOS
+    Assert(false, StandardExceptions::ExcNotImplemented());
+    (void)mapping_collection;
+    (void)dof_handler;
+    (void)quadrature_collection;
+    (void)constraints;
+    (void)system_rhs;
+#else
+
+    this->partitioner =
+      create_dealii_partitioner(dof_handler, numbers::invalid_unsigned_int);
+
+    TrilinosWrappers::SparsityPattern dsp(dof_handler.locally_owned_dofs(),
+                                          get_mpi_comm(dof_handler));
+    DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false);
+    dsp.compress();
+
+    system_matrix.reinit(dsp);
+
+    initialize_dof_vector(system_rhs);
+
+    hp::FEValues<dim> hp_fe_values(mapping_collection,
+                                   dof_handler.get_fe_collection(),
+                                   quadrature_collection,
+                                   update_values | update_gradients |
+                                     update_quadrature_points |
+                                     update_JxW_values);
+
+    FullMatrix<double>                   cell_matrix;
+    Vector<double>                       cell_rhs;
+    std::vector<types::global_dof_index> local_dof_indices;
+    for (const auto &cell : dof_handler.active_cell_iterators())
+      {
+        if (cell->is_locally_owned() == false)
+          continue;
+
+        const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
+        cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
+        cell_matrix = 0;
+        cell_rhs.reinit(dofs_per_cell);
+        cell_rhs = 0;
+        hp_fe_values.reinit(cell);
+        const FEValues<dim> &fe_values = hp_fe_values.get_present_fe_values();
+
+        for (unsigned int q_point = 0; q_point < fe_values.n_quadrature_points;
+             ++q_point)
+          for (unsigned int i = 0; i < dofs_per_cell; ++i)
+            {
+              for (unsigned int j = 0; j < dofs_per_cell; ++j)
+                cell_matrix(i, j) +=
+                  (fe_values.shape_grad(i, q_point) * // grad phi_i(x_q)
+                   fe_values.shape_grad(j, q_point) * // grad phi_j(x_q)
+                   fe_values.JxW(q_point));           // dx
+            }
+        local_dof_indices.resize(dofs_per_cell);
+        cell->get_dof_indices(local_dof_indices);
+
+        constraints.distribute_local_to_global(
+          cell_matrix, cell_rhs, local_dof_indices, system_matrix, system_rhs);
+      }
+
+    system_rhs.compress(VectorOperation::values::add);
+    system_matrix.compress(VectorOperation::values::add);
+#endif
+  }
+
+
+
+  template <int dim, typename number>
+  types::global_dof_index LaplaceOperatorMatrixBased<dim, number>::m() const
+  {
+#ifdef DEAL_II_WITH_TRILINOS
+    return system_matrix.m();
+#else
+    Assert(false, ExcNotImplemented());
+    return 0;
+#endif
+  }
+
+
+
+  template <int dim, typename number>
+  void LaplaceOperatorMatrixBased<dim, number>::initialize_dof_vector(
+    VectorType &vec) const
+  {
+    vec.reinit(partitioner);
+  }
+
+
+
+  template <int dim, typename number>
+  void
+  LaplaceOperatorMatrixBased<dim, number>::vmult(VectorType &      dst,
+                                                 const VectorType &src) const
+  {
+    system_matrix.vmult(dst, src);
+  }
+
+
+
+  template <int dim, typename number>
+  void LaplaceOperatorMatrixBased<dim, number>::compute_inverse_diagonal(
+    VectorType &diagonal) const
+  {
+    this->initialize_dof_vector(diagonal);
+
+#ifdef DEAL_II_WITH_TRILINOS
+    for (auto entry : system_matrix)
+      if (entry.row() == entry.column())
+        diagonal[entry.row()] = 1.0 / entry.value();
+#else
+    Assert(false, ExcNotImplemented());
+#endif
+  }
+
+
+
+  template <int dim, typename number>
+  const TrilinosWrappers::SparseMatrix &
+  LaplaceOperatorMatrixBased<dim, number>::get_system_matrix() const
+  {
+    return this->system_matrix;
+  }
 
 
 
