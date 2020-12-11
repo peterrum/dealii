@@ -648,20 +648,26 @@ namespace Step75
     using FECellIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
 
     // Perform cell integral on a cell batch.
-    void do_cell_integral(FECellIntegrator &integrator) const
-    {
-      for (unsigned int q = 0; q < integrator.n_q_points; ++q)
-        integrator.submit_gradient(integrator.get_gradient(q), q);
-    }
-
     void do_cell_integral_local(FECellIntegrator &integrator) const
     {
-      integrator.evaluate(false, true, false);
+      integrator.evaluate(EvaluationFlags::gradients);
 
       for (unsigned int q = 0; q < integrator.n_q_points; ++q)
         integrator.submit_gradient(integrator.get_gradient(q), q);
 
-      integrator.integrate(false, true);
+      integrator.integrate(EvaluationFlags::gradients);
+    }
+
+    void do_cell_integral_global(FECellIntegrator &integrator,
+                                 VectorType &      dst,
+                                 const VectorType &src) const
+    {
+      integrator.gather_evaluate(src, EvaluationFlags::gradients);
+
+      for (unsigned int q = 0; q < integrator.n_q_points; ++q)
+        integrator.submit_gradient(integrator.get_gradient(q), q);
+
+      integrator.integrate_scatter(EvaluationFlags::gradients, dst);
     }
 
     // Perform cell integral on a cell-batch range.
@@ -677,11 +683,7 @@ namespace Step75
         {
           integrator.reinit(cell);
 
-          integrator.gather_evaluate(src, false, true, false);
-
-          do_cell_integral(integrator);
-
-          integrator.integrate_scatter(false, true, dst);
+          do_cell_integral_global(integrator, dst, src);
         }
     }
 
