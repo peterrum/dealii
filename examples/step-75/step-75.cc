@@ -587,6 +587,11 @@ namespace Step75
       return matrix_free.get_dof_handler().n_dofs();
     }
 
+    void initialize_dof_vector(VectorType &vec) const override
+    {
+      matrix_free.initialize_dof_vector(vec);
+    }
+
     void vmult(VectorType &dst, const VectorType &src) const override
     {
       this->matrix_free.cell_loop(
@@ -595,51 +600,6 @@ namespace Step75
         dst,
         src,
         true);
-    }
-
-    // Perform cell integral on a cell batch.
-    void do_cell_integral_local(FECellIntegrator &integrator) const
-    {
-      integrator.evaluate(EvaluationFlags::gradients);
-
-      for (unsigned int q = 0; q < integrator.n_q_points; ++q)
-        integrator.submit_gradient(integrator.get_gradient(q), q);
-
-      integrator.integrate(EvaluationFlags::gradients);
-    }
-
-    void do_cell_integral_global(FECellIntegrator &integrator,
-                                 VectorType &      dst,
-                                 const VectorType &src) const
-    {
-      integrator.gather_evaluate(src, EvaluationFlags::gradients);
-
-      for (unsigned int q = 0; q < integrator.n_q_points; ++q)
-        integrator.submit_gradient(integrator.get_gradient(q), q);
-
-      integrator.integrate_scatter(EvaluationFlags::gradients, dst);
-    }
-
-    // Perform cell integral on a cell-batch range.
-    void do_cell_integral_range(
-      const dealii::MatrixFree<dim, number> &      matrix_free,
-      VectorType &                                 dst,
-      const VectorType &                           src,
-      const std::pair<unsigned int, unsigned int> &range) const
-    {
-      FECellIntegrator integrator(matrix_free, range);
-
-      for (unsigned cell = range.first; cell < range.second; ++cell)
-        {
-          integrator.reinit(cell);
-
-          do_cell_integral_global(integrator, dst, src);
-        }
-    }
-
-    void initialize_dof_vector(VectorType &vec) const override
-    {
-      matrix_free.initialize_dof_vector(vec);
     }
 
     void compute_inverse_diagonal(VectorType &diagonal) const override
@@ -684,6 +644,46 @@ namespace Step75
     }
 
   private:
+    // Perform cell integral on a cell batch.
+    void do_cell_integral_local(FECellIntegrator &integrator) const
+    {
+      integrator.evaluate(EvaluationFlags::gradients);
+
+      for (unsigned int q = 0; q < integrator.n_q_points; ++q)
+        integrator.submit_gradient(integrator.get_gradient(q), q);
+
+      integrator.integrate(EvaluationFlags::gradients);
+    }
+
+    void do_cell_integral_global(FECellIntegrator &integrator,
+                                 VectorType &      dst,
+                                 const VectorType &src) const
+    {
+      integrator.gather_evaluate(src, EvaluationFlags::gradients);
+
+      for (unsigned int q = 0; q < integrator.n_q_points; ++q)
+        integrator.submit_gradient(integrator.get_gradient(q), q);
+
+      integrator.integrate_scatter(EvaluationFlags::gradients, dst);
+    }
+
+    // Perform cell integral on a cell-batch range.
+    void do_cell_integral_range(
+      const dealii::MatrixFree<dim, number> &      matrix_free,
+      VectorType &                                 dst,
+      const VectorType &                           src,
+      const std::pair<unsigned int, unsigned int> &range) const
+    {
+      FECellIntegrator integrator(matrix_free, range);
+
+      for (unsigned cell = range.first; cell < range.second; ++cell)
+        {
+          integrator.reinit(cell);
+
+          do_cell_integral_global(integrator, dst, src);
+        }
+    }
+
     dealii::MatrixFree<dim, number>        matrix_free;
     AffineConstraints<number>              constraints;
     mutable TrilinosWrappers::SparseMatrix system_matrix;
