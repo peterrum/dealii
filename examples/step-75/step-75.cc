@@ -533,161 +533,222 @@ namespace Step75
                 const DoFHandler<dim> &           dof_handler,
                 const hp::QCollection<dim> &      quad,
                 const AffineConstraints<number> & constraints,
-                VectorType &                      system_rhs) override
-    {
-      // clear internal data strucutres (if operator is reused)
-      this->system_matrix.clear();
+                VectorType &                      system_rhs) override;
 
-      // copy the constrains (might be needed for computatation of the system
-      // matrix)
-      this->constraints.copy_from(constraints);
+    types::global_dof_index m() const override;
 
-      // set up MatrixFree
-      typename MatrixFree<dim, number>::AdditionalData data;
-      data.mapping_update_flags = update_gradients;
+    void initialize_dof_vector(VectorType &vec) const override;
 
-      matrix_free.reinit(mapping, dof_handler, constraints, quad, data);
+    void vmult(VectorType &dst, const VectorType &src) const override;
 
-      // compute right-hand side vector
-      {
-        AffineConstraints<number> constraints_without_dbc;
+    void compute_inverse_diagonal(VectorType &diagonal) const override;
 
-        IndexSet locally_relevant_dofs;
-        DoFTools::extract_locally_relevant_dofs(dof_handler,
-                                                locally_relevant_dofs);
-        constraints_without_dbc.reinit(locally_relevant_dofs);
-
-        DoFTools::make_hanging_node_constraints(dof_handler,
-                                                constraints_without_dbc);
-        constraints_without_dbc.close();
-
-        VectorType b, x;
-
-        this->initialize_dof_vector(system_rhs);
-        this->initialize_dof_vector(b);
-        this->initialize_dof_vector(x);
-
-        dealii::MatrixFree<dim, number> matrix_free;
-        matrix_free.reinit(
-          mapping, dof_handler, constraints_without_dbc, quad, data);
-
-        constraints.distribute(x);
-
-        matrix_free.cell_loop(
-          &LaplaceOperatorMatrixFree::do_cell_integral_range, this, b, x);
-
-        constraints.set_zero(b);
-
-        system_rhs -= b;
-      }
-    }
-
-    types::global_dof_index m() const override
-    {
-      return matrix_free.get_dof_handler().n_dofs();
-    }
-
-    void initialize_dof_vector(VectorType &vec) const override
-    {
-      matrix_free.initialize_dof_vector(vec);
-    }
-
-    void vmult(VectorType &dst, const VectorType &src) const override
-    {
-      this->matrix_free.cell_loop(
-        &LaplaceOperatorMatrixFree::do_cell_integral_range,
-        this,
-        dst,
-        src,
-        true);
-    }
-
-    void compute_inverse_diagonal(VectorType &diagonal) const override
-    {
-      // compute diagonal
-      MatrixFreeTools::compute_diagonal(
-        matrix_free,
-        diagonal,
-        &LaplaceOperatorMatrixFree::do_cell_integral_local,
-        this);
-
-      // and invert it
-      for (auto &i : diagonal)
-        i = (std::abs(i) > 1.0e-10) ? (1.0 / i) : 1.0;
-    }
-
-    const TrilinosWrappers::SparseMatrix &get_system_matrix() const override
-    {
-      if (system_matrix.m() == 0 && system_matrix.n() == 0)
-        {
-          // set up sparsity pattern of system matrix
-          const auto &dof_handler = this->matrix_free.get_dof_handler();
-
-          TrilinosWrappers::SparsityPattern dsp(
-            dof_handler.locally_owned_dofs(), get_mpi_comm(dof_handler));
-
-          DoFTools::make_sparsity_pattern(dof_handler, dsp, this->constraints);
-
-          dsp.compress();
-          system_matrix.reinit(dsp);
-
-          // assembly system matrix
-          MatrixFreeTools::compute_matrix(
-            matrix_free,
-            constraints,
-            system_matrix,
-            &LaplaceOperatorMatrixFree::do_cell_integral_local,
-            this);
-        }
-
-      return this->system_matrix;
-    }
+    const TrilinosWrappers::SparseMatrix &get_system_matrix() const override;
 
   private:
     // Perform cell integral on a cell batch.
-    void do_cell_integral_local(FECellIntegrator &integrator) const
-    {
-      integrator.evaluate(EvaluationFlags::gradients);
-
-      for (unsigned int q = 0; q < integrator.n_q_points; ++q)
-        integrator.submit_gradient(integrator.get_gradient(q), q);
-
-      integrator.integrate(EvaluationFlags::gradients);
-    }
+    void do_cell_integral_local(FECellIntegrator &integrator) const;
 
     void do_cell_integral_global(FECellIntegrator &integrator,
                                  VectorType &      dst,
-                                 const VectorType &src) const
-    {
-      integrator.gather_evaluate(src, EvaluationFlags::gradients);
-
-      for (unsigned int q = 0; q < integrator.n_q_points; ++q)
-        integrator.submit_gradient(integrator.get_gradient(q), q);
-
-      integrator.integrate_scatter(EvaluationFlags::gradients, dst);
-    }
+                                 const VectorType &src) const;
 
     // Perform cell integral on a cell-batch range.
     void do_cell_integral_range(
       const dealii::MatrixFree<dim, number> &      matrix_free,
       VectorType &                                 dst,
       const VectorType &                           src,
-      const std::pair<unsigned int, unsigned int> &range) const
-    {
-      FECellIntegrator integrator(matrix_free, range);
-
-      for (unsigned cell = range.first; cell < range.second; ++cell)
-        {
-          integrator.reinit(cell);
-
-          do_cell_integral_global(integrator, dst, src);
-        }
-    }
+      const std::pair<unsigned int, unsigned int> &range) const;
 
     dealii::MatrixFree<dim, number>        matrix_free;
     AffineConstraints<number>              constraints;
     mutable TrilinosWrappers::SparseMatrix system_matrix;
   };
+
+
+
+  template <int dim, typename number>
+  void LaplaceOperatorMatrixFree<dim, number>::reinit(
+    const hp::MappingCollection<dim> &mapping,
+    const DoFHandler<dim> &           dof_handler,
+    const hp::QCollection<dim> &      quad,
+    const AffineConstraints<number> & constraints,
+    VectorType &                      system_rhs)
+  {
+    // clear internal data strucutres (if operator is reused)
+    this->system_matrix.clear();
+
+    // copy the constrains (might be needed for computatation of the system
+    // matrix)
+    this->constraints.copy_from(constraints);
+
+    // set up MatrixFree
+    typename MatrixFree<dim, number>::AdditionalData data;
+    data.mapping_update_flags = update_gradients;
+
+    matrix_free.reinit(mapping, dof_handler, constraints, quad, data);
+
+    // compute right-hand side vector
+    {
+      AffineConstraints<number> constraints_without_dbc;
+
+      IndexSet locally_relevant_dofs;
+      DoFTools::extract_locally_relevant_dofs(dof_handler,
+                                              locally_relevant_dofs);
+      constraints_without_dbc.reinit(locally_relevant_dofs);
+
+      DoFTools::make_hanging_node_constraints(dof_handler,
+                                              constraints_without_dbc);
+      constraints_without_dbc.close();
+
+      VectorType b, x;
+
+      this->initialize_dof_vector(system_rhs);
+      this->initialize_dof_vector(b);
+      this->initialize_dof_vector(x);
+
+      dealii::MatrixFree<dim, number> matrix_free;
+      matrix_free.reinit(
+        mapping, dof_handler, constraints_without_dbc, quad, data);
+
+      constraints.distribute(x);
+
+      matrix_free.cell_loop(&LaplaceOperatorMatrixFree::do_cell_integral_range,
+                            this,
+                            b,
+                            x);
+
+      constraints.set_zero(b);
+
+      system_rhs -= b;
+    }
+  }
+
+
+
+  template <int dim, typename number>
+  types::global_dof_index LaplaceOperatorMatrixFree<dim, number>::m() const
+  {
+    return matrix_free.get_dof_handler().n_dofs();
+  }
+
+
+
+  template <int dim, typename number>
+  void LaplaceOperatorMatrixFree<dim, number>::initialize_dof_vector(
+    VectorType &vec) const
+  {
+    matrix_free.initialize_dof_vector(vec);
+  }
+
+
+
+  template <int dim, typename number>
+  void
+  LaplaceOperatorMatrixFree<dim, number>::vmult(VectorType &      dst,
+                                                const VectorType &src) const
+  {
+    this->matrix_free.cell_loop(
+      &LaplaceOperatorMatrixFree::do_cell_integral_range, this, dst, src, true);
+  }
+
+
+
+  template <int dim, typename number>
+  void LaplaceOperatorMatrixFree<dim, number>::compute_inverse_diagonal(
+    VectorType &diagonal) const
+  {
+    // compute diagonal
+    MatrixFreeTools::compute_diagonal(
+      matrix_free,
+      diagonal,
+      &LaplaceOperatorMatrixFree::do_cell_integral_local,
+      this);
+
+    // and invert it
+    for (auto &i : diagonal)
+      i = (std::abs(i) > 1.0e-10) ? (1.0 / i) : 1.0;
+  }
+
+
+
+  template <int dim, typename number>
+  const TrilinosWrappers::SparseMatrix &
+  LaplaceOperatorMatrixFree<dim, number>::get_system_matrix() const
+  {
+    if (system_matrix.m() == 0 && system_matrix.n() == 0)
+      {
+        // set up sparsity pattern of system matrix
+        const auto &dof_handler = this->matrix_free.get_dof_handler();
+
+        TrilinosWrappers::SparsityPattern dsp(dof_handler.locally_owned_dofs(),
+                                              get_mpi_comm(dof_handler));
+
+        DoFTools::make_sparsity_pattern(dof_handler, dsp, this->constraints);
+
+        dsp.compress();
+        system_matrix.reinit(dsp);
+
+        // assembly system matrix
+        MatrixFreeTools::compute_matrix(
+          matrix_free,
+          constraints,
+          system_matrix,
+          &LaplaceOperatorMatrixFree::do_cell_integral_local,
+          this);
+      }
+
+    return this->system_matrix;
+  }
+
+
+
+  template <int dim, typename number>
+  void LaplaceOperatorMatrixFree<dim, number>::do_cell_integral_local(
+    FECellIntegrator &integrator) const
+  {
+    integrator.evaluate(EvaluationFlags::gradients);
+
+    for (unsigned int q = 0; q < integrator.n_q_points; ++q)
+      integrator.submit_gradient(integrator.get_gradient(q), q);
+
+    integrator.integrate(EvaluationFlags::gradients);
+  }
+
+
+
+  template <int dim, typename number>
+  void LaplaceOperatorMatrixFree<dim, number>::do_cell_integral_global(
+    FECellIntegrator &integrator,
+    VectorType &      dst,
+    const VectorType &src) const
+  {
+    integrator.gather_evaluate(src, EvaluationFlags::gradients);
+
+    for (unsigned int q = 0; q < integrator.n_q_points; ++q)
+      integrator.submit_gradient(integrator.get_gradient(q), q);
+
+    integrator.integrate_scatter(EvaluationFlags::gradients, dst);
+  }
+
+
+
+  template <int dim, typename number>
+  void LaplaceOperatorMatrixFree<dim, number>::do_cell_integral_range(
+    const dealii::MatrixFree<dim, number> &      matrix_free,
+    VectorType &                                 dst,
+    const VectorType &                           src,
+    const std::pair<unsigned int, unsigned int> &range) const
+  {
+    FECellIntegrator integrator(matrix_free, range);
+
+    for (unsigned cell = range.first; cell < range.second; ++cell)
+      {
+        integrator.reinit(cell);
+
+        do_cell_integral_global(integrator, dst, src);
+      }
+  }
 
 
 
