@@ -1018,8 +1018,6 @@ namespace Step75
 
           // b) setup constraint
           {
-            constraint.clear();
-
             IndexSet locally_relevant_dofs;
             DoFTools::extract_locally_relevant_dofs(dof_handler,
                                                     locally_relevant_dofs);
