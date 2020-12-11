@@ -367,28 +367,38 @@ namespace Step75
                         const AffineConstraints<number> & constraints,
                         VectorType &                      system_rhs) = 0;
 
+    virtual types::global_dof_index m() const = 0;
 
-    virtual void vmult(VectorType &dst, const VectorType &src) const = 0;
-
-    void Tvmult(VectorType &dst, const VectorType &src) const
-    {
-      this->vmult(dst, src);
-    }
-
-    virtual const TrilinosWrappers::SparseMatrix &get_system_matrix() const = 0;
+    number el(unsigned int, unsigned int) const;
 
     virtual void initialize_dof_vector(VectorType &vec) const = 0;
 
+    virtual void vmult(VectorType &dst, const VectorType &src) const = 0;
+
+    void Tvmult(VectorType &dst, const VectorType &src) const;
+
     virtual void compute_inverse_diagonal(VectorType &diagonal) const = 0;
 
-    virtual types::global_dof_index m() const = 0;
-
-    number el(unsigned int, unsigned int) const
-    {
-      Assert(false, ExcNotImplemented());
-      return 0;
-    }
+    virtual const TrilinosWrappers::SparseMatrix &get_system_matrix() const = 0;
   };
+
+
+
+  template <int dim_, typename number>
+  void LaplaceOperator<dim_, number>::Tvmult(VectorType &      dst,
+                                             const VectorType &src) const
+  {
+    this->vmult(dst, src);
+  }
+
+
+
+  template <int dim_, typename number>
+  number LaplaceOperator<dim_, number>::el(unsigned int, unsigned int) const
+  {
+    Assert(false, ExcNotImplemented());
+    return 0;
+  }
 
 
 
@@ -413,7 +423,7 @@ namespace Step75
       (void)system_rhs;
 #else
 
-      this->partitioner_dealii =
+      this->partitioner =
         create_dealii_partitioner(dof_handler, numbers::invalid_unsigned_int);
 
       TrilinosWrappers::SparsityPattern dsp(dof_handler.locally_owned_dofs(),
@@ -481,7 +491,7 @@ namespace Step75
 
     void initialize_dof_vector(VectorType &vec) const override
     {
-      vec.reinit(partitioner_dealii);
+      vec.reinit(partitioner);
     }
 
     const TrilinosWrappers::SparseMatrix &get_system_matrix() const override
@@ -512,10 +522,9 @@ namespace Step75
 #endif
     }
 
-
-    mutable TrilinosWrappers::SparseMatrix system_matrix;
-
-    std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_dealii;
+  private:
+    mutable TrilinosWrappers::SparseMatrix             system_matrix;
+    std::shared_ptr<const Utilities::MPI::Partitioner> partitioner;
   };
 
 
