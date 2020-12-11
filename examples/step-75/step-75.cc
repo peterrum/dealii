@@ -538,6 +538,7 @@ namespace Step75
                 VectorType &                      system_rhs) override
     {
       this->constraints.copy_from(constraints);
+      this->system_matrix.clear();
 
       this->partitioner_dealii =
         create_dealii_partitioner(dof_handler, numbers::invalid_unsigned_int);
@@ -547,32 +548,25 @@ namespace Step75
 
       matrix_free.reinit(mapping, dof_handler, constraints, quad, data);
 
-      this->initialize_dof_vector(system_rhs);
-
-      constrained_indices.clear();
-      for (auto i : this->matrix_free.get_constrained_dofs())
-        constrained_indices.push_back(i);
-      constrained_values.resize(constrained_indices.size());
-
-      AffineConstraints<number> constraints_without_dbc;
-
-      IndexSet locally_relevant_dofs;
-      DoFTools::extract_locally_relevant_dofs(dof_handler,
-                                              locally_relevant_dofs);
-      constraints_without_dbc.reinit(locally_relevant_dofs);
-
-      DoFTools::make_hanging_node_constraints(dof_handler,
-                                              constraints_without_dbc);
-      constraints_without_dbc.close();
-
-      VectorType b, x;
-
-      this->initialize_dof_vector(b);
-      this->initialize_dof_vector(x);
-
-
       // compute right-hand side vector
       {
+        AffineConstraints<number> constraints_without_dbc;
+
+        IndexSet locally_relevant_dofs;
+        DoFTools::extract_locally_relevant_dofs(dof_handler,
+                                                locally_relevant_dofs);
+        constraints_without_dbc.reinit(locally_relevant_dofs);
+
+        DoFTools::make_hanging_node_constraints(dof_handler,
+                                                constraints_without_dbc);
+        constraints_without_dbc.close();
+
+        VectorType b, x;
+
+        this->initialize_dof_vector(system_rhs);
+        this->initialize_dof_vector(b);
+        this->initialize_dof_vector(x);
+
         dealii::MatrixFree<dim, number> matrix_free;
         matrix_free.reinit(
           mapping, dof_handler, constraints_without_dbc, quad, data);
@@ -661,7 +655,7 @@ namespace Step75
       vec.reinit(partitioner_dealii);
     }
 
-    virtual void compute_inverse_diagonal(VectorType &diagonal) const override
+    void compute_inverse_diagonal(VectorType &diagonal) const override
     {
       MatrixFreeTools::compute_diagonal(
         matrix_free,
@@ -686,49 +680,35 @@ namespace Step75
 
     const TrilinosWrappers::SparseMatrix &get_system_matrix() const override
     {
-      this->init_system_matrix(system_matrix);
-      this->calculate_system_matrix(system_matrix);
+      if (system_matrix.m() == 0 && system_matrix.n() == 0)
+        {
+          // set up sparsity pattern of system matrix
+          const auto &dof_handler = this->matrix_free.get_dof_handler();
+
+          TrilinosWrappers::SparsityPattern dsp(
+            dof_handler.locally_owned_dofs(), get_mpi_comm(dof_handler));
+
+          DoFTools::make_sparsity_pattern(dof_handler, dsp, this->constraints);
+
+          dsp.compress();
+          system_matrix.reinit(dsp);
+
+          // assembly system matrix
+          MatrixFreeTools::compute_matrix(
+            matrix_free,
+            constraints,
+            system_matrix,
+            &LaplaceOperatorMatrixFree::do_cell_integral_local,
+            this);
+        }
 
       return this->system_matrix;
     }
 
-
-    void init_system_matrix(TrilinosWrappers::SparseMatrix &system_matrix) const
-    {
-      const DoFHandler<dim> &dof_handler = this->matrix_free.get_dof_handler();
-
-      MPI_Comm comm = get_mpi_comm(dof_handler);
-
-      TrilinosWrappers::SparsityPattern dsp(dof_handler.locally_owned_dofs(),
-                                            comm);
-
-      DoFTools::make_sparsity_pattern(dof_handler, dsp, this->constraints);
-
-      dsp.compress();
-      system_matrix.reinit(dsp);
-    }
-
-    void
-    calculate_system_matrix(TrilinosWrappers::SparseMatrix &system_matrix) const
-    {
-      MatrixFreeTools::compute_matrix(
-        matrix_free,
-        constraints,
-        system_matrix,
-        &LaplaceOperatorMatrixFree::do_cell_integral_local,
-        this);
-    }
-
-    dealii::MatrixFree<dim, number> matrix_free;
-
-    AffineConstraints<number> constraints;
-
-    std::vector<unsigned int> constrained_indices;
-
-    mutable std::vector<std::pair<number, number>> constrained_values;
-
-    mutable TrilinosWrappers::SparseMatrix system_matrix;
-
+  private:
+    dealii::MatrixFree<dim, number>                    matrix_free;
+    AffineConstraints<number>                          constraints;
+    mutable TrilinosWrappers::SparseMatrix             system_matrix;
     std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_dealii;
   };
 
