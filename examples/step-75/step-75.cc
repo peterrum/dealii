@@ -612,37 +612,12 @@ namespace Step75
 
     void vmult(VectorType &dst, const VectorType &src) const override
     {
-      dst = 0.0; // TODO: needed?
-
-      for (unsigned int i = 0; i < constrained_indices.size(); ++i)
-        {
-          constrained_values[i] =
-            std::pair<number, number>(src.local_element(constrained_indices[i]),
-                                      dst.local_element(
-                                        constrained_indices[i]));
-
-          const_cast<LinearAlgebra::distributed::Vector<number> &>(src)
-            .local_element(constrained_indices[i]) = 0.;
-        }
-
-      // do loop
-      this->matrix_free.template cell_loop<VectorType, VectorType>(
-        [&](const auto &, auto &dst, const auto &src, const auto range) {
-          do_cell_integral_range(matrix_free, dst, src, range);
-        },
+      this->matrix_free.cell_loop(
+        &LaplaceOperatorMatrixFree::do_cell_integral_range,
+        this,
         dst,
         src,
-        /* dst = 0 */ false);
-
-      // set constrained dofs as the sum of current dst value and src value
-      for (unsigned int i = 0; i < constrained_indices.size(); ++i)
-        {
-          const_cast<LinearAlgebra::distributed::Vector<number> &>(src)
-            .local_element(constrained_indices[i]) =
-            constrained_values[i].first;
-          dst.local_element(constrained_indices[i]) =
-            constrained_values[i].first;
-        }
+        true);
     }
 
     using FECellIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
@@ -672,10 +647,10 @@ namespace Step75
 
     // Perform cell integral on a cell-batch range.
     void do_cell_integral_range(
-      const dealii::MatrixFree<dim, number> &     matrix_free,
-      VectorType &                                dst,
-      const VectorType &                          src,
-      const std::pair<unsigned int, unsigned int> range) const
+      const dealii::MatrixFree<dim, number> &      matrix_free,
+      VectorType &                                 dst,
+      const VectorType &                           src,
+      const std::pair<unsigned int, unsigned int> &range) const
     {
       FECellIntegrator integrator(matrix_free, range);
 
