@@ -657,25 +657,16 @@ namespace Step75
 
     void compute_inverse_diagonal(VectorType &diagonal) const override
     {
+      // compute diagonal
       MatrixFreeTools::compute_diagonal(
         matrix_free,
         diagonal,
         &LaplaceOperatorMatrixFree::do_cell_integral_local,
         this);
 
-      const std::vector<unsigned int> &constrained_dofs =
-        matrix_free.get_constrained_dofs();
-      for (unsigned int i = 0; i < constrained_dofs.size(); ++i)
-        diagonal.local_element(constrained_dofs[i]) = 1.;
-
-      // 3. Calculate inverse
-      for (unsigned int i = 0; i < diagonal.local_size(); ++i)
-        {
-          if (std::abs(diagonal.local_element(i)) > 1.0e-10)
-            diagonal.local_element(i) = 1.0 / diagonal.local_element(i);
-          else
-            diagonal.local_element(i) = 1.0;
-        }
+      // and invert it
+      for (auto &i : diagonal)
+        i = (std::abs(i) > 1.0e-10) ? (1.0 / i) : 1.0;
     }
 
     const TrilinosWrappers::SparseMatrix &get_system_matrix() const override
