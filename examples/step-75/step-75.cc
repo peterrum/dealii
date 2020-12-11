@@ -481,11 +481,6 @@ namespace Step75
 
     void initialize_dof_vector(VectorType &vec) const override
     {
-      this->initialize_dof_vector_dealii(vec);
-    }
-
-    void initialize_dof_vector_dealii(VectorType &vec) const
-    {
       vec.reinit(partitioner_dealii);
     }
 
@@ -531,18 +526,23 @@ namespace Step75
   public:
     using VectorType = LinearAlgebra::distributed::Vector<number>;
 
+    //
+    using FECellIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
+
     void reinit(const hp::MappingCollection<dim> &mapping,
                 const DoFHandler<dim> &           dof_handler,
                 const hp::QCollection<dim> &      quad,
                 const AffineConstraints<number> & constraints,
                 VectorType &                      system_rhs) override
     {
-      this->constraints.copy_from(constraints);
+      // clear internal data strucutres (if operator is reused)
       this->system_matrix.clear();
 
-      this->partitioner_dealii =
-        create_dealii_partitioner(dof_handler, numbers::invalid_unsigned_int);
+      // copy the constrains (might be needed for computatation of the system
+      // matrix)
+      this->constraints.copy_from(constraints);
 
+      // set up MatrixFree
       typename MatrixFree<dim, number>::AdditionalData data;
       data.mapping_update_flags = update_gradients;
 
@@ -571,22 +571,16 @@ namespace Step75
         matrix_free.reinit(
           mapping, dof_handler, constraints_without_dbc, quad, data);
 
-        // set constrained
         constraints.distribute(x);
 
-        // perform matrix-vector multiplication (with unconstrained system and
-        // constrained set in vector)
         matrix_free.cell_loop(
           &LaplaceOperatorMatrixFree::do_cell_integral_range, this, b, x);
 
-        // clear constrained values
         constraints.set_zero(b);
 
-        // move to the right-hand side
         system_rhs -= b;
       }
     }
-
 
     types::global_dof_index m() const override
     {
@@ -602,8 +596,6 @@ namespace Step75
         src,
         true);
     }
-
-    using FECellIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
 
     // Perform cell integral on a cell batch.
     void do_cell_integral_local(FECellIntegrator &integrator) const
@@ -650,11 +642,6 @@ namespace Step75
       matrix_free.initialize_dof_vector(vec);
     }
 
-    void initialize_dof_vector_dealii(VectorType &vec) const
-    {
-      vec.reinit(partitioner_dealii);
-    }
-
     void compute_inverse_diagonal(VectorType &diagonal) const override
     {
       // compute diagonal
@@ -697,10 +684,9 @@ namespace Step75
     }
 
   private:
-    dealii::MatrixFree<dim, number>                    matrix_free;
-    AffineConstraints<number>                          constraints;
-    mutable TrilinosWrappers::SparseMatrix             system_matrix;
-    std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_dealii;
+    dealii::MatrixFree<dim, number>        matrix_free;
+    AffineConstraints<number>              constraints;
+    mutable TrilinosWrappers::SparseMatrix system_matrix;
   };
 
 
