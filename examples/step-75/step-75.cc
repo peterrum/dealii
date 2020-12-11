@@ -484,9 +484,14 @@ namespace Step75
 #endif
     }
 
-    void vmult(VectorType &dst, const VectorType &src) const override
+    virtual types::global_dof_index m() const override
     {
-      system_matrix.vmult(dst, src);
+#ifdef DEAL_II_WITH_TRILINOS
+      return system_matrix.m();
+#else
+      Assert(false, ExcNotImplemented());
+      return 0;
+#endif
     }
 
     void initialize_dof_vector(VectorType &vec) const override
@@ -494,9 +499,9 @@ namespace Step75
       vec.reinit(partitioner);
     }
 
-    const TrilinosWrappers::SparseMatrix &get_system_matrix() const override
+    void vmult(VectorType &dst, const VectorType &src) const override
     {
-      return this->system_matrix;
+      system_matrix.vmult(dst, src);
     }
 
     virtual void compute_inverse_diagonal(VectorType &diagonal) const override
@@ -512,14 +517,9 @@ namespace Step75
 #endif
     }
 
-    virtual types::global_dof_index m() const override
+    const TrilinosWrappers::SparseMatrix &get_system_matrix() const override
     {
-#ifdef DEAL_II_WITH_TRILINOS
-      return system_matrix.m();
-#else
-      Assert(false, ExcNotImplemented());
-      return 0;
-#endif
+      return this->system_matrix;
     }
 
   private:
