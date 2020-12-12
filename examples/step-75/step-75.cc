@@ -231,6 +231,33 @@ namespace Step75
 
 
 
+  struct GMGParameters
+  {
+    struct CoarseSolverParameters
+    {
+      std::string  type            = "cg_with_amg"; // "cg";
+      unsigned int maxiter         = 10000;
+      double       abstol          = 1e-20;
+      double       reltol          = 1e-4;
+      unsigned int smoother_sweeps = 1;
+      unsigned int n_cycles        = 1;
+      std::string  smoother_type   = "ILU";
+    };
+
+    struct SmootherParameters
+    {
+      std::string  type                = "chebyshev";
+      double       smoothing_range     = 20;
+      unsigned int degree              = 5;
+      unsigned int eig_cg_n_iterations = 20;
+    };
+
+    SmootherParameters     smoother;
+    CoarseSolverParameters coarse_solver;
+  };
+
+
+
   class ProblemParameters : public ParameterAcceptor
   {
   public:
@@ -905,36 +932,6 @@ namespace Step75
 
   class SolverGMG
   {
-    struct CoarseSolverParameters
-    {
-      std::string  type            = "cg_with_amg"; // "cg";
-      unsigned int maxiter         = 10000;
-      double       abstol          = 1e-20;
-      double       reltol          = 1e-4;
-      unsigned int smoother_sweeps = 1;
-      unsigned int n_cycles        = 1;
-      std::string  smoother_type   = "ILU";
-    };
-
-    struct SmootherParameters
-    {
-      std::string  type                = "chebyshev";
-      double       smoothing_range     = 20;
-      unsigned int degree              = 5;
-      unsigned int eig_cg_n_iterations = 20;
-    };
-
-    struct TestMultigridParameters
-    {
-      std::string            solver_type;
-      unsigned int           maxiter  = 100;
-      double                 abstol   = 1e-10;
-      double                 reltol   = 1e-6;
-      unsigned int           v_cycles = 1;
-      SmootherParameters     smoother;
-      CoarseSolverParameters coarse_solver;
-    };
-
   public:
     template <typename VectorType, typename Operator, int dim>
     static void solve(SolverControl &                  solver_control,
@@ -1099,7 +1096,7 @@ namespace Step75
       MGTransferGlobalCoarsening<Operator, VectorType> transfer(operators,
                                                                 transfers);
 
-      TestMultigridParameters mg_data; // TODO
+      GMGParameters mg_data; // TODO
       mg_solve(solver_control,
                dst,
                src,
@@ -1134,7 +1131,7 @@ namespace Step75
     static void mg_solve(SolverControl &                       solver_control,
                          VectorType &                          dst,
                          const VectorType &                    src,
-                         const TestMultigridParameters &       mg_data,
+                         const GMGParameters &                 mg_data,
                          const DoFHandler<dim> &               dof,
                          const SystemMatrixType &              fine_matrix,
                          const MGLevelObject<LevelMatrixType> &mg_matrices,
