@@ -254,6 +254,8 @@ namespace Step75
 
     SmootherParameters     smoother;
     CoarseSolverParameters coarse_solver;
+
+    std::string p_sequence = "decreasebyone"; // TODO
   };
 
 
@@ -979,17 +981,14 @@ namespace Step75
                    const hp::QCollection<dim> &     quadrature_collection)
     {
       // parameters
-      const std::string p_sequence = "decreasebyone"; // TODO
+      const GMGParameters mg_data; // TODO
 
       // TODO
-      MGLevelObject<DoFHandler<dim>> dof_handlers;
-
-      // Vector of transfer operators for each pair of levels
+      MGLevelObject<DoFHandler<dim>>                     dof_handlers;
+      MGLevelObject<Operator>                            operators;
       MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfers;
 
-      // Vector of transfer operators for each pair of levels
-      MGLevelObject<Operator> operators;
-
+      // Determine the number of levels.
       const auto get_max_active_fe_index = [&](const auto &dof_handler) {
         unsigned int min = 0;
 
@@ -1003,19 +1002,23 @@ namespace Step75
       };
 
       const unsigned int n_levels =
-        create_p_sequence(get_max_active_fe_index(dof_handler) + 1, p_sequence)
+        create_p_sequence(get_max_active_fe_index(dof_handler) + 1,
+                          mg_data.p_sequence)
           .size();
 
       unsigned int minlevel = 0;
       unsigned int maxlevel = n_levels - 1;
 
-      // 2) allocate memory for all levels
+      // Allocate memory for all levels.
       dof_handlers.resize(minlevel, maxlevel, dof_handler.get_triangulation());
+      operators.resize(minlevel, maxlevel);
+      transfers.resize(minlevel, maxlevel);
 
-      // loop over levels
+      // Loop from max to min level and set up DoFHandler with lower polynomial
+      // degrees.
       for (unsigned int i = 0, l = maxlevel; i < n_levels; ++i, --l)
         {
-          if (l == maxlevel) // set FEs on fine level
+          if (l == maxlevel) // set FEs on finest level
             {
               auto &dof_handler_mg = dof_handlers[l];
 
@@ -1038,7 +1041,7 @@ namespace Step75
                   if (cell->is_locally_owned())
                     cell->set_active_fe_index(
                       generate_level_degree(cell_other->active_fe_index() + 1,
-                                            p_sequence) -
+                                            mg_data.p_sequence) -
                       1);
                   cell_other++;
                 }
@@ -1048,11 +1051,7 @@ namespace Step75
           dof_handlers[l].distribute_dofs(dof_handler.get_fe_collection());
         }
 
-      // 2) allocate memory for all levels
-      transfers.resize(minlevel, maxlevel);
-      operators.resize(minlevel, maxlevel);
-
-      // 3) create objects on each multigrid level
+      // Create data structures on each multigrid level.
       MGLevelObject<AffineConstraints<typename VectorType::value_type>>
         constraints(minlevel, maxlevel);
 
@@ -1061,7 +1060,7 @@ namespace Step75
           const auto &dof_handler = dof_handlers[level];
           auto &      constraint  = constraints[level];
 
-          // b) setup constraint
+          // ... constraints (with homogenous Dirichlet BC)
           {
             IndexSet locally_relevant_dofs;
             DoFTools::extract_locally_relevant_dofs(dof_handler,
@@ -1075,7 +1074,7 @@ namespace Step75
             constraint.close();
           }
 
-          // c) setup operator
+          // ... operator (just like on the finest level)
           {
             VectorType dummy;
             operators[level].reinit(mapping_collection,
@@ -1086,17 +1085,19 @@ namespace Step75
           }
         }
 
-      // 4) set up intergrid operators
+      // Set up intergrid operators.
       for (unsigned int level = minlevel; level < maxlevel; level++)
         transfers[level + 1].reinit_polynomial_transfer(dof_handlers[level + 1],
                                                         dof_handlers[level],
                                                         constraints[level + 1],
                                                         constraints[level]);
 
+      // Collect transfer operators within a single operator as needed by
+      // the Multigrid solver class.
       MGTransferGlobalCoarsening<Operator, VectorType> transfer(operators,
                                                                 transfers);
 
-      GMGParameters mg_data; // TODO
+      // Proceed to solve the problem with multigrid.
       mg_solve(solver_control,
                dst,
                src,
@@ -1105,22 +1106,6 @@ namespace Step75
                system_matrix,
                operators,
                transfer);
-    }
-
-    static unsigned int
-    generate_level_degree(const unsigned int previous_fe_degree,
-                          const std::string &p_sequence)
-    {
-      if (p_sequence == "bisect")
-        return std::max(previous_fe_degree / 2, 1u);
-      else if (p_sequence == "decreasebyone")
-        return std::max(previous_fe_degree - 1, 1u);
-      else if (p_sequence == "gotoone")
-        return 1;
-
-      Assert(false, StandardExceptions::ExcNotImplemented());
-
-      return 1;
     }
 
     template <typename VectorType,
@@ -1290,6 +1275,22 @@ namespace Step75
       solver.solve(fine_matrix, dst, src, preconditioner);
     }
 
+    static unsigned int
+    generate_level_degree(const unsigned int previous_fe_degree,
+                          const std::string &p_sequence)
+    {
+      if (p_sequence == "bisect")
+        return std::max(previous_fe_degree / 2, 1u);
+      else if (p_sequence == "decreasebyone")
+        return std::max(previous_fe_degree - 1, 1u);
+      else if (p_sequence == "gotoone")
+        return 1u;
+
+      Assert(false, StandardExceptions::ExcNotImplemented());
+
+      return 1;
+    }
+
     static std::vector<unsigned int>
     create_p_sequence(const unsigned int degree, const std::string p_sequence)
     {
@@ -1299,18 +1300,8 @@ namespace Step75
       unsigned int previous_fe_degree = degree;
       while (previous_fe_degree > 1)
         {
-          unsigned int level_degree = [](const unsigned int previous_fe_degree,
-                                         const std::string  p_sequence) {
-            if (p_sequence == "bisect")
-              return std::max(previous_fe_degree / 2, 1u);
-            else if (p_sequence == "decreasebyone")
-              return std::max(previous_fe_degree - 1, 1u);
-            else if (p_sequence == "gotoone")
-              return 1u;
-
-            AssertThrow(false, ExcNotImplemented());
-            return 0u;
-          }(previous_fe_degree, p_sequence);
+          const unsigned int level_degree =
+            generate_level_degree(previous_fe_degree, p_sequence);
 
           degrees.push_back(level_degree);
           previous_fe_degree = level_degree;
