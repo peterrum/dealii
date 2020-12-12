@@ -255,7 +255,8 @@ namespace Step75
     SmootherParameters     smoother;
     CoarseSolverParameters coarse_solver;
 
-    std::string p_sequence = "decreasebyone"; // TODO
+    MGTransferGlobalCoarseningTools::PolynomialSequenceType p_sequence =
+      MGTransferGlobalCoarseningTools::PolynomialSequenceType::decrease_by_one;
   };
 
 
@@ -1002,8 +1003,8 @@ namespace Step75
       };
 
       const unsigned int n_levels =
-        create_p_sequence(get_max_active_fe_index(dof_handler) + 1,
-                          mg_data.p_sequence)
+        MGTransferGlobalCoarseningTools::create_p_sequence(
+          get_max_active_fe_index(dof_handler) + 1, mg_data.p_sequence)
           .size();
 
       unsigned int minlevel = 0;
@@ -1040,8 +1041,8 @@ namespace Step75
                 {
                   if (cell->is_locally_owned())
                     cell->set_active_fe_index(
-                      generate_level_degree(cell_other->active_fe_index() + 1,
-                                            mg_data.p_sequence) -
+                      MGTransferGlobalCoarseningTools::generate_level_degree(
+                        cell_other->active_fe_index() + 1, mg_data.p_sequence) -
                       1);
                   cell_other++;
                 }
@@ -1273,43 +1274,6 @@ namespace Step75
       dealii::SolverCG<VectorType> solver(solver_control);
 
       solver.solve(fine_matrix, dst, src, preconditioner);
-    }
-
-    static unsigned int
-    generate_level_degree(const unsigned int previous_fe_degree,
-                          const std::string &p_sequence)
-    {
-      if (p_sequence == "bisect")
-        return std::max(previous_fe_degree / 2, 1u);
-      else if (p_sequence == "decreasebyone")
-        return std::max(previous_fe_degree - 1, 1u);
-      else if (p_sequence == "gotoone")
-        return 1u;
-
-      Assert(false, StandardExceptions::ExcNotImplemented());
-
-      return 1;
-    }
-
-    static std::vector<unsigned int>
-    create_p_sequence(const unsigned int degree, const std::string p_sequence)
-    {
-      std::vector<unsigned int> degrees;
-      degrees.push_back(degree);
-
-      unsigned int previous_fe_degree = degree;
-      while (previous_fe_degree > 1)
-        {
-          const unsigned int level_degree =
-            generate_level_degree(previous_fe_degree, p_sequence);
-
-          degrees.push_back(level_degree);
-          previous_fe_degree = level_degree;
-        }
-
-      std::reverse(degrees.begin(), degrees.end());
-
-      return degrees;
     }
   };
 
