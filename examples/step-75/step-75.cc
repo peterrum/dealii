@@ -125,31 +125,6 @@ namespace Step75
 
 
 
-  template <int dim, int spacedim>
-  std::shared_ptr<const Utilities::MPI::Partitioner>
-  create_dealii_partitioner(const DoFHandler<dim, spacedim> &dof_handler,
-                            unsigned int                     mg_level)
-  {
-    IndexSet locally_relevant_dofs;
-
-    if (mg_level == numbers::invalid_unsigned_int)
-      DoFTools::extract_locally_relevant_dofs(dof_handler,
-                                              locally_relevant_dofs);
-    else
-      DoFTools::extract_locally_relevant_level_dofs(dof_handler,
-                                                    mg_level,
-                                                    locally_relevant_dofs);
-
-    return std::make_shared<const Utilities::MPI::Partitioner>(
-      mg_level == numbers::invalid_unsigned_int ?
-        dof_handler.locally_owned_dofs() :
-        dof_handler.locally_owned_mg_dofs(mg_level),
-      locally_relevant_dofs,
-      get_mpi_comm(dof_handler));
-  }
-
-
-
   // @sect3{The <code>Parameter</code> class implementation}
 
   // Parameter class.
@@ -350,9 +325,20 @@ namespace Step75
 
 
 
-  // @sect3{The <code>LaplaceOperator</code> class template}
+  // @sect3{The Laplace operator}
 
-  // Operator class template for solver.
+  // @sect4{Operator base}
+
+  // The following class provides a minimal interface needed by the solvers
+  // and preconditioners used in this tutorial. In particular the interface
+  // consists of:
+  //  - a function to initialize the operator
+  //  - an operator evaluation function (vmult()), and
+  //  - utility functions to extract some quantities from the matrix.
+  //
+  // Since some of the functions are identical in the matrix-based and
+  // matrix-free case this class also contains the implementation of these
+  // functions.
   template <int dim_, typename number>
   class LaplaceOperator : public Subscriptor
   {
@@ -361,24 +347,39 @@ namespace Step75
     using value_type     = number;
     using VectorType     = LinearAlgebra::distributed::Vector<number>;
 
+    // Initialize operator and compute the right-hand side.
     virtual void reinit(const hp::MappingCollection<dim> &mapping_collection,
                         const DoFHandler<dim> &           dof_handler,
                         const hp::QCollection<dim> &      quadrature_collection,
                         const AffineConstraints<number> & constraints,
                         VectorType &                      system_rhs) = 0;
 
+    // Return number of rows of the matrix. Since we are dealing with a
+    // symmetrical matrix, the returned value is the same as the number of
+    // columns.
     virtual types::global_dof_index m() const = 0;
 
+    // Access a particular element in the matrix. This function is neither
+    // needed nor implemented, however, is required to compile the program.
     number el(unsigned int, unsigned int) const;
 
+    // Allocate memory for a distributed vector.
     virtual void initialize_dof_vector(VectorType &vec) const = 0;
 
+    // Perform an operator application on the vector @p src.
     virtual void vmult(VectorType &dst, const VectorType &src) const = 0;
 
+    // Perform the transposed operator evaluation. Since we are considering
+    // symmetric matrices, this function is identical to the above function.
     void Tvmult(VectorType &dst, const VectorType &src) const;
 
+    // Compute the inverse of the diagonal of the vector and store it into the
+    // provided vector. The inverse diagonal is used below in a Chebyshev
+    // smoother.
     virtual void compute_inverse_diagonal(VectorType &diagonal) const = 0;
 
+    // Return the actual system matrix, which can be used in any matrix-based
+    // solvers (like AMG).
     virtual const TrilinosWrappers::SparseMatrix &get_system_matrix() const = 0;
   };
 
@@ -402,30 +403,46 @@ namespace Step75
 
 
 
+  // @sect4{Matrix-based operator}
+  // The following class is a simple wrapper around a sparse matrix.
   template <int dim, typename number>
   class LaplaceOperatorMatrixBased : public LaplaceOperator<dim, number>
   {
   public:
-    using VectorType = LinearAlgebra::distributed::Vector<number>;
+    using typename LaplaceOperator<dim, number>::VectorType;
 
+    // Set up a partitioner, as well as, compute system matrix and
+    // right-hand-side vector.
     void reinit(const hp::MappingCollection<dim> &mapping_collection,
                 const DoFHandler<dim> &           dof_handler,
                 const hp::QCollection<dim> &      quadrature_collection,
                 const AffineConstraints<number> & constraints,
                 VectorType &                      system_rhs) override;
 
+    // Query the matrix for its number of rows.
     types::global_dof_index m() const override;
 
+    // Initialize vector via the precomputed partitioner.
     void initialize_dof_vector(VectorType &vec) const override;
 
+    // The operator evaluation is a simple matrix-vector multiplication in
+    // this case.
     void vmult(VectorType &dst, const VectorType &src) const override;
 
+    // Computing the inverse diagonal is quite simply done by looping over
+    // all entries on the diagonal of the matrix and inverting these values.
     void compute_inverse_diagonal(VectorType &diagonal) const override;
 
+    // Since the matrix is the basis of all the relevant functions of this
+    // class and as a consequence the matrix is explicitly stored, this function
+    // simply returns a reference to the local matrix.
     const TrilinosWrappers::SparseMatrix &get_system_matrix() const override;
 
   private:
-    mutable TrilinosWrappers::SparseMatrix             system_matrix;
+    // The actual system matrix.
+    TrilinosWrappers::SparseMatrix system_matrix;
+
+    // A partitioner used for initializing of ghosted vectors.
     std::shared_ptr<const Utilities::MPI::Partitioner> partitioner;
   };
 
@@ -448,9 +465,22 @@ namespace Step75
     (void)system_rhs;
 #else
 
-    this->partitioner =
-      create_dealii_partitioner(dof_handler, numbers::invalid_unsigned_int);
+    // Create partitioner.
+    const auto create_partitioner = [](const DoFHandler<dim> &dof_handler) {
+      IndexSet locally_relevant_dofs;
 
+      DoFTools::extract_locally_relevant_dofs(dof_handler,
+                                              locally_relevant_dofs);
+
+      return std::make_shared<const Utilities::MPI::Partitioner>(
+        dof_handler.locally_owned_dofs(),
+        locally_relevant_dofs,
+        get_mpi_comm(dof_handler));
+    };
+
+    this->partitioner = create_partitioner(dof_handler);
+
+    // Allocate memory for system matrix and right-hand-side vector.
     TrilinosWrappers::SparsityPattern dsp(dof_handler.locally_owned_dofs(),
                                           get_mpi_comm(dof_handler));
     DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false);
@@ -460,6 +490,7 @@ namespace Step75
 
     initialize_dof_vector(system_rhs);
 
+    // Assemble system matrix and right-hand-side vector.
     hp::FEValues<dim> hp_fe_values(mapping_collection,
                                    dof_handler.get_fe_collection(),
                                    quadrature_collection,
@@ -565,48 +596,87 @@ namespace Step75
 
 
 
+  // @sect4{Matrix-free operator}
+  // A matrix-free implementation of the Laplace operator.
   template <int dim, typename number>
   class LaplaceOperatorMatrixFree : public LaplaceOperator<dim, number>
   {
   public:
-    using VectorType = LinearAlgebra::distributed::Vector<number>;
+    using typename LaplaceOperator<dim, number>::VectorType;
 
-    //
+    // An alias to the FEEvaluation class. Please note that, in contrast to
+    // other tutorials, the template arguments `degree` is set to -1 and
+    // `number of quadrature in 1D` to 0. In this case, FEEvaluation selects
+    // dynamically the correct degree and number of quadrature points. The
+    // need for dynamical decisions within FEEvaluation and possibly the
+    // lack of knowledge of matrix sizes during sum factorization might lead
+    // to a performance drop (up to 50%) compared to a templated approach,
+    // however, allows us to write here simple code without the need to
+    // explicitly deal with FEEvaluation instances with different template
+    // arguments, e.g., via jump tables.
     using FECellIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
 
+    // Initialize the internal MatrixFree instance and compute the system
+    // right-hand-side vector
     void reinit(const hp::MappingCollection<dim> &mapping,
                 const DoFHandler<dim> &           dof_handler,
                 const hp::QCollection<dim> &      quad,
                 const AffineConstraints<number> & constraints,
                 VectorType &                      system_rhs) override;
 
+    // Since we do not have a matrix, query the DoFHandler for the number of
+    // degrees of freedom.
     types::global_dof_index m() const override;
 
+    // Delegate the task to MatrixFree.
     void initialize_dof_vector(VectorType &vec) const override;
 
+    // Perform an operator evaluation by looping with the help of MatrixFree
+    // over all cells and evaluating the effect of the cell integrals (see also:
+    // do_cell_integral_local() and do_cell_integral_global()).
     void vmult(VectorType &dst, const VectorType &src) const override;
 
+    // Since we do not have a system matrix, we cannot loop over the the
+    // diagonal entries of the matrix. Instead, we compute the diagonal by
+    // performing a sequence of operator evaluations to unit basis vectors.
+    // For this purpose, an optimized function from the MatrixFreeTools
+    // namespace is used.
     void compute_inverse_diagonal(VectorType &diagonal) const override;
 
+    // In the default case, no system matrix is set up during initialization
+    // of this class. As a consequence, it has to be computed here. Just like
+    // in the case of compute_inverse_diagonal(), the matrix entries are
+    // obtained via sequence of operator evaluations. For this purpose, an
+    // optimized function from the MatrixFreeTools namespace is used.
     const TrilinosWrappers::SparseMatrix &get_system_matrix() const override;
 
   private:
-    // Perform cell integral on a cell batch.
+    // Perform cell integral on a cell batch without gathering and scattering
+    // the values. This function is needed for the MatrixFreeTools functions
+    // since these functions operate directly on the buffers of FEEvaluation.
     void do_cell_integral_local(FECellIntegrator &integrator) const;
 
+    // Same as above but with access to the global vectors.
     void do_cell_integral_global(FECellIntegrator &integrator,
                                  VectorType &      dst,
                                  const VectorType &src) const;
 
-    // Perform cell integral on a cell-batch range.
+    // This function loops over all cell batches within a cell-batch range and
+    // calls the above function.
     void do_cell_integral_range(
       const dealii::MatrixFree<dim, number> &      matrix_free,
       VectorType &                                 dst,
       const VectorType &                           src,
       const std::pair<unsigned int, unsigned int> &range) const;
 
-    dealii::MatrixFree<dim, number>        matrix_free;
-    AffineConstraints<number>              constraints;
+    // MatrixFree object.
+    dealii::MatrixFree<dim, number> matrix_free;
+
+    // Constraints potentially needed for the computation of the system matrix.
+    AffineConstraints<number> constraints;
+
+    // System matrix. In the default case, this matrix is empty. However, once
+    // get_system_matrix() is called, this matrix is filled.
     mutable TrilinosWrappers::SparseMatrix system_matrix;
   };
 
@@ -620,20 +690,26 @@ namespace Step75
     const AffineConstraints<number> & constraints,
     VectorType &                      system_rhs)
   {
-    // clear internal data strucutres (if operator is reused)
+    // Clear internal data structures (if operator is reused).
     this->system_matrix.clear();
 
-    // copy the constrains (might be needed for computatation of the system
-    // matrix)
+    // Copy the constrains, since they might be needed for computation of the
+    // system matrix later on.
     this->constraints.copy_from(constraints);
 
-    // set up MatrixFree
+    // Set up MatrixFree. At the quadrature points, we only need to evaluate
+    // the gradient of the solution and test with the gradient of the shape
+    // functions so that we only need to set the flag `update_gradients`.
     typename MatrixFree<dim, number>::AdditionalData data;
     data.mapping_update_flags = update_gradients;
 
     matrix_free.reinit(mapping, dof_handler, constraints, quad, data);
 
-    // compute right-hand side vector
+    // Compute the right-hand side vector. For this purpose, we set up a second
+    // MatrixFree instance that uses a modified ConstraintMatrix not containing
+    // the constraints due to Dirichlet-boundary conditions. This modified
+    // operator is applied to a vector with only the Dirichlet values set. The
+    // result is the negative right-hand-side vector.
     {
       AffineConstraints<number> constraints_without_dbc;
 
@@ -721,9 +797,10 @@ namespace Step75
   const TrilinosWrappers::SparseMatrix &
   LaplaceOperatorMatrixFree<dim, number>::get_system_matrix() const
   {
+    // Check if matrix has already been set up.
     if (system_matrix.m() == 0 && system_matrix.n() == 0)
       {
-        // set up sparsity pattern of system matrix
+        // Set up sparsity pattern of system matrix.
         const auto &dof_handler = this->matrix_free.get_dof_handler();
 
         TrilinosWrappers::SparsityPattern dsp(dof_handler.locally_owned_dofs(),
@@ -734,7 +811,7 @@ namespace Step75
         dsp.compress();
         system_matrix.reinit(dsp);
 
-        // assembly system matrix
+        // Assemble system matrix.
         MatrixFreeTools::compute_matrix(
           matrix_free,
           constraints,
@@ -797,7 +874,9 @@ namespace Step75
 
 
 
-  // @sect3{The <code>Preconditioner</code> class template}
+  // @sect3{Solver and preconditioner}
+
+  // @sect4{Conjugate-gradient solver preconditioned by a algebraic multigrid approach}
 
   class SolverAMG
   {
@@ -822,38 +901,7 @@ namespace Step75
 
 
 
-  std::vector<unsigned int> create_p_sequence(const unsigned int degree,
-                                              const std::string  p_sequence)
-  {
-    std::vector<unsigned int> degrees;
-    degrees.push_back(degree);
-
-    unsigned int previous_fe_degree = degree;
-    while (previous_fe_degree > 1)
-      {
-        unsigned int level_degree = [](const unsigned int previous_fe_degree,
-                                       const std::string  p_sequence) {
-          if (p_sequence == "bisect")
-            return std::max(previous_fe_degree / 2, 1u);
-          else if (p_sequence == "decreasebyone")
-            return std::max(previous_fe_degree - 1, 1u);
-          else if (p_sequence == "gotoone")
-            return 1u;
-
-          AssertThrow(false, ExcNotImplemented());
-          return 0u;
-        }(previous_fe_degree, p_sequence);
-
-        degrees.push_back(level_degree);
-        previous_fe_degree = level_degree;
-      }
-
-    std::reverse(degrees.begin(), degrees.end());
-
-    return degrees;
-  }
-
-
+  // @sect4{Conjugate-gradient solver preconditioned by hybrid polynomial-global-coarsening multigrid approach}
 
   class SolverGMG
   {
@@ -1243,6 +1291,37 @@ namespace Step75
       dealii::SolverCG<VectorType> solver(solver_control);
 
       solver.solve(fine_matrix, dst, src, preconditioner);
+    }
+
+    static std::vector<unsigned int>
+    create_p_sequence(const unsigned int degree, const std::string p_sequence)
+    {
+      std::vector<unsigned int> degrees;
+      degrees.push_back(degree);
+
+      unsigned int previous_fe_degree = degree;
+      while (previous_fe_degree > 1)
+        {
+          unsigned int level_degree = [](const unsigned int previous_fe_degree,
+                                         const std::string  p_sequence) {
+            if (p_sequence == "bisect")
+              return std::max(previous_fe_degree / 2, 1u);
+            else if (p_sequence == "decreasebyone")
+              return std::max(previous_fe_degree - 1, 1u);
+            else if (p_sequence == "gotoone")
+              return 1u;
+
+            AssertThrow(false, ExcNotImplemented());
+            return 0u;
+          }(previous_fe_degree, p_sequence);
+
+          degrees.push_back(level_degree);
+          previous_fe_degree = level_degree;
+        }
+
+      std::reverse(degrees.begin(), degrees.end());
+
+      return degrees;
     }
   };
 
