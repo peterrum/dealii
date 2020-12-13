@@ -3047,7 +3047,7 @@ FEValuesBase<dim, spacedim>::FEValuesBase(
   const Mapping<dim, spacedim> &      mapping,
   const FiniteElement<dim, spacedim> &fe)
   : n_quadrature_points(n_q_points)
-  , max_quadrature_points(n_q_points)
+  , max_n_quadrature_points(n_q_points)
   , dofs_per_cell(dofs_per_cell)
   , mapping(&mapping, typeid(*this).name())
   , fe(&fe, typeid(*this).name())
@@ -4177,7 +4177,7 @@ FEValuesBase<dim, spacedim>::memory_consumption() const
 {
   return (sizeof(this->update_flags) +
           MemoryConsumption::memory_consumption(n_quadrature_points) +
-          MemoryConsumption::memory_consumption(max_quadrature_points) +
+          MemoryConsumption::memory_consumption(max_n_quadrature_points) +
           sizeof(cell_similarity) +
           MemoryConsumption::memory_consumption(dofs_per_cell) +
           MemoryConsumption::memory_consumption(mapping) +
@@ -4425,8 +4425,8 @@ FEValues<dim, spacedim>::initialize(const UpdateFlags update_flags)
 
   // initialize the base classes
   if (flags & update_mapping)
-    this->mapping_output.initialize(this->max_quadrature_points, flags);
-  this->finite_element_output.initialize(this->max_quadrature_points,
+    this->mapping_output.initialize(this->max_n_quadrature_points, flags);
+  this->finite_element_output.initialize(this->max_n_quadrature_points,
                                          *this->fe,
                                          flags);
 
@@ -4728,8 +4728,8 @@ FEFaceValues<dim, spacedim>::initialize(const UpdateFlags update_flags)
 
   // initialize the base classes
   if (flags & update_mapping)
-    this->mapping_output.initialize(this->max_quadrature_points, flags);
-  this->finite_element_output.initialize(this->max_quadrature_points,
+    this->mapping_output.initialize(this->max_n_quadrature_points, flags);
+  this->finite_element_output.initialize(this->max_n_quadrature_points,
                                          *this->fe,
                                          flags);
 
@@ -4869,7 +4869,7 @@ FEFaceValues<dim, spacedim>::do_reinit(const unsigned int face_no)
                                      *this->fe_data,
                                      this->finite_element_output);
 
-  this->n_quadrature_points =
+  const_cast<unsigned int &>(this->n_quadrature_points) =
     this->quadrature[this->quadrature.size() == 1 ? 0 : face_no].size();
 }
 
@@ -4953,8 +4953,8 @@ FESubfaceValues<dim, spacedim>::initialize(const UpdateFlags update_flags)
 
   // initialize the base classes
   if (flags & update_mapping)
-    this->mapping_output.initialize(this->max_quadrature_points, flags);
-  this->finite_element_output.initialize(this->max_quadrature_points,
+    this->mapping_output.initialize(this->max_n_quadrature_points, flags);
+  this->finite_element_output.initialize(this->max_n_quadrature_points,
                                          *this->fe,
                                          flags);
 

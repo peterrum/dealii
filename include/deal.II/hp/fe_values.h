@@ -81,7 +81,7 @@ namespace hp
       const UpdateFlags                                       update_flags);
 
     /**
-     * Like the above function but taking a vector quadrature collections.
+     * Like the above function but taking a vector of quadrature collections.
      * For hp::FEFaceValues, the ith entry of the quadrature collections are
      * interpreted as the face quadrature rules to be applied the ith face.
      */
