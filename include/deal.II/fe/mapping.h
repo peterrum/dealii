@@ -917,7 +917,19 @@ protected:
     const hp::QCollection<dim - 1> &                            quadrature,
     const typename Mapping<dim, spacedim>::InternalDataBase &   internal_data,
     dealii::internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
-      &output_data) const = 0;
+      &output_data) const;
+
+  /**
+   * @deprecated Use the version taking a hp::QCollection argument.
+   */
+  /*DEAL_II_DEPRECATED*/ virtual void
+  fill_fe_face_values(
+    const typename Triangulation<dim, spacedim>::cell_iterator &cell,
+    const unsigned int                                          face_no,
+    const Quadrature<dim - 1> &                                 quadrature,
+    const typename Mapping<dim, spacedim>::InternalDataBase &   internal_data,
+    dealii::internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
+      &output_data) const;
 
   /**
    * This function is the equivalent to Mapping::fill_fe_values(), but for
@@ -1257,6 +1269,42 @@ public:
   friend class FEFaceValues<dim, spacedim>;
   friend class FESubfaceValues<dim, spacedim>;
 };
+
+
+template <int dim, int spacedim>
+void
+Mapping<dim, spacedim>::fill_fe_face_values(
+  const typename Triangulation<dim, spacedim>::cell_iterator &cell,
+  const unsigned int                                          face_no,
+  const hp::QCollection<dim - 1> &                            quadrature,
+  const typename Mapping<dim, spacedim>::InternalDataBase &   internal_data,
+  dealii::internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
+    &output_data) const
+{
+  // base class version, implement overriden function in derived classes
+  AssertDimension(quadrature.size(), 1);
+  fill_fe_face_values(cell, face_no, quadrature[0], internal_data, output_data);
+}
+
+template <int dim, int spacedim>
+void
+Mapping<dim, spacedim>::fill_fe_face_values(
+  const typename Triangulation<dim, spacedim>::cell_iterator &cell,
+  const unsigned int                                          face_no,
+  const Quadrature<dim - 1> &                                 quadrature,
+  const typename Mapping<dim, spacedim>::InternalDataBase &   internal_data,
+  dealii::internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
+    &output_data) const
+{
+  Assert(false,
+         ExcMessage("Use of a deprecated interface, please implement "
+                    "fill_fe_face_values taking a hp::QCollection argument"));
+  (void)cell;
+  (void)face_no;
+  (void)quadrature;
+  (void)internal_data;
+  (void)output_data;
+}
 
 
 DEAL_II_NAMESPACE_CLOSE

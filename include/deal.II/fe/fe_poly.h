@@ -387,6 +387,8 @@ protected:
                                                                        spacedim>
       &output_data) const override;
 
+  using FiniteElement<dim, spacedim>::fill_fe_face_values;
+
   virtual void
   fill_fe_face_values(
     const typename Triangulation<dim, spacedim>::cell_iterator &cell,

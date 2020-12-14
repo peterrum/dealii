@@ -343,6 +343,8 @@ private:
     internal::FEValuesImplementation::FiniteElementRelatedData<2, 2>
       &output_data) const override;
 
+  using FiniteElement<2, 2>::fill_fe_face_values;
+
   /**
    * Compute the data on the face of the current cell.
    */

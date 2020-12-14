@@ -179,6 +179,8 @@ protected:
     dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim, dim>
       &data) const override;
 
+  using FiniteElement<dim, spacedim>::fill_fe_face_values;
+
   /**
    * Compute information about the shape functions on the cell and face denoted
    * by the first two arguments. Note that this function must recompute the
