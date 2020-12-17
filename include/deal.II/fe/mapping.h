@@ -49,6 +49,15 @@ class FEFaceValues;
 template <int dim, int spacedim>
 class FESubfaceValues;
 
+namespace internal
+{
+  namespace FEValuesImplementation
+  {
+    template <int dim, int spacedim>
+    class MappingRelatedData;
+  }
+} // namespace internal
+
 
 /**
  * The transformation kind used for the Mapping::transform() functions.
@@ -922,7 +931,7 @@ protected:
   /**
    * @deprecated Use the version taking a hp::QCollection argument.
    */
-  /*DEAL_II_DEPRECATED*/ virtual void
+  virtual void
   fill_fe_face_values(
     const typename Triangulation<dim, spacedim>::cell_iterator &cell,
     const unsigned int                                          face_no,

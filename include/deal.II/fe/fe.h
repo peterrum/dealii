@@ -43,6 +43,17 @@ class FESubfaceValues;
 template <int dim, int spacedim>
 class FESystem;
 
+namespace internal
+{
+  namespace FEValuesImplementation
+  {
+    template <int dim, int spacedim>
+    class FiniteElementRelatedData;
+    template <int dim, int spacedim>
+    class MappingRelatedData;
+  } // namespace FEValuesImplementation
+} // namespace internal
+
 /**
  * This is the base class for finite elements in arbitrary dimensions. It
  * declares the interface both in terms of member variables and public member
