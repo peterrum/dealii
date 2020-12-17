@@ -148,7 +148,7 @@ namespace
                  vectorization_width> &           face,
                const std::array<unsigned int, 2> &fe_index)
     {
-      const unsigned int face_type = 0;
+      const unsigned int face_type = face.face_type;
 
       if (only_face_type)
         return include ? (face_type <= fe_index[0]) : (face_type < fe_index[0]);
@@ -165,7 +165,7 @@ namespace
                  vectorization_width> &           face,
                const std::array<unsigned int, 3> &fe_index)
     {
-      const unsigned int face_type = 0;
+      const unsigned int face_type = face.face_type;
 
       if (only_face_type)
         return include ? (face_type <= fe_index[0]) : (face_type < fe_index[0]);

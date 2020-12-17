@@ -110,6 +110,8 @@ namespace internal
        */
       unsigned char face_orientation;
 
+      unsigned char face_type = 0;
+
       /**
        * Return the memory consumption of the present data structure.
        */
