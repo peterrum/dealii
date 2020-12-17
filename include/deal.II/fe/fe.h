@@ -2978,7 +2978,7 @@ protected:
   /**
    * @deprecated Use the version taking a hp::QCollection argument.
    */
-  /*DEAL_II_DEPRECATED*/ virtual void
+  virtual void
   fill_fe_face_values(
     const typename Triangulation<dim, spacedim>::cell_iterator &cell,
     const unsigned int                                          face_no,
@@ -3341,6 +3341,7 @@ FiniteElement<dim, spacedim>::get_associated_geometry_primitive(
 
 
 
+#ifndef DOXYGEN
 template <int dim, int spacedim>
 inline void
 FiniteElement<dim, spacedim>::fill_fe_face_values(
@@ -3399,6 +3400,7 @@ FiniteElement<dim, spacedim>::fill_fe_face_values(
   (void)fe_internal;
   (void)output_data;
 }
+#endif
 
 
 
