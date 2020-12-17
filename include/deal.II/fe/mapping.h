@@ -1271,6 +1271,7 @@ public:
 };
 
 
+#ifndef DOXYGEN
 template <int dim, int spacedim>
 void
 Mapping<dim, spacedim>::fill_fe_face_values(
@@ -1305,6 +1306,7 @@ Mapping<dim, spacedim>::fill_fe_face_values(
   (void)internal_data;
   (void)output_data;
 }
+#endif
 
 
 DEAL_II_NAMESPACE_CLOSE
