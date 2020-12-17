@@ -548,7 +548,7 @@ private:
     const CellSimilarity::Similarity                            cell_similarity,
     const Quadrature<dim> &                                     quadrature,
     const typename Mapping<dim, spacedim>::InternalDataBase &   internal_data,
-    internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
+    dealii::internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
       &output_data) const override;
 
   using Mapping<dim, spacedim>::fill_fe_face_values;
@@ -560,7 +560,7 @@ private:
     const unsigned int                                          face_no,
     const hp::QCollection<dim - 1> &                            quadrature,
     const typename Mapping<dim, spacedim>::InternalDataBase &   internal_data,
-    internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
+    dealii::internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
       &output_data) const override;
 
   // documentation can be found in Mapping::fill_fe_subface_values()
@@ -571,7 +571,7 @@ private:
     const unsigned int                                          subface_no,
     const Quadrature<dim - 1> &                                 quadrature,
     const typename Mapping<dim, spacedim>::InternalDataBase &   internal_data,
-    internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
+    dealii::internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
       &output_data) const override;
 
   /**

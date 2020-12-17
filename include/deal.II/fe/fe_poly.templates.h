@@ -232,7 +232,8 @@ template <int dim, int spacedim>
 bool
 higher_derivatives_need_correcting(
   const Mapping<dim, spacedim> &mapping,
-  const internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
+  const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
+                                                                     spacedim>
     &                mapping_data,
   const unsigned int n_q_points,
   const UpdateFlags  update_flags)
@@ -523,7 +524,8 @@ inline void
 FE_Poly<dim, spacedim>::correct_hessians(
   internal::FEValuesImplementation::FiniteElementRelatedData<dim, spacedim>
     &output_data,
-  const internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
+  const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
+                                                                     spacedim>
     &                mapping_data,
   const unsigned int n_q_points) const
 {
@@ -542,7 +544,8 @@ inline void
 FE_Poly<dim, spacedim>::correct_third_derivatives(
   internal::FEValuesImplementation::FiniteElementRelatedData<dim, spacedim>
     &output_data,
-  const internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
+  const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
+                                                                     spacedim>
     &                mapping_data,
   const unsigned int n_q_points) const
 {

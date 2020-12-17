@@ -1842,7 +1842,8 @@ namespace internal
       const unsigned int         n_q_points,
       const std::vector<double> &weights,
       const typename dealii::MappingQGeneric<dim, spacedim>::InternalData &data,
-      internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
+      dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
+                                                                   spacedim>
         &output_data)
     {
       const UpdateFlags update_flags = data.update_each;
@@ -2006,7 +2007,8 @@ namespace internal
       const typename QProjector<dim>::DataSetDescriptor data_set,
       const Quadrature<dim - 1> &                       quadrature,
       const typename dealii::MappingQGeneric<dim, spacedim>::InternalData &data,
-      internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
+      dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
+                                                                   spacedim>
         &output_data)
     {
       if (dim > 1 && data.tensor_product_quadrature)

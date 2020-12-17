@@ -494,7 +494,8 @@ protected:
   correct_hessians(
     internal::FEValuesImplementation::FiniteElementRelatedData<dim, spacedim>
       &output_data,
-    const internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
+    const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
+                                                                       spacedim>
       &                mapping_data,
     const unsigned int n_q_points) const;
 
@@ -524,7 +525,8 @@ protected:
   correct_third_derivatives(
     internal::FEValuesImplementation::FiniteElementRelatedData<dim, spacedim>
       &output_data,
-    const internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
+    const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
+                                                                       spacedim>
       &                mapping_data,
     const unsigned int n_q_points) const;
 

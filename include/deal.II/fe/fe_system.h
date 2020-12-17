@@ -1151,7 +1151,8 @@ protected:
     const CellSimilarity::Similarity                            cell_similarity,
     const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,
     const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_data,
-    const internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
+    const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
+                                                                       spacedim>
       &mapping_data,
     internal::FEValuesImplementation::FiniteElementRelatedData<dim, spacedim>
       &output_data) const;

@@ -667,7 +667,8 @@ private:
   multiply_by_enrichment(
     const Quadrature<dim_1> &quadrature,
     const InternalData &     fe_data,
-    const internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
+    const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
+                                                                       spacedim>
       &                                                         mapping_data,
     const typename Triangulation<dim, spacedim>::cell_iterator &cell,
     internal::FEValuesImplementation::FiniteElementRelatedData<dim, spacedim>

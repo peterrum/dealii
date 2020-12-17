@@ -158,7 +158,7 @@ protected:
     const CellSimilarity::Similarity                            cell_similarity,
     const Quadrature<dim> &                                     quadrature,
     const typename Mapping<dim, spacedim>::InternalDataBase &   internal_data,
-    internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
+    dealii::internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
       &output_data) const override;
 
   /**

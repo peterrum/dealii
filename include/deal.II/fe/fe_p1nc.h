@@ -337,7 +337,7 @@ private:
     const Quadrature<2> &                     quadrature,
     const Mapping<2, 2> &                     mapping,
     const Mapping<2, 2>::InternalDataBase &   mapping_internal,
-    const internal::FEValuesImplementation::MappingRelatedData<2, 2>
+    const dealii::internal::FEValuesImplementation::MappingRelatedData<2, 2>
       &                                          mapping_data,
     const FiniteElement<2, 2>::InternalDataBase &fe_internal,
     internal::FEValuesImplementation::FiniteElementRelatedData<2, 2>
