@@ -1490,6 +1490,7 @@ public:
   std::pair<unsigned int, unsigned int>
   create_inner_face_subrange_hp_by_index(
     const std::pair<unsigned int, unsigned int> &range,
+    const unsigned int                           face_type,
     const unsigned int                           fe_index_interior,
     const unsigned int                           fe_index_exterior,
     const unsigned int                           dof_handler_index = 0) const;
@@ -1503,6 +1504,7 @@ public:
   std::pair<unsigned int, unsigned int>
   create_boundary_face_subrange_hp_by_index(
     const std::pair<unsigned int, unsigned int> &range,
+    const unsigned int                           face_type,
     const unsigned int                           fe_index,
     const unsigned int                           dof_handler_index = 0) const;
 
@@ -4658,19 +4660,23 @@ namespace internal
     face(const std::pair<unsigned int, unsigned int> &face_range) override
     {
       if (face_function != nullptr && face_range.second > face_range.first)
-        for (unsigned int i = 0; i < matrix_free.n_active_fe_indices(); ++i)
-          for (unsigned int j = 0; j < matrix_free.n_active_fe_indices(); ++j)
-            {
-              const auto face_subrange =
-                matrix_free.create_inner_face_subrange_hp_by_index(face_range,
-                                                                   i,
-                                                                   j);
+        for (unsigned int t = 0; t < 2; ++t)
+          for (unsigned int i = 0; i < matrix_free.n_active_fe_indices(); ++i)
+            for (unsigned int j = 0; j < matrix_free.n_active_fe_indices(); ++j)
+              {
+                const auto face_subrange =
+                  matrix_free.create_inner_face_subrange_hp_by_index(face_range,
+                                                                     t,
+                                                                     i,
+                                                                     j);
 
-              if (face_subrange.second <= face_subrange.first)
-                continue;
-              (container.*
-               face_function)(matrix_free, this->dst, this->src, face_subrange);
-            }
+                if (face_subrange.second <= face_subrange.first)
+                  continue;
+                (container.*face_function)(matrix_free,
+                                           this->dst,
+                                           this->src,
+                                           face_subrange);
+              }
     }
 
     // Runs the assembler on boundary faces. If no function is given, nothing
@@ -4679,20 +4685,21 @@ namespace internal
     boundary(const std::pair<unsigned int, unsigned int> &face_range) override
     {
       if (boundary_function != nullptr && face_range.second > face_range.first)
-        for (unsigned int i = 0; i < matrix_free.n_active_fe_indices(); ++i)
-          {
-            const auto face_subrange =
-              matrix_free.create_boundary_face_subrange_hp_by_index(face_range,
-                                                                    i);
+        for (unsigned int t = 0; t < 2; ++t)
+          for (unsigned int i = 0; i < matrix_free.n_active_fe_indices(); ++i)
+            {
+              const auto face_subrange =
+                matrix_free.create_boundary_face_subrange_hp_by_index(
+                  face_range, t, i);
 
-            if (face_subrange.second <= face_subrange.first)
-              continue;
+              if (face_subrange.second <= face_subrange.first)
+                continue;
 
-            (container.*boundary_function)(matrix_free,
-                                           this->dst,
-                                           this->src,
-                                           face_subrange);
-          }
+              (container.*boundary_function)(matrix_free,
+                                             this->dst,
+                                             this->src,
+                                             face_subrange);
+            }
     }
 
     // Starts the communication for the update ghost values operation. We

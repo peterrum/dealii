@@ -180,6 +180,7 @@ std::pair<unsigned int, unsigned int>
 MatrixFree<dim, Number, VectorizedArrayType>::
   create_inner_face_subrange_hp_by_index(
     const std::pair<unsigned int, unsigned int> &range,
+    const unsigned int                           face_type,
     const unsigned int                           fe_index_interior,
     const unsigned int                           fe_index_exterior,
     const unsigned int                           dof_handler_index) const
@@ -187,8 +188,6 @@ MatrixFree<dim, Number, VectorizedArrayType>::
   if (dof_info[dof_handler_index].max_fe_index == 0 ||
       dof_handlers[dof_handler_index]->get_fe_collection().size() == 1)
     return range;
-
-  const unsigned int face_type = 0;
 
   AssertIndexRange(fe_index_interior, dof_info[dof_handler_index].max_fe_index);
   AssertIndexRange(fe_index_exterior, dof_info[dof_handler_index].max_fe_index);
@@ -227,14 +226,13 @@ std::pair<unsigned int, unsigned int>
 MatrixFree<dim, Number, VectorizedArrayType>::
   create_boundary_face_subrange_hp_by_index(
     const std::pair<unsigned int, unsigned int> &range,
+    const unsigned int                           face_type,
     const unsigned int                           fe_index,
     const unsigned int                           dof_handler_index) const
 {
   if (dof_info[dof_handler_index].max_fe_index == 0 ||
       dof_handlers[dof_handler_index]->get_fe_collection().size() == 1)
     return range;
-
-  const unsigned int face_type = 0;
 
   AssertIndexRange(fe_index, dof_info[dof_handler_index].max_fe_index);
   const std::vector<unsigned int> &fe_indices =
