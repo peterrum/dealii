@@ -286,7 +286,8 @@ protected:
     const unsigned int n_q_points,
     const bool         is_interior_face,
     const unsigned int active_fe_index,
-    const unsigned int active_quad_index);
+    const unsigned int active_quad_index,
+    const unsigned int face_type);
 
   /**
    * Constructor that comes with reduced functionality and works similar as
@@ -1125,7 +1126,8 @@ protected:
     const unsigned int n_q_points,
     const bool         is_interior_face,
     const unsigned int active_fe_index,
-    const unsigned int active_quad_index);
+    const unsigned int active_quad_index,
+    const unsigned int face_type);
 
   /**
    * Constructor that comes with reduced functionality and works similar as
@@ -1410,7 +1412,8 @@ protected:
     const unsigned int n_q_points,
     const bool         is_interior_face  = true,
     const unsigned int active_fe_index   = numbers::invalid_unsigned_int,
-    const unsigned int active_quad_index = numbers::invalid_unsigned_int);
+    const unsigned int active_quad_index = numbers::invalid_unsigned_int,
+    const unsigned int face_no           = numbers::invalid_unsigned_int);
 
   /**
    * Constructor with reduced functionality for similar usage of FEEvaluation
@@ -1547,7 +1550,8 @@ protected:
     const unsigned int n_q_points,
     const bool         is_interior_face  = true,
     const unsigned int active_fe_index   = numbers::invalid_unsigned_int,
-    const unsigned int active_quad_index = numbers::invalid_unsigned_int);
+    const unsigned int active_quad_index = numbers::invalid_unsigned_int,
+    const unsigned int face_no           = numbers::invalid_unsigned_int);
 
   /**
    * Constructor with reduced functionality for similar usage of FEEvaluation
@@ -1708,7 +1712,8 @@ protected:
     const unsigned int n_q_points,
     const bool         is_interior_face  = true,
     const unsigned int active_fe_index   = numbers::invalid_unsigned_int,
-    const unsigned int active_quad_index = numbers::invalid_unsigned_int);
+    const unsigned int active_quad_index = numbers::invalid_unsigned_int,
+    const unsigned int face_no           = numbers::invalid_unsigned_int);
 
   /**
    * Constructor with reduced functionality for similar usage of FEEvaluation
@@ -1854,7 +1859,8 @@ protected:
     const unsigned int                                n_q_points,
     const bool                                        is_interior_face = true,
     const unsigned int active_fe_index   = numbers::invalid_unsigned_int,
-    const unsigned int active_quad_index = numbers::invalid_unsigned_int);
+    const unsigned int active_quad_index = numbers::invalid_unsigned_int,
+    const unsigned int face_no           = numbers::invalid_unsigned_int);
 
   /**
    * Constructor with reduced functionality for similar usage of FEEvaluation
@@ -3062,7 +3068,8 @@ public:
     const unsigned int                                  quad_no          = 0,
     const unsigned int first_selected_component                          = 0,
     const unsigned int active_fe_index   = numbers::invalid_unsigned_int,
-    const unsigned int active_quad_index = numbers::invalid_unsigned_int);
+    const unsigned int active_quad_index = numbers::invalid_unsigned_int,
+    const unsigned int face_no           = numbers::invalid_unsigned_int);
 
   /**
    * Constructor. Takes all data stored in MatrixFree for a given face range,
@@ -3324,7 +3331,8 @@ inline FEEvaluationBaseData<dim, Number, is_face, VectorizedArrayType>::
     const unsigned int n_q_points,
     const bool         is_interior_face,
     const unsigned int active_fe_index_in,
-    const unsigned int active_quad_index_in)
+    const unsigned int active_quad_index_in,
+    const unsigned int face_type)
   : scratch_data_array(data_in.acquire_scratch_data())
   , quad_no(quad_no_in)
   , matrix_info(&data_in)
@@ -3975,7 +3983,8 @@ inline FEEvaluationBase<dim,
                    const unsigned int n_q_points,
                    const bool         is_interior_face,
                    const unsigned int active_fe_index,
-                   const unsigned int active_quad_index)
+                   const unsigned int active_quad_index,
+                   const unsigned int face_type)
   : FEEvaluationBaseData<dim, Number, is_face, VectorizedArrayType>(
       data_in,
       dof_no,
@@ -3985,7 +3994,8 @@ inline FEEvaluationBase<dim,
       n_q_points,
       is_interior_face,
       active_fe_index,
-      active_quad_index)
+      active_quad_index,
+      face_type)
   , n_fe_components(data_in.get_dof_info(dof_no).start_components.back())
   , dof_values_initialized(false)
   , values_quad_initialized(false)
@@ -6085,7 +6095,8 @@ inline FEEvaluationAccess<dim,
     const unsigned int n_q_points,
     const bool         is_interior_face,
     const unsigned int active_fe_index,
-    const unsigned int active_quad_index)
+    const unsigned int active_quad_index,
+    const unsigned int face_no)
   : FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>(
       data_in,
       dof_no,
@@ -6095,7 +6106,8 @@ inline FEEvaluationAccess<dim,
       n_q_points,
       is_interior_face,
       active_fe_index,
-      active_quad_index)
+      active_quad_index,
+      face_no)
 {}
 
 
@@ -6191,7 +6203,8 @@ inline FEEvaluationAccess<dim, 1, Number, is_face, VectorizedArrayType>::
     const unsigned int n_q_points,
     const bool         is_interior_face,
     const unsigned int active_fe_index,
-    const unsigned int active_quad_index)
+    const unsigned int active_quad_index,
+    const unsigned int face_no)
   : FEEvaluationBase<dim, 1, Number, is_face, VectorizedArrayType>(
       data_in,
       dof_no,
@@ -6201,7 +6214,8 @@ inline FEEvaluationAccess<dim, 1, Number, is_face, VectorizedArrayType>::
       n_q_points,
       is_interior_face,
       active_fe_index,
-      active_quad_index)
+      active_quad_index,
+      face_no)
 {}
 
 
@@ -6502,7 +6516,8 @@ inline FEEvaluationAccess<dim, dim, Number, is_face, VectorizedArrayType>::
     const unsigned int n_q_points,
     const bool         is_interior_face,
     const unsigned int active_fe_index,
-    const unsigned int active_quad_index)
+    const unsigned int active_quad_index,
+    const unsigned int face_no)
   : FEEvaluationBase<dim, dim, Number, is_face, VectorizedArrayType>(
       data_in,
       dof_no,
@@ -6512,7 +6527,8 @@ inline FEEvaluationAccess<dim, dim, Number, is_face, VectorizedArrayType>::
       n_q_points,
       is_interior_face,
       active_fe_index,
-      active_quad_index)
+      active_quad_index,
+      face_no)
 {}
 
 
@@ -6911,7 +6927,8 @@ inline FEEvaluationAccess<1, 1, Number, is_face, VectorizedArrayType>::
                      const unsigned int n_q_points,
                      const bool         is_interior_face,
                      const unsigned int active_fe_index,
-                     const unsigned int active_quad_index)
+                     const unsigned int active_quad_index,
+                     const unsigned int face_no)
   : FEEvaluationBase<1, 1, Number, is_face, VectorizedArrayType>(
       data_in,
       dof_no,
@@ -6921,7 +6938,8 @@ inline FEEvaluationAccess<1, 1, Number, is_face, VectorizedArrayType>::
       n_q_points,
       is_interior_face,
       active_fe_index,
-      active_quad_index)
+      active_quad_index,
+      face_no)
 {}
 
 
@@ -8338,7 +8356,8 @@ inline FEFaceEvaluation<dim,
     const unsigned int                                  quad_no,
     const unsigned int first_selected_component,
     const unsigned int active_fe_index,
-    const unsigned int active_quad_index)
+    const unsigned int active_quad_index,
+    const unsigned int face_no)
   : BaseClass(matrix_free,
               dof_no,
               first_selected_component,
@@ -8347,7 +8366,8 @@ inline FEFaceEvaluation<dim,
               static_n_q_points,
               is_interior_face,
               active_fe_index,
-              active_quad_index)
+              active_quad_index,
+              face_no)
   , dofs_per_component(this->data->dofs_per_component_on_cell)
   , dofs_per_cell(this->data->dofs_per_component_on_cell * n_components_)
   , n_q_points(this->n_quadrature_points)
@@ -8380,7 +8400,9 @@ inline FEFaceEvaluation<dim,
                      quad_no,
                      first_selected_component,
                      matrix_free.get_face_active_fe_index(range,
-                                                          is_interior_face))
+                                                          is_interior_face),
+                     numbers::invalid_unsigned_int,
+                     0)
 {}
 
 
