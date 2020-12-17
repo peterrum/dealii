@@ -143,11 +143,11 @@ namespace
     template <int vectorization_width>
     bool
     operator()(const internal::MatrixFreeFunctions::FaceToCellTopology<
-                 vectorization_width> &face,
-               const unsigned int &    fe_index)
+                 vectorization_width> &           face,
+               const std::array<unsigned int, 1> &fe_index)
     {
-      const unsigned int fe_index_face =
-        fe_indices[face.cells_interior[0] / vectorization_width];
+      const std::array<unsigned int, 1> fe_index_face = {
+        {fe_indices[face.cells_interior[0] / vectorization_width]}};
 
       return fe_index_face < fe_index ||
              (include ? (fe_index_face == fe_index) : false);
@@ -156,12 +156,12 @@ namespace
     template <int vectorization_width>
     bool
     operator()(const internal::MatrixFreeFunctions::FaceToCellTopology<
-                 vectorization_width> &                     face,
-               const std::pair<unsigned int, unsigned int> &fe_index)
+                 vectorization_width> &           face,
+               const std::array<unsigned int, 2> &fe_index)
     {
-      const std::pair<unsigned int, unsigned int> fe_index_face = {
-        fe_indices[face.cells_interior[0] / vectorization_width],
-        fe_indices[face.cells_exterior[0] / vectorization_width]};
+      const std::array<unsigned int, 2> fe_index_face = {
+        {fe_indices[face.cells_interior[0] / vectorization_width],
+         fe_indices[face.cells_exterior[0] / vectorization_width]}};
 
       return include ? (fe_index_face <= fe_index) : (fe_index_face < fe_index);
     }
@@ -199,15 +199,15 @@ MatrixFree<dim, Number, VectorizedArrayType>::
       return_range.first =
         std::lower_bound(face_info.faces.begin() + range.first,
                          face_info.faces.begin() + range.second,
-                         std::pair<unsigned int, unsigned int>{
-                           fe_index_interior, fe_index_exterior},
+                         std::array<unsigned int, 2>{
+                           {fe_index_interior, fe_index_exterior}},
                          FaceRangeCompartor(fe_indices, false)) -
         face_info.faces.begin();
       return_range.second =
         std::lower_bound(face_info.faces.begin() + return_range.first,
                          face_info.faces.begin() + range.second,
-                         std::pair<unsigned int, unsigned int>{
-                           fe_index_interior, fe_index_exterior},
+                         std::array<unsigned int, 2>{
+                           {fe_index_interior, fe_index_exterior}},
                          FaceRangeCompartor(fe_indices, true)) -
         face_info.faces.begin();
       Assert(return_range.first >= range.first &&
@@ -242,13 +242,13 @@ MatrixFree<dim, Number, VectorizedArrayType>::
       return_range.first =
         std::lower_bound(face_info.faces.begin() + range.first,
                          face_info.faces.begin() + range.second,
-                         fe_index,
+                         std::array<unsigned int, 1>{{fe_index}},
                          FaceRangeCompartor(fe_indices, false)) -
         face_info.faces.begin();
       return_range.second =
         std::lower_bound(face_info.faces.begin() + return_range.first,
                          face_info.faces.begin() + range.second,
-                         fe_index,
+                         std::array<unsigned int, 1>{{fe_index}},
                          FaceRangeCompartor(fe_indices, true)) -
         face_info.faces.begin();
       Assert(return_range.first >= range.first &&
