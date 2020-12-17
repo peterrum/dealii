@@ -937,7 +937,7 @@ protected:
     const unsigned int                                          face_no,
     const Quadrature<dim - 1> &                                 quadrature,
     const typename Mapping<dim, spacedim>::InternalDataBase &   internal_data,
-    dealii::internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
+    internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
       &output_data) const;
 
   /**
