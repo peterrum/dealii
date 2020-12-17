@@ -144,10 +144,10 @@ namespace
     bool
     operator()(const internal::MatrixFreeFunctions::FaceToCellTopology<
                  vectorization_width> &           face,
-               const std::array<unsigned int, 1> &fe_index)
+               const std::array<unsigned int, 2> &fe_index)
     {
-      const std::array<unsigned int, 1> fe_index_face = {
-        {fe_indices[face.cells_interior[0] / vectorization_width]}};
+      const std::array<unsigned int, 2> fe_index_face = {
+        {0, fe_indices[face.cells_interior[0] / vectorization_width]}};
 
       return fe_index_face < fe_index ||
              (include ? (fe_index_face == fe_index) : false);
@@ -157,10 +157,11 @@ namespace
     bool
     operator()(const internal::MatrixFreeFunctions::FaceToCellTopology<
                  vectorization_width> &           face,
-               const std::array<unsigned int, 2> &fe_index)
+               const std::array<unsigned int, 3> &fe_index)
     {
-      const std::array<unsigned int, 2> fe_index_face = {
-        {fe_indices[face.cells_interior[0] / vectorization_width],
+      const std::array<unsigned int, 3> fe_index_face = {
+        {0,
+         fe_indices[face.cells_interior[0] / vectorization_width],
          fe_indices[face.cells_exterior[0] / vectorization_width]}};
 
       return include ? (fe_index_face <= fe_index) : (fe_index_face < fe_index);
@@ -187,6 +188,8 @@ MatrixFree<dim, Number, VectorizedArrayType>::
       dof_handlers[dof_handler_index]->get_fe_collection().size() == 1)
     return range;
 
+  const unsigned int face_type = 0;
+
   AssertIndexRange(fe_index_interior, dof_info[dof_handler_index].max_fe_index);
   AssertIndexRange(fe_index_exterior, dof_info[dof_handler_index].max_fe_index);
   const std::vector<unsigned int> &fe_indices =
@@ -199,15 +202,15 @@ MatrixFree<dim, Number, VectorizedArrayType>::
       return_range.first =
         std::lower_bound(face_info.faces.begin() + range.first,
                          face_info.faces.begin() + range.second,
-                         std::array<unsigned int, 2>{
-                           {fe_index_interior, fe_index_exterior}},
+                         std::array<unsigned int, 3>{
+                           {face_type, fe_index_interior, fe_index_exterior}},
                          FaceRangeCompartor(fe_indices, false)) -
         face_info.faces.begin();
       return_range.second =
         std::lower_bound(face_info.faces.begin() + return_range.first,
                          face_info.faces.begin() + range.second,
-                         std::array<unsigned int, 2>{
-                           {fe_index_interior, fe_index_exterior}},
+                         std::array<unsigned int, 3>{
+                           {face_type, fe_index_interior, fe_index_exterior}},
                          FaceRangeCompartor(fe_indices, true)) -
         face_info.faces.begin();
       Assert(return_range.first >= range.first &&
@@ -231,6 +234,8 @@ MatrixFree<dim, Number, VectorizedArrayType>::
       dof_handlers[dof_handler_index]->get_fe_collection().size() == 1)
     return range;
 
+  const unsigned int face_type = 0;
+
   AssertIndexRange(fe_index, dof_info[dof_handler_index].max_fe_index);
   const std::vector<unsigned int> &fe_indices =
     dof_info[dof_handler_index].cell_active_fe_index;
@@ -242,13 +247,13 @@ MatrixFree<dim, Number, VectorizedArrayType>::
       return_range.first =
         std::lower_bound(face_info.faces.begin() + range.first,
                          face_info.faces.begin() + range.second,
-                         std::array<unsigned int, 1>{{fe_index}},
+                         std::array<unsigned int, 2>{{face_type, fe_index}},
                          FaceRangeCompartor(fe_indices, false)) -
         face_info.faces.begin();
       return_range.second =
         std::lower_bound(face_info.faces.begin() + return_range.first,
                          face_info.faces.begin() + range.second,
-                         std::array<unsigned int, 1>{{fe_index}},
+                         std::array<unsigned int, 2>{{face_type, fe_index}},
                          FaceRangeCompartor(fe_indices, true)) -
         face_info.faces.begin();
       Assert(return_range.first >= range.first &&
