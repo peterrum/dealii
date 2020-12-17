@@ -7093,8 +7093,9 @@ namespace GridGenerator
 
   template <int dim, int spacedim>
   void
-  convert_hypercube_to_simplex_mesh(const Triangulation<dim, spacedim> &in_tria,
-                                    Triangulation<dim, spacedim> &out_tria)
+  convert_hypercube_to_simplex_mesh_develop(
+    const Triangulation<dim, spacedim> &in_tria,
+    Triangulation<dim, spacedim> &      out_tria)
   {
     Assert(in_tria.n_global_levels() == 1,
            ExcMessage("Number of global levels has to be 1."));
@@ -7137,6 +7138,18 @@ namespace GridGenerator
          {{{{2, 3, 11}}, {{3, 11, 7}}, {{11, 7, 6}}, {{2, 11, 6}}}},
          {{{{0, 1, 12}}, {{1, 12, 3}}, {{12, 3, 2}}, {{0, 12, 2}}}},
          {{{{4, 5, 13}}, {{5, 13, 7}}, {{13, 7, 6}}, {{4, 13, 6}}}}}};
+
+    static const std::array<std::array<unsigned int, 2>, 8>
+      table_2D_inner_manifold = {{{{6, 4}},
+                                  {{6, 8}},
+                                  {{6, 5}},
+                                  {{4, 8}},
+                                  {{8, 5}},
+                                  {{7, 4}},
+                                  {{7, 8}},
+                                  {{7, 5}}}};
+
+
 
     std::vector<Point<spacedim>> vertices;
     std::vector<CellData<dim>>   cells;
@@ -7205,7 +7218,8 @@ namespace GridGenerator
         // helper function for creating cells and subcells
         const auto add_cell = [&](const unsigned int struct_dim,
                                   const auto &       index_vertices,
-                                  const unsigned int material_or_boundary_id) {
+                                  const unsigned int material_or_boundary_id,
+                                  const unsigned int manifold_id = 0) {
           if (struct_dim == dim) // cells
             {
               CellData<dim> cell_data(index_vertices.size());
@@ -7214,6 +7228,7 @@ namespace GridGenerator
                   cell_data.vertices[i] =
                     local_vertex_indices[index_vertices[i]];
                   cell_data.material_id = material_or_boundary_id;
+                  cell_data.manifold_id = manifold_id; // set cell-manifold id
                 }
               cells.push_back(cell_data);
             }
@@ -7221,6 +7236,8 @@ namespace GridGenerator
             {
               CellData<1> boundary_line(2);
               boundary_line.boundary_id = material_or_boundary_id;
+              boundary_line.manifold_id =
+                manifold_id; // set manifold id on faces
               for (unsigned int i = 0; i < index_vertices.size(); ++i)
                 {
                   boundary_line.vertices[i] =
@@ -7231,7 +7248,7 @@ namespace GridGenerator
           else if (dim == 3 && struct_dim == 2) // a face of a thetrahedron
             {
               CellData<2> boundary_quad(3);
-              boundary_quad.boundary_id = material_or_boundary_id;
+              boundary_quad.manifold_id = manifold_id;
               for (unsigned int i = 0; i < index_vertices.size(); ++i)
                 {
                   boundary_quad.vertices[i] =
@@ -7250,8 +7267,24 @@ namespace GridGenerator
         // create cells one by one
 
         if (dim == 2)
-          for (const auto &cell : table_2D_cell)
-            add_cell(dim, cell, current_material_id);
+          {
+            const auto current_manifold_of_cell =
+              cell.manifold_id(); // get cell-manifold id from current quad cell
+            for (const auto &cell : table_2D_cell)
+              add_cell(dim,
+                       cell,
+                       current_material_id,
+                       current_manifold_of_cell); // set cell-manifold id
+
+            // inherit inner manifold (faces)
+            for (const auto &face : table_2D_inner_manifold)
+              // set inner tri-faces according to cell-manifold of quad element,
+              // set invalid b_id, since we don't want to modify b_id inside
+              add_cell(1,
+                       face,
+                       numbers::internal_face_boundary_id,
+                       current_manifold_of_cell);
+          }
         else if (dim == 3)
           for (const auto &cell : table_3D_cell)
             add_cell(dim, cell, current_material_id);
@@ -7260,24 +7293,52 @@ namespace GridGenerator
 
         // Set up sub-cell data.
         for (const auto f : cell.face_indices())
-          if (cell.face(f)->boundary_id() !=
-              numbers::internal_face_boundary_id) // face at boundary
-            {
-              const auto current_boundary_id = cell.face(f)->boundary_id();
-              if (dim == 2) // 2D boundary_lines
-                for (const auto &face : table_2D_boundary_faces[f])
-                  add_cell(1, face, current_boundary_id);
-              else if (dim == 3) // 3D boundary_quads
-                for (const auto &face : table_3D_boundary_faces[f])
-                  add_cell(2, face, current_boundary_id);
-              else
-                Assert(false, ExcNotImplemented());
-            }
+          {
+            const auto current_face_manifold_id = cell.face(f)->manifold_id();
+            // set boundary ids only for cells at boundary
+            if (cell.face(f)->boundary_id() !=
+                numbers::internal_face_boundary_id) // face at boundary
+              {
+                const auto current_boundary_id = cell.face(f)->boundary_id();
+                if (dim == 2) // 2D boundary_lines
+                  // set face manifold at boundary faces, all the others is set
+                  // similar to manifold of quad cell)
+                  for (const auto &face : table_2D_boundary_faces[f])
+                    add_cell(1,
+                             face,
+                             current_boundary_id,
+                             current_face_manifold_id);
+
+                else if (dim == 3) // 3D boundary_quads
+                  for (const auto &face : table_3D_boundary_faces[f])
+                    add_cell(2, face, current_boundary_id);
+
+                else
+                  Assert(false, ExcNotImplemented());
+              }
+            else
+              {
+                if (dim == 2) // 2D boundary_lines
+                  // set manifold id of faces, that are not on boundary of
+                  // triangulation
+                  for (const auto &face : table_2D_boundary_faces[f])
+                    add_cell(1,
+                             face,
+                             numbers::internal_face_boundary_id,
+                             current_face_manifold_id);
+                else if (dim == 3)
+                  {
+                    // nothing to do, since manifold inheritance in 3D not
+                    // implemented yet
+                  }
+                else
+                  Assert(false, ExcNotImplemented());
+              }
+          }
       }
 
     out_tria.create_triangulation(vertices, cells, subcell_data);
   }
-
 
 
   template <int spacedim>
