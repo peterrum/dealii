@@ -111,8 +111,8 @@ template <class PolynomialType, int dim, int spacedim>
 void
 FE_PolyFace<PolynomialType, dim, spacedim>::fill_fe_face_values(
   const typename Triangulation<dim, spacedim>::cell_iterator &,
-  const unsigned int         face_no,
-  const Quadrature<dim - 1> &quadrature,
+  const unsigned int              face_no,
+  const hp::QCollection<dim - 1> &quadrature,
   const Mapping<dim, spacedim> &,
   const typename Mapping<dim, spacedim>::InternalDataBase &,
   const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
@@ -131,8 +131,10 @@ FE_PolyFace<PolynomialType, dim, spacedim>::fill_fe_face_values(
          ExcInternalError());
   const InternalData &fe_data = static_cast<const InternalData &>(fe_internal);
 
+  AssertDimension(quadrature.size(), 1);
+
   if (fe_data.update_each & update_values)
-    for (unsigned int i = 0; i < quadrature.size(); ++i)
+    for (unsigned int i = 0; i < quadrature[0].size(); ++i)
       {
         for (unsigned int k = 0; k < this->n_dofs_per_cell(); ++k)
           output_data.shape_values(k, i) = 0.;
@@ -141,16 +143,16 @@ FE_PolyFace<PolynomialType, dim, spacedim>::fill_fe_face_values(
             case 3:
               {
                 // Fill data for quad shape functions
-                if (this->n_dofs_per_quad() != 0)
+                if (this->n_dofs_per_quad(face_no) != 0)
                   {
                     const unsigned int foffset =
-                      this->get_first_quad_index() +
-                      this->n_dofs_per_quad() * face_no;
-                    for (unsigned int k = 0; k < this->n_dofs_per_quad(); ++k)
+                      this->get_first_quad_index(face_no);
+                    for (unsigned int k = 0; k < this->n_dofs_per_quad(face_no);
+                         ++k)
                       output_data.shape_values(foffset + k, i) =
                         fe_data
-                          .shape_values[k + this->get_first_face_quad_index()]
-                                       [i];
+                          .shape_values[k + this->get_first_face_quad_index(
+                                              face_no)][i];
                   }
               }
               DEAL_II_FALLTHROUGH;
@@ -173,9 +175,10 @@ FE_PolyFace<PolynomialType, dim, spacedim>::fill_fe_face_values(
                                                                     line) *
                                 this->n_dofs_per_line() +
                               k,
-                            i) = fe_data.shape_values
-                                   [k + (line * this->n_dofs_per_line()) +
-                                    this->get_first_face_line_index()][i];
+                            i) =
+                            fe_data.shape_values
+                              [k + (line * this->n_dofs_per_line()) +
+                               this->get_first_face_line_index(face_no)][i];
                       }
                   }
               }

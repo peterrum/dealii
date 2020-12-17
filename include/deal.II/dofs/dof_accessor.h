@@ -736,8 +736,6 @@ private:
   // functions.
   template <int, int>
   friend class DoFHandler;
-  template <int, int>
-  friend class hp::DoFHandler;
 
   friend struct dealii::internal::DoFHandlerImplementation::Policy::
     Implementation;
@@ -1208,8 +1206,6 @@ protected:
   // functions.
   template <int, int>
   friend class DoFHandler;
-  template <int, int>
-  friend class hp::DoFHandler;
 
   friend struct dealii::internal::DoFHandlerImplementation::Policy::
     Implementation;
@@ -1471,6 +1467,15 @@ public:
   child(const unsigned int i) const;
 
   /**
+   * Return an array of iterators to all children of this cell.
+   */
+  boost::container::small_vector<
+    TriaIterator<
+      DoFCellAccessor<dimension_, space_dimension_, level_dof_access>>,
+    GeometryInfo<dimension_>::max_children_per_cell>
+  child_iterators() const;
+
+  /**
    * Return an iterator to the @p ith face of this cell.
    *
    * This function returns a DoFAccessor with <code>structdim == 0</code> in
@@ -1482,9 +1487,9 @@ public:
   /**
    * Return an array of iterators to all faces of this cell.
    */
-  inline boost::container::
-    small_vector<face_iterator, GeometryInfo<dimension_>::faces_per_cell>
-    face_iterators() const;
+  boost::container::small_vector<face_iterator,
+                                 GeometryInfo<dimension_>::faces_per_cell>
+  face_iterators() const;
 
   /**
    * Return the result of the @p neighbor_child_on_subface function of the
@@ -1518,9 +1523,12 @@ public:
    */
 
   /**
-   * Return the values of the given vector restricted to the dofs of this cell
+   * Collect the values of the given vector restricted to the dofs of this cell
    * in the standard ordering: dofs on vertex 0, dofs on vertex 1, etc, dofs
-   * on line 0, dofs on line 1, etc, dofs on quad 0, etc.
+   * on line 0, dofs on line 1, etc, dofs on quad 0, etc. In other
+   * words, this function implements a
+   * [gather
+   * operation](https://en.wikipedia.org/wiki/Gather-scatter_(vector_addressing)).
    *
    * The vector has to have the right size before being passed to this
    * function. This function is only callable for active cells.
@@ -1536,9 +1544,12 @@ public:
   get_dof_values(const InputVector &values, Vector<number> &local_values) const;
 
   /**
-   * Return the values of the given vector restricted to the dofs of this cell
+   * Collect the values of the given vector restricted to the dofs of this cell
    * in the standard ordering: dofs on vertex 0, dofs on vertex 1, etc, dofs
-   * on line 0, dofs on line 1, etc, dofs on quad 0, etc.
+   * on line 0, dofs on line 1, etc, dofs on quad 0, etc. In other
+   * words, this function implements a
+   * [gather
+   * operation](https://en.wikipedia.org/wiki/Gather-scatter_(vector_addressing)).
    *
    * The vector has to have the right size before being passed to this
    * function. This function is only callable for active cells.
@@ -1556,9 +1567,12 @@ public:
                  ForwardIterator    local_values_end) const;
 
   /**
-   * Return the values of the given vector restricted to the dofs of this cell
+   * Collect the values of the given vector restricted to the dofs of this cell
    * in the standard ordering: dofs on vertex 0, dofs on vertex 1, etc, dofs
-   * on line 0, dofs on line 1, etc, dofs on quad 0, etc.
+   * on line 0, dofs on line 1, etc, dofs on quad 0, etc. In other
+   * words, this function implements a
+   * [gather
+   * operation](https://en.wikipedia.org/wiki/Gather-scatter_(vector_addressing)).
    *
    * The vector has to have the right size before being passed to this
    * function. This function is only callable for active cells.
@@ -1584,6 +1598,9 @@ public:
    * This function is the counterpart to get_dof_values(): it takes a vector
    * of values for the degrees of freedom of the cell pointed to by this
    * iterator and writes these values into the global data vector @p values.
+   * In other words, this function implements a
+   * [scatter
+   * operation](https://en.wikipedia.org/wiki/Gather-scatter_(vector_addressing)).
    * This function is only callable for active cells.
    *
    * Note that for continuous finite elements, calling this function affects
@@ -1708,10 +1725,16 @@ public:
   /**
    * Distribute a local (cell based) vector to a global one by mapping the
    * local numbering of the degrees of freedom to the global one and entering
-   * the local values into the global vector.
+   * the local values into the global vector. In other words, this function
+   * implements a
+   * [scatter
+   * operation](https://en.wikipedia.org/wiki/Gather-scatter_(vector_addressing)).
    *
-   * The elements are <em>added</em> up to the elements in the global vector,
-   * rather than just set, since this is usually what one wants.
+   * The elements are <em>added</em> to the existing elements in the global
+   * vector, rather than just set, since this is usually what one wants. You may
+   * also want to take a look at the
+   * AffineConstraints::distribute_local_to_global() function if you need to
+   * deal with constraints.
    */
   template <typename number, typename OutputVector>
   void
@@ -1722,9 +1745,15 @@ public:
    * Distribute a local (cell based) vector in iterator format to a global one
    * by mapping the local numbering of the degrees of freedom to the global
    * one and entering the local values into the global vector.
+   * In other words, this function implements a
+   * [scatter
+   * operation](https://en.wikipedia.org/wiki/Gather-scatter_(vector_addressing)).
    *
-   * The elements are <em>added</em> up to the elements in the global vector,
-   * rather than just set, since this is usually what one wants.
+   * The elements are <em>added</em> to the existing elements in the global
+   * vector, rather than just set, since this is usually what one wants. You may
+   * also want to take a look at the
+   * AffineConstraints::distribute_local_to_global() function if you need to
+   * deal with constraints.
    */
   template <typename ForwardIterator, typename OutputVector>
   void
@@ -1736,6 +1765,9 @@ public:
    * Distribute a local (cell based) vector in iterator format to a global one
    * by mapping the local numbering of the degrees of freedom to the global
    * one and entering the local values into the global vector.
+   * In other words, this function implements a
+   * [scatter
+   * operation](https://en.wikipedia.org/wiki/Gather-scatter_(vector_addressing)).
    *
    * The elements are <em>added</em> up to the elements in the global vector,
    * rather than just set, since this is usually what one wants. Moreover, the
@@ -2030,6 +2062,48 @@ public:
    */
   void
   clear_future_fe_index() const;
+
+  /**
+   * Return the index of the finite element from the entire hp::FECollection
+   * that is dominated by those assigned as future finite elements to the
+   * children of this cell.
+   *
+   * We find the corresponding finite element among the future finite elements
+   * on the children of this cell. If none of them qualify, we extend our search
+   * on the whole hp::FECollection, which is the element that describes the
+   * smallest finite element space that includes all future finite elements
+   * assigned to the children. If the function is not able to find a finite
+   * element at all, an assertion will be triggered.
+   *
+   * In this way, we determine the finite element of the parent cell in case of
+   * h-coarsening in the hp-context.
+   *
+   * @note This function can only be called on direct parent cells, i.e.,
+   * non-active cells whose children are all active.
+   */
+  unsigned int
+  dominated_future_fe_on_children() const;
+  /**
+   * @}
+   */
+
+  /**
+   * @name Exceptions
+   */
+  /**
+   * @{
+   */
+
+  /**
+   * Exception
+   *
+   * @ingroup Exceptions
+   */
+  DeclExceptionMsg(
+    ExcNoDominatedFiniteElementOnChildren,
+    "No FiniteElement has been found in your FECollection that is "
+    "dominated by all children of a cell you are trying to coarsen!");
+
   /**
    * @}
    */

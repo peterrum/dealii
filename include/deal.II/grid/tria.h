@@ -48,9 +48,9 @@ DEAL_II_NAMESPACE_OPEN
 
 #ifdef signals
 #  error \
-    "The data type signals is already defined. You are most likely using the QT library \
-and using the signals keyword. You can either #include the Qt headers (or any conflicting headers) \
-after the deal.ii headers or you can define the QT_NO_KEYWORDS marco and use the Q_SIGNALS macro."
+    "The name 'signals' is already defined. You are most likely using the QT library \
+and using the 'signals' keyword. You can either #include the Qt headers (or any conflicting headers) \
+*after* the deal.II headers or you can define the 'QT_NO_KEYWORDS' macro and use the 'Q_SIGNALS' macro."
 #endif
 
 // Forward declarations
@@ -90,12 +90,16 @@ namespace internal
 
     class TriaObjects;
 
+    template <int, int>
+    class Policy;
+
     /**
      * Forward declaration of a class into which we put much of the
      * implementation of the Triangulation class. See the .cc file for more
      * information.
      */
     struct Implementation;
+    struct ImplementationMixedMesh;
   } // namespace TriangulationImplementation
 
   namespace TriaAccessorImplementation
@@ -320,9 +324,12 @@ namespace internal
 
 
 /**
- * Triangulations denote a hierarchy of levels of elements which together form
- * a @p dim -dimensional manifold in @p spacedim spatial dimensions (if
- * spacedim is not specified it takes the default value @p spacedim=dim).
+ * A triangulation is a collection of cells that, jointly, cover the domain
+ * on which one typically wants to solve a partial differential equation.
+ * This domain, and the mesh that covers it, represents a @p dim -dimensional manifold
+ * and lives in @p spacedim spatial dimensions, where @p dim and @p spacedim
+ * are the template arguments of this class. (If @p spacedim is not specified,
+ * it takes the default value `spacedim=dim`.)
  *
  * Thus, for example, an object of type @p Triangulation<1,1> (or simply @p
  * Triangulation<1> since @p spacedim==dim by default) is used to represent
@@ -331,6 +338,16 @@ namespace internal
  * objects such as @p Triangulation<1,2> or @p Triangulation<2,3> (that are
  * associated with curves in 2D or surfaces in 3D) are the ones one wants to
  * use in the boundary element method.
+ *
+ * The name of the class is mostly hierarchical and is not meant to imply that
+ * a Triangulation can only consist of triangles. Instead, triangulations
+ * consist of line segments in 1d (i.e., if `dim==1`), and of three-dimensional
+ * cells (if `dim==3`). Moreover, historically, deal.II only supported
+ * quadrilaterals (cells with four vertices: deformed rectangles) in 2d
+ * and hexahedra (cells with six sides and eight vertices that are deformed
+ * boxes), neither of which are triangles. In other words, the term
+ * "triangulation" in the deal.II language is synonymous with "mesh" and is
+ * to be understood separate from its linguistic origin.
  *
  * This class is written to be as independent of the dimension as possible
  * (thus the complex construction of the
@@ -996,17 +1013,19 @@ namespace internal
  * following information is not stored:
  *   - signals
  *   - pointers to Manifold objects previously set using
- * Triangulation::set_manifold On the other hand, since these are objects that
+ *     Triangulation::set_manifold()
+ *
+ * On the other hand, since these are objects that
  * are usually set in user code, they can typically easily be set again in that
  * part of your code in which you re-load triangulations.
  *
  * In a sense, this approach to serialization means that re-loading a
  * triangulation is more akin to calling the
- * Triangulation::create_triangulation function and filling it with some
+ * Triangulation::create_triangulation() function and filling it with some
  * additional content, as that function also does not touch the signals and
- * boundary objects that belong to this triangulation. In keeping with this
- * analogy, the Triangulation::load function also triggers the same kinds of
- * signal as Triangulation::create_triangulation.
+ * Manifold objects that belong to this triangulation. In keeping with this
+ * analogy, the Triangulation::load() function also triggers the same kinds of
+ * signal as Triangulation::create_triangulation().
  *
  *
  * <h3>Technical details</h3>
@@ -1616,7 +1635,7 @@ public:
    * A copy of @p manifold_object is created using
    * Manifold<dim, spacedim>::clone() and stored internally.
    *
-   * It is possible to remove or replace the boundary object during the
+   * It is possible to remove or replace a Manifold object during the
    * lifetime of a non-empty triangulation. Usually, this is done before the
    * first refinement and is dangerous afterwards. Removal of a manifold
    * object is done by reset_manifold(). This operation then replaces the
@@ -1697,7 +1716,9 @@ public:
 
   /**
    * Return a constant reference to a Manifold object used for this
-   * triangulation.  Number is the same as in @p set_manifold
+   * triangulation. @p number is the same as in set_manifold().
+   *
+   * @note If no manifold could be found, the default flat manifold is returned.
    *
    * @ingroup manifold
    *
@@ -1802,9 +1823,9 @@ public:
    * the geometry of the domain, and in this case ignoring the exception is
    * probably unwise.
    *
-   * @note This function is used in step-14 .
+   * @note This function is used in step-14 and step-19.
    *
-   * @note This function triggers the create signal after doing its work. See
+   * @note This function triggers the "create" signal after doing its work. See
    * the section on signals in the general documentation of this class.
    *
    * @note The check for distorted cells is only done if dim==spacedim, as
@@ -1820,8 +1841,11 @@ public:
    * Create a triangulation from the provided
    * TriangulationDescription::Description.
    *
+   * @note Don't forget to attach the manifolds with set_manifold() before
+   *   calling this function if manifolds are needed.
+   *
    * @note The namespace TriangulationDescription::Utilities contains functions
-   *       to create TriangulationDescription::Description.
+   *   to create TriangulationDescription::Description.
    *
    * @param construction_data The data needed for this process.
    */
@@ -1868,21 +1892,44 @@ public:
   set_all_refine_flags();
 
   /**
-   * Refine all cells @p times times, by alternatingly calling
-   * set_all_refine_flags and execute_coarsening_and_refinement.
+   * Refine all cells @p times times. In other words, in each one of
+   * the @p times iterations, loop over all cells and refine each cell
+   * uniformly into $2^\text{dim}$ children. In practice, this
+   * function repeats the following operations @p times times: call
+   * set_all_refine_flags() followed by
+   * execute_coarsening_and_refinement(). The end result is that the
+   * number of cells increases by a factor of
+   * $(2^\text{dim})^\text{times}=2^{\text{dim} \times \text{times}}$.
    *
-   * The latter function may throw an exception if it creates cells that are
-   * distorted (see its documentation for an explanation). This exception will
-   * be propagated through this function if that happens, and you may not get
-   * the actual number of refinement steps in that case.
+   * The execute_coarsening_and_refinement() function called in this
+   * loop may throw an exception if it creates cells that are
+   * distorted (see its documentation for an explanation). This
+   * exception will be propagated through this function if that
+   * happens, and you may not get the actual number of refinement
+   * steps in that case.
    *
    * @note This function triggers the pre- and post-refinement signals before
    * and after doing each individual refinement cycle (i.e. more than once if
-   * times > 1) . See the section on signals in the general documentation of
+   * `times > 1`) . See the section on signals in the general documentation of
    * this class.
    */
   void
   refine_global(const unsigned int times = 1);
+
+  /**
+   * Coarsen all cells the given number of times.
+   *
+   * In each of one of the @p times iterations, all cells will be marked for
+   * coarsening. If an active cell is already on the coarsest level, it will
+   * be ignored.
+   *
+   * @note This function triggers the pre- and post-refinement signals before
+   * and after doing each individual coarsening cycle (i.e. more than once if
+   * `times > 1`) . See the section on signals in the general documentation of
+   * this class.
+   */
+  void
+  coarsen_global(const unsigned int times = 1);
 
   /**
    * Execute both refinement and coarsening of the triangulation.
@@ -2138,6 +2185,8 @@ public:
      * expensive for a process to handle this particular cell. If several
      * functions are connected to this signal, their return values will be
      * summed to calculate the final weight.
+     *
+     * This function is used in step-68.
      */
     boost::signals2::signal<unsigned int(const cell_iterator &,
                                          const CellStatus),
@@ -3311,6 +3360,20 @@ public:
     std::pair<std::pair<cell_iterator, unsigned int>, std::bitset<3>>> &
   get_periodic_face_map() const;
 
+  /**
+   * Return vector filled with the used reference-cell types of this
+   * triangulation.
+   */
+  const std::vector<ReferenceCell::Type> &
+  get_reference_cell_types() const;
+
+  /**
+   * Indicate if the triangulation only consists of hypercube-like cells, i.e.,
+   * lines, quadrilaterals, or hexahedrons.
+   */
+  bool
+  all_reference_cell_types_are_hyper_cube() const;
+
 #ifdef DOXYGEN
   /**
    * Write and read the data of this object from a stream for the purpose
@@ -3420,6 +3483,12 @@ protected:
   MeshSmoothing smooth_grid;
 
   /**
+   * Vector caching all reference-cell types of the given triangulation
+   * (also in the distributed case).
+   */
+  std::vector<ReferenceCell::Type> reference_cell_types;
+
+  /**
    * Write a bool vector to the given stream, writing a pre- and a postfix
    * magic number. The vector is written in an almost binary format, i.e. the
    * bool flags are packed but the data is written as ASCII text.
@@ -3455,8 +3524,22 @@ protected:
   void
   update_periodic_face_map();
 
+  /**
+   * Update the internal reference_cell_types vector.
+   */
+  virtual void
+  update_reference_cell_types();
+
 
 private:
+  /**
+   * Policy with the Triangulation-specific tasks related to creation,
+   * refinement, and coarsening.
+   */
+  std::unique_ptr<
+    dealii::internal::TriangulationImplementation::Policy<dim, spacedim>>
+    policy;
+
   /**
    * If add_periodicity() is called, this variable stores the given periodic
    * face pairs on level 0 for later access during the identification of ghost
@@ -3761,6 +3844,12 @@ private:
   reset_active_cell_indices();
 
   /**
+   * Reset global cell ids and globale level cell ids.
+   */
+  void
+  reset_global_cell_indices();
+
+  /**
    * Refine all cells on all levels which were previously flagged for
    * refinement.
    *
@@ -3934,9 +4023,9 @@ private:
 
   friend struct dealii::internal::TriaAccessorImplementation::Implementation;
 
-  friend class hp::DoFHandler<dim, spacedim>;
-
   friend struct dealii::internal::TriangulationImplementation::Implementation;
+  friend struct dealii::internal::TriangulationImplementation::
+    ImplementationMixedMesh;
 
   friend class dealii::internal::TriangulationImplementation::TriaObjects;
 

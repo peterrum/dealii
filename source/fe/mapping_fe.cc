@@ -175,68 +175,74 @@ MappingFE<dim, spacedim>::InternalData::initialize_face(
       else if (this->fe.reference_cell_type() == ReferenceCell::Type::Tri)
         {
           Tensor<1, dim> t1;
-          t1[0] = 1;
-          t1[1] = 0;
+          constexpr int  d0 = 0;
+          constexpr int  d1 = 1 % dim;
+
+          t1[d0] = 1;
+          t1[d1] = 0;
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[0].emplace_back(t1);
-          t1[0] = -std::sqrt(0.5);
-          t1[1] = +std::sqrt(0.5);
+          t1[d0] = -std::sqrt(0.5);
+          t1[d1] = +std::sqrt(0.5);
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[1].emplace_back(t1);
-          t1[0] = 0;
-          t1[1] = -1;
+          t1[d0] = 0;
+          t1[d1] = -1;
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[2].emplace_back(t1);
         }
       else if (this->fe.reference_cell_type() == ReferenceCell::Type::Tet)
         {
           Tensor<1, dim> t1;
+          constexpr int  d0 = 0;
+          constexpr int  d1 = 1 % dim;
+          constexpr int  d2 = 2 % dim;
 
-          t1[0] = 0;
-          t1[1] = 1;
-          t1[2] = 0; // face 0
+          t1[d0] = 0;
+          t1[d1] = 1;
+          t1[d2] = 0; // face 0
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[0].emplace_back(t1);
 
-          t1[0] = 1;
-          t1[1] = 0;
-          t1[2] = 0; // face 0
+          t1[d0] = 1;
+          t1[d1] = 0;
+          t1[d2] = 0; // face 0
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[4].emplace_back(t1);
 
-          t1[0] = 1;
-          t1[1] = 0;
-          t1[2] = 0; // face 1
+          t1[d0] = 1;
+          t1[d1] = 0;
+          t1[d2] = 0; // face 1
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[1].emplace_back(t1);
 
-          t1[0] = 0;
-          t1[1] = 0;
-          t1[2] = 1; // face 1
+          t1[d0] = 0;
+          t1[d1] = 0;
+          t1[d2] = 1; // face 1
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[5].emplace_back(t1);
 
-          t1[0] = 0;
-          t1[1] = 0;
-          t1[2] = 1; // face 2
+          t1[d0] = 0;
+          t1[d1] = 0;
+          t1[d2] = 1; // face 2
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[2].emplace_back(t1);
 
-          t1[0] = 0;
-          t1[1] = 1;
-          t1[2] = 0; // face 2
+          t1[d0] = 0;
+          t1[d1] = 1;
+          t1[d2] = 0; // face 2
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[6].emplace_back(t1);
 
-          t1[0] = -std::pow(1.0 / 3.0, 1.0 / 4.0);
-          t1[1] = +std::pow(1.0 / 3.0, 1.0 / 4.0);
-          t1[2] = +0; // face 3
+          t1[d0] = -std::pow(1.0 / 3.0, 1.0 / 4.0);
+          t1[d1] = +std::pow(1.0 / 3.0, 1.0 / 4.0);
+          t1[d2] = +0; // face 3
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[3].emplace_back(t1);
 
-          t1[0] = -std::pow(1.0 / 3.0, 1.0 / 4.0);
-          t1[1] = +0;
-          t1[2] = +std::pow(1.0 / 3.0, 1.0 / 4.0); // face 3
+          t1[d0] = -std::pow(1.0 / 3.0, 1.0 / 4.0);
+          t1[d1] = +0;
+          t1[d2] = +std::pow(1.0 / 3.0, 1.0 / 4.0); // face 3
           for (unsigned int i = 0; i < n_original_q_points; i++)
             unit_tangentials[7].emplace_back(t1);
         }
@@ -351,13 +357,13 @@ namespace internal
       maybe_compute_q_points(
         const typename QProjector<dim>::DataSetDescriptor              data_set,
         const typename dealii::MappingFE<dim, spacedim>::InternalData &data,
-        std::vector<Point<spacedim>> &quadrature_points)
+        std::vector<Point<spacedim>> &quadrature_points,
+        const unsigned int            n_q_points)
       {
         const UpdateFlags update_flags = data.update_each;
 
         if (update_flags & update_quadrature_points)
-          for (unsigned int point = 0; point < quadrature_points.size();
-               ++point)
+          for (unsigned int point = 0; point < n_q_points; ++point)
             {
               const double *  shape = &data.shape(point + data_set, 0);
               Point<spacedim> result =
@@ -384,7 +390,8 @@ namespace internal
       maybe_update_Jacobians(
         const CellSimilarity::Similarity cell_similarity,
         const typename dealii::QProjector<dim>::DataSetDescriptor      data_set,
-        const typename dealii::MappingFE<dim, spacedim>::InternalData &data)
+        const typename dealii::MappingFE<dim, spacedim>::InternalData &data,
+        const unsigned int n_q_points)
       {
         const UpdateFlags update_flags = data.update_each;
 
@@ -394,8 +401,6 @@ namespace internal
           // need to recompute jacobians...
           if (cell_similarity != CellSimilarity::translation)
             {
-              const unsigned int n_q_points = data.contravariant.size();
-
               std::fill(data.contravariant.begin(),
                         data.contravariant.end(),
                         DerivativeForm<1, dim, spacedim>());
@@ -436,7 +441,6 @@ namespace internal
         if (update_flags & update_covariant_transformation)
           if (cell_similarity != CellSimilarity::translation)
             {
-              const unsigned int n_q_points = data.contravariant.size();
               for (unsigned int point = 0; point < n_q_points; ++point)
                 {
                   data.covariant[point] =
@@ -447,7 +451,6 @@ namespace internal
         if (update_flags & update_volume_elements)
           if (cell_similarity != CellSimilarity::translation)
             {
-              const unsigned int n_q_points = data.contravariant.size();
               for (unsigned int point = 0; point < n_q_points; ++point)
                 data.volume_elements[point] =
                   data.contravariant[point].determinant();
@@ -466,12 +469,13 @@ namespace internal
         const CellSimilarity::Similarity                  cell_similarity,
         const typename QProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingFE<dim, spacedim>::InternalData &data,
-        std::vector<DerivativeForm<2, dim, spacedim>> &jacobian_grads)
+        std::vector<DerivativeForm<2, dim, spacedim>> &jacobian_grads,
+        const unsigned int                             n_q_points)
       {
         const UpdateFlags update_flags = data.update_each;
         if (update_flags & update_jacobian_grads)
           {
-            const unsigned int n_q_points = jacobian_grads.size();
+            AssertIndexRange(n_q_points, jacobian_grads.size() + 1);
 
             if (cell_similarity != CellSimilarity::translation)
               for (unsigned int point = 0; point < n_q_points; ++point)
@@ -512,13 +516,14 @@ namespace internal
         const CellSimilarity::Similarity                  cell_similarity,
         const typename QProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingFE<dim, spacedim>::InternalData &data,
-        std::vector<Tensor<3, spacedim>> &jacobian_pushed_forward_grads)
+        std::vector<Tensor<3, spacedim>> &jacobian_pushed_forward_grads,
+        const unsigned int                n_q_points)
       {
         const UpdateFlags update_flags = data.update_each;
         if (update_flags & update_jacobian_pushed_forward_grads)
           {
-            const unsigned int n_q_points =
-              jacobian_pushed_forward_grads.size();
+            AssertIndexRange(n_q_points,
+                             jacobian_pushed_forward_grads.size() + 1);
 
             if (cell_similarity != CellSimilarity::translation)
               {
@@ -585,12 +590,13 @@ namespace internal
         const CellSimilarity::Similarity                  cell_similarity,
         const typename QProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingFE<dim, spacedim>::InternalData &data,
-        std::vector<DerivativeForm<3, dim, spacedim>> &jacobian_2nd_derivatives)
+        std::vector<DerivativeForm<3, dim, spacedim>> &jacobian_2nd_derivatives,
+        const unsigned int                             n_q_points)
       {
         const UpdateFlags update_flags = data.update_each;
         if (update_flags & update_jacobian_2nd_derivatives)
           {
-            const unsigned int n_q_points = jacobian_2nd_derivatives.size();
+            AssertIndexRange(n_q_points, jacobian_2nd_derivatives.size() + 1);
 
             if (cell_similarity != CellSimilarity::translation)
               {
@@ -640,13 +646,15 @@ namespace internal
         const typename QProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingFE<dim, spacedim>::InternalData &data,
         std::vector<Tensor<4, spacedim>>
-          &jacobian_pushed_forward_2nd_derivatives)
+          &                jacobian_pushed_forward_2nd_derivatives,
+        const unsigned int n_q_points)
       {
         const UpdateFlags update_flags = data.update_each;
         if (update_flags & update_jacobian_pushed_forward_2nd_derivatives)
           {
-            const unsigned int n_q_points =
-              jacobian_pushed_forward_2nd_derivatives.size();
+            AssertIndexRange(n_q_points,
+                             jacobian_pushed_forward_2nd_derivatives.size() +
+                               1);
 
             if (cell_similarity != CellSimilarity::translation)
               {
@@ -741,12 +749,13 @@ namespace internal
         const CellSimilarity::Similarity                  cell_similarity,
         const typename QProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingFE<dim, spacedim>::InternalData &data,
-        std::vector<DerivativeForm<4, dim, spacedim>> &jacobian_3rd_derivatives)
+        std::vector<DerivativeForm<4, dim, spacedim>> &jacobian_3rd_derivatives,
+        const unsigned int                             n_q_points)
       {
         const UpdateFlags update_flags = data.update_each;
         if (update_flags & update_jacobian_3rd_derivatives)
           {
-            const unsigned int n_q_points = jacobian_3rd_derivatives.size();
+            AssertIndexRange(n_q_points, jacobian_3rd_derivatives.size() + 1);
 
             if (cell_similarity != CellSimilarity::translation)
               {
@@ -799,13 +808,15 @@ namespace internal
         const typename QProjector<dim>::DataSetDescriptor data_set,
         const typename dealii::MappingFE<dim, spacedim>::InternalData &data,
         std::vector<Tensor<5, spacedim>>
-          &jacobian_pushed_forward_3rd_derivatives)
+          &                jacobian_pushed_forward_3rd_derivatives,
+        const unsigned int n_q_points)
       {
         const UpdateFlags update_flags = data.update_each;
         if (update_flags & update_jacobian_pushed_forward_3rd_derivatives)
           {
-            const unsigned int n_q_points =
-              jacobian_pushed_forward_3rd_derivatives.size();
+            AssertIndexRange(n_q_points,
+                             jacobian_pushed_forward_3rd_derivatives.size() +
+                               1);
 
             if (cell_similarity != CellSimilarity::translation)
               {
@@ -920,6 +931,8 @@ MappingFE<dim, spacedim>::MappingFE(const FiniteElement<dim, spacedim> &fe)
   Assert(polynomial_degree >= 1,
          ExcMessage("It only makes sense to create polynomial mappings "
                     "with a polynomial degree greater or equal to one."));
+  Assert(fe.tensor_degree() == 1, ExcNotImplemented());
+  Assert(fe.n_components() == 1, ExcNotImplemented());
 }
 
 
@@ -1059,8 +1072,8 @@ MappingFE<dim, spacedim>::get_data(const UpdateFlags      update_flags,
 template <int dim, int spacedim>
 std::unique_ptr<typename Mapping<dim, spacedim>::InternalDataBase>
 MappingFE<dim, spacedim>::get_face_data(
-  const UpdateFlags          update_flags,
-  const Quadrature<dim - 1> &quadrature) const
+  const UpdateFlags               update_flags,
+  const hp::QCollection<dim - 1> &quadrature) const
 {
   std::unique_ptr<typename Mapping<dim, spacedim>::InternalDataBase> data_ptr =
     std::make_unique<InternalData>(*this->fe);
@@ -1068,7 +1081,7 @@ MappingFE<dim, spacedim>::get_face_data(
   data.initialize_face(this->requires_update_flags(update_flags),
                        QProjector<dim>::project_to_all_faces(
                          this->fe->reference_cell_type(), quadrature),
-                       quadrature.size());
+                       quadrature.max_n_quadrature_points());
 
   return data_ptr;
 }
@@ -1134,51 +1147,61 @@ MappingFE<dim, spacedim>::fill_fe_values(
   internal::MappingFEImplementation::maybe_compute_q_points<dim, spacedim>(
     QProjector<dim>::DataSetDescriptor::cell(),
     data,
-    output_data.quadrature_points);
+    output_data.quadrature_points,
+    n_q_points);
 
   internal::MappingFEImplementation::maybe_update_Jacobians<dim, spacedim>(
-    computed_cell_similarity, QProjector<dim>::DataSetDescriptor::cell(), data);
+    computed_cell_similarity,
+    QProjector<dim>::DataSetDescriptor::cell(),
+    data,
+    n_q_points);
 
   internal::MappingFEImplementation::maybe_update_jacobian_grads<dim, spacedim>(
     computed_cell_similarity,
     QProjector<dim>::DataSetDescriptor::cell(),
     data,
-    output_data.jacobian_grads);
+    output_data.jacobian_grads,
+    n_q_points);
 
   internal::MappingFEImplementation::maybe_update_jacobian_pushed_forward_grads<
     dim,
     spacedim>(computed_cell_similarity,
               QProjector<dim>::DataSetDescriptor::cell(),
               data,
-              output_data.jacobian_pushed_forward_grads);
+              output_data.jacobian_pushed_forward_grads,
+              n_q_points);
 
   internal::MappingFEImplementation::maybe_update_jacobian_2nd_derivatives<
     dim,
     spacedim>(computed_cell_similarity,
               QProjector<dim>::DataSetDescriptor::cell(),
               data,
-              output_data.jacobian_2nd_derivatives);
+              output_data.jacobian_2nd_derivatives,
+              n_q_points);
 
   internal::MappingFEImplementation::
     maybe_update_jacobian_pushed_forward_2nd_derivatives<dim, spacedim>(
       computed_cell_similarity,
       QProjector<dim>::DataSetDescriptor::cell(),
       data,
-      output_data.jacobian_pushed_forward_2nd_derivatives);
+      output_data.jacobian_pushed_forward_2nd_derivatives,
+      n_q_points);
 
   internal::MappingFEImplementation::maybe_update_jacobian_3rd_derivatives<
     dim,
     spacedim>(computed_cell_similarity,
               QProjector<dim>::DataSetDescriptor::cell(),
               data,
-              output_data.jacobian_3rd_derivatives);
+              output_data.jacobian_3rd_derivatives,
+              n_q_points);
 
   internal::MappingFEImplementation::
     maybe_update_jacobian_pushed_forward_3rd_derivatives<dim, spacedim>(
       computed_cell_similarity,
       QProjector<dim>::DataSetDescriptor::cell(),
       data,
-      output_data.jacobian_pushed_forward_3rd_derivatives);
+      output_data.jacobian_pushed_forward_3rd_derivatives,
+      n_q_points);
 
   const UpdateFlags          update_flags = data.update_each;
   const std::vector<double> &weights      = quadrature.get_weights();
@@ -1335,11 +1358,13 @@ namespace internal
              update_JxW_values | update_inverse_jacobians))
           {
             if (update_flags & update_boundary_forms)
-              AssertDimension(output_data.boundary_forms.size(), n_q_points);
+              AssertIndexRange(n_q_points,
+                               output_data.boundary_forms.size() + 1);
             if (update_flags & update_normal_vectors)
-              AssertDimension(output_data.normal_vectors.size(), n_q_points);
+              AssertIndexRange(n_q_points,
+                               output_data.normal_vectors.size() + 1);
             if (update_flags & update_JxW_values)
-              AssertDimension(output_data.JxW_values.size(), n_q_points);
+              AssertIndexRange(n_q_points, output_data.JxW_values.size() + 1);
 
             Assert(data.aux.size() + 1 >= dim, ExcInternalError());
 
@@ -1405,7 +1430,7 @@ namespace internal
                     //
                     // to compute the cell normal, use the same method used in
                     // fill_fe_values for cells above
-                    AssertDimension(data.contravariant.size(), n_q_points);
+                    AssertIndexRange(n_q_points, data.contravariant.size() + 1);
 
                     for (unsigned int point = 0; point < n_q_points; ++point)
                       {
@@ -1438,8 +1463,7 @@ namespace internal
               }
 
             if (update_flags & update_JxW_values)
-              for (unsigned int i = 0; i < output_data.boundary_forms.size();
-                   ++i)
+              for (unsigned int i = 0; i < n_q_points; ++i)
                 {
                   output_data.JxW_values[i] =
                     output_data.boundary_forms[i].norm() *
@@ -1459,8 +1483,7 @@ namespace internal
                 }
 
             if (update_flags & update_normal_vectors)
-              for (unsigned int i = 0; i < output_data.normal_vectors.size();
-                   ++i)
+              for (unsigned int i = 0; i < n_q_points; ++i)
                 output_data.normal_vectors[i] =
                   Point<spacedim>(output_data.boundary_forms[i] /
                                   output_data.boundary_forms[i].norm());
@@ -1497,47 +1520,57 @@ namespace internal
         internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
           &output_data)
       {
+        const unsigned int n_q_points = quadrature.size();
+
         maybe_compute_q_points<dim, spacedim>(data_set,
                                               data,
-                                              output_data.quadrature_points);
+                                              output_data.quadrature_points,
+                                              n_q_points);
         maybe_update_Jacobians<dim, spacedim>(CellSimilarity::none,
                                               data_set,
-                                              data);
+                                              data,
+                                              n_q_points);
         maybe_update_jacobian_grads<dim, spacedim>(CellSimilarity::none,
                                                    data_set,
                                                    data,
-                                                   output_data.jacobian_grads);
+                                                   output_data.jacobian_grads,
+                                                   n_q_points);
         maybe_update_jacobian_pushed_forward_grads<dim, spacedim>(
           CellSimilarity::none,
           data_set,
           data,
-          output_data.jacobian_pushed_forward_grads);
+          output_data.jacobian_pushed_forward_grads,
+          n_q_points);
         maybe_update_jacobian_2nd_derivatives<dim, spacedim>(
           CellSimilarity::none,
           data_set,
           data,
-          output_data.jacobian_2nd_derivatives);
+          output_data.jacobian_2nd_derivatives,
+          n_q_points);
         maybe_update_jacobian_pushed_forward_2nd_derivatives<dim, spacedim>(
           CellSimilarity::none,
           data_set,
           data,
-          output_data.jacobian_pushed_forward_2nd_derivatives);
+          output_data.jacobian_pushed_forward_2nd_derivatives,
+          n_q_points);
         maybe_update_jacobian_3rd_derivatives<dim, spacedim>(
           CellSimilarity::none,
           data_set,
           data,
-          output_data.jacobian_3rd_derivatives);
+          output_data.jacobian_3rd_derivatives,
+          n_q_points);
         maybe_update_jacobian_pushed_forward_3rd_derivatives<dim, spacedim>(
           CellSimilarity::none,
           data_set,
           data,
-          output_data.jacobian_pushed_forward_3rd_derivatives);
+          output_data.jacobian_pushed_forward_3rd_derivatives,
+          n_q_points);
 
         maybe_compute_face_data(mapping,
                                 cell,
                                 face_no,
                                 subface_no,
-                                quadrature.size(),
+                                n_q_points,
                                 data_set,
                                 data,
                                 output_data);
@@ -1553,7 +1586,7 @@ void
 MappingFE<dim, spacedim>::fill_fe_face_values(
   const typename Triangulation<dim, spacedim>::cell_iterator &cell,
   const unsigned int                                          face_no,
-  const Quadrature<dim - 1> &                                 quadrature,
+  const hp::QCollection<dim - 1> &                            quadrature,
   const typename Mapping<dim, spacedim>::InternalDataBase &   internal_data,
   internal::FEValuesImplementation::MappingRelatedData<dim, spacedim>
     &output_data) const
@@ -1586,8 +1619,8 @@ MappingFE<dim, spacedim>::fill_fe_face_values(
                                              cell->face_orientation(face_no),
                                              cell->face_flip(face_no),
                                              cell->face_rotation(face_no),
-                                             quadrature.size()),
-    quadrature,
+                                             quadrature),
+    quadrature[quadrature.size() == 1 ? 0 : face_no],
     data,
     output_data);
 }

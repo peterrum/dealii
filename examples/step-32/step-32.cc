@@ -1264,7 +1264,7 @@ namespace Step32
   template <int dim>
   double BoussinesqFlowProblem<dim>::get_maximal_velocity() const
   {
-    const QIterated<dim> quadrature_formula(QTrapez<1>(),
+    const QIterated<dim> quadrature_formula(QTrapezoid<1>(),
                                             parameters.stokes_velocity_degree);
     const unsigned int   n_q_points = quadrature_formula.size();
 
@@ -1306,7 +1306,7 @@ namespace Step32
   template <int dim>
   double BoussinesqFlowProblem<dim>::get_cfl_number() const
   {
-    const QIterated<dim> quadrature_formula(QTrapez<1>(),
+    const QIterated<dim> quadrature_formula(QTrapezoid<1>(),
                                             parameters.stokes_velocity_degree);
     const unsigned int   n_q_points = quadrature_formula.size();
 
@@ -1461,7 +1461,7 @@ namespace Step32
   std::pair<double, double>
   BoussinesqFlowProblem<dim>::get_extrapolated_temperature_range() const
   {
-    const QIterated<dim> quadrature_formula(QTrapez<1>(),
+    const QIterated<dim> quadrature_formula(QTrapezoid<1>(),
                                             parameters.temperature_degree);
     const unsigned int   n_q_points = quadrature_formula.size();
 
@@ -1830,9 +1830,10 @@ namespace Step32
   {
     TimerOutput::Scope timing_section(computing_timer, "Setup dof systems");
 
+    stokes_dof_handler.distribute_dofs(stokes_fe);
+
     std::vector<unsigned int> stokes_sub_blocks(dim + 1, 0);
     stokes_sub_blocks[dim] = 1;
-    stokes_dof_handler.distribute_dofs(stokes_fe);
     DoFRenumbering::component_wise(stokes_dof_handler, stokes_sub_blocks);
 
     temperature_dof_handler.distribute_dofs(temperature_fe);

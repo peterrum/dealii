@@ -21,7 +21,7 @@
 //                                 dealii::AffineConstraints<double> &,
 //                                 const std::vector<bool>  &,
 //                                 bool, bool, bool)
-// for correct behaviour on non standard oriented meshes.
+// for correct behavior on non standard oriented meshes.
 //
 // a redux of why the 21_b test failed starting in r29525. in essence,
 // what it boils down is that the new code did not implement the
@@ -178,10 +178,10 @@ main()
   // Generate a triangulation and match:
   Triangulation<2> triangulation;
   FE_Q<2>          fe(1);
-  DoFHandler<2>    dof_handler;
+  DoFHandler<2>    dof_handler(triangulation);
 
   generate_grid(triangulation);
-  dof_handler.initialize(triangulation, fe);
+  dof_handler.distribute_dofs(fe);
   print_matching(dof_handler);
 
   return 0;

@@ -20,25 +20,29 @@
 
 #include <deal.II/base/array_view.h>
 
+
 DEAL_II_NAMESPACE_OPEN
 
 namespace Particles
 {
   /**
-   * This class manages a memory space in which particles store their
-   * properties. Because this is dynamic memory and often every particle
-   * needs the same amount, it is more efficient to let this be handled by a
-   * central manager that does not need to allocate/deallocate memory every
-   * time a particle is constructed/destroyed.
-   * The current implementation uses simple new/delete allocation for every
-   * block. Additionally, the current implementation
-   * assumes the same number of properties per particle, but of course the
-   * PropertyType could contain a pointer to dynamically allocated memory
-   * with varying sizes per particle (this memory would not be managed by this
-   * class).
-   * Because PropertyPool only returns handles it could be enhanced internally
-   * (e.g. to allow for varying number of properties per handle) without
-   * affecting its interface.
+   * This class manages a memory space in which all particles associated with
+   * a ParticleHandler store their properties. The rationale for this class is
+   * that because typically every particle stores the same number of
+   * properties, and because algorithms generally traverse over all particles
+   * doing the same operation on all particles' properties, it is more efficient
+   * to let the memory used for properties be handled by a central manager.
+   * Particles then do not store a pointer to a memory area in which they store
+   * their properties, but instead a "handle" that the PropertyPool class then
+   * translates into a pointer to concrete memory.
+   *
+   * All this said, the current implementation only provides this kind of
+   * interface, but still uses simple new/delete allocation for every
+   * set of properties requested by a particle. Additionally, the current
+   * implementation assumes the same number of properties per particle, but of
+   * course the PropertyType could contain a pointer to dynamically allocated
+   * memory with varying sizes per particle (this memory would not be managed by
+   * this class).
    */
   class PropertyPool
   {
@@ -48,7 +52,7 @@ namespace Particles
      * uniquely identifies the slot of memory that is reserved for this
      * particle.
      */
-    using Handle = double *;
+    using Handle = unsigned int;
 
     /**
      * Define a default (invalid) value for handles.
@@ -61,20 +65,40 @@ namespace Particles
     PropertyPool(const unsigned int n_properties_per_slot);
 
     /**
-     * Return a new handle that allows accessing the reserved block
-     * of memory. If the number of properties is zero this will return an
-     * invalid handle.
+     * Destructor. This function ensures that all memory that had
+     * previously been allocated using allocate_properties_array()
+     * has also been returned via deallocate_properties_array().
+     */
+    ~PropertyPool();
+
+    /**
+     * Clear the dynamic memory allocated by this class. This function
+     * ensures that all memory that had previously been allocated using
+     * allocate_properties_array() has also been returned via
+     * deallocate_properties_array().
+     */
+    void
+    clear();
+
+    /**
+     * Return a new handle that allows accessing the reserved particle
+     * properties. If the number of properties is zero this will return an
+     * invalid handle. Handles can be copied, but after deallocating one
+     * of the copied handles using any of the other copies will cause
+     * undefined behavior.
      */
     Handle
     allocate_properties_array();
 
     /**
      * Mark the properties corresponding to the handle @p handle as
-     * deleted. Calling this function more than once for the same
-     * handle causes undefined behavior.
+     * deleted and invalidate the @p handle. Calling this function
+     * more than once for the same handle (e.g. by calling it again
+     * with a copy of the previously invalidated handle) causes
+     * undefined behavior.
      */
     void
-    deallocate_properties_array(const Handle handle);
+    deallocate_properties_array(Handle &handle);
 
     /**
      * Return an ArrayView to the properties that correspond to the given
@@ -101,7 +125,44 @@ namespace Particles
      * The number of properties that are reserved per particle.
      */
     const unsigned int n_properties;
+
+    /**
+     * The currently allocated properties (whether assigned to
+     * a particle or available for assignment).
+     */
+    std::vector<double> properties;
+
+    /**
+     * A collection of handles that have been created by
+     * allocate_properties_array() and have been destroyed by
+     * deallocate_properties_array(). Since the memory is still
+     * allocated these handles can be reused for new particles
+     * to avoid memory allocation.
+     */
+    std::vector<Handle> currently_available_handles;
   };
+
+  /* ---------------------- inline and template functions ------------------ */
+
+  inline ArrayView<double>
+  PropertyPool::get_properties(const Handle handle)
+  {
+    const std::vector<double>::size_type data_index =
+      (handle != invalid_handle) ? handle * n_properties : 0;
+
+    // Ideally we would need to assert that 'handle' has not been deallocated
+    // by searching through 'currently_available_handles'. However, this
+    // is expensive and this function is performance critical, so instead
+    // just check against the properties range, and rely on the fact
+    // that handles are invalidated when handed over to
+    // deallocate_properties_array().
+    Assert(data_index <= properties.size() - n_properties,
+           ExcMessage("Invalid property handle. This can happen if the "
+                      "handle was duplicated and then one copy was deallocated "
+                      "before trying to access the properties."));
+
+    return ArrayView<double>(properties.data() + data_index, n_properties);
+  }
 
 
 } // namespace Particles

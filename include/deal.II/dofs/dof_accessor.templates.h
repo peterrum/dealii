@@ -88,9 +88,7 @@ inline DoFAccessor<structdim, dim, spacedim, level_dof_access>::DoFAccessor(
   Assert(false,
          ExcMessage(
            "You are trying to assign iterators that are incompatible. "
-           "Reasons for incompatibility are that they point to different "
-           "types of DoFHandlers (e.g., dealii::DoFHandler and "
-           "dealii::hp::DoFHandler) or that they refer to objects of "
+           "The reason for incompatibility is that they refer to objects of "
            "different dimensionality (e.g., assigning a line iterator "
            "to a quad iterator)."));
 }
@@ -281,29 +279,26 @@ namespace internal
         AssertIndexRange(obj_level, dof_handler.object_dof_indices.size());
         AssertIndexRange(d, dof_handler.object_dof_indices[obj_level].size());
 
-        unsigned int fe_index_;
+        Assert(dof_handler.hp_capability_enabled, ExcInternalError());
 
-        if (dof_handler.hp_capability_enabled)
-          {
-            AssertIndexRange(d, dof_handler.hp_object_fe_ptr.size());
-            AssertIndexRange(obj_index, dof_handler.hp_object_fe_ptr[d].size());
+        AssertIndexRange(d, dof_handler.hp_object_fe_ptr.size());
+        AssertIndexRange(obj_index, dof_handler.hp_object_fe_ptr[d].size());
 
-            const auto ptr =
-              std::find(dof_handler.hp_object_fe_indices[d].begin() +
+        const auto ptr =
+          std::find(dof_handler.hp_object_fe_indices[d].begin() +
+                      dof_handler.hp_object_fe_ptr[d][obj_index],
+                    dof_handler.hp_object_fe_indices[d].begin() +
+                      dof_handler.hp_object_fe_ptr[d][obj_index + 1],
+                    fe_index);
+
+        Assert(ptr != dof_handler.hp_object_fe_indices[d].begin() +
+                        dof_handler.hp_object_fe_ptr[d][obj_index + 1],
+               ExcNotImplemented());
+
+        const unsigned int fe_index_ =
+          std::distance(dof_handler.hp_object_fe_indices[d].begin() +
                           dof_handler.hp_object_fe_ptr[d][obj_index],
-                        dof_handler.hp_object_fe_indices[d].begin() +
-                          dof_handler.hp_object_fe_ptr[d][obj_index + 1],
-                        fe_index);
-
-            Assert(ptr != dof_handler.hp_object_fe_indices[d].begin() +
-                            dof_handler.hp_object_fe_ptr[d][obj_index + 1],
-                   ExcNotImplemented());
-
-            fe_index_ =
-              std::distance(dof_handler.hp_object_fe_indices[d].begin() +
-                              dof_handler.hp_object_fe_ptr[d][obj_index],
-                            ptr);
-          }
+                        ptr);
 
         AssertIndexRange(dof_handler.hp_capability_enabled ?
                            (dof_handler.hp_object_fe_ptr[d][obj_index] +
@@ -354,7 +349,7 @@ namespace internal
               dof_handler.object_dof_ptr[obj_level][d][obj_index];
             const unsigned int ptr_1 =
               ptr_0 +
-              dof_handler.get_fe(fe_index).template n_dofs_per_object<dim>();
+              dof_handler.get_fe(fe_index).template n_dofs_per_object<dim>(0);
 
             return {ptr_0, ptr_1};
           }
@@ -551,7 +546,7 @@ namespace internal
       {
         Assert(dof_handler.hp_capability_enabled == false,
                ExcMessage(
-                 "hp::DoFHandler does not implement multilevel DoFs."));
+                 "DoFHandler in hp-mode does not implement multilevel DoFs."));
 
         return dof_handler.mg_vertex_dofs[vertex_index].get_index(
           level, i, dof_handler.get_fe().n_dofs_per_vertex());
@@ -569,7 +564,7 @@ namespace internal
       {
         Assert(dof_handler.hp_capability_enabled == false,
                ExcMessage(
-                 "hp::DoFHandler does not implement multilevel DoFs."));
+                 "DoFHandler in hp-mode does not implement multilevel DoFs."));
 
         return dof_handler.mg_vertex_dofs[vertex_index].set_index(
           level, i, dof_handler.get_fe().n_dofs_per_vertex(), index);
@@ -822,43 +817,31 @@ namespace internal
           {
             const auto &fe = accessor.get_fe(fe_index_);
 
-            const unsigned int                          //
-              dofs_per_vertex = fe.n_dofs_per_vertex(), //
-              dofs_per_line   = fe.n_dofs_per_line(),   //
-              dofs_per_quad   = fe.n_dofs_per_quad(),   //
-              dofs_per_hex    = fe.n_dofs_per_hex();    //
-
-            const unsigned int inner_dofs =
-              structdim == 1 ? dofs_per_line :
-                               (structdim == 2 ? dofs_per_quad : dofs_per_hex);
+            const unsigned int                                   //
+              dofs_per_vertex = fe.n_dofs_per_vertex(),          //
+              dofs_per_line   = fe.n_dofs_per_line(),            //
+              dofs_per_quad   = fe.n_dofs_per_quad(0 /*dummy*/), //
+              dofs_per_hex    = fe.n_dofs_per_hex();             //
 
             unsigned int index = 0;
 
             // 1) VERTEX dofs
-            for (const auto vertex : accessor.vertex_indices())
-              {
-                (void)vertex;
-                index += dofs_per_vertex;
-              }
+            index += dofs_per_vertex * accessor.n_vertices();
 
             // 2) LINE dofs
             if (structdim == 2 || structdim == 3)
-              for (const auto line : accessor.line_indices())
-                {
-                  (void)line;
-                  index += dofs_per_line;
-                }
+              index += dofs_per_line * accessor.n_lines();
 
             // 3) FACE dofs
             if (structdim == 3)
-              for (const auto face : accessor.face_indices())
-                {
-                  (void)face;
-                  index += dofs_per_quad;
-                }
+              index += dofs_per_quad * accessor.n_faces();
 
             // 4) INNER dofs
-            index += inner_dofs;
+            const unsigned int interior_dofs =
+              structdim == 1 ? dofs_per_line :
+                               (structdim == 2 ? dofs_per_quad : dofs_per_hex);
+
+            index += interior_dofs;
 
             return index;
           }
@@ -968,6 +951,7 @@ namespace internal
               [&](const auto d) {
                 return fe.adjust_quad_dof_index_for_face_orientation(
                   d,
+                  quad,
                   accessor.face_orientation(quad),
                   accessor.face_flip(quad),
                   accessor.face_rotation(quad));
@@ -1213,7 +1197,7 @@ namespace internal
           (void)fe_index;
 
           for (unsigned int d = 0;
-               d < fe.template n_dofs_per_object<structdim_>();
+               d < fe.template n_dofs_per_object<structdim_>(0);
                ++d, ++index)
             index_value[index] = accessor.mg_dof_index(level, mapping(d));
         }
@@ -1293,7 +1277,7 @@ namespace internal
           (void)fe_index;
 
           for (unsigned int d = 0;
-               d < fe.template n_dofs_per_object<structdim_>();
+               d < fe.template n_dofs_per_object<structdim_>(0);
                ++d, ++index)
             accessor.set_mg_dof_index(level, mapping(d), index_value[index]);
         }
@@ -1577,7 +1561,8 @@ DoFAccessor<structdim, dim, spacedim, level_dof_access>::mg_vertex_dof_index(
   AssertIndexRange(i, this->dof_handler->get_fe(fe_index).n_dofs_per_vertex());
 
   Assert(dof_handler->hp_capability_enabled == false,
-         ExcMessage("hp::DoFHandler does not implement multilevel DoFs."));
+         ExcMessage(
+           "DoFHandler in hp-mode does not implement multilevel DoFs."));
 
   return this->dof_handler->mg_vertex_dofs[this->vertex_index(vertex)]
     .get_index(level, i, this->dof_handler->get_fe().n_dofs_per_vertex());
@@ -1629,7 +1614,8 @@ DoFAccessor<structdim, dim, spacedim, level_dof_access>::
   AssertIndexRange(i, this->dof_handler->get_fe(fe_index).n_dofs_per_vertex());
 
   Assert(dof_handler->hp_capability_enabled == false,
-         ExcMessage("hp::DoFHandler does not implement multilevel DoFs."));
+         ExcMessage(
+           "DoFHandler in hp-mode does not implement multilevel DoFs."));
 
   this->dof_handler->mg_vertex_dofs[this->vertex_index(vertex)].set_index(
     level, i, this->dof_handler->get_fe().n_dofs_per_vertex(), index);
@@ -2460,6 +2446,26 @@ DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::child(
 
 
 template <int dimension_, int space_dimension_, bool level_dof_access>
+inline boost::container::small_vector<
+  TriaIterator<DoFCellAccessor<dimension_, space_dimension_, level_dof_access>>,
+  GeometryInfo<dimension_>::max_children_per_cell>
+DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::
+  child_iterators() const
+{
+  boost::container::small_vector<
+    TriaIterator<
+      DoFCellAccessor<dimension_, space_dimension_, level_dof_access>>,
+    GeometryInfo<dimension_>::max_children_per_cell>
+    child_iterators(this->n_children());
+
+  for (unsigned int i = 0; i < this->n_children(); ++i)
+    child_iterators[i] = this->child(i);
+
+  return child_iterators;
+}
+
+
+template <int dimension_, int space_dimension_, bool level_dof_access>
 inline TriaIterator<
   DoFCellAccessor<dimension_, space_dimension_, level_dof_access>>
 DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::parent() const
@@ -2747,11 +2753,18 @@ DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::get_fe() const
   Assert((this->dof_handler->hp_capability_enabled == false) ||
            this->is_active(),
          ExcMessage(
-           "In hp::DoFHandler objects, finite elements are only associated "
-           "with active cells. Consequently, you can not ask for the "
-           "active finite element on cells with children."));
+           "For DoFHandler objects in hp-mode, finite elements are only "
+           "associated with active cells. Consequently, you can not ask "
+           "for the active finite element on cells with children."));
 
-  return this->dof_handler->get_fe(active_fe_index());
+  const auto &fe = this->dof_handler->get_fe(active_fe_index());
+
+  Assert(
+    this->reference_cell_type() == fe.reference_cell_type(),
+    ExcMessage(
+      "The reference-cell type of the cell does not match the one of the finite element!"));
+
+  return fe;
 }
 
 
@@ -2814,9 +2827,9 @@ DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::get_future_fe()
   Assert((this->dof_handler->hp_capability_enabled == false) ||
            this->is_active(),
          ExcMessage(
-           "In hp::DoFHandler objects, finite elements are only associated "
-           "with active cells. Consequently, you can not ask for the "
-           "future finite element on cells with children."));
+           "For DoFHandler objects in hp-mode, finite elements are only "
+           "associated with active cells. Consequently, you can not ask "
+           "for the future finite element on cells with children."));
 
   return this->dof_handler->get_fe(future_fe_index());
 }
@@ -2910,6 +2923,40 @@ DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::
 
   dealii::internal::DoFCellAccessorImplementation::Implementation::
     clear_future_fe_index(*this);
+}
+
+
+
+template <int dimension_, int space_dimension_, bool level_dof_access>
+inline unsigned int
+DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::
+  dominated_future_fe_on_children() const
+{
+  Assert(!this->is_active(),
+         ExcMessage(
+           "You ask for information on children of this cell which is only "
+           "available for active cells. This cell has no children."));
+
+  std::set<unsigned int> future_fe_indices_children;
+  for (const auto &child : this->child_iterators())
+    {
+      Assert(
+        child->is_active(),
+        ExcMessage(
+          "You ask for information on children of this cell which is only "
+          "available for active cells. One of its children is not active."));
+      future_fe_indices_children.insert(child->future_fe_index());
+    }
+  Assert(!future_fe_indices_children.empty(), ExcInternalError());
+
+  const unsigned int future_fe_index =
+    this->dof_handler->fe_collection.find_dominated_fe_extended(
+      future_fe_indices_children, /*codim=*/0);
+
+  Assert(future_fe_index != numbers::invalid_unsigned_int,
+         ExcNoDominatedFiniteElementOnChildren());
+
+  return future_fe_index;
 }
 
 

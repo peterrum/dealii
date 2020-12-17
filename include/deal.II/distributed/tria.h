@@ -301,7 +301,7 @@ namespace parallel
          * every time a repartitioning in p4est happens. This can be a bit more
          * expensive, but guarantees the same memory layout and therefore cell
          * ordering in the deal.II mesh. As assembly is done in the deal.II
-         * cell ordering, this flag is required to get reproducible behaviour
+         * cell ordering, this flag is required to get reproducible behavior
          * after snapshot/resume.
          */
         mesh_reconstruction_after_repartitioning = 0x1,
@@ -353,7 +353,7 @@ namespace parallel
        * triangulation is partitioned.
        */
       explicit Triangulation(
-        MPI_Comm mpi_communicator,
+        const MPI_Comm &mpi_communicator,
         const typename dealii::Triangulation<dim, spacedim>::MeshSmoothing
                        smooth_grid = (dealii::Triangulation<dim, spacedim>::none),
         const Settings settings    = default_setting);
@@ -405,10 +405,10 @@ namespace parallel
                            const std::vector<CellData<dim>> &  cells,
                            const SubCellData &subcelldata) override;
 
-      /*
+      /**
        * @copydoc Triangulation::create_triangulation()
        *
-       * @note Not inmplemented yet.
+       * @note Not implemented yet.
        */
       virtual void
       create_triangulation(
@@ -828,7 +828,7 @@ namespace parallel
        * This returns a pointer to the internally stored p4est object (of type
        * p4est_t or p8est_t depending on @p dim).
        *
-       * @warning: If you modify the p4est object, internal data structures
+       * @warning If you modify the p4est object, internal data structures
        * can become inconsistent.
        */
       const typename dealii::internal::p4est::types<dim>::forest *
@@ -967,7 +967,7 @@ namespace parallel
       class DataTransfer
       {
       public:
-        DataTransfer(MPI_Comm mpi_communicator);
+        DataTransfer(const MPI_Comm &mpi_communicator);
 
         /**
          * Prepare data transfer by calling the pack callback functions on each
@@ -1247,7 +1247,7 @@ namespace parallel
        * the triangulation.
        */
       Triangulation(
-        MPI_Comm mpi_communicator,
+        const MPI_Comm &mpi_communicator,
         const typename dealii::Triangulation<1, spacedim>::MeshSmoothing
                        smooth_grid = (dealii::Triangulation<1, spacedim>::none),
         const Settings settings    = default_setting);

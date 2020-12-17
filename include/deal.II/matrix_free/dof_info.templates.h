@@ -382,7 +382,9 @@ namespace internal
 
 
     void
-    DoFInfo::assign_ghosts(const std::vector<unsigned int> &boundary_cells)
+    DoFInfo::assign_ghosts(const std::vector<unsigned int> &boundary_cells,
+                           const MPI_Comm &                 communicator_sm,
+                           const bool use_vector_data_exchanger_full)
     {
       Assert(boundary_cells.size() < row_starts.size(), ExcInternalError());
 
@@ -473,7 +475,7 @@ namespace internal
                         (cell_active_fe_index.size() == 0 ||
                          dofs_per_cell.size() == 1) ?
                           0 :
-                          cell_active_fe_index[i];
+                          cell_active_fe_index[boundary_cells[i]];
                       AssertIndexRange(fe_index, dofs_per_cell.size());
                       const unsigned int *row_end =
                         data_ptr + dofs_per_cell[fe_index];
@@ -496,6 +498,15 @@ namespace internal
       Utilities::MPI::Partitioner *vec_part =
         const_cast<Utilities::MPI::Partitioner *>(vector_partitioner.get());
       vec_part->set_ghost_indices(ghost_indices);
+
+      if (use_vector_data_exchanger_full == false)
+        vector_exchanger =
+          std::make_shared<internal::MatrixFreeFunctions::VectorDataExchange::
+                             PartitionerWrapper>(vector_partitioner);
+      else
+        vector_exchanger = std::make_shared<
+          internal::MatrixFreeFunctions::VectorDataExchange::Full>(
+          vector_partitioner, communicator_sm);
     }
 
 
@@ -1066,7 +1077,8 @@ namespace internal
       for (unsigned int face = 0; face < faces.size(); ++face)
         {
           auto face_computation = [&](const DoFAccessIndex face_index,
-                                      const unsigned int * cell_indices_face) {
+                                      const std::array<unsigned int, length>
+                                        &cell_indices_face) {
             bool is_contiguous      = false;
             bool is_interleaved     = false;
             bool needs_full_storage = false;
@@ -1168,7 +1180,9 @@ namespace internal
       const unsigned int                        n_lanes,
       const std::vector<FaceToCellTopology<1>> &inner_faces,
       const std::vector<FaceToCellTopology<1>> &ghosted_faces,
-      const bool                                fill_cell_centric)
+      const bool                                fill_cell_centric,
+      const MPI_Comm &                          communicator_sm,
+      const bool                                use_vector_data_exchanger_full)
     {
       const Utilities::MPI::Partitioner &part = *vector_partitioner;
 
@@ -1208,17 +1222,27 @@ namespace internal
           Utilities::MPI::min<int>(compressed_set.n_elements() ==
                                      part.ghost_indices().n_elements(),
                                    part.get_mpi_communicator()) != 0;
+
+        std::shared_ptr<const Utilities::MPI::Partitioner> temp_0;
+
         if (all_ghosts_equal)
-          vector_partitioner_face_variants[0] = vector_partitioner;
+          temp_0 = vector_partitioner;
         else
           {
-            vector_partitioner_face_variants[0] =
-              std::make_shared<Utilities::MPI::Partitioner>(
-                part.locally_owned_range(), part.get_mpi_communicator());
-            const_cast<Utilities::MPI::Partitioner *>(
-              vector_partitioner_face_variants[0].get())
+            temp_0 = std::make_shared<Utilities::MPI::Partitioner>(
+              part.locally_owned_range(), part.get_mpi_communicator());
+            const_cast<Utilities::MPI::Partitioner *>(temp_0.get())
               ->set_ghost_indices(compressed_set, part.ghost_indices());
           }
+
+        if (use_vector_data_exchanger_full == false)
+          vector_exchanger_face_variants[0] =
+            std::make_shared<internal::MatrixFreeFunctions::VectorDataExchange::
+                               PartitionerWrapper>(temp_0);
+        else
+          vector_exchanger_face_variants[0] = std::make_shared<
+            internal::MatrixFreeFunctions::VectorDataExchange::Full>(
+            temp_0, communicator_sm);
       }
 
       // construct a numbering of faces
@@ -1432,33 +1456,87 @@ namespace internal
             }
         };
 
+      std::shared_ptr<const Utilities::MPI::Partitioner> temp_1, temp_2, temp_3,
+        temp_4;
+
       // partitioner 1: values on faces
-      process_values(vector_partitioner_face_variants[1], loop_over_faces);
+      process_values(temp_1, loop_over_faces);
 
       // partitioner 2: values and gradients on faces
-      process_gradients(vector_partitioner_face_variants[1],
-                        vector_partitioner_face_variants[2],
-                        loop_over_faces);
+      process_gradients(temp_1, temp_2, loop_over_faces);
 
       if (fill_cell_centric)
         {
           ghost_indices.clear();
           // partitioner 3: values on all faces
-          process_values(vector_partitioner_face_variants[3],
-                         loop_over_all_faces);
+          process_values(temp_3, loop_over_all_faces);
           // partitioner 4: values and gradients on faces
-          process_gradients(vector_partitioner_face_variants[3],
-                            vector_partitioner_face_variants[4],
-                            loop_over_all_faces);
+          process_gradients(temp_3, temp_4, loop_over_all_faces);
         }
       else
         {
-          vector_partitioner_face_variants[3] =
-            std::make_shared<Utilities::MPI::Partitioner>(
-              part.locally_owned_range(), part.get_mpi_communicator());
-          vector_partitioner_face_variants[4] =
-            std::make_shared<Utilities::MPI::Partitioner>(
-              part.locally_owned_range(), part.get_mpi_communicator());
+          temp_3 = std::make_shared<Utilities::MPI::Partitioner>(
+            part.locally_owned_range(), part.get_mpi_communicator());
+          temp_4 = std::make_shared<Utilities::MPI::Partitioner>(
+            part.locally_owned_range(), part.get_mpi_communicator());
+        }
+
+      if (use_vector_data_exchanger_full == false)
+        {
+          vector_exchanger_face_variants[1] =
+            std::make_shared<internal::MatrixFreeFunctions::VectorDataExchange::
+                               PartitionerWrapper>(temp_1);
+          vector_exchanger_face_variants[2] =
+            std::make_shared<internal::MatrixFreeFunctions::VectorDataExchange::
+                               PartitionerWrapper>(temp_2);
+          vector_exchanger_face_variants[3] =
+            std::make_shared<internal::MatrixFreeFunctions::VectorDataExchange::
+                               PartitionerWrapper>(temp_3);
+          vector_exchanger_face_variants[4] =
+            std::make_shared<internal::MatrixFreeFunctions::VectorDataExchange::
+                               PartitionerWrapper>(temp_4);
+        }
+      else
+        {
+          vector_exchanger_face_variants[1] = std::make_shared<
+            internal::MatrixFreeFunctions::VectorDataExchange::Full>(
+            temp_1, communicator_sm);
+          vector_exchanger_face_variants[2] = std::make_shared<
+            internal::MatrixFreeFunctions::VectorDataExchange::Full>(
+            temp_2, communicator_sm);
+          vector_exchanger_face_variants[3] = std::make_shared<
+            internal::MatrixFreeFunctions::VectorDataExchange::Full>(
+            temp_3, communicator_sm);
+          vector_exchanger_face_variants[4] = std::make_shared<
+            internal::MatrixFreeFunctions::VectorDataExchange::Full>(
+            temp_4, communicator_sm);
+        }
+    }
+
+
+
+    void
+    DoFInfo::compute_shared_memory_contiguous_indices(
+      std::array<std::vector<std::pair<unsigned int, unsigned int>>, 3>
+        &cell_indices_contiguous_sm)
+    {
+      AssertDimension(dofs_per_cell.size(), 1);
+
+      for (unsigned int i = 0; i < 3; ++i)
+        {
+          dof_indices_contiguous_sm[i].resize(
+            cell_indices_contiguous_sm[i].size());
+
+          for (unsigned int j = 0; j < cell_indices_contiguous_sm[i].size();
+               ++j)
+            if (cell_indices_contiguous_sm[i][j].first !=
+                numbers::invalid_unsigned_int)
+              dof_indices_contiguous_sm[i][j] = {
+                cell_indices_contiguous_sm[i][j].first,
+                cell_indices_contiguous_sm[i][j].second * dofs_per_cell[0]};
+            else
+              dof_indices_contiguous_sm[i][j] = {numbers::invalid_unsigned_int,
+                                                 numbers::invalid_unsigned_int};
         }
     }
 
@@ -1900,12 +1978,12 @@ namespace internal
 
       types::global_dof_index counter      = 0;
       const unsigned int      n_components = start_components.back();
-      const unsigned int      n_macro_cells =
+      const unsigned int      n_cell_batches =
         n_vectorization_lanes_filled[dof_access_cell].size();
-      Assert(n_macro_cells <=
+      Assert(n_cell_batches <=
                (row_starts.size() - 1) / vectorization_length / n_components,
              ExcInternalError());
-      for (unsigned int cell_no = 0; cell_no < n_macro_cells; ++cell_no)
+      for (unsigned int cell_no = 0; cell_no < n_cell_batches; ++cell_no)
         {
           // do not renumber in case we have constraints
           if (row_starts[cell_no * n_components * vectorization_length]

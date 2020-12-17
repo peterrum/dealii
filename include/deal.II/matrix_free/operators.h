@@ -853,7 +853,7 @@ namespace MatrixFreeOperators
      * coefficient = std::make_shared<Table<2, VectorizedArray<double> > >();
      * {
      *   FEEvaluation<dim,fe_degree,n_q_points_1d,1,double> fe_eval(mf_data);
-     *   const unsigned int n_cells = mf_data.n_macro_cells();
+     *   const unsigned int n_cells = mf_data.n_cell_batches();
      *   const unsigned int n_q_points = fe_eval.n_q_points;
      *   coefficient->reinit(n_cells, n_q_points);
      *   for (unsigned int cell=0; cell<n_cells; ++cell)
@@ -991,8 +991,7 @@ namespace MatrixFreeOperators
            ExcMessage(
              "Expected diagonal to be a multiple of scalar dof per cells"));
 
-    // temporarily reduce size of inverse_jxw to dofs_per_cell to get JxW values
-    // from fe_eval (will not reallocate any memory)
+    // compute values for the first component
     for (unsigned int q = 0; q < dofs_per_component_on_cell; ++q)
       inverse_jxw[q] = 1. / fe_eval.JxW(q);
     // copy values to rest of vector
@@ -1017,11 +1016,8 @@ namespace MatrixFreeOperators
     VectorizedArrayType>::apply(const VectorizedArrayType *in_array,
                                 VectorizedArrayType *      out_array) const
   {
-    internal::CellwiseInverseMassMatrixImpl<
-      dim,
-      fe_degree,
-      n_components,
-      VectorizedArrayType>::apply(fe_eval, in_array, out_array);
+    internal::CellwiseInverseMassMatrixImplBasic<dim, VectorizedArrayType>::
+      template run<fe_degree>(n_components, fe_eval, in_array, out_array);
   }
 
 
@@ -1042,15 +1038,13 @@ namespace MatrixFreeOperators
           const VectorizedArrayType *               in_array,
           VectorizedArrayType *                     out_array) const
   {
-    internal::CellwiseInverseMassMatrixImpl<dim,
-                                            fe_degree,
-                                            n_components,
-                                            VectorizedArrayType>::
-      apply(fe_eval.get_shape_info().data.front().inverse_shape_values_eo,
-            inverse_coefficients,
-            n_actual_components,
-            in_array,
-            out_array);
+    internal::CellwiseInverseMassMatrixImplFlexible<dim, VectorizedArrayType>::
+      template run<fe_degree>(
+        n_actual_components,
+        fe_eval.get_shape_info().data.front().inverse_shape_values_eo,
+        inverse_coefficients,
+        in_array,
+        out_array);
   }
 
 
@@ -1070,15 +1064,14 @@ namespace MatrixFreeOperators
                                      const VectorizedArrayType *in_array,
                                      VectorizedArrayType *      out_array) const
   {
-    internal::CellwiseInverseMassMatrixImpl<dim,
-                                            fe_degree,
-                                            n_components,
-                                            VectorizedArrayType>::
-      transform_from_q_points_to_basis(
-        fe_eval.get_shape_info().data.front().inverse_shape_values_eo,
-        n_actual_components,
-        in_array,
-        out_array);
+    internal::CellwiseInverseMassMatrixImplTransformFromQPoints<
+      dim,
+      VectorizedArrayType>::template run<fe_degree>(n_actual_components,
+                                                    fe_eval.get_shape_info()
+                                                      .data.front()
+                                                      .inverse_shape_values_eo,
+                                                    in_array,
+                                                    out_array);
   }
 
 
@@ -1281,7 +1274,7 @@ namespace MatrixFreeOperators
 
     for (unsigned int j = 0; j < selected_rows.size(); ++j)
       {
-        if (data_->n_macro_cells() > 0)
+        if (data_->n_cell_batches() > 0)
           {
             AssertDimension(level, data_->get_cell_iterator(0, 0, j)->level());
           }
@@ -1392,8 +1385,9 @@ namespace MatrixFreeOperators
         // lost
         LinearAlgebra::distributed::Vector<Number> copy_vec(
           BlockHelper::subblock(src, i));
-        BlockHelper::subblock(const_cast<VectorType &>(src), i)
-          .reinit(data->get_dof_info(mf_component).vector_partitioner);
+        this->data->initialize_dof_vector(
+          BlockHelper::subblock(const_cast<VectorType &>(src), i),
+          mf_component);
         BlockHelper::subblock(const_cast<VectorType &>(src), i)
           .copy_locally_owned_data_from(copy_vec);
       }

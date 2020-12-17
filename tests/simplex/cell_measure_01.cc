@@ -17,7 +17,12 @@
 
 // Test TriaAccessor::measure() and TriaAccessor::diameter().
 
+#include <deal.II/fe/mapping_fe.h>
+
+#include <deal.II/grid/grid_tools.h>
 #include <deal.II/grid/tria.h>
+
+#include <deal.II/simplex/fe_lib.h>
 
 #include "../tests.h"
 
@@ -35,6 +40,24 @@ process(const std::vector<Point<spacedim>> &vertices,
       deallog << "measure:  " << cell->measure() << std::endl;
       deallog << "diameter: " << cell->diameter() << std::endl;
     }
+
+  std::shared_ptr<MappingFE<dim>> mapping;
+
+  const auto reference_cell_types = tria.get_reference_cell_types();
+
+  AssertDimension(reference_cell_types.size(), 1);
+
+  if (reference_cell_types[0] == ReferenceCell::get_simplex(dim))
+    mapping = std::make_shared<MappingFE<dim>>(Simplex::FE_P<dim>(1));
+  else if (reference_cell_types[0] == ReferenceCell::Type::Wedge)
+    mapping = std::make_shared<MappingFE<dim>>(Simplex::FE_WedgeP<dim>(1));
+  else
+    AssertThrow(false, ExcNotImplemented());
+
+  deallog << "diameter_min: "
+          << GridTools::minimal_cell_diameter(tria, *mapping) << std::endl;
+  deallog << "diameter_max: "
+          << GridTools::maximal_cell_diameter(tria, *mapping) << std::endl;
   deallog << std::endl;
 }
 
@@ -72,18 +95,37 @@ test<3>()
   const int dim      = 3;
   const int spacedim = 3;
 
-  std::vector<Point<spacedim>> vertices;
-  vertices.emplace_back(0, 0, 0);
-  vertices.emplace_back(1, 0, 0);
-  vertices.emplace_back(0, 1, 0);
-  vertices.emplace_back(0, 0, 1);
+  {
+    std::vector<Point<spacedim>> vertices;
+    vertices.emplace_back(0, 0, 0);
+    vertices.emplace_back(1, 0, 0);
+    vertices.emplace_back(0, 1, 0);
+    vertices.emplace_back(0, 0, 1);
 
-  std::vector<CellData<dim>> cells;
-  CellData<dim>              cell;
-  cell.vertices = {0, 1, 2, 3};
-  cells.push_back(cell);
+    std::vector<CellData<dim>> cells;
+    CellData<dim>              cell;
+    cell.vertices = {0, 1, 2, 3};
+    cells.push_back(cell);
 
-  process(vertices, cells);
+    process(vertices, cells);
+  }
+
+  {
+    std::vector<Point<spacedim>> vertices;
+    vertices.emplace_back(0, 0, 0);
+    vertices.emplace_back(1, 0, 0);
+    vertices.emplace_back(0, 1, 0);
+    vertices.emplace_back(0, 0, 1);
+    vertices.emplace_back(1, 0, 1);
+    vertices.emplace_back(0, 1, 1);
+
+    std::vector<CellData<dim>> cells;
+    CellData<dim>              cell;
+    cell.vertices = {0, 1, 2, 3, 4, 5};
+    cells.push_back(cell);
+
+    process(vertices, cells);
+  }
 }
 
 int

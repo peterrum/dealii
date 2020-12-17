@@ -43,6 +43,11 @@ namespace hp
     void
     full_p_adaptivity(const dealii::DoFHandler<dim, spacedim> &dof_handler)
     {
+      Assert(
+        dof_handler.has_hp_capabilities(),
+        (typename dealii::DoFHandler<dim,
+                                     spacedim>::ExcNotAvailableWithoutHP()));
+
       std::vector<bool> p_flags(
         dof_handler.get_triangulation().n_active_cells(), true);
 
@@ -57,6 +62,10 @@ namespace hp
       const dealii::DoFHandler<dim, spacedim> &dof_handler,
       const std::vector<bool> &                p_flags)
     {
+      Assert(
+        dof_handler.has_hp_capabilities(),
+        (typename dealii::DoFHandler<dim,
+                                     spacedim>::ExcNotAvailableWithoutHP()));
       AssertDimension(dof_handler.get_triangulation().n_active_cells(),
                       p_flags.size());
 
@@ -99,6 +108,10 @@ namespace hp
       const ComparisonFunction<typename identity<Number>::type>
         &compare_coarsen)
     {
+      Assert(
+        dof_handler.has_hp_capabilities(),
+        (typename dealii::DoFHandler<dim,
+                                     spacedim>::ExcNotAvailableWithoutHP()));
       AssertDimension(dof_handler.get_triangulation().n_active_cells(),
                       criteria.size());
 
@@ -131,6 +144,10 @@ namespace hp
       const ComparisonFunction<typename identity<Number>::type>
         &compare_coarsen)
     {
+      Assert(
+        dof_handler.has_hp_capabilities(),
+        (typename dealii::DoFHandler<dim,
+                                     spacedim>::ExcNotAvailableWithoutHP()));
       AssertDimension(dof_handler.get_triangulation().n_active_cells(),
                       criteria.size());
       Assert((p_refine_fraction >= 0) && (p_refine_fraction <= 1),
@@ -221,6 +238,10 @@ namespace hp
       const ComparisonFunction<typename identity<Number>::type>
         &compare_coarsen)
     {
+      Assert(
+        dof_handler.has_hp_capabilities(),
+        (typename dealii::DoFHandler<dim,
+                                     spacedim>::ExcNotAvailableWithoutHP()));
       AssertDimension(dof_handler.get_triangulation().n_active_cells(),
                       criteria.size());
       Assert((p_refine_fraction >= 0) && (p_refine_fraction <= 1),
@@ -410,6 +431,10 @@ namespace hp
       const dealii::DoFHandler<dim, spacedim> &dof_handler,
       const Vector<Number> &                   sobolev_indices)
     {
+      Assert(
+        dof_handler.has_hp_capabilities(),
+        (typename dealii::DoFHandler<dim,
+                                     spacedim>::ExcNotAvailableWithoutHP()));
       AssertDimension(dof_handler.get_triangulation().n_active_cells(),
                       sobolev_indices.size());
 
@@ -465,6 +490,10 @@ namespace hp
       const ComparisonFunction<typename identity<Number>::type>
         &compare_coarsen)
     {
+      Assert(
+        dof_handler.has_hp_capabilities(),
+        (typename dealii::DoFHandler<dim,
+                                     spacedim>::ExcNotAvailableWithoutHP()));
       AssertDimension(dof_handler.get_triangulation().n_active_cells(),
                       criteria.size());
       AssertDimension(dof_handler.get_triangulation().n_active_cells(),
@@ -514,8 +543,7 @@ namespace hp
       unsigned int parent_future_fe_index = numbers::invalid_unsigned_int;
       // store all determined future finite element indices on parent cells for
       // coarsening
-      std::map<typename hp::DoFHandler<dim, spacedim>::cell_iterator,
-               unsigned int>
+      std::map<typename DoFHandler<dim, spacedim>::cell_iterator, unsigned int>
         future_fe_indices_on_coarsened_cells;
 
       // deep copy error indicators
@@ -542,29 +570,15 @@ namespace hp
                 if (future_fe_indices_on_coarsened_cells.find(parent) ==
                     future_fe_indices_on_coarsened_cells.end())
                   {
-                    std::set<unsigned int> fe_indices_children;
-                    for (unsigned int child_index = 0;
-                         child_index < parent->n_children();
-                         ++child_index)
-                      {
-                        const auto &child = parent->child(child_index);
-                        Assert(child->is_active() && child->coarsen_flag_set(),
-                               typename dealii::Triangulation<
-                                 dim>::ExcInconsistentCoarseningFlags());
-
-                        fe_indices_children.insert(child->future_fe_index());
-                      }
-                    Assert(!fe_indices_children.empty(), ExcInternalError());
+#ifdef DEBUG
+                    for (const auto &child : parent->child_iterators())
+                      Assert(child->is_active() && child->coarsen_flag_set(),
+                             typename dealii::Triangulation<
+                               dim>::ExcInconsistentCoarseningFlags());
+#endif
 
                     parent_future_fe_index =
-                      dof_handler.get_fe_collection()
-                        .find_dominated_fe_extended(fe_indices_children,
-                                                    /*codim=*/0);
-
-                    Assert(
-                      parent_future_fe_index != numbers::invalid_unsigned_int,
-                      typename dealii::hp::FECollection<
-                        dim>::ExcNoDominatedFiniteElementAmongstChildren());
+                      parent->dominated_future_fe_on_children();
 
                     future_fe_indices_on_coarsened_cells.insert(
                       {parent, parent_future_fe_index});
@@ -623,6 +637,11 @@ namespace hp
     void
     force_p_over_h(const dealii::DoFHandler<dim, spacedim> &dof_handler)
     {
+      Assert(
+        dof_handler.has_hp_capabilities(),
+        (typename dealii::DoFHandler<dim,
+                                     spacedim>::ExcNotAvailableWithoutHP()));
+
       for (const auto &cell : dof_handler.active_cell_iterators())
         if (cell->is_locally_owned() && cell->future_fe_index_set())
           {
@@ -637,6 +656,11 @@ namespace hp
     void
     choose_p_over_h(const dealii::DoFHandler<dim, spacedim> &dof_handler)
     {
+      Assert(
+        dof_handler.has_hp_capabilities(),
+        (typename dealii::DoFHandler<dim,
+                                     spacedim>::ExcNotAvailableWithoutHP()));
+
       // Siblings of cells to be coarsened may not be owned by the same
       // processor. We will exchange coarsening flags on ghost cells and
       // temporarily store them.
@@ -645,16 +669,17 @@ namespace hp
       if (dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
             &dof_handler.get_triangulation()))
         {
-          auto pack = [](
-                        const typename dealii::hp::DoFHandler<dim, spacedim>::
-                          active_cell_iterator &cell) -> std::pair<bool, bool> {
+          auto pack =
+            [](const typename dealii::DoFHandler<dim,
+                                                 spacedim>::active_cell_iterator
+                 &cell) -> std::pair<bool, bool> {
             return {cell->coarsen_flag_set(), cell->future_fe_index_set()};
           };
 
-          auto unpack = [&ghost_buffer](
-                          const typename dealii::hp::DoFHandler<dim, spacedim>::
-                            active_cell_iterator &    cell,
-                          const std::pair<bool, bool> pair) -> void {
+          auto unpack =
+            [&ghost_buffer](const typename dealii::DoFHandler<dim, spacedim>::
+                              active_cell_iterator &    cell,
+                            const std::pair<bool, bool> pair) -> void {
             ghost_buffer.emplace(cell->id(), pair);
           };
 
@@ -679,10 +704,8 @@ namespace hp
                 const unsigned int n_children = parent->n_children();
 
                 unsigned int h_flagged_children = 0, p_flagged_children = 0;
-                for (unsigned int child_index = 0; child_index < n_children;
-                     ++child_index)
+                for (const auto &child : parent->child_iterators())
                   {
-                    const auto &child = parent->child(child_index);
                     if (child->is_active())
                       {
                         if (child->is_locally_owned())
@@ -716,10 +739,8 @@ namespace hp
                   {
                     // Perform pure h coarsening and
                     // drop all p adaptation flags.
-                    for (unsigned int child_index = 0; child_index < n_children;
-                         ++child_index)
+                    for (const auto &child : parent->child_iterators())
                       {
-                        const auto &child = parent->child(child_index);
                         // h_flagged_children == n_children implies
                         // that all children are active
                         Assert(child->is_active(), ExcInternalError());
@@ -731,10 +752,8 @@ namespace hp
                   {
                     // Perform p adaptation on all children and
                     // drop all h coarsening flags.
-                    for (unsigned int child_index = 0; child_index < n_children;
-                         ++child_index)
+                    for (const auto &child : parent->child_iterators())
                       {
-                        const auto &child = parent->child(child_index);
                         if (child->is_active() && child->is_locally_owned())
                           child->clear_coarsen_flag();
                       }

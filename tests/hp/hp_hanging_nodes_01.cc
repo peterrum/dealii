@@ -30,7 +30,6 @@
 #include <deal.II/grid/tria_accessor.h>
 #include <deal.II/grid/tria_iterator.h>
 
-#include <deal.II/hp/dof_handler.h>
 #include <deal.II/hp/fe_collection.h>
 
 #include <deal.II/lac/affine_constraints.h>
@@ -96,8 +95,8 @@ test_constraints(hp::FECollection<dim, spacedim> &fe_coll)
   // Now assign increasing
   // active_fe_indices to
   // the different cells.
-  hp::DoFHandler<dim, spacedim> dof_handler(tria);
-  typename hp::DoFHandler<dim, spacedim>::active_cell_iterator
+  DoFHandler<dim, spacedim> dof_handler(tria);
+  typename DoFHandler<dim, spacedim>::active_cell_iterator
     cell               = dof_handler.begin_active(),
     endc               = dof_handler.end();
   unsigned int fe_indx = 0;
@@ -160,7 +159,7 @@ check()
 {
   FE_Q<dim, spacedim> fe_1(1);
   FE_Q<dim, spacedim> fe_2(2);
-  FE_Q<dim, spacedim> fe_3(QIterated<1>(QTrapez<1>(), 3));
+  FE_Q<dim, spacedim> fe_3(QIterated<1>(QTrapezoid<1>(), 3));
 
   hp::FECollection<dim, spacedim> fe_coll2;
   fe_coll2.push_back(fe_3);

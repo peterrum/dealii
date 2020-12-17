@@ -231,7 +231,7 @@ namespace
         else
           // if the neighbor is refined, then it
           // is also refined at our current
-          // face. He will stay so without
+          // face. It will stay so without
           // coarsening, so return true in that
           // case.
           {
@@ -423,7 +423,7 @@ namespace
         std::vector<unsigned int> line_cell_count(triangulation.n_raw_lines(),
                                                   0);
         for (const auto &cell : triangulation.cell_iterators())
-          for (unsigned int l = 0; l < GeometryInfo<dim>::lines_per_cell; ++l)
+          for (unsigned int l = 0; l < cell->n_lines(); ++l)
             ++line_cell_count[cell->line_index(l)];
         return line_cell_count;
       }
@@ -659,9 +659,7 @@ namespace
   template <int dim>
   bool
   has_distorted_children(
-    const typename Triangulation<dim, dim>::cell_iterator &cell,
-    std::integral_constant<int, dim>,
-    std::integral_constant<int, dim>)
+    const typename Triangulation<dim, dim>::cell_iterator &cell)
   {
     Assert(cell->has_children(), ExcInternalError());
 
@@ -694,9 +692,7 @@ namespace
   template <int dim, int spacedim>
   bool
   has_distorted_children(
-    const typename Triangulation<dim, spacedim>::cell_iterator &,
-    std::integral_constant<int, dim>,
-    std::integral_constant<int, spacedim>)
+    const typename Triangulation<dim, spacedim>::cell_iterator &)
   {
     return false;
   }
@@ -791,7 +787,7 @@ namespace
       adjacent_cells(2 * triangulation.n_raw_faces(), dummy);
 
     for (const auto &cell : triangulation.cell_iterators())
-      for (auto f : GeometryInfo<dim>::face_indices())
+      for (auto f : cell->face_indices())
         {
           const typename Triangulation<dim, spacedim>::face_iterator face =
             cell->face(f);
@@ -871,7 +867,7 @@ namespace
     // left_right_offset in this case as we want
     // the offset of the neighbor, not our own.
     for (const auto &cell : triangulation.cell_iterators())
-      for (auto f : GeometryInfo<dim>::face_indices())
+      for (auto f : cell->face_indices())
         {
           const unsigned int offset =
             (cell->direction_flag() ?
@@ -1432,6 +1428,18 @@ namespace internal
             total_cells - tria_level.level_subdomain_ids.size(),
             0);
 
+          tria_level.global_active_cell_indices.reserve(total_cells);
+          tria_level.global_active_cell_indices.insert(
+            tria_level.global_active_cell_indices.end(),
+            total_cells - tria_level.global_active_cell_indices.size(),
+            numbers::invalid_unsigned_int);
+
+          tria_level.global_level_cell_indices.reserve(total_cells);
+          tria_level.global_level_cell_indices.insert(
+            tria_level.global_level_cell_indices.end(),
+            total_cells - tria_level.global_level_cell_indices.size(),
+            numbers::invalid_unsigned_int);
+
           if (dimension < space_dimension)
             {
               tria_level.direction_flags.reserve(total_cells);
@@ -1463,6 +1471,16 @@ namespace internal
               tria_level.face_orientations.insert(
                 tria_level.face_orientations.end(),
                 total_cells * GeometryInfo<3>::faces_per_cell -
+                  tria_level.face_orientations.size(),
+                true);
+            }
+          else if (tria_level.dim == 2) // TODO: not needed for QUADs!!!
+            {                           // we need to pass the information here
+              tria_level.face_orientations.reserve(
+                total_cells * GeometryInfo<2>::faces_per_cell);
+              tria_level.face_orientations.insert(
+                tria_level.face_orientations.end(),
+                total_cells * GeometryInfo<2>::faces_per_cell -
                   tria_level.face_orientations.size(),
                 true);
             }
@@ -1776,6 +1794,127 @@ namespace internal
                                   tria_object.children.size()));
         }
     }
+
+
+
+    /**
+     * An interface for algorithms that implement Triangulation-specific tasks
+     * related to creation, refinement, and coarsening.
+     */
+    template <int dim, int spacedim>
+    class Policy
+    {
+    public:
+      /**
+       * Destructor.
+       */
+      virtual ~Policy() = default;
+
+      /**
+       * Delete children of given cell.
+       */
+      virtual void
+      delete_children(
+        Triangulation<dim, spacedim> &                        triangulation,
+        typename Triangulation<dim, spacedim>::cell_iterator &cell,
+        std::vector<unsigned int> &                           line_cell_count,
+        std::vector<unsigned int> &quad_cell_count) = 0;
+
+      /**
+       * Execute refinement.
+       */
+      virtual typename Triangulation<dim, spacedim>::DistortedCellList
+      execute_refinement(Triangulation<dim, spacedim> &triangulation,
+                         const bool check_for_distorted_cells) = 0;
+
+      /**
+       * Prevent distorted boundary cells.
+       */
+      virtual void
+      prevent_distorted_boundary_cells(
+        Triangulation<dim, spacedim> &triangulation) = 0;
+
+      /**
+       * Prepare refinement.
+       */
+      virtual void
+      prepare_refinement_dim_dependent(
+        Triangulation<dim, spacedim> &triangulation) = 0;
+
+      /**
+       * Check if coarsening is allowed for the given cell.
+       */
+      virtual bool
+      coarsening_allowed(
+        const typename Triangulation<dim, spacedim>::cell_iterator &cell) = 0;
+
+      /**
+       * A sort of virtual copy constructor, this function returns a copy of
+       * the policy object. Derived classes need to override the function here
+       * in this base class and return an object of the same type as the derived
+       * class.
+       */
+      virtual std::unique_ptr<Policy<dim, spacedim>>
+      clone() = 0;
+    };
+
+
+
+    /**
+     * A simple implementation of the interface Policy. It simply delegates the
+     * task to the functions with the same name provided by class specified by
+     * the template argument T.
+     */
+    template <int dim, int spacedim, typename T>
+    class PolicyWrapper : public Policy<dim, spacedim>
+    {
+    public:
+      void
+      delete_children(
+        Triangulation<dim, spacedim> &                        tria,
+        typename Triangulation<dim, spacedim>::cell_iterator &cell,
+        std::vector<unsigned int> &                           line_cell_count,
+        std::vector<unsigned int> &quad_cell_count) override
+      {
+        T::delete_children(tria, cell, line_cell_count, quad_cell_count);
+      }
+
+      typename Triangulation<dim, spacedim>::DistortedCellList
+      execute_refinement(Triangulation<dim, spacedim> &triangulation,
+                         const bool check_for_distorted_cells) override
+      {
+        return T::execute_refinement(triangulation, check_for_distorted_cells);
+      }
+
+      void
+      prevent_distorted_boundary_cells(
+        Triangulation<dim, spacedim> &triangulation) override
+      {
+        T::prevent_distorted_boundary_cells(triangulation);
+      }
+
+      void
+      prepare_refinement_dim_dependent(
+        Triangulation<dim, spacedim> &triangulation) override
+      {
+        T::prepare_refinement_dim_dependent(triangulation);
+      }
+
+      bool
+      coarsening_allowed(
+        const typename Triangulation<dim, spacedim>::cell_iterator &cell)
+        override
+      {
+        return T::template coarsening_allowed<dim, spacedim>(cell);
+      }
+
+      std::unique_ptr<Policy<dim, spacedim>>
+      clone() override
+      {
+        return std::unique_ptr<Policy<dim, spacedim>>(
+          new PolicyWrapper<dim, spacedim, T>());
+      }
+    };
 
     /**
      * A class into which we put many of the functions that implement
@@ -2183,6 +2322,30 @@ namespace internal
                            const SubCellData &                 subcelldata,
                            Triangulation<dim, spacedim> &      tria)
       {
+        AssertThrow(vertices.size() > 0, ExcMessage("No vertices given"));
+        AssertThrow(cells.size() > 0, ExcMessage("No cells given"));
+
+        // Check that all cells have positive volume.
+#ifndef _MSC_VER
+        // TODO: The following code does not compile with MSVC. Find a way
+        // around it
+        if (dim == spacedim)
+          for (unsigned int cell_no = 0; cell_no < cells.size(); ++cell_no)
+            {
+              // If we should check for distorted cells, then we permit them
+              // to exist. If a cell has negative measure, then it must be
+              // distorted (the converse is not necessarily true); hence
+              // throw an exception if no such cells should exist.
+              if (tria.check_for_distorted_cells)
+                {
+                  const double cell_measure = GridTools::cell_measure<spacedim>(
+                    vertices,
+                    ArrayView<const unsigned int>(cells[cell_no].vertices));
+                  AssertThrow(cell_measure > 0, ExcGridHasInvalidCell(cell_no));
+                }
+            }
+#endif
+
         // clear old content
         tria.levels.clear();
         tria.levels.push_back(
@@ -2534,6 +2697,11 @@ namespace internal
 
         if (orientation_needed)
           level.face_orientations.assign(size * faces_per_cell, -1);
+
+        level.global_active_cell_indices.assign(size,
+                                                numbers::invalid_unsigned_int);
+        level.global_level_cell_indices.assign(size,
+                                               numbers::invalid_unsigned_int);
       }
 
 
@@ -3885,6 +4053,540 @@ namespace internal
 
 
 
+      template <int dim, int spacedim>
+      static typename Triangulation<dim, spacedim>::DistortedCellList
+      execute_refinement_isotropic(Triangulation<dim, spacedim> &triangulation,
+                                   const bool check_for_distorted_cells)
+      {
+        AssertDimension(dim, 2);
+
+        {
+          typename Triangulation<dim, spacedim>::raw_cell_iterator
+            cell = triangulation.begin_active(triangulation.levels.size() - 1),
+            endc = triangulation.end();
+          for (; cell != endc; ++cell)
+            if (cell->used())
+              if (cell->refine_flag_set())
+                {
+                  triangulation.levels.push_back(
+                    std::make_unique<
+                      internal::TriangulationImplementation::TriaLevel>(dim));
+                  break;
+                }
+        }
+
+        for (typename Triangulation<dim, spacedim>::line_iterator line =
+               triangulation.begin_line();
+             line != triangulation.end_line();
+             ++line)
+          {
+            line->clear_user_flag();
+            line->clear_user_data();
+          }
+
+        unsigned int n_single_lines   = 0;
+        unsigned int n_lines_in_pairs = 0;
+        unsigned int needed_vertices  = 0;
+
+        for (int level = triangulation.levels.size() - 2; level >= 0; --level)
+          {
+            // count number of flagged cells on this level and compute
+            // how many new vertices and new lines will be needed
+            unsigned int needed_cells = 0;
+
+            for (const auto &cell :
+                 triangulation.active_cell_iterators_on_level(level))
+              if (cell->refine_flag_set())
+                {
+                  if (cell->reference_cell_type() == ReferenceCell::Type::Tri)
+                    {
+                      needed_cells += 4;
+                      needed_vertices += 0;
+                      n_single_lines += 3;
+                    }
+                  else if (cell->reference_cell_type() ==
+                           ReferenceCell::Type::Quad)
+                    {
+                      needed_cells += 4;
+                      needed_vertices += 1;
+                      n_single_lines += 4;
+                    }
+                  else
+                    {
+                      AssertThrow(false, ExcNotImplemented());
+                    }
+
+                  for (const auto line_no : cell->face_indices())
+                    {
+                      auto line = cell->line(line_no);
+                      if (line->has_children() == false)
+                        line->set_user_flag();
+                    }
+                }
+
+
+            const unsigned int used_cells =
+              std::count(triangulation.levels[level + 1]->cells.used.begin(),
+                         triangulation.levels[level + 1]->cells.used.end(),
+                         true);
+
+
+            reserve_space(*triangulation.levels[level + 1],
+                          used_cells + needed_cells,
+                          2,
+                          spacedim);
+
+            reserve_space(triangulation.levels[level + 1]->cells,
+                          needed_cells,
+                          0);
+          }
+
+        for (auto line = triangulation.begin_line();
+             line != triangulation.end_line();
+             ++line)
+          if (line->user_flag_set())
+            {
+              Assert(line->has_children() == false, ExcInternalError());
+              n_lines_in_pairs += 2;
+              needed_vertices += 1;
+            }
+
+        reserve_space(triangulation.faces->lines, n_lines_in_pairs, 0);
+
+        needed_vertices += std::count(triangulation.vertices_used.begin(),
+                                      triangulation.vertices_used.end(),
+                                      true);
+
+        if (needed_vertices > triangulation.vertices.size())
+          {
+            triangulation.vertices.resize(needed_vertices, Point<spacedim>());
+            triangulation.vertices_used.resize(needed_vertices, false);
+          }
+
+        unsigned int next_unused_vertex = 0;
+
+        {
+          typename Triangulation<dim, spacedim>::active_line_iterator
+            line = triangulation.begin_active_line(),
+            endl = triangulation.end_line();
+          typename Triangulation<dim, spacedim>::raw_line_iterator
+            next_unused_line = triangulation.begin_raw_line();
+
+          for (; line != endl; ++line)
+            if (line->user_flag_set())
+              {
+                // this line needs to be refined
+
+                // find the next unused vertex and set it
+                // appropriately
+                while (triangulation.vertices_used[next_unused_vertex] == true)
+                  ++next_unused_vertex;
+                Assert(
+                  next_unused_vertex < triangulation.vertices.size(),
+                  ExcMessage(
+                    "Internal error: During refinement, the triangulation wants to access an element of the 'vertices' array but it turns out that the array is not large enough."));
+                triangulation.vertices_used[next_unused_vertex] = true;
+
+                triangulation.vertices[next_unused_vertex] = line->center(true);
+
+                bool pair_found = false;
+                (void)pair_found;
+                for (; next_unused_line != endl; ++next_unused_line)
+                  if (!next_unused_line->used() &&
+                      !(++next_unused_line)->used())
+                    {
+                      --next_unused_line;
+                      pair_found = true;
+                      break;
+                    }
+                Assert(pair_found, ExcInternalError());
+
+                line->set_children(0, next_unused_line->index());
+
+                const typename Triangulation<dim, spacedim>::raw_line_iterator
+                  children[2] = {next_unused_line, ++next_unused_line};
+
+                Assert(
+                  children[0]->used() == false,
+                  ExcMessage(
+                    "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+                Assert(
+                  children[1]->used() == false,
+                  ExcMessage(
+                    "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+
+                children[0]->set_bounding_object_indices(
+                  {line->vertex_index(0), next_unused_vertex});
+                children[1]->set_bounding_object_indices(
+                  {next_unused_vertex, line->vertex_index(1)});
+
+                children[0]->set_used_flag();
+                children[1]->set_used_flag();
+                children[0]->clear_children();
+                children[1]->clear_children();
+                children[0]->clear_user_data();
+                children[1]->clear_user_data();
+                children[0]->clear_user_flag();
+                children[1]->clear_user_flag();
+
+
+                children[0]->set_boundary_id_internal(line->boundary_id());
+                children[1]->set_boundary_id_internal(line->boundary_id());
+
+                children[0]->set_manifold_id(line->manifold_id());
+                children[1]->set_manifold_id(line->manifold_id());
+
+                line->clear_user_flag();
+              }
+        }
+
+        reserve_space(triangulation.faces->lines, 0, n_single_lines);
+
+        typename Triangulation<dim, spacedim>::DistortedCellList
+          cells_with_distorted_children;
+
+        typename Triangulation<dim, spacedim>::raw_line_iterator
+          next_unused_line = triangulation.begin_raw_line();
+
+        const auto create_children = [](auto &        triangulation,
+                                        unsigned int &next_unused_vertex,
+                                        auto &        next_unused_line,
+                                        auto &        next_unused_cell,
+                                        const auto &  cell) {
+          const auto ref_case = cell->refine_flag_set();
+          cell->clear_refine_flag();
+
+          unsigned int n_new_vertices = 0;
+
+          if (cell->reference_cell_type() == ReferenceCell::Type::Tri)
+            n_new_vertices = 6;
+          else if (cell->reference_cell_type() == ReferenceCell::Type::Quad)
+            n_new_vertices = 9;
+          else
+            AssertThrow(false, ExcNotImplemented());
+
+          std::vector<int> new_vertices(n_new_vertices);
+          for (unsigned int vertex_no = 0; vertex_no < cell->n_vertices();
+               ++vertex_no)
+            new_vertices[vertex_no] = cell->vertex_index(vertex_no);
+          for (unsigned int line_no = 0; line_no < cell->n_lines(); ++line_no)
+            if (cell->line(line_no)->has_children())
+              new_vertices[cell->n_vertices() + line_no] =
+                cell->line(line_no)->child(0)->vertex_index(1);
+
+          if (cell->reference_cell_type() == ReferenceCell::Type::Quad)
+            {
+              while (triangulation.vertices_used[next_unused_vertex] == true)
+                ++next_unused_vertex;
+              Assert(
+                next_unused_vertex < triangulation.vertices.size(),
+                ExcMessage(
+                  "Internal error: During refinement, the triangulation wants to access an element of the 'vertices' array but it turns out that the array is not large enough."));
+              triangulation.vertices_used[next_unused_vertex] = true;
+
+              new_vertices[8] = next_unused_vertex;
+
+              if (dim == spacedim)
+                {
+                  triangulation.vertices[next_unused_vertex] =
+                    cell->center(true);
+
+                  if (cell->user_flag_set())
+                    {
+                      cell->clear_user_flag();
+                      triangulation.vertices[next_unused_vertex] =
+                        cell->center(true, true);
+                    }
+                }
+              else
+                {
+                  cell->clear_user_flag();
+
+                  triangulation.vertices[next_unused_vertex] =
+                    cell->center(true, true);
+                }
+            }
+
+          std::array<typename Triangulation<dim, spacedim>::raw_line_iterator,
+                     12>
+                       new_lines;
+          unsigned int lmin = 0;
+          unsigned int lmax = 0;
+
+          if (cell->reference_cell_type() == ReferenceCell::Type::Tri)
+            {
+              lmin = 6;
+              lmax = 9;
+            }
+          else if (cell->reference_cell_type() == ReferenceCell::Type::Quad)
+            {
+              lmin = 8;
+              lmax = 12;
+            }
+          else
+            {
+              AssertThrow(false, ExcNotImplemented());
+            }
+
+          for (unsigned int l = lmin; l < lmax; ++l)
+            {
+              while (next_unused_line->used() == true)
+                ++next_unused_line;
+              new_lines[l] = next_unused_line;
+              ++next_unused_line;
+
+              Assert(
+                new_lines[l]->used() == false,
+                ExcMessage(
+                  "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+            }
+
+          if (true)
+            {
+              if (cell->reference_cell_type() == ReferenceCell::Type::Tri)
+                {
+                  // add lines in the right order [TODO: clean up]
+                  const auto ref = [&](const unsigned int face_no,
+                                       const unsigned int vertex_no) {
+                    if (cell->line(face_no)->child(0)->vertex_index(0) ==
+                          static_cast<unsigned int>(new_vertices[vertex_no]) ||
+                        cell->line(face_no)->child(0)->vertex_index(1) ==
+                          static_cast<unsigned int>(new_vertices[vertex_no]))
+                      {
+                        new_lines[2 * face_no + 0] =
+                          cell->line(face_no)->child(0);
+                        new_lines[2 * face_no + 1] =
+                          cell->line(face_no)->child(1);
+                      }
+                    else
+                      {
+                        new_lines[2 * face_no + 0] =
+                          cell->line(face_no)->child(1);
+                        new_lines[2 * face_no + 1] =
+                          cell->line(face_no)->child(0);
+                      }
+                  };
+
+                  ref(0, 0);
+                  ref(1, 1);
+                  ref(2, 2);
+
+                  new_lines[6]->set_bounding_object_indices(
+                    {new_vertices[3], new_vertices[4]});
+                  new_lines[7]->set_bounding_object_indices(
+                    {new_vertices[4], new_vertices[5]});
+                  new_lines[8]->set_bounding_object_indices(
+                    {new_vertices[5], new_vertices[3]});
+                }
+              else if (cell->reference_cell_type() == ReferenceCell::Type::Quad)
+                {
+                  unsigned int l = 0;
+                  for (const unsigned int face_no : cell->face_indices())
+                    for (unsigned int c = 0; c < 2; ++c, ++l)
+                      new_lines[l] = cell->line(face_no)->child(c);
+
+                  new_lines[8]->set_bounding_object_indices(
+                    {new_vertices[6], new_vertices[8]});
+                  new_lines[9]->set_bounding_object_indices(
+                    {new_vertices[8], new_vertices[7]});
+                  new_lines[10]->set_bounding_object_indices(
+                    {new_vertices[4], new_vertices[8]});
+                  new_lines[11]->set_bounding_object_indices(
+                    {new_vertices[8], new_vertices[5]});
+                }
+              else
+                {
+                  AssertThrow(false, ExcNotImplemented());
+                }
+            }
+
+
+          for (unsigned int l = lmin; l < lmax; ++l)
+            {
+              new_lines[l]->set_used_flag();
+              new_lines[l]->clear_user_flag();
+              new_lines[l]->clear_user_data();
+              new_lines[l]->clear_children();
+              // interior line
+              new_lines[l]->set_boundary_id_internal(
+                numbers::internal_face_boundary_id);
+              new_lines[l]->set_manifold_id(cell->manifold_id());
+            }
+
+          typename Triangulation<dim, spacedim>::raw_cell_iterator
+            subcells[GeometryInfo<dim>::max_children_per_cell];
+          while (next_unused_cell->used() == true)
+            ++next_unused_cell;
+
+          unsigned int n_children = 0;
+
+          if (cell->reference_cell_type() == ReferenceCell::Type::Tri)
+            n_children = 4;
+          else if (cell->reference_cell_type() == ReferenceCell::Type::Quad)
+            n_children = 4;
+          else
+            AssertThrow(false, ExcNotImplemented());
+
+          for (unsigned int i = 0; i < n_children; ++i)
+            {
+              Assert(
+                next_unused_cell->used() == false,
+                ExcMessage(
+                  "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+              subcells[i] = next_unused_cell;
+              ++next_unused_cell;
+              if (i % 2 == 1 && i < n_children - 1)
+                while (next_unused_cell->used() == true)
+                  ++next_unused_cell;
+            }
+
+          if (cell->reference_cell_type() == ReferenceCell::Type::Tri)
+            {
+              subcells[0]->set_bounding_object_indices({new_lines[0]->index(),
+                                                        new_lines[8]->index(),
+                                                        new_lines[5]->index()});
+              subcells[1]->set_bounding_object_indices({new_lines[1]->index(),
+                                                        new_lines[2]->index(),
+                                                        new_lines[6]->index()});
+              subcells[2]->set_bounding_object_indices({new_lines[7]->index(),
+                                                        new_lines[3]->index(),
+                                                        new_lines[4]->index()});
+              subcells[3]->set_bounding_object_indices({new_lines[6]->index(),
+                                                        new_lines[7]->index(),
+                                                        new_lines[8]->index()});
+
+              // subcell 0
+
+              const auto ref = [&](const unsigned int line_no,
+                                   const unsigned int vertex_no,
+                                   const unsigned int subcell_no,
+                                   const unsigned int subcell_line_no) {
+                if (new_lines[line_no]->vertex_index(1) !=
+                    static_cast<unsigned int>(new_vertices[vertex_no]))
+                  triangulation.levels[subcells[subcell_no]->level()]
+                    ->face_orientations[subcells[subcell_no]->index() *
+                                          GeometryInfo<2>::faces_per_cell +
+                                        subcell_line_no] = 0;
+              };
+
+              ref(0, 3, 0, 0);
+              ref(8, 5, 0, 1);
+              ref(5, 0, 0, 2);
+
+              ref(1, 1, 1, 0);
+              ref(2, 4, 1, 1);
+              ref(6, 3, 1, 2);
+
+              ref(7, 4, 2, 0);
+              ref(3, 2, 2, 1);
+              ref(4, 5, 2, 2);
+
+              ref(6, 4, 3, 0);
+              ref(7, 5, 3, 1);
+              ref(8, 3, 3, 2);
+
+              // triangulation.levels[subcells[1]->level()]->face_orientations[subcells[1]->index()
+              // * GeometryInfo<2>::faces_per_cell + 2] = 0;
+              // triangulation.levels[subcells[2]->level()]->face_orientations[subcells[2]->index()
+              // * GeometryInfo<2>::faces_per_cell + 0] = 0;
+            }
+          else if (cell->reference_cell_type() == ReferenceCell::Type::Quad)
+            {
+              subcells[0]->set_bounding_object_indices(
+                {new_lines[0]->index(),
+                 new_lines[8]->index(),
+                 new_lines[4]->index(),
+                 new_lines[10]->index()});
+              subcells[1]->set_bounding_object_indices(
+                {new_lines[8]->index(),
+                 new_lines[2]->index(),
+                 new_lines[5]->index(),
+                 new_lines[11]->index()});
+              subcells[2]->set_bounding_object_indices({new_lines[1]->index(),
+                                                        new_lines[9]->index(),
+                                                        new_lines[10]->index(),
+                                                        new_lines[6]->index()});
+              subcells[3]->set_bounding_object_indices({new_lines[9]->index(),
+                                                        new_lines[3]->index(),
+                                                        new_lines[11]->index(),
+                                                        new_lines[7]->index()});
+            }
+          else
+            {
+              AssertThrow(false, ExcNotImplemented());
+            }
+
+          types::subdomain_id subdomainid = cell->subdomain_id();
+
+          for (unsigned int i = 0; i < n_children; ++i)
+            {
+              subcells[i]->set_used_flag();
+              subcells[i]->clear_refine_flag();
+              subcells[i]->clear_user_flag();
+              subcells[i]->clear_user_data();
+              subcells[i]->clear_children();
+              // inherit material
+              // properties
+              subcells[i]->set_material_id(cell->material_id());
+              subcells[i]->set_manifold_id(cell->manifold_id());
+              subcells[i]->set_subdomain_id(subdomainid);
+
+              // TODO: here we assume that all children have the same reference
+              // cell type as the parent! This is justified for 2D.
+              triangulation.levels[subcells[i]->level()]
+                ->reference_cell_type[subcells[i]->index()] =
+                cell->reference_cell_type();
+
+              if (i % 2 == 0)
+                subcells[i]->set_parent(cell->index());
+            }
+
+          for (unsigned int i = 0; i < n_children / 2; ++i)
+            cell->set_children(2 * i, subcells[2 * i]->index());
+
+          cell->set_refinement_case(ref_case);
+
+          if (dim < spacedim)
+            for (unsigned int c = 0; c < n_children; ++c)
+              cell->child(c)->set_direction_flag(cell->direction_flag());
+        };
+
+        for (int level = 0;
+             level < static_cast<int>(triangulation.levels.size()) - 1;
+             ++level)
+          {
+            typename Triangulation<dim, spacedim>::raw_cell_iterator
+              next_unused_cell = triangulation.begin_raw(level + 1);
+
+            for (const auto &cell :
+                 triangulation.active_cell_iterators_on_level(level))
+              if (cell->refine_flag_set())
+                {
+                  if (cell->at_boundary())
+                    cell->set_user_flag();
+
+                  create_children(triangulation,
+                                  next_unused_vertex,
+                                  next_unused_line,
+                                  next_unused_cell,
+                                  cell);
+
+                  if (cell->reference_cell_type() ==
+                        ReferenceCell::Type::Quad &&
+                      check_for_distorted_cells &&
+                      has_distorted_children<dim, spacedim>(cell))
+                    cells_with_distorted_children.distorted_cells.push_back(
+                      cell);
+
+                  triangulation.signals.post_refinement_on_cell(cell);
+                }
+          }
+
+        return cells_with_distorted_children;
+      }
+
+
+
       /**
        * A function that performs the
        * refinement of a triangulation in 1d.
@@ -4135,6 +4837,26 @@ namespace internal
                            const bool check_for_distorted_cells)
       {
         const unsigned int dim = 2;
+
+
+        {
+          bool flag_isotropic_mesh = true;
+          typename Triangulation<dim, spacedim>::raw_cell_iterator
+            cell = triangulation.begin(),
+            endc = triangulation.end();
+          for (; cell != endc; ++cell)
+            if (cell->used())
+              if (cell->refine_flag_set() == RefinementCase<dim>::cut_x ||
+                  cell->refine_flag_set() == RefinementCase<dim>::cut_y)
+                {
+                  flag_isotropic_mesh = false;
+                  break;
+                }
+
+          if (flag_isotropic_mesh)
+            return execute_refinement_isotropic(triangulation,
+                                                check_for_distorted_cells);
+        }
 
         // check whether a new level is needed we have to check for
         // this on the highest level only (on this, all used cells are
@@ -4428,11 +5150,8 @@ namespace internal
                                   next_unused_cell,
                                   cell);
 
-                  if ((check_for_distorted_cells == true) &&
-                      has_distorted_children(
-                        cell,
-                        std::integral_constant<int, dim>(),
-                        std::integral_constant<int, spacedim>()))
+                  if (check_for_distorted_cells &&
+                      has_distorted_children<dim, spacedim>(cell))
                     cells_with_distorted_children.distorted_cells.push_back(
                       cell);
                   // inform all listeners that cell refinement is done
@@ -8795,11 +9514,8 @@ namespace internal
 
                   // now see if we have created cells that are
                   // distorted and if so add them to our list
-                  if ((check_for_distorted_cells == true) &&
-                      has_distorted_children(
-                        hex,
-                        std::integral_constant<int, dim>(),
-                        std::integral_constant<int, spacedim>()))
+                  if (check_for_distorted_cells &&
+                      has_distorted_children<dim, spacedim>(hex))
                     cells_with_distorted_children.distorted_cells.push_back(
                       hex);
 
@@ -8836,8 +9552,9 @@ namespace internal
        * specialization).
        */
       template <int spacedim>
-      static void
-      prevent_distorted_boundary_cells(const Triangulation<1, spacedim> &);
+      static void prevent_distorted_boundary_cells(Triangulation<1, spacedim> &)
+      {}
+
 
 
       template <int dim, int spacedim>
@@ -9191,6 +9908,64 @@ namespace internal
     };
 
 
+    /**
+     * Same as above but for mixed meshes (and simplex meshes).
+     */
+    struct ImplementationMixedMesh
+    {
+      template <int dim, int spacedim>
+      static void
+      delete_children(
+        Triangulation<dim, spacedim> &                        triangulation,
+        typename Triangulation<dim, spacedim>::cell_iterator &cell,
+        std::vector<unsigned int> &                           line_cell_count,
+        std::vector<unsigned int> &                           quad_cell_count)
+      {
+        AssertThrow(false, ExcNotImplemented());
+        (void)triangulation;
+        (void)cell;
+        (void)line_cell_count;
+        (void)quad_cell_count;
+      }
+
+      template <int dim, int spacedim>
+      static typename Triangulation<dim, spacedim>::DistortedCellList
+      execute_refinement(Triangulation<dim, spacedim> &triangulation,
+                         const bool check_for_distorted_cells)
+      {
+        return Implementation::execute_refinement_isotropic(
+          triangulation, check_for_distorted_cells);
+      }
+
+      template <int dim, int spacedim>
+      static void
+      prevent_distorted_boundary_cells(
+        Triangulation<dim, spacedim> &triangulation)
+      {
+        // nothing to do since anisotropy is not supported
+        (void)triangulation;
+      }
+
+      template <int dim, int spacedim>
+      static void
+      prepare_refinement_dim_dependent(
+        Triangulation<dim, spacedim> &triangulation)
+      {
+        Implementation::prepare_refinement_dim_dependent(triangulation);
+      }
+
+      template <int dim, int spacedim>
+      static bool
+      coarsening_allowed(
+        const typename Triangulation<dim, spacedim>::cell_iterator &cell)
+      {
+        AssertThrow(false, ExcNotImplemented());
+        (void)cell;
+
+        return false;
+      }
+    };
+
 
     template <int dim, int spacedim>
     const Manifold<dim, spacedim> &
@@ -9239,6 +10014,7 @@ Triangulation<dim, spacedim>::Triangulation(
   Triangulation<dim, spacedim> &&tria) noexcept
   : Subscriptor(std::move(tria))
   , smooth_grid(tria.smooth_grid)
+  , reference_cell_types(std::move(tria.reference_cell_types))
   , periodic_face_pairs_level_0(std::move(tria.periodic_face_pairs_level_0))
   , periodic_face_map(std::move(tria.periodic_face_map))
   , levels(std::move(tria.levels))
@@ -9264,6 +10040,7 @@ operator=(Triangulation<dim, spacedim> &&tria) noexcept
   Subscriptor::operator=(std::move(tria));
 
   smooth_grid                  = tria.smooth_grid;
+  reference_cell_types         = std::move(tria.reference_cell_types);
   periodic_face_pairs_level_0  = std::move(tria.periodic_face_pairs_level_0);
   periodic_face_map            = std::move(tria.periodic_face_map);
   levels                       = std::move(tria.levels);
@@ -9322,6 +10099,7 @@ Triangulation<dim, spacedim>::clear()
   clear_despite_subscriptions();
   periodic_face_pairs_level_0.clear();
   periodic_face_map.clear();
+  reference_cell_types.clear();
 }
 
 
@@ -9551,6 +10329,7 @@ Triangulation<dim, spacedim>::copy_triangulation(
   vertices_used          = other_tria.vertices_used;
   anisotropic_refinement = other_tria.anisotropic_refinement;
   smooth_grid            = other_tria.smooth_grid;
+  reference_cell_types   = other_tria.reference_cell_types;
 
   if (dim > 1)
     faces = std::make_unique<internal::TriangulationImplementation::TriaFaces>(
@@ -9579,6 +10358,9 @@ Triangulation<dim, spacedim>::copy_triangulation(
         std::make_unique<std::map<unsigned int, types::manifold_id>>(
           *other_tria.vertex_to_manifold_id_map_1d);
     }
+
+  if (other_tria.policy)
+    this->policy = other_tria.policy->clone();
 
   // inform those who are listening on other_tria of the copy operation
   other_tria.signals.copy(*this);
@@ -9630,20 +10412,10 @@ Triangulation<dim, spacedim>::create_triangulation(
   // because sometimes other objects are already attached to it:
   try
     {
-#ifndef DEAL_II_WITH_SIMPLEX_SUPPORT
-      AssertThrow(
-        std::any_of(cells.begin(),
-                    cells.end(),
-                    [](const auto &cell) {
-                      return cell.vertices.size() !=
-                             GeometryInfo<dim>::vertices_per_cell;
-                    }) == false,
-        ExcMessage(
-          "A cell with invalid number of vertices has been provided."));
-#endif
-
       internal::TriangulationImplementation::Implementation::
         create_triangulation(v, cells, subcelldata, *this);
+
+      this->update_reference_cell_types();
     }
   catch (...)
     {
@@ -9651,16 +10423,38 @@ Triangulation<dim, spacedim>::create_triangulation(
       throw;
     }
 
+  if (this->all_reference_cell_types_are_hyper_cube())
+    {
+      this->policy =
+        std::make_unique<internal::TriangulationImplementation::PolicyWrapper<
+          dim,
+          spacedim,
+          internal::TriangulationImplementation::Implementation>>();
+    }
+  else
+    {
+#ifndef DEAL_II_WITH_SIMPLEX_SUPPORT
+      Assert(false, ExcNeedsSimplexSupport());
+#endif
+
+      this->policy =
+        std::make_unique<internal::TriangulationImplementation::PolicyWrapper<
+          dim,
+          spacedim,
+          internal::TriangulationImplementation::ImplementationMixedMesh>>();
+    }
+
   // update our counts of the various elements of a triangulation, and set
   // active_cell_indices of all cells
   internal::TriangulationImplementation::Implementation::compute_number_cache(
     *this, levels.size(), number_cache);
   reset_active_cell_indices();
+  reset_global_cell_indices();
 
   // now verify that there are indeed no distorted cells. as per the
   // documentation of this class, we first collect all distorted cells
   // and then throw an exception if there are any
-  if (check_for_distorted_cells == true)
+  if (check_for_distorted_cells)
     {
       DistortedCellList distorted_cells = collect_distorted_coarse_cells(*this);
       // throw the array (and fill the various location fields) if
@@ -9960,6 +10754,22 @@ Triangulation<dim, spacedim>::refine_global(const unsigned int times)
     }
 }
 
+
+
+template <int dim, int spacedim>
+void
+Triangulation<dim, spacedim>::coarsen_global(const unsigned int times)
+{
+  for (unsigned int i = 0; i < times; ++i)
+    {
+      for (const auto &cell : this->active_cell_iterators())
+        {
+          cell->clear_refine_flag();
+          cell->set_coarsen_flag();
+        }
+      execute_coarsening_and_refinement();
+    }
+}
 
 
 /*-------------------- refine/coarsen flags -------------------------*/
@@ -12468,6 +13278,8 @@ Triangulation<dim, spacedim>::execute_coarsening_and_refinement()
   update_neighbors(*this);
   reset_active_cell_indices();
 
+  reset_global_cell_indices(); // TODO: better place?
+
   // Inform all listeners about end of refinement.
   signals.post_refinement();
 
@@ -12495,6 +13307,27 @@ Triangulation<dim, spacedim>::reset_active_cell_indices()
 
   Assert(active_cell_index == n_active_cells(), ExcInternalError());
 }
+
+
+
+template <int dim, int spacedim>
+void
+Triangulation<dim, spacedim>::reset_global_cell_indices()
+{
+  {
+    types::global_cell_index cell_index = 0;
+    for (const auto &cell : active_cell_iterators())
+      cell->set_global_active_cell_index(cell_index++);
+  }
+
+  for (unsigned int l = 0; l < levels.size(); ++l)
+    {
+      types::global_cell_index cell_index = 0;
+      for (const auto &cell : cell_iterators_on_level(l))
+        cell->set_global_level_cell_index(cell_index++);
+    }
+}
+
 
 
 template <int dim, int spacedim>
@@ -12562,6 +13395,43 @@ Triangulation<dim, spacedim>::update_periodic_face_map()
 
 template <int dim, int spacedim>
 void
+Triangulation<dim, spacedim>::update_reference_cell_types()
+{
+  std::set<ReferenceCell::Type> reference_cell_types_set;
+  for (auto cell : active_cell_iterators())
+    if (cell->is_locally_owned())
+      reference_cell_types_set.insert(cell->reference_cell_type());
+
+  std::vector<ReferenceCell::Type> reference_cell_types(
+    reference_cell_types_set.begin(), reference_cell_types_set.end());
+
+  this->reference_cell_types = reference_cell_types;
+}
+
+
+
+template <int dim, int spacedim>
+const std::vector<ReferenceCell::Type> &
+Triangulation<dim, spacedim>::get_reference_cell_types() const
+{
+  return this->reference_cell_types;
+}
+
+
+
+template <int dim, int spacedim>
+bool
+Triangulation<dim, spacedim>::all_reference_cell_types_are_hyper_cube() const
+{
+  return (this->reference_cell_types.size() == 0) ||
+         (this->reference_cell_types.size() == 1 &&
+          this->reference_cell_types[0] == ReferenceCell::get_hypercube(dim));
+}
+
+
+
+template <int dim, int spacedim>
+void
 Triangulation<dim, spacedim>::clear_despite_subscriptions()
 {
   levels.clear();
@@ -12576,13 +13446,13 @@ Triangulation<dim, spacedim>::clear_despite_subscriptions()
 }
 
 
+
 template <int dim, int spacedim>
 typename Triangulation<dim, spacedim>::DistortedCellList
 Triangulation<dim, spacedim>::execute_refinement()
 {
   const DistortedCellList cells_with_distorted_children =
-    internal::TriangulationImplementation::Implementation::execute_refinement(
-      *this, check_for_distorted_cells);
+    this->policy->execute_refinement(*this, check_for_distorted_cells);
 
 
 
@@ -12665,8 +13535,10 @@ Triangulation<dim, spacedim>::execute_coarsening()
           // inform all listeners that cell coarsening is going to happen
           signals.pre_coarsening_on_cell(cell);
           // use a separate function, since this is dimension specific
-          internal::TriangulationImplementation::Implementation::
-            delete_children(*this, cell, line_cell_count, quad_cell_count);
+          this->policy->delete_children(*this,
+                                        cell,
+                                        line_cell_count,
+                                        quad_cell_count);
         }
 
   // re-compute number of lines and quads
@@ -12863,8 +13735,7 @@ Triangulation<dim, spacedim>::fix_coarsen_flags()
         if (cell->user_flag_set())
           // if allowed: flag the
           // children for coarsening
-          if (internal::TriangulationImplementation::Implementation::
-                template coarsening_allowed<dim, spacedim>(cell))
+          if (this->policy->coarsening_allowed(cell))
             for (unsigned int c = 0; c < cell->n_children(); ++c)
               {
                 Assert(cell->child(c)->refine_flag_set() == false,
@@ -13648,8 +14519,7 @@ Triangulation<dim, spacedim>::prepare_coarsening_and_refinement()
       //  volume or at least with a part, that is negative, if the
       //  cell is refined anisotropically. we have to check, whether
       //  that can happen
-      internal::TriangulationImplementation::Implementation::
-        prevent_distorted_boundary_cells(*this);
+      this->policy->prevent_distorted_boundary_cells(*this);
 
       /////////////////////////////////
       // STEP 6:
@@ -13675,7 +14545,7 @@ Triangulation<dim, spacedim>::prepare_coarsening_and_refinement()
             if (cell->refine_flag_set())
               {
                 // loop over neighbors of cell
-                for (const unsigned int i : GeometryInfo<dim>::face_indices())
+                for (const auto i : cell->face_indices())
                   {
                     // only do something if the face is not at the
                     // boundary and if the face will be refined with
@@ -14111,8 +14981,7 @@ Triangulation<dim, spacedim>::prepare_coarsening_and_refinement()
       //    take care that no double refinement
       //    is done at each line in 3d or higher
       //    dimensions.
-      internal::TriangulationImplementation::Implementation::
-        prepare_refinement_dim_dependent(*this);
+      this->policy->prepare_refinement_dim_dependent(*this);
 
       //////////////////////////////////////
       // STEP 8:

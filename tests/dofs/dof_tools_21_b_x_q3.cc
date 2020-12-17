@@ -21,7 +21,7 @@
 //                                 dealii::AffineConstraints<double> &,
 //                                 const std::vector<bool>  &,
 //                                 bool, bool, bool)
-// for correct behaviour on non standard oriented meshes.
+// for correct behavior on non standard oriented meshes.
 //
 // like _21_b_x but use a Q3 element. For this, the face_flip has a
 // tricky component in that we need not only flip the two vertics of
@@ -212,10 +212,10 @@ main()
   // Generate a triangulation and match:
   Triangulation<2> triangulation;
   FE_Q<2>          fe(3);
-  DoFHandler<2>    dof_handler;
+  DoFHandler<2>    dof_handler(triangulation);
 
   generate_grid(triangulation);
-  dof_handler.initialize(triangulation, fe);
+  dof_handler.distribute_dofs(fe);
   print_matching(dof_handler);
 
   return 0;

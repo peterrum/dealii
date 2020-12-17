@@ -201,7 +201,7 @@ namespace internal
   extract_interpolation_matrices(const dealii::DoFHandler<dim, spacedim> &dof,
                                  dealii::Table<2, FullMatrix<double>> &matrices)
   {
-    if (dof.hp_capability_enabled == false)
+    if (dof.has_hp_capabilities() == false)
       return;
 
     const dealii::hp::FECollection<dim, spacedim> &fe = dof.get_fe_collection();
@@ -357,10 +357,8 @@ SolutionTransfer<dim, VectorType, DoFHandlerType>::
           // case. we choose the 'least dominant fe' on all children from
           // the associated FECollection.
           std::set<unsigned int> fe_indices_children;
-          for (unsigned int child_index = 0; child_index < cell->n_children();
-               ++child_index)
+          for (const auto &child : cell->child_iterators())
             {
-              const auto &child = cell->child(child_index);
               Assert(child->is_active() && child->coarsen_flag_set(),
                      typename dealii::Triangulation<
                        dim>::ExcInconsistentCoarseningFlags());
@@ -374,8 +372,10 @@ SolutionTransfer<dim, VectorType, DoFHandlerType>::
               fe_indices_children, /*codim=*/0);
 
           Assert(target_fe_index != numbers::invalid_unsigned_int,
-                 typename dealii::hp::FECollection<
-                   dim>::ExcNoDominatedFiniteElementAmongstChildren());
+                 (typename dealii::DoFCellAccessor<
+                   dim,
+                   DoFHandlerType::space_dimension,
+                   false>::ExcNoDominatedFiniteElementOnChildren()));
 
           const unsigned int dofs_per_cell =
             dof_handler->get_fe(target_fe_index).n_dofs_per_cell();

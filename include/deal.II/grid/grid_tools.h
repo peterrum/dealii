@@ -45,6 +45,7 @@ DEAL_II_DISABLE_EXTRA_DIAGNOSTICS
 #  include <boost/archive/binary_iarchive.hpp>
 #  include <boost/archive/binary_oarchive.hpp>
 #  include <boost/geometry/index/rtree.hpp>
+#  include <boost/random/mersenne_twister.hpp>
 #  include <boost/serialization/array.hpp>
 #  include <boost/serialization/vector.hpp>
 
@@ -246,6 +247,32 @@ namespace GridTools
   template <int dim, typename T>
   double
   cell_measure(const T &, ...);
+
+  /**
+   * This function computes an affine approximation of the map from the unit
+   * coordinates to the real coordinates of the form $p_\text{real} = A
+   * p_\text{unit} + b $ by a least squares fit of this affine function to the
+   * $2^\text{dim}$ vertices representing a quadrilateral or hexahedral cell
+   * in `spacedim` dimensions. The result is returned as a pair with the
+   * matrix <i>A</i> as the first argument and the vector <i>b</i> describing
+   * distance of the plane to the origin.
+   *
+   * For any valid mesh cell whose geometry is not degenerate, this operation
+   * results in a unique affine mapping, even in cases where the actual
+   * transformation by a bi-/trilinear or higher order mapping might be
+   * singular. The result is exact in case the transformation from the unit to
+   * the real cell is indeed affine, such as in one dimension or for Cartesian
+   * and affine (parallelogram) meshes in 2D/3D.
+   *
+   * This approximation is underlying the function
+   * TriaAccessor::real_to_unit_cell_affine_approximation() function.
+   *
+   * For exact transformations to the unit cell, use
+   * Mapping::transform_real_to_unit_cell().
+   */
+  template <int dim, int spacedim>
+  std::pair<DerivativeForm<1, dim, spacedim>, Tensor<1, spacedim>>
+  affine_cell_approximation(const ArrayView<const Point<spacedim>> &vertices);
 
   /**
    * Computes an aspect ratio measure for all locally-owned active cells and
@@ -602,12 +629,18 @@ namespace GridTools
    *
    * If @p keep_boundary is set to @p true (which is the default), then
    * boundary vertices are not moved.
+   *
+   * @p seed is used for the initialization of the random engine. Its
+   * default value initializes the engine with the same state as in
+   * previous versions of deal.II.
    */
   template <int dim, int spacedim>
   void
-  distort_random(const double                  factor,
-                 Triangulation<dim, spacedim> &triangulation,
-                 const bool                    keep_boundary = true);
+  distort_random(
+    const double                  factor,
+    Triangulation<dim, spacedim> &triangulation,
+    const bool                    keep_boundary = true,
+    const unsigned int            seed = boost::random::mt19937::default_seed);
 
   /**
    * Remove hanging nodes from a grid. If the @p isotropic parameter is set
@@ -730,7 +763,7 @@ namespace GridTools
    * GridTools::regularize_corner_cells(tria);
    * tria.refine_global(2);
    * @endcode
-   * generates a mesh that has a much better behaviour w.r.t. the jacobian of
+   * generates a mesh that has a much better behavior w.r.t. the jacobian of
    * the Mapping:
    *
    * <p ALIGN="center">
@@ -1472,8 +1505,8 @@ namespace GridTools
    * GridTools::compute_active_cell_halo_layer(
    *   tria, IteratorFilters::MaterialIdEqualTo(1, true));
    * @endcode
-   * or around all cells with one of a set of active FE indices for an
-   * hp::DoFHandler
+   * or around all cells with one of a set of active FE indices for a DoFHandler
+   * with hp-capabilities
    * @code
    * GridTools::compute_active_cell_halo_layer(
    *   hp_dof_handler, IteratorFilters::ActiveFEIndexEqualTo({1,2}, true));
@@ -1484,8 +1517,7 @@ namespace GridTools
    *
    * @tparam MeshType A type that satisfies the requirements of the
    * @ref ConceptMeshType "MeshType concept".
-   * @param[in] mesh A mesh (i.e. objects of type Triangulation, DoFHandler,
-   * or hp::DoFHandler).
+   * @param[in] mesh A mesh (i.e. objects of type Triangulation or DoFHandler).
    * @param[in] predicate A function  (or object of a type with an operator())
    * defining the subdomain around which the halo layer is to be extracted. It
    * is a function that takes in an active cell and returns a boolean.
@@ -1525,8 +1557,7 @@ namespace GridTools
    *
    * @tparam MeshType A type that satisfies the requirements of the
    * @ref ConceptMeshType "MeshType concept".
-   * @param[in] mesh A mesh (i.e. objects of type Triangulation, DoFHandler,
-   * or hp::DoFHandler).
+   * @param[in] mesh A mesh (i.e. objects of type Triangulation or DoFHandler).
    * @return A list of ghost cells
    */
   template <class MeshType>
@@ -1565,8 +1596,7 @@ namespace GridTools
    *
    * @tparam MeshType A type that satisfies the requirements of the
    * @ref ConceptMeshType "MeshType concept".
-   * @param mesh A mesh (i.e. objects of type Triangulation, DoFHandler,
-   * or hp::DoFHandler).
+   * @param mesh A mesh (i.e. objects of type Triangulation or DoFHandler).
    * @param predicate A function  (or object of a type with an operator())
    * defining the subdomain around which the halo layer is to be extracted. It
    * is a function that takes in an active cell and returns a boolean.
@@ -1603,8 +1633,7 @@ namespace GridTools
    *
    * @tparam MeshType A type that satisfies the requirements of the
    * @ref ConceptMeshType "MeshType concept".
-   * @param mesh A mesh (i.e. objects of type Triangulation, DoFHandler,
-   * or hp::DoFHandler).
+   * @param mesh A mesh (i.e. objects of type Triangulation or DoFHandler).
    * @param layer_thickness specifies the geometric distance within
    * which the function searches for active cells from the locally owned cells.
    * @return A subset of ghost cells within a given geometric distance of @p
@@ -2147,12 +2176,12 @@ namespace GridTools
   /*@{*/
 
   /**
-   * Given two meshes (i.e. objects of type Triangulation, DoFHandler, or
-   * hp::DoFHandler) that are based on the same coarse mesh, this function
-   * figures out a set of cells that are matched between the two meshes and
-   * where at most one of the meshes is more refined on this cell. In other
-   * words, it finds the smallest cells that are common to both meshes, and
-   * that together completely cover the domain.
+   * Given two meshes (i.e. objects of type Triangulation or DoFHandler) that
+   * are based on the same coarse mesh, this function figures out a set of cells
+   * that are matched between the two meshes and where at most one of the meshes
+   * is more refined on this cell. In other words, it finds the smallest cells
+   * that are common to both meshes, and that together completely cover the
+   * domain.
    *
    * This function is useful, for example, in time-dependent or nonlinear
    * application, where one has to integrate a solution defined on one mesh
@@ -2199,10 +2228,10 @@ namespace GridTools
                         const Triangulation<dim, spacedim> &mesh_2);
 
   /**
-   * The same function as above, but working on arguments of type DoFHandler,
-   * or hp::DoFHandler. This function is provided to allow calling
-   * have_same_coarse_mesh for all types of containers representing
-   * triangulations or the classes built on triangulations.
+   * The same function as above, but working on arguments of type DoFHandler.
+   * This function is provided to allow calling have_same_coarse_mesh for all
+   * types of containers representing triangulations or the classes built on
+   * triangulations.
    *
    * @tparam MeshType A type that satisfies the requirements of the
    * @ref ConceptMeshType "MeshType concept".
@@ -2856,12 +2885,12 @@ namespace GridTools
    * in a concrete context. It is taken from the code that makes
    * sure that the @p active_fe_index (a single unsigned integer) is
    * transported from locally owned cells where one can set it in
-   * hp::DoFHandler objects, to the corresponding ghost cells on
-   * other processors to ensure that one can query the right value
-   * also on those processors:
+   * DoFHandler objects with hp-capabilities, to the corresponding ghost cells
+   * on other processors to ensure that one can query the right value also on
+   * those processors:
    * @code
    * using active_cell_iterator =
-   *   typename dealii::hp::DoFHandler<dim,spacedim>::active_cell_iterator;
+   *   typename dealii::DoFHandler<dim,spacedim>::active_cell_iterator;
    * auto pack = [] (const active_cell_iterator &cell) -> unsigned int
    *             {
    *               return cell->active_fe_index();
@@ -2874,9 +2903,9 @@ namespace GridTools
    *               };
    *
    * GridTools::exchange_cell_data_to_ghosts<
-   *   unsigned int, dealii::hp::DoFHandler<dim,spacedim>> (dof_handler,
-   *                                                        pack,
-   *                                                        unpack);
+   *   unsigned int, dealii::DoFHandler<dim,spacedim>> (dof_handler,
+   *                                                    pack,
+   *                                                    unpack);
    * @endcode
    *
    * You will notice that the @p pack lambda function returns an `unsigned int`,
@@ -2941,7 +2970,7 @@ namespace GridTools
   std::vector<std::vector<BoundingBox<spacedim>>>
   exchange_local_bounding_boxes(
     const std::vector<BoundingBox<spacedim>> &local_bboxes,
-    MPI_Comm                                  mpi_communicator);
+    const MPI_Comm &                          mpi_communicator);
 
   /**
    * In this collective operation each process provides a vector
@@ -2979,7 +3008,7 @@ namespace GridTools
   RTree<std::pair<BoundingBox<spacedim>, unsigned int>>
   build_global_description_tree(
     const std::vector<BoundingBox<spacedim>> &local_description,
-    MPI_Comm                                  mpi_communicator);
+    const MPI_Comm &                          mpi_communicator);
 
   /**
    * Collect for a given triangulation all locally relevant vertices that
@@ -3198,7 +3227,7 @@ namespace GridTools
       cell = triangulation.begin_active(),
       endc = triangulation.end();
     for (; cell != endc; ++cell)
-      for (const unsigned int v : GeometryInfo<dim>::vertex_indices())
+      for (const unsigned int v : cell->vertex_indices())
         if (treated_vertices[cell->vertex_index(v)] == false)
           {
             // transform this vertex
@@ -3219,6 +3248,10 @@ namespace GridTools
             if (cell->face(face)->has_children() &&
                 !cell->face(face)->at_boundary())
               {
+                Assert(cell->reference_cell_type() ==
+                         ReferenceCell::get_hypercube(dim),
+                       ExcNotImplemented());
+
                 // this line has children
                 cell->face(face)->child(0)->vertex(1) =
                   (cell->face(face)->vertex(0) + cell->face(face)->vertex(1)) /
@@ -3235,6 +3268,10 @@ namespace GridTools
             if (cell->face(face)->has_children() &&
                 !cell->face(face)->at_boundary())
               {
+                Assert(cell->reference_cell_type() ==
+                         ReferenceCell::get_hypercube(dim),
+                       ExcNotImplemented());
+
                 // this face has hanging nodes
                 cell->face(face)->child(0)->vertex(1) =
                   (cell->face(face)->vertex(0) + cell->face(face)->vertex(1)) /

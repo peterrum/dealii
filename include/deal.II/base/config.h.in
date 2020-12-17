@@ -205,10 +205,11 @@
 /* cmake/configure/configure_2_trilinos.cmake */
 #cmakedefine DEAL_II_TRILINOS_CXX_SUPPORTS_SACADO_COMPLEX_RAD
 #cmakedefine DEAL_II_TRILINOS_WITH_EPETRAEXT
+#cmakedefine DEAL_II_TRILINOS_WITH_MUELU
 #cmakedefine DEAL_II_TRILINOS_WITH_ROL
 #cmakedefine DEAL_II_TRILINOS_WITH_SACADO
+#cmakedefine DEAL_II_TRILINOS_WITH_SEACAS
 #cmakedefine DEAL_II_TRILINOS_WITH_TPETRA
-#cmakedefine DEAL_II_TRILINOS_WITH_MUELU
 #cmakedefine DEAL_II_TRILINOS_WITH_ZOLTAN
 
 
@@ -230,6 +231,12 @@
     >=  \
     (major)*10000 + (minor)*100 + (subminor))
 
+/*
+ * boost:
+ */
+#define DEAL_II_BOOST_VERSION_MAJOR @Boost_MAJOR_VERSION@
+#define DEAL_II_BOOST_VERSION_MINOR @Boost_MINOR_VERSION@
+#define DEAL_II_BOOST_VERSION_SUBMINOR @Boost_SUBMINOR_VERSION@
 
 /*
  * Gmsh:
@@ -350,6 +357,8 @@
     DEAL_II_MPI_VERSION_MINOR) \
     >=  \
     (major)*100 + (minor))
+#else
+#  define DEAL_II_MPI_VERSION_GTE(major,minor) false
 #endif
 
 #cmakedefine DEAL_II_MPI_WITH_CUDA_SUPPORT
@@ -452,5 +461,22 @@ DEAL_II_ENABLE_EXTRA_DIAGNOSTICS
 
 #include <deal.II/base/numbers.h>
 #include <deal.II/base/types.h>
+
+/*
+ * Include the boost version header to do a quick version check in case, by
+ * accident, we have configured with one version of boost but are compiling
+ * either the library or an external application with a different version of
+ * boost.
+ */
+#include <boost/version.hpp>
+static_assert(
+  BOOST_VERSION == 100000 * DEAL_II_BOOST_VERSION_MAJOR +
+                     100 * DEAL_II_BOOST_VERSION_MINOR +
+                     DEAL_II_BOOST_VERSION_SUBMINOR,
+  "The version number of boost that you are compiling with does not match the "
+  "version number of boost found during deal.II's configuration step. This "
+  "leads to difficult to understand bugs and is not supported. Please check "
+  "that you have set up your application with the same version of boost as "
+  "deal.II.");
 
 #endif

@@ -1496,7 +1496,7 @@ TriaAccessor<structdim, dim, spacedim>::set_bounding_object_indices(
   const ArrayView<int> bounding_object_index_ref =
     this->objects().get_bounding_object_indices(this->present_index);
 
-  AssertDimension(bounding_object_index_ref.size(), new_indices.size());
+  AssertIndexRange(new_indices.size(), bounding_object_index_ref.size() + 1);
 
   unsigned int i = 0;
   for (const auto &new_index : new_indices)
@@ -1516,7 +1516,7 @@ TriaAccessor<structdim, dim, spacedim>::set_bounding_object_indices(
   const ArrayView<int> bounding_object_index_ref =
     this->objects().get_bounding_object_indices(this->present_index);
 
-  AssertDimension(bounding_object_index_ref.size(), new_indices.size());
+  AssertIndexRange(new_indices.size(), bounding_object_index_ref.size() + 1);
 
   unsigned int i = 0;
   for (const auto &new_index : new_indices)
@@ -1700,129 +1700,24 @@ TriaAccessor<structdim, dim, spacedim>::intermediate_point(
 }
 
 
-namespace
-{
-  /**
-   * The algorithm to compute the affine approximation to the point on the
-   * unit cell does the following steps:
-   * <ul>
-   * <li> find the least square dim-dimensional plane approximating the cell
-   * vertices, i.e. we find an affine map A x_hat + b from the reference cell
-   * to the real space.
-   * <li> Solve the equation A x_hat + b = p for x_hat
-   * </ul>
-   *
-   * Some details about how we compute the least square plane. We look
-   * for a spacedim x (dim + 1) matrix X such that X * M = Y where M is
-   * a (dim+1) x n_vertices matrix and Y a spacedim x n_vertices.  And:
-   * The i-th column of M is unit_vertex[i] and the last row all
-   * 1's. The i-th column of Y is real_vertex[i].  If we split X=[A|b],
-   * the least square approx is A x_hat+b Classically X = Y * (M^t (M
-   * M^t)^{-1}) Let K = M^t * (M M^t)^{-1} = [KA Kb] this can be
-   * precomputed, and that is exactly what we do.  Finally A = Y*KA and
-   * b = Y*Kb.
-   */
-  template <int dim>
-  struct TransformR2UAffine
-  {
-    static const double KA[GeometryInfo<dim>::vertices_per_cell][dim];
-    static const double Kb[GeometryInfo<dim>::vertices_per_cell];
-  };
-
-
-  /*
-    Octave code:
-    M=[0 1; 1 1];
-    K1 = transpose(M) * inverse (M*transpose(M));
-    printf ("{%f, %f},\n", K1' );
-  */
-  template <>
-  const double TransformR2UAffine<1>::KA[GeometryInfo<1>::vertices_per_cell]
-                                        [1] = {{-1.000000}, {1.000000}};
-
-  template <>
-  const double TransformR2UAffine<1>::Kb[GeometryInfo<1>::vertices_per_cell] =
-    {1.000000, 0.000000};
-
-
-  /*
-    Octave code:
-    M=[0 1 0 1;0 0 1 1;1 1 1 1];
-    K2 = transpose(M) * inverse (M*transpose(M));
-    printf ("{%f, %f, %f},\n", K2' );
-  */
-  template <>
-  const double TransformR2UAffine<2>::KA[GeometryInfo<2>::vertices_per_cell]
-                                        [2] = {{-0.500000, -0.500000},
-                                               {0.500000, -0.500000},
-                                               {-0.500000, 0.500000},
-                                               {0.500000, 0.500000}};
-
-  /*
-    Octave code:
-    M=[0 1 0 1 0 1 0 1;0 0 1 1 0 0 1 1; 0 0 0 0 1 1 1 1; 1 1 1 1 1 1 1 1];
-    K3 = transpose(M) * inverse (M*transpose(M))
-    printf ("{%f, %f, %f, %f},\n", K3' );
-  */
-  template <>
-  const double TransformR2UAffine<2>::Kb[GeometryInfo<2>::vertices_per_cell] =
-    {0.750000, 0.250000, 0.250000, -0.250000};
-
-
-  template <>
-  const double TransformR2UAffine<3>::KA[GeometryInfo<3>::vertices_per_cell]
-                                        [3] = {
-                                          {-0.250000, -0.250000, -0.250000},
-                                          {0.250000, -0.250000, -0.250000},
-                                          {-0.250000, 0.250000, -0.250000},
-                                          {0.250000, 0.250000, -0.250000},
-                                          {-0.250000, -0.250000, 0.250000},
-                                          {0.250000, -0.250000, 0.250000},
-                                          {-0.250000, 0.250000, 0.250000},
-                                          {0.250000, 0.250000, 0.250000}
-
-  };
-
-
-  template <>
-  const double TransformR2UAffine<3>::Kb[GeometryInfo<3>::vertices_per_cell] = {
-    0.500000,
-    0.250000,
-    0.250000,
-    0.000000,
-    0.250000,
-    0.000000,
-    0.000000,
-    -0.250000};
-} // namespace
-
 
 template <int structdim, int dim, int spacedim>
 Point<structdim>
 TriaAccessor<structdim, dim, spacedim>::real_to_unit_cell_affine_approximation(
   const Point<spacedim> &point) const
 {
-  // A = vertex * KA
-  DerivativeForm<1, structdim, spacedim> A;
-
-  // copy vertices to avoid expensive resolution of vertex index inside loop
   std::array<Point<spacedim>, GeometryInfo<structdim>::vertices_per_cell>
     vertices;
   for (const unsigned int v : this->vertex_indices())
     vertices[v] = this->vertex(v);
-  for (unsigned int d = 0; d < spacedim; ++d)
-    for (const unsigned int v : this->vertex_indices())
-      for (unsigned int e = 0; e < structdim; ++e)
-        A[d][e] += vertices[v][d] * TransformR2UAffine<structdim>::KA[v][e];
 
-  // b = vertex * Kb
-  Tensor<1, spacedim> b = point;
-  for (const unsigned int v : this->vertex_indices())
-    b -= vertices[v] * TransformR2UAffine<structdim>::Kb[v];
-
-  DerivativeForm<1, spacedim, structdim> A_inv = A.covariant_form().transpose();
-  return Point<structdim>(apply_transformation(A_inv, b));
+  const auto A_b =
+    GridTools::affine_cell_approximation<structdim, spacedim>(vertices);
+  DerivativeForm<1, spacedim, structdim> A_inv =
+    A_b.first.covariant_form().transpose();
+  return Point<structdim>(apply_transformation(A_inv, point - A_b.second));
 }
+
 
 
 template <int structdim, int dim, int spacedim>
@@ -2143,19 +2038,6 @@ CellAccessor<dim, spacedim>::set_direction_flag(
 
 template <int dim, int spacedim>
 void
-CellAccessor<dim, spacedim>::set_active_cell_index(
-  const unsigned int active_cell_index)
-{
-  // set the active cell index. allow setting it also for non-active (and
-  // unused) cells to allow resetting the index after refinement
-  this->tria->levels[this->present_level]
-    ->active_cell_indices[this->present_index] = active_cell_index;
-}
-
-
-
-template <int dim, int spacedim>
-void
 CellAccessor<dim, spacedim>::set_parent(const unsigned int parent_index)
 {
   Assert(this->used(), TriaAccessorExceptions::ExcCellNotUsed());
@@ -2188,6 +2070,64 @@ CellAccessor<dim, spacedim>::active_cell_index() const
   Assert(this->is_active(), TriaAccessorExceptions::ExcCellNotActive());
   return this->tria->levels[this->present_level]
     ->active_cell_indices[this->present_index];
+}
+
+
+
+template <int dim, int spacedim>
+void
+CellAccessor<dim, spacedim>::set_active_cell_index(
+  const unsigned int active_cell_index) const
+{
+  this->tria->levels[this->present_level]
+    ->active_cell_indices[this->present_index] = active_cell_index;
+}
+
+
+
+template <int dim, int spacedim>
+void
+CellAccessor<dim, spacedim>::set_global_active_cell_index(
+  const types::global_cell_index index) const
+{
+  this->tria->levels[this->present_level]
+    ->global_active_cell_indices[this->present_index] = index;
+}
+
+
+
+template <int dim, int spacedim>
+inline types::global_cell_index
+CellAccessor<dim, spacedim>::global_active_cell_index() const
+{
+  Assert(this->used(), TriaAccessorExceptions::ExcCellNotUsed());
+  Assert(this->is_active(),
+         ExcMessage(
+           "global_active_cell_index() can only be called on active cells!"));
+
+  return this->tria->levels[this->present_level]
+    ->global_active_cell_indices[this->present_index];
+}
+
+
+
+template <int dim, int spacedim>
+void
+CellAccessor<dim, spacedim>::set_global_level_cell_index(
+  const types::global_cell_index index) const
+{
+  this->tria->levels[this->present_level]
+    ->global_level_cell_indices[this->present_index] = index;
+}
+
+
+
+template <int dim, int spacedim>
+inline types::global_cell_index
+CellAccessor<dim, spacedim>::global_level_cell_index() const
+{
+  return this->tria->levels[this->present_level]
+    ->global_level_cell_indices[this->present_index];
 }
 
 
@@ -2360,9 +2300,9 @@ CellAccessor<dim, spacedim>::neighbor_of_neighbor_internal(
 template <int dim, int spacedim>
 unsigned int
 CellAccessor<dim, spacedim>::neighbor_of_neighbor(
-  const unsigned int neighbor) const
+  const unsigned int face_no) const
 {
-  const unsigned int n2 = neighbor_of_neighbor_internal(neighbor);
+  const unsigned int n2 = neighbor_of_neighbor_internal(face_no);
   Assert(n2 != numbers::invalid_unsigned_int,
          TriaAccessorExceptions::ExcNeighborIsCoarser());
 
@@ -2374,9 +2314,9 @@ CellAccessor<dim, spacedim>::neighbor_of_neighbor(
 template <int dim, int spacedim>
 bool
 CellAccessor<dim, spacedim>::neighbor_is_coarser(
-  const unsigned int neighbor) const
+  const unsigned int face_no) const
 {
-  return neighbor_of_neighbor_internal(neighbor) ==
+  return neighbor_of_neighbor_internal(face_no) ==
          numbers::invalid_unsigned_int;
 }
 
@@ -2568,29 +2508,17 @@ CellAccessor<dim, spacedim>::has_periodic_neighbor(
    * faces we mainly use the Triangulation::periodic_face_map to find the
    * information about periodically connected faces. So, we actually search in
    * this std::map and return the cell_face on the other side of the periodic
-   * boundary. For this search process, we have two options:
+   * boundary.
    *
-   * 1- Using the [] operator of std::map: This option results in a more
-   * readalbe code, but requires an extra iteration in the map. Because when we
-   * call [] on std::map, with a key which does not exist in the std::map, that
-   * key will be created and the default value will be returned by []. This is
-   * not desirable. So, one has to first check if the key exists in the std::map
-   * and if it exists, then use the [] operator. The existence check is possible
-   * using std::map::find() or std::map::count(). Using this option will result
-   * in two iteration cycles through the map. First, existence check, then
-   * returning the value.
-   *
-   * 2- Using std::map::find(): This option is less readable, but theoretically
-   *    faster, because it results in one iteration through std::map object.
-   *
-   * We decided to use the 2nd option.
+   * We can not use operator[] as this would insert non-existing entries or
+   * would require guarding with an extra std::map::find() or count().
    */
   AssertIndexRange(i_face, this->n_faces());
   using cell_iterator = TriaIterator<CellAccessor<dim, spacedim>>;
-  // my_it : is the iterator to the current cell.
-  cell_iterator my_it(*this);
+
+  cell_iterator current_cell(*this);
   if (this->tria->periodic_face_map.find(
-        std::pair<cell_iterator, unsigned int>(my_it, i_face)) !=
+        std::make_pair(current_cell, i_face)) !=
       this->tria->periodic_face_map.end())
     return true;
   return false;
@@ -2612,14 +2540,12 @@ CellAccessor<dim, spacedim>::periodic_neighbor(const unsigned int i_face) const
    */
   AssertIndexRange(i_face, this->n_faces());
   using cell_iterator = TriaIterator<CellAccessor<dim, spacedim>>;
-  cell_iterator my_it(*this);
+  cell_iterator current_cell(*this);
 
-  const typename std::map<std::pair<cell_iterator, unsigned int>,
-                          std::pair<std::pair<cell_iterator, unsigned int>,
-                                    std::bitset<3>>>::const_iterator
-    my_face_pair = this->tria->periodic_face_map.find(
-      std::pair<cell_iterator, unsigned int>(my_it, i_face));
-  // Assertion is required to check that we are actually on a periodic boundary.
+  auto my_face_pair =
+    this->tria->periodic_face_map.find(std::make_pair(current_cell, i_face));
+
+  // Make sure we are actually on a periodic boundary:
   Assert(my_face_pair != this->tria->periodic_face_map.end(),
          TriaAccessorExceptions::ExcNoPeriodicNeighbor());
   return my_face_pair->second.first.first;
@@ -2665,11 +2591,9 @@ CellAccessor<dim, spacedim>::periodic_neighbor_child_on_subface(
   AssertIndexRange(i_face, this->n_faces());
   using cell_iterator = TriaIterator<CellAccessor<dim, spacedim>>;
   cell_iterator my_it(*this);
-  const typename std::map<std::pair<cell_iterator, unsigned int>,
-                          std::pair<std::pair<cell_iterator, unsigned int>,
-                                    std::bitset<3>>>::const_iterator
-    my_face_pair = this->tria->periodic_face_map.find(
-      std::pair<cell_iterator, unsigned int>(my_it, i_face));
+
+  auto my_face_pair =
+    this->tria->periodic_face_map.find(std::make_pair(my_it, i_face));
   /*
    * There should be an assertion, which tells the user that this function
    * should not be used for a cell which is not located at a periodic boundary.
@@ -2719,11 +2643,9 @@ CellAccessor<dim, spacedim>::periodic_neighbor_of_coarser_periodic_neighbor(
   using cell_iterator         = TriaIterator<CellAccessor<dim, spacedim>>;
   const int     my_face_index = this->face_index(i_face);
   cell_iterator my_it(*this);
-  const typename std::map<std::pair<cell_iterator, unsigned int>,
-                          std::pair<std::pair<cell_iterator, unsigned int>,
-                                    std::bitset<3>>>::const_iterator
-    my_face_pair = this->tria->periodic_face_map.find(
-      std::pair<cell_iterator, unsigned int>(my_it, i_face));
+
+  auto my_face_pair =
+    this->tria->periodic_face_map.find(std::make_pair(my_it, i_face));
   /*
    * There should be an assertion, which tells the user that this function
    * should not be used for a cell which is not located at a periodic boundary.
@@ -2732,11 +2654,9 @@ CellAccessor<dim, spacedim>::periodic_neighbor_of_coarser_periodic_neighbor(
          TriaAccessorExceptions::ExcNoPeriodicNeighbor());
   cell_iterator nb_it          = my_face_pair->second.first.first;
   unsigned int  face_num_of_nb = my_face_pair->second.first.second;
-  const typename std::map<std::pair<cell_iterator, unsigned int>,
-                          std::pair<std::pair<cell_iterator, unsigned int>,
-                                    std::bitset<3>>>::const_iterator
-    nb_face_pair = this->tria->periodic_face_map.find(
-      std::pair<cell_iterator, unsigned int>(nb_it, face_num_of_nb));
+
+  auto nb_face_pair =
+    this->tria->periodic_face_map.find(std::make_pair(nb_it, face_num_of_nb));
   /*
    * Since, we store periodic neighbors for every cell (either active or
    * artificial or inactive) the nb_face_pair should also be mapped to some
@@ -2750,15 +2670,15 @@ CellAccessor<dim, spacedim>::periodic_neighbor_of_coarser_periodic_neighbor(
   for (unsigned int i_subface = 0; i_subface < parent_face_it->n_children();
        ++i_subface)
     if (parent_face_it->child_index(i_subface) == my_face_index)
-      return (std::pair<unsigned int, unsigned int>(face_num_of_nb, i_subface));
+      return std::make_pair(face_num_of_nb, i_subface);
   /*
    * Obviously, if the execution reaches to this point, some of our assumptions
    * should have been false. The most important one is, the user has called this
    * function on a face which does not have a coarser periodic neighbor.
    */
   Assert(false, TriaAccessorExceptions::ExcNeighborIsNotCoarser());
-  return std::pair<unsigned int, unsigned int>(numbers::invalid_unsigned_int,
-                                               numbers::invalid_unsigned_int);
+  return std::make_pair(numbers::invalid_unsigned_int,
+                        numbers::invalid_unsigned_int);
 }
 
 
@@ -2809,11 +2729,9 @@ CellAccessor<dim, spacedim>::periodic_neighbor_face_no(
   AssertIndexRange(i_face, this->n_faces());
   using cell_iterator = TriaIterator<CellAccessor<dim, spacedim>>;
   cell_iterator my_it(*this);
-  const typename std::map<std::pair<cell_iterator, unsigned int>,
-                          std::pair<std::pair<cell_iterator, unsigned int>,
-                                    std::bitset<3>>>::const_iterator
-    my_face_pair = this->tria->periodic_face_map.find(
-      std::pair<cell_iterator, unsigned int>(my_it, i_face));
+
+  auto my_face_pair =
+    this->tria->periodic_face_map.find(std::make_pair(my_it, i_face));
   /*
    * There should be an assertion, which tells the user that this function
    * should not be called for a cell which is not located at a periodic boundary
@@ -2851,24 +2769,21 @@ CellAccessor<dim, spacedim>::periodic_neighbor_is_coarser(
   AssertIndexRange(i_face, this->n_faces());
   using cell_iterator = TriaIterator<CellAccessor<dim, spacedim>>;
   cell_iterator my_it(*this);
-  const typename std::map<std::pair<cell_iterator, unsigned int>,
-                          std::pair<std::pair<cell_iterator, unsigned int>,
-                                    std::bitset<3>>>::const_iterator
-    my_face_pair = this->tria->periodic_face_map.find(
-      std::pair<cell_iterator, unsigned int>(my_it, i_face));
+
+  auto my_face_pair =
+    this->tria->periodic_face_map.find(std::make_pair(my_it, i_face));
   /*
    * There should be an assertion, which tells the user that this function
    * should not be used for a cell which is not located at a periodic boundary.
    */
   Assert(my_face_pair != this->tria->periodic_face_map.end(),
          TriaAccessorExceptions::ExcNoPeriodicNeighbor());
+
   cell_iterator nb_it          = my_face_pair->second.first.first;
   unsigned int  face_num_of_nb = my_face_pair->second.first.second;
-  const typename std::map<std::pair<cell_iterator, unsigned int>,
-                          std::pair<std::pair<cell_iterator, unsigned int>,
-                                    std::bitset<3>>>::const_iterator
-    nb_face_pair = this->tria->periodic_face_map.find(
-      std::pair<cell_iterator, unsigned int>(nb_it, face_num_of_nb));
+
+  auto nb_face_pair =
+    this->tria->periodic_face_map.find(std::make_pair(nb_it, face_num_of_nb));
   /*
    * Since, we store periodic neighbors for every cell (either active or
    * artificial or inactive) the nb_face_pair should also be mapped to some

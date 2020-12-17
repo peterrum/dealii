@@ -83,11 +83,11 @@ namespace internal
                 const unsigned int nn = cell->neighbor_face_no(f);
 
                 if (nn < GeometryInfo<dim>::faces_per_cell / 2)
-                  for (unsigned int j = 0; j < fe.n_dofs_per_face(); ++j)
+                  for (unsigned int j = 0; j < fe.n_dofs_per_face(f); ++j)
                     {
                       const unsigned int cell_j = fe.face_to_cell_index(j, f);
 
-                      Assert(f * fe.n_dofs_per_face() + j < face_sign.size(),
+                      Assert(f * fe.n_dofs_per_face(f) + j < face_sign.size(),
                              ExcInternalError());
                       Assert(mapping_kind.size() == 1 ||
                                cell_j < mapping_kind.size(),
@@ -98,7 +98,7 @@ namespace internal
                       if ((mapping_kind.size() > 1 ?
                              mapping_kind[cell_j] :
                              mapping_kind[0]) == mapping_raviart_thomas)
-                        face_sign[f * fe.n_dofs_per_face() + j] = -1.0;
+                        face_sign[f * fe.n_dofs_per_face(f) + j] = -1.0;
                     }
               }
           }
@@ -945,7 +945,7 @@ void
 FE_PolyTensor<dim, spacedim>::fill_fe_face_values(
   const typename Triangulation<dim, spacedim>::cell_iterator &cell,
   const unsigned int                                          face_no,
-  const Quadrature<dim - 1> &                                 quadrature,
+  const hp::QCollection<dim - 1> &                            quadrature,
   const Mapping<dim, spacedim> &                              mapping,
   const typename Mapping<dim, spacedim>::InternalDataBase &   mapping_internal,
   const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
@@ -956,6 +956,8 @@ FE_PolyTensor<dim, spacedim>::fill_fe_face_values(
                                                                      spacedim>
     &output_data) const
 {
+  AssertDimension(quadrature.size(), 1);
+
   // convert data object to internal
   // data for this class. fails with
   // an exception if that is not
@@ -964,7 +966,7 @@ FE_PolyTensor<dim, spacedim>::fill_fe_face_values(
          ExcInternalError());
   const InternalData &fe_data = static_cast<const InternalData &>(fe_internal);
 
-  const unsigned int n_q_points = quadrature.size();
+  const unsigned int n_q_points = quadrature[0].size();
   // offset determines which data set
   // to take (all data sets for all
   // faces are stored contiguously)

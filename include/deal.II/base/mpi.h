@@ -153,6 +153,14 @@ namespace Utilities
     this_mpi_process(const MPI_Comm &mpi_communicator);
 
     /**
+     * Return a vector of the ranks (within @p comm_large) of a subset of
+     * processes specified by @p comm_small.
+     */
+    const std::vector<unsigned int>
+    mpi_processes_within_communicator(const MPI_Comm &comm_large,
+                                      const MPI_Comm &comm_small);
+
+    /**
      * Consider an unstructured communication pattern where every process in
      * an MPI universe wants to send some data to a subset of the other
      * processors. To do that, the other processors need to know who to expect
@@ -376,7 +384,7 @@ namespace Utilities
        * in the communicator.
        */
       void
-      lock(MPI_Comm comm);
+      lock(const MPI_Comm &comm);
 
       /**
        * Release the lock.
@@ -385,7 +393,7 @@ namespace Utilities
        * in the communicator.
        */
       void
-      unlock(MPI_Comm comm);
+      unlock(const MPI_Comm &comm);
 
     private:
       /**
@@ -1160,7 +1168,8 @@ namespace Utilities
           if (rank_obj.first != my_proc)
             {
               const auto &rank   = rank_obj.first;
-              buffers_to_send[i] = Utilities::pack(rank_obj.second);
+              buffers_to_send[i] = Utilities::pack(rank_obj.second,
+                                                   /*allow_compression=*/false);
               const int ierr     = MPI_Isend(buffers_to_send[i].data(),
                                          buffers_to_send[i].size(),
                                          MPI_CHAR,
@@ -1205,7 +1214,9 @@ namespace Utilities
             Assert(received_objects.find(rank) == received_objects.end(),
                    ExcInternalError(
                      "I should not receive again from this rank"));
-            received_objects[rank] = Utilities::unpack<T>(buffer);
+            received_objects[rank] =
+              Utilities::unpack<T>(buffer,
+                                   /*allow_compression=*/false);
           }
       }
 

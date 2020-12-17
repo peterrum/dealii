@@ -365,19 +365,21 @@ FE_Enriched<dim, spacedim>::setup_data(
 template <int dim, int spacedim>
 std::unique_ptr<typename FiniteElement<dim, spacedim>::InternalDataBase>
 FE_Enriched<dim, spacedim>::get_face_data(
-  const UpdateFlags             update_flags,
-  const Mapping<dim, spacedim> &mapping,
-  const Quadrature<dim - 1> &   quadrature,
+  const UpdateFlags               update_flags,
+  const Mapping<dim, spacedim> &  mapping,
+  const hp::QCollection<dim - 1> &quadrature,
   internal::FEValuesImplementation::FiniteElementRelatedData<dim, spacedim>
     &output_data) const
 {
+  AssertDimension(quadrature.size(), 1);
+
   auto data =
     fe_system->get_face_data(update_flags, mapping, quadrature, output_data);
   return setup_data(Utilities::dynamic_unique_cast<
                       typename FESystem<dim, spacedim>::InternalData>(
                       std::move(data)),
                     update_flags,
-                    quadrature);
+                    quadrature[0]);
 }
 
 
@@ -440,7 +442,6 @@ FE_Enriched<dim, spacedim>::initialize(
     // If the system is not primitive, these have not been initialized by
     // FiniteElement
     this->system_to_component_table.resize(this->n_dofs_per_cell());
-    this->face_system_to_component_table.resize(this->n_dofs_per_face());
 
     FETools::Compositing::build_cell_tables(this->system_to_base_table,
                                             this->system_to_component_table,
@@ -448,11 +449,21 @@ FE_Enriched<dim, spacedim>::initialize(
                                             *this,
                                             false);
 
-    FETools::Compositing::build_face_tables(
-      this->face_system_to_base_table,
-      this->face_system_to_component_table,
-      *this,
-      false);
+    this->face_system_to_component_table.resize(this->n_unique_faces());
+
+    for (unsigned int face_no = 0; face_no < this->n_unique_faces(); ++face_no)
+      {
+        this->face_system_to_component_table[0].resize(
+          this->n_dofs_per_face(face_no));
+
+
+        FETools::Compositing::build_face_tables(
+          this->face_system_to_base_table[face_no],
+          this->face_system_to_component_table[face_no],
+          *this,
+          false,
+          face_no);
+      }
   }
 
   // restriction and prolongation matrices are built on demand
@@ -549,7 +560,7 @@ void
 FE_Enriched<dim, spacedim>::fill_fe_face_values(
   const typename Triangulation<dim, spacedim>::cell_iterator &cell,
   const unsigned int                                          face_no,
-  const Quadrature<dim - 1> &                                 quadrature,
+  const hp::QCollection<dim - 1> &                            quadrature,
   const Mapping<dim, spacedim> &                              mapping,
   const typename Mapping<dim, spacedim>::InternalDataBase &   mapping_internal,
   const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
@@ -563,6 +574,8 @@ FE_Enriched<dim, spacedim>::fill_fe_face_values(
          ExcInternalError());
   const InternalData &fe_data = static_cast<const InternalData &>(fe_internal);
 
+  AssertDimension(quadrature.size(), 1);
+
   // call FESystem's method to fill everything without enrichment function
   fe_system->fill_fe_face_values(cell,
                                  face_no,
@@ -575,7 +588,7 @@ FE_Enriched<dim, spacedim>::fill_fe_face_values(
 
   if (is_enriched)
     multiply_by_enrichment(
-      quadrature, fe_data, mapping_data, cell, output_data);
+      quadrature[0], fe_data, mapping_data, cell, output_data);
 }
 
 
@@ -881,13 +894,15 @@ template <int dim, int spacedim>
 void
 FE_Enriched<dim, spacedim>::get_face_interpolation_matrix(
   const FiniteElement<dim, spacedim> &source,
-  FullMatrix<double> &                matrix) const
+  FullMatrix<double> &                matrix,
+  const unsigned int                  face_no) const
 {
   if (const FE_Enriched<dim, spacedim> *fe_enr_other =
         dynamic_cast<const FE_Enriched<dim, spacedim> *>(&source))
     {
       fe_system->get_face_interpolation_matrix(fe_enr_other->get_fe_system(),
-                                               matrix);
+                                               matrix,
+                                               face_no);
     }
   else
     {
@@ -904,14 +919,16 @@ void
 FE_Enriched<dim, spacedim>::get_subface_interpolation_matrix(
   const FiniteElement<dim, spacedim> &source,
   const unsigned int                  subface,
-  FullMatrix<double> &                matrix) const
+  FullMatrix<double> &                matrix,
+  const unsigned int                  face_no) const
 {
   if (const FE_Enriched<dim, spacedim> *fe_enr_other =
         dynamic_cast<const FE_Enriched<dim, spacedim> *>(&source))
     {
       fe_system->get_subface_interpolation_matrix(fe_enr_other->get_fe_system(),
                                                   subface,
-                                                  matrix);
+                                                  matrix,
+                                                  face_no);
     }
   else
     {
@@ -962,12 +979,14 @@ FE_Enriched<dim, spacedim>::hp_line_dof_identities(
 template <int dim, int spacedim>
 std::vector<std::pair<unsigned int, unsigned int>>
 FE_Enriched<dim, spacedim>::hp_quad_dof_identities(
-  const FiniteElement<dim, spacedim> &fe_other) const
+  const FiniteElement<dim, spacedim> &fe_other,
+  const unsigned int                  face_no) const
 {
   if (const FE_Enriched<dim, spacedim> *fe_enr_other =
         dynamic_cast<const FE_Enriched<dim, spacedim> *>(&fe_other))
     {
-      return fe_system->hp_quad_dof_identities(fe_enr_other->get_fe_system());
+      return fe_system->hp_quad_dof_identities(fe_enr_other->get_fe_system(),
+                                               face_no);
     }
   else
     {

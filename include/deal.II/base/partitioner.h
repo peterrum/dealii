@@ -205,6 +205,24 @@ namespace Utilities
       Partitioner(const unsigned int size);
 
       /**
+       * Constructor that takes the number of locally-owned degrees of freedom
+       * @p local_size and the number of ghost degrees of freedom @p ghost_size.
+       *
+       * The local index range is translated to global indices in an ascending
+       * and one-to-one fashion, i.e., the indices of process $p$ sit exactly
+       * between the indices of the processes $p-1$ and $p+1$, respectively.
+       *
+       * @note Setting the @p ghost_size variable to an appropriate value
+       *   provides memory space for the ghost data in a vector's memory
+       *   allocation as and allows access to it via local_element(). However,
+       *   the associated global indices must be handled externally in this
+       *   case.
+       */
+      Partitioner(const types::global_dof_index local_size,
+                  const types::global_dof_index ghost_size,
+                  const MPI_Comm &              communicator);
+
+      /**
        * Constructor with index set arguments. This constructor creates a
        * distributed layout based on a given communicators, an IndexSet
        * describing the locally owned range and another one for describing
@@ -213,7 +231,7 @@ namespace Utilities
        */
       Partitioner(const IndexSet &locally_owned_indices,
                   const IndexSet &ghost_indices_in,
-                  const MPI_Comm  communicator_in);
+                  const MPI_Comm &communicator_in);
 
       /**
        * Constructor with one index set argument. This constructor creates a
@@ -223,7 +241,7 @@ namespace Utilities
        * constructor with two index sets.
        */
       Partitioner(const IndexSet &locally_owned_indices,
-                  const MPI_Comm  communicator_in);
+                  const MPI_Comm &communicator_in);
 
       /**
        * Reinitialize the communication pattern. The first argument

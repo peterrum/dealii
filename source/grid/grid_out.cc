@@ -889,7 +889,7 @@ GridOut::write_dx(const Triangulation<dim, spacedim> &tria,
 
       for (const auto &cell : tria.active_cell_iterators())
         {
-          for (auto f : GeometryInfo<dim>::face_indices())
+          for (const unsigned int f : cell->face_indices())
             {
               typename Triangulation<dim, spacedim>::face_iterator face =
                 cell->face(f);
@@ -919,7 +919,7 @@ GridOut::write_dx(const Triangulation<dim, spacedim> &tria,
       for (const auto &cell : tria.active_cell_iterators())
         {
           // Little trick to get -1 for the interior
-          for (auto f : GeometryInfo<dim>::face_indices())
+          for (unsigned int f : GeometryInfo<dim>::face_indices())
             {
               out << ' '
                   << static_cast<std::make_signed<types::boundary_id>::type>(
@@ -1119,7 +1119,7 @@ GridOut::write_msh(const Triangulation<dim, spacedim> &tria,
     {
       out << cell->active_cell_index() + 1 << ' ' << elm_type << ' '
           << cell->material_id() << ' ' << cell->subdomain_id() << ' '
-          << GeometryInfo<dim>::vertices_per_cell << ' ';
+          << cell->n_vertices() << ' ';
 
       // Vertex numbering follows UCD conventions.
 
@@ -1584,7 +1584,8 @@ GridOut::write_svg(const Triangulation<2, 2> &tria, std::ostream &out) const
   // (, and level subdomain id).
   for (const auto &cell : tria.cell_iterators())
     {
-      for (unsigned int vertex_index = 0; vertex_index < 4; vertex_index++)
+      for (unsigned int vertex_index = 0; vertex_index < cell->n_vertices();
+           ++vertex_index)
         {
           if (cell->vertex(vertex_index)[0] < x_min)
             x_min = cell->vertex(vertex_index)[0];
@@ -1834,24 +1835,27 @@ GridOut::write_svg(const Triangulation<2, 2> &tria, std::ostream &out) const
       if (y_min_perspective > projection_decomposition[1])
         y_min_perspective = projection_decomposition[1];
 
-      point[0] = cell->vertex(3)[0];
-      point[1] = cell->vertex(3)[1];
+      if (cell->n_vertices() == 4) // in case of quadrilateral
+        {
+          point[0] = cell->vertex(3)[0];
+          point[1] = cell->vertex(3)[1];
 
-      projection_decomposition = svg_project_point(point,
-                                                   camera_position,
-                                                   camera_direction,
-                                                   camera_horizontal,
-                                                   camera_focus);
+          projection_decomposition = svg_project_point(point,
+                                                       camera_position,
+                                                       camera_direction,
+                                                       camera_horizontal,
+                                                       camera_focus);
 
-      if (x_max_perspective < projection_decomposition[0])
-        x_max_perspective = projection_decomposition[0];
-      if (x_min_perspective > projection_decomposition[0])
-        x_min_perspective = projection_decomposition[0];
+          if (x_max_perspective < projection_decomposition[0])
+            x_max_perspective = projection_decomposition[0];
+          if (x_min_perspective > projection_decomposition[0])
+            x_min_perspective = projection_decomposition[0];
 
-      if (y_max_perspective < projection_decomposition[1])
-        y_max_perspective = projection_decomposition[1];
-      if (y_min_perspective > projection_decomposition[1])
-        y_min_perspective = projection_decomposition[1];
+          if (y_max_perspective < projection_decomposition[1])
+            y_max_perspective = projection_decomposition[1];
+          if (y_min_perspective > projection_decomposition[1])
+            y_min_perspective = projection_decomposition[1];
+        }
 
       if (static_cast<unsigned int>(cell->level()) == min_level)
         min_level_min_vertex_distance = cell->minimum_vertex_distance();
@@ -2175,29 +2179,32 @@ GridOut::write_svg(const Triangulation<2, 2> &tria, std::ostream &out) const
 
           out << " L ";
 
-          point[0] = cell->vertex(3)[0];
-          point[1] = cell->vertex(3)[1];
+          if (cell->n_vertices() == 4) // in case of quadrilateral
+            {
+              point[0] = cell->vertex(3)[0];
+              point[1] = cell->vertex(3)[1];
 
-          projection_decomposition = svg_project_point(point,
-                                                       camera_position,
-                                                       camera_direction,
-                                                       camera_horizontal,
-                                                       camera_focus);
+              projection_decomposition = svg_project_point(point,
+                                                           camera_position,
+                                                           camera_direction,
+                                                           camera_horizontal,
+                                                           camera_focus);
 
-          out << static_cast<unsigned int>(
-                   .5 +
-                   ((projection_decomposition[0] - x_min_perspective) /
-                    x_dimension_perspective) *
-                     (width - (width / 100.) * 2. * margin_in_percent) +
-                   ((width / 100.) * margin_in_percent))
-              << ' '
-              << static_cast<unsigned int>(
-                   .5 + height - (height / 100.) * margin_in_percent -
-                   ((projection_decomposition[1] - y_min_perspective) /
-                    y_dimension_perspective) *
-                     (height - (height / 100.) * 2. * margin_in_percent));
+              out << static_cast<unsigned int>(
+                       .5 +
+                       ((projection_decomposition[0] - x_min_perspective) /
+                        x_dimension_perspective) *
+                         (width - (width / 100.) * 2. * margin_in_percent) +
+                       ((width / 100.) * margin_in_percent))
+                  << ' '
+                  << static_cast<unsigned int>(
+                       .5 + height - (height / 100.) * margin_in_percent -
+                       ((projection_decomposition[1] - y_min_perspective) /
+                        y_dimension_perspective) *
+                         (height - (height / 100.) * 2. * margin_in_percent));
 
-          out << " L ";
+              out << " L ";
+            }
 
           point[0] = cell->vertex(2)[0];
           point[1] = cell->vertex(2)[1];
@@ -2354,8 +2361,7 @@ GridOut::write_svg(const Triangulation<2, 2> &tria, std::ostream &out) const
           // the additional boundary line
           if (svg_flags.boundary_line_thickness)
             {
-              for (const unsigned int faceIndex :
-                   GeometryInfo<2>::face_indices())
+              for (auto faceIndex : cell->face_indices())
                 {
                   if (cell->at_boundary(faceIndex))
                     {
@@ -2948,10 +2954,11 @@ namespace
     for (; cell != end; ++cell)
       {
         DataOutBase::Patch<dim, spacedim> patch;
-        patch.n_subdivisions = 1;
-        patch.data.reinit(5, GeometryInfo<dim>::vertices_per_cell);
+        patch.reference_cell_type = cell->reference_cell_type();
+        patch.n_subdivisions      = 1;
+        patch.data.reinit(5, cell->n_vertices());
 
-        for (const unsigned int v : GeometryInfo<dim>::vertex_indices())
+        for (const unsigned int v : cell->vertex_indices())
           {
             patch.vertices[v] = cell->vertex(v);
             patch.data(0, v)  = cell->level();
@@ -3210,11 +3217,30 @@ GridOut::write_vtk(const Triangulation<dim, spacedim> &tria,
         out << cell->n_vertices();
         for (const unsigned int i : cell->vertex_indices())
           {
-            out << ' '
-                << cell->vertex_index(GeometryInfo<dim>::vertices_per_cell ==
-                                          cell->n_vertices() ?
-                                        GeometryInfo<dim>::ucd_to_deal[i] :
-                                        i);
+            out << ' ';
+            switch (cell->reference_cell_type())
+              {
+                case ReferenceCell::Type::Vertex:
+                case ReferenceCell::Type::Line:
+                case ReferenceCell::Type::Quad:
+                case ReferenceCell::Type::Hex:
+                  out << cell->vertex_index(GeometryInfo<dim>::ucd_to_deal[i]);
+                  break;
+                case ReferenceCell::Type::Tri:
+                case ReferenceCell::Type::Tet:
+                case ReferenceCell::Type::Wedge:
+                  out << cell->vertex_index(i);
+                  break;
+                case ReferenceCell::Type::Pyramid:
+                  {
+                    static const std::array<unsigned int, 5> permutation_table{
+                      {0, 1, 3, 2, 4}};
+                    out << cell->vertex_index(permutation_table[i]);
+                    break;
+                  }
+                default:
+                  Assert(false, ExcNotImplemented());
+              }
           }
         out << '\n';
       }
@@ -3222,14 +3248,13 @@ GridOut::write_vtk(const Triangulation<dim, spacedim> &tria,
     for (const auto &face : faces)
       {
         out << face->n_vertices();
+        constexpr int face_dim = dim > 1 ? dim - 1 : 1;
         for (const unsigned int i : face->vertex_indices())
           {
             out << ' '
                 << face->vertex_index(GeometryInfo<dim>::vertices_per_face ==
                                           face->n_vertices() ?
-                                        GeometryInfo < (dim > 1) ?
-                                        dim - 1 :
-                                        dim > ::ucd_to_deal[i] :
+                                        GeometryInfo<face_dim>::ucd_to_deal[i] :
                                         i);
           }
         out << '\n';
@@ -4131,8 +4156,8 @@ namespace internal
 
       // If we need to plot curved lines then generate a quadrature formula to
       // place points via the mapping
-      Quadrature<dim> *     q_projector = nullptr;
-      std::vector<Point<1>> boundary_points;
+      std::unique_ptr<Quadrature<dim>> q_projector;
+      std::vector<Point<1>>            boundary_points;
       if (mapping != nullptr)
         {
           boundary_points.resize(n_points);
@@ -4146,7 +4171,7 @@ namespace internal
 
           // tensor product of points, only one copy
           QIterated<dim - 1> quadrature(quadrature1d, 1);
-          q_projector = new Quadrature<dim>(
+          q_projector = std::make_unique<Quadrature<dim>>(
             QProjector<dim>::project_to_all_faces(quadrature));
         }
 
@@ -4304,10 +4329,6 @@ namespace internal
             }
         }
 
-      if (q_projector != nullptr)
-        delete q_projector;
-
-
       // make sure everything now gets to disk
       out.flush();
 
@@ -4442,9 +4463,7 @@ namespace internal
           case 2:
             {
               for (const auto &cell : tria.active_cell_iterators())
-                for (unsigned int line_no = 0;
-                     line_no < GeometryInfo<dim>::lines_per_cell;
-                     ++line_no)
+                for (const unsigned int line_no : cell->line_indices())
                   {
                     typename dealii::Triangulation<dim, spacedim>::line_iterator
                       line = cell->line(line_no);
@@ -4614,9 +4633,7 @@ namespace internal
 
 
               for (const auto &cell : tria.active_cell_iterators())
-                for (unsigned int line_no = 0;
-                     line_no < GeometryInfo<dim>::lines_per_cell;
-                     ++line_no)
+                for (const unsigned int line_no : cell->line_indices())
                   {
                     typename dealii::Triangulation<dim, spacedim>::line_iterator
                       line = cell->line(line_no);
@@ -4805,18 +4822,17 @@ namespace internal
           // doing this multiply
           std::set<unsigned int> treated_vertices;
           for (const auto &cell : tria.active_cell_iterators())
-            for (const unsigned int vertex :
-                 GeometryInfo<dim>::vertex_indices())
-              if (treated_vertices.find(cell->vertex_index(vertex)) ==
+            for (const unsigned int vertex_no : cell->vertex_indices())
+              if (treated_vertices.find(cell->vertex_index(vertex_no)) ==
                   treated_vertices.end())
                 {
-                  treated_vertices.insert(cell->vertex_index(vertex));
+                  treated_vertices.insert(cell->vertex_index(vertex_no));
 
-                  out << (cell->vertex(vertex)(0) - offset(0)) * scale << ' '
-                      << (cell->vertex(vertex)(1) - offset(1)) * scale << " m"
-                      << '\n'
+                  out << (cell->vertex(vertex_no)(0) - offset(0)) * scale << ' '
+                      << (cell->vertex(vertex_no)(1) - offset(1)) * scale
+                      << " m" << '\n'
                       << "[ [(Helvetica) 10.0 0.0 true true ("
-                      << cell->vertex_index(vertex) << ")] "
+                      << cell->vertex_index(vertex_no) << ")] "
                       << "] -6 MCshow" << '\n';
                 }
         }

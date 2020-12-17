@@ -30,8 +30,7 @@ namespace hp
 {
   /**
    * This class acts as a collection of finite element objects used in the
-   * hp::DoFHandler. It is thus to a hp::DoFHandler what a FiniteElement is to
-   * a ::DoFHandler.
+   * DoFHandler.
    *
    * It implements the concepts stated in the
    * @ref hpcollection
@@ -290,7 +289,7 @@ namespace hp
      * method does return true, this does not imply that the hp method will
      * work!
      *
-     * This behaviour is related to the fact, that FiniteElement classes,
+     * This behavior is related to the fact, that FiniteElement classes,
      * which provide the new style hanging node constraints might still not
      * provide them for all possible cases. If FE_Q and FE_RaviartThomas
      * elements are included in the FECollection and both properly implement
@@ -736,16 +735,6 @@ namespace hp
     DeclException0(ExcNoFiniteElements);
 
     /**
-     * Exception
-     *
-     * @ingroup Exceptions
-     */
-    DeclExceptionMsg(
-      ExcNoDominatedFiniteElementAmongstChildren,
-      "No FiniteElement has been found in your FECollection that is "
-      "dominated by all children of a cell you are trying to coarsen!");
-
-    /**
      * @}
      */
 
@@ -884,8 +873,7 @@ namespace hp
 
     unsigned int max = 0;
     for (unsigned int i = 0; i < finite_elements.size(); ++i)
-      if (finite_elements[i]->n_dofs_per_vertex() > max)
-        max = finite_elements[i]->n_dofs_per_vertex();
+      max = std::max(max, finite_elements[i]->n_dofs_per_vertex());
 
     return max;
   }
@@ -900,8 +888,7 @@ namespace hp
 
     unsigned int max = 0;
     for (unsigned int i = 0; i < finite_elements.size(); ++i)
-      if (finite_elements[i]->n_dofs_per_line() > max)
-        max = finite_elements[i]->n_dofs_per_line();
+      max = std::max(max, finite_elements[i]->n_dofs_per_line());
 
     return max;
   }
@@ -916,8 +903,7 @@ namespace hp
 
     unsigned int max = 0;
     for (unsigned int i = 0; i < finite_elements.size(); ++i)
-      if (finite_elements[i]->n_dofs_per_quad() > max)
-        max = finite_elements[i]->n_dofs_per_quad();
+      max = std::max(max, finite_elements[i]->max_dofs_per_quad());
 
     return max;
   }
@@ -932,8 +918,7 @@ namespace hp
 
     unsigned int max = 0;
     for (unsigned int i = 0; i < finite_elements.size(); ++i)
-      if (finite_elements[i]->n_dofs_per_hex() > max)
-        max = finite_elements[i]->n_dofs_per_hex();
+      max = std::max(max, finite_elements[i]->n_dofs_per_hex());
 
     return max;
   }
@@ -948,8 +933,7 @@ namespace hp
 
     unsigned int max = 0;
     for (unsigned int i = 0; i < finite_elements.size(); ++i)
-      if (finite_elements[i]->n_dofs_per_face() > max)
-        max = finite_elements[i]->n_dofs_per_face();
+      max = std::max(max, finite_elements[i]->max_dofs_per_face());
 
     return max;
   }
@@ -964,8 +948,7 @@ namespace hp
 
     unsigned int max = 0;
     for (unsigned int i = 0; i < finite_elements.size(); ++i)
-      if (finite_elements[i]->n_dofs_per_cell() > max)
-        max = finite_elements[i]->n_dofs_per_cell();
+      max = std::max(max, finite_elements[i]->n_dofs_per_cell());
 
     return max;
   }

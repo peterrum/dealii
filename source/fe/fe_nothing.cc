@@ -135,7 +135,7 @@ void
 FE_Nothing<dim, spacedim>::fill_fe_face_values(
   const typename Triangulation<dim, spacedim>::cell_iterator &,
   const unsigned int,
-  const Quadrature<dim - 1> &,
+  const hp::QCollection<dim - 1> &,
   const Mapping<dim, spacedim> &,
   const typename Mapping<dim, spacedim>::InternalDataBase &,
   const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
@@ -254,7 +254,8 @@ FE_Nothing<dim, spacedim>::hp_line_dof_identities(
 template <int dim, int spacedim>
 std::vector<std::pair<unsigned int, unsigned int>>
 FE_Nothing<dim, spacedim>::hp_quad_dof_identities(
-  const FiniteElement<dim, spacedim> & /*fe_other*/) const
+  const FiniteElement<dim, spacedim> & /*fe_other*/,
+  const unsigned int) const
 {
   // the FE_Nothing has no
   // degrees of freedom, so there
@@ -295,7 +296,8 @@ template <int dim, int spacedim>
 void
 FE_Nothing<dim, spacedim>::get_face_interpolation_matrix(
   const FiniteElement<dim, spacedim> & /*source_fe*/,
-  FullMatrix<double> &interpolation_matrix) const
+  FullMatrix<double> &interpolation_matrix,
+  const unsigned int) const
 {
   // since this element has no face dofs, the
   // interpolation matrix is necessarily empty
@@ -313,7 +315,8 @@ void
 FE_Nothing<dim, spacedim>::get_subface_interpolation_matrix(
   const FiniteElement<dim, spacedim> & /*source_fe*/,
   const unsigned int /*index*/,
-  FullMatrix<double> &interpolation_matrix) const
+  FullMatrix<double> &interpolation_matrix,
+  const unsigned int) const
 {
   // since this element has no face dofs, the
   // interpolation matrix is necessarily empty

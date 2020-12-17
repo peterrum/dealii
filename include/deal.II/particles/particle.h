@@ -235,6 +235,25 @@ namespace Particles
     void
     write_data(void *&data) const;
 
+
+    /**
+     * Update all of the data associated with a particle : id,
+     * location, reference location and, if any, properties by using a
+     * data array. The array is expected to be large enough to take the data,
+     * and the void pointer should point to the first entry of the array to
+     * which the data should be written. This function is meant for
+     * de-serializing the particle data without requiring that a new Particle
+     * class be built. This is used in the ParticleHandler to update the
+     * ghost particles without de-allocating and re-allocating memory.
+     *
+     * @param[in,out] data A pointer to a memory location from which
+     * to read the information that completely describes a particle. This
+     * class then de-serializes its data from this memory location and
+     * advance the pointer accordingly.
+     */
+    void
+    update_particle_data(const void *&data);
+
     /**
      * Set the location of this particle. Note that this does not check
      * whether this is a valid location in the simulation domain.
@@ -246,7 +265,7 @@ namespace Particles
      *   particles on the latter are *copies* of particles owned on other
      *   processors, and should therefore be treated in the same way as
      *   ghost entries in @ref GlossGhostedVector "vectors with ghost elements"
-     *   or @ref GlossGhostCells "ghost cells": In both cases, one should
+     *   or @ref GlossGhostCell "ghost cells": In both cases, one should
      *   treat the ghost elements or cells as `const` objects that shouldn't
      *   be modified even if the objects allow for calls that modify
      *   properties. Rather, properties should only be modified on processors
@@ -274,7 +293,7 @@ namespace Particles
      *   particles on the latter are *copies* of particles owned on other
      *   processors, and should therefore be treated in the same way as
      *   ghost entries in @ref GlossGhostedVector "vectors with ghost elements"
-     *   or @ref GlossGhostCells "ghost cells": In both cases, one should
+     *   or @ref GlossGhostCell "ghost cells": In both cases, one should
      *   treat the ghost elements or cells as `const` objects that shouldn't
      *   be modified even if the objects allow for calls that modify
      *   properties. Rather, properties should only be modified on processors
@@ -319,7 +338,7 @@ namespace Particles
      *   particles on the latter are *copies* of particles owned on other
      *   processors, and should therefore be treated in the same way as
      *   ghost entries in @ref GlossGhostedVector "vectors with ghost elements"
-     *   or @ref GlossGhostCells "ghost cells": In both cases, one should
+     *   or @ref GlossGhostCell "ghost cells": In both cases, one should
      *   treat the ghost elements or cells as `const` objects that shouldn't
      *   be modified even if the objects allow for calls that modify
      *   properties. Rather, properties should only be modified on processors
@@ -334,6 +353,11 @@ namespace Particles
      * since the particle does not know about the properties,
      * we want to do it not at construction time. Another use for this
      * function is after particle transfer to a new process.
+     *
+     * If a particle already stores properties in a property pool, then
+     * their values are saved, the memory is released in the previous
+     * property pool, and a copy of the particle's properties will be
+     * allocated in the new property pool.
      */
     void
     set_property_pool(PropertyPool &property_pool);
@@ -356,7 +380,7 @@ namespace Particles
      *   particles on the latter are *copies* of particles owned on other
      *   processors, and should therefore be treated in the same way as
      *   ghost entries in @ref GlossGhostedVector "vectors with ghost elements"
-     *   or @ref GlossGhostCells "ghost cells": In both cases, one should
+     *   or @ref GlossGhostCell "ghost cells": In both cases, one should
      *   treat the ghost elements or cells as `const` objects that shouldn't
      *   be modified even if the objects allow for calls that modify
      *   properties. Rather, properties should only be modified on processors
@@ -405,11 +429,20 @@ namespace Particles
 
     /**
      * Read the data of this object from a stream for the purpose of
-     * serialization.
+     * serialization. Note that in order to store the properties
+     * correctly, the property pool of this particle has to
+     * be known at the time of reading, i.e. set_property_pool()
+     * has to have been called, before this function is called.
      */
     template <class Archive>
     void
     load(Archive &ar, const unsigned int version);
+
+    /**
+     * Free the memory of the property pool
+     */
+    void
+    free_properties();
 
 #ifdef DOXYGEN
     /**
@@ -457,7 +490,7 @@ namespace Particles
 
   template <int dim, int spacedim>
   template <class Archive>
-  void
+  inline void
   Particle<dim, spacedim>::load(Archive &ar, const unsigned int)
   {
     unsigned int n_properties = 0;
@@ -466,14 +499,26 @@ namespace Particles
 
     if (n_properties > 0)
       {
-        properties = new double[n_properties];
-        ar &boost::serialization::make_array(properties, n_properties);
+        ArrayView<double> properties(get_properties());
+        Assert(
+          properties.size() == n_properties,
+          ExcMessage(
+            "This particle was serialized with " +
+            std::to_string(n_properties) +
+            " properties, but the new property handler provides space for " +
+            std::to_string(properties.size()) +
+            " properties. Deserializing a particle only works for matching property sizes."));
+
+        ar &boost::serialization::make_array(get_properties().data(),
+                                             n_properties);
       }
   }
 
+
+
   template <int dim, int spacedim>
   template <class Archive>
-  void
+  inline void
   Particle<dim, spacedim>::save(Archive &ar, const unsigned int) const
   {
     unsigned int n_properties = 0;
@@ -484,8 +529,119 @@ namespace Particles
     ar &location &reference_location &id &n_properties;
 
     if (n_properties > 0)
-      ar &boost::serialization::make_array(properties, n_properties);
+      ar &boost::serialization::make_array(get_properties().data(),
+                                           n_properties);
   }
+
+
+
+  template <int dim, int spacedim>
+  inline void
+  Particle<dim, spacedim>::set_location(const Point<spacedim> &new_loc)
+  {
+    location = new_loc;
+  }
+
+
+
+  template <int dim, int spacedim>
+  inline const Point<spacedim> &
+  Particle<dim, spacedim>::get_location() const
+  {
+    return location;
+  }
+
+
+
+  template <int dim, int spacedim>
+  inline void
+  Particle<dim, spacedim>::set_reference_location(const Point<dim> &new_loc)
+  {
+    reference_location = new_loc;
+  }
+
+
+
+  template <int dim, int spacedim>
+  inline const Point<dim> &
+  Particle<dim, spacedim>::get_reference_location() const
+  {
+    return reference_location;
+  }
+
+
+
+  template <int dim, int spacedim>
+  inline types::particle_index
+  Particle<dim, spacedim>::get_id() const
+  {
+    return id;
+  }
+
+
+
+  template <int dim, int spacedim>
+  inline void
+  Particle<dim, spacedim>::set_id(const types::particle_index &new_id)
+  {
+    id = new_id;
+  }
+
+
+
+  template <int dim, int spacedim>
+  inline void
+  Particle<dim, spacedim>::set_property_pool(PropertyPool &new_property_pool)
+  {
+    // First, we do want to save any properties that may
+    // have previously been set, and copy them over to the memory allocated
+    // on the new pool
+    PropertyPool::Handle new_handle = PropertyPool::invalid_handle;
+    if (property_pool != nullptr && properties != PropertyPool::invalid_handle)
+      {
+        new_handle = new_property_pool.allocate_properties_array();
+
+        ArrayView<double> old_properties = this->get_properties();
+        ArrayView<double> new_properties =
+          new_property_pool.get_properties(new_handle);
+        std::copy(old_properties.cbegin(),
+                  old_properties.cend(),
+                  new_properties.begin());
+      }
+
+    // If the particle currently has a reference to properties, then
+    // release those.
+    if (property_pool != nullptr && properties != PropertyPool::invalid_handle)
+      property_pool->deallocate_properties_array(properties);
+
+
+    // Then set the pointer to the property pool we want to use. Also set the
+    // handle to any properties, if we have copied any above.
+    property_pool = &new_property_pool;
+    properties    = new_handle;
+  }
+
+
+
+  template <int dim, int spacedim>
+  inline const ArrayView<const double>
+  Particle<dim, spacedim>::get_properties() const
+  {
+    Assert(has_properties(), ExcInternalError());
+
+    return property_pool->get_properties(properties);
+  }
+
+
+
+  template <int dim, int spacedim>
+  inline bool
+  Particle<dim, spacedim>::has_properties() const
+  {
+    return (property_pool != nullptr) &&
+           (properties != PropertyPool::invalid_handle);
+  }
+
 } // namespace Particles
 
 DEAL_II_NAMESPACE_CLOSE

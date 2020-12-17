@@ -45,8 +45,17 @@ class TriaIterator;
 template <typename Accessor>
 class TriaActiveIterator;
 
+namespace parallel
+{
+  template <int dim, int spacedim>
+  class TriangulationBase;
+}
+
 template <int dim, int spacedim>
 class Manifold;
+
+template <int dim, int spacedim>
+class Mapping;
 #endif
 
 namespace internal
@@ -55,6 +64,7 @@ namespace internal
   {
     class TriaObjects;
     struct Implementation;
+    struct ImplementationMixedMesh;
   } // namespace TriangulationImplementation
 
   namespace TriaAccessorImplementation
@@ -118,7 +128,6 @@ namespace internal
     {
       using type = int;
     };
-
   } // namespace TriaAccessorImplementation
 } // namespace internal
 template <int structdim, int dim, int spacedim>
@@ -1396,9 +1405,25 @@ public:
   /**
    * Diameter of the object.
    *
-   * The diameter of an object is computed to be the largest diagonal. This is
-   * not necessarily the true diameter for objects that may use higher order
-   * mappings, but completely sufficient for most computations.
+   * The diameter of an object is computed to be the largest diagonal of the
+   * current object. If this object is a quadrilateral, then there are two
+   * such diagonal, and if it is a hexahedron, then there are four diagonals
+   * that connect "opposite" points. For triangles and tetrahedra, the function
+   * simply returns the length of the longest edge.
+   *
+   * The situation is more difficult for wedges and pyramids: For wedges, we
+   * return the length of the longest diagonal of the three quadrilateral faces
+   * or the longest edge length of the two triangular faces. For pyramids,
+   * the same principle is applied.
+   *
+   * In all of these cases, this definition of "diameter" is
+   * not necessarily the true diameter in the sense of the largest distance
+   * between points inside the object. Indeed, one can often construct objects
+   * for which it is not, though these are generally quite deformed compared to
+   * the reference shape. Furthermore, for objects that may use higher order
+   * mappings, one may have bulging faces that also create trouble for
+   * computing an exact representation of the diameter of the object. That said,
+   * the definition used above is completely sufficient for most computations.
    */
   double
   diameter() const;
@@ -1788,6 +1813,8 @@ private:
   friend class Triangulation;
 
   friend struct dealii::internal::TriangulationImplementation::Implementation;
+  friend struct dealii::internal::TriangulationImplementation::
+    ImplementationMixedMesh;
   friend struct dealii::internal::TriaAccessorImplementation::Implementation;
 };
 
@@ -2839,6 +2866,13 @@ public:
   child(const unsigned int i) const;
 
   /**
+   * Return an array of iterators to all children of this cell.
+   */
+  boost::container::small_vector<TriaIterator<CellAccessor<dim, spacedim>>,
+                                 GeometryInfo<dim>::max_children_per_cell>
+  child_iterators() const;
+
+  /**
    * Return an iterator to the @p ith face of this cell.
    */
   TriaIterator<TriaAccessor<dim - 1, dim, spacedim>>
@@ -2924,9 +2958,12 @@ public:
                             const unsigned int subface_no) const;
 
   /**
-   * Return a pointer to the @p ith neighbor.  If the neighbor does not exist,
-   * i.e., if the @p ith face of the current object is at the boundary, then
+   * Return an iterator to the neighboring cell on the other side of the face
+   * with number @p face_no. If the neighbor does not exist,
+   * i.e., if the face with number @p face_no of the current object is at the boundary, then
    * an invalid iterator is returned.
+   *
+   * Consequently, the index @p face_no must be less than n_faces().
    *
    * The neighbor of a cell has at most the same level as this cell. For
    * example, consider the following situation:
@@ -2940,44 +2977,50 @@ public:
    *
    * On the other hand, if you were at the top right cell of the four small
    * cells at the top left, and you asked for the right neighbor (which is
-   * associated with index <code>i=1</code>), then you would get the large
+   * associated with index <code>face_no=1</code>), then you would get the large
    * cell at the top right which in this case has a lower refinement level and
    * no children of its own.
    */
   TriaIterator<CellAccessor<dim, spacedim>>
-  neighbor(const unsigned int i) const;
+  neighbor(const unsigned int face_no) const;
 
   /**
-   * Return the index of the @p ith neighbor.  If the neighbor does not exist,
-   * its index is -1.
+   * Return the cell index of the neighboring cell on the other side of the face
+   * with index @p face_no. If the neighbor does not exist, this function returns -1.
+   *
+   * This function is equivalent to <tt>cell->neighbor(face_no)->index()</tt>.
+   * See neighbor() for more details.
    */
   int
-  neighbor_index(const unsigned int i) const;
+  neighbor_index(const unsigned int face_no) const;
 
   /**
-   * Return the level of the @p ith neighbor.  If the neighbor does not exist,
-   * its level is -1.
+   * Return the level of the neighboring cell on the other side of the face with
+   * number @p face_no. If the neighbor does not exist, this function returns -1.
+   *
+   * This function is equivalent to `cell->neighbor(face_no)->level()`.
+   * See neighbor() for more details.
    */
   int
-  neighbor_level(const unsigned int i) const;
+  neighbor_level(const unsigned int face_no) const;
 
   /**
    * Return the how-many'th neighbor this cell is of
-   * <tt>cell->neighbor(neighbor)</tt>, i.e. return the @p face_no such that
-   * <tt>cell->neighbor(neighbor)->neighbor(face_no)==cell</tt>. This function
-   * is the right one if you want to know how to get back from a neighbor to
-   * the present cell.
+   * <tt>cell->neighbor(face_no)</tt>, i.e. return @p other_face_no such that
+   * <tt>cell->neighbor(face_no)->neighbor(other_face_no)==cell</tt>. This
+   * function is the right one if you want to know how to get back from a
+   * neighbor to the present cell.
    *
    * Note that this operation is only useful if the neighbor is not coarser
    * than the present cell. If the neighbor is coarser this function throws an
    * exception. Use the @p neighbor_of_coarser_neighbor function in that case.
    */
   unsigned int
-  neighbor_of_neighbor(const unsigned int neighbor) const;
+  neighbor_of_neighbor(const unsigned int face_no) const;
 
   /**
    * Return, whether the neighbor is coarser then the present cell. This is
-   * important in case of ansiotropic refinement where this information does
+   * important in case of anisotropic refinement where this information does
    * not depend on the levels of the cells.
    *
    * Note, that in an anisotropic setting, a cell can only be coarser than
@@ -2986,7 +3029,7 @@ public:
    * the finer face is either a child or a grandchild of the coarser face.
    */
   bool
-  neighbor_is_coarser(const unsigned int neighbor) const;
+  neighbor_is_coarser(const unsigned int face_no) const;
 
   /**
    * This function is a generalization of the @p neighbor_of_neighbor function
@@ -3428,6 +3471,29 @@ public:
    */
 
   /**
+   * Return globally unique cell index for a non-artificial active cell. The
+   * value is identical to active_cell_index() in the context of a serial
+   * triangulation.
+   *
+   * In the context of parallel triangulations, locally-owned cells are
+   * enumerated contiguously within each subdomain of the mesh.
+   *
+   * If a cell-data vector has been set up with
+   * parallel::TriangulationBase::global_active_cell_index_partitioner(), the
+   * returned index can be used to access the correct vector entry.
+   */
+  types::global_cell_index
+  global_active_cell_index() const;
+
+  /**
+   * Return a globally unique index for a non-artificial level cell.
+   *
+   * @note Similar to global_active_cell_index().
+   */
+  types::global_cell_index
+  global_level_cell_index() const;
+
+  /**
    * @name Dealing with codim 1 cell orientation
    */
   /**
@@ -3656,6 +3722,14 @@ public:
   CellId
   id() const;
 
+  using TriaAccessor<dim, dim, spacedim>::diameter;
+
+  /**
+   * The same as TriaAccessor::diameter() but also taking a Mapping class.
+   */
+  double
+  diameter(const Mapping<dim, spacedim> &mapping) const;
+
   /**
    * @}
    */
@@ -3710,7 +3784,19 @@ private:
    * refinement.
    */
   void
-  set_active_cell_index(const unsigned int active_cell_index);
+  set_active_cell_index(const unsigned int active_cell_index) const;
+
+  /**
+   * Set global active cell index for a cell.
+   */
+  void
+  set_global_active_cell_index(const types::global_cell_index index) const;
+
+  /**
+   * Set global level cell index for a level cell.
+   */
+  void
+  set_global_level_cell_index(const types::global_cell_index index) const;
 
   /**
    * Set the parent of a cell.
@@ -3730,7 +3816,12 @@ private:
   template <int, int>
   friend class Triangulation;
 
+  template <int, int>
+  friend class parallel::TriangulationBase;
+
   friend struct dealii::internal::TriangulationImplementation::Implementation;
+  friend struct dealii::internal::TriangulationImplementation::
+    ImplementationMixedMesh;
 };
 
 

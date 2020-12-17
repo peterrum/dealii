@@ -147,7 +147,9 @@ FE_NedelecSZ<dim, spacedim>::get_data(
   const unsigned int faces_per_cell    = GeometryInfo<dim>::faces_per_cell;
 
   const unsigned int n_line_dofs = this->n_dofs_per_line() * lines_per_cell;
-  const unsigned int n_face_dofs = this->n_dofs_per_quad() * faces_per_cell;
+
+  // we assume that all quads have the same numer of dofs
+  const unsigned int n_face_dofs = this->n_dofs_per_quad(0) * faces_per_cell;
 
   const UpdateFlags  flags(data.update_each);
   const unsigned int n_q_points = quadrature.size();
@@ -1695,7 +1697,8 @@ FE_NedelecSZ<dim, spacedim>::fill_face_values(
           // Loop through quad points:
           for (unsigned int m = 0; m < faces_per_cell; ++m)
             {
-              const unsigned int shift_m(m * this->n_dofs_per_quad());
+              // we assume that all quads have the same numer of dofs
+              const unsigned int shift_m(m * this->n_dofs_per_quad(0));
               // Calculate the offsets for each face-based shape function:
               //
               // Type-1 (gradients)
@@ -2026,7 +2029,7 @@ void
 FE_NedelecSZ<dim, spacedim>::fill_fe_face_values(
   const typename Triangulation<dim, dim>::cell_iterator &cell,
   const unsigned int                                     face_no,
-  const Quadrature<dim - 1> &                            quadrature,
+  const hp::QCollection<dim - 1> &                       quadrature,
   const Mapping<dim, dim> &                              mapping,
   const typename Mapping<dim, dim>::InternalDataBase &   mapping_internal,
   const dealii::internal::FEValuesImplementation::MappingRelatedData<dim, dim>
@@ -2035,6 +2038,8 @@ FE_NedelecSZ<dim, spacedim>::fill_fe_face_values(
   dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim, dim>
     &data) const
 {
+  AssertDimension(quadrature.size(), 1);
+
   // Note for future improvement:
   // We don't have the full quadrature - should use QProjector to create the 2D
   // quadrature.
@@ -2057,18 +2062,18 @@ FE_NedelecSZ<dim, spacedim>::fill_fe_face_values(
   // (fe_internal/fe_data) which was not filled in by get_data.
   fill_edge_values(cell,
                    QProjector<dim>::project_to_all_faces(
-                     this->reference_cell_type(), quadrature),
+                     this->reference_cell_type(), quadrature[0]),
                    fe_data);
   if (dim == 3 && this->degree > 1)
     {
       fill_face_values(cell,
                        QProjector<dim>::project_to_all_faces(
-                         this->reference_cell_type(), quadrature),
+                         this->reference_cell_type(), quadrature[0]),
                        fe_data);
     }
 
   const UpdateFlags  flags(fe_data.update_each);
-  const unsigned int n_q_points = quadrature.size();
+  const unsigned int n_q_points = quadrature[0].size();
   const auto         offset =
     QProjector<dim>::DataSetDescriptor::face(this->reference_cell_type(),
                                              face_no,

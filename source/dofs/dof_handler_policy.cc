@@ -141,12 +141,16 @@ namespace internal
          * one for lines, etc.
          */
         template <int structdim, int dim, int spacedim>
-        void
-        ensure_existence_of_dof_identities(
+        const std::unique_ptr<DoFIdentities> &
+        ensure_existence_and_return_dof_identities(
           const FiniteElement<dim, spacedim> &fe1,
           const FiniteElement<dim, spacedim> &fe2,
-          std::unique_ptr<DoFIdentities> &    identities)
+          std::unique_ptr<DoFIdentities> &    identities,
+          const unsigned int face_no = numbers::invalid_unsigned_int)
         {
+          Assert(structdim == 2 || face_no == numbers::invalid_unsigned_int,
+                 ExcInternalError());
+
           // see if we need to fill this entry, or whether it already
           // exists
           if (identities.get() == nullptr)
@@ -170,7 +174,7 @@ namespace internal
                   case 2:
                     {
                       identities = std::make_unique<DoFIdentities>(
-                        fe1.hp_quad_dof_identities(fe2));
+                        fe1.hp_quad_dof_identities(fe2, face_no));
                       break;
                     }
 
@@ -183,13 +187,15 @@ namespace internal
               for (unsigned int i = 0; i < identities->size(); ++i)
                 {
                   Assert((*identities)[i].first <
-                           fe1.template n_dofs_per_object<structdim>(),
+                           fe1.template n_dofs_per_object<structdim>(face_no),
                          ExcInternalError());
                   Assert((*identities)[i].second <
-                           fe2.template n_dofs_per_object<structdim>(),
+                           fe2.template n_dofs_per_object<structdim>(face_no),
                          ExcInternalError());
                 }
             }
+
+          return identities;
         }
       } // namespace
 
@@ -278,11 +284,12 @@ namespace internal
                         {
                           // make sure the entry in the equivalence
                           // table exists
-                          ensure_existence_of_dof_identities<0>(
-                            dof_handler.get_fe(most_dominating_fe_index),
-                            dof_handler.get_fe(other_fe_index),
-                            vertex_dof_identities[most_dominating_fe_index]
-                                                 [other_fe_index]);
+                          const auto &identities =
+                            *ensure_existence_and_return_dof_identities<0>(
+                              dof_handler.get_fe(most_dominating_fe_index),
+                              dof_handler.get_fe(other_fe_index),
+                              vertex_dof_identities[most_dominating_fe_index]
+                                                   [other_fe_index]);
 
                           // then loop through the identities we
                           // have. first get the global numbers of the
@@ -292,9 +299,6 @@ namespace internal
                           // we will always constrain the dof with the
                           // higher fe index to the one with the lower,
                           // to avoid circular reasoning.
-                          DoFIdentities &identities =
-                            *vertex_dof_identities[most_dominating_fe_index]
-                                                  [other_fe_index];
                           for (const auto &identity : identities)
                             {
                               const types::global_dof_index primary_dof_index =
@@ -468,24 +472,20 @@ namespace internal
                             const unsigned int dofs_per_line =
                               dof_handler.get_fe(fe_index_1).n_dofs_per_line();
 
-                            ensure_existence_of_dof_identities<1>(
-                              dof_handler.get_fe(fe_index_1),
-                              dof_handler.get_fe(fe_index_2),
-                              line_dof_identities[fe_index_1][fe_index_2]);
+                            const auto &identities =
+                              *ensure_existence_and_return_dof_identities<1>(
+                                dof_handler.get_fe(fe_index_1),
+                                dof_handler.get_fe(fe_index_2),
+                                line_dof_identities[fe_index_1][fe_index_2]);
                             // see if these sets of dofs are identical. the
                             // first condition for this is that indeed there are
                             // n identities
-                            if (line_dof_identities[fe_index_1][fe_index_2]
-                                  ->size() == dofs_per_line)
+                            if (identities.size() == dofs_per_line)
                               {
                                 unsigned int i = 0;
                                 for (; i < dofs_per_line; ++i)
-                                  if (((*(line_dof_identities[fe_index_1]
-                                                             [fe_index_2]))[i]
-                                         .first != i) &&
-                                      ((*(line_dof_identities[fe_index_1]
-                                                             [fe_index_2]))[i]
-                                         .second != i))
+                                  if ((identities[i].first != i) &&
+                                      (identities[i].second != i))
                                     // not an identity
                                     break;
 
@@ -659,15 +659,15 @@ namespace internal
                           for (const auto &other_fe_index : fe_indices)
                             if (other_fe_index != most_dominating_fe_index)
                               {
-                                ensure_existence_of_dof_identities<1>(
-                                  dof_handler.get_fe(most_dominating_fe_index),
-                                  dof_handler.get_fe(other_fe_index),
-                                  line_dof_identities[most_dominating_fe_index]
-                                                     [other_fe_index]);
+                                const auto &identities =
+                                  *ensure_existence_and_return_dof_identities<
+                                    1>(dof_handler.get_fe(
+                                         most_dominating_fe_index),
+                                       dof_handler.get_fe(other_fe_index),
+                                       line_dof_identities
+                                         [most_dominating_fe_index]
+                                         [other_fe_index]);
 
-                                DoFIdentities &identities =
-                                  *line_dof_identities[most_dominating_fe_index]
-                                                      [other_fe_index];
                                 for (const auto &identity : identities)
                                   {
                                     const types::global_dof_index
@@ -788,8 +788,10 @@ namespace internal
           // trouble. note that this only happens for lines in 3d and
           // higher, and for quads only in 4d and higher, so this
           // isn't a particularly frequent case
-          dealii::Table<2, std::unique_ptr<DoFIdentities>> quad_dof_identities(
-            dof_handler.fe_collection.size(), dof_handler.fe_collection.size());
+          dealii::Table<3, std::unique_ptr<DoFIdentities>> quad_dof_identities(
+            dof_handler.fe_collection.size(),
+            dof_handler.fe_collection.size(),
+            2 /*triangle (0) or quadrilateral (1)*/);
 
           for (const auto &cell : dof_handler.active_cell_iterators())
             for (const auto q : cell->face_indices())
@@ -809,6 +811,11 @@ namespace internal
                       fe_indices,
                       /*codim=*/dim - 2);
 
+                  const unsigned int most_dominating_fe_index_face_no =
+                    cell->active_fe_index() == most_dominating_fe_index ?
+                      q :
+                      cell->neighbor_face_no(q);
+
                   // if we found the most dominating element, then use
                   // this to eliminate some of the degrees of freedom
                   // by identification. otherwise, the code that
@@ -824,15 +831,16 @@ namespace internal
                       for (const auto &other_fe_index : fe_indices)
                         if (other_fe_index != most_dominating_fe_index)
                           {
-                            ensure_existence_of_dof_identities<2>(
-                              dof_handler.get_fe(most_dominating_fe_index),
-                              dof_handler.get_fe(other_fe_index),
-                              quad_dof_identities[most_dominating_fe_index]
-                                                 [other_fe_index]);
+                            const auto &identities =
+                              *ensure_existence_and_return_dof_identities<2>(
+                                dof_handler.get_fe(most_dominating_fe_index),
+                                dof_handler.get_fe(other_fe_index),
+                                quad_dof_identities
+                                  [most_dominating_fe_index][other_fe_index]
+                                  [cell->quad(q)->reference_cell_type() ==
+                                   ReferenceCell::Type::Quad],
+                                most_dominating_fe_index_face_no);
 
-                            DoFIdentities &identities =
-                              *quad_dof_identities[most_dominating_fe_index]
-                                                  [other_fe_index];
                             for (const auto &identity : identities)
                               {
                                 const types::global_dof_index
@@ -1136,11 +1144,12 @@ namespace internal
                         {
                           // make sure the entry in the equivalence
                           // table exists
-                          ensure_existence_of_dof_identities<0>(
-                            dof_handler.get_fe(most_dominating_fe_index),
-                            dof_handler.get_fe(other_fe_index),
-                            vertex_dof_identities[most_dominating_fe_index]
-                                                 [other_fe_index]);
+                          const auto &identities =
+                            *ensure_existence_and_return_dof_identities<0>(
+                              dof_handler.get_fe(most_dominating_fe_index),
+                              dof_handler.get_fe(other_fe_index),
+                              vertex_dof_identities[most_dominating_fe_index]
+                                                   [other_fe_index]);
 
                           // then loop through the identities we
                           // have. first get the global numbers of the
@@ -1150,9 +1159,6 @@ namespace internal
                           // we will always constrain the dof with the
                           // higher fe index to the one with the lower,
                           // to avoid circular reasoning.
-                          DoFIdentities &identities =
-                            *vertex_dof_identities[most_dominating_fe_index]
-                                                  [other_fe_index];
                           for (const auto &identity : identities)
                             {
                               const types::global_dof_index primary_dof_index =
@@ -1301,24 +1307,20 @@ namespace internal
                             const unsigned int dofs_per_line =
                               dof_handler.get_fe(fe_index_1).n_dofs_per_line();
 
-                            ensure_existence_of_dof_identities<1>(
-                              dof_handler.get_fe(fe_index_1),
-                              dof_handler.get_fe(fe_index_2),
-                              line_dof_identities[fe_index_1][fe_index_2]);
+                            const auto &identities =
+                              *ensure_existence_and_return_dof_identities<1>(
+                                dof_handler.get_fe(fe_index_1),
+                                dof_handler.get_fe(fe_index_2),
+                                line_dof_identities[fe_index_1][fe_index_2]);
                             // see if these sets of dofs are identical. the
                             // first condition for this is that indeed there are
                             // n identities
-                            if (line_dof_identities[fe_index_1][fe_index_2]
-                                  ->size() == dofs_per_line)
+                            if (identities.size() == dofs_per_line)
                               {
                                 unsigned int i = 0;
                                 for (; i < dofs_per_line; ++i)
-                                  if (((*(line_dof_identities[fe_index_1]
-                                                             [fe_index_2]))[i]
-                                         .first != i) &&
-                                      ((*(line_dof_identities[fe_index_1]
-                                                             [fe_index_2]))[i]
-                                         .second != i))
+                                  if ((identities[i].first != i) &&
+                                      (identities[i].second != i))
                                     // not an identity
                                     break;
 
@@ -1432,15 +1434,15 @@ namespace internal
                           for (const auto &other_fe_index : fe_indices)
                             if (other_fe_index != most_dominating_fe_index)
                               {
-                                ensure_existence_of_dof_identities<1>(
-                                  dof_handler.get_fe(most_dominating_fe_index),
-                                  dof_handler.get_fe(other_fe_index),
-                                  line_dof_identities[most_dominating_fe_index]
-                                                     [other_fe_index]);
+                                const auto &identities =
+                                  *ensure_existence_and_return_dof_identities<
+                                    1>(dof_handler.get_fe(
+                                         most_dominating_fe_index),
+                                       dof_handler.get_fe(other_fe_index),
+                                       line_dof_identities
+                                         [most_dominating_fe_index]
+                                         [other_fe_index]);
 
-                                DoFIdentities &identities =
-                                  *line_dof_identities[most_dominating_fe_index]
-                                                      [other_fe_index];
                                 for (const auto &identity : identities)
                                   {
                                     const types::global_dof_index
@@ -1542,8 +1544,10 @@ namespace internal
           // trouble. note that this only happens for lines in 3d and
           // higher, and for quads only in 4d and higher, so this
           // isn't a particularly frequent case
-          dealii::Table<2, std::unique_ptr<DoFIdentities>> quad_dof_identities(
-            dof_handler.fe_collection.size(), dof_handler.fe_collection.size());
+          dealii::Table<3, std::unique_ptr<DoFIdentities>> quad_dof_identities(
+            dof_handler.fe_collection.size(),
+            dof_handler.fe_collection.size(),
+            2 /*triangle (0) or quadrilateral (1)*/);
 
           for (const auto &cell : dof_handler.active_cell_iterators())
             for (const auto q : cell->face_indices())
@@ -1564,6 +1568,11 @@ namespace internal
                       fe_indices,
                       /*codim=*/dim - 2);
 
+                  const unsigned int most_dominating_fe_index_face_no =
+                    cell->active_fe_index() == most_dominating_fe_index ?
+                      q :
+                      cell->neighbor_face_no(q);
+
                   // if we found the most dominating element, then use
                   // this to eliminate some of the degrees of freedom
                   // by identification. otherwise, the code that
@@ -1579,15 +1588,16 @@ namespace internal
                       for (const auto &other_fe_index : fe_indices)
                         if (other_fe_index != most_dominating_fe_index)
                           {
-                            ensure_existence_of_dof_identities<2>(
-                              dof_handler.get_fe(most_dominating_fe_index),
-                              dof_handler.get_fe(other_fe_index),
-                              quad_dof_identities[most_dominating_fe_index]
-                                                 [other_fe_index]);
+                            const auto &identities =
+                              *ensure_existence_and_return_dof_identities<2>(
+                                dof_handler.get_fe(most_dominating_fe_index),
+                                dof_handler.get_fe(other_fe_index),
+                                quad_dof_identities
+                                  [most_dominating_fe_index][other_fe_index]
+                                  [cell->quad(q)->reference_cell_type() ==
+                                   ReferenceCell::Type::Quad],
+                                most_dominating_fe_index_face_no);
 
-                            DoFIdentities &identities =
-                              *quad_dof_identities[most_dominating_fe_index]
-                                                  [other_fe_index];
                             for (const auto &identity : identities)
                               {
                                 const types::global_dof_index
@@ -2318,7 +2328,7 @@ namespace internal
 
                           for (unsigned int d = 0;
                                d <
-                               dof_handler.get_fe(fe_index).n_dofs_per_quad();
+                               dof_handler.get_fe(fe_index).n_dofs_per_quad(q);
                                ++d)
                             {
                               const types::global_dof_index old_dof_index =
@@ -2619,7 +2629,7 @@ namespace internal
           const bool               check_validity)
         {
           if (dof_handler.get_fe().n_dofs_per_line() > 0 ||
-              dof_handler.get_fe().n_dofs_per_quad() > 0)
+              dof_handler.get_fe().max_dofs_per_quad() > 0)
             {
               // save user flags as they will be modified
               std::vector<bool> user_flags;
@@ -2680,7 +2690,7 @@ namespace internal
                   if (cell->quad(l)->user_flag_set())
                     {
                       for (unsigned int d = 0;
-                           d < dof_handler.get_fe().n_dofs_per_quad();
+                           d < dof_handler.get_fe().n_dofs_per_quad(l);
                            ++d)
                         {
                           const dealii::types::global_dof_index idx =
@@ -4551,7 +4561,7 @@ namespace internal
 
         NumberCache number_cache;
         number_cache.locally_owned_dofs = index_set;
-        number_cache.n_global_dofs      = dof_handler->n_dofs();
+        number_cache.n_global_dofs      = dof_handler->n_dofs(level);
         number_cache.n_locally_owned_dofs =
           number_cache.locally_owned_dofs.n_elements();
         return number_cache;

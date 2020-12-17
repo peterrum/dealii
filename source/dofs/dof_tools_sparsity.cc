@@ -407,7 +407,8 @@ namespace DoFTools
       for (const unsigned int f : cell->face_indices())
         if (cell->at_boundary(f))
           {
-            const unsigned int dofs_per_face = cell->get_fe().n_dofs_per_face();
+            const unsigned int dofs_per_face =
+              cell->get_fe().n_dofs_per_face(f);
             dofs_on_this_face.resize(dofs_per_face);
             cell->face(f)->get_dof_indices(dofs_on_this_face,
                                            cell->active_fe_index());
@@ -504,7 +505,8 @@ namespace DoFTools
         if (boundary_ids.find(cell->face(f)->boundary_id()) !=
             boundary_ids.end())
           {
-            const unsigned int dofs_per_face = cell->get_fe().n_dofs_per_face();
+            const unsigned int dofs_per_face =
+              cell->get_fe().n_dofs_per_face(f);
             dofs_on_this_face.resize(dofs_per_face);
             cell->face(f)->get_dof_indices(dofs_on_this_face,
                                            cell->active_fe_index());
@@ -781,7 +783,7 @@ namespace DoFTools
           bool(const typename DoFHandler<dim, spacedim>::active_cell_iterator &,
                const unsigned int)> &face_has_flux_coupling)
       {
-        if (dof.hp_capability_enabled == false)
+        if (dof.has_hp_capabilities() == false)
           {
             const FiniteElement<dim, spacedim> &fe = dof.get_fe();
 

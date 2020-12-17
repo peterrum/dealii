@@ -2471,8 +2471,9 @@ struct GeometryInfo
    * Projects a given point onto the unit cell, i.e. each coordinate outside
    * [0..1] is modified to lie within that interval.
    */
-  static Point<dim>
-  project_to_unit_cell(const Point<dim> &p);
+  template <typename Number = double>
+  static Point<dim, Number>
+  project_to_unit_cell(const Point<dim, Number> &p);
 
   /**
    * Return the infinity norm of the vector between a given point @p p
@@ -4702,15 +4703,13 @@ GeometryInfo<0>::face_to_cell_vertices(const unsigned int,
 
 
 template <int dim>
-inline Point<dim>
-GeometryInfo<dim>::project_to_unit_cell(const Point<dim> &q)
+template <typename Number>
+inline Point<dim, Number>
+GeometryInfo<dim>::project_to_unit_cell(const Point<dim, Number> &q)
 {
-  Point<dim> p = q;
+  Point<dim, Number> p;
   for (unsigned int i = 0; i < dim; i++)
-    if (p[i] < 0.)
-      p[i] = 0.;
-    else if (p[i] > 1.)
-      p[i] = 1.;
+    p[i] = std::min(std::max(q[i], Number(0.)), Number(1.));
 
   return p;
 }
@@ -4724,10 +4723,10 @@ GeometryInfo<dim>::distance_to_unit_cell(const Point<dim> &p)
   double result = 0.0;
 
   for (unsigned int i = 0; i < dim; i++)
-    if ((-p[i]) > result)
-      result = -p[i];
-    else if ((p[i] - 1.) > result)
-      result = (p[i] - 1.);
+    {
+      result = std::max(result, -p[i]);
+      result = std::max(result, p[i] - 1.);
+    }
 
   return result;
 }

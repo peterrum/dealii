@@ -14,7 +14,7 @@
 // ---------------------------------------------------------------------
 
 
-// Test QProjection for Simplex::PGauss.
+// Test QProjection for Simplex::QGauss.
 
 
 #include <deal.II/base/qprojector.h>
@@ -38,7 +38,7 @@ test<2>(const unsigned int n_points)
 {
   const int dim = 2;
 
-  Simplex::PGauss<dim - 1> quad_ref(n_points);
+  Simplex::QGauss<dim - 1> quad_ref(n_points);
 
   const auto quad =
     QProjector<dim>::project_to_all_faces(ReferenceCell::Type::Tri, quad_ref);
@@ -56,8 +56,8 @@ test<2>(const unsigned int n_points)
                                                       face_orientation,
                                                       false,
                                                       false,
-                                                      n_points);
-         q < n_points;
+                                                      quad_ref.size());
+         q < quad_ref.size();
          ++q, ++i)
       {
         deallog << quad.point(i) << " ";
@@ -80,7 +80,7 @@ test<3>(const unsigned int n_points)
 {
   const int dim = 3;
 
-  Simplex::PGauss<dim - 1> quad_ref(n_points);
+  Simplex::QGauss<dim - 1> quad_ref(n_points);
 
   const auto quad =
     QProjector<dim>::project_to_all_faces(ReferenceCell::Type::Tet, quad_ref);
@@ -102,8 +102,8 @@ test<3>(const unsigned int n_points)
                                                       face_orientation,
                                                       face_flip,
                                                       face_rotation,
-                                                      n_points);
-         q < n_points;
+                                                      quad_ref.size());
+         q < quad_ref.size();
          ++q, ++i)
       {
         deallog << quad.point(i) << " ";
@@ -152,12 +152,12 @@ main()
   }
   {
     deallog.push("3d-4");
-    test<3>(3);
+    test<3>(2);
     deallog.pop();
   }
   {
     deallog.push("3d-10");
-    test<3>(7);
+    test<3>(3);
     deallog.pop();
   }
 }

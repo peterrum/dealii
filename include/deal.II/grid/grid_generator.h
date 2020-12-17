@@ -670,7 +670,7 @@ namespace GridGenerator
    * dimensions, but throws an error if called in 1d.
    *
    * By default, the manifold_id is set to 0 on the boundary faces, 1 on the
-   * boundary cells, and types::flat_manifold_id on the central cell and on
+   * boundary cells, and numbers::flat_manifold_id on the central cell and on
    * internal faces.
    *
    * A SphericalManifold is attached by default to the boundary faces for
@@ -756,7 +756,7 @@ namespace GridGenerator
    * </table>
    *
    * By default, the manifold_id is set to 0 on the boundary faces, 1 on the
-   * boundary cells, and types::flat_manifold_id on the central cell and on
+   * boundary cells, and numbers::flat_manifold_id on the central cell and on
    * internal faces.
    *
    * @pre The triangulation passed as argument needs to be empty when calling
@@ -800,7 +800,7 @@ namespace GridGenerator
                     const double           radius = 1.);
 
   /**
-   * This class produces a hyper-ball intersected with the positive orthant
+   * This function produces a hyper-ball intersected with the positive orthant
    * relative to @p center, which contains three elements in 2d and four in
    * 3d. The interior points of the mesh are chosen to balance the minimal
    * singular value of the Jacobian of the mapping from reference to real
@@ -839,7 +839,7 @@ namespace GridGenerator
                      const double        radius = 1.);
 
   /**
-   * This class produces a half hyper-ball around @p center, which contains
+   * This function produces a half hyper-ball around @p center, which contains
    * four elements in 2d and 6 in 3d. The cut plane is perpendicular to the
    * <i>x</i>-axis.
    *
@@ -1174,7 +1174,7 @@ namespace GridGenerator
    * triangulation.  However, opposed to the previous function, it does not
    * produce a whole shell, but only one half of it, namely that part for
    * which the first component is restricted to non-negative values. The
-   * purpose of this class is to enable computations for solutions which have
+   * purpose of this function is to enable computations for solutions which have
    * rotational symmetry, in which case the half shell in 2d represents a
    * shell in 3d.
    *
@@ -1748,8 +1748,10 @@ namespace GridGenerator
     Triangulation<dim, spacedim> &result);
 
   /**
-   * Extrude @p input in the $z$ direction from $z = 0$ to $z =
-   * \text{height}$. The number of <em>slices</em>, or layers of cells
+   * Extrude the Triangulation @p input in the $z$ direction from $z = 0$ to $z =
+   * \text{height}$ and store it in @p result.
+   *
+   * The number of <em>slices</em>, or layers of cells
    * perpendicular to the $z = 0$ plane, will be @p n_slices slices (minimum is
    * 2). The boundary indicators of the faces of @p input will be assigned to
    * the corresponding side walls in $z$ direction. The bottom and top get the
@@ -2152,11 +2154,11 @@ namespace GridGenerator
    * @ref ConceptMeshType "MeshType concept".
    * The map that is returned will be between cell iterators pointing into the
    * container describing the surface mesh and face iterators of the volume
-   * mesh container. If MeshType is DoFHandler or hp::DoFHandler, then the
-   * function will re-build the triangulation underlying the second argument
-   * and return a map between appropriate iterators into the MeshType
-   * arguments. However, the function will not actually distribute degrees of
-   * freedom on this newly created surface mesh.
+   * mesh container. If MeshType is DoFHandler, then the function will re-build
+   * the triangulation underlying the second argument and return a map between
+   * appropriate iterators into the MeshType arguments. However, the function
+   * will not actually distribute degrees of freedom on this newly created
+   * surface mesh.
    *
    * @tparam dim The dimension of the cells of the volume mesh. For example,
    * if dim==2, then the cells are quadrilaterals that either live in the

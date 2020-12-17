@@ -171,7 +171,7 @@ MACRO(FEATURE_TRILINOS_FIND_EXTERNAL var)
       #
       # Check for modules.
       #
-      FOREACH(_optional_module EpetraExt ROL Sacado Tpetra MueLu Zoltan)
+      FOREACH(_optional_module EpetraExt MueLu ROL Sacado SEACAS Tpetra Zoltan)
         ITEM_MATCHES(_module_found ${_optional_module} ${Trilinos_PACKAGE_LIST})
         IF(_module_found)
           MESSAGE(STATUS "Found ${_optional_module}")
@@ -203,7 +203,6 @@ MACRO(FEATURE_TRILINOS_FIND_EXTERNAL var)
       #
       LIST(APPEND CMAKE_REQUIRED_INCLUDES ${Trilinos_INCLUDE_DIRS})
       LIST(APPEND CMAKE_REQUIRED_INCLUDES ${MPI_CXX_INCLUDE_PATH})
-      ADD_FLAGS(CMAKE_REQUIRED_FLAGS "${DEAL_II_CXX_VERSION_FLAG}")
 
       CHECK_SYMBOL_EXISTS(
         "KOKKOS_ENABLE_CUDA_LAMBDA"
@@ -252,7 +251,6 @@ MACRO(FEATURE_TRILINOS_FIND_EXTERNAL var)
       #
       LIST(APPEND CMAKE_REQUIRED_INCLUDES ${Trilinos_INCLUDE_DIRS})
       LIST(APPEND CMAKE_REQUIRED_INCLUDES ${MPI_CXX_INCLUDE_PATH})
-      ADD_FLAGS(CMAKE_REQUIRED_FLAGS "${DEAL_II_CXX_VERSION_FLAG}")
 
       LIST(APPEND CMAKE_REQUIRED_LIBRARIES ${Trilinos_LIBRARIES} ${MPI_LIBRARIES})
 
@@ -280,6 +278,43 @@ MACRO(FEATURE_TRILINOS_FIND_EXTERNAL var)
           "MueLu was found but is not usable through Epetra! Disabling MueLu support."
           )
         SET(DEAL_II_TRILINOS_WITH_MUELU OFF)
+      ENDIF()
+    ENDIF()
+
+    # the only thing we use from SEACAS right now is ExodusII, so just check
+    # that it works
+    IF(${DEAL_II_TRILINOS_WITH_SEACAS})
+      LIST(APPEND CMAKE_REQUIRED_INCLUDES ${Trilinos_INCLUDE_DIRS})
+      LIST(APPEND CMAKE_REQUIRED_LIBRARIES ${Trilinos_LIBRARIES})
+      CHECK_CXX_SOURCE_COMPILES(
+        "
+        #include <exodusII.h>
+        int
+        main()
+        {
+          int component_word_size = sizeof(double);
+          int floating_point_word_size = 0;
+          float ex_version = 0;
+          const int ex_id = ex_open(\"test.ex\",
+                                    EX_READ,
+                                    &component_word_size,
+                                    &floating_point_word_size,
+                                    &ex_version);
+          ex_close(ex_id);
+          return 0;
+        }
+        "
+        TRILINOS_SEACAS_IS_FUNCTIONAL
+        )
+
+      RESET_CMAKE_REQUIRED()
+
+      IF(NOT TRILINOS_SEACAS_IS_FUNCTIONAL)
+        MESSAGE(
+          STATUS
+          "SEACAS was found but doesn't seem to include ExodusII. Disabling SEACAS support."
+          )
+        SET(DEAL_II_TRILINOS_WITH_SEACAS OFF)
       ENDIF()
     ENDIF()
 
@@ -311,7 +346,6 @@ MACRO(FEATURE_TRILINOS_FIND_EXTERNAL var)
 
       IF(EXISTS ${SACADO_TRAD_HPP})
         LIST(APPEND CMAKE_REQUIRED_INCLUDES ${Trilinos_INCLUDE_DIRS})
-        ADD_FLAGS(CMAKE_REQUIRED_FLAGS "${DEAL_II_CXX_VERSION_FLAG}")
 
         CHECK_CXX_SOURCE_COMPILES(
           "

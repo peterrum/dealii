@@ -91,9 +91,9 @@ namespace parallel
      * including ways that are dictated by the application and not by the
      * desire to minimize the length of the interface between subdomains owned
      * by processors (as is done by the METIS and Zoltan packages, both of
-     * which are options for partitioning). Both the DoFHandler and
-     * hp::DoFHandler classes know how to enumerate degrees of freedom in ways
-     * appropriate for the partitioned mesh.
+     * which are options for partitioning). The DoFHandler class knows how to
+     * enumerate degrees of freedom in ways appropriate for the partitioned
+     * mesh.
      *
      * @ingroup distributed
      */
@@ -235,7 +235,7 @@ namespace parallel
        * Otherwise all non-locally owned cells are considered ghost.
        */
       Triangulation(
-        MPI_Comm mpi_communicator,
+        const MPI_Comm &mpi_communicator,
         const typename dealii::Triangulation<dim, spacedim>::MeshSmoothing =
           (dealii::Triangulation<dim, spacedim>::none),
         const bool     allow_artificial_cells = false,
@@ -274,10 +274,10 @@ namespace parallel
                            const std::vector<CellData<dim>> &  cells,
                            const SubCellData &subcelldata) override;
 
-      /*
+      /**
        * @copydoc Triangulation::create_triangulation()
        *
-       * @note Not inmplemented yet.
+       * @note Not implemented yet.
        */
       virtual void
       create_triangulation(

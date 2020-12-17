@@ -106,12 +106,17 @@ namespace FETools
       for (unsigned int i = 0; i < fes.size(); i++)
         if (multiplicities[i] > 0)
           {
+            // TODO: the implementation makes the assumption that all faces have
+            // the same number of dofs -> don't construct DPO but
+            // PrecomputedFiniteElementData
+            AssertDimension(fes[i]->n_unique_quads(), 1);
+
             multiplied_dofs_per_vertex +=
               fes[i]->n_dofs_per_vertex() * multiplicities[i];
             multiplied_dofs_per_line +=
               fes[i]->n_dofs_per_line() * multiplicities[i];
             multiplied_dofs_per_quad +=
-              fes[i]->n_dofs_per_quad() * multiplicities[i];
+              fes[i]->n_dofs_per_quad(0) * multiplicities[i];
             multiplied_dofs_per_hex +=
               fes[i]->n_dofs_per_hex() * multiplicities[i];
 
@@ -287,12 +292,11 @@ namespace FETools
           for (unsigned int base = 0; base < fes.size(); ++base)
             for (unsigned int m = 0; m < multiplicities[base]; ++m)
               for (unsigned int local_index = 0;
-                   local_index < fes[base]->n_dofs_per_quad();
+                   local_index < fes[base]->n_dofs_per_quad(quad_number);
                    ++local_index, ++total_index)
                 {
                   const unsigned int index_in_base =
-                    (fes[base]->n_dofs_per_quad() * quad_number + local_index +
-                     fes[base]->get_first_quad_index());
+                    local_index + fes[base]->get_first_quad_index(quad_number);
 
                   Assert(index_in_base < fes[base]->n_dofs_per_cell(),
                          ExcInternalError());
@@ -509,12 +513,11 @@ namespace FETools
                               comp_start +=
                               fes[base]->n_components() * do_tensor_product)
               for (unsigned int local_index = 0;
-                   local_index < fes[base]->n_dofs_per_quad();
+                   local_index < fes[base]->n_dofs_per_quad(quad_number);
                    ++local_index, ++total_index)
                 {
                   const unsigned int index_in_base =
-                    (fes[base]->n_dofs_per_quad() * quad_number + local_index +
-                     fes[base]->get_first_quad_index());
+                    local_index + fes[base]->get_first_quad_index(quad_number);
 
                   Assert(comp_start + fes[base]->n_components() <=
                            retval[total_index].size(),
@@ -773,13 +776,13 @@ namespace FETools
                               fe.base_element(base).n_components() *
                               do_tensor_product)
               for (unsigned int local_index = 0;
-                   local_index < fe.base_element(base).n_dofs_per_quad();
+                   local_index <
+                   fe.base_element(base).n_dofs_per_quad(quad_number);
                    ++local_index, ++total_index)
                 {
                   const unsigned int index_in_base =
-                    (fe.base_element(base).n_dofs_per_quad() * quad_number +
-                     local_index +
-                     fe.base_element(base).get_first_quad_index());
+                    local_index +
+                    fe.base_element(base).get_first_quad_index(quad_number);
 
                   system_to_base_table[total_index] =
                     std::make_pair(std::make_pair(base, m), index_in_base);
@@ -855,7 +858,8 @@ namespace FETools
       std::vector<std::pair<unsigned int, unsigned int>>
         &                                 face_system_to_component_table,
       const FiniteElement<dim, spacedim> &fe,
-      const bool                          do_tensor_product)
+      const bool                          do_tensor_product,
+      const unsigned int                  face_no)
     {
       // Initialize index tables. do this in the same way as done for the cell
       // tables, except that we now loop over the objects of faces
@@ -868,7 +872,8 @@ namespace FETools
       unsigned int total_index = 0;
       for (unsigned int vertex_number = 0;
            vertex_number <
-           ReferenceCell::internal::Info::get_face(fe.reference_cell_type(), 0)
+           ReferenceCell::internal::Info::get_face(fe.reference_cell_type(),
+                                                   face_no)
              .n_vertices();
            ++vertex_number)
         {
@@ -906,12 +911,14 @@ namespace FETools
                     {
                       const unsigned int comp_in_base =
                         fe.base_element(base)
-                          .face_system_to_component_index(face_index_in_base)
+                          .face_system_to_component_index(face_index_in_base,
+                                                          face_no)
                           .first;
                       const unsigned int comp = comp_start + comp_in_base;
                       const unsigned int face_index_in_comp =
                         fe.base_element(base)
-                          .face_system_to_component_index(face_index_in_base)
+                          .face_system_to_component_index(face_index_in_base,
+                                                          face_no)
                           .second;
                       face_system_to_component_table[total_index] =
                         std::make_pair(comp, face_index_in_comp);
@@ -925,7 +932,8 @@ namespace FETools
       // 2. Lines
       for (unsigned int line_number = 0;
            line_number <
-           ReferenceCell::internal::Info::get_face(fe.reference_cell_type(), 0)
+           ReferenceCell::internal::Info::get_face(fe.reference_cell_type(),
+                                                   face_no)
              .n_lines();
            ++line_number)
         {
@@ -947,7 +955,7 @@ namespace FETools
                      fe.base_element(base).get_first_line_index());
 
                   const unsigned int face_index_in_base =
-                    (fe.base_element(base).get_first_face_line_index() +
+                    (fe.base_element(base).get_first_face_line_index(face_no) +
                      fe.base_element(base).n_dofs_per_line() * line_number +
                      local_index);
 
@@ -958,12 +966,14 @@ namespace FETools
                     {
                       const unsigned int comp_in_base =
                         fe.base_element(base)
-                          .face_system_to_component_index(face_index_in_base)
+                          .face_system_to_component_index(face_index_in_base,
+                                                          face_no)
                           .first;
                       const unsigned int comp = comp_start + comp_in_base;
                       const unsigned int face_index_in_comp =
                         fe.base_element(base)
-                          .face_system_to_component_index(face_index_in_base)
+                          .face_system_to_component_index(face_index_in_base,
+                                                          face_no)
                           .second;
                       face_system_to_component_table[total_index] =
                         std::make_pair(comp, face_index_in_comp);
@@ -985,16 +995,16 @@ namespace FETools
                               fe.base_element(base).n_components() *
                               do_tensor_product)
               for (unsigned int local_index = 0;
-                   local_index < fe.base_element(base).n_dofs_per_quad();
+                   local_index < fe.base_element(base).n_dofs_per_quad(face_no);
                    ++local_index, ++total_index)
                 {
                   // do everything alike for this type of object
                   const unsigned int index_in_base =
                     (local_index +
-                     fe.base_element(base).get_first_quad_index());
+                     fe.base_element(base).get_first_quad_index(face_no));
 
                   const unsigned int face_index_in_base =
-                    (fe.base_element(base).get_first_face_quad_index() +
+                    (fe.base_element(base).get_first_face_quad_index(face_no) +
                      local_index);
 
                   face_system_to_base_table[total_index] =
@@ -1004,12 +1014,14 @@ namespace FETools
                     {
                       const unsigned int comp_in_base =
                         fe.base_element(base)
-                          .face_system_to_component_index(face_index_in_base)
+                          .face_system_to_component_index(face_index_in_base,
+                                                          face_no)
                           .first;
                       const unsigned int comp = comp_start + comp_in_base;
                       const unsigned int face_index_in_comp =
                         fe.base_element(base)
-                          .face_system_to_component_index(face_index_in_base)
+                          .face_system_to_component_index(face_index_in_base,
+                                                          face_no)
                           .second;
                       face_system_to_component_table[total_index] =
                         std::make_pair(comp, face_index_in_comp);
@@ -1019,7 +1031,7 @@ namespace FETools
                       non_primitive_index;
                 }
         }
-      Assert(total_index == fe.n_dofs_per_face(), ExcInternalError());
+      Assert(total_index == fe.n_dofs_per_face(face_no), ExcInternalError());
       Assert(total_index == face_system_to_component_table.size(),
              ExcInternalError());
       Assert(total_index == face_system_to_base_table.size(),
@@ -1934,11 +1946,13 @@ namespace FETools
     const unsigned int face_fine,
     const double       threshold)
   {
+    const unsigned int face_no = face_coarse;
+
     Assert(face_coarse == 0, ExcNotImplemented());
     Assert(face_fine == 0, ExcNotImplemented());
 
     const unsigned int nc     = GeometryInfo<dim>::max_children_per_face;
-    const unsigned int n      = fe.n_dofs_per_face();
+    const unsigned int n      = fe.n_dofs_per_face(face_no);
     const unsigned int nd     = fe.n_components();
     const unsigned int degree = fe.degree;
 
@@ -1961,9 +1975,9 @@ namespace FETools
     {
       unsigned int face_dof = 0;
       for (unsigned int i = 0;
-           i <
-           ReferenceCell::internal::Info::get_face(fe.reference_cell_type(), 0)
-             .n_vertices();
+           i < ReferenceCell::internal::Info::get_face(fe.reference_cell_type(),
+                                                       face_no)
+                 .n_vertices();
            ++i)
         {
           const unsigned int offset_c =
@@ -1980,10 +1994,9 @@ namespace FETools
             }
         }
 
-      for (unsigned int i = 1;
-           i <=
-           ReferenceCell::internal::Info::get_face(fe.reference_cell_type(), 0)
-             .n_lines();
+      for (unsigned int i = 1; i <= ReferenceCell::internal::Info::get_face(
+                                      fe.reference_cell_type(), face_no)
+                                      .n_lines();
            ++i)
         {
           const unsigned int offset_c =
@@ -2004,18 +2017,16 @@ namespace FETools
 
       if (dim == 3)
         {
-          const unsigned int offset_c =
-            fe.get_first_quad_index() + face_coarse * fe.n_dofs_per_quad();
-          const unsigned int offset_f =
-            fe.get_first_quad_index() + face_fine * fe.n_dofs_per_quad();
-          for (unsigned int j = 0; j < fe.n_dofs_per_quad(); ++j)
+          const unsigned int offset_c = fe.get_first_quad_index(face_coarse);
+          const unsigned int offset_f = fe.get_first_quad_index(face_fine);
+          for (unsigned int j = 0; j < fe.n_dofs_per_quad(face_no); ++j)
             {
               face_c_dofs[face_dof] = offset_c + j;
               face_f_dofs[face_dof] = offset_f + j;
               ++face_dof;
             }
         }
-      Assert(face_dof == fe.n_dofs_per_face(), ExcInternalError());
+      Assert(face_dof == fe.n_dofs_per_face(face_no), ExcInternalError());
     }
 
     // Set up meshes, one with a single
@@ -2459,7 +2470,7 @@ namespace FETools
             // Now, just the [...]
             // part should be left.
             if (name.size() == 0 || name[0] != '[')
-              throw(std::string("Invalid first character in ") + name);
+              throw std::string("Invalid first character in ") + name;
             do
               {
                 // Erase the
@@ -2513,7 +2524,7 @@ namespace FETools
             // we actually had a ']'
             // there
             if (name.size() == 0 || name[0] != ']')
-              throw(std::string("Invalid first character in ") + name);
+              throw std::string("Invalid first character in ") + name;
             name.erase(0, 1);
             // just one more sanity check
             Assert((base_fes.size() == base_multiplicities.size()) &&
@@ -2561,7 +2572,7 @@ namespace FETools
             // or (Quadrature<1>(degree+1))
             // part should be left.
             if (name.size() == 0 || name[0] != '(')
-              throw(std::string("Invalid first character in ") + name);
+              throw std::string("Invalid first character in ") + name;
             name.erase(0, 1);
             if (name[0] != 'Q')
               {
@@ -2611,11 +2622,12 @@ namespace FETools
                     // find sub-quadrature
                     position = name.find('(');
                     const std::string subquadrature_name(name, 0, position);
-                    AssertThrow(subquadrature_name.compare("QTrapez") == 0,
+                    AssertThrow(subquadrature_name == "QTrapez" ||
+                                  subquadrature_name == "QTrapezoid",
                                 ExcNotImplemented(
                                   "Could not detect quadrature of name " +
                                   subquadrature_name));
-                    // delete "QTrapez(),"
+                    // delete "QTrapezoid(),"
                     name.erase(0, position + 3);
                     const std::pair<int, unsigned int> tmp =
                       Utilities::get_integer_at_position(name, 0);
@@ -2626,7 +2638,7 @@ namespace FETools
                     const FETools::FEFactoryBase<dim, spacedim> *fef =
                       dynamic_cast<
                         const FETools::FEFactoryBase<dim, spacedim> *>(ptr);
-                    return fef->get(QIterated<1>(QTrapez<1>(), tmp.first));
+                    return fef->get(QIterated<1>(QTrapezoid<1>(), tmp.first));
                   }
                 else
                   {

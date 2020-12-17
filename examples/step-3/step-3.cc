@@ -451,7 +451,7 @@ void Step3::assemble_system()
           // be considered in the following programs).
           for (const unsigned int i : fe_values.dof_indices())
             cell_rhs(i) += (fe_values.shape_value(i, q_index) * // phi_i(x_q)
-                            1 *                                 // f(x_q)
+                            1. *                                // f(x_q)
                             fe_values.JxW(q_index));            // dx
         }
       // Now that we have the contribution of this cell, we have to transfer
@@ -553,9 +553,10 @@ void Step3::solve()
   // which stops the iteration:
   SolverControl solver_control(1000, 1e-12);
   // Then we need the solver itself. The template parameter to the SolverCG
-  // class is the type of the vectors, but the empty angle brackets indicate
-  // that we simply take the default argument (which is
-  // <code>Vector@<double@></code>):
+  // class is the type of the vectors, and leaving the empty angle brackets
+  // would indicate that we are taking the default argument (which is
+  // <code>Vector@<double@></code>). However, we explicitly mention the template
+  // argument:
   SolverCG<Vector<double>> solver(solver_control);
 
   // Now solve the system of equations. The CG solver takes a preconditioner

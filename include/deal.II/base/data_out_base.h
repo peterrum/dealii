@@ -24,6 +24,8 @@
 #include <deal.II/base/point.h>
 #include <deal.II/base/table.h>
 
+#include <deal.II/grid/reference_cell.h>
+
 #include <deal.II/numerics/data_component_interpretation.h>
 
 // To be able to serialize XDMFEntry
@@ -294,7 +296,7 @@ namespace DataOutBase
      * output point <tt>j</tt>, where <tt>j</tt> denotes the usual
      * lexicographic ordering in deal.II. This is also the order of points as
      * provided by the <tt>QIterated</tt> class when used with the
-     * <tt>QTrapez</tt> class as subquadrature.
+     * <tt>QTrapezoid</tt> class as subquadrature.
      *
      * Since the number of data vectors is usually the same for all patches to
      * be printed, <tt>data.size()</tt> should yield the same value for all
@@ -318,6 +320,11 @@ namespace DataOutBase
      * in the Patch structure.
      */
     bool points_are_available;
+
+    /**
+     * Reference-cell type of the underlying cell of this patch.
+     */
+    ReferenceCell::Type reference_cell_type;
 
     /**
      * Default constructor. Sets #n_subdivisions to one, #points_are_available
@@ -463,6 +470,11 @@ namespace DataOutBase
      * in the Patch structure.
      */
     bool points_are_available;
+
+    /**
+     * Reference-cell type of the underlying cell of this patch.
+     */
+    ReferenceCell::Type reference_cell_type;
 
     /**
      * Default constructor. Sets #points_are_available
@@ -1351,6 +1363,15 @@ namespace DataOutBase
                const unsigned int d3);
 
     /**
+     * Record a single deal.II cell without subdivisions (e.g. simplex) in the
+     * internal reordered format.
+     */
+    void
+    write_cell_single(const unsigned int index,
+                      const unsigned int start,
+                      const unsigned int n_points);
+
+    /**
      * Filter and record a data set. If there are multiple values at a given
      * vertex and redundant values are being removed, one is arbitrarily
      * chosen as the recorded value. In the future this can be expanded to
@@ -1475,12 +1496,9 @@ namespace DataOutBase
     unsigned int node_dim;
 
     /**
-     * The number of vertices per cell. Equal to
-     * GeometryInfo<node_dim>::vertices_per_cell. We need to store
-     * it as a run-time variable here because the dimension
-     * node_dim is also a run-time variable.
+     * The number of cells stored in @ref filtered_cells.
      */
-    unsigned int vertices_per_cell;
+    unsigned int num_cells;
 
     /**
      * Map of points to an internal index.
@@ -2293,7 +2311,7 @@ namespace DataOutBase
   write_hdf5_parallel(const std::vector<Patch<dim, spacedim>> &patches,
                       const DataOutFilter &                    data_filter,
                       const std::string &                      filename,
-                      MPI_Comm                                 comm);
+                      const MPI_Comm &                         comm);
 
   /**
    * Write the data in @p data_filter to HDF5 file(s). If @p write_mesh_file is
@@ -2309,7 +2327,7 @@ namespace DataOutBase
                       const bool                               write_mesh_file,
                       const std::string &                      mesh_filename,
                       const std::string &solution_filename,
-                      MPI_Comm           comm);
+                      const MPI_Comm &   comm);
 
   /**
    * DataOutFilter is an intermediate data format that reduces the amount of
@@ -2640,7 +2658,8 @@ public:
    * DataOutInterface::write_vtu().
    */
   void
-  write_vtu_in_parallel(const std::string &filename, MPI_Comm comm) const;
+  write_vtu_in_parallel(const std::string &filename,
+                        const MPI_Comm &   comm) const;
 
   /**
    * Some visualization programs, such as ParaView, can read several separate
@@ -2775,7 +2794,7 @@ public:
   create_xdmf_entry(const DataOutBase::DataOutFilter &data_filter,
                     const std::string &               h5_filename,
                     const double                      cur_time,
-                    MPI_Comm                          comm) const;
+                    const MPI_Comm &                  comm) const;
 
   /**
    * Create an XDMFEntry based on the data in the data_filter. This assumes
@@ -2787,7 +2806,7 @@ public:
                     const std::string &               h5_mesh_filename,
                     const std::string &               h5_solution_filename,
                     const double                      cur_time,
-                    MPI_Comm                          comm) const;
+                    const MPI_Comm &                  comm) const;
 
   /**
    * Write an XDMF file based on the provided vector of XDMFEntry objects.
@@ -2816,7 +2835,7 @@ public:
   void
   write_xdmf_file(const std::vector<XDMFEntry> &entries,
                   const std::string &           filename,
-                  MPI_Comm                      comm) const;
+                  const MPI_Comm &              comm) const;
 
   /**
    * Write the data in @p data_filter to a single HDF5 file containing both the
@@ -2835,7 +2854,7 @@ public:
   void
   write_hdf5_parallel(const DataOutBase::DataOutFilter &data_filter,
                       const std::string &               filename,
-                      MPI_Comm                          comm) const;
+                      const MPI_Comm &                  comm) const;
 
   /**
    * Write the data in data_filter to HDF5 file(s). If write_mesh_file is
@@ -2849,7 +2868,7 @@ public:
                       const bool                        write_mesh_file,
                       const std::string &               mesh_filename,
                       const std::string &               solution_filename,
-                      MPI_Comm                          comm) const;
+                      const MPI_Comm &                  comm) const;
 
   /**
    * DataOutFilter is an intermediate data format that reduces the amount of
@@ -3310,9 +3329,21 @@ public:
   /**
    * Get the XDMF content associated with this entry.
    * If the entry is not valid, this returns an empty string.
+   *
+   * @deprecated Use the overload taking an `unsigned int` and a
+   * `const ReferenceCell::Type &` instead.
    */
+  DEAL_II_DEPRECATED
   std::string
   get_xdmf_content(const unsigned int indent_level) const;
+
+  /**
+   * Get the XDMF content associated with this entry.
+   * If the entry is not valid, this returns an empty string.
+   */
+  std::string
+  get_xdmf_content(const unsigned int         indent_level,
+                   const ReferenceCell::Type &reference_cell_type) const;
 
 private:
   /**
