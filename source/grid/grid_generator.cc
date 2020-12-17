@@ -7248,6 +7248,7 @@ namespace GridGenerator
           else if (dim == 3 && struct_dim == 2) // a face of a thetrahedron
             {
               CellData<2> boundary_quad(3);
+              boundary_quad.material_id = material_or_boundary_id;
               boundary_quad.manifold_id = manifold_id;
               for (unsigned int i = 0; i < index_vertices.size(); ++i)
                 {
