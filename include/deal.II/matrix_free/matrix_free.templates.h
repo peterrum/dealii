@@ -197,7 +197,7 @@ MatrixFree<dim, Number, VectorizedArrayType>::
     const unsigned int                           fe_index_exterior,
     const unsigned int                           dof_handler_index) const
 {
-  const unsigned int n_face_types = 2;
+  const unsigned int n_face_types = std::max<unsigned int>(dim - 1, 1);
 
   if ((dof_info[dof_handler_index].max_fe_index == 0 ||
        dof_handlers[dof_handler_index]->get_fe_collection().size() == 1) &&
@@ -252,7 +252,7 @@ MatrixFree<dim, Number, VectorizedArrayType>::
     const unsigned int                           fe_index,
     const unsigned int                           dof_handler_index) const
 {
-  const unsigned int n_face_types = 2;
+  const unsigned int n_face_types = std::max<unsigned int>(dim - 1, 1);
 
   if ((dof_info[dof_handler_index].max_fe_index == 0 ||
        dof_handlers[dof_handler_index]->get_fe_collection().size() == 1) &&

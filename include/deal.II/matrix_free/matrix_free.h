@@ -4660,7 +4660,11 @@ namespace internal
     face(const std::pair<unsigned int, unsigned int> &face_range) override
     {
       if (face_function != nullptr && face_range.second > face_range.first)
-        for (unsigned int t = 0; t < 2; ++t)
+        for (unsigned int t = 0;
+             t <
+             std::max<unsigned int>(matrix_free.get_dof_handler().dimension - 1,
+                                    1);
+             ++t)
           for (unsigned int i = 0; i < matrix_free.n_active_fe_indices(); ++i)
             for (unsigned int j = 0; j < matrix_free.n_active_fe_indices(); ++j)
               {
@@ -4686,7 +4690,11 @@ namespace internal
     boundary(const std::pair<unsigned int, unsigned int> &face_range) override
     {
       if (boundary_function != nullptr && face_range.second > face_range.first)
-        for (unsigned int t = 0; t < 2; ++t)
+        for (unsigned int t = 0;
+             t <
+             std::max<unsigned int>(matrix_free.get_dof_handler().dimension - 1,
+                                    1);
+             ++t)
           for (unsigned int i = 0; i < matrix_free.n_active_fe_indices(); ++i)
             {
               const auto face_subrange =
