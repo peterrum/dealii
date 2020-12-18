@@ -361,17 +361,26 @@ protected:
     VectorizedArrayType> *mapping_data;
 
   /**
+<<<<<<< HEAD
    * The active FE index for this class for efficient indexing in the hp-case.
+=======
+   * The active fe index for this class for efficient indexing in the hp case.
+>>>>>>> Simplify FEEvaluationBaseData
    */
   const unsigned int active_fe_index;
 
   /**
    * The active quadrature index for this class for efficient indexing in the
+<<<<<<< HEAD
    * hp-case.
+=======
+   * hp case.
+>>>>>>> Simplify FEEvaluationBaseData
    */
   const unsigned int active_quad_index;
 
   /**
+<<<<<<< HEAD
    * A pointer to the underlying quadrature formula specified at construction.
    * Also contained in matrix_info, but it simplifies code if we store a
    * reference to it.
@@ -383,6 +392,8 @@ protected:
     VectorizedArrayType>::QuadratureDescriptor *descriptor;
 
   /**
+=======
+>>>>>>> Simplify FEEvaluationBaseData
    * The number of quadrature points in the current evaluation context.
    */
   const unsigned int n_quadrature_points;
@@ -3332,7 +3343,7 @@ inline FEEvaluationBaseData<dim, Number, is_face, VectorizedArrayType>::
     const bool         is_interior_face,
     const unsigned int active_fe_index_in,
     const unsigned int active_quad_index_in,
-    const unsigned int face_type)
+    const unsigned int /*face_type*/)
   : scratch_data_array(data_in.acquire_scratch_data())
   , quad_no(quad_no_in)
   , matrix_info(&data_in)
