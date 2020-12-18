@@ -4672,6 +4672,7 @@ namespace internal
 
                 if (face_subrange.second <= face_subrange.first)
                   continue;
+
                 (container.*face_function)(matrix_free,
                                            this->dst,
                                            this->src,
