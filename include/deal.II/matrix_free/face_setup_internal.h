@@ -1201,6 +1201,7 @@ namespace internal
             new_faces(face_comparator);
           for (const auto &face_type : faces_type)
             {
+              macro_face.face_type = faces_in[face_type[0]].face_type;
               macro_face.interior_face_no =
                 faces_in[face_type[0]].interior_face_no;
               macro_face.exterior_face_no =

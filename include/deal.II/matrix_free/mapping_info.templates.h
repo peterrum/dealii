@@ -468,13 +468,20 @@ namespace internal
             }
         }
 
+      const unsigned int scale = std::max<unsigned int>(1, dim - 1);
+
       face_q_collection.resize(quad.size());
       for (unsigned int my_q = 0; my_q < quad.size(); ++my_q)
         {
           face_q_collection[my_q].resize(quad[my_q].size());
           for (unsigned int hpq = 0; hpq < quad[my_q].size(); ++hpq)
-            face_q_collection[my_q][hpq] = dealii::hp::QCollection<dim - 1>(
-              face_data[my_q].descriptor[hpq].quadrature);
+            if (face_data[my_q].descriptor[hpq * scale + 0].quadrature.size() !=
+                0)
+              face_q_collection[my_q][hpq] = dealii::hp::QCollection<dim - 1>(
+                face_data[my_q].descriptor[hpq * scale + 0].quadrature);
+            else
+              face_q_collection[my_q][hpq] = dealii::hp::QCollection<dim - 1>(
+                face_data[my_q].descriptor[hpq * scale + 1].quadrature);
         }
 
       // In case we have no hp adaptivity (active_fe_index is empty), we have
