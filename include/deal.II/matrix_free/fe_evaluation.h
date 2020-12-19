@@ -3343,7 +3343,7 @@ inline FEEvaluationBaseData<dim, Number, is_face, VectorizedArrayType>::
     const bool         is_interior_face,
     const unsigned int active_fe_index_in,
     const unsigned int active_quad_index_in,
-    const unsigned int /*face_type*/)
+    const unsigned int face_type)
   : scratch_data_array(data_in.acquire_scratch_data())
   , quad_no(quad_no_in)
   , matrix_info(&data_in)
@@ -3367,7 +3367,12 @@ inline FEEvaluationBaseData<dim, Number, is_face, VectorizedArrayType>::
            active_quad_index_in :
            std::min<unsigned int>(active_fe_index,
                                   mapping_data->descriptor.size() - 1)))
-  , descriptor(&mapping_data->descriptor[active_quad_index])
+  , descriptor(
+      &mapping_data->descriptor
+         [is_face ?
+            (active_quad_index * std::max<unsigned int>(1, dim - 1) +
+             (face_type == numbers::invalid_unsigned_int ? 0 : face_type)) :
+            active_quad_index])
   , n_quadrature_points(descriptor->n_q_points)
   , data(&data_in.get_shape_info(
       dof_no,
@@ -8413,7 +8418,7 @@ inline FEFaceEvaluation<dim,
                      matrix_free.get_face_active_fe_index(range,
                                                           is_interior_face),
                      numbers::invalid_unsigned_int,
-                     0)
+                     matrix_free.get_face_info(range.first).face_type)
 {}
 
 

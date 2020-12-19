@@ -392,7 +392,9 @@ namespace internal
                   quad[my_q][q].get_tensor_basis()[0], update_default);
             }
 
-          face_data[my_q].descriptor.resize(n_hp_quads);
+          const unsigned int scale = std::max<unsigned int>(1, dim - 1);
+
+          face_data[my_q].descriptor.resize(n_hp_quads * scale);
           for (unsigned int hpq = 0; hpq < n_hp_quads; ++hpq)
             {
               bool flag = quad[my_q][hpq].is_tensor_product();
@@ -409,8 +411,9 @@ namespace internal
                     {
                       const auto quad_face =
                         get_face_quadrature(quad[my_q][hpq]);
-                      face_data[my_q].descriptor[hpq].initialize(
-                        quad_face, update_default);
+                      face_data[my_q]
+                        .descriptor[hpq * scale + (dim == 3 ? 1 : 0)]
+                        .initialize(quad_face, update_default);
                     }
                   catch (...)
                     {
@@ -421,12 +424,14 @@ namespace internal
 #endif
                 }
               else
-                face_data[my_q].descriptor[hpq].initialize(
-                  quad[my_q][hpq].get_tensor_basis()[0],
-                  update_flags_boundary_faces);
+                {
+                  face_data[my_q].descriptor[hpq * scale].initialize(
+                    quad[my_q][hpq].get_tensor_basis()[0],
+                    update_flags_boundary_faces);
+                }
             }
 
-          face_data_by_cells[my_q].descriptor.resize(n_hp_quads);
+          face_data_by_cells[my_q].descriptor.resize(n_hp_quads * scale);
           for (unsigned int hpq = 0; hpq < n_hp_quads; ++hpq)
             {
               bool flag = quad[my_q][hpq].is_tensor_product();
@@ -443,8 +448,9 @@ namespace internal
                     {
                       const auto quad_face =
                         get_face_quadrature(quad[my_q][hpq]);
-                      face_data_by_cells[my_q].descriptor[hpq].initialize(
-                        quad_face, update_default);
+                      face_data_by_cells[my_q]
+                        .descriptor[hpq * scale + (dim == 3 ? 1 : 0)]
+                        .initialize(quad_face, update_default);
                     }
                   catch (...)
                     {
@@ -455,8 +461,10 @@ namespace internal
 #endif
                 }
               else
-                face_data_by_cells[my_q].descriptor[hpq].initialize(
-                  quad[my_q][hpq].get_tensor_basis()[0], update_default);
+                {
+                  face_data_by_cells[my_q].descriptor[hpq * scale].initialize(
+                    quad[my_q][hpq].get_tensor_basis()[0], update_default);
+                }
             }
         }
 
