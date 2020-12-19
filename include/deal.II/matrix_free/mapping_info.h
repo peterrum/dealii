@@ -455,6 +455,13 @@ namespace internal
       SmartPointer<const Mapping<dim>> mapping;
 
       /**
+       * Face QCollections related to each quadrature and active quadrature
+       * index.
+       */
+      std::vector<std::vector<dealii::hp::QCollection<dim - 1>>>
+        face_q_collection;
+
+      /**
        * Internal function to compute the geometry for the case the mapping is
        * a MappingQ and a single quadrature formula per slot (non-hp-case) is
        * used. This method computes all data from the underlying cell
