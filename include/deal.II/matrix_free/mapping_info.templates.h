@@ -362,6 +362,8 @@ namespace internal
       this->update_flags_inner_faces    = this->update_flags_boundary_faces;
       this->update_flags_faces_by_cells = update_flags_faces_by_cells;
 
+      face_q_collection.resize(quad.size());
+
       for (unsigned int my_q = 0; my_q < quad.size(); ++my_q)
         {
           const unsigned int n_hp_quads = quad[my_q].size();
@@ -395,6 +397,9 @@ namespace internal
           const unsigned int scale = std::max<unsigned int>(1, dim - 1);
 
           face_data[my_q].descriptor.resize(n_hp_quads * scale);
+          face_data_by_cells[my_q].descriptor.resize(n_hp_quads * scale);
+          face_q_collection[my_q].resize(quad[my_q].size());
+
           for (unsigned int hpq = 0; hpq < n_hp_quads; ++hpq)
             {
               bool flag = quad[my_q][hpq].is_tensor_product();
@@ -414,43 +419,11 @@ namespace internal
                       face_data[my_q]
                         .descriptor[hpq * scale + (dim == 3 ? 1 : 0)]
                         .initialize(quad_face, update_default);
-                    }
-                  catch (...)
-                    {
-                      // TODO: nothing to do for now for wedges and pyramids.
-                    }
-#else
-                  Assert(false, ExcNotImplemented());
-#endif
-                }
-              else
-                {
-                  face_data[my_q].descriptor[hpq * scale].initialize(
-                    quad[my_q][hpq].get_tensor_basis()[0],
-                    update_flags_boundary_faces);
-                }
-            }
-
-          face_data_by_cells[my_q].descriptor.resize(n_hp_quads * scale);
-          for (unsigned int hpq = 0; hpq < n_hp_quads; ++hpq)
-            {
-              bool flag = quad[my_q][hpq].is_tensor_product();
-
-              if (flag)
-                for (unsigned int i = 1; i < dim; ++i)
-                  flag &= quad[my_q][hpq].get_tensor_basis()[0] ==
-                          quad[my_q][hpq].get_tensor_basis()[i];
-
-              if (flag == false)
-                {
-#ifdef DEAL_II_WITH_SIMPLEX_SUPPORT
-                  try
-                    {
-                      const auto quad_face =
-                        get_face_quadrature(quad[my_q][hpq]);
                       face_data_by_cells[my_q]
                         .descriptor[hpq * scale + (dim == 3 ? 1 : 0)]
                         .initialize(quad_face, update_default);
+                      face_q_collection[my_q][hpq] =
+                        dealii::hp::QCollection<dim - 1>(quad_face);
                     }
                   catch (...)
                     {
@@ -462,26 +435,15 @@ namespace internal
                 }
               else
                 {
+                  const auto quad_face = quad[my_q][hpq].get_tensor_basis()[0];
+                  face_data[my_q].descriptor[hpq * scale].initialize(
+                    quad_face, update_flags_boundary_faces);
                   face_data_by_cells[my_q].descriptor[hpq * scale].initialize(
-                    quad[my_q][hpq].get_tensor_basis()[0], update_default);
+                    quad_face, update_default);
+                  face_q_collection[my_q][hpq] =
+                    dealii::hp::QCollection<dim - 1>(quad_face);
                 }
             }
-        }
-
-      const unsigned int scale = std::max<unsigned int>(1, dim - 1);
-
-      face_q_collection.resize(quad.size());
-      for (unsigned int my_q = 0; my_q < quad.size(); ++my_q)
-        {
-          face_q_collection[my_q].resize(quad[my_q].size());
-          for (unsigned int hpq = 0; hpq < quad[my_q].size(); ++hpq)
-            if (face_data[my_q].descriptor[hpq * scale + 0].quadrature.size() !=
-                0)
-              face_q_collection[my_q][hpq] = dealii::hp::QCollection<dim - 1>(
-                face_data[my_q].descriptor[hpq * scale + 0].quadrature);
-            else
-              face_q_collection[my_q][hpq] = dealii::hp::QCollection<dim - 1>(
-                face_data[my_q].descriptor[hpq * scale + 1].quadrature);
         }
 
       // In case we have no hp adaptivity (active_fe_index is empty), we have
