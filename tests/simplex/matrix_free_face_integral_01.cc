@@ -155,6 +155,41 @@ test()
 
   MatrixFree<dim, double> matrix_free;
   matrix_free.reinit(mapping, dof_handler, constraints, *quad, additional_data);
+
+  using VectorType = LinearAlgebra::distributed::Vector<double>;
+  using number     = double;
+
+  VectorType dst, src;
+
+  matrix_free.initialize_dof_vector(dst);
+  matrix_free.initialize_dof_vector(src);
+
+  matrix_free.template loop<VectorType, VectorType>(
+    [&](const auto &data, auto &dst, const auto &src, const auto cell_range) {
+      (void)data;
+      (void)dst;
+      (void)src;
+      (void)cell_range;
+    },
+    [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
+      (void)data;
+      (void)dst;
+      (void)src;
+      (void)face_range;
+    },
+    [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
+      FEFaceEvaluation<dim, -1, 0, 1, number> fe_eval(data, face_range, true);
+      for (unsigned int face = face_range.first; face < face_range.second;
+           face++)
+        {
+          fe_eval.reinit(face);
+          (void)dst;
+          (void)src;
+          deallog << fe_eval.n_q_points << std::endl;
+        }
+    },
+    dst,
+    src);
 }
 
 
