@@ -1885,9 +1885,9 @@ namespace internal
                 is_boundary_face ?
                   *fe_boundary_face_values_container[my_q][fe_index] :
                   *fe_face_values_container[my_q][fe_index];
-              const unsigned int n_q_points =
-                fe_face_values.n_quadrature_points;
-              face_data.resize(n_q_points);
+
+              unsigned int n_q_points = 0; // will be override once FEFaceValues
+                                           // is set up
 
               bool normal_is_similar = true;
               bool JxW_is_similar    = true;
@@ -1906,6 +1906,12 @@ namespace internal
 
                       fe_face_values.reinit(cell_it,
                                             faces[face].interior_face_no);
+
+                      if (v == 0)
+                        {
+                          n_q_points = fe_face_values.n_quadrature_points;
+                          face_data.resize(n_q_points);
+                        }
 
                       for (unsigned int q = 0; q < n_q_points; ++q)
                         {
