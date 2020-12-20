@@ -1844,7 +1844,7 @@ namespace internal
         const typename Mapping<dim, spacedim>::InternalDataBase &mapping_data,
         const ArrayView<Tensor<rank, spacedim>> &                output)
       {
-        AssertDimension(input.size(), output.size());
+        // AssertDimension(input.size(), output.size());
         Assert(
           (dynamic_cast<
              const typename dealii::MappingFE<dim, spacedim>::InternalData *>(
@@ -1864,7 +1864,9 @@ namespace internal
                   typename FEValuesBase<dim>::ExcAccessToUninitializedField(
                     "update_contravariant_transformation"));
 
-                for (unsigned int i = 0; i < output.size(); ++i)
+                for (unsigned int i = 0;
+                     i < std::min(input.size(), output.size());
+                     ++i)
                   output[i] =
                     apply_transformation(data.contravariant[i], input[i]);
 
@@ -1885,7 +1887,9 @@ namespace internal
                 if (rank != 1)
                   return;
 
-                for (unsigned int i = 0; i < output.size(); ++i)
+                for (unsigned int i = 0;
+                     i < std::min(input.size(), output.size());
+                     ++i)
                   {
                     output[i] =
                       apply_transformation(data.contravariant[i], input[i]);
@@ -1903,7 +1907,9 @@ namespace internal
                   typename FEValuesBase<dim>::ExcAccessToUninitializedField(
                     "update_covariant_transformation"));
 
-                for (unsigned int i = 0; i < output.size(); ++i)
+                for (unsigned int i = 0;
+                     i < std::min(input.size(), output.size());
+                     ++i)
                   output[i] = apply_transformation(data.covariant[i], input[i]);
 
                 return;

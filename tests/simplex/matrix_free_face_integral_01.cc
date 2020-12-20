@@ -159,10 +159,11 @@ test()
   using VectorType = LinearAlgebra::distributed::Vector<double>;
   using number     = double;
 
-  VectorType dst, src;
+  VectorType dst, src, vec;
 
   matrix_free.initialize_dof_vector(dst);
   matrix_free.initialize_dof_vector(src);
+  matrix_free.initialize_dof_vector(vec);
 
   matrix_free.template loop<VectorType, VectorType>(
     [&](const auto &data, auto &dst, const auto &src, const auto cell_range) {
@@ -193,6 +194,50 @@ test()
     src);
 
   dst.print(deallog.get_file_stream());
+
+  hp::QCollection<dim - 1> face_quad{Simplex::QGauss<dim - 1>(degree + 1),
+                                     Simplex::QGauss<dim - 1>(degree + 1),
+                                     QGauss<dim - 1>(degree + 1),
+                                     QGauss<dim - 1>(degree + 1),
+                                     QGauss<dim - 1>(degree + 1)};
+
+  const UpdateFlags flag = update_JxW_values | update_values |
+                           update_gradients | update_quadrature_points;
+  FEValues<dim> fe_values(mapping, *fe, *quad, flag);
+
+  FEFaceValues<dim> fe_face_values(mapping, *fe, face_quad, flag);
+
+  const unsigned int dofs_per_cell = fe->dofs_per_cell;
+  const unsigned int n_q_points    = quad->size();
+
+  std::vector<types::global_dof_index> dof_indices(dofs_per_cell);
+  Vector<double>                       cell_rhs(dofs_per_cell);
+
+  for (const auto &cell : dof_handler.cell_iterators())
+    {
+      if (!cell->is_locally_owned())
+        continue;
+
+      fe_values.reinit(cell);
+      cell_rhs = 0;
+
+      for (const auto &face : cell->face_iterators())
+        if (face->at_boundary())
+          {
+            fe_face_values.reinit(cell, face);
+            for (const auto q : fe_face_values.quadrature_point_indices())
+              for (unsigned int i = 0; i < dofs_per_cell; ++i)
+                cell_rhs(i) += (1.0 *                              // 1.0
+                                fe_face_values.shape_value(i, q) * // phi_i(x_q)
+                                fe_face_values.JxW(q));            // dx
+          }
+
+      cell->get_dof_indices(dof_indices);
+
+      constraints.distribute_local_to_global(cell_rhs, dof_indices, vec);
+    }
+
+  vec.print(deallog.get_file_stream());
 }
 
 
