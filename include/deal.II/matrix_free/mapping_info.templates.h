@@ -1787,7 +1787,7 @@ namespace internal
             MappingInfoStorage<dim - 1, dim, Number, VectorizedArrayType>>,
           CompressedFaceData<dim, Number, VectorizedArrayType>> &data)
       {
-        std::vector<std::vector<std::shared_ptr<FE_Dummy<dim>>>> dummy_fe(
+        std::vector<std::vector<std::shared_ptr<FE_Nothing<dim>>>> dummy_fe(
           mapping_info.reference_cell_types.size());
         for (unsigned int my_q = 0;
              my_q < mapping_info.reference_cell_types.size();
@@ -1798,7 +1798,7 @@ namespace internal
             dummy_fe[my_q].resize(n_hp_quads);
 
             for (unsigned int hpq = 0; hpq < n_hp_quads; ++hpq)
-              dummy_fe[my_q][hpq] = std::make_shared<FE_Dummy<dim>>(
+              dummy_fe[my_q][hpq] = std::make_shared<FE_Nothing<dim>>(
                 mapping_info.reference_cell_types[my_q][hpq]);
           }
 
