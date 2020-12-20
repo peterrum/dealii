@@ -135,7 +135,7 @@ test()
   std::shared_ptr<Quadrature<dim>>    quad;
   std::shared_ptr<FiniteElement<dim>> fe_mapping;
 
-  GridGenerator::subdivided_hyper_cube_with_wedges(tria, dim == 2 ? 16 : 8);
+  GridGenerator::subdivided_hyper_cube_with_wedges(tria, dim == 2 ? 4 : 4);
   fe         = std::make_shared<Simplex::FE_WedgeP<dim>>(degree);
   quad       = std::make_shared<Simplex::QGaussWedge<dim>>(degree + 1);
   fe_mapping = std::make_shared<Simplex::FE_WedgeP<dim>>(1);
@@ -183,13 +183,16 @@ test()
            face++)
         {
           fe_eval.reinit(face);
-          (void)dst;
-          (void)src;
-          deallog << fe_eval.n_q_points << std::endl;
+          for (unsigned int q = 0; q < fe_eval.n_q_points; ++q)
+            fe_eval.submit_value(1.0, q);
+
+          fe_eval.integrate_scatter(true, false, dst);
         }
     },
     dst,
     src);
+
+  dst.print(deallog.get_file_stream());
 }
 
 
