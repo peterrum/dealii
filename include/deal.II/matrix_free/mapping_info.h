@@ -461,6 +461,8 @@ namespace internal
       std::vector<std::vector<dealii::hp::QCollection<dim - 1>>>
         face_q_collection;
 
+      std::vector<std::vector<ReferenceCell::Type>> reference_cell_types;
+
       /**
        * Internal function to compute the geometry for the case the mapping is
        * a MappingQ and a single quadrature formula per slot (non-hp-case) is

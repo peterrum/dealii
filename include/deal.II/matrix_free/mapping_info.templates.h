@@ -363,6 +363,7 @@ namespace internal
       this->update_flags_faces_by_cells = update_flags_faces_by_cells;
 
       face_q_collection.resize(quad.size());
+      reference_cell_types.resize(quad.size());
 
       for (unsigned int my_q = 0; my_q < quad.size(); ++my_q)
         {
@@ -374,7 +375,8 @@ namespace internal
           cell_data[my_q].descriptor.resize(n_hp_quads);
           face_data[my_q].descriptor.resize(n_hp_quads * scale);
           face_data_by_cells[my_q].descriptor.resize(n_hp_quads * scale);
-          face_q_collection[my_q].resize(quad[my_q].size());
+          face_q_collection[my_q].resize(n_hp_quads);
+          reference_cell_types[my_q].resize(n_hp_quads);
 
           for (unsigned int hpq = 0; hpq < n_hp_quads; ++hpq)
             {
@@ -412,8 +414,14 @@ namespace internal
                         .initialize(quad_face.second, update_default);
                     }
 
+                  const auto face_quadrature_collection =
+                    get_face_quadrature_collection(quad[my_q][hpq]);
+
                   face_q_collection[my_q][hpq] =
-                    get_face_quadrature_collection(quad[my_q][hpq]).second;
+                    face_quadrature_collection.second;
+
+                  reference_cell_types[my_q][hpq] =
+                    face_quadrature_collection.first;
 #else
                   Assert(false, ExcNotImplemented());
 #endif
@@ -430,6 +438,8 @@ namespace internal
                     quad_face, update_default);
                   face_q_collection[my_q][hpq] =
                     dealii::hp::QCollection<dim - 1>(quad_face);
+                  reference_cell_types[my_q][hpq] =
+                    ReferenceCell::get_hypercube(dim);
                 }
             }
         }
@@ -1777,7 +1787,20 @@ namespace internal
             MappingInfoStorage<dim - 1, dim, Number, VectorizedArrayType>>,
           CompressedFaceData<dim, Number, VectorizedArrayType>> &data)
       {
-        FE_Nothing<dim> dummy_fe;
+        std::vector<std::vector<std::shared_ptr<FE_Dummy<dim>>>> dummy_fe(
+          mapping_info.reference_cell_types.size());
+        for (unsigned int my_q = 0;
+             my_q < mapping_info.reference_cell_types.size();
+             ++my_q)
+          {
+            const unsigned int n_hp_quads =
+              mapping_info.reference_cell_types[my_q].size();
+            dummy_fe[my_q].resize(n_hp_quads);
+
+            for (unsigned int hpq = 0; hpq < n_hp_quads; ++hpq)
+              dummy_fe[my_q][hpq] = std::make_shared<FE_Dummy<dim>>(
+                mapping_info.reference_cell_types[my_q][hpq]);
+          }
 
         const unsigned int max_active_fe_index =
           active_fe_index.size() > 0 ?
@@ -1847,14 +1870,14 @@ namespace internal
                 fe_boundary_face_values_container[my_q][fe_index] =
                   std::make_shared<FEFaceValues<dim>>(
                     mapping,
-                    dummy_fe,
+                    *dummy_fe[my_q][hp_quad_index],
                     quadrature,
                     mapping_info.update_flags_boundary_faces);
               else if (fe_face_values_container[my_q][fe_index] == nullptr)
                 fe_face_values_container[my_q][fe_index] =
                   std::make_shared<FEFaceValues<dim>>(
                     mapping,
-                    dummy_fe,
+                    *dummy_fe[my_q][hp_quad_index],
                     quadrature,
                     mapping_info.update_flags_inner_faces);
 
@@ -2027,7 +2050,7 @@ namespace internal
                             fe_face_values_container[my_q][fe_index] =
                               std::make_shared<FEFaceValues<dim>>(
                                 mapping,
-                                dummy_fe,
+                                *dummy_fe[my_q][hp_quad_index],
                                 quadrature,
                                 mapping_info.update_flags_boundary_faces);
 
@@ -2043,7 +2066,7 @@ namespace internal
                             fe_subface_values_container[my_q][0] =
                               std::make_shared<FESubfaceValues<dim>>(
                                 mapping,
-                                dummy_fe,
+                                *dummy_fe[my_q][hp_quad_index],
                                 quadrature,
                                 mapping_info.update_flags_inner_faces);
                           fe_subface_values_container[my_q][0]->reinit(
