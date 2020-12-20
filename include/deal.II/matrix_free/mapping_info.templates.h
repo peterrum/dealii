@@ -382,33 +382,38 @@ namespace internal
 
               if (flag)
                 for (unsigned int i = 1; i < dim; ++i)
-                  {
-                    flag &= quad[my_q][hpq].get_tensor_basis()[0] ==
-                            quad[my_q][hpq].get_tensor_basis()[i];
-                  }
+                  flag &= quad[my_q][hpq].get_tensor_basis()[0] ==
+                          quad[my_q][hpq].get_tensor_basis()[i];
 
               if (flag == false)
                 {
 #ifdef DEAL_II_WITH_SIMPLEX_SUPPORT
                   cell_data[my_q].descriptor[hpq].initialize(quad[my_q][hpq],
                                                              update_default);
-                  try
+                  const auto quad_face =
+                    get_unique_face_quadratures(quad[my_q][hpq]);
+
+                  if (quad_face.first.size() > 0) // line, quad
                     {
-                      const auto quad_face =
-                        get_face_quadrature(quad[my_q][hpq]);
-                      face_data[my_q]
-                        .descriptor[hpq * scale + (dim == 3 ? 1 : 0)]
-                        .initialize(quad_face, update_default);
+                      face_data[my_q].descriptor[hpq * scale].initialize(
+                        quad_face.first, update_default);
                       face_data_by_cells[my_q]
-                        .descriptor[hpq * scale + (dim == 3 ? 1 : 0)]
-                        .initialize(quad_face, update_default);
-                      face_q_collection[my_q][hpq] =
-                        dealii::hp::QCollection<dim - 1>(quad_face);
+                        .descriptor[hpq * scale]
+                        .initialize(quad_face.first, update_default);
                     }
-                  catch (...)
+
+                  if (quad_face.second.size() > 0) // triangle
                     {
-                      // TODO: nothing to do for now for wedges and pyramids.
+                      AssertDimension(dim, 3);
+                      face_data[my_q].descriptor[hpq * scale + 1].initialize(
+                        quad_face.second, update_default);
+                      face_data_by_cells[my_q]
+                        .descriptor[hpq * scale + 1]
+                        .initialize(quad_face.second, update_default);
                     }
+
+                  face_q_collection[my_q][hpq] =
+                    get_face_quadrature_collection(quad[my_q][hpq]).second;
 #else
                   Assert(false, ExcNotImplemented());
 #endif
