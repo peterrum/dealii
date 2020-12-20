@@ -420,6 +420,9 @@ namespace internal
        */
       unsigned int n_q_points_face;
 
+
+      std::vector<unsigned int> n_q_points_faces;
+
       /**
        * Stores the number of DoFs per face in @p dim dimensions.
        */
