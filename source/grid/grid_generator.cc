@@ -7280,7 +7280,7 @@ namespace GridGenerator
             // inherit inner manifold (faces)
             for (const auto &face : table_2D_inner_manifold)
               // set inner tri-faces according to cell-manifold of quad element,
-              // set invalid b_id, since we don't want to modify b_id inside
+              // set invalid b_id, since we do not want to modify b_id inside
               add_cell(1,
                        face,
                        numbers::internal_face_boundary_id,
