@@ -7093,7 +7093,7 @@ namespace GridGenerator
 
   template <int dim, int spacedim>
   void
-  convert_hypercube_to_simplex_mesh_develop(
+  convert_hypercube_to_simplex_mesh(
     const Triangulation<dim, spacedim> &in_tria,
     Triangulation<dim, spacedim> &      out_tria)
   {
