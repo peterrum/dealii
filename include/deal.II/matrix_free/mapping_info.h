@@ -461,6 +461,10 @@ namespace internal
       std::vector<std::vector<dealii::hp::QCollection<dim - 1>>>
         face_q_collection;
 
+      /**
+       * Reference-cell type related to each quadrature and active quadrature
+       * index.
+       */
       std::vector<std::vector<ReferenceCell::Type>> reference_cell_types;
 
       /**

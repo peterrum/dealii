@@ -3057,6 +3057,9 @@ public:
    * DoFHandler/AffineConstraints pair the given evaluator should be attached
    * to.
    *
+   * @param face_type In the case of a face, its reference-cell type
+   * (0 for line or quadrilateral 1 for triangle).
+   *
    * @param active_quad_index If matrix_free was set up with hp::Collection
    * objects, this parameter selects the appropriate number of the quadrature
    * formula.
@@ -3069,7 +3072,7 @@ public:
     const unsigned int first_selected_component                          = 0,
     const unsigned int active_fe_index   = numbers::invalid_unsigned_int,
     const unsigned int active_quad_index = numbers::invalid_unsigned_int,
-    const unsigned int face_no           = numbers::invalid_unsigned_int);
+    const unsigned int face_type         = numbers::invalid_unsigned_int);
 
   /**
    * Constructor. Takes all data stored in MatrixFree for a given face range,

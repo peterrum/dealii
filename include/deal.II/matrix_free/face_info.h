@@ -110,6 +110,10 @@ namespace internal
        */
       unsigned char face_orientation;
 
+      /**
+       * Reference-cell type of the given face: 0 for line or quadrilateral,
+       * 1 for triangle.
+       */
       unsigned char face_type = 0;
 
       /**

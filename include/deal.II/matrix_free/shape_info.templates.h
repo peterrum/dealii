@@ -326,10 +326,6 @@ namespace internal
 
               this->n_q_points_face = quad_face[0].size();
 
-              // TODO: lift limitation
-              // for (unsigned int i = 1; i < quad_face.size(); ++i)
-              //   AssertDimension(this->n_q_points_face, quad_face[i].size());
-
               n_q_points_faces.resize(quad_face.size());
               for (unsigned int i = 0; i < quad_face.size(); ++i)
                 n_q_points_faces[i] = quad_face[i].size();

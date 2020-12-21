@@ -36,20 +36,6 @@ namespace internal
   namespace MatrixFreeFunctions
   {
     template <int dim>
-    inline Quadrature<dim - 1>
-    get_face_quadrature(const Quadrature<dim> &quad)
-    {
-      if (dim == 2 || dim == 3)
-        for (unsigned int i = 1; i <= 3; ++i)
-          if (quad == Simplex::QGauss<dim>(i))
-            return Simplex::QGauss<dim - 1>(i);
-
-      AssertThrow(false, ExcNotImplemented());
-
-      return Quadrature<dim - 1>();
-    }
-
-    template <int dim>
     inline std::pair<ReferenceCell::Type, dealii::hp::QCollection<dim - 1>>
     get_face_quadrature_collection(const Quadrature<dim> &quad)
     {
