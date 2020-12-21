@@ -51,94 +51,54 @@ using namespace dealii;
 
 
 template <int dim>
-class PoissonOperator
-{
-public:
-  using VectorType = Vector<double>;
-
-  PoissonOperator(const MatrixFree<dim, double> &matrix_free,
-                  const bool                     do_helmholtz)
-    : matrix_free(matrix_free)
-    , do_helmholtz(do_helmholtz)
-  {}
-
-  void
-  initialize_dof_vector(VectorType &vec)
-  {
-    matrix_free.initialize_dof_vector(vec);
-  }
-
-  void
-  rhs(VectorType &vec) const
-  {
-    const int dummy = 0;
-
-    matrix_free.template cell_loop<VectorType, int>(
-      [&](const auto &, auto &dst, const auto &, const auto cells) {
-        FEEvaluation<dim, -1, 0, 1, double> phi(matrix_free);
-        for (unsigned int cell = cells.first; cell < cells.second; ++cell)
-          {
-            phi.reinit(cell);
-            for (unsigned int q = 0; q < phi.n_q_points; ++q)
-              phi.submit_value(1.0, q);
-
-            phi.integrate_scatter(true, false, dst);
-          }
-      },
-      vec,
-      dummy,
-      true);
-  }
-
-
-  void
-  vmult(VectorType &dst, const VectorType &src) const
-  {
-    matrix_free.template cell_loop<VectorType, VectorType>(
-      [&](const auto &, auto &dst, const auto &src, const auto cells) {
-        FEEvaluation<dim, -1, 0, 1, double> phi(matrix_free);
-        for (unsigned int cell = cells.first; cell < cells.second; ++cell)
-          {
-            phi.reinit(cell);
-            phi.gather_evaluate(src, do_helmholtz, true);
-
-            for (unsigned int q = 0; q < phi.n_q_points; ++q)
-              {
-                if (do_helmholtz)
-                  phi.submit_value(phi.get_value(q), q);
-
-                phi.submit_gradient(phi.get_gradient(q), q);
-              }
-
-            phi.integrate_scatter(do_helmholtz, true, dst);
-          }
-      },
-      dst,
-      src,
-      true);
-  }
-
-private:
-  const MatrixFree<dim, double> &matrix_free;
-  const bool                     do_helmholtz;
-};
-
-template <int dim>
 void
-test()
+test(const unsigned int v, const unsigned int degree)
 {
-  const unsigned int degree = 1;
-
   Triangulation<dim> tria;
 
   std::shared_ptr<FiniteElement<dim>> fe;
   std::shared_ptr<Quadrature<dim>>    quad;
   std::shared_ptr<FiniteElement<dim>> fe_mapping;
+  hp::QCollection<dim - 1>            face_quad;
 
-  GridGenerator::subdivided_hyper_cube_with_wedges(tria, dim == 2 ? 4 : 4);
-  fe         = std::make_shared<Simplex::FE_WedgeP<dim>>(degree);
-  quad       = std::make_shared<Simplex::QGaussWedge<dim>>(degree + 1);
-  fe_mapping = std::make_shared<Simplex::FE_WedgeP<dim>>(1);
+  if (v == 0)
+    {
+      GridGenerator::subdivided_hyper_cube_with_simplices(tria,
+                                                          dim == 2 ? 16 : 8);
+      fe         = std::make_shared<Simplex::FE_P<dim>>(degree);
+      quad       = std::make_shared<Simplex::QGauss<dim>>(degree + 1);
+      fe_mapping = std::make_shared<Simplex::FE_P<dim>>(1);
+      face_quad =
+        hp::QCollection<dim - 1>{Simplex::QGauss<dim - 1>(degree + 1)};
+    }
+  else if (v == 1)
+    {
+      GridGenerator::subdivided_hyper_cube_with_wedges(tria, dim == 2 ? 16 : 8);
+      fe         = std::make_shared<Simplex::FE_WedgeP<dim>>(degree);
+      quad       = std::make_shared<Simplex::QGaussWedge<dim>>(degree + 1);
+      fe_mapping = std::make_shared<Simplex::FE_WedgeP<dim>>(1);
+      face_quad = hp::QCollection<dim - 1>{Simplex::QGauss<dim - 1>(degree + 1),
+                                           Simplex::QGauss<dim - 1>(degree + 1),
+                                           QGauss<dim - 1>(degree + 1),
+                                           QGauss<dim - 1>(degree + 1),
+                                           QGauss<dim - 1>(degree + 1)};
+    }
+  else if (v == 2)
+    {
+      GridGenerator::subdivided_hyper_cube_with_pyramids(tria,
+                                                         dim == 2 ? 16 : 8);
+      fe         = std::make_shared<Simplex::FE_PyramidP<dim>>(degree);
+      quad       = std::make_shared<Simplex::QGaussPyramid<dim>>(degree + 1);
+      fe_mapping = std::make_shared<Simplex::FE_PyramidP<dim>>(1);
+      face_quad =
+        hp::QCollection<dim - 1>{QGauss<dim - 1>(degree + 1),
+                                 Simplex::QGauss<dim - 1>(degree + 1),
+                                 Simplex::QGauss<dim - 1>(degree + 1),
+                                 Simplex::QGauss<dim - 1>(degree + 1),
+                                 Simplex::QGauss<dim - 1>(degree + 1)};
+    }
+  else
+    Assert(false, ExcNotImplemented());
 
   MappingFE<dim> mapping(*fe_mapping);
 
@@ -193,14 +153,6 @@ test()
     dst,
     src);
 
-  dst.print(deallog.get_file_stream());
-
-  hp::QCollection<dim - 1> face_quad{Simplex::QGauss<dim - 1>(degree + 1),
-                                     Simplex::QGauss<dim - 1>(degree + 1),
-                                     QGauss<dim - 1>(degree + 1),
-                                     QGauss<dim - 1>(degree + 1),
-                                     QGauss<dim - 1>(degree + 1)};
-
   const UpdateFlags flag = update_JxW_values | update_values |
                            update_gradients | update_quadrature_points;
   FEValues<dim> fe_values(mapping, *fe, *quad, flag);
@@ -208,7 +160,6 @@ test()
   FEFaceValues<dim> fe_face_values(mapping, *fe, face_quad, flag);
 
   const unsigned int dofs_per_cell = fe->dofs_per_cell;
-  const unsigned int n_q_points    = quad->size();
 
   std::vector<types::global_dof_index> dof_indices(dofs_per_cell);
   Vector<double>                       cell_rhs(dofs_per_cell);
@@ -237,7 +188,15 @@ test()
       constraints.distribute_local_to_global(cell_rhs, dof_indices, vec);
     }
 
+#if false
+  dst.print(deallog.get_file_stream());
   vec.print(deallog.get_file_stream());
+#endif
+
+  for (unsigned int i = 0; i < dst.size(); ++i)
+    Assert(std::abs(dst[i] - vec[i]) < 1e-8, ExcNotImplemented());
+
+  deallog << " dim=" << dim << " degree=" << degree << ": OK" << std::endl;
 }
 
 
@@ -250,5 +209,28 @@ main(int argc, char **argv)
 
   Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
 
-  test<3>();
+  for (unsigned int i = 0; i <= 2; ++i)
+    {
+      if (i == 0)
+        deallog.push("SIMPLEX");
+      else if (i == 1)
+        deallog.push("WEDGE  ");
+      else if (i == 2)
+        deallog.push("PYRAMID");
+      else
+        Assert(false, ExcNotImplemented());
+
+      if (i == 0) // 2D makes only sense for simplex
+        {
+          test<2>(i, /*degree=*/1);
+          test<2>(i, /*degree=*/2);
+        }
+
+      test<3>(i, /*degree=*/1);
+
+      if (i != 2) // for pyramids: no quadratic elements implemented
+        test<3>(i, /*degree=*/2);
+
+      deallog.pop();
+    }
 }
