@@ -14,9 +14,8 @@
 // ---------------------------------------------------------------------
 
 
-// Solve Poisson problem and Helmholtz problem on a simplex mesh with
-// continuous elements and compare results between matrix-free and matrix-based
-// implementations.
+// Compute the right-hand side vector due to a Neumann boundary condition on
+// different meshes (pure simplex, wedge, pyramid mesh).
 
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
@@ -107,94 +106,100 @@ test(const unsigned int v, const unsigned int degree)
 
   AffineConstraints<double> constraints;
 
-
-  typename MatrixFree<dim, double>::AdditionalData additional_data;
-  additional_data.mapping_update_flags = update_gradients | update_values;
-  additional_data.mapping_update_flags_boundary_faces =
-    update_gradients | update_values;
-
-  MatrixFree<dim, double> matrix_free;
-  matrix_free.reinit(mapping, dof_handler, constraints, *quad, additional_data);
-
   using VectorType = LinearAlgebra::distributed::Vector<double>;
   using number     = double;
 
-  VectorType dst, src, vec;
+  VectorType vec_mf, vec_mb;
 
-  matrix_free.initialize_dof_vector(dst);
-  matrix_free.initialize_dof_vector(src);
-  matrix_free.initialize_dof_vector(vec);
+  vec_mf.reinit(dof_handler.n_dofs());
+  vec_mb.reinit(dof_handler.n_dofs());
 
-  matrix_free.template loop<VectorType, VectorType>(
-    [&](const auto &data, auto &dst, const auto &src, const auto cell_range) {
-      (void)data;
-      (void)dst;
-      (void)src;
-      (void)cell_range;
-    },
-    [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
-      (void)data;
-      (void)dst;
-      (void)src;
-      (void)face_range;
-    },
-    [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
-      FEFaceEvaluation<dim, -1, 0, 1, number> fe_eval(data, face_range, true);
-      for (unsigned int face = face_range.first; face < face_range.second;
-           face++)
-        {
-          fe_eval.reinit(face);
-          for (unsigned int q = 0; q < fe_eval.n_q_points; ++q)
-            fe_eval.submit_value(1.0, q);
+  // compute vector with FEFaceEvaluation
+  {
+    typename MatrixFree<dim, double>::AdditionalData additional_data;
+    additional_data.mapping_update_flags = update_gradients | update_values;
+    additional_data.mapping_update_flags_boundary_faces =
+      update_gradients | update_values;
 
-          fe_eval.integrate_scatter(true, false, dst);
-        }
-    },
-    dst,
-    src);
+    MatrixFree<dim, double> matrix_free;
+    matrix_free.reinit(
+      mapping, dof_handler, constraints, *quad, additional_data);
 
-  const UpdateFlags flag = update_JxW_values | update_values |
-                           update_gradients | update_quadrature_points;
-  FEValues<dim> fe_values(mapping, *fe, *quad, flag);
-
-  FEFaceValues<dim> fe_face_values(mapping, *fe, face_quad, flag);
-
-  const unsigned int dofs_per_cell = fe->dofs_per_cell;
-
-  std::vector<types::global_dof_index> dof_indices(dofs_per_cell);
-  Vector<double>                       cell_rhs(dofs_per_cell);
-
-  for (const auto &cell : dof_handler.cell_iterators())
-    {
-      if (!cell->is_locally_owned())
-        continue;
-
-      fe_values.reinit(cell);
-      cell_rhs = 0;
-
-      for (const auto &face : cell->face_iterators())
-        if (face->at_boundary())
+    matrix_free.template loop<VectorType, VectorType>(
+      [&](const auto &data, auto &dst, const auto &src, const auto cell_range) {
+        (void)data;
+        (void)dst;
+        (void)src;
+        (void)cell_range;
+      },
+      [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
+        (void)data;
+        (void)dst;
+        (void)src;
+        (void)face_range;
+      },
+      [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
+        FEFaceEvaluation<dim, -1, 0, 1, number> fe_eval(data, face_range, true);
+        for (unsigned int face = face_range.first; face < face_range.second;
+             face++)
           {
-            fe_face_values.reinit(cell, face);
-            for (const auto q : fe_face_values.quadrature_point_indices())
-              for (unsigned int i = 0; i < dofs_per_cell; ++i)
-                cell_rhs(i) += (1.0 *                              // 1.0
-                                fe_face_values.shape_value(i, q) * // phi_i(x_q)
-                                fe_face_values.JxW(q));            // dx
+            fe_eval.reinit(face);
+            for (unsigned int q = 0; q < fe_eval.n_q_points; ++q)
+              fe_eval.submit_value(1.0, q);
+
+            fe_eval.integrate_scatter(true, false, dst);
           }
+      },
+      vec_mf,
+      vec_mf);
+  }
 
-      cell->get_dof_indices(dof_indices);
+  // compute vector with FEFaceValues
+  {
+    const UpdateFlags flag = update_JxW_values | update_values |
+                             update_gradients | update_quadrature_points;
+    FEValues<dim> fe_values(mapping, *fe, *quad, flag);
 
-      constraints.distribute_local_to_global(cell_rhs, dof_indices, vec);
-    }
+    FEFaceValues<dim> fe_face_values(mapping, *fe, face_quad, flag);
+
+    const unsigned int dofs_per_cell = fe->dofs_per_cell;
+
+    std::vector<types::global_dof_index> dof_indices(dofs_per_cell);
+    Vector<double>                       cell_rhs(dofs_per_cell);
+
+    for (const auto &cell : dof_handler.cell_iterators())
+      {
+        if (!cell->is_locally_owned())
+          continue;
+
+        fe_values.reinit(cell);
+        cell_rhs = 0;
+
+        for (const auto &face : cell->face_iterators())
+          if (face->at_boundary())
+            {
+              fe_face_values.reinit(cell, face);
+              for (const auto q : fe_face_values.quadrature_point_indices())
+                for (unsigned int i = 0; i < dofs_per_cell; ++i)
+                  cell_rhs(i) +=
+                    (1.0 *                              // 1.0
+                     fe_face_values.shape_value(i, q) * // phi_i(x_q)
+                     fe_face_values.JxW(q));            // dx
+            }
+
+        cell->get_dof_indices(dof_indices);
+
+        constraints.distribute_local_to_global(cell_rhs, dof_indices, vec_mb);
+      }
+  }
 
 #if false
-  dst.print(deallog.get_file_stream());
-  vec.print(deallog.get_file_stream());
+  vec_mf.print(deallog.get_file_stream());
+  vec_mb.print(deallog.get_file_stream());
 #endif
 
-  for (unsigned int i = 0; i < dst.size(); ++i)
-    Assert(std::abs(dst[i] - vec[i]) < 1e-8, ExcNotImplemented());
+  for (unsigned int i = 0; i < vec_mf.size(); ++i)
+    Assert(std::abs(vec_mf[i] - vec_mb[i]) < 1e-8, ExcNotImplemented());
 
   deallog << " dim=" << dim << " degree=" << degree << ": OK" << std::endl;
 }
