@@ -37,7 +37,8 @@ namespace internal
   {
     template <int dim>
     inline std::pair<ReferenceCell::Type, dealii::hp::QCollection<dim - 1>>
-    get_face_quadrature_collection(const Quadrature<dim> &quad)
+    get_face_quadrature_collection(const Quadrature<dim> &quad,
+                                   const bool             do_assert = true)
     {
       if (dim == 2 || dim == 3)
         for (unsigned int i = 1; i <= 3; ++i)
@@ -77,7 +78,8 @@ namespace internal
                 dealii::hp::QCollection<dim - 1>(quad, tri, tri, tri, tri)};
             }
 
-      AssertThrow(false, ExcNotImplemented());
+      if (do_assert)
+        AssertThrow(false, ExcNotImplemented());
 
       return {ReferenceCell::Type::Invalid, dealii::hp::QCollection<dim - 1>()};
     }

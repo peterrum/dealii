@@ -314,99 +314,98 @@ namespace internal
                                   q] = grad[d];
               }
 
-          try
-            {
-              const auto reference_cell_type = fe.reference_cell_type();
+          {
+            const auto reference_cell_type = fe.reference_cell_type();
 
-              const auto temp      = get_face_quadrature_collection(quad);
-              const auto quad_face = temp.second;
+            const auto  temp      = get_face_quadrature_collection(quad, false);
+            const auto &quad_face = temp.second;
 
-              AssertThrow(reference_cell_type == temp.first,
-                          ExcNotImplemented());
+            if (reference_cell_type != temp.first)
+              {
+                // TODO: this might happen if the quadrature rule and the
+                // the FE do not match
+                this->n_q_points_face = 0;
+              }
+            else
+              {
+                this->n_q_points_face = quad_face[0].size();
 
-              this->n_q_points_face = quad_face[0].size();
+                n_q_points_faces.resize(quad_face.size());
+                for (unsigned int i = 0; i < quad_face.size(); ++i)
+                  n_q_points_faces[i] = quad_face[i].size();
 
-              n_q_points_faces.resize(quad_face.size());
-              for (unsigned int i = 0; i < quad_face.size(); ++i)
-                n_q_points_faces[i] = quad_face[i].size();
+                unsigned int n_q_points_face_max = 0;
 
-              unsigned int n_q_points_face_max = 0;
+                for (unsigned int i = 0; i < quad_face.size(); ++i)
+                  n_q_points_face_max =
+                    std::max(n_q_points_face_max, quad_face[i].size());
 
-              for (unsigned int i = 0; i < quad_face.size(); ++i)
-                n_q_points_face_max =
-                  std::max(n_q_points_face_max, quad_face[i].size());
+                unsigned int n_max_vertices = 0;
 
-              unsigned int n_max_vertices = 0;
+                for (unsigned int face_no = 0; face_no < quad_face.size();
+                     ++face_no)
+                  n_max_vertices =
+                    std::max(n_max_vertices,
+                             ReferenceCell::internal::Info::get_face(
+                               reference_cell_type, face_no)
+                               .n_vertices());
 
-              for (unsigned int face_no = 0; face_no < quad_face.size();
-                   ++face_no)
-                n_max_vertices =
-                  std::max(n_max_vertices,
-                           ReferenceCell::internal::Info::get_face(
-                             reference_cell_type, face_no)
-                             .n_vertices());
+                const auto projected_quad_face =
+                  QProjector<dim>::project_to_all_faces(reference_cell_type,
+                                                        quad_face);
 
-              const auto projected_quad_face =
-                QProjector<dim>::project_to_all_faces(reference_cell_type,
-                                                      quad_face);
+                const unsigned int n_max_face_orientations =
+                  dim == 2 ? 2 : (2 * n_max_vertices);
 
-              const unsigned int n_max_face_orientations =
-                dim == 2 ? 2 : (2 * n_max_vertices);
+                shape_values_face.reinit({quad_face.size(),
+                                          n_max_face_orientations,
+                                          n_dofs * n_q_points_face_max});
 
-              shape_values_face.reinit({quad_face.size(),
-                                        n_max_face_orientations,
-                                        n_dofs * n_q_points_face_max});
+                shape_gradients_face.reinit({quad_face.size(),
+                                             n_max_face_orientations,
+                                             dim,
+                                             n_dofs * n_q_points_face_max});
 
-              shape_gradients_face.reinit({quad_face.size(),
-                                           n_max_face_orientations,
-                                           dim,
-                                           n_dofs * n_q_points_face_max});
+                for (unsigned int f = 0; f < quad_face.size(); ++f)
+                  {
+                    const unsigned int n_face_orientations =
+                      dim == 2 ? 2 :
+                                 (2 * ReferenceCell::internal::Info::get_face(
+                                        reference_cell_type, f)
+                                        .n_vertices());
 
-              for (unsigned int f = 0; f < quad_face.size(); ++f)
-                {
-                  const unsigned int n_face_orientations =
-                    dim == 2 ? 2 :
-                               (2 * ReferenceCell::internal::Info::get_face(
-                                      reference_cell_type, f)
-                                      .n_vertices());
+                    const unsigned int n_q_points_face = quad_face[f].size();
 
-                  const unsigned int n_q_points_face = quad_face[f].size();
+                    for (unsigned int o = 0; o < n_face_orientations; ++o)
+                      {
+                        const auto offset =
+                          QProjector<dim>::DataSetDescriptor::face(
+                            reference_cell_type,
+                            f,
+                            (o ^ 1) & 1,  // face_orientation
+                            (o >> 1) & 1, // face_flip
+                            (o >> 2) & 1, // face_rotation
+                            quad_face);
 
-                  for (unsigned int o = 0; o < n_face_orientations; ++o)
-                    {
-                      const auto offset =
-                        QProjector<dim>::DataSetDescriptor::face(
-                          reference_cell_type,
-                          f,
-                          (o ^ 1) & 1,  // face_orientation
-                          (o >> 1) & 1, // face_flip
-                          (o >> 2) & 1, // face_rotation
-                          quad_face);
+                        for (unsigned int i = 0; i < n_dofs; ++i)
+                          for (unsigned int q = 0; q < n_q_points_face; ++q)
+                            {
+                              const auto point =
+                                projected_quad_face.point(q + offset);
 
-                      for (unsigned int i = 0; i < n_dofs; ++i)
-                        for (unsigned int q = 0; q < n_q_points_face; ++q)
-                          {
-                            const auto point =
-                              projected_quad_face.point(q + offset);
+                              shape_values_face(f, o, i * n_q_points_face + q) =
+                                fe.shape_value(i, point);
 
-                            shape_values_face(f, o, i * n_q_points_face + q) =
-                              fe.shape_value(i, point);
+                              const auto grad = fe.shape_grad(i, point);
 
-                            const auto grad = fe.shape_grad(i, point);
-
-                            for (int d = 0; d < dim; ++d)
-                              shape_gradients_face(
-                                f, o, d, i * n_q_points_face + q) = grad[d];
-                          }
-                    }
-                }
-            }
-          catch (...)
-            {
-              // TODO: this might happen if the quadrature rule and the
-              // the FE do not match
-              this->n_q_points_face = 0;
-            }
+                              for (int d = 0; d < dim; ++d)
+                                shape_gradients_face(
+                                  f, o, d, i * n_q_points_face + q) = grad[d];
+                            }
+                      }
+                  }
+              }
+          }
 
           // TODO: also fill shape_hessians, inverse_shape_values,
           //   shape_data_on_face, quadrature_data_on_face,
