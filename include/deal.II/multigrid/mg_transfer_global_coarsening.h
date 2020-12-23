@@ -18,7 +18,11 @@
 
 #include <deal.II/base/mg_level_object.h>
 
+#include <deal.II/distributed/tria.h>
+
 #include <deal.II/dofs/dof_handler.h>
+
+#include <deal.II/grid/grid_tools.h>
 
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/la_parallel_vector.h>
@@ -86,6 +90,69 @@ namespace MGTransferGlobalCoarseningTools
     std::reverse(degrees.begin(), degrees.end());
 
     return degrees;
+  }
+
+  template <int dim, int spacedim>
+  void
+  create_global_coarsening_sequence(
+    MGLevelObject<std::shared_ptr<Triangulation<dim, spacedim>>>
+      &                                 coarse_grid_triangulations,
+    const Triangulation<dim, spacedim> &fine_triangulation_in)
+  {
+    const auto fine_triangulation =
+      dynamic_cast<const parallel::distributed::Triangulation<dim, spacedim> *>(
+        &fine_triangulation_in);
+
+    Assert(fine_triangulation, ExcNotImplemented());
+
+    const unsigned int min_level = 0;
+    const unsigned int max_level = fine_triangulation->n_global_levels() - 1;
+
+    const auto coarse_mesh_description =
+      GridTools::get_coarse_mesh_description(*fine_triangulation);
+
+    coarse_grid_triangulations.resize(
+      min_level, max_level); // note: maxlevel is not constructed!
+
+    // create coarse meshes
+    for (unsigned int l = max_level - 1; l != numbers::invalid_unsigned_int;
+         --l)
+      {
+        // store finer mesh to file
+        if (l + 1 == max_level)
+          fine_triangulation->save("mesh");
+        else
+          dynamic_cast<
+            const parallel::distributed::Triangulation<dim, spacedim> *>(
+            coarse_grid_triangulations[l + 1].get())
+            ->save("mesh");
+        MPI_Barrier(fine_triangulation->get_communicator());
+
+        // create empty triangulation
+        auto new_tria =
+          std::make_shared<parallel::distributed::Triangulation<dim, spacedim>>(
+            fine_triangulation->get_communicator(),
+            dealii::Triangulation<dim>::limit_level_difference_at_vertices);
+
+        // create coarse grid
+        new_tria->create_triangulation(std::get<0>(coarse_mesh_description),
+                                       std::get<1>(coarse_mesh_description),
+                                       std::get<2>(coarse_mesh_description));
+
+        for (const auto i : fine_triangulation->get_manifold_ids())
+          if (i != numbers::flat_manifold_id)
+            new_tria->set_manifold(i, fine_triangulation->get_manifold(i));
+
+        // create refinement hierarchy (by loading stored mesh)
+        new_tria->load("mesh", false);
+        MPI_Barrier(fine_triangulation->get_communicator());
+
+        // coarsen mesh
+        new_tria->coarsen_global();
+
+        // save mesh
+        coarse_grid_triangulations[l] = new_tria;
+      }
   }
 } // namespace MGTransferGlobalCoarseningTools
 

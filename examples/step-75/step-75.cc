@@ -257,6 +257,8 @@ namespace Step75
 
     MGTransferGlobalCoarseningTools::PolynomialSequenceType p_sequence =
       MGTransferGlobalCoarseningTools::PolynomialSequenceType::decrease_by_one;
+
+    bool perform_h_transfer = true;
   };
 
 
@@ -989,6 +991,16 @@ namespace Step75
       MGLevelObject<Operator>                            operators;
       MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfers;
 
+      MGLevelObject<std::shared_ptr<Triangulation<dim>>>
+        coarse_grid_triangulations;
+
+      if (mg_data.perform_h_transfer)
+        MGTransferGlobalCoarseningTools::create_global_coarsening_sequence(
+          coarse_grid_triangulations, dof_handler.get_triangulation());
+
+      const unsigned int n_h_levels = coarse_grid_triangulations.max_level() -
+                                      coarse_grid_triangulations.min_level();
+
       // Determine the number of levels.
       const auto get_max_active_fe_index = [&](const auto &dof_handler) {
         unsigned int min = 0;
@@ -1002,23 +1014,32 @@ namespace Step75
         return Utilities::MPI::max(min, MPI_COMM_WORLD);
       };
 
-      const unsigned int n_levels =
+      const unsigned int n_p_levels =
         MGTransferGlobalCoarseningTools::create_p_sequence(
           get_max_active_fe_index(dof_handler) + 1, mg_data.p_sequence)
           .size();
 
-      unsigned int minlevel = 0;
-      unsigned int maxlevel = n_levels - 1;
+      unsigned int minlevel   = 0;
+      unsigned int minlevel_p = n_h_levels;
+      unsigned int maxlevel   = n_h_levels + n_p_levels - 1;
 
       // Allocate memory for all levels.
-      dof_handlers.resize(minlevel, maxlevel, dof_handler.get_triangulation());
+      dof_handlers.resize(minlevel, maxlevel);
       operators.resize(minlevel, maxlevel);
       transfers.resize(minlevel, maxlevel);
 
-      // Loop from max to min level and set up DoFHandler with lower polynomial
-      // degrees.
-      for (unsigned int i = 0, l = maxlevel; i < n_levels; ++i, --l)
+      // Loop from max to min level and set up DoFHandler with coarser mesh...
+      for (unsigned int l = 0; l < n_h_levels; ++l)
         {
+          dof_handlers[l].reinit(*coarse_grid_triangulations[l]);
+          dof_handlers[l].distribute_dofs(dof_handler.get_fe_collection());
+        }
+
+      // ... with lower polynomial degrees
+      for (unsigned int i = 0, l = maxlevel; i < n_p_levels; ++i, --l)
+        {
+          dof_handlers[l].reinit(dof_handler.get_triangulation());
+
           if (l == maxlevel) // finest level
             {
               auto &dof_handler_mg = dof_handlers[l];
@@ -1086,7 +1107,13 @@ namespace Step75
         }
 
       // Set up intergrid operators.
-      for (unsigned int level = minlevel; level < maxlevel; level++)
+      for (unsigned int level = minlevel; level < minlevel_p; ++level)
+        transfers[level + 1].reinit_geometric_transfer(dof_handlers[level + 1],
+                                                       dof_handlers[level],
+                                                       constraints[level + 1],
+                                                       constraints[level]);
+
+      for (unsigned int level = minlevel_p; level < maxlevel; ++level)
         transfers[level + 1].reinit_polynomial_transfer(dof_handlers[level + 1],
                                                         dof_handlers[level],
                                                         constraints[level + 1],
