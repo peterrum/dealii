@@ -61,10 +61,10 @@
 template <int dim>
 struct ScratchData
 {
-  hp::MappingCollection<dim> mapping;
-  hp::FECollection<dim>      fe;
-  hp::QCollection<dim>       quadrature;
-  hp::QCollection<dim - 1>   face_quadrature;
+  hp::MappingCollection<dim>            mapping;
+  hp::FECollection<dim>                 fe;
+  hp::QCollection<dim>                  quadrature;
+  std::vector<hp::QCollection<dim - 1>> face_quadrature;
 
   std::function<void(Triangulation<dim> &)> mesh_generator;
 };
@@ -110,10 +110,10 @@ RHS<dim>::value_list(const std::vector<Point<dim>> &points,
                      std::vector<double> &          values,
                      const unsigned int) const
 {
-  Assert(values.size() == points.size(),
-         ExcDimensionMismatch(values.size(), points.size()));
+  // Assert(values.size() == points.size(),
+  //       ExcDimensionMismatch(values.size(), points.size()));
 
-  for (unsigned int i = 0; i < values.size(); ++i)
+  for (unsigned int i = 0; i < std::min(points.size(), values.size()); ++i)
     values[i] = 0;
 }
 
@@ -123,10 +123,10 @@ void
 Beta<dim>::value_list(const std::vector<Point<dim>> &points,
                       std::vector<Point<dim>> &      values) const
 {
-  Assert(values.size() == points.size(),
-         ExcDimensionMismatch(values.size(), points.size()));
+  // Assert(values.size() == points.size(),
+  //       ExcDimensionMismatch(values.size(), points.size()));
 
-  for (unsigned int i = 0; i < points.size(); ++i)
+  for (unsigned int i = 0; i < std::min(points.size(), values.size()); ++i)
     {
       const Point<dim> &p    = points[i];
       Point<dim> &      beta = values[i];
@@ -146,10 +146,10 @@ BoundaryValues<dim>::value_list(const std::vector<Point<dim>> &points,
                                 std::vector<double> &          values,
                                 const unsigned int) const
 {
-  Assert(values.size() == points.size(),
-         ExcDimensionMismatch(values.size(), points.size()));
+  // Assert(values.size() == points.size(),
+  //       ExcDimensionMismatch(values.size(), points.size()));
 
-  for (unsigned int i = 0; i < values.size(); ++i)
+  for (unsigned int i = 0; i < std::min(values.size(), points.size()); ++i)
     {
       if (points[i](0) < 0.5)
         values[i] = 1.;
@@ -447,8 +447,9 @@ private:
   SparsityPattern      sparsity_pattern;
   SparseMatrix<double> system_matrix;
 
-  const hp::QCollection<dim>     quadrature;
-  const hp::QCollection<dim - 1> face_quadrature;
+  const hp::QCollection<dim>                  quadrature;
+  const std::vector<hp::QCollection<dim - 1>> face_quadrature;
+  const hp::QCollection<dim - 1>              face_quadrature_dummy;
 
   Vector<double> solution1;
   Vector<double> solution2;
@@ -529,7 +530,7 @@ DGMethod<dim>::assemble_system1()
                                   face_update_flags);
   hp::FESubfaceValues<dim> fe_v_subface(mapping,
                                         fe,
-                                        face_quadrature,
+                                        face_quadrature_dummy,
                                         face_update_flags);
   hp::FEFaceValues<dim>    fe_v_face_neighbor(mapping,
                                            fe,
@@ -537,7 +538,7 @@ DGMethod<dim>::assemble_system1()
                                            neighbor_face_update_flags);
   hp::FESubfaceValues<dim> fe_v_subface_neighbor(mapping,
                                                  fe,
-                                                 face_quadrature,
+                                                 face_quadrature_dummy,
                                                  neighbor_face_update_flags);
 
   FullMatrix<double> ui_vi_matrix(dofs_per_cell, dofs_per_cell);
@@ -706,7 +707,7 @@ DGMethod<dim>::assemble_system2()
                                   face_update_flags);
   hp::FESubfaceValues<dim> fe_v_subface(mapping,
                                         fe,
-                                        face_quadrature,
+                                        face_quadrature_dummy,
                                         face_update_flags);
   hp::FEFaceValues<dim>    fe_v_face_neighbor(mapping,
                                            fe,
@@ -856,18 +857,13 @@ template <int dim>
 void
 DGMethod<dim>::solve(Vector<double> &solution)
 {
-  ReductionControl   solver_control(10000, 1e-2, 1e-1, false, false);
+  ReductionControl   solver_control(10000, 1e-4, 1e-3, false, false);
   SolverRichardson<> solver(solver_control);
 
-#if false
   PreconditionBlockSSOR<SparseMatrix<double>> preconditioner;
   preconditioner.initialize(system_matrix, fe[0].dofs_per_cell);
-#endif
 
-  solver.solve(system_matrix,
-               solution,
-               right_hand_side,
-               PreconditionIdentity());
+  solver.solve(system_matrix, solution, right_hand_side, preconditioner);
 }
 
 
@@ -991,16 +987,17 @@ main()
       deallog.get_file_stream().precision(2);
 
       // triangle
-      if (false)
+      for (unsigned int i = 1; i <= 2; ++i)
         {
           ScratchData<2> scratch_data;
 
           scratch_data.mapping =
             hp::MappingCollection<2>(MappingFE<2>(Simplex::FE_P<2>(1)));
-          scratch_data.fe         = hp::FECollection<2>(Simplex::FE_DGP<2>(2));
-          scratch_data.quadrature = hp::QCollection<2>(Simplex::QGauss<2>(3));
-          scratch_data.face_quadrature =
-            hp::QCollection<1>(Simplex::QGauss<1>(3));
+          scratch_data.fe = hp::FECollection<2>(Simplex::FE_DGP<2>(i));
+          scratch_data.quadrature =
+            hp::QCollection<2>(Simplex::QGauss<2>(i + 1));
+          scratch_data.face_quadrature = std::vector<hp::QCollection<1>>{
+            hp::QCollection<1>(Simplex::QGauss<1>(i + 1))};
           scratch_data.mesh_generator =
             [](Triangulation<2> &triangulation) -> void {
             GridGenerator::subdivided_hyper_cube_with_simplices(triangulation,
@@ -1012,15 +1009,16 @@ main()
         }
 
       // quadrilateral
-      if (false)
+      for (unsigned int i = 1; i <= 2; ++i)
         {
           ScratchData<2> scratch_data;
 
           scratch_data.mapping =
             hp::MappingCollection<2>(MappingQGeneric<2>(1));
-          scratch_data.fe              = hp::FECollection<2>(FE_DGQ<2>(2));
-          scratch_data.quadrature      = hp::QCollection<2>(QGauss<2>(3));
-          scratch_data.face_quadrature = hp::QCollection<1>(QGauss<1>(3));
+          scratch_data.fe              = hp::FECollection<2>(FE_DGQ<2>(i));
+          scratch_data.quadrature      = hp::QCollection<2>(QGauss<2>(i + 1));
+          scratch_data.face_quadrature = std::vector<hp::QCollection<1>>{
+            hp::QCollection<1>(QGauss<1>(i + 1))};
           scratch_data.mesh_generator =
             [](Triangulation<2> &triangulation) -> void {
             GridGenerator::hyper_cube(triangulation);
@@ -1032,16 +1030,17 @@ main()
         }
 
       // tetrahedron
-      if (false)
+      for (unsigned int i = 1; i <= 2; ++i)
         {
           ScratchData<3> scratch_data;
 
           scratch_data.mapping =
             hp::MappingCollection<3>(MappingFE<3>(Simplex::FE_P<3>(1)));
-          scratch_data.fe         = hp::FECollection<3>(Simplex::FE_DGP<3>(2));
-          scratch_data.quadrature = hp::QCollection<3>(Simplex::QGauss<3>(3));
-          scratch_data.face_quadrature =
-            hp::QCollection<2>(Simplex::QGauss<2>(3));
+          scratch_data.fe = hp::FECollection<3>(Simplex::FE_DGP<3>(i));
+          scratch_data.quadrature =
+            hp::QCollection<3>(Simplex::QGauss<3>(i + 1));
+          scratch_data.face_quadrature = std::vector<hp::QCollection<2>>{
+            hp::QCollection<2>(Simplex::QGauss<2>(i + 1))};
           scratch_data.mesh_generator =
             [](Triangulation<3> &triangulation) -> void {
             GridGenerator::subdivided_hyper_cube_with_simplices(triangulation,
@@ -1053,21 +1052,21 @@ main()
         }
 
       // pyramid
-      if (false)
+      for (unsigned int i = 1; i <= 1; ++i)
         {
           ScratchData<3> scratch_data;
 
           scratch_data.mapping =
             hp::MappingCollection<3>(MappingFE<3>(Simplex::FE_PyramidP<3>(1)));
-          scratch_data.fe = hp::FECollection<3>(Simplex::FE_PyramidDGP<3>(1));
+          scratch_data.fe = hp::FECollection<3>(Simplex::FE_PyramidDGP<3>(i));
           scratch_data.quadrature =
-            hp::QCollection<3>(Simplex::QGaussPyramid<3>(2));
-          scratch_data.face_quadrature =
-            hp::QCollection<2>(QGauss<2>(2),
-                               Simplex::QGauss<2>(2),
-                               Simplex::QGauss<2>(2),
-                               Simplex::QGauss<2>(2),
-                               Simplex::QGauss<2>(2));
+            hp::QCollection<3>(Simplex::QGaussPyramid<3>(i + 1));
+          scratch_data.face_quadrature = std::vector<hp::QCollection<2>>{
+            hp::QCollection<2>(QGauss<2>(i + 1),
+                               Simplex::QGauss<2>(i + 1),
+                               Simplex::QGauss<2>(i + 1),
+                               Simplex::QGauss<2>(i + 1),
+                               Simplex::QGauss<2>(i + 1))};
           scratch_data.mesh_generator =
             [](Triangulation<3> &triangulation) -> void {
             GridGenerator::subdivided_hyper_cube_with_pyramids(triangulation,
@@ -1079,21 +1078,21 @@ main()
         }
 
       // wedge
-      if (true)
+      for (unsigned int i = 1; i <= 2; ++i)
         {
           ScratchData<3> scratch_data;
 
           scratch_data.mapping =
             hp::MappingCollection<3>(MappingFE<3>(Simplex::FE_WedgeP<3>(1)));
-          scratch_data.fe = hp::FECollection<3>(Simplex::FE_WedgeDGP<3>(2));
+          scratch_data.fe = hp::FECollection<3>(Simplex::FE_WedgeDGP<3>(i));
           scratch_data.quadrature =
-            hp::QCollection<3>(Simplex::QGaussWedge<3>(3));
-          scratch_data.face_quadrature =
-            hp::QCollection<2>(Simplex::QGauss<2>(3),
-                               Simplex::QGauss<2>(3),
-                               QGauss<2>(3),
-                               Simplex::QGauss<2>(3),
-                               Simplex::QGauss<2>(3));
+            hp::QCollection<3>(Simplex::QGaussWedge<3>(i + 1));
+          scratch_data.face_quadrature = std::vector<hp::QCollection<2>>{
+            hp::QCollection<2>(Simplex::QGauss<2>(i + 1),
+                               Simplex::QGauss<2>(i + 1),
+                               QGauss<2>(i + 1),
+                               QGauss<2>(i + 1),
+                               QGauss<2>(i + 1))};
           scratch_data.mesh_generator =
             [](Triangulation<3> &triangulation) -> void {
             GridGenerator::subdivided_hyper_cube_with_wedges(triangulation, 8);
@@ -1104,15 +1103,16 @@ main()
         }
 
       // hexahedron
-      if (false)
+      for (unsigned int i = 1; i <= 2; ++i)
         {
           ScratchData<3> scratch_data;
 
           scratch_data.mapping =
             hp::MappingCollection<3>(MappingQGeneric<3>(1));
-          scratch_data.fe              = hp::FECollection<3>(FE_DGQ<3>(2));
-          scratch_data.quadrature      = hp::QCollection<3>(QGauss<3>(3));
-          scratch_data.face_quadrature = hp::QCollection<2>(QGauss<2>(3));
+          scratch_data.fe              = hp::FECollection<3>(FE_DGQ<3>(i));
+          scratch_data.quadrature      = hp::QCollection<3>(QGauss<3>(i + 1));
+          scratch_data.face_quadrature = std::vector<hp::QCollection<2>>{
+            hp::QCollection<2>(QGauss<2>(i + 1))};
           scratch_data.mesh_generator =
             [](Triangulation<3> &triangulation) -> void {
             GridGenerator::hyper_cube(triangulation);
