@@ -102,13 +102,6 @@ public:
    */
   FE_Nothing(const unsigned int n_components = 1, const bool dominate = false);
 
-  /**
-   * Same as above but with the possibility to specify a reference-cell type.
-   */
-  FE_Nothing(const ReferenceCell::Type &type,
-             const unsigned int         n_components = 1,
-             const bool                 dominate     = false);
-
   virtual std::unique_ptr<FiniteElement<dim, spacedim>>
   clone() const override;
 

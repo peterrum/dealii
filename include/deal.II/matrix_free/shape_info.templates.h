@@ -93,8 +93,8 @@ namespace internal
 
       if (dynamic_cast<const Simplex::FE_P<dim, dim> *>(&fe) != nullptr ||
           dynamic_cast<const Simplex::FE_DGP<dim, dim> *>(&fe) != nullptr ||
-          dynamic_cast<const Simplex::FE_WedgeP<dim, dim> *>(&fe) != nullptr ||
-          dynamic_cast<const Simplex::FE_PyramidP<dim, dim> *>(&fe) != nullptr)
+          dynamic_cast<const Simplex::FE_Wedge<dim, dim> *>(&fe) != nullptr ||
+          dynamic_cast<const Simplex::FE_Pyramid<dim, dim> *>(&fe) != nullptr)
         {
           scalar_lexicographic.resize(fe.n_dofs_per_cell());
           for (unsigned int i = 0; i < scalar_lexicographic.size(); ++i)

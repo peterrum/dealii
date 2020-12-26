@@ -702,7 +702,7 @@ public:
 
     matrix_free.template loop<VectorType, int>(
       [&](const auto &data, auto &dst, const auto &src, const auto cell_range) {
-        FEEvaluation<dim, -1, 0, 1, double> phi(data);
+        FEEvaluation<dim, -1, 0, 1, double> phi(data, cell_range);
         for (unsigned int cell = cell_range.first; cell < cell_range.second;
              ++cell)
           {
@@ -720,7 +720,7 @@ public:
         (void)face_range;
       },
       [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
-        FEFaceEvaluation<dim, -1, 0, 1, double> phi(data);
+        FEFaceEvaluation<dim, -1, 0, 1, double> phi(data, face_range);
         for (unsigned int face = face_range.first; face < face_range.second;
              ++face)
           {
@@ -748,7 +748,7 @@ public:
   {
     matrix_free.template loop<VectorType, VectorType>(
       [&](const auto &data, auto &dst, const auto &src, const auto cell_range) {
-        FEEvaluation<dim, -1, 0, 1, double> phi(data);
+        FEEvaluation<dim, -1, 0, 1, double> phi(data, cell_range);
         for (unsigned int cell = cell_range.first; cell < cell_range.second;
              ++cell)
           {
@@ -762,8 +762,8 @@ public:
           }
       },
       [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
-        FEFaceEvaluation<dim, -1, 0, 1, double> phi_m(data, true);
-        FEFaceEvaluation<dim, -1, 0, 1, double> phi_p(data, false);
+        FEFaceEvaluation<dim, -1, 0, 1, double> phi_m(data, face_range, true);
+        FEFaceEvaluation<dim, -1, 0, 1, double> phi_p(data, face_range, false);
         for (unsigned int cell = face_range.first; cell < face_range.second;
              ++cell)
           {
@@ -790,7 +790,7 @@ public:
           }
       },
       [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
-        FEFaceEvaluation<dim, -1, 0, 1, double> phi(data);
+        FEFaceEvaluation<dim, -1, 0, 1, double> phi(data, face_range);
         for (unsigned int cell = face_range.first; cell < face_range.second;
              ++cell)
           {
@@ -1058,7 +1058,6 @@ main()
       // pyramid
       for (unsigned int i = 1; i <= 1; ++i)
         {
-          continue;
           ScratchData<3> scratch_data;
 
           scratch_data.mapping =
@@ -1085,7 +1084,6 @@ main()
       // wedge
       for (unsigned int i = 1; i <= 2; ++i)
         {
-          continue;
           ScratchData<3> scratch_data;
 
           scratch_data.mapping =
