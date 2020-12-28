@@ -91,10 +91,12 @@ namespace
   class CellProlongator
   {
   public:
-    CellProlongator(const AlignedVector<Number> &prolongation_matrix_1d,
+    CellProlongator(const AlignedVector<Number> &prolongation_matrix,
+                    const AlignedVector<Number> &prolongation_matrix_1d,
                     const Number *               evaluation_data_coarse,
                     Number *                     evaluation_data_fine)
-      : prolongation_matrix_1d(prolongation_matrix_1d)
+      : prolongation_matrix(prolongation_matrix)
+      , prolongation_matrix_1d(prolongation_matrix_1d)
       , evaluation_data_coarse(evaluation_data_coarse)
       , evaluation_data_fine(evaluation_data_fine)
     {}
@@ -104,6 +106,8 @@ namespace
     run(const unsigned int degree_fine_   = numbers::invalid_unsigned_int,
         const unsigned int degree_coarse_ = numbers::invalid_unsigned_int)
     {
+      Assert(prolongation_matrix_1d.size() > 0, ExcNotImplemented());
+
       internal::FEEvaluationImplBasisChange<
         internal::evaluate_general,
         internal::EvaluatorQuantity::value,
@@ -119,7 +123,28 @@ namespace
                             degree_fine_ + 1);
     }
 
+    void
+    run_full(const unsigned int n_dofs_fine, const unsigned int n_dofs_coarse)
+    {
+      AssertDimension(prolongation_matrix.size(), n_dofs_coarse * n_dofs_fine);
+
+      internal::FEEvaluationImplBasisChange<
+        internal::evaluate_general,
+        internal::EvaluatorQuantity::value,
+        1,
+        0,
+        0,
+        Number,
+        Number>::do_forward(1,
+                            prolongation_matrix,
+                            evaluation_data_coarse,
+                            evaluation_data_fine,
+                            n_dofs_coarse,
+                            n_dofs_fine);
+    }
+
   private:
+    const AlignedVector<Number> &prolongation_matrix;
     const AlignedVector<Number> &prolongation_matrix_1d;
     const Number *               evaluation_data_coarse;
     Number *                     evaluation_data_fine;
@@ -132,10 +157,12 @@ namespace
   class CellRestrictor
   {
   public:
-    CellRestrictor(const AlignedVector<Number> &prolongation_matrix_1d,
+    CellRestrictor(const AlignedVector<Number> &prolongation_matrix,
+                   const AlignedVector<Number> &prolongation_matrix_1d,
                    Number *                     evaluation_data_fine,
                    Number *                     evaluation_data_coarse)
-      : prolongation_matrix_1d(prolongation_matrix_1d)
+      : prolongation_matrix(prolongation_matrix)
+      , prolongation_matrix_1d(prolongation_matrix_1d)
       , evaluation_data_fine(evaluation_data_fine)
       , evaluation_data_coarse(evaluation_data_coarse)
     {}
@@ -145,6 +172,8 @@ namespace
     run(const unsigned int degree_fine_   = numbers::invalid_unsigned_int,
         const unsigned int degree_coarse_ = numbers::invalid_unsigned_int)
     {
+      Assert(prolongation_matrix_1d.size() > 0, ExcNotImplemented());
+
       internal::FEEvaluationImplBasisChange<
         internal::evaluate_general,
         internal::EvaluatorQuantity::value,
@@ -161,7 +190,29 @@ namespace
                              degree_fine_ + 1);
     }
 
+    void
+    run_full(const unsigned int n_dofs_fine, const unsigned int n_dofs_coarse)
+    {
+      AssertDimension(prolongation_matrix.size(), n_dofs_coarse * n_dofs_fine);
+
+      internal::FEEvaluationImplBasisChange<
+        internal::evaluate_general,
+        internal::EvaluatorQuantity::value,
+        1,
+        0,
+        0,
+        Number,
+        Number>::do_backward(1,
+                             prolongation_matrix,
+                             false,
+                             evaluation_data_fine,
+                             evaluation_data_coarse,
+                             n_dofs_coarse,
+                             n_dofs_fine);
+    }
+
   private:
+    const AlignedVector<Number> &prolongation_matrix;
     const AlignedVector<Number> &prolongation_matrix_1d;
     Number *                     evaluation_data_fine;
     Number *                     evaluation_data_coarse;
@@ -1587,12 +1638,12 @@ namespace internal
               FullMatrix<double> matrix(fe_fine.dofs_per_cell,
                                         fe_coarse.dofs_per_cell);
               FETools::get_projection_matrix(fe_coarse, fe_fine, matrix);
-              transfer.schemes[fe_index_no].prolongation_matrix_1d.resize(
+              transfer.schemes[fe_index_no].prolongation_matrix.resize(
                 fe_fine.dofs_per_cell * fe_coarse.dofs_per_cell);
 
               for (unsigned int i = 0, k = 0; i < fe_coarse.dofs_per_cell; ++i)
                 for (unsigned int j = 0; j < fe_fine.dofs_per_cell; ++j, ++k)
-                  transfer.schemes[fe_index_no].prolongation_matrix_1d[k] =
+                  transfer.schemes[fe_index_no].prolongation_matrix[k] =
                     matrix(j, i);
             }
         }
@@ -1738,9 +1789,9 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::prolongate(
                                         scheme.degree_coarse);
 
       const unsigned int n_scalar_dofs_fine =
-        Utilities::pow(scheme.degree_fine + 1, dim);
+        scheme.dofs_per_cell_fine / n_components;
       const unsigned int n_scalar_dofs_coarse =
-        Utilities::pow(scheme.degree_coarse + 1, dim);
+        scheme.dofs_per_cell_coarse / n_components;
 
       for (unsigned int cell = 0; cell < scheme.n_coarse_cells; cell += n_lanes)
         {
@@ -1767,11 +1818,16 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::prolongate(
           for (int c = n_components - 1; c >= 0; --c)
             {
               CellProlongator<dim, VectorizedArrayType> cell_prolongator(
+                scheme.prolongation_matrix,
                 scheme.prolongation_matrix_1d,
                 evaluation_data_coarse.begin() + c * n_scalar_dofs_coarse,
                 evaluation_data_fine.begin() + c * n_scalar_dofs_fine);
 
-              cell_transfer.run(cell_prolongator);
+              if (scheme.prolongation_matrix_1d.size() > 0)
+                cell_transfer.run(cell_prolongator);
+              else
+                cell_prolongator.run_full(n_scalar_dofs_fine,
+                                          n_scalar_dofs_coarse);
             }
           // ------------------------------ fine -----------------------------
 
@@ -1870,9 +1926,9 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
                                         scheme.degree_coarse);
 
       const unsigned int n_scalar_dofs_fine =
-        Utilities::pow(scheme.degree_fine + 1, dim);
+        scheme.dofs_per_cell_fine / n_components;
       const unsigned int n_scalar_dofs_coarse =
-        Utilities::pow(scheme.degree_coarse + 1, dim);
+        scheme.dofs_per_cell_coarse / n_components;
 
       for (unsigned int cell = 0; cell < scheme.n_coarse_cells; cell += n_lanes)
         {
@@ -1908,11 +1964,16 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           for (int c = n_components - 1; c >= 0; --c)
             {
               CellRestrictor<dim, VectorizedArrayType> cell_restrictor(
+                scheme.prolongation_matrix,
                 scheme.prolongation_matrix_1d,
                 evaluation_data_fine.begin() + c * n_scalar_dofs_fine,
                 evaluation_data_coarse.begin() + c * n_scalar_dofs_coarse);
 
-              cell_transfer.run(cell_restrictor);
+              if (scheme.prolongation_matrix_1d.size() > 0)
+                cell_transfer.run(cell_restrictor);
+              else
+                cell_restrictor.run_full(n_scalar_dofs_fine,
+                                         n_scalar_dofs_coarse);
             }
           // ----------------------------- coarse ----------------------------
 
