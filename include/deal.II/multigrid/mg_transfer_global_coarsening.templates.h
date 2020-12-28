@@ -1382,26 +1382,56 @@ namespace internal
                 transfer.schemes[fe_index_pair.second].dofs_per_cell_coarse *
                 transfer.schemes[fe_index_pair.second].n_coarse_cells);
 
+            const auto reference_cell_type =
+              dof_handler_fine.get_fe(fe_index_pair.first.second)
+                .reference_cell_type();
+
+            Assert(reference_cell_type ==
+                     dof_handler_coarse.get_fe(fe_index_pair.first.second)
+                       .reference_cell_type(),
+                   ExcNotImplemented());
 
             // ------------------- lexicographic_numbering  --------------------
-            {
-              const Quadrature<1> dummy_quadrature(
-                std::vector<Point<1>>(1, Point<1>()));
-              internal::MatrixFreeFunctions::ShapeInfo<Number> shape_info;
-              shape_info.reinit(dummy_quadrature,
-                                dof_handler_fine.get_fe(
-                                  fe_index_pair.first.second),
-                                0);
-              lexicographic_numbering_fine[fe_index_pair.second] =
-                shape_info.lexicographic_numbering;
+            if (reference_cell_type == ReferenceCell::get_hypercube(dim))
+              {
+                const Quadrature<1> dummy_quadrature(
+                  std::vector<Point<1>>(1, Point<1>()));
+                internal::MatrixFreeFunctions::ShapeInfo<Number> shape_info;
+                shape_info.reinit(dummy_quadrature,
+                                  dof_handler_fine.get_fe(
+                                    fe_index_pair.first.second),
+                                  0);
+                lexicographic_numbering_fine[fe_index_pair.second] =
+                  shape_info.lexicographic_numbering;
 
-              shape_info.reinit(dummy_quadrature,
-                                dof_handler_coarse.get_fe(
-                                  fe_index_pair.first.first),
-                                0);
-              lexicographic_numbering_coarse[fe_index_pair.second] =
-                shape_info.lexicographic_numbering;
-            }
+                shape_info.reinit(dummy_quadrature,
+                                  dof_handler_coarse.get_fe(
+                                    fe_index_pair.first.first),
+                                  0);
+                lexicographic_numbering_coarse[fe_index_pair.second] =
+                  shape_info.lexicographic_numbering;
+              }
+            else
+              {
+                const auto dummy_quadrature =
+                  ReferenceCell::get_default_quadrature<dim>(
+                    reference_cell_type, 1);
+
+                internal::MatrixFreeFunctions::ShapeInfo<Number> shape_info;
+                shape_info.reinit(dummy_quadrature,
+                                  dof_handler_fine.get_fe(
+                                    fe_index_pair.first.second),
+                                  0);
+                lexicographic_numbering_fine[fe_index_pair.second] =
+                  shape_info.lexicographic_numbering;
+
+                shape_info.reinit(dummy_quadrature,
+                                  dof_handler_coarse.get_fe(
+                                    fe_index_pair.first.first),
+                                  0);
+                lexicographic_numbering_coarse[fe_index_pair.second] =
+                  shape_info.lexicographic_numbering;
+              }
           }
 
         // ------------------------------ indices  -----------------------------
@@ -1458,82 +1488,113 @@ namespace internal
 
           AssertDimension(
             dof_handler_fine.get_fe(fe_index_pair.second).n_base_elements(), 1);
-          std::string fe_name_fine =
-            dof_handler_fine.get_fe(fe_index_pair.second)
-              .base_element(0)
-              .get_name();
-          {
-            const std::size_t template_starts = fe_name_fine.find_first_of('<');
-            Assert(fe_name_fine[template_starts + 1] ==
-                     (dim == 1 ? '1' : (dim == 2 ? '2' : '3')),
-                   ExcInternalError());
-            fe_name_fine[template_starts + 1] = '1';
-          }
-          const std::unique_ptr<FiniteElement<1>> fe_fine(
-            FETools::get_fe_by_name<1, 1>(fe_name_fine));
-
-          std::vector<unsigned int> renumbering_fine(fe_fine->dofs_per_cell);
-          {
-            AssertIndexRange(fe_fine->dofs_per_vertex, 2);
-            renumbering_fine[0] = 0;
-            for (unsigned int i = 0; i < fe_fine->dofs_per_line; ++i)
-              renumbering_fine[i + fe_fine->dofs_per_vertex] =
-                GeometryInfo<1>::vertices_per_cell * fe_fine->dofs_per_vertex +
-                i;
-            if (fe_fine->dofs_per_vertex > 0)
-              renumbering_fine[fe_fine->dofs_per_cell -
-                               fe_fine->dofs_per_vertex] =
-                fe_fine->dofs_per_vertex;
-          }
-
-
-
           AssertDimension(
             dof_handler_coarse.get_fe(fe_index_pair.first).n_base_elements(),
             1);
-          std::string fe_name_coarse =
-            dof_handler_coarse.get_fe(fe_index_pair.first)
-              .base_element(0)
-              .get_name();
-          {
-            const std::size_t template_starts =
-              fe_name_coarse.find_first_of('<');
-            Assert(fe_name_coarse[template_starts + 1] ==
-                     (dim == 1 ? '1' : (dim == 2 ? '2' : '3')),
-                   ExcInternalError());
-            fe_name_coarse[template_starts + 1] = '1';
-          }
-          const std::unique_ptr<FiniteElement<1>> fe_coarse(
-            FETools::get_fe_by_name<1, 1>(fe_name_coarse));
 
-          std::vector<unsigned int> renumbering_coarse(
-            fe_coarse->dofs_per_cell);
-          {
-            AssertIndexRange(fe_coarse->dofs_per_vertex, 2);
-            renumbering_coarse[0] = 0;
-            for (unsigned int i = 0; i < fe_coarse->dofs_per_line; ++i)
-              renumbering_coarse[i + fe_coarse->dofs_per_vertex] =
-                GeometryInfo<1>::vertices_per_cell *
-                  fe_coarse->dofs_per_vertex +
-                i;
-            if (fe_coarse->dofs_per_vertex > 0)
-              renumbering_coarse[fe_coarse->dofs_per_cell -
-                                 fe_coarse->dofs_per_vertex] =
-                fe_coarse->dofs_per_vertex;
-          }
+          const auto reference_cell_type =
+            dof_handler_fine.get_fe(fe_index_pair_.first.second)
+              .reference_cell_type();
 
+          Assert(reference_cell_type ==
+                   dof_handler_coarse.get_fe(fe_index_pair_.first.second)
+                     .reference_cell_type(),
+                 ExcNotImplemented());
 
+          if (reference_cell_type == ReferenceCell::get_hypercube(dim))
+            {
+              std::string fe_name_fine =
+                dof_handler_fine.get_fe(fe_index_pair.second)
+                  .base_element(0)
+                  .get_name();
+              {
+                const std::size_t template_starts =
+                  fe_name_fine.find_first_of('<');
+                Assert(fe_name_fine[template_starts + 1] ==
+                         (dim == 1 ? '1' : (dim == 2 ? '2' : '3')),
+                       ExcInternalError());
+                fe_name_fine[template_starts + 1] = '1';
+              }
+              const std::unique_ptr<FiniteElement<1>> fe_fine(
+                FETools::get_fe_by_name<1, 1>(fe_name_fine));
 
-          FullMatrix<double> matrix(fe_fine->dofs_per_cell,
-                                    fe_coarse->dofs_per_cell);
-          FETools::get_projection_matrix(*fe_coarse, *fe_fine, matrix);
-          transfer.schemes[fe_index_no].prolongation_matrix_1d.resize(
-            fe_fine->dofs_per_cell * fe_coarse->dofs_per_cell);
+              std::vector<unsigned int> renumbering_fine(
+                fe_fine->dofs_per_cell);
+              {
+                AssertIndexRange(fe_fine->dofs_per_vertex, 2);
+                renumbering_fine[0] = 0;
+                for (unsigned int i = 0; i < fe_fine->dofs_per_line; ++i)
+                  renumbering_fine[i + fe_fine->dofs_per_vertex] =
+                    GeometryInfo<1>::vertices_per_cell *
+                      fe_fine->dofs_per_vertex +
+                    i;
+                if (fe_fine->dofs_per_vertex > 0)
+                  renumbering_fine[fe_fine->dofs_per_cell -
+                                   fe_fine->dofs_per_vertex] =
+                    fe_fine->dofs_per_vertex;
+              }
 
-          for (unsigned int i = 0, k = 0; i < fe_coarse->dofs_per_cell; ++i)
-            for (unsigned int j = 0; j < fe_fine->dofs_per_cell; ++j, ++k)
-              transfer.schemes[fe_index_no].prolongation_matrix_1d[k] =
-                matrix(renumbering_fine[j], renumbering_coarse[i]);
+              std::string fe_name_coarse =
+                dof_handler_coarse.get_fe(fe_index_pair.first)
+                  .base_element(0)
+                  .get_name();
+              {
+                const std::size_t template_starts =
+                  fe_name_coarse.find_first_of('<');
+                Assert(fe_name_coarse[template_starts + 1] ==
+                         (dim == 1 ? '1' : (dim == 2 ? '2' : '3')),
+                       ExcInternalError());
+                fe_name_coarse[template_starts + 1] = '1';
+              }
+              const std::unique_ptr<FiniteElement<1>> fe_coarse(
+                FETools::get_fe_by_name<1, 1>(fe_name_coarse));
+
+              std::vector<unsigned int> renumbering_coarse(
+                fe_coarse->dofs_per_cell);
+              {
+                AssertIndexRange(fe_coarse->dofs_per_vertex, 2);
+                renumbering_coarse[0] = 0;
+                for (unsigned int i = 0; i < fe_coarse->dofs_per_line; ++i)
+                  renumbering_coarse[i + fe_coarse->dofs_per_vertex] =
+                    GeometryInfo<1>::vertices_per_cell *
+                      fe_coarse->dofs_per_vertex +
+                    i;
+                if (fe_coarse->dofs_per_vertex > 0)
+                  renumbering_coarse[fe_coarse->dofs_per_cell -
+                                     fe_coarse->dofs_per_vertex] =
+                    fe_coarse->dofs_per_vertex;
+              }
+
+              FullMatrix<double> matrix(fe_fine->dofs_per_cell,
+                                        fe_coarse->dofs_per_cell);
+              FETools::get_projection_matrix(*fe_coarse, *fe_fine, matrix);
+              transfer.schemes[fe_index_no].prolongation_matrix_1d.resize(
+                fe_fine->dofs_per_cell * fe_coarse->dofs_per_cell);
+
+              for (unsigned int i = 0, k = 0; i < fe_coarse->dofs_per_cell; ++i)
+                for (unsigned int j = 0; j < fe_fine->dofs_per_cell; ++j, ++k)
+                  transfer.schemes[fe_index_no].prolongation_matrix_1d[k] =
+                    matrix(renumbering_fine[j], renumbering_coarse[i]);
+            }
+          else
+            {
+              const auto &fe_fine =
+                dof_handler_fine.get_fe(fe_index_pair.second).base_element(0);
+
+              const auto &fe_coarse =
+                dof_handler_coarse.get_fe(fe_index_pair.first).base_element(0);
+
+              FullMatrix<double> matrix(fe_fine.dofs_per_cell,
+                                        fe_coarse.dofs_per_cell);
+              FETools::get_projection_matrix(fe_coarse, fe_fine, matrix);
+              transfer.schemes[fe_index_no].prolongation_matrix_1d.resize(
+                fe_fine.dofs_per_cell * fe_coarse.dofs_per_cell);
+
+              for (unsigned int i = 0, k = 0; i < fe_coarse.dofs_per_cell; ++i)
+                for (unsigned int j = 0; j < fe_fine.dofs_per_cell; ++j, ++k)
+                  transfer.schemes[fe_index_no].prolongation_matrix_1d[k] =
+                    matrix(j, i);
+            }
         }
 
       // ------------------------------- weights -------------------------------
