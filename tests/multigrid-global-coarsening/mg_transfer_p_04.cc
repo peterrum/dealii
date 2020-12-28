@@ -15,21 +15,7 @@
 
 
 /**
- * Test transfer operator for polynomial coarsening.
- *
- * Example:
- *
- * +--+--+------+      +--+--+------+
- * |kf|kf|      |      |kc|kc|      |
- * |--+--|  kf  |      |--+--|  kc  |
- * |kf|kf|      |  0   |kc|kc|      |
- * +--+--+------+  ->  +--+--+------+
- * |kf|kf|      |      |kc|kc|      |
- * |--+--|  kf  |      |--+--|  kc  |
- * |kf|kf|      |      |kc|kc|      |
- * +--+--+------+      +--+--+------+
- *
- *                 ... with fe_degree in the cells
+ * Test transfer operator for polynomial coarsening on a simplex mesh.
  */
 
 #include <deal.II/base/conditional_ostream.h>
@@ -109,6 +95,20 @@ test(int fe_degree_fine, int fe_degree_coarse)
                          Simplex::FE_P<dim>(fe_degree_coarse));
     deallog.pop();
   }
+
+  {
+    deallog.push("DG<2>(" + str_fine + ")<->CG<2>(" + str_coarse + ")");
+    do_test<dim, Number>(Simplex::FE_DGP<dim>(fe_degree_fine),
+                         Simplex::FE_P<dim>(fe_degree_coarse));
+    deallog.pop();
+  }
+
+  {
+    deallog.push("DG<2>(" + str_fine + ")<->DG<2>(" + str_coarse + ")");
+    do_test<dim, Number>(Simplex::FE_DGP<dim>(fe_degree_fine),
+                         Simplex::FE_DGP<dim>(fe_degree_coarse));
+    deallog.pop();
+  }
 }
 
 int
@@ -119,8 +119,8 @@ main(int argc, char **argv)
 
   deallog.precision(8);
 
-  for (unsigned int fe_degree_fine = 2; fe_degree_fine <= 2; fe_degree_fine++)
-    for (unsigned int fe_degree_coarse = 1; fe_degree_coarse <= 1;
+  for (unsigned int fe_degree_fine = 1; fe_degree_fine <= 2; fe_degree_fine++)
+    for (unsigned int fe_degree_coarse = 1; fe_degree_coarse <= fe_degree_fine;
          fe_degree_coarse++)
       test<2, double>(fe_degree_fine, fe_degree_coarse);
 }
