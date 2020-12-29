@@ -29,21 +29,11 @@ test(const unsigned int n_refinements,
 {
   using VectorType = LinearAlgebra::distributed::Vector<Number>;
 
-  Triangulation<dim> tria;
-  if (do_simplex_mesh)
-    GridGenerator::subdivided_hyper_cube_with_simplices(tria, 2);
-  else
-    GridGenerator::subdivided_hyper_cube(tria, 2);
-  tria.refine_global(n_refinements);
-
-  const auto level_degrees = MGTransferGlobalCoarseningTools::create_p_sequence(
-    fe_degree_fine,
-    MGTransferGlobalCoarseningTools::PolynomialSequenceType::bisect);
-
   const unsigned int min_level = 0;
-  const unsigned int max_level = level_degrees.size() - 1;
+  const unsigned int max_level = n_refinements;
 
-  MGLevelObject<DoFHandler<dim>> dof_handlers(min_level, max_level, tria);
+  MGLevelObject<Triangulation<dim>>        triangulations(min_level, max_level);
+  MGLevelObject<DoFHandler<dim>>           dof_handlers(min_level, max_level);
   MGLevelObject<AffineConstraints<Number>> constraints(min_level, max_level);
   MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfers(min_level,
                                                                max_level);
@@ -54,6 +44,7 @@ test(const unsigned int n_refinements,
   // set up levels
   for (auto l = min_level; l <= max_level; ++l)
     {
+      auto &tria        = triangulations[l];
       auto &dof_handler = dof_handlers[l];
       auto &constraint  = constraints[l];
       auto &op          = operators[l];
@@ -64,21 +55,29 @@ test(const unsigned int n_refinements,
 
       if (do_simplex_mesh)
         {
-          fe   = std::make_unique<Simplex::FE_P<dim>>(level_degrees[l]);
-          quad = std::make_unique<Simplex::QGauss<dim>>(level_degrees[l] + 1);
+          fe      = std::make_unique<Simplex::FE_P<dim>>(fe_degree_fine);
+          quad    = std::make_unique<Simplex::QGauss<dim>>(fe_degree_fine + 1);
           mapping = std::make_unique<MappingFE<dim>>(Simplex::FE_P<dim>(1));
         }
       else
         {
-          fe      = std::make_unique<FE_Q<dim>>(level_degrees[l]);
-          quad    = std::make_unique<QGauss<dim>>(level_degrees[l] + 1);
+          fe      = std::make_unique<FE_Q<dim>>(fe_degree_fine);
+          quad    = std::make_unique<QGauss<dim>>(fe_degree_fine + 1);
           mapping = std::make_unique<MappingFE<dim>>(FE_Q<dim>(1));
         }
 
       if (l == max_level)
         mapping_ = mapping->clone();
 
+      // set up triangulation
+      if (do_simplex_mesh)
+        GridGenerator::subdivided_hyper_cube_with_simplices(tria, 2);
+      else
+        GridGenerator::subdivided_hyper_cube(tria, 2);
+      tria.refine_global(l);
+
       // set up dofhandler
+      dof_handler.reinit(tria);
       dof_handler.distribute_dofs(*fe);
 
       // set up constraints
@@ -96,10 +95,10 @@ test(const unsigned int n_refinements,
 
   // set up transfer operator
   for (unsigned int l = min_level; l < max_level; ++l)
-    transfers[l + 1].reinit_polynomial_transfer(dof_handlers[l + 1],
-                                                dof_handlers[l],
-                                                constraints[l + 1],
-                                                constraints[l]);
+    transfers[l + 1].reinit_geometric_transfer(dof_handlers[l + 1],
+                                               dof_handlers[l],
+                                               constraints[l + 1],
+                                               constraints[l]);
 
   MGTransferGlobalCoarsening<Operator<dim, Number>, VectorType> transfer(
     operators, transfers);
