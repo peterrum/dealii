@@ -1091,7 +1091,11 @@ namespace Step75
 
             DoFTools::make_hanging_node_constraints(dof_handler, constraint);
             VectorTools::interpolate_boundary_values(
-              dof_handler, 0, Functions::ZeroFunction<dim>(), constraint);
+              mapping_collection,
+              dof_handler,
+              0,
+              Functions::ZeroFunction<dim>(),
+              constraint);
             constraint.close();
           }
 
@@ -1782,10 +1786,8 @@ namespace Step75
     constraints.clear();
     constraints.reinit(locally_relevant_dofs);
     DoFTools::make_hanging_node_constraints(dof_handler, constraints);
-    VectorTools::interpolate_boundary_values(dof_handler,
-                                             0,
-                                             Solution<dim>(),
-                                             constraints);
+    VectorTools::interpolate_boundary_values(
+      mapping_collection, dof_handler, 0, Solution<dim>(), constraints);
 
 #ifdef DEBUG
     // We have not dealt with chains of constraints on ghost cells yet.
@@ -1872,7 +1874,8 @@ namespace Step75
     TimerOutput::Scope t(computing_timer, "compute errors");
 
     Vector<float> difference_per_cell(triangulation.n_active_cells());
-    VectorTools::integrate_difference(dof_handler,
+    VectorTools::integrate_difference(mapping_collection,
+                                      dof_handler,
                                       locally_relevant_solution,
                                       Solution<dim>(),
                                       difference_per_cell,
@@ -1883,7 +1886,8 @@ namespace Step75
                                         difference_per_cell,
                                         VectorTools::L2_norm);
 
-    VectorTools::integrate_difference(dof_handler,
+    VectorTools::integrate_difference(mapping_collection,
+                                      dof_handler,
                                       locally_relevant_solution,
                                       Solution<dim>(),
                                       difference_per_cell,
@@ -1924,7 +1928,7 @@ namespace Step75
     data_out.add_data_vector(subdomain, "subdomain");
     // data_out.add_data_vector(estimated_error_per_cell, "error");
     // data_out.add_data_vector(hp_decision_indicators, "hp_indicator");
-    data_out.build_patches();
+    data_out.build_patches(mapping_collection);
 
     data_out.write_vtu_with_pvtu_record(
       "./", "solution", cycle, mpi_communicator, 2, 8);
