@@ -53,29 +53,18 @@
 #include <deal.II/multigrid/mg_transfer_global_coarsening.h>
 #include <deal.II/multigrid/multigrid.h>
 
+#include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 
 #include <deal.II/simplex/fe_lib.h>
 #include <deal.II/simplex/grid_generator.h>
+#include <deal.II/simplex/quadrature_lib.h>
 
 #include <vector>
 
 #include "test.h"
 
 using namespace dealii;
-
-template <typename MeshType>
-MPI_Comm
-get_mpi_comm(const MeshType &mesh)
-{
-  const auto *tria_parallel = dynamic_cast<
-    const parallel::TriangulationBase<MeshType::dimension,
-                                      MeshType::space_dimension> *>(
-    &(mesh.get_triangulation()));
-
-  return tria_parallel != nullptr ? tria_parallel->get_communicator() :
-                                    MPI_COMM_SELF;
-}
 
 namespace MGTransferGlobalCoarseningTools
 {
@@ -217,8 +206,9 @@ public:
         // Set up sparsity pattern of system matrix.
         const auto &dof_handler = this->matrix_free.get_dof_handler();
 
-        TrilinosWrappers::SparsityPattern dsp(dof_handler.locally_owned_dofs(),
-                                              get_mpi_comm(dof_handler));
+        TrilinosWrappers::SparsityPattern dsp(
+          dof_handler.locally_owned_dofs(),
+          matrix_free.get_task_info().communicator);
 
         DoFTools::make_sparsity_pattern(dof_handler, dsp, this->constraints);
 
@@ -480,13 +470,18 @@ mg_solve(SolverControl &                       solver_control,
 
 template <int dim, typename Number = double>
 void
-test(int fe_degree_fine)
+test(const unsigned int n_refinements,
+     const unsigned int fe_degree_fine,
+     const bool         do_simplex_mesh)
 {
   using VectorType = LinearAlgebra::distributed::Vector<Number>;
 
   Triangulation<dim> tria;
-  GridGenerator::subdivided_hyper_cube(tria, 2);
-  tria.refine_global(2);
+  if (do_simplex_mesh)
+    GridGenerator::subdivided_hyper_cube_with_simplices(tria, 2);
+  else
+    GridGenerator::subdivided_hyper_cube(tria, 2);
+  tria.refine_global(n_refinements);
 
   const auto level_degrees = MGTransferGlobalCoarseningTools::create_p_sequence(
     fe_degree_fine,
@@ -501,6 +496,8 @@ test(int fe_degree_fine)
                                                                max_level);
   MGLevelObject<Operator<dim, Number>> operators(min_level, max_level);
 
+  std::unique_ptr<Mapping<dim>> mapping_;
+
   // set up levels
   for (auto l = min_level; l <= max_level; ++l)
     {
@@ -508,12 +505,28 @@ test(int fe_degree_fine)
       auto &constraint  = constraints[l];
       auto &op          = operators[l];
 
-      const FE_Q<dim>      fe(level_degrees[l]);
-      const QGauss<dim>    quad(level_degrees[l] + 1);
-      const MappingFE<dim> mapping(FE_Q<dim>(1));
+      std::unique_ptr<FiniteElement<dim>> fe;
+      std::unique_ptr<Quadrature<dim>>    quad;
+      std::unique_ptr<Mapping<dim>>       mapping;
+
+      if (do_simplex_mesh)
+        {
+          fe   = std::make_unique<Simplex::FE_P<dim>>(level_degrees[l]);
+          quad = std::make_unique<Simplex::QGauss<dim>>(level_degrees[l] + 1);
+          mapping = std::make_unique<MappingFE<dim>>(Simplex::FE_P<dim>(1));
+        }
+      else
+        {
+          fe      = std::make_unique<FE_Q<dim>>(level_degrees[l]);
+          quad    = std::make_unique<QGauss<dim>>(level_degrees[l] + 1);
+          mapping = std::make_unique<MappingFE<dim>>(FE_Q<dim>(1));
+        }
+
+      if (l == max_level)
+        mapping_ = mapping->clone();
 
       // set up dofhandler
-      dof_handler.distribute_dofs(fe);
+      dof_handler.distribute_dofs(*fe);
 
       // set up constraints
       IndexSet locally_relevant_dofs;
@@ -521,11 +534,11 @@ test(int fe_degree_fine)
                                               locally_relevant_dofs);
       constraint.reinit(locally_relevant_dofs);
       VectorTools::interpolate_boundary_values(
-        mapping, dof_handler, 0, Functions::ZeroFunction<dim>(), constraint);
+        *mapping, dof_handler, 0, Functions::ZeroFunction<dim>(), constraint);
       constraint.close();
 
       // set up operator
-      op.reinit(mapping, dof_handler, quad, constraint);
+      op.reinit(*mapping, dof_handler, *quad, constraint);
     }
 
   // set up transfer operator
@@ -558,7 +571,20 @@ test(int fe_degree_fine)
            operators,
            transfer);
 
-  deallog << solver_control.last_step() << std::endl;
+  deallog << dim << " " << fe_degree_fine << " " << n_refinements << " "
+          << (do_simplex_mesh ? "tri " : "quad") << " "
+          << solver_control.last_step() << std::endl;
+
+  DataOut<dim> data_out;
+
+  data_out.attach_dof_handler(dof_handlers[max_level]);
+  data_out.add_data_vector(dst, "solution");
+  data_out.build_patches(*mapping_, 2);
+
+  static unsigned int counter = 0;
+  std::ofstream       output("test." + std::to_string(dim) + "." +
+                       std::to_string(counter++) + ".vtk");
+  data_out.write_vtk(output);
 }
 
 int
@@ -569,5 +595,11 @@ main(int argc, char **argv)
 
   deallog.precision(8);
 
-  test<2>(2);
+  for (unsigned int n_refinements = 2; n_refinements <= 4; ++n_refinements)
+    for (unsigned int degree = 2; degree <= 4; ++degree)
+      test<2>(n_refinements, degree, false /*quadrilateral*/);
+
+  for (unsigned int n_refinements = 2; n_refinements <= 4; ++n_refinements)
+    for (unsigned int degree = 2; degree <= 2; ++degree)
+      test<2>(n_refinements, degree, true /*triangle*/);
 }
