@@ -1264,9 +1264,12 @@ namespace internal
             for (unsigned int c = 0;
                  c < GeometryInfo<dim>::max_children_per_cell;
                  ++c)
-              for (unsigned int i = 0, k = 0; i < n_dofs_per_cell; ++i)
-                for (unsigned int j = 0; j < n_dofs_per_cell; ++j, ++k)
-                  transfer.schemes[1].prolongation_matrix[k] =
+              for (unsigned int i = 0; i < n_dofs_per_cell; ++i)
+                for (unsigned int j = 0; j < n_dofs_per_cell; ++j)
+                  transfer.schemes[1].prolongation_matrix
+                    [i * n_dofs_per_cell *
+                       GeometryInfo<dim>::max_children_per_cell +
+                     j + c * n_dofs_per_cell] =
                     fe.get_prolongation_matrix(c)(j, i);
           }
       }
