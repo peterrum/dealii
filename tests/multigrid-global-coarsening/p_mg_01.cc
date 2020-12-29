@@ -30,7 +30,7 @@
 #include <deal.II/fe/fe_dgq.h>
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_tools.h>
-#include <deal.II/fe/mapping_q.h>
+#include <deal.II/fe/mapping_fe.h>
 
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/grid_out.h>
@@ -39,9 +39,11 @@
 #include <deal.II/lac/precondition.h>
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/trilinos_precondition.h>
+#include <deal.II/lac/trilinos_sparse_matrix.h>
 
 #include <deal.II/matrix_free/fe_evaluation.h>
 #include <deal.II/matrix_free/matrix_free.h>
+#include <deal.II/matrix_free/tools.h>
 
 #include <deal.II/multigrid/mg_coarse.h>
 #include <deal.II/multigrid/mg_constrained_dofs.h>
@@ -51,6 +53,8 @@
 #include <deal.II/multigrid/mg_transfer_global_coarsening.h>
 #include <deal.II/multigrid/multigrid.h>
 
+#include <deal.II/numerics/vector_tools.h>
+
 #include <deal.II/simplex/fe_lib.h>
 #include <deal.II/simplex/grid_generator.h>
 
@@ -59,6 +63,19 @@
 #include "test.h"
 
 using namespace dealii;
+
+template <typename MeshType>
+MPI_Comm
+get_mpi_comm(const MeshType &mesh)
+{
+  const auto *tria_parallel = dynamic_cast<
+    const parallel::TriangulationBase<MeshType::dimension,
+                                      MeshType::space_dimension> *>(
+    &(mesh.get_triangulation()));
+
+  return tria_parallel != nullptr ? tria_parallel->get_communicator() :
+                                    MPI_COMM_SELF;
+}
 
 namespace MGTransferGlobalCoarseningTools
 {
@@ -116,32 +133,178 @@ class Operator : public Subscriptor
 {
 public:
   using value_type = Number;
+  using number     = Number;
   using VectorType = LinearAlgebra::distributed::Vector<Number>;
 
   static const int dim = dim_;
 
+  using FECellIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
+
+  void
+  reinit(const Mapping<dim> &             mapping,
+         const DoFHandler<dim> &          dof_handler,
+         const Quadrature<dim> &          quad,
+         const AffineConstraints<number> &constraints)
+  {
+    // Clear internal data structures (if operator is reused).
+    this->system_matrix.clear();
+
+    // Copy the constrains, since they might be needed for computation of the
+    // system matrix later on.
+    this->constraints.copy_from(constraints);
+
+    // Set up MatrixFree. At the quadrature points, we only need to evaluate
+    // the gradient of the solution and test with the gradient of the shape
+    // functions so that we only need to set the flag `update_gradients`.
+    typename MatrixFree<dim, number>::AdditionalData data;
+    data.mapping_update_flags = update_gradients;
+
+    matrix_free.reinit(mapping, dof_handler, constraints, quad, data);
+  }
+
   virtual types::global_dof_index
-  m() const;
+  m() const
+  {
+    return matrix_free.get_dof_handler().n_dofs();
+  }
 
   Number
-  el(unsigned int, unsigned int) const;
+  el(unsigned int, unsigned int) const
+  {
+    Assert(false, ExcNotImplemented());
+    return 0;
+  }
 
   virtual void
-  initialize_dof_vector(VectorType &vec) const;
+  initialize_dof_vector(VectorType &vec) const
+  {
+    matrix_free.initialize_dof_vector(vec);
+  }
 
   virtual void
-  vmult(VectorType &dst, const VectorType &src) const;
+  vmult(VectorType &dst, const VectorType &src) const
+  {
+    this->matrix_free.cell_loop(
+      &Operator::do_cell_integral_range, this, dst, src, true);
+  }
 
   void
-  Tvmult(VectorType &dst, const VectorType &src) const;
+  Tvmult(VectorType &dst, const VectorType &src) const
+  {
+    vmult(dst, src);
+  }
 
   void
-  compute_inverse_diagonal(VectorType &diagonal) const;
+  compute_inverse_diagonal(VectorType &diagonal) const
+  {
+    // compute diagonal
+    MatrixFreeTools::compute_diagonal(matrix_free,
+                                      diagonal,
+                                      &Operator::do_cell_integral_local,
+                                      this);
+
+    // and invert it
+    for (auto &i : diagonal)
+      i = (std::abs(i) > 1.0e-10) ? (1.0 / i) : 1.0;
+  }
 
   virtual const TrilinosWrappers::SparseMatrix &
-  get_system_matrix() const;
+  get_system_matrix() const
+  {
+    // Check if matrix has already been set up.
+    if (system_matrix.m() == 0 && system_matrix.n() == 0)
+      {
+        // Set up sparsity pattern of system matrix.
+        const auto &dof_handler = this->matrix_free.get_dof_handler();
+
+        TrilinosWrappers::SparsityPattern dsp(dof_handler.locally_owned_dofs(),
+                                              get_mpi_comm(dof_handler));
+
+        DoFTools::make_sparsity_pattern(dof_handler, dsp, this->constraints);
+
+        dsp.compress();
+        system_matrix.reinit(dsp);
+
+        // Assemble system matrix.
+        MatrixFreeTools::compute_matrix(matrix_free,
+                                        constraints,
+                                        system_matrix,
+                                        &Operator::do_cell_integral_local,
+                                        this);
+      }
+
+    return this->system_matrix;
+  }
+
+  void
+  rhs(VectorType &b) const
+  {
+    const int dummy = 0;
+
+    matrix_free.template cell_loop<VectorType, int>(
+      [](const auto &matrix_free, auto &dst, const auto &, const auto cells) {
+        FECellIntegrator phi(matrix_free, cells);
+        for (unsigned int cell = cells.first; cell < cells.second; ++cell)
+          {
+            phi.reinit(cell);
+            for (unsigned int q = 0; q < phi.n_q_points; ++q)
+              phi.submit_value(1.0, q);
+
+            phi.integrate_scatter(EvaluationFlags::values, dst);
+          }
+      },
+      b,
+      dummy,
+      true);
+  }
 
 private:
+  void
+  do_cell_integral_local(FECellIntegrator &integrator) const
+  {
+    integrator.evaluate(EvaluationFlags::gradients);
+
+    for (unsigned int q = 0; q < integrator.n_q_points; ++q)
+      integrator.submit_gradient(integrator.get_gradient(q), q);
+
+    integrator.integrate(EvaluationFlags::gradients);
+  }
+
+  void
+  do_cell_integral_global(FECellIntegrator &integrator,
+                          VectorType &      dst,
+                          const VectorType &src) const
+  {
+    integrator.gather_evaluate(src, EvaluationFlags::gradients);
+
+    for (unsigned int q = 0; q < integrator.n_q_points; ++q)
+      integrator.submit_gradient(integrator.get_gradient(q), q);
+
+    integrator.integrate_scatter(EvaluationFlags::gradients, dst);
+  }
+
+  void
+  do_cell_integral_range(
+    const MatrixFree<dim, number> &              matrix_free,
+    VectorType &                                 dst,
+    const VectorType &                           src,
+    const std::pair<unsigned int, unsigned int> &range) const
+  {
+    FECellIntegrator integrator(matrix_free, range);
+
+    for (unsigned cell = range.first; cell < range.second; ++cell)
+      {
+        integrator.reinit(cell);
+
+        do_cell_integral_global(integrator, dst, src);
+      }
+  }
+
+  MatrixFree<dim, number> matrix_free;
+
+  AffineConstraints<number> constraints;
+
+  mutable TrilinosWrappers::SparseMatrix system_matrix;
 };
 
 struct GMGParameters
@@ -345,7 +508,9 @@ test(int fe_degree_fine)
       auto &constraint  = constraints[l];
       auto &op          = operators[l];
 
-      const FE_Q<dim> fe(level_degrees[l]);
+      const FE_Q<dim>      fe(level_degrees[l]);
+      const QGauss<dim>    quad(level_degrees[l] + 1);
+      const MappingFE<dim> mapping(FE_Q<dim>(1));
 
       // set up dofhandler
       dof_handler.distribute_dofs(fe);
@@ -355,10 +520,12 @@ test(int fe_degree_fine)
       DoFTools::extract_locally_relevant_dofs(dof_handler,
                                               locally_relevant_dofs);
       constraint.reinit(locally_relevant_dofs);
-      DoFTools::make_hanging_node_constraints(dof_handler, constraint);
+      VectorTools::interpolate_boundary_values(
+        mapping, dof_handler, 0, Functions::ZeroFunction<dim>(), constraint);
       constraint.close();
 
       // set up operator
+      op.reinit(mapping, dof_handler, quad, constraint);
     }
 
   // set up transfer operator
@@ -371,8 +538,13 @@ test(int fe_degree_fine)
   MGTransferGlobalCoarsening<Operator<dim, Number>, VectorType> transfer(
     operators, transfers);
 
-  GMGParameters mg_data;  // TODO
-  VectorType    dst, src; // TODO
+  GMGParameters mg_data; // TODO
+
+  VectorType dst, src;
+  operators[max_level].initialize_dof_vector(dst);
+  operators[max_level].initialize_dof_vector(src);
+
+  operators[max_level].rhs(src);
 
   ReductionControl solver_control(
     mg_data.maxiter, mg_data.abstol, mg_data.reltol, false, false);
@@ -385,6 +557,8 @@ test(int fe_degree_fine)
            operators[max_level],
            operators,
            transfer);
+
+  deallog << solver_control.last_step() << std::endl;
 }
 
 int
