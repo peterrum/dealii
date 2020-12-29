@@ -377,6 +377,21 @@ namespace internal
       return level_coarse_cell_id;
     }
 
+    template <int dim, int spacedim>
+    std::unique_ptr<FiniteElement<1>>
+    create_1D_fe(const FiniteElement<dim, spacedim> &fe)
+    {
+      std::string fe_name = fe.get_name();
+      {
+        const std::size_t template_starts = fe_name.find_first_of('<');
+        Assert(fe_name[template_starts + 1] ==
+                 (dim == 1 ? '1' : (dim == 2 ? '2' : '3')),
+               ExcInternalError());
+        fe_name[template_starts + 1] = '1';
+      }
+      return FETools::get_fe_by_name<1, 1>(fe_name);
+    }
+
   } // namespace
 
   class FineDoFHandlerViewCell
@@ -1174,17 +1189,8 @@ namespace internal
         AssertDimension(dof_handler_fine.get_fe(0).n_base_elements(), 1);
         if (reference_cell_type == ReferenceCell::get_hypercube(dim))
           {
-            std::string fe_name =
-              dof_handler_fine.get_fe(0).base_element(0).get_name();
-            {
-              const std::size_t template_starts = fe_name.find_first_of('<');
-              Assert(fe_name[template_starts + 1] ==
-                       (dim == 1 ? '1' : (dim == 2 ? '2' : '3')),
-                     ExcInternalError());
-              fe_name[template_starts + 1] = '1';
-            }
-            const std::unique_ptr<FiniteElement<1>> fe(
-              FETools::get_fe_by_name<1, 1>(fe_name));
+            const auto fe =
+              create_1D_fe(dof_handler_fine.get_fe(0).base_element(0));
 
             transfer.schemes[0].prolongation_matrix_1d.resize(
               fe->dofs_per_cell * fe->dofs_per_cell);
@@ -1213,17 +1219,8 @@ namespace internal
         AssertDimension(dof_handler_fine.get_fe(0).n_base_elements(), 1);
         if (reference_cell_type == ReferenceCell::get_hypercube(dim))
           {
-            std::string fe_name =
-              dof_handler_fine.get_fe(0).base_element(0).get_name();
-            {
-              const std::size_t template_starts = fe_name.find_first_of('<');
-              Assert(fe_name[template_starts + 1] ==
-                       (dim == 1 ? '1' : (dim == 2 ? '2' : '3')),
-                     ExcInternalError());
-              fe_name[template_starts + 1] = '1';
-            }
-            const std::unique_ptr<FiniteElement<1>> fe(
-              FETools::get_fe_by_name<1, 1>(fe_name));
+            const auto fe =
+              create_1D_fe(dof_handler_fine.get_fe(0).base_element(0));
 
             std::vector<unsigned int> renumbering(fe->dofs_per_cell);
             {
@@ -1622,20 +1619,8 @@ namespace internal
 
           if (reference_cell_type == ReferenceCell::get_hypercube(dim))
             {
-              std::string fe_name_fine =
-                dof_handler_fine.get_fe(fe_index_pair.second)
-                  .base_element(0)
-                  .get_name();
-              {
-                const std::size_t template_starts =
-                  fe_name_fine.find_first_of('<');
-                Assert(fe_name_fine[template_starts + 1] ==
-                         (dim == 1 ? '1' : (dim == 2 ? '2' : '3')),
-                       ExcInternalError());
-                fe_name_fine[template_starts + 1] = '1';
-              }
-              const std::unique_ptr<FiniteElement<1>> fe_fine(
-                FETools::get_fe_by_name<1, 1>(fe_name_fine));
+              const auto fe_fine = create_1D_fe(
+                dof_handler_fine.get_fe(fe_index_pair.second).base_element(0));
 
               std::vector<unsigned int> renumbering_fine(
                 fe_fine->dofs_per_cell);
@@ -1653,20 +1638,8 @@ namespace internal
                     fe_fine->dofs_per_vertex;
               }
 
-              std::string fe_name_coarse =
-                dof_handler_coarse.get_fe(fe_index_pair.first)
-                  .base_element(0)
-                  .get_name();
-              {
-                const std::size_t template_starts =
-                  fe_name_coarse.find_first_of('<');
-                Assert(fe_name_coarse[template_starts + 1] ==
-                         (dim == 1 ? '1' : (dim == 2 ? '2' : '3')),
-                       ExcInternalError());
-                fe_name_coarse[template_starts + 1] = '1';
-              }
-              const std::unique_ptr<FiniteElement<1>> fe_coarse(
-                FETools::get_fe_by_name<1, 1>(fe_name_coarse));
+              const auto fe_coarse = create_1D_fe(
+                dof_handler_fine.get_fe(fe_index_pair.first).base_element(0));
 
               std::vector<unsigned int> renumbering_coarse(
                 fe_coarse->dofs_per_cell);
