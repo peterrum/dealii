@@ -325,7 +325,7 @@ namespace Step75
 
   // A matrix-free implementation of the Laplace operator.
   template <int dim, typename number>
-  class LaplaceOperatorMatrixFree : public MGSolverOperatorBase<dim, number>
+  class LaplaceOperator : public MGSolverOperatorBase<dim, number>
   {
   public:
     using typename MGSolverOperatorBase<dim, number>::VectorType;
@@ -343,14 +343,14 @@ namespace Step75
     using FECellIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
 
     // Constructor
-    LaplaceOperatorMatrixFree() = default;
+    LaplaceOperator() = default;
 
     // Constructor
-    LaplaceOperatorMatrixFree(const hp::MappingCollection<dim> &mapping,
-                              const DoFHandler<dim> &           dof_handler,
-                              const hp::QCollection<dim> &      quad,
-                              const AffineConstraints<number> & constraints,
-                              VectorType &                      system_rhs);
+    LaplaceOperator(const hp::MappingCollection<dim> &mapping,
+                    const DoFHandler<dim> &           dof_handler,
+                    const hp::QCollection<dim> &      quad,
+                    const AffineConstraints<number> & constraints,
+                    VectorType &                      system_rhs);
 
     // Initialize the internal MatrixFree instance and compute the system
     // right-hand-side vector
@@ -423,7 +423,7 @@ namespace Step75
 
 
   template <int dim, typename number>
-  LaplaceOperatorMatrixFree<dim, number>::LaplaceOperatorMatrixFree(
+  LaplaceOperator<dim, number>::LaplaceOperator(
     const hp::MappingCollection<dim> &mapping,
     const DoFHandler<dim> &           dof_handler,
     const hp::QCollection<dim> &      quad,
@@ -436,7 +436,7 @@ namespace Step75
 
 
   template <int dim, typename number>
-  void LaplaceOperatorMatrixFree<dim, number>::reinit(
+  void LaplaceOperator<dim, number>::reinit(
     const hp::MappingCollection<dim> &mapping,
     const DoFHandler<dim> &           dof_handler,
     const hp::QCollection<dim> &      quad,
@@ -487,7 +487,7 @@ namespace Step75
 
       constraints.distribute(x);
 
-      matrix_free.cell_loop(&LaplaceOperatorMatrixFree::do_cell_integral_range,
+      matrix_free.cell_loop(&LaplaceOperator::do_cell_integral_range,
                             this,
                             b,
                             x);
@@ -501,7 +501,7 @@ namespace Step75
 
 
   template <int dim, typename number>
-  types::global_dof_index LaplaceOperatorMatrixFree<dim, number>::m() const
+  types::global_dof_index LaplaceOperator<dim, number>::m() const
   {
     return matrix_free.get_dof_handler().n_dofs();
   }
@@ -509,8 +509,8 @@ namespace Step75
 
 
   template <int dim, typename number>
-  void LaplaceOperatorMatrixFree<dim, number>::initialize_dof_vector(
-    VectorType &vec) const
+  void
+  LaplaceOperator<dim, number>::initialize_dof_vector(VectorType &vec) const
   {
     matrix_free.initialize_dof_vector(vec);
   }
@@ -518,20 +518,18 @@ namespace Step75
 
 
   template <int dim, typename number>
-  void
-  LaplaceOperatorMatrixFree<dim, number>::vmult(VectorType &      dst,
-                                                const VectorType &src) const
+  void LaplaceOperator<dim, number>::vmult(VectorType &      dst,
+                                           const VectorType &src) const
   {
     this->matrix_free.cell_loop(
-      &LaplaceOperatorMatrixFree::do_cell_integral_range, this, dst, src, true);
+      &LaplaceOperator::do_cell_integral_range, this, dst, src, true);
   }
 
 
 
   template <int dim, typename number>
-  void
-  LaplaceOperatorMatrixFree<dim, number>::Tvmult(VectorType &      dst,
-                                                 const VectorType &src) const
+  void LaplaceOperator<dim, number>::Tvmult(VectorType &      dst,
+                                            const VectorType &src) const
   {
     this->vmult(dst, src);
   }
@@ -539,15 +537,14 @@ namespace Step75
 
 
   template <int dim, typename number>
-  void LaplaceOperatorMatrixFree<dim, number>::compute_inverse_diagonal(
+  void LaplaceOperator<dim, number>::compute_inverse_diagonal(
     VectorType &diagonal) const
   {
     // compute diagonal
-    MatrixFreeTools::compute_diagonal(
-      matrix_free,
-      diagonal,
-      &LaplaceOperatorMatrixFree::do_cell_integral_local,
-      this);
+    MatrixFreeTools::compute_diagonal(matrix_free,
+                                      diagonal,
+                                      &LaplaceOperator::do_cell_integral_local,
+                                      this);
 
     // and invert it
     for (auto &i : diagonal)
@@ -558,7 +555,7 @@ namespace Step75
 
   template <int dim, typename number>
   const TrilinosWrappers::SparseMatrix &
-  LaplaceOperatorMatrixFree<dim, number>::get_system_matrix() const
+  LaplaceOperator<dim, number>::get_system_matrix() const
   {
     // Check if matrix has already been set up.
     if (system_matrix.m() == 0 && system_matrix.n() == 0)
@@ -579,7 +576,7 @@ namespace Step75
           matrix_free,
           constraints,
           system_matrix,
-          &LaplaceOperatorMatrixFree::do_cell_integral_local,
+          &LaplaceOperator::do_cell_integral_local,
           this);
       }
 
@@ -589,7 +586,7 @@ namespace Step75
 
 
   template <int dim, typename number>
-  void LaplaceOperatorMatrixFree<dim, number>::do_cell_integral_local(
+  void LaplaceOperator<dim, number>::do_cell_integral_local(
     FECellIntegrator &integrator) const
   {
     integrator.evaluate(EvaluationFlags::gradients);
@@ -603,7 +600,7 @@ namespace Step75
 
 
   template <int dim, typename number>
-  void LaplaceOperatorMatrixFree<dim, number>::do_cell_integral_global(
+  void LaplaceOperator<dim, number>::do_cell_integral_global(
     FECellIntegrator &integrator,
     VectorType &      dst,
     const VectorType &src) const
@@ -619,7 +616,7 @@ namespace Step75
 
 
   template <int dim, typename number>
-  void LaplaceOperatorMatrixFree<dim, number>::do_cell_integral_range(
+  void LaplaceOperator<dim, number>::do_cell_integral_range(
     const MatrixFree<dim, number> &              matrix_free,
     VectorType &                                 dst,
     const VectorType &                           src,
@@ -1490,7 +1487,7 @@ namespace Step75
           << " on " << Utilities::MPI::n_mpi_processes(mpi_communicator)
           << " MPI rank(s)..." << std::endl;
 
-    LaplaceOperatorMatrixFree<dim, double> laplace_operator;
+    LaplaceOperator<dim, double> laplace_operator;
 
     for (unsigned int cycle = 0;
          cycle < (prm.prm_adaptation.type != "hpHistory" ? prm.n_cycles :
