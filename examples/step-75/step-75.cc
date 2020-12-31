@@ -323,217 +323,8 @@ namespace Step75
 
 
 
-  // @sect3{The Laplace operator}
+  // @sect3{Matrix-free Laplace operator}
 
-  // @sect4{Operator base}
-
-  // The following class provides a minimal interface needed by the solvers
-  // and preconditioners used in this tutorial. In particular the interface
-  // consists of:
-  //  - a function to initialize the operator
-  //  - an operator evaluation function (vmult()), and
-  //  - utility functions to extract some quantities from the matrix.
-  //
-  // Since some of the functions are identical in the matrix-based and
-  // matrix-free case this class also contains the implementation of these
-  // functions.
-
-
-
-  // @sect4{Matrix-based operator}
-  // The following class is a simple wrapper around a sparse matrix.
-  template <int dim, typename number>
-  class LaplaceOperatorMatrixBased : public LaplaceOperator<dim, number>
-  {
-  public:
-    using typename LaplaceOperator<dim, number>::VectorType;
-
-    // Set up a partitioner, as well as, compute system matrix and
-    // right-hand-side vector.
-    void reinit(const hp::MappingCollection<dim> &mapping_collection,
-                const DoFHandler<dim> &           dof_handler,
-                const hp::QCollection<dim> &      quadrature_collection,
-                const AffineConstraints<number> & constraints,
-                VectorType &                      system_rhs) override;
-
-    // Query the matrix for its number of rows.
-    types::global_dof_index m() const override;
-
-    // Initialize vector via the precomputed partitioner.
-    void initialize_dof_vector(VectorType &vec) const override;
-
-    // The operator evaluation is a simple matrix-vector multiplication in
-    // this case.
-    void vmult(VectorType &dst, const VectorType &src) const override;
-
-    // Computing the inverse diagonal is quite simply done by looping over
-    // all entries on the diagonal of the matrix and inverting these values.
-    void compute_inverse_diagonal(VectorType &diagonal) const override;
-
-    // Since the matrix is the basis of all the relevant functions of this
-    // class and as a consequence the matrix is explicitly stored, this function
-    // simply returns a reference to the local matrix.
-    const TrilinosWrappers::SparseMatrix &get_system_matrix() const override;
-
-  private:
-    // The actual system matrix.
-    TrilinosWrappers::SparseMatrix system_matrix;
-
-    // A partitioner used for initializing of ghosted vectors.
-    std::shared_ptr<const Utilities::MPI::Partitioner> partitioner;
-  };
-
-
-
-  template <int dim, typename number>
-  void LaplaceOperatorMatrixBased<dim, number>::reinit(
-    const hp::MappingCollection<dim> &mapping_collection,
-    const DoFHandler<dim> &           dof_handler,
-    const hp::QCollection<dim> &      quadrature_collection,
-    const AffineConstraints<number> & constraints,
-    VectorType &                      system_rhs)
-  {
-#ifndef DEAL_II_WITH_TRILINOS
-    Assert(false, StandardExceptions::ExcNotImplemented());
-    (void)mapping_collection;
-    (void)dof_handler;
-    (void)quadrature_collection;
-    (void)constraints;
-    (void)system_rhs;
-#else
-
-    // Create partitioner.
-    const auto create_partitioner = [](const DoFHandler<dim> &dof_handler) {
-      IndexSet locally_relevant_dofs;
-
-      DoFTools::extract_locally_relevant_dofs(dof_handler,
-                                              locally_relevant_dofs);
-
-      return std::make_shared<const Utilities::MPI::Partitioner>(
-        dof_handler.locally_owned_dofs(),
-        locally_relevant_dofs,
-        get_mpi_comm(dof_handler));
-    };
-
-    this->partitioner = create_partitioner(dof_handler);
-
-    // Allocate memory for system matrix and right-hand-side vector.
-    TrilinosWrappers::SparsityPattern dsp(dof_handler.locally_owned_dofs(),
-                                          get_mpi_comm(dof_handler));
-    DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false);
-    dsp.compress();
-
-    system_matrix.reinit(dsp);
-
-    initialize_dof_vector(system_rhs);
-
-    // Assemble system matrix and right-hand-side vector.
-    hp::FEValues<dim> hp_fe_values(mapping_collection,
-                                   dof_handler.get_fe_collection(),
-                                   quadrature_collection,
-                                   update_values | update_gradients |
-                                     update_quadrature_points |
-                                     update_JxW_values);
-
-    FullMatrix<double>                   cell_matrix;
-    Vector<double>                       cell_rhs;
-    std::vector<types::global_dof_index> local_dof_indices;
-    for (const auto &cell : dof_handler.active_cell_iterators())
-      {
-        if (cell->is_locally_owned() == false)
-          continue;
-
-        const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
-        cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
-        cell_matrix = 0;
-        cell_rhs.reinit(dofs_per_cell);
-        cell_rhs = 0;
-        hp_fe_values.reinit(cell);
-        const FEValues<dim> &fe_values = hp_fe_values.get_present_fe_values();
-
-        for (unsigned int q_point = 0; q_point < fe_values.n_quadrature_points;
-             ++q_point)
-          for (unsigned int i = 0; i < dofs_per_cell; ++i)
-            {
-              for (unsigned int j = 0; j < dofs_per_cell; ++j)
-                cell_matrix(i, j) +=
-                  (fe_values.shape_grad(i, q_point) * // grad phi_i(x_q)
-                   fe_values.shape_grad(j, q_point) * // grad phi_j(x_q)
-                   fe_values.JxW(q_point));           // dx
-            }
-        local_dof_indices.resize(dofs_per_cell);
-        cell->get_dof_indices(local_dof_indices);
-
-        constraints.distribute_local_to_global(
-          cell_matrix, cell_rhs, local_dof_indices, system_matrix, system_rhs);
-      }
-
-    system_rhs.compress(VectorOperation::values::add);
-    system_matrix.compress(VectorOperation::values::add);
-#endif
-  }
-
-
-
-  template <int dim, typename number>
-  types::global_dof_index LaplaceOperatorMatrixBased<dim, number>::m() const
-  {
-#ifdef DEAL_II_WITH_TRILINOS
-    return system_matrix.m();
-#else
-    Assert(false, ExcNotImplemented());
-    return 0;
-#endif
-  }
-
-
-
-  template <int dim, typename number>
-  void LaplaceOperatorMatrixBased<dim, number>::initialize_dof_vector(
-    VectorType &vec) const
-  {
-    vec.reinit(partitioner);
-  }
-
-
-
-  template <int dim, typename number>
-  void
-  LaplaceOperatorMatrixBased<dim, number>::vmult(VectorType &      dst,
-                                                 const VectorType &src) const
-  {
-    system_matrix.vmult(dst, src);
-  }
-
-
-
-  template <int dim, typename number>
-  void LaplaceOperatorMatrixBased<dim, number>::compute_inverse_diagonal(
-    VectorType &diagonal) const
-  {
-    this->initialize_dof_vector(diagonal);
-
-#ifdef DEAL_II_WITH_TRILINOS
-    for (auto entry : system_matrix)
-      if (entry.row() == entry.column())
-        diagonal[entry.row()] = 1.0 / entry.value();
-#else
-    Assert(false, ExcNotImplemented());
-#endif
-  }
-
-
-
-  template <int dim, typename number>
-  const TrilinosWrappers::SparseMatrix &
-  LaplaceOperatorMatrixBased<dim, number>::get_system_matrix() const
-  {
-    return this->system_matrix;
-  }
-
-
-
-  // @sect4{Matrix-free operator}
   // A matrix-free implementation of the Laplace operator.
   template <int dim, typename number>
   class LaplaceOperatorMatrixFree : public LaplaceOperator<dim, number>
@@ -559,7 +350,7 @@ namespace Step75
                 const DoFHandler<dim> &           dof_handler,
                 const hp::QCollection<dim> &      quad,
                 const AffineConstraints<number> & constraints,
-                VectorType &                      system_rhs) override;
+                VectorType &                      system_rhs);
 
     // Since we do not have a matrix, query the DoFHandler for the number of
     // degrees of freedom.
@@ -851,42 +642,6 @@ namespace Step75
                       const hp::MappingCollection<dim> mapping_collection,
                       const DoFHandler<dim> &          dof_handler,
                       const hp::QCollection<dim> &     quadrature_collection)
-    {
-      if (const auto op = dynamic_cast<
-            const LaplaceOperatorMatrixFree<dim,
-                                            typename VectorType::value_type> *>(
-            &system_matrix))
-        solve_internal(solver_control,
-                       *op,
-                       dst,
-                       src,
-                       mapping_collection,
-                       dof_handler,
-                       quadrature_collection);
-      else if (const auto op = dynamic_cast<const LaplaceOperatorMatrixBased<
-                 dim,
-                 typename VectorType::value_type> *>(&system_matrix))
-        solve_internal(solver_control,
-                       *op,
-                       dst,
-                       src,
-                       mapping_collection,
-                       dof_handler,
-                       quadrature_collection);
-      else
-        Assert(false, ExcNotImplemented());
-    }
-
-  private:
-    template <typename VectorType, typename Operator, int dim>
-    static void
-    solve_internal(SolverControl &                  solver_control,
-                   const Operator &                 system_matrix,
-                   VectorType &                     dst,
-                   const VectorType &               src,
-                   const hp::MappingCollection<dim> mapping_collection,
-                   const DoFHandler<dim> &          dof_handler,
-                   const hp::QCollection<dim> &     quadrature_collection)
     {
       const GMGParameters mg_data; // TODO -> MF
 
@@ -1711,16 +1466,7 @@ namespace Step75
           << " on " << Utilities::MPI::n_mpi_processes(mpi_communicator)
           << " MPI rank(s)..." << std::endl;
 
-    std::shared_ptr<LaplaceOperator<dim, double>> laplace_operator;
-
-    if (prm.prm_operator.type == "MatrixBased")
-      laplace_operator =
-        std::make_shared<LaplaceOperatorMatrixBased<dim, double>>();
-    else if (prm.prm_operator.type == "MatrixFree")
-      laplace_operator =
-        std::make_shared<LaplaceOperatorMatrixFree<dim, double>>();
-    else
-      Assert(false, ExcNotImplemented());
+    LaplaceOperatorMatrixFree<dim, double> laplace_operator;
 
     for (unsigned int cycle = 0;
          cycle < (prm.prm_adaptation.type != "hpHistory" ? prm.n_cycles :
@@ -1748,13 +1494,13 @@ namespace Step75
               << "   Number of degrees of freedom: " << dof_handler.n_dofs()
               << std::endl;
 
-        laplace_operator->reinit(mapping_collection,
-                                 dof_handler,
-                                 quadrature_collection,
-                                 constraints,
-                                 system_rhs);
+        laplace_operator.reinit(mapping_collection,
+                                dof_handler,
+                                quadrature_collection,
+                                constraints,
+                                system_rhs);
 
-        solve(*laplace_operator, locally_relevant_solution, system_rhs);
+        solve(laplace_operator, locally_relevant_solution, system_rhs);
         compute_errors();
 
         if (Utilities::MPI::n_mpi_processes(mpi_communicator) <= 32)

@@ -75,14 +75,6 @@ public:
   using value_type     = number;
   using VectorType     = LinearAlgebra::distributed::Vector<number>;
 
-  // Initialize operator and compute the right-hand side.
-  virtual void
-  reinit(const hp::MappingCollection<dim> &mapping_collection,
-         const DoFHandler<dim> &           dof_handler,
-         const hp::QCollection<dim> &      quadrature_collection,
-         const AffineConstraints<number> & constraints,
-         VectorType &                      system_rhs) = 0;
-
   // Return number of rows of the matrix. Since we are dealing with a
   // symmetrical matrix, the returned value is the same as the number of
   // columns.
@@ -91,7 +83,7 @@ public:
 
   // Access a particular element in the matrix. This function is neither
   // needed nor implemented, however, is required to compile the program.
-  number
+  virtual number
   el(unsigned int, unsigned int) const;
 
   // Allocate memory for a distributed vector.
