@@ -618,207 +618,199 @@ namespace Step75
 
   // @sect4{Conjugate-gradient solver preconditioned by a algebraic multigrid approach}
 
-  class SolverAMG
-  {
-  public:
-    template <typename VectorType, typename Operator>
-    static void solve(SolverControl &   solver_control,
+  template <typename VectorType, typename Operator>
+  void solve_with_amg(SolverControl &   solver_control,
                       const Operator &  system_matrix,
                       VectorType &      dst,
                       const VectorType &src)
-    {
-      LA::MPI::PreconditionAMG::AdditionalData data;
-      data.elliptic              = true;
-      data.higher_order_elements = true;
+  {
+    LA::MPI::PreconditionAMG::AdditionalData data;
+    data.elliptic              = true;
+    data.higher_order_elements = true;
 
-      LA::MPI::PreconditionAMG preconditioner;
-      preconditioner.initialize(system_matrix.get_system_matrix(), data);
+    LA::MPI::PreconditionAMG preconditioner;
+    preconditioner.initialize(system_matrix.get_system_matrix(), data);
 
-      SolverCG<LinearAlgebra::distributed::Vector<double>> cg(solver_control);
-      cg.solve(system_matrix, dst, src, preconditioner);
-    }
-  };
+    SolverCG<LinearAlgebra::distributed::Vector<double>> cg(solver_control);
+    cg.solve(system_matrix, dst, src, preconditioner);
+  }
 
 
 
   // @sect4{Conjugate-gradient solver preconditioned by hybrid polynomial-global-coarsening multigrid approach}
 
-  class SolverGMG
-  {
-  public:
-    template <typename VectorType, typename Operator, int dim>
-    static void solve(SolverControl &                  solver_control,
+  template <typename VectorType, typename Operator, int dim>
+  void solve_with_gmg(SolverControl &                  solver_control,
                       const Operator &                 system_matrix,
                       VectorType &                     dst,
                       const VectorType &               src,
                       const hp::MappingCollection<dim> mapping_collection,
                       const DoFHandler<dim> &          dof_handler,
                       const hp::QCollection<dim> &     quadrature_collection)
-    {
-      const GMGParameters mg_data; // TODO -> MF
+  {
+    const GMGParameters mg_data; // TODO -> MF
 
-      // Create a DoFHandler and operator for each multigrid level defined
-      // by p-coarsening, as well as, create transfer operators.
-      MGLevelObject<DoFHandler<dim>> dof_handlers;
-      MGLevelObject<std::unique_ptr<
-        MGSolverOperatorBase<dim, typename VectorType::value_type>>>
-                                                         operators;
-      MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfers;
+    // Create a DoFHandler and operator for each multigrid level defined
+    // by p-coarsening, as well as, create transfer operators.
+    MGLevelObject<DoFHandler<dim>> dof_handlers;
+    MGLevelObject<std::unique_ptr<
+      MGSolverOperatorBase<dim, typename VectorType::value_type>>>
+                                                       operators;
+    MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfers;
 
-      MGLevelObject<std::shared_ptr<Triangulation<dim>>>
-        coarse_grid_triangulations;
+    MGLevelObject<std::shared_ptr<Triangulation<dim>>>
+      coarse_grid_triangulations;
 
-      if (mg_data.perform_h_transfer)
-        MGTransferGlobalCoarseningTools::create_global_coarsening_sequence(
-          coarse_grid_triangulations, dof_handler.get_triangulation());
+    if (mg_data.perform_h_transfer)
+      MGTransferGlobalCoarseningTools::create_global_coarsening_sequence(
+        coarse_grid_triangulations, dof_handler.get_triangulation());
 
-      const unsigned int n_h_levels = coarse_grid_triangulations.max_level() -
-                                      coarse_grid_triangulations.min_level();
+    const unsigned int n_h_levels = coarse_grid_triangulations.max_level() -
+                                    coarse_grid_triangulations.min_level();
 
-      // Determine the number of levels.
-      const auto get_max_active_fe_index = [&](const auto &dof_handler) {
-        unsigned int min = 0;
+    // Determine the number of levels.
+    const auto get_max_active_fe_index = [&](const auto &dof_handler) {
+      unsigned int min = 0;
 
-        for (auto &cell : dof_handler.active_cell_iterators())
-          {
-            if (cell->is_locally_owned())
-              min = std::max(min, cell->active_fe_index());
-          }
-
-        return Utilities::MPI::max(min, MPI_COMM_WORLD);
-      };
-
-      const unsigned int n_p_levels =
-        MGTransferGlobalCoarseningTools::create_p_sequence(
-          get_max_active_fe_index(dof_handler) + 1, mg_data.p_sequence)
-          .size();
-
-      unsigned int minlevel   = 0;
-      unsigned int minlevel_p = n_h_levels;
-      unsigned int maxlevel   = n_h_levels + n_p_levels - 1;
-
-      // Allocate memory for all levels.
-      dof_handlers.resize(minlevel, maxlevel);
-      operators.resize(minlevel, maxlevel);
-      transfers.resize(minlevel, maxlevel);
-
-      // Loop from max to min level and set up DoFHandler with coarser mesh...
-      for (unsigned int l = 0; l < n_h_levels; ++l)
+      for (auto &cell : dof_handler.active_cell_iterators())
         {
-          dof_handlers[l].reinit(*coarse_grid_triangulations[l]);
-          dof_handlers[l].distribute_dofs(dof_handler.get_fe_collection());
+          if (cell->is_locally_owned())
+            min = std::max(min, cell->active_fe_index());
         }
 
-      // ... with lower polynomial degrees
-      for (unsigned int i = 0, l = maxlevel; i < n_p_levels; ++i, --l)
-        {
-          dof_handlers[l].reinit(dof_handler.get_triangulation());
+      return Utilities::MPI::max(min, MPI_COMM_WORLD);
+    };
 
-          if (l == maxlevel) // finest level
-            {
-              auto &dof_handler_mg = dof_handlers[l];
+    const unsigned int n_p_levels =
+      MGTransferGlobalCoarseningTools::create_p_sequence(
+        get_max_active_fe_index(dof_handler) + 1, mg_data.p_sequence)
+        .size();
 
-              auto cell_other = dof_handler.begin_active();
-              for (auto &cell : dof_handler_mg.active_cell_iterators())
-                {
-                  if (cell->is_locally_owned())
-                    cell->set_active_fe_index(cell_other->active_fe_index());
-                  cell_other++;
-                }
-            }
-          else // coarse level
-            {
-              auto &dof_handler_fine   = dof_handlers[l + 1];
-              auto &dof_handler_coarse = dof_handlers[l + 0];
+    unsigned int minlevel   = 0;
+    unsigned int minlevel_p = n_h_levels;
+    unsigned int maxlevel   = n_h_levels + n_p_levels - 1;
 
-              auto cell_other = dof_handler_fine.begin_active();
-              for (auto &cell : dof_handler_coarse.active_cell_iterators())
-                {
-                  if (cell->is_locally_owned())
-                    cell->set_active_fe_index(
-                      MGTransferGlobalCoarseningTools::generate_level_degree(
-                        cell_other->active_fe_index() + 1, mg_data.p_sequence) -
-                      1);
-                  cell_other++;
-                }
-            }
+    // Allocate memory for all levels.
+    dof_handlers.resize(minlevel, maxlevel);
+    operators.resize(minlevel, maxlevel);
+    transfers.resize(minlevel, maxlevel);
 
-          dof_handlers[l].distribute_dofs(dof_handler.get_fe_collection());
-        }
+    // Loop from max to min level and set up DoFHandler with coarser mesh...
+    for (unsigned int l = 0; l < n_h_levels; ++l)
+      {
+        dof_handlers[l].reinit(*coarse_grid_triangulations[l]);
+        dof_handlers[l].distribute_dofs(dof_handler.get_fe_collection());
+      }
 
-      // Create data structures on each multigrid level.
-      MGLevelObject<AffineConstraints<typename VectorType::value_type>>
-        constraints(minlevel, maxlevel);
+    // ... with lower polynomial degrees
+    for (unsigned int i = 0, l = maxlevel; i < n_p_levels; ++i, --l)
+      {
+        dof_handlers[l].reinit(dof_handler.get_triangulation());
 
-      for (unsigned int level = minlevel; level <= maxlevel; level++)
-        {
-          const auto &dof_handler = dof_handlers[level];
-          auto &      constraint  = constraints[level];
-
-          // ... constraints (with homogenous Dirichlet BC)
+        if (l == maxlevel) // finest level
           {
-            IndexSet locally_relevant_dofs;
-            DoFTools::extract_locally_relevant_dofs(dof_handler,
-                                                    locally_relevant_dofs);
-            constraint.reinit(locally_relevant_dofs);
+            auto &dof_handler_mg = dof_handlers[l];
 
+            auto cell_other = dof_handler.begin_active();
+            for (auto &cell : dof_handler_mg.active_cell_iterators())
+              {
+                if (cell->is_locally_owned())
+                  cell->set_active_fe_index(cell_other->active_fe_index());
+                cell_other++;
+              }
+          }
+        else // coarse level
+          {
+            auto &dof_handler_fine   = dof_handlers[l + 1];
+            auto &dof_handler_coarse = dof_handlers[l + 0];
 
-            DoFTools::make_hanging_node_constraints(dof_handler, constraint);
-            VectorTools::interpolate_boundary_values(
-              mapping_collection,
-              dof_handler,
-              0,
-              Functions::ZeroFunction<dim>(),
-              constraint);
-            constraint.close();
+            auto cell_other = dof_handler_fine.begin_active();
+            for (auto &cell : dof_handler_coarse.active_cell_iterators())
+              {
+                if (cell->is_locally_owned())
+                  cell->set_active_fe_index(
+                    MGTransferGlobalCoarseningTools::generate_level_degree(
+                      cell_other->active_fe_index() + 1, mg_data.p_sequence) -
+                    1);
+                cell_other++;
+              }
           }
 
-          // ... operator (just like on the finest level)
-          {
-            VectorType dummy;
+        dof_handlers[l].distribute_dofs(dof_handler.get_fe_collection());
+      }
 
-            auto temp = std::make_unique<Operator>();
-            temp->reinit(mapping_collection,
-                         dof_handler,
-                         quadrature_collection,
-                         constraint,
-                         dummy);
+    // Create data structures on each multigrid level.
+    MGLevelObject<AffineConstraints<typename VectorType::value_type>>
+      constraints(minlevel, maxlevel);
 
-            operators[level] = std::move(temp);
-          }
+    for (unsigned int level = minlevel; level <= maxlevel; level++)
+      {
+        const auto &dof_handler = dof_handlers[level];
+        auto &      constraint  = constraints[level];
+
+        // ... constraints (with homogenous Dirichlet BC)
+        {
+          IndexSet locally_relevant_dofs;
+          DoFTools::extract_locally_relevant_dofs(dof_handler,
+                                                  locally_relevant_dofs);
+          constraint.reinit(locally_relevant_dofs);
+
+
+          DoFTools::make_hanging_node_constraints(dof_handler, constraint);
+          VectorTools::interpolate_boundary_values(
+            mapping_collection,
+            dof_handler,
+            0,
+            Functions::ZeroFunction<dim>(),
+            constraint);
+          constraint.close();
         }
 
-      // Set up intergrid operators.
-      for (unsigned int level = minlevel; level < minlevel_p; ++level)
-        transfers[level + 1].reinit_geometric_transfer(dof_handlers[level + 1],
-                                                       dof_handlers[level],
-                                                       constraints[level + 1],
-                                                       constraints[level]);
+        // ... operator (just like on the finest level)
+        {
+          VectorType dummy;
 
-      for (unsigned int level = minlevel_p; level < maxlevel; ++level)
-        transfers[level + 1].reinit_polynomial_transfer(dof_handlers[level + 1],
-                                                        dof_handlers[level],
-                                                        constraints[level + 1],
-                                                        constraints[level]);
+          auto temp = std::make_unique<Operator>();
+          temp->reinit(mapping_collection,
+                       dof_handler,
+                       quadrature_collection,
+                       constraint,
+                       dummy);
 
-      // Collect transfer operators within a single operator as needed by
-      // the Multigrid solver class.
-      MGTransferGlobalCoarsening<
-        MGSolverOperatorBase<dim, typename VectorType::value_type>,
-        VectorType>
-        transfer(operators, transfers);
+          operators[level] = std::move(temp);
+        }
+      }
 
-      // Proceed to solve the problem with multigrid.
-      mg_solve(solver_control,
-               dst,
-               src,
-               mg_data,
-               dof_handler,
-               system_matrix,
-               operators,
-               transfer);
-    }
-  };
+    // Set up intergrid operators.
+    for (unsigned int level = minlevel; level < minlevel_p; ++level)
+      transfers[level + 1].reinit_geometric_transfer(dof_handlers[level + 1],
+                                                     dof_handlers[level],
+                                                     constraints[level + 1],
+                                                     constraints[level]);
+
+    for (unsigned int level = minlevel_p; level < maxlevel; ++level)
+      transfers[level + 1].reinit_polynomial_transfer(dof_handlers[level + 1],
+                                                      dof_handlers[level],
+                                                      constraints[level + 1],
+                                                      constraints[level]);
+
+    // Collect transfer operators within a single operator as needed by
+    // the Multigrid solver class.
+    MGTransferGlobalCoarsening<
+      MGSolverOperatorBase<dim, typename VectorType::value_type>,
+      VectorType>
+      transfer(operators, transfers);
+
+    // Proceed to solve the problem with multigrid.
+    mg_solve(solver_control,
+             dst,
+             src,
+             mg_data,
+             dof_handler,
+             system_matrix,
+             operators,
+             transfer);
+  }
 
 
 
@@ -1371,18 +1363,18 @@ namespace Step75
                                  1e-12 * system_rhs_.l2_norm());
 
     if (prm.prm_solver.type == "AMG")
-      SolverAMG::solve(solver_control,
-                       system_matrix,
-                       locally_relevant_solution_,
-                       system_rhs_);
+      solve_with_amg(solver_control,
+                     system_matrix,
+                     locally_relevant_solution_,
+                     system_rhs_);
     else if (prm.prm_solver.type == "GMG")
-      SolverGMG::solve(solver_control,
-                       system_matrix,
-                       locally_relevant_solution_,
-                       system_rhs_,
-                       mapping_collection,
-                       dof_handler,
-                       quadrature_collection);
+      solve_with_gmg(solver_control,
+                     system_matrix,
+                     locally_relevant_solution_,
+                     system_rhs_,
+                     mapping_collection,
+                     dof_handler,
+                     quadrature_collection);
     else
       Assert(false, ExcNotImplemented());
 
