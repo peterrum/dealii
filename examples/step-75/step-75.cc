@@ -191,8 +191,6 @@ namespace Step75
   private:
     std::string type;
 
-    template <int dim, typename number>
-    friend class LaplaceOperator;
     template <int dim>
     friend class LaplaceProblem;
   };
@@ -327,10 +325,10 @@ namespace Step75
 
   // A matrix-free implementation of the Laplace operator.
   template <int dim, typename number>
-  class LaplaceOperatorMatrixFree : public LaplaceOperator<dim, number>
+  class LaplaceOperatorMatrixFree : public MGSolverOperatorBase<dim, number>
   {
   public:
-    using typename LaplaceOperator<dim, number>::VectorType;
+    using typename MGSolverOperatorBase<dim, number>::VectorType;
 
     // An alias to the FEEvaluation class. Please note that, in contrast to
     // other tutorials, the template arguments `degree` is set to -1 and
@@ -662,8 +660,8 @@ namespace Step75
       // Create a DoFHandler and operator for each multigrid level defined
       // by p-coarsening, as well as, create transfer operators.
       MGLevelObject<DoFHandler<dim>> dof_handlers;
-      MGLevelObject<
-        std::unique_ptr<LaplaceOperator<dim, typename VectorType::value_type>>>
+      MGLevelObject<std::unique_ptr<
+        MGSolverOperatorBase<dim, typename VectorType::value_type>>>
                                                          operators;
       MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfers;
 
@@ -806,7 +804,7 @@ namespace Step75
       // Collect transfer operators within a single operator as needed by
       // the Multigrid solver class.
       MGTransferGlobalCoarsening<
-        LaplaceOperator<dim, typename VectorType::value_type>,
+        MGSolverOperatorBase<dim, typename VectorType::value_type>,
         VectorType>
         transfer(operators, transfers);
 

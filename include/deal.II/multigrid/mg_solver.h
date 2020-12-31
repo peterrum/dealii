@@ -68,7 +68,7 @@ struct GMGParameters
 
 
 template <int dim_, typename number>
-class LaplaceOperator : public Subscriptor
+class MGSolverOperatorBase : public Subscriptor
 {
 public:
   static const int dim = dim_;
@@ -118,7 +118,7 @@ private:
 
 template <int dim_, typename number>
 types::global_dof_index
-LaplaceOperator<dim_, number>::m() const
+MGSolverOperatorBase<dim_, number>::m() const
 {
   Assert(false, ExcNotImplemented());
   return 0;
@@ -128,7 +128,7 @@ LaplaceOperator<dim_, number>::m() const
 
 template <int dim_, typename number>
 number
-LaplaceOperator<dim_, number>::el(unsigned int, unsigned int) const
+MGSolverOperatorBase<dim_, number>::el(unsigned int, unsigned int) const
 {
   Assert(false, ExcNotImplemented());
   return 0;
@@ -138,7 +138,7 @@ LaplaceOperator<dim_, number>::el(unsigned int, unsigned int) const
 
 template <int dim_, typename number>
 void
-LaplaceOperator<dim_, number>::initialize_dof_vector(VectorType &vec) const
+MGSolverOperatorBase<dim_, number>::initialize_dof_vector(VectorType &vec) const
 {
   Assert(false, ExcNotImplemented());
   (void)vec;
@@ -148,8 +148,8 @@ LaplaceOperator<dim_, number>::initialize_dof_vector(VectorType &vec) const
 
 template <int dim_, typename number>
 void
-LaplaceOperator<dim_, number>::vmult(VectorType &      dst,
-                                     const VectorType &src) const
+MGSolverOperatorBase<dim_, number>::vmult(VectorType &      dst,
+                                          const VectorType &src) const
 {
   Assert(false, ExcNotImplemented());
   (void)dst;
@@ -160,8 +160,8 @@ LaplaceOperator<dim_, number>::vmult(VectorType &      dst,
 
 template <int dim_, typename number>
 void
-LaplaceOperator<dim_, number>::Tvmult(VectorType &      dst,
-                                      const VectorType &src) const
+MGSolverOperatorBase<dim_, number>::Tvmult(VectorType &      dst,
+                                           const VectorType &src) const
 {
   Assert(false, ExcNotImplemented());
   (void)dst;
@@ -172,7 +172,7 @@ LaplaceOperator<dim_, number>::Tvmult(VectorType &      dst,
 
 template <int dim_, typename number>
 void
-LaplaceOperator<dim_, number>::compute_inverse_diagonal(
+MGSolverOperatorBase<dim_, number>::compute_inverse_diagonal(
   VectorType &diagonal) const
 {
   Assert(false, ExcNotImplemented());
@@ -183,7 +183,7 @@ LaplaceOperator<dim_, number>::compute_inverse_diagonal(
 
 template <int dim_, typename number>
 const TrilinosWrappers::SparseMatrix &
-LaplaceOperator<dim_, number>::get_system_matrix() const
+MGSolverOperatorBase<dim_, number>::get_system_matrix() const
 {
   Assert(false, ExcNotImplemented());
   return dummy_trilinos_wrapper_sparse_matrix;
