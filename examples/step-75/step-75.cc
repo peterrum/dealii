@@ -987,8 +987,10 @@ namespace Step75
 
       // Create a DoFHandler and operator for each multigrid level defined
       // by p-coarsening, as well as, create transfer operators.
-      MGLevelObject<DoFHandler<dim>>                     dof_handlers;
-      MGLevelObject<Operator>                            operators;
+      MGLevelObject<DoFHandler<dim>> dof_handlers;
+      MGLevelObject<
+        std::unique_ptr<LaplaceOperator<dim, typename VectorType::value_type>>>
+                                                         operators;
       MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfers;
 
       MGLevelObject<std::shared_ptr<Triangulation<dim>>>
@@ -1102,11 +1104,15 @@ namespace Step75
           // ... operator (just like on the finest level)
           {
             VectorType dummy;
-            operators[level].reinit(mapping_collection,
-                                    dof_handler,
-                                    quadrature_collection,
-                                    constraint,
-                                    dummy);
+
+            auto temp = std::make_unique<Operator>();
+            temp->reinit(mapping_collection,
+                         dof_handler,
+                         quadrature_collection,
+                         constraint,
+                         dummy);
+
+            operators[level] = std::move(temp);
           }
         }
 
@@ -1125,8 +1131,10 @@ namespace Step75
 
       // Collect transfer operators within a single operator as needed by
       // the Multigrid solver class.
-      MGTransferGlobalCoarsening<Operator, VectorType> transfer(operators,
-                                                                transfers);
+      MGTransferGlobalCoarsening<
+        LaplaceOperator<dim, typename VectorType::value_type>,
+        VectorType>
+        transfer(operators, transfers);
 
       // Proceed to solve the problem with multigrid.
       mg_solve(solver_control,
@@ -1144,14 +1152,15 @@ namespace Step75
               typename SystemMatrixType,
               typename LevelMatrixType,
               typename MGTransferType>
-    static void mg_solve(SolverControl &                       solver_control,
-                         VectorType &                          dst,
-                         const VectorType &                    src,
-                         const GMGParameters &                 mg_data,
-                         const DoFHandler<dim> &               dof,
-                         const SystemMatrixType &              fine_matrix,
-                         const MGLevelObject<LevelMatrixType> &mg_matrices,
-                         const MGTransferType &                mg_transfer)
+    static void
+    mg_solve(SolverControl &         solver_control,
+             VectorType &            dst,
+             const VectorType &      src,
+             const GMGParameters &   mg_data,
+             const DoFHandler<dim> & dof,
+             const SystemMatrixType &fine_matrix,
+             const MGLevelObject<std::unique_ptr<LevelMatrixType>> &mg_matrices,
+             const MGTransferType &                                 mg_transfer)
     {
       AssertThrow(mg_data.smoother.type == "chebyshev", ExcNotImplemented());
 
@@ -1177,7 +1186,7 @@ namespace Step75
         {
           smoother_data[level].preconditioner =
             std::make_shared<SmootherPreconditionerType>();
-          mg_matrices[level].compute_inverse_diagonal(
+          mg_matrices[level]->compute_inverse_diagonal(
             smoother_data[level].preconditioner->get_vector());
           smoother_data[level].smoothing_range =
             mg_data.smoother.smoothing_range;
@@ -1220,7 +1229,7 @@ namespace Step75
                                                          LevelMatrixType,
                                                          PreconditionIdentity>>(
               coarse_grid_solver,
-              mg_matrices[min_level],
+              *mg_matrices[min_level],
               precondition_identity);
         }
       else if (mg_data.coarse_solver.type == "cg_with_chebyshev")
@@ -1231,14 +1240,14 @@ namespace Step75
 
           smoother_data.preconditioner =
             std::make_shared<DiagonalMatrix<VectorType>>();
-          mg_matrices[min_level].compute_inverse_diagonal(
+          mg_matrices[min_level]->compute_inverse_diagonal(
             smoother_data.preconditioner->get_vector());
           smoother_data.smoothing_range = mg_data.smoother.smoothing_range;
           smoother_data.degree          = mg_data.smoother.degree;
           smoother_data.eig_cg_n_iterations =
             mg_data.smoother.eig_cg_n_iterations;
 
-          precondition_chebyshev.initialize(mg_matrices[min_level],
+          precondition_chebyshev.initialize(*mg_matrices[min_level],
                                             smoother_data);
 
           mg_coarse = std::make_unique<
@@ -1246,7 +1255,9 @@ namespace Step75
                                         SolverCG<VectorType>,
                                         LevelMatrixType,
                                         decltype(precondition_chebyshev)>>(
-            coarse_grid_solver, mg_matrices[min_level], precondition_chebyshev);
+            coarse_grid_solver,
+            *mg_matrices[min_level],
+            precondition_chebyshev);
         }
       else if (mg_data.coarse_solver.type == "cg_with_amg")
         {
@@ -1260,14 +1271,14 @@ namespace Step75
 
           // CG with AMG as preconditioner
           precondition_amg.initialize(
-            mg_matrices[min_level].get_system_matrix(), amg_data);
+            mg_matrices[min_level]->get_system_matrix(), amg_data);
 
           mg_coarse = std::make_unique<
             MGCoarseGridIterativeSolver<VectorType,
                                         SolverCG<VectorType>,
                                         LevelMatrixType,
                                         decltype(precondition_amg)>>(
-            coarse_grid_solver, mg_matrices[min_level], precondition_amg);
+            coarse_grid_solver, *mg_matrices[min_level], precondition_amg);
 #else
           AssertThrow(false, ExcNotImplemented());
 #endif

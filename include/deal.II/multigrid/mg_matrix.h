@@ -57,12 +57,27 @@ namespace mg
     Matrix(const MGLevelObject<MatrixType> &M);
 
     /**
+     * Constructor setting up pointers to the matrices in <tt>M</tt> by
+     * calling initialize().
+     */
+    template <typename MatrixType>
+    Matrix(const MGLevelObject<std::unique_ptr<MatrixType>> &M);
+
+    /**
      * Initialize the object such that the level multiplication uses the
      * matrices in <tt>M</tt>
      */
     template <typename MatrixType>
     void
     initialize(const MGLevelObject<MatrixType> &M);
+
+    /**
+     * Initialize the object such that the level multiplication uses the
+     * matrices in <tt>M</tt>
+     */
+    template <typename MatrixType>
+    void
+    initialize(const MGLevelObject<std::unique_ptr<MatrixType>> &M);
 
     /**
      * Reset the object.
@@ -215,6 +230,22 @@ namespace mg
 
 
   template <typename VectorType>
+  template <typename MatrixType>
+  inline void
+  Matrix<VectorType>::initialize(
+    const MGLevelObject<std::unique_ptr<MatrixType>> &p)
+  {
+    matrices.resize(p.min_level(), p.max_level());
+    for (unsigned int level = p.min_level(); level <= p.max_level(); ++level)
+      {
+        matrices[level] =
+          linear_operator<VectorType>(LinearOperator<VectorType>(), *p[level]);
+      }
+  }
+
+
+
+  template <typename VectorType>
   inline void
   Matrix<VectorType>::reset()
   {
@@ -226,6 +257,16 @@ namespace mg
   template <typename VectorType>
   template <typename MatrixType>
   inline Matrix<VectorType>::Matrix(const MGLevelObject<MatrixType> &p)
+  {
+    initialize(p);
+  }
+
+
+
+  template <typename VectorType>
+  template <typename MatrixType>
+  inline Matrix<VectorType>::Matrix(
+    const MGLevelObject<std::unique_ptr<MatrixType>> &p)
   {
     initialize(p);
   }

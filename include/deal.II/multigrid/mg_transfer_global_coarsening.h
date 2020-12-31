@@ -395,6 +395,13 @@ public:
     const MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> &transfer);
 
   /**
+   * TODO.
+   */
+  MGTransferGlobalCoarsening(
+    const MGLevelObject<std::unique_ptr<MatrixType>> &        matrices,
+    const MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> &transfer);
+
+  /**
    * Perform prolongation.
    */
   void
@@ -435,7 +442,7 @@ public:
                const MGLevelObject<VectorType> &src) const;
 
 private:
-  const MGLevelObject<MatrixType> &                         matrices;
+  MGLevelObject<SmartPointer<MatrixType>>                   matrices;
   const MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> &transfer;
 };
 
@@ -492,11 +499,30 @@ template <typename MatrixType, typename VectorType>
 MGTransferGlobalCoarsening<MatrixType, VectorType>::MGTransferGlobalCoarsening(
   const MGLevelObject<MatrixType> &                         matrices,
   const MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> &transfer)
-  : matrices(matrices)
+  : matrices(matrices.min_level(), matrices.max_level())
   , transfer(transfer)
 {
   AssertDimension(matrices.max_level() - matrices.min_level(),
                   transfer.max_level() - transfer.min_level());
+
+  for (unsigned int l = matrices.min_level(); l <= matrices.max_level(); ++l)
+    this->matrices[l] = &matrices[l];
+}
+
+
+
+template <typename MatrixType, typename VectorType>
+MGTransferGlobalCoarsening<MatrixType, VectorType>::MGTransferGlobalCoarsening(
+  const MGLevelObject<std::unique_ptr<MatrixType>> &        matrices,
+  const MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> &transfer)
+  : matrices(matrices.min_level(), matrices.max_level())
+  , transfer(transfer)
+{
+  AssertDimension(matrices.max_level() - matrices.min_level(),
+                  transfer.max_level() - transfer.min_level());
+
+  for (unsigned int l = matrices.min_level(); l <= matrices.max_level(); ++l)
+    this->matrices[l] = matrices[l].get();
 }
 
 
@@ -536,7 +562,7 @@ MGTransferGlobalCoarsening<MatrixType, VectorType>::copy_to_mg(
   (void)dof_handler;
 
   for (unsigned int level = dst.min_level(); level <= dst.max_level(); ++level)
-    matrices[level].initialize_dof_vector(dst[level]);
+    matrices[level]->initialize_dof_vector(dst[level]);
 
   dst[dst.max_level()].copy_locally_owned_data_from(src);
 }
