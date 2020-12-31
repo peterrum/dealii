@@ -342,6 +342,16 @@ namespace Step75
     // arguments, e.g., via jump tables.
     using FECellIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
 
+    // Constructor
+    LaplaceOperatorMatrixFree() = default;
+
+    // Constructor
+    LaplaceOperatorMatrixFree(const hp::MappingCollection<dim> &mapping,
+                              const DoFHandler<dim> &           dof_handler,
+                              const hp::QCollection<dim> &      quad,
+                              const AffineConstraints<number> & constraints,
+                              VectorType &                      system_rhs);
+
     // Initialize the internal MatrixFree instance and compute the system
     // right-hand-side vector
     void reinit(const hp::MappingCollection<dim> &mapping,
@@ -409,6 +419,19 @@ namespace Step75
     // get_system_matrix() is called, this matrix is filled.
     mutable TrilinosWrappers::SparseMatrix system_matrix;
   };
+
+
+
+  template <int dim, typename number>
+  LaplaceOperatorMatrixFree<dim, number>::LaplaceOperatorMatrixFree(
+    const hp::MappingCollection<dim> &mapping,
+    const DoFHandler<dim> &           dof_handler,
+    const hp::QCollection<dim> &      quad,
+    const AffineConstraints<number> & constraints,
+    VectorType &                      system_rhs)
+  {
+    this->reinit(mapping, dof_handler, quad, constraints, system_rhs);
+  }
 
 
 
@@ -770,14 +793,11 @@ namespace Step75
         {
           VectorType dummy;
 
-          auto temp = std::make_unique<Operator>();
-          temp->reinit(mapping_collection,
-                       dof_handler,
-                       quadrature_collection,
-                       constraint,
-                       dummy);
-
-          operators[level] = std::move(temp);
+          operators[level] = std::make_unique<Operator>(mapping_collection,
+                                                        dof_handler,
+                                                        quadrature_collection,
+                                                        constraint,
+                                                        dummy);
         }
       }
 
