@@ -79,7 +79,7 @@ public:
   // symmetrical matrix, the returned value is the same as the number of
   // columns.
   virtual types::global_dof_index
-  m() const = 0;
+  m() const;
 
   // Access a particular element in the matrix. This function is neither
   // needed nor implemented, however, is required to compile the program.
@@ -88,37 +88,40 @@ public:
 
   // Allocate memory for a distributed vector.
   virtual void
-  initialize_dof_vector(VectorType &vec) const = 0;
+  initialize_dof_vector(VectorType &vec) const;
 
   // Perform an operator application on the vector @p src.
   virtual void
-  vmult(VectorType &dst, const VectorType &src) const = 0;
+  vmult(VectorType &dst, const VectorType &src) const;
 
   // Perform the transposed operator evaluation. Since we are considering
   // symmetric matrices, this function is identical to the above function.
-  void
+  virtual void
   Tvmult(VectorType &dst, const VectorType &src) const;
 
   // Compute the inverse of the diagonal of the vector and store it into the
   // provided vector. The inverse diagonal is used below in a Chebyshev
   // smoother.
   virtual void
-  compute_inverse_diagonal(VectorType &diagonal) const = 0;
+  compute_inverse_diagonal(VectorType &diagonal) const;
 
   // Return the actual system matrix, which can be used in any matrix-based
   // solvers (like AMG).
   virtual const TrilinosWrappers::SparseMatrix &
-  get_system_matrix() const = 0;
+  get_system_matrix() const;
+
+private:
+  const TrilinosWrappers::SparseMatrix dummy_trilinos_wrapper_sparse_matrix;
 };
 
 
 
 template <int dim_, typename number>
-void
-LaplaceOperator<dim_, number>::Tvmult(VectorType &      dst,
-                                      const VectorType &src) const
+types::global_dof_index
+LaplaceOperator<dim_, number>::m() const
 {
-  this->vmult(dst, src);
+  Assert(false, ExcNotImplemented());
+  return 0;
 }
 
 
@@ -130,6 +133,62 @@ LaplaceOperator<dim_, number>::el(unsigned int, unsigned int) const
   Assert(false, ExcNotImplemented());
   return 0;
 }
+
+
+
+template <int dim_, typename number>
+void
+LaplaceOperator<dim_, number>::initialize_dof_vector(VectorType &vec) const
+{
+  Assert(false, ExcNotImplemented());
+  (void)vec;
+}
+
+
+
+template <int dim_, typename number>
+void
+LaplaceOperator<dim_, number>::vmult(VectorType &      dst,
+                                     const VectorType &src) const
+{
+  Assert(false, ExcNotImplemented());
+  (void)dst;
+  (void)src;
+}
+
+
+
+template <int dim_, typename number>
+void
+LaplaceOperator<dim_, number>::Tvmult(VectorType &      dst,
+                                      const VectorType &src) const
+{
+  Assert(false, ExcNotImplemented());
+  (void)dst;
+  (void)src;
+}
+
+
+
+template <int dim_, typename number>
+void
+LaplaceOperator<dim_, number>::compute_inverse_diagonal(
+  VectorType &diagonal) const
+{
+  Assert(false, ExcNotImplemented());
+  (void)diagonal;
+}
+
+
+
+template <int dim_, typename number>
+const TrilinosWrappers::SparseMatrix &
+LaplaceOperator<dim_, number>::get_system_matrix() const
+{
+  Assert(false, ExcNotImplemented());
+  return dummy_trilinos_wrapper_sparse_matrix;
+}
+
 
 template <typename VectorType,
           int dim,

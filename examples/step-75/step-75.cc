@@ -364,6 +364,10 @@ namespace Step75
     // do_cell_integral_local() and do_cell_integral_global()).
     void vmult(VectorType &dst, const VectorType &src) const override;
 
+    // Perform the transposed operator evaluation. Since we are considering
+    // symmetric matrices, this function is identical to the above function.
+    void Tvmult(VectorType &dst, const VectorType &src) const override;
+
     // Since we do not have a system matrix, we cannot loop over the the
     // diagonal entries of the matrix. Instead, we compute the diagonal by
     // performing a sequence of operator evaluations to unit basis vectors.
@@ -499,6 +503,16 @@ namespace Step75
   {
     this->matrix_free.cell_loop(
       &LaplaceOperatorMatrixFree::do_cell_integral_range, this, dst, src, true);
+  }
+
+
+
+  template <int dim, typename number>
+  void
+  LaplaceOperatorMatrixFree<dim, number>::Tvmult(VectorType &      dst,
+                                                 const VectorType &src) const
+  {
+    this->vmult(dst, src);
   }
 
 
