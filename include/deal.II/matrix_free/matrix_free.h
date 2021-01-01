@@ -4655,35 +4655,19 @@ namespace internal
     virtual void
     cell(const unsigned int range_index) override
     {
-      if (cell_function == nullptr)
-        return;
-
-      const auto &ptr  = matrix_free.get_task_info().cell_partition_data_hp_ptr;
-      const auto &data = matrix_free.get_task_info().cell_partition_data_hp;
-
-      for (unsigned int i = ptr[range_index]; i < ptr[range_index + 1]; ++i)
-        (container.*
-         cell_function)(matrix_free,
-                        this->dst,
-                        this->src,
-                        std::make_pair(data[2 * i], data[2 * i + 1]));
+      process_range(cell_function,
+                    matrix_free.get_task_info().cell_partition_data_hp_ptr,
+                    matrix_free.get_task_info().cell_partition_data_hp,
+                    range_index);
     }
 
     virtual void
     face(const unsigned int range_index) override
     {
-      if (face_function == nullptr)
-        return;
-
-      const auto &ptr  = matrix_free.get_task_info().face_partition_data_hp_ptr;
-      const auto &data = matrix_free.get_task_info().face_partition_data_hp;
-
-      for (unsigned int i = ptr[range_index]; i < ptr[range_index + 1]; ++i)
-        (container.*
-         face_function)(matrix_free,
-                        this->dst,
-                        this->src,
-                        std::make_pair(data[2 * i], data[2 * i + 1]));
+      process_range(face_function,
+                    matrix_free.get_task_info().face_partition_data_hp_ptr,
+                    matrix_free.get_task_info().face_partition_data_hp,
+                    range_index);
     }
 
     virtual void
@@ -4710,6 +4694,24 @@ namespace internal
           }
     }
 
+  private:
+    void
+    process_range(const function_type &            fu,
+                  const std::vector<unsigned int> &ptr,
+                  const std::vector<unsigned int> &data,
+                  const unsigned int               range_index)
+    {
+      if (fu == nullptr)
+        return;
+
+      for (unsigned int i = ptr[range_index]; i < ptr[range_index + 1]; ++i)
+        (container.*fu)(matrix_free,
+                        this->dst,
+                        this->src,
+                        std::make_pair(data[2 * i], data[2 * i + 1]));
+    }
+
+  public:
     // Starts the communication for the update ghost values operation. We
     // cannot call this update if ghost and destination are the same because
     // that would introduce spurious entries in the destination (there is also
