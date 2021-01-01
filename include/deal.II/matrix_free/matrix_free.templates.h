@@ -572,120 +572,129 @@ MatrixFree<dim, Number, VectorizedArrayType>::internal_reinit(
         }
     }
 
+
+  // subdivide cell, face and boundary face partitioner data, s.t., all
+  // ranges have the same active_fe_indices
   {
-    task_info.cell_partition_data_hp_ptr = {0};
-    task_info.cell_partition_data_hp     = {};
-    task_info.cell_partition_data_hp.reserve(
-      2 * task_info.cell_partition_data.size());
-
-    for (unsigned int i = 0; i < task_info.cell_partition_data.size() - 1; ++i)
-      {
-        if (task_info.cell_partition_data[i + 1] >
-            task_info.cell_partition_data[i])
-          {
-            std::pair<unsigned int, unsigned int> range{
-              task_info.cell_partition_data[i],
-              task_info.cell_partition_data[i + 1]};
-
-            if (range.second > range.first)
-              for (unsigned int i = 0; i < this->n_active_fe_indices(); ++i)
-                {
-                  const auto cell_subrange =
-                    this->create_cell_subrange_hp_by_index(range, i);
-
-                  if (cell_subrange.second <= cell_subrange.first)
-                    continue;
-
-                  task_info.cell_partition_data_hp.push_back(
-                    cell_subrange.first);
-                  task_info.cell_partition_data_hp.push_back(
-                    cell_subrange.second);
-                }
-          }
-
-        task_info.cell_partition_data_hp_ptr.push_back(
-          task_info.cell_partition_data_hp.size() / 2);
-      }
-  }
-
-  if (task_info.face_partition_data.empty() == false)
+    // ... for cells
     {
-      task_info.face_partition_data_hp_ptr = {0};
-      task_info.face_partition_data_hp     = {};
-      task_info.face_partition_data_hp.reserve(
-        2 * task_info.face_partition_data.size());
+      auto &ptr  = task_info.cell_partition_data_hp_ptr;
+      auto &data = task_info.cell_partition_data_hp;
 
-      for (unsigned int i = 0; i < task_info.face_partition_data.size() - 1;
+      ptr  = {0};
+      data = {};
+      data.reserve(2 * task_info.cell_partition_data.size());
+
+      for (unsigned int i = 0; i < task_info.cell_partition_data.size() - 1;
            ++i)
         {
-          if (task_info.face_partition_data[i + 1] >
-              task_info.face_partition_data[i])
+          if (task_info.cell_partition_data[i + 1] >
+              task_info.cell_partition_data[i])
             {
               std::pair<unsigned int, unsigned int> range{
-                task_info.face_partition_data[i],
-                task_info.face_partition_data[i + 1]};
-
-              if (range.second > range.first)
-                for (unsigned int i = 0; i < this->n_active_fe_indices(); ++i)
-                  for (unsigned int j = 0; j < this->n_active_fe_indices(); ++j)
-                    {
-                      const auto subrange =
-                        this->create_inner_face_subrange_hp_by_index(range,
-                                                                     i,
-                                                                     j);
-
-                      if (subrange.second <= subrange.first)
-                        continue;
-
-                      task_info.face_partition_data_hp.push_back(
-                        subrange.first);
-                      task_info.face_partition_data_hp.push_back(
-                        subrange.second);
-                    }
-            }
-
-          task_info.face_partition_data_hp_ptr.push_back(
-            task_info.face_partition_data_hp.size() / 2);
-        }
-    }
-
-  if (task_info.boundary_partition_data.empty() == false)
-    {
-      task_info.boundary_partition_data_hp_ptr = {0};
-      task_info.boundary_partition_data_hp     = {};
-      task_info.boundary_partition_data_hp.reserve(
-        2 * task_info.boundary_partition_data.size());
-
-      for (unsigned int i = 0; i < task_info.boundary_partition_data.size() - 1;
-           ++i)
-        {
-          if (task_info.boundary_partition_data[i + 1] >
-              task_info.boundary_partition_data[i])
-            {
-              std::pair<unsigned int, unsigned int> range{
-                task_info.boundary_partition_data[i],
-                task_info.boundary_partition_data[i + 1]};
+                task_info.cell_partition_data[i],
+                task_info.cell_partition_data[i + 1]};
 
               if (range.second > range.first)
                 for (unsigned int i = 0; i < this->n_active_fe_indices(); ++i)
                   {
                     const auto cell_subrange =
-                      this->create_boundary_face_subrange_hp_by_index(range, i);
+                      this->create_cell_subrange_hp_by_index(range, i);
 
                     if (cell_subrange.second <= cell_subrange.first)
                       continue;
 
-                    task_info.boundary_partition_data_hp.push_back(
-                      cell_subrange.first);
-                    task_info.boundary_partition_data_hp.push_back(
-                      cell_subrange.second);
+                    data.push_back(cell_subrange.first);
+                    data.push_back(cell_subrange.second);
                   }
             }
 
-          task_info.boundary_partition_data_hp_ptr.push_back(
-            task_info.boundary_partition_data_hp.size() / 2);
+          ptr.push_back(data.size() / 2);
         }
     }
+
+    // ... for inner faces
+    if (task_info.face_partition_data.empty() == false)
+      {
+        auto &ptr  = task_info.face_partition_data_hp_ptr;
+        auto &data = task_info.face_partition_data_hp;
+
+        ptr  = {0};
+        data = {};
+        data.reserve(2 * task_info.face_partition_data.size());
+
+        for (unsigned int i = 0; i < task_info.face_partition_data.size() - 1;
+             ++i)
+          {
+            if (task_info.face_partition_data[i + 1] >
+                task_info.face_partition_data[i])
+              {
+                std::pair<unsigned int, unsigned int> range{
+                  task_info.face_partition_data[i],
+                  task_info.face_partition_data[i + 1]};
+
+                if (range.second > range.first)
+                  for (unsigned int i = 0; i < this->n_active_fe_indices(); ++i)
+                    for (unsigned int j = 0; j < this->n_active_fe_indices();
+                         ++j)
+                      {
+                        const auto subrange =
+                          this->create_inner_face_subrange_hp_by_index(range,
+                                                                       i,
+                                                                       j);
+
+                        if (subrange.second <= subrange.first)
+                          continue;
+
+                        data.push_back(subrange.first);
+                        data.push_back(subrange.second);
+                      }
+              }
+
+            ptr.push_back(data.size() / 2);
+          }
+      }
+
+    // ... for boundary faces
+    if (task_info.boundary_partition_data.empty() == false)
+      {
+        auto &ptr  = task_info.boundary_partition_data_hp_ptr;
+        auto &data = task_info.boundary_partition_data_hp;
+
+        ptr  = {0};
+        data = {};
+        data.reserve(2 * task_info.boundary_partition_data.size());
+
+        for (unsigned int i = 0;
+             i < task_info.boundary_partition_data.size() - 1;
+             ++i)
+          {
+            if (task_info.boundary_partition_data[i + 1] >
+                task_info.boundary_partition_data[i])
+              {
+                std::pair<unsigned int, unsigned int> range{
+                  task_info.boundary_partition_data[i],
+                  task_info.boundary_partition_data[i + 1]};
+
+                if (range.second > range.first)
+                  for (unsigned int i = 0; i < this->n_active_fe_indices(); ++i)
+                    {
+                      const auto cell_subrange =
+                        this->create_boundary_face_subrange_hp_by_index(range,
+                                                                        i);
+
+                      if (cell_subrange.second <= cell_subrange.first)
+                        continue;
+
+                      data.push_back(cell_subrange.first);
+                      data.push_back(cell_subrange.second);
+                    }
+              }
+
+            ptr.push_back(data.size() / 2);
+          }
+      }
+  }
 
   // Evaluates transformations from unit to real cell, Jacobian determinants,
   // quadrature points in real space, based on the ordering of the cells

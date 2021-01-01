@@ -501,11 +501,34 @@ namespace internal
        */
       std::vector<unsigned int> ghost_face_partition_data;
 
+      /**
+       * TODO
+       */
       std::vector<unsigned int> cell_partition_data_hp_ptr;
+
+      /**
+       * TODO
+       */
       std::vector<unsigned int> cell_partition_data_hp;
+
+      /**
+       * TODO
+       */
       std::vector<unsigned int> face_partition_data_hp_ptr;
+
+      /**
+       * TODO
+       */
       std::vector<unsigned int> face_partition_data_hp;
+
+      /**
+       * TODO
+       */
       std::vector<unsigned int> boundary_partition_data_hp_ptr;
+
+      /**
+       * TODO
+       */
       std::vector<unsigned int> boundary_partition_data_hp;
 
       /**
