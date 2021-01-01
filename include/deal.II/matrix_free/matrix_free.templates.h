@@ -648,10 +648,44 @@ MatrixFree<dim, Number, VectorizedArrayType>::internal_reinit(
             task_info.face_partition_data_hp.size() / 2);
         }
     }
-  //  else
-  //  {
-  //    task_info.face_partition_data_hp_ptr = {0,0};
-  //  }
+
+  if (task_info.boundary_partition_data.empty() == false)
+    {
+      task_info.boundary_partition_data_hp_ptr = {0};
+      task_info.boundary_partition_data_hp     = {};
+      task_info.boundary_partition_data_hp.reserve(
+        2 * task_info.boundary_partition_data.size());
+
+      for (unsigned int i = 0; i < task_info.boundary_partition_data.size() - 1;
+           ++i)
+        {
+          if (task_info.boundary_partition_data[i + 1] >
+              task_info.boundary_partition_data[i])
+            {
+              std::pair<unsigned int, unsigned int> range{
+                task_info.boundary_partition_data[i],
+                task_info.boundary_partition_data[i + 1]};
+
+              if (range.second > range.first)
+                for (unsigned int i = 0; i < this->n_active_fe_indices(); ++i)
+                  {
+                    const auto cell_subrange =
+                      this->create_boundary_face_subrange_hp_by_index(range, i);
+
+                    if (cell_subrange.second <= cell_subrange.first)
+                      continue;
+
+                    task_info.boundary_partition_data_hp.push_back(
+                      cell_subrange.first);
+                    task_info.boundary_partition_data_hp.push_back(
+                      cell_subrange.second);
+                  }
+            }
+
+          task_info.boundary_partition_data_hp_ptr.push_back(
+            task_info.boundary_partition_data_hp.size() / 2);
+        }
+    }
 
   // Evaluates transformations from unit to real cell, Jacobian determinants,
   // quadrature points in real space, based on the ordering of the cells
