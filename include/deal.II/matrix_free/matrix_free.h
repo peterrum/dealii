@@ -4672,24 +4672,18 @@ namespace internal
     virtual void
     face(const unsigned int range_index) override
     {
-      const std::pair<unsigned int, unsigned int> face_range{
-        matrix_free.get_task_info().face_partition_data[range_index],
-        matrix_free.get_task_info().face_partition_data[range_index + 1]};
+      if (face_function == nullptr)
+        return;
 
-      if (face_function != nullptr && face_range.second > face_range.first)
-        for (unsigned int i = 0; i < matrix_free.n_active_fe_indices(); ++i)
-          for (unsigned int j = 0; j < matrix_free.n_active_fe_indices(); ++j)
-            {
-              const auto face_subrange =
-                matrix_free.create_inner_face_subrange_hp_by_index(face_range,
-                                                                   i,
-                                                                   j);
+      const auto &ptr  = matrix_free.get_task_info().face_partition_data_hp_ptr;
+      const auto &data = matrix_free.get_task_info().face_partition_data_hp;
 
-              if (face_subrange.second <= face_subrange.first)
-                continue;
-              (container.*
-               face_function)(matrix_free, this->dst, this->src, face_subrange);
-            }
+      for (unsigned int i = ptr[range_index]; i < ptr[range_index + 1]; ++i)
+        (container.*
+         face_function)(matrix_free,
+                        this->dst,
+                        this->src,
+                        std::make_pair(data[2 * i], data[2 * i + 1]));
     }
 
     virtual void

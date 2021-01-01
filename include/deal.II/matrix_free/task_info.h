@@ -503,6 +503,10 @@ namespace internal
 
       std::vector<unsigned int> cell_partition_data_hp_ptr;
       std::vector<unsigned int> cell_partition_data_hp;
+      std::vector<unsigned int> face_partition_data_hp_ptr;
+      std::vector<unsigned int> face_partition_data_hp;
+      std::vector<unsigned int> boundary_partition_data_hp_ptr;
+      std::vector<unsigned int> boundary_partition_data_hp;
 
       /**
        * This is a linear storage of all partitions of faces for multigrid

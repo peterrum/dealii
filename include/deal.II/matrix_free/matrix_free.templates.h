@@ -608,6 +608,51 @@ MatrixFree<dim, Number, VectorizedArrayType>::internal_reinit(
       }
   }
 
+  if (task_info.face_partition_data.empty() == false)
+    {
+      task_info.face_partition_data_hp_ptr = {0};
+      task_info.face_partition_data_hp     = {};
+      task_info.face_partition_data_hp.reserve(
+        2 * task_info.face_partition_data.size());
+
+      for (unsigned int i = 0; i < task_info.face_partition_data.size() - 1;
+           ++i)
+        {
+          if (task_info.face_partition_data[i + 1] >
+              task_info.face_partition_data[i])
+            {
+              std::pair<unsigned int, unsigned int> range{
+                task_info.face_partition_data[i],
+                task_info.face_partition_data[i + 1]};
+
+              if (range.second > range.first)
+                for (unsigned int i = 0; i < this->n_active_fe_indices(); ++i)
+                  for (unsigned int j = 0; j < this->n_active_fe_indices(); ++j)
+                    {
+                      const auto subrange =
+                        this->create_inner_face_subrange_hp_by_index(range,
+                                                                     i,
+                                                                     j);
+
+                      if (subrange.second <= subrange.first)
+                        continue;
+
+                      task_info.face_partition_data_hp.push_back(
+                        subrange.first);
+                      task_info.face_partition_data_hp.push_back(
+                        subrange.second);
+                    }
+            }
+
+          task_info.face_partition_data_hp_ptr.push_back(
+            task_info.face_partition_data_hp.size() / 2);
+        }
+    }
+  //  else
+  //  {
+  //    task_info.face_partition_data_hp_ptr = {0,0};
+  //  }
+
   // Evaluates transformations from unit to real cell, Jacobian determinants,
   // quadrature points in real space, based on the ordering of the cells
   // determined in @p extract_local_to_global_indices.
