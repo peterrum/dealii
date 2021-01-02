@@ -7148,6 +7148,91 @@ namespace GridGenerator
                                {{7, 8}},
                                {{7, 5}}}};
 
+    static const std::array<std::array<unsigned int, 3>, 72>
+      table_3D_inner_faces = {
+        {{{0, 12, 10}},  {{12, 1, 10}},  {{12, 1, 9}},  {{12, 3, 9}},
+         {{12, 2, 11}},  {{12, 3, 11}},  {{12, 0, 8}},  {{12, 2, 8}},
+         {{9, 13, 5}},   {{13, 7, 9}},   {{11, 7, 13}}, {{11, 6, 13}},
+         {{4, 8, 13}},   {{6, 8, 13}},   {{4, 13, 10}}, {{13, 5, 10}},
+         {{10, 9, 5}},   {{10, 9, 1}},   {{11, 9, 7}},  {{11, 9, 3}},
+         {{8, 11, 2}},   {{8, 11, 6}},   {{8, 10, 0}},  {{8, 10, 4}},
+         {{12, 3, 9}},   {{12, 9, 11}},  {{12, 3, 11}}, {{3, 9, 11}},
+         {{2, 12, 8}},   {{2, 12, 11}},  {{2, 11, 8}},  {{8, 12, 11}},
+         {{0, 12, 10}},  {{0, 12, 8}},   {{0, 8, 10}},  {{8, 10, 12}},
+         {{12, 1, 10}},  {{12, 1, 9}},   {{1, 10, 9}},  {{10, 9, 12}},
+         {{10, 8, 4}},   {{10, 8, 13}},  {{4, 13, 8}},  {{4, 13, 10}},
+         {{10, 9, 13}},  {{10, 9, 5}},   {{13, 5, 10}}, {{13, 5, 9}},
+         {{13, 7, 9}},   {{13, 7, 11}},  {{9, 11, 13}}, {{9, 11, 7}},
+         {{8, 11, 13}},  {{8, 11, 6}},   {{6, 13, 8}},  {{6, 13, 11}},
+         {{12, 13, 10}}, {{12, 13, 8}},  {{8, 10, 13}}, {{8, 10, 12}},
+         {{12, 13, 10}}, {{12, 13, 9}},  {{10, 9, 13}}, {{10, 9, 12}},
+         {{12, 13, 9}},  {{12, 13, 11}}, {{9, 11, 13}}, {{9, 11, 12}},
+         {{12, 13, 11}}, {{12, 13, 8}},  {{8, 11, 13}}, {{8, 11, 12}}}};
+
+    static const std::array<std::array<unsigned int, 2>, 60>
+      table_3D_inner_edge = {
+        {{{12, 10}}, {{12, 9}},  {{12, 11}}, {{12, 8}},  {{9, 13}},
+         {{11, 13}}, {{8, 13}},  {{10, 13}}, {{10, 9}},  {{9, 11}},
+         {{11, 8}},  {{8, 10}},  {{12, 9}},  {{12, 11}}, {{11, 9}},
+         {{12, 8}},  {{12, 11}}, {{11, 8}},  {{12, 8}},  {{12, 10}},
+         {{10, 8}},  {{12, 10}}, {{12, 9}},  {{9, 10}},  {{13, 10}},
+         {{13, 8}},  {{8, 10}},  {{13, 10}}, {{13, 9}},  {{9, 10}},
+         {{13, 11}}, {{13, 9}},  {{11, 9}},  {{13, 11}}, {{13, 8}},
+         {{11, 8}},  {{12, 13}}, {{8, 10}},  {{8, 13}},  {{10, 13}},
+         {{8, 12}},  {{10, 12}}, {{12, 13}}, {{10, 9}},  {{10, 13}},
+         {{9, 13}},  {{10, 12}}, {{9, 12}},  {{12, 13}}, {{9, 11}},
+         {{9, 13}},  {{11, 13}}, {{9, 12}},  {{11, 12}}, {{12, 13}},
+         {{11, 8}},  {{11, 13}}, {{8, 13}},  {{11, 12}}, {{8, 12}}}};
+
+    static const std::array<std::array<std::array<unsigned int, 2>, 8>, 6>
+      table_3D_boundary_edge = {{{{{{4, 6}},
+                                   {{4, 8}},
+                                   {{6, 8}},
+                                   {{4, 0}},
+                                   {{6, 2}},
+                                   {{0, 8}},
+                                   {{2, 8}},
+                                   {{0, 2}}}},
+                                 {{{{5, 7}},
+                                   {{5, 9}},
+                                   {{7, 9}},
+                                   {{5, 1}},
+                                   {{7, 3}},
+                                   {{1, 9}},
+                                   {{3, 9}},
+                                   {{1, 3}}}},
+                                 {{{{4, 5}},
+                                   {{4, 10}},
+                                   {{5, 10}},
+                                   {{4, 0}},
+                                   {{5, 1}},
+                                   {{0, 10}},
+                                   {{1, 10}},
+                                   {{0, 1}}}},
+                                 {{{{6, 7}},
+                                   {{6, 11}},
+                                   {{7, 11}},
+                                   {{6, 2}},
+                                   {{7, 3}},
+                                   {{2, 11}},
+                                   {{3, 11}},
+                                   {{2, 3}}}},
+                                 {{{{2, 3}},
+                                   {{2, 12}},
+                                   {{3, 12}},
+                                   {{2, 0}},
+                                   {{3, 1}},
+                                   {{0, 12}},
+                                   {{1, 12}},
+                                   {{0, 1}}}},
+                                 {{{{6, 7}},
+                                   {{6, 13}},
+                                   {{7, 13}},
+                                   {{6, 4}},
+                                   {{7, 5}},
+                                   {{4, 13}},
+                                   {{5, 14}},
+                                   {{4, 5}}}}}};
 
 
     std::vector<Point<spacedim>> vertices;
@@ -7235,8 +7320,7 @@ namespace GridGenerator
             {
               CellData<1> boundary_line(2);
               boundary_line.boundary_id = material_or_boundary_id;
-              boundary_line.manifold_id =
-                manifold_id; // set manifold id on faces
+              boundary_line.manifold_id = manifold_id;
               for (unsigned int i = 0; i < index_vertices.size(); ++i)
                 {
                   boundary_line.vertices[i] =
@@ -7244,7 +7328,7 @@ namespace GridGenerator
                 }
               subcell_data.boundary_lines.push_back(boundary_line);
             }
-          else if (dim == 3 && struct_dim == 2) // a face of a thetrahedron
+          else if (dim == 3 && struct_dim == 2) // a face of a tetrahedron
             {
               CellData<2> boundary_quad(3);
               boundary_quad.material_id = material_or_boundary_id;
@@ -7255,6 +7339,18 @@ namespace GridGenerator
                     local_vertex_indices[index_vertices[i]];
                 }
               subcell_data.boundary_quads.push_back(boundary_quad);
+            }
+          else if (dim == 3 && struct_dim == 1) // an edge of a tetrahedron
+            {
+              CellData<1> boundary_line(2);
+              // boundary_line.boundary_id = material_or_boundary_id;
+              boundary_line.manifold_id = manifold_id;
+              for (unsigned int i = 0; i < index_vertices.size(); ++i)
+                {
+                  boundary_line.vertices[i] =
+                    local_vertex_indices[index_vertices[i]];
+                }
+              subcell_data.boundary_lines.push_back(boundary_line);
             }
           else
             {
@@ -7268,26 +7364,54 @@ namespace GridGenerator
 
         if (dim == 2)
           {
-            const auto current_manifold_of_cell =
+            const auto current_manifold_id_of_cell =
               cell.manifold_id(); // get cell-manifold id from current quad cell
             for (const auto &cell : table_2D_cell)
               add_cell(dim,
                        cell,
                        current_material_id,
-                       current_manifold_of_cell); // set cell-manifold id
+                       current_manifold_id_of_cell); // set cell-manifold id
 
             // inherit inner manifold (faces)
-            for (const auto &face : table_2D_inner_faces)
-              // set inner tri-faces according to cell-manifold of quad element,
-              // set invalid b_id, since we do not want to modify b_id inside
-              add_cell(1,
-                       face,
-                       numbers::internal_face_boundary_id,
-                       current_manifold_of_cell);
+            if (current_manifold_id_of_cell != numbers::flat_manifold_id)
+              for (const auto &face : table_2D_inner_faces)
+                // set inner tri-faces according to cell-manifold of quad
+                // element, set invalid b_id, since we do not want to modify
+                // b_id inside
+                add_cell(1,
+                         face,
+                         numbers::internal_face_boundary_id,
+                         current_manifold_id_of_cell);
           }
         else if (dim == 3)
-          for (const auto &cell : table_3D_cell)
-            add_cell(dim, cell, current_material_id);
+          {
+            const auto current_manifold_id_of_cell = cell.manifold_id();
+            for (const auto &cell : table_3D_cell)
+              add_cell(
+                dim,
+                cell,
+                current_material_id,
+                current_manifold_id_of_cell); // set all cell manifold ids
+
+            if (current_manifold_id_of_cell != numbers::flat_manifold_id)
+              {
+                // set manifold of inner FACES of tets according to hex cell
+                // manifold id
+                for (const auto &face : table_3D_inner_faces)
+                  add_cell(2,
+                           face,
+                           numbers::internal_face_boundary_id,
+                           current_manifold_id_of_cell);
+
+                // set manifold of inner EDGES of tets according to hex cell
+                // manifold id
+                for (const auto &edge : table_3D_inner_edge)
+                  add_cell(1,
+                           edge,
+                           numbers::internal_face_boundary_id,
+                           current_manifold_id_of_cell);
+              }
+          }
         else
           Assert(false, ExcNotImplemented());
 
@@ -7314,22 +7438,25 @@ namespace GridGenerator
                          current_manifold_id_of_face);
 
             else if (dim == 3) // 3D boundary_quads
-              for (const auto &face : table_3D_boundary_faces[f])
-                add_cell(2,
-                         face,
-                         current_boundary_id_of_face,
-                         current_manifold_id_of_face);
+              {
+                // set manifold id of tet-boundary-faces accoarding to
+                // hex-boundary-faces
+                for (const auto &face : table_3D_boundary_faces[f])
+                  add_cell(2,
+                           face,
+                           current_boundary_id_of_face,
+                           current_manifold_id_of_face);
+                // set manifold id of tet-boundary-edges according to
+                // hex-boundary-faces
+                for (const auto &edge : table_3D_boundary_edge[f])
+                  add_cell(1,
+                           edge,
+                           current_boundary_id_of_face,
+                           current_manifold_id_of_face);
+              }
 
             else
               Assert(false, ExcNotImplemented());
-
-            // process internal faces
-            if (dim == 2 && cell.manifold_id() != numbers::flat_manifold_id)
-              for (const auto &face : table_2D_boundary_faces[f])
-                add_cell(1,
-                         face,
-                         numbers::internal_face_boundary_id,
-                         current_manifold_id_of_face);
           }
       }
 
