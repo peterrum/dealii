@@ -106,18 +106,18 @@ check_file() // for dim = spaceim
     grid_out.write_vtk(tria, deallog.get_file_stream());
   };
 
-      // Temporary: See results in paraview
-      std::ofstream out1("Quad.vtk");
-      GridOut grid_out1;
-      grid_out1.write_vtk(in_tria, out1);
-      std::cout << "Grid written to Quad.vtk" << std::endl;
+  // Temporary: See results in paraview
+  std::ofstream out1("Quad.vtk");
+  GridOut       grid_out1;
+  grid_out1.write_vtk(in_tria, out1);
+  std::cout << "Grid written to Quad.vtk" << std::endl;
 
-      std::ofstream out2("Tri.vtk");
-      GridOut grid_out2;
-      grid_out2.write_vtk(out_tria, out2);
-      std::cout << "Grid written to Tri.vtk" << std::endl;
+  std::ofstream out2("Tri.vtk");
+  GridOut       grid_out2;
+  grid_out2.write_vtk(out_tria, out2);
+  std::cout << "Grid written to Tri.vtk" << std::endl;
 
-  
+
   grid_out(out_tria);       // total mesh
   grid_out(out_tria, true); // only surface mesh
 
