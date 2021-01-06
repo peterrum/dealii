@@ -85,7 +85,7 @@ check_file() // for dim = spaceim
     if (i != numbers::flat_manifold_id)
       out_tria.set_manifold(i, in_tria.get_manifold(i));
 
-  out_tria.refine_global(2);
+  // out_tria.refine_global(2);
 
   // write 2 outputs (total mesh and only surface mesh)
   const auto grid_out = [](const auto &tria,
@@ -106,18 +106,6 @@ check_file() // for dim = spaceim
     grid_out.write_vtk(tria, deallog.get_file_stream());
   };
 
-  // Temporary: See results in paraview
-  std::ofstream out1("Quad.vtk");
-  GridOut       grid_out1;
-  grid_out1.write_vtk(in_tria, out1);
-  std::cout << "Grid written to Quad.vtk" << std::endl;
-
-  std::ofstream out2("Tri.vtk");
-  GridOut       grid_out2;
-  grid_out2.write_vtk(out_tria, out2);
-  std::cout << "Grid written to Tri.vtk" << std::endl;
-
-
   grid_out(out_tria);       // total mesh
   grid_out(out_tria, true); // only surface mesh
 
@@ -136,17 +124,17 @@ main()
   check_file<2, 2>();
   deallog.pop();
 
-  // // TETRAHEDRAL ELEMENTS
-  // // dim = 2, spacedim = 2
-  // deallog.push(
-  //   "2D: conversion triangulation with quad elements to tri elements: ");
-  // check_file<2, 3>();
-  // deallog.pop();
+  // TETRAHEDRAL ELEMENTS
+  // dim = 2, spacedim = 2
+  deallog.push(
+    "2D: conversion triangulation with quad elements to tri elements: ");
+  check_file<2, 3>();
+  deallog.pop();
 
-  // // TETRAHEDRAL ELEMENTS
-  // // dim = spacedim = 3
-  // deallog.push(
-  //   "3D: conversion triangulation with tet elements to hex elements: ");
-  // check_file<3, 3>();
-  // deallog.pop();
+  // TETRAHEDRAL ELEMENTS
+  // dim = spacedim = 3
+  deallog.push(
+    "3D: conversion triangulation with tet elements to hex elements: ");
+  check_file<3, 3>();
+  deallog.pop();
 }

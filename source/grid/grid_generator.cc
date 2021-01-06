@@ -7101,8 +7101,16 @@ namespace GridGenerator
 
     Assert(dim > 1, ExcNotImplemented());
 
-    // static tables with the definitions of cells and boundary faces for 2D
-    // and 3D
+    /* static tables with the definitions of cells, faces and edges by its
+     * vertices for 2D and 3D. For the inheritance of the manifold_id,
+     * definitions of inner-faces and boundary-faces are required. In case of
+     * 3D, also inner-edges and boundary-edges need to be defined.
+     */
+
+    /* Cell definition 2D:
+     * A quadrilateral element is converted to 8 simplices elements. Each simlex
+     * is defined by 3 vertices.
+     */
     static const std::array<std::array<unsigned int, 3>, 8> table_2D_cell = {
       {{{0, 6, 4}},
        {{8, 4, 6}},
@@ -7113,6 +7121,10 @@ namespace GridGenerator
        {{8, 5, 7}},
        {{3, 7, 5}}}};
 
+    /* Cell definition 3D:
+     * A hexahedron element is converted to 24 tetrahedron elements. Each
+     * tetrahedron is defined by 4 vertices.
+     */
     static const std::array<std::array<unsigned int, 4>, 24> table_3D_cell = {
       {{{0, 1, 12, 10}},  {{2, 3, 11, 12}},  {{7, 6, 11, 13}},
        {{5, 4, 13, 10}},  {{0, 2, 8, 12}},   {{4, 6, 13, 8}},
@@ -7123,12 +7135,22 @@ namespace GridGenerator
        {{13, 9, 11, 7}},  {{13, 11, 8, 6}},  {{10, 12, 9, 1}},
        {{9, 12, 11, 3}},  {{11, 12, 8, 2}},  {{8, 12, 10, 0}}}};
 
+    /* Boundary-faces 2D:
+     * After converting, each of the 4 quadrilateral faces is defined by faces
+     * of 2 different simplices. Note, that a simplex-face in 2D is defined by 2
+     * vertices.
+     */
     static const std::array<std::array<std::array<unsigned int, 2>, 2>, 4>
       table_2D_boundary_faces = {{{{{{0, 4}}, {{4, 2}}}},
                                   {{{{1, 5}}, {{5, 3}}}},
                                   {{{{0, 6}}, {{6, 1}}}},
                                   {{{{2, 7}}, {{7, 3}}}}}};
 
+    /* Boundary-faces 3D:
+     * After converting, each of the 6 hexahedron faces corresponds to faces of
+     * 4 different tetrahedron faces. Note, that a tetrahedron-face in 3D is
+     * defined by 3 vertices.
+     */
     static const std::array<std::array<std::array<unsigned int, 3>, 4>, 6>
       table_3D_boundary_faces = {
         {{{{{0, 4, 8}}, {{4, 8, 6}}, {{8, 6, 2}}, {{0, 2, 8}}}},
@@ -7138,6 +7160,10 @@ namespace GridGenerator
          {{{{0, 1, 12}}, {{1, 12, 3}}, {{12, 3, 2}}, {{0, 12, 2}}}},
          {{{{4, 5, 13}}, {{5, 13, 7}}, {{13, 7, 6}}, {{4, 13, 6}}}}}};
 
+    /* Inner-faces 2D:
+     * The converted triangulation based on simplices has 8 faces that do not
+     * form the boundary, i.e. inner-faces, each defined by 2 vertices.
+     */
     static const std::array<std::array<unsigned int, 2>, 8>
       table_2D_inner_faces = {{{{6, 4}},
                                {{6, 8}},
@@ -7148,6 +7174,10 @@ namespace GridGenerator
                                {{7, 8}},
                                {{7, 5}}}};
 
+    /* Inner-faces 3D:
+     * The converted triangulation based on simplices has 72 faces that do not
+     * form the boundary, i.e. inner-faces, each defined by 3 vertices.
+     */
     static const std::array<std::array<unsigned int, 3>, 72>
       table_3D_inner_faces = {
         {{{0, 12, 10}},  {{12, 1, 10}},  {{12, 1, 9}},  {{12, 3, 9}},
@@ -7169,6 +7199,10 @@ namespace GridGenerator
          {{12, 13, 9}},  {{12, 13, 11}}, {{9, 11, 13}}, {{9, 11, 12}},
          {{12, 13, 11}}, {{12, 13, 8}},  {{8, 11, 13}}, {{8, 11, 12}}}};
 
+    /* Inner-edges 3D:
+     * The converted triangulation based on simplices has 60 edges that do not
+     * coincide with the boundary, i.e. inner-edges, each defined by 2 vertices.
+     */
     static const std::array<std::array<unsigned int, 2>, 60>
       table_3D_inner_edge = {
         {{{12, 10}}, {{12, 9}},  {{12, 11}}, {{12, 8}},  {{9, 13}},
@@ -7184,6 +7218,11 @@ namespace GridGenerator
          {{9, 13}},  {{11, 13}}, {{9, 12}},  {{11, 12}}, {{12, 13}},
          {{11, 8}},  {{11, 13}}, {{8, 13}},  {{11, 12}}, {{8, 12}}}};
 
+    /* Boundary-edges 3D:
+     * For each of the 6 boundary-faces of the hexahedron, there are 8 edges (of
+     * different tetrahedrons) that coincide with the boundary, i.e.
+     * boundary-edges. Each boundary-edge is defined by 2 vertices.
+     */
     static const std::array<std::array<std::array<unsigned int, 2>, 8>, 6>
       table_3D_boundary_edge = {{{{{{4, 6}},
                                    {{4, 8}},
@@ -7306,18 +7345,29 @@ namespace GridGenerator
                                   const unsigned int manifold_id = 0) {
           if (struct_dim == dim) // cells
             {
+              if (dim == 2)
+                {
+                  Assert(index_vertices.size() == 3, ExcInternalError());
+                }
+              else if (dim == 3)
+                {
+                  Assert(index_vertices.size() == 4, ExcInternalError());
+                }
               CellData<dim> cell_data(index_vertices.size());
               for (unsigned int i = 0; i < index_vertices.size(); ++i)
                 {
                   cell_data.vertices[i] =
                     local_vertex_indices[index_vertices[i]];
-                  cell_data.material_id = material_or_boundary_id;
-                  cell_data.manifold_id = manifold_id; // set cell-manifold id
+                  cell_data.material_id =
+                    material_or_boundary_id; // inherit material id
+                  cell_data.manifold_id =
+                    manifold_id; // inherit cell-manifold id
                 }
               cells.push_back(cell_data);
             }
-          else if (dim == 2 && struct_dim == 1) // an edge of a triangle
+          else if (dim == 2 && struct_dim == 1) // an edge of a simplex
             {
+              Assert(index_vertices.size() == 2, ExcInternalError());
               CellData<1> boundary_line(2);
               boundary_line.boundary_id = material_or_boundary_id;
               boundary_line.manifold_id = manifold_id;
@@ -7330,6 +7380,7 @@ namespace GridGenerator
             }
           else if (dim == 3 && struct_dim == 2) // a face of a tetrahedron
             {
+              Assert(index_vertices.size() == 3, ExcInternalError());
               CellData<2> boundary_quad(3);
               boundary_quad.material_id = material_or_boundary_id;
               boundary_quad.manifold_id = manifold_id;
@@ -7342,8 +7393,8 @@ namespace GridGenerator
             }
           else if (dim == 3 && struct_dim == 1) // an edge of a tetrahedron
             {
+              Assert(index_vertices.size() == 2, ExcInternalError());
               CellData<1> boundary_line(2);
-              // boundary_line.boundary_id = material_or_boundary_id;
               boundary_line.manifold_id = manifold_id;
               for (unsigned int i = 0; i < index_vertices.size(); ++i)
                 {
@@ -7358,58 +7409,53 @@ namespace GridGenerator
             }
         };
 
-        const auto current_material_id = cell.material_id();
+        const auto material_id_cell = cell.material_id();
 
         // create cells one by one
-
         if (dim == 2)
           {
-            const auto current_manifold_id_of_cell =
-              cell.manifold_id(); // get cell-manifold id from current quad cell
-            for (const auto &cell : table_2D_cell)
-              add_cell(dim,
-                       cell,
-                       current_material_id,
-                       current_manifold_id_of_cell); // set cell-manifold id
+            // get cell-manifold id from current quad cell
+            const auto manifold_id_cell = cell.manifold_id();
+            // inherit cell manifold
+            for (const auto &cell_vertices : table_2D_cell)
+              add_cell(dim, cell_vertices, material_id_cell, manifold_id_cell);
 
             // inherit inner manifold (faces)
-            if (current_manifold_id_of_cell != numbers::flat_manifold_id)
-              for (const auto &face : table_2D_inner_faces)
+            if (manifold_id_cell != numbers::flat_manifold_id)
+              for (const auto &face_vertices : table_2D_inner_faces)
                 // set inner tri-faces according to cell-manifold of quad
                 // element, set invalid b_id, since we do not want to modify
                 // b_id inside
                 add_cell(1,
-                         face,
+                         face_vertices,
                          numbers::internal_face_boundary_id,
-                         current_manifold_id_of_cell);
+                         manifold_id_cell);
           }
         else if (dim == 3)
           {
-            const auto current_manifold_id_of_cell = cell.manifold_id();
-            for (const auto &cell : table_3D_cell)
-              add_cell(
-                dim,
-                cell,
-                current_material_id,
-                current_manifold_id_of_cell); // set all cell manifold ids
+            // get cell-manifold id from current quad cell
+            const auto manifold_id_cell = cell.manifold_id();
+            // inherit cell manifold
+            for (const auto &cell_vertices : table_3D_cell)
+              add_cell(dim, cell_vertices, material_id_cell, manifold_id_cell);
 
-            if (current_manifold_id_of_cell != numbers::flat_manifold_id)
+            if (manifold_id_cell != numbers::flat_manifold_id)
               {
-                // set manifold of inner FACES of tets according to hex cell
-                // manifold id
-                for (const auto &face : table_3D_inner_faces)
+                // set manifold of inner FACES of tets according to
+                // hex-cell-manifold
+                for (const auto &face_vertices : table_3D_inner_faces)
                   add_cell(2,
-                           face,
+                           face_vertices,
                            numbers::internal_face_boundary_id,
-                           current_manifold_id_of_cell);
+                           manifold_id_cell);
 
-                // set manifold of inner EDGES of tets according to hex cell
-                // manifold id
-                for (const auto &edge : table_3D_inner_edge)
+                // set manifold of inner EDGES of tets according to
+                // hex-cell-manifold
+                for (const auto &edge_vertices : table_3D_inner_edge)
                   add_cell(1,
-                           edge,
+                           edge_vertices,
                            numbers::internal_face_boundary_id,
-                           current_manifold_id_of_cell);
+                           manifold_id_cell);
               }
           }
         else
@@ -7418,41 +7464,29 @@ namespace GridGenerator
         // Set up sub-cell data.
         for (const auto f : cell.face_indices())
           {
-            const auto current_boundary_id_of_face =
-              cell.face(f)->boundary_id();
-            const auto current_manifold_id_of_face =
-              cell.face(f)->manifold_id();
+            const auto bid = cell.face(f)->boundary_id();
+            const auto mid = cell.face(f)->manifold_id();
 
-            if (current_boundary_id_of_face ==
-                  numbers::internal_face_boundary_id &&
-                current_manifold_id_of_face == numbers::flat_manifold_id)
+            if (bid == numbers::internal_face_boundary_id &&
+                mid == numbers::flat_manifold_id)
               continue; // do nothing at inner faces -> already set before to
-                        // quad cell manifold_id
+                        // hypercube cell-manifold
 
             // process boundary-faces: set boundary and manifold ids
-            if (dim == 2) // 2D boundary_lines
-              for (const auto &face : table_2D_boundary_faces[f])
-                add_cell(1,
-                         face,
-                         current_boundary_id_of_face,
-                         current_manifold_id_of_face);
+            if (dim == 2) // 2D boundary-faces
+              for (const auto &face_vertices : table_2D_boundary_faces[f])
+                add_cell(1, face_vertices, bid, mid);
 
-            else if (dim == 3) // 3D boundary_quads
+            else if (dim == 3) // 3D boundary-faces
               {
                 // set manifold id of tet-boundary-faces accoarding to
                 // hex-boundary-faces
-                for (const auto &face : table_3D_boundary_faces[f])
-                  add_cell(2,
-                           face,
-                           current_boundary_id_of_face,
-                           current_manifold_id_of_face);
+                for (const auto &face_vertices : table_3D_boundary_faces[f])
+                  add_cell(2, face_vertices, bid, mid);
                 // set manifold id of tet-boundary-edges according to
                 // hex-boundary-faces
-                for (const auto &edge : table_3D_boundary_edge[f])
-                  add_cell(1,
-                           edge,
-                           current_boundary_id_of_face,
-                           current_manifold_id_of_face);
+                for (const auto &edge_vertices : table_3D_boundary_edge[f])
+                  add_cell(1, edge_vertices, bid, mid);
               }
 
             else
