@@ -15,30 +15,32 @@
 
  */
 
+#include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/tria.h>
 #include <deal.II/grid/tria_accessor.h>
 #include <deal.II/grid/tria_iterator.h>
-#include <deal.II/grid/grid_generator.h>
+
 #include <deal.II/simplex/grid_generator.h>
-#include <deal.II/grid/grid_out.h>
 
-#include <iostream>
-#include <fstream>
 #include <cmath>
+#include <fstream>
+#include <iostream>
 
-#include "../tests.h" 
+#include "../tests.h"
 
 using namespace dealii;
 
-void first_grid()
+void
+first_grid()
 {
   Triangulation<2> triangulation;
-//  GridGenerator::hyper_cube(triangulat  ion);
+  //  GridGenerator::hyper_cube(triangulat  ion);
   GridGenerator::subdivided_hyper_cube_with_simplices(triangulation, 1);
   triangulation.refine_global(4);
 
   // std::ofstream out("grid-1.svg");
-  GridOut       grid_out;
+  GridOut grid_out;
   // grid_out.write_svg(triangulation, out);
   grid_out.write_svg(triangulation, deallog.get_file_stream());
   // std::cout << "Grid written to grid-1.svg" << std::endl;
@@ -46,7 +48,8 @@ void first_grid()
 
 
 
-void second_grid()
+void
+second_grid()
 {
   Triangulation<2> triangulation, tria_tri;
 
@@ -56,7 +59,7 @@ void second_grid()
     triangulation, center, inner_radius, outer_radius, 10);
   // Convert to triangulation with simplices.
   GridGenerator::convert_hypercube_to_simplex_mesh(triangulation, tria_tri);
-  
+
   // copy manifold
   for (const auto i : triangulation.get_manifold_ids())
     if (i != numbers::flat_manifold_id)
@@ -85,7 +88,7 @@ void second_grid()
 
 
   // std::ofstream out("grid-2.svg");
-  GridOut       grid_out;
+  GridOut grid_out;
   // grid_out.write_svg(tria_tri, out);
   grid_out.write_svg(tria_tri, deallog.get_file_stream());
 
@@ -94,7 +97,8 @@ void second_grid()
 
 
 
-int main()
+int
+main()
 {
   initlog();
 
