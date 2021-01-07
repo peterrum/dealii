@@ -5514,28 +5514,29 @@ namespace internal
                     new_lines[2]->index(),
                     new_lines[3]->index()};
 
-                  std::array<std::array<unsigned int, 2>, 12> line_vertices{
-                    {{{0, 4}},
-                     {{4, 2}},
-                     {{1, 5}},
-                     {{5, 3}},
-                     {{0, 6}},
-                     {{6, 1}},
-                     {{2, 7}},
-                     {{7, 3}},
-                     {{6, 8}},
-                     {{8, 7}},
-                     {{4, 8}},
-                     {{8, 5}}}};
+                  static constexpr std::array<std::array<unsigned int, 2>, 12>
+                    line_vertices{{{{0, 4}},
+                                   {{4, 2}},
+                                   {{1, 5}},
+                                   {{5, 3}},
+                                   {{0, 6}},
+                                   {{6, 1}},
+                                   {{2, 7}},
+                                   {{7, 3}},
+                                   {{6, 8}},
+                                   {{8, 7}},
+                                   {{4, 8}},
+                                   {{8, 5}}}};
 
-                  std::array<std::array<unsigned int, 4>, 4> quad_lines{
-                    {{{0, 8, 4, 10}},
-                     {{8, 2, 5, 11}},
-                     {{1, 9, 10, 6}},
-                     {{9, 3, 11, 7}}}};
+                  static constexpr std::array<std::array<unsigned int, 4>, 4>
+                    quad_lines{{{{0, 8, 4, 10}},
+                                {{8, 2, 5, 11}},
+                                {{1, 9, 10, 6}},
+                                {{9, 3, 11, 7}}}};
 
                   const unsigned int n_old_lines = 8;
                   const unsigned int n_new_lines = 4;
+                  const unsigned int n_new_quads = 4;
 
                   for (unsigned int i = 0, j = n_old_lines; i < n_new_lines;
                        ++i, ++j)
@@ -5552,17 +5553,23 @@ namespace internal
                       new_line->set_manifold_id(quad->manifold_id());
                     }
 
-                  const unsigned int n_new_quads = 4;
-
                   for (unsigned int i = 0; i < n_new_quads; ++i)
                     {
                       auto &new_quad = new_quads[i];
 
-                      new_quad->set_bounding_object_indices(
-                        {line_indices[quad_lines[i][0]],
-                         line_indices[quad_lines[i][1]],
-                         line_indices[quad_lines[i][2]],
-                         line_indices[quad_lines[i][3]]});
+                      if (new_quad->n_lines() == 3)
+                        new_quad->set_bounding_object_indices(
+                          {line_indices[quad_lines[i][0]],
+                           line_indices[quad_lines[i][1]],
+                           line_indices[quad_lines[i][2]]});
+                      else if (new_quad->n_lines() == 4)
+                        new_quad->set_bounding_object_indices(
+                          {line_indices[quad_lines[i][0]],
+                           line_indices[quad_lines[i][1]],
+                           line_indices[quad_lines[i][2]],
+                           line_indices[quad_lines[i][3]]});
+                      else
+                        Assert(false, ExcNotImplemented());
 
                       new_quad->set_used_flag();
                       new_quad->clear_user_flag();
