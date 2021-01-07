@@ -5528,6 +5528,12 @@ namespace internal
                      {{4, 8}},
                      {{8, 5}}}};
 
+                  std::array<std::array<unsigned int, 4>, 4> quad_lines{
+                    {{{0, 8, 4, 10}},
+                     {{8, 2, 5, 11}},
+                     {{1, 9, 10, 6}},
+                     {{9, 3, 11, 7}}}};
+
                   const unsigned int n_old_lines = 8;
 
                   for (unsigned int i = 0, j = n_old_lines; i < 4; ++i, ++j)
@@ -5544,24 +5550,16 @@ namespace internal
                       new_line->set_manifold_id(quad->manifold_id());
                     }
 
-                  new_quads[0]->set_bounding_object_indices({line_indices[0],
-                                                             line_indices[8],
-                                                             line_indices[4],
-                                                             line_indices[10]});
-                  new_quads[1]->set_bounding_object_indices({line_indices[8],
-                                                             line_indices[2],
-                                                             line_indices[5],
-                                                             line_indices[11]});
-                  new_quads[2]->set_bounding_object_indices({line_indices[1],
-                                                             line_indices[9],
-                                                             line_indices[10],
-                                                             line_indices[6]});
-                  new_quads[3]->set_bounding_object_indices({line_indices[9],
-                                                             line_indices[3],
-                                                             line_indices[11],
-                                                             line_indices[7]});
-                  for (const auto &new_quad : new_quads)
+                  for (unsigned int i = 0; i < 4; ++i)
                     {
+                      auto &new_quad = new_quads[i];
+
+                      new_quad->set_bounding_object_indices(
+                        {line_indices[quad_lines[i][0]],
+                         line_indices[quad_lines[i][1]],
+                         line_indices[quad_lines[i][2]],
+                         line_indices[quad_lines[i][3]]});
+
                       new_quad->set_used_flag();
                       new_quad->clear_user_flag();
                       new_quad->clear_user_data();
