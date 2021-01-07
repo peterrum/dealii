@@ -5177,6 +5177,20 @@ namespace internal
       }
 
 
+      template <int spacedim>
+      static typename Triangulation<3, spacedim>::DistortedCellList
+        execute_refinement_isotropic(Triangulation<3, spacedim> &triangulation,
+                                     const bool check_for_distorted_cells)
+      {
+        (void)triangulation;
+        (void)check_for_distorted_cells;
+
+        typename Triangulation<3, spacedim>::DistortedCellList
+          cells_with_distorted_children;
+
+        return cells_with_distorted_children;
+      }
+
       /**
        * A function that performs the refinement of a triangulation in
        * 3d.
@@ -5187,6 +5201,29 @@ namespace internal
                            const bool check_for_distorted_cells)
       {
         const unsigned int dim = 3;
+
+        {
+          bool flag_isotropic_mesh = true;
+          typename Triangulation<dim, spacedim>::raw_cell_iterator
+            cell = triangulation.begin(),
+            endc = triangulation.end();
+          for (; cell != endc; ++cell)
+            if (cell->used())
+              if (cell->refine_flag_set() == RefinementCase<dim>::cut_x ||
+                  cell->refine_flag_set() == RefinementCase<dim>::cut_y ||
+                  cell->refine_flag_set() == RefinementCase<dim>::cut_z ||
+                  cell->refine_flag_set() == RefinementCase<dim>::cut_xy ||
+                  cell->refine_flag_set() == RefinementCase<dim>::cut_xz ||
+                  cell->refine_flag_set() == RefinementCase<dim>::cut_yz)
+                {
+                  flag_isotropic_mesh = false;
+                  break;
+                }
+
+          if (flag_isotropic_mesh)
+            return execute_refinement_isotropic(triangulation,
+                                                check_for_distorted_cells);
+        }
 
         // this function probably also works for spacedim>3 but it
         // isn't tested. it will probably be necessary to pull new
