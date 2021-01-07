@@ -5463,23 +5463,43 @@ namespace internal
                       new_quads[3]->used() == false,
                       ExcMessage(
                         "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+
+                    quad->set_children(0, new_quads[0]->index());
+                    quad->set_children(2, new_quads[2]->index());
+                    quad->set_refinement_case(RefinementCase<2>::cut_xy);
                   }
 
-                  const unsigned int vertex_indices[5] = {
+                  const unsigned int vertex_indices[9] = {
+                    quad->vertex_index(0),
+                    quad->vertex_index(1),
+                    quad->vertex_index(2),
+                    quad->vertex_index(3),
                     quad->line(0)->child(0)->vertex_index(1),
                     quad->line(1)->child(0)->vertex_index(1),
                     quad->line(2)->child(0)->vertex_index(1),
                     quad->line(3)->child(0)->vertex_index(1),
                     next_unused_vertex};
 
-                  new_lines[0]->set_bounding_object_indices(
-                    {vertex_indices[2], vertex_indices[4]});
-                  new_lines[1]->set_bounding_object_indices(
-                    {vertex_indices[4], vertex_indices[3]});
-                  new_lines[2]->set_bounding_object_indices(
-                    {vertex_indices[0], vertex_indices[4]});
-                  new_lines[3]->set_bounding_object_indices(
-                    {vertex_indices[4], vertex_indices[1]});
+                  std::array<std::array<unsigned int, 2>, 12> line_vertices{
+                    {{{0, 4}},
+                     {{4, 2}},
+                     {{1, 5}},
+                     {{5, 3}},
+                     {{0, 6}},
+                     {{6, 1}},
+                     {{2, 7}},
+                     {{7, 3}},
+                     {{6, 8}},
+                     {{8, 7}},
+                     {{4, 8}},
+                     {{8, 5}}}};
+
+                  const unsigned int n_old_lines = 8;
+
+                  for (unsigned int i = 0, j = n_old_lines; i < 4; ++i, ++j)
+                    new_lines[i]->set_bounding_object_indices(
+                      {vertex_indices[line_vertices[j][0]],
+                       vertex_indices[line_vertices[j][1]]});
 
                   for (const auto &new_line : new_lines)
                     {
@@ -5524,11 +5544,6 @@ namespace internal
                     new_lines[1]->index(),
                     new_lines[2]->index(),
                     new_lines[3]->index()};
-
-                  // note these quads as children to the present one
-                  quad->set_children(0, new_quads[0]->index());
-                  quad->set_children(2, new_quads[2]->index());
-                  quad->set_refinement_case(RefinementCase<2>::cut_xy);
 
                   new_quads[0]->set_bounding_object_indices({line_indices[0],
                                                              line_indices[8],
