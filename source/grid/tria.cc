@@ -5762,7 +5762,7 @@ namespace internal
                                       hex->face_rotation(5)};
 
                 {
-                  const unsigned int vertex_indices[15] = {
+                  const unsigned int vertex_indices[27] = {
                     hex->vertex_index(0),
                     hex->vertex_index(1),
                     hex->vertex_index(2),
@@ -5771,6 +5771,18 @@ namespace internal
                     hex->vertex_index(5),
                     hex->vertex_index(6),
                     hex->vertex_index(7),
+                    hex->line(0)->child(0)->vertex_index(1),
+                    hex->line(1)->child(0)->vertex_index(1),
+                    hex->line(2)->child(0)->vertex_index(1),
+                    hex->line(3)->child(0)->vertex_index(1),
+                    hex->line(4)->child(0)->vertex_index(1),
+                    hex->line(5)->child(0)->vertex_index(1),
+                    hex->line(6)->child(0)->vertex_index(1),
+                    hex->line(7)->child(0)->vertex_index(1),
+                    hex->line(8)->child(0)->vertex_index(1),
+                    hex->line(9)->child(0)->vertex_index(1),
+                    hex->line(10)->child(0)->vertex_index(1),
+                    hex->line(11)->child(0)->vertex_index(1),
                     middle_vertex_index<dim, spacedim>(hex->face(0)),
                     middle_vertex_index<dim, spacedim>(hex->face(1)),
                     middle_vertex_index<dim, spacedim>(hex->face(2)),
@@ -5779,7 +5791,7 @@ namespace internal
                     middle_vertex_index<dim, spacedim>(hex->face(5)),
                     next_unused_vertex};
 
-                  const unsigned int n_vetices_old = 8;
+                  const unsigned int n_vetices_old = 20;
 
                   static constexpr std::array<std::array<unsigned int, 2>, 6>
                     line_vertices = {{{{2, 6}},
@@ -5823,38 +5835,6 @@ namespace internal
                   for (unsigned int i = 0; i < 30; ++i)
                     line_indices[i] = lines[i]->index();
 
-                  // the orientation of lines for the inner quads
-                  // is quite tricky. as these lines are newly
-                  // created ones and thus have no parents, they
-                  // cannot inherit this property. set up an array
-                  // and fill it with the respective values
-                  bool line_orientation[30];
-
-                  // note: for the first 24 lines (inner lines of
-                  // the outer quads) the following holds: the
-                  // second vertex of the even lines in standard
-                  // orientation is the vertex in the middle of
-                  // the quad, whereas for odd lines the first
-                  // vertex is the same middle vertex.
-                  for (unsigned int i = 0; i < 24; ++i)
-                    if (lines[i]->vertex_index((i + 1) % 2) ==
-                        vertex_indices[i / 4 + n_vetices_old])
-                      line_orientation[i] = true;
-                    else
-                      {
-                        // it must be the other way
-                        // round then
-                        Assert(lines[i]->vertex_index(i % 2) ==
-                                 vertex_indices[i / 4 + n_vetices_old],
-                               ExcInternalError());
-                        line_orientation[i] = false;
-                      }
-                  // for the last 6 lines the line orientation is
-                  // always true, since they were just constructed
-                  // that way
-                  for (unsigned int i = 24; i < 30; ++i)
-                    line_orientation[i] = true;
-
                   static constexpr std::array<std::array<unsigned int, 4>, 12>
                     quad_lines = {{{{10, 28, 16, 24}},
                                    {{28, 14, 17, 25}},
@@ -5876,44 +5856,67 @@ namespace internal
                        line_indices[quad_lines[i][2]],
                        line_indices[quad_lines[i][3]]});
 
-                  // now reset the line_orientation flags of outer
-                  // lines as they cannot be set in a loop (at
-                  // least not easily)
-                  new_quads[0]->set_line_orientation(0, line_orientation[10]);
-                  new_quads[0]->set_line_orientation(2, line_orientation[16]);
+                  static constexpr std::
+                    array<std::array<std::array<unsigned int, 2>, 4>, 12>
+                      table = {
+                        {{{{{10, 22}}, {{24, 26}}, {{10, 24}}, {{22, 26}}}},
+                         {{{{24, 26}}, {{11, 23}}, {{24, 11}}, {{26, 23}}}},
+                         {{{{22, 14}}, {{26, 25}}, {{22, 26}}, {{14, 25}}}},
+                         {{{{26, 25}}, {{23, 15}}, {{26, 23}}, {{25, 15}}}},
 
-                  new_quads[1]->set_line_orientation(1, line_orientation[14]);
-                  new_quads[1]->set_line_orientation(2, line_orientation[17]);
+                         {{{{8, 24}}, {{20, 26}}, {{8, 20}}, {{24, 26}}}},
+                         {{{{20, 26}}, {{12, 25}}, {{20, 12}}, {{26, 25}}}},
+                         {{{{24, 9}}, {{26, 21}}, {{24, 26}}, {{9, 21}}}},
+                         {{{{26, 21}}, {{25, 13}}, {{26, 25}}, {{21, 13}}}},
 
-                  new_quads[2]->set_line_orientation(0, line_orientation[11]);
-                  new_quads[2]->set_line_orientation(3, line_orientation[20]);
+                         {{{{16, 20}}, {{22, 26}}, {{16, 22}}, {{20, 26}}}},
+                         {{{{22, 26}}, {{17, 21}}, {{22, 17}}, {{26, 21}}}},
+                         {{{{20, 18}}, {{26, 23}}, {{20, 26}}, {{18, 23}}}},
+                         {{{{26, 23}}, {{21, 19}}, {{26, 21}}, {{23, 19}}}}}};
 
-                  new_quads[3]->set_line_orientation(1, line_orientation[15]);
-                  new_quads[3]->set_line_orientation(3, line_orientation[21]);
+#if false
+                  for(unsigned int i = 0; i < 27; ++i)
+                      std::cout << vertex_indices[i] << " ";
+                  std::cout << std::endl;
+                  
+                  for(unsigned int q = 0; q < 12; ++q)
+                  {
+                    for(unsigned int l = 0; l < 4; ++l)
+                        std::cout<< lines[quad_lines[q][l]]->vertex_index(0) << "_" << lines[quad_lines[q][l]]->vertex_index(1) << " ";
+                    std::cout<< std::endl;
+                    for(unsigned int l = 0; l < 4; ++l)
+                        std::cout<< vertex_indices[table[q][l][0]] <<  "_" << vertex_indices[table[q][l][1]] << " ";
+                    std::cout<< std::endl;
+                    std::cout<< std::endl;
+                  }
+#endif
 
-                  new_quads[4]->set_line_orientation(0, line_orientation[18]);
-                  new_quads[4]->set_line_orientation(2, line_orientation[0]);
+                  for (unsigned int q = 0; q < 12; ++q)
+                    for (unsigned int l = 0; l < 4; ++l)
+                      {
+                        if (lines[quad_lines[q][l]]->vertex_index(0) ==
+                            vertex_indices[table[q][l][0]])
+                          {
+                            AssertDimension(
+                              lines[quad_lines[q][l]]->vertex_index(0),
+                              vertex_indices[table[q][l][0]]);
+                            AssertDimension(
+                              lines[quad_lines[q][l]]->vertex_index(1),
+                              vertex_indices[table[q][l][1]]);
 
-                  new_quads[5]->set_line_orientation(1, line_orientation[22]);
-                  new_quads[5]->set_line_orientation(2, line_orientation[1]);
-
-                  new_quads[6]->set_line_orientation(0, line_orientation[19]);
-                  new_quads[6]->set_line_orientation(3, line_orientation[4]);
-
-                  new_quads[7]->set_line_orientation(1, line_orientation[23]);
-                  new_quads[7]->set_line_orientation(3, line_orientation[5]);
-
-                  new_quads[8]->set_line_orientation(0, line_orientation[2]);
-                  new_quads[8]->set_line_orientation(2, line_orientation[8]);
-
-                  new_quads[9]->set_line_orientation(1, line_orientation[6]);
-                  new_quads[9]->set_line_orientation(2, line_orientation[9]);
-
-                  new_quads[10]->set_line_orientation(0, line_orientation[3]);
-                  new_quads[10]->set_line_orientation(3, line_orientation[12]);
-
-                  new_quads[11]->set_line_orientation(1, line_orientation[7]);
-                  new_quads[11]->set_line_orientation(3, line_orientation[13]);
+                            new_quads[q]->set_line_orientation(l, 1);
+                          }
+                        else
+                          {
+                            AssertDimension(
+                              lines[quad_lines[q][l]]->vertex_index(0),
+                              vertex_indices[table[q][l][1]]);
+                            AssertDimension(
+                              lines[quad_lines[q][l]]->vertex_index(1),
+                              vertex_indices[table[q][l][0]]);
+                            new_quads[q]->set_line_orientation(l, 0);
+                          }
+                      }
 
                   std::array<int, 36> quad_indices;
 
