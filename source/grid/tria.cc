@@ -5427,7 +5427,7 @@ namespace internal
                       }
                   }
 
-                  // 3) create new faces (properties are set below)
+                  // 3) create new quads (properties are set below)
                   typename Triangulation<dim, spacedim>::raw_quad_iterator
                     new_quads[4];
                   {
@@ -5538,6 +5538,7 @@ namespace internal
                   const unsigned int n_new_lines = 4;
                   const unsigned int n_new_quads = 4;
 
+                  // 4) set properties of lines
                   for (unsigned int i = 0, j = n_old_lines; i < n_new_lines;
                        ++i, ++j)
                     {
@@ -5553,6 +5554,7 @@ namespace internal
                       new_line->set_manifold_id(quad->manifold_id());
                     }
 
+                  // 5) set properties of quads
                   for (unsigned int i = 0; i < n_new_quads; ++i)
                     {
                       auto &new_quad = new_quads[i];
@@ -5608,80 +5610,91 @@ namespace internal
               next_unused_hex = triangulation.begin_raw_hex(level + 1);
 
             for (; hex != endh; ++hex)
-              if (hex->refine_flag_set())
+              {
+                if (hex->refine_flag_set() ==
+                    RefinementCase<dim>::no_refinement)
+                  continue;
+
+                const RefinementCase<dim> ref_case = hex->refine_flag_set();
+                hex->clear_refine_flag();
+                hex->set_refinement_case(ref_case);
+
+                unsigned int n_new_lines = 0;
+                unsigned int n_new_quads = 0;
+                unsigned int n_new_hexes = 0;
+
                 {
-                  const RefinementCase<dim> ref_case = hex->refine_flag_set();
-                  hex->clear_refine_flag();
-                  hex->set_refinement_case(ref_case);
+                  n_new_lines = 6;  // TODO
+                  n_new_quads = 12; //
+                  n_new_hexes = 8;  //
+                }
 
-                  unsigned int n_new_lines = 0;
-                  unsigned int n_new_quads = 0;
-                  unsigned int n_new_hexes = 0;
-                  switch (ref_case)
-                    {
-                      case RefinementCase<dim>::cut_xyz:
-                        n_new_lines = 6;
-                        n_new_quads = 12;
-                        n_new_hexes = 8;
-                        break;
-                      default:
-                        Assert(false, ExcInternalError());
-                        break;
-                    }
+                {
+                  while (triangulation.vertices_used[next_unused_vertex] ==
+                         true)
+                    ++next_unused_vertex;
+                  Assert(
+                    next_unused_vertex < triangulation.vertices.size(),
+                    ExcMessage(
+                      "Internal error: During refinement, the triangulation wants to access an element of the 'vertices' array but it turns out that the array is not large enough."));
+                  triangulation.vertices_used[next_unused_vertex] = true;
 
-                  std::vector<
-                    typename Triangulation<dim, spacedim>::raw_line_iterator>
-                    new_lines(n_new_lines);
-                  for (unsigned int i = 0; i < n_new_lines; ++i)
-                    {
-                      new_lines[i] =
-                        triangulation.faces->lines
-                          .template next_free_single_object<1>(triangulation);
+                  triangulation.vertices[next_unused_vertex] =
+                    hex->center(true, true);
+                }
 
-                      Assert(
-                        new_lines[i]->used() == false,
-                        ExcMessage(
-                          "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
-                      new_lines[i]->set_used_flag();
-                      new_lines[i]->clear_user_flag();
-                      new_lines[i]->clear_user_data();
-                      new_lines[i]->clear_children();
-                      new_lines[i]->set_boundary_id_internal(
-                        numbers::internal_face_boundary_id);
-                      new_lines[i]->set_manifold_id(hex->manifold_id());
-                    }
+                std::vector<
+                  typename Triangulation<dim, spacedim>::raw_line_iterator>
+                  new_lines(n_new_lines);
+                for (unsigned int i = 0; i < n_new_lines; ++i)
+                  {
+                    new_lines[i] =
+                      triangulation.faces->lines
+                        .template next_free_single_object<1>(triangulation);
 
-                  std::vector<
-                    typename Triangulation<dim, spacedim>::raw_quad_iterator>
-                    new_quads(n_new_quads);
-                  for (unsigned int i = 0; i < n_new_quads; ++i)
-                    {
-                      new_quads[i] =
-                        triangulation.faces->quads
-                          .template next_free_single_object<2>(triangulation);
+                    Assert(
+                      new_lines[i]->used() == false,
+                      ExcMessage(
+                        "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+                    new_lines[i]->set_used_flag();
+                    new_lines[i]->clear_user_flag();
+                    new_lines[i]->clear_user_data();
+                    new_lines[i]->clear_children();
+                    new_lines[i]->set_boundary_id_internal(
+                      numbers::internal_face_boundary_id);
+                    new_lines[i]->set_manifold_id(hex->manifold_id());
+                  }
 
-                      Assert(
-                        new_quads[i]->used() == false,
-                        ExcMessage(
-                          "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
-                      new_quads[i]->set_used_flag();
-                      new_quads[i]->clear_user_flag();
-                      new_quads[i]->clear_user_data();
-                      new_quads[i]->clear_children();
-                      new_quads[i]->set_boundary_id_internal(
-                        numbers::internal_face_boundary_id);
-                      new_quads[i]->set_manifold_id(hex->manifold_id());
-                      for (unsigned int j = 0;
-                           j < GeometryInfo<dim>::lines_per_face;
-                           ++j)
-                        new_quads[i]->set_line_orientation(j, true);
-                    }
+                std::vector<
+                  typename Triangulation<dim, spacedim>::raw_quad_iterator>
+                  new_quads(n_new_quads);
+                for (unsigned int i = 0; i < n_new_quads; ++i)
+                  {
+                    new_quads[i] =
+                      triangulation.faces->quads
+                        .template next_free_single_object<2>(triangulation);
 
-                  types::subdomain_id subdomainid = hex->subdomain_id();
+                    Assert(
+                      new_quads[i]->used() == false,
+                      ExcMessage(
+                        "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+                    new_quads[i]->set_used_flag();
+                    new_quads[i]->clear_user_flag();
+                    new_quads[i]->clear_user_data();
+                    new_quads[i]->clear_children();
+                    new_quads[i]->set_boundary_id_internal(
+                      numbers::internal_face_boundary_id);
+                    new_quads[i]->set_manifold_id(hex->manifold_id());
+                    for (unsigned int j = 0;
+                         j < GeometryInfo<dim>::lines_per_face;
+                         ++j)
+                      new_quads[i]->set_line_orientation(j, true);
+                  }
 
-                  std::vector<
-                    typename Triangulation<dim, spacedim>::raw_hex_iterator>
-                    new_hexes(n_new_hexes);
+                std::vector<
+                  typename Triangulation<dim, spacedim>::raw_hex_iterator>
+                  new_hexes(n_new_hexes);
+                {
                   for (unsigned int i = 0; i < n_new_hexes; ++i)
                     {
                       if (i % 2 == 0)
@@ -5703,7 +5716,7 @@ namespace internal
                       new_hexes[i]->clear_children();
                       new_hexes[i]->set_material_id(hex->material_id());
                       new_hexes[i]->set_manifold_id(hex->manifold_id());
-                      new_hexes[i]->set_subdomain_id(subdomainid);
+                      new_hexes[i]->set_subdomain_id(hex->subdomain_id());
 
                       if (i % 2)
                         new_hexes[i]->set_parent(hex->index());
@@ -5718,754 +5731,665 @@ namespace internal
                   // note these hexes as children to the present cell
                   for (unsigned int i = 0; i < n_new_hexes / 2; ++i)
                     hex->set_children(2 * i, new_hexes[2 * i]->index());
-
-                  // we have to take into account whether the
-                  // different faces are oriented correctly or in the
-                  // opposite direction, so store that up front
-
-                  // face_orientation
-                  const bool f_or[6] = {hex->face_orientation(0),
-                                        hex->face_orientation(1),
-                                        hex->face_orientation(2),
-                                        hex->face_orientation(3),
-                                        hex->face_orientation(4),
-                                        hex->face_orientation(5)};
-
-                  // face_flip
-                  const bool f_fl[6] = {hex->face_flip(0),
-                                        hex->face_flip(1),
-                                        hex->face_flip(2),
-                                        hex->face_flip(3),
-                                        hex->face_flip(4),
-                                        hex->face_flip(5)};
-
-                  // face_rotation
-                  const bool f_ro[6] = {hex->face_rotation(0),
-                                        hex->face_rotation(1),
-                                        hex->face_rotation(2),
-                                        hex->face_rotation(3),
-                                        hex->face_rotation(4),
-                                        hex->face_rotation(5)};
-
-                  switch (ref_case)
-                    {
-                      case RefinementCase<dim>::cut_xyz:
-                        {
-                          //////////////////////////////
-                          //
-                          //     RefinementCase<dim>::cut_xyz
-                          //     isotropic refinement
-                          //
-                          // the refined cube will look
-                          // like this:
-                          //
-                          //        *----*----*
-                          //       /    /    /|
-                          //      *----*----* |
-                          //     /    /    /| *
-                          //    *----*----* |/|
-                          //    |    |    | * |
-                          //    |    |    |/| *
-                          //    *----*----* |/
-                          //    |    |    | *
-                          //    |    |    |/
-                          //    *----*----*
-                          //
-
-                          // find the next unused vertex and set it
-                          // appropriately
-                          while (
-                            triangulation.vertices_used[next_unused_vertex] ==
-                            true)
-                            ++next_unused_vertex;
-                          Assert(
-                            next_unused_vertex < triangulation.vertices.size(),
-                            ExcMessage(
-                              "Internal error: During refinement, the triangulation wants to access an element of the 'vertices' array but it turns out that the array is not large enough."));
-                          triangulation.vertices_used[next_unused_vertex] =
-                            true;
-
-                          // the new vertex is definitely in the interior,
-                          // so we need not worry about the
-                          // boundary. However we need to worry about
-                          // Manifolds. Let the cell compute its own
-                          // center, by querying the underlying manifold
-                          // object.
-                          triangulation.vertices[next_unused_vertex] =
-                            hex->center(true, true);
-
-                          // set the data of the six lines.  first collect
-                          // the indices of the seven vertices (consider
-                          // the two planes to be crossed to form the
-                          // planes cutting the hex in two vertically and
-                          // horizontally)
-                          //
-                          //     *--3--*   *--5--*
-                          //    /  /  /    |  |  |
-                          //   0--6--1     0--6--1
-                          //  /  /  /      |  |  |
-                          // *--2--*       *--4--*
-                          // the lines are numbered
-                          // as follows:
-                          //     *--*--*   *--*--*
-                          //    /  1  /    |  5  |
-                          //   *2-*-3*     *2-*-3*
-                          //  /  0  /      |  4  |
-                          // *--*--*       *--*--*
-                          //
-                          const unsigned int vertex_indices[7] = {
-                            middle_vertex_index<dim, spacedim>(hex->face(0)),
-                            middle_vertex_index<dim, spacedim>(hex->face(1)),
-                            middle_vertex_index<dim, spacedim>(hex->face(2)),
-                            middle_vertex_index<dim, spacedim>(hex->face(3)),
-                            middle_vertex_index<dim, spacedim>(hex->face(4)),
-                            middle_vertex_index<dim, spacedim>(hex->face(5)),
-                            next_unused_vertex};
-
-                          new_lines[0]->set_bounding_object_indices(
-                            {vertex_indices[2], vertex_indices[6]});
-                          new_lines[1]->set_bounding_object_indices(
-                            {vertex_indices[6], vertex_indices[3]});
-                          new_lines[2]->set_bounding_object_indices(
-                            {vertex_indices[0], vertex_indices[6]});
-                          new_lines[3]->set_bounding_object_indices(
-                            {vertex_indices[6], vertex_indices[1]});
-                          new_lines[4]->set_bounding_object_indices(
-                            {vertex_indices[4], vertex_indices[6]});
-                          new_lines[5]->set_bounding_object_indices(
-                            {vertex_indices[6], vertex_indices[5]});
-
-                          // again, first collect some data about the
-                          // indices of the lines, with the following
-                          // numbering: (note that face 0 and 1 each are
-                          // shown twice for better readability)
-
-                          // face 0: left plane
-                          //       *            *
-                          //      /|           /|
-                          //     * |          * |
-                          //    /| *         /| *
-                          //   * 1/|        * |3|
-                          //   | * |        | * |
-                          //   |/| *        |2| *
-                          //   * 0/         * |/
-                          //   | *          | *
-                          //   |/           |/
-                          //   *            *
-                          // face 1: right plane
-                          //       *            *
-                          //      /|           /|
-                          //     * |          * |
-                          //    /| *         /| *
-                          //   * 5/|        * |7|
-                          //   | * |        | * |
-                          //   |/| *        |6| *
-                          //   * 4/         * |/
-                          //   | *          | *
-                          //   |/           |/
-                          //   *            *
-                          // face 2: front plane
-                          //   (note: x,y exchanged)
-                          //   *---*---*
-                          //   |   11  |
-                          //   *-8-*-9-*
-                          //   |   10  |
-                          //   *---*---*
-                          // face 3: back plane
-                          //   (note: x,y exchanged)
-                          //   *---*---*
-                          //   |   15  |
-                          //   *12-*-13*
-                          //   |   14  |
-                          //   *---*---*
-                          // face 4: bottom plane
-                          //       *---*---*
-                          //      /  17   /
-                          //     *18-*-19*
-                          //    /   16  /
-                          //   *---*---*
-                          // face 5: top plane
-                          //       *---*---*
-                          //      /  21   /
-                          //     *22-*-23*
-                          //    /   20  /
-                          //   *---*---*
-                          // middle planes
-                          //     *---*---*   *---*---*
-                          //    /  25   /    |   29  |
-                          //   *26-*-27*     *26-*-27*
-                          //  /   24  /      |   28  |
-                          // *---*---*       *---*---*
-
-                          // set up a list of line iterators first. from
-                          // this, construct lists of line_indices and
-                          // line orientations later on
-                          const typename Triangulation<
-                            dim,
-                            spacedim>::raw_line_iterator lines[30] = {
-                            hex->face(0)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  0, f_or[0], f_fl[0], f_ro[0]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  1, f_or[0], f_fl[0], f_ro[0])), // 0
-                            hex->face(0)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  3, f_or[0], f_fl[0], f_ro[0]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  0, f_or[0], f_fl[0], f_ro[0])), // 1
-                            hex->face(0)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  0, f_or[0], f_fl[0], f_ro[0]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  3, f_or[0], f_fl[0], f_ro[0])), // 2
-                            hex->face(0)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  3, f_or[0], f_fl[0], f_ro[0]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  2, f_or[0], f_fl[0], f_ro[0])), // 3
-
-                            hex->face(1)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  0, f_or[1], f_fl[1], f_ro[1]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  1, f_or[1], f_fl[1], f_ro[1])), // 4
-                            hex->face(1)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  3, f_or[1], f_fl[1], f_ro[1]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  0, f_or[1], f_fl[1], f_ro[1])), // 5
-                            hex->face(1)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  0, f_or[1], f_fl[1], f_ro[1]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  3, f_or[1], f_fl[1], f_ro[1])), // 6
-                            hex->face(1)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  3, f_or[1], f_fl[1], f_ro[1]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  2, f_or[1], f_fl[1], f_ro[1])), // 7
-
-                            hex->face(2)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  0, f_or[2], f_fl[2], f_ro[2]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  1, f_or[2], f_fl[2], f_ro[2])), // 8
-                            hex->face(2)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  3, f_or[2], f_fl[2], f_ro[2]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  0, f_or[2], f_fl[2], f_ro[2])), // 9
-                            hex->face(2)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  0, f_or[2], f_fl[2], f_ro[2]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  3, f_or[2], f_fl[2], f_ro[2])), // 10
-                            hex->face(2)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  3, f_or[2], f_fl[2], f_ro[2]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  2, f_or[2], f_fl[2], f_ro[2])), // 11
-
-                            hex->face(3)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  0, f_or[3], f_fl[3], f_ro[3]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  1, f_or[3], f_fl[3], f_ro[3])), // 12
-                            hex->face(3)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  3, f_or[3], f_fl[3], f_ro[3]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  0, f_or[3], f_fl[3], f_ro[3])), // 13
-                            hex->face(3)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  0, f_or[3], f_fl[3], f_ro[3]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  3, f_or[3], f_fl[3], f_ro[3])), // 14
-                            hex->face(3)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  3, f_or[3], f_fl[3], f_ro[3]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  2, f_or[3], f_fl[3], f_ro[3])), // 15
-
-                            hex->face(4)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  0, f_or[4], f_fl[4], f_ro[4]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  1, f_or[4], f_fl[4], f_ro[4])), // 16
-                            hex->face(4)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  3, f_or[4], f_fl[4], f_ro[4]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  0, f_or[4], f_fl[4], f_ro[4])), // 17
-                            hex->face(4)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  0, f_or[4], f_fl[4], f_ro[4]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  3, f_or[4], f_fl[4], f_ro[4])), // 18
-                            hex->face(4)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  3, f_or[4], f_fl[4], f_ro[4]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  2, f_or[4], f_fl[4], f_ro[4])), // 19
-
-                            hex->face(5)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  0, f_or[5], f_fl[5], f_ro[5]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  1, f_or[5], f_fl[5], f_ro[5])), // 20
-                            hex->face(5)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  3, f_or[5], f_fl[5], f_ro[5]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  0, f_or[5], f_fl[5], f_ro[5])), // 21
-                            hex->face(5)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  0, f_or[5], f_fl[5], f_ro[5]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  3, f_or[5], f_fl[5], f_ro[5])), // 22
-                            hex->face(5)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  3, f_or[5], f_fl[5], f_ro[5]))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  2, f_or[5], f_fl[5], f_ro[5])), // 23
-
-                            new_lines[0], // 24
-                            new_lines[1], // 25
-                            new_lines[2], // 26
-                            new_lines[3], // 27
-                            new_lines[4], // 28
-                            new_lines[5]  // 29
-                          };
-
-                          unsigned int line_indices[30];
-                          for (unsigned int i = 0; i < 30; ++i)
-                            line_indices[i] = lines[i]->index();
-
-                          // the orientation of lines for the inner quads
-                          // is quite tricky. as these lines are newly
-                          // created ones and thus have no parents, they
-                          // cannot inherit this property. set up an array
-                          // and fill it with the respective values
-                          bool line_orientation[30];
-
-                          // note: for the first 24 lines (inner lines of
-                          // the outer quads) the following holds: the
-                          // second vertex of the even lines in standard
-                          // orientation is the vertex in the middle of
-                          // the quad, whereas for odd lines the first
-                          // vertex is the same middle vertex.
-                          for (unsigned int i = 0; i < 24; ++i)
-                            if (lines[i]->vertex_index((i + 1) % 2) ==
-                                vertex_indices[i / 4])
-                              line_orientation[i] = true;
-                            else
-                              {
-                                // it must be the other way
-                                // round then
-                                Assert(lines[i]->vertex_index(i % 2) ==
-                                         vertex_indices[i / 4],
-                                       ExcInternalError());
-                                line_orientation[i] = false;
-                              }
-                          // for the last 6 lines the line orientation is
-                          // always true, since they were just constructed
-                          // that way
-                          for (unsigned int i = 24; i < 30; ++i)
-                            line_orientation[i] = true;
-
-                          // set up the 12 quads, numbered as follows
-                          // (left quad numbering, right line numbering
-                          // extracted from above)
-                          //
-                          //      *          *
-                          //     /|        21|
-                          //    * |        * 15
-                          //  y/|3*      20| *
-                          //  * |/|      * |/|
-                          //  |2* |x    11 * 14
-                          //  |/|1*      |/| *
-                          //  * |/       * |17
-                          //  |0*       10 *
-                          //  |/         |16
-                          //  *          *
-                          //
-                          //  x
-                          //  *---*---*      *22-*-23*
-                          //  | 5 | 7 |      1  29   5
-                          //  *---*---*      *26-*-27*
-                          //  | 4 | 6 |      0  28   4
-                          //  *---*---*y     *18-*-19*
-                          //
-                          //       y
-                          //      *----*----*      *-12-*-13-*
-                          //     / 10 / 11 /      3   25    7
-                          //    *----*----*      *-26-*-27-*
-                          //   / 8  / 9  /      2   24    6
-                          //  *----*----*x     *--8-*--9-*
-
-                          new_quads[0]->set_bounding_object_indices(
-                            {line_indices[10],
-                             line_indices[28],
-                             line_indices[16],
-                             line_indices[24]});
-                          new_quads[1]->set_bounding_object_indices(
-                            {line_indices[28],
-                             line_indices[14],
-                             line_indices[17],
-                             line_indices[25]});
-                          new_quads[2]->set_bounding_object_indices(
-                            {line_indices[11],
-                             line_indices[29],
-                             line_indices[24],
-                             line_indices[20]});
-                          new_quads[3]->set_bounding_object_indices(
-                            {line_indices[29],
-                             line_indices[15],
-                             line_indices[25],
-                             line_indices[21]});
-                          new_quads[4]->set_bounding_object_indices(
-                            {line_indices[18],
-                             line_indices[26],
-                             line_indices[0],
-                             line_indices[28]});
-                          new_quads[5]->set_bounding_object_indices(
-                            {line_indices[26],
-                             line_indices[22],
-                             line_indices[1],
-                             line_indices[29]});
-                          new_quads[6]->set_bounding_object_indices(
-                            {line_indices[19],
-                             line_indices[27],
-                             line_indices[28],
-                             line_indices[4]});
-                          new_quads[7]->set_bounding_object_indices(
-                            {line_indices[27],
-                             line_indices[23],
-                             line_indices[29],
-                             line_indices[5]});
-                          new_quads[8]->set_bounding_object_indices(
-                            {line_indices[2],
-                             line_indices[24],
-                             line_indices[8],
-                             line_indices[26]});
-                          new_quads[9]->set_bounding_object_indices(
-                            {line_indices[24],
-                             line_indices[6],
-                             line_indices[9],
-                             line_indices[27]});
-                          new_quads[10]->set_bounding_object_indices(
-                            {line_indices[3],
-                             line_indices[25],
-                             line_indices[26],
-                             line_indices[12]});
-                          new_quads[11]->set_bounding_object_indices(
-                            {line_indices[25],
-                             line_indices[7],
-                             line_indices[27],
-                             line_indices[13]});
-
-                          // now reset the line_orientation flags of outer
-                          // lines as they cannot be set in a loop (at
-                          // least not easily)
-                          new_quads[0]->set_line_orientation(
-                            0, line_orientation[10]);
-                          new_quads[0]->set_line_orientation(
-                            2, line_orientation[16]);
-
-                          new_quads[1]->set_line_orientation(
-                            1, line_orientation[14]);
-                          new_quads[1]->set_line_orientation(
-                            2, line_orientation[17]);
-
-                          new_quads[2]->set_line_orientation(
-                            0, line_orientation[11]);
-                          new_quads[2]->set_line_orientation(
-                            3, line_orientation[20]);
-
-                          new_quads[3]->set_line_orientation(
-                            1, line_orientation[15]);
-                          new_quads[3]->set_line_orientation(
-                            3, line_orientation[21]);
-
-                          new_quads[4]->set_line_orientation(
-                            0, line_orientation[18]);
-                          new_quads[4]->set_line_orientation(
-                            2, line_orientation[0]);
-
-                          new_quads[5]->set_line_orientation(
-                            1, line_orientation[22]);
-                          new_quads[5]->set_line_orientation(
-                            2, line_orientation[1]);
-
-                          new_quads[6]->set_line_orientation(
-                            0, line_orientation[19]);
-                          new_quads[6]->set_line_orientation(
-                            3, line_orientation[4]);
-
-                          new_quads[7]->set_line_orientation(
-                            1, line_orientation[23]);
-                          new_quads[7]->set_line_orientation(
-                            3, line_orientation[5]);
-
-                          new_quads[8]->set_line_orientation(
-                            0, line_orientation[2]);
-                          new_quads[8]->set_line_orientation(
-                            2, line_orientation[8]);
-
-                          new_quads[9]->set_line_orientation(
-                            1, line_orientation[6]);
-                          new_quads[9]->set_line_orientation(
-                            2, line_orientation[9]);
-
-                          new_quads[10]->set_line_orientation(
-                            0, line_orientation[3]);
-                          new_quads[10]->set_line_orientation(
-                            3, line_orientation[12]);
-
-                          new_quads[11]->set_line_orientation(
-                            1, line_orientation[7]);
-                          new_quads[11]->set_line_orientation(
-                            3, line_orientation[13]);
-
-                          /////////////////////////////////
-                          // create the eight new hexes
-                          //
-                          // again first collect some data.  here, we need
-                          // the indices of a whole lotta quads.
-
-                          // the quads are numbered as follows:
-                          //
-                          // planes in the interior of the old hex:
-                          //
-                          //      *
-                          //     /|
-                          //    * |
-                          //   /|3*  *---*---*      *----*----*
-                          //  * |/|  | 5 | 7 |     / 10 / 11 /
-                          //  |2* |  *---*---*    *----*----*
-                          //  |/|1*  | 4 | 6 |   / 8  / 9  /
-                          //  * |/   *---*---*y *----*----*x
-                          //  |0*
-                          //  |/
-                          //  *
-                          //
-                          // children of the faces
-                          // of the old hex
-                          //      *-------*        *-------*
-                          //     /|25   27|       /34   35/|
-                          //    15|       |      /       /19
-                          //   /  |       |     /32   33/  |
-                          //  *   |24   26|    *-------*18 |
-                          //  1413*-------*    |21   23| 17*
-                          //  |  /30   31/     |       |  /
-                          //  12/       /      |       |16
-                          //  |/28   29/       |20   22|/
-                          //  *-------*        *-------*
-                          //
-                          // note that we have to
-                          // take care of the
-                          // orientation of
-                          // faces.
-                          const int quad_indices[36] = {
-                            new_quads[0]->index(), // 0
-                            new_quads[1]->index(),
-                            new_quads[2]->index(),
-                            new_quads[3]->index(),
-                            new_quads[4]->index(),
-                            new_quads[5]->index(),
-                            new_quads[6]->index(),
-                            new_quads[7]->index(),
-                            new_quads[8]->index(),
-                            new_quads[9]->index(),
-                            new_quads[10]->index(),
-                            new_quads[11]->index(), // 11
-
-                            hex->face(0)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                0, f_or[0], f_fl[0], f_ro[0])), // 12
-                            hex->face(0)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                1, f_or[0], f_fl[0], f_ro[0])),
-                            hex->face(0)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                2, f_or[0], f_fl[0], f_ro[0])),
-                            hex->face(0)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                3, f_or[0], f_fl[0], f_ro[0])),
-
-                            hex->face(1)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                0, f_or[1], f_fl[1], f_ro[1])), // 16
-                            hex->face(1)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                1, f_or[1], f_fl[1], f_ro[1])),
-                            hex->face(1)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                2, f_or[1], f_fl[1], f_ro[1])),
-                            hex->face(1)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                3, f_or[1], f_fl[1], f_ro[1])),
-
-                            hex->face(2)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                0, f_or[2], f_fl[2], f_ro[2])), // 20
-                            hex->face(2)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                1, f_or[2], f_fl[2], f_ro[2])),
-                            hex->face(2)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                2, f_or[2], f_fl[2], f_ro[2])),
-                            hex->face(2)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                3, f_or[2], f_fl[2], f_ro[2])),
-
-                            hex->face(3)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                0, f_or[3], f_fl[3], f_ro[3])), // 24
-                            hex->face(3)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                1, f_or[3], f_fl[3], f_ro[3])),
-                            hex->face(3)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                2, f_or[3], f_fl[3], f_ro[3])),
-                            hex->face(3)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                3, f_or[3], f_fl[3], f_ro[3])),
-
-                            hex->face(4)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                0, f_or[4], f_fl[4], f_ro[4])), // 28
-                            hex->face(4)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                1, f_or[4], f_fl[4], f_ro[4])),
-                            hex->face(4)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                2, f_or[4], f_fl[4], f_ro[4])),
-                            hex->face(4)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                3, f_or[4], f_fl[4], f_ro[4])),
-
-                            hex->face(5)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                0, f_or[5], f_fl[5], f_ro[5])), // 32
-                            hex->face(5)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                1, f_or[5], f_fl[5], f_ro[5])),
-                            hex->face(5)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                2, f_or[5], f_fl[5], f_ro[5])),
-                            hex->face(5)->isotropic_child_index(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                3, f_or[5], f_fl[5], f_ro[5]))};
-
-                          // bottom children
-                          static constexpr std::
-                            array<std::array<unsigned int, 6>, 8>
-                              cell_quads = {{
-                                {{12, 0, 20, 4, 28, 8}},  // bottom children
-                                {{0, 16, 22, 6, 29, 9}},  //
-                                {{13, 1, 4, 24, 30, 10}}, //
-                                {{1, 17, 6, 26, 31, 11}}, //
-                                {{14, 2, 21, 5, 8, 32}},  // top children
-                                {{2, 18, 23, 7, 9, 33}},  //
-                                {{15, 3, 5, 25, 10, 34}}, //
-                                {{3, 19, 7, 27, 11, 35}}  //
-                              }};
-
-                          for (unsigned int c = 0; c < cell_quads.size(); ++c)
-                            new_hexes[c]->set_bounding_object_indices(
-                              {quad_indices[cell_quads[c][0]],
-                               quad_indices[cell_quads[c][1]],
-                               quad_indices[cell_quads[c][2]],
-                               quad_indices[cell_quads[c][3]],
-                               quad_indices[cell_quads[c][4]],
-                               quad_indices[cell_quads[c][5]]});
-                          break;
-                        }
-                      default:
-                        Assert(false, ExcInternalError());
-                        break;
-                    } // switch (ref_case)
-
-                  for (const unsigned int f : GeometryInfo<dim>::face_indices())
-                    for (unsigned int s = 0;
-                         s < std::max(GeometryInfo<dim - 1>::n_children(
-                                        GeometryInfo<dim>::face_refinement_case(
-                                          ref_case, f)),
-                                      1U);
-                         ++s)
-                      {
-                        const unsigned int current_child =
-                          GeometryInfo<dim>::child_cell_on_face(
-                            ref_case,
-                            f,
-                            s,
-                            f_or[f],
-                            f_fl[f],
-                            f_ro[f],
-                            GeometryInfo<dim>::face_refinement_case(
-                              ref_case, f, f_or[f], f_fl[f], f_ro[f]));
-                        new_hexes[current_child]->set_face_orientation(f,
-                                                                       f_or[f]);
-                        new_hexes[current_child]->set_face_flip(f, f_fl[f]);
-                        new_hexes[current_child]->set_face_rotation(f, f_ro[f]);
-                      }
-
-                  if (check_for_distorted_cells &&
-                      has_distorted_children<dim, spacedim>(hex))
-                    cells_with_distorted_children.distorted_cells.push_back(
-                      hex);
-
-                  triangulation.signals.post_refinement_on_cell(hex);
                 }
+
+                // we have to take into account whether the
+                // different faces are oriented correctly or in the
+                // opposite direction, so store that up front
+
+                // face_orientation
+                const bool f_or[6] = {hex->face_orientation(0),
+                                      hex->face_orientation(1),
+                                      hex->face_orientation(2),
+                                      hex->face_orientation(3),
+                                      hex->face_orientation(4),
+                                      hex->face_orientation(5)};
+
+                // face_flip
+                const bool f_fl[6] = {hex->face_flip(0),
+                                      hex->face_flip(1),
+                                      hex->face_flip(2),
+                                      hex->face_flip(3),
+                                      hex->face_flip(4),
+                                      hex->face_flip(5)};
+
+                // face_rotation
+                const bool f_ro[6] = {hex->face_rotation(0),
+                                      hex->face_rotation(1),
+                                      hex->face_rotation(2),
+                                      hex->face_rotation(3),
+                                      hex->face_rotation(4),
+                                      hex->face_rotation(5)};
+
+                {
+                  //////////////////////////////
+                  //
+                  //     RefinementCase<dim>::cut_xyz
+                  //     isotropic refinement
+                  //
+                  // the refined cube will look
+                  // like this:
+                  //
+                  //        *----*----*
+                  //       /    /    /|
+                  //      *----*----* |
+                  //     /    /    /| *
+                  //    *----*----* |/|
+                  //    |    |    | * |
+                  //    |    |    |/| *
+                  //    *----*----* |/
+                  //    |    |    | *
+                  //    |    |    |/
+                  //    *----*----*
+                  //
+
+
+                  // set the data of the six lines.  first collect
+                  // the indices of the seven vertices (consider
+                  // the two planes to be crossed to form the
+                  // planes cutting the hex in two vertically and
+                  // horizontally)
+                  //
+                  //     *--3--*   *--5--*
+                  //    /  /  /    |  |  |
+                  //   0--6--1     0--6--1
+                  //  /  /  /      |  |  |
+                  // *--2--*       *--4--*
+                  // the lines are numbered
+                  // as follows:
+                  //     *--*--*   *--*--*
+                  //    /  1  /    |  5  |
+                  //   *2-*-3*     *2-*-3*
+                  //  /  0  /      |  4  |
+                  // *--*--*       *--*--*
+                  //
+                  const unsigned int vertex_indices[7] = {
+                    middle_vertex_index<dim, spacedim>(hex->face(0)),
+                    middle_vertex_index<dim, spacedim>(hex->face(1)),
+                    middle_vertex_index<dim, spacedim>(hex->face(2)),
+                    middle_vertex_index<dim, spacedim>(hex->face(3)),
+                    middle_vertex_index<dim, spacedim>(hex->face(4)),
+                    middle_vertex_index<dim, spacedim>(hex->face(5)),
+                    next_unused_vertex};
+
+                  new_lines[0]->set_bounding_object_indices(
+                    {vertex_indices[2], vertex_indices[6]});
+                  new_lines[1]->set_bounding_object_indices(
+                    {vertex_indices[6], vertex_indices[3]});
+                  new_lines[2]->set_bounding_object_indices(
+                    {vertex_indices[0], vertex_indices[6]});
+                  new_lines[3]->set_bounding_object_indices(
+                    {vertex_indices[6], vertex_indices[1]});
+                  new_lines[4]->set_bounding_object_indices(
+                    {vertex_indices[4], vertex_indices[6]});
+                  new_lines[5]->set_bounding_object_indices(
+                    {vertex_indices[6], vertex_indices[5]});
+
+                  // again, first collect some data about the
+                  // indices of the lines, with the following
+                  // numbering: (note that face 0 and 1 each are
+                  // shown twice for better readability)
+
+                  // face 0: left plane
+                  //       *            *
+                  //      /|           /|
+                  //     * |          * |
+                  //    /| *         /| *
+                  //   * 1/|        * |3|
+                  //   | * |        | * |
+                  //   |/| *        |2| *
+                  //   * 0/         * |/
+                  //   | *          | *
+                  //   |/           |/
+                  //   *            *
+                  // face 1: right plane
+                  //       *            *
+                  //      /|           /|
+                  //     * |          * |
+                  //    /| *         /| *
+                  //   * 5/|        * |7|
+                  //   | * |        | * |
+                  //   |/| *        |6| *
+                  //   * 4/         * |/
+                  //   | *          | *
+                  //   |/           |/
+                  //   *            *
+                  // face 2: front plane
+                  //   (note: x,y exchanged)
+                  //   *---*---*
+                  //   |   11  |
+                  //   *-8-*-9-*
+                  //   |   10  |
+                  //   *---*---*
+                  // face 3: back plane
+                  //   (note: x,y exchanged)
+                  //   *---*---*
+                  //   |   15  |
+                  //   *12-*-13*
+                  //   |   14  |
+                  //   *---*---*
+                  // face 4: bottom plane
+                  //       *---*---*
+                  //      /  17   /
+                  //     *18-*-19*
+                  //    /   16  /
+                  //   *---*---*
+                  // face 5: top plane
+                  //       *---*---*
+                  //      /  21   /
+                  //     *22-*-23*
+                  //    /   20  /
+                  //   *---*---*
+                  // middle planes
+                  //     *---*---*   *---*---*
+                  //    /  25   /    |   29  |
+                  //   *26-*-27*     *26-*-27*
+                  //  /   24  /      |   28  |
+                  // *---*---*       *---*---*
+
+                  // set up a list of line iterators first. from
+                  // this, construct lists of line_indices and
+                  // line orientations later on
+                  const typename Triangulation<dim, spacedim>::raw_line_iterator
+                    lines[30] = {
+                      hex->face(0)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            0, f_or[0], f_fl[0], f_ro[0]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          1, f_or[0], f_fl[0], f_ro[0])), // 0
+                      hex->face(0)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            3, f_or[0], f_fl[0], f_ro[0]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          0, f_or[0], f_fl[0], f_ro[0])), // 1
+                      hex->face(0)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            0, f_or[0], f_fl[0], f_ro[0]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          3, f_or[0], f_fl[0], f_ro[0])), // 2
+                      hex->face(0)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            3, f_or[0], f_fl[0], f_ro[0]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          2, f_or[0], f_fl[0], f_ro[0])), // 3
+
+                      hex->face(1)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            0, f_or[1], f_fl[1], f_ro[1]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          1, f_or[1], f_fl[1], f_ro[1])), // 4
+                      hex->face(1)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            3, f_or[1], f_fl[1], f_ro[1]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          0, f_or[1], f_fl[1], f_ro[1])), // 5
+                      hex->face(1)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            0, f_or[1], f_fl[1], f_ro[1]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          3, f_or[1], f_fl[1], f_ro[1])), // 6
+                      hex->face(1)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            3, f_or[1], f_fl[1], f_ro[1]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          2, f_or[1], f_fl[1], f_ro[1])), // 7
+
+                      hex->face(2)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            0, f_or[2], f_fl[2], f_ro[2]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          1, f_or[2], f_fl[2], f_ro[2])), // 8
+                      hex->face(2)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            3, f_or[2], f_fl[2], f_ro[2]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          0, f_or[2], f_fl[2], f_ro[2])), // 9
+                      hex->face(2)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            0, f_or[2], f_fl[2], f_ro[2]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          3, f_or[2], f_fl[2], f_ro[2])), // 10
+                      hex->face(2)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            3, f_or[2], f_fl[2], f_ro[2]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          2, f_or[2], f_fl[2], f_ro[2])), // 11
+
+                      hex->face(3)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            0, f_or[3], f_fl[3], f_ro[3]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          1, f_or[3], f_fl[3], f_ro[3])), // 12
+                      hex->face(3)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            3, f_or[3], f_fl[3], f_ro[3]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          0, f_or[3], f_fl[3], f_ro[3])), // 13
+                      hex->face(3)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            0, f_or[3], f_fl[3], f_ro[3]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          3, f_or[3], f_fl[3], f_ro[3])), // 14
+                      hex->face(3)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            3, f_or[3], f_fl[3], f_ro[3]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          2, f_or[3], f_fl[3], f_ro[3])), // 15
+
+                      hex->face(4)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            0, f_or[4], f_fl[4], f_ro[4]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          1, f_or[4], f_fl[4], f_ro[4])), // 16
+                      hex->face(4)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            3, f_or[4], f_fl[4], f_ro[4]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          0, f_or[4], f_fl[4], f_ro[4])), // 17
+                      hex->face(4)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            0, f_or[4], f_fl[4], f_ro[4]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          3, f_or[4], f_fl[4], f_ro[4])), // 18
+                      hex->face(4)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            3, f_or[4], f_fl[4], f_ro[4]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          2, f_or[4], f_fl[4], f_ro[4])), // 19
+
+                      hex->face(5)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            0, f_or[5], f_fl[5], f_ro[5]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          1, f_or[5], f_fl[5], f_ro[5])), // 20
+                      hex->face(5)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            3, f_or[5], f_fl[5], f_ro[5]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          0, f_or[5], f_fl[5], f_ro[5])), // 21
+                      hex->face(5)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            0, f_or[5], f_fl[5], f_ro[5]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          3, f_or[5], f_fl[5], f_ro[5])), // 22
+                      hex->face(5)
+                        ->isotropic_child(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            3, f_or[5], f_fl[5], f_ro[5]))
+                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
+                          2, f_or[5], f_fl[5], f_ro[5])), // 23
+
+                      new_lines[0], // 24
+                      new_lines[1], // 25
+                      new_lines[2], // 26
+                      new_lines[3], // 27
+                      new_lines[4], // 28
+                      new_lines[5]  // 29
+                    };
+
+                  unsigned int line_indices[30];
+                  for (unsigned int i = 0; i < 30; ++i)
+                    line_indices[i] = lines[i]->index();
+
+                  // the orientation of lines for the inner quads
+                  // is quite tricky. as these lines are newly
+                  // created ones and thus have no parents, they
+                  // cannot inherit this property. set up an array
+                  // and fill it with the respective values
+                  bool line_orientation[30];
+
+                  // note: for the first 24 lines (inner lines of
+                  // the outer quads) the following holds: the
+                  // second vertex of the even lines in standard
+                  // orientation is the vertex in the middle of
+                  // the quad, whereas for odd lines the first
+                  // vertex is the same middle vertex.
+                  for (unsigned int i = 0; i < 24; ++i)
+                    if (lines[i]->vertex_index((i + 1) % 2) ==
+                        vertex_indices[i / 4])
+                      line_orientation[i] = true;
+                    else
+                      {
+                        // it must be the other way
+                        // round then
+                        Assert(lines[i]->vertex_index(i % 2) ==
+                                 vertex_indices[i / 4],
+                               ExcInternalError());
+                        line_orientation[i] = false;
+                      }
+                  // for the last 6 lines the line orientation is
+                  // always true, since they were just constructed
+                  // that way
+                  for (unsigned int i = 24; i < 30; ++i)
+                    line_orientation[i] = true;
+
+                  // set up the 12 quads, numbered as follows
+                  // (left quad numbering, right line numbering
+                  // extracted from above)
+                  //
+                  //      *          *
+                  //     /|        21|
+                  //    * |        * 15
+                  //  y/|3*      20| *
+                  //  * |/|      * |/|
+                  //  |2* |x    11 * 14
+                  //  |/|1*      |/| *
+                  //  * |/       * |17
+                  //  |0*       10 *
+                  //  |/         |16
+                  //  *          *
+                  //
+                  //  x
+                  //  *---*---*      *22-*-23*
+                  //  | 5 | 7 |      1  29   5
+                  //  *---*---*      *26-*-27*
+                  //  | 4 | 6 |      0  28   4
+                  //  *---*---*y     *18-*-19*
+                  //
+                  //       y
+                  //      *----*----*      *-12-*-13-*
+                  //     / 10 / 11 /      3   25    7
+                  //    *----*----*      *-26-*-27-*
+                  //   / 8  / 9  /      2   24    6
+                  //  *----*----*x     *--8-*--9-*
+
+                  new_quads[0]->set_bounding_object_indices({line_indices[10],
+                                                             line_indices[28],
+                                                             line_indices[16],
+                                                             line_indices[24]});
+                  new_quads[1]->set_bounding_object_indices({line_indices[28],
+                                                             line_indices[14],
+                                                             line_indices[17],
+                                                             line_indices[25]});
+                  new_quads[2]->set_bounding_object_indices({line_indices[11],
+                                                             line_indices[29],
+                                                             line_indices[24],
+                                                             line_indices[20]});
+                  new_quads[3]->set_bounding_object_indices({line_indices[29],
+                                                             line_indices[15],
+                                                             line_indices[25],
+                                                             line_indices[21]});
+                  new_quads[4]->set_bounding_object_indices({line_indices[18],
+                                                             line_indices[26],
+                                                             line_indices[0],
+                                                             line_indices[28]});
+                  new_quads[5]->set_bounding_object_indices({line_indices[26],
+                                                             line_indices[22],
+                                                             line_indices[1],
+                                                             line_indices[29]});
+                  new_quads[6]->set_bounding_object_indices({line_indices[19],
+                                                             line_indices[27],
+                                                             line_indices[28],
+                                                             line_indices[4]});
+                  new_quads[7]->set_bounding_object_indices({line_indices[27],
+                                                             line_indices[23],
+                                                             line_indices[29],
+                                                             line_indices[5]});
+                  new_quads[8]->set_bounding_object_indices({line_indices[2],
+                                                             line_indices[24],
+                                                             line_indices[8],
+                                                             line_indices[26]});
+                  new_quads[9]->set_bounding_object_indices({line_indices[24],
+                                                             line_indices[6],
+                                                             line_indices[9],
+                                                             line_indices[27]});
+                  new_quads[10]->set_bounding_object_indices(
+                    {line_indices[3],
+                     line_indices[25],
+                     line_indices[26],
+                     line_indices[12]});
+                  new_quads[11]->set_bounding_object_indices(
+                    {line_indices[25],
+                     line_indices[7],
+                     line_indices[27],
+                     line_indices[13]});
+
+                  // now reset the line_orientation flags of outer
+                  // lines as they cannot be set in a loop (at
+                  // least not easily)
+                  new_quads[0]->set_line_orientation(0, line_orientation[10]);
+                  new_quads[0]->set_line_orientation(2, line_orientation[16]);
+
+                  new_quads[1]->set_line_orientation(1, line_orientation[14]);
+                  new_quads[1]->set_line_orientation(2, line_orientation[17]);
+
+                  new_quads[2]->set_line_orientation(0, line_orientation[11]);
+                  new_quads[2]->set_line_orientation(3, line_orientation[20]);
+
+                  new_quads[3]->set_line_orientation(1, line_orientation[15]);
+                  new_quads[3]->set_line_orientation(3, line_orientation[21]);
+
+                  new_quads[4]->set_line_orientation(0, line_orientation[18]);
+                  new_quads[4]->set_line_orientation(2, line_orientation[0]);
+
+                  new_quads[5]->set_line_orientation(1, line_orientation[22]);
+                  new_quads[5]->set_line_orientation(2, line_orientation[1]);
+
+                  new_quads[6]->set_line_orientation(0, line_orientation[19]);
+                  new_quads[6]->set_line_orientation(3, line_orientation[4]);
+
+                  new_quads[7]->set_line_orientation(1, line_orientation[23]);
+                  new_quads[7]->set_line_orientation(3, line_orientation[5]);
+
+                  new_quads[8]->set_line_orientation(0, line_orientation[2]);
+                  new_quads[8]->set_line_orientation(2, line_orientation[8]);
+
+                  new_quads[9]->set_line_orientation(1, line_orientation[6]);
+                  new_quads[9]->set_line_orientation(2, line_orientation[9]);
+
+                  new_quads[10]->set_line_orientation(0, line_orientation[3]);
+                  new_quads[10]->set_line_orientation(3, line_orientation[12]);
+
+                  new_quads[11]->set_line_orientation(1, line_orientation[7]);
+                  new_quads[11]->set_line_orientation(3, line_orientation[13]);
+
+                  /////////////////////////////////
+                  // create the eight new hexes
+                  //
+                  // again first collect some data.  here, we need
+                  // the indices of a whole lotta quads.
+
+                  // the quads are numbered as follows:
+                  //
+                  // planes in the interior of the old hex:
+                  //
+                  //      *
+                  //     /|
+                  //    * |
+                  //   /|3*  *---*---*      *----*----*
+                  //  * |/|  | 5 | 7 |     / 10 / 11 /
+                  //  |2* |  *---*---*    *----*----*
+                  //  |/|1*  | 4 | 6 |   / 8  / 9  /
+                  //  * |/   *---*---*y *----*----*x
+                  //  |0*
+                  //  |/
+                  //  *
+                  //
+                  // children of the faces
+                  // of the old hex
+                  //      *-------*        *-------*
+                  //     /|25   27|       /34   35/|
+                  //    15|       |      /       /19
+                  //   /  |       |     /32   33/  |
+                  //  *   |24   26|    *-------*18 |
+                  //  1413*-------*    |21   23| 17*
+                  //  |  /30   31/     |       |  /
+                  //  12/       /      |       |16
+                  //  |/28   29/       |20   22|/
+                  //  *-------*        *-------*
+                  //
+                  // note that we have to
+                  // take care of the
+                  // orientation of
+                  // faces.
+                  const int quad_indices[36] = {
+                    new_quads[0]->index(), // 0
+                    new_quads[1]->index(),
+                    new_quads[2]->index(),
+                    new_quads[3]->index(),
+                    new_quads[4]->index(),
+                    new_quads[5]->index(),
+                    new_quads[6]->index(),
+                    new_quads[7]->index(),
+                    new_quads[8]->index(),
+                    new_quads[9]->index(),
+                    new_quads[10]->index(),
+                    new_quads[11]->index(), // 11
+
+                    hex->face(0)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        0, f_or[0], f_fl[0], f_ro[0])), // 12
+                    hex->face(0)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        1, f_or[0], f_fl[0], f_ro[0])),
+                    hex->face(0)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        2, f_or[0], f_fl[0], f_ro[0])),
+                    hex->face(0)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        3, f_or[0], f_fl[0], f_ro[0])),
+
+                    hex->face(1)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        0, f_or[1], f_fl[1], f_ro[1])), // 16
+                    hex->face(1)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        1, f_or[1], f_fl[1], f_ro[1])),
+                    hex->face(1)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        2, f_or[1], f_fl[1], f_ro[1])),
+                    hex->face(1)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        3, f_or[1], f_fl[1], f_ro[1])),
+
+                    hex->face(2)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        0, f_or[2], f_fl[2], f_ro[2])), // 20
+                    hex->face(2)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        1, f_or[2], f_fl[2], f_ro[2])),
+                    hex->face(2)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        2, f_or[2], f_fl[2], f_ro[2])),
+                    hex->face(2)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        3, f_or[2], f_fl[2], f_ro[2])),
+
+                    hex->face(3)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        0, f_or[3], f_fl[3], f_ro[3])), // 24
+                    hex->face(3)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        1, f_or[3], f_fl[3], f_ro[3])),
+                    hex->face(3)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        2, f_or[3], f_fl[3], f_ro[3])),
+                    hex->face(3)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        3, f_or[3], f_fl[3], f_ro[3])),
+
+                    hex->face(4)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        0, f_or[4], f_fl[4], f_ro[4])), // 28
+                    hex->face(4)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        1, f_or[4], f_fl[4], f_ro[4])),
+                    hex->face(4)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        2, f_or[4], f_fl[4], f_ro[4])),
+                    hex->face(4)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        3, f_or[4], f_fl[4], f_ro[4])),
+
+                    hex->face(5)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        0, f_or[5], f_fl[5], f_ro[5])), // 32
+                    hex->face(5)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        1, f_or[5], f_fl[5], f_ro[5])),
+                    hex->face(5)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        2, f_or[5], f_fl[5], f_ro[5])),
+                    hex->face(5)->isotropic_child_index(
+                      GeometryInfo<dim>::standard_to_real_face_vertex(
+                        3, f_or[5], f_fl[5], f_ro[5]))};
+
+                  // bottom children
+                  static constexpr std::array<std::array<unsigned int, 6>, 8>
+                    cell_quads = {{
+                      {{12, 0, 20, 4, 28, 8}},  // bottom children
+                      {{0, 16, 22, 6, 29, 9}},  //
+                      {{13, 1, 4, 24, 30, 10}}, //
+                      {{1, 17, 6, 26, 31, 11}}, //
+                      {{14, 2, 21, 5, 8, 32}},  // top children
+                      {{2, 18, 23, 7, 9, 33}},  //
+                      {{15, 3, 5, 25, 10, 34}}, //
+                      {{3, 19, 7, 27, 11, 35}}  //
+                    }};
+
+                  for (unsigned int c = 0; c < cell_quads.size(); ++c)
+                    new_hexes[c]->set_bounding_object_indices(
+                      {quad_indices[cell_quads[c][0]],
+                       quad_indices[cell_quads[c][1]],
+                       quad_indices[cell_quads[c][2]],
+                       quad_indices[cell_quads[c][3]],
+                       quad_indices[cell_quads[c][4]],
+                       quad_indices[cell_quads[c][5]]});
+                }
+
+                for (const unsigned int f : GeometryInfo<dim>::face_indices())
+                  for (unsigned int s = 0;
+                       s < std::max(GeometryInfo<dim - 1>::n_children(
+                                      GeometryInfo<dim>::face_refinement_case(
+                                        ref_case, f)),
+                                    1U);
+                       ++s)
+                    {
+                      const unsigned int current_child =
+                        GeometryInfo<dim>::child_cell_on_face(
+                          ref_case,
+                          f,
+                          s,
+                          f_or[f],
+                          f_fl[f],
+                          f_ro[f],
+                          GeometryInfo<dim>::face_refinement_case(
+                            ref_case, f, f_or[f], f_fl[f], f_ro[f]));
+                      new_hexes[current_child]->set_face_orientation(f,
+                                                                     f_or[f]);
+                      new_hexes[current_child]->set_face_flip(f, f_fl[f]);
+                      new_hexes[current_child]->set_face_rotation(f, f_ro[f]);
+                    }
+
+                if (check_for_distorted_cells &&
+                    has_distorted_children<dim, spacedim>(hex))
+                  cells_with_distorted_children.distorted_cells.push_back(hex);
+
+                triangulation.signals.post_refinement_on_cell(hex);
+              }
           }
 
         triangulation.faces->quads.clear_user_data();
