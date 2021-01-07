@@ -5535,8 +5535,10 @@ namespace internal
                      {{9, 3, 11, 7}}}};
 
                   const unsigned int n_old_lines = 8;
+                  const unsigned int n_new_lines = 4;
 
-                  for (unsigned int i = 0, j = n_old_lines; i < 4; ++i, ++j)
+                  for (unsigned int i = 0, j = n_old_lines; i < n_new_lines;
+                       ++i, ++j)
                     {
                       auto &new_line = new_lines[i];
                       new_line->set_bounding_object_indices(
@@ -5550,7 +5552,9 @@ namespace internal
                       new_line->set_manifold_id(quad->manifold_id());
                     }
 
-                  for (unsigned int i = 0; i < 4; ++i)
+                  const unsigned int n_new_quads = 4;
+
+                  for (unsigned int i = 0; i < n_new_quads; ++i)
                     {
                       auto &new_quad = new_quads[i];
 
@@ -5566,28 +5570,18 @@ namespace internal
                       new_quad->clear_children();
                       new_quad->set_boundary_id_internal(quad->boundary_id());
                       new_quad->set_manifold_id(quad->manifold_id());
-                      for (unsigned int j = 0;
-                           j < GeometryInfo<dim>::lines_per_face;
-                           ++j)
-                        new_quad->set_line_orientation(j, true);
-                    }
 
-                  new_quads[0]->set_line_orientation(0,
-                                                     quad->line_orientation(0));
-                  new_quads[0]->set_line_orientation(2,
-                                                     quad->line_orientation(2));
-                  new_quads[1]->set_line_orientation(1,
-                                                     quad->line_orientation(1));
-                  new_quads[1]->set_line_orientation(2,
-                                                     quad->line_orientation(2));
-                  new_quads[2]->set_line_orientation(0,
-                                                     quad->line_orientation(0));
-                  new_quads[2]->set_line_orientation(3,
-                                                     quad->line_orientation(3));
-                  new_quads[3]->set_line_orientation(1,
-                                                     quad->line_orientation(1));
-                  new_quads[3]->set_line_orientation(3,
-                                                     quad->line_orientation(3));
+                      for (const auto f : new_quad->line_indices())
+                        new_quad->set_line_orientation(
+                          f,
+                          vertex_indices[line_vertices[quad_lines[i][f]][0]] ==
+                            (typename Triangulation<dim, spacedim>::
+                               raw_line_iterator(
+                                 &triangulation,
+                                 0,
+                                 line_indices[quad_lines[i][f]]))
+                              ->vertex_index(0));
+                    }
 
                   quad->clear_user_flag();
                 }
