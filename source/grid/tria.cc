@@ -5762,7 +5762,15 @@ namespace internal
                                       hex->face_rotation(5)};
 
                 {
-                  const unsigned int vertex_indices[7] = {
+                  const unsigned int vertex_indices[15] = {
+                    hex->vertex_index(0),
+                    hex->vertex_index(1),
+                    hex->vertex_index(2),
+                    hex->vertex_index(3),
+                    hex->vertex_index(4),
+                    hex->vertex_index(5),
+                    hex->vertex_index(6),
+                    hex->vertex_index(7),
                     middle_vertex_index<dim, spacedim>(hex->face(0)),
                     middle_vertex_index<dim, spacedim>(hex->face(1)),
                     middle_vertex_index<dim, spacedim>(hex->face(2)),
@@ -5770,6 +5778,8 @@ namespace internal
                     middle_vertex_index<dim, spacedim>(hex->face(4)),
                     middle_vertex_index<dim, spacedim>(hex->face(5)),
                     next_unused_vertex};
+
+                  const unsigned int n_vetices_old = 8;
 
                   static constexpr std::array<std::array<unsigned int, 2>, 6>
                     line_vertices = {{{{2, 6}},
@@ -5781,8 +5791,8 @@ namespace internal
 
                   for (unsigned int i = 0; i < 6; ++i)
                     new_lines[i]->set_bounding_object_indices(
-                      {vertex_indices[line_vertices[i][0]],
-                       vertex_indices[line_vertices[i][1]]});
+                      {vertex_indices[line_vertices[i][0] + n_vetices_old],
+                       vertex_indices[line_vertices[i][1] + n_vetices_old]});
 
                   std::array<
                     typename Triangulation<dim, spacedim>::raw_line_iterator,
@@ -5828,14 +5838,14 @@ namespace internal
                   // vertex is the same middle vertex.
                   for (unsigned int i = 0; i < 24; ++i)
                     if (lines[i]->vertex_index((i + 1) % 2) ==
-                        vertex_indices[i / 4])
+                        vertex_indices[i / 4 + n_vetices_old])
                       line_orientation[i] = true;
                     else
                       {
                         // it must be the other way
                         // round then
                         Assert(lines[i]->vertex_index(i % 2) ==
-                                 vertex_indices[i / 4],
+                                 vertex_indices[i / 4 + n_vetices_old],
                                ExcInternalError());
                         line_orientation[i] = false;
                       }
