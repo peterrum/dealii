@@ -5393,6 +5393,7 @@ namespace internal
             {
               if (quad->user_flag_set())
                 {
+                  // 1) create new vertex (at the center of the face)
                   while (triangulation.vertices_used[next_unused_vertex] ==
                          true)
                     ++next_unused_vertex;
@@ -5405,24 +5406,64 @@ namespace internal
                     quad->center(true, true);
                   triangulation.vertices_used[next_unused_vertex] = true;
 
+                  // 2) create new lines (property is set later)
                   typename Triangulation<dim, spacedim>::raw_line_iterator
                     new_lines[4];
+                  {
+                    for (unsigned int i = 0; i < 4; ++i)
+                      {
+                        if (i % 2 == 0)
+                          next_unused_line =
+                            triangulation.faces->lines
+                              .template next_free_pair_object<1>(triangulation);
 
-                  for (unsigned int i = 0; i < 4; ++i)
-                    {
-                      if (i % 2 == 0)
-                        next_unused_line =
-                          triangulation.faces->lines
-                            .template next_free_pair_object<1>(triangulation);
+                        new_lines[i] = next_unused_line;
+                        ++next_unused_line;
 
-                      new_lines[i] = next_unused_line;
-                      ++next_unused_line;
+                        Assert(
+                          new_lines[i]->used() == false,
+                          ExcMessage(
+                            "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+                      }
+                  }
 
-                      Assert(
-                        new_lines[i]->used() == false,
-                        ExcMessage(
-                          "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
-                    }
+                  // 3) create new faces (properties are set below)
+                  typename Triangulation<dim, spacedim>::raw_quad_iterator
+                    new_quads[4];
+                  {
+                    next_unused_quad =
+                      triangulation.faces->quads
+                        .template next_free_pair_object<2>(triangulation);
+
+                    new_quads[0] = next_unused_quad;
+                    Assert(
+                      new_quads[0]->used() == false,
+                      ExcMessage(
+                        "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+
+                    ++next_unused_quad;
+                    new_quads[1] = next_unused_quad;
+                    Assert(
+                      new_quads[1]->used() == false,
+                      ExcMessage(
+                        "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+
+                    next_unused_quad =
+                      triangulation.faces->quads
+                        .template next_free_pair_object<2>(triangulation);
+                    new_quads[2] = next_unused_quad;
+                    Assert(
+                      new_quads[2]->used() == false,
+                      ExcMessage(
+                        "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+
+                    ++next_unused_quad;
+                    new_quads[3] = next_unused_quad;
+                    Assert(
+                      new_quads[3]->used() == false,
+                      ExcMessage(
+                        "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+                  }
 
                   const unsigned int vertex_indices[5] = {
                     quad->line(0)->child(0)->vertex_index(1),
@@ -5483,42 +5524,6 @@ namespace internal
                     new_lines[1]->index(),
                     new_lines[2]->index(),
                     new_lines[3]->index()};
-
-                  typename Triangulation<dim, spacedim>::raw_quad_iterator
-                    new_quads[4];
-
-                  next_unused_quad =
-                    triangulation.faces->quads
-                      .template next_free_pair_object<2>(triangulation);
-
-                  new_quads[0] = next_unused_quad;
-                  Assert(
-                    new_quads[0]->used() == false,
-                    ExcMessage(
-                      "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
-
-                  ++next_unused_quad;
-                  new_quads[1] = next_unused_quad;
-                  Assert(
-                    new_quads[1]->used() == false,
-                    ExcMessage(
-                      "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
-
-                  next_unused_quad =
-                    triangulation.faces->quads
-                      .template next_free_pair_object<2>(triangulation);
-                  new_quads[2] = next_unused_quad;
-                  Assert(
-                    new_quads[2]->used() == false,
-                    ExcMessage(
-                      "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
-
-                  ++next_unused_quad;
-                  new_quads[3] = next_unused_quad;
-                  Assert(
-                    new_quads[3]->used() == false,
-                    ExcMessage(
-                      "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
 
                   // note these quads as children to the present one
                   quad->set_children(0, new_quads[0]->index());
