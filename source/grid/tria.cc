@@ -5784,165 +5784,30 @@ namespace internal
                       {vertex_indices[line_vertices[i][0]],
                        vertex_indices[line_vertices[i][1]]});
 
-                  const typename Triangulation<dim, spacedim>::raw_line_iterator
-                    lines[30] = {
-                      hex->face(0)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            0, f_or[0], f_fl[0], f_ro[0]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          1, f_or[0], f_fl[0], f_ro[0])), // 0
-                      hex->face(0)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            3, f_or[0], f_fl[0], f_ro[0]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          0, f_or[0], f_fl[0], f_ro[0])), // 1
-                      hex->face(0)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            0, f_or[0], f_fl[0], f_ro[0]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          3, f_or[0], f_fl[0], f_ro[0])), // 2
-                      hex->face(0)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            3, f_or[0], f_fl[0], f_ro[0]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          2, f_or[0], f_fl[0], f_ro[0])), // 3
+                  std::array<
+                    typename Triangulation<dim, spacedim>::raw_line_iterator,
+                    30>
+                    lines;
 
-                      hex->face(1)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            0, f_or[1], f_fl[1], f_ro[1]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          1, f_or[1], f_fl[1], f_ro[1])), // 4
-                      hex->face(1)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            3, f_or[1], f_fl[1], f_ro[1]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          0, f_or[1], f_fl[1], f_ro[1])), // 5
-                      hex->face(1)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            0, f_or[1], f_fl[1], f_ro[1]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          3, f_or[1], f_fl[1], f_ro[1])), // 6
-                      hex->face(1)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            3, f_or[1], f_fl[1], f_ro[1]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          2, f_or[1], f_fl[1], f_ro[1])), // 7
+                  for (unsigned int f = 0, k = 0; f < 6; ++f)
+                    for (unsigned int c = 0; c < 4; ++c, ++k)
+                      {
+                        static constexpr std::array<std::array<unsigned int, 2>,
+                                                    4>
+                          temp = {{{{0, 1}}, {{3, 0}}, {{0, 3}}, {{3, 2}}}};
 
-                      hex->face(2)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            0, f_or[2], f_fl[2], f_ro[2]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          1, f_or[2], f_fl[2], f_ro[2])), // 8
-                      hex->face(2)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            3, f_or[2], f_fl[2], f_ro[2]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          0, f_or[2], f_fl[2], f_ro[2])), // 9
-                      hex->face(2)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            0, f_or[2], f_fl[2], f_ro[2]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          3, f_or[2], f_fl[2], f_ro[2])), // 10
-                      hex->face(2)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            3, f_or[2], f_fl[2], f_ro[2]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          2, f_or[2], f_fl[2], f_ro[2])), // 11
+                        lines[k] =
+                          hex->face(f)
+                            ->isotropic_child(
+                              GeometryInfo<dim>::standard_to_real_face_vertex(
+                                temp[c][0], f_or[f], f_fl[f], f_ro[f]))
+                            ->line(
+                              GeometryInfo<dim>::standard_to_real_face_line(
+                                temp[c][1], f_or[f], f_fl[f], f_ro[f]));
+                      }
 
-                      hex->face(3)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            0, f_or[3], f_fl[3], f_ro[3]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          1, f_or[3], f_fl[3], f_ro[3])), // 12
-                      hex->face(3)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            3, f_or[3], f_fl[3], f_ro[3]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          0, f_or[3], f_fl[3], f_ro[3])), // 13
-                      hex->face(3)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            0, f_or[3], f_fl[3], f_ro[3]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          3, f_or[3], f_fl[3], f_ro[3])), // 14
-                      hex->face(3)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            3, f_or[3], f_fl[3], f_ro[3]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          2, f_or[3], f_fl[3], f_ro[3])), // 15
-
-                      hex->face(4)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            0, f_or[4], f_fl[4], f_ro[4]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          1, f_or[4], f_fl[4], f_ro[4])), // 16
-                      hex->face(4)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            3, f_or[4], f_fl[4], f_ro[4]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          0, f_or[4], f_fl[4], f_ro[4])), // 17
-                      hex->face(4)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            0, f_or[4], f_fl[4], f_ro[4]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          3, f_or[4], f_fl[4], f_ro[4])), // 18
-                      hex->face(4)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            3, f_or[4], f_fl[4], f_ro[4]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          2, f_or[4], f_fl[4], f_ro[4])), // 19
-
-                      hex->face(5)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            0, f_or[5], f_fl[5], f_ro[5]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          1, f_or[5], f_fl[5], f_ro[5])), // 20
-                      hex->face(5)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            3, f_or[5], f_fl[5], f_ro[5]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          0, f_or[5], f_fl[5], f_ro[5])), // 21
-                      hex->face(5)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            0, f_or[5], f_fl[5], f_ro[5]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          3, f_or[5], f_fl[5], f_ro[5])), // 22
-                      hex->face(5)
-                        ->isotropic_child(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            3, f_or[5], f_fl[5], f_ro[5]))
-                        ->line(GeometryInfo<dim>::standard_to_real_face_line(
-                          2, f_or[5], f_fl[5], f_ro[5])), // 23
-
-                      new_lines[0], // 24
-                      new_lines[1], // 25
-                      new_lines[2], // 26
-                      new_lines[3], // 27
-                      new_lines[4], // 28
-                      new_lines[5]  // 29
-                    };
+                  for (unsigned int i = 0, k = 24; i < 6; ++i, ++k)
+                    lines[k] = new_lines[i];
 
                   unsigned int line_indices[30];
                   for (unsigned int i = 0; i < 30; ++i)
