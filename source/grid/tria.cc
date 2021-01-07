@@ -5949,31 +5949,86 @@ namespace internal
                        quad_indices[cell_quads[c][3]],
                        quad_indices[cell_quads[c][4]],
                        quad_indices[cell_quads[c][5]]});
-                }
 
-                for (const unsigned int f : GeometryInfo<dim>::face_indices())
-                  for (unsigned int s = 0;
-                       s < std::max(GeometryInfo<dim - 1>::n_children(
-                                      GeometryInfo<dim>::face_refinement_case(
-                                        ref_case, f)),
-                                    1U);
-                       ++s)
-                    {
-                      const unsigned int current_child =
-                        GeometryInfo<dim>::child_cell_on_face(
-                          ref_case,
-                          f,
-                          s,
-                          f_or[f],
-                          f_fl[f],
-                          f_ro[f],
-                          GeometryInfo<dim>::face_refinement_case(
-                            ref_case, f, f_or[f], f_fl[f], f_ro[f]));
-                      new_hexes[current_child]->set_face_orientation(f,
-                                                                     f_or[f]);
-                      new_hexes[current_child]->set_face_flip(f, f_fl[f]);
-                      new_hexes[current_child]->set_face_rotation(f, f_ro[f]);
-                    }
+                  static constexpr std::
+                    array<std::array<std::array<unsigned int, 4>, 6>, 8>
+                      table_{{{{{{0, 8, 16, 20}},
+                                {{10, 24, 22, 26}},
+                                {{0, 16, 10, 22}},
+                                {{8, 20, 24, 26}},
+                                {{0, 10, 8, 24}},
+                                {{16, 22, 20, 26}}}},
+                              {{{{10, 24, 22, 26}},
+                                {{1, 9, 17, 21}},
+                                {{10, 22, 1, 17}},
+                                {{24, 26, 9, 21}},
+                                {{10, 1, 24, 9}},
+                                {{22, 17, 26, 21}}}},
+                              {{{{8, 2, 20, 18}},
+                                {{24, 11, 26, 23}},
+                                {{8, 20, 24, 26}},
+                                {{2, 18, 11, 23}},
+                                {{8, 24, 2, 11}},
+                                {{20, 26, 18, 23}}}},
+                              {{{{24, 11, 26, 23}},
+                                {{9, 3, 21, 19}},
+                                {{24, 26, 9, 21}},
+                                {{11, 23, 3, 19}},
+                                {{24, 9, 11, 3}},
+                                {{26, 21, 23, 19}}}},
+                              {{{{16, 20, 4, 12}},
+                                {{22, 26, 14, 25}},
+                                {{16, 4, 22, 14}},
+                                {{20, 12, 26, 25}},
+                                {{16, 22, 20, 26}},
+                                {{4, 14, 12, 25}}}},
+                              {{{{22, 26, 14, 25}},
+                                {{17, 21, 5, 13}},
+                                {{22, 14, 17, 5}},
+                                {{26, 25, 21, 13}},
+                                {{22, 17, 26, 21}},
+                                {{14, 5, 25, 13}}}},
+                              {{{{20, 18, 12, 6}},
+                                {{26, 23, 25, 15}},
+                                {{20, 12, 26, 25}},
+                                {{18, 6, 23, 15}},
+                                {{20, 26, 18, 23}},
+                                {{12, 25, 6, 15}}}},
+                              {{{{26, 23, 25, 15}},
+                                {{21, 19, 13, 7}},
+                                {{26, 25, 21, 13}},
+                                {{23, 15, 19, 7}},
+                                {{26, 21, 23, 19}},
+                                {{25, 13, 15, 7}}}}}};
+
+                  for (unsigned int current_child = 0; current_child < 8;
+                       ++current_child)
+                    for (const unsigned int f :
+                         GeometryInfo<dim>::face_indices())
+                      {
+                        std::array<unsigned int, 4> vertices_0, vertices_1;
+
+                        const auto &face = new_hexes[current_child]->face(f);
+
+                        for (const auto i : face->vertex_indices())
+                          vertices_0[i] = face->vertex_index(i);
+
+                        for (const auto i : face->vertex_indices())
+                          vertices_1[i] =
+                            vertex_indices[table_[current_child][f][i]];
+
+                        const auto orientation =
+                          ReferenceCell::compute_orientation(
+                            ReferenceCell::Type::Quad, vertices_0, vertices_1);
+
+                        new_hexes[current_child]->set_face_orientation(
+                          f, ReferenceCell::internal::get_bit(orientation, 0));
+                        new_hexes[current_child]->set_face_flip(
+                          f, ReferenceCell::internal::get_bit(orientation, 2));
+                        new_hexes[current_child]->set_face_rotation(
+                          f, ReferenceCell::internal::get_bit(orientation, 1));
+                      }
+                }
 
                 if (check_for_distorted_cells &&
                     has_distorted_children<dim, spacedim>(hex))
