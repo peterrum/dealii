@@ -6245,99 +6245,17 @@ namespace internal
                   // take care of the
                   // orientation of
                   // faces.
-                  const int quad_indices[36] = {
-                    new_quads[0]->index(), // 0
-                    new_quads[1]->index(),
-                    new_quads[2]->index(),
-                    new_quads[3]->index(),
-                    new_quads[4]->index(),
-                    new_quads[5]->index(),
-                    new_quads[6]->index(),
-                    new_quads[7]->index(),
-                    new_quads[8]->index(),
-                    new_quads[9]->index(),
-                    new_quads[10]->index(),
-                    new_quads[11]->index(), // 11
+                  std::array<int, 36> quad_indices;
 
-                    hex->face(0)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        0, f_or[0], f_fl[0], f_ro[0])), // 12
-                    hex->face(0)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        1, f_or[0], f_fl[0], f_ro[0])),
-                    hex->face(0)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        2, f_or[0], f_fl[0], f_ro[0])),
-                    hex->face(0)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        3, f_or[0], f_fl[0], f_ro[0])),
+                  for (unsigned int i = 0; i < 12; ++i)
+                    quad_indices[i] = new_quads[i]->index();
 
-                    hex->face(1)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        0, f_or[1], f_fl[1], f_ro[1])), // 16
-                    hex->face(1)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        1, f_or[1], f_fl[1], f_ro[1])),
-                    hex->face(1)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        2, f_or[1], f_fl[1], f_ro[1])),
-                    hex->face(1)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        3, f_or[1], f_fl[1], f_ro[1])),
+                  for (unsigned int f = 0, k = 12; f < 6; ++f)
+                    for (unsigned int c = 0; c < 4; ++c, ++k)
+                      quad_indices[k] = hex->face(f)->isotropic_child_index(
+                        GeometryInfo<dim>::standard_to_real_face_vertex(
+                          c, f_or[f], f_fl[f], f_ro[f]));
 
-                    hex->face(2)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        0, f_or[2], f_fl[2], f_ro[2])), // 20
-                    hex->face(2)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        1, f_or[2], f_fl[2], f_ro[2])),
-                    hex->face(2)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        2, f_or[2], f_fl[2], f_ro[2])),
-                    hex->face(2)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        3, f_or[2], f_fl[2], f_ro[2])),
-
-                    hex->face(3)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        0, f_or[3], f_fl[3], f_ro[3])), // 24
-                    hex->face(3)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        1, f_or[3], f_fl[3], f_ro[3])),
-                    hex->face(3)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        2, f_or[3], f_fl[3], f_ro[3])),
-                    hex->face(3)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        3, f_or[3], f_fl[3], f_ro[3])),
-
-                    hex->face(4)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        0, f_or[4], f_fl[4], f_ro[4])), // 28
-                    hex->face(4)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        1, f_or[4], f_fl[4], f_ro[4])),
-                    hex->face(4)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        2, f_or[4], f_fl[4], f_ro[4])),
-                    hex->face(4)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        3, f_or[4], f_fl[4], f_ro[4])),
-
-                    hex->face(5)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        0, f_or[5], f_fl[5], f_ro[5])), // 32
-                    hex->face(5)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        1, f_or[5], f_fl[5], f_ro[5])),
-                    hex->face(5)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        2, f_or[5], f_fl[5], f_ro[5])),
-                    hex->face(5)->isotropic_child_index(
-                      GeometryInfo<dim>::standard_to_real_face_vertex(
-                        3, f_or[5], f_fl[5], f_ro[5]))};
-
-                  // bottom children
                   static constexpr std::array<std::array<unsigned int, 6>, 8>
                     cell_quads = {{
                       {{12, 0, 20, 4, 28, 8}},  // bottom children
