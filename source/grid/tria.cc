@@ -5845,86 +5845,26 @@ namespace internal
                   for (unsigned int i = 24; i < 30; ++i)
                     line_orientation[i] = true;
 
-                  // set up the 12 quads, numbered as follows
-                  // (left quad numbering, right line numbering
-                  // extracted from above)
-                  //
-                  //      *          *
-                  //     /|        21|
-                  //    * |        * 15
-                  //  y/|3*      20| *
-                  //  * |/|      * |/|
-                  //  |2* |x    11 * 14
-                  //  |/|1*      |/| *
-                  //  * |/       * |17
-                  //  |0*       10 *
-                  //  |/         |16
-                  //  *          *
-                  //
-                  //  x
-                  //  *---*---*      *22-*-23*
-                  //  | 5 | 7 |      1  29   5
-                  //  *---*---*      *26-*-27*
-                  //  | 4 | 6 |      0  28   4
-                  //  *---*---*y     *18-*-19*
-                  //
-                  //       y
-                  //      *----*----*      *-12-*-13-*
-                  //     / 10 / 11 /      3   25    7
-                  //    *----*----*      *-26-*-27-*
-                  //   / 8  / 9  /      2   24    6
-                  //  *----*----*x     *--8-*--9-*
+                  static constexpr std::array<std::array<unsigned int, 4>, 12>
+                    quad_lines = {{{{10, 28, 16, 24}},
+                                   {{28, 14, 17, 25}},
+                                   {{11, 29, 24, 20}},
+                                   {{29, 15, 25, 21}},
+                                   {{18, 26, 0, 28}},
+                                   {{26, 22, 1, 29}},
+                                   {{19, 27, 28, 4}},
+                                   {{27, 23, 29, 5}},
+                                   {{2, 24, 8, 26}},
+                                   {{24, 6, 9, 27}},
+                                   {{3, 25, 26, 12}},
+                                   {{25, 7, 27, 13}}}};
 
-                  new_quads[0]->set_bounding_object_indices({line_indices[10],
-                                                             line_indices[28],
-                                                             line_indices[16],
-                                                             line_indices[24]});
-                  new_quads[1]->set_bounding_object_indices({line_indices[28],
-                                                             line_indices[14],
-                                                             line_indices[17],
-                                                             line_indices[25]});
-                  new_quads[2]->set_bounding_object_indices({line_indices[11],
-                                                             line_indices[29],
-                                                             line_indices[24],
-                                                             line_indices[20]});
-                  new_quads[3]->set_bounding_object_indices({line_indices[29],
-                                                             line_indices[15],
-                                                             line_indices[25],
-                                                             line_indices[21]});
-                  new_quads[4]->set_bounding_object_indices({line_indices[18],
-                                                             line_indices[26],
-                                                             line_indices[0],
-                                                             line_indices[28]});
-                  new_quads[5]->set_bounding_object_indices({line_indices[26],
-                                                             line_indices[22],
-                                                             line_indices[1],
-                                                             line_indices[29]});
-                  new_quads[6]->set_bounding_object_indices({line_indices[19],
-                                                             line_indices[27],
-                                                             line_indices[28],
-                                                             line_indices[4]});
-                  new_quads[7]->set_bounding_object_indices({line_indices[27],
-                                                             line_indices[23],
-                                                             line_indices[29],
-                                                             line_indices[5]});
-                  new_quads[8]->set_bounding_object_indices({line_indices[2],
-                                                             line_indices[24],
-                                                             line_indices[8],
-                                                             line_indices[26]});
-                  new_quads[9]->set_bounding_object_indices({line_indices[24],
-                                                             line_indices[6],
-                                                             line_indices[9],
-                                                             line_indices[27]});
-                  new_quads[10]->set_bounding_object_indices(
-                    {line_indices[3],
-                     line_indices[25],
-                     line_indices[26],
-                     line_indices[12]});
-                  new_quads[11]->set_bounding_object_indices(
-                    {line_indices[25],
-                     line_indices[7],
-                     line_indices[27],
-                     line_indices[13]});
+                  for (unsigned int i = 0; i < 12; ++i)
+                    new_quads[i]->set_bounding_object_indices(
+                      {line_indices[quad_lines[i][0]],
+                       line_indices[quad_lines[i][1]],
+                       line_indices[quad_lines[i][2]],
+                       line_indices[quad_lines[i][3]]});
 
                   // now reset the line_orientation flags of outer
                   // lines as they cannot be set in a loop (at
