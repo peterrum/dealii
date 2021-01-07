@@ -5874,23 +5874,6 @@ namespace internal
                          {{{{20, 18}}, {{26, 23}}, {{20, 26}}, {{18, 23}}}},
                          {{{{26, 23}}, {{21, 19}}, {{26, 21}}, {{23, 19}}}}}};
 
-#if false
-                  for(unsigned int i = 0; i < 27; ++i)
-                      std::cout << vertex_indices[i] << " ";
-                  std::cout << std::endl;
-                  
-                  for(unsigned int q = 0; q < 12; ++q)
-                  {
-                    for(unsigned int l = 0; l < 4; ++l)
-                        std::cout<< lines[quad_lines[q][l]]->vertex_index(0) << "_" << lines[quad_lines[q][l]]->vertex_index(1) << " ";
-                    std::cout<< std::endl;
-                    for(unsigned int l = 0; l < 4; ++l)
-                        std::cout<< vertex_indices[table[q][l][0]] <<  "_" << vertex_indices[table[q][l][1]] << " ";
-                    std::cout<< std::endl;
-                    std::cout<< std::endl;
-                  }
-#endif
-
                   for (unsigned int q = 0; q < 12; ++q)
                     for (unsigned int l = 0; l < 4; ++l)
                       {
