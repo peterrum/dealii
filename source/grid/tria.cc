@@ -5762,47 +5762,6 @@ namespace internal
                                       hex->face_rotation(5)};
 
                 {
-                  //////////////////////////////
-                  //
-                  //     RefinementCase<dim>::cut_xyz
-                  //     isotropic refinement
-                  //
-                  // the refined cube will look
-                  // like this:
-                  //
-                  //        *----*----*
-                  //       /    /    /|
-                  //      *----*----* |
-                  //     /    /    /| *
-                  //    *----*----* |/|
-                  //    |    |    | * |
-                  //    |    |    |/| *
-                  //    *----*----* |/
-                  //    |    |    | *
-                  //    |    |    |/
-                  //    *----*----*
-                  //
-
-
-                  // set the data of the six lines.  first collect
-                  // the indices of the seven vertices (consider
-                  // the two planes to be crossed to form the
-                  // planes cutting the hex in two vertically and
-                  // horizontally)
-                  //
-                  //     *--3--*   *--5--*
-                  //    /  /  /    |  |  |
-                  //   0--6--1     0--6--1
-                  //  /  /  /      |  |  |
-                  // *--2--*       *--4--*
-                  // the lines are numbered
-                  // as follows:
-                  //     *--*--*   *--*--*
-                  //    /  1  /    |  5  |
-                  //   *2-*-3*     *2-*-3*
-                  //  /  0  /      |  4  |
-                  // *--*--*       *--*--*
-                  //
                   const unsigned int vertex_indices[7] = {
                     middle_vertex_index<dim, spacedim>(hex->face(0)),
                     middle_vertex_index<dim, spacedim>(hex->face(1)),
@@ -5812,84 +5771,19 @@ namespace internal
                     middle_vertex_index<dim, spacedim>(hex->face(5)),
                     next_unused_vertex};
 
-                  new_lines[0]->set_bounding_object_indices(
-                    {vertex_indices[2], vertex_indices[6]});
-                  new_lines[1]->set_bounding_object_indices(
-                    {vertex_indices[6], vertex_indices[3]});
-                  new_lines[2]->set_bounding_object_indices(
-                    {vertex_indices[0], vertex_indices[6]});
-                  new_lines[3]->set_bounding_object_indices(
-                    {vertex_indices[6], vertex_indices[1]});
-                  new_lines[4]->set_bounding_object_indices(
-                    {vertex_indices[4], vertex_indices[6]});
-                  new_lines[5]->set_bounding_object_indices(
-                    {vertex_indices[6], vertex_indices[5]});
+                  static constexpr std::array<std::array<unsigned int, 2>, 6>
+                    line_vertices = {{{{2, 6}},
+                                      {{6, 3}},
+                                      {{0, 6}},
+                                      {{6, 1}},
+                                      {{4, 6}},
+                                      {{6, 5}}}};
 
-                  // again, first collect some data about the
-                  // indices of the lines, with the following
-                  // numbering: (note that face 0 and 1 each are
-                  // shown twice for better readability)
+                  for (unsigned int i = 0; i < 6; ++i)
+                    new_lines[i]->set_bounding_object_indices(
+                      {vertex_indices[line_vertices[i][0]],
+                       vertex_indices[line_vertices[i][1]]});
 
-                  // face 0: left plane
-                  //       *            *
-                  //      /|           /|
-                  //     * |          * |
-                  //    /| *         /| *
-                  //   * 1/|        * |3|
-                  //   | * |        | * |
-                  //   |/| *        |2| *
-                  //   * 0/         * |/
-                  //   | *          | *
-                  //   |/           |/
-                  //   *            *
-                  // face 1: right plane
-                  //       *            *
-                  //      /|           /|
-                  //     * |          * |
-                  //    /| *         /| *
-                  //   * 5/|        * |7|
-                  //   | * |        | * |
-                  //   |/| *        |6| *
-                  //   * 4/         * |/
-                  //   | *          | *
-                  //   |/           |/
-                  //   *            *
-                  // face 2: front plane
-                  //   (note: x,y exchanged)
-                  //   *---*---*
-                  //   |   11  |
-                  //   *-8-*-9-*
-                  //   |   10  |
-                  //   *---*---*
-                  // face 3: back plane
-                  //   (note: x,y exchanged)
-                  //   *---*---*
-                  //   |   15  |
-                  //   *12-*-13*
-                  //   |   14  |
-                  //   *---*---*
-                  // face 4: bottom plane
-                  //       *---*---*
-                  //      /  17   /
-                  //     *18-*-19*
-                  //    /   16  /
-                  //   *---*---*
-                  // face 5: top plane
-                  //       *---*---*
-                  //      /  21   /
-                  //     *22-*-23*
-                  //    /   20  /
-                  //   *---*---*
-                  // middle planes
-                  //     *---*---*   *---*---*
-                  //    /  25   /    |   29  |
-                  //   *26-*-27*     *26-*-27*
-                  //  /   24  /      |   28  |
-                  // *---*---*       *---*---*
-
-                  // set up a list of line iterators first. from
-                  // this, construct lists of line_indices and
-                  // line orientations later on
                   const typename Triangulation<dim, spacedim>::raw_line_iterator
                     lines[30] = {
                       hex->face(0)
@@ -6206,45 +6100,6 @@ namespace internal
                   new_quads[11]->set_line_orientation(1, line_orientation[7]);
                   new_quads[11]->set_line_orientation(3, line_orientation[13]);
 
-                  /////////////////////////////////
-                  // create the eight new hexes
-                  //
-                  // again first collect some data.  here, we need
-                  // the indices of a whole lotta quads.
-
-                  // the quads are numbered as follows:
-                  //
-                  // planes in the interior of the old hex:
-                  //
-                  //      *
-                  //     /|
-                  //    * |
-                  //   /|3*  *---*---*      *----*----*
-                  //  * |/|  | 5 | 7 |     / 10 / 11 /
-                  //  |2* |  *---*---*    *----*----*
-                  //  |/|1*  | 4 | 6 |   / 8  / 9  /
-                  //  * |/   *---*---*y *----*----*x
-                  //  |0*
-                  //  |/
-                  //  *
-                  //
-                  // children of the faces
-                  // of the old hex
-                  //      *-------*        *-------*
-                  //     /|25   27|       /34   35/|
-                  //    15|       |      /       /19
-                  //   /  |       |     /32   33/  |
-                  //  *   |24   26|    *-------*18 |
-                  //  1413*-------*    |21   23| 17*
-                  //  |  /30   31/     |       |  /
-                  //  12/       /      |       |16
-                  //  |/28   29/       |20   22|/
-                  //  *-------*        *-------*
-                  //
-                  // note that we have to
-                  // take care of the
-                  // orientation of
-                  // faces.
                   std::array<int, 36> quad_indices;
 
                   for (unsigned int i = 0; i < 12; ++i)
