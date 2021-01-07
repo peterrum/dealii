@@ -5480,37 +5480,6 @@ namespace internal
                     quad->line(3)->child(0)->vertex_index(1),
                     next_unused_vertex};
 
-                  std::array<std::array<unsigned int, 2>, 12> line_vertices{
-                    {{{0, 4}},
-                     {{4, 2}},
-                     {{1, 5}},
-                     {{5, 3}},
-                     {{0, 6}},
-                     {{6, 1}},
-                     {{2, 7}},
-                     {{7, 3}},
-                     {{6, 8}},
-                     {{8, 7}},
-                     {{4, 8}},
-                     {{8, 5}}}};
-
-                  const unsigned int n_old_lines = 8;
-
-                  for (unsigned int i = 0, j = n_old_lines; i < 4; ++i, ++j)
-                    new_lines[i]->set_bounding_object_indices(
-                      {vertex_indices[line_vertices[j][0]],
-                       vertex_indices[line_vertices[j][1]]});
-
-                  for (const auto &new_line : new_lines)
-                    {
-                      new_line->set_used_flag();
-                      new_line->clear_user_flag();
-                      new_line->clear_user_data();
-                      new_line->clear_children();
-                      new_line->set_boundary_id_internal(quad->boundary_id());
-                      new_line->set_manifold_id(quad->manifold_id());
-                    }
-
                   const unsigned int index[2][2] = {
                     {1, 0},  // child 0, line_orientation=false and true
                     {0, 1}}; // child 1, line_orientation=false and true
@@ -5544,6 +5513,36 @@ namespace internal
                     new_lines[1]->index(),
                     new_lines[2]->index(),
                     new_lines[3]->index()};
+
+                  std::array<std::array<unsigned int, 2>, 12> line_vertices{
+                    {{{0, 4}},
+                     {{4, 2}},
+                     {{1, 5}},
+                     {{5, 3}},
+                     {{0, 6}},
+                     {{6, 1}},
+                     {{2, 7}},
+                     {{7, 3}},
+                     {{6, 8}},
+                     {{8, 7}},
+                     {{4, 8}},
+                     {{8, 5}}}};
+
+                  const unsigned int n_old_lines = 8;
+
+                  for (unsigned int i = 0, j = n_old_lines; i < 4; ++i, ++j)
+                    {
+                      auto &new_line = new_lines[i];
+                      new_line->set_bounding_object_indices(
+                        {vertex_indices[line_vertices[j][0]],
+                         vertex_indices[line_vertices[j][1]]});
+                      new_line->set_used_flag();
+                      new_line->clear_user_flag();
+                      new_line->clear_user_data();
+                      new_line->clear_children();
+                      new_line->set_boundary_id_internal(quad->boundary_id());
+                      new_line->set_manifold_id(quad->manifold_id());
+                    }
 
                   new_quads[0]->set_bounding_object_indices({line_indices[0],
                                                              line_indices[8],
