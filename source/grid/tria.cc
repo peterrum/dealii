@@ -6396,64 +6396,27 @@ namespace internal
                                 3, f_or[5], f_fl[5], f_ro[5]))};
 
                           // bottom children
-                          new_hexes[0]->set_bounding_object_indices(
-                            {quad_indices[12],
-                             quad_indices[0],
-                             quad_indices[20],
-                             quad_indices[4],
-                             quad_indices[28],
-                             quad_indices[8]});
-                          new_hexes[1]->set_bounding_object_indices(
-                            {quad_indices[0],
-                             quad_indices[16],
-                             quad_indices[22],
-                             quad_indices[6],
-                             quad_indices[29],
-                             quad_indices[9]});
-                          new_hexes[2]->set_bounding_object_indices(
-                            {quad_indices[13],
-                             quad_indices[1],
-                             quad_indices[4],
-                             quad_indices[24],
-                             quad_indices[30],
-                             quad_indices[10]});
-                          new_hexes[3]->set_bounding_object_indices(
-                            {quad_indices[1],
-                             quad_indices[17],
-                             quad_indices[6],
-                             quad_indices[26],
-                             quad_indices[31],
-                             quad_indices[11]});
+                          static constexpr std::
+                            array<std::array<unsigned int, 6>, 8>
+                              cell_quads = {{
+                                {{12, 0, 20, 4, 28, 8}},  // bottom children
+                                {{0, 16, 22, 6, 29, 9}},  //
+                                {{13, 1, 4, 24, 30, 10}}, //
+                                {{1, 17, 6, 26, 31, 11}}, //
+                                {{14, 2, 21, 5, 8, 32}},  // top children
+                                {{2, 18, 23, 7, 9, 33}},  //
+                                {{15, 3, 5, 25, 10, 34}}, //
+                                {{3, 19, 7, 27, 11, 35}}  //
+                              }};
 
-                          // top children
-                          new_hexes[4]->set_bounding_object_indices(
-                            {quad_indices[14],
-                             quad_indices[2],
-                             quad_indices[21],
-                             quad_indices[5],
-                             quad_indices[8],
-                             quad_indices[32]});
-                          new_hexes[5]->set_bounding_object_indices(
-                            {quad_indices[2],
-                             quad_indices[18],
-                             quad_indices[23],
-                             quad_indices[7],
-                             quad_indices[9],
-                             quad_indices[33]});
-                          new_hexes[6]->set_bounding_object_indices(
-                            {quad_indices[15],
-                             quad_indices[3],
-                             quad_indices[5],
-                             quad_indices[25],
-                             quad_indices[10],
-                             quad_indices[34]});
-                          new_hexes[7]->set_bounding_object_indices(
-                            {quad_indices[3],
-                             quad_indices[19],
-                             quad_indices[7],
-                             quad_indices[27],
-                             quad_indices[11],
-                             quad_indices[35]});
+                          for (unsigned int c = 0; c < cell_quads.size(); ++c)
+                            new_hexes[c]->set_bounding_object_indices(
+                              {quad_indices[cell_quads[c][0]],
+                               quad_indices[cell_quads[c][1]],
+                               quad_indices[cell_quads[c][2]],
+                               quad_indices[cell_quads[c][3]],
+                               quad_indices[cell_quads[c][4]],
+                               quad_indices[cell_quads[c][5]]});
                           break;
                         }
                       default:
