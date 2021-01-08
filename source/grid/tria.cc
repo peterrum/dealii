@@ -5182,7 +5182,8 @@ namespace internal
         execute_refinement_isotropic(Triangulation<3, spacedim> &triangulation,
                                      const bool check_for_distorted_cells)
       {
-        static const int dim = 3;
+        static const int          dim = 3;
+        static const unsigned int X   = numbers::invalid_unsigned_int;
 
         Assert(spacedim == 3, ExcNotImplemented());
 
@@ -5556,8 +5557,6 @@ namespace internal
               for (unsigned int i = 0; i < line_indices.size(); ++i)
                 line_indices[i] = lines[i]->index();
 
-              static constexpr unsigned int X = numbers::invalid_unsigned_int;
-
               static constexpr std::array<std::array<unsigned int, 2>, 12>
                 line_vertices_quad{{{{0, 4}},
                                     {{4, 2}},
@@ -5849,12 +5848,25 @@ namespace internal
                   // set up new lines
                   {
                     static constexpr std::array<std::array<unsigned int, 2>, 6>
-                      new_line_vertices = {{{{22, 26}},
-                                            {{26, 23}},
-                                            {{20, 26}},
-                                            {{26, 21}},
-                                            {{24, 26}},
-                                            {{26, 25}}}};
+                      new_line_vertices_hex = {{{{22, 26}},
+                                                {{26, 23}},
+                                                {{20, 26}},
+                                                {{26, 21}},
+                                                {{24, 26}},
+                                                {{26, 25}}}};
+
+                    static constexpr std::array<std::array<unsigned int, 2>, 6>
+                      new_line_vertices_tet = {{{{7, 5}},
+                                                {{X, X}},
+                                                {{X, X}},
+                                                {{X, X}},
+                                                {{X, X}},
+                                                {{X, X}}}};
+
+                    const auto &new_line_vertices =
+                      (reference_cell_type == ReferenceCell::Type::Hex) ?
+                        new_line_vertices_hex :
+                        new_line_vertices_tet;
 
                     for (unsigned int i = 0; i < new_lines.size(); ++i)
                       new_lines[i]->set_bounding_object_indices(
@@ -5994,7 +6006,7 @@ namespace internal
                     }
 
                     static constexpr std::array<std::array<unsigned int, 6>, 8>
-                      cell_quads = {{
+                      cell_quads_hex = {{
                         {{12, 0, 20, 4, 28, 8}},  // bottom children
                         {{0, 16, 22, 6, 29, 9}},  //
                         {{13, 1, 4, 24, 30, 10}}, //
@@ -6005,56 +6017,127 @@ namespace internal
                         {{3, 19, 7, 27, 11, 35}}  //
                       }};
 
+                    static constexpr std::array<std::array<unsigned int, 6>, 8>
+                      cell_quads_tet{{{{16, 15, 23, 19, X, X}},
+                                      {{1, 0, 10, 5, X, X}},
+                                      {{3, 4, 17, 2, X, X}},
+                                      {{12, 13, 21, 8, X, X}},
+                                      {{20, 12, 22, 14, X, X}},
+                                      {{9, 22, 18, 16, X, X}},
+                                      {{7, 6, 18, 17, X, X}},
+                                      {{11, 14, 5, 6, X, X}}}};
+
                     static constexpr std::
                       array<std::array<std::array<unsigned int, 4>, 6>, 8>
-                        cell_face_vertices{{{{{{0, 8, 16, 20}},
-                                              {{10, 24, 22, 26}},
-                                              {{0, 16, 10, 22}},
-                                              {{8, 20, 24, 26}},
-                                              {{0, 10, 8, 24}},
-                                              {{16, 22, 20, 26}}}},
-                                            {{{{10, 24, 22, 26}},
-                                              {{1, 9, 17, 21}},
-                                              {{10, 22, 1, 17}},
-                                              {{24, 26, 9, 21}},
-                                              {{10, 1, 24, 9}},
-                                              {{22, 17, 26, 21}}}},
-                                            {{{{8, 2, 20, 18}},
-                                              {{24, 11, 26, 23}},
-                                              {{8, 20, 24, 26}},
-                                              {{2, 18, 11, 23}},
-                                              {{8, 24, 2, 11}},
-                                              {{20, 26, 18, 23}}}},
-                                            {{{{24, 11, 26, 23}},
-                                              {{9, 3, 21, 19}},
-                                              {{24, 26, 9, 21}},
-                                              {{11, 23, 3, 19}},
-                                              {{24, 9, 11, 3}},
-                                              {{26, 21, 23, 19}}}},
-                                            {{{{16, 20, 4, 12}},
-                                              {{22, 26, 14, 25}},
-                                              {{16, 4, 22, 14}},
-                                              {{20, 12, 26, 25}},
-                                              {{16, 22, 20, 26}},
-                                              {{4, 14, 12, 25}}}},
-                                            {{{{22, 26, 14, 25}},
-                                              {{17, 21, 5, 13}},
-                                              {{22, 14, 17, 5}},
-                                              {{26, 25, 21, 13}},
-                                              {{22, 17, 26, 21}},
-                                              {{14, 5, 25, 13}}}},
-                                            {{{{20, 18, 12, 6}},
-                                              {{26, 23, 25, 15}},
-                                              {{20, 12, 26, 25}},
-                                              {{18, 6, 23, 15}},
-                                              {{20, 26, 18, 23}},
-                                              {{12, 25, 6, 15}}}},
-                                            {{{{26, 23, 25, 15}},
-                                              {{21, 19, 13, 7}},
-                                              {{26, 25, 21, 13}},
-                                              {{23, 15, 19, 7}},
-                                              {{26, 21, 23, 19}},
-                                              {{25, 13, 15, 7}}}}}};
+                        cell_face_vertices_hex{{{{{{0, 8, 16, 20}},
+                                                  {{10, 24, 22, 26}},
+                                                  {{0, 16, 10, 22}},
+                                                  {{8, 20, 24, 26}},
+                                                  {{0, 10, 8, 24}},
+                                                  {{16, 22, 20, 26}}}},
+                                                {{{{10, 24, 22, 26}},
+                                                  {{1, 9, 17, 21}},
+                                                  {{10, 22, 1, 17}},
+                                                  {{24, 26, 9, 21}},
+                                                  {{10, 1, 24, 9}},
+                                                  {{22, 17, 26, 21}}}},
+                                                {{{{8, 2, 20, 18}},
+                                                  {{24, 11, 26, 23}},
+                                                  {{8, 20, 24, 26}},
+                                                  {{2, 18, 11, 23}},
+                                                  {{8, 24, 2, 11}},
+                                                  {{20, 26, 18, 23}}}},
+                                                {{{{24, 11, 26, 23}},
+                                                  {{9, 3, 21, 19}},
+                                                  {{24, 26, 9, 21}},
+                                                  {{11, 23, 3, 19}},
+                                                  {{24, 9, 11, 3}},
+                                                  {{26, 21, 23, 19}}}},
+                                                {{{{16, 20, 4, 12}},
+                                                  {{22, 26, 14, 25}},
+                                                  {{16, 4, 22, 14}},
+                                                  {{20, 12, 26, 25}},
+                                                  {{16, 22, 20, 26}},
+                                                  {{4, 14, 12, 25}}}},
+                                                {{{{22, 26, 14, 25}},
+                                                  {{17, 21, 5, 13}},
+                                                  {{22, 14, 17, 5}},
+                                                  {{26, 25, 21, 13}},
+                                                  {{22, 17, 26, 21}},
+                                                  {{14, 5, 25, 13}}}},
+                                                {{{{20, 18, 12, 6}},
+                                                  {{26, 23, 25, 15}},
+                                                  {{20, 12, 26, 25}},
+                                                  {{18, 6, 23, 15}},
+                                                  {{20, 26, 18, 23}},
+                                                  {{12, 25, 6, 15}}}},
+                                                {{{{26, 23, 25, 15}},
+                                                  {{21, 19, 13, 7}},
+                                                  {{26, 25, 21, 13}},
+                                                  {{23, 15, 19, 7}},
+                                                  {{26, 21, 23, 19}},
+                                                  {{25, 13, 15, 7}}}}}};
+
+                    static constexpr std::
+                      array<std::array<std::array<unsigned int, 4>, 6>, 8>
+                        cell_face_vertices_tet{{{{{{7, 8, 9, X}},
+                                                  {{8, 7, 3, X}},
+                                                  {{7, 9, 3, X}},
+                                                  {{9, 8, 3, X}},
+                                                  {{X, X, X, X}},
+                                                  {{X, X, X, X}}}},
+                                                {{{{0, 4, 6, X}},
+                                                  {{4, 0, 7, X}},
+                                                  {{0, 6, 7, X}},
+                                                  {{6, 4, 7, X}},
+                                                  {{X, X, X, X}},
+                                                  {{X, X, X, X}}}},
+                                                {{{{4, 1, 8, X}},
+                                                  {{1, 4, 5, X}},
+                                                  {{4, 8, 5, X}},
+                                                  {{8, 1, 5, X}},
+                                                  {{X, X, X, X}},
+                                                  {{X, X, X, X}}}},
+                                                {{{{6, 5, 9, X}},
+                                                  {{5, 6, 2, X}},
+                                                  {{6, 9, 2, X}},
+                                                  {{9, 5, 2, X}},
+                                                  {{X, X, X, X}},
+                                                  {{X, X, X, X}}}},
+                                                {{{{9, 6, 7, X}},
+                                                  {{6, 9, 5, X}},
+                                                  {{9, 7, 5, X}},
+                                                  {{7, 6, 5, X}},
+                                                  {{X, X, X, X}},
+                                                  {{X, X, X, X}}}},
+                                                {{{{5, 9, 8, X}},
+                                                  {{9, 5, 7, X}},
+                                                  {{5, 8, 7, X}},
+                                                  {{8, 9, 7, X}},
+                                                  {{X, X, X, X}},
+                                                  {{X, X, X, X}}}},
+                                                {{{{7, 4, 8, X}},
+                                                  {{4, 7, 5, X}},
+                                                  {{7, 8, 5, X}},
+                                                  {{8, 4, 5, X}},
+                                                  {{X, X, X, X}},
+                                                  {{X, X, X, X}}}},
+                                                {{{{6, 5, 4, X}},
+                                                  {{5, 6, 7, X}},
+                                                  {{6, 4, 7, X}},
+                                                  {{4, 5, 7, X}},
+                                                  {{X, X, X, X}},
+                                                  {{X, X, X, X}}}}}};
+
+                    const auto &cell_quads =
+                      (reference_cell_type == ReferenceCell::Type::Hex) ?
+                        cell_quads_hex :
+                        cell_quads_tet;
+
+                    const auto &cell_face_vertices =
+                      (reference_cell_type == ReferenceCell::Type::Hex) ?
+                        cell_face_vertices_hex :
+                        cell_face_vertices_tet;
 
                     for (unsigned int c = 0; c < 8; ++c)
                       {
