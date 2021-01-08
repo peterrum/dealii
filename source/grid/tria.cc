@@ -5479,16 +5479,18 @@ namespace internal
                 quad->set_refinement_case(RefinementCase<2>::cut_xy);
               }
 
-              const std::array<unsigned int, 9> vertex_indices = {
-                {quad->vertex_index(0),
-                 quad->vertex_index(1),
-                 quad->vertex_index(2),
-                 quad->vertex_index(3),
-                 quad->line(0)->child(0)->vertex_index(1),
-                 quad->line(1)->child(0)->vertex_index(1),
-                 quad->line(2)->child(0)->vertex_index(1),
-                 quad->line(3)->child(0)->vertex_index(1),
-                 next_unused_vertex}};
+              std::array<unsigned int, 9> vertex_indices;
+              {
+                unsigned int k = 0;
+                for (const auto i : quad->vertex_indices())
+                  vertex_indices[k++] = quad->vertex_index(i);
+
+                for (const auto i : quad->line_indices())
+                  vertex_indices[k++] =
+                    quad->line(l)->child(0)->vertex_index(1);
+
+                vertex_indices[k++] = next_unused_vertex;
+              }
 
               static constexpr std::array<std::array<unsigned int, 2>, 2>
                 index = {
