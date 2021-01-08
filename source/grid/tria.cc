@@ -5487,45 +5487,40 @@ namespace internal
 
                 for (const auto i : quad->line_indices())
                   vertex_indices[k++] =
-                    quad->line(l)->child(0)->vertex_index(1);
+                    quad->line(i)->child(0)->vertex_index(1);
 
                 vertex_indices[k++] = next_unused_vertex;
               }
 
-              static constexpr std::array<std::array<unsigned int, 2>, 2>
-                index = {
-                  {{{1, 0}},   // child 0, line_orientation=false and true
-                   {{0, 1}}}}; // child 1, line_orientation=false and true
+              std::array<
+                typename Triangulation<dim, spacedim>::raw_line_iterator,
+                12>
+                lines;
 
-              const std::array<int, 12> line_indices = {
-                {quad->line(0)
-                   ->child(index[0][quad->line_orientation(0)])
-                   ->index(),
-                 quad->line(0)
-                   ->child(index[1][quad->line_orientation(0)])
-                   ->index(),
-                 quad->line(1)
-                   ->child(index[0][quad->line_orientation(1)])
-                   ->index(),
-                 quad->line(1)
-                   ->child(index[1][quad->line_orientation(1)])
-                   ->index(),
-                 quad->line(2)
-                   ->child(index[0][quad->line_orientation(2)])
-                   ->index(),
-                 quad->line(2)
-                   ->child(index[1][quad->line_orientation(2)])
-                   ->index(),
-                 quad->line(3)
-                   ->child(index[0][quad->line_orientation(3)])
-                   ->index(),
-                 quad->line(3)
-                   ->child(index[1][quad->line_orientation(3)])
-                   ->index(),
-                 new_lines[0]->index(),
-                 new_lines[1]->index(),
-                 new_lines[2]->index(),
-                 new_lines[3]->index()}};
+              {
+                unsigned int k = 0;
+
+                for (unsigned int l = 0; l < quad->n_lines(); ++l)
+                  for (unsigned int c = 0; c < 2; ++c)
+                    {
+                      static constexpr std::array<std::array<unsigned int, 2>,
+                                                  2>
+                        index = {
+                          {{{1, 0}}, // child 0, line_orientation=false and true
+                           {{0,
+                             1}}}}; // child 1, line_orientation=false and true
+
+                      lines[k++] = quad->line(l)->child(
+                        index[c][quad->line_orientation(l)]);
+                    }
+
+                for (unsigned int l = 0; l < 4 /*TODO*/; ++l)
+                  lines[k++] = new_lines[l];
+              }
+
+              std::array<int, 12> line_indices;
+              for (unsigned int i = 0; i < 12; ++i)
+                line_indices[i] = lines[i]->index();
 
               static constexpr std::array<std::array<unsigned int, 2>, 12>
                 line_vertices{{{{0, 4}},
@@ -5593,15 +5588,25 @@ namespace internal
                   new_quad->set_boundary_id_internal(quad->boundary_id());
                   new_quad->set_manifold_id(quad->manifold_id());
 
+                  // ... and fix orientation of faces (lines) of quad
                   for (const auto f : new_quad->line_indices())
-                    new_quad->set_line_orientation(
-                      f,
-                      vertex_indices[line_vertices[quad_lines[i][f]][0]] ==
-                        (typename Triangulation<dim, spacedim>::
-                           raw_line_iterator(&triangulation,
-                                             0,
-                                             line_indices[quad_lines[i][f]]))
-                          ->vertex_index(0));
+                    {
+                      std::array<unsigned int, 2> vertices_0, vertices_1;
+
+                      for (unsigned int v = 0; v < 2; ++v)
+                        vertices_0[v] =
+                          lines[quad_lines[i][f]]->vertex_index(v);
+
+                      for (unsigned int v = 0; v < 2; ++v)
+                        vertices_1[v] =
+                          vertex_indices[line_vertices[quad_lines[i][f]][v]];
+
+                      const auto orientation =
+                        ReferenceCell::compute_orientation(
+                          ReferenceCell::Type::Line, vertices_0, vertices_1);
+
+                      new_quad->set_line_orientation(f, orientation);
+                    }
                 }
 
               quad->clear_user_flag();
