@@ -5699,6 +5699,8 @@ namespace internal
                     RefinementCase<dim>::no_refinement)
                   continue;
 
+                const auto &reference_cell_type = hex->reference_cell_type();
+
                 const RefinementCase<dim> ref_case = hex->refine_flag_set();
                 hex->clear_refine_flag();
                 hex->set_refinement_case(ref_case);
@@ -5707,11 +5709,18 @@ namespace internal
                 unsigned int n_new_quads = 0;
                 unsigned int n_new_hexes = 0;
 
-                {
-                  n_new_lines = 6;  // TODO
-                  n_new_quads = 12; //
-                  n_new_hexes = 8;  //
-                }
+                if (reference_cell_type == ReferenceCell::Type::Hex)
+                  {
+                    n_new_lines = 6;
+                    n_new_quads = 12;
+                    n_new_hexes = 8;
+                  }
+                else if (reference_cell_type == ReferenceCell::Type::Tet)
+                  {
+                    Assert(false, ExcNotImplemented());
+                  }
+                else
+                  Assert(false, ExcNotImplemented());
 
                 {
                   while (triangulation.vertices_used[next_unused_vertex] ==
@@ -5769,9 +5778,7 @@ namespace internal
                     new_quads[i]->set_boundary_id_internal(
                       numbers::internal_face_boundary_id);
                     new_quads[i]->set_manifold_id(hex->manifold_id());
-                    for (unsigned int j = 0;
-                         j < GeometryInfo<dim>::lines_per_face;
-                         ++j)
+                    for (const auto j : new_quads[i]->line_indices())
                       new_quads[i]->set_line_orientation(j, true);
                   }
 
@@ -5804,8 +5811,7 @@ namespace internal
 
                       if (i % 2)
                         new_hexes[i]->set_parent(hex->index());
-                      for (const unsigned int f :
-                           GeometryInfo<dim>::face_indices())
+                      for (const auto f : new_hexes[i]->face_indices())
                         {
                           new_hexes[i]->set_face_orientation(f, true);
                           new_hexes[i]->set_face_flip(f, false);
@@ -5830,7 +5836,7 @@ namespace internal
                       vertex_indices[k++] =
                         hex->line(i)->child(0)->vertex_index(1);
 
-                    if (true /*TODO*/)
+                    if (reference_cell_type == ReferenceCell::Type::Hex)
                       {
                         for (const unsigned int i : hex->face_indices())
                           vertex_indices[k++] =
