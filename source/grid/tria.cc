@@ -5404,28 +5404,49 @@ namespace internal
               if (quad->user_flag_set() == false)
                 continue;
 
-              // 1) create new vertex (at the center of the face)
-              while (triangulation.vertices_used[next_unused_vertex] == true)
-                ++next_unused_vertex;
-              Assert(
-                next_unused_vertex < triangulation.vertices.size(),
-                ExcMessage(
-                  "Internal error: During refinement, the triangulation wants to access an element of the 'vertices' array but it turns out that the array is not large enough."));
+              const auto &reference_cell_type = quad->reference_cell_type();
 
-              triangulation.vertices[next_unused_vertex] =
-                quad->center(true, true);
-              triangulation.vertices_used[next_unused_vertex] = true;
+              // 1) create new vertex (at the center of the face)
+              if (reference_cell_type == ReferenceCell::Type::Quad)
+                {
+                  while (triangulation.vertices_used[next_unused_vertex] ==
+                         true)
+                    ++next_unused_vertex;
+                  Assert(
+                    next_unused_vertex < triangulation.vertices.size(),
+                    ExcMessage(
+                      "Internal error: During refinement, the triangulation wants to access an element of the 'vertices' array but it turns out that the array is not large enough."));
+
+                  triangulation.vertices[next_unused_vertex] =
+                    quad->center(true, true);
+                  triangulation.vertices_used[next_unused_vertex] = true;
+                }
 
               // 2) create new lines (property is set later)
-              std::array<typename Triangulation<dim, spacedim>::raw_line_iterator,4>
-                new_lines;
+              boost::container::small_vector<
+                typename Triangulation<dim, spacedim>::raw_line_iterator,
+                4>
+                new_lines(quad->n_lines());
               {
                 for (unsigned int i = 0; i < new_lines.size(); ++i)
                   {
-                    if (i % 2 == 0)
-                      next_unused_line =
-                        triangulation.faces->lines
-                          .template next_free_pair_object<1>(triangulation);
+                    if (quad->n_lines() % 2 == 0)
+                      {
+                        Assert(reference_cell_type == ReferenceCell::Type::Quad,
+                               ExcNotImplemented());
+                        if (i % 2 == 0)
+                          next_unused_line =
+                            triangulation.faces->lines
+                              .template next_free_pair_object<1>(triangulation);
+                      }
+                    else
+                      {
+                        Assert(reference_cell_type == ReferenceCell::Type::Tri,
+                               ExcNotImplemented());
+                        next_unused_line =
+                          triangulation.faces->lines
+                            .template next_free_single_object<1>(triangulation);
+                      }
 
                     new_lines[i] = next_unused_line;
                     ++next_unused_line;
@@ -5438,7 +5459,9 @@ namespace internal
               }
 
               // 3) create new quads (properties are set below)
-              std::array<typename Triangulation<dim, spacedim>::raw_quad_iterator, 4>
+              std::array<
+                typename Triangulation<dim, spacedim>::raw_quad_iterator,
+                4>
                 new_quads;
               {
                 next_unused_quad =
@@ -5492,10 +5515,10 @@ namespace internal
                 vertex_indices[k++] = next_unused_vertex;
               }
 
-              std::array<
+              boost::container::small_vector<
                 typename Triangulation<dim, spacedim>::raw_line_iterator,
                 12>
-                lines;
+                lines(quad->n_lines() * 3);
 
               {
                 unsigned int k = 0;
@@ -5518,8 +5541,9 @@ namespace internal
                   lines[k++] = new_lines[l];
               }
 
-              std::array<int, 12> line_indices;
-              for (unsigned int i = 0; i < 12; ++i)
+              boost::container::small_vector<int, 12> line_indices(
+                lines.size());
+              for (unsigned int i = 0; i < line_indices.size(); ++i)
                 line_indices[i] = lines[i]->index();
 
               static constexpr std::array<std::array<unsigned int, 2>, 12>
@@ -5543,7 +5567,8 @@ namespace internal
                             {{9, 3, 11, 7}}}};
 
               // 4) set properties of lines
-              for (unsigned int i = 0, j = lines.size() - new_lines.size(); i < new_lines.size();
+              for (unsigned int i = 0, j = lines.size() - new_lines.size();
+                   i < new_lines.size();
                    ++i, ++j)
                 {
                   auto &new_line = new_lines[i];
