@@ -5251,7 +5251,8 @@ namespace internal
                       acell->face(face)->set_user_flag();
 
                   for (const auto line : acell->line_indices())
-                    acell->line(line)->set_user_flag();
+                    if (acell->line(line)->has_children() == false)
+                      acell->line(line)->set_user_flag();
                 }
 
             const unsigned int used_cells =
