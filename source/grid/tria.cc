@@ -5861,7 +5861,7 @@ namespace internal
                     std::array<
                       typename Triangulation<dim, spacedim>::raw_line_iterator,
                       30>
-                      lines;
+                      relevant_lines;
 
                     for (unsigned int f = 0, k = 0; f < 6; ++f)
                       for (unsigned int c = 0; c < 4; ++c, ++k)
@@ -5870,7 +5870,7 @@ namespace internal
                             array<std::array<unsigned int, 2>, 4>
                               temp = {{{{0, 1}}, {{3, 0}}, {{0, 3}}, {{3, 2}}}};
 
-                          lines[k] =
+                          relevant_lines[k] =
                             hex->face(f)
                               ->isotropic_child(
                                 GeometryInfo<dim>::standard_to_real_face_vertex(
@@ -5887,32 +5887,26 @@ namespace internal
                         }
 
                     for (unsigned int i = 0, k = 24; i < 6; ++i, ++k)
-                      lines[k] = new_lines[i];
+                      relevant_lines[k] = new_lines[i];
 
-                    unsigned int line_indices[30];
-                    for (unsigned int i = 0; i < 30; ++i)
-                      line_indices[i] = lines[i]->index();
+                    std::array<unsigned int, 30> relevant_line_indices;
+                    for (unsigned int i = 0; i < relevant_line_indices.size();
+                         ++i)
+                      relevant_line_indices[i] = relevant_lines[i]->index();
 
                     static constexpr std::array<std::array<unsigned int, 4>, 12>
-                      quad_lines = {{{{10, 28, 16, 24}},
-                                     {{28, 14, 17, 25}},
-                                     {{11, 29, 24, 20}},
-                                     {{29, 15, 25, 21}},
-                                     {{18, 26, 0, 28}},
-                                     {{26, 22, 1, 29}},
-                                     {{19, 27, 28, 4}},
-                                     {{27, 23, 29, 5}},
-                                     {{2, 24, 8, 26}},
-                                     {{24, 6, 9, 27}},
-                                     {{3, 25, 26, 12}},
-                                     {{25, 7, 27, 13}}}};
-
-                    for (unsigned int i = 0; i < 12; ++i)
-                      new_quads[i]->set_bounding_object_indices(
-                        {line_indices[quad_lines[i][0]],
-                         line_indices[quad_lines[i][1]],
-                         line_indices[quad_lines[i][2]],
-                         line_indices[quad_lines[i][3]]});
+                      new_quad_lines = {{{{10, 28, 16, 24}},
+                                         {{28, 14, 17, 25}},
+                                         {{11, 29, 24, 20}},
+                                         {{29, 15, 25, 21}},
+                                         {{18, 26, 0, 28}},
+                                         {{26, 22, 1, 29}},
+                                         {{19, 27, 28, 4}},
+                                         {{27, 23, 29, 5}},
+                                         {{2, 24, 8, 26}},
+                                         {{24, 6, 9, 27}},
+                                         {{3, 25, 26, 12}},
+                                         {{25, 7, 27, 13}}}};
 
                     static constexpr std::
                       array<std::array<std::array<unsigned int, 2>, 4>, 12>
@@ -5933,31 +5927,52 @@ namespace internal
                            {{{{26, 23}}, {{21, 19}}, {{26, 21}}, {{23, 19}}}}}};
 
                     for (unsigned int q = 0; q < 12; ++q)
-                      for (unsigned int l = 0; l < 4; ++l)
-                        {
-                          if (lines[quad_lines[q][l]]->vertex_index(0) ==
-                              vertex_indices[table[q][l][0]])
-                            {
-                              AssertDimension(
-                                lines[quad_lines[q][l]]->vertex_index(0),
-                                vertex_indices[table[q][l][0]]);
-                              AssertDimension(
-                                lines[quad_lines[q][l]]->vertex_index(1),
-                                vertex_indices[table[q][l][1]]);
+                      {
+                        if (new_quads[q].n_lines() == 3)
+                          new_quads[q]->set_bounding_object_indices(
+                            {relevant_line_indices[new_quad_lines[q][0]],
+                             relevant_line_indices[new_quad_lines[q][1]],
+                             relevant_line_indices[new_quad_lines[q][2]]});
+                        else if (new_quads[q].n_lines() == 4)
+                          new_quads[q]->set_bounding_object_indices(
+                            {relevant_line_indices[new_quad_lines[q][0]],
+                             relevant_line_indices[new_quad_lines[q][1]],
+                             relevant_line_indices[new_quad_lines[q][2]],
+                             relevant_line_indices[new_quad_lines[q][3]]});
+                        else
+                          Assert(false, ExcNotImpelemented());
 
-                              new_quads[q]->set_line_orientation(l, 1);
-                            }
-                          else
-                            {
-                              AssertDimension(
-                                lines[quad_lines[q][l]]->vertex_index(0),
-                                vertex_indices[table[q][l][1]]);
-                              AssertDimension(
-                                lines[quad_lines[q][l]]->vertex_index(1),
-                                vertex_indices[table[q][l][0]]);
-                              new_quads[q]->set_line_orientation(l, 0);
-                            }
-                        }
+                        for (unsigned int l = 0; l < 4; ++l)
+                          {
+                            if (relevant_lines[new_quad_lines[q][l]]
+                                  ->vertex_index(0) ==
+                                vertex_indices[table[q][l][0]])
+                              {
+                                AssertDimension(
+                                  relevant_lines[new_quad_lines[q][l]]
+                                    ->vertex_index(0),
+                                  vertex_indices[table[q][l][0]]);
+                                AssertDimension(
+                                  relevant_lines[new_quad_lines[q][l]]
+                                    ->vertex_index(1),
+                                  vertex_indices[table[q][l][1]]);
+
+                                new_quads[q]->set_line_orientation(l, 1);
+                              }
+                            else
+                              {
+                                AssertDimension(
+                                  relevant_lines[new_quad_lines[q][l]]
+                                    ->vertex_index(0),
+                                  vertex_indices[table[q][l][1]]);
+                                AssertDimension(
+                                  relevant_lines[new_quad_lines[q][l]]
+                                    ->vertex_index(1),
+                                  vertex_indices[table[q][l][0]]);
+                                new_quads[q]->set_line_orientation(l, 0);
+                              }
+                          }
+                      }
                   }
 
                   // set up new hex
