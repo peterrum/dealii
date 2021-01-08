@@ -5863,31 +5863,35 @@ namespace internal
                       30>
                       relevant_lines;
 
-                    for (unsigned int f = 0, k = 0; f < 6; ++f)
-                      for (unsigned int c = 0; c < 4; ++c, ++k)
-                        {
-                          static constexpr std::
-                            array<std::array<unsigned int, 2>, 4>
-                              temp = {{{{0, 1}}, {{3, 0}}, {{0, 3}}, {{3, 2}}}};
+                    {
+                      for (unsigned int f = 0, k = 0; f < 6; ++f)
+                        for (unsigned int c = 0; c < 4; ++c, ++k)
+                          {
+                            static constexpr std::
+                              array<std::array<unsigned int, 2>, 4>
+                                temp = {
+                                  {{{0, 1}}, {{3, 0}}, {{0, 3}}, {{3, 2}}}};
 
-                          relevant_lines[k] =
-                            hex->face(f)
-                              ->isotropic_child(
-                                GeometryInfo<dim>::standard_to_real_face_vertex(
-                                  temp[c][0],
-                                  hex->face_orientation(f),
-                                  hex->face_flip(f),
-                                  hex->face_rotation(f)))
-                              ->line(
-                                GeometryInfo<dim>::standard_to_real_face_line(
-                                  temp[c][1],
-                                  hex->face_orientation(f),
-                                  hex->face_flip(f),
-                                  hex->face_rotation(f)));
-                        }
+                            relevant_lines[k] =
+                              hex->face(f)
+                                ->isotropic_child(
+                                  GeometryInfo<dim>::
+                                    standard_to_real_face_vertex(
+                                      temp[c][0],
+                                      hex->face_orientation(f),
+                                      hex->face_flip(f),
+                                      hex->face_rotation(f)))
+                                ->line(
+                                  GeometryInfo<dim>::standard_to_real_face_line(
+                                    temp[c][1],
+                                    hex->face_orientation(f),
+                                    hex->face_flip(f),
+                                    hex->face_rotation(f)));
+                          }
 
-                    for (unsigned int i = 0, k = 24; i < 6; ++i, ++k)
-                      relevant_lines[k] = new_lines[i];
+                      for (unsigned int i = 0, k = 24; i < 6; ++i, ++k)
+                        relevant_lines[k] = new_lines[i];
+                    }
 
                     std::array<unsigned int, 30> relevant_line_indices;
                     for (unsigned int i = 0; i < relevant_line_indices.size();
@@ -5944,33 +5948,23 @@ namespace internal
 
                         for (const auto l : new_quad->line_indices())
                           {
-                            if (relevant_lines[new_quad_lines[q][l]]
-                                  ->vertex_index(0) ==
-                                vertex_indices[table[q][l][0]])
-                              {
-                                AssertDimension(
-                                  relevant_lines[new_quad_lines[q][l]]
-                                    ->vertex_index(0),
-                                  vertex_indices[table[q][l][0]]);
-                                AssertDimension(
-                                  relevant_lines[new_quad_lines[q][l]]
-                                    ->vertex_index(1),
-                                  vertex_indices[table[q][l][1]]);
+                            std::array<unsigned int, 2> vertices_0, vertices_1;
 
-                                new_quad->set_line_orientation(l, 1);
-                              }
-                            else
-                              {
-                                AssertDimension(
-                                  relevant_lines[new_quad_lines[q][l]]
-                                    ->vertex_index(0),
-                                  vertex_indices[table[q][l][1]]);
-                                AssertDimension(
-                                  relevant_lines[new_quad_lines[q][l]]
-                                    ->vertex_index(1),
-                                  vertex_indices[table[q][l][0]]);
-                                new_quad->set_line_orientation(l, 0);
-                              }
+                            for (unsigned int v = 0; v < 2; ++v)
+                              vertices_0[v] =
+                                relevant_lines[new_quad_lines[q][l]]
+                                  ->vertex_index(v);
+
+                            for (unsigned int v = 0; v < 2; ++v)
+                              vertices_1[v] = vertex_indices[table[q][l][v]];
+
+                            const auto orientation =
+                              ReferenceCell::compute_orientation(
+                                ReferenceCell::Type::Line,
+                                vertices_0,
+                                vertices_1);
+
+                            new_quad->set_line_orientation(l, orientation);
                           }
                       }
                   }
@@ -5979,17 +5973,19 @@ namespace internal
                   {
                     std::array<int, 36> quad_indices;
 
-                    for (unsigned int i = 0; i < new_quads.size(); ++i)
-                      quad_indices[i] = new_quads[i]->index();
+                    {
+                      for (unsigned int i = 0; i < new_quads.size(); ++i)
+                        quad_indices[i] = new_quads[i]->index();
 
-                    for (unsigned int f = 0, k = new_quads.size(); f < 6; ++f)
-                      for (unsigned int c = 0; c < 4; ++c, ++k)
-                        quad_indices[k] = hex->face(f)->isotropic_child_index(
-                          GeometryInfo<dim>::standard_to_real_face_vertex(
-                            c,
-                            hex->face_orientation(f),
-                            hex->face_flip(f),
-                            hex->face_rotation(f)));
+                      for (unsigned int f = 0, k = new_quads.size(); f < 6; ++f)
+                        for (unsigned int c = 0; c < 4; ++c, ++k)
+                          quad_indices[k] = hex->face(f)->isotropic_child_index(
+                            GeometryInfo<dim>::standard_to_real_face_vertex(
+                              c,
+                              hex->face_orientation(f),
+                              hex->face_flip(f),
+                              hex->face_rotation(f)));
+                    }
 
                     static constexpr std::array<std::array<unsigned int, 6>, 8>
                       cell_quads = {{
@@ -6005,54 +6001,54 @@ namespace internal
 
                     static constexpr std::
                       array<std::array<std::array<unsigned int, 4>, 6>, 8>
-                        table_{{{{{{0, 8, 16, 20}},
-                                  {{10, 24, 22, 26}},
-                                  {{0, 16, 10, 22}},
-                                  {{8, 20, 24, 26}},
-                                  {{0, 10, 8, 24}},
-                                  {{16, 22, 20, 26}}}},
-                                {{{{10, 24, 22, 26}},
-                                  {{1, 9, 17, 21}},
-                                  {{10, 22, 1, 17}},
-                                  {{24, 26, 9, 21}},
-                                  {{10, 1, 24, 9}},
-                                  {{22, 17, 26, 21}}}},
-                                {{{{8, 2, 20, 18}},
-                                  {{24, 11, 26, 23}},
-                                  {{8, 20, 24, 26}},
-                                  {{2, 18, 11, 23}},
-                                  {{8, 24, 2, 11}},
-                                  {{20, 26, 18, 23}}}},
-                                {{{{24, 11, 26, 23}},
-                                  {{9, 3, 21, 19}},
-                                  {{24, 26, 9, 21}},
-                                  {{11, 23, 3, 19}},
-                                  {{24, 9, 11, 3}},
-                                  {{26, 21, 23, 19}}}},
-                                {{{{16, 20, 4, 12}},
-                                  {{22, 26, 14, 25}},
-                                  {{16, 4, 22, 14}},
-                                  {{20, 12, 26, 25}},
-                                  {{16, 22, 20, 26}},
-                                  {{4, 14, 12, 25}}}},
-                                {{{{22, 26, 14, 25}},
-                                  {{17, 21, 5, 13}},
-                                  {{22, 14, 17, 5}},
-                                  {{26, 25, 21, 13}},
-                                  {{22, 17, 26, 21}},
-                                  {{14, 5, 25, 13}}}},
-                                {{{{20, 18, 12, 6}},
-                                  {{26, 23, 25, 15}},
-                                  {{20, 12, 26, 25}},
-                                  {{18, 6, 23, 15}},
-                                  {{20, 26, 18, 23}},
-                                  {{12, 25, 6, 15}}}},
-                                {{{{26, 23, 25, 15}},
-                                  {{21, 19, 13, 7}},
-                                  {{26, 25, 21, 13}},
-                                  {{23, 15, 19, 7}},
-                                  {{26, 21, 23, 19}},
-                                  {{25, 13, 15, 7}}}}}};
+                        cell_face_vertices{{{{{{0, 8, 16, 20}},
+                                              {{10, 24, 22, 26}},
+                                              {{0, 16, 10, 22}},
+                                              {{8, 20, 24, 26}},
+                                              {{0, 10, 8, 24}},
+                                              {{16, 22, 20, 26}}}},
+                                            {{{{10, 24, 22, 26}},
+                                              {{1, 9, 17, 21}},
+                                              {{10, 22, 1, 17}},
+                                              {{24, 26, 9, 21}},
+                                              {{10, 1, 24, 9}},
+                                              {{22, 17, 26, 21}}}},
+                                            {{{{8, 2, 20, 18}},
+                                              {{24, 11, 26, 23}},
+                                              {{8, 20, 24, 26}},
+                                              {{2, 18, 11, 23}},
+                                              {{8, 24, 2, 11}},
+                                              {{20, 26, 18, 23}}}},
+                                            {{{{24, 11, 26, 23}},
+                                              {{9, 3, 21, 19}},
+                                              {{24, 26, 9, 21}},
+                                              {{11, 23, 3, 19}},
+                                              {{24, 9, 11, 3}},
+                                              {{26, 21, 23, 19}}}},
+                                            {{{{16, 20, 4, 12}},
+                                              {{22, 26, 14, 25}},
+                                              {{16, 4, 22, 14}},
+                                              {{20, 12, 26, 25}},
+                                              {{16, 22, 20, 26}},
+                                              {{4, 14, 12, 25}}}},
+                                            {{{{22, 26, 14, 25}},
+                                              {{17, 21, 5, 13}},
+                                              {{22, 14, 17, 5}},
+                                              {{26, 25, 21, 13}},
+                                              {{22, 17, 26, 21}},
+                                              {{14, 5, 25, 13}}}},
+                                            {{{{20, 18, 12, 6}},
+                                              {{26, 23, 25, 15}},
+                                              {{20, 12, 26, 25}},
+                                              {{18, 6, 23, 15}},
+                                              {{20, 26, 18, 23}},
+                                              {{12, 25, 6, 15}}}},
+                                            {{{{26, 23, 25, 15}},
+                                              {{21, 19, 13, 7}},
+                                              {{26, 25, 21, 13}},
+                                              {{23, 15, 19, 7}},
+                                              {{26, 21, 23, 19}},
+                                              {{25, 13, 15, 7}}}}}};
 
                     for (unsigned int c = 0; c < 8; ++c)
                       {
@@ -6076,11 +6072,12 @@ namespace internal
                               vertices_0[i] = face->vertex_index(i);
 
                             for (const auto i : face->vertex_indices())
-                              vertices_1[i] = vertex_indices[table_[c][f][i]];
+                              vertices_1[i] =
+                                vertex_indices[cell_face_vertices[c][f][i]];
 
                             const auto orientation =
                               ReferenceCell::compute_orientation(
-                                ReferenceCell::Type::Quad,
+                                face->reference_cell_type(),
                                 vertices_0,
                                 vertices_1);
 
