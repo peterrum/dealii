@@ -6044,7 +6044,8 @@ namespace internal
             endc = triangulation.end();
           for (; cell != endc; ++cell)
             if (cell->used())
-              if (cell->refine_flag_set() == RefinementCase<dim>::cut_x ||
+              if (triangulation.get_anisotropic_refinement_flag() ||
+                  cell->refine_flag_set() == RefinementCase<dim>::cut_x ||
                   cell->refine_flag_set() == RefinementCase<dim>::cut_y ||
                   cell->refine_flag_set() == RefinementCase<dim>::cut_z ||
                   cell->refine_flag_set() == RefinementCase<dim>::cut_xy ||
