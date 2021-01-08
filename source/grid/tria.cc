@@ -5223,26 +5223,25 @@ namespace internal
         unsigned int needed_quads_pair   = 0;
         for (int level = triangulation.levels.size() - 2; level >= 0; --level)
           {
-            // count number of flagged cells on this level and compute
-            // how many new vertices and new lines will be needed
             unsigned int new_cells = 0;
 
             for (const auto &acell :
                  triangulation.active_cell_iterators_on_level(level))
               if (acell->refine_flag_set())
                 {
-                  RefinementCase<dim> ref_case = acell->refine_flag_set();
+                  Assert(acell->refine_flag_set() ==
+                           RefinementCase<dim>::cut_xyz,
+                         ExcInternalError());
 
-                  if (ref_case == RefinementCase<dim>::cut_xyz)
+                  if (acell->reference_cell_type() == ReferenceCell::Type::Hex)
                     {
-                      ++needed_vertices;
-                      needed_lines_single += 6;
-                      needed_quads_single += 12;
-                      new_cells += 8;
+                      ++needed_vertices;         // TODO
+                      needed_lines_single += 6;  //
+                      needed_quads_single += 12; //
+                      new_cells += 8;            //
                     }
                   else
                     {
-                      // we should never get here
                       Assert(false, ExcInternalError());
                     }
 
@@ -5273,11 +5272,18 @@ namespace internal
              quad != triangulation.end_quad();
              ++quad)
           {
-            if (quad->user_flag_set())
+            if (quad->user_flag_set() == false)
+              continue;
+
+            if (quad->reference_cell_type() == ReferenceCell::Type::Quad)
               {
-                needed_quads_pair += 4;
-                needed_lines_pair += 4;
-                needed_vertices += 1;
+                needed_quads_pair += 4; // TODO
+                needed_lines_pair += 4; //
+                needed_vertices += 1;   //
+              }
+            else
+              {
+                Assert(false, ExcInternalError());
               }
           }
 
@@ -5285,11 +5291,13 @@ namespace internal
                triangulation.begin_line();
              line != triangulation.end_line();
              ++line)
-          if (line->user_flag_set())
-            {
-              needed_lines_pair += 2;
-              needed_vertices += 1;
-            }
+          {
+            if (line->user_flag_set() == false)
+              continue;
+
+            needed_lines_pair += 2;
+            needed_vertices += 1;
+          }
 
         reserve_space(triangulation.faces->lines,
                       needed_lines_pair,
@@ -5314,6 +5322,7 @@ namespace internal
 
         unsigned int next_unused_vertex = 0;
 
+        // LINES
         {
           typename Triangulation<dim, spacedim>::active_line_iterator
             line = triangulation.begin_active_line(),
@@ -5322,66 +5331,66 @@ namespace internal
             next_unused_line = triangulation.begin_raw_line();
 
           for (; line != endl; ++line)
-            if (line->user_flag_set())
-              {
-                while (triangulation.vertices_used[next_unused_vertex] == true)
-                  ++next_unused_vertex;
-                Assert(
-                  next_unused_vertex < triangulation.vertices.size(),
-                  ExcMessage(
-                    "Internal error: During refinement, the triangulation wants to access an element of the 'vertices' array but it turns out that the array is not large enough."));
-                triangulation.vertices_used[next_unused_vertex] = true;
+            {
+              if (line->user_flag_set() == false)
+                continue;
 
-                triangulation.vertices[next_unused_vertex] = line->center(true);
+              while (triangulation.vertices_used[next_unused_vertex] == true)
+                ++next_unused_vertex;
+              Assert(
+                next_unused_vertex < triangulation.vertices.size(),
+                ExcMessage(
+                  "Internal error: During refinement, the triangulation wants to access an element of the 'vertices' array but it turns out that the array is not large enough."));
+              triangulation.vertices_used[next_unused_vertex] = true;
 
-                next_unused_line =
-                  triangulation.faces->lines.template next_free_pair_object<1>(
-                    triangulation);
-                Assert(next_unused_line.state() == IteratorState::valid,
-                       ExcInternalError());
+              triangulation.vertices[next_unused_vertex] = line->center(true);
 
-                line->set_children(0, next_unused_line->index());
+              next_unused_line =
+                triangulation.faces->lines.template next_free_pair_object<1>(
+                  triangulation);
+              Assert(next_unused_line.state() == IteratorState::valid,
+                     ExcInternalError());
 
-                const typename Triangulation<dim, spacedim>::raw_line_iterator
-                  children[2] = {next_unused_line, ++next_unused_line};
+              line->set_children(0, next_unused_line->index());
 
-                Assert(
-                  children[0]->used() == false,
-                  ExcMessage(
-                    "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
-                Assert(
-                  children[1]->used() == false,
-                  ExcMessage(
-                    "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+              const typename Triangulation<dim, spacedim>::raw_line_iterator
+                children[2] = {next_unused_line, ++next_unused_line};
 
-                children[0]->set_bounding_object_indices(
-                  {line->vertex_index(0), next_unused_vertex});
-                children[1]->set_bounding_object_indices(
-                  {next_unused_vertex, line->vertex_index(1)});
+              Assert(
+                children[0]->used() == false,
+                ExcMessage(
+                  "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+              Assert(
+                children[1]->used() == false,
+                ExcMessage(
+                  "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
 
-                children[0]->set_used_flag();
-                children[1]->set_used_flag();
-                children[0]->clear_children();
-                children[1]->clear_children();
-                children[0]->clear_user_data();
-                children[1]->clear_user_data();
-                children[0]->clear_user_flag();
-                children[1]->clear_user_flag();
+              children[0]->set_bounding_object_indices(
+                {line->vertex_index(0), next_unused_vertex});
+              children[1]->set_bounding_object_indices(
+                {next_unused_vertex, line->vertex_index(1)});
 
-                children[0]->set_boundary_id_internal(line->boundary_id());
-                children[1]->set_boundary_id_internal(line->boundary_id());
+              children[0]->set_used_flag();
+              children[1]->set_used_flag();
+              children[0]->clear_children();
+              children[1]->clear_children();
+              children[0]->clear_user_data();
+              children[1]->clear_user_data();
+              children[0]->clear_user_flag();
+              children[1]->clear_user_flag();
 
-                children[0]->set_manifold_id(line->manifold_id());
-                children[1]->set_manifold_id(line->manifold_id());
+              children[0]->set_boundary_id_internal(line->boundary_id());
+              children[1]->set_boundary_id_internal(line->boundary_id());
 
-                line->clear_user_flag();
-              }
+              children[0]->set_manifold_id(line->manifold_id());
+              children[1]->set_manifold_id(line->manifold_id());
+
+              line->clear_user_flag();
+            }
         }
 
+        // QUADS
         {
-          // usually, only active objects can be refined
-          // further. however, in cases d) and e) that is not true,
-          // so we have to use 'normal' iterators here
           typename Triangulation<dim, spacedim>::quad_iterator
             quad = triangulation.begin_quad(),
             endq = triangulation.end_quad();
@@ -5392,209 +5401,208 @@ namespace internal
 
           for (; quad != endq; ++quad)
             {
-              if (quad->user_flag_set())
+              if (quad->user_flag_set() == false)
+                continue;
+
+              // 1) create new vertex (at the center of the face)
+              while (triangulation.vertices_used[next_unused_vertex] == true)
+                ++next_unused_vertex;
+              Assert(
+                next_unused_vertex < triangulation.vertices.size(),
+                ExcMessage(
+                  "Internal error: During refinement, the triangulation wants to access an element of the 'vertices' array but it turns out that the array is not large enough."));
+
+              triangulation.vertices[next_unused_vertex] =
+                quad->center(true, true);
+              triangulation.vertices_used[next_unused_vertex] = true;
+
+              // 2) create new lines (property is set later)
+              typename Triangulation<dim, spacedim>::raw_line_iterator
+                new_lines[4];
+              {
+                for (unsigned int i = 0; i < 4; ++i)
+                  {
+                    if (i % 2 == 0)
+                      next_unused_line =
+                        triangulation.faces->lines
+                          .template next_free_pair_object<1>(triangulation);
+
+                    new_lines[i] = next_unused_line;
+                    ++next_unused_line;
+
+                    Assert(
+                      new_lines[i]->used() == false,
+                      ExcMessage(
+                        "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+                  }
+              }
+
+              // 3) create new quads (properties are set below)
+              typename Triangulation<dim, spacedim>::raw_quad_iterator
+                new_quads[4];
+              {
+                next_unused_quad =
+                  triangulation.faces->quads.template next_free_pair_object<2>(
+                    triangulation);
+
+                new_quads[0] = next_unused_quad;
+                Assert(
+                  new_quads[0]->used() == false,
+                  ExcMessage(
+                    "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+
+                ++next_unused_quad;
+                new_quads[1] = next_unused_quad;
+                Assert(
+                  new_quads[1]->used() == false,
+                  ExcMessage(
+                    "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+
+                next_unused_quad =
+                  triangulation.faces->quads.template next_free_pair_object<2>(
+                    triangulation);
+                new_quads[2] = next_unused_quad;
+                Assert(
+                  new_quads[2]->used() == false,
+                  ExcMessage(
+                    "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+
+                ++next_unused_quad;
+                new_quads[3] = next_unused_quad;
+                Assert(
+                  new_quads[3]->used() == false,
+                  ExcMessage(
+                    "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+
+                quad->set_children(0, new_quads[0]->index());
+                quad->set_children(2, new_quads[2]->index());
+                quad->set_refinement_case(RefinementCase<2>::cut_xy);
+              }
+
+              const std::array<unsigned int, 9> vertex_indices = {
+                {quad->vertex_index(0),
+                 quad->vertex_index(1),
+                 quad->vertex_index(2),
+                 quad->vertex_index(3),
+                 quad->line(0)->child(0)->vertex_index(1),
+                 quad->line(1)->child(0)->vertex_index(1),
+                 quad->line(2)->child(0)->vertex_index(1),
+                 quad->line(3)->child(0)->vertex_index(1),
+                 next_unused_vertex}};
+
+              static constexpr std::array<std::array<unsigned int, 2>, 2>
+                index = {
+                  {{{1, 0}},   // child 0, line_orientation=false and true
+                   {{0, 1}}}}; // child 1, line_orientation=false and true
+
+              const std::array<int, 12> line_indices = {
+                {quad->line(0)
+                   ->child(index[0][quad->line_orientation(0)])
+                   ->index(),
+                 quad->line(0)
+                   ->child(index[1][quad->line_orientation(0)])
+                   ->index(),
+                 quad->line(1)
+                   ->child(index[0][quad->line_orientation(1)])
+                   ->index(),
+                 quad->line(1)
+                   ->child(index[1][quad->line_orientation(1)])
+                   ->index(),
+                 quad->line(2)
+                   ->child(index[0][quad->line_orientation(2)])
+                   ->index(),
+                 quad->line(2)
+                   ->child(index[1][quad->line_orientation(2)])
+                   ->index(),
+                 quad->line(3)
+                   ->child(index[0][quad->line_orientation(3)])
+                   ->index(),
+                 quad->line(3)
+                   ->child(index[1][quad->line_orientation(3)])
+                   ->index(),
+                 new_lines[0]->index(),
+                 new_lines[1]->index(),
+                 new_lines[2]->index(),
+                 new_lines[3]->index()}};
+
+              static constexpr std::array<std::array<unsigned int, 2>, 12>
+                line_vertices{{{{0, 4}},
+                               {{4, 2}},
+                               {{1, 5}},
+                               {{5, 3}},
+                               {{0, 6}},
+                               {{6, 1}},
+                               {{2, 7}},
+                               {{7, 3}},
+                               {{6, 8}},
+                               {{8, 7}},
+                               {{4, 8}},
+                               {{8, 5}}}};
+
+              static constexpr std::array<std::array<unsigned int, 4>, 4>
+                quad_lines{{{{0, 8, 4, 10}},
+                            {{8, 2, 5, 11}},
+                            {{1, 9, 10, 6}},
+                            {{9, 3, 11, 7}}}};
+
+              const unsigned int n_old_lines = 8;
+              const unsigned int n_new_lines = 4;
+              const unsigned int n_new_quads = 4;
+
+              // 4) set properties of lines
+              for (unsigned int i = 0, j = n_old_lines; i < n_new_lines;
+                   ++i, ++j)
                 {
-                  // 1) create new vertex (at the center of the face)
-                  while (triangulation.vertices_used[next_unused_vertex] ==
-                         true)
-                    ++next_unused_vertex;
-                  Assert(
-                    next_unused_vertex < triangulation.vertices.size(),
-                    ExcMessage(
-                      "Internal error: During refinement, the triangulation wants to access an element of the 'vertices' array but it turns out that the array is not large enough."));
-
-                  triangulation.vertices[next_unused_vertex] =
-                    quad->center(true, true);
-                  triangulation.vertices_used[next_unused_vertex] = true;
-
-                  // 2) create new lines (property is set later)
-                  typename Triangulation<dim, spacedim>::raw_line_iterator
-                    new_lines[4];
-                  {
-                    for (unsigned int i = 0; i < 4; ++i)
-                      {
-                        if (i % 2 == 0)
-                          next_unused_line =
-                            triangulation.faces->lines
-                              .template next_free_pair_object<1>(triangulation);
-
-                        new_lines[i] = next_unused_line;
-                        ++next_unused_line;
-
-                        Assert(
-                          new_lines[i]->used() == false,
-                          ExcMessage(
-                            "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
-                      }
-                  }
-
-                  // 3) create new quads (properties are set below)
-                  typename Triangulation<dim, spacedim>::raw_quad_iterator
-                    new_quads[4];
-                  {
-                    next_unused_quad =
-                      triangulation.faces->quads
-                        .template next_free_pair_object<2>(triangulation);
-
-                    new_quads[0] = next_unused_quad;
-                    Assert(
-                      new_quads[0]->used() == false,
-                      ExcMessage(
-                        "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
-
-                    ++next_unused_quad;
-                    new_quads[1] = next_unused_quad;
-                    Assert(
-                      new_quads[1]->used() == false,
-                      ExcMessage(
-                        "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
-
-                    next_unused_quad =
-                      triangulation.faces->quads
-                        .template next_free_pair_object<2>(triangulation);
-                    new_quads[2] = next_unused_quad;
-                    Assert(
-                      new_quads[2]->used() == false,
-                      ExcMessage(
-                        "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
-
-                    ++next_unused_quad;
-                    new_quads[3] = next_unused_quad;
-                    Assert(
-                      new_quads[3]->used() == false,
-                      ExcMessage(
-                        "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
-
-                    quad->set_children(0, new_quads[0]->index());
-                    quad->set_children(2, new_quads[2]->index());
-                    quad->set_refinement_case(RefinementCase<2>::cut_xy);
-                  }
-
-                  const unsigned int vertex_indices[9] = {
-                    quad->vertex_index(0),
-                    quad->vertex_index(1),
-                    quad->vertex_index(2),
-                    quad->vertex_index(3),
-                    quad->line(0)->child(0)->vertex_index(1),
-                    quad->line(1)->child(0)->vertex_index(1),
-                    quad->line(2)->child(0)->vertex_index(1),
-                    quad->line(3)->child(0)->vertex_index(1),
-                    next_unused_vertex};
-
-                  const unsigned int index[2][2] = {
-                    {1, 0},  // child 0, line_orientation=false and true
-                    {0, 1}}; // child 1, line_orientation=false and true
-
-                  const int line_indices[12] = {
-                    quad->line(0)
-                      ->child(index[0][quad->line_orientation(0)])
-                      ->index(),
-                    quad->line(0)
-                      ->child(index[1][quad->line_orientation(0)])
-                      ->index(),
-                    quad->line(1)
-                      ->child(index[0][quad->line_orientation(1)])
-                      ->index(),
-                    quad->line(1)
-                      ->child(index[1][quad->line_orientation(1)])
-                      ->index(),
-                    quad->line(2)
-                      ->child(index[0][quad->line_orientation(2)])
-                      ->index(),
-                    quad->line(2)
-                      ->child(index[1][quad->line_orientation(2)])
-                      ->index(),
-                    quad->line(3)
-                      ->child(index[0][quad->line_orientation(3)])
-                      ->index(),
-                    quad->line(3)
-                      ->child(index[1][quad->line_orientation(3)])
-                      ->index(),
-                    new_lines[0]->index(),
-                    new_lines[1]->index(),
-                    new_lines[2]->index(),
-                    new_lines[3]->index()};
-
-                  static constexpr std::array<std::array<unsigned int, 2>, 12>
-                    line_vertices{{{{0, 4}},
-                                   {{4, 2}},
-                                   {{1, 5}},
-                                   {{5, 3}},
-                                   {{0, 6}},
-                                   {{6, 1}},
-                                   {{2, 7}},
-                                   {{7, 3}},
-                                   {{6, 8}},
-                                   {{8, 7}},
-                                   {{4, 8}},
-                                   {{8, 5}}}};
-
-                  static constexpr std::array<std::array<unsigned int, 4>, 4>
-                    quad_lines{{{{0, 8, 4, 10}},
-                                {{8, 2, 5, 11}},
-                                {{1, 9, 10, 6}},
-                                {{9, 3, 11, 7}}}};
-
-                  const unsigned int n_old_lines = 8;
-                  const unsigned int n_new_lines = 4;
-                  const unsigned int n_new_quads = 4;
-
-                  // 4) set properties of lines
-                  for (unsigned int i = 0, j = n_old_lines; i < n_new_lines;
-                       ++i, ++j)
-                    {
-                      auto &new_line = new_lines[i];
-                      new_line->set_bounding_object_indices(
-                        {vertex_indices[line_vertices[j][0]],
-                         vertex_indices[line_vertices[j][1]]});
-                      new_line->set_used_flag();
-                      new_line->clear_user_flag();
-                      new_line->clear_user_data();
-                      new_line->clear_children();
-                      new_line->set_boundary_id_internal(quad->boundary_id());
-                      new_line->set_manifold_id(quad->manifold_id());
-                    }
-
-                  // 5) set properties of quads
-                  for (unsigned int i = 0; i < n_new_quads; ++i)
-                    {
-                      auto &new_quad = new_quads[i];
-
-                      if (new_quad->n_lines() == 3)
-                        new_quad->set_bounding_object_indices(
-                          {line_indices[quad_lines[i][0]],
-                           line_indices[quad_lines[i][1]],
-                           line_indices[quad_lines[i][2]]});
-                      else if (new_quad->n_lines() == 4)
-                        new_quad->set_bounding_object_indices(
-                          {line_indices[quad_lines[i][0]],
-                           line_indices[quad_lines[i][1]],
-                           line_indices[quad_lines[i][2]],
-                           line_indices[quad_lines[i][3]]});
-                      else
-                        Assert(false, ExcNotImplemented());
-
-                      new_quad->set_used_flag();
-                      new_quad->clear_user_flag();
-                      new_quad->clear_user_data();
-                      new_quad->clear_children();
-                      new_quad->set_boundary_id_internal(quad->boundary_id());
-                      new_quad->set_manifold_id(quad->manifold_id());
-
-                      for (const auto f : new_quad->line_indices())
-                        new_quad->set_line_orientation(
-                          f,
-                          vertex_indices[line_vertices[quad_lines[i][f]][0]] ==
-                            (typename Triangulation<dim, spacedim>::
-                               raw_line_iterator(
-                                 &triangulation,
-                                 0,
-                                 line_indices[quad_lines[i][f]]))
-                              ->vertex_index(0));
-                    }
-
-                  quad->clear_user_flag();
+                  auto &new_line = new_lines[i];
+                  new_line->set_bounding_object_indices(
+                    {vertex_indices[line_vertices[j][0]],
+                     vertex_indices[line_vertices[j][1]]});
+                  new_line->set_used_flag();
+                  new_line->clear_user_flag();
+                  new_line->clear_user_data();
+                  new_line->clear_children();
+                  new_line->set_boundary_id_internal(quad->boundary_id());
+                  new_line->set_manifold_id(quad->manifold_id());
                 }
+
+              // 5) set properties of quads
+              for (unsigned int i = 0; i < n_new_quads; ++i)
+                {
+                  auto &new_quad = new_quads[i];
+
+                  if (new_quad->n_lines() == 3)
+                    new_quad->set_bounding_object_indices(
+                      {line_indices[quad_lines[i][0]],
+                       line_indices[quad_lines[i][1]],
+                       line_indices[quad_lines[i][2]]});
+                  else if (new_quad->n_lines() == 4)
+                    new_quad->set_bounding_object_indices(
+                      {line_indices[quad_lines[i][0]],
+                       line_indices[quad_lines[i][1]],
+                       line_indices[quad_lines[i][2]],
+                       line_indices[quad_lines[i][3]]});
+                  else
+                    Assert(false, ExcNotImplemented());
+
+                  new_quad->set_used_flag();
+                  new_quad->clear_user_flag();
+                  new_quad->clear_user_data();
+                  new_quad->clear_children();
+                  new_quad->set_boundary_id_internal(quad->boundary_id());
+                  new_quad->set_manifold_id(quad->manifold_id());
+
+                  for (const auto f : new_quad->line_indices())
+                    new_quad->set_line_orientation(
+                      f,
+                      vertex_indices[line_vertices[quad_lines[i][f]][0]] ==
+                        (typename Triangulation<dim, spacedim>::
+                           raw_line_iterator(&triangulation,
+                                             0,
+                                             line_indices[quad_lines[i][f]]))
+                          ->vertex_index(0));
+                }
+
+              quad->clear_user_flag();
             }
         }
 
