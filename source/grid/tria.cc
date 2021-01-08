@@ -5915,12 +5915,10 @@ namespace internal
                            {{{{24, 26}}, {{11, 23}}, {{24, 11}}, {{26, 23}}}},
                            {{{{22, 14}}, {{26, 25}}, {{22, 26}}, {{14, 25}}}},
                            {{{{26, 25}}, {{23, 15}}, {{26, 23}}, {{25, 15}}}},
-
                            {{{{8, 24}}, {{20, 26}}, {{8, 20}}, {{24, 26}}}},
                            {{{{20, 26}}, {{12, 25}}, {{20, 12}}, {{26, 25}}}},
                            {{{{24, 9}}, {{26, 21}}, {{24, 26}}, {{9, 21}}}},
                            {{{{26, 21}}, {{25, 13}}, {{26, 25}}, {{21, 13}}}},
-
                            {{{{16, 20}}, {{22, 26}}, {{16, 22}}, {{20, 26}}}},
                            {{{{22, 26}}, {{17, 21}}, {{22, 17}}, {{26, 21}}}},
                            {{{{20, 18}}, {{26, 23}}, {{20, 26}}, {{18, 23}}}},
@@ -6005,15 +6003,6 @@ namespace internal
                         {{3, 19, 7, 27, 11, 35}}  //
                       }};
 
-                    for (unsigned int c = 0; c < cell_quads.size(); ++c)
-                      new_hexes[c]->set_bounding_object_indices(
-                        {quad_indices[cell_quads[c][0]],
-                         quad_indices[cell_quads[c][1]],
-                         quad_indices[cell_quads[c][2]],
-                         quad_indices[cell_quads[c][3]],
-                         quad_indices[cell_quads[c][4]],
-                         quad_indices[cell_quads[c][5]]});
-
                     static constexpr std::
                       array<std::array<std::array<unsigned int, 4>, 6>, 8>
                         table_{{{{{{0, 8, 16, 20}},
@@ -6065,38 +6054,47 @@ namespace internal
                                   {{26, 21, 23, 19}},
                                   {{25, 13, 15, 7}}}}}};
 
-                    for (unsigned int current_child = 0; current_child < 8;
-                         ++current_child)
-                      for (const unsigned int f :
-                           GeometryInfo<dim>::face_indices())
-                        {
-                          std::array<unsigned int, 4> vertices_0, vertices_1;
+                    for (unsigned int c = 0; c < 8; ++c)
+                      {
+                        auto &new_hex = new_hexes[c];
 
-                          const auto &face = new_hexes[current_child]->face(f);
+                        new_hex->set_bounding_object_indices(
+                          {quad_indices[cell_quads[c][0]],
+                           quad_indices[cell_quads[c][1]],
+                           quad_indices[cell_quads[c][2]],
+                           quad_indices[cell_quads[c][3]],
+                           quad_indices[cell_quads[c][4]],
+                           quad_indices[cell_quads[c][5]]});
 
-                          for (const auto i : face->vertex_indices())
-                            vertices_0[i] = face->vertex_index(i);
+                        for (const auto f : new_hex->face_indices())
+                          {
+                            std::array<unsigned int, 4> vertices_0, vertices_1;
 
-                          for (const auto i : face->vertex_indices())
-                            vertices_1[i] =
-                              vertex_indices[table_[current_child][f][i]];
+                            const auto &face = new_hex->face(f);
 
-                          const auto orientation =
-                            ReferenceCell::compute_orientation(
-                              ReferenceCell::Type::Quad,
-                              vertices_0,
-                              vertices_1);
+                            for (const auto i : face->vertex_indices())
+                              vertices_0[i] = face->vertex_index(i);
 
-                          new_hexes[current_child]->set_face_orientation(
-                            f,
-                            ReferenceCell::internal::get_bit(orientation, 0));
-                          new_hexes[current_child]->set_face_flip(
-                            f,
-                            ReferenceCell::internal::get_bit(orientation, 2));
-                          new_hexes[current_child]->set_face_rotation(
-                            f,
-                            ReferenceCell::internal::get_bit(orientation, 1));
-                        }
+                            for (const auto i : face->vertex_indices())
+                              vertices_1[i] = vertex_indices[table_[c][f][i]];
+
+                            const auto orientation =
+                              ReferenceCell::compute_orientation(
+                                ReferenceCell::Type::Quad,
+                                vertices_0,
+                                vertices_1);
+
+                            new_hex->set_face_orientation(
+                              f,
+                              ReferenceCell::internal::get_bit(orientation, 0));
+                            new_hex->set_face_flip(
+                              f,
+                              ReferenceCell::internal::get_bit(orientation, 2));
+                            new_hex->set_face_rotation(
+                              f,
+                              ReferenceCell::internal::get_bit(orientation, 1));
+                          }
+                      }
                   }
                 }
 
