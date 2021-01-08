@@ -5417,10 +5417,10 @@ namespace internal
               triangulation.vertices_used[next_unused_vertex] = true;
 
               // 2) create new lines (property is set later)
-              typename Triangulation<dim, spacedim>::raw_line_iterator
-                new_lines[4];
+              std::array<typename Triangulation<dim, spacedim>::raw_line_iterator,4>
+                new_lines;
               {
-                for (unsigned int i = 0; i < 4; ++i)
+                for (unsigned int i = 0; i < new_lines.size(); ++i)
                   {
                     if (i % 2 == 0)
                       next_unused_line =
@@ -5438,8 +5438,8 @@ namespace internal
               }
 
               // 3) create new quads (properties are set below)
-              typename Triangulation<dim, spacedim>::raw_quad_iterator
-                new_quads[4];
+              std::array<typename Triangulation<dim, spacedim>::raw_quad_iterator, 4>
+                new_quads;
               {
                 next_unused_quad =
                   triangulation.faces->quads.template next_free_pair_object<2>(
@@ -5514,7 +5514,7 @@ namespace internal
                         index[c][quad->line_orientation(l)]);
                     }
 
-                for (unsigned int l = 0; l < 4 /*TODO*/; ++l)
+                for (unsigned int l = 0; l < new_lines.size(); ++l)
                   lines[k++] = new_lines[l];
               }
 
@@ -5542,12 +5542,8 @@ namespace internal
                             {{1, 9, 10, 6}},
                             {{9, 3, 11, 7}}}};
 
-              const unsigned int n_old_lines = 8;
-              const unsigned int n_new_lines = 4;
-              const unsigned int n_new_quads = 4;
-
               // 4) set properties of lines
-              for (unsigned int i = 0, j = n_old_lines; i < n_new_lines;
+              for (unsigned int i = 0, j = lines.size() - new_lines.size(); i < new_lines.size();
                    ++i, ++j)
                 {
                   auto &new_line = new_lines[i];
@@ -5563,7 +5559,7 @@ namespace internal
                 }
 
               // 5) set properties of quads
-              for (unsigned int i = 0; i < n_new_quads; ++i)
+              for (unsigned int i = 0; i < new_quads.size(); ++i)
                 {
                   auto &new_quad = new_quads[i];
 
