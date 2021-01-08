@@ -5817,34 +5817,6 @@ namespace internal
                     hex->set_children(2 * i, new_hexes[2 * i]->index());
                 }
 
-                // we have to take into account whether the
-                // different faces are oriented correctly or in the
-                // opposite direction, so store that up front
-
-                // face_orientation
-                const bool f_or[6] = {hex->face_orientation(0),
-                                      hex->face_orientation(1),
-                                      hex->face_orientation(2),
-                                      hex->face_orientation(3),
-                                      hex->face_orientation(4),
-                                      hex->face_orientation(5)};
-
-                // face_flip
-                const bool f_fl[6] = {hex->face_flip(0),
-                                      hex->face_flip(1),
-                                      hex->face_flip(2),
-                                      hex->face_flip(3),
-                                      hex->face_flip(4),
-                                      hex->face_flip(5)};
-
-                // face_rotation
-                const bool f_ro[6] = {hex->face_rotation(0),
-                                      hex->face_rotation(1),
-                                      hex->face_rotation(2),
-                                      hex->face_rotation(3),
-                                      hex->face_rotation(4),
-                                      hex->face_rotation(5)};
-
                 {
                   const unsigned int vertex_indices[27] = {
                     hex->vertex_index(0),
@@ -5906,10 +5878,16 @@ namespace internal
                           hex->face(f)
                             ->isotropic_child(
                               GeometryInfo<dim>::standard_to_real_face_vertex(
-                                temp[c][0], f_or[f], f_fl[f], f_ro[f]))
+                                temp[c][0],
+                                hex->face_orientation(f),
+                                hex->face_flip(f),
+                                hex->face_rotation(f)))
                             ->line(
                               GeometryInfo<dim>::standard_to_real_face_line(
-                                temp[c][1], f_or[f], f_fl[f], f_ro[f]));
+                                temp[c][1],
+                                hex->face_orientation(f),
+                                hex->face_flip(f),
+                                hex->face_rotation(f)));
                       }
 
                   for (unsigned int i = 0, k = 24; i < 6; ++i, ++k)
@@ -5994,7 +5972,10 @@ namespace internal
                     for (unsigned int c = 0; c < 4; ++c, ++k)
                       quad_indices[k] = hex->face(f)->isotropic_child_index(
                         GeometryInfo<dim>::standard_to_real_face_vertex(
-                          c, f_or[f], f_fl[f], f_ro[f]));
+                          c,
+                          hex->face_orientation(f),
+                          hex->face_flip(f),
+                          hex->face_rotation(f)));
 
                   static constexpr std::array<std::array<unsigned int, 6>, 8>
                     cell_quads = {{
