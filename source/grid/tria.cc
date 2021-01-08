@@ -5235,10 +5235,15 @@ namespace internal
 
                   if (acell->reference_cell_type() == ReferenceCell::Type::Hex)
                     {
-                      ++needed_vertices;         // TODO
-                      needed_lines_single += 6;  //
-                      needed_quads_single += 12; //
-                      new_cells += 8;            //
+                      ++needed_vertices;
+                      needed_lines_single += 6;
+                      needed_quads_single += 12;
+                      new_cells += 8;
+                    }
+                  else if (acell->reference_cell_type() ==
+                           ReferenceCell::Type::Tet)
+                    {
+                      Assert(false, ExcInternalError());
                     }
                   else
                     {
@@ -5277,9 +5282,14 @@ namespace internal
 
             if (quad->reference_cell_type() == ReferenceCell::Type::Quad)
               {
-                needed_quads_pair += 4; // TODO
-                needed_lines_pair += 4; //
-                needed_vertices += 1;   //
+                needed_quads_pair += 4;
+                needed_lines_pair += 4;
+                needed_vertices += 1;
+              }
+            else if (quad->reference_cell_type() == ReferenceCell::Type::Tri)
+              {
+                needed_quads_single += 4; // TODO: single or pair?
+                needed_lines_single += 3; //
               }
             else
               {
@@ -5546,25 +5556,56 @@ namespace internal
               for (unsigned int i = 0; i < line_indices.size(); ++i)
                 line_indices[i] = lines[i]->index();
 
+              static constexpr unsigned int X = numbers::invalid_unsigned_int;
+
               static constexpr std::array<std::array<unsigned int, 2>, 12>
-                line_vertices{{{{0, 4}},
-                               {{4, 2}},
-                               {{1, 5}},
-                               {{5, 3}},
-                               {{0, 6}},
-                               {{6, 1}},
-                               {{2, 7}},
-                               {{7, 3}},
-                               {{6, 8}},
-                               {{8, 7}},
-                               {{4, 8}},
-                               {{8, 5}}}};
+                line_vertices_quad{{{{0, 4}},
+                                    {{4, 2}},
+                                    {{1, 5}},
+                                    {{5, 3}},
+                                    {{0, 6}},
+                                    {{6, 1}},
+                                    {{2, 7}},
+                                    {{7, 3}},
+                                    {{6, 8}},
+                                    {{8, 7}},
+                                    {{4, 8}},
+                                    {{8, 5}}}};
 
               static constexpr std::array<std::array<unsigned int, 4>, 4>
-                quad_lines{{{{0, 8, 4, 10}},
-                            {{8, 2, 5, 11}},
-                            {{1, 9, 10, 6}},
-                            {{9, 3, 11, 7}}}};
+                quad_lines_quad{{{{0, 8, 4, 10}},
+                                 {{8, 2, 5, 11}},
+                                 {{1, 9, 10, 6}},
+                                 {{9, 3, 11, 7}}}};
+
+              static constexpr std::array<std::array<unsigned int, 2>, 12>
+                line_vertices_tri{{{{0, 3}},
+                                   {{3, 1}},
+                                   {{1, 4}},
+                                   {{4, 2}},
+                                   {{2, 5}},
+                                   {{5, 0}},
+                                   {{3, 4}},
+                                   {{4, 5}},
+                                   {{3, 5}},
+                                   {{X, X}},
+                                   {{X, X}},
+                                   {{X, X}}}};
+
+              static constexpr std::array<std::array<unsigned int, 4>, 4>
+                quad_lines_tri{{{{0, 8, 4, X}},
+                                {{1, 2, 6, X}},
+                                {{7, 3, 4, X}},
+                                {{6, 7, 8, X}}}};
+
+              const auto &line_vertices =
+                (reference_cell_type == ReferenceCell::Type::Quad) ?
+                  line_vertices_quad :
+                  line_vertices_tri;
+              const auto &quad_lines =
+                (reference_cell_type == ReferenceCell::Type::Quad) ?
+                  quad_lines_quad :
+                  quad_lines_tri;
 
               // 4) set properties of lines
               for (unsigned int i = 0, j = lines.size() - new_lines.size();
@@ -5587,6 +5628,12 @@ namespace internal
               for (unsigned int i = 0; i < new_quads.size(); ++i)
                 {
                   auto &new_quad = new_quads[i];
+
+                  // TODO: we assume here that all children have the same type
+                  // as the parent
+                  triangulation.faces
+                    ->quad_reference_cell_type[new_quad->index()] =
+                    reference_cell_type;
 
                   if (new_quad->n_lines() == 3)
                     new_quad->set_bounding_object_indices(
