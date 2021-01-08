@@ -5926,23 +5926,25 @@ namespace internal
                            {{{{20, 18}}, {{26, 23}}, {{20, 26}}, {{18, 23}}}},
                            {{{{26, 23}}, {{21, 19}}, {{26, 21}}, {{23, 19}}}}}};
 
-                    for (unsigned int q = 0; q < 12; ++q)
+                    for (unsigned int q = 0; q < new_quads.size(); ++q)
                       {
-                        if (new_quads[q].n_lines() == 3)
-                          new_quads[q]->set_bounding_object_indices(
+                        auto &new_quad = new_quads[q];
+
+                        if (new_quad->n_lines() == 3)
+                          new_quad->set_bounding_object_indices(
                             {relevant_line_indices[new_quad_lines[q][0]],
                              relevant_line_indices[new_quad_lines[q][1]],
                              relevant_line_indices[new_quad_lines[q][2]]});
-                        else if (new_quads[q].n_lines() == 4)
-                          new_quads[q]->set_bounding_object_indices(
+                        else if (new_quad->n_lines() == 4)
+                          new_quad->set_bounding_object_indices(
                             {relevant_line_indices[new_quad_lines[q][0]],
                              relevant_line_indices[new_quad_lines[q][1]],
                              relevant_line_indices[new_quad_lines[q][2]],
                              relevant_line_indices[new_quad_lines[q][3]]});
                         else
-                          Assert(false, ExcNotImpelemented());
+                          Assert(false, ExcNotImplemented());
 
-                        for (unsigned int l = 0; l < 4; ++l)
+                        for (const auto l : new_quad->line_indices())
                           {
                             if (relevant_lines[new_quad_lines[q][l]]
                                   ->vertex_index(0) ==
@@ -5957,7 +5959,7 @@ namespace internal
                                     ->vertex_index(1),
                                   vertex_indices[table[q][l][1]]);
 
-                                new_quads[q]->set_line_orientation(l, 1);
+                                new_quad->set_line_orientation(l, 1);
                               }
                             else
                               {
@@ -5969,7 +5971,7 @@ namespace internal
                                   relevant_lines[new_quad_lines[q][l]]
                                     ->vertex_index(1),
                                   vertex_indices[table[q][l][0]]);
-                                new_quads[q]->set_line_orientation(l, 0);
+                                new_quad->set_line_orientation(l, 0);
                               }
                           }
                       }
@@ -5979,10 +5981,10 @@ namespace internal
                   {
                     std::array<int, 36> quad_indices;
 
-                    for (unsigned int i = 0; i < 12; ++i)
+                    for (unsigned int i = 0; i < new_quads.size(); ++i)
                       quad_indices[i] = new_quads[i]->index();
 
-                    for (unsigned int f = 0, k = 12; f < 6; ++f)
+                    for (unsigned int f = 0, k = new_quads.size(); f < 6; ++f)
                       for (unsigned int c = 0; c < 4; ++c, ++k)
                         quad_indices[k] = hex->face(f)->isotropic_child_index(
                           GeometryInfo<dim>::standard_to_real_face_vertex(
