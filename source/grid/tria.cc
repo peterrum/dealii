@@ -5818,264 +5818,269 @@ namespace internal
                 }
 
                 {
-                  const unsigned int vertex_indices[27] = {
-                    hex->vertex_index(0),
-                    hex->vertex_index(1),
-                    hex->vertex_index(2),
-                    hex->vertex_index(3),
-                    hex->vertex_index(4),
-                    hex->vertex_index(5),
-                    hex->vertex_index(6),
-                    hex->vertex_index(7),
-                    hex->line(0)->child(0)->vertex_index(1),
-                    hex->line(1)->child(0)->vertex_index(1),
-                    hex->line(2)->child(0)->vertex_index(1),
-                    hex->line(3)->child(0)->vertex_index(1),
-                    hex->line(4)->child(0)->vertex_index(1),
-                    hex->line(5)->child(0)->vertex_index(1),
-                    hex->line(6)->child(0)->vertex_index(1),
-                    hex->line(7)->child(0)->vertex_index(1),
-                    hex->line(8)->child(0)->vertex_index(1),
-                    hex->line(9)->child(0)->vertex_index(1),
-                    hex->line(10)->child(0)->vertex_index(1),
-                    hex->line(11)->child(0)->vertex_index(1),
-                    middle_vertex_index<dim, spacedim>(hex->face(0)),
-                    middle_vertex_index<dim, spacedim>(hex->face(1)),
-                    middle_vertex_index<dim, spacedim>(hex->face(2)),
-                    middle_vertex_index<dim, spacedim>(hex->face(3)),
-                    middle_vertex_index<dim, spacedim>(hex->face(4)),
-                    middle_vertex_index<dim, spacedim>(hex->face(5)),
-                    next_unused_vertex};
+                  // load vertex indices
+                  std::array<unsigned int, 27> vertex_indices;
+                  {
+                    unsigned int k = 0;
 
-                  const unsigned int n_vetices_old = 20;
+                    for (const unsigned int i : hex->vertex_indices())
+                      vertex_indices[k++] = hex->vertex_index(i);
 
-                  static constexpr std::array<std::array<unsigned int, 2>, 6>
-                    line_vertices = {{{{2, 6}},
-                                      {{6, 3}},
-                                      {{0, 6}},
-                                      {{6, 1}},
-                                      {{4, 6}},
-                                      {{6, 5}}}};
+                    for (const unsigned int i : hex->line_indices())
+                      vertex_indices[k++] =
+                        hex->line(i)->child(0)->vertex_index(1);
 
-                  for (unsigned int i = 0; i < 6; ++i)
-                    new_lines[i]->set_bounding_object_indices(
-                      {vertex_indices[line_vertices[i][0] + n_vetices_old],
-                       vertex_indices[line_vertices[i][1] + n_vetices_old]});
-
-                  std::array<
-                    typename Triangulation<dim, spacedim>::raw_line_iterator,
-                    30>
-                    lines;
-
-                  for (unsigned int f = 0, k = 0; f < 6; ++f)
-                    for (unsigned int c = 0; c < 4; ++c, ++k)
+                    if (true /*TODO*/)
                       {
-                        static constexpr std::array<std::array<unsigned int, 2>,
-                                                    4>
-                          temp = {{{{0, 1}}, {{3, 0}}, {{0, 3}}, {{3, 2}}}};
+                        for (const unsigned int i : hex->face_indices())
+                          vertex_indices[k++] =
+                            middle_vertex_index<dim, spacedim>(hex->face(i));
 
-                        lines[k] =
-                          hex->face(f)
-                            ->isotropic_child(
-                              GeometryInfo<dim>::standard_to_real_face_vertex(
-                                temp[c][0],
-                                hex->face_orientation(f),
-                                hex->face_flip(f),
-                                hex->face_rotation(f)))
-                            ->line(
-                              GeometryInfo<dim>::standard_to_real_face_line(
-                                temp[c][1],
-                                hex->face_orientation(f),
-                                hex->face_flip(f),
-                                hex->face_rotation(f)));
+                        vertex_indices[k++] = next_unused_vertex;
                       }
+                  }
 
-                  for (unsigned int i = 0, k = 24; i < 6; ++i, ++k)
-                    lines[k] = new_lines[i];
+                  // set up new lines
+                  {
+                    static constexpr std::array<std::array<unsigned int, 2>, 6>
+                      new_line_vertices = {{{{22, 26}},
+                                            {{26, 23}},
+                                            {{20, 26}},
+                                            {{26, 21}},
+                                            {{24, 26}},
+                                            {{26, 25}}}};
 
-                  unsigned int line_indices[30];
-                  for (unsigned int i = 0; i < 30; ++i)
-                    line_indices[i] = lines[i]->index();
+                    for (unsigned int i = 0; i < new_lines.size(); ++i)
+                      new_lines[i]->set_bounding_object_indices(
+                        {vertex_indices[new_line_vertices[i][0]],
+                         vertex_indices[new_line_vertices[i][1]]});
+                  }
 
-                  static constexpr std::array<std::array<unsigned int, 4>, 12>
-                    quad_lines = {{{{10, 28, 16, 24}},
-                                   {{28, 14, 17, 25}},
-                                   {{11, 29, 24, 20}},
-                                   {{29, 15, 25, 21}},
-                                   {{18, 26, 0, 28}},
-                                   {{26, 22, 1, 29}},
-                                   {{19, 27, 28, 4}},
-                                   {{27, 23, 29, 5}},
-                                   {{2, 24, 8, 26}},
-                                   {{24, 6, 9, 27}},
-                                   {{3, 25, 26, 12}},
-                                   {{25, 7, 27, 13}}}};
+                  // set up new quads
+                  {
+                    std::array<
+                      typename Triangulation<dim, spacedim>::raw_line_iterator,
+                      30>
+                      lines;
 
-                  for (unsigned int i = 0; i < 12; ++i)
-                    new_quads[i]->set_bounding_object_indices(
-                      {line_indices[quad_lines[i][0]],
-                       line_indices[quad_lines[i][1]],
-                       line_indices[quad_lines[i][2]],
-                       line_indices[quad_lines[i][3]]});
+                    for (unsigned int f = 0, k = 0; f < 6; ++f)
+                      for (unsigned int c = 0; c < 4; ++c, ++k)
+                        {
+                          static constexpr std::
+                            array<std::array<unsigned int, 2>, 4>
+                              temp = {{{{0, 1}}, {{3, 0}}, {{0, 3}}, {{3, 2}}}};
 
-                  static constexpr std::
-                    array<std::array<std::array<unsigned int, 2>, 4>, 12>
-                      table = {
-                        {{{{{10, 22}}, {{24, 26}}, {{10, 24}}, {{22, 26}}}},
-                         {{{{24, 26}}, {{11, 23}}, {{24, 11}}, {{26, 23}}}},
-                         {{{{22, 14}}, {{26, 25}}, {{22, 26}}, {{14, 25}}}},
-                         {{{{26, 25}}, {{23, 15}}, {{26, 23}}, {{25, 15}}}},
+                          lines[k] =
+                            hex->face(f)
+                              ->isotropic_child(
+                                GeometryInfo<dim>::standard_to_real_face_vertex(
+                                  temp[c][0],
+                                  hex->face_orientation(f),
+                                  hex->face_flip(f),
+                                  hex->face_rotation(f)))
+                              ->line(
+                                GeometryInfo<dim>::standard_to_real_face_line(
+                                  temp[c][1],
+                                  hex->face_orientation(f),
+                                  hex->face_flip(f),
+                                  hex->face_rotation(f)));
+                        }
 
-                         {{{{8, 24}}, {{20, 26}}, {{8, 20}}, {{24, 26}}}},
-                         {{{{20, 26}}, {{12, 25}}, {{20, 12}}, {{26, 25}}}},
-                         {{{{24, 9}}, {{26, 21}}, {{24, 26}}, {{9, 21}}}},
-                         {{{{26, 21}}, {{25, 13}}, {{26, 25}}, {{21, 13}}}},
+                    for (unsigned int i = 0, k = 24; i < 6; ++i, ++k)
+                      lines[k] = new_lines[i];
 
-                         {{{{16, 20}}, {{22, 26}}, {{16, 22}}, {{20, 26}}}},
-                         {{{{22, 26}}, {{17, 21}}, {{22, 17}}, {{26, 21}}}},
-                         {{{{20, 18}}, {{26, 23}}, {{20, 26}}, {{18, 23}}}},
-                         {{{{26, 23}}, {{21, 19}}, {{26, 21}}, {{23, 19}}}}}};
+                    unsigned int line_indices[30];
+                    for (unsigned int i = 0; i < 30; ++i)
+                      line_indices[i] = lines[i]->index();
 
-                  for (unsigned int q = 0; q < 12; ++q)
-                    for (unsigned int l = 0; l < 4; ++l)
-                      {
-                        if (lines[quad_lines[q][l]]->vertex_index(0) ==
-                            vertex_indices[table[q][l][0]])
-                          {
-                            AssertDimension(
-                              lines[quad_lines[q][l]]->vertex_index(0),
-                              vertex_indices[table[q][l][0]]);
-                            AssertDimension(
-                              lines[quad_lines[q][l]]->vertex_index(1),
-                              vertex_indices[table[q][l][1]]);
+                    static constexpr std::array<std::array<unsigned int, 4>, 12>
+                      quad_lines = {{{{10, 28, 16, 24}},
+                                     {{28, 14, 17, 25}},
+                                     {{11, 29, 24, 20}},
+                                     {{29, 15, 25, 21}},
+                                     {{18, 26, 0, 28}},
+                                     {{26, 22, 1, 29}},
+                                     {{19, 27, 28, 4}},
+                                     {{27, 23, 29, 5}},
+                                     {{2, 24, 8, 26}},
+                                     {{24, 6, 9, 27}},
+                                     {{3, 25, 26, 12}},
+                                     {{25, 7, 27, 13}}}};
 
-                            new_quads[q]->set_line_orientation(l, 1);
-                          }
-                        else
-                          {
-                            AssertDimension(
-                              lines[quad_lines[q][l]]->vertex_index(0),
-                              vertex_indices[table[q][l][1]]);
-                            AssertDimension(
-                              lines[quad_lines[q][l]]->vertex_index(1),
-                              vertex_indices[table[q][l][0]]);
-                            new_quads[q]->set_line_orientation(l, 0);
-                          }
-                      }
+                    for (unsigned int i = 0; i < 12; ++i)
+                      new_quads[i]->set_bounding_object_indices(
+                        {line_indices[quad_lines[i][0]],
+                         line_indices[quad_lines[i][1]],
+                         line_indices[quad_lines[i][2]],
+                         line_indices[quad_lines[i][3]]});
 
-                  std::array<int, 36> quad_indices;
+                    static constexpr std::
+                      array<std::array<std::array<unsigned int, 2>, 4>, 12>
+                        table = {
+                          {{{{{10, 22}}, {{24, 26}}, {{10, 24}}, {{22, 26}}}},
+                           {{{{24, 26}}, {{11, 23}}, {{24, 11}}, {{26, 23}}}},
+                           {{{{22, 14}}, {{26, 25}}, {{22, 26}}, {{14, 25}}}},
+                           {{{{26, 25}}, {{23, 15}}, {{26, 23}}, {{25, 15}}}},
 
-                  for (unsigned int i = 0; i < 12; ++i)
-                    quad_indices[i] = new_quads[i]->index();
+                           {{{{8, 24}}, {{20, 26}}, {{8, 20}}, {{24, 26}}}},
+                           {{{{20, 26}}, {{12, 25}}, {{20, 12}}, {{26, 25}}}},
+                           {{{{24, 9}}, {{26, 21}}, {{24, 26}}, {{9, 21}}}},
+                           {{{{26, 21}}, {{25, 13}}, {{26, 25}}, {{21, 13}}}},
 
-                  for (unsigned int f = 0, k = 12; f < 6; ++f)
-                    for (unsigned int c = 0; c < 4; ++c, ++k)
-                      quad_indices[k] = hex->face(f)->isotropic_child_index(
-                        GeometryInfo<dim>::standard_to_real_face_vertex(
-                          c,
-                          hex->face_orientation(f),
-                          hex->face_flip(f),
-                          hex->face_rotation(f)));
+                           {{{{16, 20}}, {{22, 26}}, {{16, 22}}, {{20, 26}}}},
+                           {{{{22, 26}}, {{17, 21}}, {{22, 17}}, {{26, 21}}}},
+                           {{{{20, 18}}, {{26, 23}}, {{20, 26}}, {{18, 23}}}},
+                           {{{{26, 23}}, {{21, 19}}, {{26, 21}}, {{23, 19}}}}}};
 
-                  static constexpr std::array<std::array<unsigned int, 6>, 8>
-                    cell_quads = {{
-                      {{12, 0, 20, 4, 28, 8}},  // bottom children
-                      {{0, 16, 22, 6, 29, 9}},  //
-                      {{13, 1, 4, 24, 30, 10}}, //
-                      {{1, 17, 6, 26, 31, 11}}, //
-                      {{14, 2, 21, 5, 8, 32}},  // top children
-                      {{2, 18, 23, 7, 9, 33}},  //
-                      {{15, 3, 5, 25, 10, 34}}, //
-                      {{3, 19, 7, 27, 11, 35}}  //
-                    }};
+                    for (unsigned int q = 0; q < 12; ++q)
+                      for (unsigned int l = 0; l < 4; ++l)
+                        {
+                          if (lines[quad_lines[q][l]]->vertex_index(0) ==
+                              vertex_indices[table[q][l][0]])
+                            {
+                              AssertDimension(
+                                lines[quad_lines[q][l]]->vertex_index(0),
+                                vertex_indices[table[q][l][0]]);
+                              AssertDimension(
+                                lines[quad_lines[q][l]]->vertex_index(1),
+                                vertex_indices[table[q][l][1]]);
 
-                  for (unsigned int c = 0; c < cell_quads.size(); ++c)
-                    new_hexes[c]->set_bounding_object_indices(
-                      {quad_indices[cell_quads[c][0]],
-                       quad_indices[cell_quads[c][1]],
-                       quad_indices[cell_quads[c][2]],
-                       quad_indices[cell_quads[c][3]],
-                       quad_indices[cell_quads[c][4]],
-                       quad_indices[cell_quads[c][5]]});
+                              new_quads[q]->set_line_orientation(l, 1);
+                            }
+                          else
+                            {
+                              AssertDimension(
+                                lines[quad_lines[q][l]]->vertex_index(0),
+                                vertex_indices[table[q][l][1]]);
+                              AssertDimension(
+                                lines[quad_lines[q][l]]->vertex_index(1),
+                                vertex_indices[table[q][l][0]]);
+                              new_quads[q]->set_line_orientation(l, 0);
+                            }
+                        }
+                  }
 
-                  static constexpr std::
-                    array<std::array<std::array<unsigned int, 4>, 6>, 8>
-                      table_{{{{{{0, 8, 16, 20}},
-                                {{10, 24, 22, 26}},
-                                {{0, 16, 10, 22}},
-                                {{8, 20, 24, 26}},
-                                {{0, 10, 8, 24}},
-                                {{16, 22, 20, 26}}}},
-                              {{{{10, 24, 22, 26}},
-                                {{1, 9, 17, 21}},
-                                {{10, 22, 1, 17}},
-                                {{24, 26, 9, 21}},
-                                {{10, 1, 24, 9}},
-                                {{22, 17, 26, 21}}}},
-                              {{{{8, 2, 20, 18}},
-                                {{24, 11, 26, 23}},
-                                {{8, 20, 24, 26}},
-                                {{2, 18, 11, 23}},
-                                {{8, 24, 2, 11}},
-                                {{20, 26, 18, 23}}}},
-                              {{{{24, 11, 26, 23}},
-                                {{9, 3, 21, 19}},
-                                {{24, 26, 9, 21}},
-                                {{11, 23, 3, 19}},
-                                {{24, 9, 11, 3}},
-                                {{26, 21, 23, 19}}}},
-                              {{{{16, 20, 4, 12}},
-                                {{22, 26, 14, 25}},
-                                {{16, 4, 22, 14}},
-                                {{20, 12, 26, 25}},
-                                {{16, 22, 20, 26}},
-                                {{4, 14, 12, 25}}}},
-                              {{{{22, 26, 14, 25}},
-                                {{17, 21, 5, 13}},
-                                {{22, 14, 17, 5}},
-                                {{26, 25, 21, 13}},
-                                {{22, 17, 26, 21}},
-                                {{14, 5, 25, 13}}}},
-                              {{{{20, 18, 12, 6}},
-                                {{26, 23, 25, 15}},
-                                {{20, 12, 26, 25}},
-                                {{18, 6, 23, 15}},
-                                {{20, 26, 18, 23}},
-                                {{12, 25, 6, 15}}}},
-                              {{{{26, 23, 25, 15}},
-                                {{21, 19, 13, 7}},
-                                {{26, 25, 21, 13}},
-                                {{23, 15, 19, 7}},
-                                {{26, 21, 23, 19}},
-                                {{25, 13, 15, 7}}}}}};
+                  // set up new hex
+                  {
+                    std::array<int, 36> quad_indices;
 
-                  for (unsigned int current_child = 0; current_child < 8;
-                       ++current_child)
-                    for (const unsigned int f :
-                         GeometryInfo<dim>::face_indices())
-                      {
-                        std::array<unsigned int, 4> vertices_0, vertices_1;
+                    for (unsigned int i = 0; i < 12; ++i)
+                      quad_indices[i] = new_quads[i]->index();
 
-                        const auto &face = new_hexes[current_child]->face(f);
+                    for (unsigned int f = 0, k = 12; f < 6; ++f)
+                      for (unsigned int c = 0; c < 4; ++c, ++k)
+                        quad_indices[k] = hex->face(f)->isotropic_child_index(
+                          GeometryInfo<dim>::standard_to_real_face_vertex(
+                            c,
+                            hex->face_orientation(f),
+                            hex->face_flip(f),
+                            hex->face_rotation(f)));
 
-                        for (const auto i : face->vertex_indices())
-                          vertices_0[i] = face->vertex_index(i);
+                    static constexpr std::array<std::array<unsigned int, 6>, 8>
+                      cell_quads = {{
+                        {{12, 0, 20, 4, 28, 8}},  // bottom children
+                        {{0, 16, 22, 6, 29, 9}},  //
+                        {{13, 1, 4, 24, 30, 10}}, //
+                        {{1, 17, 6, 26, 31, 11}}, //
+                        {{14, 2, 21, 5, 8, 32}},  // top children
+                        {{2, 18, 23, 7, 9, 33}},  //
+                        {{15, 3, 5, 25, 10, 34}}, //
+                        {{3, 19, 7, 27, 11, 35}}  //
+                      }};
 
-                        for (const auto i : face->vertex_indices())
-                          vertices_1[i] =
-                            vertex_indices[table_[current_child][f][i]];
+                    for (unsigned int c = 0; c < cell_quads.size(); ++c)
+                      new_hexes[c]->set_bounding_object_indices(
+                        {quad_indices[cell_quads[c][0]],
+                         quad_indices[cell_quads[c][1]],
+                         quad_indices[cell_quads[c][2]],
+                         quad_indices[cell_quads[c][3]],
+                         quad_indices[cell_quads[c][4]],
+                         quad_indices[cell_quads[c][5]]});
 
-                        const auto orientation =
-                          ReferenceCell::compute_orientation(
-                            ReferenceCell::Type::Quad, vertices_0, vertices_1);
+                    static constexpr std::
+                      array<std::array<std::array<unsigned int, 4>, 6>, 8>
+                        table_{{{{{{0, 8, 16, 20}},
+                                  {{10, 24, 22, 26}},
+                                  {{0, 16, 10, 22}},
+                                  {{8, 20, 24, 26}},
+                                  {{0, 10, 8, 24}},
+                                  {{16, 22, 20, 26}}}},
+                                {{{{10, 24, 22, 26}},
+                                  {{1, 9, 17, 21}},
+                                  {{10, 22, 1, 17}},
+                                  {{24, 26, 9, 21}},
+                                  {{10, 1, 24, 9}},
+                                  {{22, 17, 26, 21}}}},
+                                {{{{8, 2, 20, 18}},
+                                  {{24, 11, 26, 23}},
+                                  {{8, 20, 24, 26}},
+                                  {{2, 18, 11, 23}},
+                                  {{8, 24, 2, 11}},
+                                  {{20, 26, 18, 23}}}},
+                                {{{{24, 11, 26, 23}},
+                                  {{9, 3, 21, 19}},
+                                  {{24, 26, 9, 21}},
+                                  {{11, 23, 3, 19}},
+                                  {{24, 9, 11, 3}},
+                                  {{26, 21, 23, 19}}}},
+                                {{{{16, 20, 4, 12}},
+                                  {{22, 26, 14, 25}},
+                                  {{16, 4, 22, 14}},
+                                  {{20, 12, 26, 25}},
+                                  {{16, 22, 20, 26}},
+                                  {{4, 14, 12, 25}}}},
+                                {{{{22, 26, 14, 25}},
+                                  {{17, 21, 5, 13}},
+                                  {{22, 14, 17, 5}},
+                                  {{26, 25, 21, 13}},
+                                  {{22, 17, 26, 21}},
+                                  {{14, 5, 25, 13}}}},
+                                {{{{20, 18, 12, 6}},
+                                  {{26, 23, 25, 15}},
+                                  {{20, 12, 26, 25}},
+                                  {{18, 6, 23, 15}},
+                                  {{20, 26, 18, 23}},
+                                  {{12, 25, 6, 15}}}},
+                                {{{{26, 23, 25, 15}},
+                                  {{21, 19, 13, 7}},
+                                  {{26, 25, 21, 13}},
+                                  {{23, 15, 19, 7}},
+                                  {{26, 21, 23, 19}},
+                                  {{25, 13, 15, 7}}}}}};
 
-                        new_hexes[current_child]->set_face_orientation(
-                          f, ReferenceCell::internal::get_bit(orientation, 0));
-                        new_hexes[current_child]->set_face_flip(
-                          f, ReferenceCell::internal::get_bit(orientation, 2));
-                        new_hexes[current_child]->set_face_rotation(
-                          f, ReferenceCell::internal::get_bit(orientation, 1));
-                      }
+                    for (unsigned int current_child = 0; current_child < 8;
+                         ++current_child)
+                      for (const unsigned int f :
+                           GeometryInfo<dim>::face_indices())
+                        {
+                          std::array<unsigned int, 4> vertices_0, vertices_1;
+
+                          const auto &face = new_hexes[current_child]->face(f);
+
+                          for (const auto i : face->vertex_indices())
+                            vertices_0[i] = face->vertex_index(i);
+
+                          for (const auto i : face->vertex_indices())
+                            vertices_1[i] =
+                              vertex_indices[table_[current_child][f][i]];
+
+                          const auto orientation =
+                            ReferenceCell::compute_orientation(
+                              ReferenceCell::Type::Quad,
+                              vertices_0,
+                              vertices_1);
+
+                          new_hexes[current_child]->set_face_orientation(
+                            f,
+                            ReferenceCell::internal::get_bit(orientation, 0));
+                          new_hexes[current_child]->set_face_flip(
+                            f,
+                            ReferenceCell::internal::get_bit(orientation, 2));
+                          new_hexes[current_child]->set_face_rotation(
+                            f,
+                            ReferenceCell::internal::get_bit(orientation, 1));
+                        }
+                  }
                 }
 
                 if (check_for_distorted_cells &&
