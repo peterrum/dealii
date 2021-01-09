@@ -5878,7 +5878,7 @@ namespace internal
                                                 {{26, 25}}}};
 
                     static constexpr std::array<std::array<unsigned int, 2>, 6>
-                      new_line_vertices_tet = {{{{7, 5}},
+                      new_line_vertices_tet = {{{{6, 8}},
                                                 {{X, X}},
                                                 {{X, X}},
                                                 {{X, X}},
@@ -5936,7 +5936,7 @@ namespace internal
                       }
                     else if (reference_cell_type == ReferenceCell::Type::Tet)
                       {
-                        relevant_lines.resize(15);
+                        relevant_lines.resize(13);
 
                         unsigned int k = 0;
                         for (unsigned int f = 0; f < 4; ++f)
@@ -5948,11 +5948,13 @@ namespace internal
 
                               relevant_lines[k] =
                                 hex->face(f)
-                                  ->isotropic_child(3 /*center triangle*/)
+                                  ->child(3 /*center triangle*/)
                                   ->line(l /*TODO*/);
                             }
 
-                        relevant_lines[k] = new_lines[0];
+                        relevant_lines[k++] = new_lines[0];
+
+                        AssertDimension(k, 13);
                       }
                     else
                       Assert(false, ExcNotImplemented());
@@ -5978,20 +5980,19 @@ namespace internal
                                              {{25, 7, 27, 13}}}};
 
                     static constexpr std::array<std::array<unsigned int, 4>, 12>
-                      new_quad_lines_tet = {{{{10, 28, 16, 24}},
-                                             {{28, 14, 17, 25}},
-                                             {{11, 29, 24, 20}},
-                                             {{29, 15, 25, 21}},
-                                             {{18, 26, 0, 28}},
-                                             {{26, 22, 1, 29}},
-                                             {{19, 27, 28, 4}},
-                                             {{27, 23, 29, 5}},
-                                             {{2, 24, 8, 26}},
-                                             {{24, 6, 9, 27}},
-                                             {{3, 25, 26, 12}},
-                                             {{25, 7, 27, 13}}}};
+                      new_quad_lines_tet = {{{{2, 3, 8, X}},
+                                             {{0, 9, 5, X}},
+                                             {{1, 6, 11, X}},
+                                             {{4, 10, 7, X}},
+                                             {{2, 12, 5, X}},
+                                             {{1, 9, 12, X}},
+                                             {{4, 8, 12, X}},
+                                             {{6, 12, 10, X}},
+                                             {{X, X, X, X}},
+                                             {{X, X, X, X}},
+                                             {{X, X, X, X}},
+                                             {{X, X, X, X}}}};
 
-                    // TODO
                     static constexpr std::
                       array<std::array<std::array<unsigned int, 2>, 4>, 12>
                         table_hex = {
@@ -6008,22 +6009,21 @@ namespace internal
                            {{{{20, 18}}, {{26, 23}}, {{20, 26}}, {{18, 23}}}},
                            {{{{26, 23}}, {{21, 19}}, {{26, 21}}, {{23, 19}}}}}};
 
-                    // TODO
                     static constexpr std::
                       array<std::array<std::array<unsigned int, 2>, 4>, 12>
                         table_tet = {
-                          {{{{{10, 22}}, {{24, 26}}, {{10, 24}}, {{22, 26}}}},
-                           {{{{24, 26}}, {{11, 23}}, {{24, 11}}, {{26, 23}}}},
-                           {{{{22, 14}}, {{26, 25}}, {{22, 26}}, {{14, 25}}}},
-                           {{{{26, 25}}, {{23, 15}}, {{26, 23}}, {{25, 15}}}},
-                           {{{{8, 24}}, {{20, 26}}, {{8, 20}}, {{24, 26}}}},
-                           {{{{20, 26}}, {{12, 25}}, {{20, 12}}, {{26, 25}}}},
-                           {{{{24, 9}}, {{26, 21}}, {{24, 26}}, {{9, 21}}}},
-                           {{{{26, 21}}, {{25, 13}}, {{26, 25}}, {{21, 13}}}},
-                           {{{{16, 20}}, {{22, 26}}, {{16, 22}}, {{20, 26}}}},
-                           {{{{22, 26}}, {{17, 21}}, {{22, 17}}, {{26, 21}}}},
-                           {{{{20, 18}}, {{26, 23}}, {{20, 26}}, {{18, 23}}}},
-                           {{{{26, 23}}, {{21, 19}}, {{26, 21}}, {{23, 19}}}}}};
+                          {{{{{6, 4}}, {{4, 7}}, {{7, 6}}, {{X, X}}}},
+                           {{{{4, 5}}, {{5, 8}}, {{8, 4}}, {{X, X}}}},
+                           {{{{5, 6}}, {{6, 9}}, {{9, 5}}, {{X, X}}}},
+                           {{{{7, 8}}, {{8, 9}}, {{9, 7}}, {{X, X}}}},
+                           {{{{4, 6}}, {{6, 8}}, {{8, 4}}, {{X, X}}}},
+                           {{{{6, 5}}, {{5, 8}}, {{8, 6}}, {{X, X}}}},
+                           {{{{8, 7}}, {{7, 6}}, {{6, 8}}, {{X, X}}}},
+                           {{{{9, 6}}, {{6, 8}}, {{8, 9}}, {{X, X}}}},
+                           {{{{X, X}}, {{X, X}}, {{X, X}}, {{X, X}}}},
+                           {{{{X, X}}, {{X, X}}, {{X, X}}, {{X, X}}}},
+                           {{{{X, X}}, {{X, X}}, {{X, X}}, {{X, X}}}},
+                           {{{{X, X}}, {{X, X}}, {{X, X}}, {{X, X}}}}}};
 
                     const auto &new_quad_lines =
                       (reference_cell_type == ReferenceCell::Type::Hex) ?
