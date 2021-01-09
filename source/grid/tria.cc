@@ -5942,14 +5942,26 @@ namespace internal
                         for (unsigned int f = 0; f < 4; ++f)
                           for (unsigned int l = 0; l < 3; ++l, ++k)
                             {
+                              /*
                               AssertDimension(hex->face_orientation(f), true);
                               AssertDimension(hex->face_flip(f), false);
                               AssertDimension(hex->face_rotation(f), false);
+                               */
 
                               relevant_lines[k] =
                                 hex->face(f)
                                   ->child(3 /*center triangle*/)
-                                  ->line(l /*TODO*/);
+                                  ->line(
+                                    ReferenceCell::internal::Info::get_cell(
+                                      reference_cell_type)
+                                      .standard_to_real_face_line(
+                                        l,
+                                        f,
+                                        triangulation.levels[hex->level()]
+                                          ->face_orientations
+                                            [hex->index() * GeometryInfo<dim>::
+                                                              faces_per_cell +
+                                             f]));
                             }
 
                         relevant_lines[k++] = new_lines[0];
@@ -6104,8 +6116,21 @@ namespace internal
                         for (unsigned int f = 0, k = new_quads.size(); f < 4;
                              ++f)
                           for (unsigned int c = 0; c < 4; ++c, ++k)
-                            quad_indices[k] =
-                              hex->face(f)->isotropic_child_index(c /*TODO*/);
+                            {
+                              quad_indices[k] = hex->face(f)->child_index(
+                                (c == 3) ?
+                                  3 :
+                                  ReferenceCell::internal::Info::get_cell(
+                                    reference_cell_type)
+                                    .standard_to_real_face_vertex(
+                                      c,
+                                      f,
+                                      triangulation.levels[hex->level()]
+                                        ->face_orientations
+                                          [hex->index() *
+                                             GeometryInfo<dim>::faces_per_cell +
+                                           f]));
+                            }
                       }
                     else
                       {

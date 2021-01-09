@@ -21,6 +21,8 @@
 #include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/tria.h>
 
+#include <deal.II/simplex/grid_generator.h>
+
 #include "../tests.h"
 
 template <int dim>
@@ -44,13 +46,21 @@ print(Triangulation<dim> &tria, const std::string &label)
 }
 
 void
-test()
+test(const unsigned int version)
 {
   Triangulation<3> tria;
-  ReferenceCell::make_triangulation(ReferenceCell::Type::Tet, tria);
+
+  if (version == 0 || version == 1)
+    ReferenceCell::make_triangulation(ReferenceCell::Type::Tet, tria);
+  else if (version == 2)
+    GridGenerator::subdivided_hyper_cube_with_simplices(tria, 1);
 
   print(tria, "tria.0.vtk");
-  tria.refine_global();
+  if (version == 0 || version == 2)
+    tria.refine_global(1);
+  else if (version == 1)
+    tria.refine_global(2);
+
   print(tria, "tria.1.vtk");
 }
 
@@ -58,5 +68,10 @@ int
 main()
 {
   initlog();
-  test();
+  test(0);
+
+  /*
+  test(1);
+  test(2);
+   */
 }
