@@ -6080,19 +6080,37 @@ namespace internal
                   {
                     std::array<int, 36> quad_indices;
 
-                    {
-                      for (unsigned int i = 0; i < new_quads.size(); ++i)
-                        quad_indices[i] = new_quads[i]->index();
+                    if (reference_cell_type == ReferenceCell::Type::Hex)
+                      {
+                        for (unsigned int i = 0; i < new_quads.size(); ++i)
+                          quad_indices[i] = new_quads[i]->index();
 
-                      for (unsigned int f = 0, k = new_quads.size(); f < 6; ++f)
-                        for (unsigned int c = 0; c < 4; ++c, ++k)
-                          quad_indices[k] = hex->face(f)->isotropic_child_index(
-                            GeometryInfo<dim>::standard_to_real_face_vertex(
-                              c,
-                              hex->face_orientation(f),
-                              hex->face_flip(f),
-                              hex->face_rotation(f)));
-                    }
+                        for (unsigned int f = 0, k = new_quads.size(); f < 6;
+                             ++f)
+                          for (unsigned int c = 0; c < 4; ++c, ++k)
+                            quad_indices[k] =
+                              hex->face(f)->isotropic_child_index(
+                                GeometryInfo<dim>::standard_to_real_face_vertex(
+                                  c,
+                                  hex->face_orientation(f),
+                                  hex->face_flip(f),
+                                  hex->face_rotation(f)));
+                      }
+                    else if (reference_cell_type == ReferenceCell::Type::Tet)
+                      {
+                        for (unsigned int i = 0; i < new_quads.size(); ++i)
+                          quad_indices[i] = new_quads[i]->index();
+
+                        for (unsigned int f = 0, k = new_quads.size(); f < 4;
+                             ++f)
+                          for (unsigned int c = 0; c < 4; ++c, ++k)
+                            quad_indices[k] =
+                              hex->face(f)->isotropic_child_index(c /*TODO*/);
+                      }
+                    else
+                      {
+                        Assert(false, ExcNotImplemented());
+                      }
 
                     static constexpr std::array<std::array<unsigned int, 6>, 8>
                       cell_quads_hex = {{
@@ -6107,14 +6125,14 @@ namespace internal
                       }};
 
                     static constexpr std::array<std::array<unsigned int, 6>, 8>
-                      cell_quads_tet{{{{16, 15, 23, 19, X, X}},
-                                      {{1, 0, 10, 5, X, X}},
-                                      {{3, 4, 17, 2, X, X}},
-                                      {{12, 13, 21, 8, X, X}},
-                                      {{20, 12, 22, 14, X, X}},
-                                      {{9, 22, 18, 16, X, X}},
-                                      {{7, 6, 18, 17, X, X}},
-                                      {{11, 14, 5, 6, X, X}}}};
+                      cell_quads_tet{{{{8, 13, 16, 0, X, X}},
+                                      {{9, 12, 1, 21, X, X}},
+                                      {{10, 2, 17, 20, X, X}},
+                                      {{3, 14, 18, 22, X, X}},
+                                      {{11, 1, 4, 5, X, X}},
+                                      {{15, 0, 4, 6, X, X}},
+                                      {{19, 7, 6, 3, X, X}},
+                                      {{23, 5, 2, 7, X, X}}}};
 
                     static constexpr std::
                       array<std::array<std::array<unsigned int, 4>, 6>, 8>
@@ -6169,52 +6187,52 @@ namespace internal
 
                     static constexpr std::
                       array<std::array<std::array<unsigned int, 4>, 6>, 8>
-                        cell_face_vertices_tet{{{{{{7, 8, 9, X}},
-                                                  {{8, 7, 3, X}},
-                                                  {{7, 9, 3, X}},
-                                                  {{9, 8, 3, X}},
-                                                  {{X, X, X, X}},
-                                                  {{X, X, X, X}}}},
-                                                {{{{0, 4, 6, X}},
+                        cell_face_vertices_tet{{{{{{0, 4, 6, X}},
                                                   {{4, 0, 7, X}},
                                                   {{0, 6, 7, X}},
                                                   {{6, 4, 7, X}},
                                                   {{X, X, X, X}},
                                                   {{X, X, X, X}}}},
-                                                {{{{4, 1, 8, X}},
-                                                  {{1, 4, 5, X}},
-                                                  {{4, 8, 5, X}},
-                                                  {{8, 1, 5, X}},
+                                                {{{{4, 1, 5, X}},
+                                                  {{1, 4, 8, X}},
+                                                  {{4, 5, 8, X}},
+                                                  {{5, 1, 8, X}},
                                                   {{X, X, X, X}},
                                                   {{X, X, X, X}}}},
-                                                {{{{6, 5, 9, X}},
-                                                  {{5, 6, 2, X}},
-                                                  {{6, 9, 2, X}},
-                                                  {{9, 5, 2, X}},
+                                                {{{{6, 5, 2, X}},
+                                                  {{5, 6, 9, X}},
+                                                  {{6, 2, 9, X}},
+                                                  {{2, 5, 9, X}},
                                                   {{X, X, X, X}},
                                                   {{X, X, X, X}}}},
-                                                {{{{9, 6, 7, X}},
-                                                  {{6, 9, 5, X}},
-                                                  {{9, 7, 5, X}},
-                                                  {{7, 6, 5, X}},
+                                                {{{{7, 8, 9, X}},
+                                                  {{8, 7, 3, X}},
+                                                  {{7, 9, 3, X}},
+                                                  {{9, 8, 3, X}},
                                                   {{X, X, X, X}},
                                                   {{X, X, X, X}}}},
-                                                {{{{5, 9, 8, X}},
-                                                  {{9, 5, 7, X}},
-                                                  {{5, 8, 7, X}},
-                                                  {{8, 9, 7, X}},
+                                                {{{{4, 5, 6, X}},
+                                                  {{4, 5, 8, X}},
+                                                  {{4, 6, 8, X}},
+                                                  {{6, 5, 8, X}},
                                                   {{X, X, X, X}},
                                                   {{X, X, X, X}}}},
-                                                {{{{7, 4, 8, X}},
-                                                  {{4, 7, 5, X}},
-                                                  {{7, 8, 5, X}},
-                                                  {{8, 4, 5, X}},
-                                                  {{X, X, X, X}},
-                                                  {{X, X, X, X}}}},
-                                                {{{{6, 5, 4, X}},
-                                                  {{5, 6, 7, X}},
+                                                {{{{4, 7, 8, X}},
                                                   {{6, 4, 7, X}},
-                                                  {{4, 5, 7, X}},
+                                                  {{4, 6, 8, X}},
+                                                  {{8, 7, 6, X}},
+                                                  {{X, X, X, X}},
+                                                  {{X, X, X, X}}}},
+                                                {{{{6, 9, 7, X}},
+                                                  {{9, 6, 8, X}},
+                                                  {{8, 7, 6, X}},
+                                                  {{7, 8, 9, X}},
+                                                  {{X, X, X, X}},
+                                                  {{X, X, X, X}}}},
+                                                {{{{5, 8, 9, X}},
+                                                  {{6, 5, 8, X}},
+                                                  {{5, 6, 9, X}},
+                                                  {{9, 6, 8, X}},
                                                   {{X, X, X, X}},
                                                   {{X, X, X, X}}}}}};
 
@@ -6232,13 +6250,22 @@ namespace internal
                       {
                         auto &new_hex = new_hexes[c];
 
-                        new_hex->set_bounding_object_indices(
-                          {quad_indices[cell_quads[c][0]],
-                           quad_indices[cell_quads[c][1]],
-                           quad_indices[cell_quads[c][2]],
-                           quad_indices[cell_quads[c][3]],
-                           quad_indices[cell_quads[c][4]],
-                           quad_indices[cell_quads[c][5]]});
+                        if (new_hex->n_faces() == 4)
+                          new_hex->set_bounding_object_indices(
+                            {quad_indices[cell_quads[c][0]],
+                             quad_indices[cell_quads[c][1]],
+                             quad_indices[cell_quads[c][2]],
+                             quad_indices[cell_quads[c][3]]});
+                        else if (new_hex->n_faces() == 6)
+                          new_hex->set_bounding_object_indices(
+                            {quad_indices[cell_quads[c][0]],
+                             quad_indices[cell_quads[c][1]],
+                             quad_indices[cell_quads[c][2]],
+                             quad_indices[cell_quads[c][3]],
+                             quad_indices[cell_quads[c][4]],
+                             quad_indices[cell_quads[c][5]]});
+                        else
+                          Assert(false, ExcNotImplemented());
 
                         for (const auto f : new_hex->face_indices())
                           {
