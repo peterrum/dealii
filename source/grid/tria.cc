@@ -5548,6 +5548,11 @@ namespace internal
 
                       lines[k++] = quad->line(l)->child(
                         index[c][quad->line_orientation(l)]);
+
+                      std::cout << l << " " << c << " "
+                                << quad->line_orientation(l) << " "
+                                << lines[k - 1]->vertex_index(0) << " "
+                                << lines[k - 1]->vertex_index(1) << std::endl;
                     }
 
                 for (unsigned int l = 0; l < new_lines.size(); ++l)
@@ -5628,6 +5633,32 @@ namespace internal
               // 5) set properties of quads
               for (unsigned int i = 0; i < new_quads.size(); ++i)
                 {
+                  for (unsigned int f = 0; f < 3; ++f)
+                    {
+                      std::array<unsigned int, 2> vertices_0, vertices_1;
+
+                      for (unsigned int v = 0; v < 2; ++v)
+                        vertices_0[v] =
+                          lines[quad_lines[i][f]]->vertex_index(v);
+
+                      for (unsigned int v = 0; v < 2; ++v)
+                        vertices_1[v] =
+                          vertex_indices[line_vertices[quad_lines[i][f]][v]];
+
+                      for (unsigned int v = 0; v < 2; ++v)
+                        std::cout << vertices_0[v] << " ";
+                      std::cout << " vs. ";
+
+                      for (unsigned int v = 0; v < 2; ++v)
+                        std::cout << vertices_1[v] << " ";
+                      std::cout << std::endl;
+                    }
+                  std::cout << std::endl;
+                }
+              std::cout << std::endl;
+
+              for (unsigned int i = 0; i < new_quads.size(); ++i)
+                {
                   auto &new_quad = new_quads[i];
 
                   // TODO: we assume here that all children have the same type
@@ -5681,6 +5712,8 @@ namespace internal
               quad->clear_user_flag();
             }
         }
+
+        std::cout << "----------------------------" << std::endl;
 
         typename Triangulation<3, spacedim>::DistortedCellList
           cells_with_distorted_children;
@@ -5948,20 +5981,43 @@ namespace internal
                               AssertDimension(hex->face_rotation(f), false);
                                */
 
+                              static const std::
+                                array<std::array<unsigned int, 3>, 6>
+                                  table = {{{{1, 0, 2}},
+                                            {{0, 1, 2}},
+                                            {{1, 2, 0}},
+                                            {{2, 1, 0}},
+                                            {{1, 0, 2}},
+                                            {{2, 0, 1}}}};
+
                               relevant_lines[k] =
                                 hex->face(f)
                                   ->child(3 /*center triangle*/)
                                   ->line(
-                                    ReferenceCell::internal::Info::get_cell(
-                                      reference_cell_type)
-                                      .standard_to_real_face_line(
-                                        l,
-                                        f,
-                                        triangulation.levels[hex->level()]
-                                          ->face_orientations
-                                            [hex->index() * GeometryInfo<dim>::
-                                                              faces_per_cell +
-                                             f]));
+                                    table[triangulation.levels[hex->level()]
+                                            ->face_orientations
+                                              [hex->index() *
+                                                 GeometryInfo<
+                                                   dim>::faces_per_cell +
+                                               f]][l]);
+
+                              std::cout
+                                << f << " " << l << " "
+                                << static_cast<int>(
+                                     triangulation.levels[hex->level()]
+                                       ->face_orientations
+                                         [hex->index() *
+                                            GeometryInfo<dim>::faces_per_cell +
+                                          f])
+                                << " "
+                                << table[triangulation.levels[hex->level()]
+                                           ->face_orientations
+                                             [hex->index() * GeometryInfo<dim>::
+                                                               faces_per_cell +
+                                              f]][l]
+                                << " " << relevant_lines[k]->vertex_index(0)
+                                << "-" << relevant_lines[k]->vertex_index(1)
+                                << std::endl;
                             }
 
                         relevant_lines[k++] = new_lines[0];
@@ -6046,6 +6102,32 @@ namespace internal
                       (reference_cell_type == ReferenceCell::Type::Hex) ?
                         table_hex :
                         table_tet;
+
+                    for (unsigned int q = 0; q < new_quads.size(); ++q)
+                      {
+                        for (unsigned int l = 0; l < 3; ++l)
+                          {
+                            std::array<unsigned int, 2> vertices_0, vertices_1;
+
+                            for (unsigned int v = 0; v < 2; ++v)
+                              vertices_0[v] =
+                                relevant_lines[new_quad_lines[q][l]]
+                                  ->vertex_index(v);
+
+                            for (unsigned int v = 0; v < 2; ++v)
+                              vertices_1[v] = vertex_indices[table[q][l][v]];
+
+                            for (unsigned int v = 0; v < 2; ++v)
+                              std::cout << vertices_0[v] << " ";
+                            std::cout << " vs. ";
+
+                            for (unsigned int v = 0; v < 2; ++v)
+                              std::cout << vertices_1[v] << " ";
+                            std::cout << std::endl;
+                          }
+                        std::cout << std::endl;
+                      }
+                    std::cout << std::endl;
 
                     for (unsigned int q = 0; q < new_quads.size(); ++q)
                       {
