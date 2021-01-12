@@ -2486,9 +2486,16 @@ namespace internal
 
                   // set face orientation if needed
                   if (orientation_needed)
-                    level.face_orientations
-                      [cell * GeometryInfo<dim>::faces_per_cell + j] =
-                      connectivity.entity_orientations(dim - 1)[i];
+                    {
+                      level.face_orientations
+                        [cell * GeometryInfo<dim>::faces_per_cell + j] =
+                        connectivity.entity_orientations(dim - 1)[i];
+
+                      std::cout << "FO" << std::endl;
+                      for (auto i : level.face_orientations)
+                        std::cout << static_cast<int>(i) << " ";
+                      std::cout << std::endl;
+                    }
                 }
             }
         }
@@ -5880,6 +5887,9 @@ namespace internal
                 {
                   // load vertex indices
                   std::array<unsigned int, 27> vertex_indices;
+                  for (auto &i : vertex_indices)
+                    i = 0;
+
                   {
                     unsigned int k = 0;
 
@@ -5898,6 +5908,10 @@ namespace internal
 
                         vertex_indices[k++] = next_unused_vertex;
                       }
+
+                    for (const auto i : vertex_indices)
+                      std::cout << i << " ";
+                    std::cout << std::endl;
                   }
 
                   // set up new lines
@@ -5988,7 +6002,7 @@ namespace internal
                                             {{1, 2, 0}},
                                             {{2, 1, 0}},
                                             {{1, 0, 2}},
-                                            {{2, 0, 1}}}};
+                                            {{1, 2, 0}}}};
 
                               relevant_lines[k] =
                                 hex->face(f)
@@ -6021,6 +6035,11 @@ namespace internal
                             }
 
                         relevant_lines[k++] = new_lines[0];
+
+                        std::cout
+                          << " " << relevant_lines[k - 1]->vertex_index(0)
+                          << "-" << relevant_lines[k - 1]->vertex_index(1)
+                          << std::endl;
 
                         AssertDimension(k, 13);
                       }
