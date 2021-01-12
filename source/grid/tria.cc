@@ -5524,6 +5524,9 @@ namespace internal
 
               std::array<unsigned int, 9> vertex_indices;
               {
+                for (auto &i : vertex_indices)
+                  i = 0.0;
+
                 unsigned int k = 0;
                 for (const auto i : quad->vertex_indices())
                   vertex_indices[k++] = quad->vertex_index(i);
@@ -5532,7 +5535,23 @@ namespace internal
                   vertex_indices[k++] =
                     quad->line(i)->child(0)->vertex_index(1);
 
+                std::cout << "USE_QUAD" << quad->index() << std::endl;
+                for (const auto i : quad->line_indices())
+                  std::cout << quad->index() << quad->line(i)->vertex_index(0)
+                            << " " << quad->line(i)->vertex_index(1) << " "
+                            << quad->line(i)->child(0)->vertex_index(0) << " "
+                            << quad->line(i)->child(0)->vertex_index(1) << " "
+                            << quad->line(i)->child(1)->vertex_index(0) << " "
+                            << quad->line(i)->child(1)->vertex_index(1)
+                            << std::endl;
+
+
                 vertex_indices[k++] = next_unused_vertex;
+
+                std::cout << "vertex_indices" << std::endl;
+                for (auto &i : vertex_indices)
+                  std::cout << i << " ";
+                std::cout << std::endl;
               }
 
               boost::container::small_vector<
@@ -5558,7 +5577,7 @@ namespace internal
 
                       std::cout << l << " " << c << " "
                                 << quad->line_orientation(l) << " "
-                                << lines[k - 1]->vertex_index(0) << " "
+                                << lines[k - 1]->vertex_index(0) << "-"
                                 << lines[k - 1]->vertex_index(1) << std::endl;
                     }
 
@@ -5667,6 +5686,8 @@ namespace internal
               for (unsigned int i = 0; i < new_quads.size(); ++i)
                 {
                   auto &new_quad = new_quads[i];
+
+                  std::cout << "OUTER_QUAD" << new_quad->index() << std::endl;
 
                   // TODO: we assume here that all children have the same type
                   // as the parent
@@ -5812,6 +5833,8 @@ namespace internal
                         .template next_free_single_object<2>(triangulation);
 
                     auto &new_quad = new_quads[i];
+
+                    std::cout << "INNER_QUAD" << new_quad->index() << std::endl;
 
                     // TODO: faces of children have the same type as the faces
                     //  of the parent
