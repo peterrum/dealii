@@ -36,8 +36,8 @@ print(Triangulation<dim> &tria, const std::string &label)
   for (const auto &cell : tria.active_cell_iterators())
     cell->set_material_id(counter++);
 
-  std::ofstream out(label);
 #if false
+  std::ofstream out(label);
   grid_out.write_vtk(tria, out);
 #else
   (void)label;
@@ -70,8 +70,6 @@ main()
   initlog();
   test(0);
 
-  /*
-  test(1);
+  //test(1);
   test(2);
-   */
 }

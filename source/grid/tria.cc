@@ -5999,7 +5999,7 @@ namespace internal
                                 array<std::array<unsigned int, 3>, 6>
                                   table = {{{{1, 0, 2}},
                                             {{0, 1, 2}},
-                                            {{1, 2, 0}},
+                                            {{2, 0, 1}},
                                             {{2, 1, 0}},
                                             {{0, 2, 1}},
                                             {{1, 2, 0}}}};
