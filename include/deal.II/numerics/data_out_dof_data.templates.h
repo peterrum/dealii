@@ -41,6 +41,7 @@
 #include <deal.II/hp/fe_values.h>
 #include <deal.II/hp/q_collection.h>
 
+#include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/lac/vector.h>
 
 #include <deal.II/numerics/data_out.h>
@@ -1485,6 +1486,33 @@ DataOut_DoFData<DoFHandlerType, patch_dim, patch_space_dim>::add_data_vector(
 
 
 
+template <typename VectorType>
+void
+construct_pre_and_post(const VectorType &     data_vector,
+                       std::function<void()> &pre,
+                       std::function<void()> &post)
+{
+  (void)data_vector;
+  (void)pre;
+  (void)post;
+}
+
+template <typename Number, typename MemorySpace>
+void
+construct_pre_and_post(
+  const LinearAlgebra::distributed::Vector<Number, MemorySpace> &data_vector,
+  std::function<void()> &                                        pre,
+  std::function<void()> &                                        post)
+{
+  if (data_vector.has_ghost_elements() == false)
+    {
+      pre  = [&data_vector]() { data_vector.update_ghost_values(); };
+      post = [&data_vector]() { data_vector.zero_out_ghosts(); };
+    }
+}
+
+
+
 template <typename DoFHandlerType, int patch_dim, int patch_space_dim>
 template <typename VectorType>
 void
@@ -1606,7 +1634,17 @@ DataOut_DoFData<DoFHandlerType, patch_dim, patch_space_dim>::
     dof_handler, &data_vector, deduced_names, data_component_interpretation);
 
   if (actual_type == type_dof_data)
-    dof_data.emplace_back(std::move(new_entry));
+    {
+      std::function<void()> pre  = []() {};
+      std::function<void()> post = []() {};
+
+      construct_pre_and_post(data_vector, pre, post);
+
+      this->dof_data_pre.emplace_back(pre);
+      this->dof_data_post.emplace_back(post);
+
+      dof_data.emplace_back(std::move(new_entry));
+    }
   else
     cell_data.emplace_back(std::move(new_entry));
 }

@@ -985,6 +985,16 @@ protected:
     dof_data;
 
   /**
+   * TODO
+   */
+  std::vector<std::function<void()>> dof_data_pre;
+
+  /**
+   * TODO
+   */
+  std::vector<std::function<void()>> dof_data_post;
+
+  /**
    * List of data elements with vectors of values for each cell.
    */
   std::vector<std::shared_ptr<internal::DataOutImplementation::DataEntryBase<

@@ -1132,6 +1132,10 @@ DataOut<dim, DoFHandlerType>::build_patches(
 
   this->validate_dataset_names();
 
+  // update ghost values if needed
+  for (const auto &pre : this->dof_data_pre)
+    pre();
+
   // First count the cells we want to create patches of. Also fill the object
   // that maps the cell indices to the patch numbers, as this will be needed
   // for generation of neighborship information.
@@ -1296,6 +1300,10 @@ DataOut<dim, DoFHandlerType>::build_patches(
                     // @ref workstream_paper, on 32 cores) and if
                     8 * MultithreadInfo::n_threads(),
                     64);
+
+  // zero out ghost values if needed
+  for (const auto &post : this->dof_data_post)
+    post();
 }
 
 

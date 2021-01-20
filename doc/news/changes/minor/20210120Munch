@@ -1,0 +1,4 @@
+Improved: DataOut::build_patches() now automatically updated 
+distributed vectors if needed.
+<br>
+(Peter Munch, Magdalena Schreter, 2021/01/20)
