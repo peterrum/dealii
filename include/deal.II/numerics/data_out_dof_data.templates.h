@@ -1484,32 +1484,117 @@ DataOut_DoFData<DoFHandlerType, patch_dim, patch_space_dim>::add_data_vector(
   dof_data.emplace_back(std::move(new_entry));
 }
 
-
-
-template <typename VectorType>
-void
-construct_pre_and_post(const VectorType &     data_vector,
-                       std::function<void()> &pre,
-                       std::function<void()> &post)
+namespace internal
 {
-  (void)data_vector;
-  (void)pre;
-  (void)post;
-}
+  // a helper type-trait that leverage SFINAE to figure out if type T has
+  // void T::update_ghost_values()
+  template <typename T>
+  struct has_update_ghost_values
+  {
+  private:
+    static int
+    detect(...);
 
-template <typename Number, typename MemorySpace>
-void
-construct_pre_and_post(
-  const LinearAlgebra::distributed::Vector<Number, MemorySpace> &data_vector,
-  std::function<void()> &                                        pre,
-  std::function<void()> &                                        post)
-{
-  if (data_vector.has_ghost_elements() == false)
-    {
-      pre  = [&data_vector]() { data_vector.update_ghost_values(); };
-      post = [&data_vector]() { data_vector.zero_out_ghosts(); };
-    }
-}
+    template <typename U>
+    static decltype(std::declval<U>().update_ghost_values())
+    detect(const U &);
+
+  public:
+    static const bool value =
+      !std::is_same<int, decltype(detect(std::declval<T>()))>::value;
+  };
+
+
+
+  // a helper type-trait that leverage SFINAE to figure out if type T has
+  // void T::has_zero_out_ghosts()
+  template <typename T>
+  struct has_zero_out_ghosts
+  {
+  private:
+    static int
+    detect(...);
+
+    template <typename U>
+    static decltype(std::declval<U>().zero_out_ghosts())
+    detect(const U &);
+
+  public:
+    static const bool value =
+      !std::is_same<int, decltype(detect(std::declval<T>()))>::value;
+  };
+
+
+
+  /**
+   * For serial vector.
+   */
+  template <typename VectorType,
+            typename std::enable_if<
+              !has_update_ghost_values<VectorType>::value>::type * = nullptr>
+  void
+  construct_pre_and_post(const VectorType &     data_vector,
+                         std::function<void()> &pre,
+                         std::function<void()> &post)
+  {
+    (void)data_vector;
+
+    pre  = []() {};
+    post = []() {};
+  }
+
+
+
+  /**
+   * For parallel vectors which support only update_ghost_values() but not
+   * zero_out_ghosts().
+   */
+  template <
+    typename VectorType,
+    typename std::enable_if<has_update_ghost_values<VectorType>::value &&
+                              !has_zero_out_ghosts<VectorType>::value,
+                            VectorType>::type * = nullptr>
+  void
+  construct_pre_and_post(const VectorType &     data_vector,
+                         std::function<void()> &pre,
+                         std::function<void()> &post)
+  {
+    if (data_vector.has_ghost_elements() == false)
+      pre = [&data_vector]() { data_vector.update_ghost_values(); };
+    else
+      pre = []() {};
+
+    post = []() {};
+  }
+
+
+
+  /**
+   * For parallel vectors which support both update_ghost_values() and
+   * zero_out_ghosts().
+   */
+  template <
+    typename VectorType,
+    typename std::enable_if<has_update_ghost_values<VectorType>::value &&
+                              has_zero_out_ghosts<VectorType>::value,
+                            VectorType>::type * = nullptr>
+  void
+  construct_pre_and_post(const VectorType &     data_vector,
+                         std::function<void()> &pre,
+                         std::function<void()> &post)
+  {
+    if (data_vector.has_ghost_elements() == false)
+      {
+        pre  = [&data_vector]() { data_vector.update_ghost_values(); };
+        post = [&data_vector]() { data_vector.zero_out_ghosts(); };
+      }
+    else
+      {
+        pre  = []() {};
+        post = []() {};
+      }
+  }
+} // namespace internal
 
 
 
@@ -1635,10 +1720,10 @@ DataOut_DoFData<DoFHandlerType, patch_dim, patch_space_dim>::
 
   if (actual_type == type_dof_data)
     {
-      std::function<void()> pre  = []() {};
-      std::function<void()> post = []() {};
+      std::function<void()> pre;
+      std::function<void()> post;
 
-      construct_pre_and_post(data_vector, pre, post);
+      internal::construct_pre_and_post(data_vector, pre, post);
 
       this->dof_data_pre.emplace_back(pre);
       this->dof_data_post.emplace_back(post);
