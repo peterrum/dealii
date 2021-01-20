@@ -985,12 +985,16 @@ protected:
     dof_data;
 
   /**
-   * TODO
+   * An operations performed before actually executing the building the patches
+   * (e.g., calling update_ghost_values() for distributed vectors if the
+   * vector is not ghosted yet).
    */
   std::vector<std::function<void()>> dof_data_pre;
 
   /**
-   * TODO
+   * An operations performed after executing the building the patches
+   * (e.g., calling zero_out_ghost_values() for distributed vectors to restore
+   * the state of the vector as passed to the build_patches() function).
    */
   std::vector<std::function<void()>> dof_data_post;
 
