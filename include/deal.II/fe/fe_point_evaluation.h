@@ -289,6 +289,13 @@ public:
            const ArrayView<value_type> &      values,
            const ArrayView<gradient_type> &   gradients = {});
 
+  void
+  integrate(const typename Triangulation<dim, spacedim>::cell_iterator &cell,
+            const ArrayView<const Point<dim>> &   unit_points,
+            const ArrayView<double> &             solution_values,
+            const ArrayView<const value_type> &   values,
+            const ArrayView<const gradient_type> &gradients = {});
+
 private:
   /**
    * Pointer to the Mapping object passed to the constructor.
@@ -353,7 +360,7 @@ FEPointEvaluation<n_components, dim, spacedim>::FEPointEvaluation(
       dynamic_cast<const MappingQGeneric<dim, spacedim> *>(&mapping))
   , fe(&fe)
 {
-  if (mapping_q_generic != nullptr &&
+  if (false && mapping_q_generic != nullptr &&
       internal::MatrixFreeFunctions::ShapeInfo<double>::is_supported(fe))
     {
       internal::MatrixFreeFunctions::ShapeInfo<double> shape_info;
@@ -526,6 +533,70 @@ FEPointEvaluation<n_components, dim, spacedim>::evaluate(
                       n_components>::access(gradients[q], d) +=
                       fe_values.shape_grad_component(i, q, d) * value;
             }
+        }
+    }
+}
+
+
+
+template <int n_components, int dim, int spacedim>
+void
+FEPointEvaluation<n_components, dim, spacedim>::integrate(
+  const typename Triangulation<dim, spacedim>::cell_iterator &cell,
+  const ArrayView<const Point<dim>> &                         unit_points,
+  const ArrayView<double> &                                   solution_values,
+  const ArrayView<const value_type> &                         values,
+  const ArrayView<const gradient_type> &                      gradients)
+{
+  AssertDimension(solution_values.size(), fe->dofs_per_cell);
+  if (false && ((values.size() > 0 || gradients.size() > 0) && !poly.empty()))
+    {
+      Assert(false, ExcNotImplemented());
+    }
+  else if (values.size() > 0 || gradients.size() > 0)
+    {
+      // slow path with FEValues
+      const UpdateFlags flags =
+        (values.size() > 0 ? update_values : update_default) |
+        (gradients.size() > 0 ? update_gradients : update_default);
+      FEValues<dim, spacedim> fe_values(
+        *mapping,
+        *fe,
+        Quadrature<dim>(
+          std::vector<Point<dim>>(unit_points.begin(), unit_points.end())),
+        flags);
+      fe_values.reinit(cell);
+
+      if (values.size() > 0)
+        {
+          AssertDimension(unit_points.size(), values.size());
+          std::fill(solution_values.begin(),
+                    solution_values.end(),
+                    value_type());
+          for (unsigned int i = 0; i < fe->n_dofs_per_cell(); ++i)
+            {
+              for (unsigned int d = 0; d < n_components; ++d)
+                if (nonzero_shape_function_component[i][d] &&
+                    (fe->is_primitive(i) || fe->is_primitive()))
+                  for (unsigned int q = 0; q < values.size(); ++q)
+                    solution_values[i] +=
+                      fe_values.shape_value(i, q) *
+                      internal::FEPointEvaluation::EvaluatorTypeTraits<
+                        dim,
+                        n_components>::access(values[q], d);
+                else if (nonzero_shape_function_component[i][d])
+                  for (unsigned int q = 0; q < values.size(); ++q)
+                    solution_values[i] +=
+                      fe_values.shape_value_component(i, q, d) *
+                      internal::FEPointEvaluation::EvaluatorTypeTraits<
+                        dim,
+                        n_components>::access(values[q], d);
+            }
+        }
+
+      if (gradients.size() > 0)
+        {
+          Assert(false, ExcNotImplemented());
         }
     }
 }
