@@ -47,12 +47,21 @@ namespace internal
       using gradient_type = Tensor<1, n_components, Tensor<1, dim>>;
 
       static void
-      read_value(const double       vector_entry,
+      read_value(const double &     vector_entry,
                  const unsigned int component,
                  value_type &       result)
       {
         AssertIndexRange(component, n_components);
         result[component] = vector_entry;
+      }
+
+      static void
+      write_value(double &           vector_entry,
+                  const unsigned int component,
+                  const value_type & result)
+      {
+        AssertIndexRange(component, n_components);
+        vector_entry = result[component];
       }
 
       static void
@@ -67,6 +76,16 @@ namespace internal
             result[i][d] = value[d][i][vector_lane];
       }
 
+      static void get_gradient(
+        Tensor<1, dim, Tensor<1, n_components, VectorizedArray<double>>> &value,
+        const unsigned int   vector_lane,
+        const gradient_type &result)
+      {
+        for (unsigned int i = 0; i < n_components; ++i)
+          for (unsigned int d = 0; d < dim; ++d)
+            value[d][i][vector_lane] = result[i][d];
+      }
+
       static void
       set_value(const Tensor<1, n_components, VectorizedArray<double>> &value,
                 const unsigned int vector_lane,
@@ -74,6 +93,15 @@ namespace internal
       {
         for (unsigned int i = 0; i < n_components; ++i)
           result[i] = value[i][vector_lane];
+      }
+
+      static void
+        get_value(Tensor<1, n_components, VectorizedArray<double>> &value,
+                  const unsigned int                                vector_lane,
+                  const value_type &                                result)
+      {
+        for (unsigned int i = 0; i < n_components; ++i)
+          value[i][vector_lane] = result[i];
       }
 
       template <typename Number>
@@ -99,11 +127,19 @@ namespace internal
       using gradient_type = Tensor<1, dim>;
 
       static void
-      read_value(const double vector_entry,
+      read_value(const double &vector_entry,
                  const unsigned int,
                  value_type &result)
       {
         result = vector_entry;
+      }
+
+      static void
+      write_value(double &vector_entry,
+                  const unsigned int,
+                  const value_type &result)
+      {
+        vector_entry = result;
       }
 
       static void
@@ -115,12 +151,28 @@ namespace internal
           result[d] = value[d][vector_lane];
       }
 
+      static void get_gradient(Tensor<1, dim, VectorizedArray<double>> &value,
+                               const unsigned int   vector_lane,
+                               const gradient_type &result)
+      {
+        for (unsigned int d = 0; d < dim; ++d)
+          value[d][vector_lane] = result[d];
+      }
+
       static void
       set_value(const VectorizedArray<double> &value,
                 const unsigned int             vector_lane,
                 value_type &                   result)
       {
         result = value[vector_lane];
+      }
+
+      static void
+      get_value(VectorizedArray<double> &value,
+                const unsigned int       vector_lane,
+                const value_type &       result)
+      {
+        value[vector_lane] = result;
       }
 
       template <typename Number>
@@ -145,11 +197,19 @@ namespace internal
       using gradient_type = Tensor<2, dim>;
 
       static void
-      read_value(const double       vector_entry,
+      read_value(const double &     vector_entry,
                  const unsigned int component,
                  value_type &       result)
       {
         result[component] = vector_entry;
+      }
+
+      static void
+      write_value(double &           vector_entry,
+                  const unsigned int component,
+                  const value_type & result)
+      {
+        vector_entry = result[component];
       }
 
       static void
@@ -163,6 +223,16 @@ namespace internal
             result[i][d] = value[d][i][vector_lane];
       }
 
+      static void get_gradient(
+        Tensor<1, dim, Tensor<1, dim, VectorizedArray<double>>> &value,
+        const unsigned int                                       vector_lane,
+        const gradient_type &                                    result)
+      {
+        for (unsigned int i = 0; i < dim; ++i)
+          for (unsigned int d = 0; d < dim; ++d)
+            value[d][i][vector_lane] = result[i][d];
+      }
+
       static void
       set_value(const Tensor<1, dim, VectorizedArray<double>> &value,
                 const unsigned int                             vector_lane,
@@ -170,6 +240,14 @@ namespace internal
       {
         for (unsigned int i = 0; i < dim; ++i)
           result[i] = value[i][vector_lane];
+      }
+
+      static void get_value(Tensor<1, dim, VectorizedArray<double>> &value,
+                            const unsigned int vector_lane,
+                            const value_type & result)
+      {
+        for (unsigned int i = 0; i < dim; ++i)
+          value[i][vector_lane] = result[i];
       }
 
       static double &
@@ -204,11 +282,19 @@ namespace internal
       using gradient_type = Tensor<1, 1>;
 
       static void
-      read_value(const double vector_entry,
+      read_value(const double &vector_entry,
                  const unsigned int,
                  value_type &result)
       {
         result = vector_entry;
+      }
+
+      static void
+      write_value(double &vector_entry,
+                  const unsigned int,
+                  const value_type &result)
+      {
+        vector_entry = result;
       }
 
       static void
@@ -219,12 +305,27 @@ namespace internal
         result[0] = value[0][vector_lane];
       }
 
+      static void get_gradient(Tensor<1, 1, VectorizedArray<double>> &value,
+                               const unsigned int   vector_lane,
+                               const gradient_type &result)
+      {
+        value[0][vector_lane] = result[0];
+      }
+
       static void
       set_value(const VectorizedArray<double> &value,
                 const unsigned int             vector_lane,
                 value_type &                   result)
       {
         result = value[vector_lane];
+      }
+
+      static void
+      get_value(VectorizedArray<double> &value,
+                const unsigned int       vector_lane,
+                const value_type &       result)
+      {
+        value[vector_lane] = result;
       }
 
       template <typename Number>
@@ -583,9 +684,84 @@ FEPointEvaluation<n_components, dim, spacedim>::integrate(
   const ArrayView<const gradient_type> &                      gradients)
 {
   AssertDimension(solution_values.size(), fe->dofs_per_cell);
-  if (false && ((values.size() > 0 || gradients.size() > 0) && !poly.empty()))
+  if (false /*TODO*/ &&
+      ((values.size() > 0 || gradients.size() > 0) && !poly.empty()))
     {
-      Assert(false, ExcNotImplemented());
+      // fast path with tensor product integration
+
+      if (solution_renumbered.size() != dofs_per_component)
+        solution_renumbered.resize(dofs_per_component);
+
+      // let mapping compute the transformation
+      if (gradients.size() > 0)
+        {
+          Assert(mapping_q_generic != nullptr, ExcInternalError());
+
+          // cast constness away (input is overriden)
+          ArrayView<gradient_type> gradients_non_const(
+            const_cast<gradient_type *>(gradients.data()), gradients.size());
+          mapping_q_generic->transform_variable(
+            cell,
+            mapping_covariant,
+            unit_points,
+            ArrayView<const gradient_type>(gradients.begin(), gradients.size()),
+            gradients_non_const);
+        }
+
+      if (values.size() > 0)
+        AssertDimension(unit_points.size(), values.size());
+      if (gradients.size() > 0)
+        AssertDimension(unit_points.size(), gradients.size());
+
+      const std::size_t n_points = unit_points.size();
+      const std::size_t n_lanes  = VectorizedArray<double>::size();
+      for (unsigned int i = 0; i < n_points; i += n_lanes)
+        {
+          // convert to vectorized format
+          Point<dim, VectorizedArray<double>> vectorized_points;
+          for (unsigned int j = 0; j < n_lanes && i + j < n_points; ++j)
+            for (unsigned int d = 0; d < dim; ++d)
+              vectorized_points[d][j] = unit_points[i + j][d];
+
+          typename internal::ProductTypeNoPoint<value_type,
+                                                VectorizedArray<double>>::type
+            value;
+          Tensor<1,
+                 dim,
+                 typename internal::ProductTypeNoPoint<
+                   value_type,
+                   VectorizedArray<double>>::type>
+            gradient;
+
+          // convert back to standard format
+          if (values.size() > 0)
+            for (unsigned int j = 0; j < n_lanes && i + j < n_points; ++j)
+              internal::FEPointEvaluation::EvaluatorTypeTraits<
+                dim,
+                n_components>::get_value(value, j, values[i + j]);
+          if (gradients.size() > 0)
+            for (unsigned int j = 0; j < n_lanes && i + j < n_points; ++j)
+              internal::FEPointEvaluation::EvaluatorTypeTraits<
+                dim,
+                n_components>::get_gradient(gradient, j, gradients[i + j]);
+
+          // compute
+          internal::integrate_tensor_product_value_and_gradient(
+            poly,
+            solution_renumbered,
+            value,
+            gradient,
+            vectorized_points,
+            poly.size() == 2);
+        }
+
+      for (unsigned int comp = 0; comp < n_components; ++comp)
+        for (unsigned int i = 0; i < dofs_per_component; ++i)
+          internal::FEPointEvaluation::EvaluatorTypeTraits<dim, n_components>::
+            write_value(
+              solution_values[renumber[comp * dofs_per_component + i]],
+              comp,
+              solution_renumbered[i]);
     }
   else if (values.size() > 0 || gradients.size() > 0)
     {

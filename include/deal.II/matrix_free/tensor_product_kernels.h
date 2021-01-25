@@ -2518,6 +2518,32 @@ namespace internal
   }
 
 
+
+  /**
+   * TODO
+   */
+  template <int dim, typename Number, typename Number2>
+  inline void
+  integrate_tensor_product_value_and_gradient(
+    const std::vector<Polynomials::Polynomial<double>> &      poly,
+    const std::vector<Number> &                               values,
+    const typename ProductTypeNoPoint<Number, Number2>::type &value,
+    const Tensor<1, dim, typename ProductTypeNoPoint<Number, Number2>::type>
+      &                              gradient,
+    const Point<dim, Number2> &      p,
+    const bool                       d_linear = false,
+    const std::vector<unsigned int> &renumber = {})
+  {
+    (void)poly;
+    (void)values;
+    (void)value;
+    (void)gradient;
+    (void)p;
+    (void)d_linear;
+    (void)renumber;
+  }
+
+
 } // end of namespace internal
 
 
