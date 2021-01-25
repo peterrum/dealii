@@ -163,6 +163,12 @@ namespace internal
         return value[component];
       }
 
+      static const double &
+      access(const value_type &value, const unsigned int component)
+      {
+        return value[component];
+      }
+
       static Tensor<1, dim> &
       access(gradient_type &value, const unsigned int component)
       {
@@ -570,9 +576,7 @@ FEPointEvaluation<n_components, dim, spacedim>::integrate(
       if (values.size() > 0)
         {
           AssertDimension(unit_points.size(), values.size());
-          std::fill(solution_values.begin(),
-                    solution_values.end(),
-                    value_type());
+          std::fill(solution_values.begin(), solution_values.end(), 0.0);
           for (unsigned int i = 0; i < fe->n_dofs_per_cell(); ++i)
             {
               for (unsigned int d = 0; d < n_components; ++d)
