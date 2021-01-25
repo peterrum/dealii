@@ -82,6 +82,14 @@ namespace internal
       {
         return value[component];
       }
+
+      template <typename Number>
+      static const Number &
+      access(const Tensor<1, n_components, Number> &value,
+             const unsigned int                     component)
+      {
+        return value[component];
+      }
     };
 
     template <int dim>
@@ -118,6 +126,13 @@ namespace internal
       template <typename Number>
       static Number &
       access(Number &value, const unsigned int)
+      {
+        return value;
+      }
+
+      template <typename Number>
+      static const Number &
+      access(const Number &value, const unsigned int)
       {
         return value;
       }
@@ -174,6 +189,12 @@ namespace internal
       {
         return value[component];
       }
+
+      static const Tensor<1, dim> &
+      access(const gradient_type &value, const unsigned int component)
+      {
+        return value[component];
+      }
     };
 
     template <>
@@ -209,6 +230,13 @@ namespace internal
       template <typename Number>
       static Number &
       access(Number &value, const unsigned int)
+      {
+        return value;
+      }
+
+      template <typename Number>
+      static const Number &
+      access(const Number &value, const unsigned int)
       {
         return value;
       }
@@ -573,10 +601,11 @@ FEPointEvaluation<n_components, dim, spacedim>::integrate(
         flags);
       fe_values.reinit(cell);
 
+      std::fill(solution_values.begin(), solution_values.end(), 0.0);
+
       if (values.size() > 0)
         {
           AssertDimension(unit_points.size(), values.size());
-          std::fill(solution_values.begin(), solution_values.end(), 0.0);
           for (unsigned int i = 0; i < fe->n_dofs_per_cell(); ++i)
             {
               for (unsigned int d = 0; d < n_components; ++d)
@@ -600,7 +629,26 @@ FEPointEvaluation<n_components, dim, spacedim>::integrate(
 
       if (gradients.size() > 0)
         {
-          Assert(false, ExcNotImplemented());
+          AssertDimension(unit_points.size(), gradients.size());
+          for (unsigned int i = 0; i < fe->n_dofs_per_cell(); ++i)
+            {
+              for (unsigned int d = 0; d < n_components; ++d)
+                if (nonzero_shape_function_component[i][d] &&
+                    (fe->is_primitive(i) || fe->is_primitive()))
+                  for (unsigned int q = 0; q < values.size(); ++q)
+                    solution_values[i] +=
+                      fe_values.shape_grad(i, q) *
+                      internal::FEPointEvaluation::EvaluatorTypeTraits<
+                        dim,
+                        n_components>::access(gradients[q], d);
+                else if (nonzero_shape_function_component[i][d])
+                  for (unsigned int q = 0; q < values.size(); ++q)
+                    solution_values[i] +=
+                      fe_values.shape_grad_component(i, q, d) *
+                      internal::FEPointEvaluation::EvaluatorTypeTraits<
+                        dim,
+                        n_components>::access(gradients[q], d);
+            }
         }
     }
 }

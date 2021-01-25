@@ -138,6 +138,12 @@ test(const unsigned int degree)
           deallog << error << std::endl;
         }
       deallog << std::endl;
+
+      evaluator.integrate(cell,
+                          unit_points,
+                          solution_values,
+                          function_values_1,
+                          function_gradients_1);
     }
 }
 

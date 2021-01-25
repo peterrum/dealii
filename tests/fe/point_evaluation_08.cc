@@ -162,6 +162,17 @@ test(const unsigned int degree)
                      .norm()
                 << std::endl;
       deallog << std::endl;
+
+      evaluator.integrate(cell,
+                          unit_points,
+                          solution_values,
+                          function_values_1,
+                          function_gradients_1);
+      evaluator_scalar.integrate(cell,
+                                 unit_points,
+                                 solution_values,
+                                 function_values_scalar_1,
+                                 function_gradients_scalar_1);
     }
 }
 

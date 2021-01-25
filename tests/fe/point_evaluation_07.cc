@@ -136,6 +136,12 @@ test(const unsigned int degree)
                 << (function_gradients_1[i] - function_gradients[i]).norm()
                 << std::endl;
       deallog << std::endl;
+
+      evaluator.integrate(cell,
+                          unit_points,
+                          solution_values,
+                          function_values_1,
+                          function_gradients_1);
     }
 }
 
