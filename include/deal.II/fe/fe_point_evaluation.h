@@ -424,6 +424,28 @@ public:
            const ArrayView<value_type> &      values,
            const ArrayView<gradient_type> &   gradients = {});
 
+  /**
+   * This is one of the main functions in this class and the one that does the
+   * heavy lifting.
+   *
+   * @param[in] cell An iterator to the current cell in question
+   *
+   * @param[in] unit_points List of points in the reference locations of the
+   * current cell where the FiniteElement object should be evaluated
+   *
+   * @param[out] solution_values This array is filled and can be used to
+   * during `cell->set_dof_values(global_vector, solution_values)`.
+   *
+   * @param[in] values Array where the values at the given points is given.
+   * The array must have the same size as the `unit_points` argument if
+   * values should be integrated. If empty, values will not be integrated.
+   *
+   * @param[in] gradients Array where the gradients at given points is given.
+   * The gradients are expressed in real space via the Mapping defined in the
+   * constructor. The array must have the same size as the `unit_points`
+   * argument if gradients should be integrated. If empty, gradients will not be
+   * integrated.
+   */
   void
   integrate(const typename Triangulation<dim, spacedim>::cell_iterator &cell,
             const ArrayView<const Point<dim>> &   unit_points,
@@ -495,7 +517,7 @@ FEPointEvaluation<n_components, dim, spacedim>::FEPointEvaluation(
       dynamic_cast<const MappingQGeneric<dim, spacedim> *>(&mapping))
   , fe(&fe)
 {
-  if (false && mapping_q_generic != nullptr &&
+  if (mapping_q_generic != nullptr &&
       internal::MatrixFreeFunctions::ShapeInfo<double>::is_supported(fe))
     {
       internal::MatrixFreeFunctions::ShapeInfo<double> shape_info;
@@ -520,7 +542,7 @@ FEPointEvaluation<n_components, dim, spacedim>::FEPointEvaluation(
       poly               = Polynomials::generate_complete_Lagrange_basis(
         QGaussLobatto<1>(shape_info.data[0].fe_degree + 1).get_points());
     }
-  else
+  if (true /*TODO: as long as the fast path of integrate() is not working*/)
     {
       nonzero_shape_function_component.resize(fe.n_dofs_per_cell());
       for (unsigned int d = 0; d < n_components; ++d)
@@ -687,6 +709,7 @@ FEPointEvaluation<n_components, dim, spacedim>::integrate(
   if (false /*TODO*/ &&
       ((values.size() > 0 || gradients.size() > 0) && !poly.empty()))
     {
+      Assert(false, ExcNotImplemented());
       // fast path with tensor product integration
 
       if (solution_renumbered.size() != dofs_per_component)

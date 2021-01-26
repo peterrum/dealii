@@ -2520,7 +2520,7 @@ namespace internal
 
 
   /**
-   * TODO
+   * Same as evaluate_tensor_product_value_and_gradient() but for integration.
    */
   template <int dim, typename Number, typename Number2>
   inline void
@@ -2534,6 +2534,8 @@ namespace internal
     const bool                       d_linear = false,
     const std::vector<unsigned int> &renumber = {})
   {
+    Assert(false, ExcNotImplemented());
+
     (void)poly;
     (void)values;
     (void)value;
