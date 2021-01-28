@@ -54,7 +54,9 @@ public:
 
 template <int dim, int spacedim = dim>
 void
-test(const FiniteElement<dim, spacedim> &fe, const unsigned int n_components)
+test(const FiniteElement<dim, spacedim> &fe,
+     const unsigned int                  n_components,
+     const bool                          do_high_order)
 {
   Triangulation<dim, spacedim> tria;
   GridGenerator::subdivided_hyper_cube_with_simplices(tria, dim == 2 ? 4 : 2);
@@ -79,9 +81,15 @@ test(const FiniteElement<dim, spacedim> &fe, const unsigned int n_components)
 
   static unsigned int counter = 0;
 
-  for (unsigned int n_subdivisions = 1; n_subdivisions <= 2; ++n_subdivisions)
+  for (unsigned int n_subdivisions = 1;
+       n_subdivisions <= (do_high_order ? 3 : 2);
+       ++n_subdivisions)
     {
+      DataOutBase::VtkFlags flags;
+      flags.write_higher_order_cells = do_high_order;
+
       DataOut<dim> data_out;
+      data_out.set_flags(flags);
 
       data_out.attach_dof_handler(dof_handler);
       data_out.add_data_vector(solution, "solution");
@@ -90,8 +98,9 @@ test(const FiniteElement<dim, spacedim> &fe, const unsigned int n_components)
       data_out.build_patches(mapping, n_subdivisions);
 
 #if false
-  std::ofstream output("test." + std::to_string(dim) + "." + std::to_string(counter++) + ".vtk");
-  data_out.write_vtk(output);
+      std::ofstream output("test." + std::to_string(dim) + "." +
+                           std::to_string(counter++) + ".vtk");
+      data_out.write_vtk(output);
 #else
       data_out.write_vtk(deallog.get_file_stream());
 #endif
@@ -103,24 +112,39 @@ main()
 {
   initlog();
 
-  {
-    const unsigned int dim = 2;
-    test<dim>(Simplex::FE_P<dim>(2) /*=degree*/, 1);
-    test<dim>(FESystem<dim>(Simplex::FE_P<dim>(2 /*=degree*/), dim), dim);
-    test<dim>(FESystem<dim>(Simplex::FE_P<dim>(2 /*=degree*/),
-                            dim,
-                            Simplex::FE_P<dim>(1 /*=degree*/),
-                            1),
-              dim + 1);
-  }
-  {
-    const unsigned int dim = 3;
-    test<dim>(Simplex::FE_P<dim>(2) /*=degree*/, 1);
-    test<dim>(FESystem<dim>(Simplex::FE_P<dim>(2 /*=degree*/), dim), dim);
-    test<dim>(FESystem<dim>(Simplex::FE_P<dim>(2 /*=degree*/),
-                            dim,
-                            Simplex::FE_P<dim>(1 /*=degree*/),
-                            1),
-              dim + 1);
-  }
+  for (unsigned int i = 0; i < 2; ++i)
+    {
+      const bool do_high_order = (i == 1);
+
+      if (do_high_order)
+        {
+          const unsigned int dim = 2;
+          test<dim>(Simplex::FE_P<dim>(2) /*=degree*/, 1, do_high_order);
+          test<dim>(FESystem<dim>(Simplex::FE_P<dim>(2 /*=degree*/), dim),
+                    dim,
+                    do_high_order);
+          test<dim>(FESystem<dim>(Simplex::FE_P<dim>(2 /*=degree*/),
+                                  dim,
+                                  Simplex::FE_P<dim>(1 /*=degree*/),
+                                  1),
+                    dim + 1,
+                    do_high_order);
+        }
+
+      if (do_high_order ==
+          false /*TODO: higher-order output not working for 3D*/)
+        {
+          const unsigned int dim = 3;
+          test<dim>(Simplex::FE_P<dim>(2) /*=degree*/, 1, do_high_order);
+          test<dim>(FESystem<dim>(Simplex::FE_P<dim>(2 /*=degree*/), dim),
+                    dim,
+                    do_high_order);
+          test<dim>(FESystem<dim>(Simplex::FE_P<dim>(2 /*=degree*/),
+                                  dim,
+                                  Simplex::FE_P<dim>(1 /*=degree*/),
+                                  1),
+                    dim + 1,
+                    do_high_order);
+        }
+    }
 }

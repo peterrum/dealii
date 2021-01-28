@@ -84,6 +84,121 @@ namespace internal
 
 
     /**
+     * Generate evalution points on a simplex with arbitrary number of
+     * subdivisions.
+     */
+    template <int dim>
+    inline std::vector<Point<dim>>
+    generate_simplex_evaluation_points(const unsigned int n_subdivisions)
+    {
+      (void)n_subdivisions;
+
+      Assert(false, ExcNotImplemented());
+
+      return {};
+    }
+
+
+
+    /**
+     * Helper function to create evaluation points recursively with
+     * subdivisions=0,1,2 being the base case:
+     *                                        +
+     *                                        |\
+     *                            +           +-+
+     *                            |\          |\|\
+     *                  +         +-+         +-+-+
+     *                  |\        |\|\        |\|\|\
+     *          +       +-+       +-+-+       +-+-+-+
+     *          |\      |\|\      |\|\|\      |\|\|\|\
+     *    +     +-+     +-+-+     +-+-+-+     +-+-+-+-+
+     *
+     *    0      1        2          3            4
+     *    ^      ^                   |            |
+     *    |      |                   |            |
+     *    +--------------------------+            |
+     *           |                                |
+     *           +--------------------------------+
+     */
+    inline void
+    generate_simplex_evaluation_points_recursively(
+      const std::vector<Point<2>> &bounding_vertices,
+      const unsigned int           n_subdivisions,
+      std::vector<Point<2>> &      evaluation_points)
+    {
+      if (n_subdivisions == 0)
+        {
+          evaluation_points.push_back(bounding_vertices[0]);
+          return;
+        }
+
+      for (const auto &p : bounding_vertices)
+        evaluation_points.push_back(p);
+
+      if (n_subdivisions == 1)
+        return;
+
+      // Helper functions to create intermediate points between p0 and p1 with
+      // n_subdivisions. This function appends these new points to the vector
+      // evaluation_points but also returns the points as a vector to be able
+      // to easily access specific points on the line.
+      const auto generate_inbetween_points = [&](const Point<2> &p0,
+                                                 const Point<2> &p1) {
+        std::vector<Point<2>> line_points;
+
+        for (unsigned int i = 1; i < n_subdivisions; ++i)
+          line_points.push_back(p0 + (p1 - p0) / n_subdivisions * i);
+
+        evaluation_points.insert(evaluation_points.end(),
+                                 line_points.begin(),
+                                 line_points.end());
+
+        return line_points;
+      };
+
+      const auto line_points_0 =
+        generate_inbetween_points(bounding_vertices[0], bounding_vertices[1]);
+      const auto line_points_1 =
+        generate_inbetween_points(bounding_vertices[1], bounding_vertices[2]);
+      const auto line_points_2 =
+        generate_inbetween_points(bounding_vertices[2], bounding_vertices[0]);
+
+      if (n_subdivisions == 2)
+        return;
+
+      generate_simplex_evaluation_points_recursively(
+        // create new inner triangle (see ASCII art above)
+        {{Point<2>(line_points_0[line_points_0.size() - 2][0],
+                   line_points_1[0][1]),
+          Point<2>(line_points_0[0][0],
+                   line_points_1[line_points_1.size() - 2][1]),
+          Point<2>(line_points_0[0][0], line_points_1[0][1])}},
+        n_subdivisions - 3,
+        evaluation_points);
+    }
+
+
+
+    /**
+     * Specialization for triangles.
+     */
+    template <>
+    inline std::vector<Point<2>>
+    generate_simplex_evaluation_points(const unsigned int n_subdivisions)
+    {
+      std::vector<Point<2>> evalution_points;
+
+      generate_simplex_evaluation_points_recursively(
+        {{Point<2>(0.0, 0.0), Point<2>(1.0, 0.0), Point<2>(0.0, 1.0)}},
+        n_subdivisions,
+        evalution_points);
+
+      return evalution_points;
+    }
+
+
+
+    /**
      * Set up vectors of FEValues and FEFaceValues needed inside of
      * ParallelDataBase and return the maximum number of quadrature points
      * needed to allocate enough memory for the scratch data.
@@ -114,27 +229,24 @@ namespace internal
 
           for (const auto &fe : finite_elements)
             for (unsigned int i = 0; i < fe->size(); ++i)
-              switch ((*fe)[i].reference_cell_type())
-                {
-                  case ReferenceCell::Type::Vertex:
-                  case ReferenceCell::Type::Line:
-                  case ReferenceCell::Type::Quad:
-                  case ReferenceCell::Type::Hex:
-                    needs_hypercube_setup |= true;
-                    break;
-                  case ReferenceCell::Type::Tri:
-                  case ReferenceCell::Type::Tet:
-                    needs_simplex_setup |= true;
-                    break;
-                  case ReferenceCell::Type::Wedge:
-                    needs_wedge_setup |= true;
-                    break;
-                  case ReferenceCell::Type::Pyramid:
-                    needs_pyramid_setup |= true;
-                    break;
-                  default:
-                    Assert(false, ExcNotImplemented());
-                }
+              {
+                const auto reference_cell_type = (*fe)[i].reference_cell_type();
+
+                if ((reference_cell_type == ReferenceCell::Type::Vertex) ||
+                    (reference_cell_type == ReferenceCell::Type::Line) ||
+                    (reference_cell_type == ReferenceCell::Type::Quad) ||
+                    (reference_cell_type == ReferenceCell::Type::Hex))
+                  needs_hypercube_setup |= true;
+                else if ((reference_cell_type == ReferenceCell::Type::Tri) ||
+                         (reference_cell_type == ReferenceCell::Type::Tet))
+                  needs_simplex_setup |= true;
+                else if (reference_cell_type == ReferenceCell::Type::Wedge)
+                  needs_wedge_setup |= true;
+                else if (reference_cell_type == ReferenceCell::Type::Pyramid)
+                  needs_pyramid_setup |= true;
+                else
+                  Assert(false, ExcNotImplemented());
+              }
 
           std::unique_ptr<dealii::Quadrature<dim>> quadrature_simplex;
           std::unique_ptr<dealii::Quadrature<dim>> quadrature_hypercube;
@@ -143,9 +255,13 @@ namespace internal
 
           if (needs_simplex_setup)
             {
-              quadrature_simplex = std::make_unique<Quadrature<dim>>(
-                Simplex::FE_P<dim, spacedim>(n_subdivisions)
-                  .get_unit_support_points());
+              if (dim == 2)
+                quadrature_simplex = std::make_unique<Quadrature<dim>>(
+                  generate_simplex_evaluation_points<dim>(n_subdivisions));
+              else
+                quadrature_simplex = std::make_unique<Quadrature<dim>>(
+                  Simplex::FE_P<dim, spacedim>(n_subdivisions)
+                    .get_unit_support_points());
             }
 
           if (needs_hypercube_setup)
@@ -201,27 +317,30 @@ namespace internal
                   dealii::hp::QCollection<dim> quadrature;
 
                   for (unsigned int j = 0; j < finite_elements[i]->size(); ++j)
-                    switch ((*finite_elements[i])[j].reference_cell_type())
-                      {
-                        case ReferenceCell::Type::Vertex:
-                        case ReferenceCell::Type::Line:
-                        case ReferenceCell::Type::Quad:
-                        case ReferenceCell::Type::Hex:
-                          quadrature.push_back(*quadrature_hypercube);
-                          break;
-                        case ReferenceCell::Type::Tri:
-                        case ReferenceCell::Type::Tet:
-                          quadrature.push_back(*quadrature_simplex);
-                          break;
-                        case ReferenceCell::Type::Wedge:
-                          quadrature.push_back(*quadrature_wedge);
-                          break;
-                        case ReferenceCell::Type::Pyramid:
-                          quadrature.push_back(*quadrature_pyramid);
-                          break;
-                        default:
-                          Assert(false, ExcNotImplemented());
-                      }
+                    {
+                      const auto reference_cell_type =
+                        (*finite_elements[i])[j].reference_cell_type();
+
+                      if ((reference_cell_type ==
+                           ReferenceCell::Type::Vertex) ||
+                          (reference_cell_type == ReferenceCell::Type::Line) ||
+                          (reference_cell_type == ReferenceCell::Type::Quad) ||
+                          (reference_cell_type == ReferenceCell::Type::Hex))
+                        quadrature.push_back(*quadrature_hypercube);
+                      else if ((reference_cell_type ==
+                                ReferenceCell::Type::Tri) ||
+                               (reference_cell_type ==
+                                ReferenceCell::Type::Tet))
+                        quadrature.push_back(*quadrature_simplex);
+                      else if (reference_cell_type ==
+                               ReferenceCell::Type::Wedge)
+                        quadrature.push_back(*quadrature_wedge);
+                      else if (reference_cell_type ==
+                               ReferenceCell::Type::Pyramid)
+                        quadrature.push_back(*quadrature_pyramid);
+                      else
+                        Assert(false, ExcNotImplemented());
+                    }
 
                   x_fe_values[i] =
                     std::make_shared<dealii::hp::FEValues<dim, spacedim>>(

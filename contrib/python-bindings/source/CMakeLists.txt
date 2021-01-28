@@ -45,6 +45,7 @@ SET(_src
   mapping_wrapper.cc
   manifold_wrapper.cc
   quadrature_wrapper.cc
+  reference_cell_wrapper.cc
   )
 
 FOREACH(_build ${DEAL_II_BUILD_TYPES})

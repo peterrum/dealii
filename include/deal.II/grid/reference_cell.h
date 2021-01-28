@@ -20,6 +20,7 @@
 
 #include <deal.II/base/array_view.h>
 #include <deal.II/base/geometry_info.h>
+#include <deal.II/base/tensor.h>
 
 
 DEAL_II_NAMESPACE_OPEN
@@ -41,6 +42,29 @@ class ScalarPolynomialsBase;
  */
 namespace ReferenceCell
 {
+  class Type;
+
+  namespace internal
+  {
+    /**
+     * A helper function to create a ReferenceCell::Type object from an
+     * integer. ReferenceCell::Type objects are "singletons" (actually,
+     * "multitons" -- there are multiple, but they are only a handful and
+     * these are all that can be used). What is then necessary is to
+     * have a way to create these with their internal id to distinguish
+     * the few possible ones in existence. We could do this via a public
+     * constructor of ReferenceCell::Type, but that would allow users to
+     * create ones outside the range we envision, and we don't want to do
+     * that. Rather, the constructor that takes an integer is made `private`
+     * but we have this one function in an internal namespace that is a friend
+     * of the class and can be used to create the objects.
+     */
+    Type
+    make_reference_cell_from_int(const std::uint8_t kind);
+  } // namespace internal
+
+
+
   /**
    * A type that describes the kinds of reference cells that can be used.
    * This includes quadrilaterals and hexahedra (i.e., "hypercubes"),
@@ -50,57 +74,128 @@ namespace ReferenceCell
   class Type
   {
   public:
-    enum CellKinds : std::uint8_t
-    {
-      Vertex  = 0,
-      Line    = 1,
-      Tri     = 2,
-      Quad    = 3,
-      Tet     = 4,
-      Pyramid = 5,
-      Wedge   = 6,
-      Hex     = 7,
-      Invalid = static_cast<std::uint8_t>(-1)
-    };
+    static const Type Vertex;
+    static const Type Line;
+    static const Type Tri;
+    static const Type Quad;
+    static const Type Tet;
+    static const Type Pyramid;
+    static const Type Wedge;
+    static const Type Hex;
+    static const Type Invalid;
+
+    /**
+     * Return the correct simplex reference cell type for the given dimension
+     * `dim`. Depending on the template argument `dim`, this function returns a
+     * reference to either Vertex, Tri, or Tet.
+     */
+    template <int dim>
+    static constexpr const Type &
+    get_simplex();
+
+
+    /**
+     * Return the correct hypercube reference cell type for the given dimension
+     * `dim`. Depending on the template argument `dim`, this function returns a
+     * reference to either Vertex, Quad, or Hex.
+     */
+    template <int dim>
+    static constexpr const Type &
+    get_hypercube();
 
     /**
      * Default constructor. Initialize this object as an invalid object.
      */
-    Type();
+    constexpr Type();
 
     /**
-     * Constructor.
+     * Return true if the object is a Vertex, Line, Quad, or Hex.
      */
-    Type(const CellKinds kind);
+    bool
+    is_hyper_cube() const;
+
+    /**
+     * Return true if the object is a Vertex, Line, Tri, or Tet.
+     */
+    bool
+    is_simplex() const;
+
+    /**
+     * Return the dimension of the reference cell represented by the current
+     * object.
+     */
+    unsigned int
+    get_dimension() const;
+
+    /**
+     * Compute the value of the $i$-th linear shape function at location $\xi$
+     * for the current reference-cell type.
+     */
+    template <int dim>
+    double
+    d_linear_shape_function(const Point<dim> &xi, const unsigned int i) const;
+
+    /**
+     * Compute the gradient of the $i$-th linear shape function at location
+     * $\xi$ for the current reference-cell type.
+     */
+    template <int dim>
+    Tensor<1, dim>
+    d_linear_shape_function_gradient(const Point<dim> & xi,
+                                     const unsigned int i) const;
+
+    /*
+     * Return $i$-th unit tangential vector of a face of the reference cell.
+     * The vectors are arranged such that the
+     * cross product between the two vectors returns the unit normal vector.
+     *
+     * @pre $i$ must be between zero and `dim-1`.
+     */
+    template <int dim>
+    Tensor<1, dim>
+    unit_tangential_vectors(const unsigned int face_no,
+                            const unsigned int i) const;
+
+    /**
+     * Determine the orientation of the current entity described by its
+     * vertices @p var_1 relative to an entity described by @p var_0.
+     */
+    template <typename T, std::size_t N>
+    unsigned char
+    compute_orientation(const std::array<T, N> &vertices_0,
+                        const std::array<T, N> &vertices_1) const;
+
+    /**
+     * Inverse function of compute_orientation().
+     */
+    template <typename T, std::size_t N>
+    std::array<T, N>
+    permute_according_orientation(const std::array<T, N> &vertices,
+                                  const unsigned int      orientation) const;
+
+    /**
+     * Return a text representation of the reference cell represented by the
+     * current object.
+     */
+    std::string
+    to_string() const;
 
     /**
      * Conversion operator to an integer.
      */
-    operator std::uint8_t() const;
+    constexpr operator std::uint8_t() const;
 
     /**
      * Operator for equality comparison.
      */
-    bool
+    constexpr bool
     operator==(const Type &type) const;
 
     /**
      * Operator for inequality comparison.
      */
-    bool
+    constexpr bool
     operator!=(const Type &type) const;
-
-    /**
-     * Operator for equality comparison.
-     */
-    bool
-    operator==(const CellKinds &type) const;
-
-    /**
-     * Operator for inequality comparison.
-     */
-    bool
-    operator!=(const CellKinds &type) const;
 
     /**
      * Write and read the data of this object from a stream for the purpose
@@ -121,31 +216,46 @@ namespace ReferenceCell
     /**
      * The variable that stores what this object actually corresponds to.
      */
-    CellKinds kind;
+    std::uint8_t kind;
+
+    /**
+     * Constructor. This is the constructor used to create the different
+     * `static` member variables of this class. It is `private` but can
+     * be called by a function in an internal namespace that is a `friend`
+     * of this class.
+     */
+    constexpr Type(const std::uint8_t kind);
+
+    /**
+     * A kind of constructor -- not quite private because it can be
+     * called by anyone, but at least hidden in an internal namespace.
+     */
+    friend Type
+    internal::make_reference_cell_from_int(const std::uint8_t);
   };
 
 
 
-  inline Type::Type()
-    : Type(Invalid)
+  inline constexpr Type::Type()
+    : Type(static_cast<std::uint8_t>(-1))
   {}
 
 
 
-  inline Type::Type(const CellKinds kind)
+  inline constexpr Type::Type(const std::uint8_t kind)
     : kind(kind)
   {}
 
 
 
-  inline Type::operator std::uint8_t() const
+  inline constexpr Type::operator std::uint8_t() const
   {
     return kind;
   }
 
 
 
-  inline bool
+  inline constexpr bool
   Type::operator==(const Type &type) const
   {
     return kind == type.kind;
@@ -153,26 +263,10 @@ namespace ReferenceCell
 
 
 
-  inline bool
+  inline constexpr bool
   Type::operator!=(const Type &type) const
   {
     return kind != type.kind;
-  }
-
-
-
-  inline bool
-  Type::operator==(const CellKinds &type) const
-  {
-    return kind == type;
-  }
-
-
-
-  inline bool
-  Type::operator!=(const CellKinds &type) const
-  {
-    return kind != type;
   }
 
 
@@ -181,12 +275,7 @@ namespace ReferenceCell
   inline void
   Type::serialize(Archive &archive, const unsigned int /*version*/)
   {
-    // Serialize the state as an 8-bit int. When saving the state, the
-    // last of the following 3 lines is a no-op. When loading, the first
-    // of these lines is a no-op.
-    std::uint8_t kind_as_int = static_cast<std::uint8_t>(kind);
-    archive &    kind_as_int;
-    kind = static_cast<CellKinds>(kind_as_int);
+    archive &kind;
   }
 
 
@@ -194,22 +283,22 @@ namespace ReferenceCell
   inline ArrayView<const unsigned int>
   Type::faces_for_given_vertex(const unsigned int vertex) const
   {
-    if (kind == Type::Line)
+    if (*this == Type::Line)
       {
         AssertIndexRange(vertex, GeometryInfo<1>::vertices_per_cell);
         return {&GeometryInfo<2>::vertex_to_face[vertex][0], 1};
       }
-    else if (kind == Type::Quad)
+    else if (*this == Type::Quad)
       {
         AssertIndexRange(vertex, GeometryInfo<2>::vertices_per_cell);
         return {&GeometryInfo<2>::vertex_to_face[vertex][0], 2};
       }
-    else if (kind == Type::Hex)
+    else if (*this == Type::Hex)
       {
         AssertIndexRange(vertex, GeometryInfo<3>::vertices_per_cell);
         return {&GeometryInfo<3>::vertex_to_face[vertex][0], 3};
       }
-    else if (kind == Type::Tri)
+    else if (*this == Type::Tri)
       {
         AssertIndexRange(vertex, 3);
         static const std::array<std::array<unsigned int, 2>, 3> table = {
@@ -217,7 +306,7 @@ namespace ReferenceCell
 
         return table[vertex];
       }
-    else if (kind == Type::Tet)
+    else if (*this == Type::Tet)
       {
         AssertIndexRange(vertex, 4);
         static const std::array<std::array<unsigned int, 3>, 4> table = {
@@ -225,7 +314,7 @@ namespace ReferenceCell
 
         return table[vertex];
       }
-    else if (kind == Type::Wedge)
+    else if (*this == Type::Wedge)
       {
         AssertIndexRange(vertex, 6);
         static const std::array<std::array<unsigned int, 3>, 6> table = {
@@ -238,7 +327,7 @@ namespace ReferenceCell
 
         return table[vertex];
       }
-    else if (kind == Type::Pyramid)
+    else if (*this == Type::Pyramid)
       {
         AssertIndexRange(vertex, 5);
         static const unsigned int X = numbers::invalid_unsigned_int;
@@ -259,70 +348,44 @@ namespace ReferenceCell
 
 
 
-  /**
-   * Return the dimension of the given reference-cell type @p type.
-   */
+  inline bool
+  Type::is_hyper_cube() const
+  {
+    return (*this == Vertex || *this == Line || *this == Quad || *this == Hex);
+  }
+
+
+
+  inline bool
+  Type::is_simplex() const
+  {
+    return (*this == Vertex || *this == Line || *this == Tri || *this == Tet);
+  }
+
+
+
   inline unsigned int
-  get_dimension(const Type &type)
+  Type::get_dimension() const
   {
-    switch (type)
-      {
-        case Type::Vertex:
-          return 0;
-        case Type::Line:
-          return 1;
-        case Type::Tri:
-        case Type::Quad:
-          return 2;
-        case Type::Tet:
-        case Type::Pyramid:
-        case Type::Wedge:
-        case Type::Hex:
-          return 3;
-        default:
-          return numbers::invalid_unsigned_int;
-      }
+    if (*this == Vertex)
+      return 0;
+    else if (*this == Line)
+      return 1;
+    else if ((*this == Tri) || (*this == Quad))
+      return 2;
+    else if ((*this == Tet) || (*this == Pyramid) || (*this == Wedge) ||
+             (*this == Hex))
+      return 3;
+
+    Assert(false, ExcNotImplemented());
+    return numbers::invalid_unsigned_int;
   }
 
-  /**
-   * Convert the given reference cell type to a string.
-   */
-  inline std::string
-  to_string(const Type &type)
-  {
-    switch (type)
-      {
-        case Type::Vertex:
-          return "Vertex";
-        case Type::Line:
-          return "Line";
-        case Type::Tri:
-          return "Tri";
-        case Type::Quad:
-          return "Quad";
-        case Type::Tet:
-          return "Tet";
-        case Type::Pyramid:
-          return "Pyramid";
-        case Type::Wedge:
-          return "Wedge";
-        case Type::Hex:
-          return "Hex";
-        case Type::Invalid:
-          return "Invalid";
-        default:
-          Assert(false, ExcNotImplemented());
-      }
 
-    return "Invalid";
-  }
 
-  /**
-   * Return the correct simplex reference cell type for the given dimension
-   * @p dim.
-   */
-  inline Type
-  get_simplex(const unsigned int dim)
+  template <int dim>
+  inline constexpr const Type &
+  Type::get_simplex()
   {
     switch (dim)
       {
@@ -340,12 +403,11 @@ namespace ReferenceCell
       }
   }
 
-  /**
-   * Return the correct hypercube reference cell type for the given dimension
-   * @p dim.
-   */
-  inline Type
-  get_hypercube(const unsigned int dim)
+
+
+  template <int dim>
+  inline constexpr const Type &
+  Type::get_hypercube()
   {
     switch (dim)
       {
@@ -374,8 +436,8 @@ namespace ReferenceCell
     AssertIndexRange(n_vertices, 9);
     const auto X = Type::Invalid;
 
-    static constexpr std::array<std::array<ReferenceCell::Type::CellKinds, 9>,
-                                4>
+    static const std::array<std::array<ReferenceCell::Type, 9>,
+                            4>
       table = {
         {// dim 0
          {{X, Type::Vertex, X, X, X, X, X, X, X}},
@@ -393,21 +455,17 @@ namespace ReferenceCell
   }
 
 
-  /**
-   * Compute the value of the $i$-th linear shape function at location $\xi$ for
-   * a given reference-cell type.
-   */
+
   template <int dim>
   inline double
-  d_linear_shape_function(const Type &       reference_cell,
-                          const Point<dim> & xi,
-                          const unsigned int i)
+  Type::d_linear_shape_function(const Point<dim> & xi,
+                                const unsigned int i) const
   {
-    if (reference_cell == get_hypercube(dim))
+    AssertDimension(dim, get_dimension());
+    if (*this == get_hypercube<dim>())
       return GeometryInfo<dim>::d_linear_shape_function(xi, i);
 
-    if (reference_cell ==
-        Type::Tri) // see also Simplex::ScalarPolynomial::compute_value
+    if (*this == Type::Tri) // see also Simplex::ScalarPolynomial::compute_value
       {
         switch (i)
           {
@@ -420,8 +478,7 @@ namespace ReferenceCell
           }
       }
 
-    if (reference_cell ==
-        Type::Tet) // see also Simplex::ScalarPolynomial::compute_value
+    if (*this == Type::Tet) // see also Simplex::ScalarPolynomial::compute_value
       {
         switch (i)
           {
@@ -437,19 +494,18 @@ namespace ReferenceCell
           }
       }
 
-    if (reference_cell ==
+    if (*this ==
         Type::Wedge) // see also Simplex::ScalarWedgePolynomial::compute_value
       {
-        return d_linear_shape_function<2>(Type::Tri,
-                                          Point<2>(xi[std::min(0, dim - 1)],
-                                                   xi[std::min(1, dim - 1)]),
-                                          i % 3) *
-               d_linear_shape_function<1>(Type::Line,
-                                          Point<1>(xi[std::min(2, dim - 1)]),
-                                          i / 3);
+        return Type(Type::Tri).d_linear_shape_function<2>(
+                 Point<2>(xi[std::min(0, dim - 1)], xi[std::min(1, dim - 1)]),
+                 i % 3) *
+               Type(Type::Line)
+                 .d_linear_shape_function<1>(Point<1>(xi[std::min(2, dim - 1)]),
+                                             i / 3);
       }
 
-    if (reference_cell ==
+    if (*this ==
         Type::Pyramid) // see also
                        // Simplex::ScalarPyramidPolynomial::compute_value
       {
@@ -486,21 +542,18 @@ namespace ReferenceCell
     return 0.0;
   }
 
-  /**
-   * Compute the gradient of the $i$-th linear shape function at location $\xi$
-   * for a given reference-cell type.
-   */
+
+
   template <int dim>
   inline Tensor<1, dim>
-  d_linear_shape_function_gradient(const Type &       reference_cell,
-                                   const Point<dim> & xi,
-                                   const unsigned int i)
+  Type::d_linear_shape_function_gradient(const Point<dim> & xi,
+                                         const unsigned int i) const
   {
-    if (reference_cell == get_hypercube(dim))
+    AssertDimension(dim, get_dimension());
+    if (*this == get_hypercube<dim>())
       return GeometryInfo<dim>::d_linear_shape_function_gradient(xi, i);
 
-    if (reference_cell ==
-        Type::Tri) // see also Simplex::ScalarPolynomial::compute_grad
+    if (*this == Type::Tri) // see also Simplex::ScalarPolynomial::compute_grad
       {
         switch (i)
           {
@@ -518,26 +571,21 @@ namespace ReferenceCell
     return Point<dim>(+0.0, +0.0, +0.0);
   }
 
-  /**
-   * Return i-th unit tangential vector of a face of the reference cell.
-   * The vectors are arranged such that the
-   * cross product between the two vectors returns the unit normal vector.
-   */
+
   template <int dim>
   inline Tensor<1, dim>
-  unit_tangential_vectors(const Type &       reference_cell,
-                          const unsigned int face_no,
-                          const unsigned int i)
+  Type::unit_tangential_vectors(const unsigned int face_no,
+                                const unsigned int i) const
   {
-    AssertDimension(dim, get_dimension(reference_cell));
+    AssertDimension(dim, get_dimension());
     AssertIndexRange(i, dim - 1);
 
-    if (reference_cell == get_hypercube(dim))
+    if (*this == get_hypercube<dim>())
       {
         AssertIndexRange(face_no, GeometryInfo<dim>::faces_per_cell);
         return GeometryInfo<dim>::unit_tangential_vectors[face_no][i];
       }
-    else if (reference_cell == Type::Tri)
+    else if (*this == Type::Tri)
       {
         AssertIndexRange(face_no, 3);
         static const std::array<Tensor<1, dim>, 3> table = {
@@ -547,7 +595,7 @@ namespace ReferenceCell
 
         return table[face_no];
       }
-    else if (reference_cell == Type::Tet)
+    else if (*this == Type::Tet)
       {
         AssertIndexRange(face_no, 4);
         static const std::array<std::array<Tensor<1, dim>, 2>, 4> table = {
@@ -563,7 +611,7 @@ namespace ReferenceCell
 
         return table[face_no][i];
       }
-    else if (reference_cell == Type::Wedge)
+    else if (*this == Type::Wedge)
       {
         AssertIndexRange(face_no, 5);
         static const std::array<std::array<Tensor<1, dim>, 2>, 5> table = {
@@ -576,7 +624,7 @@ namespace ReferenceCell
 
         return table[face_no][i];
       }
-    else if (reference_cell == Type::Pyramid)
+    else if (*this == Type::Pyramid)
       {
         AssertIndexRange(face_no, 5);
         static const std::array<std::array<Tensor<1, dim>, 2>, 5> table = {
@@ -605,9 +653,9 @@ namespace ReferenceCell
   inline Tensor<1, dim>
   unit_normal_vectors(const Type &reference_cell, const unsigned int face_no)
   {
-    AssertDimension(dim, get_dimension(reference_cell));
+    AssertDimension(dim, reference_cell.get_dimension());
 
-    if (reference_cell == get_hypercube(dim))
+    if (reference_cell == Type::get_hypercube<dim>())
       {
         AssertIndexRange(face_no, GeometryInfo<dim>::faces_per_cell);
         return GeometryInfo<dim>::unit_normal_vector[face_no];
@@ -615,7 +663,7 @@ namespace ReferenceCell
     else if (dim == 2)
       {
         const auto tangential =
-          unit_tangential_vectors<dim>(reference_cell, face_no, 0);
+          reference_cell.unit_tangential_vectors<dim>(face_no, 0);
 
         Tensor<1, dim> result;
 
@@ -627,8 +675,8 @@ namespace ReferenceCell
     else if (dim == 3)
       {
         return cross_product_3d(
-          unit_tangential_vectors<dim>(reference_cell, face_no, 0),
-          unit_tangential_vectors<dim>(reference_cell, face_no, 1));
+          reference_cell.unit_tangential_vectors<dim>(face_no, 0),
+          reference_cell.unit_tangential_vectors<dim>(face_no, 1));
       }
 
     Assert(false, ExcNotImplemented());
@@ -644,6 +692,18 @@ namespace ReferenceCell
   void
   make_triangulation(const Type &                  reference_cell,
                      Triangulation<dim, spacedim> &tria);
+
+  /**
+   * Return a default mapping of degree @ degree matching the given reference
+   * cell. If this reference cell is a hypercube, then the returned mapping is a
+   * MappingQGeneric; otherwise, it is an object of type MappingFE initialized
+   * with Simplex::FE_P (if the reference cell is a triangle and tetrahedron),
+   * with Simplex::FE_PyramidP (if the reference cell is a pyramid), or with
+   * Simplex::FE_WedgeP (if the reference cell is a wedge).
+   */
+  template <int dim, int spacedim>
+  std::unique_ptr<Mapping<dim, spacedim>>
+  get_default_mapping(const Type &reference_cell, const unsigned int degree);
 
   /**
    * Return a default linear mapping matching the given reference cell.
@@ -689,7 +749,7 @@ namespace ReferenceCell
    * @note The weights are not filled.
    */
   template <int dim>
-  Quadrature<dim> &
+  const Quadrature<dim> &
   get_nodal_type_quadrature(const Type &reference_cell);
 
   namespace internal
@@ -1933,19 +1993,14 @@ namespace ReferenceCell
 
 
 
-  /**
-   * Determine the orientation of an entity of @p type described by its
-   * vertices @p var_1 relative to an entity described by @p var_0.
-   */
   template <typename T, std::size_t N>
   inline unsigned char
-  compute_orientation(const ReferenceCell::Type entity_type,
-                      const std::array<T, N> &  vertices_0,
-                      const std::array<T, N> &  vertices_1)
+  Type::compute_orientation(const std::array<T, N> &vertices_0,
+                            const std::array<T, N> &vertices_1) const
   {
     AssertIndexRange(
-      ReferenceCell::internal::Info::get_cell(entity_type).n_vertices(), N + 1);
-    if (entity_type == ReferenceCell::Type::Line)
+      ReferenceCell::internal::Info::get_cell(*this).n_vertices(), N + 1);
+    if (*this == ReferenceCell::Type::Line)
       {
         const std::array<T, 2> i{{vertices_0[0], vertices_0[1]}};
         const std::array<T, 2> j{{vertices_1[0], vertices_1[1]}};
@@ -1958,7 +2013,7 @@ namespace ReferenceCell
         if (i == std::array<T, 2>{{j[1], j[0]}})
           return 0;
       }
-    else if (entity_type == ReferenceCell::Type::Tri)
+    else if (*this == ReferenceCell::Type::Tri)
       {
         const std::array<T, 3> i{{vertices_0[0], vertices_0[1], vertices_0[2]}};
         const std::array<T, 3> j{{vertices_1[0], vertices_1[1], vertices_1[2]}};
@@ -1987,7 +2042,7 @@ namespace ReferenceCell
         if (i == std::array<T, 3>{{j[1], j[0], j[2]}})
           return 4;
       }
-    else if (entity_type == ReferenceCell::Type::Quad)
+    else if (*this == ReferenceCell::Type::Quad)
       {
         const std::array<T, 4> i{
           {vertices_0[0], vertices_0[1], vertices_0[2], vertices_0[3]}};
@@ -2027,25 +2082,22 @@ namespace ReferenceCell
           return 6;
       }
 
-    Assert(
-      false,
-      (internal::NoPermutation<T, N>(entity_type, vertices_0, vertices_1)));
+    Assert(false,
+           (internal::NoPermutation<T, N>(*this, vertices_0, vertices_1)));
 
     return -1;
   }
 
-  /**
-   * Inverse function of compute_orientation().
-   */
+
+
   template <typename T, std::size_t N>
   inline std::array<T, N>
-  permute_according_orientation(const ReferenceCell::Type entity_type,
-                                const std::array<T, N> &  vertices,
-                                const unsigned int        orientation)
+  Type::permute_according_orientation(const std::array<T, N> &vertices,
+                                      const unsigned int      orientation) const
   {
     std::array<T, 4> temp;
 
-    if (entity_type == ReferenceCell::Type::Line)
+    if (*this == ReferenceCell::Type::Line)
       {
         switch (orientation)
           {
@@ -2059,7 +2111,7 @@ namespace ReferenceCell
               Assert(false, ExcNotImplemented());
           }
       }
-    else if (entity_type == ReferenceCell::Type::Tri)
+    else if (*this == ReferenceCell::Type::Tri)
       {
         switch (orientation)
           {
@@ -2085,7 +2137,7 @@ namespace ReferenceCell
               Assert(false, ExcNotImplemented());
           }
       }
-    else if (entity_type == ReferenceCell::Type::Quad)
+    else if (*this == ReferenceCell::Type::Quad)
       {
         switch (orientation)
           {
