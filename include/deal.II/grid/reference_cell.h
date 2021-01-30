@@ -925,10 +925,10 @@ namespace ReferenceCell
           static const std::array<std::array<unsigned int, 3>, 6> table = {
             {{{2, 1, 0}},
              {{0, 1, 2}},
-             {{2, 0, 1}},
-             {{0, 2, 1}},
              {{1, 0, 2}},
-             {{1, 2, 0}}}};
+             {{1, 2, 0}},
+             {{0, 2, 1}},
+             {{2, 0, 1}}}};
 
           return table[face_orientation][line];
         }
@@ -971,10 +971,10 @@ namespace ReferenceCell
           static const std::array<std::array<unsigned int, 3>, 6> table = {
             {{{0, 2, 1}},
              {{0, 1, 2}},
-             {{2, 0, 1}},
-             {{1, 0, 2}},
              {{2, 1, 0}},
-             {{1, 2, 0}}}};
+             {{1, 2, 0}},
+             {{1, 0, 2}},
+             {{2, 0, 1}}}};
 
           return table[face_orientation][vertex];
         }
@@ -1093,9 +1093,9 @@ namespace ReferenceCell
               static const std::array<std::array<unsigned int, 3>, 6> table = {
                 {{{2, 1, 0}},
                  {{0, 1, 2}},
+                 {{1, 0, 2}},
                  {{1, 2, 0}},
                  {{0, 2, 1}},
-                 {{1, 0, 2}},
                  {{2, 0, 1}}}};
 
               return table[face_orientation][line];
@@ -1143,9 +1143,9 @@ namespace ReferenceCell
               static const std::array<std::array<unsigned int, 3>, 6> table = {
                 {{{0, 2, 1}},
                  {{0, 1, 2}},
+                 {{2, 1, 0}},
                  {{1, 2, 0}},
                  {{1, 0, 2}},
-                 {{2, 1, 0}},
                  {{2, 0, 1}}}};
 
               return table[face_orientation][vertex];
@@ -1269,9 +1269,9 @@ namespace ReferenceCell
               static const std::array<std::array<unsigned int, 3>, 6> table = {
                 {{{2, 1, 0}},
                  {{0, 1, 2}},
+                 {{1, 0, 2}},
                  {{1, 2, 0}},
                  {{0, 2, 1}},
-                 {{1, 0, 2}},
                  {{2, 0, 1}}}};
 
               return table[face_orientation][line];
@@ -1319,9 +1319,9 @@ namespace ReferenceCell
               static const std::array<std::array<unsigned int, 3>, 6> table = {
                 {{{0, 2, 1}},
                  {{0, 1, 2}},
+                 {{2, 1, 0}},
                  {{1, 2, 0}},
                  {{1, 0, 2}},
-                 {{2, 1, 0}},
                  {{2, 0, 1}}}};
 
               return table[face_orientation][vertex];
@@ -1527,65 +1527,75 @@ namespace ReferenceCell
   }   // namespace internal
 
 
-  /**
-   * TODO
-   */
-  template <typename T, std::size_t N>
-  class NoPermutation : public dealii::ExceptionBase
+
+  namespace internal
   {
-  public:
-    NoPermutation(const ReferenceCell::Type &entity_type,
-                  const std::array<T, N> &   vertices_0,
-                  const std::array<T, N> &   vertices_1)
-      : entity_type(entity_type)
-      , vertices_0(vertices_0)
-      , vertices_1(vertices_1)
-    {}
-
-    virtual ~NoPermutation() noexcept override = default;
-
-    virtual void
-    print_info(std::ostream &out) const override
+    template <typename T, std::size_t N>
+    class NoPermutation : public dealii::ExceptionBase
     {
-      out << "[";
+    public:
+      /**
+       * Constructor.
+       */
+      NoPermutation(const ReferenceCell::Type &entity_type,
+                    const std::array<T, N> &   vertices_0,
+                    const std::array<T, N> &   vertices_1)
+        : entity_type(entity_type)
+        , vertices_0(vertices_0)
+        , vertices_1(vertices_1)
+      {}
 
-      const unsigned int n_vertices =
-        ReferenceCell::internal::Info::get_cell(entity_type).n_vertices();
+      /**
+       * Destructor.
+       */
+      virtual ~NoPermutation() noexcept override = default;
 
-      for (unsigned int i = 0; i < n_vertices; ++i)
-        {
-          out << vertices_0[i];
-          if (i + 1 != n_vertices)
-            out << ",";
-        }
+      /**
+       * Print error message to @p out.
+       */
+      virtual void
+      print_info(std::ostream &out) const override
+      {
+        out << "[";
 
-      out << "] is no permutation of [";
+        const unsigned int n_vertices =
+          ReferenceCell::internal::Info::get_cell(entity_type).n_vertices();
 
-      for (unsigned int i = 0; i < n_vertices; ++i)
-        {
-          out << vertices_1[i];
-          if (i + 1 != n_vertices)
-            out << ",";
-        }
+        for (unsigned int i = 0; i < n_vertices; ++i)
+          {
+            out << vertices_0[i];
+            if (i + 1 != n_vertices)
+              out << ",";
+          }
 
-      out << "]." << std::endl;
-    }
+        out << "] is no permutation of [";
 
-    /**
-     * TODO
-     */
-    const ReferenceCell::Type entity_type;
+        for (unsigned int i = 0; i < n_vertices; ++i)
+          {
+            out << vertices_1[i];
+            if (i + 1 != n_vertices)
+              out << ",";
+          }
 
-    /**
-     * TODO
-     */
-    const std::array<T, N> vertices_0;
+        out << "]." << std::endl;
+      }
 
-    /**
-     * TODO
-     */
-    const std::array<T, N> vertices_1;
-  };
+      /**
+       * Entity type.
+       */
+      const ReferenceCell::Type entity_type;
+
+      /**
+       * First set of values.
+       */
+      const std::array<T, N> vertices_0;
+
+      /**
+       * Second set of values.
+       */
+      const std::array<T, N> vertices_1;
+    };
+  } // namespace internal
 
 
 
@@ -1624,7 +1634,7 @@ namespace ReferenceCell
           return 1;
 
         // face_orientation=true, face_rotation=true, face_flip=false
-        if (i == std::array<T, 3>{{j[1], j[0], j[2]}})
+        if (i == std::array<T, 3>{{j[1], j[2], j[0]}})
           return 3;
 
         // face_orientation=true, face_rotation=false, face_flip=true
@@ -1636,11 +1646,11 @@ namespace ReferenceCell
           return 0;
 
         // face_orientation=false, face_rotation=true, face_flip=false
-        if (i == std::array<T, 3>{{j[1], j[2], j[0]}})
+        if (i == std::array<T, 3>{{j[2], j[1], j[0]}})
           return 2;
 
         // face_orientation=false, face_rotation=false, face_flip=true
-        if (i == std::array<T, 3>{{j[2], j[1], j[0]}})
+        if (i == std::array<T, 3>{{j[1], j[0], j[2]}})
           return 4;
       }
     else if (entity_type == ReferenceCell::Type::Quad)
@@ -1655,15 +1665,15 @@ namespace ReferenceCell
           return 1;
 
         // face_orientation=true, face_rotation=true, face_flip=false
-        if (i == std::array<T, 4>{{j[1], j[3], j[0], j[2]}})
+        if (i == std::array<T, 4>{{j[3], j[2], j[1], j[0]}})
           return 3;
 
         // face_orientation=true, face_rotation=false, face_flip=true
-        if (i == std::array<T, 4>{{j[3], j[2], j[1], j[0]}})
+        if (i == std::array<T, 4>{{j[2], j[0], j[3], j[1]}})
           return 5;
 
         // face_orientation=true, face_rotation=true, face_flip=true
-        if (i == std::array<T, 4>{{j[2], j[0], j[3], j[1]}})
+        if (i == std::array<T, 4>{{j[1], j[3], j[0], j[2]}})
           return 7;
 
         // face_orientation=false, face_rotation=false, face_flip=false
@@ -1671,11 +1681,11 @@ namespace ReferenceCell
           return 0;
 
         // face_orientation=false, face_rotation=true, face_flip=false
-        if (i == std::array<T, 4>{{j[2], j[3], j[0], j[1]}})
+        if (i == std::array<T, 4>{{j[3], j[1], j[2], j[0]}})
           return 2;
 
         // face_orientation=false, face_rotation=false, face_flip=true
-        if (i == std::array<T, 4>{{j[3], j[1], j[2], j[0]}})
+        if (i == std::array<T, 4>{{j[2], j[3], j[0], j[1]}})
           return 4;
 
         // face_orientation=false, face_rotation=true, face_flip=true
@@ -1683,7 +1693,9 @@ namespace ReferenceCell
           return 6;
       }
 
-    Assert(false, (NoPermutation<T, N>(entity_type, vertices_0, vertices_1)));
+    Assert(
+      false,
+      (internal::NoPermutation<T, N>(entity_type, vertices_0, vertices_1)));
 
     return -1;
   }
@@ -1721,7 +1733,7 @@ namespace ReferenceCell
               temp = {{vertices[0], vertices[1], vertices[2]}};
               break;
             case 3:
-              temp = {{vertices[1], vertices[0], vertices[2]}};
+              temp = {{vertices[1], vertices[2], vertices[0]}};
               break;
             case 5:
               temp = {{vertices[2], vertices[0], vertices[1]}};
@@ -1730,10 +1742,10 @@ namespace ReferenceCell
               temp = {{vertices[0], vertices[2], vertices[1]}};
               break;
             case 2:
-              temp = {{vertices[1], vertices[2], vertices[0]}};
+              temp = {{vertices[2], vertices[1], vertices[0]}};
               break;
             case 4:
-              temp = {{vertices[2], vertices[1], vertices[0]}};
+              temp = {{vertices[1], vertices[0], vertices[2]}};
               break;
             default:
               Assert(false, ExcNotImplemented());
@@ -1747,22 +1759,22 @@ namespace ReferenceCell
               temp = {{vertices[0], vertices[1], vertices[2], vertices[3]}};
               break;
             case 3:
-              temp = {{vertices[1], vertices[3], vertices[0], vertices[2]}};
-              break;
-            case 5:
               temp = {{vertices[3], vertices[2], vertices[1], vertices[0]}};
               break;
-            case 7:
+            case 5:
               temp = {{vertices[2], vertices[0], vertices[3], vertices[1]}};
+              break;
+            case 7:
+              temp = {{vertices[1], vertices[3], vertices[0], vertices[2]}};
               break;
             case 0:
               temp = {{vertices[0], vertices[2], vertices[1], vertices[3]}};
               break;
             case 2:
-              temp = {{vertices[2], vertices[3], vertices[0], vertices[1]}};
+              temp = {{vertices[3], vertices[1], vertices[2], vertices[0]}};
               break;
             case 4:
-              temp = {{vertices[3], vertices[1], vertices[2], vertices[0]}};
+              temp = {{vertices[2], vertices[3], vertices[0], vertices[1]}};
               break;
             case 6:
               temp = {{vertices[1], vertices[0], vertices[3], vertices[2]}};

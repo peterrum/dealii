@@ -5537,13 +5537,13 @@ namespace internal
 
                 std::cout << "USE_QUAD" << quad->index() << std::endl;
                 for (const auto i : quad->line_indices())
-                  std::cout << quad->index() << quad->line(i)->vertex_index(0)
-                            << " " << quad->line(i)->vertex_index(1) << " "
-                            << quad->line(i)->child(0)->vertex_index(0) << " "
-                            << quad->line(i)->child(0)->vertex_index(1) << " "
-                            << quad->line(i)->child(1)->vertex_index(0) << " "
-                            << quad->line(i)->child(1)->vertex_index(1)
-                            << std::endl;
+                  std::cout
+                    << quad->index() << " " << quad->line(i)->vertex_index(0)
+                    << " " << quad->line(i)->vertex_index(1) << " "
+                    << quad->line(i)->child(0)->vertex_index(0) << " "
+                    << quad->line(i)->child(0)->vertex_index(1) << " "
+                    << quad->line(i)->child(1)->vertex_index(0) << " "
+                    << quad->line(i)->child(1)->vertex_index(1) << std::endl;
 
 
                 vertex_indices[k++] = next_unused_vertex;
@@ -5625,7 +5625,7 @@ namespace internal
                                    {{X, X}}}};
 
               static constexpr std::array<std::array<unsigned int, 4>, 4>
-                quad_lines_tri{{{{0, 8, 4, X}},
+                quad_lines_tri{{{{0, 8, 5, X}},
                                 {{1, 2, 6, X}},
                                 {{7, 3, 4, X}},
                                 {{6, 7, 8, X}}}};
@@ -5638,6 +5638,13 @@ namespace internal
                 (reference_cell_type == ReferenceCell::Type::Quad) ?
                   quad_lines_quad :
                   quad_lines_tri;
+
+              static constexpr std::
+                array<std::array<std::array<unsigned int, 2>, 3>, 4>
+                  quad_line_vertices{{{{{{0, 3}}, {{3, 5}}, {{5, 0}}}},
+                                      {{{{3, 1}}, {{1, 4}}, {{4, 3}}}},
+                                      {{{{5, 4}}, {{4, 2}}, {{2, 5}}}},
+                                      {{{{3, 4}}, {{4, 5}}, {{5, 3}}}}}};
 
               // 4) set properties of lines
               for (unsigned int i = 0, j = lines.size() - new_lines.size();
@@ -5669,7 +5676,7 @@ namespace internal
 
                       for (unsigned int v = 0; v < 2; ++v)
                         vertices_1[v] =
-                          vertex_indices[line_vertices[quad_lines[i][f]][v]];
+                          vertex_indices[quad_line_vertices[i][f][v]];
 
                       for (unsigned int v = 0; v < 2; ++v)
                         std::cout << vertices_0[v] << " ";
@@ -5719,6 +5726,24 @@ namespace internal
                   // ... and fix orientation of faces (lines) of quad
                   for (const auto f : new_quad->line_indices())
                     {
+                      for (unsigned int v = 0; v < 2; ++v)
+                        std::cout << lines[quad_lines[i][f]]->vertex_index(v)
+                                  << " ";
+                      std::cout << " vs. ";
+
+                      for (unsigned int v = 0; v < 2; ++v)
+                        std::cout << vertex_indices[quad_line_vertices[i][f][v]]
+                                  << " ";
+                      std::cout << std::endl;
+                    }
+
+#ifdef DEBUG
+                  std::set<unsigned int> s;
+#endif
+
+                  // ... and fix orientation of faces (lines) of quad
+                  for (const auto f : new_quad->line_indices())
+                    {
                       std::array<unsigned int, 2> vertices_0, vertices_1;
 
                       for (unsigned int v = 0; v < 2; ++v)
@@ -5727,14 +5752,24 @@ namespace internal
 
                       for (unsigned int v = 0; v < 2; ++v)
                         vertices_1[v] =
-                          vertex_indices[line_vertices[quad_lines[i][f]][v]];
+                          vertex_indices[quad_line_vertices[i][f][v]];
 
                       const auto orientation =
                         ReferenceCell::compute_orientation(
                           ReferenceCell::Type::Line, vertices_0, vertices_1);
 
+#ifdef DEBUG
+                      for (const auto i : vertices_0)
+                        s.insert(i);
+                      for (const auto i : vertices_1)
+                        s.insert(i);
+#endif
+
                       new_quad->set_line_orientation(f, orientation);
                     }
+#ifdef DEBUG
+                  AssertDimension(s.size(), 3);
+#endif
                 }
 
               quad->clear_user_flag();
@@ -6020,12 +6055,12 @@ namespace internal
 
                               static const std::
                                 array<std::array<unsigned int, 3>, 6>
-                                  table = {{{{1, 0, 2}},
+                                  table = {{{{1, 0, 2}}, // 0
                                             {{0, 1, 2}},
-                                            {{2, 0, 1}},
-                                            {{2, 1, 0}},
-                                            {{0, 2, 1}},
-                                            {{1, 2, 0}}}};
+                                            {{0, 2, 1}}, // 2
+                                            {{1, 2, 0}},
+                                            {{2, 1, 0}}, // 4
+                                            {{2, 0, 1}}}};
 
                               relevant_lines[k] =
                                 hex->face(f)
@@ -6037,6 +6072,26 @@ namespace internal
                                                  GeometryInfo<
                                                    dim>::faces_per_cell +
                                                f]][l]);
+
+                              //                              relevant_lines[k]
+                              //                              =
+                              //                                hex->face(f)
+                              //                                  ->child(3
+                              //                                  /*center
+                              //                                  triangle*/)
+                              //                                  ->line(
+                              //                                    ReferenceCell::internal::Info::get_cell(
+                              //                                      reference_cell_type)
+                              //                                      .standard_to_real_face_line(
+                              //                                        l,
+                              //                                        f,
+                              //                                        triangulation.levels[hex->level()]
+                              //                                          ->face_orientations
+                              //                                            [hex->index()
+                              //                                            *
+                              //                                            GeometryInfo<dim>::
+                              //                                                              faces_per_cell +
+                              //                                             f]));
 
                               std::cout
                                 << f << " " << l << " "
@@ -6052,6 +6107,17 @@ namespace internal
                                              [hex->index() * GeometryInfo<dim>::
                                                                faces_per_cell +
                                               f]][l]
+                                << " "
+                                << ReferenceCell::internal::Info::get_cell(
+                                     reference_cell_type)
+                                     .standard_to_real_face_line(
+                                       l,
+                                       f,
+                                       triangulation.levels[hex->level()]
+                                         ->face_orientations
+                                           [hex->index() * GeometryInfo<dim>::
+                                                             faces_per_cell +
+                                            f])
                                 << " " << relevant_lines[k]->vertex_index(0)
                                 << "-" << relevant_lines[k]->vertex_index(1)
                                 << std::endl;

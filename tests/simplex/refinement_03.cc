@@ -68,8 +68,7 @@ int
 main()
 {
   initlog();
-  test(0);
-
-  test(1);
-  test(2);
+  test(0); // coarse grid: 1 tet, n_refinements: 1
+  test(1); // coarse grid: 1 tet, n_refinements: 2
+  test(2); // coarse grid: 5 tets (cube), n_refinements: 1
 }
