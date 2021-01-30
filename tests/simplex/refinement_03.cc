@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2021 by the deal.II authors
+// Copyright (C) 2020 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -15,86 +15,60 @@
 
 
 
-// Verify CellAccessor::neighbor_child_on_subface for a triangle mesh.
+// Test refinement of 3D simplex mesh.
 
-
+#include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/tria.h>
 
 #include <deal.II/simplex/grid_generator.h>
 
 #include "../tests.h"
 
-
 template <int dim>
 void
-test()
+print(Triangulation<dim> &tria, const std::string &label)
 {
-  // setup
-  //   +---+---+
-  //   |\  |  /|
-  //   |  \|/  |
-  //   |   +---+
-  //   |    \  |
-  //   |      \|
-  //   +-------+
-  Triangulation<dim> tria;
-  GridGenerator::subdivided_hyper_cube_with_simplices(tria, 1);
-  {
-    auto cell = tria.begin_active();
-    (++cell)->set_refine_flag();
-    Assert(++cell == tria.end(), ExcInternalError());
-  }
-  tria.execute_coarsening_and_refinement();
+  GridOut grid_out;
 
-  // find face index on unrefined cell to neighboring cells
-  const auto & unrefined_cell = tria.begin_active(0);
-  unsigned int unrefined_f    = numbers::invalid_unsigned_int;
-  for (unsigned int f = 0; f < unrefined_cell->n_faces(); ++f)
-    if (!unrefined_cell->face(f)->at_boundary())
-      unrefined_f = f;
+  unsigned int counter = 0;
 
-  // verify whether unrefined cell and neighboring children have matching
-  // vertices on their correpsonding subface
-  for (unsigned int sf = 0; sf < GeometryInfo<dim>::max_children_per_face; ++sf)
-    {
-      // unrefined vertex on subface
-      const Point<dim> &vertex_unrefined =
-        unrefined_cell->face(unrefined_f)->vertex(sf);
+  for (const auto &cell : tria.active_cell_iterators())
+    cell->set_material_id(counter++);
 
-      // child on subface [! focus of this particular test !]
-      const auto &neighboring_child =
-        unrefined_cell->neighbor_child_on_subface(unrefined_f, sf);
-
-      // face of child
-      unsigned int neighboring_child_f = numbers::invalid_unsigned_int;
-      for (unsigned int f = 0; f < neighboring_child->n_faces(); ++f)
-        if (!neighboring_child->face(f)->at_boundary() &&
-            neighboring_child->neighbor(f) == unrefined_cell)
-          neighboring_child_f = f;
-      const auto &neighboring_child_face =
-        neighboring_child->face(neighboring_child_f);
-
-      // find unrefined vertex among child face vertices
-      bool vertex_found = false;
-      for (unsigned int v = 0; v < neighboring_child_face->n_vertices(); ++v)
-        if (neighboring_child_face->vertex(v) == vertex_unrefined)
-          vertex_found = true;
-
-      Assert(vertex_found,
-             ExcMessage(
-               "Wrong assignment of neighboring children to subfaces."));
-    }
-
-  deallog << "OK" << std::endl;
+#if false
+  std::ofstream out(label);
+  grid_out.write_vtk(tria, out);
+#else
+  (void)label;
+  grid_out.write_vtk(tria, deallog.get_file_stream());
+#endif
 }
 
+void
+test(const unsigned int version)
+{
+  Triangulation<3> tria;
+
+  if (version == 0 || version == 1)
+    ReferenceCell::Type::Tet.make_triangulation(tria);
+  else if (version == 2)
+    GridGenerator::subdivided_hyper_cube_with_simplices(tria, 1);
+
+  print(tria, "tria.0.vtk");
+  if (version == 0 || version == 2)
+    tria.refine_global(1);
+  else if (version == 1)
+    tria.refine_global(2);
+
+  print(tria, "tria.1.vtk");
+}
 
 int
 main()
 {
   initlog();
-
-  deallog.push("2d");
-  test<2>();
-  deallog.pop();
+  test(0); // coarse grid: 1 tet, n_refinements: 1
+  test(1); // coarse grid: 1 tet, n_refinements: 2
+  test(2); // coarse grid: 5 tets (cube), n_refinements: 1
 }
