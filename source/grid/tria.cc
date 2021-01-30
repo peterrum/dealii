@@ -6384,8 +6384,8 @@ namespace internal
                             const auto orientation =
                               ReferenceCell::compute_orientation(
                                 face->reference_cell_type(),
-                                vertices_0,
-                                vertices_1);
+                                vertices_1,
+                                vertices_0);
 
                             new_hex->set_face_orientation(
                               f,
