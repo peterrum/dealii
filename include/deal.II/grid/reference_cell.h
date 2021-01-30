@@ -1665,11 +1665,11 @@ namespace ReferenceCell
           return 1;
 
         // face_orientation=true, face_rotation=true, face_flip=false
-        if (i == std::array<T, 4>{{j[3], j[2], j[1], j[0]}})
+        if (i == std::array<T, 4>{{j[2], j[0], j[3], j[1]}})
           return 3;
 
         // face_orientation=true, face_rotation=false, face_flip=true
-        if (i == std::array<T, 4>{{j[2], j[0], j[3], j[1]}})
+        if (i == std::array<T, 4>{{j[3], j[2], j[1], j[0]}})
           return 5;
 
         // face_orientation=true, face_rotation=true, face_flip=true
@@ -1681,11 +1681,11 @@ namespace ReferenceCell
           return 0;
 
         // face_orientation=false, face_rotation=true, face_flip=false
-        if (i == std::array<T, 4>{{j[3], j[1], j[2], j[0]}})
+        if (i == std::array<T, 4>{{j[2], j[3], j[0], j[1]}})
           return 2;
 
         // face_orientation=false, face_rotation=false, face_flip=true
-        if (i == std::array<T, 4>{{j[2], j[3], j[0], j[1]}})
+        if (i == std::array<T, 4>{{j[3], j[1], j[2], j[0]}})
           return 4;
 
         // face_orientation=false, face_rotation=true, face_flip=true
@@ -1759,10 +1759,10 @@ namespace ReferenceCell
               temp = {{vertices[0], vertices[1], vertices[2], vertices[3]}};
               break;
             case 3:
-              temp = {{vertices[3], vertices[2], vertices[1], vertices[0]}};
+              temp = {{vertices[2], vertices[0], vertices[3], vertices[1]}};
               break;
             case 5:
-              temp = {{vertices[2], vertices[0], vertices[3], vertices[1]}};
+              temp = {{vertices[3], vertices[2], vertices[1], vertices[0]}};
               break;
             case 7:
               temp = {{vertices[1], vertices[3], vertices[0], vertices[2]}};
@@ -1771,10 +1771,10 @@ namespace ReferenceCell
               temp = {{vertices[0], vertices[2], vertices[1], vertices[3]}};
               break;
             case 2:
-              temp = {{vertices[3], vertices[1], vertices[2], vertices[0]}};
+              temp = {{vertices[2], vertices[3], vertices[0], vertices[1]}};
               break;
             case 4:
-              temp = {{vertices[2], vertices[3], vertices[0], vertices[1]}};
+              temp = {{vertices[3], vertices[1], vertices[2], vertices[0]}};
               break;
             case 6:
               temp = {{vertices[1], vertices[0], vertices[3], vertices[2]}};
