@@ -45,7 +45,7 @@ namespace internal
  */
 namespace MGTransferGlobalCoarseningTools
 {
-  enum class PolynomialSequenceType
+  enum class PolynomialCoarseningSequenceType
   {
     bisect,
     decrease_by_one,
@@ -53,16 +53,17 @@ namespace MGTransferGlobalCoarseningTools
   };
 
   unsigned int
-  generate_level_degree(const unsigned int            previous_fe_degree,
-                        const PolynomialSequenceType &p_sequence)
+  create_next_polynomial_coarsening_degree(
+    const unsigned int                      previous_fe_degree,
+    const PolynomialCoarseningSequenceType &p_sequence)
   {
     switch (p_sequence)
       {
-        case PolynomialSequenceType::bisect:
+        case PolynomialCoarseningSequenceType::bisect:
           return std::max(previous_fe_degree / 2, 1u);
-        case PolynomialSequenceType::decrease_by_one:
+        case PolynomialCoarseningSequenceType::decrease_by_one:
           return std::max(previous_fe_degree - 1, 1u);
-        case PolynomialSequenceType::go_to_one:
+        case PolynomialCoarseningSequenceType::go_to_one:
           return 1u;
         default:
           Assert(false, StandardExceptions::ExcNotImplemented());
@@ -71,17 +72,19 @@ namespace MGTransferGlobalCoarseningTools
   }
 
   std::vector<unsigned int>
-  create_p_sequence(const unsigned int            degree,
-                    const PolynomialSequenceType &p_sequence)
+  create_polynomial_coarsening_sequence(
+    const unsigned int                      max_degree,
+    const PolynomialCoarseningSequenceType &p_sequence)
   {
     std::vector<unsigned int> degrees;
-    degrees.push_back(degree);
+    degrees.push_back(max_degree);
 
-    unsigned int previous_fe_degree = degree;
+    unsigned int previous_fe_degree = max_degree;
     while (previous_fe_degree > 1)
       {
         const unsigned int level_degree =
-          generate_level_degree(previous_fe_degree, p_sequence);
+          create_next_polynomial_coarsening_degree(previous_fe_degree,
+                                                   p_sequence);
 
         degrees.push_back(level_degree);
         previous_fe_degree = level_degree;
@@ -93,10 +96,8 @@ namespace MGTransferGlobalCoarseningTools
   }
 
   template <int dim, int spacedim>
-  void
-  create_global_coarsening_sequence(
-    MGLevelObject<std::shared_ptr<Triangulation<dim, spacedim>>>
-      &                                 coarse_grid_triangulations,
+  std::vector<std::shared_ptr<Triangulation<dim, spacedim>>>
+  create_geometric_coarsening_sequence(
     const Triangulation<dim, spacedim> &fine_triangulation_in)
   {
     const auto fine_triangulation =
@@ -105,34 +106,36 @@ namespace MGTransferGlobalCoarseningTools
 
     Assert(fine_triangulation, ExcNotImplemented());
 
-    const unsigned int min_level = 0;
     const unsigned int max_level = fine_triangulation->n_global_levels() - 1;
 
     const auto coarse_mesh_description =
       GridTools::get_coarse_mesh_description(*fine_triangulation);
 
-    coarse_grid_triangulations.resize(
-      min_level, max_level); // note: maxlevel is not constructed!
+    std::vector<std::shared_ptr<Triangulation<dim, spacedim>>>
+      coarse_grid_triangulations;
+
+    coarse_grid_triangulations.resize(fine_triangulation->n_global_levels());
+
+    coarse_grid_triangulations[max_level].reset(
+      const_cast<Triangulation<dim, spacedim> *>(&fine_triangulation_in),
+      [](auto &) {});
 
     // create coarse meshes
     for (unsigned int l = max_level - 1; l != numbers::invalid_unsigned_int;
          --l)
       {
         // store finer mesh to file
-        if (l + 1 == max_level)
-          fine_triangulation->save("mesh");
-        else
-          dynamic_cast<
-            const parallel::distributed::Triangulation<dim, spacedim> *>(
-            coarse_grid_triangulations[l + 1].get())
-            ->save("mesh");
+        dynamic_cast<
+          const parallel::distributed::Triangulation<dim, spacedim> *>(
+          coarse_grid_triangulations[l + 1].get())
+          ->save("mesh");
         MPI_Barrier(fine_triangulation->get_communicator());
 
         // create empty triangulation
         auto new_tria =
           std::make_shared<parallel::distributed::Triangulation<dim, spacedim>>(
             fine_triangulation->get_communicator(),
-            dealii::Triangulation<dim>::limit_level_difference_at_vertices);
+            fine_triangulation->get_mesh_smoothing());
 
         // create coarse grid
         new_tria->create_triangulation(std::get<0>(coarse_mesh_description),
@@ -153,6 +156,8 @@ namespace MGTransferGlobalCoarseningTools
         // save mesh
         coarse_grid_triangulations[l] = new_tria;
       }
+
+    return coarse_grid_triangulations;
   }
 } // namespace MGTransferGlobalCoarseningTools
 

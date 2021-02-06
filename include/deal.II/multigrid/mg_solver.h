@@ -59,8 +59,8 @@ struct GMGParameters
   SmootherParameters     smoother;
   CoarseSolverParameters coarse_solver;
 
-  MGTransferGlobalCoarseningTools::PolynomialSequenceType p_sequence =
-    MGTransferGlobalCoarseningTools::PolynomialSequenceType::
+  MGTransferGlobalCoarseningTools::PolynomialCoarseningSequenceType p_sequence =
+    MGTransferGlobalCoarseningTools::PolynomialCoarseningSequenceType::
       decrease_by_one;            // TODO: move
   bool perform_h_transfer = true; // TODO: move
 };
