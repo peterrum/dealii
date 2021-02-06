@@ -46,27 +46,61 @@ namespace internal
  */
 namespace MGTransferGlobalCoarseningTools
 {
+  /**
+   * Common polynomial coarsening sequences.
+   *
+   * @note These polynomial coarsening sequences up to a degree of 9 are
+   *   precompiled in MGTwoLevelTransfer. See also:
+   *   MGTwoLevelTransfer::fast_polynomial_transfer_supported()
+   */
   enum class PolynomialCoarseningSequenceType
   {
+    /**
+     * Half polynomial degree. E.g., for degree=7 following sequence would
+     * result: 7 -> 3 -> 1
+     */
     bisect,
+    /**
+     * Decrease the polynomial degree by one. E.g., for degree=7 following
+     * sequence would result: 7 -> 6 -> 5 -> 4 -> 3 -> 2 -> 1
+     */
     decrease_by_one,
+    /**
+     * Decrease the polynomial degree to one. E.g., for degree=7 following
+     * sequence would result: 7 -> 1
+     */
     go_to_one
   };
 
+  /**
+   * For a given @p degree and polynomial coarsening sequence @p p_sequence,
+   * determine the next coarser degree.
+   */
   unsigned int
   create_next_polynomial_coarsening_degree(
-    const unsigned int                      previous_fe_degree,
+    const unsigned int                      degree,
     const PolynomialCoarseningSequenceType &p_sequence);
 
+  /**
+   * For a given @p max_degree and polynomial coarsening sequence @p p_sequence,
+   * determine the full sequence of polynomial degrees.
+   */
   std::vector<unsigned int>
   create_polynomial_coarsening_sequence(
     const unsigned int                      max_degree,
     const PolynomialCoarseningSequenceType &p_sequence);
 
+  /**
+   * For a given triangulation @p tria, determine the geometric coarsening
+   * sequence by repeated global coarsening of the provided triangulation.
+   *
+   * @note For convenience, a reference to the input triangulation is stored in
+   *   the last entry of the return vector.
+   */
   template <int dim, int spacedim>
   std::vector<std::shared_ptr<Triangulation<dim, spacedim>>>
   create_geometric_coarsening_sequence(
-    const Triangulation<dim, spacedim> &fine_triangulation_in);
+    const Triangulation<dim, spacedim> &tria);
 
 } // namespace MGTransferGlobalCoarseningTools
 
