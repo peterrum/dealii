@@ -40,6 +40,7 @@ namespace internal
 #endif
 
 
+
 /**
  * Global coarsening utility functions.
  */
@@ -55,111 +56,20 @@ namespace MGTransferGlobalCoarseningTools
   unsigned int
   create_next_polynomial_coarsening_degree(
     const unsigned int                      previous_fe_degree,
-    const PolynomialCoarseningSequenceType &p_sequence)
-  {
-    switch (p_sequence)
-      {
-        case PolynomialCoarseningSequenceType::bisect:
-          return std::max(previous_fe_degree / 2, 1u);
-        case PolynomialCoarseningSequenceType::decrease_by_one:
-          return std::max(previous_fe_degree - 1, 1u);
-        case PolynomialCoarseningSequenceType::go_to_one:
-          return 1u;
-        default:
-          Assert(false, StandardExceptions::ExcNotImplemented());
-          return 1u;
-      }
-  }
+    const PolynomialCoarseningSequenceType &p_sequence);
 
   std::vector<unsigned int>
   create_polynomial_coarsening_sequence(
     const unsigned int                      max_degree,
-    const PolynomialCoarseningSequenceType &p_sequence)
-  {
-    std::vector<unsigned int> degrees;
-    degrees.push_back(max_degree);
-
-    unsigned int previous_fe_degree = max_degree;
-    while (previous_fe_degree > 1)
-      {
-        const unsigned int level_degree =
-          create_next_polynomial_coarsening_degree(previous_fe_degree,
-                                                   p_sequence);
-
-        degrees.push_back(level_degree);
-        previous_fe_degree = level_degree;
-      }
-
-    std::reverse(degrees.begin(), degrees.end());
-
-    return degrees;
-  }
+    const PolynomialCoarseningSequenceType &p_sequence);
 
   template <int dim, int spacedim>
   std::vector<std::shared_ptr<Triangulation<dim, spacedim>>>
   create_geometric_coarsening_sequence(
-    const Triangulation<dim, spacedim> &fine_triangulation_in)
-  {
-    const auto fine_triangulation =
-      dynamic_cast<const parallel::distributed::Triangulation<dim, spacedim> *>(
-        &fine_triangulation_in);
+    const Triangulation<dim, spacedim> &fine_triangulation_in);
 
-    Assert(fine_triangulation, ExcNotImplemented());
-
-    const unsigned int max_level = fine_triangulation->n_global_levels() - 1;
-
-    const auto coarse_mesh_description =
-      GridTools::get_coarse_mesh_description(*fine_triangulation);
-
-    std::vector<std::shared_ptr<Triangulation<dim, spacedim>>>
-      coarse_grid_triangulations;
-
-    coarse_grid_triangulations.resize(fine_triangulation->n_global_levels());
-
-    coarse_grid_triangulations[max_level].reset(
-      const_cast<Triangulation<dim, spacedim> *>(&fine_triangulation_in),
-      [](auto &) {});
-
-    // create coarse meshes
-    for (unsigned int l = max_level - 1; l != numbers::invalid_unsigned_int;
-         --l)
-      {
-        // store finer mesh to file
-        dynamic_cast<
-          const parallel::distributed::Triangulation<dim, spacedim> *>(
-          coarse_grid_triangulations[l + 1].get())
-          ->save("mesh");
-        MPI_Barrier(fine_triangulation->get_communicator());
-
-        // create empty triangulation
-        auto new_tria =
-          std::make_shared<parallel::distributed::Triangulation<dim, spacedim>>(
-            fine_triangulation->get_communicator(),
-            fine_triangulation->get_mesh_smoothing());
-
-        // create coarse grid
-        new_tria->create_triangulation(std::get<0>(coarse_mesh_description),
-                                       std::get<1>(coarse_mesh_description),
-                                       std::get<2>(coarse_mesh_description));
-
-        for (const auto i : fine_triangulation->get_manifold_ids())
-          if (i != numbers::flat_manifold_id)
-            new_tria->set_manifold(i, fine_triangulation->get_manifold(i));
-
-        // create refinement hierarchy (by loading stored mesh)
-        new_tria->load("mesh", false);
-        MPI_Barrier(fine_triangulation->get_communicator());
-
-        // coarsen mesh
-        new_tria->coarsen_global();
-
-        // save mesh
-        coarse_grid_triangulations[l] = new_tria;
-      }
-
-    return coarse_grid_triangulations;
-  }
 } // namespace MGTransferGlobalCoarseningTools
+
 
 
 /**
