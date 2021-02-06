@@ -189,36 +189,189 @@ MGSolverOperatorBase<dim_, number>::get_system_matrix() const
   return dummy_trilinos_wrapper_sparse_matrix;
 }
 
+template <class VectorType,
+          class SolverType,
+          class MatrixType,
+          class PreconditionerType>
+class MGCoarseGridMixedIterativeSolver : public MGCoarseGridBase<VectorType>
+{
+public:
+  MGCoarseGridMixedIterativeSolver();
+
+  MGCoarseGridMixedIterativeSolver(SolverType &              solver,
+                                   const MatrixType &        matrix,
+                                   const PreconditionerType &precondition);
+
+  void
+  initialize(SolverType &              solver,
+             const MatrixType &        matrix,
+             const PreconditionerType &precondition);
+
+  void
+  clear();
+
+  virtual void
+  operator()(const unsigned int level,
+             VectorType &       dst,
+             const VectorType & src) const override;
+
+private:
+  SmartPointer<SolverType,
+               MGCoarseGridMixedIterativeSolver<VectorType,
+                                                SolverType,
+                                                MatrixType,
+                                                PreconditionerType>>
+    solver;
+
+  SmartPointer<const MatrixType,
+               MGCoarseGridMixedIterativeSolver<VectorType,
+                                                SolverType,
+                                                MatrixType,
+                                                PreconditionerType>>
+    matrix;
+
+  SmartPointer<const PreconditionerType,
+               MGCoarseGridMixedIterativeSolver<VectorType,
+                                                SolverType,
+                                                MatrixType,
+                                                PreconditionerType>>
+    preconditioner;
+};
+
+
+template <class VectorType,
+          class SolverType,
+          class MatrixType,
+          class PreconditionerType>
+MGCoarseGridMixedIterativeSolver<
+  VectorType,
+  SolverType,
+  MatrixType,
+  PreconditionerType>::MGCoarseGridMixedIterativeSolver()
+  : solver(0, typeid(*this).name())
+  , matrix(0, typeid(*this).name())
+  , preconditioner(0, typeid(*this).name())
+{}
+
+
+
+template <class VectorType,
+          class SolverType,
+          class MatrixType,
+          class PreconditionerType>
+MGCoarseGridMixedIterativeSolver<VectorType,
+                                 SolverType,
+                                 MatrixType,
+                                 PreconditionerType>::
+  MGCoarseGridMixedIterativeSolver(SolverType &              solver,
+                                   const MatrixType &        matrix,
+                                   const PreconditionerType &preconditioner)
+  : solver(&solver, typeid(*this).name())
+  , matrix(&matrix, typeid(*this).name())
+  , preconditioner(&preconditioner, typeid(*this).name())
+{}
+
+
+
+template <class VectorType,
+          class SolverType,
+          class MatrixType,
+          class PreconditionerType>
+void
+MGCoarseGridMixedIterativeSolver<
+  VectorType,
+  SolverType,
+  MatrixType,
+  PreconditionerType>::initialize(SolverType &              solver_,
+                                  const MatrixType &        matrix_,
+                                  const PreconditionerType &preconditioner_)
+{
+  solver         = &solver_;
+  matrix         = &matrix_;
+  preconditioner = &preconditioner_;
+}
+
+
+
+template <class VectorType,
+          class SolverType,
+          class MatrixType,
+          class PreconditionerType>
+void
+MGCoarseGridMixedIterativeSolver<VectorType,
+                                 SolverType,
+                                 MatrixType,
+                                 PreconditionerType>::clear()
+{
+  solver         = 0;
+  matrix         = 0;
+  preconditioner = 0;
+}
+
+
+
+template <class VectorType,
+          class SolverType,
+          class MatrixType,
+          class PreconditionerType>
+void
+MGCoarseGridMixedIterativeSolver<VectorType,
+                                 SolverType,
+                                 MatrixType,
+                                 PreconditionerType>::
+operator()(const unsigned int /*level*/,
+           VectorType &      dst,
+           const VectorType &src) const
+{
+  Assert(solver != nullptr, ExcNotInitialized());
+  Assert(matrix != nullptr, ExcNotInitialized());
+  Assert(preconditioner != nullptr, ExcNotInitialized());
+
+  LinearAlgebra::distributed::Vector<double /*TODO*/> dst_temp;
+  LinearAlgebra::distributed::Vector<double /*TODO*/> src_temp;
+  dst_temp.reinit(dst, false);
+  src_temp.reinit(dst, true);
+
+  src_temp.copy_locally_owned_data_from(src);
+  solver->solve(*matrix, dst_temp, src_temp, *preconditioner);
+  dst.copy_locally_owned_data_from(dst_temp);
+}
+
 
 template <typename VectorType,
           int dim,
-          typename SystemMatrixType,
-          typename LevelMatrixType,
+          typename Number,
+          typename NumberLevel,
           typename MGTransferType>
 static void
-mg_solve(SolverControl &                                        solver_control,
-         VectorType &                                           dst,
-         const VectorType &                                     src,
-         const GMGParameters &                                  mg_data,
-         const DoFHandler<dim> &                                dof,
-         const SystemMatrixType &                               fine_matrix,
-         const MGLevelObject<std::unique_ptr<LevelMatrixType>> &mg_matrices,
-         const MGTransferType &                                 mg_transfer)
+mg_solve(
+  SolverControl &                          solver_control,
+  VectorType &                             dst,
+  const VectorType &                       src,
+  const GMGParameters &                    mg_data,
+  const DoFHandler<dim> &                  dof,
+  const MGSolverOperatorBase<dim, Number> &fine_matrix,
+  const MGLevelObject<std::unique_ptr<MGSolverOperatorBase<dim, NumberLevel>>>
+    &                   mg_matrices,
+  const MGTransferType &mg_transfer)
 {
   AssertThrow(mg_data.smoother.type == "chebyshev", ExcNotImplemented());
 
   const unsigned int min_level = mg_matrices.min_level();
   const unsigned int max_level = mg_matrices.max_level();
 
-  using Number                     = typename VectorType::value_type;
-  using SmootherPreconditionerType = DiagonalMatrix<VectorType>;
+  using LevelVectorType = LinearAlgebra::distributed::Vector<NumberLevel>;
+
+  using LevelMatrixType            = MGSolverOperatorBase<dim, NumberLevel>;
+  using SmootherPreconditionerType = DiagonalMatrix<LevelVectorType>;
   using SmootherType               = PreconditionChebyshev<LevelMatrixType,
-                                             VectorType,
+                                             LevelVectorType,
                                              SmootherPreconditionerType>;
-  using PreconditionerType = PreconditionMG<dim, VectorType, MGTransferType>;
+  using PreconditionerType =
+    PreconditionMG<dim, LevelVectorType, MGTransferType>;
 
   // Initialize level operators.
-  mg::Matrix<VectorType> mg_matrix(mg_matrices);
+  mg::Matrix<LevelVectorType> mg_matrix(mg_matrices);
 
   // Initialize smoothers.
   MGLevelObject<typename SmootherType::AdditionalData> smoother_data(min_level,
@@ -236,34 +389,39 @@ mg_solve(SolverControl &                                        solver_control,
         mg_data.smoother.eig_cg_n_iterations;
     }
 
-  MGSmootherPrecondition<LevelMatrixType, SmootherType, VectorType> mg_smoother;
+  MGSmootherPrecondition<LevelMatrixType, SmootherType, LevelVectorType>
+    mg_smoother;
   mg_smoother.initialize(mg_matrices, smoother_data);
 
   // Initialize coarse-grid solver.
-  ReductionControl     coarse_grid_solver_control(mg_data.coarse_solver.maxiter,
+  ReductionControl coarse_grid_solver_control(mg_data.coarse_solver.maxiter,
                                               mg_data.coarse_solver.abstol,
                                               mg_data.coarse_solver.reltol,
                                               false,
                                               false);
-  SolverCG<VectorType> coarse_grid_solver(coarse_grid_solver_control);
+  SolverCG<LevelVectorType> coarse_grid_solver(coarse_grid_solver_control);
+  SolverCG<LinearAlgebra::distributed::Vector<double>> coarse_grid_solver_temp(
+    coarse_grid_solver_control);
 
   PreconditionIdentity precondition_identity;
-  PreconditionChebyshev<LevelMatrixType, VectorType, DiagonalMatrix<VectorType>>
+  PreconditionChebyshev<LevelMatrixType,
+                        LevelVectorType,
+                        DiagonalMatrix<LevelVectorType>>
     precondition_chebyshev;
 
 #ifdef DEAL_II_WITH_TRILINOS
   TrilinosWrappers::PreconditionAMG precondition_amg;
 #endif
 
-  std::unique_ptr<MGCoarseGridBase<VectorType>> mg_coarse;
+  std::unique_ptr<MGCoarseGridBase<LevelVectorType>> mg_coarse;
 
   if (mg_data.coarse_solver.type == "cg")
     {
       // CG with identity matrix as preconditioner
 
       mg_coarse =
-        std::make_unique<MGCoarseGridIterativeSolver<VectorType,
-                                                     SolverCG<VectorType>,
+        std::make_unique<MGCoarseGridIterativeSolver<LevelVectorType,
+                                                     SolverCG<LevelVectorType>,
                                                      LevelMatrixType,
                                                      PreconditionIdentity>>(
           coarse_grid_solver, *mg_matrices[min_level], precondition_identity);
@@ -275,7 +433,7 @@ mg_solve(SolverControl &                                        solver_control,
       typename SmootherType::AdditionalData smoother_data;
 
       smoother_data.preconditioner =
-        std::make_shared<DiagonalMatrix<VectorType>>();
+        std::make_shared<DiagonalMatrix<LevelVectorType>>();
       mg_matrices[min_level]->compute_inverse_diagonal(
         smoother_data.preconditioner->get_vector());
       smoother_data.smoothing_range     = mg_data.smoother.smoothing_range;
@@ -285,8 +443,8 @@ mg_solve(SolverControl &                                        solver_control,
       precondition_chebyshev.initialize(*mg_matrices[min_level], smoother_data);
 
       mg_coarse = std::make_unique<
-        MGCoarseGridIterativeSolver<VectorType,
-                                    SolverCG<VectorType>,
+        MGCoarseGridIterativeSolver<LevelVectorType,
+                                    SolverCG<LevelVectorType>,
                                     LevelMatrixType,
                                     decltype(precondition_chebyshev)>>(
         coarse_grid_solver, *mg_matrices[min_level], precondition_chebyshev);
@@ -301,16 +459,18 @@ mg_solve(SolverControl &                                        solver_control,
       amg_data.n_cycles        = mg_data.coarse_solver.n_cycles;
       amg_data.smoother_type   = mg_data.coarse_solver.smoother_type.c_str();
 
-      // CG with AMG as preconditioner
-      precondition_amg.initialize(mg_matrices[min_level]->get_system_matrix(),
-                                  amg_data);
+      const auto &system_matrix = mg_matrices[min_level]->get_system_matrix();
 
-      mg_coarse = std::make_unique<
-        MGCoarseGridIterativeSolver<VectorType,
-                                    SolverCG<VectorType>,
-                                    LevelMatrixType,
-                                    decltype(precondition_amg)>>(
-        coarse_grid_solver, *mg_matrices[min_level], precondition_amg);
+      precondition_amg.initialize(system_matrix, amg_data);
+
+      mg_coarse = std::make_unique<MGCoarseGridMixedIterativeSolver<
+        LevelVectorType,
+        SolverCG<LinearAlgebra::distributed::Vector<double>>,
+        typename std::remove_const<
+          typename std::remove_reference<decltype(system_matrix)>::type>::type,
+        decltype(precondition_amg)>>(coarse_grid_solver_temp,
+                                     system_matrix,
+                                     precondition_amg);
 #else
       AssertThrow(false, ExcNotImplemented());
 #endif
@@ -321,7 +481,7 @@ mg_solve(SolverControl &                                        solver_control,
     }
 
   // Create multigrid object.
-  Multigrid<VectorType> mg(
+  Multigrid<LevelVectorType> mg(
     mg_matrix, *mg_coarse, mg_transfer, mg_smoother, mg_smoother);
 
   // Convert it to a preconditioner.

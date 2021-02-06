@@ -659,24 +659,29 @@ namespace Step75
 
   // @sect4{Conjugate-gradient solver preconditioned by hybrid polynomial-global-coarsening multigrid approach}
 
-  template <typename VectorType, typename Operator, int dim>
-  void solve_with_gmg(SolverControl &                  solver_control,
-                      const Operator &                 system_matrix,
-                      VectorType &                     dst,
-                      const VectorType &               src,
-                      const hp::MappingCollection<dim> mapping_collection,
-                      const DoFHandler<dim> &          dof_handler,
-                      const hp::QCollection<dim> &     quadrature_collection)
+  template <int dim, typename VectorType>
+  void solve_with_gmg(
+    SolverControl &                                              solver_control,
+    const LaplaceOperator<dim, typename VectorType::value_type> &system_matrix,
+    VectorType &                                                 dst,
+    const VectorType &                                           src,
+    const hp::MappingCollection<dim> mapping_collection,
+    const DoFHandler<dim> &          dof_handler,
+    const hp::QCollection<dim> &     quadrature_collection)
   {
     const GMGParameters mg_data; // TODO -> MF
+
+    using NumberLevel   = float;
+    using LevelOperator = LaplaceOperator<dim, NumberLevel>;
 
     // Create a DoFHandler and operator for each multigrid level defined
     // by p-coarsening, as well as, create transfer operators.
     MGLevelObject<DoFHandler<dim>> dof_handlers;
-    MGLevelObject<std::unique_ptr<
-      MGSolverOperatorBase<dim, typename VectorType::value_type>>>
-                                                       operators;
-    MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfers;
+    MGLevelObject<std::unique_ptr<MGSolverOperatorBase<dim, NumberLevel>>>
+      operators;
+    MGLevelObject<
+      MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<NumberLevel>>>
+      transfers;
 
     MGLevelObject<std::shared_ptr<Triangulation<dim>>>
       coarse_grid_triangulations;
@@ -760,8 +765,8 @@ namespace Step75
       }
 
     // Create data structures on each multigrid level.
-    MGLevelObject<AffineConstraints<typename VectorType::value_type>>
-      constraints(minlevel, maxlevel);
+    MGLevelObject<AffineConstraints<NumberLevel>> constraints(minlevel,
+                                                              maxlevel);
 
     for (unsigned int level = minlevel; level <= maxlevel; level++)
       {
@@ -781,20 +786,21 @@ namespace Step75
             mapping_collection,
             dof_handler,
             0,
-            Functions::ZeroFunction<dim>(),
+            Functions::ZeroFunction<dim, NumberLevel>(),
             constraint);
           constraint.close();
         }
 
         // ... operator (just like on the finest level)
         {
-          VectorType dummy;
+          LinearAlgebra::distributed::Vector<NumberLevel> dummy;
 
-          operators[level] = std::make_unique<Operator>(mapping_collection,
-                                                        dof_handler,
-                                                        quadrature_collection,
-                                                        constraint,
-                                                        dummy);
+          operators[level] =
+            std::make_unique<LevelOperator>(mapping_collection,
+                                            dof_handler,
+                                            quadrature_collection,
+                                            constraint,
+                                            dummy);
         }
       }
 
@@ -813,9 +819,8 @@ namespace Step75
 
     // Collect transfer operators within a single operator as needed by
     // the Multigrid solver class.
-    MGTransferGlobalCoarsening<
-      MGSolverOperatorBase<dim, typename VectorType::value_type>,
-      VectorType>
+    MGTransferGlobalCoarsening<MGSolverOperatorBase<dim, NumberLevel>,
+                               LinearAlgebra::distributed::Vector<NumberLevel>>
       transfer(operators, transfers);
 
     // Proceed to solve the problem with multigrid.
