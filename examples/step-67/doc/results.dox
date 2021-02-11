@@ -803,3 +803,8 @@ compressible Navier--Stokes equations by adding viscous terms, as described in
 here despite the additional cost of elliptic terms, e.g. via an interior
 penalty method, one can switch the basis from FE_DGQ to FE_DGQHermite like in
 the step-59 tutorial program.
+
+
+<h4>Using element-centric loops and shared memory</h4>
+
+TODO: reference step-76
