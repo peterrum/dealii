@@ -13,12 +13,12 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef dealii_simplex_fe_lib_h
-#define dealii_simplex_fe_lib_h
 
-#include <deal.II/fe/fe_p.h>
-#include <deal.II/fe/fe_p_bubbles.h>
-#include <deal.II/fe/fe_p_pyramid.h>
-#include <deal.II/fe/fe_p_wedge.h>
 
+for (deal_II_dimension : DIMENSIONS; deal_II_space_dimension : DIMENSIONS)
+  {
+#if deal_II_dimension <= deal_II_space_dimension
+    template class Simplex::FE_P_Bubbles<deal_II_dimension,
+                                         deal_II_space_dimension>;
 #endif
+  }
