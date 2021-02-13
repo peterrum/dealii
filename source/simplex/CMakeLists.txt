@@ -17,7 +17,6 @@ INCLUDE_DIRECTORIES(BEFORE ${CMAKE_CURRENT_BINARY_DIR})
 
 SET(_unity_include_src
   fe_lib.cc
-  polynomials.cc
   )
 
 SET(_separate_src
