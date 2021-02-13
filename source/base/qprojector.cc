@@ -18,7 +18,7 @@
 #include <deal.II/base/qprojector.h>
 #include <deal.II/base/tensor_product_polynomials.h>
 
-#include <deal.II/simplex/barycentric_polynomials.h>
+#include <deal.II/base/polynomials_barycentric.h>
 
 DEAL_II_NAMESPACE_OPEN
 

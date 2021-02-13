@@ -21,7 +21,7 @@
 
 #include <deal.II/base/scalar_polynomials_base.h>
 
-#include <deal.II/simplex/barycentric_polynomials.h>
+#include <deal.II/base/polynomials_barycentric.h>
 
 DEAL_II_NAMESPACE_OPEN
 
