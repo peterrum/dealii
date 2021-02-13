@@ -15,6 +15,7 @@
 
 
 #include <deal.II/base/polynomials_barycentric.h>
+
 #include <deal.II/simplex/polynomials.h>
 
 DEAL_II_NAMESPACE_OPEN

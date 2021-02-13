@@ -2248,7 +2248,7 @@ namespace GridGenerator
                                        const double       p1       = 0.0,
                                        const double       p2       = 1.0,
                                        const bool         colorize = false);
-  
+
   ///@}
 
   /**

@@ -16,9 +16,9 @@
 // Test Simplex::BarycentricPolynomial and Simplex::BarycentricPolynomials.
 
 #include <deal.II/base/point.h>
+#include <deal.II/base/polynomials_barycentric.h>
 #include <deal.II/base/table.h>
 
-#include <deal.II/base/polynomials_barycentric.h>
 #include <deal.II/simplex/fe_lib.h>
 #include <deal.II/simplex/polynomials.h>
 

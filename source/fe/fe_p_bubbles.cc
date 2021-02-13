@@ -15,6 +15,7 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/base/polynomials_barycentric.h>
 #include <deal.II/base/qprojector.h>
 
 #include <deal.II/fe/fe_dgq.h>
@@ -22,15 +23,14 @@
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_tools.h>
 
-#include <deal.II/base/polynomials_barycentric.h>
 #include <deal.II/simplex/fe_lib.h>
 
 DEAL_II_NAMESPACE_OPEN
 
 namespace Simplex
 {
-    namespace
-    {
+  namespace
+  {
     /**
      * Set up a vector that contains the unit (reference) cell support points
      * for FE_Poly and sufficiently similar elements.
@@ -112,8 +112,8 @@ namespace Simplex
 
       return unit_points;
     }
-    }
-    
+  } // namespace
+
   namespace FE_P_BubblesImplementation
   {
     template <int dim>

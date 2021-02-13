@@ -19,9 +19,8 @@
 
 #include <deal.II/base/config.h>
 
-#include <deal.II/base/scalar_polynomials_base.h>
-
 #include <deal.II/base/polynomials_barycentric.h>
+#include <deal.II/base/scalar_polynomials_base.h>
 
 DEAL_II_NAMESPACE_OPEN
 

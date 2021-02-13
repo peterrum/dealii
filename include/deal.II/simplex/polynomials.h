@@ -17,8 +17,8 @@
 #ifndef dealii_simplex_polynomials_h
 #define dealii_simplex_polynomials_h
 
+#include <deal.II/base/polynomials_barycentric.h>
 #include <deal.II/base/polynomials_pyramid.h>
 #include <deal.II/base/polynomials_wedge.h>
-#include <deal.II/base/polynomials_barycentric.h>
 
 #endif

@@ -15,6 +15,7 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/base/polynomials_barycentric.h>
 #include <deal.II/base/qprojector.h>
 
 #include <deal.II/fe/fe_dgq.h>
@@ -22,15 +23,14 @@
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_tools.h>
 
-#include <deal.II/base/polynomials_barycentric.h>
 #include <deal.II/simplex/fe_lib.h>
 
 DEAL_II_NAMESPACE_OPEN
 
 namespace Simplex
 {
-    namespace
-    {
+  namespace
+  {
     /**
      * Helper function to set up the dpo vector of FE_WedgeP for a given @p degree.
      */
@@ -82,8 +82,8 @@ namespace Simplex
 
       return internal::expand(3, {{0, 0, 0, n_dofs}}, ReferenceCells::Wedge);
     }
-    }
-    
+  } // namespace
+
   template <int dim, int spacedim>
   FE_Wedge<dim, spacedim>::FE_Wedge(
     const unsigned int                                degree,

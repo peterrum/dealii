@@ -15,6 +15,7 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/base/polynomials_barycentric.h>
 #include <deal.II/base/qprojector.h>
 
 #include <deal.II/fe/fe_dgq.h>
@@ -22,7 +23,6 @@
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_tools.h>
 
-#include <deal.II/base/polynomials_barycentric.h>
 #include <deal.II/simplex/fe_lib.h>
 
 DEAL_II_NAMESPACE_OPEN

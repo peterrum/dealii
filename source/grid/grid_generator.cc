@@ -8223,9 +8223,9 @@ namespace GridGenerator
 
     return surface_to_volume_mapping;
   }
-  
-  
-  
+
+
+
   template <int dim, int spacedim>
   void
   subdivided_hyper_rectangle_with_simplices(
@@ -8235,9 +8235,9 @@ namespace GridGenerator
     const Point<dim> &               p2,
     const bool                       colorize)
   {
-#ifndef DEAL_II_WITH_SIMPLEX_SUPPORT
+#  ifndef DEAL_II_WITH_SIMPLEX_SUPPORT
     Assert(false, ExcNeedsSimplexSupport());
-#endif
+#  endif
     AssertDimension(dim, spacedim);
 
     AssertThrow(colorize == false, ExcNotImplemented());
@@ -8383,8 +8383,8 @@ namespace GridGenerator
     // actually create triangulation
     tria.create_triangulation(vertices, cells, SubCellData());
   }
-  
-  
+
+
 
   template <int dim, int spacedim>
   void
