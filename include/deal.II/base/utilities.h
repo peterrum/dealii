@@ -765,6 +765,27 @@ namespace Utilities
   }
 
   /**
+   * Return underlying value. Default: return input.
+   */
+  template <typename T>
+  T &
+  get_underlying_value(T &p);
+
+  /**
+   * Return underlying value. Specialization for std::shared_ptr.
+   */
+  template <typename T>
+  T &
+  get_underlying_value(const std::shared_ptr<T> &p);
+
+  /**
+   * Return underlying value. Specialization for std::unique_ptr.
+   */
+  template <typename T>
+  T &
+  get_underlying_value(const std::unique_ptr<T> &p);
+
+  /**
    * A namespace for utility functions that probe system properties.
    *
    * @ingroup utilities
@@ -1332,6 +1353,29 @@ namespace Utilities
                  buffer.cend(),
                  unpacked_object,
                  allow_compression);
+  }
+
+
+
+  template <typename T>
+  inline T &
+  get_underlying_value(T &p)
+  {
+    return p;
+  }
+
+  template <typename T>
+  inline T &
+  get_underlying_value(const std::shared_ptr<T> &p)
+  {
+    return *p;
+  }
+
+  template <typename T>
+  inline T &
+  get_underlying_value(const std::unique_ptr<T> &p)
+  {
+    return *p;
   }
 
 
