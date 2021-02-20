@@ -15,8 +15,7 @@
 
 
 #include <deal.II/base/polynomials_barycentric.h>
-
-#include <deal.II/simplex/polynomials.h>
+#include <deal.II/base/polynomials_wedge.h>
 
 DEAL_II_NAMESPACE_OPEN
 

@@ -18,10 +18,13 @@
 
 #include <deal.II/dofs/dof_handler.h>
 
+#include <deal.II/fe/fe_p.h>
+#include <deal.II/fe/fe_p_bubbles.h>
+#include <deal.II/fe/fe_p_pyramid.h>
+#include <deal.II/fe/fe_p_wedge.h>
+
 #include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/tria.h>
-
-#include <deal.II/simplex/fe_lib.h>
 
 #include "../tests.h"
 

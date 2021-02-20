@@ -17,8 +17,12 @@
 // Evaluate Simplex::FE_P  and Simplex::FE_DGP at quadrature points.
 
 
-#include <deal.II/simplex/fe_lib.h>
-#include <deal.II/simplex/quadrature_lib.h>
+#include <deal.II/base/quadrature_lib.h>
+
+#include <deal.II/fe/fe_p.h>
+#include <deal.II/fe/fe_p_bubbles.h>
+#include <deal.II/fe/fe_p_pyramid.h>
+#include <deal.II/fe/fe_p_wedge.h>
 
 #include "../tests.h"
 

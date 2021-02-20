@@ -17,7 +17,10 @@
 // Test n_dofs_per-methods of Simplex::FE_P  and Simplex::FE_DGP.
 
 
-#include <deal.II/simplex/fe_lib.h>
+#include <deal.II/fe/fe_p.h>
+#include <deal.II/fe/fe_p_bubbles.h>
+#include <deal.II/fe/fe_p_pyramid.h>
+#include <deal.II/fe/fe_p_wedge.h>
 
 #include "../tests.h"
 

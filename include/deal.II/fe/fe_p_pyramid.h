@@ -18,9 +18,9 @@
 
 #include <deal.II/base/config.h>
 
-#include <deal.II/fe/fe_poly.h>
+#include <deal.II/base/polynomials_pyramid.h>
 
-#include <deal.II/simplex/polynomials.h>
+#include <deal.II/fe/fe_poly.h>
 
 DEAL_II_NAMESPACE_OPEN
 

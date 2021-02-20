@@ -20,10 +20,12 @@
 
 #include <deal.II/fe/fe_dgq.h>
 #include <deal.II/fe/fe_nothing.h>
+#include <deal.II/fe/fe_p.h>
+#include <deal.II/fe/fe_p_bubbles.h>
+#include <deal.II/fe/fe_p_pyramid.h>
+#include <deal.II/fe/fe_p_wedge.h>
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_tools.h>
-
-#include <deal.II/simplex/fe_lib.h>
 
 DEAL_II_NAMESPACE_OPEN
 

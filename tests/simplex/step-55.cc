@@ -86,12 +86,15 @@ namespace LA
 #ifdef HEX
 #  include <deal.II/distributed/tria.h>
 #else
+#  include <deal.II/base/quadrature_lib.h>
+
 #  include <deal.II/distributed/fully_distributed_tria.h>
 
+#  include <deal.II/fe/fe_p.h>
+#  include <deal.II/fe/fe_p_bubbles.h>
+#  include <deal.II/fe/fe_p_pyramid.h>
+#  include <deal.II/fe/fe_p_wedge.h>
 #  include <deal.II/fe/mapping_fe.h>
-
-#  include <deal.II/simplex/fe_lib.h>
-#  include <deal.II/simplex/quadrature_lib.h>
 #endif
 
 
