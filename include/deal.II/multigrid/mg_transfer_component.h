@@ -294,9 +294,9 @@ public:
          const unsigned int mg_component = numbers::invalid_unsigned_int);
 
   virtual void
-  prolongate(const unsigned int    to_level,
-             Vector<number> &      dst,
-             const Vector<number> &src) const override;
+  prolongate_and_add(const unsigned int    to_level,
+                     Vector<number> &      dst,
+                     const Vector<number> &src) const override;
 
   virtual void
   restrict_and_add(const unsigned int    from_level,

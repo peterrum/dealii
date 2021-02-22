@@ -1945,9 +1945,10 @@ namespace MGTransferGlobalCoarseningTools
 
 template <int dim, typename Number>
 void
-MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::prolongate(
-  LinearAlgebra::distributed::Vector<Number> &      dst,
-  const LinearAlgebra::distributed::Vector<Number> &src) const
+MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
+  prolongate_and_add(
+    LinearAlgebra::distributed::Vector<Number> &      dst,
+    const LinearAlgebra::distributed::Vector<Number> &src) const
 {
   using VectorizedArrayType = VectorizedArray<Number>;
 
@@ -2076,7 +2077,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::prolongate(
   if (schemes.size() > 0 && schemes.front().fine_element_is_continuous)
     this->vec_fine.compress(VectorOperation::add);
 
-  dst.copy_locally_owned_data_from(this->vec_fine);
+  dst += this->vec_fine;
 }
 
 

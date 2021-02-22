@@ -242,9 +242,9 @@ public:
                  const std::vector<bool> &        selected);
 
   virtual void
-  prolongate(const unsigned int         to_level,
-             BlockVector<number> &      dst,
-             const BlockVector<number> &src) const override;
+  prolongate_and_add(const unsigned int         to_level,
+                     BlockVector<number> &      dst,
+                     const BlockVector<number> &src) const override;
 
   virtual void
   restrict_and_add(const unsigned int         from_level,
@@ -381,9 +381,9 @@ public:
   select(const unsigned int block);
 
   virtual void
-  prolongate(const unsigned int    to_level,
-             Vector<number> &      dst,
-             const Vector<number> &src) const override;
+  prolongate_and_add(const unsigned int    to_level,
+                     Vector<number> &      dst,
+                     const Vector<number> &src) const override;
 
   virtual void
   restrict_and_add(const unsigned int    from_level,

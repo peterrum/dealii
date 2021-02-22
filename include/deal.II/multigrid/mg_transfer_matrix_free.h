@@ -108,7 +108,7 @@ public:
   /**
    * Prolongate a vector from level <tt>to_level-1</tt> to level
    * <tt>to_level</tt> using the embedding matrices of the underlying finite
-   * element. The previous content of <tt>dst</tt> is overwritten.
+   * element, summing into the previous content of <tt>dst</tt>.
    *
    * @param to_level The index of the level to prolongate to, which is the
    * level of @p dst.
@@ -120,7 +120,7 @@ public:
    * finer level.
    */
   virtual void
-  prolongate(
+  prolongate_and_add(
     const unsigned int                                to_level,
     LinearAlgebra::distributed::Vector<Number> &      dst,
     const LinearAlgebra::distributed::Vector<Number> &src) const override;
@@ -365,7 +365,7 @@ public:
   /**
    * Prolongate a vector from level <tt>to_level-1</tt> to level
    * <tt>to_level</tt> using the embedding matrices of the underlying finite
-   * element. The previous content of <tt>dst</tt> is overwritten.
+   * element, summing into the previous content of <tt>dst</tt>.
    *
    * @param to_level The index of the level to prolongate to, which is the
    * level of @p dst.
@@ -377,7 +377,7 @@ public:
    * finer level.
    */
   virtual void
-  prolongate(
+  prolongate_and_add(
     const unsigned int                                     to_level,
     LinearAlgebra::distributed::BlockVector<Number> &      dst,
     const LinearAlgebra::distributed::BlockVector<Number> &src) const override;

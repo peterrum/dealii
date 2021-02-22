@@ -706,7 +706,7 @@ public:
   /**
    * Prolongate a vector from level <tt>to_level-1</tt> to level
    * <tt>to_level</tt> using the embedding matrices of the underlying finite
-   * element. The previous content of <tt>dst</tt> is overwritten.
+   * element, summing into the previous content of <tt>dst</tt>.
    *
    * @arg src is a vector with as many elements as there are degrees of
    * freedom on the coarser level involved.
@@ -715,9 +715,9 @@ public:
    * finer level.
    */
   virtual void
-  prolongate(const unsigned int to_level,
-             VectorType &       dst,
-             const VectorType & src) const override;
+  prolongate_and_add(const unsigned int to_level,
+                     VectorType &       dst,
+                     const VectorType & src) const override;
 
   /**
    * Restrict a vector from level <tt>from_level</tt> to level

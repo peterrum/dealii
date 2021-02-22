@@ -180,7 +180,7 @@ MGTransferMatrixFree<dim, Number>::build(
 
 template <int dim, typename Number>
 void
-MGTransferMatrixFree<dim, Number>::prolongate(
+MGTransferMatrixFree<dim, Number>::prolongate_and_add(
   const unsigned int                                to_level,
   LinearAlgebra::distributed::Vector<Number> &      dst,
   const LinearAlgebra::distributed::Vector<Number> &src) const
@@ -250,7 +250,7 @@ MGTransferMatrixFree<dim, Number>::prolongate(
 
   dst_vec.compress(VectorOperation::add);
   if (dst_inplace == false)
-    dst.copy_locally_owned_data_from(this->ghosted_level_vector[to_level]);
+    dst += this->ghosted_level_vector[to_level];
 
   if (src_inplace == true)
     src.zero_out_ghost_values();
@@ -755,7 +755,7 @@ MGTransferBlockMatrixFree<dim, Number>::build(
 
 template <int dim, typename Number>
 void
-MGTransferBlockMatrixFree<dim, Number>::prolongate(
+MGTransferBlockMatrixFree<dim, Number>::prolongate_and_add(
   const unsigned int                                     to_level,
   LinearAlgebra::distributed::BlockVector<Number> &      dst,
   const LinearAlgebra::distributed::BlockVector<Number> &src) const
@@ -769,9 +769,9 @@ MGTransferBlockMatrixFree<dim, Number>::prolongate(
   for (unsigned int b = 0; b < n_blocks; ++b)
     {
       const unsigned int data_block = same_for_all ? 0 : b;
-      matrix_free_transfer_vector[data_block].prolongate(to_level,
-                                                         dst.block(b),
-                                                         src.block(b));
+      matrix_free_transfer_vector[data_block].prolongate_and_add(to_level,
+                                                                 dst.block(b),
+                                                                 src.block(b));
     }
 }
 

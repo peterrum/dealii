@@ -78,9 +78,9 @@ MGTransferPrebuilt<VectorType>::clear()
 
 template <typename VectorType>
 void
-MGTransferPrebuilt<VectorType>::prolongate(const unsigned int to_level,
-                                           VectorType &       dst,
-                                           const VectorType & src) const
+MGTransferPrebuilt<VectorType>::prolongate_and_add(const unsigned int to_level,
+                                                   VectorType &       dst,
+                                                   const VectorType & src) const
 {
   Assert((to_level >= 1) && (to_level <= prolongation_matrices.size()),
          ExcIndexRange(to_level, 1, prolongation_matrices.size() + 1));
@@ -93,11 +93,11 @@ MGTransferPrebuilt<VectorType>::prolongate(const unsigned int to_level,
       VectorType copy_src(src);
       this->mg_constrained_dofs->get_user_constraint_matrix(to_level - 1)
         .distribute(copy_src);
-      prolongation_matrices[to_level - 1]->vmult(dst, copy_src);
+      prolongation_matrices[to_level - 1]->vmult_add(dst, copy_src);
     }
   else
     {
-      prolongation_matrices[to_level - 1]->vmult(dst, src);
+      prolongation_matrices[to_level - 1]->vmult_add(dst, src);
     }
 }
 

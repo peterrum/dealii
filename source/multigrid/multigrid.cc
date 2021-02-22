@@ -75,9 +75,10 @@ MGTransferBlock<number>::initialize(const std::vector<number> &   f,
 
 template <typename number>
 void
-MGTransferBlock<number>::prolongate(const unsigned int         to_level,
-                                    BlockVector<number> &      dst,
-                                    const BlockVector<number> &src) const
+MGTransferBlock<number>::prolongate_and_add(
+  const unsigned int         to_level,
+  BlockVector<number> &      dst,
+  const BlockVector<number> &src) const
 {
   Assert((to_level >= 1) && (to_level <= prolongation_matrices.size()),
          ExcIndexRange(to_level, 1, prolongation_matrices.size() + 1));
@@ -100,7 +101,7 @@ MGTransferBlock<number>::prolongate(const unsigned int         to_level,
   for (unsigned int b = 0; b < this->mg_block.size(); ++b)
     {
       if (this->selected[b])
-        prolongation_matrices[to_level - 1]->block(b, b).vmult(
+        prolongation_matrices[to_level - 1]->block(b, b).vmult_add(
           dst.block(this->mg_block[b]), src.block(this->mg_block[b]));
     }
 }
@@ -212,9 +213,9 @@ MGTransferSelect<number>::MGTransferSelect(const AffineConstraints<double> &c)
 
 template <typename number>
 void
-MGTransferSelect<number>::prolongate(const unsigned int    to_level,
-                                     Vector<number> &      dst,
-                                     const Vector<number> &src) const
+MGTransferSelect<number>::prolongate_and_add(const unsigned int    to_level,
+                                             Vector<number> &      dst,
+                                             const Vector<number> &src) const
 {
   Assert((to_level >= 1) && (to_level <= prolongation_matrices.size()),
          ExcIndexRange(to_level, 1, prolongation_matrices.size() + 1));
@@ -222,7 +223,7 @@ MGTransferSelect<number>::prolongate(const unsigned int    to_level,
   prolongation_matrices[to_level - 1]
     ->block(mg_target_component[mg_selected_component],
             mg_target_component[mg_selected_component])
-    .vmult(dst, src);
+    .vmult_add(dst, src);
 }
 
 
@@ -263,9 +264,10 @@ MGTransferBlockSelect<number>::MGTransferBlockSelect(
 
 template <typename number>
 void
-MGTransferBlockSelect<number>::prolongate(const unsigned int    to_level,
-                                          Vector<number> &      dst,
-                                          const Vector<number> &src) const
+MGTransferBlockSelect<number>::prolongate_and_add(
+  const unsigned int    to_level,
+  Vector<number> &      dst,
+  const Vector<number> &src) const
 {
   Assert((to_level >= 1) && (to_level <= prolongation_matrices.size()),
          ExcIndexRange(to_level, 1, prolongation_matrices.size() + 1));
@@ -280,7 +282,7 @@ MGTransferBlockSelect<number>::prolongate(const unsigned int    to_level,
 
   prolongation_matrices[to_level - 1]
     ->block(selected_block, selected_block)
-    .vmult(dst, src);
+    .vmult_add(dst, src);
 }
 
 

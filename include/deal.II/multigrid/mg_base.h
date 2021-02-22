@@ -189,7 +189,22 @@ public:
   virtual void
   prolongate(const unsigned int to_level,
              VectorType &       dst,
-             const VectorType & src) const = 0;
+             const VectorType & src) const;
+
+  /**
+   * Prolongate a vector from level <tt>to_level-1</tt> to level
+   * <tt>to_level</tt>, summing into the previous content of <tt>dst</tt>.
+   *
+   * @arg src is a vector with as many elements as there are degrees of
+   * freedom on the coarser level involved.
+   *
+   * @arg dst has as many elements as there are degrees of freedom on the
+   * finer level.
+   */
+  virtual void
+  prolongate_and_add(const unsigned int to_level,
+                     VectorType &       dst,
+                     const VectorType & src) const;
 
   /**
    * Restrict a vector from level <tt>from_level</tt> to level
