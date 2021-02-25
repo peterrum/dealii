@@ -49,14 +49,15 @@ namespace Utilities
        */
       template <typename T>
       void
-      process(std::vector<T> &                    output,
-              std::vector<T> &                    input,
-              const std::function<void(
-                std::vector<T> &,
-                const std::tuple<
-                  std::vector<std::pair<std::pair<int, int>, unsigned int>>,
-                  std::vector<Point<dim>>,
-                  std::vector<unsigned int>> &)> &fu) const;
+      evaluate_and_process(
+        std::vector<T> &output,
+        std::vector<T> &buffer,
+        const std::function<
+          void(std::vector<T> &,
+               const std::tuple<
+                 std::vector<std::pair<std::pair<int, int>, unsigned int>>,
+                 std::vector<Point<dim>>,
+                 std::vector<unsigned int>> &)> &fu) const;
 
 
       const std::vector<unsigned int> &
@@ -104,9 +105,9 @@ namespace Utilities
     template <int dim, int spacedim>
     template <typename T>
     void
-    RemotePointEvaluation<dim, spacedim>::process(
+    RemotePointEvaluation<dim, spacedim>::evaluate_and_process(
       std::vector<T> &output,
-      std::vector<T> &input,
+      std::vector<T> &buffer,
       const std::function<
         void(std::vector<T> &,
              const std::tuple<
@@ -115,10 +116,10 @@ namespace Utilities
                std::vector<unsigned int>> &)> &fu) const
     {
       output.resize(quadrature_points_ptr.back());
-      input.resize(
+      buffer.resize(
         (std::get<1>(this->relevant_remote_points_per_process).size()));
 
-      fu(input, relevant_remote_points_per_process);
+      fu(buffer, relevant_remote_points_per_process);
 
       // process remote quadrature points and send them away
       std::map<unsigned int, std::vector<char>> temp_map;
@@ -138,14 +139,14 @@ namespace Utilities
             {
               // process locally-owned values
               temp_recv_map[my_rank] =
-                std::vector<T>(input.begin() + send_ptr[i],
-                               input.begin() + send_ptr[i + 1]);
+                std::vector<T>(buffer.begin() + send_ptr[i],
+                               buffer.begin() + send_ptr[i + 1]);
               continue;
             }
 
           temp_map[send_ranks[i]] =
-            Utilities::pack(std::vector<T>(input.begin() + send_ptr[i],
-                                           input.begin() + send_ptr[i + 1]));
+            Utilities::pack(std::vector<T>(buffer.begin() + send_ptr[i],
+                                           buffer.begin() + send_ptr[i + 1]));
 
           auto &buffer = temp_map[send_ranks[i]];
 
