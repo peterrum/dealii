@@ -63,6 +63,9 @@ namespace Utilities
              const Triangulation<dim, spacedim> &tria,
              const Mapping<dim, spacedim> &      mapping)
       {
+        this->tria    = &tria;
+        this->mapping = &mapping;
+
         comm = get_mpi_comm(tria);
 
         // create bounding boxed of local active cells
@@ -488,13 +491,33 @@ namespace Utilities
       }
 
       bool
-      is_unique_mapping()
+      is_unique_mapping() const
       {
         return unique_mapping;
       }
 
+      const Triangulation<dim, spacedim> &
+      get_triangulation() const
+      {
+        return *tria;
+      }
+      const Mapping<dim, spacedim> &
+      get_mapping() const
+      {
+        return *mapping;
+      }
+
+      bool
+      is_ready() const
+      {
+        return true; // TODO
+      }
+
     private:
       const double tolerance;
+
+      SmartPointer<const Triangulation<dim, spacedim>> tria;
+      SmartPointer<const Mapping<dim, spacedim>>       mapping;
 
       MPI_Comm comm;
 
