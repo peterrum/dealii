@@ -156,7 +156,9 @@ namespace VectorTools
       std::vector<value_type> evaluation_point_results;
       std::vector<value_type> buffer;
 
-      eval.template process<value_type>(evaluation_point_results, buffer, fu);
+      eval.template evaluate_and_process<value_type>(evaluation_point_results,
+                                                     buffer,
+                                                     fu);
 
       return evaluation_point_results;
     }();
