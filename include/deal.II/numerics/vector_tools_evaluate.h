@@ -53,7 +53,8 @@ namespace VectorTools
     const DoFHandler<dim, spacedim> &                     dof_handler,
     const VectorType &                                    vector,
     const std::vector<Point<spacedim>> &                  evaluation_points,
-    Utilities::MPI::RemotePointEvaluation<dim, spacedim> &eval);
+    Utilities::MPI::RemotePointEvaluation<dim, spacedim> &eval,
+    const EvaluationFlags::EvaluationFlags flag = EvaluationFlags::avg);
 
   // inlined functions
 
@@ -63,16 +64,15 @@ namespace VectorTools
                      const DoFHandler<dim, spacedim> &   dof_handler,
                      const VectorType &                  vector,
                      const std::vector<Point<spacedim>> &evaluation_points,
-                     Utilities::MPI::RemotePointEvaluation<dim, spacedim> &eval)
+                     Utilities::MPI::RemotePointEvaluation<dim, spacedim> &eval,
+                     const EvaluationFlags::EvaluationFlags                flag)
   {
-    const auto modus = EvaluationFlags::avg;
-
     using value_type =
       typename FEPointEvaluation<n_components, dim>::value_type;
 
-    const auto evaluation_point_results = [&]() {
-      eval.reinit(evaluation_points, dof_handler.get_triangulation(), mapping);
+    eval.reinit(evaluation_points, dof_handler.get_triangulation(), mapping);
 
+    const auto evaluation_point_results = [&]() {
       std::vector<std::unique_ptr<FEPointEvaluation<n_components, dim>>>
         evaluators(dof_handler.get_fe_collection().size());
 
@@ -135,8 +135,8 @@ namespace VectorTools
         std::vector<value_type> unique_evaluation_point_results(
           evaluation_points.size());
 
-        const auto reduce = [modus](const auto &values) {
-          switch (modus)
+        const auto reduce = [flag](const auto &values) {
+          switch (flag)
             {
               case EvaluationFlags::avg:
                 {
