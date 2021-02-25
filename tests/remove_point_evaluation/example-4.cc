@@ -14,6 +14,7 @@
 // --------------------------------------------------------------------------
 
 #include <deal.II/base/mpi.h>
+#include <deal.II/base/mpi_remote_point_evaluation.h>
 
 #include <deal.II/fe/fe_dgq.h>
 #include <deal.II/fe/fe_nothing.h>
@@ -271,8 +272,10 @@ compute_force_vector_sharp_interface(
   const VectorType &               curvature_vector,
   VectorType &                     force_vector)
 {
-  std::vector<Point<spacedim>>             integration_points;
-  std::vector<Tensor<1, spacedim, double>> integration_values;
+  using T = Tensor<1, spacedim, double>;
+
+  std::vector<Point<spacedim>> integration_points;
+  std::vector<T>               integration_values;
 
   {
     FEValues<dim, spacedim> fe_eval(surface_mapping,
@@ -306,7 +309,7 @@ compute_force_vector_sharp_interface(
 
         for (const auto q : fe_eval_dim.quadrature_point_indices())
           {
-            Tensor<1, spacedim, double> result;
+            T result;
             for (unsigned int i = 0; i < spacedim; ++i)
               result[i] = -curvature_values[q] * normal_values[q][i] *
                           fe_eval.JxW(q) * surface_tension;
@@ -317,56 +320,58 @@ compute_force_vector_sharp_interface(
       }
   }
 
-  const auto [cells, ptrs, weights, points] =
-    collect_integration_points(dof_handler.get_triangulation(),
-                               mapping,
-                               integration_points,
-                               integration_values);
+  Utilities::MPI::RemotePointEvaluation<spacedim, spacedim> eval;
+  eval.reinit(integration_points, dof_handler.get_triangulation(), mapping);
 
-  AffineConstraints<double> constraints; // TODO: use the right ones
+  const auto fu = [&](const auto &values, const auto &quadrature_points) {
+    (void)values; // TODO: use
 
-  FEPointEvaluation<spacedim, spacedim> phi_normal_force(mapping,
-                                                         dof_handler.get_fe());
+    AffineConstraints<double> constraints; // TODO: use the right ones
 
-  std::vector<double>                  buffer;
-  std::vector<types::global_dof_index> local_dof_indices;
+    FEPointEvaluation<spacedim, spacedim> phi_normal_force(
+      mapping, dof_handler.get_fe());
 
-  for (unsigned int i = 0; i < cells.size(); ++i)
-    {
-      typename DoFHandler<spacedim>::active_cell_iterator cell(
-        &dof_handler.get_triangulation(),
-        cells[i].first,
-        cells[i].second,
-        &dof_handler);
+    std::vector<double>                  buffer;
+    std::vector<types::global_dof_index> local_dof_indices;
 
-      const unsigned int n_dofs_per_cell = cell->get_fe().n_dofs_per_cell();
+    unsigned int i = 0;
 
-      local_dof_indices.resize(n_dofs_per_cell);
-      buffer.resize(n_dofs_per_cell);
+    for (const auto &cells_and_n : std::get<0>(quadrature_points))
+      {
+        typename DoFHandler<spacedim>::active_cell_iterator cell = {
+          &eval.get_triangulation(),
+          cells_and_n.first.first,
+          cells_and_n.first.second,
+          &dof_handler};
 
-      cell->get_dof_indices(local_dof_indices);
+        const unsigned int n_dofs_per_cell = cell->get_fe().n_dofs_per_cell();
 
-      const unsigned int n_points = ptrs[i + 1] - ptrs[i];
+        local_dof_indices.resize(n_dofs_per_cell);
+        buffer.resize(n_dofs_per_cell);
 
-      const ArrayView<const Point<spacedim>> unit_points(points.data() +
-                                                           ptrs[i],
-                                                         n_points);
-      const ArrayView<const Tensor<1, spacedim, double>> JxW(weights.data() +
-                                                               ptrs[i],
-                                                             n_points);
+        cell->get_dof_indices(local_dof_indices);
 
-      for (unsigned int q = 0; q < n_points; ++q)
-        phi_normal_force.submit_value(JxW[q], q);
+        const ArrayView<const Point<spacedim>> unit_points(
+          std::get<1>(quadrature_points).data() + i, cells_and_n.second);
+        const std::vector<T> JxW;
 
-      phi_normal_force.integrate(cell,
-                                 unit_points,
-                                 buffer,
-                                 EvaluationFlags::values);
+        for (unsigned int q = 0; q < unit_points.size(); ++q)
+          phi_normal_force.submit_value(JxW[q], q);
 
-      constraints.distribute_local_to_global(buffer,
-                                             local_dof_indices,
-                                             force_vector);
-    }
+        phi_normal_force.integrate(cell,
+                                   unit_points,
+                                   buffer,
+                                   EvaluationFlags::values);
+
+        constraints.distribute_local_to_global(buffer,
+                                               local_dof_indices,
+                                               force_vector);
+      }
+  };
+
+  std::vector<T> buffer;
+
+  eval.template process_and_evaluate<T>(integration_values, buffer, fu);
 }
 
 

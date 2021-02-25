@@ -59,6 +59,18 @@ namespace Utilities
                  std::vector<Point<dim>>,
                  std::vector<unsigned int>> &)> &fu) const;
 
+      template <typename T>
+      void
+      process_and_evaluate(
+        const std::vector<T> &input,
+        std::vector<T> &      buffer,
+        const std::function<
+          void(const std::vector<T> &,
+               const std::tuple<
+                 std::vector<std::pair<std::pair<int, int>, unsigned int>>,
+                 std::vector<Point<dim>>,
+                 std::vector<unsigned int>> &)> &fu) const;
+
 
       const std::vector<unsigned int> &
       get_quadrature_points_ptr() const;
@@ -189,6 +201,25 @@ namespace Utilities
       for (const auto &j : temp_recv_map)
         for (const auto &i : j.second)
           output[*(it++)] = i;
+    }
+
+
+    template <int dim, int spacedim>
+    template <typename T>
+    void
+    RemotePointEvaluation<dim, spacedim>::process_and_evaluate(
+      const std::vector<T> &input,
+      std::vector<T> &      buffer,
+      const std::function<
+        void(const std::vector<T> &,
+             const std::tuple<
+               std::vector<std::pair<std::pair<int, int>, unsigned int>>,
+               std::vector<Point<dim>>,
+               std::vector<unsigned int>> &)> &fu) const
+    {
+      (void)input;
+      (void)buffer;
+      (void)fu;
     }
 
   } // end of namespace MPI
