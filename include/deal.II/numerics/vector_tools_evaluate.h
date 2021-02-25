@@ -19,6 +19,10 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/base/mpi_remote_point_evaluation.h>
+
+#include <deal.II/dofs/dof_handler.h>
+
 #include <deal.II/fe/fe_point_evaluation.h>
 
 #include <map>

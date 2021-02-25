@@ -22,6 +22,8 @@
 #include <deal.II/base/mpi_consensus_algorithms.h>
 #include <deal.II/base/mpi_consensus_algorithms.templates.h>
 
+#include <deal.II/dofs/dof_handler.h>
+
 #include <deal.II/grid/grid_tools.h>
 #include <deal.II/grid/grid_tools_cache.h>
 
@@ -32,6 +34,19 @@ namespace Utilities
 {
   namespace MPI
   {
+    template <typename MeshType>
+    MPI_Comm
+    get_mpi_comm(const MeshType &mesh)
+    {
+      const auto *tria_parallel = dynamic_cast<
+        const parallel::TriangulationBase<MeshType::dimension,
+                                          MeshType::space_dimension> *>(
+        &(mesh.get_triangulation()));
+
+      return tria_parallel != nullptr ? tria_parallel->get_communicator() :
+                                        MPI_COMM_SELF;
+    }
+
     /**
      * TODO
      */
