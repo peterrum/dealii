@@ -31,6 +31,17 @@ DEAL_II_NAMESPACE_OPEN
 
 namespace VectorTools
 {
+  namespace EvaluationFlags
+  {
+    enum EvaluationFlags
+    {
+      avg    = 0,
+      max    = 1,
+      min    = 2,
+      insert = 3
+    };
+  }
+
   /**
    * Given a (distributed) solution vector @p vector, evaluate the values at
    * the (arbitrary and even remote) points specified by @p evaluation_points.
@@ -54,7 +65,7 @@ namespace VectorTools
                      const std::vector<Point<spacedim>> &evaluation_points,
                      Utilities::MPI::RemotePointEvaluation<dim, spacedim> &eval)
   {
-    const unsigned int modus = 0; // TODO
+    const auto modus = EvaluationFlags::avg;
 
     using value_type =
       typename FEPointEvaluation<n_components, dim>::value_type;
@@ -99,7 +110,7 @@ namespace VectorTools
             evaluator.evaluate(cell,
                                unit_points,
                                solution_values,
-                               EvaluationFlags::values);
+                               dealii::EvaluationFlags::values);
 
             for (unsigned int q = 0; q < unit_points.size(); ++q, ++i)
               values[std::get<2>(quadrature_points)[i]] =
@@ -127,18 +138,18 @@ namespace VectorTools
         const auto reduce = [modus](const auto &values) {
           switch (modus)
             {
-              case 0: // avg
+              case EvaluationFlags::avg:
                 {
-                  value_type result = {}; // TODO
+                  value_type result = {};
                   for (const auto &v : values)
                     result += v;
                   return result / values.size();
                 }
-              case 1: // max
+              case EvaluationFlags::max:
                 return *std::max_element(values.begin(), values.end());
-              case 2: // min
+              case EvaluationFlags::min:
                 return *std::min_element(values.begin(), values.end());
-              case 3: // insert
+              case EvaluationFlags::insert:
                 return values[0];
               default:
                 Assert(false, ExcNotImplemented());
