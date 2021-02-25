@@ -53,8 +53,26 @@ namespace VectorTools
     const DoFHandler<dim, spacedim> &                     dof_handler,
     const VectorType &                                    vector,
     const std::vector<Point<spacedim>> &                  evaluation_points,
-    Utilities::MPI::RemotePointEvaluation<dim, spacedim> &eval,
-    const EvaluationFlags::EvaluationFlags flag = EvaluationFlags::avg);
+    Utilities::MPI::RemotePointEvaluation<dim, spacedim> &cache,
+    const EvaluationFlags::EvaluationFlags flags = EvaluationFlags::avg);
+
+  /**
+   * Given a (distributed) solution vector @p vector, evaluate the values at
+   * the points specified by the @p cache which might have been set up by the
+   * above function.
+   *
+   * @note Refinement/coarsening/repartitioning leads to the invalidation of the
+   *   cache so that the above function has to be called again.
+   */
+  template <int n_components, int dim, int spacedim, typename VectorType>
+  std::vector<typename FEPointEvaluation<n_components, dim>::value_type>
+  evaluate_at_points(
+    const DoFHandler<dim, spacedim> &                           dof_handler,
+    const VectorType &                                          vector,
+    const Utilities::MPI::RemotePointEvaluation<dim, spacedim> &cache,
+    const EvaluationFlags::EvaluationFlags flags = EvaluationFlags::avg);
+
+
 
   // inlined functions
 
@@ -65,12 +83,29 @@ namespace VectorTools
                      const VectorType &                  vector,
                      const std::vector<Point<spacedim>> &evaluation_points,
                      Utilities::MPI::RemotePointEvaluation<dim, spacedim> &eval,
-                     const EvaluationFlags::EvaluationFlags                flag)
+                     const EvaluationFlags::EvaluationFlags flags)
+  {
+    eval.reinit(evaluation_points, dof_handler.get_triangulation(), mapping);
+
+    return evaluate_at_points<n_components>(dof_handler, vector, eval, flags);
+  }
+
+
+
+  template <int n_components, int dim, int spacedim, typename VectorType>
+  inline std::vector<typename FEPointEvaluation<n_components, dim>::value_type>
+  evaluate_at_points(
+    const DoFHandler<dim, spacedim> &                           dof_handler,
+    const VectorType &                                          vector,
+    const Utilities::MPI::RemotePointEvaluation<dim, spacedim> &eval,
+    const EvaluationFlags::EvaluationFlags                      flags)
   {
     using value_type =
       typename FEPointEvaluation<n_components, dim>::value_type;
 
-    eval.reinit(evaluation_points, dof_handler.get_triangulation(), mapping);
+    Assert(eval.is_ready(),
+           ExcMessage(
+             "Utilties::MPI::RemotePointEvaluation is not ready yet!"));
 
     const auto evaluation_point_results = [&]() {
       std::vector<std::unique_ptr<FEPointEvaluation<n_components, dim>>>
@@ -84,7 +119,7 @@ namespace VectorTools
         for (const auto &cells_and_n : std::get<0>(quadrature_points))
           {
             typename DoFHandler<dim>::active_cell_iterator cell = {
-              &dof_handler.get_triangulation(),
+              &eval.get_triangulation(),
               cells_and_n.first.first,
               cells_and_n.first.second,
               &dof_handler};
@@ -103,7 +138,7 @@ namespace VectorTools
             if (evaluators[active_fe_index] == nullptr)
               evaluators[active_fe_index] =
                 std::make_unique<FEPointEvaluation<1, dim>>(
-                  mapping, dof_handler.get_fe(active_fe_index));
+                  eval.get_mapping(), dof_handler.get_fe(active_fe_index));
 
             auto &evaluator = *evaluators[active_fe_index];
 
@@ -133,10 +168,10 @@ namespace VectorTools
     else
       {
         std::vector<value_type> unique_evaluation_point_results(
-          evaluation_points.size());
+          eval.get_quadrature_points_ptr().size() - 1);
 
-        const auto reduce = [flag](const auto &values) {
-          switch (flag)
+        const auto reduce = [flags](const auto &values) {
+          switch (flags)
             {
               case EvaluationFlags::avg:
                 {
@@ -159,7 +194,7 @@ namespace VectorTools
 
         const auto &ptr = eval.get_quadrature_points_ptr();
 
-        for (unsigned int i = 0; i < evaluation_points.size(); ++i)
+        for (unsigned int i = 0; i < ptr.size() - 1; ++i)
           {
             const auto n_entries = ptr[i + 1] - ptr[i];
             if (n_entries == 0)
