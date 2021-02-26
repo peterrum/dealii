@@ -404,7 +404,7 @@ test()
                                        force_vector_sharp_interface);
 
   // write computed vectors to Paraview
-  if (false)
+  if (true)
     {
       DataOutBase::VtkFlags flags;
       // flags.write_higher_order_cells = true;
@@ -418,11 +418,13 @@ test()
                              fe_degree + 1,
                              DataOut<dim, DoFHandler<dim, spacedim>>::
                                CurvedCellRegion::curved_inner_cells);
-      data_out.write_vtu_with_pvtu_record(
-        "./", "output-sharp_interfaces_02/data_surface", 0, MPI_COMM_WORLD);
+      data_out.write_vtu_with_pvtu_record("./",
+                                          "data_surface",
+                                          0,
+                                          MPI_COMM_WORLD);
     }
 
-  if (false)
+  if (true)
     {
       DataOutBase::VtkFlags flags;
       flags.write_higher_order_cells = true;
@@ -435,8 +437,10 @@ test()
                                "force");
 
       data_out.build_patches(background_mapping, background_fe_degree + 1);
-      data_out.write_vtu_with_pvtu_record(
-        "./", "output-sharp_interfaces_02/data_background", 0, MPI_COMM_WORLD);
+      data_out.write_vtu_with_pvtu_record("./",
+                                          "data_background",
+                                          0,
+                                          MPI_COMM_WORLD);
     }
 
   {
