@@ -122,6 +122,12 @@ public:
    */
   void
   restrict_and_add(VectorType &dst, const VectorType &src) const;
+
+  /**
+   * Perform interpolation.
+   */
+  void
+  interpolate(VectorType &dst, const VectorType &src) const;
 };
 
 
@@ -183,6 +189,13 @@ public:
   void
   restrict_and_add(LinearAlgebra::distributed::Vector<Number> &      dst,
                    const LinearAlgebra::distributed::Vector<Number> &src) const;
+
+  /**
+   * Perform interpolation.
+   */
+  void
+  interpolate(LinearAlgebra::distributed::Vector<Number> &      dst,
+              const LinearAlgebra::distributed::Vector<Number> &src) const;
 
   /**
    * Print internal data structures to stream @p out.
