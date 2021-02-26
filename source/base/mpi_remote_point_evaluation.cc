@@ -308,6 +308,8 @@ namespace Utilities
         quadrature_points.size(), 0);
       std::vector<std::pair<unsigned int, unsigned int>> indices_temp;
 
+      indices_ptr = {0};
+
       for (const auto &i : relevant_points_per_process_offset)
         {
           const unsigned int rank = i.first;
@@ -318,8 +320,10 @@ namespace Utilities
           const auto &relevant_points_count =
             relevant_points_per_process_count[rank];
 
+          unsigned int c = 0;
+
           for (unsigned int j = 0; j < relevant_points_offset.size(); ++j)
-            for (unsigned int k = 0; k < relevant_points_count[j]; ++k)
+            for (unsigned int k = 0; k < relevant_points_count[j]; ++k, ++c)
               {
                 auto &qp_counter =
                   quadrature_points_count[relevant_points_offset[j]];
@@ -328,6 +332,8 @@ namespace Utilities
 
                 ++qp_counter;
               }
+
+          indices_ptr.push_back(indices_ptr.back() + c);
         }
 
       quadrature_points_ptr = {0};

@@ -100,6 +100,7 @@ namespace Utilities
       // receiver side
       std::vector<unsigned int> quadrature_points_ptr;
       std::vector<unsigned int> indices;
+      std::vector<unsigned int> indices_ptr;
 
       std::vector<unsigned int> recv_ranks;
 
@@ -217,18 +218,43 @@ namespace Utilities
                std::vector<Point<dim>>,
                std::vector<unsigned int>> &)> &fu) const
     {
-      std::vector<T> buffer_;
-      std::vector<T> buffer__;
+      // expand
+      const auto &   ptr = this->get_quadrature_points_ptr();
+      std::vector<T> buffer_(ptr.back());
 
-      (void)buffer_;
-      (void)buffer__;
+      for (unsigned int i = 0, c = 0; i < ptr.size() - 1; ++i)
+        {
+          const auto n_entries = ptr[i + 1] - ptr[i];
+
+          for (unsigned int j = 0; j < n_entries; ++j, ++c)
+            buffer_[c] = input[i];
+        }
 
       std::map<unsigned int, std::vector<T>> temp_recv_map;
+
+      for (unsigned int i = 0; i < recv_ranks.size(); ++i)
+        {
+          temp_recv_map[recv_ranks[i]] =
+            std::vector<T>(indices_ptr[i + 1] - indices_ptr[i]);
+        }
+
+      const unsigned int my_rank = Utilities::MPI::this_mpi_process(comm);
+
+      if (std::find(send_ranks.begin(), send_ranks.end(), my_rank) !=
+          send_ranks.end())
+        {
+          const unsigned int i = std::distance(std::find(send_ranks.begin(),
+                                                         send_ranks.end(),
+                                                         my_rank),
+                                               send_ranks.begin());
+          temp_recv_map[my_rank] =
+            std::vector<T>(indices_ptr[i + 1] - indices_ptr[i]);
+        }
 
       auto it = indices.begin();
       for (auto &j : temp_recv_map)
         for (auto &i : j.second)
-          i = buffer__[*(it++)];
+          i = buffer_[*(it++)];
 
       buffer.resize(quadrature_points_ptr.back());
 
@@ -236,45 +262,52 @@ namespace Utilities
       std::map<unsigned int, std::vector<char>> temp_map;
 
       std::vector<MPI_Request> requests;
-      requests.reserve(send_ranks.size());
-
-      const unsigned int my_rank = Utilities::MPI::this_mpi_process(comm);
+      requests.reserve(recv_ranks.size());
 
       for (unsigned int i = 0; i < recv_ranks.size(); ++i)
         {
-          continue;
+          // continue;
 
-          //          MPI_Status status;
-          //          MPI_Probe(MPI_ANY_SOURCE, 11, comm, &status);
-          //
-          //          int message_length;
-          //          MPI_Get_count(&status, MPI_CHAR, &message_length);
-          //
-          //          std::vector<char> buffer(message_length);
-          //
-          //          MPI_Recv(buffer.data(),
-          //                   buffer.size(),
-          //                   MPI_CHAR,
-          //                   status.MPI_SOURCE,
-          //                   11,
-          //                   comm,
-          //                   MPI_STATUS_IGNORE);
-          //
-          //          temp_recv_map[status.MPI_SOURCE] =
-          //            Utilities::unpack<std::vector<T>>(buffer);
+          const auto &buffer_send = temp_recv_map[recv_ranks[i]];
+
+          MPI_Isend(buffer_send.data(),
+                    buffer_send.size(),
+                    MPI_CHAR,
+                    recv_ranks[i],
+                    11,
+                    comm,
+                    &requests.back());
         }
 
 
 
       for (unsigned int i = 0; i < send_ranks.size(); ++i)
         {
-          continue;
+          // continue;
+
+          if (send_ranks[i] == my_rank)
+            {
+              const auto &buffer_send = temp_recv_map[send_ranks[i]];
+              // process locally-owned values
+              const unsigned int j = std::distance(send_ranks.begin(),
+                                                   std::find(send_ranks.begin(),
+                                                             send_ranks.end(),
+                                                             my_rank));
+
+              for (unsigned int i = send_ptr[j], c = 0; i < send_ptr[j + 1];
+                   ++i, ++c)
+                buffer[i] = buffer_send[c];
+
+              continue;
+            }
 
           MPI_Status status;
           MPI_Probe(MPI_ANY_SOURCE, 11, comm, &status);
 
-          auto recv_buffer =
-            Utilities::pack(std::vector<T>(send_ptr[i + 1] - send_ptr[i]));
+          int message_length;
+          MPI_Get_count(&status, MPI_CHAR, &message_length);
+
+          std::vector<char> recv_buffer(message_length);
 
           MPI_Recv(recv_buffer.data(),
                    recv_buffer.size(),
@@ -287,7 +320,15 @@ namespace Utilities
           const auto recv_buffer_unpacked =
             Utilities::unpack<std::vector<T>>(recv_buffer);
 
-          for (unsigned int i = send_ptr[i], c = 0; i < send_ptr[i + 1];
+          const unsigned int j = std::distance(send_ranks.begin(),
+                                               std::find(send_ranks.begin(),
+                                                         send_ranks.end(),
+                                                         status.MPI_SOURCE));
+
+          AssertDimension(recv_buffer_unpacked.size(),
+                          send_ptr[j + 1] - send_ptr[j]);
+
+          for (unsigned int i = send_ptr[j], c = 0; i < send_ptr[j + 1];
                ++i, ++c)
             buffer[i] = recv_buffer_unpacked[c];
         }
