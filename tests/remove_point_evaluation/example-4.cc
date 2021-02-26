@@ -16,6 +16,8 @@
 #include <deal.II/base/mpi.h>
 #include <deal.II/base/mpi_remote_point_evaluation.h>
 
+#include <deal.II/distributed/shared_tria.h>
+
 #include <deal.II/fe/fe_dgq.h>
 #include <deal.II/fe/fe_nothing.h>
 #include <deal.II/fe/fe_point_evaluation.h>
@@ -61,6 +63,9 @@ namespace dealii
 
       for (const auto &cell : dof_handler_dim.active_cell_iterators())
         {
+          if (cell->is_locally_owned() == false)
+            continue;
+
           fe_eval.reinit(cell);
 
           temp.reinit(fe_eval.dofs_per_cell);
@@ -77,6 +82,8 @@ namespace dealii
 
           cell->set_dof_values(temp, euler_coordinates_vector);
         }
+
+      euler_coordinates_vector.update_ghost_values();
     }
   } // namespace VectorTools
 } // namespace dealii
@@ -97,6 +104,9 @@ compute_normal(const Mapping<dim, spacedim> &   mapping,
 
   for (const auto &cell : dof_handler_dim.active_cell_iterators())
     {
+      if (cell->is_locally_owned() == false)
+        continue;
+
       fe_eval_dim.reinit(cell);
 
       normal_temp.reinit(fe_eval_dim.dofs_per_cell);
@@ -114,6 +124,8 @@ compute_normal(const Mapping<dim, spacedim> &   mapping,
 
       cell->set_dof_values(normal_temp, normal_vector);
     }
+
+  normal_vector.update_ghost_values();
 }
 
 
@@ -140,6 +152,9 @@ compute_curvature(const Mapping<dim, spacedim> &   mapping,
 
   for (const auto &cell : dof_handler.active_cell_iterators())
     {
+      if (cell->is_locally_owned() == false)
+        continue;
+
       TriaIterator<DoFCellAccessor<dim, spacedim, false>> dof_cell_dim(
         &dof_handler_dim.get_triangulation(),
         cell->level(),
@@ -168,6 +183,8 @@ compute_curvature(const Mapping<dim, spacedim> &   mapping,
 
       cell->set_dof_values(curvature_temp, curvature_vector);
     }
+
+  curvature_vector.update_ghost_values();
 }
 
 
@@ -200,6 +217,9 @@ compute_force_vector_sharp_interface(
     for (const auto &cell :
          surface_dofhandler.get_triangulation().active_cell_iterators())
       {
+        if (cell->is_locally_owned() == false)
+          continue;
+
         fe_eval.reinit(cell);
 
         for (const auto q : fe_eval.quadrature_point_indices())
@@ -229,6 +249,9 @@ compute_force_vector_sharp_interface(
 
     for (const auto &cell : tria_surface.active_cell_iterators())
       {
+        if (cell->is_locally_owned() == false)
+          continue;
+
         TriaIterator<DoFCellAccessor<dim, spacedim, false>> dof_cell(
           &tria_surface, cell->level(), cell->index(), &surface_dofhandler);
         TriaIterator<DoFCellAccessor<dim, spacedim, false>> dof_cell_dim(
@@ -323,7 +346,8 @@ test()
   const unsigned int mapping_degree = fe_degree;
   const unsigned int n_refinements  = 5;
 
-  Triangulation<dim, spacedim> tria;
+  parallel::shared::Triangulation<dim, spacedim> tria(
+    MPI_COMM_WORLD, Triangulation<dim, spacedim>::none, true);
 #if false
   GridGenerator::hyper_sphere(tria, Point<spacedim>(), 0.5);
 #else
@@ -371,7 +395,8 @@ test()
 #endif
   const unsigned int background_fe_degree = 2;
 
-  Triangulation<spacedim> background_tria;
+  parallel::shared::Triangulation<spacedim> background_tria(
+    MPI_COMM_WORLD, Triangulation<spacedim>::none, true);
 #if false
   GridGenerator::hyper_cube(background_tria, -1.0, +1.0);
 #else
