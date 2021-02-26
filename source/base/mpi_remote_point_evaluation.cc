@@ -308,7 +308,7 @@ namespace Utilities
         quadrature_points.size(), 0);
       std::vector<std::pair<unsigned int, unsigned int>> indices_temp;
 
-      indices_ptr = {0};
+      indices_ptr = {0}; // TODO: name
 
       for (const auto &i : relevant_points_per_process_offset)
         {

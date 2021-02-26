@@ -28,6 +28,7 @@
 #include <deal.II/fe/mapping_q_generic.h>
 
 #include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/grid_tools.h>
 #include <deal.II/grid/grid_tools_cache.h>
 
@@ -308,6 +309,9 @@ compute_force_vector_sharp_interface(
 
         cell->get_dof_indices(local_dof_indices);
 
+        AssertIndexRange(i + cells_and_n.second,
+                         std::get<1>(quadrature_points).size() + 1);
+
         const ArrayView<const Point<spacedim>> unit_points(
           std::get<1>(quadrature_points).data() + i, cells_and_n.second);
 
@@ -416,6 +420,18 @@ test()
   MappingQ1<spacedim> background_mapping;
 
   VectorType force_vector_sharp_interface(background_dof_handler.n_dofs());
+
+  // write computed vectors to Paraview
+  if (true)
+    {
+      GridOut().write_mesh_per_processor_as_vtu(tria, "grid_surface");
+    }
+
+  if (true)
+    {
+      GridOut().write_mesh_per_processor_as_vtu(background_tria,
+                                                "grid_background");
+    }
 
   compute_force_vector_sharp_interface(mapping,
                                        dof_handler,
