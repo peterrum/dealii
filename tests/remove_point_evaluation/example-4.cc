@@ -188,10 +188,33 @@ compute_force_vector_sharp_interface(
 {
   using T = Tensor<1, spacedim, double>;
 
-  std::vector<Point<spacedim>> integration_points;
-  std::vector<T>               integration_values;
+  const auto integration_points = [&]() {
+    std::vector<Point<spacedim>> integration_points;
 
-  {
+    FEValues<dim, spacedim> fe_eval(surface_mapping,
+                                    surface_dofhandler.get_fe(),
+                                    surface_quadrature,
+                                    update_values | update_quadrature_points |
+                                      update_JxW_values);
+
+    for (const auto &cell :
+         surface_dofhandler.get_triangulation().active_cell_iterators())
+      {
+        fe_eval.reinit(cell);
+
+        for (const auto q : fe_eval.quadrature_point_indices())
+          integration_points.push_back(fe_eval.quadrature_point(q));
+      }
+
+    return integration_points;
+  }();
+
+  Utilities::MPI::RemotePointEvaluation<spacedim, spacedim> eval;
+  eval.reinit(integration_points, dof_handler.get_triangulation(), mapping);
+
+  const auto integration_values = [&]() {
+    std::vector<T> integration_values;
+
     FEValues<dim, spacedim> fe_eval(surface_mapping,
                                     surface_dofhandler.get_fe(),
                                     surface_quadrature,
@@ -228,18 +251,14 @@ compute_force_vector_sharp_interface(
               result[i] = -curvature_values[q] * normal_values[q][i] *
                           fe_eval.JxW(q) * surface_tension;
 
-            integration_points.push_back(fe_eval.quadrature_point(q));
             integration_values.push_back(result);
           }
       }
-  }
 
-  Utilities::MPI::RemotePointEvaluation<spacedim, spacedim> eval;
-  eval.reinit(integration_points, dof_handler.get_triangulation(), mapping);
+    return integration_values;
+  }();
 
   const auto fu = [&](const auto &values, const auto &quadrature_points) {
-    (void)values; // TODO: use
-
     AffineConstraints<double> constraints; // TODO: use the right ones
 
     FEPointEvaluation<spacedim, spacedim> phi_normal_force(
