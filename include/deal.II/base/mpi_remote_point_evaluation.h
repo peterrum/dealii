@@ -217,9 +217,84 @@ namespace Utilities
                std::vector<Point<dim>>,
                std::vector<unsigned int>> &)> &fu) const
     {
-      (void)input;
-      (void)buffer;
-      (void)fu;
+      std::vector<T> buffer_;
+      std::vector<T> buffer__;
+
+      (void)buffer_;
+      (void)buffer__;
+
+      std::map<unsigned int, std::vector<T>> temp_recv_map;
+
+      auto it = indices.begin();
+      for (auto &j : temp_recv_map)
+        for (auto &i : j.second)
+          i = buffer__[*(it++)];
+
+      buffer.resize(quadrature_points_ptr.back());
+
+      // process remote quadrature points and send them away
+      std::map<unsigned int, std::vector<char>> temp_map;
+
+      std::vector<MPI_Request> requests;
+      requests.reserve(send_ranks.size());
+
+      const unsigned int my_rank = Utilities::MPI::this_mpi_process(comm);
+
+      for (unsigned int i = 0; i < recv_ranks.size(); ++i)
+        {
+          continue;
+
+          //          MPI_Status status;
+          //          MPI_Probe(MPI_ANY_SOURCE, 11, comm, &status);
+          //
+          //          int message_length;
+          //          MPI_Get_count(&status, MPI_CHAR, &message_length);
+          //
+          //          std::vector<char> buffer(message_length);
+          //
+          //          MPI_Recv(buffer.data(),
+          //                   buffer.size(),
+          //                   MPI_CHAR,
+          //                   status.MPI_SOURCE,
+          //                   11,
+          //                   comm,
+          //                   MPI_STATUS_IGNORE);
+          //
+          //          temp_recv_map[status.MPI_SOURCE] =
+          //            Utilities::unpack<std::vector<T>>(buffer);
+        }
+
+
+
+      for (unsigned int i = 0; i < send_ranks.size(); ++i)
+        {
+          continue;
+
+          MPI_Status status;
+          MPI_Probe(MPI_ANY_SOURCE, 11, comm, &status);
+
+          auto recv_buffer =
+            Utilities::pack(std::vector<T>(send_ptr[i + 1] - send_ptr[i]));
+
+          MPI_Recv(recv_buffer.data(),
+                   recv_buffer.size(),
+                   MPI_CHAR,
+                   status.MPI_SOURCE,
+                   11,
+                   comm,
+                   MPI_STATUS_IGNORE);
+
+          const auto recv_buffer_unpacked =
+            Utilities::unpack<std::vector<T>>(recv_buffer);
+
+          for (unsigned int i = send_ptr[i], c = 0; i < send_ptr[i + 1];
+               ++i, ++c)
+            buffer[i] = recv_buffer_unpacked[c];
+        }
+
+      MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
+
+      fu(buffer, relevant_remote_points_per_process);
     }
 
   } // end of namespace MPI
