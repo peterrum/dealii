@@ -256,7 +256,9 @@ namespace Utilities
         for (auto &i : j.second)
           i = buffer_[*(it++)];
 
-      buffer.resize(quadrature_points_ptr.back());
+      // buffer.resize(quadrature_points_ptr.back());
+      buffer.resize(
+        (std::get<1>(this->relevant_remote_points_per_process).size()));
 
       // process remote quadrature points and send them away
       std::map<unsigned int, std::vector<char>> temp_map;
@@ -268,7 +270,12 @@ namespace Utilities
         {
           // continue;
 
-          const auto &buffer_send = temp_recv_map[recv_ranks[i]];
+          temp_map[recv_ranks[i]] =
+            Utilities::pack(temp_recv_map[recv_ranks[i]]);
+
+          auto &buffer_send = temp_map[recv_ranks[i]];
+
+          requests.resize(requests.size() + 1);
 
           MPI_Isend(buffer_send.data(),
                     buffer_send.size(),
@@ -278,8 +285,6 @@ namespace Utilities
                     comm,
                     &requests.back());
         }
-
-
 
       for (unsigned int i = 0; i < send_ranks.size(); ++i)
         {
@@ -293,6 +298,9 @@ namespace Utilities
                                                    std::find(send_ranks.begin(),
                                                              send_ranks.end(),
                                                              my_rank));
+
+              AssertDimension(buffer_send.size(),
+                              send_ptr[j + 1] - send_ptr[j]);
 
               for (unsigned int i = send_ptr[j], c = 0; i < send_ptr[j + 1];
                    ++i, ++c)
@@ -317,20 +325,27 @@ namespace Utilities
                    comm,
                    MPI_STATUS_IGNORE);
 
+
           const auto recv_buffer_unpacked =
             Utilities::unpack<std::vector<T>>(recv_buffer);
 
-          const unsigned int j = std::distance(send_ranks.begin(),
-                                               std::find(send_ranks.begin(),
-                                                         send_ranks.end(),
-                                                         status.MPI_SOURCE));
+          auto ptr =
+            std::find(send_ranks.begin(), send_ranks.end(), status.MPI_SOURCE);
+
+          Assert(ptr != send_ranks.end(), ExcNotImplemented());
+
+          const unsigned int j = std::distance(send_ranks.begin(), ptr);
 
           AssertDimension(recv_buffer_unpacked.size(),
                           send_ptr[j + 1] - send_ptr[j]);
 
           for (unsigned int i = send_ptr[j], c = 0; i < send_ptr[j + 1];
                ++i, ++c)
-            buffer[i] = recv_buffer_unpacked[c];
+            {
+              AssertIndexRange(i, buffer.size());
+              AssertIndexRange(c, recv_buffer_unpacked.size());
+              buffer[i] = recv_buffer_unpacked[c];
+            }
         }
 
       MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
