@@ -171,92 +171,6 @@ compute_curvature(const Mapping<dim, spacedim> &   mapping,
 }
 
 
-template <int spacedim>
-std::tuple<std::vector<std::pair<int, int>>,
-           std::vector<unsigned int>,
-           std::vector<Tensor<1, spacedim, double>>,
-           std::vector<Point<spacedim>>>
-collect_integration_points(
-  const Triangulation<spacedim, spacedim> &       tria,
-  const Mapping<spacedim, spacedim> &             mapping,
-  const std::vector<Point<spacedim>> &            integration_points,
-  const std::vector<Tensor<1, spacedim, double>> &integration_values)
-{
-  std::vector<std::pair<Point<spacedim>, Tensor<1, spacedim, double>>>
-    locally_owned_surface_points;
-
-  for (unsigned int i = 0; i < integration_points.size(); ++i)
-    locally_owned_surface_points.emplace_back(integration_points[i],
-                                              integration_values[i]);
-
-  std::vector<std::tuple<Point<spacedim>,
-                         Tensor<1, spacedim, double>,
-                         std::pair<int, int>>>
-    info;
-
-  const std::vector<bool>                    marked_vertices;
-  const GridTools::Cache<spacedim, spacedim> cache(tria, mapping);
-  const double                               tolerance = 1e-10;
-  auto                                       cell_hint = tria.begin_active();
-
-  for (const auto &point_and_weight : locally_owned_surface_points)
-    {
-      try
-        {
-          const auto first_cell =
-            GridTools::find_active_cell_around_point(cache,
-                                                     point_and_weight.first,
-                                                     cell_hint,
-                                                     marked_vertices,
-                                                     tolerance);
-
-          cell_hint = first_cell.first;
-
-          const auto active_cells_around_point =
-            GridTools::find_all_active_cells_around_point(
-              mapping, tria, point_and_weight.first, tolerance, first_cell);
-
-          for (const auto &cell_and_reference_coordinate :
-               active_cells_around_point)
-            info.emplace_back(cell_and_reference_coordinate.second,
-                              point_and_weight.second,
-                              std::pair<int, int>(
-                                cell_and_reference_coordinate.first->level(),
-                                cell_and_reference_coordinate.first->index()));
-        }
-      catch (...)
-        {}
-    }
-
-  // step 4: compress data structures
-  std::sort(info.begin(), info.end(), [](const auto &a, const auto &b) {
-    return std::get<2>(a) < std::get<2>(b);
-  });
-
-  std::vector<std::pair<int, int>>         cells;
-  std::vector<unsigned int>                ptrs;
-  std::vector<Tensor<1, spacedim, double>> weights;
-  std::vector<Point<spacedim>>             points;
-
-  std::pair<int, int> dummy{-1, -1};
-
-  for (const auto &i : info)
-    {
-      if (dummy != std::get<2>(i))
-        {
-          dummy = std::get<2>(i);
-          cells.push_back(std::get<2>(i));
-          ptrs.push_back(weights.size());
-        }
-      weights.push_back(std::get<1>(i));
-      points.push_back(std::get<0>(i));
-    }
-  ptrs.push_back(weights.size());
-
-  return {cells, ptrs, weights, points};
-}
-
-
 
 template <int dim, int spacedim, typename VectorType>
 void
@@ -333,6 +247,7 @@ compute_force_vector_sharp_interface(
 
     std::vector<double>                  buffer;
     std::vector<types::global_dof_index> local_dof_indices;
+    std::vector<T>                       force_JxW;
 
     unsigned int i = 0;
 
@@ -353,10 +268,13 @@ compute_force_vector_sharp_interface(
 
         const ArrayView<const Point<spacedim>> unit_points(
           std::get<1>(quadrature_points).data() + i, cells_and_n.second);
-        const std::vector<T> JxW;
+
+        force_JxW.resize(unit_points.size());
+        for (unsigned int q = 0; q < unit_points.size(); ++q, ++i)
+          force_JxW[q] = values[std::get<2>(quadrature_points)[i]];
 
         for (unsigned int q = 0; q < unit_points.size(); ++q)
-          phi_normal_force.submit_value(JxW[q], q);
+          phi_normal_force.submit_value(force_JxW[q], q);
 
         phi_normal_force.integrate(cell,
                                    unit_points,
