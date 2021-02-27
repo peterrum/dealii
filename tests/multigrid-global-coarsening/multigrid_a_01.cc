@@ -166,8 +166,7 @@ main(int argc, char **argv)
     for (unsigned int degree = 2; degree <= 4; ++degree)
       test<2>(n_refinements, degree, false /*quadrilateral*/);
 
-  if (false)
-    for (unsigned int n_refinements = 2; n_refinements <= 4; ++n_refinements)
-      for (unsigned int degree = 2; degree <= 2; ++degree)
-        test<2>(n_refinements, degree, true /*triangle*/);
+  for (unsigned int n_refinements = 2; n_refinements <= 4; ++n_refinements)
+    for (unsigned int degree = 2; degree <= 2; ++degree)
+      test<2>(n_refinements, degree, true /*triangle*/);
 }

@@ -394,6 +394,34 @@ namespace internal
       return FETools::get_fe_by_name<1, 1>(fe_name);
     }
 
+    template <int dim, int spacedim>
+    FullMatrix<double>
+    get_restriction_matrix(const FiniteElement<dim, spacedim> &fe,
+                           const unsigned int                  c)
+    {
+      auto matrix = fe.get_restriction_matrix(c);
+
+      for (unsigned int c_other = 0; c_other < c; ++c_other)
+        {
+          auto matrix_other = fe.get_restriction_matrix(c_other);
+          for (unsigned int i = 0; i < fe.dofs_per_cell; ++i)
+            {
+              if (fe.restriction_is_additive(i) == true)
+                continue;
+
+              bool do_zero = false;
+              for (unsigned int j = 0; j < fe.dofs_per_cell; ++j)
+                if (matrix_other(i, j) != 0.)
+                  do_zero = true;
+
+              if (do_zero)
+                for (unsigned int j = 0; j < fe.dofs_per_cell; ++j)
+                  matrix(i, j) = 0.0;
+            }
+        }
+      return matrix;
+    }
+
   } // namespace
 
   class FineDoFHandlerViewCell
@@ -1296,27 +1324,7 @@ namespace internal
                    c < GeometryInfo<1>::max_children_per_cell;
                    ++c)
                 {
-                  auto matrix = fe->get_restriction_matrix(c);
-
-                  for (unsigned int c_other = 0; c_other < c; ++c_other)
-                    {
-                      auto matrix_other = fe->get_restriction_matrix(c_other);
-                      for (unsigned int i = 0; i < fe->dofs_per_cell; ++i)
-                        {
-                          if (fe->restriction_is_additive(i) == true)
-                            continue;
-
-                          bool do_zero = false;
-                          for (unsigned int j = 0; j < fe->dofs_per_cell; ++j)
-                            if (matrix_other(i, j) != 0.)
-                              do_zero = true;
-
-                          if (do_zero)
-                            for (unsigned int j = 0; j < fe->dofs_per_cell; ++j)
-                              matrix(i, j) = 0.0;
-                        }
-                    }
-
+                  const auto matrix = get_restriction_matrix(*fe, c);
                   for (unsigned int i = 0; i < fe->dofs_per_cell; ++i)
                     for (unsigned int j = 0; j < fe->dofs_per_cell; ++j)
                       transfer.schemes[1]
@@ -1355,13 +1363,15 @@ namespace internal
               for (unsigned int c = 0;
                    c < GeometryInfo<dim>::max_children_per_cell;
                    ++c)
-                for (unsigned int i = 0; i < n_dofs_per_cell; ++i)
-                  for (unsigned int j = 0; j < n_dofs_per_cell; ++j)
-                    transfer.schemes[1].restriction_matrix
-                      [i * n_dofs_per_cell *
-                         GeometryInfo<dim>::max_children_per_cell +
-                       j + c * n_dofs_per_cell] =
-                      fe.get_restriction_matrix(c)(i, j);
+                {
+                  const auto matrix = get_restriction_matrix(fe, c);
+                  for (unsigned int i = 0; i < n_dofs_per_cell; ++i)
+                    for (unsigned int j = 0; j < n_dofs_per_cell; ++j)
+                      transfer.schemes[1].restriction_matrix
+                        [i * n_dofs_per_cell *
+                           GeometryInfo<dim>::max_children_per_cell +
+                         j + c * n_dofs_per_cell] = matrix(i, j);
+                }
             }
           }
       }
