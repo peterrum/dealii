@@ -30,22 +30,32 @@ namespace Utilities
   namespace MPI
   {
     /**
-     * TODO
+     * Helper class to access values on non-matching grids.
      */
     template <int dim, int spacedim = dim>
     class RemotePointEvaluation
     {
     public:
+      /**
+       * Constructor.
+       */
       RemotePointEvaluation(const double tolerance = 1e-6);
 
+      /**
+       * Set up internal data structures and communication pattern based on
+       * a list of points @p points and mesh description (@p tria and @p
+       * mapping).
+       */
       void
-      reinit(const std::vector<Point<spacedim>>  quadrature_points,
+      reinit(const std::vector<Point<spacedim>> &points,
              const Triangulation<dim, spacedim> &tria,
              const Mapping<dim, spacedim> &      mapping);
 
       /**
-       * Evaluate function @p fu in the requested quadrature points. The result
-       * is sorted according to rank.
+       * Evaluate function @p fu in the given  points and triangulation. The
+       * result is stored in @p output. I the map of points to cells is not
+       * one-to-one relation (is_map_unique()==false), the result needs to be
+       * processed with the help of get_point_ptrs().
        */
       template <typename T>
       void
@@ -59,6 +69,9 @@ namespace Utilities
                  std::vector<Point<dim>>,
                  std::vector<unsigned int>> &)> &fu) const;
 
+      /**
+       * TODO
+       */
       template <typename T>
       void
       process_and_evaluate(
@@ -71,46 +84,105 @@ namespace Utilities
                  std::vector<Point<dim>>,
                  std::vector<unsigned int>> &)> &fu) const;
 
-
+      /**
+       * Return a CRS-like data structure to determine the position of the
+       * result corresponding a point and the amount.
+       */
       const std::vector<unsigned int> &
-      get_quadrature_points_ptr() const;
+      get_point_ptrs() const;
 
+      /**
+       * Return if points and cells have a one-to-one relation. This is not the
+       * case if a points is not owned by any cell (the point is outside of the
+       * domain) or if multiple cells own the point (the point is positioned
+       * on a geometric entity shared by neighboring cells).
+       */
       bool
-      is_unique_mapping() const;
+      is_map_unique() const;
 
+      /**
+       * Return the Triangulation object used during reinit().
+       */
       const Triangulation<dim, spacedim> &
       get_triangulation() const;
 
+      /**
+       * Return the Mapping object used during reinit().
+       */
       const Mapping<dim, spacedim> &
       get_mapping() const;
 
+      /**
+       * Return if the internal data structures have been set up and if yes
+       * if they are still valid (and have not been invalidated due to changes
+       * of the Triangulation).
+       */
       bool
       is_ready() const;
 
     private:
+      /**
+       * Tolerance to be used while determining the surrounding cells of a
+       * point.
+       */
       const double tolerance;
 
+      /**
+       * Reference to the Triangulation object used during reinit().
+       */
       SmartPointer<const Triangulation<dim, spacedim>> tria;
-      SmartPointer<const Mapping<dim, spacedim>>       mapping;
 
+      /**
+       * Reference to the Mapping object used during reinit().
+       */
+      SmartPointer<const Mapping<dim, spacedim>> mapping;
+
+      /**
+       * MPI communicator of the triangulation.
+       */
       MPI_Comm comm;
 
+      /**
+       * (One-to-one) relation of points and cells.
+       */
       bool unique_mapping;
 
-      // receiver side
+      /**
+       * TODO.
+       */
       std::vector<unsigned int> quadrature_points_ptr;
+
+      /**
+       * TODO.
+       */
       std::vector<unsigned int> indices;
+
+      /**
+       * TODO.
+       */
       std::vector<unsigned int> indices_ptr;
 
+      /**
+       * TODO.
+       */
       std::vector<unsigned int> recv_ranks;
 
-      // sender side
+      /**
+       * TODO.
+       */
       std::tuple<std::vector<std::pair<std::pair<int, int>, unsigned int>>,
                  std::vector<Point<dim>>,
                  std::vector<unsigned int>>
         relevant_remote_points_per_process;
 
+      /**
+       * TODO.
+       */
       std::vector<unsigned int> send_ranks;
+
+      /**
+       * TODO.
+       */
       std::vector<unsigned int> send_ptr;
     };
 
@@ -135,8 +207,10 @@ namespace Utilities
       ArrayView<T> buffer_2(buffer.data() + buffer.size() / 2,
                             buffer.size() / 2);
 
+      // evaluate functions at points
       fu(buffer_1, relevant_remote_points_per_process);
 
+      // sort for communication
       for (unsigned int i = 0;
            i < std::get<2>(relevant_remote_points_per_process).size();
            ++i)
@@ -150,8 +224,6 @@ namespace Utilities
       requests.reserve(send_ranks.size());
 
       const unsigned int my_rank = Utilities::MPI::this_mpi_process(comm);
-
-      // receive result
 
       std::map<unsigned int, std::vector<T>> temp_recv_map;
 
@@ -178,7 +250,7 @@ namespace Utilities
                     buffer.size(),
                     MPI_CHAR,
                     send_ranks[i],
-                    11,
+                    internal::Tags::remote_point_evaluation,
                     comm,
                     &requests.back());
         }
@@ -186,7 +258,10 @@ namespace Utilities
       for (unsigned int i = 0; i < recv_ranks.size(); ++i)
         {
           MPI_Status status;
-          MPI_Probe(MPI_ANY_SOURCE, 11, comm, &status);
+          MPI_Probe(MPI_ANY_SOURCE,
+                    internal::Tags::remote_point_evaluation,
+                    comm,
+                    &status);
 
           int message_length;
           MPI_Get_count(&status, MPI_CHAR, &message_length);
@@ -197,7 +272,7 @@ namespace Utilities
                    buffer.size(),
                    MPI_CHAR,
                    status.MPI_SOURCE,
-                   11,
+                   internal::Tags::remote_point_evaluation,
                    comm,
                    MPI_STATUS_IGNORE);
 
@@ -205,8 +280,10 @@ namespace Utilities
             Utilities::unpack<std::vector<T>>(buffer);
         }
 
+      // make sure all messages have been sent
       MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
 
+      // copy received data into output vector
       auto it = indices.begin();
       for (const auto &j : temp_recv_map)
         for (const auto &i : j.second)
@@ -228,7 +305,7 @@ namespace Utilities
                std::vector<unsigned int>> &)> &fu) const
     {
       // expand
-      const auto &   ptr = this->get_quadrature_points_ptr();
+      const auto &   ptr = this->get_point_ptrs();
       std::vector<T> buffer_(ptr.back());
 
       for (unsigned int i = 0, c = 0; i < ptr.size() - 1; ++i)
@@ -293,7 +370,7 @@ namespace Utilities
                     buffer_send.size(),
                     MPI_CHAR,
                     recv_ranks[i],
-                    11,
+                    internal::Tags::remote_point_evaluation,
                     comm,
                     &requests.back());
         }
@@ -322,7 +399,10 @@ namespace Utilities
             }
 
           MPI_Status status;
-          MPI_Probe(MPI_ANY_SOURCE, 11, comm, &status);
+          MPI_Probe(MPI_ANY_SOURCE,
+                    internal::Tags::remote_point_evaluation,
+                    comm,
+                    &status);
 
           int message_length;
           MPI_Get_count(&status, MPI_CHAR, &message_length);
@@ -333,7 +413,7 @@ namespace Utilities
                    recv_buffer.size(),
                    MPI_CHAR,
                    status.MPI_SOURCE,
-                   11,
+                   internal::Tags::remote_point_evaluation,
                    comm,
                    MPI_STATUS_IGNORE);
 
@@ -362,12 +442,14 @@ namespace Utilities
 
       MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
 
+      // sort for easy access during function call
       for (unsigned int i = 0;
            i < std::get<2>(relevant_remote_points_per_process).size();
            ++i)
         buffer_2[i] =
           buffer_1[std::get<2>(relevant_remote_points_per_process)[i]];
 
+      // evaluate function at points
       fu(buffer_2, relevant_remote_points_per_process);
     }
 

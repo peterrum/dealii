@@ -60,7 +60,7 @@ namespace Utilities
     template <int dim, int spacedim>
     void
     RemotePointEvaluation<dim, spacedim>::reinit(
-      const std::vector<Point<spacedim>>  quadrature_points,
+      const std::vector<Point<spacedim>> &quadrature_points,
       const Triangulation<dim, spacedim> &tria,
       const Mapping<dim, spacedim> &      mapping)
     {
@@ -396,14 +396,14 @@ namespace Utilities
 
     template <int dim, int spacedim>
     const std::vector<unsigned int> &
-    RemotePointEvaluation<dim, spacedim>::get_quadrature_points_ptr() const
+    RemotePointEvaluation<dim, spacedim>::get_point_ptrs() const
     {
       return quadrature_points_ptr;
     }
 
     template <int dim, int spacedim>
     bool
-    RemotePointEvaluation<dim, spacedim>::is_unique_mapping() const
+    RemotePointEvaluation<dim, spacedim>::is_map_unique() const
     {
       return unique_mapping;
     }

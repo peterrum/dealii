@@ -107,12 +107,15 @@ namespace VectorTools
            ExcMessage(
              "Utilties::MPI::RemotePointEvaluation is not ready yet!"));
 
+    // evaluate values at points if possible
     const auto evaluation_point_results = [&]() {
       std::vector<std::unique_ptr<FEPointEvaluation<n_components, dim>>>
         evaluators(dof_handler.get_fe_collection().size());
 
       std::vector<value_type> solution_values;
 
+      // helper function for accessing the global vector and interpolating
+      // the results onto the points
       const auto fu = [&](auto &values, const auto &quadrature_points) {
         unsigned int i = 0;
 
@@ -162,14 +165,16 @@ namespace VectorTools
       return evaluation_point_results;
     }();
 
-    if (eval.is_unique_mapping())
+    if (eval.is_map_unique())
       {
+        // each point has exactly one result (unique map)
         return evaluation_point_results;
       }
     else
       {
+        // map is not unique (multiple or no results): postprocessing is needed
         std::vector<value_type> unique_evaluation_point_results(
-          eval.get_quadrature_points_ptr().size() - 1);
+          eval.get_point_ptrs().size() - 1);
 
         const auto reduce = [flags](const auto &values) {
           switch (flags)
@@ -193,7 +198,7 @@ namespace VectorTools
             }
         };
 
-        const auto &ptr = eval.get_quadrature_points_ptr();
+        const auto &ptr = eval.get_point_ptrs();
 
         for (unsigned int i = 0; i < ptr.size() - 1; ++i)
           {
