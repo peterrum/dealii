@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2021 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -38,6 +38,8 @@
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/vector_tools_evaluate.h>
+
+#include "../tests.h"
 
 using namespace dealii;
 
@@ -156,14 +158,16 @@ test()
 
   if (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0)
     for (unsigned int i = 0; i <= n_intervals; ++i)
-      std::cout << i << " " << evaluation_points[i] << " "
-                << evaluation_point_results[i] << std::endl;
+      deallog << i << " " << evaluation_points[i] << " "
+              << evaluation_point_results[i] << std::endl;
 }
 
 int
 main(int argc, char **argv)
 {
   Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
+  MPILogInitAll                    all;
+
 
   test();
 }

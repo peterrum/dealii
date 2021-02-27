@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2021 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -38,6 +38,8 @@
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/vector_tools_evaluate.h>
+
+#include "../tests.h"
 
 using namespace dealii;
 
@@ -199,14 +201,21 @@ test()
     }
 
   // output background and slice solution
-  print(mapping_1, dof_handler_1, vector_1, 0);
-  print(mapping_2, dof_handler_2, vector_2, 1);
+  if (false)
+    {
+      print(mapping_1, dof_handler_1, vector_1, 0);
+      print(mapping_2, dof_handler_2, vector_2, 1);
+    }
+
+  vector_1.print(deallog.get_file_stream());
+  vector_2.print(deallog.get_file_stream());
 }
 
 int
 main(int argc, char **argv)
 {
   Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
+  MPILogInitAll                    all;
 
   test();
 }

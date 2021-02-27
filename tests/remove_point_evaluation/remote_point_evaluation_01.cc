@@ -1,17 +1,17 @@
-// --------------------------------------------------------------------------
+// ---------------------------------------------------------------------
 //
-// Copyright (C) 2021 by the adaflo authors
+// Copyright (C) 2021 by the deal.II authors
 //
-// This file is part of the adaflo library.
+// This file is part of the deal.II library.
 //
-// The adaflo library is free software; you can use it, redistribute it,
-// and/or modify it under the terms of the GNU Lesser General Public License
-// as published by the Free Software Foundation; either version 2.1 of the
-// License, or (at your option) any later version.  The full text of the
-// license can be found in the file LICENSE at the top level of the adaflo
-// distribution.
+// The deal.II library is free software; you can use it, redistribute
+// it, and/or modify it under the terms of the GNU Lesser General
+// Public License as published by the Free Software Foundation; either
+// version 2.1 of the License, or (at your option) any later version.
+// The full text of the license can be found in the file LICENSE.md at
+// the top level directory of deal.II.
 //
-// --------------------------------------------------------------------------
+// ---------------------------------------------------------------------
 
 #include <deal.II/base/mpi.h>
 #include <deal.II/base/mpi_remote_point_evaluation.h>
@@ -38,6 +38,8 @@
 
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
+
+#include "../tests.h"
 
 using namespace dealii;
 
@@ -422,13 +424,9 @@ test()
   VectorType force_vector_sharp_interface(background_dof_handler.n_dofs());
 
   // write computed vectors to Paraview
-  if (true)
+  if (false)
     {
       GridOut().write_mesh_per_processor_as_vtu(tria, "grid_surface");
-    }
-
-  if (true)
-    {
       GridOut().write_mesh_per_processor_as_vtu(background_tria,
                                                 "grid_background");
     }
@@ -445,7 +443,7 @@ test()
                                        force_vector_sharp_interface);
 
   // write computed vectors to Paraview
-  if (true)
+  if (false)
     {
       DataOutBase::VtkFlags flags;
       // flags.write_higher_order_cells = true;
@@ -465,7 +463,7 @@ test()
                                           MPI_COMM_WORLD);
     }
 
-  if (true)
+  if (false)
     {
       DataOutBase::VtkFlags flags;
       flags.write_higher_order_cells = true;
@@ -484,9 +482,7 @@ test()
                                           MPI_COMM_WORLD);
     }
 
-  {
-    curvature_vector.print(std::cout);
-  }
+  force_vector_sharp_interface.print(deallog.get_file_stream());
 }
 
 
@@ -495,6 +491,7 @@ int
 main(int argc, char **argv)
 {
   Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
+  MPILogInitAll                    all;
 
   test<1>();
 }

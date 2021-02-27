@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 by the deal.II authors
+// Copyright (C) 2021 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -42,6 +42,8 @@
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/vector_tools_evaluate.h>
+
+#include "../tests.h"
 
 using namespace dealii;
 
@@ -265,7 +267,8 @@ public:
 
       if (Utilities::MPI::this_mpi_process(
             get_mpi_comm(dof_handler.get_triangulation())) == 0)
-        printf("Solved in %d iterations.\n", reduction_control.last_step());
+        deallog << "Solved in " << reduction_control.last_step()
+                << " iterations." << std::endl;
 
       constraints.distribute(solution);
     }
@@ -329,12 +332,16 @@ test()
 
       // break;
     }
+
+  pp_1.solution.print(deallog.get_file_stream());
+  pp_2.solution.print(deallog.get_file_stream());
 }
 
 int
 main(int argc, char **argv)
 {
   Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
+  MPILogInitAll                    all;
 
   test();
 }
