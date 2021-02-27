@@ -18,6 +18,8 @@
 
 #include <deal.II/distributed/shared_tria.h>
 
+#include <deal.II/dofs/dof_tools.h>
+
 #include <deal.II/fe/fe_dgq.h>
 #include <deal.II/fe/fe_nothing.h>
 #include <deal.II/fe/fe_point_evaluation.h>
@@ -45,6 +47,33 @@ using namespace dealii;
 
 
 using VectorType = LinearAlgebra::distributed::Vector<double>;
+
+template <typename MeshType>
+MPI_Comm
+get_mpi_comm(const MeshType &mesh)
+{
+  const auto *tria_parallel = dynamic_cast<
+    const parallel::TriangulationBase<MeshType::dimension,
+                                      MeshType::space_dimension> *>(
+    &(mesh.get_triangulation()));
+
+  return tria_parallel != nullptr ? tria_parallel->get_communicator() :
+                                    MPI_COMM_SELF;
+}
+
+template <int dim, int spacedim>
+std::shared_ptr<const Utilities::MPI::Partitioner>
+create_partitioner(const DoFHandler<dim, spacedim> &dof_handler)
+{
+  IndexSet locally_relevant_dofs;
+
+  DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
+
+  return std::make_shared<const Utilities::MPI::Partitioner>(
+    dof_handler.locally_owned_dofs(),
+    locally_relevant_dofs,
+    get_mpi_comm(dof_handler));
+}
 
 namespace dealii
 {
@@ -382,11 +411,11 @@ test()
 
 
   // compute normal vector
-  VectorType normal_vector(dof_handler_dim.n_dofs());
+  VectorType normal_vector(create_partitioner(dof_handler_dim));
   compute_normal(mapping, dof_handler_dim, normal_vector);
 
   // compute curvature
-  VectorType curvature_vector(dof_handler.n_dofs());
+  VectorType curvature_vector(create_partitioner(dof_handler));
   compute_curvature(mapping,
                     dof_handler_dim,
                     dof_handler,
@@ -397,7 +426,8 @@ test()
 #if false
   const unsigned int background_n_global_refinements = 6;
 #else
-  const unsigned int background_n_global_refinements = 80;
+  const unsigned int background_n_global_refinements =
+    Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) == 1 ? 40 : 80;
 #endif
   const unsigned int background_fe_degree = 2;
 
@@ -421,7 +451,8 @@ test()
 
   MappingQ1<spacedim> background_mapping;
 
-  VectorType force_vector_sharp_interface(background_dof_handler.n_dofs());
+  VectorType force_vector_sharp_interface(
+    create_partitioner(background_dof_handler));
 
   // write computed vectors to Paraview
   if (false)
@@ -441,6 +472,8 @@ test()
                                        normal_vector,
                                        curvature_vector,
                                        force_vector_sharp_interface);
+
+  force_vector_sharp_interface.update_ghost_values();
 
   // write computed vectors to Paraview
   if (false)
