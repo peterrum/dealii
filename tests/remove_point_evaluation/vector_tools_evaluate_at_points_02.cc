@@ -13,7 +13,7 @@
 //
 // ---------------------------------------------------------------------
 
-// Example 2: TODO.
+// Solve iteratively the domain-decomposition problem.
 
 #include <deal.II/base/quadrature_lib.h>
 

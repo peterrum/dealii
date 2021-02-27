@@ -13,6 +13,9 @@
 //
 // ---------------------------------------------------------------------
 
+// Integrate surface tension on surface mesh and test the result on background
+// mesh.
+
 #include <deal.II/base/mpi.h>
 #include <deal.II/base/mpi_remote_point_evaluation.h>
 

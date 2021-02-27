@@ -13,7 +13,7 @@
 //
 // ---------------------------------------------------------------------
 
-// Example 1: TODO.
+// Interpolate solution between non-matching grids.
 
 #include <deal.II/base/quadrature_lib.h>
 
