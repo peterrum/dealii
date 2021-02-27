@@ -124,7 +124,10 @@ public:
   restrict_and_add(VectorType &dst, const VectorType &src) const;
 
   /**
-   * Perform interpolation.
+   * Perform interpolation of a solution vector from the fine level to the
+   * coarse level. This function is different from restriction, where a
+   * weighted residual is transferred to a coarser level (transposition of
+   * prolongation matrix).
    */
   void
   interpolate(VectorType &dst, const VectorType &src) const;
@@ -191,7 +194,10 @@ public:
                    const LinearAlgebra::distributed::Vector<Number> &src) const;
 
   /**
-   * Perform interpolation.
+   * Perform interpolation of a solution vector from the fine level to the
+   * coarse level. This function is different from restriction, where a
+   * weighted residual is transferred to a coarser level (transposition of
+   * prolongation matrix).
    */
   void
   interpolate(LinearAlgebra::distributed::Vector<Number> &      dst,

@@ -397,11 +397,11 @@ namespace internal
     template <int dim, int spacedim>
     FullMatrix<double>
     get_restriction_matrix(const FiniteElement<dim, spacedim> &fe,
-                           const unsigned int                  c)
+                           const unsigned int                  child)
     {
-      auto matrix = fe.get_restriction_matrix(c);
+      auto matrix = fe.get_restriction_matrix(child);
 
-      for (unsigned int c_other = 0; c_other < c; ++c_other)
+      for (unsigned int c_other = 0; c_other < child; ++c_other)
         {
           auto matrix_other = fe.get_restriction_matrix(c_other);
           for (unsigned int i = 0; i < fe.dofs_per_cell; ++i)
@@ -2293,7 +2293,6 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
             }
           // ----------------------------- coarse ----------------------------
 
-
           // write into dst vector
           {
             const unsigned int *indices =
@@ -2411,7 +2410,6 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
                                          n_scalar_dofs_coarse);
             }
           // ----------------------------- coarse ----------------------------
-
 
           // write into dst vector
           {
