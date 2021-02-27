@@ -53,7 +53,7 @@ namespace Utilities
         std::vector<T> &output,
         std::vector<T> &buffer,
         const std::function<
-          void(std::vector<T> &,
+          void(const ArrayView<T> &,
                const std::tuple<
                  std::vector<std::pair<std::pair<int, int>, unsigned int>>,
                  std::vector<Point<dim>>,
@@ -65,7 +65,7 @@ namespace Utilities
         const std::vector<T> &input,
         std::vector<T> &      buffer,
         const std::function<
-          void(const std::vector<T> &,
+          void(const ArrayView<const T> &,
                const std::tuple<
                  std::vector<std::pair<std::pair<int, int>, unsigned int>>,
                  std::vector<Point<dim>>,
@@ -122,7 +122,7 @@ namespace Utilities
       std::vector<T> &output,
       std::vector<T> &buffer,
       const std::function<
-        void(std::vector<T> &,
+        void(const ArrayView<T> &,
              const std::tuple<
                std::vector<std::pair<std::pair<int, int>, unsigned int>>,
                std::vector<Point<dim>>,
@@ -130,9 +130,18 @@ namespace Utilities
     {
       output.resize(quadrature_points_ptr.back());
       buffer.resize(
-        (std::get<1>(this->relevant_remote_points_per_process).size()));
+        (std::get<1>(this->relevant_remote_points_per_process).size()) * 2);
+      ArrayView<T> buffer_1(buffer.data(), buffer.size() / 2);
+      ArrayView<T> buffer_2(buffer.data() + buffer.size() / 2,
+                            buffer.size() / 2);
 
-      fu(buffer, relevant_remote_points_per_process);
+      fu(buffer_1, relevant_remote_points_per_process);
+
+      for (unsigned int i = 0;
+           i < std::get<2>(relevant_remote_points_per_process).size();
+           ++i)
+        buffer_2[std::get<2>(relevant_remote_points_per_process)[i]] =
+          buffer_1[i];
 
       // process remote quadrature points and send them away
       std::map<unsigned int, std::vector<char>> temp_map;
@@ -152,14 +161,14 @@ namespace Utilities
             {
               // process locally-owned values
               temp_recv_map[my_rank] =
-                std::vector<T>(buffer.begin() + send_ptr[i],
-                               buffer.begin() + send_ptr[i + 1]);
+                std::vector<T>(buffer_2.begin() + send_ptr[i],
+                               buffer_2.begin() + send_ptr[i + 1]);
               continue;
             }
 
           temp_map[send_ranks[i]] =
-            Utilities::pack(std::vector<T>(buffer.begin() + send_ptr[i],
-                                           buffer.begin() + send_ptr[i + 1]));
+            Utilities::pack(std::vector<T>(buffer_2.begin() + send_ptr[i],
+                                           buffer_2.begin() + send_ptr[i + 1]));
 
           auto &buffer = temp_map[send_ranks[i]];
 
@@ -212,7 +221,7 @@ namespace Utilities
       const std::vector<T> &input,
       std::vector<T> &      buffer,
       const std::function<
-        void(const std::vector<T> &,
+        void(const ArrayView<const T> &,
              const std::tuple<
                std::vector<std::pair<std::pair<int, int>, unsigned int>>,
                std::vector<Point<dim>>,
@@ -258,7 +267,10 @@ namespace Utilities
 
       // buffer.resize(quadrature_points_ptr.back());
       buffer.resize(
-        (std::get<1>(this->relevant_remote_points_per_process).size()));
+        (std::get<1>(this->relevant_remote_points_per_process).size()) * 2);
+      ArrayView<T> buffer_1(buffer.data(), buffer.size() / 2);
+      ArrayView<T> buffer_2(buffer.data() + buffer.size() / 2,
+                            buffer.size() / 2);
 
       // process remote quadrature points and send them away
       std::map<unsigned int, std::vector<char>> temp_map;
@@ -304,7 +316,7 @@ namespace Utilities
 
               for (unsigned int i = send_ptr[j], c = 0; i < send_ptr[j + 1];
                    ++i, ++c)
-                buffer[i] = buffer_send[c];
+                buffer_1[i] = buffer_send[c];
 
               continue;
             }
@@ -342,15 +354,21 @@ namespace Utilities
           for (unsigned int i = send_ptr[j], c = 0; i < send_ptr[j + 1];
                ++i, ++c)
             {
-              AssertIndexRange(i, buffer.size());
+              AssertIndexRange(i, buffer_1.size());
               AssertIndexRange(c, recv_buffer_unpacked.size());
-              buffer[i] = recv_buffer_unpacked[c];
+              buffer_1[i] = recv_buffer_unpacked[c];
             }
         }
 
       MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
 
-      fu(buffer, relevant_remote_points_per_process);
+      for (unsigned int i = 0;
+           i < std::get<2>(relevant_remote_points_per_process).size();
+           ++i)
+        buffer_2[i] =
+          buffer_1[std::get<2>(relevant_remote_points_per_process)[i]];
+
+      fu(buffer_2, relevant_remote_points_per_process);
     }
 
   } // end of namespace MPI

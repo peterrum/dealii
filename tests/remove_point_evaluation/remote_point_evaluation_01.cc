@@ -319,12 +319,11 @@ compute_force_vector_sharp_interface(
   const auto fu = [&](const auto &values, const auto &quadrature_points) {
     AffineConstraints<double> constraints; // TODO: use the right ones
 
-    FEPointEvaluation<spacedim, spacedim> phi_normal_force(
-      mapping, dof_handler.get_fe());
+    FEPointEvaluation<spacedim, spacedim> phi_force(mapping,
+                                                    dof_handler.get_fe());
 
     std::vector<double>                  buffer;
     std::vector<types::global_dof_index> local_dof_indices;
-    std::vector<T>                       force_JxW;
 
     unsigned int i = 0;
 
@@ -336,10 +335,8 @@ compute_force_vector_sharp_interface(
           cells_and_n.first.second,
           &dof_handler};
 
-        const unsigned int n_dofs_per_cell = cell->get_fe().n_dofs_per_cell();
-
-        local_dof_indices.resize(n_dofs_per_cell);
-        buffer.resize(n_dofs_per_cell);
+        local_dof_indices.resize(cell->get_fe().n_dofs_per_cell());
+        buffer.resize(cell->get_fe().n_dofs_per_cell());
 
         cell->get_dof_indices(local_dof_indices);
 
@@ -349,21 +346,19 @@ compute_force_vector_sharp_interface(
         const ArrayView<const Point<spacedim>> unit_points(
           std::get<1>(quadrature_points).data() + i, cells_and_n.second);
 
-        force_JxW.resize(unit_points.size());
-        for (unsigned int q = 0; q < unit_points.size(); ++q, ++i)
-          force_JxW[q] = values[std::get<2>(quadrature_points)[i]];
+        const ArrayView<const T> force_JxW(values.data() + i,
+                                           cells_and_n.second);
 
         for (unsigned int q = 0; q < unit_points.size(); ++q)
-          phi_normal_force.submit_value(force_JxW[q], q);
+          phi_force.submit_value(force_JxW[q], q);
 
-        phi_normal_force.integrate(cell,
-                                   unit_points,
-                                   buffer,
-                                   EvaluationFlags::values);
+        phi_force.integrate(cell, unit_points, buffer, EvaluationFlags::values);
 
         constraints.distribute_local_to_global(buffer,
                                                local_dof_indices,
                                                force_vector);
+
+        i += unit_points.size();
       }
   };
 
