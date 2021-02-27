@@ -1295,13 +1295,35 @@ namespace internal
               for (unsigned int c = 0;
                    c < GeometryInfo<1>::max_children_per_cell;
                    ++c)
-                for (unsigned int i = 0; i < fe->dofs_per_cell; ++i)
-                  for (unsigned int j = 0; j < fe->dofs_per_cell; ++j)
-                    transfer.schemes[1]
-                      .restriction_matrix_1d[i * n_child_dofs_1d + j +
-                                             c * shift] =
-                      fe->get_restriction_matrix(c)(renumbering[i],
-                                                    renumbering[j]);
+                {
+                  auto matrix = fe->get_restriction_matrix(c);
+
+                  for (unsigned int c_other = 0; c_other < c; ++c_other)
+                    {
+                      auto matrix_other = fe->get_restriction_matrix(c_other);
+                      for (unsigned int i = 0; i < fe->dofs_per_cell; ++i)
+                        {
+                          if (fe->restriction_is_additive(i) == true)
+                            continue;
+
+                          bool do_zero = false;
+                          for (unsigned int j = 0; j < fe->dofs_per_cell; ++j)
+                            if (matrix_other(i, j) != 0.)
+                              do_zero = true;
+
+                          if (do_zero)
+                            for (unsigned int j = 0; j < fe->dofs_per_cell; ++j)
+                              matrix(i, j) = 0.0;
+                        }
+                    }
+
+                  for (unsigned int i = 0; i < fe->dofs_per_cell; ++i)
+                    for (unsigned int j = 0; j < fe->dofs_per_cell; ++j)
+                      transfer.schemes[1]
+                        .restriction_matrix_1d[i * n_child_dofs_1d + j +
+                                               c * shift] =
+                        matrix(renumbering[i], renumbering[j]);
+                }
             }
           }
         else
