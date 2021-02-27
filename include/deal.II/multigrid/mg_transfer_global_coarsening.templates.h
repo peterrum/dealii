@@ -1273,38 +1273,74 @@ namespace internal
             const unsigned int shift           = fe->dofs_per_cell;
             const unsigned int n_child_dofs_1d = fe->dofs_per_cell * 2;
 
-            transfer.schemes[1].prolongation_matrix_1d.resize(
-              fe->dofs_per_cell * n_child_dofs_1d);
+            {
+              transfer.schemes[1].prolongation_matrix_1d.resize(
+                fe->dofs_per_cell * n_child_dofs_1d);
 
-            for (unsigned int c = 0; c < GeometryInfo<1>::max_children_per_cell;
-                 ++c)
-              for (unsigned int i = 0; i < fe->dofs_per_cell; ++i)
-                for (unsigned int j = 0; j < fe->dofs_per_cell; ++j)
-                  transfer.schemes[1]
-                    .prolongation_matrix_1d[i * n_child_dofs_1d + j +
-                                            c * shift] =
-                    fe->get_prolongation_matrix(c)(renumbering[j],
-                                                   renumbering[i]);
+              for (unsigned int c = 0;
+                   c < GeometryInfo<1>::max_children_per_cell;
+                   ++c)
+                for (unsigned int i = 0; i < fe->dofs_per_cell; ++i)
+                  for (unsigned int j = 0; j < fe->dofs_per_cell; ++j)
+                    transfer.schemes[1]
+                      .prolongation_matrix_1d[i * n_child_dofs_1d + j +
+                                              c * shift] =
+                      fe->get_prolongation_matrix(c)(renumbering[j],
+                                                     renumbering[i]);
+            }
+            {
+              transfer.schemes[1].restriction_matrix_1d.resize(
+                fe->dofs_per_cell * n_child_dofs_1d);
+
+              for (unsigned int c = 0;
+                   c < GeometryInfo<1>::max_children_per_cell;
+                   ++c)
+                for (unsigned int i = 0; i < fe->dofs_per_cell; ++i)
+                  for (unsigned int j = 0; j < fe->dofs_per_cell; ++j)
+                    transfer.schemes[1]
+                      .restriction_matrix_1d[i * n_child_dofs_1d + j +
+                                             c * shift] =
+                      fe->get_restriction_matrix(c)(renumbering[i],
+                                                    renumbering[j]);
+            }
           }
         else
           {
             const auto &       fe              = fe_fine.base_element(0);
             const unsigned int n_dofs_per_cell = fe.n_dofs_per_cell();
 
-            transfer.schemes[1].prolongation_matrix.resize(
-              n_dofs_per_cell * n_dofs_per_cell *
-              GeometryInfo<dim>::max_children_per_cell);
+            {
+              transfer.schemes[1].prolongation_matrix.resize(
+                n_dofs_per_cell * n_dofs_per_cell *
+                GeometryInfo<dim>::max_children_per_cell);
 
-            for (unsigned int c = 0;
-                 c < GeometryInfo<dim>::max_children_per_cell;
-                 ++c)
-              for (unsigned int i = 0; i < n_dofs_per_cell; ++i)
-                for (unsigned int j = 0; j < n_dofs_per_cell; ++j)
-                  transfer.schemes[1].prolongation_matrix
-                    [i * n_dofs_per_cell *
-                       GeometryInfo<dim>::max_children_per_cell +
-                     j + c * n_dofs_per_cell] =
-                    fe.get_prolongation_matrix(c)(j, i);
+              for (unsigned int c = 0;
+                   c < GeometryInfo<dim>::max_children_per_cell;
+                   ++c)
+                for (unsigned int i = 0; i < n_dofs_per_cell; ++i)
+                  for (unsigned int j = 0; j < n_dofs_per_cell; ++j)
+                    transfer.schemes[1].prolongation_matrix
+                      [i * n_dofs_per_cell *
+                         GeometryInfo<dim>::max_children_per_cell +
+                       j + c * n_dofs_per_cell] =
+                      fe.get_prolongation_matrix(c)(j, i);
+            }
+            {
+              transfer.schemes[1].restriction_matrix.resize(
+                n_dofs_per_cell * n_dofs_per_cell *
+                GeometryInfo<dim>::max_children_per_cell);
+
+              for (unsigned int c = 0;
+                   c < GeometryInfo<dim>::max_children_per_cell;
+                   ++c)
+                for (unsigned int i = 0; i < n_dofs_per_cell; ++i)
+                  for (unsigned int j = 0; j < n_dofs_per_cell; ++j)
+                    transfer.schemes[1].restriction_matrix
+                      [i * n_dofs_per_cell *
+                         GeometryInfo<dim>::max_children_per_cell +
+                       j + c * n_dofs_per_cell] =
+                      fe.get_restriction_matrix(c)(i, j);
+            }
           }
       }
 

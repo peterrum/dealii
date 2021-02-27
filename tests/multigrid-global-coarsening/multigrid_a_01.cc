@@ -128,16 +128,30 @@ test(const unsigned int n_refinements,
           << (do_simplex_mesh ? "tri " : "quad") << " "
           << solver_control.last_step() << std::endl;
 
-  DataOut<dim> data_out;
-
-  data_out.attach_dof_handler(dof_handlers[max_level]);
-  data_out.add_data_vector(dst, "solution");
-  data_out.build_patches(*mapping_, 2);
-
   static unsigned int counter = 0;
-  std::ofstream       output("test." + std::to_string(dim) + "." +
-                       std::to_string(counter++) + ".vtk");
-  data_out.write_vtk(output);
+
+  MGLevelObject<VectorType> results(min_level, max_level);
+
+  transfer.interpolate_to_mg(dof_handlers[max_level], results, dst);
+
+  for (unsigned int l = min_level; l <= max_level; ++l)
+    {
+      DataOut<dim> data_out;
+
+      data_out.attach_dof_handler(dof_handlers[l]);
+      data_out.add_data_vector(
+        results[l],
+        "solution",
+        DataOut_DoFData<DoFHandler<dim>, dim>::DataVectorType::type_dof_data);
+      data_out.build_patches(*mapping_, 2);
+
+      std::ofstream output("test." + std::to_string(dim) + "." +
+                           std::to_string(counter) + "." + std::to_string(l) +
+                           ".vtk");
+      data_out.write_vtk(output);
+    }
+
+  counter++;
 }
 
 int
@@ -152,7 +166,8 @@ main(int argc, char **argv)
     for (unsigned int degree = 2; degree <= 4; ++degree)
       test<2>(n_refinements, degree, false /*quadrilateral*/);
 
-  for (unsigned int n_refinements = 2; n_refinements <= 4; ++n_refinements)
-    for (unsigned int degree = 2; degree <= 2; ++degree)
-      test<2>(n_refinements, degree, true /*triangle*/);
+  if (false)
+    for (unsigned int n_refinements = 2; n_refinements <= 4; ++n_refinements)
+      for (unsigned int degree = 2; degree <= 2; ++degree)
+        test<2>(n_refinements, degree, true /*triangle*/);
 }
