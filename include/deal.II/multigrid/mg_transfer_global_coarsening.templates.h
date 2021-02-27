@@ -1714,11 +1714,11 @@ namespace internal
                 transfer.schemes[fe_index_no].restriction_matrix_1d.resize(
                   fe_fine->dofs_per_cell * fe_coarse->dofs_per_cell);
 
-                for (unsigned int i = 0, k = 0; i < fe_fine->dofs_per_cell; ++i)
-                  for (unsigned int j = 0; j < fe_coarse->dofs_per_cell;
-                       ++j, ++k)
+                for (unsigned int i = 0, k = 0; i < fe_coarse->dofs_per_cell;
+                     ++i)
+                  for (unsigned int j = 0; j < fe_fine->dofs_per_cell; ++j, ++k)
                     transfer.schemes[fe_index_no].restriction_matrix_1d[k] =
-                      matrix(renumbering_coarse[j], renumbering_fine[i]);
+                      matrix(renumbering_coarse[i], renumbering_fine[j]);
               }
             }
           else
@@ -1750,11 +1750,11 @@ namespace internal
                 transfer.schemes[fe_index_no].restriction_matrix.resize(
                   fe_fine.dofs_per_cell * fe_coarse.dofs_per_cell);
 
-                for (unsigned int i = 0, k = 0; i < fe_fine.dofs_per_cell; ++i)
-                  for (unsigned int j = 0; j < fe_coarse.dofs_per_cell;
-                       ++j, ++k)
+                for (unsigned int i = 0, k = 0; i < fe_coarse.dofs_per_cell;
+                     ++i)
+                  for (unsigned int j = 0; j < fe_fine.dofs_per_cell; ++j, ++k)
                     transfer.schemes[fe_index_no].restriction_matrix[k] =
-                      matrix(j, i);
+                      matrix(i, j);
               }
             }
         }
@@ -2297,8 +2297,8 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
       evaluation_data_fine.resize(scheme.dofs_per_cell_fine);
       evaluation_data_coarse.resize(scheme.dofs_per_cell_fine);
 
-      CellTransferFactory cell_transfer(scheme.degree_coarse,
-                                        scheme.degree_fine);
+      CellTransferFactory cell_transfer(scheme.degree_fine,
+                                        scheme.degree_coarse);
 
       const unsigned int n_scalar_dofs_fine =
         scheme.dofs_per_cell_fine / n_components;
@@ -2330,7 +2330,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           // ------------------------------ fine -----------------------------
           for (int c = n_components - 1; c >= 0; --c)
             {
-              CellProlongator<dim, VectorizedArrayType> cell_restrictor(
+              CellRestrictor<dim, VectorizedArrayType> cell_restrictor(
                 scheme.restriction_matrix,
                 scheme.restriction_matrix_1d,
                 evaluation_data_fine.begin() + c * n_scalar_dofs_fine,
