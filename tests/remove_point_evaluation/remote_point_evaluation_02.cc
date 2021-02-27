@@ -240,7 +240,6 @@ compute_force_vector_sharp_interface(
     std::vector<double>                  buffer_dim;
     std::vector<types::global_dof_index> local_dof_indices;
     std::vector<types::global_dof_index> local_dof_indices_dim;
-    std::vector<T>                       JxW;
 
     unsigned int i = 0;
 
@@ -263,6 +262,8 @@ compute_force_vector_sharp_interface(
 
         const ArrayView<const Point<spacedim>> unit_points(
           std::get<1>(quadrature_points).data() + i, cells_and_n.second);
+
+        const ArrayView<const T> JxW(values.data() + i, cells_and_n.second);
 
         // gather_evaluate curvature
         {
@@ -300,13 +301,6 @@ compute_force_vector_sharp_interface(
                               EvaluationFlags::values);
         }
 
-        // load JxW
-        {
-          JxW.resize(unit_points.size());
-          for (unsigned int q = 0; q < unit_points.size(); ++q, ++i)
-            JxW[q] = values[std::get<2>(quadrature_points)[i]];
-        }
-
         // perform operation on quadrature points
         for (unsigned int q = 0; q < unit_points.size(); ++q)
           phi_force.submit_value(surface_tension * phi_normal.get_value(q) *
@@ -324,6 +318,8 @@ compute_force_vector_sharp_interface(
                                                  local_dof_indices_dim,
                                                  force_vector);
         }
+
+        i += unit_points.size();
       }
   };
 

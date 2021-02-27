@@ -148,8 +148,7 @@ namespace VectorTools
                                dealii::EvaluationFlags::values);
 
             for (unsigned int q = 0; q < unit_points.size(); ++q, ++i)
-              values[std::get<2>(quadrature_points)[i]] =
-                evaluator.get_value(q);
+              values[i] = evaluator.get_value(q);
           }
       };
 
