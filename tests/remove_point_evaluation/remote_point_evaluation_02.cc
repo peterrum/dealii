@@ -39,6 +39,8 @@
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 
+#include "../tests.h"
+
 using namespace dealii;
 
 
@@ -273,25 +275,23 @@ compute_force_vector_sharp_interface(
             JxW[q] = values[std::get<2>(quadrature_points)[i]];
         }
 
+        // perform operation on quadrature points
         for (unsigned int q = 0; q < unit_points.size(); ++q)
-          {
-            std::cout << surface_tension << "  " << phi_normal.get_value(q)
-                      << " " << phi_curvature.get_value(q) << " " << JxW[q]
-                      << std::endl;
-            phi_force.submit_value(surface_tension * phi_normal.get_value(q) *
-                                     phi_curvature.get_value(q) * JxW[q],
-                                   q);
-          }
+          phi_force.submit_value(surface_tension * phi_normal.get_value(q) *
+                                   phi_curvature.get_value(q) * JxW[q],
+                                 q);
 
         // integrate_scatter force
-        phi_force.integrate(cell_dim,
-                            unit_points,
-                            buffer_dim,
-                            EvaluationFlags::values);
+        {
+          phi_force.integrate(cell_dim,
+                              unit_points,
+                              buffer_dim,
+                              EvaluationFlags::values);
 
-        constraints.distribute_local_to_global(buffer_dim,
-                                               local_dof_indices_dim,
-                                               force_vector);
+          constraints.distribute_local_to_global(buffer_dim,
+                                                 local_dof_indices_dim,
+                                                 force_vector);
+        }
       }
   };
 
@@ -387,7 +387,7 @@ test()
                            curvature_vector);
 
   // write computed vectors to Paraview
-  if (true)
+  if (false)
     {
       GridOut().write_mesh_per_processor_as_vtu(tria, "grid_surface");
       GridOut().write_mesh_per_processor_as_vtu(background_tria,
@@ -406,7 +406,7 @@ test()
                                        force_vector_sharp_interface);
 
   // write computed vectors to Paraview
-  if (true)
+  if (false)
     {
       DataOutBase::VtkFlags flags;
       // flags.write_higher_order_cells = true;
@@ -425,7 +425,7 @@ test()
                                           MPI_COMM_WORLD);
     }
 
-  if (true)
+  if (false)
     {
       DataOutBase::VtkFlags flags;
       flags.write_higher_order_cells = true;
@@ -448,6 +448,8 @@ test()
                                           0,
                                           MPI_COMM_WORLD);
     }
+
+  force_vector_sharp_interface.print(deallog.get_file_stream());
 }
 
 
@@ -456,6 +458,7 @@ int
 main(int argc, char **argv)
 {
   Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
+  MPILogInitAll                    all;
 
   test<1>();
 }
