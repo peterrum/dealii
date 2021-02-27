@@ -13,7 +13,7 @@
 //
 // ---------------------------------------------------------------------
 
-// Example 1: TODO.
+// Evaluate solution vector along a line.
 
 #include <deal.II/base/quadrature_lib.h>
 

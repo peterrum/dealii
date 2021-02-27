@@ -13,6 +13,9 @@
 //
 // ---------------------------------------------------------------------
 
+// Like remote_point_evaluation_01.cc but normal and curvature vector living on
+// background mesh.
+
 #include <deal.II/base/mpi.h>
 #include <deal.II/base/mpi_remote_point_evaluation.h>
 

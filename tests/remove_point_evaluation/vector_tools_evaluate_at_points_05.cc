@@ -13,7 +13,7 @@
 //
 // ---------------------------------------------------------------------
 
-// Example 1: TODO.
+// Create a slice.
 
 #include <deal.II/base/quadrature_lib.h>
 

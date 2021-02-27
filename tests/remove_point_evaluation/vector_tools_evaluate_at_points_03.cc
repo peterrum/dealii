@@ -13,9 +13,7 @@
 //
 // ---------------------------------------------------------------------
 
-// Example 3: TODO.
-//
-// Based on fiddle (by David Wells - https://github.com/drwells/fiddle)
+// Interpolate result between non-matching grids.
 
 #include <deal.II/base/function_lib.h>
 #include <deal.II/base/quadrature_lib.h>
