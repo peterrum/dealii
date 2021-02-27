@@ -565,7 +565,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::interpolate_to_mg(
   const unsigned int max_level = transfer.max_level();
 
   AssertDimension(min_level, dst.min_level());
-  AssertDimension(max_level, dst.min_level());
+  AssertDimension(max_level, dst.max_level());
 
   for (unsigned int level = min_level; level <= max_level; ++level)
     initialize_dof_vector(level, dst[level]);
@@ -573,7 +573,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::interpolate_to_mg(
   dst[transfer.max_level()].copy_locally_owned_data_from(src);
 
   for (unsigned int l = max_level; l > min_level; --l)
-    this->transfer[l].interpolate(dst[l], dst[l - 1]);
+    this->transfer[l].interpolate(dst[l - 1], dst[l]);
 }
 
 #endif

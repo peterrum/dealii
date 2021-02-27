@@ -1693,16 +1693,33 @@ namespace internal
                     fe_coarse->dofs_per_vertex;
               }
 
-              FullMatrix<double> matrix(fe_fine->dofs_per_cell,
-                                        fe_coarse->dofs_per_cell);
-              FETools::get_projection_matrix(*fe_coarse, *fe_fine, matrix);
-              transfer.schemes[fe_index_no].prolongation_matrix_1d.resize(
-                fe_fine->dofs_per_cell * fe_coarse->dofs_per_cell);
+              {
+                FullMatrix<double> matrix(fe_fine->dofs_per_cell,
+                                          fe_coarse->dofs_per_cell);
+                FETools::get_projection_matrix(*fe_coarse, *fe_fine, matrix);
+                transfer.schemes[fe_index_no].prolongation_matrix_1d.resize(
+                  fe_fine->dofs_per_cell * fe_coarse->dofs_per_cell);
 
-              for (unsigned int i = 0, k = 0; i < fe_coarse->dofs_per_cell; ++i)
-                for (unsigned int j = 0; j < fe_fine->dofs_per_cell; ++j, ++k)
-                  transfer.schemes[fe_index_no].prolongation_matrix_1d[k] =
-                    matrix(renumbering_fine[j], renumbering_coarse[i]);
+                for (unsigned int i = 0, k = 0; i < fe_coarse->dofs_per_cell;
+                     ++i)
+                  for (unsigned int j = 0; j < fe_fine->dofs_per_cell; ++j, ++k)
+                    transfer.schemes[fe_index_no].prolongation_matrix_1d[k] =
+                      matrix(renumbering_fine[j], renumbering_coarse[i]);
+              }
+
+              {
+                FullMatrix<double> matrix(fe_coarse->dofs_per_cell,
+                                          fe_fine->dofs_per_cell);
+                FETools::get_projection_matrix(*fe_fine, *fe_coarse, matrix);
+                transfer.schemes[fe_index_no].restriction_matrix_1d.resize(
+                  fe_fine->dofs_per_cell * fe_coarse->dofs_per_cell);
+
+                for (unsigned int i = 0, k = 0; i < fe_fine->dofs_per_cell; ++i)
+                  for (unsigned int j = 0; j < fe_coarse->dofs_per_cell;
+                       ++j, ++k)
+                    transfer.schemes[fe_index_no].restriction_matrix_1d[k] =
+                      matrix(renumbering_coarse[j], renumbering_fine[i]);
+              }
             }
           else
             {
@@ -1712,16 +1729,33 @@ namespace internal
               const auto &fe_coarse =
                 dof_handler_coarse.get_fe(fe_index_pair.first).base_element(0);
 
-              FullMatrix<double> matrix(fe_fine.dofs_per_cell,
-                                        fe_coarse.dofs_per_cell);
-              FETools::get_projection_matrix(fe_coarse, fe_fine, matrix);
-              transfer.schemes[fe_index_no].prolongation_matrix.resize(
-                fe_fine.dofs_per_cell * fe_coarse.dofs_per_cell);
+              {
+                FullMatrix<double> matrix(fe_fine.dofs_per_cell,
+                                          fe_coarse.dofs_per_cell);
+                FETools::get_projection_matrix(fe_coarse, fe_fine, matrix);
+                transfer.schemes[fe_index_no].prolongation_matrix.resize(
+                  fe_fine.dofs_per_cell * fe_coarse.dofs_per_cell);
 
-              for (unsigned int i = 0, k = 0; i < fe_coarse.dofs_per_cell; ++i)
-                for (unsigned int j = 0; j < fe_fine.dofs_per_cell; ++j, ++k)
-                  transfer.schemes[fe_index_no].prolongation_matrix[k] =
-                    matrix(j, i);
+                for (unsigned int i = 0, k = 0; i < fe_coarse.dofs_per_cell;
+                     ++i)
+                  for (unsigned int j = 0; j < fe_fine.dofs_per_cell; ++j, ++k)
+                    transfer.schemes[fe_index_no].prolongation_matrix[k] =
+                      matrix(j, i);
+              }
+
+              {
+                FullMatrix<double> matrix(fe_coarse.dofs_per_cell,
+                                          fe_fine.dofs_per_cell);
+                FETools::get_projection_matrix(fe_fine, fe_coarse, matrix);
+                transfer.schemes[fe_index_no].restriction_matrix.resize(
+                  fe_fine.dofs_per_cell * fe_coarse.dofs_per_cell);
+
+                for (unsigned int i = 0, k = 0; i < fe_fine.dofs_per_cell; ++i)
+                  for (unsigned int j = 0; j < fe_coarse.dofs_per_cell;
+                       ++j, ++k)
+                    transfer.schemes[fe_index_no].restriction_matrix[k] =
+                      matrix(j, i);
+              }
             }
         }
 
@@ -2231,7 +2265,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   this->vec_fine.copy_locally_owned_data_from(src);
   this->vec_fine.update_ghost_values();
 
-  this->vec_coarse.copy_locally_owned_data_from(dst);
+  this->vec_coarse = 0.0;
 
   AlignedVector<VectorizedArrayType> evaluation_data_fine;
   AlignedVector<VectorizedArrayType> evaluation_data_coarse;
@@ -2263,8 +2297,8 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
       evaluation_data_fine.resize(scheme.dofs_per_cell_fine);
       evaluation_data_coarse.resize(scheme.dofs_per_cell_fine);
 
-      CellTransferFactory cell_transfer(scheme.degree_fine,
-                                        scheme.degree_coarse);
+      CellTransferFactory cell_transfer(scheme.degree_coarse,
+                                        scheme.degree_fine);
 
       const unsigned int n_scalar_dofs_fine =
         scheme.dofs_per_cell_fine / n_components;
@@ -2326,9 +2360,6 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           }
         }
     }
-
-  if (schemes.size() && schemes.front().fine_element_is_continuous)
-    this->vec_coarse.compress(VectorOperation::add);
 
   dst.copy_locally_owned_data_from(this->vec_coarse);
 }
