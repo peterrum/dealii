@@ -200,6 +200,12 @@ namespace Utilities
                std::vector<Point<dim>>,
                std::vector<unsigned int>> &)> &fu) const
     {
+#ifndef DEAL_II_WITH_MPI
+      Assert(false, ExcNeedsMPI());
+      (void)output;
+      (void)buffer;
+      (void)fu;
+#else
       output.resize(quadrature_points_ptr.back());
       buffer.resize(
         (std::get<1>(this->relevant_remote_points_per_process).size()) * 2);
@@ -291,6 +297,7 @@ namespace Utilities
       for (const auto &j : temp_recv_map)
         for (const auto &i : j.second)
           output[*(it++)] = i;
+#endif
     }
 
 
@@ -307,6 +314,12 @@ namespace Utilities
                std::vector<Point<dim>>,
                std::vector<unsigned int>> &)> &fu) const
     {
+#ifndef DEAL_II_WITH_MPI
+      Assert(false, ExcNeedsMPI());
+      (void)input;
+      (void)buffer;
+      (void)fu;
+#else
       // expand
       const auto &   ptr = this->get_point_ptrs();
       std::vector<T> buffer_(ptr.back());
@@ -329,14 +342,14 @@ namespace Utilities
 
       const unsigned int my_rank = Utilities::MPI::this_mpi_process(comm);
 
-#ifdef DEBUG
-      unsigned int i = 0;
+#  ifdef DEBUG
+      unsigned int       i       = 0;
 
       for (auto &j : temp_recv_map)
         i += j.second.size();
 
       AssertDimension(indices.size(), i);
-#endif
+#  endif
 
       auto it = indices.begin();
       for (auto &j : temp_recv_map)
@@ -451,6 +464,7 @@ namespace Utilities
 
       // evaluate function at points
       fu(buffer_2, relevant_remote_points_per_process);
+#endif
     }
 
   } // end of namespace MPI
