@@ -64,6 +64,12 @@ namespace Utilities
       const Triangulation<dim, spacedim> &tria,
       const Mapping<dim, spacedim> &      mapping)
     {
+#ifndef DEAL_II_WITH_MPI
+      Assert(false, ExcNeedsMPI());
+      (void)quadrature_points;
+      (void)tria;
+      (void)mapping;
+#else
       this->tria    = &tria;
       this->mapping = &mapping;
 
@@ -395,6 +401,7 @@ namespace Utilities
           send_ranks.push_back(i.first);
           send_ptr.push_back(std::get<2>(temp).size());
         }
+#endif
     }
 
 
