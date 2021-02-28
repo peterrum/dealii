@@ -90,6 +90,57 @@ namespace VectorTools
     return evaluate_at_points<n_components>(dof_handler, vector, eval, flags);
   }
 
+  namespace internal
+  {
+    template <typename T>
+    T
+    reduce(const EvaluationFlags::EvaluationFlags flags,
+           const ArrayView<const T> &             values)
+    {
+      switch (flags)
+        {
+          case EvaluationFlags::avg:
+            {
+              T result = {};
+              for (const auto &v : values)
+                result += v;
+              return result / values.size();
+            }
+          case EvaluationFlags::max:
+            return *std::max_element(values.begin(), values.end());
+          case EvaluationFlags::min:
+            return *std::min_element(values.begin(), values.end());
+          case EvaluationFlags::insert:
+            return values[0];
+          default:
+            Assert(false, ExcNotImplemented());
+            return values[0];
+        }
+    }
+
+    template <int rank, int dim, typename Number>
+    Tensor<rank, dim, Number>
+    reduce(const EvaluationFlags::EvaluationFlags            flags,
+           const ArrayView<const Tensor<rank, dim, Number>> &values)
+    {
+      switch (flags)
+        {
+          case EvaluationFlags::avg:
+            {
+              Tensor<rank, dim, Number> result = {};
+              for (const auto &v : values)
+                result += v;
+              return result / (Number(1.0) * values.size());
+            }
+          case EvaluationFlags::insert:
+            return values[0];
+          default:
+            Assert(false, ExcNotImplemented());
+            return values[0];
+        }
+    }
+  } // namespace internal
+
 
 
   template <int n_components, int dim, int spacedim, typename VectorType>
@@ -112,7 +163,7 @@ namespace VectorTools
       std::vector<std::unique_ptr<FEPointEvaluation<n_components, dim>>>
         evaluators(dof_handler.get_fe_collection().size());
 
-      std::vector<value_type> solution_values;
+      std::vector<double> solution_values;
 
       // helper function for accessing the global vector and interpolating
       // the results onto the points
@@ -140,7 +191,7 @@ namespace VectorTools
 
             if (evaluators[active_fe_index] == nullptr)
               evaluators[active_fe_index] =
-                std::make_unique<FEPointEvaluation<1, dim>>(
+                std::make_unique<FEPointEvaluation<n_components, dim>>(
                   eval.get_mapping(), dof_handler.get_fe(active_fe_index));
 
             auto &evaluator = *evaluators[active_fe_index];
@@ -176,28 +227,6 @@ namespace VectorTools
         std::vector<value_type> unique_evaluation_point_results(
           eval.get_point_ptrs().size() - 1);
 
-        const auto reduce = [flags](const auto &values) {
-          switch (flags)
-            {
-              case EvaluationFlags::avg:
-                {
-                  value_type result = {};
-                  for (const auto &v : values)
-                    result += v;
-                  return result / values.size();
-                }
-              case EvaluationFlags::max:
-                return *std::max_element(values.begin(), values.end());
-              case EvaluationFlags::min:
-                return *std::min_element(values.begin(), values.end());
-              case EvaluationFlags::insert:
-                return values[0];
-              default:
-                Assert(false, ExcNotImplemented());
-                return values[0];
-            }
-        };
-
         const auto &ptr = eval.get_point_ptrs();
 
         for (unsigned int i = 0; i < ptr.size() - 1; ++i)
@@ -207,8 +236,10 @@ namespace VectorTools
               continue;
 
             unique_evaluation_point_results[i] =
-              reduce(ArrayView<const value_type>(
-                evaluation_point_results.data() + ptr[i], n_entries));
+              internal::reduce(flags,
+                               ArrayView<const value_type>(
+                                 evaluation_point_results.data() + ptr[i],
+                                 n_entries));
           }
 
         return unique_evaluation_point_results;

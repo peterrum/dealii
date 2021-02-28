@@ -43,6 +43,7 @@
 
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
+#include <deal.II/numerics/vector_tools_evaluate.h>
 
 #include "../tests.h"
 
@@ -142,13 +143,12 @@ namespace dealii
 
 template <int dim, int spacedim, typename VectorType>
 void
-compute_force_vector_sharp_interface(
-  const Triangulation<dim, spacedim> &surface_mesh,
-  const Mapping<dim, spacedim> &      surface_mapping,
-  const Quadrature<dim> &             surface_quadrature,
-  const Mapping<spacedim> &           mapping,
-  const DoFHandler<spacedim> &        dof_handler_dim,
-  const VectorType &                  normal_solution)
+test_1(const Triangulation<dim, spacedim> &surface_mesh,
+       const Mapping<dim, spacedim> &      surface_mapping,
+       const Quadrature<dim> &             surface_quadrature,
+       const Mapping<spacedim> &           mapping,
+       const DoFHandler<spacedim> &        dof_handler_dim,
+       const VectorType &                  normal_solution)
 {
   using T = Point<spacedim>;
 
@@ -272,6 +272,60 @@ compute_force_vector_sharp_interface(
 
 
 
+template <int dim, int spacedim, typename VectorType>
+void
+test_2(const Triangulation<dim, spacedim> &surface_mesh,
+       const Mapping<dim, spacedim> &      surface_mapping,
+       const Quadrature<dim> &             surface_quadrature,
+       const Mapping<spacedim> &           mapping,
+       const DoFHandler<spacedim> &        dof_handler_dim,
+       const VectorType &                  normal_solution)
+{
+  using T = Point<spacedim>;
+
+  const auto integration_points = [&]() {
+    std::vector<Point<spacedim>> integration_points;
+
+    FE_Nothing<dim, spacedim> dummy;
+
+    FEValues<dim, spacedim> fe_eval(surface_mapping,
+                                    dummy,
+                                    surface_quadrature,
+                                    update_quadrature_points);
+
+    for (const auto &cell : surface_mesh.active_cell_iterators())
+      {
+        if (cell->is_locally_owned() == false)
+          continue;
+
+        fe_eval.reinit(cell);
+
+        for (const auto q : fe_eval.quadrature_point_indices())
+          integration_points.push_back(fe_eval.quadrature_point(q));
+      }
+
+    return integration_points;
+  }();
+
+  Utilities::MPI::RemotePointEvaluation<spacedim, spacedim> eval;
+  eval.reinit(integration_points, dof_handler_dim.get_triangulation(), mapping);
+
+  const auto evaluation_point_results =
+    VectorTools::evaluate_at_points<spacedim>(dof_handler_dim,
+                                              normal_solution,
+                                              eval);
+
+  for (unsigned int i = 0; i < evaluation_point_results.size(); ++i)
+    {
+      if (integration_points[i].distance(
+            Point<spacedim>(evaluation_point_results[i])) > 1e-7)
+        std::cout << integration_points[i] << " " << evaluation_point_results[i]
+                  << std::endl;
+    }
+}
+
+
+
 template <int dim>
 void
 test(const MPI_Comm comm)
@@ -363,13 +417,21 @@ test(const MPI_Comm comm)
                                                 "grid_background");
     }
 
-  compute_force_vector_sharp_interface(tria,
-                                       mapping,
-                                       QGauss<dim>(fe_degree + 1),
-                                       background_mapping,
-                                       background_dof_handler_dim,
-                                       normal_vector);
-  deallog << "OK" << std::endl;
+  test_1(tria,
+         mapping,
+         QGauss<dim>(fe_degree + 1),
+         background_mapping,
+         background_dof_handler_dim,
+         normal_vector);
+  deallog << "OK1!" << std::endl;
+
+  test_2(tria,
+         mapping,
+         QGauss<dim>(fe_degree + 1),
+         background_mapping,
+         background_dof_handler_dim,
+         normal_vector);
+  deallog << "OK2!" << std::endl;
 }
 
 
