@@ -206,6 +206,8 @@ namespace Utilities
             // to recv
             relevant_points_per_process_offset[my_rank] = point_ids;
             relevant_points_per_process_count[my_rank]  = point_counts;
+
+            recv_ranks.push_back(my_rank);
           }
       }
 
@@ -303,6 +305,8 @@ namespace Utilities
       Utilities::MPI::ConsensusAlgorithms::Selector<double, unsigned int>(
         process, comm)
         .run();
+
+      std::sort(recv_ranks.begin(), recv_ranks.end());
 
       std::vector<unsigned int> quadrature_points_count(
         quadrature_points.size(), 0);
