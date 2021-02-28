@@ -62,27 +62,7 @@ public:
   double
   value(const Point<dim> &p, const unsigned int component) const
   {
-    if (p.distance(Point<dim>()) < 1e-8)
-      return 0.0;
-
-    return (p / p.norm())[component];
-  }
-};
-
-template <int dim>
-class CurvatureFunction : public Function<dim>
-{
-public:
-  CurvatureFunction()
-    : Function<dim>(1)
-  {}
-
-  double
-  value(const Point<dim> &p, const unsigned int component) const
-  {
-    (void)p;
-    (void)component;
-    return 2.0;
+    return p[component];
   }
 };
 
@@ -167,14 +147,10 @@ compute_force_vector_sharp_interface(
   const Mapping<dim, spacedim> &      surface_mapping,
   const Quadrature<dim> &             surface_quadrature,
   const Mapping<spacedim> &           mapping,
-  const DoFHandler<spacedim> &        dof_handler,
   const DoFHandler<spacedim> &        dof_handler_dim,
-  const double                        surface_tension,
-  const VectorType &                  normal_solution,
-  const VectorType &                  curvature_solution,
-  VectorType &                        force_vector)
+  const VectorType &                  normal_solution)
 {
-  using T = double;
+  using T = Point<spacedim>;
 
   const auto integration_points = [&]() {
     std::vector<Point<spacedim>> integration_points;
@@ -201,7 +177,7 @@ compute_force_vector_sharp_interface(
   }();
 
   Utilities::MPI::RemotePointEvaluation<spacedim, spacedim> eval;
-  eval.reinit(integration_points, dof_handler.get_triangulation(), mapping);
+  eval.reinit(integration_points, dof_handler_dim.get_triangulation(), mapping);
 
   const auto integration_values = [&]() {
     std::vector<T> integration_values;
@@ -211,7 +187,7 @@ compute_force_vector_sharp_interface(
     FEValues<dim, spacedim> fe_eval(surface_mapping,
                                     dummy,
                                     surface_quadrature,
-                                    update_JxW_values);
+                                    update_quadrature_points);
 
     for (const auto &cell : surface_mesh.active_cell_iterators())
       {
@@ -221,7 +197,7 @@ compute_force_vector_sharp_interface(
         fe_eval.reinit(cell);
 
         for (const auto q : fe_eval.quadrature_point_indices())
-          integration_values.push_back(fe_eval.JxW(q));
+          integration_values.push_back(fe_eval.quadrature_point(q));
       }
 
     return integration_values;
@@ -230,7 +206,6 @@ compute_force_vector_sharp_interface(
   const auto fu = [&](const auto &values, const auto &quadrature_points) {
     AffineConstraints<double> constraints; // TODO: use the right ones
 
-    FEPointEvaluation<1, spacedim> phi_curvature(mapping, dof_handler.get_fe());
     FEPointEvaluation<spacedim, spacedim> phi_normal(mapping,
                                                      dof_handler_dim.get_fe());
     FEPointEvaluation<spacedim, spacedim> phi_force(mapping,
@@ -245,12 +220,6 @@ compute_force_vector_sharp_interface(
 
     for (const auto &cells_and_n : std::get<0>(quadrature_points))
       {
-        typename DoFHandler<spacedim>::active_cell_iterator cell = {
-          &eval.get_triangulation(),
-          cells_and_n.first.first,
-          cells_and_n.first.second,
-          &dof_handler};
-
         typename DoFHandler<spacedim>::active_cell_iterator cell_dim = {
           &eval.get_triangulation(),
           cells_and_n.first.first,
@@ -264,24 +233,6 @@ compute_force_vector_sharp_interface(
           std::get<1>(quadrature_points).data() + i, cells_and_n.second);
 
         const ArrayView<const T> JxW(values.data() + i, cells_and_n.second);
-
-        // gather_evaluate curvature
-        {
-          local_dof_indices.resize(cell->get_fe().n_dofs_per_cell());
-          buffer.resize(cell->get_fe().n_dofs_per_cell());
-
-          cell->get_dof_indices(local_dof_indices);
-
-          constraints.get_dof_values(curvature_solution,
-                                     local_dof_indices.begin(),
-                                     buffer.begin(),
-                                     buffer.end());
-
-          phi_curvature.evaluate(cell,
-                                 unit_points,
-                                 make_array_view(buffer),
-                                 EvaluationFlags::values);
-        }
 
         // gather_evaluate normal
         {
@@ -303,21 +254,8 @@ compute_force_vector_sharp_interface(
 
         // perform operation on quadrature points
         for (unsigned int q = 0; q < unit_points.size(); ++q)
-          phi_force.submit_value(surface_tension * phi_normal.get_value(q) *
-                                   phi_curvature.get_value(q) * JxW[q],
-                                 q);
-
-        // integrate_scatter force
-        {
-          phi_force.integrate(cell_dim,
-                              unit_points,
-                              buffer_dim,
-                              EvaluationFlags::values);
-
-          constraints.distribute_local_to_global(buffer_dim,
-                                                 local_dof_indices_dim,
-                                                 force_vector);
-        }
+          deallog << JxW[q].distance(Point<spacedim>(phi_normal.get_value(q)))
+                  << std::endl;
 
         i += unit_points.size();
       }
@@ -372,8 +310,7 @@ test()
 #if false
   const unsigned int background_n_global_refinements = 6;
 #else
-  const unsigned int background_n_global_refinements =
-    Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) == 1 ? 40 : 80;
+  const unsigned int background_n_global_refinements = 40;
 #endif
   const unsigned int background_fe_degree = 2;
 
@@ -395,32 +332,21 @@ test()
   DoFHandler<spacedim> background_dof_handler_dim(background_tria);
   background_dof_handler_dim.distribute_dofs(background_fe_dim);
 
-  FE_Q<spacedim>       background_fe(background_fe_degree);
-  DoFHandler<spacedim> background_dof_handler(background_tria);
-  background_dof_handler.distribute_dofs(background_fe);
-
   MappingQ1<spacedim> background_mapping;
 
   VectorType force_vector_sharp_interface(
     create_partitioner(background_dof_handler_dim));
   VectorType normal_vector(create_partitioner(background_dof_handler_dim));
-  VectorType curvature_vector(create_partitioner(background_dof_handler));
 
   VectorTools::interpolate(background_mapping,
                            background_dof_handler_dim,
                            NormalFunction<spacedim>(),
                            normal_vector);
 
-  VectorTools::interpolate(background_mapping,
-                           background_dof_handler,
-                           CurvatureFunction<spacedim>(),
-                           curvature_vector);
-
   normal_vector.update_ghost_values();
-  curvature_vector.update_ghost_values();
 
   // write computed vectors to Paraview
-  if (false)
+  if (true)
     {
       GridOut().write_mesh_per_processor_as_vtu(tria, "grid_surface");
       GridOut().write_mesh_per_processor_as_vtu(background_tria,
@@ -431,60 +357,8 @@ test()
                                        mapping,
                                        QGauss<dim>(fe_degree + 1),
                                        background_mapping,
-                                       background_dof_handler,
                                        background_dof_handler_dim,
-                                       1.0,
-                                       normal_vector,
-                                       curvature_vector,
-                                       force_vector_sharp_interface);
-
-  force_vector_sharp_interface.update_ghost_values();
-
-  // write computed vectors to Paraview
-  if (false)
-    {
-      DataOutBase::VtkFlags flags;
-      // flags.write_higher_order_cells = true;
-
-      DataOut<dim, DoFHandler<dim, spacedim>> data_out;
-      data_out.set_flags(flags);
-      data_out.attach_dof_handler(dof_handler);
-
-      data_out.build_patches(mapping,
-                             fe_degree + 1,
-                             DataOut<dim, DoFHandler<dim, spacedim>>::
-                               CurvedCellRegion::curved_inner_cells);
-      data_out.write_vtu_with_pvtu_record("./",
-                                          "data_surface",
-                                          0,
-                                          MPI_COMM_WORLD);
-    }
-
-  if (false)
-    {
-      DataOutBase::VtkFlags flags;
-      flags.write_higher_order_cells = true;
-
-      DataOut<spacedim> data_out;
-      data_out.set_flags(flags);
-      data_out.add_data_vector(background_dof_handler,
-                               curvature_vector,
-                               "curvature");
-      data_out.add_data_vector(background_dof_handler_dim,
-                               normal_vector,
-                               "normal");
-      data_out.add_data_vector(background_dof_handler_dim,
-                               force_vector_sharp_interface,
-                               "force");
-
-      data_out.build_patches(background_mapping, background_fe_degree + 1);
-      data_out.write_vtu_with_pvtu_record("./",
-                                          "data_background",
-                                          0,
-                                          MPI_COMM_WORLD);
-    }
-
-  force_vector_sharp_interface.print(deallog.get_file_stream());
+                                       normal_vector);
 }
 
 
