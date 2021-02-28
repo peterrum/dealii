@@ -1615,6 +1615,13 @@ public:
   clear();
 
   /**
+   * Return MPI communicator used by this triangulation. In the case of
+   * a serial Triangulation object, MPI_COMM_SELF is returned.
+   */
+  virtual const MPI_Comm &
+  get_communicator() const;
+
+  /**
    * Set the mesh smoothing to @p mesh_smoothing. This overrides the
    * MeshSmoothing given to the constructor. It is allowed to call this
    * function only if the triangulation is empty.
@@ -3502,6 +3509,13 @@ public:
 
 protected:
   /**
+   * MPI communicator to be used for the triangulation. We create a unique
+   * communicator for this class, which is a duplicate of the one passed to
+   * the constructor.
+   */
+  const MPI_Comm mpi_communicator;
+
+  /**
    * Do some smoothing in the process of refining the triangulation. See the
    * general doc of this class for more information about this.
    */
@@ -3512,6 +3526,13 @@ protected:
    * (also in the distributed case).
    */
   std::vector<ReferenceCell> reference_cells;
+
+  /**
+   * Constructor to be used only by parallel Triangulation classes.
+   */
+  Triangulation(const MPI_Comm &    mpi_communicator,
+                const MeshSmoothing smooth_grid               = none,
+                const bool          check_for_distorted_cells = false);
 
   /**
    * Write a bool vector to the given stream, writing a pre- and a postfix

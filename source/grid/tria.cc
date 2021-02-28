@@ -10075,7 +10075,18 @@ template <int dim, int spacedim>
 Triangulation<dim, spacedim>::Triangulation(
   const MeshSmoothing smooth_grid,
   const bool          check_for_distorted_cells)
-  : smooth_grid(smooth_grid)
+  : Triangulation(MPI_COMM_SELF, smooth_grid, check_for_distorted_cells)
+{}
+
+
+
+template <int dim, int spacedim>
+Triangulation<dim, spacedim>::Triangulation(
+  const MPI_Comm &    mpi_communicator,
+  const MeshSmoothing smooth_grid,
+  const bool          check_for_distorted_cells)
+  : mpi_communicator(mpi_communicator)
+  , smooth_grid(smooth_grid)
   , anisotropic_refinement(false)
   , check_for_distorted_cells(check_for_distorted_cells)
 {
@@ -10100,6 +10111,7 @@ template <int dim, int spacedim>
 Triangulation<dim, spacedim>::Triangulation(
   Triangulation<dim, spacedim> &&tria) noexcept
   : Subscriptor(std::move(tria))
+  , mpi_communicator(tria.mpi_communicator)
   , smooth_grid(tria.smooth_grid)
   , reference_cells(std::move(tria.reference_cells))
   , periodic_face_pairs_level_0(std::move(tria.periodic_face_pairs_level_0))
@@ -10187,6 +10199,14 @@ Triangulation<dim, spacedim>::clear()
   periodic_face_pairs_level_0.clear();
   periodic_face_map.clear();
   reference_cells.clear();
+}
+
+
+template <int dim, int spacedim>
+const MPI_Comm &
+Triangulation<dim, spacedim>::get_communicator() const
+{
+  return mpi_communicator;
 }
 
 

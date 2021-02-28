@@ -94,12 +94,6 @@ namespace parallel
     virtual ~TriangulationBase() override;
 
     /**
-     * Return MPI communicator used by this triangulation.
-     */
-    virtual const MPI_Comm &
-    get_communicator() const;
-
-    /**
      * Return if multilevel hierarchy is supported and has been constructed.
      */
     virtual bool
@@ -303,13 +297,6 @@ namespace parallel
       const std::vector<bool> &vertex_locally_moved);
 
   protected:
-    /**
-     * MPI communicator to be used for the triangulation. We create a unique
-     * communicator for this class, which is a duplicate of the one passed to
-     * the constructor.
-     */
-    MPI_Comm mpi_communicator;
-
     /**
      * The subdomain id to be used for the current processor. This is the MPI
      * rank.

@@ -46,9 +46,9 @@ namespace parallel
     const typename dealii::Triangulation<dim, spacedim>::MeshSmoothing
                smooth_grid,
     const bool check_for_distorted_cells)
-    : dealii::Triangulation<dim, spacedim>(smooth_grid,
+    : dealii::Triangulation<dim, spacedim>(mpi_communicator,
+                                           smooth_grid,
                                            check_for_distorted_cells)
-    , mpi_communicator(mpi_communicator)
     , my_subdomain(Utilities::MPI::this_mpi_process(this->mpi_communicator))
     , n_subdomains(Utilities::MPI::n_mpi_processes(this->mpi_communicator))
   {
@@ -90,7 +90,7 @@ namespace parallel
   {
     std::size_t mem =
       this->dealii::Triangulation<dim, spacedim>::memory_consumption() +
-      MemoryConsumption::memory_consumption(mpi_communicator) +
+      MemoryConsumption::memory_consumption(this->mpi_communicator) +
       MemoryConsumption::memory_consumption(my_subdomain) +
       MemoryConsumption::memory_consumption(
         number_cache.n_global_active_cells) +
@@ -134,13 +134,6 @@ namespace parallel
     return number_cache.n_global_active_cells;
   }
 
-  template <int dim, int spacedim>
-  const MPI_Comm &
-  TriangulationBase<dim, spacedim>::get_communicator() const
-  {
-    return mpi_communicator;
-  }
-
 #ifdef DEAL_II_WITH_MPI
   template <int dim, int spacedim>
   void
@@ -170,7 +163,7 @@ namespace parallel
           number_cache.ghost_owners.insert(cell->subdomain_id());
 
       Assert(number_cache.ghost_owners.size() <
-               Utilities::MPI::n_mpi_processes(mpi_communicator),
+               Utilities::MPI::n_mpi_processes(this->mpi_communicator),
              ExcInternalError());
     }
 
