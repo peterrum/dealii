@@ -257,6 +257,9 @@ namespace Utilities
 
       for (unsigned int i = 0; i < recv_ranks.size(); ++i)
         {
+          if (recv_ranks[i] == my_rank)
+            continue;
+
           MPI_Status status;
           MPI_Probe(MPI_ANY_SOURCE,
                     internal::Tags::remote_point_evaluation,
@@ -326,16 +329,14 @@ namespace Utilities
 
       const unsigned int my_rank = Utilities::MPI::this_mpi_process(comm);
 
-      if (std::find(send_ranks.begin(), send_ranks.end(), my_rank) !=
-          send_ranks.end())
-        {
-          const unsigned int i = std::distance(std::find(send_ranks.begin(),
-                                                         send_ranks.end(),
-                                                         my_rank),
-                                               send_ranks.begin());
-          temp_recv_map[my_rank] =
-            std::vector<T>(indices_ptr[i + 1] - indices_ptr[i]);
-        }
+#ifdef DEBUG
+      unsigned int i = 0;
+
+      for (auto &j : temp_recv_map)
+        i += j.second.size();
+
+      AssertDimension(indices.size(), i);
+#endif
 
       auto it = indices.begin();
       for (auto &j : temp_recv_map)
@@ -357,7 +358,8 @@ namespace Utilities
 
       for (unsigned int i = 0; i < recv_ranks.size(); ++i)
         {
-          // continue;
+          if (recv_ranks[i] == my_rank)
+            continue;
 
           temp_map[recv_ranks[i]] =
             Utilities::pack(temp_recv_map[recv_ranks[i]]);
@@ -377,8 +379,6 @@ namespace Utilities
 
       for (unsigned int i = 0; i < send_ranks.size(); ++i)
         {
-          // continue;
-
           if (send_ranks[i] == my_rank)
             {
               const auto &buffer_send = temp_recv_map[send_ranks[i]];

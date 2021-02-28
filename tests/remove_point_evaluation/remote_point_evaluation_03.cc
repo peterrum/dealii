@@ -254,8 +254,12 @@ compute_force_vector_sharp_interface(
 
         // perform operation on quadrature points
         for (unsigned int q = 0; q < unit_points.size(); ++q)
-          deallog << JxW[q].distance(Point<spacedim>(phi_normal.get_value(q)))
-                  << std::endl;
+          {
+            if (JxW[q].distance(Point<spacedim>(phi_normal.get_value(q))) >
+                1e-7)
+              std::cout << JxW[q] << " " << phi_normal.get_value(q)
+                        << std::endl;
+          }
 
         i += unit_points.size();
       }
@@ -270,7 +274,7 @@ compute_force_vector_sharp_interface(
 
 template <int dim>
 void
-test()
+test(const MPI_Comm comm)
 {
   const unsigned int spacedim = dim + 1;
 
@@ -279,11 +283,14 @@ test()
   const unsigned int n_refinements  = 5;
 
   parallel::shared::Triangulation<dim, spacedim> tria(
-    MPI_COMM_WORLD, Triangulation<dim, spacedim>::none, true);
+    comm,
+    Triangulation<dim, spacedim>::none,
+    true,
+    parallel::shared::Triangulation<dim, spacedim>::Settings::partition_zorder);
 #if false
   GridGenerator::hyper_sphere(tria, Point<spacedim>(), 0.5);
 #else
-  GridGenerator::hyper_sphere(tria, Point<spacedim>(0.02, 0.03), 0.5);
+  GridGenerator::hyper_sphere(tria, Point<spacedim>(0.02, 0.03), 1.0);
 #endif
   tria.refine_global(n_refinements);
 
@@ -315,7 +322,10 @@ test()
   const unsigned int background_fe_degree = 2;
 
   parallel::shared::Triangulation<spacedim> background_tria(
-    MPI_COMM_WORLD, Triangulation<spacedim>::none, true);
+    comm,
+    Triangulation<spacedim>::none,
+    true,
+    parallel::shared::Triangulation<spacedim>::Settings::partition_zorder);
 #if false
   GridGenerator::hyper_cube(background_tria, -1.0, +1.0);
 #else
@@ -359,6 +369,7 @@ test()
                                        background_mapping,
                                        background_dof_handler_dim,
                                        normal_vector);
+  deallog << "OK" << std::endl;
 }
 
 
@@ -369,5 +380,21 @@ main(int argc, char **argv)
   Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
   MPILogInitAll                    all;
 
-  test<1>();
+  const int n_ranks = Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD);
+  const int my_rank = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
+
+  for (int i = 1; i <= n_ranks; ++i)
+    {
+      MPI_Comm comm;
+      MPI_Comm_split(MPI_COMM_WORLD, my_rank < i, my_rank, &comm);
+
+      if (my_rank < i)
+        {
+          deallog.push("n_ranks=" + std::to_string(i));
+          test<1>(comm);
+          deallog.pop();
+        }
+
+      MPI_Comm_free(&comm);
+    }
 }
