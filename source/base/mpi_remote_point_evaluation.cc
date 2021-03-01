@@ -77,7 +77,7 @@ namespace Utilities
 
       // create bounding boxed of local active cells
       std::vector<BoundingBox<spacedim>> local_boxes;
-      for (const auto cell : tria.active_cell_iterators())
+      for (const auto &cell : tria.active_cell_iterators())
         if (cell->is_locally_owned())
           local_boxes.push_back(mapping.get_bounding_box(cell));
 
@@ -356,7 +356,7 @@ namespace Utilities
         }
 
       indices = {};
-      for (const auto i : indices_temp)
+      for (const auto &i : indices_temp)
         indices.push_back(quadrature_points_ptr[i.first] + i.second);
 
       this->relevant_remote_points_per_process = {};
@@ -384,7 +384,7 @@ namespace Utilities
 
           std::pair<int, int> current = {-1, -1};
 
-          for (const auto j : full)
+          for (const auto &j : full)
             {
               if (current != std::get<0>(j))
                 {
