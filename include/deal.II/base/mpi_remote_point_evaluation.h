@@ -20,6 +20,7 @@
 
 #include <deal.II/dofs/dof_handler.h>
 
+#include <deal.II/grid/grid_tools.h>
 #include <deal.II/grid/grid_tools_cache.h>
 
 DEAL_II_NAMESPACE_OPEN
@@ -29,6 +30,22 @@ namespace Utilities
 {
   namespace MPI
   {
+    namespace internal
+    {
+      template <typename MeshType>
+      inline MPI_Comm
+      get_mpi_comm(const MeshType &mesh)
+      {
+        const auto *tria_parallel = dynamic_cast<
+          const parallel::TriangulationBase<MeshType::dimension,
+                                            MeshType::space_dimension> *>(
+          &(mesh.get_triangulation()));
+
+        return tria_parallel != nullptr ? tria_parallel->get_communicator() :
+                                          MPI_COMM_SELF;
+      }
+    } // namespace internal
+
     /**
      * Helper class to access values on non-matching grids.
      */
@@ -469,6 +486,358 @@ namespace Utilities
 
   } // end of namespace MPI
 } // end of namespace Utilities
+
+
+
+namespace GridTools
+{
+  template <int spacedim>
+  inline std::vector<std::vector<std::pair<unsigned int, Point<spacedim>>>>
+  guess_point_owner_new(
+    const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes,
+    const std::vector<Point<spacedim>> &                   points)
+  {
+    auto potentially_relevant_points_per_process =
+      std::vector<std::vector<std::pair<unsigned int, Point<spacedim>>>>(
+        global_bboxes.size());
+
+    for (unsigned int i = 0; i < points.size(); ++i)
+      {
+        const auto &point = points[i];
+        for (unsigned rank = 0; rank < global_bboxes.size(); ++rank)
+          for (const auto &box : global_bboxes[rank])
+            if (box.point_inside(point))
+              {
+                potentially_relevant_points_per_process[rank].emplace_back(
+                  i, point);
+                break;
+              }
+      }
+    return potentially_relevant_points_per_process;
+  }
+
+  template <int dim, int spacedim>
+  struct DistributedComputePointLocationsInternal
+  {
+    std::vector<std::tuple<std::pair<int, int>,
+                           unsigned int,
+                           unsigned int,
+                           Point<dim>,
+                           Point<spacedim>,
+                           unsigned int>>
+                              send_components;
+    std::vector<unsigned int> send_ranks;
+    std::vector<unsigned int> send_ptrs;
+
+    std::vector<std::tuple<unsigned int, unsigned int, unsigned int>>
+                              recv_components;
+    std::vector<unsigned int> recv_ranks;
+    std::vector<unsigned int> recv_ptrs;
+  };
+
+  template <int dim, int spacedim>
+  DistributedComputePointLocationsInternal<
+    dim,
+    spacedim> inline distributed_compute_point_locations_internal(const GridTools::
+                                                                    Cache<
+                                                                      dim,
+                                                                      spacedim>
+                                                                      &cache,
+                                                                  const std::
+                                                                    vector<Point<
+                                                                      spacedim>>
+                                                                      &points,
+                                                                  const std::vector<
+                                                                    std::vector<
+                                                                      BoundingBox<
+                                                                        spacedim>>>
+                                                                    &global_bboxes,
+                                                                  const double
+                                                                    tolerance,
+                                                                  const bool
+                                                                    perform_handshake)
+  {
+    DistributedComputePointLocationsInternal<dim, spacedim> result;
+
+    auto &send_components = result.send_components;
+    auto &send_ranks      = result.send_ranks;
+    auto &send_ptrs       = result.send_ptrs;
+    auto &recv_components = result.recv_components;
+    auto &recv_ranks      = result.recv_ranks;
+    auto &recv_ptrs       = result.recv_ptrs;
+
+    const auto potentially_relevant_points_per_process =
+      GridTools::guess_point_owner_new(global_bboxes, points);
+
+    const std::vector<bool> marked_vertices;
+    auto cell_hint = cache.get_triangulation().begin_active();
+
+    const auto find_all_locally_owned_active_cells_around_point =
+      [&](const Point<spacedim> &point) {
+        std::vector<
+          std::pair<typename Triangulation<dim, spacedim>::active_cell_iterator,
+                    Point<dim>>>
+          locally_owned_active_cells_around_point;
+
+        try
+          {
+            const auto first_cell = GridTools::find_active_cell_around_point(
+              cache, point, cell_hint, marked_vertices, tolerance);
+
+            cell_hint = first_cell.first;
+
+            const auto active_cells_around_point =
+              GridTools::find_all_active_cells_around_point(
+                cache.get_mapping(),
+                cache.get_triangulation(),
+                point,
+                tolerance,
+                first_cell);
+
+            locally_owned_active_cells_around_point.reserve(
+              active_cells_around_point.size());
+
+            for (const auto &cell : active_cells_around_point)
+              if (cell.first->is_locally_owned())
+                locally_owned_active_cells_around_point.push_back(cell);
+          }
+        catch (...)
+          {}
+
+        return locally_owned_active_cells_around_point;
+      };
+
+    Utilities::MPI::ConsensusAlgorithms::AnonymousProcess<char, char> process(
+      [&]() {
+        std::vector<unsigned int> targets;
+
+        for (unsigned int i = 0;
+             i < potentially_relevant_points_per_process.size();
+             ++i)
+          if (potentially_relevant_points_per_process[i].size() > 0)
+            targets.emplace_back(i);
+        return targets;
+      },
+      [&](const unsigned int other_rank, std::vector<char> &send_buffer) {
+        send_buffer =
+          Utilities::pack(potentially_relevant_points_per_process[other_rank],
+                          false);
+      },
+      [&](const unsigned int &     other_rank,
+          const std::vector<char> &recv_buffer,
+          std::vector<char> &      request_buffer) {
+        const auto recv_buffer_unpacked = Utilities::unpack<
+          std::vector<std::pair<unsigned int, Point<spacedim>>>>(recv_buffer,
+                                                                 false);
+
+        for (unsigned int i = 0; i < recv_buffer_unpacked.size(); ++i)
+          {
+            const auto &index_and_point = recv_buffer_unpacked[i];
+
+            const auto cells_and_reference_positions =
+              find_all_locally_owned_active_cells_around_point(
+                index_and_point.second);
+
+            for (const auto &cell_and_reference_position :
+                 cells_and_reference_positions)
+              {
+                send_components.emplace_back(
+                  std::pair<int, int>(
+                    cell_and_reference_position.first->level(),
+                    cell_and_reference_position.first->index()),
+                  other_rank,
+                  index_and_point.first,
+                  cell_and_reference_position.second,
+                  index_and_point.second,
+                  numbers::invalid_unsigned_int);
+              }
+
+            if (perform_handshake)
+              request_buffer[i] = cells_and_reference_positions.size();
+          }
+      },
+      [&](const unsigned int other_rank, std::vector<char> &recv_buffer) {
+        if (perform_handshake)
+          {
+            recv_buffer = Utilities::pack(
+              std::vector<unsigned int>(
+                potentially_relevant_points_per_process[other_rank].size()),
+              false);
+          }
+      },
+      [&](const unsigned int other_rank, const std::vector<char> &recv_buffer) {
+        if (perform_handshake)
+          {
+            const auto recv_buffer_unpacked =
+              Utilities::unpack<std::vector<unsigned int>>(recv_buffer);
+            const auto &potentially_relevant_points =
+              potentially_relevant_points_per_process[other_rank];
+
+            for (unsigned int i = 0; i < recv_buffer_unpacked.size(); ++i)
+              for (unsigned int j = 0; j < recv_buffer_unpacked[i]; ++j)
+                recv_components.emplace_back(
+                  other_rank,
+                  potentially_relevant_points[i].first,
+                  numbers::invalid_unsigned_int);
+          }
+      });
+
+    Utilities::MPI::ConsensusAlgorithms::Selector<char, char>(
+      process, get_mpi_comm(cache.get_triangulation()))
+      .run();
+
+    if (true)
+      {
+        // sort according to rank (and cell and point index) -> make
+        // deterministic
+        std::sort(send_components.begin(),
+                  send_components.end(),
+                  [&](const auto &a, const auto &b) {
+                    if (std::get<1>(a) != std::get<1>(b))
+                      return std::get<1>(a) < std::get<1>(b);
+
+                    if (std::get<0>(a) != std::get<0>(b))
+                      return std::get<0>(a) < std::get<0>(b);
+
+                    return std::get<2>(a) < std::get<2>(b);
+                  });
+
+        // perform enumeration and extract rank information
+        for (unsigned int i = 0, dummy = numbers::invalid_unsigned_int;
+             i < send_components.size();
+             ++i)
+          {
+            std::get<5>(send_components[i]) = i;
+
+            if (dummy != std::get<1>(send_components[i]))
+              {
+                dummy = std::get<1>(send_components[i]);
+                send_ranks.push_back(dummy);
+                send_ptrs.push_back(i);
+              }
+          }
+        send_ptrs.push_back(send_components.size());
+
+        // sort according to cell, rank, point index (while keeping
+        // enumeration)
+        std::sort(send_components.begin(),
+                  send_components.end(),
+                  [&](const auto &a, const auto &b) {
+                    if (std::get<0>(a) != std::get<0>(b))
+                      return std::get<0>(a) < std::get<0>(b);
+
+                    if (std::get<1>(a) != std::get<1>(b))
+                      return std::get<1>(a) < std::get<1>(b);
+
+                    if (std::get<2>(a) != std::get<2>(b))
+                      return std::get<2>(a) < std::get<2>(b);
+
+                    return std::get<5>(a) < std::get<5>(b);
+                  });
+      }
+
+    if (perform_handshake)
+      {
+        // sort according to rank (and point index) -> make deterministic
+        std::sort(recv_components.begin(),
+                  recv_components.end(),
+                  [&](const auto &a, const auto &b) {
+                    if (std::get<0>(a) != std::get<0>(b))
+                      return std::get<0>(a) < std::get<0>(b);
+
+                    return std::get<1>(a) < std::get<1>(b);
+                  });
+
+        // perform enumeration and extract rank information
+        for (unsigned int i = 0, dummy = numbers::invalid_unsigned_int;
+             i < recv_components.size();
+             ++i)
+          {
+            std::get<2>(recv_components[i]) = i;
+
+            if (dummy != std::get<1>(recv_components[i]))
+              {
+                dummy = std::get<1>(recv_components[i]);
+                recv_ranks.push_back(dummy);
+                recv_ptrs.push_back(i);
+              }
+          }
+        send_ptrs.push_back(recv_components.size());
+
+        // sort according to point index and rank (while keeping enumeration)
+        std::sort(recv_components.begin(),
+                  recv_components.end(),
+                  [&](const auto &a, const auto &b) {
+                    if (std::get<1>(a) != std::get<1>(b))
+                      return std::get<1>(a) < std::get<1>(b);
+
+                    if (std::get<0>(a) != std::get<0>(b))
+                      return std::get<0>(a) < std::get<0>(b);
+
+                    return std::get<2>(a) < std::get<2>(b);
+                  });
+      }
+
+    return result;
+  }
+
+  template <int dim, int spacedim>
+  inline std::tuple<
+    std::vector<typename Triangulation<dim, spacedim>::active_cell_iterator>,
+    std::vector<std::vector<Point<dim>>>,
+    std::vector<std::vector<unsigned int>>,
+    std::vector<std::vector<Point<spacedim>>>,
+    std::vector<std::vector<unsigned int>>>
+  distributed_compute_point_locations_new(
+    const GridTools::Cache<dim, spacedim> &                cache,
+    const std::vector<Point<spacedim>> &                   points,
+    const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes,
+    const double                                           tolerance = 1e-8)
+  {
+    const auto all = distributed_compute_point_locations_internal(
+                       cache, points, global_bboxes, tolerance, false)
+                       .send_components;
+
+    std::tuple<
+      std::vector<typename Triangulation<dim, spacedim>::active_cell_iterator>,
+      std::vector<std::vector<Point<dim>>>,
+      std::vector<std::vector<unsigned int>>,
+      std::vector<std::vector<Point<spacedim>>>,
+      std::vector<std::vector<unsigned int>>>
+      result;
+
+    std::pair<int, int> dummy{-1, -1};
+
+    for (unsigned int i = 0; i < all.size(); ++i)
+      {
+        if (dummy != std::get<0>(all[i]))
+          {
+            std::get<0>(result).push_back(
+              typename Triangulation<dim, spacedim>::active_cell_iterator{
+                &cache.get_triangulation(),
+                std::get<0>(all[i]).first,
+                std::get<0>(all[i]).second});
+
+            const unsigned int new_size = std::get<0>(result).size();
+
+            std::get<1>(result).resize(new_size);
+            std::get<2>(result).resize(new_size);
+            std::get<3>(result).resize(new_size);
+            std::get<4>(result).resize(new_size);
+
+            dummy = std::get<0>(all[i]);
+          }
+
+        std::get<1>(result).back().push_back(
+          std::get<3>(all[i])); // reference point
+        std::get<2>(result).back().push_back(std::get<2>(all[i])); // index
+        std::get<3>(result).back().push_back(std::get<4>(all[i])); // real point
+        std::get<4>(result).back().push_back(std::get<1>(all[i])); // rank
+      }
+
+    return result;
+  }
+} // namespace GridTools
 
 
 DEAL_II_NAMESPACE_CLOSE

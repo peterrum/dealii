@@ -35,22 +35,6 @@ namespace Utilities
 {
   namespace MPI
   {
-    namespace
-    {
-      template <typename MeshType>
-      MPI_Comm
-      get_mpi_comm(const MeshType &mesh)
-      {
-        const auto *tria_parallel = dynamic_cast<
-          const parallel::TriangulationBase<MeshType::dimension,
-                                            MeshType::space_dimension> *>(
-          &(mesh.get_triangulation()));
-
-        return tria_parallel != nullptr ? tria_parallel->get_communicator() :
-                                          MPI_COMM_SELF;
-      }
-    } // namespace
-
     template <int dim, int spacedim>
     RemotePointEvaluation<dim, spacedim>::RemotePointEvaluation(
       const double tolerance)
@@ -75,7 +59,7 @@ namespace Utilities
 
       const unsigned int my_rank = Utilities::MPI::this_mpi_process(comm);
 
-      comm = get_mpi_comm(tria);
+      comm = internal::get_mpi_comm(tria);
 
       const auto temp = [&]() {
         const GridTools::Cache<dim, spacedim> cache(tria, mapping);
