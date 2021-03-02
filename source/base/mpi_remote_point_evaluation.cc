@@ -229,42 +229,44 @@ namespace Utilities
           quadrature_points_ptr[i + 1] += quadrature_points_ptr[i];
         }
 
-      for (const auto i : quadrature_points_ptr)
-        std::cout << i << " ";
-      std::cout << std::endl;
+        /*
+        for (const auto i : quadrature_points_ptr)
+          std::cout << i << " ";
+        std::cout << std::endl;
 
-      for (const auto i : indices)
-        std::cout << i << " ";
-      std::cout << std::endl;
+        for (const auto i : indices)
+          std::cout << i << " ";
+        std::cout << std::endl;
 
-      for (const auto i : indices_ptr)
-        std::cout << i << " ";
-      std::cout << std::endl;
+        for (const auto i : indices_ptr)
+          std::cout << i << " ";
+        std::cout << std::endl;
 
-      for (const auto i : recv_ranks)
-        std::cout << i << " ";
-      std::cout << std::endl;
+        for (const auto i : recv_ranks)
+          std::cout << i << " ";
+        std::cout << std::endl;
 
-      for (const auto i : send_ranks)
-        std::cout << i << " ";
-      std::cout << std::endl;
+        for (const auto i : send_ranks)
+          std::cout << i << " ";
+        std::cout << std::endl;
 
-      for (const auto i : send_ptr)
-        std::cout << i << " ";
-      std::cout << std::endl;
+        for (const auto i : send_ptr)
+          std::cout << i << " ";
+        std::cout << std::endl;
 
-      for (const auto i : std::get<0>(relevant_remote_points_per_process))
-        std::cout << "(" << i.first.first << ", " << i.first.second << ", "
-                  << i.second << "), ";
-      std::cout << std::endl;
+        for (const auto i : std::get<0>(relevant_remote_points_per_process))
+          std::cout << "(" << i.first.first << ", " << i.first.second << ", "
+                    << i.second << "), ";
+        std::cout << std::endl;
 
-      for (const auto i : std::get<1>(relevant_remote_points_per_process))
-        std::cout << i << " ";
-      std::cout << std::endl;
+        for (const auto i : std::get<1>(relevant_remote_points_per_process))
+          std::cout << i << " ";
+        std::cout << std::endl;
 
-      for (const auto i : std::get<2>(relevant_remote_points_per_process))
-        std::cout << i << " ";
-      std::cout << std::endl;
+        for (const auto i : std::get<2>(relevant_remote_points_per_process))
+          std::cout << i << " ";
+        std::cout << std::endl;
+         */
 #endif
     }
 

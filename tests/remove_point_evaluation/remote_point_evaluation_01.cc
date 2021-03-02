@@ -238,7 +238,8 @@ print(std::tuple<
   for (unsigned int i = 0; i < std::get<0>(result).size(); ++i)
     {
       std::cout << std::get<0>(result)[i]->level() << " "
-                << std::get<0>(result)[i]->index() << std::endl;
+                << std::get<0>(result)[i]->index() << " x "
+                << std::get<1>(result)[i].size() << std::endl;
     }
 }
 
@@ -306,7 +307,7 @@ cmp(const std::vector<Point<spacedim>> &quadrature_points,
   }();
 
   const auto temp_2 = [&]() {
-    const double tolerance = 10 - 6;
+    const double tolerance = 1e-6;
 
     // create bounding boxed of local active cells
     std::vector<BoundingBox<spacedim>> local_boxes;
@@ -480,10 +481,9 @@ cmp(const std::vector<Point<spacedim>> &quadrature_points,
     return result;
   }();
 
+  std::cout << std::endl << std::endl << std::endl;
   print(temp_1);
-  std::cout << std::endl;
-  std::cout << std::endl;
-  std::cout << std::endl;
+  std::cout << std::endl << std::endl << std::endl;
   print(temp_2);
 }
 
