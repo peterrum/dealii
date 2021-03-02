@@ -237,9 +237,19 @@ print(std::tuple<
 {
   for (unsigned int i = 0; i < std::get<0>(result).size(); ++i)
     {
+      const unsigned int n_points = std::get<1>(result)[i].size();
+
       std::cout << std::get<0>(result)[i]->level() << " "
-                << std::get<0>(result)[i]->index() << " x "
-                << std::get<1>(result)[i].size() << std::endl;
+                << std::get<0>(result)[i]->index() << " x " << n_points
+                << std::endl;
+
+      for (unsigned int j = 0; j < n_points; ++j)
+        {
+          std::cout << std::get<1>(result)[i][j] << " - "
+                    << std::get<2>(result)[i][j] << " - "
+                    << std::get<3>(result)[i][j] << " - "
+                    << std::get<4>(result)[i][j] << std::endl;
+        }
     }
 }
 
