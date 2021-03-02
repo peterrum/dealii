@@ -344,10 +344,10 @@ namespace dealii
                              Point<dim>,
                              Point<spacedim>,
                              unsigned int>>
-        all_send;
+        send_components;
 
       std::vector<std::tuple<unsigned int, unsigned int, unsigned int>>
-        all_recv;
+        recv_components;
 
       Utilities::MPI::ConsensusAlgorithms::AnonymousProcess<char, char> process(
         [&]() {
@@ -383,7 +383,7 @@ namespace dealii
               for (const auto &cell_and_reference_position :
                    cells_and_reference_positions)
                 {
-                  all_send.emplace_back(
+                  send_components.emplace_back(
                     std::pair<int, int>(
                       cell_and_reference_position.first->level(),
                       cell_and_reference_position.first->index()),
@@ -418,9 +418,10 @@ namespace dealii
 
               for (unsigned int i = 0; i < recv_buffer_unpacked.size(); ++i)
                 for (unsigned int j = 0; j < recv_buffer_unpacked[i]; ++j)
-                  all_recv.emplace_back(other_rank,
-                                        potentially_relevant_points[i].first,
-                                        numbers::invalid_unsigned_int);
+                  recv_components.emplace_back(
+                    other_rank,
+                    potentially_relevant_points[i].first,
+                    numbers::invalid_unsigned_int);
             }
         });
 
@@ -432,8 +433,8 @@ namespace dealii
         {
           // sort according to rank (and cell and point index) -> make
           // deterministic
-          std::sort(all_send.begin(),
-                    all_send.end(),
+          std::sort(send_components.begin(),
+                    send_components.end(),
                     [&](const auto &a, const auto &b) {
                       if (std::get<1>(a) != std::get<1>(b))
                         return std::get<1>(a) < std::get<1>(b);
@@ -445,13 +446,13 @@ namespace dealii
                     });
 
           // perform enumeration
-          for (unsigned int i = 0; i < all_send.size(); ++i)
-            std::get<5>(all_send[i]) = i;
+          for (unsigned int i = 0; i < send_components.size(); ++i)
+            std::get<5>(send_components[i]) = i;
 
           // sort according to cell, rank, point index (while keeping
           // enumeration)
-          std::sort(all_send.begin(),
-                    all_send.end(),
+          std::sort(send_components.begin(),
+                    send_components.end(),
                     [&](const auto &a, const auto &b) {
                       if (std::get<0>(a) != std::get<0>(b))
                         return std::get<0>(a) < std::get<0>(b);
@@ -469,8 +470,8 @@ namespace dealii
       if (perform_handshake)
         {
           // sort according to rank (and point index) -> make deterministic
-          std::sort(all_recv.begin(),
-                    all_recv.end(),
+          std::sort(recv_components.begin(),
+                    recv_components.end(),
                     [&](const auto &a, const auto &b) {
                       if (std::get<0>(a) != std::get<0>(b))
                         return std::get<0>(a) < std::get<0>(b);
@@ -479,12 +480,12 @@ namespace dealii
                     });
 
           // perform enumeration
-          for (unsigned int i = 0; i < all_recv.size(); ++i)
-            std::get<2>(all_recv[i]) = i;
+          for (unsigned int i = 0; i < recv_components.size(); ++i)
+            std::get<2>(recv_components[i]) = i;
 
           // sort according to point index and rank (while keeping enumeration)
-          std::sort(all_recv.begin(),
-                    all_recv.end(),
+          std::sort(recv_components.begin(),
+                    recv_components.end(),
                     [&](const auto &a, const auto &b) {
                       if (std::get<1>(a) != std::get<1>(b))
                         return std::get<1>(a) < std::get<1>(b);
@@ -496,7 +497,7 @@ namespace dealii
                     });
         }
 
-      return all_send;
+      return send_components;
     }
 
     template <int dim, int spacedim>
