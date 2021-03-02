@@ -353,14 +353,6 @@ cmp(const std::vector<Point<spacedim>> &quadrature_points,
               }
       }
 
-    // only communicate with processes that might have a quadrature point
-    std::vector<unsigned int> targets;
-
-    for (unsigned int i = 0; i < potentially_relevant_points_per_process.size();
-         ++i)
-      if (potentially_relevant_points_per_process[i].size() > 0)
-        targets.emplace_back(i);
-
     const std::vector<bool>               marked_vertices;
     const GridTools::Cache<dim, spacedim> cache(tria, mapping);
     auto                                  cell_hint = tria.begin_active();
@@ -405,7 +397,17 @@ cmp(const std::vector<Point<spacedim>> &quadrature_points,
 
     Utilities::MPI::ConsensusAlgorithms::AnonymousProcess<char, unsigned int>
       process(
-        [&]() { return targets; },
+        [&]() {
+          // only communicate with processes that might have a point
+          std::vector<unsigned int> targets;
+
+          for (unsigned int i = 0;
+               i < potentially_relevant_points_per_process.size();
+               ++i)
+            if (potentially_relevant_points_per_process[i].size() > 0)
+              targets.emplace_back(i);
+          return targets;
+        },
         [&](const unsigned int other_rank, std::vector<char> &send_buffer) {
           send_buffer =
             Utilities::pack(potentially_relevant_points_per_process[other_rank],
