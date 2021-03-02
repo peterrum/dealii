@@ -284,13 +284,12 @@ namespace dealii
     }
 
     template <int dim, int spacedim>
-    std::tuple<
-      std::vector<typename Triangulation<dim, spacedim>::active_cell_iterator>,
-      std::vector<std::vector<Point<dim>>>,
-      std::vector<std::vector<unsigned int>>,
-      std::vector<std::vector<Point<spacedim>>>,
-      std::vector<std::vector<unsigned int>>>
-    distributed_compute_point_locations_new(
+    std::vector<std::tuple<std::pair<int, int>,
+                           unsigned int,
+                           unsigned int,
+                           Point<dim>,
+                           Point<spacedim>>>
+    distributed_compute_point_locations_internal(
       const GridTools::Cache<dim, spacedim> &                cache,
       const std::vector<Point<spacedim>> &                   points,
       const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes,
@@ -402,6 +401,25 @@ namespace dealii
 
         return std::get<2>(a) < std::get<2>(b);
       });
+
+      return all;
+    }
+
+    template <int dim, int spacedim>
+    std::tuple<
+      std::vector<typename Triangulation<dim, spacedim>::active_cell_iterator>,
+      std::vector<std::vector<Point<dim>>>,
+      std::vector<std::vector<unsigned int>>,
+      std::vector<std::vector<Point<spacedim>>>,
+      std::vector<std::vector<unsigned int>>>
+    distributed_compute_point_locations_new(
+      const GridTools::Cache<dim, spacedim> &                cache,
+      const std::vector<Point<spacedim>> &                   points,
+      const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes,
+      const double                                           tolerance = 1e-8)
+    {
+      const auto all = distributed_compute_point_locations_internal(
+        cache, points, global_bboxes, tolerance);
 
       std::tuple<std::vector<
                    typename Triangulation<dim, spacedim>::active_cell_iterator>,
