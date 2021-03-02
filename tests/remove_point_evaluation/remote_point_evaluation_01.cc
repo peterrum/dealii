@@ -344,10 +344,14 @@ namespace dealii
                              Point<dim>,
                              Point<spacedim>,
                              unsigned int>>
-        send_components;
+                                send_components;
+      std::vector<unsigned int> send_ranks;
+      std::vector<unsigned int> send_ptrs;
 
       std::vector<std::tuple<unsigned int, unsigned int, unsigned int>>
-        recv_components;
+                                recv_components;
+      std::vector<unsigned int> recv_ranks;
+      std::vector<unsigned int> recv_ptrs;
 
       Utilities::MPI::ConsensusAlgorithms::AnonymousProcess<char, char> process(
         [&]() {
@@ -445,9 +449,21 @@ namespace dealii
                       return std::get<2>(a) < std::get<2>(b);
                     });
 
-          // perform enumeration
-          for (unsigned int i = 0; i < send_components.size(); ++i)
-            std::get<5>(send_components[i]) = i;
+          // perform enumeration and extract rank information
+          for (unsigned int i = 0, dummy = numbers::invalid_unsigned_int;
+               i < send_components.size();
+               ++i)
+            {
+              std::get<5>(send_components[i]) = i;
+
+              if (dummy != std::get<1>(send_components[i]))
+                {
+                  dummy = std::get<1>(send_components[i]);
+                  send_ranks.push_back(dummy);
+                  send_ptrs.push_back(i);
+                }
+            }
+          send_ptrs.push_back(send_components.size());
 
           // sort according to cell, rank, point index (while keeping
           // enumeration)
@@ -479,9 +495,21 @@ namespace dealii
                       return std::get<1>(a) < std::get<1>(b);
                     });
 
-          // perform enumeration
-          for (unsigned int i = 0; i < recv_components.size(); ++i)
-            std::get<2>(recv_components[i]) = i;
+          // perform enumeration and extract rank information
+          for (unsigned int i = 0, dummy = numbers::invalid_unsigned_int;
+               i < recv_components.size();
+               ++i)
+            {
+              std::get<2>(recv_components[i]) = i;
+
+              if (dummy != std::get<1>(recv_components[i]))
+                {
+                  dummy = std::get<1>(recv_components[i]);
+                  recv_ranks.push_back(dummy);
+                  recv_ptrs.push_back(i);
+                }
+            }
+          send_ptrs.push_back(recv_components.size());
 
           // sort according to point index and rank (while keeping enumeration)
           std::sort(recv_components.begin(),
