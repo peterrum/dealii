@@ -425,7 +425,7 @@ test()
   const unsigned int background_n_global_refinements = 6;
 #else
   const unsigned int background_n_global_refinements =
-    Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) == 1 ? 40 : 80;
+    Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) == 1 ? 80 : 80;
 #endif
   const unsigned int background_fe_degree = 2;
 
@@ -474,7 +474,7 @@ test()
   force_vector_sharp_interface.update_ghost_values();
 
   // write computed vectors to Paraview
-  if (false)
+  if (true)
     {
       DataOutBase::VtkFlags flags;
       // flags.write_higher_order_cells = true;
@@ -494,7 +494,7 @@ test()
                                           MPI_COMM_WORLD);
     }
 
-  if (false)
+  if (true)
     {
       DataOutBase::VtkFlags flags;
       flags.write_higher_order_cells = true;

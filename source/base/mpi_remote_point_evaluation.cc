@@ -73,29 +73,63 @@ namespace Utilities
       this->tria    = &tria;
       this->mapping = &mapping;
 
+      const unsigned int my_rank = Utilities::MPI::this_mpi_process(comm);
+
       comm = get_mpi_comm(tria);
 
-      const GridTools::Cache<dim, spacedim> cache(tria, mapping);
+      const auto temp = [&]() {
+        const GridTools::Cache<dim, spacedim> cache(tria, mapping);
 
-      // create bounding boxed of local active cells
-      std::vector<BoundingBox<spacedim>> local_boxes;
-      for (const auto &cell : tria.active_cell_iterators())
-        if (cell->is_locally_owned())
-          local_boxes.push_back(mapping.get_bounding_box(cell));
+        // create bounding boxed of local active cells
+        std::vector<BoundingBox<spacedim>> local_boxes;
+        for (const auto &cell : tria.active_cell_iterators())
+          if (cell->is_locally_owned())
+            local_boxes.push_back(mapping.get_bounding_box(cell));
 
-      // create r-tree of bounding boxes
-      const auto local_tree = pack_rtree(local_boxes);
+        // create r-tree of bounding boxes
+        const auto local_tree = pack_rtree(local_boxes);
 
-      // compress r-tree to a minimal set of bounding boxes
-      const auto local_reduced_box = extract_rtree_level(local_tree, 0);
+        // compress r-tree to a minimal set of bounding boxes
+        const auto local_reduced_box = extract_rtree_level(local_tree, 0);
 
-      // gather bounding boxes of other processes
-      const auto global_bounding_boxes =
-        Utilities::MPI::all_gather(comm, local_reduced_box);
+        // gather bounding boxes of other processes
+        const auto global_bounding_boxes =
+          Utilities::MPI::all_gather(comm, local_reduced_box);
 
-      const auto temp =
-        dealii::GridTools::distributed_compute_point_locations<dim, spacedim>(
-          cache, quadrature_points, global_bounding_boxes);
+        const auto temp =
+          dealii::GridTools::distributed_compute_point_locations<dim, spacedim>(
+            cache, quadrature_points, global_bounding_boxes);
+
+        const auto &cells = std::get<0>(temp);
+
+        std::tuple<
+          std::vector<
+            typename Triangulation<dim, spacedim>::active_cell_iterator>,
+          std::vector<std::vector<Point<dim>>>,
+          std::vector<std::vector<unsigned int>>,
+          std::vector<std::vector<Point<spacedim>>>,
+          std::vector<std::vector<unsigned int>>>
+          result;
+
+        std::vector<std::tuple<int, int, unsigned int>> cells_sorted;
+
+        for (unsigned int i = 0; i < cells.size(); ++i)
+          cells_sorted.emplace_back(cells[i]->level(), cells[i]->index(), i);
+
+        std::sort(cells_sorted.begin(), cells_sorted.end());
+
+        for (unsigned int i = 0; i < cells.size(); ++i)
+          {
+            const unsigned int index = std::get<2>(cells_sorted[i]);
+            std::get<0>(result).push_back(std::get<0>(temp)[index]);
+            std::get<1>(result).push_back(std::get<1>(temp)[index]);
+            std::get<2>(result).push_back(std::get<2>(temp)[index]);
+            std::get<3>(result).push_back(std::get<3>(temp)[index]);
+            std::get<4>(result).push_back(std::get<4>(temp)[index]);
+          }
+
+        return result;
+      }();
 
       const auto &cells         = std::get<0>(temp);
       const auto &local_points  = std::get<1>(temp);
@@ -127,10 +161,13 @@ namespace Utilities
 
       std::map<unsigned int, std::vector<unsigned int>> send_map;
 
+      std::get<2>(relevant_remote_points_per_process)
+        .resize(send_indices_sort.size());
+
+      unsigned int c = 0;
       for (const auto &i : send_indices_sort)
         {
-          std::get<2>(relevant_remote_points_per_process)
-            .push_back(std::get<2>(i));
+          std::get<2>(relevant_remote_points_per_process)[std::get<2>(i)] = c++;
           send_map[std::get<0>(i)].push_back(std::get<1>(i));
         }
 
@@ -139,7 +176,7 @@ namespace Utilities
       for (const auto &i : send_map)
         {
           send_ranks.push_back(i.first);
-          send_ptr.push_back(i.second.size());
+          send_ptr.push_back(send_ptr.back() + i.second.size());
         }
 
       std::map<unsigned int, std::vector<unsigned int>> recv_map;
@@ -168,7 +205,7 @@ namespace Utilities
       for (const auto &i : recv_map)
         {
           recv_ranks.push_back(i.first);
-          indices_ptr.push_back(i.second.size());
+          indices_ptr.push_back(indices_ptr.back() + i.second.size());
 
           for (const auto &j : i.second)
             recv_indices_sort.emplace_back(j, recv_indices_sort.size());
@@ -181,7 +218,7 @@ namespace Utilities
       for (unsigned int i = 0; i < recv_indices_sort.size(); ++i)
         {
           indices.push_back(recv_indices_sort[i].second);
-          quadrature_points_ptr[recv_indices_sort[i].first]++;
+          quadrature_points_ptr[recv_indices_sort[i].first + 1]++;
         }
 
       unique_mapping = true;
@@ -191,6 +228,43 @@ namespace Utilities
           unique_mapping &= (quadrature_points_ptr[i + 1] == 1);
           quadrature_points_ptr[i + 1] += quadrature_points_ptr[i];
         }
+
+      for (const auto i : quadrature_points_ptr)
+        std::cout << i << " ";
+      std::cout << std::endl;
+
+      for (const auto i : indices)
+        std::cout << i << " ";
+      std::cout << std::endl;
+
+      for (const auto i : indices_ptr)
+        std::cout << i << " ";
+      std::cout << std::endl;
+
+      for (const auto i : recv_ranks)
+        std::cout << i << " ";
+      std::cout << std::endl;
+
+      for (const auto i : send_ranks)
+        std::cout << i << " ";
+      std::cout << std::endl;
+
+      for (const auto i : send_ptr)
+        std::cout << i << " ";
+      std::cout << std::endl;
+
+      for (const auto i : std::get<0>(relevant_remote_points_per_process))
+        std::cout << "(" << i.first.first << ", " << i.first.second << ", "
+                  << i.second << "), ";
+      std::cout << std::endl;
+
+      for (const auto i : std::get<1>(relevant_remote_points_per_process))
+        std::cout << i << " ";
+      std::cout << std::endl;
+
+      for (const auto i : std::get<2>(relevant_remote_points_per_process))
+        std::cout << i << " ";
+      std::cout << std::endl;
 #endif
     }
 
