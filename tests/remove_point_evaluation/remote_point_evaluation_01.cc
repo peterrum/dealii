@@ -293,7 +293,8 @@ namespace dealii
       const GridTools::Cache<dim, spacedim> &                cache,
       const std::vector<Point<spacedim>> &                   points,
       const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes,
-      const double                                           tolerance = 1e-8)
+      const double                                           tolerance,
+      const bool                                             perform_handshake)
     {
       const auto potentially_relevant_points_per_process =
         GridTools::guess_point_owner_new(global_bboxes, points);
@@ -343,52 +344,70 @@ namespace dealii
                              Point<spacedim>>>
         all;
 
-      Utilities::MPI::ConsensusAlgorithms::AnonymousProcess<char, unsigned int>
-        process(
-          [&]() {
-            // only communicate with processes that might have a point
-            std::vector<unsigned int> targets;
+      Utilities::MPI::ConsensusAlgorithms::AnonymousProcess<char, char> process(
+        [&]() {
+          // only communicate with processes that might have a point
+          std::vector<unsigned int> targets;
 
-            for (unsigned int i = 0;
-                 i < potentially_relevant_points_per_process.size();
-                 ++i)
-              if (potentially_relevant_points_per_process[i].size() > 0)
-                targets.emplace_back(i);
-            return targets;
-          },
-          [&](const unsigned int other_rank, std::vector<char> &send_buffer) {
-            send_buffer = Utilities::pack(
-              potentially_relevant_points_per_process[other_rank], false);
-          },
-          [&](const unsigned int &     other_rank,
-              const std::vector<char> &recv_buffer,
-              std::vector<unsigned int> &) {
-            const auto recv_buffer_unpacked = Utilities::unpack<
-              std::vector<std::pair<unsigned int, Point<spacedim>>>>(
-              recv_buffer, false);
+          for (unsigned int i = 0;
+               i < potentially_relevant_points_per_process.size();
+               ++i)
+            if (potentially_relevant_points_per_process[i].size() > 0)
+              targets.emplace_back(i);
+          return targets;
+        },
+        [&](const unsigned int other_rank, std::vector<char> &send_buffer) {
+          send_buffer =
+            Utilities::pack(potentially_relevant_points_per_process[other_rank],
+                            false);
+        },
+        [&](const unsigned int &     other_rank,
+            const std::vector<char> &recv_buffer,
+            std::vector<char> &      request_buffer) {
+          const auto recv_buffer_unpacked = Utilities::unpack<
+            std::vector<std::pair<unsigned int, Point<spacedim>>>>(recv_buffer,
+                                                                   false);
 
-            for (const auto &index_and_point : recv_buffer_unpacked)
-              {
-                const auto cells_and_reference_positions =
-                  find_all_locally_owned_active_cells_around_point(
+          for (const auto &index_and_point : recv_buffer_unpacked)
+            {
+              const auto cells_and_reference_positions =
+                find_all_locally_owned_active_cells_around_point(
+                  index_and_point.second);
+
+              for (const auto &cell_and_reference_position :
+                   cells_and_reference_positions)
+                {
+                  all.emplace_back(
+                    std::pair<int, int>(
+                      cell_and_reference_position.first->level(),
+                      cell_and_reference_position.first->index()),
+                    other_rank,
+                    index_and_point.first,
+                    cell_and_reference_position.second,
                     index_and_point.second);
+                }
 
-                for (const auto &cell_and_reference_position :
-                     cells_and_reference_positions)
-                  {
-                    all.emplace_back(
-                      std::pair<int, int>(
-                        cell_and_reference_position.first->level(),
-                        cell_and_reference_position.first->index()),
-                      other_rank,
-                      index_and_point.first,
-                      cell_and_reference_position.second,
-                      index_and_point.second);
-                  }
-              }
-          });
+              if (perform_handshake)
+                {
+                  // TODO
+                }
+            }
+        },
+        [&](const unsigned int other_rank, std::vector<char> &recv_buffer) {
+          if (perform_handshake)
+            {
+              // TODO
+            }
+        },
+        [&](const unsigned int       other_rank,
+            const std::vector<char> &recv_buffer) {
+          if (perform_handshake)
+            {
+              // TODO
+            }
+        });
 
-      Utilities::MPI::ConsensusAlgorithms::Selector<char, unsigned int>(
+      Utilities::MPI::ConsensusAlgorithms::Selector<char, char>(
         process, get_mpi_comm(cache.get_triangulation()))
         .run();
 
@@ -419,7 +438,7 @@ namespace dealii
       const double                                           tolerance = 1e-8)
     {
       const auto all = distributed_compute_point_locations_internal(
-        cache, points, global_bboxes, tolerance);
+        cache, points, global_bboxes, tolerance, false);
 
       std::tuple<std::vector<
                    typename Triangulation<dim, spacedim>::active_cell_iterator>,
