@@ -342,11 +342,13 @@ namespace dealii
                              unsigned int,
                              Point<dim>,
                              Point<spacedim>>>
-        all;
+        all_send;
+
+      std::vector<std::tuple<unsigned int, unsigned int, unsigned int>>
+        all_recv;
 
       Utilities::MPI::ConsensusAlgorithms::AnonymousProcess<char, char> process(
         [&]() {
-          // only communicate with processes that might have a point
           std::vector<unsigned int> targets;
 
           for (unsigned int i = 0;
@@ -368,8 +370,10 @@ namespace dealii
             std::vector<std::pair<unsigned int, Point<spacedim>>>>(recv_buffer,
                                                                    false);
 
-          for (const auto &index_and_point : recv_buffer_unpacked)
+          for (unsigned int i = 0; i < recv_buffer_unpacked.size(); ++i)
             {
+              const auto &index_and_point = recv_buffer_unpacked[i];
+
               const auto cells_and_reference_positions =
                 find_all_locally_owned_active_cells_around_point(
                   index_and_point.second);
@@ -377,7 +381,7 @@ namespace dealii
               for (const auto &cell_and_reference_position :
                    cells_and_reference_positions)
                 {
-                  all.emplace_back(
+                  all_send.emplace_back(
                     std::pair<int, int>(
                       cell_and_reference_position.first->level(),
                       cell_and_reference_position.first->index()),
@@ -388,22 +392,32 @@ namespace dealii
                 }
 
               if (perform_handshake)
-                {
-                  // TODO
-                }
+                request_buffer[i] = cells_and_reference_positions.size();
             }
         },
         [&](const unsigned int other_rank, std::vector<char> &recv_buffer) {
           if (perform_handshake)
             {
-              // TODO
+              recv_buffer = Utilities::pack(
+                std::vector<unsigned int>(
+                  potentially_relevant_points_per_process[other_rank].size()),
+                false);
             }
         },
         [&](const unsigned int       other_rank,
             const std::vector<char> &recv_buffer) {
           if (perform_handshake)
             {
-              // TODO
+              const auto recv_buffer_unpacked =
+                Utilities::unpack<std::vector<unsigned int>>(recv_buffer);
+              const auto &potentially_relevant_points =
+                potentially_relevant_points_per_process[other_rank];
+
+              for (unsigned int i = 0; i < recv_buffer_unpacked.size(); ++i)
+                for (unsigned int j = 0; j < recv_buffer_unpacked[i]; ++j)
+                  all_recv.emplace_back(other_rank,
+                                        potentially_relevant_points[i].first,
+                                        numbers::invalid_unsigned_int);
             }
         });
 
@@ -411,17 +425,49 @@ namespace dealii
         process, get_mpi_comm(cache.get_triangulation()))
         .run();
 
-      std::sort(all.begin(), all.end(), [&](const auto &a, const auto &b) {
-        if (std::get<0>(a) != std::get<0>(b))
-          return std::get<0>(a) < std::get<0>(b);
+      if (true)
+        {
+          std::sort(all_send.begin(),
+                    all_send.end(),
+                    [&](const auto &a, const auto &b) {
+                      if (std::get<0>(a) != std::get<0>(b))
+                        return std::get<0>(a) < std::get<0>(b);
 
-        if (std::get<1>(a) != std::get<1>(b))
-          return std::get<1>(a) < std::get<1>(b);
+                      if (std::get<1>(a) != std::get<1>(b))
+                        return std::get<1>(a) < std::get<1>(b);
 
-        return std::get<2>(a) < std::get<2>(b);
-      });
+                      return std::get<2>(a) < std::get<2>(b);
+                    });
+        }
 
-      return all;
+      if (perform_handshake)
+        {
+          std::sort(all_recv.begin(),
+                    all_recv.end(),
+                    [&](const auto &a, const auto &b) {
+                      if (std::get<0>(a) != std::get<0>(b))
+                        return std::get<0>(a) < std::get<0>(b);
+
+                      return std::get<1>(a) < std::get<1>(b);
+                    });
+
+          for (unsigned int i = 0; i < all_recv.size(); ++i)
+            std::get<2>(all_recv[i]) = i;
+
+          std::sort(all_recv.begin(),
+                    all_recv.end(),
+                    [&](const auto &a, const auto &b) {
+                      if (std::get<1>(a) != std::get<1>(b))
+                        return std::get<1>(a) < std::get<1>(b);
+
+                      if (std::get<0>(a) != std::get<0>(b))
+                        return std::get<0>(a) < std::get<0>(b);
+
+                      return std::get<2>(a) < std::get<2>(b);
+                    });
+        }
+
+      return all_send;
     }
 
     template <int dim, int spacedim>
