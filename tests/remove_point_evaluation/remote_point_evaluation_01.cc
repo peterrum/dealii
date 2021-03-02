@@ -258,24 +258,12 @@ namespace dealii
 {
   namespace GridTools
   {
-    template <int dim, int spacedim>
-#ifndef DOXYGEN
-    std::tuple<
-      std::vector<typename Triangulation<dim, spacedim>::active_cell_iterator>,
-      std::vector<std::vector<Point<dim>>>,
-      std::vector<std::vector<unsigned int>>,
-      std::vector<std::vector<Point<spacedim>>>,
-      std::vector<std::vector<unsigned int>>>
-#else
-    return_type
-#endif
-    distributed_compute_point_locations_new(
-      const GridTools::Cache<dim, spacedim> &                cache,
-      const std::vector<Point<spacedim>> &                   points,
+    template <int spacedim>
+    std::vector<std::vector<std::pair<unsigned int, Point<spacedim>>>>
+    guess_point_owner_new(
       const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes,
-      const double                                           tolerance = 1e-8)
+      const std::vector<Point<spacedim>> &                   points)
     {
-      // determine ranks which might poses quadrature point
       auto potentially_relevant_points_per_process =
         std::vector<std::vector<std::pair<unsigned int, Point<spacedim>>>>(
           global_bboxes.size());
@@ -292,6 +280,24 @@ namespace dealii
                   break;
                 }
         }
+      return potentially_relevant_points_per_process;
+    }
+
+    template <int dim, int spacedim>
+    std::tuple<
+      std::vector<typename Triangulation<dim, spacedim>::active_cell_iterator>,
+      std::vector<std::vector<Point<dim>>>,
+      std::vector<std::vector<unsigned int>>,
+      std::vector<std::vector<Point<spacedim>>>,
+      std::vector<std::vector<unsigned int>>>
+    distributed_compute_point_locations_new(
+      const GridTools::Cache<dim, spacedim> &                cache,
+      const std::vector<Point<spacedim>> &                   points,
+      const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes,
+      const double                                           tolerance = 1e-8)
+    {
+      const auto potentially_relevant_points_per_process =
+        GridTools::guess_point_owner_new(global_bboxes, points);
 
       const std::vector<bool> marked_vertices;
       auto cell_hint = cache.get_triangulation().begin_active();
