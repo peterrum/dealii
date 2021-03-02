@@ -284,12 +284,26 @@ namespace dealii
     }
 
     template <int dim, int spacedim>
-    std::vector<std::tuple<std::pair<int, int>,
-                           unsigned int,
-                           unsigned int,
-                           Point<dim>,
-                           Point<spacedim>,
-                           unsigned int>>
+    struct DistributedComputePointLocationsInternal
+    {
+      std::vector<std::tuple<std::pair<int, int>,
+                             unsigned int,
+                             unsigned int,
+                             Point<dim>,
+                             Point<spacedim>,
+                             unsigned int>>
+                                send_components;
+      std::vector<unsigned int> send_ranks;
+      std::vector<unsigned int> send_ptrs;
+
+      std::vector<std::tuple<unsigned int, unsigned int, unsigned int>>
+                                recv_components;
+      std::vector<unsigned int> recv_ranks;
+      std::vector<unsigned int> recv_ptrs;
+    };
+
+    template <int dim, int spacedim>
+    DistributedComputePointLocationsInternal<dim, spacedim>
     distributed_compute_point_locations_internal(
       const GridTools::Cache<dim, spacedim> &                cache,
       const std::vector<Point<spacedim>> &                   points,
@@ -297,6 +311,15 @@ namespace dealii
       const double                                           tolerance,
       const bool                                             perform_handshake)
     {
+      DistributedComputePointLocationsInternal<dim, spacedim> result;
+
+      auto &send_components = result.send_components;
+      auto &send_ranks      = result.send_ranks;
+      auto &send_ptrs       = result.send_ptrs;
+      auto &recv_components = result.recv_components;
+      auto &recv_ranks      = result.recv_ranks;
+      auto &recv_ptrs       = result.recv_ptrs;
+
       const auto potentially_relevant_points_per_process =
         GridTools::guess_point_owner_new(global_bboxes, points);
 
@@ -337,21 +360,6 @@ namespace dealii
 
           return locally_owned_active_cells_around_point;
         };
-
-      std::vector<std::tuple<std::pair<int, int>,
-                             unsigned int,
-                             unsigned int,
-                             Point<dim>,
-                             Point<spacedim>,
-                             unsigned int>>
-                                send_components;
-      std::vector<unsigned int> send_ranks;
-      std::vector<unsigned int> send_ptrs;
-
-      std::vector<std::tuple<unsigned int, unsigned int, unsigned int>>
-                                recv_components;
-      std::vector<unsigned int> recv_ranks;
-      std::vector<unsigned int> recv_ptrs;
 
       Utilities::MPI::ConsensusAlgorithms::AnonymousProcess<char, char> process(
         [&]() {
@@ -525,7 +533,7 @@ namespace dealii
                     });
         }
 
-      return send_components;
+      return result;
     }
 
     template <int dim, int spacedim>
@@ -542,7 +550,8 @@ namespace dealii
       const double                                           tolerance = 1e-8)
     {
       const auto all = distributed_compute_point_locations_internal(
-        cache, points, global_bboxes, tolerance, false);
+                         cache, points, global_bboxes, tolerance, false)
+                         .send_components;
 
       std::tuple<std::vector<
                    typename Triangulation<dim, spacedim>::active_cell_iterator>,
