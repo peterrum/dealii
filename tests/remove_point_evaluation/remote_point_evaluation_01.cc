@@ -254,6 +254,193 @@ print(std::tuple<
 }
 
 
+namespace dealii
+{
+  namespace GridTools
+  {
+    template <int dim, int spacedim>
+#ifndef DOXYGEN
+    std::tuple<
+      std::vector<typename Triangulation<dim, spacedim>::active_cell_iterator>,
+      std::vector<std::vector<Point<dim>>>,
+      std::vector<std::vector<unsigned int>>,
+      std::vector<std::vector<Point<spacedim>>>,
+      std::vector<std::vector<unsigned int>>>
+#else
+    return_type
+#endif
+    distributed_compute_point_locations_new(
+      const GridTools::Cache<dim, spacedim> &                cache,
+      const std::vector<Point<spacedim>> &                   points,
+      const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes,
+      const double                                           tolerance = 1e-8)
+    {
+      // determine ranks which might poses quadrature point
+      auto potentially_relevant_points_per_process =
+        std::vector<std::vector<std::pair<unsigned int, Point<spacedim>>>>(
+          global_bboxes.size());
+
+      for (unsigned int i = 0; i < points.size(); ++i)
+        {
+          const auto &point = points[i];
+          for (unsigned rank = 0; rank < global_bboxes.size(); ++rank)
+            for (const auto &box : global_bboxes[rank])
+              if (box.point_inside(point))
+                {
+                  potentially_relevant_points_per_process[rank].emplace_back(
+                    i, point);
+                  break;
+                }
+        }
+
+      const std::vector<bool> marked_vertices;
+      auto cell_hint = cache.get_triangulation().begin_active();
+
+      const auto find_all_locally_owned_active_cells_around_point =
+        [&](const Point<spacedim> &point) {
+          std::vector<std::pair<
+            typename Triangulation<dim, spacedim>::active_cell_iterator,
+            Point<dim>>>
+            locally_owned_active_cells_around_point;
+
+          try
+            {
+              const auto first_cell = GridTools::find_active_cell_around_point(
+                cache, point, cell_hint, marked_vertices, tolerance);
+
+              cell_hint = first_cell.first;
+
+              const auto active_cells_around_point =
+                GridTools::find_all_active_cells_around_point(
+                  cache.get_mapping(),
+                  cache.get_triangulation(),
+                  point,
+                  tolerance,
+                  first_cell);
+
+              locally_owned_active_cells_around_point.reserve(
+                active_cells_around_point.size());
+
+              for (const auto &cell : active_cells_around_point)
+                if (cell.first->is_locally_owned())
+                  locally_owned_active_cells_around_point.push_back(cell);
+            }
+          catch (...)
+            {}
+
+          return locally_owned_active_cells_around_point;
+        };
+
+      std::vector<std::tuple<std::pair<int, int>,
+                             unsigned int,
+                             unsigned int,
+                             Point<dim>,
+                             Point<spacedim>>>
+        all;
+
+      Utilities::MPI::ConsensusAlgorithms::AnonymousProcess<char, unsigned int>
+        process(
+          [&]() {
+            // only communicate with processes that might have a point
+            std::vector<unsigned int> targets;
+
+            for (unsigned int i = 0;
+                 i < potentially_relevant_points_per_process.size();
+                 ++i)
+              if (potentially_relevant_points_per_process[i].size() > 0)
+                targets.emplace_back(i);
+            return targets;
+          },
+          [&](const unsigned int other_rank, std::vector<char> &send_buffer) {
+            send_buffer = Utilities::pack(
+              potentially_relevant_points_per_process[other_rank], false);
+          },
+          [&](const unsigned int &     other_rank,
+              const std::vector<char> &recv_buffer,
+              std::vector<unsigned int> &) {
+            const auto recv_buffer_unpacked = Utilities::unpack<
+              std::vector<std::pair<unsigned int, Point<spacedim>>>>(
+              recv_buffer, false);
+
+            for (const auto &index_and_point : recv_buffer_unpacked)
+              {
+                const auto cells_and_reference_positions =
+                  find_all_locally_owned_active_cells_around_point(
+                    index_and_point.second);
+
+                for (const auto &cell_and_reference_position :
+                     cells_and_reference_positions)
+                  {
+                    all.emplace_back(
+                      std::pair<int, int>(
+                        cell_and_reference_position.first->level(),
+                        cell_and_reference_position.first->index()),
+                      other_rank,
+                      index_and_point.first,
+                      cell_and_reference_position.second,
+                      index_and_point.second);
+                  }
+              }
+          });
+
+      Utilities::MPI::ConsensusAlgorithms::Selector<char, unsigned int>(
+        process, get_mpi_comm(cache.get_triangulation()))
+        .run();
+
+      std::sort(all.begin(), all.end(), [&](const auto &a, const auto &b) {
+        if (std::get<0>(a) != std::get<0>(b))
+          return std::get<0>(a) < std::get<0>(b);
+
+        if (std::get<1>(a) != std::get<1>(b))
+          return std::get<1>(a) < std::get<1>(b);
+
+        return std::get<2>(a) < std::get<2>(b);
+      });
+
+      std::tuple<std::vector<
+                   typename Triangulation<dim, spacedim>::active_cell_iterator>,
+                 std::vector<std::vector<Point<dim>>>,
+                 std::vector<std::vector<unsigned int>>,
+                 std::vector<std::vector<Point<spacedim>>>,
+                 std::vector<std::vector<unsigned int>>>
+        result;
+
+      std::pair<int, int> dummy{-1, -1};
+
+      for (unsigned int i = 0; i < all.size(); ++i)
+        {
+          if (dummy != std::get<0>(all[i]))
+            {
+              std::get<0>(result).push_back(
+                typename Triangulation<dim, spacedim>::active_cell_iterator{
+                  &cache.get_triangulation(),
+                  std::get<0>(all[i]).first,
+                  std::get<0>(all[i]).second});
+
+              const unsigned int new_size = std::get<0>(result).size();
+
+              std::get<1>(result).resize(new_size);
+              std::get<2>(result).resize(new_size);
+              std::get<3>(result).resize(new_size);
+              std::get<4>(result).resize(new_size);
+
+              dummy = std::get<0>(all[i]);
+            }
+
+          std::get<1>(result).back().push_back(
+            std::get<3>(all[i])); // reference point
+          std::get<2>(result).back().push_back(std::get<2>(all[i])); // index
+          std::get<3>(result).back().push_back(
+            std::get<4>(all[i])); // real point
+          std::get<4>(result).back().push_back(std::get<1>(all[i])); // rank
+        }
+
+      return result;
+    }
+  } // namespace GridTools
+} // namespace dealii
+
+
 
 template <int dim, int spacedim>
 void
@@ -335,162 +522,11 @@ cmp(const std::vector<Point<spacedim>> &quadrature_points,
     const auto global_bounding_boxes =
       Utilities::MPI::all_gather(comm, local_reduced_box);
 
-    // determine ranks which might poses quadrature point
-    auto potentially_relevant_points_per_process =
-      std::vector<std::vector<std::pair<unsigned int, Point<spacedim>>>>(
-        global_bounding_boxes.size());
-
-    for (unsigned int i = 0; i < quadrature_points.size(); ++i)
-      {
-        const auto &point = quadrature_points[i];
-        for (unsigned rank = 0; rank < global_bounding_boxes.size(); ++rank)
-          for (const auto &box : global_bounding_boxes[rank])
-            if (box.point_inside(point))
-              {
-                potentially_relevant_points_per_process[rank].emplace_back(
-                  i, point);
-                break;
-              }
-      }
-
-    const std::vector<bool>               marked_vertices;
     const GridTools::Cache<dim, spacedim> cache(tria, mapping);
-    auto                                  cell_hint = tria.begin_active();
 
-    const auto find_all_locally_owned_active_cells_around_point =
-      [&](const Point<spacedim> &point) {
-        std::vector<
-          std::pair<typename Triangulation<dim, spacedim>::active_cell_iterator,
-                    Point<dim>>>
-          locally_owned_active_cells_around_point;
-
-        try
-          {
-            const auto first_cell = GridTools::find_active_cell_around_point(
-              cache, point, cell_hint, marked_vertices, tolerance);
-
-            cell_hint = first_cell.first;
-
-            const auto active_cells_around_point =
-              GridTools::find_all_active_cells_around_point(
-                mapping, tria, point, tolerance, first_cell);
-
-            locally_owned_active_cells_around_point.reserve(
-              active_cells_around_point.size());
-
-            for (const auto &cell : active_cells_around_point)
-              if (cell.first->is_locally_owned())
-                locally_owned_active_cells_around_point.push_back(cell);
-          }
-        catch (...)
-          {}
-
-        return locally_owned_active_cells_around_point;
-      };
-
-    std::vector<std::tuple<std::pair<int, int>,
-                           unsigned int,
-                           unsigned int,
-                           Point<dim>,
-                           Point<spacedim>>>
-      all;
-
-    Utilities::MPI::ConsensusAlgorithms::AnonymousProcess<char, unsigned int>
-      process(
-        [&]() {
-          // only communicate with processes that might have a point
-          std::vector<unsigned int> targets;
-
-          for (unsigned int i = 0;
-               i < potentially_relevant_points_per_process.size();
-               ++i)
-            if (potentially_relevant_points_per_process[i].size() > 0)
-              targets.emplace_back(i);
-          return targets;
-        },
-        [&](const unsigned int other_rank, std::vector<char> &send_buffer) {
-          send_buffer =
-            Utilities::pack(potentially_relevant_points_per_process[other_rank],
-                            false);
-        },
-        [&](const unsigned int &     other_rank,
-            const std::vector<char> &recv_buffer,
-            std::vector<unsigned int> &) {
-          const auto recv_buffer_unpacked = Utilities::unpack<
-            std::vector<std::pair<unsigned int, Point<spacedim>>>>(recv_buffer,
-                                                                   false);
-
-          for (const auto &index_and_point : recv_buffer_unpacked)
-            {
-              const auto cells_and_reference_positions =
-                find_all_locally_owned_active_cells_around_point(
-                  index_and_point.second);
-
-              for (const auto &cell_and_reference_position :
-                   cells_and_reference_positions)
-                {
-                  all.emplace_back(
-                    std::pair<int, int>(
-                      cell_and_reference_position.first->level(),
-                      cell_and_reference_position.first->index()),
-                    other_rank,
-                    index_and_point.first,
-                    cell_and_reference_position.second,
-                    index_and_point.second);
-                }
-            }
-        });
-
-    Utilities::MPI::ConsensusAlgorithms::Selector<char, unsigned int>(process,
-                                                                      comm)
-      .run();
-
-    std::sort(all.begin(), all.end(), [&](const auto &a, const auto &b) {
-      if (std::get<0>(a) != std::get<0>(b))
-        return std::get<0>(a) < std::get<0>(b);
-
-      if (std::get<1>(a) != std::get<1>(b))
-        return std::get<1>(a) < std::get<1>(b);
-
-      return std::get<2>(a) < std::get<2>(b);
-    });
-
-    std::tuple<
-      std::vector<typename Triangulation<dim, spacedim>::active_cell_iterator>,
-      std::vector<std::vector<Point<dim>>>,
-      std::vector<std::vector<unsigned int>>,
-      std::vector<std::vector<Point<spacedim>>>,
-      std::vector<std::vector<unsigned int>>>
-      result;
-
-    std::pair<int, int> dummy{-1, -1};
-
-    for (unsigned int i = 0; i < all.size(); ++i)
-      {
-        if (dummy != std::get<0>(all[i]))
-          {
-            std::get<0>(result).push_back(
-              typename Triangulation<dim, spacedim>::active_cell_iterator{
-                &tria, std::get<0>(all[i]).first, std::get<0>(all[i]).second});
-
-            const unsigned int new_size = std::get<0>(result).size();
-
-            std::get<1>(result).resize(new_size);
-            std::get<2>(result).resize(new_size);
-            std::get<3>(result).resize(new_size);
-            std::get<4>(result).resize(new_size);
-
-            dummy = std::get<0>(all[i]);
-          }
-
-        std::get<1>(result).back().push_back(
-          std::get<3>(all[i])); // reference point
-        std::get<2>(result).back().push_back(std::get<2>(all[i])); // index
-        std::get<3>(result).back().push_back(std::get<4>(all[i])); // real point
-        std::get<4>(result).back().push_back(std::get<1>(all[i])); // rank
-      }
-
-    return result;
+    return dealii::GridTools::distributed_compute_point_locations_new<dim,
+                                                                      spacedim>(
+      cache, quadrature_points, global_bounding_boxes, tolerance);
   }();
 
   std::cout << std::endl << std::endl << std::endl;
