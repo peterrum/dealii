@@ -536,26 +536,13 @@ namespace GridTools
   };
 
   template <int dim, int spacedim>
-  DistributedComputePointLocationsInternal<
-    dim,
-    spacedim> inline distributed_compute_point_locations_internal(const GridTools::
-                                                                    Cache<
-                                                                      dim,
-                                                                      spacedim>
-                                                                      &cache,
-                                                                  const std::
-                                                                    vector<Point<
-                                                                      spacedim>>
-                                                                      &points,
-                                                                  const std::vector<
-                                                                    std::vector<
-                                                                      BoundingBox<
-                                                                        spacedim>>>
-                                                                    &global_bboxes,
-                                                                  const double
-                                                                    tolerance,
-                                                                  const bool
-                                                                    perform_handshake)
+  inline DistributedComputePointLocationsInternal<dim, spacedim>
+  distributed_compute_point_locations_internal(
+    const GridTools::Cache<dim, spacedim> &                cache,
+    const std::vector<Point<spacedim>> &                   points,
+    const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes,
+    const double                                           tolerance,
+    const bool                                             perform_handshake)
   {
     DistributedComputePointLocationsInternal<dim, spacedim> result;
 
@@ -630,6 +617,9 @@ namespace GridTools
           std::vector<std::pair<unsigned int, Point<spacedim>>>>(recv_buffer,
                                                                  false);
 
+        std::vector<unsigned int> request_buffer_temp(
+          recv_buffer_unpacked.size());
+
         for (unsigned int i = 0; i < recv_buffer_unpacked.size(); ++i)
           {
             const auto &index_and_point = recv_buffer_unpacked[i];
@@ -653,8 +643,11 @@ namespace GridTools
               }
 
             if (perform_handshake)
-              request_buffer[i] = cells_and_reference_positions.size();
+              request_buffer_temp[i] = cells_and_reference_positions.size();
           }
+
+        if (perform_handshake)
+          request_buffer = Utilities::pack(request_buffer_temp, false);
       },
       [&](const unsigned int other_rank, std::vector<char> &recv_buffer) {
         if (perform_handshake)
@@ -669,7 +662,7 @@ namespace GridTools
         if (perform_handshake)
           {
             const auto recv_buffer_unpacked =
-              Utilities::unpack<std::vector<unsigned int>>(recv_buffer);
+              Utilities::unpack<std::vector<unsigned int>>(recv_buffer, false);
             const auto &potentially_relevant_points =
               potentially_relevant_points_per_process[other_rank];
 
@@ -683,7 +676,8 @@ namespace GridTools
       });
 
     Utilities::MPI::ConsensusAlgorithms::Selector<char, char>(
-      process, get_mpi_comm(cache.get_triangulation()))
+      process,
+      Utilities::MPI::internal::get_mpi_comm(cache.get_triangulation()))
       .run();
 
     if (true)
