@@ -427,6 +427,13 @@ namespace dealii
 
       if (true)
         {
+          // sort according to rank (and cell and point index) -> make
+          // deterministic
+
+          // perform enumeration
+
+          // sort according to cell, rank, point index (while keeping
+          // enumeration)
           std::sort(all_send.begin(),
                     all_send.end(),
                     [&](const auto &a, const auto &b) {
@@ -442,6 +449,7 @@ namespace dealii
 
       if (perform_handshake)
         {
+          // sort according to rank (and point index) -> make deterministic
           std::sort(all_recv.begin(),
                     all_recv.end(),
                     [&](const auto &a, const auto &b) {
@@ -451,9 +459,11 @@ namespace dealii
                       return std::get<1>(a) < std::get<1>(b);
                     });
 
+          // perform enumeration
           for (unsigned int i = 0; i < all_recv.size(); ++i)
             std::get<2>(all_recv[i]) = i;
 
+          // sort according to point index and rank (while keeping enumeration)
           std::sort(all_recv.begin(),
                     all_recv.end(),
                     [&](const auto &a, const auto &b) {
