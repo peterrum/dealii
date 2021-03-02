@@ -288,7 +288,8 @@ namespace dealii
                            unsigned int,
                            unsigned int,
                            Point<dim>,
-                           Point<spacedim>>>
+                           Point<spacedim>,
+                           unsigned int>>
     distributed_compute_point_locations_internal(
       const GridTools::Cache<dim, spacedim> &                cache,
       const std::vector<Point<spacedim>> &                   points,
@@ -341,7 +342,8 @@ namespace dealii
                              unsigned int,
                              unsigned int,
                              Point<dim>,
-                             Point<spacedim>>>
+                             Point<spacedim>,
+                             unsigned int>>
         all_send;
 
       std::vector<std::tuple<unsigned int, unsigned int, unsigned int>>
@@ -388,7 +390,8 @@ namespace dealii
                     other_rank,
                     index_and_point.first,
                     cell_and_reference_position.second,
-                    index_and_point.second);
+                    index_and_point.second,
+                    numbers::invalid_unsigned_int);
                 }
 
               if (perform_handshake)
@@ -429,8 +432,21 @@ namespace dealii
         {
           // sort according to rank (and cell and point index) -> make
           // deterministic
+          std::sort(all_send.begin(),
+                    all_send.end(),
+                    [&](const auto &a, const auto &b) {
+                      if (std::get<1>(a) != std::get<1>(b))
+                        return std::get<1>(a) < std::get<1>(b);
+
+                      if (std::get<0>(a) != std::get<0>(b))
+                        return std::get<0>(a) < std::get<0>(b);
+
+                      return std::get<2>(a) < std::get<2>(b);
+                    });
 
           // perform enumeration
+          for (unsigned int i = 0; i < all_send.size(); ++i)
+            std::get<5>(all_send[i]) = i;
 
           // sort according to cell, rank, point index (while keeping
           // enumeration)
@@ -443,7 +459,10 @@ namespace dealii
                       if (std::get<1>(a) != std::get<1>(b))
                         return std::get<1>(a) < std::get<1>(b);
 
-                      return std::get<2>(a) < std::get<2>(b);
+                      if (std::get<2>(a) != std::get<2>(b))
+                        return std::get<2>(a) < std::get<2>(b);
+
+                      return std::get<5>(a) < std::get<5>(b);
                     });
         }
 
