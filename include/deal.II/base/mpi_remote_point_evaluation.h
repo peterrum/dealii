@@ -18,6 +18,9 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/base/mpi_consensus_algorithms.h>
+#include <deal.II/base/mpi_consensus_algorithms.templates.h>
+
 #include <deal.II/dofs/dof_handler.h>
 
 #include <deal.II/grid/grid_tools.h>
@@ -682,18 +685,18 @@ namespace GridTools
 
     if (true)
       {
-        // sort according to rank (and cell and point index) -> make
+        // sort according to rank (and point index and cell) -> make
         // deterministic
         std::sort(send_components.begin(),
                   send_components.end(),
                   [&](const auto &a, const auto &b) {
-                    if (std::get<1>(a) != std::get<1>(b))
+                    if (std::get<1>(a) != std::get<1>(b)) // rank
                       return std::get<1>(a) < std::get<1>(b);
 
-                    if (std::get<0>(a) != std::get<0>(b))
-                      return std::get<0>(a) < std::get<0>(b);
+                    if (std::get<2>(a) != std::get<2>(b)) // point index
+                      return std::get<2>(a) < std::get<2>(b);
 
-                    return std::get<2>(a) < std::get<2>(b);
+                    return std::get<0>(a) < std::get<0>(b); // cell
                   });
 
         // perform enumeration and extract rank information
@@ -718,15 +721,15 @@ namespace GridTools
                   send_components.end(),
                   [&](const auto &a, const auto &b) {
                     if (std::get<0>(a) != std::get<0>(b))
-                      return std::get<0>(a) < std::get<0>(b);
+                      return std::get<0>(a) < std::get<0>(b); // cell
 
                     if (std::get<1>(a) != std::get<1>(b))
-                      return std::get<1>(a) < std::get<1>(b);
+                      return std::get<1>(a) < std::get<1>(b); // rank
 
                     if (std::get<2>(a) != std::get<2>(b))
-                      return std::get<2>(a) < std::get<2>(b);
+                      return std::get<2>(a) < std::get<2>(b); // point index
 
-                    return std::get<5>(a) < std::get<5>(b);
+                    return std::get<5>(a) < std::get<5>(b); // enumeration
                   });
       }
 
@@ -749,14 +752,14 @@ namespace GridTools
           {
             std::get<2>(recv_components[i]) = i;
 
-            if (dummy != std::get<1>(recv_components[i]))
+            if (dummy != std::get<0>(recv_components[i]))
               {
-                dummy = std::get<1>(recv_components[i]);
+                dummy = std::get<0>(recv_components[i]);
                 recv_ranks.push_back(dummy);
                 recv_ptrs.push_back(i);
               }
           }
-        send_ptrs.push_back(recv_components.size());
+        recv_ptrs.push_back(recv_components.size());
 
         // sort according to point index and rank (while keeping enumeration)
         std::sort(recv_components.begin(),

@@ -81,8 +81,8 @@ namespace Utilities
       const auto data = distributed_compute_point_locations_internal(
         cache, points, global_bboxes, tolerance, true);
 
-      this->recv_ranks = data.recv_ranks;
-      this->indices    = data.recv_ptrs;
+      this->recv_ranks  = data.recv_ranks;
+      this->indices_ptr = data.recv_ptrs;
 
       this->send_ranks = data.send_ranks;
       this->send_ptr   = data.send_ptrs;
@@ -100,8 +100,7 @@ namespace Utilities
       for (unsigned int i = 0; i < points.size(); ++i)
         {
           unique_mapping &= this->quadrature_points_ptr[i + 1] == 1;
-          this->quadrature_points_ptr[i + 1] =
-            this->quadrature_points_ptr[i + 1];
+          this->quadrature_points_ptr[i + 1] += this->quadrature_points_ptr[i];
         }
 
       relevant_remote_points_per_process = {};
@@ -123,45 +122,50 @@ namespace Utilities
             .emplace_back(std::get<5>(i));
         }
 
+      /*
+      std::get<2>(this->relevant_remote_points_per_process).resize(data.send_components.size());
+      for(unsigned int i = 0; i < data.send_components.size(); ++i)
+        std::get<2>(this->relevant_remote_points_per_process)[std::get<5>(data.send_components[i])]
+      = i;
+      */
 
-        /*
-        for (const auto i : quadrature_points_ptr)
-          std::cout << i << " ";
-        std::cout << std::endl;
 
-        for (const auto i : indices)
-          std::cout << i << " ";
-        std::cout << std::endl;
+      for (const auto i : quadrature_points_ptr)
+        std::cout << i << " ";
+      std::cout << std::endl;
 
-        for (const auto i : indices_ptr)
-          std::cout << i << " ";
-        std::cout << std::endl;
+      for (const auto i : indices)
+        std::cout << i << " ";
+      std::cout << std::endl;
 
-        for (const auto i : recv_ranks)
-          std::cout << i << " ";
-        std::cout << std::endl;
+      for (const auto i : indices_ptr)
+        std::cout << i << " ";
+      std::cout << std::endl;
 
-        for (const auto i : send_ranks)
-          std::cout << i << " ";
-        std::cout << std::endl;
+      for (const auto i : recv_ranks)
+        std::cout << i << " ";
+      std::cout << std::endl;
 
-        for (const auto i : send_ptr)
-          std::cout << i << " ";
-        std::cout << std::endl;
+      for (const auto i : send_ranks)
+        std::cout << i << " ";
+      std::cout << std::endl;
 
-        for (const auto i : std::get<0>(relevant_remote_points_per_process))
-          std::cout << "(" << i.first.first << ", " << i.first.second << ", "
-                    << i.second << "), ";
-        std::cout << std::endl;
+      for (const auto i : send_ptr)
+        std::cout << i << " ";
+      std::cout << std::endl;
 
-        for (const auto i : std::get<1>(relevant_remote_points_per_process))
-          std::cout << i << " ";
-        std::cout << std::endl;
+      for (const auto i : std::get<0>(relevant_remote_points_per_process))
+        std::cout << "(" << i.first.first << ", " << i.first.second << ", "
+                  << i.second << "), ";
+      std::cout << std::endl;
 
-        for (const auto i : std::get<2>(relevant_remote_points_per_process))
-          std::cout << i << " ";
-        std::cout << std::endl;
-         */
+      for (const auto i : std::get<1>(relevant_remote_points_per_process))
+        std::cout << i << " ";
+      std::cout << std::endl;
+
+      for (const auto i : std::get<2>(relevant_remote_points_per_process))
+        std::cout << i << " ";
+      std::cout << std::endl;
 #endif
     }
 

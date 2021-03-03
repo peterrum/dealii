@@ -17,8 +17,6 @@
 // mesh.
 
 #include <deal.II/base/mpi.h>
-#include <deal.II/base/mpi_consensus_algorithms.h>
-#include <deal.II/base/mpi_consensus_algorithms.templates.h>
 #include <deal.II/base/mpi_remote_point_evaluation.h>
 
 #include <deal.II/distributed/shared_tria.h>
@@ -342,10 +340,10 @@ cmp(const std::vector<Point<spacedim>> &quadrature_points,
       cache, quadrature_points, global_bounding_boxes, tolerance);
   }();
 
-  std::cout << std::endl << std::endl << std::endl;
-  print(temp_1);
-  std::cout << std::endl << std::endl << std::endl;
-  print(temp_2);
+  // std::cout << std::endl << std::endl << std::endl;
+  // print(temp_1);
+  // std::cout << std::endl << std::endl << std::endl;
+  // print(temp_2);
 }
 
 
