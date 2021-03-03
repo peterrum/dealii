@@ -76,8 +76,9 @@ namespace Utilities
 
       const GridTools::Cache<dim, spacedim> cache(tria, mapping);
 
-      const auto data = distributed_compute_point_locations_internal(
-        cache, points, global_bboxes, tolerance, true);
+      const auto data =
+        GridTools::internal::distributed_compute_point_locations(
+          cache, points, global_bboxes, tolerance, true);
 
       this->recv_ranks  = data.recv_ranks;
       this->indices_ptr = data.recv_ptrs;

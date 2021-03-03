@@ -1004,6 +1004,86 @@ namespace GridTools
     const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes);
 
   /**
+   * TODO
+   */
+  template <int dim, int spacedim>
+#  ifndef DOXYGEN
+  std::tuple<
+    std::vector<typename Triangulation<dim, spacedim>::active_cell_iterator>,
+    std::vector<std::vector<Point<dim>>>,
+    std::vector<std::vector<unsigned int>>,
+    std::vector<std::vector<Point<spacedim>>>,
+    std::vector<std::vector<unsigned int>>>
+#  else
+  return_type
+#  endif
+  distributed_compute_point_locations_new(
+    const GridTools::Cache<dim, spacedim> &                cache,
+    const std::vector<Point<spacedim>> &                   points,
+    const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes,
+    const double                                           tolerance = 1e-8);
+
+  namespace internal
+  {
+    /**
+     * TODO
+     */
+    template <int dim, int spacedim>
+    struct DistributedComputePointLocationsInternal
+    {
+      /**
+       * TODO
+       */
+      std::vector<std::tuple<std::pair<int, int>,
+                             unsigned int,
+                             unsigned int,
+                             Point<dim>,
+                             Point<spacedim>,
+                             unsigned int>>
+        send_components;
+
+      /**
+       * TODO
+       */
+      std::vector<unsigned int> send_ranks;
+
+      /**
+       * TODO
+       */
+      std::vector<unsigned int> send_ptrs;
+
+      /**
+       * TODO
+       */
+      std::vector<std::tuple<unsigned int, unsigned int, unsigned int>>
+        recv_components;
+
+      /**
+       * TODO
+       */
+      std::vector<unsigned int> recv_ranks;
+
+      /**
+       * TODO
+       */
+      std::vector<unsigned int> recv_ptrs;
+    };
+
+    /**
+     * TODO.
+     */
+    template <int dim, int spacedim>
+    DistributedComputePointLocationsInternal<dim, spacedim>
+    distributed_compute_point_locations(
+      const GridTools::Cache<dim, spacedim> &                cache,
+      const std::vector<Point<spacedim>> &                   points,
+      const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes,
+      const double                                           tolerance,
+      const bool                                             perform_handshake);
+
+  } // namespace internal
+
+  /**
    * Return a map `vertex index -> Point<spacedim>` containing the used
    * vertices of the given `container`. The key of the returned map (i.e.,
    * the first element of the pair above) is the global index in the
