@@ -5128,13 +5128,54 @@ namespace GridTools
 #endif
   distributed_compute_point_locations(
     const GridTools::Cache<dim, spacedim> &                cache,
-    const std::vector<Point<spacedim>> &                   local_points,
-    const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes)
+    const std::vector<Point<spacedim>> &                   points,
+    const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes,
+    const double                                           tolerance)
   {
-    return distributed_compute_point_locations_new(cache,
-                                                   local_points,
-                                                   global_bboxes,
-                                                   1e-10);
+    // run internal function ...
+    const auto all = internal::distributed_compute_point_locations(
+                       cache, points, global_bboxes, tolerance, false)
+                       .send_components;
+
+    // ... and reshuffle the data
+    std::tuple<
+      std::vector<typename Triangulation<dim, spacedim>::active_cell_iterator>,
+      std::vector<std::vector<Point<dim>>>,
+      std::vector<std::vector<unsigned int>>,
+      std::vector<std::vector<Point<spacedim>>>,
+      std::vector<std::vector<unsigned int>>>
+      result;
+
+    std::pair<int, int> dummy{-1, -1};
+
+    for (unsigned int i = 0; i < all.size(); ++i)
+      {
+        if (dummy != std::get<0>(all[i]))
+          {
+            std::get<0>(result).push_back(
+              typename Triangulation<dim, spacedim>::active_cell_iterator{
+                &cache.get_triangulation(),
+                std::get<0>(all[i]).first,
+                std::get<0>(all[i]).second});
+
+            const unsigned int new_size = std::get<0>(result).size();
+
+            std::get<1>(result).resize(new_size);
+            std::get<2>(result).resize(new_size);
+            std::get<3>(result).resize(new_size);
+            std::get<4>(result).resize(new_size);
+
+            dummy = std::get<0>(all[i]);
+          }
+
+        std::get<1>(result).back().push_back(
+          std::get<3>(all[i])); // reference point
+        std::get<2>(result).back().push_back(std::get<2>(all[i])); // index
+        std::get<3>(result).back().push_back(std::get<4>(all[i])); // real point
+        std::get<4>(result).back().push_back(std::get<1>(all[i])); // rank
+      }
+
+    return result;
   }
 
 
@@ -5472,65 +5513,6 @@ namespace GridTools
       return result;
     }
   } // namespace internal
-
-
-
-  template <int dim, int spacedim>
-  std::tuple<
-    std::vector<typename Triangulation<dim, spacedim>::active_cell_iterator>,
-    std::vector<std::vector<Point<dim>>>,
-    std::vector<std::vector<unsigned int>>,
-    std::vector<std::vector<Point<spacedim>>>,
-    std::vector<std::vector<unsigned int>>>
-  distributed_compute_point_locations_new(
-    const GridTools::Cache<dim, spacedim> &                cache,
-    const std::vector<Point<spacedim>> &                   points,
-    const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes,
-    const double                                           tolerance)
-  {
-    const auto all = internal::distributed_compute_point_locations(
-                       cache, points, global_bboxes, tolerance, false)
-                       .send_components;
-
-    std::tuple<
-      std::vector<typename Triangulation<dim, spacedim>::active_cell_iterator>,
-      std::vector<std::vector<Point<dim>>>,
-      std::vector<std::vector<unsigned int>>,
-      std::vector<std::vector<Point<spacedim>>>,
-      std::vector<std::vector<unsigned int>>>
-      result;
-
-    std::pair<int, int> dummy{-1, -1};
-
-    for (unsigned int i = 0; i < all.size(); ++i)
-      {
-        if (dummy != std::get<0>(all[i]))
-          {
-            std::get<0>(result).push_back(
-              typename Triangulation<dim, spacedim>::active_cell_iterator{
-                &cache.get_triangulation(),
-                std::get<0>(all[i]).first,
-                std::get<0>(all[i]).second});
-
-            const unsigned int new_size = std::get<0>(result).size();
-
-            std::get<1>(result).resize(new_size);
-            std::get<2>(result).resize(new_size);
-            std::get<3>(result).resize(new_size);
-            std::get<4>(result).resize(new_size);
-
-            dummy = std::get<0>(all[i]);
-          }
-
-        std::get<1>(result).back().push_back(
-          std::get<3>(all[i])); // reference point
-        std::get<2>(result).back().push_back(std::get<2>(all[i])); // index
-        std::get<3>(result).back().push_back(std::get<4>(all[i])); // real point
-        std::get<4>(result).back().push_back(std::get<1>(all[i])); // rank
-      }
-
-    return result;
-  }
 
 
 

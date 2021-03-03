@@ -253,101 +253,6 @@ print(std::tuple<
 
 
 
-template <int dim, int spacedim>
-void
-cmp(const std::vector<Point<spacedim>> &quadrature_points,
-    const Triangulation<dim, spacedim> &tria,
-    const Mapping<dim, spacedim> &      mapping)
-{
-  const MPI_Comm comm = MPI_COMM_WORLD;
-
-  const auto temp_1 = [&]() {
-    const GridTools::Cache<dim, spacedim> cache(tria, mapping);
-
-    // create bounding boxed of local active cells
-    std::vector<BoundingBox<spacedim>> local_boxes;
-    for (const auto &cell : tria.active_cell_iterators())
-      if (cell->is_locally_owned())
-        local_boxes.push_back(mapping.get_bounding_box(cell));
-
-    // create r-tree of bounding boxes
-    const auto local_tree = pack_rtree(local_boxes);
-
-    // compress r-tree to a minimal set of bounding boxes
-    const auto local_reduced_box = extract_rtree_level(local_tree, 0);
-
-    // gather bounding boxes of other processes
-    const auto global_bounding_boxes =
-      Utilities::MPI::all_gather(comm, local_reduced_box);
-
-    const auto temp =
-      dealii::GridTools::distributed_compute_point_locations<dim, spacedim>(
-        cache, quadrature_points, global_bounding_boxes);
-
-    const auto &cells = std::get<0>(temp);
-
-    std::tuple<
-      std::vector<typename Triangulation<dim, spacedim>::active_cell_iterator>,
-      std::vector<std::vector<Point<dim>>>,
-      std::vector<std::vector<unsigned int>>,
-      std::vector<std::vector<Point<spacedim>>>,
-      std::vector<std::vector<unsigned int>>>
-      result;
-
-    std::vector<std::tuple<int, int, unsigned int>> cells_sorted;
-
-    for (unsigned int i = 0; i < cells.size(); ++i)
-      cells_sorted.emplace_back(cells[i]->level(), cells[i]->index(), i);
-
-    std::sort(cells_sorted.begin(), cells_sorted.end());
-
-    for (unsigned int i = 0; i < cells.size(); ++i)
-      {
-        const unsigned int index = std::get<2>(cells_sorted[i]);
-        std::get<0>(result).push_back(std::get<0>(temp)[index]);
-        std::get<1>(result).push_back(std::get<1>(temp)[index]);
-        std::get<2>(result).push_back(std::get<2>(temp)[index]);
-        std::get<3>(result).push_back(std::get<3>(temp)[index]);
-        std::get<4>(result).push_back(std::get<4>(temp)[index]);
-      }
-
-    return result;
-  }();
-
-  const auto temp_2 = [&]() {
-    const double tolerance = 1e-6;
-
-    // create bounding boxed of local active cells
-    std::vector<BoundingBox<spacedim>> local_boxes;
-    for (const auto &cell : tria.active_cell_iterators())
-      if (cell->is_locally_owned())
-        local_boxes.push_back(mapping.get_bounding_box(cell));
-
-    // create r-tree of bounding boxes
-    const auto local_tree = pack_rtree(local_boxes);
-
-    // compress r-tree to a minimal set of bounding boxes
-    const auto local_reduced_box = extract_rtree_level(local_tree, 0);
-
-    // gather bounding boxes of other processes
-    const auto global_bounding_boxes =
-      Utilities::MPI::all_gather(comm, local_reduced_box);
-
-    const GridTools::Cache<dim, spacedim> cache(tria, mapping);
-
-    return dealii::GridTools::distributed_compute_point_locations_new<dim,
-                                                                      spacedim>(
-      cache, quadrature_points, global_bounding_boxes, tolerance);
-  }();
-
-  // std::cout << std::endl << std::endl << std::endl;
-  // print(temp_1);
-  // std::cout << std::endl << std::endl << std::endl;
-  // print(temp_2);
-}
-
-
-
 template <int dim, int spacedim, typename VectorType>
 void
 compute_force_vector_sharp_interface(
@@ -387,8 +292,6 @@ compute_force_vector_sharp_interface(
 
     return integration_points;
   }();
-
-  cmp(integration_points, dof_handler.get_triangulation(), mapping);
 
   Utilities::MPI::RemotePointEvaluation<spacedim, spacedim> eval;
   eval.reinit(integration_points, dof_handler.get_triangulation(), mapping);

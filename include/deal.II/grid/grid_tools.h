@@ -1001,27 +1001,8 @@ namespace GridTools
   distributed_compute_point_locations(
     const GridTools::Cache<dim, spacedim> &                cache,
     const std::vector<Point<spacedim>> &                   local_points,
-    const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes);
-
-  /**
-   * TODO
-   */
-  template <int dim, int spacedim>
-#  ifndef DOXYGEN
-  std::tuple<
-    std::vector<typename Triangulation<dim, spacedim>::active_cell_iterator>,
-    std::vector<std::vector<Point<dim>>>,
-    std::vector<std::vector<unsigned int>>,
-    std::vector<std::vector<Point<spacedim>>>,
-    std::vector<std::vector<unsigned int>>>
-#  else
-  return_type
-#  endif
-  distributed_compute_point_locations_new(
-    const GridTools::Cache<dim, spacedim> &                cache,
-    const std::vector<Point<spacedim>> &                   points,
     const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes,
-    const double                                           tolerance = 1e-8);
+    const double                                           tolerance = 1e-10);
 
   namespace internal
   {
