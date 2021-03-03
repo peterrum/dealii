@@ -5362,15 +5362,15 @@ namespace GridTools
   namespace internal
   {
     template <int spacedim>
-    std::vector<std::vector<std::pair<unsigned int, Point<spacedim>>>>
+    std::tuple<std::vector<unsigned int>,
+               std::vector<unsigned int>,
+               std::vector<unsigned int>>
     guess_point_owner(
       const std::vector<std::vector<BoundingBox<spacedim>>> &global_bboxes,
       const std::vector<Point<spacedim>> &                   points)
     {
-      // TODO: remove vector of vector and replace it by single vector + single
-      // sort step
-      std::vector<std::vector<std::pair<unsigned int, Point<spacedim>>>>
-        potentially_relevant_points_per_process(global_bboxes.size());
+      std::vector<std::pair<unsigned int, unsigned int>> ranks_and_indices;
+      ranks_and_indices.reserve(points.size());
 
       for (unsigned int i = 0; i < points.size(); ++i)
         {
@@ -5379,12 +5379,34 @@ namespace GridTools
             for (const auto &box : global_bboxes[rank])
               if (box.point_inside(point))
                 {
-                  potentially_relevant_points_per_process[rank].emplace_back(
-                    i, point);
+                  ranks_and_indices.emplace_back(rank, i);
                   break;
                 }
         }
-      return potentially_relevant_points_per_process;
+
+      // convert to CRS
+      std::sort(ranks_and_indices.begin(), ranks_and_indices.end());
+
+      std::vector<unsigned int> ranks;
+      std::vector<unsigned int> ptr;
+      std::vector<unsigned int> indices;
+
+      unsigned int dummy_rank = numbers::invalid_unsigned_int;
+
+      for (const auto i : ranks_and_indices)
+        {
+          if (dummy_rank != i.first)
+            {
+              dummy_rank = i.first;
+              ranks.push_back(dummy_rank);
+              ptr.push_back(indices.size());
+            }
+
+          indices.push_back(i.second);
+        }
+      ptr.push_back(indices.size());
+
+      return {ranks, ptr, indices};
     }
 
 
@@ -5453,27 +5475,39 @@ namespace GridTools
       auto &recv_ranks      = result.recv_ranks;
       auto &recv_ptrs       = result.recv_ptrs;
 
-      const auto potentially_relevant_points_per_process =
+      const auto potential_owners =
         internal::guess_point_owner(global_bboxes, points);
+
+      const auto &potential_owners_ranks   = std::get<0>(potential_owners);
+      const auto &potential_owners_ptrs    = std::get<1>(potential_owners);
+      const auto &potential_owners_indices = std::get<2>(potential_owners);
 
       const std::vector<bool> marked_vertices;
       auto cell_hint = cache.get_triangulation().begin_active();
 
       Utilities::MPI::ConsensusAlgorithms::AnonymousProcess<char, char> process(
-        [&]() {
-          std::vector<unsigned int> targets;
-
-          for (unsigned int i = 0;
-               i < potentially_relevant_points_per_process.size();
-               ++i)
-            if (potentially_relevant_points_per_process[i].size() > 0)
-              targets.emplace_back(i);
-          return targets;
-        },
+        [&]() { return potential_owners_ranks; },
         [&](const unsigned int other_rank, std::vector<char> &send_buffer) {
-          send_buffer =
-            Utilities::pack(potentially_relevant_points_per_process[other_rank],
-                            false);
+          const auto ptr = std::find(potential_owners_ranks.begin(),
+                                     potential_owners_ranks.end(),
+                                     other_rank);
+
+          Assert(ptr != potential_owners_ranks.end(), ExcInternalError());
+
+          const auto other_rank_index =
+            std::distance(potential_owners_ranks.begin(), ptr);
+
+          std::vector<std::pair<unsigned int, Point<spacedim>>> temp;
+          temp.reserve(potential_owners_ptrs[other_rank_index + 1] -
+                       potential_owners_ptrs[other_rank_index]);
+
+          for (unsigned int i = potential_owners_ptrs[other_rank_index];
+               i < potential_owners_ptrs[other_rank_index + 1];
+               ++i)
+            temp.emplace_back(potential_owners_indices[i],
+                              points[potential_owners_indices[i]]);
+
+          send_buffer = Utilities::pack(temp, false);
         },
         [&](const unsigned int &     other_rank,
             const std::vector<char> &recv_buffer,
@@ -5523,10 +5557,20 @@ namespace GridTools
         [&](const unsigned int other_rank, std::vector<char> &recv_buffer) {
           if (perform_handshake)
             {
-              recv_buffer = Utilities::pack(
-                std::vector<unsigned int>(
-                  potentially_relevant_points_per_process[other_rank].size()),
-                false);
+              const auto ptr = std::find(potential_owners_ranks.begin(),
+                                         potential_owners_ranks.end(),
+                                         other_rank);
+
+              Assert(ptr != potential_owners_ranks.end(), ExcInternalError());
+
+              const auto other_rank_index =
+                std::distance(potential_owners_ranks.begin(), ptr);
+
+              recv_buffer =
+                Utilities::pack(std::vector<unsigned int>(
+                                  potential_owners_ptrs[other_rank_index + 1] -
+                                  potential_owners_ptrs[other_rank_index]),
+                                false);
             }
         },
         [&](const unsigned int       other_rank,
@@ -5536,14 +5580,22 @@ namespace GridTools
               const auto recv_buffer_unpacked =
                 Utilities::unpack<std::vector<unsigned int>>(recv_buffer,
                                                              false);
-              const auto &potentially_relevant_points =
-                potentially_relevant_points_per_process[other_rank];
+
+              const auto ptr = std::find(potential_owners_ranks.begin(),
+                                         potential_owners_ranks.end(),
+                                         other_rank);
+
+              Assert(ptr != potential_owners_ranks.end(), ExcInternalError());
+
+              const auto other_rank_index =
+                std::distance(potential_owners_ranks.begin(), ptr);
 
               for (unsigned int i = 0; i < recv_buffer_unpacked.size(); ++i)
                 for (unsigned int j = 0; j < recv_buffer_unpacked[i]; ++j)
                   recv_components.emplace_back(
                     other_rank,
-                    potentially_relevant_points[i].first,
+                    potential_owners_indices
+                      [i + potential_owners_ptrs[other_rank_index]],
                     numbers::invalid_unsigned_int);
             }
         });
