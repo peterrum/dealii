@@ -1013,7 +1013,13 @@ namespace GridTools
     struct DistributedComputePointLocationsInternal
     {
       /**
-       * TODO
+       * information of each (remote) point:
+       *  - cell level and index
+       *  - rank of the owning process
+       *  - local index of the owning process
+       *  - reference position
+       *  - real position
+       *  - enumeration index
        */
       std::vector<std::tuple<std::pair<int, int>,
                              unsigned int,
@@ -1024,28 +1030,31 @@ namespace GridTools
         send_components;
 
       /**
-       * TODO
+       * ranks to send to
        */
       std::vector<unsigned int> send_ranks;
 
       /**
-       * TODO
+       * pointers of ranges to be sent to the specified ranks
        */
       std::vector<unsigned int> send_ptrs;
 
       /**
-       * TODO
+       * information of each point:
+       *  - rank
+       *  - local index
+       *  - enumeration index
        */
       std::vector<std::tuple<unsigned int, unsigned int, unsigned int>>
         recv_components;
 
       /**
-       * TODO
+       * ranks from where data is received
        */
       std::vector<unsigned int> recv_ranks;
 
       /**
-       * TODO
+       * pointers of ranges that a received from the specified ranks
        */
       std::vector<unsigned int> recv_ptrs;
     };
