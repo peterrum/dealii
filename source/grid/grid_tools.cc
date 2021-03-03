@@ -5485,17 +5485,23 @@ namespace GridTools
       const std::vector<bool> marked_vertices;
       auto cell_hint = cache.get_triangulation().begin_active();
 
+      const auto translate = [&](const unsigned int other_rank) {
+        const auto ptr = std::find(potential_owners_ranks.begin(),
+                                   potential_owners_ranks.end(),
+                                   other_rank);
+
+        Assert(ptr != potential_owners_ranks.end(), ExcInternalError());
+
+        const auto other_rank_index =
+          std::distance(potential_owners_ranks.begin(), ptr);
+
+        return other_rank_index;
+      };
+
       Utilities::MPI::ConsensusAlgorithms::AnonymousProcess<char, char> process(
         [&]() { return potential_owners_ranks; },
         [&](const unsigned int other_rank, std::vector<char> &send_buffer) {
-          const auto ptr = std::find(potential_owners_ranks.begin(),
-                                     potential_owners_ranks.end(),
-                                     other_rank);
-
-          Assert(ptr != potential_owners_ranks.end(), ExcInternalError());
-
-          const auto other_rank_index =
-            std::distance(potential_owners_ranks.begin(), ptr);
+          const auto other_rank_index = translate(other_rank);
 
           std::vector<std::pair<unsigned int, Point<spacedim>>> temp;
           temp.reserve(potential_owners_ptrs[other_rank_index + 1] -
@@ -5557,14 +5563,7 @@ namespace GridTools
         [&](const unsigned int other_rank, std::vector<char> &recv_buffer) {
           if (perform_handshake)
             {
-              const auto ptr = std::find(potential_owners_ranks.begin(),
-                                         potential_owners_ranks.end(),
-                                         other_rank);
-
-              Assert(ptr != potential_owners_ranks.end(), ExcInternalError());
-
-              const auto other_rank_index =
-                std::distance(potential_owners_ranks.begin(), ptr);
+              const auto other_rank_index = translate(other_rank);
 
               recv_buffer =
                 Utilities::pack(std::vector<unsigned int>(
@@ -5581,14 +5580,7 @@ namespace GridTools
                 Utilities::unpack<std::vector<unsigned int>>(recv_buffer,
                                                              false);
 
-              const auto ptr = std::find(potential_owners_ranks.begin(),
-                                         potential_owners_ranks.end(),
-                                         other_rank);
-
-              Assert(ptr != potential_owners_ranks.end(), ExcInternalError());
-
-              const auto other_rank_index =
-                std::distance(potential_owners_ranks.begin(), ptr);
+              const auto other_rank_index = translate(other_rank);
 
               for (unsigned int i = 0; i < recv_buffer_unpacked.size(); ++i)
                 for (unsigned int j = 0; j < recv_buffer_unpacked[i]; ++j)
