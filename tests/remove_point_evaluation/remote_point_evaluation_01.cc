@@ -551,7 +551,7 @@ test()
   const unsigned int background_n_global_refinements = 6;
 #else
   const unsigned int background_n_global_refinements =
-    Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) == 1 ? 80 : 80;
+    Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) == 1 ? 40 : 80;
 #endif
   const unsigned int background_fe_degree = 2;
 

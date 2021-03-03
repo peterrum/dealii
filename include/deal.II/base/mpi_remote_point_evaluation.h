@@ -722,11 +722,11 @@ namespace GridTools
         std::sort(send_components.begin(),
                   send_components.end(),
                   [&](const auto &a, const auto &b) {
-                    if (std::get<0>(a) != std::get<0>(b))
-                      return std::get<0>(a) < std::get<0>(b); // cell
-
                     if (std::get<1>(a) != std::get<1>(b))
-                      return std::get<1>(a) < std::get<1>(b); // rank
+                      return std::get<1>(a) < std::get<1>(b); // cell - TODO
+
+                    if (std::get<0>(a) != std::get<0>(b))
+                      return std::get<0>(a) < std::get<0>(b); // rank - TODO
 
                     if (std::get<2>(a) != std::get<2>(b))
                       return std::get<2>(a) < std::get<2>(b); // point index

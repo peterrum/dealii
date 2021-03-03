@@ -86,10 +86,11 @@ namespace Utilities
       this->send_ptr   = data.send_ptrs;
 
       this->indices = {};
+      this->indices.resize(data.recv_components.size());
       this->quadrature_points_ptr.assign(points.size() + 1, 0);
       for (unsigned int i = 0; i < data.recv_components.size(); ++i)
         {
-          this->indices.push_back(std::get<2>(data.recv_components[i]));
+          this->indices[std::get<2>(data.recv_components[i])] = i;
           this
             ->quadrature_points_ptr[std::get<2>(data.recv_components[i]) + 1]++;
         }
