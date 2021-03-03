@@ -90,9 +90,14 @@ namespace Utilities
       this->quadrature_points_ptr.assign(points.size() + 1, 0);
       for (unsigned int i = 0; i < data.recv_components.size(); ++i)
         {
+          AssertIndexRange(std::get<2>(data.recv_components[i]),
+                           this->indices.size());
           this->indices[std::get<2>(data.recv_components[i])] = i;
+
+          AssertIndexRange(std::get<1>(data.recv_components[i]) + 1,
+                           this->quadrature_points_ptr.size());
           this
-            ->quadrature_points_ptr[std::get<2>(data.recv_components[i]) + 1]++;
+            ->quadrature_points_ptr[std::get<1>(data.recv_components[i]) + 1]++;
         }
 
       unique_mapping = true;
@@ -120,54 +125,6 @@ namespace Utilities
           std::get<2>(this->relevant_remote_points_per_process)
             .emplace_back(std::get<5>(i));
         }
-
-      /*
-      std::get<2>(this->relevant_remote_points_per_process).resize(data.send_components.size());
-      for(unsigned int i = 0; i < data.send_components.size(); ++i)
-        std::get<2>(this->relevant_remote_points_per_process)[std::get<5>(data.send_components[i])]
-      = i;
-      */
-
-
-      std::cout << "----------------------------------------------------------"
-                << std::endl;
-
-      for (const auto i : quadrature_points_ptr)
-        std::cout << i << " ";
-      std::cout << std::endl;
-
-      for (const auto i : indices)
-        std::cout << i << " ";
-      std::cout << std::endl;
-
-      for (const auto i : indices_ptr)
-        std::cout << i << " ";
-      std::cout << std::endl;
-
-      for (const auto i : recv_ranks)
-        std::cout << i << " ";
-      std::cout << std::endl;
-
-      for (const auto i : send_ranks)
-        std::cout << i << " ";
-      std::cout << std::endl;
-
-      for (const auto i : send_ptr)
-        std::cout << i << " ";
-      std::cout << std::endl;
-
-      for (const auto i : std::get<0>(relevant_remote_points_per_process))
-        std::cout << "(" << i.first.first << ", " << i.first.second << ", "
-                  << i.second << "), ";
-      std::cout << std::endl;
-
-      for (const auto i : std::get<1>(relevant_remote_points_per_process))
-        std::cout << i << " ";
-      std::cout << std::endl;
-
-      for (const auto i : std::get<2>(relevant_remote_points_per_process))
-        std::cout << i << " ";
-      std::cout << std::endl;
 #endif
     }
 
