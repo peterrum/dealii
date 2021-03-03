@@ -538,6 +538,51 @@ namespace GridTools
     std::vector<unsigned int> recv_ptrs;
   };
 
+
+  template <int dim, int spacedim>
+  std::vector<
+    std::pair<typename Triangulation<dim, spacedim>::active_cell_iterator,
+              Point<dim>>>
+  find_all_locally_owned_active_cells_around_point(
+    const Cache<dim, spacedim> &                                 cache,
+    const Point<spacedim> &                                      point,
+    typename Triangulation<dim, spacedim>::active_cell_iterator &cell_hint,
+    const std::vector<bool> &marked_vertices,
+    const double             tolerance)
+  {
+    std::vector<
+      std::pair<typename Triangulation<dim, spacedim>::active_cell_iterator,
+                Point<dim>>>
+      locally_owned_active_cells_around_point;
+
+    try
+      {
+        const auto first_cell = GridTools::find_active_cell_around_point(
+          cache, point, cell_hint, marked_vertices, tolerance);
+
+        cell_hint = first_cell.first;
+
+        const auto active_cells_around_point =
+          GridTools::find_all_active_cells_around_point(
+            cache.get_mapping(),
+            cache.get_triangulation(),
+            point,
+            tolerance,
+            first_cell);
+
+        locally_owned_active_cells_around_point.reserve(
+          active_cells_around_point.size());
+
+        for (const auto &cell : active_cells_around_point)
+          if (cell.first->is_locally_owned())
+            locally_owned_active_cells_around_point.push_back(cell);
+      }
+    catch (...)
+      {}
+
+    return locally_owned_active_cells_around_point;
+  }
+
   template <int dim, int spacedim>
   inline DistributedComputePointLocationsInternal<dim, spacedim>
   distributed_compute_point_locations_internal(
@@ -561,41 +606,6 @@ namespace GridTools
 
     const std::vector<bool> marked_vertices;
     auto cell_hint = cache.get_triangulation().begin_active();
-
-    const auto find_all_locally_owned_active_cells_around_point =
-      [&](const Point<spacedim> &point) {
-        std::vector<
-          std::pair<typename Triangulation<dim, spacedim>::active_cell_iterator,
-                    Point<dim>>>
-          locally_owned_active_cells_around_point;
-
-        try
-          {
-            const auto first_cell = GridTools::find_active_cell_around_point(
-              cache, point, cell_hint, marked_vertices, tolerance);
-
-            cell_hint = first_cell.first;
-
-            const auto active_cells_around_point =
-              GridTools::find_all_active_cells_around_point(
-                cache.get_mapping(),
-                cache.get_triangulation(),
-                point,
-                tolerance,
-                first_cell);
-
-            locally_owned_active_cells_around_point.reserve(
-              active_cells_around_point.size());
-
-            for (const auto &cell : active_cells_around_point)
-              if (cell.first->is_locally_owned())
-                locally_owned_active_cells_around_point.push_back(cell);
-          }
-        catch (...)
-          {}
-
-        return locally_owned_active_cells_around_point;
-      };
 
     Utilities::MPI::ConsensusAlgorithms::AnonymousProcess<char, char> process(
       [&]() {
@@ -631,7 +641,11 @@ namespace GridTools
 
             const auto cells_and_reference_positions =
               find_all_locally_owned_active_cells_around_point(
-                index_and_point.second);
+                cache,
+                index_and_point.second,
+                cell_hint,
+                marked_vertices,
+                tolerance);
 
             for (const auto &cell_and_reference_position :
                  cells_and_reference_positions)
@@ -718,7 +732,7 @@ namespace GridTools
         send_ptrs.push_back(send_components.size());
 
         // sort according to cell, rank, point index (while keeping
-        // enumeration)
+        // partial ordering)
         std::sort(send_components.begin(),
                   send_components.end(),
                   [&](const auto &a, const auto &b) {
@@ -742,9 +756,9 @@ namespace GridTools
                   recv_components.end(),
                   [&](const auto &a, const auto &b) {
                     if (std::get<0>(a) != std::get<0>(b))
-                      return std::get<0>(a) < std::get<0>(b);
+                      return std::get<0>(a) < std::get<0>(b); // rank
 
-                    return std::get<1>(a) < std::get<1>(b);
+                    return std::get<1>(a) < std::get<1>(b); // point index
                   });
 
         // perform enumeration and extract rank information
@@ -763,17 +777,18 @@ namespace GridTools
           }
         recv_ptrs.push_back(recv_components.size());
 
-        // sort according to point index and rank (while keeping enumeration)
+        // sort according to point index and rank (while keeping partial
+        // ordering)
         std::sort(recv_components.begin(),
                   recv_components.end(),
                   [&](const auto &a, const auto &b) {
                     if (std::get<1>(a) != std::get<1>(b))
-                      return std::get<1>(a) < std::get<1>(b);
+                      return std::get<1>(a) < std::get<1>(b); // point index
 
                     if (std::get<0>(a) != std::get<0>(b))
-                      return std::get<0>(a) < std::get<0>(b);
+                      return std::get<0>(a) < std::get<0>(b); // rank
 
-                    return std::get<2>(a) < std::get<2>(b);
+                    return std::get<2>(a) < std::get<2>(b); // enumeration
                   });
       }
 
