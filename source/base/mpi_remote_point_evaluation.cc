@@ -57,7 +57,7 @@ namespace Utilities
       this->tria    = &tria;
       this->mapping = &mapping;
 
-      comm = internal::get_mpi_comm(tria);
+      comm = tria.get_communicator();
 
       std::vector<BoundingBox<spacedim>> local_boxes;
       for (const auto &cell : tria.active_cell_iterators())

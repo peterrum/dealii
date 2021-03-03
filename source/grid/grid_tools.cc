@@ -5361,19 +5361,6 @@ namespace GridTools
 
   namespace internal
   {
-    template <typename MeshType>
-    inline MPI_Comm
-    get_mpi_comm(const MeshType &mesh)
-    {
-      const auto *tria_parallel = dynamic_cast<
-        const parallel::TriangulationBase<MeshType::dimension,
-                                          MeshType::space_dimension> *>(
-        &(mesh.get_triangulation()));
-
-      return tria_parallel != nullptr ? tria_parallel->get_communicator() :
-                                        MPI_COMM_SELF;
-    }
-
     template <int spacedim>
     std::vector<std::vector<std::pair<unsigned int, Point<spacedim>>>>
     guess_point_owner(
@@ -5562,7 +5549,7 @@ namespace GridTools
         });
 
       Utilities::MPI::ConsensusAlgorithms::Selector<char, char>(
-        process, internal::get_mpi_comm(cache.get_triangulation()))
+        process, cache.get_triangulation().get_communicator())
         .run();
 
       if (true)
