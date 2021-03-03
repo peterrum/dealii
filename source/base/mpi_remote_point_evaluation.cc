@@ -57,8 +57,6 @@ namespace Utilities
       this->tria    = &tria;
       this->mapping = &mapping;
 
-      const unsigned int my_rank = Utilities::MPI::this_mpi_process(comm);
-
       comm = internal::get_mpi_comm(tria);
 
       std::vector<BoundingBox<spacedim>> local_boxes;
@@ -129,6 +127,9 @@ namespace Utilities
       = i;
       */
 
+
+      std::cout << "----------------------------------------------------------"
+                << std::endl;
 
       for (const auto i : quadrature_points_ptr)
         std::cout << i << " ";

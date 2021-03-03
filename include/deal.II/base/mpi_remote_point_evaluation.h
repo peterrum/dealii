@@ -621,7 +621,9 @@ namespace GridTools
                                                                  false);
 
         std::vector<unsigned int> request_buffer_temp(
-          recv_buffer_unpacked.size());
+          recv_buffer_unpacked.size(), 0);
+
+        cell_hint = cache.get_triangulation().begin_active();
 
         for (unsigned int i = 0; i < recv_buffer_unpacked.size(); ++i)
           {
