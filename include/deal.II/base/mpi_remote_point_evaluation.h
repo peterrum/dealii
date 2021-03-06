@@ -306,9 +306,9 @@ namespace Utilities
                     &requests.back());
         }
 
-      for (unsigned int i = 0; i < recv_ranks.size(); ++i)
+      for (const auto recv_rank : recv_ranks)
         {
-          if (recv_ranks[i] == my_rank)
+          if (recv_rank == my_rank)
             continue;
 
           MPI_Status status;
@@ -409,13 +409,12 @@ namespace Utilities
       std::vector<MPI_Request> requests;
       requests.reserve(recv_ranks.size());
 
-      for (unsigned int i = 0; i < recv_ranks.size(); ++i)
+      for (const auto recv_rank : recv_ranks)
         {
-          if (recv_ranks[i] == my_rank)
+          if (recv_rank == my_rank)
             continue;
 
-          temp_map[recv_ranks[i]] =
-            Utilities::pack(temp_recv_map[recv_ranks[i]]);
+          temp_map[recv_rank] = Utilities::pack(temp_recv_map[recv_ranks[i]]);
 
           auto &buffer_send = temp_map[recv_ranks[i]];
 
