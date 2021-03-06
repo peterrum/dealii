@@ -30,6 +30,8 @@
 
 #include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/lac/la_vector.h>
+#include <deal.II/lac/petsc_vector.h>
+#include <deal.II/lac/trilinos_vector.h>
 
 #include <array>
 #include <cmath>
@@ -8415,8 +8417,8 @@ namespace GridGenerator
 
 
 
-  template <int dim>
-  MarchingCubeAlgorithm<dim>::MarchingCubeAlgorithm(
+  template <int dim, typename VectorType>
+  MarchingCubeAlgorithm<dim, VectorType>::MarchingCubeAlgorithm(
     const Mapping<dim, dim> &      mapping,
     const FiniteElement<dim, dim> &fe,
     const unsigned int             n_subdivisions)
@@ -8429,9 +8431,9 @@ namespace GridGenerator
 
 
 
-  template <int dim>
+  template <int dim, typename VectorType>
   Quadrature<dim>
-  MarchingCubeAlgorithm<dim>::create_qudrature_rule(
+  MarchingCubeAlgorithm<dim, VectorType>::create_qudrature_rule(
     const unsigned int n_subdivisions)
   {
     std::vector<Point<dim>> quadrature_points;
@@ -8464,16 +8466,15 @@ namespace GridGenerator
 
 
 
-  template <int dim>
-  template <typename VectorType>
+  template <int dim, typename VectorType>
   void
-  MarchingCubeAlgorithm<dim>::process(
+  MarchingCubeAlgorithm<dim, VectorType>::process(
     const DoFHandler<dim> &         background_dof_handler,
     const VectorType &              ls_vector,
     std::vector<Point<dim>> &       vertices,
     std::vector<CellData<dim - 1>> &cells) const
   {
-    std::vector<double> ls_values;
+    std::vector<value_type> ls_values;
 
     for (const auto &cell : background_dof_handler.active_cell_iterators())
       {
@@ -8489,10 +8490,10 @@ namespace GridGenerator
 
 
 
-  template <int dim>
+  template <int dim, typename VectorType>
   void
-  MarchingCubeAlgorithm<dim>::process_cell(
-    std::vector<double> &        ls_values,
+  MarchingCubeAlgorithm<dim, VectorType>::process_cell(
+    std::vector<value_type> &    ls_values,
     const std::vector<Point<2>> &points,
     std::vector<Point<2>> &      vertices,
     std::vector<CellData<1>> &   cells) const
@@ -8514,10 +8515,10 @@ namespace GridGenerator
 
 
 
-  template <int dim>
+  template <int dim, typename VectorType>
   void
-  MarchingCubeAlgorithm<dim>::process_cell(
-    std::vector<double> &        ls_values,
+  MarchingCubeAlgorithm<dim, VectorType>::process_cell(
+    std::vector<value_type> &    ls_values,
     const std::vector<Point<3>> &points,
     std::vector<Point<3>> &      vertices,
     std::vector<CellData<2>> &   cells) const
@@ -8544,10 +8545,10 @@ namespace GridGenerator
 
 
 
-  template <int dim>
+  template <int dim, typename VectorType>
   void
-  MarchingCubeAlgorithm<dim>::process_sub_cell(
-    const std::vector<double> &     ls_values,
+  MarchingCubeAlgorithm<dim, VectorType>::process_sub_cell(
+    const std::vector<value_type> & ls_values,
     const std::vector<Point<2>> &   points,
     const std::vector<unsigned int> mask,
     std::vector<Point<2>> &         vertices,
@@ -8563,8 +8564,8 @@ namespace GridGenerator
               // the sub_cell
 
     const auto process_points = [&](const auto &lines) {
-      const double w0 = std::abs(ls_values[mask[lines[0]]]);
-      const double w1 = std::abs(ls_values[mask[lines[1]]]);
+      const value_type w0 = std::abs(ls_values[mask[lines[0]]]);
+      const value_type w1 = std::abs(ls_values[mask[lines[1]]]);
 
       return points[mask[lines[0]]] * (w1 / (w0 + w1)) +
              points[mask[lines[1]]] * (w0 / (w0 + w1));
@@ -8621,21 +8622,15 @@ namespace GridGenerator
 
 
 
-  template <int dim>
+  template <int dim, typename VectorType>
   void
-  MarchingCubeAlgorithm<dim>::process_sub_cell(
-    const std::vector<double> &     ls_values,
+  MarchingCubeAlgorithm<dim, VectorType>::process_sub_cell(
+    const std::vector<value_type> & ls_values,
     const std::vector<Point<3>> &   points,
     const std::vector<unsigned int> mask,
     std::vector<Point<3>> &         vertices,
     std::vector<CellData<2>> &      cells)
   {
-    (void)ls_values;
-    (void)points;
-    (void)mask;
-    (void)vertices;
-    (void)cells;
-
     static int edgeTable[256] = {
       0x0,   0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c, 0x80c, 0x905,
       0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00, 0x190, 0x99,  0x393, 0x29a,
@@ -9027,10 +9022,10 @@ namespace GridGenerator
   template <int dim, typename VectorType>
   void
   create_triangulation_with_marching_cube_algorithm(
-    const MarchingCubeAlgorithm<dim> &mc,
-    const DoFHandler<dim> &           background_dof_handler,
-    const VectorType &                ls_vector,
-    Triangulation<dim - 1, dim> &     tria)
+    const MarchingCubeAlgorithm<dim, VectorType> &mc,
+    const DoFHandler<dim> &                       background_dof_handler,
+    const VectorType &                            ls_vector,
+    Triangulation<dim - 1, dim> &                 tria)
   {
     std::vector<Point<dim>>        vertices;
     std::vector<CellData<dim - 1>> cells;
