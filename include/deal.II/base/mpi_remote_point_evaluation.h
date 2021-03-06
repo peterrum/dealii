@@ -43,6 +43,11 @@ namespace Utilities
       RemotePointEvaluation(const double tolerance = 1e-6);
 
       /**
+       * Destructor.
+       */
+      ~RemotePointEvaluation();
+
+      /**
        * Set up internal data structures and communication pattern based on
        * a list of points @p points and mesh description (@p tria and @p
        * mapping).
@@ -127,6 +132,18 @@ namespace Utilities
        * point.
        */
       const double tolerance;
+
+      /**
+       * Storage for the status of the triangulation signal.
+       */
+      boost::signals2::connection tria_signal;
+
+      /**
+       * Flag indicating if the reinit() function has been called and if yes
+       * the triangulation has not been modified since then (potentially
+       * invalidating the communication pattern).
+       */
+      bool ready_flag;
 
       /**
        * Reference to the Triangulation object used during reinit().

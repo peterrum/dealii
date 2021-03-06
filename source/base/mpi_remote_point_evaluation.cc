@@ -39,7 +39,14 @@ namespace Utilities
     RemotePointEvaluation<dim, spacedim>::RemotePointEvaluation(
       const double tolerance)
       : tolerance(tolerance)
+      , ready_flag(false)
     {}
+    template <int dim, int spacedim>
+    RemotePointEvaluation<dim, spacedim>::~RemotePointEvaluation()
+    {
+      if (tria_signal.connected())
+        tria_signal.disconnect();
+    }
 
     template <int dim, int spacedim>
     void
@@ -54,6 +61,12 @@ namespace Utilities
       (void)tria;
       (void)mapping;
 #else
+      if (tria_signal.connected())
+        tria_signal.disconnect();
+
+      tria_signal =
+        tria.signals.any_change.connect([&]() { this->ready_flag = false; });
+
       this->tria    = &tria;
       this->mapping = &mapping;
 
@@ -126,6 +139,8 @@ namespace Utilities
           std::get<2>(this->relevant_remote_points_per_process)
             .emplace_back(std::get<5>(i));
         }
+
+      this->ready_flag = true;
 #endif
     }
 
@@ -162,7 +177,7 @@ namespace Utilities
     bool
     RemotePointEvaluation<dim, spacedim>::is_ready() const
     {
-      return true; // TODO
+      return ready_flag;
     }
 
   } // end of namespace MPI
