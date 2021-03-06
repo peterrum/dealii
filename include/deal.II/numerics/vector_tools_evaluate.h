@@ -32,10 +32,13 @@ DEAL_II_NAMESPACE_OPEN
 namespace VectorTools
 {
   /**
-   * Flags for evaluate_at_points().
+   * Namespace for the flags for evaluate_at_points().
    */
   namespace EvaluationFlags
   {
+    /**
+     * Flags for evaluate_at_points().
+     */
     enum EvaluationFlags
     {
       /**
@@ -59,7 +62,7 @@ namespace VectorTools
        */
       insert = 3
     };
-  }
+  } // namespace EvaluationFlags
 
   /**
    * Given a (distributed) solution vector @p vector, evaluate the values at
@@ -96,7 +99,7 @@ namespace VectorTools
   // inlined functions
 
 
-
+#ifndef DOXYGEN
   template <int n_components, int dim, int spacedim, typename VectorType>
   inline std::vector<typename FEPointEvaluation<n_components, dim>::value_type>
   evaluate_at_points(
@@ -112,6 +115,8 @@ namespace VectorTools
     return evaluate_at_points<n_components>(dof_handler, vector, cache, flags);
   }
 
+
+
   namespace internal
   {
     /**
@@ -119,8 +124,8 @@ namespace VectorTools
      */
     template <typename T>
     T
-    reduce(const EvaluationFlags::EvaluationFlags flags,
-           const ArrayView<const T> &             values)
+    reduce(const EvaluationFlags::EvaluationFlags &flags,
+           const ArrayView<const T> &              values)
     {
       switch (flags)
         {
@@ -143,12 +148,14 @@ namespace VectorTools
         }
     }
 
+
+
     /**
      * Perform reduction for tensors.
      */
     template <int rank, int dim, typename Number>
     Tensor<rank, dim, Number>
-    reduce(const EvaluationFlags::EvaluationFlags            flags,
+    reduce(const EvaluationFlags::EvaluationFlags &          flags,
            const ArrayView<const Tensor<rank, dim, Number>> &values)
     {
       switch (flags)
@@ -284,6 +291,7 @@ namespace VectorTools
         return unique_evaluation_point_results;
       }
   }
+#endif
 } // namespace VectorTools
 
 DEAL_II_NAMESPACE_CLOSE

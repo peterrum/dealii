@@ -32,6 +32,13 @@ namespace Utilities
   {
     /**
      * Helper class to access values on non-matching grids.
+     *
+     * @note The name of the fields are chosen with the method
+     *   evaluate_and_process() in mind. Here, quantities are
+     *   computed at specified arbitrary positioned points (and even on remote
+     *   processes in the MPI universe) cell by cell and these values are sent
+     *   to requesting processes, which receive the result and resort the
+     *   result according to the points.
      */
     template <int dim, int spacedim = dim>
     class RemotePointEvaluation
@@ -74,16 +81,21 @@ namespace Utilities
         std::vector<unsigned int> reference_point_ptrs;
 
         /**
-         * Reference points in the inveral [0,1]^dim.
+         * Reference points in the interval [0,1]^dim.
          */
         std::vector<Point<dim>> reference_point_values;
       };
 
       /**
        * Evaluate function @p fu in the given  points and triangulation. The
-       * result is stored in @p output. I the map of points to cells is not
-       * one-to-one relation (is_map_unique()==false), the result needs to be
-       * processed with the help of get_point_ptrs().
+       * result is stored in @p output.
+       *
+       * @note Is the map of points to cells is not
+       *   one-to-one relation (is_map_unique()==false), the result needs to be
+       *   processed with the help of get_point_ptrs(). This
+       *   might be the case if a point coincides with a geometric entity (e.g.,
+       *   vertex) that is shared by multiple cells or a point is outside of the
+       *   computational domain.
        */
       template <typename T>
       void
@@ -94,7 +106,9 @@ namespace Utilities
         const;
 
       /**
-       * TODO
+       * This method is the inverse of the method evaluate_and_process(). It
+       * makes data at the points and provided by @p input available in the
+       * function @p fu.
        */
       template <typename T>
       void
@@ -180,42 +194,47 @@ namespace Utilities
       bool unique_mapping;
 
       /**
-       * TODO.
+       * Since for each point multiple or no results can be available, the
+       * pointers in this vector indicate the first and last entries associated
+       * with a point.
        */
       std::vector<unsigned int> point_ptrs;
 
       /**
-       * TODO.
+       * Permutation index within a recv buffer.
        */
       std::vector<unsigned int> recv_permutation;
 
       /**
-       * TODO.
+       * Pointers of ranges within a receive buffer that are filled by ranks
+       * specified by recv_ranks.
        */
       std::vector<unsigned int> recv_ptrs;
 
       /**
-       * TODO.
+       * Ranks from where data is received.
        */
       std::vector<unsigned int> recv_ranks;
 
       /**
-       * TODO.
+       * Point data sorted according to cells so that evaluation (incl. reading
+       * of degrees of freedoms) needs to performed only once per cell.
        */
       CellData cell_data;
 
       /**
-       * TODO.
+       * Permutation index within a send buffer.
        */
       std::vector<unsigned int> send_permutation;
 
       /**
-       * TODO.
+       * Ranks to send to.
        */
       std::vector<unsigned int> send_ranks;
 
       /**
-       * TODO.
+       * Pointers of ranges within a send buffer to be sent to the ranks
+       * specified by send_ranks.
        */
       std::vector<unsigned int> send_ptrs;
     };
