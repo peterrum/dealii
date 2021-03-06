@@ -168,17 +168,17 @@ namespace Utilities
       /**
        * TODO.
        */
-      std::vector<unsigned int> quadrature_points_ptr;
+      std::vector<unsigned int> point_ptrs;
 
       /**
        * TODO.
        */
-      std::vector<unsigned int> indices;
+      std::vector<unsigned int> recv_permutation;
 
       /**
        * TODO.
        */
-      std::vector<unsigned int> indices_ptr;
+      std::vector<unsigned int> recv_ptrs;
 
       /**
        * TODO.
@@ -201,7 +201,7 @@ namespace Utilities
       /**
        * TODO.
        */
-      std::vector<unsigned int> send_ptr;
+      std::vector<unsigned int> send_ptrs;
     };
 
 
@@ -224,7 +224,7 @@ namespace Utilities
       (void)buffer;
       (void)fu;
 #else
-      output.resize(quadrature_points_ptr.back());
+      output.resize(point_ptrs.back());
       buffer.resize(
         (std::get<1>(this->relevant_remote_points_per_process).size()) * 2);
       ArrayView<T> buffer_1(buffer.data(), buffer.size() / 2);
@@ -257,14 +257,14 @@ namespace Utilities
             {
               // process locally-owned values
               temp_recv_map[my_rank] =
-                std::vector<T>(buffer_2.begin() + send_ptr[i],
-                               buffer_2.begin() + send_ptr[i + 1]);
+                std::vector<T>(buffer_2.begin() + send_ptrs[i],
+                               buffer_2.begin() + send_ptrs[i + 1]);
               continue;
             }
 
-          temp_map[send_ranks[i]] =
-            Utilities::pack(std::vector<T>(buffer_2.begin() + send_ptr[i],
-                                           buffer_2.begin() + send_ptr[i + 1]));
+          temp_map[send_ranks[i]] = Utilities::pack(
+            std::vector<T>(buffer_2.begin() + send_ptrs[i],
+                           buffer_2.begin() + send_ptrs[i + 1]));
 
           auto &buffer = temp_map[send_ranks[i]];
 
@@ -311,7 +311,7 @@ namespace Utilities
       MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
 
       // copy received data into output vector
-      auto it = indices.begin();
+      auto it = recv_permutation.begin();
       for (const auto &j : temp_recv_map)
         for (const auto &i : j.second)
           output[*(it++)] = i;
@@ -355,7 +355,7 @@ namespace Utilities
       for (unsigned int i = 0; i < recv_ranks.size(); ++i)
         {
           temp_recv_map[recv_ranks[i]] =
-            std::vector<T>(indices_ptr[i + 1] - indices_ptr[i]);
+            std::vector<T>(recv_ptrs[i + 1] - recv_ptrs[i]);
         }
 
       const unsigned int my_rank = Utilities::MPI::this_mpi_process(comm);
@@ -366,15 +366,15 @@ namespace Utilities
       for (auto &j : temp_recv_map)
         i += j.second.size();
 
-      AssertDimension(indices.size(), i);
+      AssertDimension(recv_permutation.size(), i);
 #  endif
 
-      auto it = indices.begin();
+      auto it = recv_permutation.begin();
       for (auto &j : temp_recv_map)
         for (auto &i : j.second)
           i = buffer_[*(it++)];
 
-      // buffer.resize(quadrature_points_ptr.back());
+      // buffer.resize(point_ptrs.back());
       buffer.resize(
         (std::get<1>(this->relevant_remote_points_per_process).size()) * 2);
       ArrayView<T> buffer_1(buffer.data(), buffer.size() / 2);
@@ -420,9 +420,9 @@ namespace Utilities
                                                              my_rank));
 
               AssertDimension(buffer_send.size(),
-                              send_ptr[j + 1] - send_ptr[j]);
+                              send_ptrs[j + 1] - send_ptrs[j]);
 
-              for (unsigned int i = send_ptr[j], c = 0; i < send_ptr[j + 1];
+              for (unsigned int i = send_ptrs[j], c = 0; i < send_ptrs[j + 1];
                    ++i, ++c)
                 buffer_1[i] = buffer_send[c];
 
@@ -460,9 +460,9 @@ namespace Utilities
           const unsigned int j = std::distance(send_ranks.begin(), ptr);
 
           AssertDimension(recv_buffer_unpacked.size(),
-                          send_ptr[j + 1] - send_ptr[j]);
+                          send_ptrs[j + 1] - send_ptrs[j]);
 
-          for (unsigned int i = send_ptr[j], c = 0; i < send_ptr[j + 1];
+          for (unsigned int i = send_ptrs[j], c = 0; i < send_ptrs[j + 1];
                ++i, ++c)
             {
               AssertIndexRange(i, buffer_1.size());

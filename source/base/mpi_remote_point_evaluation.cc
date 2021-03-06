@@ -93,32 +93,31 @@ namespace Utilities
         GridTools::internal::distributed_compute_point_locations(
           cache, points, global_bboxes, tolerance, true);
 
-      this->recv_ranks  = data.recv_ranks;
-      this->indices_ptr = data.recv_ptrs;
+      this->recv_ranks = data.recv_ranks;
+      this->recv_ptrs  = data.recv_ptrs;
 
       this->send_ranks = data.send_ranks;
-      this->send_ptr   = data.send_ptrs;
+      this->send_ptrs  = data.send_ptrs;
 
-      this->indices = {};
-      this->indices.resize(data.recv_components.size());
-      this->quadrature_points_ptr.assign(points.size() + 1, 0);
+      this->recv_permutation = {};
+      this->recv_permutation.resize(data.recv_components.size());
+      this->point_ptrs.assign(points.size() + 1, 0);
       for (unsigned int i = 0; i < data.recv_components.size(); ++i)
         {
           AssertIndexRange(std::get<2>(data.recv_components[i]),
-                           this->indices.size());
-          this->indices[std::get<2>(data.recv_components[i])] = i;
+                           this->recv_permutation.size());
+          this->recv_permutation[std::get<2>(data.recv_components[i])] = i;
 
           AssertIndexRange(std::get<1>(data.recv_components[i]) + 1,
-                           this->quadrature_points_ptr.size());
-          this
-            ->quadrature_points_ptr[std::get<1>(data.recv_components[i]) + 1]++;
+                           this->point_ptrs.size());
+          this->point_ptrs[std::get<1>(data.recv_components[i]) + 1]++;
         }
 
       unique_mapping = true;
       for (unsigned int i = 0; i < points.size(); ++i)
         {
-          unique_mapping &= this->quadrature_points_ptr[i + 1] == 1;
-          this->quadrature_points_ptr[i + 1] += this->quadrature_points_ptr[i];
+          unique_mapping &= this->point_ptrs[i + 1] == 1;
+          this->point_ptrs[i + 1] += this->point_ptrs[i];
         }
 
       relevant_remote_points_per_process = {};
@@ -149,7 +148,7 @@ namespace Utilities
     const std::vector<unsigned int> &
     RemotePointEvaluation<dim, spacedim>::get_point_ptrs() const
     {
-      return quadrature_points_ptr;
+      return point_ptrs;
     }
 
     template <int dim, int spacedim>
