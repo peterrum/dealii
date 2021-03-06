@@ -31,13 +31,32 @@ DEAL_II_NAMESPACE_OPEN
 
 namespace VectorTools
 {
+  /**
+   * Flags for evaluate_at_points().
+   */
   namespace EvaluationFlags
   {
     enum EvaluationFlags
     {
-      avg    = 0,
-      max    = 1,
-      min    = 2,
+      /**
+       * Compute average.
+       */
+      avg = 0,
+      /**
+       * Compute maximum.
+       *
+       * @note Only available for scalar values.
+       */
+      max = 1,
+      /**
+       * Compute minimum.
+       *
+       * @note Only available for scalar values.
+       */
+      min = 2,
+      /**
+       * Take any value.
+       */
       insert = 3
     };
   }
@@ -76,22 +95,28 @@ namespace VectorTools
 
   // inlined functions
 
+
+
   template <int n_components, int dim, int spacedim, typename VectorType>
   inline std::vector<typename FEPointEvaluation<n_components, dim>::value_type>
-  evaluate_at_points(const Mapping<dim> &                mapping,
-                     const DoFHandler<dim, spacedim> &   dof_handler,
-                     const VectorType &                  vector,
-                     const std::vector<Point<spacedim>> &evaluation_points,
-                     Utilities::MPI::RemotePointEvaluation<dim, spacedim> &eval,
-                     const EvaluationFlags::EvaluationFlags flags)
+  evaluate_at_points(
+    const Mapping<dim> &                                  mapping,
+    const DoFHandler<dim, spacedim> &                     dof_handler,
+    const VectorType &                                    vector,
+    const std::vector<Point<spacedim>> &                  evaluation_points,
+    Utilities::MPI::RemotePointEvaluation<dim, spacedim> &cache,
+    const EvaluationFlags::EvaluationFlags                flags)
   {
-    eval.reinit(evaluation_points, dof_handler.get_triangulation(), mapping);
+    cache.reinit(evaluation_points, dof_handler.get_triangulation(), mapping);
 
-    return evaluate_at_points<n_components>(dof_handler, vector, eval, flags);
+    return evaluate_at_points<n_components>(dof_handler, vector, cache, flags);
   }
 
   namespace internal
   {
+    /**
+     * Perform reduction for scalars.
+     */
     template <typename T>
     T
     reduce(const EvaluationFlags::EvaluationFlags flags,
@@ -118,6 +143,9 @@ namespace VectorTools
         }
     }
 
+    /**
+     * Perform reduction for tensors.
+     */
     template <int rank, int dim, typename Number>
     Tensor<rank, dim, Number>
     reduce(const EvaluationFlags::EvaluationFlags            flags,
@@ -148,15 +176,18 @@ namespace VectorTools
   evaluate_at_points(
     const DoFHandler<dim, spacedim> &                           dof_handler,
     const VectorType &                                          vector,
-    const Utilities::MPI::RemotePointEvaluation<dim, spacedim> &eval,
+    const Utilities::MPI::RemotePointEvaluation<dim, spacedim> &cache,
     const EvaluationFlags::EvaluationFlags                      flags)
   {
     using value_type =
       typename FEPointEvaluation<n_components, dim>::value_type;
 
-    Assert(eval.is_ready(),
+    Assert(cache.is_ready(),
            ExcMessage(
-             "Utilties::MPI::RemotePointEvaluation is not ready yet!"));
+             "Utilties::MPI::RemotePointEvaluation is not ready yet! "
+             "Please call Utilties::MPI::RemotePointEvaluation::reinit() "
+             "yourself or the other evaluate_at_points(), which does this for"
+             "you."));
 
     // evaluate values at points if possible
     const auto evaluation_point_results = [&]() {
@@ -171,7 +202,7 @@ namespace VectorTools
         for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
           {
             typename DoFHandler<dim>::active_cell_iterator cell = {
-              &eval.get_triangulation(),
+              &cache.get_triangulation(),
               cell_data.cells[i].first,
               cell_data.cells[i].second,
               &dof_handler};
@@ -193,7 +224,7 @@ namespace VectorTools
             if (evaluators[active_fe_index] == nullptr)
               evaluators[active_fe_index] =
                 std::make_unique<FEPointEvaluation<n_components, dim>>(
-                  eval.get_mapping(), dof_handler.get_fe(active_fe_index));
+                  cache.get_mapping(), dof_handler.get_fe(active_fe_index));
 
             auto &evaluator = *evaluators[active_fe_index];
 
@@ -211,14 +242,14 @@ namespace VectorTools
       std::vector<value_type> evaluation_point_results;
       std::vector<value_type> buffer;
 
-      eval.template evaluate_and_process<value_type>(evaluation_point_results,
-                                                     buffer,
-                                                     fu);
+      cache.template evaluate_and_process<value_type>(evaluation_point_results,
+                                                      buffer,
+                                                      fu);
 
       return evaluation_point_results;
     }();
 
-    if (eval.is_map_unique())
+    if (cache.is_map_unique())
       {
         // each point has exactly one result (unique map)
         return evaluation_point_results;
@@ -227,9 +258,9 @@ namespace VectorTools
       {
         // map is not unique (multiple or no results): postprocessing is needed
         std::vector<value_type> unique_evaluation_point_results(
-          eval.get_point_ptrs().size() - 1);
+          cache.get_point_ptrs().size() - 1);
 
-        const auto &ptr = eval.get_point_ptrs();
+        const auto &ptr = cache.get_point_ptrs();
 
         for (unsigned int i = 0; i < ptr.size() - 1; ++i)
           {
