@@ -72,8 +72,7 @@ namespace Utilities
           void(const ArrayView<T> &,
                const std::tuple<
                  std::vector<std::pair<std::pair<int, int>, unsigned int>>,
-                 std::vector<Point<dim>>,
-                 std::vector<unsigned int>> &)> &fu) const;
+                 std::vector<Point<dim>>> &)> &fu) const;
 
       /**
        * TODO
@@ -87,8 +86,7 @@ namespace Utilities
           void(const ArrayView<const T> &,
                const std::tuple<
                  std::vector<std::pair<std::pair<int, int>, unsigned int>>,
-                 std::vector<Point<dim>>,
-                 std::vector<unsigned int>> &)> &fu) const;
+                 std::vector<Point<dim>>> &)> &fu) const;
 
       /**
        * Return a CRS-like data structure to determine the position of the
@@ -189,9 +187,13 @@ namespace Utilities
        * TODO.
        */
       std::tuple<std::vector<std::pair<std::pair<int, int>, unsigned int>>,
-                 std::vector<Point<dim>>,
-                 std::vector<unsigned int>>
+                 std::vector<Point<dim>>>
         relevant_remote_points_per_process;
+
+      /**
+       * TODO.
+       */
+      std::vector<unsigned int> send_permutation;
 
       /**
        * TODO.
@@ -215,8 +217,7 @@ namespace Utilities
         void(const ArrayView<T> &,
              const std::tuple<
                std::vector<std::pair<std::pair<int, int>, unsigned int>>,
-               std::vector<Point<dim>>,
-               std::vector<unsigned int>> &)> &fu) const
+               std::vector<Point<dim>>> &)> &fu) const
     {
 #ifndef DEAL_II_WITH_MPI
       Assert(false, ExcNeedsMPI());
@@ -225,8 +226,7 @@ namespace Utilities
       (void)fu;
 #else
       output.resize(point_ptrs.back());
-      buffer.resize(
-        (std::get<1>(this->relevant_remote_points_per_process).size()) * 2);
+      buffer.resize((send_permutation.size()) * 2);
       ArrayView<T> buffer_1(buffer.data(), buffer.size() / 2);
       ArrayView<T> buffer_2(buffer.data() + buffer.size() / 2,
                             buffer.size() / 2);
@@ -235,11 +235,8 @@ namespace Utilities
       fu(buffer_1, relevant_remote_points_per_process);
 
       // sort for communication
-      for (unsigned int i = 0;
-           i < std::get<2>(relevant_remote_points_per_process).size();
-           ++i)
-        buffer_2[std::get<2>(relevant_remote_points_per_process)[i]] =
-          buffer_1[i];
+      for (unsigned int i = 0; i < send_permutation.size(); ++i)
+        buffer_2[send_permutation[i]] = buffer_1[i];
 
       // process remote quadrature points and send them away
       std::map<unsigned int, std::vector<char>> temp_map;
@@ -329,8 +326,7 @@ namespace Utilities
         void(const ArrayView<const T> &,
              const std::tuple<
                std::vector<std::pair<std::pair<int, int>, unsigned int>>,
-               std::vector<Point<dim>>,
-               std::vector<unsigned int>> &)> &fu) const
+               std::vector<Point<dim>>> &)> &fu) const
     {
 #ifndef DEAL_II_WITH_MPI
       Assert(false, ExcNeedsMPI());
@@ -375,8 +371,7 @@ namespace Utilities
           i = buffer_[*(it++)];
 
       // buffer.resize(point_ptrs.back());
-      buffer.resize(
-        (std::get<1>(this->relevant_remote_points_per_process).size()) * 2);
+      buffer.resize(send_permutation.size() * 2);
       ArrayView<T> buffer_1(buffer.data(), buffer.size() / 2);
       ArrayView<T> buffer_2(buffer.data() + buffer.size() / 2,
                             buffer.size() / 2);
@@ -474,11 +469,8 @@ namespace Utilities
       MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
 
       // sort for easy access during function call
-      for (unsigned int i = 0;
-           i < std::get<2>(relevant_remote_points_per_process).size();
-           ++i)
-        buffer_2[i] =
-          buffer_1[std::get<2>(relevant_remote_points_per_process)[i]];
+      for (unsigned int i = 0; i < send_permutation.size(); ++i)
+        buffer_2[i] = buffer_1[send_permutation[i]];
 
       // evaluate function at points
       fu(buffer_2, relevant_remote_points_per_process);

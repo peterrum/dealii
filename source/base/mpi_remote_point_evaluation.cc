@@ -121,6 +121,7 @@ namespace Utilities
         }
 
       relevant_remote_points_per_process = {};
+      send_permutation                   = {};
 
       std::pair<int, int> dummy{-1, -1};
       for (const auto &i : data.send_components)
@@ -135,8 +136,7 @@ namespace Utilities
           std::get<0>(this->relevant_remote_points_per_process).back().second++;
           std::get<1>(this->relevant_remote_points_per_process)
             .emplace_back(std::get<3>(i));
-          std::get<2>(this->relevant_remote_points_per_process)
-            .emplace_back(std::get<5>(i));
+          send_permutation.emplace_back(std::get<5>(i));
         }
 
       this->ready_flag = true;
