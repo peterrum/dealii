@@ -120,8 +120,8 @@ namespace Utilities
           this->point_ptrs[i + 1] += this->point_ptrs[i];
         }
 
-      relevant_remote_points_per_process = {};
-      send_permutation                   = {};
+      cell_data        = {};
+      send_permutation = {};
 
       std::pair<int, int> dummy{-1, -1};
       for (const auto &i : data.send_components)
@@ -129,15 +129,17 @@ namespace Utilities
           if (dummy != std::get<0>(i))
             {
               dummy = std::get<0>(i);
-              std::get<0>(this->relevant_remote_points_per_process)
-                .emplace_back(dummy, 0);
+              cell_data.cells.emplace_back(dummy);
+              cell_data.reference_point_ptrs.emplace_back(
+                cell_data.reference_point_values.size());
             }
 
-          std::get<0>(this->relevant_remote_points_per_process).back().second++;
-          std::get<1>(this->relevant_remote_points_per_process)
-            .emplace_back(std::get<3>(i));
+          cell_data.reference_point_values.emplace_back(std::get<3>(i));
           send_permutation.emplace_back(std::get<5>(i));
         }
+
+      cell_data.reference_point_ptrs.emplace_back(
+        cell_data.reference_point_values.size());
 
       this->ready_flag = true;
 #endif

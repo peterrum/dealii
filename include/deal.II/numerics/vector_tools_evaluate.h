@@ -167,19 +167,20 @@ namespace VectorTools
 
       // helper function for accessing the global vector and interpolating
       // the results onto the points
-      const auto fu = [&](auto &values, const auto &quadrature_points) {
-        unsigned int i = 0;
-
-        for (const auto &cells_and_n : std::get<0>(quadrature_points))
+      const auto fu = [&](auto &values, const auto &cell_data) {
+        for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
           {
             typename DoFHandler<dim>::active_cell_iterator cell = {
               &eval.get_triangulation(),
-              cells_and_n.first.first,
-              cells_and_n.first.second,
+              cell_data.cells[i].first,
+              cell_data.cells[i].second,
               &dof_handler};
 
             const ArrayView<const Point<dim>> unit_points(
-              std::get<1>(quadrature_points).data() + i, cells_and_n.second);
+              cell_data.reference_point_values.data() +
+                cell_data.reference_point_ptrs[i],
+              cell_data.reference_point_ptrs[i + 1] -
+                cell_data.reference_point_ptrs[i]);
             solution_values.resize(
               dof_handler.get_fe(cell->active_fe_index()).n_dofs_per_cell());
 
@@ -201,8 +202,9 @@ namespace VectorTools
                                solution_values,
                                dealii::EvaluationFlags::values);
 
-            for (unsigned int q = 0; q < unit_points.size(); ++q, ++i)
-              values[i] = evaluator.get_value(q);
+            for (unsigned int q = 0; q < unit_points.size(); ++q)
+              values[q + cell_data.reference_point_ptrs[i]] =
+                evaluator.get_value(q);
           }
       };
 

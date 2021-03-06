@@ -345,7 +345,7 @@ compute_force_vector_sharp_interface(
     return integration_values;
   }();
 
-  const auto fu = [&](const auto &values, const auto &quadrature_points) {
+  const auto fu = [&](const auto &values, const auto &cell_data) {
     AffineConstraints<double> constraints; // TODO: use the right ones
 
     FEPointEvaluation<spacedim, spacedim> phi_force(mapping,
@@ -354,14 +354,12 @@ compute_force_vector_sharp_interface(
     std::vector<double>                  buffer;
     std::vector<types::global_dof_index> local_dof_indices;
 
-    unsigned int i = 0;
-
-    for (const auto &cells_and_n : std::get<0>(quadrature_points))
+    for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
       {
         typename DoFHandler<spacedim>::active_cell_iterator cell = {
           &eval.get_triangulation(),
-          cells_and_n.first.first,
-          cells_and_n.first.second,
+          cell_data.cells[i].first,
+          cell_data.cells[i].second,
           &dof_handler};
 
         local_dof_indices.resize(cell->get_fe().n_dofs_per_cell());
@@ -369,14 +367,16 @@ compute_force_vector_sharp_interface(
 
         cell->get_dof_indices(local_dof_indices);
 
-        AssertIndexRange(i + cells_and_n.second,
-                         std::get<1>(quadrature_points).size() + 1);
-
         const ArrayView<const Point<spacedim>> unit_points(
-          std::get<1>(quadrature_points).data() + i, cells_and_n.second);
+          cell_data.reference_point_values.data() +
+            cell_data.reference_point_ptrs[i],
+          cell_data.reference_point_ptrs[i + 1] -
+            cell_data.reference_point_ptrs[i]);
 
-        const ArrayView<const T> force_JxW(values.data() + i,
-                                           cells_and_n.second);
+        const ArrayView<const T> force_JxW(
+          values.data() + cell_data.reference_point_ptrs[i],
+          cell_data.reference_point_ptrs[i + 1] -
+            cell_data.reference_point_ptrs[i]);
 
         for (unsigned int q = 0; q < unit_points.size(); ++q)
           phi_force.submit_value(force_JxW[q], q);
@@ -386,8 +386,6 @@ compute_force_vector_sharp_interface(
         constraints.distribute_local_to_global(buffer,
                                                local_dof_indices,
                                                force_vector);
-
-        i += unit_points.size();
       }
   };
 

@@ -203,7 +203,7 @@ test_1(const Triangulation<dim, spacedim> &surface_mesh,
     return integration_values;
   }();
 
-  const auto fu = [&](const auto &values, const auto &quadrature_points) {
+  const auto fu = [&](const auto &values, const auto &cell_data) {
     AffineConstraints<double> constraints; // TODO: use the right ones
 
     FEPointEvaluation<spacedim, spacedim> phi_normal(mapping,
@@ -216,23 +216,24 @@ test_1(const Triangulation<dim, spacedim> &surface_mesh,
     std::vector<types::global_dof_index> local_dof_indices;
     std::vector<types::global_dof_index> local_dof_indices_dim;
 
-    unsigned int i = 0;
-
-    for (const auto &cells_and_n : std::get<0>(quadrature_points))
+    for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
       {
         typename DoFHandler<spacedim>::active_cell_iterator cell_dim = {
           &eval.get_triangulation(),
-          cells_and_n.first.first,
-          cells_and_n.first.second,
+          cell_data.cells[i].first,
+          cell_data.cells[i].second,
           &dof_handler_dim};
 
-        AssertIndexRange(i + cells_and_n.second,
-                         std::get<1>(quadrature_points).size() + 1);
-
         const ArrayView<const Point<spacedim>> unit_points(
-          std::get<1>(quadrature_points).data() + i, cells_and_n.second);
+          cell_data.reference_point_values.data() +
+            cell_data.reference_point_ptrs[i],
+          cell_data.reference_point_ptrs[i + 1] -
+            cell_data.reference_point_ptrs[i]);
 
-        const ArrayView<const T> JxW(values.data() + i, cells_and_n.second);
+        const ArrayView<const T> JxW(values.data() +
+                                       cell_data.reference_point_ptrs[i],
+                                     cell_data.reference_point_ptrs[i + 1] -
+                                       cell_data.reference_point_ptrs[i]);
 
         // gather_evaluate normal
         {
@@ -260,8 +261,6 @@ test_1(const Triangulation<dim, spacedim> &surface_mesh,
               std::cout << JxW[q] << " " << phi_normal.get_value(q)
                         << std::endl;
           }
-
-        i += unit_points.size();
       }
   };
 

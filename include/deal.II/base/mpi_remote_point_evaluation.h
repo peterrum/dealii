@@ -58,6 +58,28 @@ namespace Utilities
              const Mapping<dim, spacedim> &      mapping);
 
       /**
+       * Data of points positioned in a cell.
+       */
+      struct CellData
+      {
+        /**
+         * Level and index of cells.
+         */
+        std::vector<std::pair<int, int>> cells;
+
+        /**
+         * Pointers to beginning and ending of the (reference) points
+         * associated to cell.
+         */
+        std::vector<unsigned int> reference_point_ptrs;
+
+        /**
+         * Reference points in the inveral [0,1]^dim.
+         */
+        std::vector<Point<dim>> reference_point_values;
+      };
+
+      /**
        * Evaluate function @p fu in the given  points and triangulation. The
        * result is stored in @p output. I the map of points to cells is not
        * one-to-one relation (is_map_unique()==false), the result needs to be
@@ -68,11 +90,8 @@ namespace Utilities
       evaluate_and_process(
         std::vector<T> &output,
         std::vector<T> &buffer,
-        const std::function<
-          void(const ArrayView<T> &,
-               const std::tuple<
-                 std::vector<std::pair<std::pair<int, int>, unsigned int>>,
-                 std::vector<Point<dim>>> &)> &fu) const;
+        const std::function<void(const ArrayView<T> &, const CellData &)> &fu)
+        const;
 
       /**
        * TODO
@@ -82,11 +101,8 @@ namespace Utilities
       process_and_evaluate(
         const std::vector<T> &input,
         std::vector<T> &      buffer,
-        const std::function<
-          void(const ArrayView<const T> &,
-               const std::tuple<
-                 std::vector<std::pair<std::pair<int, int>, unsigned int>>,
-                 std::vector<Point<dim>>> &)> &fu) const;
+        const std::function<void(const ArrayView<const T> &, const CellData &)>
+          &fu) const;
 
       /**
        * Return a CRS-like data structure to determine the position of the
@@ -186,9 +202,7 @@ namespace Utilities
       /**
        * TODO.
        */
-      std::tuple<std::vector<std::pair<std::pair<int, int>, unsigned int>>,
-                 std::vector<Point<dim>>>
-        relevant_remote_points_per_process;
+      CellData cell_data;
 
       /**
        * TODO.
@@ -211,13 +225,10 @@ namespace Utilities
     template <typename T>
     void
     RemotePointEvaluation<dim, spacedim>::evaluate_and_process(
-      std::vector<T> &output,
-      std::vector<T> &buffer,
-      const std::function<
-        void(const ArrayView<T> &,
-             const std::tuple<
-               std::vector<std::pair<std::pair<int, int>, unsigned int>>,
-               std::vector<Point<dim>>> &)> &fu) const
+      std::vector<T> &                                                   output,
+      std::vector<T> &                                                   buffer,
+      const std::function<void(const ArrayView<T> &, const CellData &)> &fu)
+      const
     {
 #ifndef DEAL_II_WITH_MPI
       Assert(false, ExcNeedsMPI());
@@ -232,7 +243,7 @@ namespace Utilities
                             buffer.size() / 2);
 
       // evaluate functions at points
-      fu(buffer_1, relevant_remote_points_per_process);
+      fu(buffer_1, cell_data);
 
       // sort for communication
       for (unsigned int i = 0; i < send_permutation.size(); ++i)
@@ -322,11 +333,8 @@ namespace Utilities
     RemotePointEvaluation<dim, spacedim>::process_and_evaluate(
       const std::vector<T> &input,
       std::vector<T> &      buffer,
-      const std::function<
-        void(const ArrayView<const T> &,
-             const std::tuple<
-               std::vector<std::pair<std::pair<int, int>, unsigned int>>,
-               std::vector<Point<dim>>> &)> &fu) const
+      const std::function<void(const ArrayView<const T> &, const CellData &)>
+        &fu) const
     {
 #ifndef DEAL_II_WITH_MPI
       Assert(false, ExcNeedsMPI());
@@ -473,7 +481,7 @@ namespace Utilities
         buffer_2[i] = buffer_1[send_permutation[i]];
 
       // evaluate function at points
-      fu(buffer_2, relevant_remote_points_per_process);
+      fu(buffer_2, cell_data);
 #endif
     }
 
