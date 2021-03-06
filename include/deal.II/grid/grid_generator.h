@@ -2408,6 +2408,9 @@ namespace GridGenerator
 
     /**
      * Process a cell (2D).
+     *
+     * @note Subcells with saddle points are ignored. Please increase the number
+     *   of subdivisions in this case.
      */
     void
     process_cell(std::vector<value_type> &    ls_values,
@@ -2434,6 +2437,9 @@ namespace GridGenerator
 
     /**
      * Process a sub-cell (2D).
+     *
+     * @note Subcells with saddle points are ignored. Please increase the number
+     *   of subdivisions in this case.
      */
     static void
     process_sub_cell(const std::vector<value_type> & ls_values,
@@ -2443,7 +2449,7 @@ namespace GridGenerator
                      std::vector<CellData<1>> &      cells);
 
     /**
-     * Process a sub-cell (2D).
+     * Process a sub-cell (3D).
      */
     static void
     process_sub_cell(const std::vector<value_type> & ls_values,
