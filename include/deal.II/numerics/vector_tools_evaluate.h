@@ -204,14 +204,24 @@ namespace VectorTools
 
     // evaluate values at points if possible
     const auto evaluation_point_results = [&]() {
-      std::vector<std::unique_ptr<FEPointEvaluation<n_components, dim>>>
-        evaluators(dof_handler.get_fe_collection().size());
-
-      std::vector<double> solution_values;
-
       // helper function for accessing the global vector and interpolating
       // the results onto the points
       const auto fu = [&](auto &values, const auto &cell_data) {
+        std::vector<typename VectorType::value_type> solution_values;
+
+        std::vector<std::unique_ptr<FEPointEvaluation<n_components, dim>>>
+          evaluators(dof_handler.get_fe_collection().size());
+
+        const auto get_evaluator = [&](const unsigned int active_fe_index)
+          -> FEPointEvaluation<n_components, dim> & {
+          if (evaluators[active_fe_index] == nullptr)
+            evaluators[active_fe_index] =
+              std::make_unique<FEPointEvaluation<n_components, dim>>(
+                cache.get_mapping(), dof_handler.get_fe(active_fe_index));
+
+          return *evaluators[active_fe_index];
+        };
+
         for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
           {
             typename DoFHandler<dim>::active_cell_iterator cell = {
@@ -225,21 +235,14 @@ namespace VectorTools
                 cell_data.reference_point_ptrs[i],
               cell_data.reference_point_ptrs[i + 1] -
                 cell_data.reference_point_ptrs[i]);
+
             solution_values.resize(
               dof_handler.get_fe(cell->active_fe_index()).n_dofs_per_cell());
-
             cell->get_dof_values(vector,
                                  solution_values.begin(),
                                  solution_values.end());
 
-            const unsigned int active_fe_index = cell->active_fe_index();
-
-            if (evaluators[active_fe_index] == nullptr)
-              evaluators[active_fe_index] =
-                std::make_unique<FEPointEvaluation<n_components, dim>>(
-                  cache.get_mapping(), dof_handler.get_fe(active_fe_index));
-
-            auto &evaluator = *evaluators[active_fe_index];
+            auto &evaluator = get_evaluator(cell->active_fe_index());
 
             evaluator.evaluate(cell,
                                unit_points,
