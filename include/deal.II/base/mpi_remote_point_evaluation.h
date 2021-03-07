@@ -384,12 +384,14 @@ namespace Utilities
       const unsigned int my_rank = Utilities::MPI::this_mpi_process(comm);
 
 #  ifdef DEBUG
-      unsigned int       i       = 0;
+      {
+        unsigned int i = 0;
 
-      for (auto &j : temp_recv_map)
-        i += j.second.size();
+        for (auto &j : temp_recv_map)
+          i += j.second.size();
 
-      AssertDimension(recv_permutation.size(), i);
+        AssertDimension(recv_permutation.size(), i);
+      }
 #  endif
 
       auto it = recv_permutation.begin();
@@ -414,16 +416,16 @@ namespace Utilities
           if (recv_rank == my_rank)
             continue;
 
-          temp_map[recv_rank] = Utilities::pack(temp_recv_map[recv_ranks[i]]);
+          temp_map[recv_rank] = Utilities::pack(temp_recv_map[recv_rank]);
 
-          auto &buffer_send = temp_map[recv_ranks[i]];
+          auto &buffer_send = temp_map[recv_rank];
 
           requests.resize(requests.size() + 1);
 
           MPI_Isend(buffer_send.data(),
                     buffer_send.size(),
                     MPI_CHAR,
-                    recv_ranks[i],
+                    recv_rank,
                     internal::Tags::remote_point_evaluation,
                     comm,
                     &requests.back());
