@@ -76,11 +76,25 @@ public:
 
   /**
    * Initialize the data cache by computing the mapping support points for all
-   * cells (on all levels) of the given triangulation. Note that the cache is
-   * invalidated upon the signal Triangulation::Signals::any_change of the
-   * underlying triangulation.
+   * cells (on all levels) of the given triangulation.
+   *
+   * @note The cache is invalidated upon the signal
+   * Triangulation::Signals::any_change of the underlying triangulation.
    */
   void
+  initialize(const Mapping<dim, spacedim> &      mapping,
+             const Triangulation<dim, spacedim> &triangulation);
+
+  /**
+   * Initialize the data cache by computing the mapping support points for all
+   * cells (on all levels) of the given triangulation.
+   *
+   * @note The cache is invalidated upon the signal
+   * Triangulation::Signals::any_change of the underlying triangulation.
+   *
+   * @deprecated Use initialize() version above instead.
+   */
+  DEAL_II_DEPRECATED_EARLY void
   initialize(const Triangulation<dim, spacedim> &  triangulation,
              const MappingQGeneric<dim, spacedim> &mapping);
 
@@ -110,6 +124,40 @@ public:
              const std::function<std::vector<Point<spacedim>>(
                const typename Triangulation<dim, spacedim>::cell_iterator &)>
                &compute_points_on_cell);
+
+  /**
+   * Initialize the data cache by computing the mapping support points for all
+   * cells (on all levels) of the given triangulation and a given @p mapping
+   * and transforming these points via the function @p transformation_function.
+   *
+   * The bool @p function_describes_relative_displacement is in the default
+   * case false and indicates that the function @p transformation_function
+   * maps to absolute coordinates.If the parameter is set to true, the return
+   * value of the function is interpreted as relative deformation and the result
+   * is added to the original point.
+   *
+   * This function calls the above function so that the comments there regarding
+   * threading are also true here.
+   *
+   * @note The cache is invalidated upon the signal
+   * Triangulation::Signals::any_change of the underlying triangulation.
+   */
+  void
+  initialize(const Mapping<dim, spacedim> &      mapping,
+             const Triangulation<dim, spacedim> &tria,
+             const std::function<Point<spacedim>(
+               const typename Triangulation<dim, spacedim>::cell_iterator &,
+               const Point<spacedim> &)> &       transformation_function,
+             const bool function_describes_relative_displacement = false);
+
+  /**
+   * The same as above but taking a dealii::Function object.
+   */
+  void
+  initialize(const Mapping<dim, spacedim> &      mapping,
+             const Triangulation<dim, spacedim> &tria,
+             const Function<spacedim> &          transformation_function,
+             const bool function_describes_relative_displacement = false);
 
   /**
    * Return the memory consumption (in bytes) of the cache.
