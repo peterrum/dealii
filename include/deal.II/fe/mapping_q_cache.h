@@ -76,9 +76,10 @@ public:
 
   /**
    * Initialize the data cache by computing the mapping support points for all
-   * cells (on all levels) of the given triangulation. Note that the cache is
-   * invalidated upon the signal Triangulation::Signals::any_change of the
-   * underlying triangulation.
+   * cells (on all levels) of the given triangulation.
+   *
+   * @note The cache is invalidated upon the signal
+   * Triangulation::Signals::any_change of the underlying triangulation.
    */
   void
   initialize(const Triangulation<dim, spacedim> &  triangulation,
@@ -110,6 +111,23 @@ public:
              const std::function<std::vector<Point<spacedim>>(
                const typename Triangulation<dim, spacedim>::cell_iterator &)>
                &compute_points_on_cell);
+
+  /**
+   * Initialize the data cache by computing the mapping support points for all
+   * cells (on all levels) of the given triangulation by assuming a
+   * MappingQ1 mapping and transforming these points via the function
+   * @p transformation_function.
+   *
+   * This function calls the above function so that the comments there regarding
+   * threading are also true here.
+   *
+   * @note The cache is invalidated upon the signal
+   * Triangulation::Signals::any_change of the underlying triangulation.
+   */
+  void
+  initialize(const Triangulation<dim, spacedim> &tria,
+             const std::function<Point<spacedim>(const Point<spacedim> &)>
+               &transformation_function);
 
   /**
    * Return the memory consumption (in bytes) of the cache.
