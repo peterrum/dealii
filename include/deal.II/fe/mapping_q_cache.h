@@ -19,6 +19,8 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/base/mg_level_object.h>
+
 #include <deal.II/fe/mapping_q_generic.h>
 
 #include <deal.II/grid/tria.h>
@@ -158,6 +160,26 @@ public:
              const Triangulation<dim, spacedim> &tria,
              const Function<spacedim> &          transformation_function,
              const bool function_describes_relative_displacement = false);
+
+  /**
+   * TODO
+   */
+  template <typename VectorType>
+  void
+  initialize(const Mapping<dim, spacedim> &   mapping,
+             const DoFHandler<dim, spacedim> &dof_handler,
+             const VectorType &               vector,
+             const bool vector_describes_relative_displacement = false);
+
+  /**
+   * TODO
+   */
+  template <typename VectorType>
+  void
+  initialize(const Mapping<dim, spacedim> &   mapping,
+             const DoFHandler<dim, spacedim> &dof_handler,
+             const MGLevelObject<VectorType> &vector,
+             const bool vector_describes_relative_displacement = false);
 
   /**
    * Return the memory consumption (in bytes) of the cache.

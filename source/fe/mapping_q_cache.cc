@@ -22,6 +22,11 @@
 #include <deal.II/fe/mapping_q1.h>
 #include <deal.II/fe/mapping_q_cache.h>
 
+#include <deal.II/lac/la_parallel_vector.h>
+#include <deal.II/lac/la_vector.h>
+#include <deal.II/lac/petsc_vector.h>
+#include <deal.II/lac/trilinos_vector.h>
+
 #include <functional>
 
 DEAL_II_NAMESPACE_OPEN
@@ -249,17 +254,52 @@ MappingQCache<dim, spacedim>::initialize(
 {
   AssertDimension(transformation_function.n_components, spacedim);
 
-  this->initialize(
-    mapping,
-    tria,
-    [&](const typename Triangulation<dim, spacedim>::cell_iterator &,
-        const Point<spacedim> &point) -> Point<spacedim> {
-      Point<spacedim> new_point;
-      for (int c = 0; c < spacedim; ++c)
-        new_point[c] = transformation_function.value(point, c);
-      return new_point;
-    },
-    function_describes_relative_displacement);
+  const std::function<Point<spacedim>(
+    const typename Triangulation<dim, spacedim>::cell_iterator &,
+    const Point<spacedim> &)>
+    fu = [&](const typename Triangulation<dim, spacedim>::cell_iterator &,
+             const Point<spacedim> &point) -> Point<spacedim> {
+    Point<spacedim> new_point;
+    for (int c = 0; c < spacedim; ++c)
+      new_point[c] = transformation_function.value(point, c);
+    return new_point;
+  };
+
+  this->initialize(mapping, tria, fu, function_describes_relative_displacement);
+}
+
+
+
+template <int dim, int spacedim>
+template <typename VectorType>
+void
+MappingQCache<dim, spacedim>::initialize(
+  const Mapping<dim, spacedim> &   mapping,
+  const DoFHandler<dim, spacedim> &dof_handler,
+  const VectorType &               vector,
+  const bool                       vector_describes_relative_displacement)
+{
+  (void)mapping;
+  (void)dof_handler;
+  (void)vector;
+  (void)vector_describes_relative_displacement;
+}
+
+
+
+template <int dim, int spacedim>
+template <typename VectorType>
+void
+MappingQCache<dim, spacedim>::initialize(
+  const Mapping<dim, spacedim> &   mapping,
+  const DoFHandler<dim, spacedim> &dof_handler,
+  const MGLevelObject<VectorType> &vector,
+  const bool                       vector_describes_relative_displacement)
+{
+  (void)mapping;
+  (void)dof_handler;
+  (void)vector;
+  (void)vector_describes_relative_displacement;
 }
 
 
