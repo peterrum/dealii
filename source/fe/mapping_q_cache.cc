@@ -275,32 +275,42 @@ MappingQCache<dim, spacedim>::initialize(
 
 namespace
 {
-  template <typename VectorTypeFrom, typename VectorTypeTo>
+  template <typename VectorType>
   void
-  import(const VectorTypeFrom &vector, VectorTypeTo &vector_ghosted)
+  import(const VectorType &vector,
+         LinearAlgebra::distributed::Vector<typename VectorType::value_type>
+           &vector_ghosted)
   {
     vector_ghosted.import(vector, VectorOperation::values::insert);
   }
 
-  template <typename T, typename VectorTypeTo>
+  template <typename T>
   void
-  import(const Vector<T> &, VectorTypeTo &)
+  import(const Vector<T> &                      vector,
+         LinearAlgebra::distributed::Vector<T> &vector_ghosted)
   {
-    Assert(false, ExcNotImplemented());
+    for (const auto i : vector_ghosted.locally_owned_elements())
+      vector_ghosted[i] = vector[i];
   }
 
-  template <typename VectorTypeTo>
   void
-  import(const TrilinosWrappers::MPI::Vector &, VectorTypeTo &)
+  import(const TrilinosWrappers::MPI::Vector &vector,
+         LinearAlgebra::distributed::Vector<
+           typename TrilinosWrappers::MPI::Vector::value_type> &vector_ghosted)
   {
-    Assert(false, ExcNotImplemented());
+    for (const auto i : vector_ghosted.locally_owned_elements())
+      vector_ghosted[i] = vector[i];
   }
 
-  template <typename VectorTypeTo>
   void
-  import(const LinearAlgebra::EpetraWrappers::Vector &, VectorTypeTo &)
+  import(const LinearAlgebra::EpetraWrappers::Vector &vector,
+         LinearAlgebra::distributed::Vector<
+           typename LinearAlgebra::EpetraWrappers::Vector::value_type>
+           &vector_ghosted)
   {
     Assert(false, ExcNotImplemented());
+    (void)vector;
+    (void)vector_ghosted;
   }
 } // namespace
 
@@ -316,14 +326,20 @@ MappingQCache<dim, spacedim>::initialize(
   const bool                       vector_describes_relative_displacement)
 {
   const FiniteElement<dim, spacedim> &fe = dof_handler.get_fe();
-  AssertDimension(fe.n_blocks(), 1);
+  AssertDimension(fe.n_base_elements(), 1);
   AssertDimension(fe.element_multiplicity(0), dim);
 
   const unsigned int is_fe_q =
-    dynamic_cast<const FE_Q<dim, spacedim> *>(&fe) != nullptr;
+    dynamic_cast<const FE_Q<dim, spacedim> *>(&fe.base_element(0)) != nullptr;
   const unsigned int is_fe_dgq =
-    dynamic_cast<const FE_DGQ<dim, spacedim> *>(&fe) != nullptr;
+    dynamic_cast<const FE_DGQ<dim, spacedim> *>(&fe.base_element(0)) != nullptr;
 
+  const auto lexicographic_to_hierarchic_numbering =
+    Utilities::invert_permutation(
+      FETools::hierarchic_to_lexicographic_numbering<dim>(this->get_degree()));
+
+  // Step 1: copy global vector so that the ghost values are such that the
+  // cache can be set up for all ghost cells
   LinearAlgebra::distributed::Vector<typename VectorType::value_type>
            vector_ghosted;
   IndexSet locally_relevant_dofs;
@@ -334,67 +350,18 @@ MappingQCache<dim, spacedim>::initialize(
   import(vector, vector_ghosted);
   vector_ghosted.update_ghost_values();
 
+  // FE and FEValues in the case they are needed
   FE_Nothing<dim, spacedim> fe_nothing;
   Threads::ThreadLocalStorage<std::unique_ptr<FEValues<dim, spacedim>>>
     fe_values_all;
 
-  const auto lexicographic_to_hierarchic_numbering =
-    Utilities::invert_permutation(
-      FETools::hierarchic_to_lexicographic_numbering<dim>(this->get_degree()));
-
+  // Step 2: loop over all cells
   this->initialize(
     dof_handler.get_triangulation(),
     [&](const typename Triangulation<dim, spacedim>::cell_iterator &cell_tria)
       -> std::vector<Point<spacedim>> {
-      const bool is_relevant_cell =
-        cell_tria->is_active() == false && cell_tria->is_artificial();
-
-
-      std::vector<Point<spacedim>> points;
-
-      if (vector_describes_relative_displacement || is_relevant_cell == false)
-        {
-          const auto mapping_q_generic =
-            dynamic_cast<const MappingQGeneric<dim, spacedim> *>(&mapping);
-
-          if (mapping_q_generic != nullptr &&
-              this->get_degree() == mapping_q_generic->get_degree())
-            {
-              points =
-                mapping_q_generic->compute_mapping_support_points(cell_tria);
-            }
-          else
-            {
-              // get FEValues (thread-safe); in the case that this thread has
-              // not created a an FEValues object yet, this helper-function also
-              // creates one with the right quadrature rule
-              auto &fe_values = fe_values_all.get();
-              if (fe_values.get() == nullptr)
-                {
-                  QGaussLobatto<dim> quadrature_gl(this->polynomial_degree + 1);
-
-                  std::vector<Point<dim>> quadrature_points;
-                  for (const auto i :
-                       FETools::hierarchic_to_lexicographic_numbering<dim>(
-                         this->polynomial_degree))
-                    quadrature_points.push_back(quadrature_gl.point(i));
-                  Quadrature<dim> quadrature(quadrature_points);
-
-                  fe_values = std::make_unique<FEValues<dim, spacedim>>(
-                    mapping, fe_nothing, quadrature, update_quadrature_points);
-                }
-
-              fe_values->reinit(cell_tria);
-              points = fe_values->get_quadrature_points();
-            }
-
-          if (is_relevant_cell == false)
-            return points;
-        }
-      else
-        {
-          points.resize(Utilities::pow<unsigned int>(this->get_degree(), dim));
-        }
+      const bool is_relevant_cell = (cell_tria->is_active() == true) &&
+                                    (cell_tria->is_artificial() == false);
 
       typename DoFHandler<dim, spacedim>::cell_iterator cell(
         &cell_tria->get_triangulation(),
@@ -402,8 +369,74 @@ MappingQCache<dim, spacedim>::initialize(
         cell_tria->index(),
         &dof_handler);
 
+      const auto mapping_q_generic =
+        dynamic_cast<const MappingQGeneric<dim, spacedim> *>(&mapping);
+
+      // Step 2a) set up FEValues (if needed)
+      if (((vector_describes_relative_displacement ||
+            (is_relevant_cell == false)) &&
+           ((mapping_q_generic != nullptr &&
+             this->get_degree() == mapping_q_generic->get_degree()) ==
+            false)) ||
+          ((is_relevant_cell == true) &&
+           (((is_fe_q || is_fe_dgq) && fe.degree == this->get_degree()) ==
+            false)))
+        {
+          // get FEValues (thread-safe); in the case that this thread has
+          // not created a an FEValues object yet, this helper-function also
+          // creates one with the right quadrature rule
+          auto &fe_values = fe_values_all.get();
+          if (fe_values.get() == nullptr)
+            {
+              QGaussLobatto<dim> quadrature_gl(this->polynomial_degree + 1);
+
+              std::vector<Point<dim>> quadrature_points;
+              for (const auto i :
+                   FETools::hierarchic_to_lexicographic_numbering<dim>(
+                     this->polynomial_degree))
+                quadrature_points.push_back(quadrature_gl.point(i));
+              Quadrature<dim> quadrature(quadrature_points);
+
+              const auto &fe_temp =
+                ((is_relevant_cell == true) &&
+                 (((is_fe_q || is_fe_dgq) && fe.degree == this->get_degree()) ==
+                  false)) ?
+                  fe :
+                  static_cast<const FiniteElement<dim, spacedim> &>(fe_nothing);
+
+              fe_values = std::make_unique<FEValues<dim, spacedim>>(
+                mapping, fe_temp, quadrature, update_quadrature_points);
+            }
+
+          fe_values->reinit(cell);
+        }
+
+      std::vector<Point<spacedim>> result;
+
+      // Step 2b) read of quadrature points in the relative displacement case
+      if (vector_describes_relative_displacement || (is_relevant_cell == false))
+        {
+          if (mapping_q_generic != nullptr &&
+              this->get_degree() == mapping_q_generic->get_degree())
+            result =
+              mapping_q_generic->compute_mapping_support_points(cell_tria);
+          else
+            result = fe_values_all.get()->get_quadrature_points();
+
+          if (is_relevant_cell == false)
+            return result;
+        }
+      else
+        {
+          result.resize(
+            Utilities::pow<unsigned int>(this->get_degree() + 1, dim));
+        }
+
+      // Step 2c) read global vector and adjust points accordingly
       if ((is_fe_q || is_fe_dgq) && fe.degree == this->get_degree())
         {
+          AssertDimension(dim, spacedim); // TODO: codim-1
+
           // case 1: FE_Q or FE_DGQ with same degree as this class has; this
           // is the simple case since no interpolation is needed
           std::vector<types::global_dof_index> dof_indices(
@@ -418,30 +451,30 @@ MappingQCache<dim, spacedim>::initialize(
                 {
                   // case 1a: FE_Q
                   if (vector_describes_relative_displacement)
-                    points[id.second][id.first] +=
+                    result[id.second][id.first] +=
                       vector_ghosted(dof_indices[i]);
                   else
-                    points[id.second][id.first] =
+                    result[id.second][id.first] =
                       vector_ghosted(dof_indices[i]);
                 }
               else
                 {
                   // case 1b: FE_DGQ
                   if (vector_describes_relative_displacement)
-                    points[lexicographic_to_hierarchic_numbering[id.second]]
+                    result[lexicographic_to_hierarchic_numbering[id.second]]
                           [id.first] += vector_ghosted(dof_indices[i]);
                   else
-                    points[lexicographic_to_hierarchic_numbering[id.second]]
+                    result[lexicographic_to_hierarchic_numbering[id.second]]
                           [id.first] = vector_ghosted(dof_indices[i]);
                 }
             }
         }
       else
         {
-          Assert(false, ExcNotImplemented());
+          Assert(false, ExcNotImplemented()); // TODO: general case
         }
 
-      return points;
+      return result;
     });
 }
 
