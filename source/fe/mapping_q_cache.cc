@@ -14,9 +14,14 @@
 // ---------------------------------------------------------------------
 
 #include <deal.II/base/memory_consumption.h>
+#include <deal.II/base/utilities.h>
 #include <deal.II/base/work_stream.h>
 
+#include <deal.II/dofs/dof_tools.h>
+
+#include <deal.II/fe/fe_dgq.h>
 #include <deal.II/fe/fe_nothing.h>
+#include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_tools.h>
 #include <deal.II/fe/fe_values.h>
 #include <deal.II/fe/mapping_q1.h>
@@ -268,6 +273,37 @@ MappingQCache<dim, spacedim>::initialize(
   this->initialize(mapping, tria, fu, function_describes_relative_displacement);
 }
 
+namespace
+{
+  template <typename VectorTypeFrom, typename VectorTypeTo>
+  void
+  import(const VectorTypeFrom &vector, VectorTypeTo &vector_ghosted)
+  {
+    vector_ghosted.import(vector, VectorOperation::values::insert);
+  }
+
+  template <typename T, typename VectorTypeTo>
+  void
+  import(const Vector<T> &, VectorTypeTo &)
+  {
+    Assert(false, ExcNotImplemented());
+  }
+
+  template <typename VectorTypeTo>
+  void
+  import(const TrilinosWrappers::MPI::Vector &, VectorTypeTo &)
+  {
+    Assert(false, ExcNotImplemented());
+  }
+
+  template <typename VectorTypeTo>
+  void
+  import(const LinearAlgebra::EpetraWrappers::Vector &, VectorTypeTo &)
+  {
+    Assert(false, ExcNotImplemented());
+  }
+} // namespace
+
 
 
 template <int dim, int spacedim>
@@ -279,10 +315,134 @@ MappingQCache<dim, spacedim>::initialize(
   const VectorType &               vector,
   const bool                       vector_describes_relative_displacement)
 {
-  (void)mapping;
-  (void)dof_handler;
-  (void)vector;
-  (void)vector_describes_relative_displacement;
+  const FiniteElement<dim, spacedim> &fe = dof_handler.get_fe();
+  AssertDimension(fe.n_blocks(), 1);
+  AssertDimension(fe.element_multiplicity(0), dim);
+
+  const unsigned int is_fe_q =
+    dynamic_cast<const FE_Q<dim, spacedim> *>(&fe) != nullptr;
+  const unsigned int is_fe_dgq =
+    dynamic_cast<const FE_DGQ<dim, spacedim> *>(&fe) != nullptr;
+
+  LinearAlgebra::distributed::Vector<typename VectorType::value_type>
+           vector_ghosted;
+  IndexSet locally_relevant_dofs;
+  DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
+  vector_ghosted.reinit(dof_handler.locally_owned_dofs(),
+                        locally_relevant_dofs,
+                        dof_handler.get_communicator());
+  import(vector, vector_ghosted);
+  vector_ghosted.update_ghost_values();
+
+  FE_Nothing<dim, spacedim> fe_nothing;
+  Threads::ThreadLocalStorage<std::unique_ptr<FEValues<dim, spacedim>>>
+    fe_values_all;
+
+  const auto lexicographic_to_hierarchic_numbering =
+    Utilities::invert_permutation(
+      FETools::hierarchic_to_lexicographic_numbering<dim>(this->get_degree()));
+
+  this->initialize(
+    dof_handler.get_triangulation(),
+    [&](const typename Triangulation<dim, spacedim>::cell_iterator &cell_tria)
+      -> std::vector<Point<spacedim>> {
+      const bool is_relevant_cell =
+        cell_tria->is_active() == false && cell_tria->is_artificial();
+
+
+      std::vector<Point<spacedim>> points;
+
+      if (vector_describes_relative_displacement || is_relevant_cell == false)
+        {
+          const auto mapping_q_generic =
+            dynamic_cast<const MappingQGeneric<dim, spacedim> *>(&mapping);
+
+          if (mapping_q_generic != nullptr &&
+              this->get_degree() == mapping_q_generic->get_degree())
+            {
+              points =
+                mapping_q_generic->compute_mapping_support_points(cell_tria);
+            }
+          else
+            {
+              // get FEValues (thread-safe); in the case that this thread has
+              // not created a an FEValues object yet, this helper-function also
+              // creates one with the right quadrature rule
+              auto &fe_values = fe_values_all.get();
+              if (fe_values.get() == nullptr)
+                {
+                  QGaussLobatto<dim> quadrature_gl(this->polynomial_degree + 1);
+
+                  std::vector<Point<dim>> quadrature_points;
+                  for (const auto i :
+                       FETools::hierarchic_to_lexicographic_numbering<dim>(
+                         this->polynomial_degree))
+                    quadrature_points.push_back(quadrature_gl.point(i));
+                  Quadrature<dim> quadrature(quadrature_points);
+
+                  fe_values = std::make_unique<FEValues<dim, spacedim>>(
+                    mapping, fe_nothing, quadrature, update_quadrature_points);
+                }
+
+              fe_values->reinit(cell_tria);
+              points = fe_values->get_quadrature_points();
+            }
+
+          if (is_relevant_cell == false)
+            return points;
+        }
+      else
+        {
+          points.resize(Utilities::pow<unsigned int>(this->get_degree(), dim));
+        }
+
+      typename DoFHandler<dim, spacedim>::cell_iterator cell(
+        &cell_tria->get_triangulation(),
+        cell_tria->level(),
+        cell_tria->index(),
+        &dof_handler);
+
+      if ((is_fe_q || is_fe_dgq) && fe.degree == this->get_degree())
+        {
+          // case 1: FE_Q or FE_DGQ with same degree as this class has; this
+          // is the simple case since no interpolation is needed
+          std::vector<types::global_dof_index> dof_indices(
+            fe.n_dofs_per_cell());
+          cell->get_dof_indices(dof_indices);
+
+          for (unsigned int i = 0; i < dof_indices.size(); ++i)
+            {
+              const auto id = fe.system_to_component_index(i);
+
+              if (is_fe_q)
+                {
+                  // case 1a: FE_Q
+                  if (vector_describes_relative_displacement)
+                    points[id.second][id.first] +=
+                      vector_ghosted(dof_indices[i]);
+                  else
+                    points[id.second][id.first] =
+                      vector_ghosted(dof_indices[i]);
+                }
+              else
+                {
+                  // case 1b: FE_DGQ
+                  if (vector_describes_relative_displacement)
+                    points[lexicographic_to_hierarchic_numbering[id.second]]
+                          [id.first] += vector_ghosted(dof_indices[i]);
+                  else
+                    points[lexicographic_to_hierarchic_numbering[id.second]]
+                          [id.first] = vector_ghosted(dof_indices[i]);
+                }
+            }
+        }
+      else
+        {
+          Assert(false, ExcNotImplemented());
+        }
+
+      return points;
+    });
 }
 
 
