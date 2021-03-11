@@ -327,7 +327,7 @@ MappingQCache<dim, spacedim>::initialize(
 {
   const FiniteElement<dim, spacedim> &fe = dof_handler.get_fe();
   AssertDimension(fe.n_base_elements(), 1);
-  AssertDimension(fe.element_multiplicity(0), dim);
+  AssertDimension(fe.element_multiplicity(0), spacedim);
 
   const unsigned int is_fe_q =
     dynamic_cast<const FE_Q<dim, spacedim> *>(&fe.base_element(0)) != nullptr;
@@ -336,7 +336,8 @@ MappingQCache<dim, spacedim>::initialize(
 
   const auto lexicographic_to_hierarchic_numbering =
     Utilities::invert_permutation(
-      FETools::hierarchic_to_lexicographic_numbering<dim>(this->get_degree()));
+      FETools::hierarchic_to_lexicographic_numbering<spacedim>(
+        this->get_degree()));
 
   // Step 1: copy global vector so that the ghost values are such that the
   // cache can be set up for all ghost cells
@@ -397,15 +398,20 @@ MappingQCache<dim, spacedim>::initialize(
                 quadrature_points.push_back(quadrature_gl.point(i));
               Quadrature<dim> quadrature(quadrature_points);
 
+              /*
               const auto &fe_temp =
                 ((is_relevant_cell == true) &&
                  (((is_fe_q || is_fe_dgq) && fe.degree == this->get_degree()) ==
                   false)) ?
                   fe :
                   static_cast<const FiniteElement<dim, spacedim> &>(fe_nothing);
+               */
 
               fe_values = std::make_unique<FEValues<dim, spacedim>>(
-                mapping, fe_temp, quadrature, update_quadrature_points);
+                mapping,
+                fe,
+                quadrature,
+                update_quadrature_points | update_values);
             }
 
           fe_values->reinit(cell);
@@ -435,8 +441,6 @@ MappingQCache<dim, spacedim>::initialize(
       // Step 2c) read global vector and adjust points accordingly
       if ((is_fe_q || is_fe_dgq) && fe.degree == this->get_degree())
         {
-          AssertDimension(dim, spacedim); // TODO: codim-1
-
           // case 1: FE_Q or FE_DGQ with same degree as this class has; this
           // is the simple case since no interpolation is needed
           std::vector<types::global_dof_index> dof_indices(
@@ -471,7 +475,24 @@ MappingQCache<dim, spacedim>::initialize(
         }
       else
         {
-          Assert(false, ExcNotImplemented()); // TODO: general case
+          // case 2: general case; interpolation is needed
+          // note: the following code could be optimized for tensor-product
+          // elements via application of sum factorization as is done on
+          // MatrixFree/FEEvaluation
+          auto &fe_values = fe_values_all.get();
+
+          std::vector<Vector<typename VectorType::value_type>> values(
+            fe_values->n_quadrature_points,
+            Vector<typename VectorType::value_type>(spacedim));
+
+          fe_values->get_function_values(vector_ghosted, values);
+
+          for (unsigned int q = 0; q < fe_values->n_quadrature_points; ++q)
+            for (unsigned int c = 0; c < spacedim; ++c)
+              if (vector_describes_relative_displacement)
+                result[q][c] += values[q][c];
+              else
+                result[q][c] = values[q][c];
         }
 
       return result;
