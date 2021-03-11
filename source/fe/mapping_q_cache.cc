@@ -354,7 +354,9 @@ MappingQCache<dim, spacedim>::initialize(
   // FE and FEValues in the case they are needed
   FE_Nothing<dim, spacedim> fe_nothing;
   Threads::ThreadLocalStorage<std::unique_ptr<FEValues<dim, spacedim>>>
-    fe_values_all;
+             fe_values_all;
+  const bool update_values_might_be_needed =
+    ((is_fe_q || is_fe_dgq) && fe.degree == this->get_degree()) == false;
 
   // Step 2: loop over all cells
   this->initialize(
@@ -398,23 +400,19 @@ MappingQCache<dim, spacedim>::initialize(
                 quadrature_points.push_back(quadrature_gl.point(i));
               Quadrature<dim> quadrature(quadrature_points);
 
-              /*
-              const auto &fe_temp =
-                ((is_relevant_cell == true) &&
-                 (((is_fe_q || is_fe_dgq) && fe.degree == this->get_degree()) ==
-                  false)) ?
-                  fe :
-                  static_cast<const FiniteElement<dim, spacedim> &>(fe_nothing);
-               */
-
               fe_values = std::make_unique<FEValues<dim, spacedim>>(
                 mapping,
-                fe,
+                update_values_might_be_needed ?
+                  fe :
+                  static_cast<const FiniteElement<dim, spacedim> &>(fe_nothing),
                 quadrature,
                 update_quadrature_points | update_values);
             }
 
-          fe_values->reinit(cell);
+          if (update_values_might_be_needed)
+            fe_values->reinit(cell);
+          else
+            fe_values->reinit(cell_tria);
         }
 
       std::vector<Point<spacedim>> result;

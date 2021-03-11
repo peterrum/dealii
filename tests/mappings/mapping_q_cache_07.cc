@@ -94,7 +94,7 @@ test(const bool         vector_describes_relative_displacement,
 
     static unsigned int counter = 0;
 
-#if true
+#if false
     std::ofstream output("test." + std::to_string(counter++) + ".vtk");
     data_out.write_vtk(output);
 #else
