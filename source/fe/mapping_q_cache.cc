@@ -273,6 +273,8 @@ MappingQCache<dim, spacedim>::initialize(
   this->initialize(mapping, tria, fu, function_describes_relative_displacement);
 }
 
+
+
 namespace
 {
   template <typename VectorType>
@@ -325,6 +327,7 @@ MappingQCache<dim, spacedim>::initialize(
   const VectorType &               vector,
   const bool                       vector_describes_relative_displacement)
 {
+  AssertDimension(dof_handler.get_fe_collection().size(), 1);
   const FiniteElement<dim, spacedim> &fe = dof_handler.get_fe();
   AssertDimension(fe.n_base_elements(), 1);
   AssertDimension(fe.element_multiplicity(0), spacedim);
@@ -363,10 +366,11 @@ MappingQCache<dim, spacedim>::initialize(
     dof_handler.get_triangulation(),
     [&](const typename Triangulation<dim, spacedim>::cell_iterator &cell_tria)
       -> std::vector<Point<spacedim>> {
-      const bool is_relevant_cell = (cell_tria->is_active() == true) &&
-                                    (cell_tria->is_artificial() == false);
+      const bool is_active_non_artificial_cell =
+        (cell_tria->is_active() == true) &&
+        (cell_tria->is_artificial() == false);
 
-      typename DoFHandler<dim, spacedim>::cell_iterator cell(
+      const typename DoFHandler<dim, spacedim>::cell_iterator cell_dofs(
         &cell_tria->get_triangulation(),
         cell_tria->level(),
         cell_tria->index(),
@@ -375,15 +379,15 @@ MappingQCache<dim, spacedim>::initialize(
       const auto mapping_q_generic =
         dynamic_cast<const MappingQGeneric<dim, spacedim> *>(&mapping);
 
-      // Step 2a) set up FEValues (if needed)
+      // Step 2a) set up and reinit FEValues (if needed)
       if (((vector_describes_relative_displacement ||
-            (is_relevant_cell == false)) &&
+            (is_active_non_artificial_cell == false)) &&
            ((mapping_q_generic != nullptr &&
              this->get_degree() == mapping_q_generic->get_degree()) ==
-            false)) ||
-          ((is_relevant_cell == true) &&
-           (((is_fe_q || is_fe_dgq) && fe.degree == this->get_degree()) ==
-            false)))
+            false)) /*condition 1: points need to be computed via FEValues*/
+          || ((is_active_non_artificial_cell == true) &&
+              (((is_fe_q || is_fe_dgq) && fe.degree == this->get_degree()) ==
+               false)) /*condition 2: interpolation of values is needed*/)
         {
           // get FEValues (thread-safe); in the case that this thread has
           // not created a an FEValues object yet, this helper-function also
@@ -410,7 +414,7 @@ MappingQCache<dim, spacedim>::initialize(
             }
 
           if (update_values_might_be_needed)
-            fe_values->reinit(cell);
+            fe_values->reinit(cell_dofs);
           else
             fe_values->reinit(cell_tria);
         }
@@ -418,7 +422,10 @@ MappingQCache<dim, spacedim>::initialize(
       std::vector<Point<spacedim>> result;
 
       // Step 2b) read of quadrature points in the relative displacement case
-      if (vector_describes_relative_displacement || (is_relevant_cell == false))
+      // note: we also take this path for non-active or artifical cells so that
+      // these cells are filled with some useful data
+      if (vector_describes_relative_displacement ||
+          (is_active_non_artificial_cell == false))
         {
           if (mapping_q_generic != nullptr &&
               this->get_degree() == mapping_q_generic->get_degree())
@@ -427,7 +434,10 @@ MappingQCache<dim, spacedim>::initialize(
           else
             result = fe_values_all.get()->get_quadrature_points();
 
-          if (is_relevant_cell == false)
+          // for non-active or artificial cells we are done here and return
+          // the absolute positions, since the provided vector cannot contain
+          // any useful information for these cells
+          if (is_active_non_artificial_cell == false)
             return result;
         }
       else
@@ -443,7 +453,7 @@ MappingQCache<dim, spacedim>::initialize(
           // is the simple case since no interpolation is needed
           std::vector<types::global_dof_index> dof_indices(
             fe.n_dofs_per_cell());
-          cell->get_dof_indices(dof_indices);
+          cell_dofs->get_dof_indices(dof_indices);
 
           for (unsigned int i = 0; i < dof_indices.size(); ++i)
             {
