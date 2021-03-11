@@ -522,8 +522,9 @@ MappingQCache<dim, spacedim>::initialize(
   const FiniteElement<dim, spacedim> &fe = dof_handler.get_fe();
   AssertDimension(fe.n_base_elements(), 1);
   AssertDimension(fe.element_multiplicity(0), spacedim);
-
-  const auto &vector = vectors[0];
+  AssertDimension(0, vectors.min_level());
+  AssertDimension(dof_handler.get_triangulation().n_global_levels() - 1,
+                  vectors.max_level());
 
   const unsigned int is_fe_q =
     dynamic_cast<const FE_Q<dim, spacedim> *>(&fe.base_element(0)) != nullptr;
@@ -537,15 +538,22 @@ MappingQCache<dim, spacedim>::initialize(
 
   // Step 1: copy global vector so that the ghost values are such that the
   // cache can be set up for all ghost cells
-  LinearAlgebra::distributed::Vector<typename VectorType::value_type>
-           vector_ghosted;
-  IndexSet locally_relevant_dofs;
-  DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
-  vector_ghosted.reinit(dof_handler.locally_owned_dofs(),
-                        locally_relevant_dofs,
-                        dof_handler.get_communicator());
-  import(vector, vector_ghosted);
-  vector_ghosted.update_ghost_values();
+  MGLevelObject<
+    LinearAlgebra::distributed::Vector<typename VectorType::value_type>>
+    vectors_ghosted(vectors.min_level(), vectors.max_level());
+
+  for (unsigned int l = vectors.min_level(); l <= vectors.max_level(); ++l)
+    {
+      IndexSet locally_relevant_dofs;
+      DoFTools::extract_locally_relevant_level_dofs(dof_handler,
+                                                    l,
+                                                    locally_relevant_dofs);
+      vectors_ghosted[l].reinit(dof_handler.locally_owned_mg_dofs(l),
+                                locally_relevant_dofs,
+                                dof_handler.get_communicator());
+      import(vectors[l], vectors_ghosted[l]);
+      vectors_ghosted[l].update_ghost_values();
+    }
 
   // FE and FEValues in the case they are needed
   FE_Nothing<dim, spacedim> fe_nothing;
@@ -563,7 +571,7 @@ MappingQCache<dim, spacedim>::initialize(
         (cell_tria->is_active() == true) &&
         (cell_tria->is_artificial() == false);
 
-      const typename DoFHandler<dim, spacedim>::cell_iterator cell_dofs(
+      const typename DoFHandler<dim, spacedim>::level_cell_iterator cell_dofs(
         &cell_tria->get_triangulation(),
         cell_tria->level(),
         cell_tria->index(),
@@ -646,7 +654,7 @@ MappingQCache<dim, spacedim>::initialize(
           // is the simple case since no interpolation is needed
           std::vector<types::global_dof_index> dof_indices(
             fe.n_dofs_per_cell());
-          cell_dofs->get_dof_indices(dof_indices);
+          cell_dofs->get_mg_dof_indices(dof_indices);
 
           for (unsigned int i = 0; i < dof_indices.size(); ++i)
             {
@@ -657,20 +665,22 @@ MappingQCache<dim, spacedim>::initialize(
                   // case 1a: FE_Q
                   if (vector_describes_relative_displacement)
                     result[id.second][id.first] +=
-                      vector_ghosted(dof_indices[i]);
+                      vectors_ghosted[cell_tria->level()](dof_indices[i]);
                   else
                     result[id.second][id.first] =
-                      vector_ghosted(dof_indices[i]);
+                      vectors_ghosted[cell_tria->level()](dof_indices[i]);
                 }
               else
                 {
                   // case 1b: FE_DGQ
                   if (vector_describes_relative_displacement)
                     result[lexicographic_to_hierarchic_numbering[id.second]]
-                          [id.first] += vector_ghosted(dof_indices[i]);
+                          [id.first] +=
+                      vectors_ghosted[cell_tria->level()](dof_indices[i]);
                   else
                     result[lexicographic_to_hierarchic_numbering[id.second]]
-                          [id.first] = vector_ghosted(dof_indices[i]);
+                          [id.first] =
+                            vectors_ghosted[cell_tria->level()](dof_indices[i]);
                 }
             }
         }
@@ -682,18 +692,25 @@ MappingQCache<dim, spacedim>::initialize(
           // MatrixFree/FEEvaluation
           auto &fe_values = fe_values_all.get();
 
-          std::vector<Vector<typename VectorType::value_type>> values(
-            fe_values->n_quadrature_points,
-            Vector<typename VectorType::value_type>(spacedim));
+          std::vector<types::global_dof_index> dof_indices(
+            fe.n_dofs_per_cell());
+          cell_dofs->get_mg_dof_indices(dof_indices);
 
-          fe_values->get_function_values(vector_ghosted, values);
+          std::vector<typename VectorType::value_type> dof_values(
+            fe.n_dofs_per_cell());
 
-          for (unsigned int q = 0; q < fe_values->n_quadrature_points; ++q)
-            for (unsigned int c = 0; c < spacedim; ++c)
-              if (vector_describes_relative_displacement)
-                result[q][c] += values[q][c];
-              else
-                result[q][c] = values[q][c];
+          for (unsigned int i = 0; i < fe.n_dofs_per_cell(); ++i)
+            dof_values[i] = vectors_ghosted[cell_tria->level()](dof_indices[i]);
+
+          for (unsigned int c = 0; c < spacedim; ++c)
+            for (unsigned int i = 0; i < fe.n_dofs_per_cell(); ++i)
+              for (unsigned int q = 0; q < fe_values->n_quadrature_points; ++q)
+                if (vector_describes_relative_displacement)
+                  result[q][c] +=
+                    dof_values[i] * fe_values->shape_value_component(i, q, c);
+                else
+                  result[q][c] =
+                    dof_values[i] * fe_values->shape_value_component(i, q, c);
         }
 
       return result;
