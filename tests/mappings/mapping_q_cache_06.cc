@@ -59,6 +59,7 @@ static int counter = 0;
 template <int dim, typename Fu>
 void
 do_test(const unsigned int degree,
+        const unsigned int mapping_degree,
         const Fu &         fu,
         const bool         is_displacement_function)
 {
@@ -85,8 +86,8 @@ do_test(const unsigned int degree,
   VectorTools::interpolate(dof_handler, fu, vector);
 
   {
-    MappingQGeneric<dim> mapping(degree);
-    MappingQCache<dim>   mapping_cache(degree);
+    MappingQGeneric<dim> mapping(mapping_degree);
+    MappingQCache<dim>   mapping_cache(mapping_degree);
     mapping_cache.initialize(mapping,
                              dof_handler,
                              vector,
@@ -115,8 +116,8 @@ do_test(const unsigned int degree,
     transfer.build(dof_handler);
     transfer.interpolate_to_mg(dof_handler, vectors, vector);
 
-    MappingQGeneric<dim> mapping(degree);
-    MappingQCache<dim>   mapping_cache(degree);
+    MappingQGeneric<dim> mapping(mapping_degree);
+    MappingQCache<dim>   mapping_cache(mapping_degree);
     mapping_cache.initialize(mapping,
                              dof_handler,
                              vectors,
@@ -139,7 +140,7 @@ do_test(const unsigned int degree,
                                2,
                                DataOut<dim>::curved_inner_cells);
 
-#if false
+#if false 
         data_out.write_vtu_with_pvtu_record(
           "./", "mg_solution", lvl, MPI_COMM_WORLD, 1, 1);
 #else
@@ -156,6 +157,9 @@ main(int argc, char *argv[])
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    log;
 
-  do_test<2>(3, Solution<2>(true), true);
-  do_test<2>(3, Solution<2>(false), false);
+  do_test<2>(3, 3, Solution<2>(true), true);
+  do_test<2>(3, 3, Solution<2>(false), false);
+
+  do_test<2>(3, 4, Solution<2>(true), true);
+  do_test<2>(3, 4, Solution<2>(false), false);
 }

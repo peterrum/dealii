@@ -706,11 +706,11 @@ MappingQCache<dim, spacedim>::initialize(
           for (unsigned int c = 0; c < spacedim; ++c)
             for (unsigned int i = 0; i < fe.n_dofs_per_cell(); ++i)
               for (unsigned int q = 0; q < fe_values->n_quadrature_points; ++q)
-                if (vector_describes_relative_displacement)
-                  result[q][c] +=
+                if (vector_describes_relative_displacement == false && i == 0)
+                  result[q][c] =
                     dof_values[i] * fe_values->shape_value_component(i, q, c);
                 else
-                  result[q][c] =
+                  result[q][c] +=
                     dof_values[i] * fe_values->shape_value_component(i, q, c);
         }
 
