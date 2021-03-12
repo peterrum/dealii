@@ -279,38 +279,30 @@ namespace
 {
   template <typename VectorType>
   void
-  import(const VectorType &vector,
-         LinearAlgebra::distributed::Vector<typename VectorType::value_type>
-           &vector_ghosted)
-  {
-    /*
-    vector_ghosted.import(vector, VectorOperation::values::insert);
-  }
-
-  template <typename T>
-  void
-  import(const Vector<T> &                      vector,
-         LinearAlgebra::distributed::Vector<T> &vector_ghosted)
+  copy_locally_owned_data_from(
+    const VectorType &vector,
+    LinearAlgebra::distributed::Vector<typename VectorType::value_type>
+      &vector_ghosted)
   {
     for (const auto i : vector_ghosted.locally_owned_elements())
       vector_ghosted[i] = vector[i];
   }
 
+  template <typename Number>
   void
-  import(const TrilinosWrappers::MPI::Vector &vector,
-         LinearAlgebra::distributed::Vector<
-           typename TrilinosWrappers::MPI::Vector::value_type> &vector_ghosted)
+  copy_locally_owned_data_from(
+    const LinearAlgebra::distributed::Vector<Number> vector,
+    LinearAlgebra::distributed::Vector<Number> &     vector_ghosted)
   {
-     */
-    for (const auto i : vector_ghosted.locally_owned_elements())
-      vector_ghosted[i] = vector[i];
+    vector_ghosted.copy_locally_owned_data_from(vector);
   }
 
   void
-  import(const LinearAlgebra::EpetraWrappers::Vector &vector,
-         LinearAlgebra::distributed::Vector<
-           typename LinearAlgebra::EpetraWrappers::Vector::value_type>
-           &vector_ghosted)
+  copy_locally_owned_data_from(
+    const LinearAlgebra::EpetraWrappers::Vector &vector,
+    LinearAlgebra::distributed::Vector<
+      typename LinearAlgebra::EpetraWrappers::Vector::value_type>
+      &vector_ghosted)
   {
     Assert(false, ExcNotImplemented());
     (void)vector;
@@ -353,7 +345,7 @@ MappingQCache<dim, spacedim>::initialize(
   vector_ghosted.reinit(dof_handler.locally_owned_dofs(),
                         locally_relevant_dofs,
                         dof_handler.get_communicator());
-  import(vector, vector_ghosted);
+  copy_locally_owned_data_from(vector, vector_ghosted);
   vector_ghosted.update_ghost_values();
 
   // FE and FEValues in the case they are needed
@@ -553,7 +545,7 @@ MappingQCache<dim, spacedim>::initialize(
       vectors_ghosted[l].reinit(dof_handler.locally_owned_mg_dofs(l),
                                 locally_relevant_dofs,
                                 dof_handler.get_communicator());
-      import(vectors[l], vectors_ghosted[l]);
+      copy_locally_owned_data_from(vectors[l], vectors_ghosted[l]);
       vectors_ghosted[l].update_ghost_values();
     }
 
