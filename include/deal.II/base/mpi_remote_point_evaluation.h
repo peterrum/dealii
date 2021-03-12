@@ -365,17 +365,7 @@ namespace Utilities
       (void)buffer;
       (void)evaluation_function;
 #else
-      // expand
-      const auto &   ptr = this->get_point_ptrs();
-      std::vector<T> buffer_(ptr.back());
-
-      for (unsigned int i = 0, c = 0; i < ptr.size() - 1; ++i)
-        {
-          const auto n_entries = ptr[i + 1] - ptr[i];
-
-          for (unsigned int j = 0; j < n_entries; ++j, ++c)
-            buffer_[c] = input[i];
-        }
+      const auto &ptr = this->get_point_ptrs();
 
       std::map<unsigned int, std::vector<T>> temp_recv_map;
 
@@ -399,10 +389,23 @@ namespace Utilities
       }
 #  endif
 
-      auto it = recv_permutation.begin();
-      for (auto &j : temp_recv_map)
-        for (auto &i : j.second)
-          i = buffer_[*(it++)];
+      {
+        // duplicate data to be able to sort it more easily in the next step
+        std::vector<T> buffer_(ptr.back());
+        for (unsigned int i = 0, c = 0; i < ptr.size() - 1; ++i)
+          {
+            const auto n_entries = ptr[i + 1] - ptr[i];
+
+            for (unsigned int j = 0; j < n_entries; ++j, ++c)
+              buffer_[c] = input[i];
+          }
+
+        // sort data according to the ranks
+        auto it = recv_permutation.begin();
+        for (auto &j : temp_recv_map)
+          for (auto &i : j.second)
+            i = buffer_[*(it++)];
+      }
 
       // buffer.resize(point_ptrs.back());
       buffer.resize(send_permutation.size() * 2);
