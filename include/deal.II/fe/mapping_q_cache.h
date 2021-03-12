@@ -162,24 +162,36 @@ public:
              const bool function_describes_relative_displacement = false);
 
   /**
-   * TODO
+   * Initialize the data cache of the active cells by a solution (specified by
+   * @p dof_handler and @p vector) that describes the absolute or
+   * relative position of each support point.
+   *
+   * @note By using this function for reinitialization, this class behaves like
+   *   MappingFEField (vector_describes_relative_displacement == false) or
+   *   MappingQEulerian (vector_describes_relative_displacement == true).
    */
   template <typename VectorType>
   void
   initialize(const Mapping<dim, spacedim> &   mapping,
              const DoFHandler<dim, spacedim> &dof_handler,
              const VectorType &               vector,
-             const bool vector_describes_relative_displacement = false);
+             const bool vector_describes_relative_displacement);
 
   /**
-   * TODO
+   * Initialize the data cache of all non-artificial cells by a solution
+   * (specified by @p dof_handler and a set of @p vectors) that describes the
+   * absolute or relative position of each support point.
+   *
+   * @note By using this function for reinitialization, this class behaves like
+   *   MappingFEField (vector_describes_relative_displacement == false) or
+   *   MappingQEulerian (vector_describes_relative_displacement == true).
    */
   template <typename VectorType>
   void
   initialize(const Mapping<dim, spacedim> &   mapping,
              const DoFHandler<dim, spacedim> &dof_handler,
-             const MGLevelObject<VectorType> &vector,
-             const bool vector_describes_relative_displacement = false);
+             const MGLevelObject<VectorType> &vectors,
+             const bool vector_describes_relative_displacement);
 
   /**
    * Return the memory consumption (in bytes) of the cache.
