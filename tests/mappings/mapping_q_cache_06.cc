@@ -84,14 +84,14 @@ do_test(const unsigned int degree,
 
   VectorTools::interpolate(dof_handler, fu, vector);
 
-  MappingQGeneric<dim> mapping(degree);
-  MappingQCache<dim>   mapping_cache(degree);
-  mapping_cache.initialize(mapping,
-                           dof_handler,
-                           vector,
-                           is_displacement_function);
-
   {
+    MappingQGeneric<dim> mapping(degree);
+    MappingQCache<dim>   mapping_cache(degree);
+    mapping_cache.initialize(mapping,
+                             dof_handler,
+                             vector,
+                             is_displacement_function);
+
     DataOut<dim> data_out;
 
     data_out.attach_triangulation(tria);
@@ -108,11 +108,45 @@ do_test(const unsigned int degree,
 #endif
   }
 
-  MGLevelObject<LinearAlgebra::distributed::Vector<double>> vectors(
-    0, tria.n_global_levels() - 1);
-  MGTransferMatrixFree<dim, double> transfer;
-  transfer.build(dof_handler);
-  transfer.interpolate_to_mg(dof_handler, vectors, vector);
+  {
+    MGLevelObject<LinearAlgebra::distributed::Vector<double>> vectors(
+      0, tria.n_global_levels() - 1);
+    MGTransferMatrixFree<dim, double> transfer;
+    transfer.build(dof_handler);
+    transfer.interpolate_to_mg(dof_handler, vectors, vector);
+
+    MappingQGeneric<dim> mapping(degree);
+    MappingQCache<dim>   mapping_cache(degree);
+    mapping_cache.initialize(mapping,
+                             dof_handler,
+                             vectors,
+                             is_displacement_function);
+
+    const unsigned int rank = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
+
+    for (unsigned int lvl = 0; lvl < tria.n_global_levels(); ++lvl)
+      {
+        DataOut<dim> data_out;
+
+        data_out.attach_triangulation(tria);
+
+        data_out.set_cell_selection(
+          [&](const typename Triangulation<dim>::cell_iterator &cell) {
+            return (cell->level_subdomain_id() == rank) &&
+                   (static_cast<unsigned int>(cell->level()) == lvl);
+          });
+        data_out.build_patches(mapping_cache,
+                               2,
+                               DataOut<dim>::curved_inner_cells);
+
+#if false
+        data_out.write_vtu_with_pvtu_record(
+          "./", "mg_solution", lvl, MPI_COMM_WORLD, 1, 1);
+#else
+        data_out.write_vtk(deallog.get_file_stream());
+#endif
+      }
+  }
 }
 
 

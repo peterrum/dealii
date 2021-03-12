@@ -283,6 +283,7 @@ namespace
          LinearAlgebra::distributed::Vector<typename VectorType::value_type>
            &vector_ghosted)
   {
+    /*
     vector_ghosted.import(vector, VectorOperation::values::insert);
   }
 
@@ -300,6 +301,7 @@ namespace
          LinearAlgebra::distributed::Vector<
            typename TrilinosWrappers::MPI::Vector::value_type> &vector_ghosted)
   {
+     */
     for (const auto i : vector_ghosted.locally_owned_elements())
       vector_ghosted[i] = vector[i];
   }
