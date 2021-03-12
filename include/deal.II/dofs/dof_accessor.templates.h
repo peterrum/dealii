@@ -2600,6 +2600,10 @@ inline void
 DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::
   get_mg_dof_indices(std::vector<types::global_dof_index> &dof_indices) const
 {
+  Assert(
+    this->dof_handler->mg_vertex_dofs.size() > 0,
+    ExcMessage(
+      "Multigrid DoF indices can be accessed if DoFHandler::distribute_mg_dofs() has been called!"));
   DoFAccessor<dimension_, dimension_, space_dimension_, level_dof_access>::
     get_mg_dof_indices(this->level(), dof_indices);
 }
@@ -2611,6 +2615,10 @@ inline void
 DoFCellAccessor<dimension_, space_dimension_, level_dof_access>::
   set_mg_dof_indices(const std::vector<types::global_dof_index> &dof_indices)
 {
+  Assert(
+    this->dof_handler->mg_vertex_dofs.size() > 0,
+    ExcMessage(
+      "Multigrid DoF indices can be accessed if DoFHandler::distribute_mg_dofs() has been called!"));
   DoFAccessor<dimension_, dimension_, space_dimension_, level_dof_access>::
     set_mg_dof_indices(this->level(), dof_indices);
 }

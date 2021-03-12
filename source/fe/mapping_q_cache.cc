@@ -567,9 +567,8 @@ MappingQCache<dim, spacedim>::initialize(
     dof_handler.get_triangulation(),
     [&](const typename Triangulation<dim, spacedim>::cell_iterator &cell_tria)
       -> std::vector<Point<spacedim>> {
-      const bool is_active_non_artificial_cell =
-        (cell_tria->is_active() == true) &&
-        (cell_tria->is_artificial() == false);
+      const bool is_non_artificial_cell =
+        cell_tria->level_subdomain_id() != numbers::artificial_subdomain_id;
 
       const typename DoFHandler<dim, spacedim>::level_cell_iterator cell_dofs(
         &cell_tria->get_triangulation(),
@@ -582,11 +581,11 @@ MappingQCache<dim, spacedim>::initialize(
 
       // Step 2a) set up and reinit FEValues (if needed)
       if (((vector_describes_relative_displacement ||
-            (is_active_non_artificial_cell == false)) &&
+            (is_non_artificial_cell == false)) &&
            ((mapping_q_generic != nullptr &&
              this->get_degree() == mapping_q_generic->get_degree()) ==
             false)) /*condition 1: points need to be computed via FEValues*/
-          || ((is_active_non_artificial_cell == true) &&
+          || ((is_non_artificial_cell == true) &&
               (((is_fe_q || is_fe_dgq) && fe.degree == this->get_degree()) ==
                false)) /*condition 2: interpolation of values is needed*/)
         {
@@ -626,7 +625,7 @@ MappingQCache<dim, spacedim>::initialize(
       // note: we also take this path for non-active or artifical cells so that
       // these cells are filled with some useful data
       if (vector_describes_relative_displacement ||
-          (is_active_non_artificial_cell == false))
+          (is_non_artificial_cell == false))
         {
           if (mapping_q_generic != nullptr &&
               this->get_degree() == mapping_q_generic->get_degree())
@@ -638,7 +637,7 @@ MappingQCache<dim, spacedim>::initialize(
           // for non-active or artificial cells we are done here and return
           // the absolute positions, since the provided vector cannot contain
           // any useful information for these cells
-          if (is_active_non_artificial_cell == false)
+          if (is_non_artificial_cell == false)
             return result;
         }
       else
