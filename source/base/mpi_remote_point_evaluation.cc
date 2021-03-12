@@ -70,8 +70,6 @@ namespace Utilities
       this->tria    = &tria;
       this->mapping = &mapping;
 
-      comm = tria.get_communicator();
-
       std::vector<BoundingBox<spacedim>> local_boxes;
       for (const auto &cell : tria.active_cell_iterators())
         if (cell->is_locally_owned())
@@ -85,7 +83,7 @@ namespace Utilities
 
       // gather bounding boxes of other processes
       const auto global_bboxes =
-        Utilities::MPI::all_gather(comm, local_reduced_box);
+        Utilities::MPI::all_gather(tria.get_communicator(), local_reduced_box);
 
       const GridTools::Cache<dim, spacedim> cache(tria, mapping);
 

@@ -46,6 +46,13 @@ namespace Utilities
     public:
       /**
        * Constructor.
+       *
+       * @param tolerance Tolerance in terms of unit cell coordinates for
+       *   determining all cells around a point passed to the class during
+       *   reinit(). Depending on the problem, it might be necessary to adjust
+       *   the tolerance in order to be able to identify a cell.
+       *   Floating point arithmetic implies that a point will, in general, not
+       *   lie exactly on a vertex, edge, or face.
        */
       RemotePointEvaluation(const double tolerance = 1e-6);
 
@@ -87,10 +94,10 @@ namespace Utilities
       };
 
       /**
-       * Evaluate function @p fu in the given  points and triangulation. The
-       * result is stored in @p output.
+       * Evaluate function @p evaluation_function in the given  points and
+       * triangulation. The result is stored in @p output.
        *
-       * @note Is the map of points to cells is not
+       * @note If the map of points to cells is not
        *   one-to-one relation (is_map_unique()==false), the result needs to be
        *   processed with the help of get_point_ptrs(). This
        *   might be the case if a point coincides with a geometric entity (e.g.,
@@ -102,13 +109,13 @@ namespace Utilities
       evaluate_and_process(
         std::vector<T> &output,
         std::vector<T> &buffer,
-        const std::function<void(const ArrayView<T> &, const CellData &)> &fu)
-        const;
+        const std::function<void(const ArrayView<T> &, const CellData &)>
+          &evaluation_function) const;
 
       /**
        * This method is the inverse of the method evaluate_and_process(). It
-       * makes data at the points and provided by @p input available in the
-       * function @p fu.
+       * makes the data at the points, provided by @p input, available in the
+       * function @p evaluation_function.
        */
       template <typename T>
       void
@@ -116,7 +123,7 @@ namespace Utilities
         const std::vector<T> &input,
         std::vector<T> &      buffer,
         const std::function<void(const ArrayView<const T> &, const CellData &)>
-          &fu) const;
+          &evaluation_function) const;
 
       /**
        * Return a CRS-like data structure to determine the position of the
@@ -148,8 +155,8 @@ namespace Utilities
 
       /**
        * Return if the internal data structures have been set up and if yes
-       * if they are still valid (and have not been invalidated due to changes
-       * of the Triangulation).
+       * whether they are still valid (and not invalidated due to changes of the
+       * Triangulation).
        */
       bool
       is_ready() const;
@@ -184,11 +191,6 @@ namespace Utilities
       SmartPointer<const Mapping<dim, spacedim>> mapping;
 
       /**
-       * MPI communicator of the triangulation.
-       */
-      MPI_Comm comm;
-
-      /**
        * (One-to-one) relation of points and cells.
        */
       bool unique_mapping;
@@ -196,7 +198,7 @@ namespace Utilities
       /**
        * Since for each point multiple or no results can be available, the
        * pointers in this vector indicate the first and last entries associated
-       * with a point.
+       * with a point in a CRS-like fashion.
        */
       std::vector<unsigned int> point_ptrs;
 
@@ -244,16 +246,16 @@ namespace Utilities
     template <typename T>
     void
     RemotePointEvaluation<dim, spacedim>::evaluate_and_process(
-      std::vector<T> &                                                   output,
-      std::vector<T> &                                                   buffer,
-      const std::function<void(const ArrayView<T> &, const CellData &)> &fu)
-      const
+      std::vector<T> &output,
+      std::vector<T> &buffer,
+      const std::function<void(const ArrayView<T> &, const CellData &)>
+        &evaluation_function) const
     {
 #ifndef DEAL_II_WITH_MPI
       Assert(false, ExcNeedsMPI());
       (void)output;
       (void)buffer;
-      (void)fu;
+      (void)evaluation_function;
 #else
       output.resize(point_ptrs.back());
       buffer.resize((send_permutation.size()) * 2);
@@ -262,7 +264,7 @@ namespace Utilities
                             buffer.size() / 2);
 
       // evaluate functions at points
-      fu(buffer_1, cell_data);
+      evaluation_function(buffer_1, cell_data);
 
       // sort for communication
       for (unsigned int i = 0; i < send_permutation.size(); ++i)
@@ -274,7 +276,8 @@ namespace Utilities
       std::vector<MPI_Request> requests;
       requests.reserve(send_ranks.size());
 
-      const unsigned int my_rank = Utilities::MPI::this_mpi_process(comm);
+      const unsigned int my_rank =
+        Utilities::MPI::this_mpi_process(tria->get_communicator());
 
       std::map<unsigned int, std::vector<T>> temp_recv_map;
 
@@ -302,7 +305,7 @@ namespace Utilities
                     MPI_CHAR,
                     send_ranks[i],
                     internal::Tags::remote_point_evaluation,
-                    comm,
+                    tria->get_communicator(),
                     &requests.back());
         }
 
@@ -314,7 +317,7 @@ namespace Utilities
           MPI_Status status;
           MPI_Probe(MPI_ANY_SOURCE,
                     internal::Tags::remote_point_evaluation,
-                    comm,
+                    tria->get_communicator(),
                     &status);
 
           int message_length;
@@ -327,7 +330,7 @@ namespace Utilities
                    MPI_CHAR,
                    status.MPI_SOURCE,
                    internal::Tags::remote_point_evaluation,
-                   comm,
+                   tria->get_communicator(),
                    MPI_STATUS_IGNORE);
 
           temp_recv_map[status.MPI_SOURCE] =
@@ -353,13 +356,13 @@ namespace Utilities
       const std::vector<T> &input,
       std::vector<T> &      buffer,
       const std::function<void(const ArrayView<const T> &, const CellData &)>
-        &fu) const
+        &evaluation_function) const
     {
 #ifndef DEAL_II_WITH_MPI
       Assert(false, ExcNeedsMPI());
       (void)input;
       (void)buffer;
-      (void)fu;
+      (void)evaluation_function;
 #else
       // expand
       const auto &   ptr = this->get_point_ptrs();
@@ -381,7 +384,8 @@ namespace Utilities
             std::vector<T>(recv_ptrs[i + 1] - recv_ptrs[i]);
         }
 
-      const unsigned int my_rank = Utilities::MPI::this_mpi_process(comm);
+      const unsigned int my_rank =
+        Utilities::MPI::this_mpi_process(tria->get_communicator());
 
 #  ifdef DEBUG
       {
@@ -427,7 +431,7 @@ namespace Utilities
                     MPI_CHAR,
                     recv_rank,
                     internal::Tags::remote_point_evaluation,
-                    comm,
+                    tria->get_communicator(),
                     &requests.back());
         }
 
@@ -455,7 +459,7 @@ namespace Utilities
           MPI_Status status;
           MPI_Probe(MPI_ANY_SOURCE,
                     internal::Tags::remote_point_evaluation,
-                    comm,
+                    tria->get_communicator(),
                     &status);
 
           int message_length;
@@ -468,7 +472,7 @@ namespace Utilities
                    MPI_CHAR,
                    status.MPI_SOURCE,
                    internal::Tags::remote_point_evaluation,
-                   comm,
+                   tria->get_communicator(),
                    MPI_STATUS_IGNORE);
 
 
@@ -501,7 +505,7 @@ namespace Utilities
         buffer_2[i] = buffer_1[send_permutation[i]];
 
       // evaluate function at points
-      fu(buffer_2, cell_data);
+      evaluation_function(buffer_2, cell_data);
 #endif
     }
 
