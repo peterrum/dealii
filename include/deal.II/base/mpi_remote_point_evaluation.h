@@ -258,7 +258,7 @@ namespace Utilities
       (void)evaluation_function;
 #else
       output.resize(point_ptrs.back());
-      buffer.resize((send_permutation.size()) * 2);
+      buffer.resize(send_permutation.size() * 2);
       ArrayView<T> buffer_1(buffer.data(), buffer.size() / 2);
       ArrayView<T> buffer_2(buffer.data() + buffer.size() / 2,
                             buffer.size() / 2);
@@ -292,13 +292,14 @@ namespace Utilities
               continue;
             }
 
-          temp_map[send_ranks[i]] = Utilities::pack(
-            std::vector<T>(buffer_2.begin() + send_ptrs[i],
-                           buffer_2.begin() + send_ptrs[i + 1]));
+          temp_map[send_ranks[i]] =
+            Utilities::pack(std::vector<T>(buffer_2.begin() + send_ptrs[i],
+                                           buffer_2.begin() + send_ptrs[i + 1]),
+                            false);
 
           auto &buffer = temp_map[send_ranks[i]];
 
-          requests.resize(requests.size() + 1);
+          requests.push_back(MPI_Request());
 
           MPI_Isend(buffer.data(),
                     buffer.size(),
@@ -334,7 +335,7 @@ namespace Utilities
                    MPI_STATUS_IGNORE);
 
           temp_recv_map[status.MPI_SOURCE] =
-            Utilities::unpack<std::vector<T>>(buffer);
+            Utilities::unpack<std::vector<T>>(buffer, false);
         }
 
       // make sure all messages have been sent
@@ -420,11 +421,12 @@ namespace Utilities
           if (recv_rank == my_rank)
             continue;
 
-          temp_map[recv_rank] = Utilities::pack(temp_recv_map[recv_rank]);
+          temp_map[recv_rank] =
+            Utilities::pack(temp_recv_map[recv_rank], false);
 
           auto &buffer_send = temp_map[recv_rank];
 
-          requests.resize(requests.size() + 1);
+          requests.push_back(MPI_Request());
 
           MPI_Isend(buffer_send.data(),
                     buffer_send.size(),
@@ -477,7 +479,7 @@ namespace Utilities
 
 
           const auto recv_buffer_unpacked =
-            Utilities::unpack<std::vector<T>>(recv_buffer);
+            Utilities::unpack<std::vector<T>>(recv_buffer, false);
 
           auto ptr =
             std::find(send_ranks.begin(), send_ranks.end(), status.MPI_SOURCE);

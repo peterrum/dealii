@@ -310,9 +310,9 @@ test_2(const Triangulation<dim, spacedim> &surface_mesh,
   eval.reinit(integration_points, dof_handler_dim.get_triangulation(), mapping);
 
   const auto evaluation_point_results =
-    VectorTools::evaluate_at_points<spacedim>(dof_handler_dim,
-                                              normal_solution,
-                                              eval);
+    VectorTools::evaluate_at_points<spacedim>(eval,
+                                              dof_handler_dim,
+                                              normal_solution);
 
   for (unsigned int i = 0; i < evaluation_point_results.size(); ++i)
     {

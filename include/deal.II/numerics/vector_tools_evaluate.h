@@ -89,9 +89,9 @@ namespace VectorTools
   template <int n_components, int dim, int spacedim, typename VectorType>
   std::vector<typename FEPointEvaluation<n_components, dim>::value_type>
   evaluate_at_points(
+    const Utilities::MPI::RemotePointEvaluation<dim, spacedim> &cache,
     const DoFHandler<dim, spacedim> &                           dof_handler,
     const VectorType &                                          vector,
-    const Utilities::MPI::RemotePointEvaluation<dim, spacedim> &cache,
     const EvaluationFlags::EvaluationFlags flags = EvaluationFlags::avg);
 
 
@@ -112,7 +112,7 @@ namespace VectorTools
   {
     cache.reinit(evaluation_points, dof_handler.get_triangulation(), mapping);
 
-    return evaluate_at_points<n_components>(dof_handler, vector, cache, flags);
+    return evaluate_at_points<n_components>(cache, dof_handler, vector, flags);
   }
 
 
@@ -181,9 +181,9 @@ namespace VectorTools
   template <int n_components, int dim, int spacedim, typename VectorType>
   inline std::vector<typename FEPointEvaluation<n_components, dim>::value_type>
   evaluate_at_points(
+    const Utilities::MPI::RemotePointEvaluation<dim, spacedim> &cache,
     const DoFHandler<dim, spacedim> &                           dof_handler,
     const VectorType &                                          vector,
-    const Utilities::MPI::RemotePointEvaluation<dim, spacedim> &cache,
     const EvaluationFlags::EvaluationFlags                      flags)
   {
     using value_type =

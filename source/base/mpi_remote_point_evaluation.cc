@@ -41,12 +41,17 @@ namespace Utilities
       : tolerance(tolerance)
       , ready_flag(false)
     {}
+
+
+
     template <int dim, int spacedim>
     RemotePointEvaluation<dim, spacedim>::~RemotePointEvaluation()
     {
       if (tria_signal.connected())
         tria_signal.disconnect();
     }
+
+
 
     template <int dim, int spacedim>
     void
@@ -151,12 +156,16 @@ namespace Utilities
       return point_ptrs;
     }
 
+
+
     template <int dim, int spacedim>
     bool
     RemotePointEvaluation<dim, spacedim>::is_map_unique() const
     {
       return unique_mapping;
     }
+
+
 
     template <int dim, int spacedim>
     const Triangulation<dim, spacedim> &
@@ -165,12 +174,16 @@ namespace Utilities
       return *tria;
     }
 
+
+
     template <int dim, int spacedim>
     const Mapping<dim, spacedim> &
     RemotePointEvaluation<dim, spacedim>::get_mapping() const
     {
       return *mapping;
     }
+
+
 
     template <int dim, int spacedim>
     bool
