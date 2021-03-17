@@ -75,8 +75,10 @@ namespace hp
     , q_collections(translate(q_collection))
     , fe_values_table(fe_collection.size(),
                       mapping_collection.size(),
-                      q_collection.size())
+                      q_collection.size(),
+                      ReferenceCells::n_possible_reference_cells<dim>())
     , present_fe_values_index(numbers::invalid_unsigned_int,
+                              numbers::invalid_unsigned_int,
                               numbers::invalid_unsigned_int,
                               numbers::invalid_unsigned_int)
     , update_flags(update_flags)
@@ -95,8 +97,10 @@ namespace hp
     , q_collections(q_collections)
     , fe_values_table(fe_collection.size(),
                       mapping_collection.size(),
-                      q_collection.size())
+                      q_collection.size(),
+                      ReferenceCells::n_possible_reference_cells<dim>())
     , present_fe_values_index(numbers::invalid_unsigned_int,
+                              numbers::invalid_unsigned_int,
                               numbers::invalid_unsigned_int,
                               numbers::invalid_unsigned_int)
     , update_flags(update_flags)
@@ -141,7 +145,8 @@ namespace hp
     , q_collections(other.q_collections)
     , fe_values_table(other.fe_values_table.size(0),
                       other.fe_values_table.size(1),
-                      other.fe_values_table.size(2))
+                      other.fe_values_table.size(2),
+                      other.fe_values_table.size(3))
     , present_fe_values_index(other.present_fe_values_index)
     , update_flags(other.update_flags)
   {
@@ -155,15 +160,20 @@ namespace hp
            ++m_index)
         for (unsigned int q_index = 0; q_index < other.fe_values_table.size(2);
              ++q_index)
-          if (other.fe_values_table[fe_index][m_index][q_index].get() !=
-              nullptr)
-            task_group += Threads::new_task([&, fe_index, m_index, q_index]() {
-              fe_values_table[fe_index][m_index][q_index] =
-                std::make_unique<FEValuesType>((*mapping_collection)[m_index],
-                                               (*fe_collection)[fe_index],
-                                               q_collections[q_index],
-                                               update_flags);
-            });
+          for (unsigned int r_index = 0;
+               r_index < other.fe_values_table.size(3);
+               ++r_index)
+            if (other.fe_values_table[fe_index][m_index][q_index][r_index]
+                  .get() != nullptr)
+              task_group +=
+                Threads::new_task([&, fe_index, m_index, q_index, r_index]() {
+                  fe_values_table[fe_index][m_index][q_index][r_index] =
+                    std::make_unique<FEValuesType>(
+                      (*mapping_collection)[m_index], // TODO
+                      (*fe_collection)[fe_index],     // TODO
+                      q_collections[q_index],         // TODO
+                      update_flags);
+                });
 
     task_group.join_all();
   }
@@ -175,7 +185,8 @@ namespace hp
   FEValuesBase<dim, q_dim, FEValuesType>::select_fe_values(
     const unsigned int fe_index,
     const unsigned int mapping_index,
-    const unsigned int q_index)
+    const unsigned int q_index,
+    const unsigned int r_index)
   {
     AssertIndexRange(fe_index, fe_collection->size());
     AssertIndexRange(mapping_index, mapping_collection->size());
@@ -184,18 +195,21 @@ namespace hp
 
     // set the triple of indices
     // that we want to work with
-    present_fe_values_index = TableIndices<3>(fe_index, mapping_index, q_index);
+    present_fe_values_index =
+      TableIndices<4>(fe_index, mapping_index, q_index, r_index);
+
+    // TODO: use r_index below
 
     // first check whether we
     // already have an object for
     // this particular combination
     // of indices
     if (fe_values_table(present_fe_values_index).get() == nullptr)
-      fe_values_table(present_fe_values_index) =
-        std::make_unique<FEValuesType>((*mapping_collection)[mapping_index],
-                                       (*fe_collection)[fe_index],
-                                       q_collections[q_index],
-                                       update_flags);
+      fe_values_table(present_fe_values_index) = std::make_unique<FEValuesType>(
+        (*mapping_collection)[mapping_index], // TOOD
+        (*fe_collection)[fe_index],           // TOOD
+        q_collections[q_index],               // TOOD
+        update_flags);
 
     // now there definitely is one!
     return *fe_values_table(present_fe_values_index);
@@ -224,15 +238,20 @@ namespace hp
         AssertIndexRange(mapping_index, mapping_collection->size());
         AssertIndexRange(q_index, q_collections.size());
 
-        task_group +=
-          Threads::new_task([&, fe_index, mapping_index, q_index]() {
-            fe_values_table(TableIndices<3>(fe_index, mapping_index, q_index)) =
-              std::make_unique<FEValuesType>(
-                (*mapping_collection)[mapping_index],
-                (*fe_collection)[fe_index],
-                q_collections[q_index],
-                update_flags);
-          });
+        // TODO: r_index?
+        for (unsigned int r_index = 0;
+             r_index < ReferenceCells::n_possible_reference_cells<dim>();
+             ++r_index)
+          task_group +=
+            Threads::new_task([&, fe_index, mapping_index, q_index, r_index]() {
+              fe_values_table(
+                TableIndices<4>(fe_index, mapping_index, q_index, r_index)) =
+                std::make_unique<FEValuesType>(
+                  (*mapping_collection)[mapping_index], // TOOD
+                  (*fe_collection)[fe_index],           // TOOD
+                  q_collections[q_index],               // TOOD
+                  update_flags);
+            });
       }
 
     task_group.join_all();
@@ -331,7 +350,12 @@ namespace hp
     // now finally actually get the
     // corresponding object and
     // initialize it
-    this->select_fe_values(real_fe_index, real_mapping_index, real_q_index)
+    this
+      ->select_fe_values(real_fe_index,
+                         real_mapping_index,
+                         real_q_index,
+                         ReferenceCells::refrence_cell_to_index(
+                           cell->reference_cell()))
       .reinit(cell);
   }
 
@@ -367,7 +391,12 @@ namespace hp
     // now finally actually get the
     // corresponding object and
     // initialize it
-    this->select_fe_values(real_fe_index, real_mapping_index, real_q_index)
+    this
+      ->select_fe_values(real_fe_index,
+                         real_mapping_index,
+                         real_q_index,
+                         ReferenceCells::refrence_cell_to_index(
+                           cell->reference_cell()))
       .reinit(cell);
   }
 
@@ -468,7 +497,12 @@ namespace hp
     // now finally actually get the
     // corresponding object and
     // initialize it
-    this->select_fe_values(real_fe_index, real_mapping_index, real_q_index)
+    this
+      ->select_fe_values(real_fe_index,
+                         real_mapping_index,
+                         real_q_index,
+                         ReferenceCells::refrence_cell_to_index(
+                           cell->reference_cell()))
       .reinit(cell, face_no);
   }
 
@@ -521,7 +555,12 @@ namespace hp
     // now finally actually get the
     // corresponding object and
     // initialize it
-    this->select_fe_values(real_fe_index, real_mapping_index, real_q_index)
+    this
+      ->select_fe_values(real_fe_index,
+                         real_mapping_index,
+                         real_q_index,
+                         ReferenceCells::refrence_cell_to_index(
+                           cell->reference_cell()))
       .reinit(cell, face_no);
   }
 
@@ -613,7 +652,12 @@ namespace hp
     // now finally actually get the
     // corresponding object and
     // initialize it
-    this->select_fe_values(real_fe_index, real_mapping_index, real_q_index)
+    this
+      ->select_fe_values(real_fe_index,
+                         real_mapping_index,
+                         real_q_index,
+                         ReferenceCells::refrence_cell_to_index(
+                           cell->reference_cell()))
       .reinit(cell, face_no, subface_no);
   }
 
@@ -651,7 +695,12 @@ namespace hp
     // now finally actually get the
     // corresponding object and
     // initialize it
-    this->select_fe_values(real_fe_index, real_mapping_index, real_q_index)
+    this
+      ->select_fe_values(real_fe_index,
+                         real_mapping_index,
+                         real_q_index,
+                         ReferenceCells::refrence_cell_to_index(
+                           cell->reference_cell()))
       .reinit(cell, face_no, subface_no);
   }
 } // namespace hp
