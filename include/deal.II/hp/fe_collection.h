@@ -187,6 +187,10 @@ namespace hp
     const FiniteElement<dim, spacedim> &
     operator[](const unsigned int index) const;
 
+    const FiniteElement<dim, spacedim> &
+    operator()(const unsigned int index,
+               const unsigned int reference_cell_index) const;
+
     /**
      * Return the number of finite element objects stored in this collection.
      */
@@ -866,6 +870,20 @@ namespace hp
   inline const FiniteElement<dim, spacedim> &FECollection<dim, spacedim>::
                                              operator[](const unsigned int index) const
   {
+    AssertIndexRange(index, finite_elements.size());
+    return *finite_elements[index];
+  }
+
+
+
+  template <int dim, int spacedim>
+  inline const FiniteElement<dim, spacedim> &
+  FECollection<dim, spacedim>::
+  operator()(const unsigned int index,
+             const unsigned int reference_cell_index) const
+  {
+    (void)reference_cell_index;
+
     AssertIndexRange(index, finite_elements.size());
     return *finite_elements[index];
   }

@@ -170,8 +170,8 @@ namespace hp
                   fe_values_table[fe_index][m_index][q_index][r_index] =
                     std::make_unique<FEValuesType>(
                       (*mapping_collection)[m_index], // TODO
-                      (*fe_collection)[fe_index],     // TODO
-                      q_collections[q_index],         // TODO
+                      (*fe_collection)(fe_index, r_index),
+                      q_collections[q_index], // TODO
                       update_flags);
                 });
 
@@ -207,8 +207,8 @@ namespace hp
     if (fe_values_table(present_fe_values_index).get() == nullptr)
       fe_values_table(present_fe_values_index) = std::make_unique<FEValuesType>(
         (*mapping_collection)[mapping_index], // TOOD
-        (*fe_collection)[fe_index],           // TOOD
-        q_collections[q_index],               // TOOD
+        (*fe_collection)(fe_index, r_index),
+        q_collections[q_index], // TOOD
         update_flags);
 
     // now there definitely is one!
@@ -244,12 +244,11 @@ namespace hp
              ++r_index)
           task_group +=
             Threads::new_task([&, fe_index, mapping_index, q_index, r_index]() {
-              fe_values_table(
-                TableIndices<4>(fe_index, mapping_index, q_index, r_index)) =
+              fe_values_table[fe_index][mapping_index][q_index][r_index] =
                 std::make_unique<FEValuesType>(
                   (*mapping_collection)[mapping_index], // TOOD
-                  (*fe_collection)[fe_index],           // TOOD
-                  q_collections[q_index],               // TOOD
+                  (*fe_collection)(fe_index, r_index),
+                  q_collections[q_index], // TOOD
                   update_flags);
             });
       }
