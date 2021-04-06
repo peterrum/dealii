@@ -84,7 +84,7 @@ namespace Euler_DG
 
   using Number = double;
 
-  // Here, the type of the data strucure is chosen for vectorization. In the
+  // Here, the type of the data structure is chosen for vectorization. In the
   // default case, VectorizedArray<Number> is used, i.e., the highest
   // instruction-set-architecture extension available on the given hardware with
   // the maximum number of vector lanes is used. However, one might reduce
@@ -486,7 +486,7 @@ namespace Euler_DG
   // shared-memory domain are combined to a group. The specified size is
   // decisive for the benefit of the shared-memory capabilities of MatrixFree
   // and, therefore, setting the <code>size</code> to <code>-1</code> is a
-  // reasonable choice. By setting, the size to <code>1</code> users explicity
+  // reasonable choice. By setting, the size to <code>1</code> users explicitly
   // disable the MPI-3.0 shared-memory features of MatrixFree and rely
   // completely on MPI-2.0 features, like <code>MPI_Isend</code> and
   // <code>MPI_Irecv</code>.
