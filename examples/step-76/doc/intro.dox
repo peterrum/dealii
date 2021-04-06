@@ -71,7 +71,7 @@ the communicator <code>comm</code> that have access to the same shared memory,
 can be created via:
 
 @code
-MPI_Comm_split_type (comm, MPI_COMM_TYPE_SHARED, rank ,MPI_INFO_NULL, &comm_sm );
+MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, rank ,MPI_INFO_NULL, &comm_sm);
 @endcode
 
 The following code snippet shows the simplified allocation routines of
@@ -97,14 +97,14 @@ data_others.resize(size_sm);
 for (int i = 0, int disp_unit, MPI_Aint ssize; i < size_sm; i++)
   MPI_Win_shared_query(win, i, &ssize, &disp_unit, &data_others[i]);
 
-Assert(data_this==data_others[rank_sm], ExcMessage("Something went wrong!"));
+Assert(data_this == data_others[rank_sm], ExcMessage("Something went wrong!"));
 @endcode
 
 Once the data is not needed anymore, the window has to be freed, which also
 frees the locally-owned data:
 
 @code
-MPI_Win_free(&win)
+MPI_Win_free(&win);
 @endcode
 
 <h4>MPI-3.0 and LinearAlgebra::distributed::Vector</h4>
@@ -201,7 +201,7 @@ to a face with a single 1D sweep.
 
 <h4>Cell-centric loops and MatrixFree</h4>
 
-For cell-centric loop implementations, the function `MatrixFree::loop_cell_centric()`
+For cell-centric loop implementations, the function MatrixFree::loop_cell_centric()
 can be used, to which the user can pass a function that should be performed on
 each cell.
 
@@ -315,7 +315,7 @@ is by no means efficient, since data is read and written multiple times
 from and to the global vector as well as computations are performed
 redundantly. Below, we will discuss advanced techniques that target these issues.
 
-To be able to use `MatrixFree::loop_cell_centric()`, following flags of MatirxFree::AdditionalData
+To be able to use MatrixFree::loop_cell_centric(), following flags of MatrixFree::AdditionalData
 have to be enabled:
 
 @code
