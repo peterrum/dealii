@@ -446,20 +446,20 @@ namespace internal
                 dof_handler.get_fe().n_dofs_per_line(),
               numbers::invalid_dof_index);
 
-            // faces
-            {
-              dof_handler.object_dof_ptr[0][2].assign(
-                dof_handler.tria->n_raw_quads() + 1, -1);
+            const auto process = [&](const unsigned int structdim,
+                                     const unsigned int n_raw_quads,
+                                     const auto &       cell_process) {
+              dof_handler.object_dof_ptr[0][structdim].assign(n_raw_quads + 1,
+                                                              -1);
               // determine for each face the number of dofs
               for (const auto &cell : dof_handler.tria->cell_iterators())
-                for (const auto face_index : cell->face_indices())
-                  {
-                    const auto &face = cell->face(face_index);
-                    const auto  n_dofs_per_quad =
-                      dof_handler.get_fe().n_dofs_per_quad(face_index);
-
+                // if (cell->is_active() && !cell->is_artificial())
+                cell_process(
+                  cell,
+                  [&](const unsigned int n_dofs_per_quad,
+                      const unsigned int index) {
                     auto &n_dofs_per_quad_target =
-                      dof_handler.object_dof_ptr[0][2][face->index() + 1];
+                      dof_handler.object_dof_ptr[0][structdim][index + 1];
 
                     // make sure that either the face has not been visited or
                     // the face has the same number of dofs assigned
@@ -472,28 +472,38 @@ namespace internal
                       ExcNotImplemented());
 
                     n_dofs_per_quad_target = n_dofs_per_quad;
-                  }
+                  });
 
               // convert the absolute numbers to CRS
-              dof_handler.object_dof_ptr[0][2][0] = 0;
+              dof_handler.object_dof_ptr[0][structdim][0] = 0;
               for (unsigned int i = 1; i < dof_handler.tria->n_raw_quads() + 1;
                    i++)
                 {
-                  if (dof_handler.object_dof_ptr[0][2][i] ==
+                  if (dof_handler.object_dof_ptr[0][structdim][i] ==
                       static_cast<
                         typename DoFHandler<dim, spacedim>::offset_type>(-1))
-                    dof_handler.object_dof_ptr[0][2][i] =
-                      dof_handler.object_dof_ptr[0][2][i - 1];
+                    dof_handler.object_dof_ptr[0][structdim][i] =
+                      dof_handler.object_dof_ptr[0][structdim][i - 1];
                   else
-                    dof_handler.object_dof_ptr[0][2][i] +=
-                      dof_handler.object_dof_ptr[0][2][i - 1];
+                    dof_handler.object_dof_ptr[0][structdim][i] +=
+                      dof_handler.object_dof_ptr[0][structdim][i - 1];
                 }
 
               // allocate memory for indices
-              dof_handler.object_dof_indices[0][2].resize(
-                dof_handler.object_dof_ptr[0][2].back(),
+              dof_handler.object_dof_indices[0][structdim].resize(
+                dof_handler.object_dof_ptr[0][structdim].back(),
                 numbers::invalid_dof_index);
-            }
+            };
+
+            // faces
+            process(2,
+                    dof_handler.tria->n_raw_quads(),
+                    [&](const auto &cell, const auto &process) {
+                      for (const auto face_index : cell->face_indices())
+                        process(dof_handler.get_fe().n_dofs_per_quad(
+                                  face_index),
+                                cell->face(face_index)->index());
+                    });
           }
       }
 
