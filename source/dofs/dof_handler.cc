@@ -342,11 +342,6 @@ namespace internal
       {
         reset_to_empty_objects(dof_handler);
 
-        dof_handler.object_dof_indices[0][0].resize(
-          dof_handler.tria->n_vertices() *
-            dof_handler.get_fe().n_dofs_per_vertex(),
-          numbers::invalid_dof_index);
-
         for (unsigned int i = 0; i < dof_handler.tria->n_levels(); ++i)
           {
             dof_handler.object_dof_indices[i][1].resize(
@@ -374,21 +369,21 @@ namespace internal
                 j * dof_handler.get_fe().n_dofs_per_cell());
           }
 
-        dof_handler.object_dof_indices[0][0].resize(
-          dof_handler.tria->n_vertices() *
-            dof_handler.get_fe().n_dofs_per_vertex(),
-          numbers::invalid_dof_index);
+        // vertices
+        process(dof_handler,
+                0,
+                dof_handler.tria->n_vertices(),
+                [&](const auto &cell, const auto &process) {
+                  for (const auto vertex_index : cell->vertex_indices())
+                    process(dof_handler.get_fe().n_dofs_per_vertex(),
+                            cell->vertex_index(vertex_index));
+                });
       }
 
       template <int spacedim>
       static void reserve_space(DoFHandler<2, spacedim> &dof_handler)
       {
         reset_to_empty_objects(dof_handler);
-
-        dof_handler.object_dof_indices[0][0].resize(
-          dof_handler.tria->n_vertices() *
-            dof_handler.get_fe().n_dofs_per_vertex(),
-          numbers::invalid_dof_index);
 
         for (unsigned int i = 0; i < dof_handler.tria->n_levels(); ++i)
           {
@@ -419,26 +414,25 @@ namespace internal
                 j * dof_handler.get_fe().n_dofs_per_cell());
           }
 
-        dof_handler.object_dof_indices[0][0].resize(
-          dof_handler.tria->n_vertices() *
-            dof_handler.get_fe().n_dofs_per_vertex(),
-          numbers::invalid_dof_index);
+        // vertices
+        process(dof_handler,
+                0,
+                dof_handler.tria->n_vertices(),
+                [&](const auto &cell, const auto &process) {
+                  for (const auto vertex_index : cell->vertex_indices())
+                    process(dof_handler.get_fe().n_dofs_per_vertex(),
+                            cell->vertex_index(vertex_index));
+                });
 
-        if (dof_handler.tria->n_cells() > 0)
-          {
-            // line
-            dof_handler.object_dof_ptr[0][1].reserve(
-              dof_handler.tria->n_raw_lines() + 1);
-            for (unsigned int i = 0; i < dof_handler.tria->n_raw_lines() + 1;
-                 i++)
-              dof_handler.object_dof_ptr[0][1].push_back(
-                i * dof_handler.get_fe().n_dofs_per_line());
-
-            dof_handler.object_dof_indices[0][1].resize(
-              dof_handler.tria->n_raw_lines() *
-                dof_handler.get_fe().n_dofs_per_line(),
-              numbers::invalid_dof_index);
-          }
+        // faces
+        process(dof_handler,
+                1,
+                dof_handler.tria->n_raw_lines(),
+                [&](const auto &cell, const auto &process) {
+                  for (const auto face_index : cell->face_indices())
+                    process(dof_handler.get_fe().n_dofs_per_line(),
+                            cell->face(face_index)->index());
+                });
       }
 
       template <int spacedim>
@@ -474,11 +468,6 @@ namespace internal
               dof_handler.cell_dof_cache_ptr[i].push_back(
                 j * dof_handler.get_fe().n_dofs_per_cell());
           }
-
-        dof_handler.object_dof_indices[0][0].resize(
-          dof_handler.tria->n_vertices() *
-            dof_handler.get_fe().n_dofs_per_vertex(),
-          numbers::invalid_dof_index);
 
         // vertices
         process(dof_handler,

@@ -248,18 +248,11 @@ namespace internal
             AssertDimension(fe_index,
                             (DoFHandler<dim, spacedim>::default_fe_index));
 
-            if ((dim != 3) && d == 0)
-              process(
-                dof_handler.object_dof_indices
-                  [0][0][obj_index * dof_handler.get_fe().n_dofs_per_vertex() +
-                         local_index],
-                global_index);
-            else
-              process(dof_handler.object_dof_indices
-                        [obj_level][d]
-                        [dof_handler.object_dof_ptr[obj_level][d][obj_index] +
-                         local_index],
-                      global_index);
+            process(dof_handler.object_dof_indices
+                      [obj_level][d]
+                      [dof_handler.object_dof_ptr[obj_level][d][obj_index] +
+                       local_index],
+                    global_index);
 
             return;
           }
@@ -360,25 +353,12 @@ namespace internal
             AssertDimension(fe_index,
                             (DoFHandler<dim, spacedim>::default_fe_index));
 
-            // vertex -> no pointers are saved
-            if ((dim != 3) && d == 0)
-              {
-                const unsigned int ptr_0 =
-                  obj_index * dof_handler.get_fe().n_dofs_per_vertex();
-                const unsigned int ptr_1 =
-                  ptr_0 + dof_handler.get_fe().n_dofs_per_vertex();
+            const unsigned int ptr_0 =
+              dof_handler.object_dof_ptr[obj_level][d][obj_index];
+            const unsigned int ptr_1 =
+              dof_handler.object_dof_ptr[obj_level][d][obj_index + 1];
 
-                return {ptr_0, ptr_1};
-              }
-            else // line or quad
-              {
-                const unsigned int ptr_0 =
-                  dof_handler.object_dof_ptr[obj_level][d][obj_index];
-                const unsigned int ptr_1 =
-                  dof_handler.object_dof_ptr[obj_level][d][obj_index + 1];
-
-                return {ptr_0, ptr_1};
-              }
+            return {ptr_0, ptr_1};
           }
 
         // 3) hp is used
