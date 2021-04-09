@@ -433,19 +433,6 @@ namespace internal
 
         if (dof_handler.tria->n_cells() > 0)
           {
-            // lines
-            dof_handler.object_dof_ptr[0][1].reserve(
-              dof_handler.tria->n_raw_lines() + 1);
-            for (unsigned int i = 0; i < dof_handler.tria->n_raw_lines() + 1;
-                 i++)
-              dof_handler.object_dof_ptr[0][1].push_back(
-                i * dof_handler.get_fe().n_dofs_per_line());
-
-            dof_handler.object_dof_indices[0][1].resize(
-              dof_handler.tria->n_raw_lines() *
-                dof_handler.get_fe().n_dofs_per_line(),
-              numbers::invalid_dof_index);
-
             const auto process = [&](const unsigned int structdim,
                                      const unsigned int n_raw_quads,
                                      const auto &       cell_process) {
@@ -453,31 +440,30 @@ namespace internal
                                                               -1);
               // determine for each face the number of dofs
               for (const auto &cell : dof_handler.tria->cell_iterators())
-                // if (cell->is_active() && !cell->is_artificial())
-                cell_process(
-                  cell,
-                  [&](const unsigned int n_dofs_per_quad,
-                      const unsigned int index) {
-                    auto &n_dofs_per_quad_target =
-                      dof_handler.object_dof_ptr[0][structdim][index + 1];
+                if (cell->is_active() && !cell->is_artificial())
+                  cell_process(
+                    cell,
+                    [&](const unsigned int n_dofs_per_quad,
+                        const unsigned int index) {
+                      auto &n_dofs_per_quad_target =
+                        dof_handler.object_dof_ptr[0][structdim][index + 1];
 
-                    // make sure that either the face has not been visited or
-                    // the face has the same number of dofs assigned
-                    Assert(
-                      (n_dofs_per_quad_target ==
-                         static_cast<
-                           typename DoFHandler<dim, spacedim>::offset_type>(
-                           -1) ||
-                       n_dofs_per_quad_target == n_dofs_per_quad),
-                      ExcNotImplemented());
+                      // make sure that either the face has not been visited or
+                      // the face has the same number of dofs assigned
+                      Assert(
+                        (n_dofs_per_quad_target ==
+                           static_cast<
+                             typename DoFHandler<dim, spacedim>::offset_type>(
+                             -1) ||
+                         n_dofs_per_quad_target == n_dofs_per_quad),
+                        ExcNotImplemented());
 
-                    n_dofs_per_quad_target = n_dofs_per_quad;
-                  });
+                      n_dofs_per_quad_target = n_dofs_per_quad;
+                    });
 
               // convert the absolute numbers to CRS
               dof_handler.object_dof_ptr[0][structdim][0] = 0;
-              for (unsigned int i = 1; i < dof_handler.tria->n_raw_quads() + 1;
-                   i++)
+              for (unsigned int i = 1; i < n_raw_quads + 1; ++i)
                 {
                   if (dof_handler.object_dof_ptr[0][structdim][i] ==
                       static_cast<
@@ -494,6 +480,15 @@ namespace internal
                 dof_handler.object_dof_ptr[0][structdim].back(),
                 numbers::invalid_dof_index);
             };
+
+            // lines
+            process(1,
+                    dof_handler.tria->n_raw_lines(),
+                    [&](const auto &cell, const auto &process) {
+                      for (const auto line_index : cell->line_indices())
+                        process(dof_handler.get_fe().n_dofs_per_line(),
+                                cell->line(line_index)->index());
+                    });
 
             // faces
             process(2,
