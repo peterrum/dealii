@@ -394,11 +394,6 @@ namespace internal
 
         reset_to_empty_objects(dof_handler);
 
-        dof_handler.object_dof_indices[0][0].resize(
-          dof_handler.tria->n_vertices() *
-            dof_handler.get_fe().n_dofs_per_vertex(),
-          numbers::invalid_dof_index);
-
         for (unsigned int i = 0; i < dof_handler.tria->n_levels(); ++i)
           {
             dof_handler.object_dof_indices[i][3].resize(
@@ -480,6 +475,15 @@ namespace internal
                 dof_handler.object_dof_ptr[0][structdim].back(),
                 numbers::invalid_dof_index);
             };
+
+            // vertices
+            process(0,
+                    dof_handler.tria->n_vertices(),
+                    [&](const auto &cell, const auto &process) {
+                      for (const auto vertex_index : cell->vertex_indices())
+                        process(dof_handler.get_fe().n_dofs_per_vertex(),
+                                cell->vertex_index(vertex_index));
+                    });
 
             // lines
             process(1,

@@ -248,7 +248,7 @@ namespace internal
             AssertDimension(fe_index,
                             (DoFHandler<dim, spacedim>::default_fe_index));
 
-            if (d == 0)
+            if ((dim != 3) && d == 0)
               process(
                 dof_handler.object_dof_indices
                   [0][0][obj_index * dof_handler.get_fe().n_dofs_per_vertex() +
@@ -361,7 +361,7 @@ namespace internal
                             (DoFHandler<dim, spacedim>::default_fe_index));
 
             // vertex -> no pointers are saved
-            if (d == 0)
+            if ((dim != 3) && d == 0)
               {
                 const unsigned int ptr_0 =
                   obj_index * dof_handler.get_fe().n_dofs_per_vertex();
