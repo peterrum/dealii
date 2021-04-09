@@ -791,9 +791,10 @@ namespace internal
       n_dof_indices(
         const dealii::DoFAccessor<structdim, dim, spacedim, level_dof_access>
           &                accessor,
-        const unsigned int fe_index_)
+        const unsigned int fe_index_,
+        const bool         level_dof_access_)
       {
-        if (level_dof_access)
+        if (level_dof_access_)
           {
             const auto &fe = accessor.get_fe(fe_index_);
 
@@ -884,9 +885,13 @@ namespace internal
           &                 accessor,
         DoFIndicesType &    dof_indices,
         const unsigned int  fe_index,
-        const DoFOperation &dof_operation)
+        const DoFOperation &dof_operation,
+        const bool          level_dof_access_)
       {
-        AssertDimension(dof_indices.size(), n_dof_indices(accessor, fe_index));
+        (void)level_dof_access_;
+
+        AssertDimension(dof_indices.size(),
+                        n_dof_indices(accessor, fe_index, level_dof_access_));
 
         const auto &fe = accessor.get_fe(fe_index);
 
@@ -1296,7 +1301,8 @@ namespace internal
           accessor,
           dof_indices,
           fe_index,
-          DoFIndexGetter<dim, spacedim, level_dof_access, structdim>());
+          DoFIndexGetter<dim, spacedim, level_dof_access, structdim>(),
+          false);
       }
 
 
@@ -1324,7 +1330,8 @@ namespace internal
           accessor,
           dof_indices,
           fe_index,
-          DoFIndexSetter<dim, spacedim, level_dof_access, structdim>());
+          DoFIndexSetter<dim, spacedim, level_dof_access, structdim>(),
+          false);
       }
 
 
@@ -1343,7 +1350,8 @@ namespace internal
           dof_indices,
           fe_index,
           MGDoFIndexGetter<dim, spacedim, level_dof_access, structdim>(
-            accessor.get_fe(fe_index), level));
+            accessor.get_fe(fe_index), level),
+          true);
       }
 
 
@@ -1372,7 +1380,8 @@ namespace internal
           dof_indices,
           fe_index,
           MGDoFIndexSetter<dim, spacedim, level_dof_access, structdim>(
-            accessor.get_fe(fe_index), level));
+            accessor.get_fe(fe_index), level),
+          true);
       }
     };
   } // namespace DoFAccessorImplementation
