@@ -392,12 +392,18 @@ namespace internal
           for (unsigned int i = 0; i < dof_handler.tria->n_levels(); ++i)
             {
               // 1) object_dof_indices
-              dof_handler.object_dof_ptr[i][dim].reserve(
-                dof_handler.tria->n_raw_cells(i) + 1);
-              for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
-                   j++)
-                dof_handler.object_dof_ptr[i][dim].push_back(j *
-                                                             n_dofs_per_quad);
+              dof_handler.object_dof_ptr[i][dim].assign(
+                dof_handler.tria->n_raw_cells(i) + 1, 0);
+
+              for (const auto &cell :
+                   dof_handler.tria->cell_iterators_on_level(i))
+                dof_handler.object_dof_ptr[i][dim][cell->index() + 1] =
+                  n_dofs_per_quad;
+
+              for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i);
+                   ++j)
+                dof_handler.object_dof_ptr[i][dim][j + 1] +=
+                  dof_handler.object_dof_ptr[i][dim][j];
 
               dof_handler.object_dof_indices[i][dim].resize(
                 dof_handler.object_dof_ptr[i][dim].back(),
@@ -406,12 +412,18 @@ namespace internal
 
 
               // 2) cell_dof_cache_indices
-              dof_handler.cell_dof_cache_ptr[i].reserve(
-                dof_handler.tria->n_raw_cells(i) + 1);
-              for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
-                   j++)
-                dof_handler.cell_dof_cache_ptr[i].push_back(
-                  j * dof_handler.get_fe().n_dofs_per_cell());
+              dof_handler.cell_dof_cache_ptr[i].assign(
+                dof_handler.tria->n_raw_cells(i) + 1, 0);
+
+              for (const auto &cell :
+                   dof_handler.tria->cell_iterators_on_level(i))
+                dof_handler.cell_dof_cache_ptr[i][cell->index() + 1] =
+                  dof_handler.get_fe().n_dofs_per_cell();
+
+              for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i);
+                   ++j)
+                dof_handler.cell_dof_cache_ptr[i][j + 1] +=
+                  dof_handler.cell_dof_cache_ptr[i][j];
 
               dof_handler.cell_dof_cache_indices[i].resize(
                 dof_handler.cell_dof_cache_ptr[i].back(),
