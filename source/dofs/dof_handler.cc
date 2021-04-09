@@ -385,34 +385,41 @@ namespace internal
       {
         reset_to_empty_objects(dof_handler);
 
-        for (unsigned int i = 0; i < dof_handler.tria->n_levels(); ++i)
-          {
-            dof_handler.object_dof_indices[i][2].resize(
-              dof_handler.tria->n_raw_cells(i) *
-                dof_handler.get_fe().n_dofs_per_quad(
-                  0 /*note: in 2D there is only one quad*/),
-              numbers::invalid_dof_index);
+        const unsigned int dim = 2;
 
-            dof_handler.object_dof_ptr[i][2].reserve(
-              dof_handler.tria->n_raw_cells(i) + 1);
-            for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
-                 j++)
-              dof_handler.object_dof_ptr[i][2].push_back(
-                j * dof_handler.get_fe().n_dofs_per_quad(
-                      0 /*note: in 2D there is only one quad*/));
+        const auto process_cell = [&](const auto &       dof_handler,
+                                      const unsigned int n_dofs_per_quad) {
+          for (unsigned int i = 0; i < dof_handler.tria->n_levels(); ++i)
+            {
+              // 1) object_dof_indices
+              dof_handler.object_dof_ptr[i][dim].reserve(
+                dof_handler.tria->n_raw_cells(i) + 1);
+              for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
+                   j++)
+                dof_handler.object_dof_ptr[i][dim].push_back(j *
+                                                             n_dofs_per_quad);
 
-            dof_handler.cell_dof_cache_indices[i].resize(
-              dof_handler.tria->n_raw_cells(i) *
-                dof_handler.get_fe().n_dofs_per_cell(),
-              numbers::invalid_dof_index);
+              dof_handler.object_dof_indices[i][dim].resize(
+                dof_handler.object_dof_ptr[i][dim].back(),
+                numbers::invalid_dof_index);
 
-            dof_handler.cell_dof_cache_ptr[i].reserve(
-              dof_handler.tria->n_raw_cells(i) + 1);
-            for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
-                 j++)
-              dof_handler.cell_dof_cache_ptr[i].push_back(
-                j * dof_handler.get_fe().n_dofs_per_cell());
-          }
+
+
+              // 2) cell_dof_cache_indices
+              dof_handler.cell_dof_cache_ptr[i].reserve(
+                dof_handler.tria->n_raw_cells(i) + 1);
+              for (unsigned int j = 0; j < dof_handler.tria->n_raw_cells(i) + 1;
+                   j++)
+                dof_handler.cell_dof_cache_ptr[i].push_back(
+                  j * dof_handler.get_fe().n_dofs_per_cell());
+
+              dof_handler.cell_dof_cache_indices[i].resize(
+                dof_handler.cell_dof_cache_ptr[i].back(),
+                numbers::invalid_dof_index);
+            }
+        };
+
+        process_cell(dof_handler, dof_handler.get_fe().n_dofs_per_quad(0));
 
         // vertices
         process(dof_handler,
