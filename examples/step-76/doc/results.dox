@@ -70,9 +70,9 @@ other hand, have to be communicated. Using the shared-memory capabilities
 introduced in this tutorial, the second point can be eliminated on a single
 compute node or its influence can be reduced in a hybrid context.
 
-<h4>Block Gauss-Seidl-like preconditioners</h4>
+<h4>Block Gauss-Seidel-like preconditioners</h4>
 
-Cell-centric loops could be used to create block Gauss-Seidl preconditioners
+Cell-centric loops could be used to create block Gauss-Seidel preconditioners
 that are multiplicative within one process and additive over processes. These
 type of preconditioners use during flux computation, in contrast to Jacobi-type
 preconditioners, already updated values from neighboring cells. The following

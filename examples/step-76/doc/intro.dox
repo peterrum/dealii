@@ -71,7 +71,7 @@ the communicator <code>comm</code> that have access to the same shared memory,
 can be created via:
 
 @code
-MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, rank ,MPI_INFO_NULL, &comm_sm);
+MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, rank, MPI_INFO_NULL, &comm_sm);
 @endcode
 
 The following code snippet shows the simplified allocation routines of
@@ -94,7 +94,9 @@ MPI_Win_allocate_shared(local_size * sizeof(T), sizeof(T), info, comm_sm, &data_
 
 // get pointers to the shared data owned by the processes in the same sm domain
 data_others.resize(size_sm);
-for (int i = 0, int disp_unit, MPI_Aint ssize; i < size_sm; i++)
+int disp_unit = 0; // displacement size - an output parameter we don't need right now
+MPI_Aint ssize = 0; // window size - an output parameter we don't need right now
+for (int i = 0; i < size_sm; ++i)
   MPI_Win_shared_query(win, i, &ssize, &disp_unit, &data_others[i]);
 
 Assert(data_this == data_others[rank_sm], ExcMessage("Something went wrong!"));
@@ -178,12 +180,10 @@ been presented in step-59 and step-67.
 "Cell-centric loops" (short CCL or ECL (for element-centric loops)
 in the hyper.deal release paper), in
 contrast, process a cell and in direct succession process all its
-2d faces (i.e., visit all faces twice). Their benefit has become clear for
-modern CPU processor architecture in the literature (Martin Kronbichler and
-Katharina Kormann. 2019. Fast Matrix-Free Evaluation of Discontinuous Galerkin
-Finite Element Operators.), although this kind of
-loop implies that fluxes have to be computed twice (for each side of an interior
-face). CCL has two primary advantages:
+faces (i.e., visit all faces twice). Their benefit has become clear for
+modern CPU processor architecture in the literature @cite KronbichlerKormann2019,
+although this kind of loop implies that fluxes have to be computed twice (for
+each side of an interior face). CCL has two primary advantages:
 - On the one hand, entries in the solution vector are written exactly once
   back to main memory in the case of CCL, while in the case of FCL at least once
   despite of cache-efficient scheduling of cell and face loops-due to cache
@@ -309,7 +309,7 @@ matrix_free.template loop_cell_centric<VectorType, VectorType>(
 @endcode
 
 It should be noted that FEFaceEvaluation is initialized now with two numbers,
-the cell number and the local face number (<code><2*dim</code>). The given example only
+the cell number and the local face number. The given example only
 highlights how to transform face-centric loops into cell-centric loops and
 is by no means efficient, since data is read and written multiple times
 from and to the global vector as well as computations are performed
@@ -325,7 +325,8 @@ typename MatrixFree<dim, Number>::AdditionalData additional_data;
 
 additional_data.hold_all_faces_to_owned_cells       = true;
 additional_data.mapping_update_flags_faces_by_cells =
-  additional_data.mapping_update_flags_inner_faces | additional_data.mapping_update_flags_boundary_faces;
+  additional_data.mapping_update_flags_inner_faces |
+  additional_data.mapping_update_flags_boundary_faces;
 
 data.reinit(mapping, dof_handler, constraint, quadrature, additional_data);
 @endcode
@@ -463,6 +464,6 @@ compares the deal.II-specific SIMD classes and the equivalent C++23 classes:
   </tr>
   <tr>
    <td><code>VectorizedArray<Number, size></code></td>
-   <td><code>std::experimental::ixed_size_simd<Number, size></code></td>
+   <td><code>std::experimental::fixed_size_simd<Number, size></code></td>
   </tr>
 </table>

@@ -807,25 +807,25 @@ namespace Euler_DG
             // as the final step.
             {
               auto *values_ptr  = phi.begin_values();
-              auto *grdient_ptr = phi.begin_gradients();
+              auto *gradient_ptr = phi.begin_gradients();
 
               for (unsigned int c = 0; c < dim + 2; ++c)
                 {
                   if (dim >= 1 && body_force.get() == nullptr)
                     eval.template gradients<0, false, false>(
-                      grdient_ptr + phi.static_n_q_points * 0, values_ptr);
+                      gradient_ptr + phi.static_n_q_points * 0, values_ptr);
                   else if (dim >= 1)
                     eval.template gradients<0, false, true>(
-                      grdient_ptr + phi.static_n_q_points * 0, values_ptr);
+                      gradient_ptr + phi.static_n_q_points * 0, values_ptr);
                   if (dim >= 2)
                     eval.template gradients<1, false, true>(
-                      grdient_ptr + phi.static_n_q_points * 1, values_ptr);
+                      gradient_ptr + phi.static_n_q_points * 1, values_ptr);
                   if (dim >= 3)
                     eval.template gradients<2, false, true>(
-                      grdient_ptr + phi.static_n_q_points * 2, values_ptr);
+                      gradient_ptr + phi.static_n_q_points * 2, values_ptr);
 
                   values_ptr += phi.static_n_q_points;
-                  grdient_ptr += phi.static_n_q_points * dim;
+                  gradient_ptr += phi.static_n_q_points * dim;
                 }
             }
 
@@ -980,7 +980,7 @@ namespace Euler_DG
                     phi.begin_values()[c * phi.static_n_q_points + q] * factor;
               }
 
-            // Transform vales from collocation space to the original
+            // Transform values from collocation space to the original
             // Gauss-Lobatto space:
             internal::FEEvaluationImplBasisChange<
               dealii::internal::EvaluatorVariant::evaluate_evenodd,
