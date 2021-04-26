@@ -62,25 +62,12 @@ namespace Euler_DG
   using namespace dealii;
 
   // The same input parameters as in step-67:
-#if true
   constexpr unsigned int testcase             = 1;
   constexpr unsigned int dimension            = 2;
-  constexpr unsigned int n_global_refinements = 3;
-  constexpr unsigned int fe_degree            = 5;
-  constexpr unsigned int n_q_points_1d        = fe_degree + 2;
-
-  constexpr unsigned int max_time_steps = numbers::invalid_unsigned_int;
-#else
-  constexpr unsigned int testcase             = 1;
-  constexpr unsigned int dimension            = 3;
   constexpr unsigned int n_global_refinements = 2;
   constexpr unsigned int fe_degree            = 5;
   constexpr unsigned int n_q_points_1d        = fe_degree + 2;
-
-  constexpr unsigned int max_time_steps = 100;
-#endif
-
-  constexpr unsigned int group_size = numbers::invalid_unsigned_int;
+  constexpr unsigned int max_time_steps = dimension == 2 ? numbers::invalid_unsigned_int : 100;
 
   using Number = double;
 
