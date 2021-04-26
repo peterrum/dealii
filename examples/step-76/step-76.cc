@@ -62,25 +62,12 @@ namespace Euler_DG
   using namespace dealii;
 
   // The same input parameters as in step-67:
-#if true
   constexpr unsigned int testcase             = 1;
   constexpr unsigned int dimension            = 2;
-  constexpr unsigned int n_global_refinements = 3;
-  constexpr unsigned int fe_degree            = 5;
-  constexpr unsigned int n_q_points_1d        = fe_degree + 2;
-
-  constexpr unsigned int max_time_steps = numbers::invalid_unsigned_int;
-#else
-  constexpr unsigned int testcase             = 1;
-  constexpr unsigned int dimension            = 3;
   constexpr unsigned int n_global_refinements = 2;
   constexpr unsigned int fe_degree            = 5;
   constexpr unsigned int n_q_points_1d        = fe_degree + 2;
-
-  constexpr unsigned int max_time_steps = 100;
-#endif
-
-  constexpr unsigned int group_size = numbers::invalid_unsigned_int;
+  constexpr unsigned int max_time_steps = dimension == 2 ? numbers::invalid_unsigned_int : 100;
 
   using Number = double;
 
@@ -807,25 +794,25 @@ namespace Euler_DG
             // as the final step.
             {
               auto *values_ptr  = phi.begin_values();
-              auto *grdient_ptr = phi.begin_gradients();
+              auto *gradient_ptr = phi.begin_gradients();
 
               for (unsigned int c = 0; c < dim + 2; ++c)
                 {
                   if (dim >= 1 && body_force.get() == nullptr)
                     eval.template gradients<0, false, false>(
-                      grdient_ptr + phi.static_n_q_points * 0, values_ptr);
+                      gradient_ptr + phi.static_n_q_points * 0, values_ptr);
                   else if (dim >= 1)
                     eval.template gradients<0, false, true>(
-                      grdient_ptr + phi.static_n_q_points * 0, values_ptr);
+                      gradient_ptr + phi.static_n_q_points * 0, values_ptr);
                   if (dim >= 2)
                     eval.template gradients<1, false, true>(
-                      grdient_ptr + phi.static_n_q_points * 1, values_ptr);
+                      gradient_ptr + phi.static_n_q_points * 1, values_ptr);
                   if (dim >= 3)
                     eval.template gradients<2, false, true>(
-                      grdient_ptr + phi.static_n_q_points * 2, values_ptr);
+                      gradient_ptr + phi.static_n_q_points * 2, values_ptr);
 
                   values_ptr += phi.static_n_q_points;
-                  grdient_ptr += phi.static_n_q_points * dim;
+                  gradient_ptr += phi.static_n_q_points * dim;
                 }
             }
 
@@ -980,7 +967,7 @@ namespace Euler_DG
                     phi.begin_values()[c * phi.static_n_q_points + q] * factor;
               }
 
-            // Transform vales from collocation space to the original
+            // Transform values from collocation space to the original
             // Gauss-Lobatto space:
             internal::FEEvaluationImplBasisChange<
               dealii::internal::EvaluatorVariant::evaluate_evenodd,
