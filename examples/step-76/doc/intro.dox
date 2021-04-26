@@ -9,9 +9,7 @@ finite-element library for high-dimensional partial differential equations
 hyper.deal (see https://github.com/hyperdeal/hyperdeal). For more details and
 for applications of the presented features in slightly different contexts
 (high-dimensional advection equation and Vlasov-Poisson equations) see the release
-paper "P. Munch, K. Kormann, M. Kronbichler. 2020 hyper.deal: An efficient,
-matrix-free finite-element library for high-dimensional partial differential
-equations. arXiv preprint arXiv:2002.08110".
+paper @cite munch2020hyperdeal.
 
 This work was partly supported by the German Research Foundation (DFG) through
 the project "High-order discontinuous Galerkin for the exa-scale" (ExaDG)
@@ -212,6 +210,8 @@ be passed to a MatrixFree::loop():
 @code
 matrix_free.template loop<VectorType, VectorType>(
   [&](const auto &data, auto &dst, const auto &src, const auto range) {
+    // operation performed on cells
+
     FEEvaluation<dim, degree, degree + 1, 1, Number> phi(data);
     for (unsigned int cell = range.first; cell < range.second; ++cell)
       {
@@ -224,8 +224,10 @@ matrix_free.template loop<VectorType, VectorType>(
       }
   },
   [&](const auto &data, auto &dst, const auto &src, const auto range) {
-    FEFaceEvaluation<dim, degree, degree + 1, 1, Number> phi_m(data, true);
-    FEFaceEvaluation<dim, degree, degree + 1, 1, Number> phi_p(data, false);
+    // operation performed inner faces
+
+    FEFaceEvaluation<dim, degree, degree + 1, 1, Number> phi_m(data, /*is_interior_face=*/true);
+    FEFaceEvaluation<dim, degree, degree + 1, 1, Number> phi_p(data, /*is_interior_face=*/false);
 
     for (unsigned int face = range.first; face < range.second; ++face)
       {
@@ -241,7 +243,9 @@ matrix_free.template loop<VectorType, VectorType>(
       }
   },
   [&](const auto &data, auto &dst, const auto &src, const auto range) {
-    FEFaceEvaluation<dim, degree, degree + 1, 1, Number> phi_m(data, true);
+    // operation performed boundary faces
+
+    FEFaceEvaluation<dim, degree, degree + 1, 1, Number> phi_m(data, /*is_interior_face=*/true);
 
     for (unsigned int face = range.first; face < range.second; ++face)
       {
@@ -263,8 +267,8 @@ in the following way:
 matrix_free.template loop_cell_centric<VectorType, VectorType>(
   [&](const auto &data, auto &dst, const auto &src, const auto range) {
     FEEvaluation<dim, degree, degree + 1, 1, Number>     phi(data);
-    FEFaceEvaluation<dim, degree, degree + 1, 1, Number> phi_m(data, true);
-    FEFaceEvaluation<dim, degree, degree + 1, 1, Number> phi_p(data, false);
+    FEFaceEvaluation<dim, degree, degree + 1, 1, Number> phi_m(data, /*is_interior_face=*/true);
+    FEFaceEvaluation<dim, degree, degree + 1, 1, Number> phi_p(data, /*is_interior_face=*/false);
 
     for (unsigned int cell = range.first; cell < range.second; ++cell)
       {
@@ -334,7 +338,9 @@ data.reinit(mapping, dof_handler, constraint, quadrature, additional_data);
 In particular, these flags enable that the internal data structures are set up
 for all faces of the cells.
 
-Currently, cell-centric loops in deal.II only work for uniformly refined meshes.
+Currently, cell-centric loops in deal.II only work for uniformly refined meshes
+and if no constraints are applied (which is the standard case DG is normally 
+used).
 
 
 <h3>Providing lambdas to MatrixFree loops</h3>

@@ -23,6 +23,7 @@
 #include <deal.II/base/conditional_ostream.h>
 #include <deal.II/base/function.h>
 #include <deal.II/base/logstream.h>
+#include <deal.II/base/time_stepping.h>
 #include <deal.II/base/timer.h>
 #include <deal.II/base/utilities.h>
 #include <deal.II/base/vectorization.h>
@@ -68,6 +69,9 @@ namespace Euler_DG
   constexpr unsigned int fe_degree            = 5;
   constexpr unsigned int n_q_points_1d        = fe_degree + 2;
   constexpr unsigned int max_time_steps = dimension == 2 ? numbers::invalid_unsigned_int : 100;
+  
+  // TODO
+  constexpr unsigned int group_size = numbers::invalid_unsigned_int;
 
   using Number = double;
 
@@ -105,76 +109,30 @@ namespace Euler_DG
   public:
     LowStorageRungeKuttaIntegrator(const LowStorageRungeKuttaScheme scheme)
     {
+      TimeStepping::runge_kutta_method lsrk;
       switch (scheme)
         {
           case stage_3_order_3:
-            {
-              bi = {{0.245170287303492, 0.184896052186740, 0.569933660509768}};
-              ai = {{0.755726351946097, 0.386954477304099}};
-
+              lsrk = TimeStepping::LOW_STORAGE_RK_STAGE3_ORDER3;
               break;
-            }
-
           case stage_5_order_4:
-            {
-              bi = {{1153189308089. / 22510343858157.,
-                     1772645290293. / 4653164025191.,
-                     -1672844663538. / 4480602732383.,
-                     2114624349019. / 3568978502595.,
-                     5198255086312. / 14908931495163.}};
-              ai = {{970286171893. / 4311952581923.,
-                     6584761158862. / 12103376702013.,
-                     2251764453980. / 15575788980749.,
-                     26877169314380. / 34165994151039.}};
-
+              lsrk = TimeStepping::LOW_STORAGE_RK_STAGE5_ORDER4;
               break;
-            }
-
           case stage_7_order_4:
-            {
-              bi = {{0.0941840925477795334,
-                     0.149683694803496998,
-                     0.285204742060440058,
-                     -0.122201846148053668,
-                     0.0605151571191401122,
-                     0.345986987898399296,
-                     0.186627171718797670}};
-              ai = {{0.241566650129646868 + bi[0],
-                     0.0423866513027719953 + bi[1],
-                     0.215602732678803776 + bi[2],
-                     0.232328007537583987 + bi[3],
-                     0.256223412574146438 + bi[4],
-                     0.0978694102142697230 + bi[5]}};
-
+              lsrk = TimeStepping::LOW_STORAGE_RK_STAGE7_ORDER4;
               break;
-            }
-
           case stage_9_order_5:
-            {
-              bi = {{2274579626619. / 23610510767302.,
-                     693987741272. / 12394497460941.,
-                     -347131529483. / 15096185902911.,
-                     1144057200723. / 32081666971178.,
-                     1562491064753. / 11797114684756.,
-                     13113619727965. / 44346030145118.,
-                     393957816125. / 7825732611452.,
-                     720647959663. / 6565743875477.,
-                     3559252274877. / 14424734981077.}};
-              ai = {{1107026461565. / 5417078080134.,
-                     38141181049399. / 41724347789894.,
-                     493273079041. / 11940823631197.,
-                     1851571280403. / 6147804934346.,
-                     11782306865191. / 62590030070788.,
-                     9452544825720. / 13648368537481.,
-                     4435885630781. / 26285702406235.,
-                     2357909744247. / 11371140753790.}};
-
+              lsrk = TimeStepping::LOW_STORAGE_RK_STAGE9_ORDER5;
               break;
-            }
 
           default:
             AssertThrow(false, ExcNotImplemented());
         }
+      TimeStepping::LowStorageRungeKutta<
+        LinearAlgebra::distributed::Vector<Number>>
+        rk_integrator(lsrk);
+      std::vector<double> ci; // not used
+      rk_integrator.get_coefficients(ai, bi, ci);
     }
 
     unsigned int n_stages() const
@@ -488,12 +446,6 @@ namespace Euler_DG
       if (group_size == 1)
         {
           this->comm = MPI_COMM_SELF;
-        }
-      else if (group_size != numbers::invalid_unsigned_int)
-        {
-          const auto rank = Utilities::MPI::this_mpi_process(comm);
-
-          MPI_Comm_split(comm, rank / group_size, rank, &this->comm);
         }
       else
         {
