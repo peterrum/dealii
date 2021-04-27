@@ -68,8 +68,9 @@ namespace Euler_DG
   constexpr unsigned int n_global_refinements = 2;
   constexpr unsigned int fe_degree            = 5;
   constexpr unsigned int n_q_points_1d        = fe_degree + 2;
-  constexpr unsigned int max_time_steps = dimension == 2 ? numbers::invalid_unsigned_int : 100;
-  
+  constexpr unsigned int max_time_steps =
+    dimension == 2 ? numbers::invalid_unsigned_int : 100;
+
   // TODO
   constexpr unsigned int group_size = numbers::invalid_unsigned_int;
 
@@ -113,24 +114,24 @@ namespace Euler_DG
       switch (scheme)
         {
           case stage_3_order_3:
-              lsrk = TimeStepping::LOW_STORAGE_RK_STAGE3_ORDER3;
-              break;
+            lsrk = TimeStepping::LOW_STORAGE_RK_STAGE3_ORDER3;
+            break;
           case stage_5_order_4:
-              lsrk = TimeStepping::LOW_STORAGE_RK_STAGE5_ORDER4;
-              break;
+            lsrk = TimeStepping::LOW_STORAGE_RK_STAGE5_ORDER4;
+            break;
           case stage_7_order_4:
-              lsrk = TimeStepping::LOW_STORAGE_RK_STAGE7_ORDER4;
-              break;
+            lsrk = TimeStepping::LOW_STORAGE_RK_STAGE7_ORDER4;
+            break;
           case stage_9_order_5:
-              lsrk = TimeStepping::LOW_STORAGE_RK_STAGE9_ORDER5;
-              break;
+            lsrk = TimeStepping::LOW_STORAGE_RK_STAGE9_ORDER5;
+            break;
 
           default:
             AssertThrow(false, ExcNotImplemented());
         }
       TimeStepping::LowStorageRungeKutta<
         LinearAlgebra::distributed::Vector<Number>>
-        rk_integrator(lsrk);
+                          rk_integrator(lsrk);
       std::vector<double> ci; // not used
       rk_integrator.get_coefficients(ai, bi, ci);
     }
@@ -422,63 +423,7 @@ namespace Euler_DG
   }
 
 
-  // @sect3{MPI-3.0 shared memory}
-
-  // The following code snippet shows a class storing an MPI sub-communicator.
-  // It furthermore handles the creation
-  // and freeing of the sub-communicator. The user can specify the size of
-  // the sub-communicator. If the size is set to -1, all MPI processes of a
-  // shared-memory domain are combined to a group. The specified size is
-  // decisive for the benefit of the shared-memory capabilities of MatrixFree
-  // and, therefore, setting the <code>size</code> to <code>-1</code> is a
-  // reasonable choice. By setting, the size to <code>1</code> users explicitly
-  // disable the MPI-3.0 shared-memory features of MatrixFree and rely
-  // completely on MPI-2.0 features, like <code>MPI_Isend</code> and
-  // <code>MPI_Irecv</code>.
-  class SubCommunicatorWrapper
-  {
-  public:
-    SubCommunicatorWrapper(
-      const MPI_Comm &   comm,
-      const unsigned int group_size = numbers::invalid_unsigned_int)
-    {
-#if defined(DEAL_II_WITH_MPI) && DEAL_II_MPI_VERSION_GTE(3, 0)
-      if (group_size == 1)
-        {
-          this->comm = MPI_COMM_SELF;
-        }
-      else
-        {
-          const auto rank = Utilities::MPI::this_mpi_process(comm);
-
-          MPI_Comm_split_type(
-            comm, MPI_COMM_TYPE_SHARED, rank, MPI_INFO_NULL, &this->comm);
-        }
-#else
-      (void)comm;
-      (void)group_size;
-      this->comm = MPI_COMM_SELF;
-#endif
-    }
-
-    ~SubCommunicatorWrapper()
-    {
-#ifdef DEAL_II_WITH_MPI
-      if (this->comm != MPI_COMM_SELF)
-        MPI_Comm_free(&comm);
-#endif
-    }
-
-    const MPI_Comm &get_communicator() const
-    {
-      return comm;
-    }
-
-  private:
-    MPI_Comm comm;
-  };
-
-  // @sect3{Euler operator using a cell-centric loop}
+  // @sect3{Euler operator using a cell-centric loop and MPI-3.0 shared memory}
 
   // Euler operator from step-67 with some changes as detailed below:
   template <int dim, int degree, int n_points_1d>
@@ -488,6 +433,8 @@ namespace Euler_DG
     static constexpr unsigned int n_quadrature_points_1d = n_points_1d;
 
     EulerOperator(TimerOutput &timer_output);
+
+    ~EulerOperator();
 
     void reinit(const Mapping<dim> &   mapping,
                 const DoFHandler<dim> &dof_handler);
@@ -529,7 +476,7 @@ namespace Euler_DG
     // Instance of SubCommunicatorWrapper containing the sub-communicator, which
     // we need to pass to MatrixFree::reinit() to be able to exploit MPI-3.0
     // shared-memory capabilities:
-    SubCommunicatorWrapper subcommunicator;
+    MPI_Comm subcommunicator;
 
     MatrixFree<dim, Number, VectorizedArrayType> data;
 
@@ -545,15 +492,52 @@ namespace Euler_DG
 
 
 
-  // New constructor, which creates a sub-communicator by calling the
-  // constructor of SubCommunicatorWrapper with a user-specified group size (see
-  // parameters):
+  // New constructor, which creates a sub-communicator. The user can specify
+  // the size of the sub-communicator via the global parameter group_size. If
+  // the size is set to -1, all MPI processes of a
+  // shared-memory domain are combined to a group. The specified size is
+  // decisive for the benefit of the shared-memory capabilities of MatrixFree
+  // and, therefore, setting the <code>size</code> to <code>-1</code> is a
+  // reasonable choice. By setting, the size to <code>1</code> users explicitly
+  // disable the MPI-3.0 shared-memory features of MatrixFree and rely
+  // completely on MPI-2.0 features, like <code>MPI_Isend</code> and
+  // <code>MPI_Irecv</code>.
   template <int dim, int degree, int n_points_1d>
   EulerOperator<dim, degree, n_points_1d>::EulerOperator(TimerOutput &timer)
-    : subcommunicator(MPI_COMM_WORLD, group_size)
-    , timer(timer)
-  {}
+    : timer(timer)
+  {
+#if defined(DEAL_II_WITH_MPI) && DEAL_II_MPI_VERSION_GTE(3, 0)
+    if (group_size == 1)
+      {
+        this->subcommunicator = MPI_COMM_SELF;
+      }
+    else
+      {
+        const auto rank = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
 
+        MPI_Comm_split_type(MPI_COMM_WORLD,
+                            MPI_COMM_TYPE_SHARED,
+                            rank,
+                            MPI_INFO_NULL,
+                            &subcommunicator);
+      }
+#else
+    (void)subcommunicator;
+    (void)group_size;
+    this->subcommunicator = MPI_COMM_SELF;
+#endif
+  }
+
+
+  // New destructor responsible for freeing of the sub-communicator.
+  template <int dim, int degree, int n_points_1d>
+  EulerOperator<dim, degree, n_points_1d>::~EulerOperator()
+  {
+#ifdef DEAL_II_WITH_MPI
+    if (this->subcommunicator != MPI_COMM_SELF)
+      MPI_Comm_free(&subcommunicator);
+#endif
+  }
 
 
   // Modified reinit() function to setup the internal data structures in
@@ -594,7 +578,7 @@ namespace Euler_DG
 
     // Enable MPI-3.0 shared-memory capabilities within MatrixFree by providing
     // the sub-communicator:
-    additional_data.communicator_sm = subcommunicator.get_communicator();
+    additional_data.communicator_sm = subcommunicator;
 
     data.reinit(
       mapping, dof_handlers, constraints, quadratures, additional_data);
@@ -745,7 +729,7 @@ namespace Euler_DG
             // cell quadrature points and only perform the interpolation back
             // as the final step.
             {
-              auto *values_ptr  = phi.begin_values();
+              auto *values_ptr   = phi.begin_values();
               auto *gradient_ptr = phi.begin_gradients();
 
               for (unsigned int c = 0; c < dim + 2; ++c)
@@ -1063,7 +1047,7 @@ namespace Euler_DG
                                                    Number,
                                                    VectorizedArrayType>
       inverse(phi);
-    solution.zero_out_ghosts();
+    solution.zero_out_ghost_values();
     for (unsigned int cell = 0; cell < data.n_cell_batches(); ++cell)
       {
         phi.reinit(cell);

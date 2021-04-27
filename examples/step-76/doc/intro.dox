@@ -195,7 +195,7 @@ each side of an interior face). CCL has two primary advantages:
 One should also note that although fluxes are computed twice in the case of CCL,
 this does not automatically translate into doubling of the computation, since
 values already interpolated to the cell quadrature points can be interpolated
-to a face with a single 1D sweep.
+to a face with a simple 1D interpolation.
 
 <h4>Cell-centric loops and MatrixFree</h4>
 
@@ -339,7 +339,7 @@ In particular, these flags enable that the internal data structures are set up
 for all faces of the cells.
 
 Currently, cell-centric loops in deal.II only work for uniformly refined meshes
-and if no constraints are applied (which is the standard case DG is normally 
+and if no constraints are applied (which is the standard case DG is normally
 used).
 
 

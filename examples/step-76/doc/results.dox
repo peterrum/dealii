@@ -22,6 +22,27 @@ Time:       0, dt:   0.0003, norm rho:  5.385e-16, rho * u:  1.916e-16, energy: 
 +--------------------------------------+------------------+------------+------------------+
 @endcode
 
+and the following visual output:
+
+<table align="center" class="doxtable" style="width:85%">
+  <tr>
+    <td>
+        <img src="https://www.dealii.org/images/steps/developer/step-67.pressure_010.png" alt="" width="100%">
+    </td>
+    <td>
+        <img src="https://www.dealii.org/images/steps/developer/step-67.pressure_025.png" alt="" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td>
+        <img src="https://www.dealii.org/images/steps/developer/step-67.pressure_050.png" alt="" width="100%">
+    </td>
+    <td>
+        <img src="https://www.dealii.org/images/steps/developer/step-67.pressure_100.png" alt="" width="100%">
+    </td>
+  </tr>
+</table>
+
 As a reference, the results of step-67 using FCL are:
 
 @code
