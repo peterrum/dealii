@@ -47,7 +47,7 @@ concentrate here only on the key differences.
 
 There exist many shared-memory libraries that are based on threads like TBB,
 OpenMP, or TaskFlow. Integrating such libraries into existing MPI programs
-allows one to use shared memory. however, these libraries come with an overhead
+allows one to use shared memory. However, these libraries come with an overhead
 for the programmer, since all parallelizable code sections have to be found and
 transformed according to the library used, including the difficulty when some
 third-party numerical library, like an iterative solver package, only relies on

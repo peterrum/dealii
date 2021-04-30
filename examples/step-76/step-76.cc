@@ -68,10 +68,11 @@ namespace Euler_DG
   constexpr unsigned int n_global_refinements = 2;
   constexpr unsigned int fe_degree            = 5;
   constexpr unsigned int n_q_points_1d        = fe_degree + 2;
-  constexpr unsigned int max_time_steps =
-    dimension == 2 ? numbers::invalid_unsigned_int : 100;
 
-  // TODO
+  // This parameter specifies the size of the shared-memory group. Currently,
+  // only the values 1 and numbers::invalid_unsigned_int is possible, leading
+  // to the options that the memory features can be turned off or all processes
+  // having access to the same shared-memory domain are grouped together.
   constexpr unsigned int group_size = numbers::invalid_unsigned_int;
 
   using Number = double;
@@ -91,6 +92,9 @@ namespace Euler_DG
   constexpr double output_tick = testcase == 0 ? 1 : 0.05;
 
   const double courant_number = 0.15 / std::pow(fe_degree, 1.5);
+
+  // Specify max number of time steps useful for performance studies.
+  constexpr unsigned int max_time_steps = numbers::invalid_unsigned_int;
 
   // Runge-Kutta-related functions copied from step-67 and slightly modified
   // with the purpose to minimize global vector access:
@@ -506,12 +510,12 @@ namespace Euler_DG
   EulerOperator<dim, degree, n_points_1d>::EulerOperator(TimerOutput &timer)
     : timer(timer)
   {
-#if defined(DEAL_II_WITH_MPI) && DEAL_II_MPI_VERSION_GTE(3, 0)
+#if DEAL_II_MPI_VERSION_GTE(3, 0)
     if (group_size == 1)
       {
         this->subcommunicator = MPI_COMM_SELF;
       }
-    else
+    else if (group_size == numbers::invalid_unsigned_int)
       {
         const auto rank = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
 
@@ -520,6 +524,10 @@ namespace Euler_DG
                             rank,
                             MPI_INFO_NULL,
                             &subcommunicator);
+      }
+    else
+      {
+        Assert(false, ExcNotImplemented());
       }
 #else
     (void)subcommunicator;

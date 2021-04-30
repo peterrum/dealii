@@ -101,7 +101,7 @@ pseudo-code visualizes how this could in principal be achieved:
 
 @code
 // vector monitor if cells have been updated or not
-Vector<Number> visit_flags; // TODO: we need a function for setup
+Vector<Number> visit_flags(data.n_cell_batches () + data.n_ghost_cell_batches ());
 
 // element centric loop with a modified kernel
 data.template loop_cell_centric<VectorType, VectorType>(

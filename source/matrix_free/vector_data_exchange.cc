@@ -985,8 +985,6 @@ namespace internal
 
             if (s.first == 0)
               {
-                continue; // TODO
-
                 const Number *DEAL_II_RESTRICT data_others_ptr =
                   data_others[sm_ghost_ranks[i]].data();
                 Number *DEAL_II_RESTRICT data_this_ptr = ghost_array.data();
@@ -1397,8 +1395,6 @@ namespace internal
       void
       Full::reset_ghost_values_impl(const ArrayView<Number> &ghost_array) const
       {
-        return; // TODO
-
         // reset ghost values coming from shared-memory neighbors
         // TODO: only needed if values are buffered
         for (const auto &i : sm_export_data_this.second)
