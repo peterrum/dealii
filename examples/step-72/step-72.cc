@@ -92,7 +92,7 @@ namespace Step72
   // automatic differentiation library that is provided as a part of the
   // Trilinos framework.
   //
-  // To facilitate switching between these different implementations, we have
+  // To facilitate switching between the three implementations, we have
   // this really basic parameters class that has only two options that are
   // configurable.
   class MinimalSurfaceProblemParameters : public ParameterAcceptor
@@ -321,9 +321,9 @@ namespace Step72
     // instance that MeshWorker::mesh_loop() provides. We then
     // initialize the cell DoF indices, knowing that the local matrix
     // and vector are already correctly sized.
-    auto cell_worker = [this](const CellIteratorType &cell,
-                              ScratchData &           scratch_data,
-                              CopyData &              copy_data) {
+    const auto cell_worker = [this](const CellIteratorType &cell,
+                                    ScratchData &           scratch_data,
+                                    CopyData &              copy_data) {
       const auto &fe_values = scratch_data.reinit(cell);
 
       FullMatrix<double> &                  cell_matrix = copy_data.matrices[0];
@@ -381,7 +381,7 @@ namespace Step72
     // in the `copy_data` instance that is passed into this function. This
     // `copy_data` has been filled with data during @a some call to the
     // `cell_worker`.
-    auto copier = [dofs_per_cell, this](const CopyData &copy_data) {
+    const auto copier = [dofs_per_cell, this](const CopyData &copy_data) {
       const FullMatrix<double> &cell_matrix = copy_data.matrices[0];
       const Vector<double> &    cell_rhs    = copy_data.vectors[0];
       const std::vector<types::global_dof_index> &local_dof_indices =
@@ -489,9 +489,9 @@ namespace Step72
     // With this, let us define the lambda function that will be used
     // to compute the cell contributions to the Jacobian matrix and
     // the right hand side:
-    auto cell_worker = [&u_fe, this](const CellIteratorType &cell,
-                                     ScratchData &           scratch_data,
-                                     CopyData &              copy_data) {
+    const auto cell_worker = [&u_fe, this](const CellIteratorType &cell,
+                                           ScratchData &           scratch_data,
+                                           CopyData &              copy_data) {
       const auto &       fe_values     = scratch_data.reinit(cell);
       const unsigned int dofs_per_cell = fe_values.get_fe().n_dofs_per_cell();
 
@@ -613,7 +613,7 @@ namespace Step72
     };
 
     // The remainder of the function equals what we had previously:
-    auto copier = [dofs_per_cell, this](const CopyData &copy_data) {
+    const auto copier = [dofs_per_cell, this](const CopyData &copy_data) {
       const FullMatrix<double> &cell_matrix = copy_data.matrices[0];
       const Vector<double> &    cell_rhs    = copy_data.vectors[0];
       const std::vector<types::global_dof_index> &local_dof_indices =
@@ -715,9 +715,9 @@ namespace Step72
     // are known up front. This is because the second-derivative matrix that
     // results from an energy functional is necessarily square (and also,
     // incidentally, symmetric).
-    auto cell_worker = [&u_fe, this](const CellIteratorType &cell,
-                                     ScratchData &           scratch_data,
-                                     CopyData &              copy_data) {
+    const auto cell_worker = [&u_fe, this](const CellIteratorType &cell,
+                                           ScratchData &           scratch_data,
+                                           CopyData &              copy_data) {
       const auto &fe_values = scratch_data.reinit(cell);
 
       FullMatrix<double> &                  cell_matrix = copy_data.matrices[0];
@@ -781,7 +781,7 @@ namespace Step72
 
     // As in the previous two functions, the remainder of the function is as
     // before:
-    auto copier = [dofs_per_cell, this](const CopyData &copy_data) {
+    const auto copier = [dofs_per_cell, this](const CopyData &copy_data) {
       const FullMatrix<double> &cell_matrix = copy_data.matrices[0];
       const Vector<double> &    cell_rhs    = copy_data.vectors[0];
       const std::vector<types::global_dof_index> &local_dof_indices =
