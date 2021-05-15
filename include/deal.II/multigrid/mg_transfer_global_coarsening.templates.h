@@ -1208,10 +1208,11 @@ namespace internal
       {
         // ... for fine mesh
         {
-          transfer.partitioner_fine.reset(new Utilities::MPI::Partitioner(
-            view.locally_owned_dofs(),
-            view.locally_relevant_dofs(),
-            dof_handler_fine.get_communicator()));
+          transfer.partitioner_fine =
+            std::make_shared<Utilities::MPI::Partitioner>(
+              view.locally_owned_dofs(),
+              view.locally_relevant_dofs(),
+              dof_handler_fine.get_communicator());
           transfer.vec_fine.reinit(transfer.partitioner_fine);
         }
 
@@ -1221,10 +1222,11 @@ namespace internal
           DoFTools::extract_locally_relevant_dofs(dof_handler_coarse,
                                                   locally_relevant_dofs);
 
-          transfer.partitioner_coarse.reset(new Utilities::MPI::Partitioner(
-            dof_handler_coarse.locally_owned_dofs(),
-            locally_relevant_dofs,
-            dof_handler_coarse.get_communicator()));
+          transfer.partitioner_coarse =
+            std::make_shared<Utilities::MPI::Partitioner>(
+              dof_handler_coarse.locally_owned_dofs(),
+              locally_relevant_dofs,
+              dof_handler_coarse.get_communicator());
           transfer.vec_coarse.reinit(transfer.partitioner_coarse);
           precompute_restriction_constraints(transfer.partitioner_coarse,
                                              constraint_coarse,
@@ -1655,11 +1657,8 @@ namespace internal
         dof_handler_fine.get_fe_collection().n_components();
 
       const auto process_cells = [&](const auto &fu) {
-        typename MeshType::active_cell_iterator            //
-          cell_coarse = dof_handler_coarse.begin_active(), //
-          end_coarse  = dof_handler_coarse.end();
-
-        for (; cell_coarse != end_coarse; ++cell_coarse)
+        for (const auto &cell_coarse :
+             dof_handler_coarse.active_cell_iterators())
           {
             if (!cell_coarse->is_locally_owned())
               continue;
@@ -1719,10 +1718,11 @@ namespace internal
 
       const auto comm = dof_handler_coarse.get_communicator();
       {
-        transfer.partitioner_fine.reset(
-          new Utilities::MPI::Partitioner(view.locally_owned_dofs(),
-                                          view.locally_relevant_dofs(),
-                                          dof_handler_fine.get_communicator()));
+        transfer.partitioner_fine =
+          std::make_shared<Utilities::MPI::Partitioner>(
+            view.locally_owned_dofs(),
+            view.locally_relevant_dofs(),
+            dof_handler_fine.get_communicator());
         transfer.vec_fine.reinit(transfer.partitioner_fine);
       }
       {
@@ -1730,10 +1730,11 @@ namespace internal
         DoFTools::extract_locally_relevant_dofs(dof_handler_coarse,
                                                 locally_relevant_dofs);
 
-        transfer.partitioner_coarse.reset(new Utilities::MPI::Partitioner(
-          dof_handler_coarse.locally_owned_dofs(),
-          locally_relevant_dofs,
-          comm));
+        transfer.partitioner_coarse =
+          std::make_shared<Utilities::MPI::Partitioner>(
+            dof_handler_coarse.locally_owned_dofs(),
+            locally_relevant_dofs,
+            comm);
         transfer.vec_coarse.reinit(transfer.partitioner_coarse);
         precompute_restriction_constraints(transfer.partitioner_coarse,
                                            constraint_coarse,
