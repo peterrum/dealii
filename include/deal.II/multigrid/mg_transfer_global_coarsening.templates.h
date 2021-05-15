@@ -417,9 +417,11 @@ namespace internal
     FineDoFHandlerViewCell(
       const std::function<bool()> &has_children_function,
       const std::function<void(std::vector<types::global_dof_index> &)>
-        &get_dof_indices_function)
+        &                                  get_dof_indices_function,
+      const std::function<unsigned int()> &active_fe_index_function)
       : has_children_function(has_children_function)
       , get_dof_indices_function(get_dof_indices_function)
+      , active_fe_index_function(active_fe_index_function)
     {}
 
     bool
@@ -434,11 +436,18 @@ namespace internal
       get_dof_indices_function(dof_indices);
     }
 
+    unsigned int
+    active_fe_index() const
+    {
+      return active_fe_index_function();
+    }
+
 
   private:
     const std::function<bool()> has_children_function;
     const std::function<void(std::vector<types::global_dof_index> &)>
-      get_dof_indices_function;
+                                        get_dof_indices_function;
+    const std::function<unsigned int()> active_fe_index_function;
   };
 
   template <int dim>
@@ -627,9 +636,6 @@ namespace internal
       const auto &dof_handler_dst = mesh_fine; // TODO: remove
       const auto &tria_dst        = mesh_fine.get_triangulation(); // TODO
 
-      const unsigned int dofs_per_cell =
-        mesh_coarse.get_fe_collection()[0].dofs_per_cell;
-
       const auto targets_with_indexset = process.get_requesters();
 
       std::map<unsigned int, std::vector<types::global_dof_index>>
@@ -638,7 +644,7 @@ namespace internal
       requests.reserve(targets_with_indexset.size());
 
       {
-        std::vector<types::global_dof_index> indices(dofs_per_cell);
+        std::vector<types::global_dof_index> indices;
 
         for (const auto &i : targets_with_indexset)
           {
@@ -653,7 +659,10 @@ namespace internal
                     cell_id_translator.to_cell_id(cell_id)),
                   &dof_handler_dst);
 
+                indices.resize(cell->get_fe().n_dofs_per_cell());
+
                 cell->get_dof_indices(indices);
+                buffer.push_back(cell->active_fe_index());
                 buffer.insert(buffer.end(), indices.begin(), indices.end());
               }
 
@@ -675,7 +684,7 @@ namespace internal
 
       // process local cells
       {
-        std::vector<types::global_dof_index> indices(dofs_per_cell);
+        std::vector<types::global_dof_index> indices;
 
         for (const auto id : is_dst_locally_owned)
           {
@@ -683,6 +692,8 @@ namespace internal
 
             typename MeshType::cell_iterator cell_(
               *tria_dst.create_cell_iterator(cell_id), &dof_handler_dst);
+
+            indices.resize(cell_->get_fe().n_dofs_per_cell());
 
             cell_->get_dof_indices(indices);
 
@@ -741,21 +752,30 @@ namespace internal
               MPI_STATUS_IGNORE);
             AssertThrowMPI(ierr_3);
 
-            ghost_indices.insert(ghost_indices.end(),
-                                 buffer.begin(),
-                                 buffer.end());
+            for (unsigned int i = 0; i < buffer.size();
+                 i += dof_handler_dst.get_fe(buffer[i]).n_dofs_per_cell() + 1)
+              ghost_indices.insert(
+                ghost_indices.end(),
+                buffer.begin() + i + 1,
+                buffer.begin() + i + 1 +
+                  dof_handler_dst.get_fe(buffer[i]).n_dofs_per_cell());
 
             const unsigned int rank = status.MPI_SOURCE;
 
             const auto ids = rank_to_ids[rank];
 
-            std::vector<types::global_dof_index> indices(dofs_per_cell);
+            std::vector<types::global_dof_index> indices;
 
             for (unsigned int i = 0, k = 0; i < ids.size(); ++i)
               {
-                for (unsigned int j = 0; j < dofs_per_cell; ++j, ++k)
+                const unsigned int active_fe_index = buffer[k++];
+
+                indices.resize(
+                  dof_handler_dst.get_fe(active_fe_index).n_dofs_per_cell());
+
+                for (unsigned int j = 0; j < indices.size(); ++j, ++k)
                   indices[j] = buffer[k];
-                map[ids[i]] = indices;
+                map[ids[i]] = {active_fe_index, indices};
               }
           }
 
@@ -819,11 +839,31 @@ namespace internal
             }
           else if (is_cell_remotly_owned)
             {
-              dof_indices = map.at(id);
+              dof_indices = map.at(id).second;
             }
           else
             {
               AssertThrow(false, ExcNotImplemented()); // should not happen!
+            }
+        },
+        [cell, is_cell_locally_owned, is_cell_remotly_owned, id, this]()
+          -> unsigned int {
+          if (is_cell_locally_owned)
+            {
+              return (typename MeshType::cell_iterator(
+                        *mesh_fine.get_triangulation().create_cell_iterator(
+                          cell->id()),
+                        &mesh_fine))
+                ->active_fe_index();
+            }
+          else if (is_cell_remotly_owned)
+            {
+              return map.at(id).first;
+            }
+          else
+            {
+              AssertThrow(false, ExcNotImplemented()); // should not happen!
+              return 0;
             }
         });
     }
@@ -858,12 +898,19 @@ namespace internal
             }
           else if (is_cell_remotly_owned)
             {
-              dof_indices = map.at(id);
+              dof_indices = map.at(id).second;
             }
           else
             {
               AssertThrow(false, ExcNotImplemented()); // should not happen!
             }
+        },
+        []() -> unsigned int {
+          AssertThrow(false, ExcNotImplemented()); // currently we do not need
+                                                   // active_fe_index() for
+                                                   // children
+
+          return 0;
         });
     }
 
@@ -896,7 +943,9 @@ namespace internal
     IndexSet is_extended_locally_owned;
     IndexSet is_extended_ghosts;
 
-    std::map<unsigned int, std::vector<types::global_dof_index>> map;
+    std::map<unsigned int,
+             std::pair<unsigned int, std::vector<types::global_dof_index>>>
+      map;
 
     static unsigned int
     n_coarse_cells(const MeshType &mesh)
@@ -1591,8 +1640,12 @@ namespace internal
       MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>
         &transfer)
     {
-      AssertDimension(dof_handler_fine.get_triangulation().n_active_cells(),
-                      dof_handler_coarse.get_triangulation().n_active_cells());
+      const GlobalCoarseningFineDoFHandlerView<MeshType> view(
+        dof_handler_fine, dof_handler_coarse);
+
+      AssertDimension(
+        dof_handler_fine.get_triangulation().n_global_active_cells(),
+        dof_handler_coarse.get_triangulation().n_global_active_cells());
 
       // extract number of components
       AssertDimension(dof_handler_fine.get_fe_collection().n_components(),
@@ -1604,15 +1657,16 @@ namespace internal
       const auto process_cells = [&](const auto &fu) {
         typename MeshType::active_cell_iterator            //
           cell_coarse = dof_handler_coarse.begin_active(), //
-          end_coarse  = dof_handler_coarse.end(),          //
-          cell_fine   = dof_handler_fine.begin_active();
+          end_coarse  = dof_handler_coarse.end();
 
-        for (; cell_coarse != end_coarse; cell_coarse++, cell_fine++)
+        for (; cell_coarse != end_coarse; ++cell_coarse)
           {
             if (!cell_coarse->is_locally_owned())
               continue;
 
-            fu(cell_coarse, cell_fine);
+            const auto cell_coarse_on_fine_mesh = view.get_cell(cell_coarse);
+
+            fu(cell_coarse, &cell_coarse_on_fine_mesh);
           }
       };
 
@@ -1665,12 +1719,10 @@ namespace internal
 
       const auto comm = dof_handler_coarse.get_communicator();
       {
-        IndexSet locally_relevant_dofs;
-        DoFTools::extract_locally_relevant_dofs(dof_handler_fine,
-                                                locally_relevant_dofs);
-
-        transfer.partitioner_fine.reset(new Utilities::MPI::Partitioner(
-          dof_handler_fine.locally_owned_dofs(), locally_relevant_dofs, comm));
+        transfer.partitioner_fine.reset(
+          new Utilities::MPI::Partitioner(view.locally_owned_dofs(),
+                                          view.locally_relevant_dofs(),
+                                          dof_handler_fine.get_communicator()));
         transfer.vec_fine.reinit(transfer.partitioner_fine);
       }
       {
@@ -1822,9 +1874,9 @@ namespace internal
 
         // if all access goes to the locally active dofs on all ranks, we do
         // not need the vec_fine vector
-        if (Utilities::MPI::max(static_cast<unsigned int>(
-                                  fine_indices_touch_non_active_dofs),
-                                comm) == 0)
+        if (false && Utilities::MPI::max(static_cast<unsigned int>(
+                                           fine_indices_touch_non_active_dofs),
+                                         comm) == 0)
           transfer.vec_fine.reinit(0);
       }
 
