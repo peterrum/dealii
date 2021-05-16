@@ -1014,6 +1014,45 @@ namespace internal
     }
   };
 
+  template <typename MeshType>
+  class PermutationFineDoFHandlerView
+    : public internal::FineDoFHandlerView<MeshType>
+  {
+  public:
+    PermutationFineDoFHandlerView(const MeshType &dof_handler_dst,
+                                  const MeshType &dof_handler_src)
+      : internal::FineDoFHandlerView<MeshType>(dof_handler_dst, dof_handler_src)
+    {
+      // get reference to triangulations
+      const auto &tria_dst = dof_handler_dst.get_triangulation();
+      const auto &tria_src = dof_handler_src.get_triangulation();
+
+      // create index sets
+      IndexSet is_dst_locally_owned(this->cell_id_translator.size());
+      IndexSet is_dst_remote(this->cell_id_translator.size());
+      IndexSet is_src_locally_owned(this->cell_id_translator.size());
+
+      for (auto cell : tria_dst.active_cell_iterators())
+        if (!cell->is_artificial() && cell->is_locally_owned())
+          is_dst_locally_owned.add_index(
+            this->cell_id_translator.translate(cell));
+
+
+      for (auto cell : tria_src.active_cell_iterators())
+        if (!cell->is_artificial() && cell->is_locally_owned())
+          {
+            is_src_locally_owned.add_index(
+              this->cell_id_translator.translate(cell));
+            is_dst_remote.add_index(this->cell_id_translator.translate(cell));
+          }
+
+      this->reinit(is_dst_locally_owned,
+                   is_dst_remote,
+                   is_src_locally_owned,
+                   false);
+    }
+  };
+
   class MGTwoLevelTransferImplementation
   {
     template <int dim, typename Number, typename MeshType>
@@ -1640,8 +1679,8 @@ namespace internal
       MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>
         &transfer)
     {
-      const GlobalCoarseningFineDoFHandlerView<MeshType> view(
-        dof_handler_fine, dof_handler_coarse);
+      const PermutationFineDoFHandlerView<MeshType> view(dof_handler_fine,
+                                                         dof_handler_coarse);
 
       AssertDimension(
         dof_handler_fine.get_triangulation().n_global_active_cells(),
