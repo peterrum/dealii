@@ -1124,6 +1124,8 @@ namespace internal
         }
     }
 
+
+
     template <int dim, typename Number>
     static void
     precompute_restriction_constraints(
@@ -1175,6 +1177,67 @@ namespace internal
       fu(partitioner->locally_owned_range());
       fu(partitioner->ghost_indices());
     }
+
+
+
+    template <int dim, typename Number, typename MeshType>
+    static void
+    compute_weights(
+      const MeshType &                         dof_handler_fine,
+      const dealii::AffineConstraints<Number> &constraint_fine,
+      const MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>
+        &                                         transfer,
+      LinearAlgebra::distributed::Vector<Number> &touch_count)
+    {
+      LinearAlgebra::distributed::Vector<Number> touch_count_;
+      touch_count.reinit(transfer.partitioner_fine);
+
+      IndexSet locally_relevant_dofs;
+      DoFTools::extract_locally_relevant_dofs(dof_handler_fine,
+                                              locally_relevant_dofs);
+
+      const auto partitioner_fine_ =
+        std::make_shared<Utilities::MPI::Partitioner>(
+          dof_handler_fine.locally_owned_dofs(),
+          locally_relevant_dofs,
+          dof_handler_fine.get_communicator());
+      transfer.vec_fine.reinit(transfer.partitioner_fine);
+
+      touch_count_.reinit(partitioner_fine_);
+
+      std::vector<types::global_dof_index> local_dof_indices;
+
+      for (const auto &cell : dof_handler_fine.active_cell_iterators())
+        {
+          if (cell->is_locally_owned() == false)
+            continue;
+
+          local_dof_indices.resize(cell->get_fe().n_dofs_per_cell());
+
+          cell->get_dof_indices(local_dof_indices);
+
+          for (auto i : local_dof_indices)
+            if (constraint_fine.is_constrained(i) == false)
+              touch_count_[i] += 1;
+        }
+
+      touch_count_.compress(VectorOperation::add);
+
+      for (unsigned int i = 0; i < touch_count_.local_size(); ++i)
+        touch_count_.local_element(i) =
+          constraint_fine.is_constrained(
+            touch_count_.get_partitioner()->local_to_global(i)) ?
+            Number(0.) :
+            Number(1.) / touch_count_.local_element(i);
+
+      touch_count_.update_ghost_values();
+
+      // copy weights to other indexset
+      touch_count.copy_locally_owned_data_from(touch_count_);
+      touch_count.update_ghost_values();
+    }
+
+
 
   public:
     template <int dim, typename Number, typename MeshType>
@@ -1576,56 +1639,14 @@ namespace internal
       // ------------------------------- weights -------------------------------
       if (transfer.fine_element_is_continuous)
         {
-          LinearAlgebra::distributed::Vector<Number> touch_count, touch_count_;
+          // compute weights globally
+          LinearAlgebra::distributed::Vector<Number> weight_vector;
+          compute_weights(dof_handler_fine,
+                          constraint_fine,
+                          transfer,
+                          weight_vector);
 
-          touch_count.reinit(transfer.partitioner_fine);
-
-          IndexSet locally_relevant_dofs;
-          DoFTools::extract_locally_relevant_dofs(dof_handler_fine,
-                                                  locally_relevant_dofs);
-
-          const auto partitioner_fine_ =
-            std::make_shared<Utilities::MPI::Partitioner>(
-              dof_handler_fine.locally_owned_dofs(),
-              locally_relevant_dofs,
-              dof_handler_fine.get_communicator());
-          transfer.vec_fine.reinit(transfer.partitioner_fine);
-
-          touch_count_.reinit(partitioner_fine_);
-
-          std::vector<types::global_dof_index> local_dof_indices;
-
-          for (const auto &cell : dof_handler_fine.active_cell_iterators())
-            {
-              if (cell->is_locally_owned() == false)
-                continue;
-
-              local_dof_indices.resize(cell->get_fe().n_dofs_per_cell());
-
-              cell->get_dof_indices(local_dof_indices);
-
-              for (auto i : local_dof_indices)
-                if (constraint_fine.is_constrained(i) == false)
-                  touch_count_[i] += 1;
-            }
-
-          touch_count_.compress(VectorOperation::add);
-
-          for (unsigned int i = 0; i < touch_count_.local_size(); ++i)
-            touch_count_.local_element(i) =
-              constraint_fine.is_constrained(
-                touch_count_.get_partitioner()->local_to_global(i)) ?
-                Number(0.) :
-                Number(1.) / touch_count_.local_element(i);
-
-          // TODO: needed?
-          touch_count_.update_ghost_values();
-
-
-          // copy weights to other indexset
-          touch_count.copy_locally_owned_data_from(touch_count_);
-          touch_count.update_ghost_values();
-
+          // ... and store them cell-wise a DG format
           transfer.schemes[0].weights.resize(
             transfer.schemes[0].n_coarse_cells *
             transfer.schemes[0].dofs_per_cell_fine);
@@ -1645,7 +1666,8 @@ namespace internal
               for (unsigned int i = 0;
                    i < transfer.schemes[0].dofs_per_cell_fine;
                    i++)
-                weights_0[i] = touch_count.local_element(dof_indices_fine_0[i]);
+                weights_0[i] =
+                  weight_vector.local_element(dof_indices_fine_0[i]);
 
               dof_indices_fine_0 += transfer.schemes[0].dofs_per_cell_fine;
               weights_0 += transfer.schemes[0].dofs_per_cell_fine;
@@ -1655,7 +1677,7 @@ namespace internal
                    i < transfer.schemes[1].dofs_per_cell_coarse;
                    i++)
                 weights_1[cell_local_chilren_indices[c][i]] =
-                  touch_count.local_element(
+                  weight_vector.local_element(
                     dof_indices_fine_1[cell_local_chilren_indices[c][i]]);
 
               // move pointers (only once at the end)
@@ -1693,6 +1715,15 @@ namespace internal
 
       transfer.n_components =
         dof_handler_fine.get_fe_collection().n_components();
+
+      transfer.fine_element_is_continuous =
+        dof_handler_fine.get_fe(0).dofs_per_vertex > 0;
+
+      for (unsigned int i = 0; i < dof_handler_fine.get_fe_collection().size();
+           ++i)
+        Assert(transfer.fine_element_is_continuous ==
+                 (dof_handler_fine.get_fe(i).dofs_per_vertex > 0),
+               ExcInternalError());
 
       const auto process_cells = [&](const auto &fu) {
         for (const auto &cell_coarse :
@@ -2042,68 +2073,17 @@ namespace internal
             }
         }
 
-      transfer.fine_element_is_continuous =
-        dof_handler_fine.get_fe(0).dofs_per_vertex > 0;
-
-      for (unsigned int i = 0; i < dof_handler_fine.get_fe_collection().size();
-           ++i)
-        Assert(transfer.fine_element_is_continuous ==
-                 (dof_handler_fine.get_fe(i).dofs_per_vertex > 0),
-               ExcInternalError());
-
       // ------------------------------- weights -------------------------------
       if (transfer.fine_element_is_continuous)
         {
-          LinearAlgebra::distributed::Vector<Number> touch_count, touch_count_;
-          touch_count.reinit(transfer.partitioner_fine);
+          // compute weights globally
+          LinearAlgebra::distributed::Vector<Number> weight_vector;
+          compute_weights(dof_handler_fine,
+                          constraint_fine,
+                          transfer,
+                          weight_vector);
 
-          IndexSet locally_relevant_dofs;
-          DoFTools::extract_locally_relevant_dofs(dof_handler_fine,
-                                                  locally_relevant_dofs);
-
-          const auto partitioner_fine_ =
-            std::make_shared<Utilities::MPI::Partitioner>(
-              dof_handler_fine.locally_owned_dofs(),
-              locally_relevant_dofs,
-              dof_handler_fine.get_communicator());
-          transfer.vec_fine.reinit(transfer.partitioner_fine);
-
-          touch_count_.reinit(partitioner_fine_);
-
-          std::vector<types::global_dof_index> local_dof_indices;
-
-          for (const auto &cell : dof_handler_fine.active_cell_iterators())
-            {
-              if (cell->is_locally_owned() == false)
-                continue;
-
-              local_dof_indices.resize(cell->get_fe().n_dofs_per_cell());
-
-              cell->get_dof_indices(local_dof_indices);
-
-              for (auto i : local_dof_indices)
-                if (constraint_fine.is_constrained(i) == false)
-                  touch_count_[i] += 1;
-            }
-
-          touch_count_.compress(VectorOperation::add);
-
-          for (unsigned int i = 0; i < touch_count_.local_size(); ++i)
-            touch_count_.local_element(i) =
-              constraint_fine.is_constrained(
-                touch_count_.get_partitioner()->local_to_global(i)) ?
-                Number(0.) :
-                Number(1.) / touch_count_.local_element(i);
-
-          // TODO: needed?
-          touch_count_.update_ghost_values();
-
-
-          // copy weights to other indexset
-          touch_count.copy_locally_owned_data_from(touch_count_);
-          touch_count.update_ghost_values();
-
-
+          // ... and store them cell-wise a DG format
           for (auto &scheme : transfer.schemes)
             scheme.weights.resize(scheme.n_coarse_cells *
                                   scheme.dofs_per_cell_fine);
@@ -2127,7 +2107,7 @@ namespace internal
             for (unsigned int i = 0;
                  i < transfer.schemes[fe_pair_no].dofs_per_cell_fine;
                  i++)
-              weights_[fe_pair_no][i] = touch_count.local_element(
+              weights_[fe_pair_no][i] = weight_vector.local_element(
                 level_dof_indices_fine_[fe_pair_no][i]);
 
             level_dof_indices_fine_[fe_pair_no] +=
