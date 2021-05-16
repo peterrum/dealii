@@ -952,7 +952,7 @@ namespace internal
     {
       types::coarse_cell_id n_coarse_cells = 0;
 
-      for (auto cell : mesh.get_triangulation().active_cell_iterators())
+      for (const auto &cell : mesh.get_triangulation().active_cell_iterators())
         if (!cell->is_artificial())
           n_coarse_cells =
             std::max(n_coarse_cells, cell->id().get_coarse_cell_id());
@@ -984,13 +984,13 @@ namespace internal
       IndexSet is_dst_remote(this->cell_id_translator.size());
       IndexSet is_src_locally_owned(this->cell_id_translator.size());
 
-      for (auto cell : tria_dst.active_cell_iterators())
+      for (const auto &cell : tria_dst.active_cell_iterators())
         if (!cell->is_artificial() && cell->is_locally_owned())
           is_dst_locally_owned.add_index(
             this->cell_id_translator.translate(cell));
 
 
-      for (auto cell : tria_src.active_cell_iterators())
+      for (const auto &cell : tria_src.active_cell_iterators())
         if (!cell->is_artificial() && cell->is_locally_owned())
           {
             is_src_locally_owned.add_index(
@@ -1032,13 +1032,13 @@ namespace internal
       IndexSet is_dst_remote(this->cell_id_translator.size());
       IndexSet is_src_locally_owned(this->cell_id_translator.size());
 
-      for (auto cell : tria_dst.active_cell_iterators())
+      for (const auto &cell : tria_dst.active_cell_iterators())
         if (!cell->is_artificial() && cell->is_locally_owned())
           is_dst_locally_owned.add_index(
             this->cell_id_translator.translate(cell));
 
 
-      for (auto cell : tria_src.active_cell_iterators())
+      for (const auto &cell : tria_src.active_cell_iterators())
         if (!cell->is_artificial() && cell->is_locally_owned())
           {
             is_src_locally_owned.add_index(
@@ -1596,7 +1596,7 @@ namespace internal
           std::vector<types::global_dof_index> local_dof_indices(
             transfer.schemes[0].dofs_per_cell_coarse);
 
-          for (auto cell : dof_handler_fine.active_cell_iterators())
+          for (const auto &cell : dof_handler_fine.active_cell_iterators())
             {
               if (cell->is_locally_owned() == false)
                 continue;
@@ -2083,7 +2083,7 @@ namespace internal
 
           std::vector<types::global_dof_index> local_dof_indices;
 
-          for (auto cell : dof_handler_fine.active_cell_iterators())
+          for (const auto &cell : dof_handler_fine.active_cell_iterators())
             {
               if (cell->is_locally_owned() == false)
                 continue;
