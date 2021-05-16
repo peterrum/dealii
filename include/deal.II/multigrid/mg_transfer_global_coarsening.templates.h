@@ -1593,13 +1593,14 @@ namespace internal
 
           touch_count_.reinit(partitioner_fine_);
 
-          std::vector<types::global_dof_index> local_dof_indices(
-            transfer.schemes[0].dofs_per_cell_coarse);
+          std::vector<types::global_dof_index> local_dof_indices;
 
           for (const auto &cell : dof_handler_fine.active_cell_iterators())
             {
               if (cell->is_locally_owned() == false)
                 continue;
+
+              local_dof_indices.resize(cell->get_fe().n_dofs_per_cell());
 
               cell->get_dof_indices(local_dof_indices);
 
@@ -2041,7 +2042,6 @@ namespace internal
             }
         }
 
-      // ------------------------------- weights -------------------------------
       transfer.fine_element_is_continuous =
         dof_handler_fine.get_fe(0).dofs_per_vertex > 0;
 
@@ -2051,12 +2051,9 @@ namespace internal
                  (dof_handler_fine.get_fe(i).dofs_per_vertex > 0),
                ExcInternalError());
 
+      // ------------------------------- weights -------------------------------
       if (transfer.fine_element_is_continuous)
         {
-          for (auto &scheme : transfer.schemes)
-            scheme.weights.resize(scheme.n_coarse_cells *
-                                  scheme.dofs_per_cell_fine);
-
           LinearAlgebra::distributed::Vector<Number> touch_count, touch_count_;
           touch_count.reinit(transfer.partitioner_fine);
 
@@ -2072,14 +2069,6 @@ namespace internal
           transfer.vec_fine.reinit(transfer.partitioner_fine);
 
           touch_count_.reinit(partitioner_fine_);
-
-          std::vector<unsigned int *> level_dof_indices_fine_(
-            fe_index_pairs.size());
-          std::vector<Number *> weights_(fe_index_pairs.size());
-
-          for (unsigned int i = 0; i < fe_index_pairs.size(); i++)
-            level_dof_indices_fine_[i] =
-              &transfer.schemes[i].level_dof_indices_fine[0];
 
           std::vector<types::global_dof_index> local_dof_indices;
 
@@ -2113,6 +2102,15 @@ namespace internal
           // copy weights to other indexset
           touch_count.copy_locally_owned_data_from(touch_count_);
           touch_count.update_ghost_values();
+
+
+          for (auto &scheme : transfer.schemes)
+            scheme.weights.resize(scheme.n_coarse_cells *
+                                  scheme.dofs_per_cell_fine);
+
+          std::vector<unsigned int *> level_dof_indices_fine_(
+            fe_index_pairs.size());
+          std::vector<Number *> weights_(fe_index_pairs.size());
 
           for (unsigned int i = 0; i < fe_index_pairs.size(); i++)
             {
