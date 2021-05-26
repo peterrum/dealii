@@ -588,7 +588,8 @@ namespace TriangulationDescription
 
       // subdomain and level subdomain id
       if (cell->is_active())
-        cell_info.subdomain_id = partition[cell->global_active_cell_index()];
+        cell_info.subdomain_id = static_cast<unsigned int>(
+          partition[cell->global_active_cell_index()]);
       else
         cell_info.subdomain_id = numbers::artificial_subdomain_id;
 
@@ -610,7 +611,7 @@ namespace TriangulationDescription
         std::set<unsigned int> relevant_processes;
 
         for (const auto &i : partition)
-          relevant_processes.insert(i);
+          relevant_processes.insert(static_cast<double>(i));
 
         return std::vector<unsigned int>(relevant_processes.begin(),
                                          relevant_processes.end());
@@ -663,7 +664,8 @@ namespace TriangulationDescription
             tria.n_vertices());
           for (const auto &cell : tria.active_cell_iterators())
             if (cell->is_locally_owned() &&
-                partition[cell->global_active_cell_index()] == proc)
+                static_cast<unsigned int>(
+                  partition[cell->global_active_cell_index()]) == proc)
               add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
                 cell, vertices_owned_by_locally_owned_cells_on_level);
 
