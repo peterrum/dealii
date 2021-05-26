@@ -730,7 +730,7 @@ namespace TriangulationDescription
         std::set<unsigned int> relevant_processes;
 
         for (const auto &i : partition)
-          relevant_processes.insert(static_cast<double>(i));
+          relevant_processes.insert(static_cast<unsigned int>(i));
 
         return std::vector<unsigned int>(relevant_processes.begin(),
                                          relevant_processes.end());
