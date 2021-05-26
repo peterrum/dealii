@@ -539,6 +539,125 @@ namespace TriangulationDescription
         ar &cell_infos;
       }
 
+      void
+      merge(const DescriptionTemp<dim, spacedim> &other)
+      {
+        this->cell_infos.resize(other.cell_infos.size());
+
+        this->coarse_cells.insert(this->coarse_cells.end(),
+                                  other.coarse_cells.begin(),
+                                  other.coarse_cells.end());
+        this->coarse_cell_vertices.insert(this->coarse_cell_vertices.end(),
+                                          other.coarse_cell_vertices.begin(),
+                                          other.coarse_cell_vertices.end());
+        this->coarse_cell_index_to_coarse_cell_id.insert(
+          this->coarse_cell_index_to_coarse_cell_id.end(),
+          other.coarse_cell_index_to_coarse_cell_id.begin(),
+          other.coarse_cell_index_to_coarse_cell_id.end());
+
+        for (unsigned int i = 0; i < this->cell_infos.size(); ++i)
+          this->cell_infos[i].insert(this->cell_infos[i].end(),
+                                     other.cell_infos[i].begin(),
+                                     other.cell_infos[i].end());
+      }
+
+      void
+      reduce()
+      {
+        {
+          std::vector<std::tuple<types::coarse_cell_id,
+                                 dealii::CellData<dim>,
+                                 unsigned int>>
+            temp;
+
+          for (unsigned int i = 0; i < this->coarse_cells.size(); ++i)
+            temp.emplace_back(this->coarse_cell_index_to_coarse_cell_id[i],
+                              this->coarse_cells[i],
+                              i);
+
+          std::sort(temp.begin(), temp.end(), [](const auto &a, const auto &b) {
+            return std::get<0>(a) < std::get<0>(b);
+          });
+          temp.erase(std::unique(temp.begin(),
+                                 temp.end(),
+                                 [](const auto &a, const auto &b) {
+                                   return std::get<0>(a) == std::get<0>(b);
+                                 }),
+                     temp.end());
+          std::sort(temp.begin(), temp.end(), [](const auto &a, const auto &b) {
+            return std::get<2>(a) < std::get<2>(b);
+          });
+
+          this->coarse_cell_index_to_coarse_cell_id.resize(temp.size());
+          this->coarse_cells.resize(temp.size());
+
+          for (unsigned int i = 0; i < temp.size(); ++i)
+            {
+              this->coarse_cell_index_to_coarse_cell_id[i] =
+                std::get<0>(temp[i]);
+              this->coarse_cells[i] = std::get<1>(temp[i]);
+            }
+        }
+
+        {
+          std::sort(this->coarse_cell_vertices.begin(),
+                    this->coarse_cell_vertices.end(),
+                    [](const auto &a, const auto &b) {
+                      return a.first < b.first;
+                    });
+          this->coarse_cell_vertices.erase(
+            std::unique(this->coarse_cell_vertices.begin(),
+                        this->coarse_cell_vertices.end(),
+                        [](const auto &a, const auto &b) {
+                          return a.first == b.first;
+                        }),
+            this->coarse_cell_vertices.end());
+        }
+
+        for (unsigned int i = 0; i < this->cell_infos.size(); ++i)
+          {
+            std::sort(this->cell_infos[i].begin(),
+                      this->cell_infos[i].end(),
+                      [](const auto &a, const auto &b) { return a.id < b.id; });
+            this->cell_infos[i].erase(std::unique(this->cell_infos[i].begin(),
+                                                  this->cell_infos[i].end(),
+                                                  [](const auto &a,
+                                                     const auto &b) {
+                                                    return a.id == b.id;
+                                                  }),
+                                      this->cell_infos[i].end());
+          }
+      }
+
+      Description<dim, spacedim>
+      convert(const MPI_Comm comm)
+      {
+        Description<dim, spacedim> description;
+
+        description.comm = comm;
+
+        std::map<unsigned int, unsigned int> map;
+
+        for (unsigned int i = 0; i < this->coarse_cell_vertices.size(); ++i)
+          {
+            description.coarse_cell_vertices.push_back(
+              this->coarse_cell_vertices[i].second);
+            map[this->coarse_cell_vertices[i].first] = i;
+          }
+
+        description.coarse_cells = this->coarse_cells;
+
+        for (auto &cell : description.coarse_cells)
+          for (unsigned int v = 0; v < cell.vertices.size(); ++v)
+            cell.vertices[v] = map[cell.vertices[v]];
+
+        description.coarse_cell_index_to_coarse_cell_id =
+          this->coarse_cell_index_to_coarse_cell_id;
+        description.cell_infos = this->cell_infos;
+
+        return description;
+      }
+
       std::vector<dealii::CellData<dim>> coarse_cells;
 
       std::vector<std::pair<unsigned int, Point<spacedim>>>
@@ -721,156 +840,39 @@ namespace TriangulationDescription
         }
 
       DescriptionTemp<dim, spacedim> description_merged;
-      description_merged.cell_infos.resize(tria.n_global_levels());
 
       dealii::Utilities::MPI::ConsensusAlgorithms::AnonymousProcess<char, char>
-        process(
-          [&]() { return relevant_processes; },
-          [&](const unsigned int other_rank, std::vector<char> &send_buffer) {
-            const auto ptr = std::find(relevant_processes.begin(),
-                                       relevant_processes.end(),
-                                       other_rank);
+        process([&]() { return relevant_processes; },
+                [&](const unsigned int other_rank,
+                    std::vector<char> &send_buffer) {
+                  const auto ptr = std::find(relevant_processes.begin(),
+                                             relevant_processes.end(),
+                                             other_rank);
 
-            Assert(ptr != relevant_processes.end(), ExcInternalError());
+                  Assert(ptr != relevant_processes.end(), ExcInternalError());
 
-            const auto other_rank_index =
-              std::distance(relevant_processes.begin(), ptr);
+                  const auto other_rank_index =
+                    std::distance(relevant_processes.begin(), ptr);
 
-            send_buffer =
-              dealii::Utilities::pack(description_temp[other_rank_index],
-                                      false);
-          },
-          [&](const unsigned int &     other_rank,
-              const std::vector<char> &recv_buffer,
-              std::vector<char> &      request_buffer) {
-            (void)other_rank;
-            (void)request_buffer;
-
-            const auto result =
-              dealii::Utilities::unpack<DescriptionTemp<dim, spacedim>>(
-                recv_buffer, false);
-
-            description_merged.coarse_cells.insert(
-              description_merged.coarse_cells.end(),
-              result.coarse_cells.begin(),
-              result.coarse_cells.end());
-            description_merged.coarse_cell_vertices.insert(
-              description_merged.coarse_cell_vertices.end(),
-              result.coarse_cell_vertices.begin(),
-              result.coarse_cell_vertices.end());
-            description_merged.coarse_cell_index_to_coarse_cell_id.insert(
-              description_merged.coarse_cell_index_to_coarse_cell_id.end(),
-              result.coarse_cell_index_to_coarse_cell_id.begin(),
-              result.coarse_cell_index_to_coarse_cell_id.end());
-
-            for (unsigned int i = 0; i < tria.n_global_levels(); ++i)
-              description_merged.cell_infos[i].insert(
-                description_merged.cell_infos[i].end(),
-                result.cell_infos[i].begin(),
-                result.cell_infos[i].end());
-          });
+                  send_buffer =
+                    dealii::Utilities::pack(description_temp[other_rank_index],
+                                            false);
+                },
+                [&](const unsigned int &,
+                    const std::vector<char> &recv_buffer,
+                    std::vector<char> &) {
+                  description_merged.merge(
+                    dealii::Utilities::unpack<DescriptionTemp<dim, spacedim>>(
+                      recv_buffer, false));
+                });
 
       dealii::Utilities::MPI::ConsensusAlgorithms::Selector<char, char>(
         process, tria.get_communicator())
         .run();
 
-      {
-        {
-          std::vector<std::tuple<types::coarse_cell_id,
-                                 dealii::CellData<dim>,
-                                 unsigned int>>
-            temp;
+      description_merged.reduce();
 
-          for (unsigned int i = 0; i < description_merged.coarse_cells.size();
-               ++i)
-            temp.emplace_back(
-              description_merged.coarse_cell_index_to_coarse_cell_id[i],
-              description_merged.coarse_cells[i],
-              i);
-
-          std::sort(temp.begin(), temp.end(), [](const auto &a, const auto &b) {
-            return std::get<0>(a) < std::get<0>(b);
-          });
-          temp.erase(std::unique(temp.begin(),
-                                 temp.end(),
-                                 [](const auto &a, const auto &b) {
-                                   return std::get<0>(a) == std::get<0>(b);
-                                 }),
-                     temp.end());
-          std::sort(temp.begin(), temp.end(), [](const auto &a, const auto &b) {
-            return std::get<2>(a) < std::get<2>(b);
-          });
-
-          description_merged.coarse_cell_index_to_coarse_cell_id.resize(
-            temp.size());
-          description_merged.coarse_cells.resize(temp.size());
-
-          for (unsigned int i = 0; i < temp.size(); ++i)
-            {
-              description_merged.coarse_cell_index_to_coarse_cell_id[i] =
-                std::get<0>(temp[i]);
-              description_merged.coarse_cells[i] = std::get<1>(temp[i]);
-            }
-        }
-
-        {
-          std::sort(description_merged.coarse_cell_vertices.begin(),
-                    description_merged.coarse_cell_vertices.end(),
-                    [](const auto &a, const auto &b) {
-                      return a.first < b.first;
-                    });
-          description_merged.coarse_cell_vertices.erase(
-            std::unique(description_merged.coarse_cell_vertices.begin(),
-                        description_merged.coarse_cell_vertices.end(),
-                        [](const auto &a, const auto &b) {
-                          return a.first == b.first;
-                        }),
-            description_merged.coarse_cell_vertices.end());
-        }
-
-        for (unsigned int i = 0; i < tria.n_global_levels(); ++i)
-          {
-            std::sort(description_merged.cell_infos[i].begin(),
-                      description_merged.cell_infos[i].end(),
-                      [](const auto &a, const auto &b) { return a.id < b.id; });
-            description_merged.cell_infos[i].erase(
-              std::unique(description_merged.cell_infos[i].begin(),
-                          description_merged.cell_infos[i].end(),
-                          [](const auto &a, const auto &b) {
-                            return a.id == b.id;
-                          }),
-              description_merged.cell_infos[i].end());
-          }
-      }
-
-      Description<dim, spacedim> description;
-
-      {
-        description.comm = tria.get_communicator();
-
-        std::map<unsigned int, unsigned int> map;
-
-        for (unsigned int i = 0;
-             i < description_merged.coarse_cell_vertices.size();
-             ++i)
-          {
-            description.coarse_cell_vertices.push_back(
-              description_merged.coarse_cell_vertices[i].second);
-            map[description_merged.coarse_cell_vertices[i].first] = i;
-          }
-
-        description.coarse_cells = description_merged.coarse_cells;
-
-        for (auto &cell : description.coarse_cells)
-          for (unsigned int v = 0; v < cell.vertices.size(); ++v)
-            cell.vertices[v] = map[cell.vertices[v]];
-
-        description.coarse_cell_index_to_coarse_cell_id =
-          description_merged.coarse_cell_index_to_coarse_cell_id;
-        description.cell_infos = description_merged.cell_infos;
-      }
-
-      return description;
+      return description_merged.convert(tria.get_communicator());
     }
 
   } // namespace Utilities
