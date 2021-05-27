@@ -687,6 +687,9 @@ namespace TriangulationDescription
                     std::vector<std::vector<CellData<dim>>> &        cell_infos,
                     const LinearAlgebra::distributed::Vector<double> &partition)
     {
+      if (cell->user_flag_set())
+        return; // cell has been already added -> nothing to do
+
       cell->set_user_flag();
 
       CellData<dim> cell_info;
