@@ -38,26 +38,29 @@ namespace internal
 
 
 /**
- * TDOD
+ * A namespace with repartitioning policies.
  */
 namespace RepartitioningPolicyTools
 {
   /**
-   * TODO
+   * A base class of a repartitioning policy.
    */
   template <int dim, int spacedim = dim>
   class Base
   {
   public:
     /**
-     * TODO
+     * Return a vector of the new owners of the active locally owned and ghost
+     * cells.
      */
     virtual LinearAlgebra::distributed::Vector<double>
     partition(const Triangulation<dim, spacedim> &tria_coarse_in) const = 0;
   };
 
   /**
-   * TODO
+   * A dummy policy that simply returns an empty vector, which is interpreted
+   * in MGTransferGlobalCoarseningTools::create_geometric_coarsening_sequence()
+   * in a way that the triangulation is not repartitioned.
    */
   template <int dim, int spacedim = dim>
   class DefaultPolicy : public Base<dim, spacedim>
@@ -69,14 +72,15 @@ namespace RepartitioningPolicyTools
   };
 
   /**
-   * TODO
+   * A policy that partitions coarse grids based on a base (fine) triangulation
+   * according to a first-child policy.
    */
   template <int dim, int spacedim = dim>
   class FirstChildPolicy : public Base<dim, spacedim>
   {
   public:
     /**
-     * TODO
+     * Constructor taking the base (fine) triangulation.
      */
     FirstChildPolicy(const Triangulation<dim, spacedim> &tria_fine);
 
@@ -86,30 +90,31 @@ namespace RepartitioningPolicyTools
 
   private:
     /**
-     * TODO
+     * Number of coarse cells.
      */
     const unsigned int n_coarse_cells;
 
     /**
-     * TODO
+     * Number of global levels.
      */
     const unsigned int n_global_levels;
 
     /**
-     * TODO
+     * Index set constructed from the triangulation passed to the constructor.
      */
     IndexSet is_fine;
   };
 
   /**
-   * TODO
+   * A policy that allows to specify a minimal number of cells per process. If
+   * a threshold is reached, processes might be left without cells.
    */
   template <int dim, int spacedim = dim>
   class MinimalGranularityPolicy : public Base<dim, spacedim>
   {
   public:
     /**
-     * TODO
+     * Constructor taking the minimum number of cells per process.
      */
     MinimalGranularityPolicy(const unsigned int n_min_cells);
 
@@ -118,7 +123,7 @@ namespace RepartitioningPolicyTools
 
   private:
     /**
-     * TODO
+     * Minimum number of cells per process.
      */
     const unsigned int n_min_cells;
   };
@@ -183,6 +188,8 @@ namespace MGTransferGlobalCoarseningTools
    *
    * @note For convenience, a reference to the input triangulation is stored in
    *   the last entry of the return vector.
+   * @note The type of the returned triangulations is the same as of the input
+   *   triangulation.
    * @note Currently, only implemented for parallel::distributed::Triangulation.
    */
   template <int dim, int spacedim>
@@ -191,12 +198,19 @@ namespace MGTransferGlobalCoarseningTools
     const Triangulation<dim, spacedim> &tria);
 
   /**
-   * TODO
+   * Similar to the above function but also taking a @p policy for
+   * repartitioning the triangulations on the coarser levels.
+   *
+   * @note For convenience, a reference to the input triangulation is stored in
+   *   the last entry of the return vector.
+   * @note The type of the returned triangulations is
+   *   parallel::fullydistributed::Triangulation.
+   * @note Currently, only implemented for parallel::distributed::Triangulation.
    */
   template <int dim, int spacedim>
   std::vector<std::shared_ptr<const Triangulation<dim, spacedim>>>
   create_geometric_coarsening_sequence(
-    const Triangulation<dim, spacedim> &                  fine_triangulation_in,
+    const Triangulation<dim, spacedim> &                  tria,
     const RepartitioningPolicyTools::Base<dim, spacedim> &policy);
 
 } // namespace MGTransferGlobalCoarseningTools

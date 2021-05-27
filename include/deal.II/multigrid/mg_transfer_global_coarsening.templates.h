@@ -2188,11 +2188,8 @@ namespace MGTransferGlobalCoarseningTools
       coarse_grid_triangulations(fine_triangulation_in.n_global_levels());
 
     coarse_grid_triangulations.back().reset(&fine_triangulation_in, [](auto *) {
-      // empty deleter, since
-      // fine_triangulation_in is an
-      // external field and its
-      // destructor is called
-      // somewhere else
+      // empty deleter, since fine_triangulation_in is an external field and its
+      // destructor is called somewhere else
     });
 
     // for a single level nothing has to be done
@@ -2201,6 +2198,7 @@ namespace MGTransferGlobalCoarseningTools
 
 #ifndef DEAL_II_WITH_P4EST
     Assert(false, ExcNotImplemented());
+    (void)policy;
 #else
     const auto fine_triangulation =
       dynamic_cast<const parallel::distributed::Triangulation<dim, spacedim> *>(
@@ -2208,11 +2206,12 @@ namespace MGTransferGlobalCoarseningTools
 
     Assert(fine_triangulation, ExcNotImplemented());
 
-    parallel::distributed::Triangulation<dim, spacedim> temp_tria(
-      fine_triangulation->get_communicator(),
-      fine_triangulation->get_mesh_smoothing());
+    const auto comm = fine_triangulation->get_communicator();
 
-    temp_tria.copy_triangulation(*fine_triangulation);
+    parallel::distributed::Triangulation<dim, spacedim> temp_triangulation(
+      comm, fine_triangulation->get_mesh_smoothing());
+
+    temp_triangulation.copy_triangulation(*fine_triangulation);
 
     const unsigned int max_level = fine_triangulation->n_global_levels() - 1;
 
@@ -2220,26 +2219,34 @@ namespace MGTransferGlobalCoarseningTools
     for (unsigned int l = max_level; l > 0; --l)
       {
         // coarsen mesh
-        temp_tria.coarsen_global();
+        temp_triangulation.coarsen_global();
 
-        const auto comm = temp_tria.get_communicator();
-        const auto partition = policy.partition(temp_tria);
-
+        // perform partition
+        const auto partition = policy.partition(temp_triangulation);
         partition.update_ghost_values();
 
+        // create triangulation description
         const auto construction_data =
           partition.size() == 0 ?
             TriangulationDescription::Utilities::
-              create_description_from_triangulation(temp_tria, comm) :
+              create_description_from_triangulation(temp_triangulation, comm) :
             TriangulationDescription::Utilities::
-              create_description_from_triangulation(temp_tria, partition);
+              create_description_from_triangulation(temp_triangulation,
+                                                    partition);
 
-        const auto new_tria = std::make_shared<
+        // create new triangulation
+        const auto level_triangulation = std::make_shared<
           parallel::fullydistributed::Triangulation<dim, spacedim>>(comm);
-        new_tria->create_triangulation(construction_data);
+
+        for (const auto i : fine_triangulation->get_manifold_ids())
+          if (i != numbers::flat_manifold_id)
+            level_triangulation->set_manifold(
+              i, fine_triangulation->get_manifold(i));
+
+        level_triangulation->create_triangulation(construction_data);
 
         // save mesh
-        coarse_grid_triangulations[l - 1] = new_tria;
+        coarse_grid_triangulations[l - 1] = level_triangulation;
       }
 #endif
 
