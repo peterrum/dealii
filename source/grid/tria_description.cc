@@ -564,6 +564,7 @@ namespace TriangulationDescription
       void
       reduce()
       {
+        // make coarse cells unique
         {
           std::vector<std::tuple<types::coarse_cell_id,
                                  dealii::CellData<dim>,
@@ -599,6 +600,7 @@ namespace TriangulationDescription
             }
         }
 
+        // make coarse cell vertices unique
         {
           std::sort(this->coarse_cell_vertices.begin(),
                     this->coarse_cell_vertices.end(),
@@ -614,6 +616,7 @@ namespace TriangulationDescription
             this->coarse_cell_vertices.end());
         }
 
+        // make cells unique
         for (unsigned int i = 0; i < this->cell_infos.size(); ++i)
           {
             std::sort(this->cell_infos[i].begin(),
@@ -630,11 +633,21 @@ namespace TriangulationDescription
       }
 
       Description<dim, spacedim>
-      convert(const MPI_Comm comm)
+      convert(const MPI_Comm comm,
+              const typename Triangulation<dim, spacedim>::MeshSmoothing
+                mesh_smoothing)
       {
         Description<dim, spacedim> description;
 
+        // copy communicator
         description.comm = comm;
+
+        // set settings (no multigrid levels are set for now)
+        description.settings =
+          TriangulationDescription::Settings::default_setting;
+
+        // use mesh smoothing from base triangulation
+        description.smoothing = mesh_smoothing;
 
         std::map<unsigned int, unsigned int> map;
 
@@ -716,7 +729,7 @@ namespace TriangulationDescription
 
       cell_infos[cell->level()].emplace_back(cell_info);
 
-      if (cell->level() != 0)
+      if (cell->level() != 0) // proceed with parent
         fill_cell_infos(cell->parent(), cell_infos, partition);
     }
 
@@ -726,16 +739,19 @@ namespace TriangulationDescription
       const Triangulation<dim, spacedim> &              tria,
       const LinearAlgebra::distributed::Vector<double> &partition)
     {
+      // 1) determine processes owning locally owned cells
       const auto relevant_processes = [&]() {
         std::set<unsigned int> relevant_processes;
 
-        for (const auto &i : partition)
-          relevant_processes.insert(static_cast<unsigned int>(i));
+        for (unsigned int i = 0; i < partition.local_size(); ++i)
+          relevant_processes.insert(
+            static_cast<unsigned int>(partition.local_element(i)));
 
         return std::vector<unsigned int>(relevant_processes.begin(),
                                          relevant_processes.end());
       }();
 
+      // 2) determine coinciding vertices (important for periodicity)
       std::map<unsigned int, std::vector<unsigned int>>
                                            coinciding_vertex_groups;
       std::map<unsigned int, unsigned int> vertex_to_coinciding_vertex_group;
@@ -762,42 +778,43 @@ namespace TriangulationDescription
             }
         };
 
+      // 3) create a description (locally owned cell and a layer of ghost cells
+      // and all their parents)
       std::vector<DescriptionTemp<dim, spacedim>> description_temp(
         relevant_processes.size());
 
       for (unsigned int i = 0; i < description_temp.size(); ++i)
         {
-          // 1) collect locally relevant cells (set user_flag)
+          const unsigned int proc               = relevant_processes[i];
+          auto &             description_temp_i = description_temp[i];
+          description_temp_i.cell_infos.resize(
+            tria.get_triangulation().n_global_levels());
+
+          // clear user_flags
           std::vector<bool> old_user_flags;
           tria.save_user_flags(old_user_flags);
 
-          // 1a) clear user_flags
           const_cast<dealii::Triangulation<dim, spacedim> &>(tria)
             .clear_user_flags();
 
-          const unsigned int proc               = relevant_processes[i];
-          auto &             description_temp_i = description_temp[i];
-
           // mark all vertices attached to locally owned cells
-          std::vector<bool> vertices_owned_by_locally_owned_cells_on_level(
+          std::vector<bool> vertices_owned_by_locally_owned_cells(
             tria.n_vertices());
           for (const auto &cell : tria.active_cell_iterators())
             if (cell->is_locally_owned() &&
                 static_cast<unsigned int>(
                   partition[cell->global_active_cell_index()]) == proc)
               add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
-                cell, vertices_owned_by_locally_owned_cells_on_level);
+                cell, vertices_owned_by_locally_owned_cells);
 
+          // helper function if a cell is locally relevant (active and
+          // connected to cell via a vertex)
           const auto is_locally_relevant_on_level = [&](const auto &cell) {
             for (const auto v : cell->vertex_indices())
-              if (vertices_owned_by_locally_owned_cells_on_level
-                    [cell->vertex_index(v)])
+              if (vertices_owned_by_locally_owned_cells[cell->vertex_index(v)])
                 return true;
             return false;
           };
-
-          description_temp_i.cell_infos.resize(
-            tria.get_triangulation().n_global_levels());
 
           // collect locally relevant cells (including their parents)
           for (const auto &cell : tria.active_cell_iterators())
@@ -812,7 +829,7 @@ namespace TriangulationDescription
               if (!cell->user_flag_set())
                 continue;
 
-              // extract cell definition (with old numbering of vertices)
+              // extract cell definition
               dealii::CellData<dim> cell_data(cell->n_vertices());
               cell_data.material_id = cell->material_id();
               cell_data.manifold_id = cell->manifold_id();
@@ -820,7 +837,7 @@ namespace TriangulationDescription
                 cell_data.vertices[v] = cell->vertex_index(v);
               description_temp_i.coarse_cells.push_back(cell_data);
 
-              // save indices of each vertex of this cell
+              // mark cell vertices as relevant
               for (const auto v : cell->vertex_indices())
                 vertices_locally_relevant[cell->vertex_index(v)] = true;
 
@@ -835,10 +852,12 @@ namespace TriangulationDescription
               description_temp_i.coarse_cell_vertices.emplace_back(
                 i, tria.get_vertices()[i]);
 
+          // restore flags
           const_cast<dealii::Triangulation<dim, spacedim> &>(tria)
             .load_user_flags(old_user_flags);
         }
 
+      // collect description from all processes in a single description
       DescriptionTemp<dim, spacedim> description_merged;
 
       dealii::Utilities::MPI::ConsensusAlgorithms::AnonymousProcess<char, char>
@@ -870,9 +889,12 @@ namespace TriangulationDescription
         process, tria.get_communicator())
         .run();
 
+      // remove redundant entries
       description_merged.reduce();
 
-      return description_merged.convert(tria.get_communicator());
+      // convert to actual description
+      return description_merged.convert(tria.get_communicator(),
+                                        tria.get_mesh_smoothing());
     }
 
   } // namespace Utilities

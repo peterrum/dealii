@@ -449,11 +449,16 @@ namespace TriangulationDescription
       const unsigned int my_rank_in = numbers::invalid_unsigned_int);
 
     /**
-     * Similar to the above function but the owner of cells are provided by
-     * a cell vector (see also
+     * Similar to the above function but the owner of active cells are provided
+     * by a cell vector (see also
      * parallel::TriangulationBase::global_active_cell_index_partitioner() and
      * CellAccessor::global_active_cell_index()). This function allows to
      * repartition distributed Triangulation objects.
+     *
+     * @note The communicator is extracted from the Triangulation @p tria.
+     *
+     * @note The multgrid level is currently not constructed, since @p partition
+     *   only describes the partitioning of the active level.
      */
     template <int dim, int spacedim>
     Description<dim, spacedim>
