@@ -38,6 +38,96 @@ namespace internal
 
 
 /**
+ * TDOD
+ */
+namespace RepartitioningPolicyTools
+{
+  /**
+   * TODO
+   */
+  template <int dim, int spacedim = dim>
+  class Base
+  {
+  public:
+    /**
+     * TODO
+     */
+    virtual LinearAlgebra::distributed::Vector<double>
+    partition(const Triangulation<dim, spacedim> &tria_coarse_in) const = 0;
+  };
+
+  /**
+   * TODO
+   */
+  template <int dim, int spacedim = dim>
+  class DefaultPolicy : public Base<dim, spacedim>
+  {
+  public:
+    virtual LinearAlgebra::distributed::Vector<double>
+    partition(
+      const Triangulation<dim, spacedim> &tria_coarse_in) const override;
+  };
+
+  /**
+   * TODO
+   */
+  template <int dim, int spacedim = dim>
+  class FirstChildPolicy : public Base<dim, spacedim>
+  {
+  public:
+    /**
+     * TODO
+     */
+    FirstChildPolicy(const Triangulation<dim, spacedim> &tria_fine);
+
+    virtual LinearAlgebra::distributed::Vector<double>
+    partition(
+      const Triangulation<dim, spacedim> &tria_coarse_in) const override;
+
+  private:
+    /**
+     * TODO
+     */
+    const unsigned int n_coarse_cells;
+
+    /**
+     * TODO
+     */
+    const unsigned int n_global_levels;
+
+    /**
+     * TODO
+     */
+    IndexSet is_fine;
+  };
+
+  /**
+   * TODO
+   */
+  template <int dim, int spacedim = dim>
+  class MinimalGranularityPolicy : public Base<dim, spacedim>
+  {
+  public:
+    /**
+     * TODO
+     */
+    MinimalGranularityPolicy(const unsigned int n_min_cells);
+
+    virtual LinearAlgebra::distributed::Vector<double>
+    partition(const Triangulation<dim, spacedim> &tria_in) const override;
+
+  private:
+    /**
+     * TODO
+     */
+    const unsigned int n_min_cells;
+  };
+
+} // namespace RepartitioningPolicyTools
+
+
+
+/**
  * Global coarsening utility functions.
  */
 namespace MGTransferGlobalCoarseningTools
@@ -99,6 +189,15 @@ namespace MGTransferGlobalCoarseningTools
   std::vector<std::shared_ptr<const Triangulation<dim, spacedim>>>
   create_geometric_coarsening_sequence(
     const Triangulation<dim, spacedim> &tria);
+
+  /**
+   * TODO
+   */
+  template <int dim, int spacedim>
+  std::vector<std::shared_ptr<const Triangulation<dim, spacedim>>>
+  create_geometric_coarsening_sequence(
+    const Triangulation<dim, spacedim> &                  fine_triangulation_in,
+    const RepartitioningPolicyTools::Base<dim, spacedim> &policy);
 
 } // namespace MGTransferGlobalCoarseningTools
 

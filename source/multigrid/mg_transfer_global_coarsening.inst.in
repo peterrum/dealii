@@ -29,5 +29,23 @@ for (deal_II_dimension : DIMENSIONS; deal_II_space_dimension : SPACE_DIMENSIONS)
     MGTransferGlobalCoarseningTools::create_geometric_coarsening_sequence(
       const Triangulation<deal_II_dimension, deal_II_space_dimension>
         &fine_triangulation_in);
+
+    template std::vector<std::shared_ptr<
+      const Triangulation<deal_II_dimension, deal_II_space_dimension>>>
+    MGTransferGlobalCoarseningTools::create_geometric_coarsening_sequence(
+      const Triangulation<deal_II_dimension, deal_II_space_dimension>
+        &fine_triangulation_in,
+      const RepartitioningPolicyTools::Base<deal_II_dimension,
+                                            deal_II_space_dimension> &policy);
+
+    template class RepartitioningPolicyTools::
+      DefaultPolicy<deal_II_dimension, deal_II_space_dimension>;
+
+    template class RepartitioningPolicyTools::
+      FirstChildPolicy<deal_II_dimension, deal_II_space_dimension>;
+
+    template class RepartitioningPolicyTools::
+      MinimalGranularityPolicy<deal_II_dimension, deal_II_space_dimension>;
+
 #endif
   }
