@@ -109,21 +109,21 @@ DEAL:0::n_cells:                   5
 DEAL:0::n_active_cells:            4
 DEAL:0::
 DEAL:0::n_dofs:                             25
-DEAL:0::n_locally_owned_dofs:               15
+DEAL:0::n_locally_owned_dofs:               25
 DEAL:0::
 DEAL:0::n_levels:                  3
 DEAL:0::n_cells:                   9
 DEAL:0::n_active_cells:            7
 DEAL:0::
 DEAL:0::n_dofs:                             43
-DEAL:0::n_locally_owned_dofs:               25
+DEAL:0::n_locally_owned_dofs:               43
 DEAL:0::
 DEAL:0::n_levels:                  4
 DEAL:0::n_cells:                   33
 DEAL:0::n_active_cells:            25
 DEAL:0::
 DEAL:0::n_dofs:                             141
-DEAL:0::n_locally_owned_dofs:               37
+DEAL:0::n_locally_owned_dofs:               25
 DEAL:0::
 DEAL:0::n_levels:                  5
 DEAL:0::n_cells:                   81
@@ -252,26 +252,26 @@ DEAL:1::
 DEAL:1::n_dofs:                             9
 DEAL:1::n_locally_owned_dofs:               0
 DEAL:1::
-DEAL:1::n_levels:                  2
-DEAL:1::n_cells:                   5
-DEAL:1::n_active_cells:            4
+DEAL:1::n_levels:                  1
+DEAL:1::n_cells:                   1
+DEAL:1::n_active_cells:            1
 DEAL:1::
 DEAL:1::n_dofs:                             25
-DEAL:1::n_locally_owned_dofs:               10
+DEAL:1::n_locally_owned_dofs:               0
 DEAL:1::
-DEAL:1::n_levels:                  3
-DEAL:1::n_cells:                   9
-DEAL:1::n_active_cells:            7
+DEAL:1::n_levels:                  1
+DEAL:1::n_cells:                   1
+DEAL:1::n_active_cells:            1
 DEAL:1::
 DEAL:1::n_dofs:                             43
-DEAL:1::n_locally_owned_dofs:               18
+DEAL:1::n_locally_owned_dofs:               0
 DEAL:1::
 DEAL:1::n_levels:                  4
 DEAL:1::n_cells:                   33
 DEAL:1::n_active_cells:            25
 DEAL:1::
 DEAL:1::n_dofs:                             141
-DEAL:1::n_locally_owned_dofs:               28
+DEAL:1::n_locally_owned_dofs:               40
 DEAL:1::
 DEAL:1::n_levels:                  5
 DEAL:1::n_cells:                   101
@@ -420,7 +420,7 @@ DEAL:2::n_cells:                   37
 DEAL:2::n_active_cells:            28
 DEAL:2::
 DEAL:2::n_dofs:                             141
-DEAL:2::n_locally_owned_dofs:               23
+DEAL:2::n_locally_owned_dofs:               16
 DEAL:2::
 DEAL:2::n_levels:                  5
 DEAL:2::n_cells:                   101
@@ -569,7 +569,7 @@ DEAL:3::n_cells:                   33
 DEAL:3::n_active_cells:            25
 DEAL:3::
 DEAL:3::n_dofs:                             141
-DEAL:3::n_locally_owned_dofs:               33
+DEAL:3::n_locally_owned_dofs:               44
 DEAL:3::
 DEAL:3::n_levels:                  5
 DEAL:3::n_cells:                   89
@@ -718,7 +718,7 @@ DEAL:4::n_cells:                   25
 DEAL:4::n_active_cells:            19
 DEAL:4::
 DEAL:4::n_dofs:                             141
-DEAL:4::n_locally_owned_dofs:               20
+DEAL:4::n_locally_owned_dofs:               16
 DEAL:4::
 DEAL:4::n_levels:                  5
 DEAL:4::n_cells:                   65

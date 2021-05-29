@@ -2917,21 +2917,29 @@ namespace RepartitioningPolicyTools
       if (cell->is_locally_owned())
         ++n_locally_owned_active_cells;
 
-    if (Utilities::MPI::min(n_locally_owned_active_cells,
-                            tria_in.get_communicator()) > n_min_cells)
-      return {};
+    const auto comm = tria_in.get_communicator();
+
+    if (Utilities::MPI::min(n_locally_owned_active_cells, comm) >= n_min_cells)
+      return {}; // all processes have enough cells
 
     const unsigned int n_global_active_cells = tria_in.n_global_active_cells();
 
     const unsigned int n_partitions =
-      std::min(n_global_active_cells / n_min_cells + 1,
-               Utilities::MPI::n_mpi_processes(tria_in.get_communicator()));
+      std::max<unsigned int>(1,
+                             std::min(n_global_active_cells / n_min_cells,
+                                      Utilities::MPI::n_mpi_processes(comm)));
 
-    for (const auto &cell : tria_in.active_cell_iterators())
-      if (cell->is_locally_owned())
-        partition[cell->global_active_cell_index()] =
-          cell->global_active_cell_index() * n_partitions /
-          n_global_active_cells;
+    const unsigned int min_cells = n_global_active_cells / n_partitions;
+
+    const auto convert = [&](const unsigned int i) {
+      if (i < (i / min_cells) * min_cells + (n_global_active_cells % min_cells))
+        return i / (min_cells + 1);
+      else
+        return (i - (n_global_active_cells % min_cells)) / min_cells;
+    };
+
+    for (const auto i : partition.locally_owned_elements())
+      partition[i] = convert(i);
 
     partition.update_ghost_values();
 
