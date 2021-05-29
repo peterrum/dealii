@@ -72,8 +72,9 @@ namespace RepartitioningPolicyTools
   };
 
   /**
-   * A policy that partitions coarse grids based on a base (fine) triangulation
-   * according to a first-child policy.
+   * A policy that partitions coarse grids based on a base triangulation
+   * according to a first-child policy. The triangulation to be partitioned
+   * should be able to be obtained by a sequence of (global) coarsening steps.
    */
   template <int dim, int spacedim = dim>
   class FirstChildPolicy : public Base<dim, spacedim>
@@ -101,8 +102,10 @@ namespace RepartitioningPolicyTools
 
     /**
      * Index set constructed from the triangulation passed to the constructor.
+     * It contains all the cells that would be owned by the current process
+     * if the levels would be partitioned according to a first-child policy.
      */
-    IndexSet is_fine;
+    IndexSet is_level_partitions;
   };
 
   /**

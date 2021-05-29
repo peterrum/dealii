@@ -2778,10 +2778,10 @@ namespace RepartitioningPolicyTools
     {
       types::coarse_cell_id n_coarse_cells = 0;
 
-      for (const auto &cell : mesh.get_triangulation().active_cell_iterators())
-        if (!cell->is_artificial())
-          n_coarse_cells =
-            std::max(n_coarse_cells, cell->id().get_coarse_cell_id());
+      for (const auto &cell :
+           mesh.get_triangulation().cell_iterators_on_level(0))
+        n_coarse_cells =
+          std::max(n_coarse_cells, cell->id().get_coarse_cell_id());
 
       return Utilities::MPI::max(n_coarse_cells, mesh.get_communicator()) + 1;
     }
@@ -2799,26 +2799,27 @@ namespace RepartitioningPolicyTools
 
     template <int dim, int spacedim>
     void
-    add_indices(const TriaIterator<CellAccessor<dim, spacedim>> &cell,
-                const internal::CellIDTranslator<dim> &cell_id_translator,
-                IndexSet &                             is_fine)
+    add_indices_recursevly_for_first_child_policy(
+      const TriaIterator<CellAccessor<dim, spacedim>> &cell,
+      const internal::CellIDTranslator<dim> &          cell_id_translator,
+      IndexSet &                                       is_fine)
     {
       is_fine.add_index(cell_id_translator.translate(cell));
 
       if (cell->level() > 0 &&
-          (cell->index() % Utilities::pow<unsigned int>(2, dim)) == 0)
-        add_indices(cell->parent(), cell_id_translator, is_fine);
+          (cell->index() % GeometryInfo<dim>::max_children_per_cell) == 0)
+        add_indices_recursevly_for_first_child_policy(cell->parent(),
+                                                      cell_id_translator,
+                                                      is_fine);
     }
   } // namespace
 
   template <int dim, int spacedim>
   LinearAlgebra::distributed::Vector<double>
   DefaultPolicy<dim, spacedim>::partition(
-    const Triangulation<dim, spacedim> &tria_coarse_in) const
+    const Triangulation<dim, spacedim> &) const
   {
-    (void)tria_coarse_in; // nothing to do
-
-    return {};
+    return {}; // nothing to do
   }
 
 
@@ -2829,13 +2830,20 @@ namespace RepartitioningPolicyTools
     : n_coarse_cells(compute_n_coarse_cells(tria_fine))
     , n_global_levels(compute_n_global_levels(tria_fine))
   {
-    const internal::CellIDTranslator<dim> cell_id_translator(n_coarse_cells,
-                                                             n_global_levels);
-    is_fine.set_size(cell_id_translator.size());
+    Assert(
+      tria_fine.all_reference_cells_are_hyper_cube(),
+      ExcMessage(
+        "FirstChildPolicy is only working for pure hex meshes at the moment."))
+
+      const internal::CellIDTranslator<dim>
+        cell_id_translator(n_coarse_cells, n_global_levels);
+    is_level_partitions.set_size(cell_id_translator.size());
 
     for (const auto &cell : tria_fine.active_cell_iterators())
       if (cell->is_locally_owned())
-        add_indices(cell, cell_id_translator, is_fine);
+        add_indices_recursevly_for_first_child_policy(cell,
+                                                      cell_id_translator,
+                                                      is_level_partitions);
   }
 
 
@@ -2856,11 +2864,15 @@ namespace RepartitioningPolicyTools
       if (cell->is_locally_owned())
         is_coarse.add_index(cell_id_translator.translate(cell));
 
-    std::vector<unsigned int> owning_ranks_of_ghosts(is_coarse.n_elements());
+    std::vector<unsigned int> owning_ranks_of_coarse_cells(
+      is_coarse.n_elements());
     {
       Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
-        process(
-          is_fine, is_coarse, communicator, owning_ranks_of_ghosts, false);
+        process(is_level_partitions,
+                is_coarse,
+                communicator,
+                owning_ranks_of_coarse_cells,
+                false);
 
       Utilities::MPI::ConsensusAlgorithms::Selector<
         std::pair<types::global_cell_index, types::global_cell_index>,
@@ -2881,7 +2893,7 @@ namespace RepartitioningPolicyTools
     for (const auto &cell : tria_coarse_in.active_cell_iterators())
       if (cell->is_locally_owned())
         partition[cell->global_active_cell_index()] =
-          owning_ranks_of_ghosts[is_coarse.index_within_set(
+          owning_ranks_of_coarse_cells[is_coarse.index_within_set(
             cell_id_translator.translate(cell))];
 
     partition.update_ghost_values();
@@ -2912,6 +2924,8 @@ namespace RepartitioningPolicyTools
     LinearAlgebra::distributed::Vector<double> partition(
       tria->global_active_cell_index_partitioner().lock());
 
+    // step 1) check if all processes have enough cells
+
     unsigned int n_locally_owned_active_cells = 0;
     for (const auto &cell : tria_in.active_cell_iterators())
       if (cell->is_locally_owned())
@@ -2921,6 +2935,10 @@ namespace RepartitioningPolicyTools
 
     if (Utilities::MPI::min(n_locally_owned_active_cells, comm) >= n_min_cells)
       return {}; // all processes have enough cells
+
+    // step 2) there are processes which do not have enough processes so that
+    // a repartitioning kicks in with the aim that all processes that own
+    // cells have at least the specified number of cells
 
     const unsigned int n_global_active_cells = tria_in.n_global_active_cells();
 

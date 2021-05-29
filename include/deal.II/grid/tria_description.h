@@ -457,8 +457,8 @@ namespace TriangulationDescription
      *
      * @note The communicator is extracted from the Triangulation @p tria.
      *
-     * @note The multgrid level is currently not constructed, since @p partition
-     *   only describes the partitioning of the active level.
+     * @note The multgrid levels are currently not constructed, since
+     *   @p partition only describes the partitioning of the active level.
      */
     template <int dim, int spacedim>
     Description<dim, spacedim>

@@ -542,7 +542,8 @@ namespace TriangulationDescription
       void
       merge(const DescriptionTemp<dim, spacedim> &other)
       {
-        this->cell_infos.resize(other.cell_infos.size());
+        this->cell_infos.resize(
+          std::max(other.cell_infos.size(), this->cell_infos.size()));
 
         this->coarse_cells.insert(this->coarse_cells.end(),
                                   other.coarse_cells.begin(),
@@ -860,7 +861,8 @@ namespace TriangulationDescription
             .load_user_flags(old_user_flags);
         }
 
-      // collect description from all processes in a single description
+      // collect description from all processes that used to own locally-owned
+      // active cells of this process in a single description
       DescriptionTemp<dim, spacedim> description_merged;
 
       dealii::Utilities::MPI::ConsensusAlgorithms::AnonymousProcess<char, char>
