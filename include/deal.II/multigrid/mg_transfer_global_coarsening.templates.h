@@ -22,12 +22,16 @@
 #include <deal.II/base/mpi_compute_index_owner_internal.h>
 #include <deal.II/base/mpi_consensus_algorithms.h>
 
+#include <deal.II/distributed/fully_distributed_tria.h>
+#include <deal.II/distributed/repartitioning_policy_tools.h>
+
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
 
 #include <deal.II/fe/fe_tools.h>
 
 #include <deal.II/grid/grid_tools.h>
+#include <deal.II/grid/tria_description.h>
 
 #include <deal.II/hp/dof_handler.h>
 
@@ -2172,6 +2176,83 @@ namespace MGTransferGlobalCoarseningTools
 
     return coarse_grid_triangulations;
   }
+
+
+
+  template <int dim, int spacedim>
+  std::vector<std::shared_ptr<const Triangulation<dim, spacedim>>>
+  create_geometric_coarsening_sequence(
+    const Triangulation<dim, spacedim> &                  fine_triangulation_in,
+    const RepartitioningPolicyTools::Base<dim, spacedim> &policy)
+  {
+    std::vector<std::shared_ptr<const Triangulation<dim, spacedim>>>
+      coarse_grid_triangulations(fine_triangulation_in.n_global_levels());
+
+    coarse_grid_triangulations.back().reset(&fine_triangulation_in, [](auto *) {
+      // empty deleter, since fine_triangulation_in is an external field and its
+      // destructor is called somewhere else
+    });
+
+    // for a single level nothing has to be done
+    if (fine_triangulation_in.n_global_levels() == 1)
+      return coarse_grid_triangulations;
+
+#ifndef DEAL_II_WITH_P4EST
+    Assert(false, ExcNotImplemented());
+    (void)policy;
+#else
+    const auto fine_triangulation =
+      dynamic_cast<const parallel::distributed::Triangulation<dim, spacedim> *>(
+        &fine_triangulation_in);
+
+    Assert(fine_triangulation, ExcNotImplemented());
+
+    const auto comm = fine_triangulation->get_communicator();
+
+    parallel::distributed::Triangulation<dim, spacedim> temp_triangulation(
+      comm, fine_triangulation->get_mesh_smoothing());
+
+    temp_triangulation.copy_triangulation(*fine_triangulation);
+
+    const unsigned int max_level = fine_triangulation->n_global_levels() - 1;
+
+    // create coarse meshes
+    for (unsigned int l = max_level; l > 0; --l)
+      {
+        // coarsen mesh
+        temp_triangulation.coarsen_global();
+
+        // perform partition
+        const auto partition = policy.partition(temp_triangulation);
+        partition.update_ghost_values();
+
+        // create triangulation description
+        const auto construction_data =
+          partition.size() == 0 ?
+            TriangulationDescription::Utilities::
+              create_description_from_triangulation(temp_triangulation, comm) :
+            TriangulationDescription::Utilities::
+              create_description_from_triangulation(temp_triangulation,
+                                                    partition);
+
+        // create new triangulation
+        const auto level_triangulation = std::make_shared<
+          parallel::fullydistributed::Triangulation<dim, spacedim>>(comm);
+
+        for (const auto i : fine_triangulation->get_manifold_ids())
+          if (i != numbers::flat_manifold_id)
+            level_triangulation->set_manifold(
+              i, fine_triangulation->get_manifold(i));
+
+        level_triangulation->create_triangulation(construction_data);
+
+        // save mesh
+        coarse_grid_triangulations[l - 1] = level_triangulation;
+      }
+#endif
+
+    return coarse_grid_triangulations;
+  }
 } // namespace MGTransferGlobalCoarseningTools
 
 
@@ -2535,10 +2616,6 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   const bool use_src_inplace = this->vec_fine.size() == 0;
   const auto vec_fine_ptr    = use_src_inplace ? &src : &this->vec_fine;
-
-  if (use_src_inplace == false)
-    this->vec_fine.copy_locally_owned_data_from(src);
-
   if (fine_element_is_continuous || use_src_inplace == false)
     vec_fine_ptr->update_ghost_values();
 
