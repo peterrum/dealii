@@ -108,7 +108,9 @@ namespace MGTransferGlobalCoarseningTools
 
   /**
    * Similar to the above function but also taking a @p policy for
-   * repartitioning the triangulations on the coarser levels.
+   * repartitioning the triangulations on the coarser levels. If
+   * @p keep_input_triangulation is set, the input triangulation is used as
+   * the finest level, else the triangulation is coarsened.
    *
    * @note For convenience, a reference to the input triangulation is stored in
    *   the last entry of the return vector.
@@ -120,7 +122,8 @@ namespace MGTransferGlobalCoarseningTools
   std::vector<std::shared_ptr<const Triangulation<dim, spacedim>>>
   create_geometric_coarsening_sequence(
     const Triangulation<dim, spacedim> &                  tria,
-    const RepartitioningPolicyTools::Base<dim, spacedim> &policy);
+    const RepartitioningPolicyTools::Base<dim, spacedim> &policy,
+    const bool keep_input_triangulation = true);
 
 } // namespace MGTransferGlobalCoarseningTools
 
