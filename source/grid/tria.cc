@@ -5595,22 +5595,6 @@ namespace internal
               // 5) set properties of quads
               for (unsigned int i = 0; i < new_quads.size(); ++i)
                 {
-                  for (unsigned int f = 0; f < 3; ++f)
-                    {
-                      std::array<unsigned int, 2> vertices_0, vertices_1;
-
-                      for (unsigned int v = 0; v < 2; ++v)
-                        vertices_0[v] =
-                          lines[quad_lines[i][f]]->vertex_index(v);
-
-                      for (unsigned int v = 0; v < 2; ++v)
-                        vertices_1[v] =
-                          vertex_indices[quad_line_vertices[i][f][v]];
-                    }
-                }
-
-              for (unsigned int i = 0; i < new_quads.size(); ++i)
-                {
                   auto &new_quad = new_quads[i];
 
                   // TODO: we assume here that all children have the same type
