@@ -5366,10 +5366,10 @@ namespace internal
               if (quad->user_flag_set() == false)
                 continue;
 
-              const auto &reference_cell_type = quad->reference_cell();
+              const auto reference_face_type = quad->reference_cell();
 
               // 1) create new vertex (at the center of the face)
-              if (reference_cell_type == ReferenceCells::Quadrilateral)
+              if (reference_face_type == ReferenceCells::Quadrilateral)
                 {
                   current_vertex =
                     get_next_unused_vertex(current_vertex,
@@ -5381,29 +5381,28 @@ namespace internal
               // 2) create new lines (property is set later)
               boost::container::small_vector<
                 typename Triangulation<dim, spacedim>::raw_line_iterator,
-                4>
+                GeometryInfo<dim>::lines_per_cell>
                 new_lines(quad->n_lines());
               {
                 for (unsigned int i = 0; i < new_lines.size(); ++i)
                   {
-                    if (quad->n_lines() % 2 == 0)
+                    if (reference_face_type == ReferenceCells::Quadrilateral)
                       {
-                        Assert(reference_cell_type ==
-                                 ReferenceCells::Quadrilateral,
-                               ExcNotImplemented());
                         if (i % 2 == 0)
                           next_unused_line =
                             triangulation.faces->lines
                               .template next_free_pair_object<1>(triangulation);
                       }
-                    else
+                    else if (reference_face_type == ReferenceCells::Triangle)
                       {
-                        Assert(reference_cell_type == ReferenceCells::Triangle,
-                               ExcNotImplemented());
                         next_unused_line =
                           triangulation.faces->lines
                             .template next_free_single_object<1>(triangulation);
                       }
+                    else
+                    {
+                        Assert(false, ExcNotImplemented());
+                    }
 
                     new_lines[i] = next_unused_line;
                     ++next_unused_line;
@@ -5415,7 +5414,8 @@ namespace internal
                   }
               }
 
-              // 3) create new quads (properties are set below)
+              // 3) create new quads (properties are set below). Both triangles
+              // and quads are divided in four.
               std::array<
                 typename Triangulation<dim, spacedim>::raw_quad_iterator,
                 4>
@@ -5426,44 +5426,31 @@ namespace internal
                     triangulation);
 
                 new_quads[0] = next_unused_quad;
-                Assert(
-                  new_quads[0]->used() == false,
-                  ExcMessage(
-                    "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+                AssertNotUsed(new_quads[0]);
 
                 ++next_unused_quad;
                 new_quads[1] = next_unused_quad;
-                Assert(
-                  new_quads[1]->used() == false,
-                  ExcMessage(
-                    "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+                AssertNotUsed(new_quads[1]);
 
                 next_unused_quad =
                   triangulation.faces->quads.template next_free_pair_object<2>(
                     triangulation);
                 new_quads[2] = next_unused_quad;
-                Assert(
-                  new_quads[2]->used() == false,
-                  ExcMessage(
-                    "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+                AssertNotUsed(new_quads[2]);
 
                 ++next_unused_quad;
                 new_quads[3] = next_unused_quad;
-                Assert(
-                  new_quads[3]->used() == false,
-                  ExcMessage(
-                    "Internal error: We want to use a cell during refinement that should be unused, but turns out not to be."));
+                AssertNotUsed(new_quads[3]);
 
                 quad->set_children(0, new_quads[0]->index());
                 quad->set_children(2, new_quads[2]->index());
                 quad->set_refinement_case(RefinementCase<2>::cut_xy);
               }
 
-              std::array<unsigned int, 9> vertex_indices;
+              // Maximum of 9 vertices per refined quad (9 for Quadrilateral, 6
+              // for Triangle)
+              std::array<unsigned int, 9> vertex_indices = {0u};
               {
-                for (auto &i : vertex_indices)
-                  i = 0.0;
-
                 unsigned int k = 0;
                 for (const auto i : quad->vertex_indices())
                   vertex_indices[k++] = quad->vertex_index(i);
@@ -5478,8 +5465,7 @@ namespace internal
               boost::container::small_vector<
                 typename Triangulation<dim, spacedim>::raw_line_iterator,
                 12>
-                lines(quad->n_lines() * 3);
-
+                lines(reference_face_type == ReferenceCells::Quadrilateral ? 12 : 9);
               {
                 unsigned int k = 0;
 
@@ -5489,9 +5475,10 @@ namespace internal
                       static constexpr std::array<std::array<unsigned int, 2>,
                                                   2>
                         index = {
-                          {{{1, 0}}, // child 0, line_orientation=false and true
-                           {{0,
-                             1}}}}; // child 1, line_orientation=false and true
+                          // child 0, line_orientation=false and true
+                          {{{1, 0}},
+                          // child 1, line_orientation=false and true
+                           {{0, 1}}}};
 
                       lines[k++] = quad->line(l)->child(
                         index[c][quad->line_orientation(l)]);
@@ -5563,15 +5550,15 @@ namespace internal
                      {{{{3, 4}}, {{4, 5}}, {{5, 3}}, {{X, X}}}}}};
 
               const auto &line_vertices =
-                (reference_cell_type == ReferenceCells::Quadrilateral) ?
+                (reference_face_type == ReferenceCells::Quadrilateral) ?
                   line_vertices_quad :
                   line_vertices_tri;
               const auto &quad_lines =
-                (reference_cell_type == ReferenceCells::Quadrilateral) ?
+                (reference_face_type == ReferenceCells::Quadrilateral) ?
                   quad_lines_quad :
                   quad_lines_tri;
               const auto &quad_line_vertices =
-                (reference_cell_type == ReferenceCells::Quadrilateral) ?
+                (reference_face_type == ReferenceCells::Quadrilateral) ?
                   quad_line_vertices_quad :
                   quad_line_vertices_tri;
 
@@ -5600,7 +5587,7 @@ namespace internal
                   // TODO: we assume here that all children have the same type
                   // as the parent
                   triangulation.faces->quad_reference_cell[new_quad->index()] =
-                    reference_cell_type;
+                    reference_face_type;
 
                   if (new_quad->n_lines() == 3)
                     new_quad->set_bounding_object_indices(
@@ -5656,7 +5643,7 @@ namespace internal
 #ifdef DEBUG
                   AssertDimension(
                     s.size(),
-                    (reference_cell_type == ReferenceCells::Quadrilateral ? 4 :
+                    (reference_face_type == ReferenceCells::Quadrilateral ? 4 :
                                                                             3));
 #endif
                 }
@@ -6265,7 +6252,7 @@ namespace internal
                         cell_face_vertices_hex :
                         cell_face_vertices_tet;
 
-                    for (unsigned int c = 0; c < 8; ++c)
+                    for (unsigned int c = 0; c < GeometryInfo<dim>::max_children_per_cell; ++c)
                       {
                         auto &new_hex = new_hexes[c];
 
