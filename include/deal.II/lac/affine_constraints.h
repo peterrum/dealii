@@ -1712,6 +1712,13 @@ public:
                             const bool                   verbose = false) const;
 
   /**
+   * TODO
+   */
+  void
+  make_consistent_in_parallel(const IndexSet &locally_owned_dofs,
+                              const MPI_Comm &mpi_communicator);
+
+  /**
    * Exception
    *
    * @ingroup Exceptions

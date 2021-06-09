@@ -20,6 +20,7 @@
 
 #include <deal.II/base/cuda_size.h>
 #include <deal.II/base/memory_consumption.h>
+#include <deal.II/base/mpi_compute_index_owner_internal.h>
 #include <deal.II/base/table.h>
 #include <deal.II/base/thread_local_storage.h>
 
@@ -187,6 +188,75 @@ AffineConstraints<number>::is_consistent_in_parallel(
   if (verbose && total > 0 && myid == 0)
     std::cout << total << " inconsistent lines discovered!" << std::endl;
   return total == 0;
+}
+
+
+
+template <typename number>
+void
+AffineConstraints<number>::make_consistent_in_parallel(
+  const IndexSet &locally_owned_dofs,
+  const MPI_Comm &mpi_communicator)
+{
+  const auto compute_locally_contrained_indices =
+    [](const IndexSet &locally_owned_indices,
+       const IndexSet &constrained_indices,
+       const MPI_Comm &comm) -> IndexSet {
+    std::vector<types::global_dof_index> locally_constrained_indices;
+    for (const auto i : constrained_indices)
+      locally_constrained_indices.push_back(i);
+
+    const auto locally_constrained_indices_by_ranks = [&]() {
+      IndexSet remote_constrained_indices = constrained_indices;
+      remote_constrained_indices.subtract_set(locally_owned_indices);
+
+      std::vector<unsigned int> remote_constrained_indices_owners(
+        constrained_indices.n_elements());
+      Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
+        process(locally_owned_indices,
+                remote_constrained_indices,
+                comm,
+                remote_constrained_indices_owners,
+                true);
+
+      Utilities::MPI::ConsensusAlgorithms::Selector<
+        std::pair<types::global_dof_index, types::global_dof_index>,
+        unsigned int>
+        consensus_algorithm(process, comm);
+      consensus_algorithm.run();
+      return process.get_requesters();
+    }();
+
+    for (const auto &rank_and_indices : locally_constrained_indices_by_ranks)
+      for (const auto i : rank_and_indices.second)
+        locally_constrained_indices.push_back(i);
+
+    sort(locally_constrained_indices.begin(),
+         locally_constrained_indices.end());
+    locally_constrained_indices.erase(
+      unique(locally_constrained_indices.begin(),
+             locally_constrained_indices.end()),
+      locally_constrained_indices.end());
+
+    IndexSet result(constrained_indices.size());
+
+    result.add_indices(locally_constrained_indices.begin(),
+                       locally_constrained_indices.end());
+
+    return result;
+  };
+
+  IndexSet constrained_indices(locally_owned_dofs.size());
+  for (const auto &line : this->get_lines())
+    constrained_indices.add_index(line.index);
+
+  const auto locally_contrained_indices =
+    compute_locally_contrained_indices(locally_owned_dofs,
+                                       constrained_indices,
+                                       mpi_communicator);
+
+  for (const auto &i : locally_contrained_indices)
+    this->add_line(i);
 }
 
 
