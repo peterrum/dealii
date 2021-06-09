@@ -5400,9 +5400,9 @@ namespace internal
                             .template next_free_single_object<1>(triangulation);
                       }
                     else
-                    {
+                      {
                         Assert(false, ExcNotImplemented());
-                    }
+                      }
 
                     new_lines[i] = next_unused_line;
                     ++next_unused_line;
@@ -5426,21 +5426,21 @@ namespace internal
                     triangulation);
 
                 new_quads[0] = next_unused_quad;
-                AssertNotUsed(new_quads[0]);
+                AssertIsNotUsed(new_quads[0]);
 
                 ++next_unused_quad;
                 new_quads[1] = next_unused_quad;
-                AssertNotUsed(new_quads[1]);
+                AssertIsNotUsed(new_quads[1]);
 
                 next_unused_quad =
                   triangulation.faces->quads.template next_free_pair_object<2>(
                     triangulation);
                 new_quads[2] = next_unused_quad;
-                AssertNotUsed(new_quads[2]);
+                AssertIsNotUsed(new_quads[2]);
 
                 ++next_unused_quad;
                 new_quads[3] = next_unused_quad;
-                AssertNotUsed(new_quads[3]);
+                AssertIsNotUsed(new_quads[3]);
 
                 quad->set_children(0, new_quads[0]->index());
                 quad->set_children(2, new_quads[2]->index());
@@ -5465,7 +5465,9 @@ namespace internal
               boost::container::small_vector<
                 typename Triangulation<dim, spacedim>::raw_line_iterator,
                 12>
-                lines(reference_face_type == ReferenceCells::Quadrilateral ? 12 : 9);
+                lines(reference_face_type == ReferenceCells::Quadrilateral ?
+                        12 :
+                        9);
               {
                 unsigned int k = 0;
 
@@ -5474,11 +5476,10 @@ namespace internal
                     {
                       static constexpr std::array<std::array<unsigned int, 2>,
                                                   2>
-                        index = {
-                          // child 0, line_orientation=false and true
-                          {{{1, 0}},
-                          // child 1, line_orientation=false and true
-                           {{0, 1}}}};
+                        index = {// child 0, line_orientation=false and true
+                                 {{{1, 0}},
+                                  // child 1, line_orientation=false and true
+                                  {{0, 1}}}};
 
                       lines[k++] = quad->line(l)->child(
                         index[c][quad->line_orientation(l)]);
@@ -6252,7 +6253,9 @@ namespace internal
                         cell_face_vertices_hex :
                         cell_face_vertices_tet;
 
-                    for (unsigned int c = 0; c < GeometryInfo<dim>::max_children_per_cell; ++c)
+                    for (unsigned int c = 0;
+                         c < GeometryInfo<dim>::max_children_per_cell;
+                         ++c)
                       {
                         auto &new_hex = new_hexes[c];
 
