@@ -208,7 +208,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
 
     const auto locally_constrained_indices_by_ranks = [&]() {
       IndexSet remote_constrained_indices = constrained_indices;
-      remote_constrained_indices.subtract_set(locally_owned_indices);
+      // remote_constrained_indices.subtract_set(locally_owned_indices);
 
       std::vector<unsigned int> remote_constrained_indices_owners(
         constrained_indices.n_elements());
@@ -255,7 +255,10 @@ AffineConstraints<number>::make_consistent_in_parallel(
                                        constrained_indices,
                                        mpi_communicator);
 
-  for (const auto &i : locally_contrained_indices)
+  lines.clear();
+  lines_cache.clear();
+
+  for (const auto i : locally_contrained_indices)
     this->add_line(i);
 }
 
