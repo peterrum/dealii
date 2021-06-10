@@ -203,41 +203,156 @@ AffineConstraints<number>::make_consistent_in_parallel(
 
   const auto compute_locally_contrained_indices =
     [&](const IndexSet &constrained_indices) -> IndexSet {
+    const unsigned int my_rank =
+      Utilities::MPI::this_mpi_process(mpi_communicator);
+
+    // step 1: identify owners of constraints
     std::vector<unsigned int> constrained_indices_owners(
       constrained_indices.n_elements());
     Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
-      process(locally_active_dofs,
-              constrained_indices,
-              mpi_communicator,
-              constrained_indices_owners,
-              true);
+      constrained_indices_process(locally_owned_dofs,
+                                  constrained_indices,
+                                  mpi_communicator,
+                                  constrained_indices_owners,
+                                  true);
 
     Utilities::MPI::ConsensusAlgorithms::Selector<
       std::pair<types::global_dof_index, types::global_dof_index>,
-      unsigned int>(process, mpi_communicator)
+      unsigned int>(constrained_indices_process, mpi_communicator)
       .run();
 
-    const auto locally_constrained_indices_by_ranks = process.get_requesters();
+    // step 2: collect actual constraints
+    const auto constrained_indices_by_ranks =
+      constrained_indices_process.get_requesters();
 
     std::vector<types::global_dof_index> locally_constrained_indices;
 
-    for (const auto &rank_and_indices : locally_constrained_indices_by_ranks)
+    for (const auto &rank_and_indices : constrained_indices_by_ranks)
       for (const auto i : rank_and_indices.second)
         locally_constrained_indices.push_back(i);
 
-    sort(locally_constrained_indices.begin(),
-         locally_constrained_indices.end());
+    std::sort(locally_constrained_indices.begin(),
+              locally_constrained_indices.end());
     locally_constrained_indices.erase(
-      unique(locally_constrained_indices.begin(),
-             locally_constrained_indices.end()),
+      std::unique(locally_constrained_indices.begin(),
+                  locally_constrained_indices.end()),
       locally_constrained_indices.end());
 
-    IndexSet result(constrained_indices.size());
+    IndexSet locally_constrained_indices_is(constrained_indices.size());
 
-    result.add_indices(locally_constrained_indices.begin(),
-                       locally_constrained_indices.end());
+    locally_constrained_indices_is.add_indices(
+      locally_constrained_indices.begin(), locally_constrained_indices.end());
 
-    return result;
+    // step 3:
+    std::vector<unsigned int> locally_active_dofs_owners(
+      locally_active_dofs.n_elements());
+    Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
+      locally_active_dofs_process(locally_owned_dofs,
+                                  locally_active_dofs,
+                                  mpi_communicator,
+                                  locally_active_dofs_owners,
+                                  true);
+
+    Utilities::MPI::ConsensusAlgorithms::Selector<
+      std::pair<types::global_dof_index, types::global_dof_index>,
+      unsigned int>(locally_active_dofs_process, mpi_communicator)
+      .run();
+
+    const auto locally_active_dofs_by_ranks =
+      locally_active_dofs_process.get_requesters();
+
+    std::map<unsigned int, std::vector<types::global_dof_index>> send_data;
+
+    std::vector<MPI_Request> requests;
+    requests.reserve(send_data.size());
+
+    const unsigned int tag = 0;
+
+    for (const auto i : locally_active_dofs_by_ranks)
+      {
+        if (i.first == my_rank)
+          continue;
+
+        std::vector<types::global_dof_index> data;
+
+        for (const auto j : i.second)
+          if (locally_constrained_indices_is.is_element(j))
+            data.push_back(j);
+
+        send_data[i.first] = data;
+
+        requests.resize(requests.size() + 1);
+
+        const int ierr = MPI_Isend(send_data[i.first].data(),
+                                   send_data[i.first].size(),
+                                   Utilities::MPI::internal::mpi_type_id(
+                                     locally_constrained_indices.data()),
+                                   i.first,
+                                   tag,
+                                   mpi_communicator,
+                                   &requests.back());
+        AssertThrowMPI(ierr);
+      }
+
+
+    std::set<unsigned int> ranks;
+
+    for (const unsigned int i : locally_active_dofs_owners)
+      if (i != my_rank)
+        ranks.insert(i);
+
+    for (unsigned int i = 0; i < ranks.size(); ++i)
+      {
+        MPI_Status status;
+        int ierr = MPI_Probe(MPI_ANY_SOURCE, tag, mpi_communicator, &status);
+        AssertThrowMPI(ierr);
+
+        int message_length;
+        ierr = MPI_Get_count(&status,
+                             Utilities::MPI::internal::mpi_type_id(
+                               locally_constrained_indices.data()),
+                             &message_length);
+        AssertThrowMPI(ierr);
+
+        std::vector<types::global_dof_index> buffer(message_length);
+
+        ierr = MPI_Recv(buffer.data(),
+                        buffer.size(),
+                        Utilities::MPI::internal::mpi_type_id(
+                          locally_constrained_indices.data()),
+                        status.MPI_SOURCE,
+                        tag,
+                        mpi_communicator,
+                        MPI_STATUS_IGNORE);
+        AssertThrowMPI(ierr);
+
+        for (const auto &i : buffer)
+          locally_constrained_indices.push_back(i);
+      }
+
+    std::sort(locally_constrained_indices.begin(),
+              locally_constrained_indices.end());
+    locally_constrained_indices.erase(
+      std::unique(locally_constrained_indices.begin(),
+                  locally_constrained_indices.end()),
+      locally_constrained_indices.end());
+
+    locally_constrained_indices_is.clear();
+
+    locally_constrained_indices_is.add_indices(
+      locally_constrained_indices.begin(), locally_constrained_indices.end());
+
+
+    const int ierr =
+      MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
+    AssertThrowMPI(ierr);
+
+
+    (void)locally_active_dofs_by_ranks;
+
+
+
+    return locally_constrained_indices_is;
   };
 
   IndexSet constrained_indices(locally_owned_dofs.size());
