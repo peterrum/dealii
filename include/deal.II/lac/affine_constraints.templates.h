@@ -196,33 +196,30 @@ template <typename number>
 void
 AffineConstraints<number>::make_consistent_in_parallel(
   const IndexSet &locally_owned_dofs,
+  const IndexSet &locally_active_dofs,
   const MPI_Comm &mpi_communicator)
 {
-  const auto compute_locally_contrained_indices =
-    [](const IndexSet &locally_owned_indices,
-       const IndexSet &constrained_indices,
-       const MPI_Comm &comm) -> IndexSet {
-    const auto locally_constrained_indices_by_ranks = [&]() {
-      IndexSet remote_constrained_indices = constrained_indices;
-      std::vector<unsigned int> remote_constrained_indices_owners(
-        constrained_indices.n_elements());
-      Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
-        process(locally_owned_indices,
-                remote_constrained_indices,
-                comm,
-                remote_constrained_indices_owners,
-                true);
+  (void)locally_active_dofs;
 
-      Utilities::MPI::ConsensusAlgorithms::Selector<
-        std::pair<types::global_dof_index, types::global_dof_index>,
-        unsigned int>
-        consensus_algorithm(process, comm);
-      consensus_algorithm.run();
-      return process.get_requesters();
-    }();
+  const auto compute_locally_contrained_indices =
+    [&](const IndexSet &constrained_indices) -> IndexSet {
+    std::vector<unsigned int> constrained_indices_owners(
+      constrained_indices.n_elements());
+    Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
+      process(locally_active_dofs,
+              constrained_indices,
+              mpi_communicator,
+              constrained_indices_owners,
+              true);
+
+    Utilities::MPI::ConsensusAlgorithms::Selector<
+      std::pair<types::global_dof_index, types::global_dof_index>,
+      unsigned int>(process, mpi_communicator)
+      .run();
+
+    const auto locally_constrained_indices_by_ranks = process.get_requesters();
 
     std::vector<types::global_dof_index> locally_constrained_indices;
-    locally_constrained_indices.clear();
 
     for (const auto &rank_and_indices : locally_constrained_indices_by_ranks)
       for (const auto i : rank_and_indices.second)
@@ -248,9 +245,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
     constrained_indices.add_index(line.index);
 
   const auto locally_contrained_indices =
-    compute_locally_contrained_indices(locally_owned_dofs,
-                                       constrained_indices,
-                                       mpi_communicator);
+    compute_locally_contrained_indices(constrained_indices);
 
   lines.clear();
   lines_cache.clear();
