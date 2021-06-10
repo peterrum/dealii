@@ -202,14 +202,8 @@ AffineConstraints<number>::make_consistent_in_parallel(
     [](const IndexSet &locally_owned_indices,
        const IndexSet &constrained_indices,
        const MPI_Comm &comm) -> IndexSet {
-    std::vector<types::global_dof_index> locally_constrained_indices;
-    for (const auto i : constrained_indices)
-      locally_constrained_indices.push_back(i);
-
     const auto locally_constrained_indices_by_ranks = [&]() {
       IndexSet remote_constrained_indices = constrained_indices;
-      // remote_constrained_indices.subtract_set(locally_owned_indices);
-
       std::vector<unsigned int> remote_constrained_indices_owners(
         constrained_indices.n_elements());
       Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
@@ -226,6 +220,9 @@ AffineConstraints<number>::make_consistent_in_parallel(
       consensus_algorithm.run();
       return process.get_requesters();
     }();
+
+    std::vector<types::global_dof_index> locally_constrained_indices;
+    locally_constrained_indices.clear();
 
     for (const auto &rank_and_indices : locally_constrained_indices_by_ranks)
       for (const auto i : rank_and_indices.second)
