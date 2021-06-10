@@ -98,11 +98,11 @@ main(int argc, char **argv)
   const auto a = collect_lines(constraints, dof_handler.n_dofs());
   a.print(deallog.get_file_stream());
 
-  IndexSet locally_active_dofs;
-  DoFTools::extract_locally_active_dofs(dof_handler, locally_active_dofs);
+  IndexSet locally_relevant_dofs;
+  DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
 
   constraints.make_consistent_in_parallel(dof_handler.locally_owned_dofs(),
-                                          locally_active_dofs,
+                                          locally_relevant_dofs,
                                           MPI_COMM_WORLD);
 
   const auto b = collect_lines(constraints, dof_handler.n_dofs());

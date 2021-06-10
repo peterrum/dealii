@@ -243,7 +243,10 @@ AffineConstraints<number>::make_consistent_in_parallel(
     locally_constrained_indices_is.add_indices(
       locally_constrained_indices.begin(), locally_constrained_indices.end());
 
-    // step 3:
+    // TODO: include payload
+
+    // step 3: communicate constraints so that each process know how the
+    // locally active dofs are constrained
     std::vector<unsigned int> locally_active_dofs_owners(
       locally_active_dofs.n_elements());
     Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
@@ -268,12 +271,13 @@ AffineConstraints<number>::make_consistent_in_parallel(
 
     const unsigned int tag = 0;
 
+    // ... send data
     for (const auto i : locally_active_dofs_by_ranks)
       {
         if (i.first == my_rank)
           continue;
 
-        std::vector<types::global_dof_index> data;
+        std::vector<types::global_dof_index> data; // TODO: include payload
 
         for (const auto j : i.second)
           if (locally_constrained_indices_is.is_element(j))
@@ -294,7 +298,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
         AssertThrowMPI(ierr);
       }
 
-
+    // ... receive data
     std::set<unsigned int> ranks;
 
     for (const unsigned int i : locally_active_dofs_owners)
@@ -346,11 +350,6 @@ AffineConstraints<number>::make_consistent_in_parallel(
     const int ierr =
       MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
     AssertThrowMPI(ierr);
-
-
-    (void)locally_active_dofs_by_ranks;
-
-
 
     return locally_constrained_indices_is;
   };
