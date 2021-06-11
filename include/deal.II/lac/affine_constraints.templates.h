@@ -260,7 +260,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
     {
       const unsigned int tag = 0; // TODO
 
-      std::map<unsigned int, std::vector<ConstraintType>> data_send;
+      std::map<unsigned int, std::vector<ConstraintType>> send_data_temp;
 
       for (unsigned int i = 0; i < constrained_indices_owners.size(); ++i)
         {
@@ -268,8 +268,75 @@ AffineConstraints<number>::make_consistent_in_parallel(
 
           std::get<0>(temp) = constrained_indices.nth_index_in_set(i);
 
-          data_send[constrained_indices_owners[i]].push_back(temp);
+          send_data_temp[constrained_indices_owners[i]].push_back(temp);
         }
+
+      std::map<unsigned int, std::vector<char>> send_data;
+
+      for (const auto i : send_data_temp)
+        send_data[i.first] = Utilities::pack(i.second, false);
+
+      std::vector<MPI_Request> requests;
+      requests.reserve(send_data.size());
+
+      // ... send data
+      for (const auto i : send_data)
+        {
+          if (i.first == my_rank)
+            continue;
+
+          requests.resize(requests.size() + 1);
+
+          const int ierr = MPI_Isend(i.second.data(),
+                                     i.second.size(),
+                                     MPI_CHAR,
+                                     i.first,
+                                     tag,
+                                     mpi_communicator,
+                                     &requests.back());
+          AssertThrowMPI(ierr);
+        }
+
+      // ... receive data
+      std::set<unsigned int> ranks;
+
+      for (const auto &i : constrained_indices_by_ranks)
+        if (i.first != my_rank)
+          ranks.insert(i.first);
+
+      std::vector<ConstraintType> locally_constrained_indices;
+
+      for (unsigned int i = 0; i < ranks.size(); ++i)
+        {
+          MPI_Status status;
+          int ierr = MPI_Probe(MPI_ANY_SOURCE, tag, mpi_communicator, &status);
+          AssertThrowMPI(ierr);
+
+          int message_length;
+          ierr = MPI_Get_count(&status, MPI_CHAR, &message_length);
+          AssertThrowMPI(ierr);
+
+          std::vector<char> buffer(message_length);
+
+          ierr = MPI_Recv(buffer.data(),
+                          buffer.size(),
+                          MPI_CHAR,
+                          status.MPI_SOURCE,
+                          tag,
+                          mpi_communicator,
+                          MPI_STATUS_IGNORE);
+          AssertThrowMPI(ierr);
+
+          const auto data =
+            Utilities::unpack<std::vector<ConstraintType>>(buffer, false);
+
+          for (const auto &i : data)
+            locally_constrained_indices.push_back(i);
+        }
+
+      const int ierr =
+        MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
+      AssertThrowMPI(ierr);
     }
 
     // step 3: communicate constraints so that each process know how the
