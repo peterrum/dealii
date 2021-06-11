@@ -252,107 +252,126 @@ AffineConstraints<number>::make_consistent_in_parallel(
     locally_constrained_indices_is.add_indices(
       locally_constrained_indices.begin(), locally_constrained_indices.end());
 
-    // TODO: include payload
-
-    // step 3: communicate constraints so that each process know how the
-    // locally active dofs are constrained
-    std::vector<unsigned int> locally_active_dofs_owners(
-      locally_active_dofs.n_elements());
-    Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
-      locally_active_dofs_process(locally_owned_dofs,
-                                  locally_active_dofs,
-                                  mpi_communicator,
-                                  locally_active_dofs_owners,
-                                  true);
-
-    Utilities::MPI::ConsensusAlgorithms::Selector<
-      std::pair<types::global_dof_index, types::global_dof_index>,
-      unsigned int>(locally_active_dofs_process, mpi_communicator)
-      .run();
-
-    const auto locally_active_dofs_by_ranks =
-      locally_active_dofs_process.get_requesters();
-
-    std::map<unsigned int, std::vector<char>> send_data;
-
-    std::vector<MPI_Request> requests;
-    requests.reserve(send_data.size());
-
-    const unsigned int tag = 0; // TODO
-
     using ConstraintType =
       std::tuple<types::global_dof_index,
                  double,
                  std::vector<std::pair<types::global_dof_index, double>>>;
 
-    // ... send data
-    for (const auto i : locally_active_dofs_by_ranks)
-      {
-        if (i.first == my_rank)
-          continue;
+    {
+      const unsigned int tag = 0; // TODO
 
-        std::vector<ConstraintType> data; // TODO: include payload
+      std::map<unsigned int, std::vector<ConstraintType>> data_send;
 
-        for (const auto j : i.second)
-          if (locally_constrained_indices_is.is_element(j))
+      for (unsigned int i = 0; i < constrained_indices_owners.size(); ++i)
+        {
+          ConstraintType temp;
+
+          std::get<0>(temp) = constrained_indices.nth_index_in_set(i);
+
+          data_send[constrained_indices_owners[i]].push_back(temp);
+        }
+    }
+
+    // step 3: communicate constraints so that each process know how the
+    // locally active dofs are constrained
+    {
+      const unsigned int tag = 1; // TODO
+
+      std::vector<unsigned int> locally_active_dofs_owners(
+        locally_active_dofs.n_elements());
+      Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
+        locally_active_dofs_process(locally_owned_dofs,
+                                    locally_active_dofs,
+                                    mpi_communicator,
+                                    locally_active_dofs_owners,
+                                    true);
+
+      Utilities::MPI::ConsensusAlgorithms::Selector<
+        std::pair<types::global_dof_index, types::global_dof_index>,
+        unsigned int>(locally_active_dofs_process, mpi_communicator)
+        .run();
+
+      const auto locally_active_dofs_by_ranks =
+        locally_active_dofs_process.get_requesters();
+
+      std::map<unsigned int, std::vector<char>> send_data;
+
+      std::vector<MPI_Request> requests;
+      requests.reserve(send_data.size());
+
+      // ... send data
+      for (const auto i : locally_active_dofs_by_ranks)
+        {
+          if (i.first == my_rank)
+            continue;
+
+          std::vector<ConstraintType> data; // TODO: include payload
+
+          for (const auto j : i.second)
+            if (locally_constrained_indices_is.is_element(j))
+              {
+                ConstraintType temp;
+
+                std::get<0>(temp) = j;
+
+                data.push_back(temp);
+              }
+
+          send_data[i.first] = Utilities::pack(data, false);
+
+          requests.resize(requests.size() + 1);
+
+          const int ierr = MPI_Isend(send_data[i.first].data(),
+                                     send_data[i.first].size(),
+                                     MPI_CHAR,
+                                     i.first,
+                                     tag,
+                                     mpi_communicator,
+                                     &requests.back());
+          AssertThrowMPI(ierr);
+        }
+
+      // ... receive data
+      std::set<unsigned int> ranks;
+
+      for (const unsigned int i : locally_active_dofs_owners)
+        if (i != my_rank)
+          ranks.insert(i);
+
+      for (unsigned int i = 0; i < ranks.size(); ++i)
+        {
+          MPI_Status status;
+          int ierr = MPI_Probe(MPI_ANY_SOURCE, tag, mpi_communicator, &status);
+          AssertThrowMPI(ierr);
+
+          int message_length;
+          ierr = MPI_Get_count(&status, MPI_CHAR, &message_length);
+          AssertThrowMPI(ierr);
+
+          std::vector<char> buffer(message_length);
+
+          ierr = MPI_Recv(buffer.data(),
+                          buffer.size(),
+                          MPI_CHAR,
+                          status.MPI_SOURCE,
+                          tag,
+                          mpi_communicator,
+                          MPI_STATUS_IGNORE);
+          AssertThrowMPI(ierr);
+
+          const auto data =
+            Utilities::unpack<std::vector<ConstraintType>>(buffer, false);
+
+          for (const auto &i : data)
             {
-              ConstraintType temp;
-
-              std::get<0>(temp) = j;
-
-              data.push_back(temp);
+              locally_constrained_indices.push_back(std::get<0>(i));
             }
+        }
 
-        send_data[i.first] = Utilities::pack(data, false);
-
-        requests.resize(requests.size() + 1);
-
-        const int ierr = MPI_Isend(send_data[i.first].data(),
-                                   send_data[i.first].size(),
-                                   MPI_CHAR,
-                                   i.first,
-                                   tag,
-                                   mpi_communicator,
-                                   &requests.back());
-        AssertThrowMPI(ierr);
-      }
-
-    // ... receive data
-    std::set<unsigned int> ranks;
-
-    for (const unsigned int i : locally_active_dofs_owners)
-      if (i != my_rank)
-        ranks.insert(i);
-
-    for (unsigned int i = 0; i < ranks.size(); ++i)
-      {
-        MPI_Status status;
-        int ierr = MPI_Probe(MPI_ANY_SOURCE, tag, mpi_communicator, &status);
-        AssertThrowMPI(ierr);
-
-        int message_length;
-        ierr = MPI_Get_count(&status, MPI_CHAR, &message_length);
-        AssertThrowMPI(ierr);
-
-        std::vector<char> buffer(message_length);
-
-        ierr = MPI_Recv(buffer.data(),
-                        buffer.size(),
-                        MPI_CHAR,
-                        status.MPI_SOURCE,
-                        tag,
-                        mpi_communicator,
-                        MPI_STATUS_IGNORE);
-        AssertThrowMPI(ierr);
-
-        const auto data =
-          Utilities::unpack<std::vector<ConstraintType>>(buffer, false);
-
-        for (const auto &i : data)
-          {
-            locally_constrained_indices.push_back(std::get<0>(i));
-          }
-      }
+      const int ierr =
+        MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
+      AssertThrowMPI(ierr);
+    }
 
     std::sort(locally_constrained_indices.begin(),
               locally_constrained_indices.end());
@@ -365,11 +384,6 @@ AffineConstraints<number>::make_consistent_in_parallel(
 
     locally_constrained_indices_is.add_indices(
       locally_constrained_indices.begin(), locally_constrained_indices.end());
-
-
-    const int ierr =
-      MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
-    AssertThrowMPI(ierr);
 
     return locally_constrained_indices_is;
   };
