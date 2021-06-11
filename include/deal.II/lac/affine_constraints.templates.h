@@ -199,8 +199,16 @@ AffineConstraints<number>::make_consistent_in_parallel(
   const IndexSet &locally_active_dofs,
   const MPI_Comm &mpi_communicator)
 {
-  (void)locally_active_dofs;
+#ifndef DEAL_II_WITH_MPI
+  if (job_supports_mpi() == false || Utilities::MPI::n_mpi_processes() == 1)
+    {
+      (void)locally_owned_dofs;
+      (void)locally_active_dofs;
+      (void)mpi_communicator;
 
+      return; // nothing to do, since serial
+    }
+#else
   const auto compute_locally_contrained_indices =
     [&](const IndexSet &constrained_indices) -> IndexSet {
     const unsigned int my_rank =
@@ -366,6 +374,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
 
   for (const auto i : locally_contrained_indices)
     this->add_line(i);
+#endif
 }
 
 
