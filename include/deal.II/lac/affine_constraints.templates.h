@@ -280,7 +280,10 @@ AffineConstraints<number>::make_consistent_in_parallel(
 
     const unsigned int tag = 0; // TODO
 
-    using ConstraintType = types::global_dof_index;
+    using ConstraintType =
+      std::tuple<types::global_dof_index,
+                 double,
+                 std::vector<std::pair<types::global_dof_index, double>>>;
 
     // ... send data
     for (const auto i : locally_active_dofs_by_ranks)
@@ -292,7 +295,13 @@ AffineConstraints<number>::make_consistent_in_parallel(
 
         for (const auto j : i.second)
           if (locally_constrained_indices_is.is_element(j))
-            data.push_back(j);
+            {
+              ConstraintType temp;
+
+              std::get<0>(temp) = j;
+
+              data.push_back(temp);
+            }
 
         send_data[i.first] = Utilities::pack(data, false);
 
@@ -340,7 +349,9 @@ AffineConstraints<number>::make_consistent_in_parallel(
           Utilities::unpack<std::vector<ConstraintType>>(buffer, false);
 
         for (const auto &i : data)
-          locally_constrained_indices.push_back(i);
+          {
+            locally_constrained_indices.push_back(std::get<0>(i));
+          }
       }
 
     std::sort(locally_constrained_indices.begin(),
