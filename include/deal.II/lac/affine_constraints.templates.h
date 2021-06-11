@@ -273,12 +273,14 @@ AffineConstraints<number>::make_consistent_in_parallel(
     const auto locally_active_dofs_by_ranks =
       locally_active_dofs_process.get_requesters();
 
-    std::map<unsigned int, std::vector<types::global_dof_index>> send_data;
+    std::map<unsigned int, std::vector<char>> send_data;
 
     std::vector<MPI_Request> requests;
     requests.reserve(send_data.size());
 
-    const unsigned int tag = 0;
+    const unsigned int tag = 0; // TODO
+
+    using ConstraintType = types::global_dof_index;
 
     // ... send data
     for (const auto i : locally_active_dofs_by_ranks)
@@ -286,20 +288,19 @@ AffineConstraints<number>::make_consistent_in_parallel(
         if (i.first == my_rank)
           continue;
 
-        std::vector<types::global_dof_index> data; // TODO: include payload
+        std::vector<ConstraintType> data; // TODO: include payload
 
         for (const auto j : i.second)
           if (locally_constrained_indices_is.is_element(j))
             data.push_back(j);
 
-        send_data[i.first] = data;
+        send_data[i.first] = Utilities::pack(data, false);
 
         requests.resize(requests.size() + 1);
 
         const int ierr = MPI_Isend(send_data[i.first].data(),
                                    send_data[i.first].size(),
-                                   Utilities::MPI::internal::mpi_type_id(
-                                     locally_constrained_indices.data()),
+                                   MPI_CHAR,
                                    i.first,
                                    tag,
                                    mpi_communicator,
@@ -321,25 +322,24 @@ AffineConstraints<number>::make_consistent_in_parallel(
         AssertThrowMPI(ierr);
 
         int message_length;
-        ierr = MPI_Get_count(&status,
-                             Utilities::MPI::internal::mpi_type_id(
-                               locally_constrained_indices.data()),
-                             &message_length);
+        ierr = MPI_Get_count(&status, MPI_CHAR, &message_length);
         AssertThrowMPI(ierr);
 
-        std::vector<types::global_dof_index> buffer(message_length);
+        std::vector<char> buffer(message_length);
 
         ierr = MPI_Recv(buffer.data(),
                         buffer.size(),
-                        Utilities::MPI::internal::mpi_type_id(
-                          locally_constrained_indices.data()),
+                        MPI_CHAR,
                         status.MPI_SOURCE,
                         tag,
                         mpi_communicator,
                         MPI_STATUS_IGNORE);
         AssertThrowMPI(ierr);
 
-        for (const auto &i : buffer)
+        const auto data =
+          Utilities::unpack<std::vector<ConstraintType>>(buffer, false);
+
+        for (const auto &i : data)
           locally_constrained_indices.push_back(i);
       }
 
