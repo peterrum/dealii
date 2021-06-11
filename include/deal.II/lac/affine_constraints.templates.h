@@ -200,7 +200,8 @@ AffineConstraints<number>::make_consistent_in_parallel(
   const MPI_Comm &mpi_communicator)
 {
 #ifndef DEAL_II_WITH_MPI
-  if (job_supports_mpi() == false || Utilities::MPI::n_mpi_processes() == 1)
+  if (Utilities::MPI::job_supports_mpi() == false ||
+      Utilities::MPI::n_mpi_processes() == 1)
     {
       (void)locally_owned_dofs;
       (void)locally_active_dofs;
