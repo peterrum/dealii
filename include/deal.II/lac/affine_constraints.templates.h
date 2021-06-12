@@ -201,11 +201,10 @@ AffineConstraints<number>::make_consistent_in_parallel(
 {
 #ifndef DEAL_II_WITH_MPI
   if (Utilities::MPI::job_supports_mpi() == false ||
-      Utilities::MPI::n_mpi_processes() == 1)
+      Utilities::MPI::n_mpi_processes(mpi_communicator) == 1)
     {
       (void)locally_owned_dofs;
       (void)locally_active_dofs;
-      (void)mpi_communicator;
 
       return; // nothing to do, since serial
     }
@@ -238,19 +237,6 @@ AffineConstraints<number>::make_consistent_in_parallel(
     // step 2: collect actual constraints
     const auto constrained_indices_by_ranks =
       constrained_indices_process.get_requesters();
-
-    std::vector<types::global_dof_index> locally_constrained_indices;
-
-    for (const auto &rank_and_indices : constrained_indices_by_ranks)
-      for (const auto i : rank_and_indices.second)
-        locally_constrained_indices.push_back(i);
-
-    std::sort(locally_constrained_indices.begin(),
-              locally_constrained_indices.end());
-    locally_constrained_indices.erase(
-      std::unique(locally_constrained_indices.begin(),
-                  locally_constrained_indices.end()),
-      locally_constrained_indices.end());
 
     std::vector<ConstraintType> locally_relevant_constrains;
 
@@ -399,9 +385,6 @@ AffineConstraints<number>::make_consistent_in_parallel(
       // ... send data
       for (const auto i : locally_active_dofs_by_ranks)
         {
-          if (i.first == my_rank)
-            continue;
-
           std::vector<ConstraintType> data;
 
           for (const auto j : i.second)
@@ -415,6 +398,13 @@ AffineConstraints<number>::make_consistent_in_parallel(
               if (prt != locally_constrained_indices_todo.end())
                 data.push_back(*prt);
             }
+
+          locally_relevant_constrains.insert(locally_relevant_constrains.end(),
+                                             data.begin(),
+                                             data.end());
+
+          if (i.first == my_rank)
+            continue;
 
           send_data[i.first] = Utilities::pack(data, false);
 
