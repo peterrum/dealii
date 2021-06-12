@@ -365,7 +365,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
         locally_constrained_indices.end());
 
       return locally_constrained_indices;
-    };
+    }();
 
     (void)locally_constrained_indices_todo; // TODO
 
@@ -402,17 +402,19 @@ AffineConstraints<number>::make_consistent_in_parallel(
           if (i.first == my_rank)
             continue;
 
-          std::vector<ConstraintType> data; // TODO: include payload
+          std::vector<ConstraintType> data;
 
           for (const auto j : i.second)
-            if (locally_constrained_indices_is.is_element(j))
-              {
-                ConstraintType temp;
-
-                std::get<0>(temp) = j;
-
-                data.push_back(temp);
-              }
+            {
+              const auto prt =
+                std::find_if(locally_constrained_indices_todo.begin(),
+                             locally_constrained_indices_todo.end(),
+                             [j](const auto &a) {
+                               return std::get<0>(a) == j;
+                             });
+              if (prt != locally_constrained_indices_todo.end())
+                data.push_back(*prt);
+            }
 
           send_data[i.first] = Utilities::pack(data, false);
 
