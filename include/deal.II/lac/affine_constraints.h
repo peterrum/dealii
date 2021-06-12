@@ -1712,11 +1712,12 @@ public:
                             const bool                   verbose = false) const;
 
   /**
-   * TODO
+   * Make the current object consistent on all processors
+   * in a distributed computation.
    */
   void
   make_consistent_in_parallel(const IndexSet &locally_owned_dofs,
-                              const IndexSet &locally_active_dofs,
+                              const IndexSet &locally_relevant_dofs,
                               const MPI_Comm &mpi_communicator);
 
   /**
