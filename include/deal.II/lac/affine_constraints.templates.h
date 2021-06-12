@@ -210,8 +210,13 @@ AffineConstraints<number>::make_consistent_in_parallel(
       return; // nothing to do, since serial
     }
 #else
+  using ConstraintType =
+    std::tuple<types::global_dof_index,
+               number,
+               std::vector<std::pair<types::global_dof_index, number>>>;
+
   const auto compute_locally_contrained_indices =
-    [&](const IndexSet &constrained_indices) -> IndexSet {
+    [&](const IndexSet &constrained_indices) -> std::vector<ConstraintType> {
     const unsigned int my_rank =
       Utilities::MPI::this_mpi_process(mpi_communicator);
 
@@ -246,16 +251,6 @@ AffineConstraints<number>::make_consistent_in_parallel(
       std::unique(locally_constrained_indices.begin(),
                   locally_constrained_indices.end()),
       locally_constrained_indices.end());
-
-    IndexSet locally_constrained_indices_is(constrained_indices.size());
-
-    locally_constrained_indices_is.add_indices(
-      locally_constrained_indices.begin(), locally_constrained_indices.end());
-
-    using ConstraintType =
-      std::tuple<types::global_dof_index,
-                 number,
-                 std::vector<std::pair<types::global_dof_index, number>>>;
 
     const auto locally_constrained_indices_todo = [&]() {
       const unsigned int tag = 0; // TODO
@@ -371,7 +366,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
 
     // step 3: communicate constraints so that each process know how the
     // locally active dofs are constrained
-    {
+    return [&]() {
       const unsigned int tag = 1; // TODO
 
       std::vector<unsigned int> locally_active_dofs_owners(
@@ -437,6 +432,8 @@ AffineConstraints<number>::make_consistent_in_parallel(
         if (i != my_rank)
           ranks.insert(i);
 
+      std::vector<ConstraintType> locally_constrained_indices;
+
       for (unsigned int i = 0; i < ranks.size(); ++i)
         {
           MPI_Status status;
@@ -462,29 +459,28 @@ AffineConstraints<number>::make_consistent_in_parallel(
             Utilities::unpack<std::vector<ConstraintType>>(buffer, false);
 
           for (const auto &i : data)
-            {
-              locally_constrained_indices.push_back(std::get<0>(i));
-            }
+            locally_constrained_indices.push_back(i);
         }
 
       const int ierr =
         MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
       AssertThrowMPI(ierr);
-    }
 
-    std::sort(locally_constrained_indices.begin(),
-              locally_constrained_indices.end());
-    locally_constrained_indices.erase(
-      std::unique(locally_constrained_indices.begin(),
-                  locally_constrained_indices.end()),
-      locally_constrained_indices.end());
+      std::sort(locally_constrained_indices.begin(),
+                locally_constrained_indices.end(),
+                [](const auto &a, const auto &b) {
+                  return std::get<0>(a) < std::get<0>(b);
+                });
+      locally_constrained_indices.erase(
+        std::unique(locally_constrained_indices.begin(),
+                    locally_constrained_indices.end(),
+                    [](const auto &a, const auto &b) {
+                      return std::get<0>(a) == std::get<0>(b);
+                    }),
+        locally_constrained_indices.end());
 
-    locally_constrained_indices_is.clear();
-
-    locally_constrained_indices_is.add_indices(
-      locally_constrained_indices.begin(), locally_constrained_indices.end());
-
-    return locally_constrained_indices_is;
+      return locally_constrained_indices;
+    }();
   };
 
   IndexSet constrained_indices(locally_owned_dofs.size());
@@ -497,8 +493,19 @@ AffineConstraints<number>::make_consistent_in_parallel(
   lines.clear();
   lines_cache.clear();
 
-  for (const auto i : locally_contrained_indices)
-    this->add_line(i);
+  for (const auto &i : locally_contrained_indices)
+    {
+      const types::global_dof_index index = std::get<0>(i);
+
+      this->add_line(index);
+
+      if (std::get<1>(i) != number())
+        this->set_inhomogeneity(index, std::get<1>(i));
+
+      if (std::get<2>(i).size() > 0)
+        for (const auto &j : std::get<2>(i))
+          this->add_entry(index, j.first, j.second);
+    }
 #endif
 }
 
