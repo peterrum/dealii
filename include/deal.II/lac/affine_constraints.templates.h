@@ -196,7 +196,7 @@ template <typename number>
 void
 AffineConstraints<number>::make_consistent_in_parallel(
   const IndexSet &locally_owned_dofs,
-  const IndexSet &locally_active_dofs,
+  const IndexSet &locally_relevant_dofs,
   const MPI_Comm &mpi_communicator)
 {
 #ifndef DEAL_II_WITH_MPI
@@ -204,7 +204,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
       Utilities::MPI::n_mpi_processes(mpi_communicator) == 1)
     {
       (void)locally_owned_dofs;
-      (void)locally_active_dofs;
+      (void)locally_relevant_dofs;
 
       return; // nothing to do, since serial
     }
@@ -368,22 +368,22 @@ AffineConstraints<number>::make_consistent_in_parallel(
         affine_constraints_make_consistent_in_parallel_1;
 
       // ... determine owners of active dofs
-      std::vector<unsigned int> locally_active_dofs_owners(
-        locally_active_dofs.n_elements());
+      std::vector<unsigned int> locally_relevant_dofs_owners(
+        locally_relevant_dofs.n_elements());
       Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
-        locally_active_dofs_process(locally_owned_dofs,
-                                    locally_active_dofs,
-                                    mpi_communicator,
-                                    locally_active_dofs_owners,
-                                    true);
+        locally_relevant_dofs_process(locally_owned_dofs,
+                                      locally_relevant_dofs,
+                                      mpi_communicator,
+                                      locally_relevant_dofs_owners,
+                                      true);
 
       Utilities::MPI::ConsensusAlgorithms::Selector<
         std::pair<types::global_dof_index, types::global_dof_index>,
-        unsigned int>(locally_active_dofs_process, mpi_communicator)
+        unsigned int>(locally_relevant_dofs_process, mpi_communicator)
         .run();
 
-      const auto locally_active_dofs_by_ranks =
-        locally_active_dofs_process.get_requesters();
+      const auto locally_relevant_dofs_by_ranks =
+        locally_relevant_dofs_process.get_requesters();
 
       std::map<unsigned int, std::vector<char>> send_data;
 
@@ -391,7 +391,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
       requests.reserve(send_data.size());
 
       // ... send data
-      for (const auto rank_and_indices : locally_active_dofs_by_ranks)
+      for (const auto rank_and_indices : locally_relevant_dofs_by_ranks)
         {
           std::vector<ConstraintType> data;
 
@@ -431,7 +431,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
       // ... receive data
       std::set<unsigned int> ranks;
 
-      for (const unsigned int rank : locally_active_dofs_owners)
+      for (const unsigned int rank : locally_relevant_dofs_owners)
         if (rank != my_rank)
           ranks.insert(rank);
 
