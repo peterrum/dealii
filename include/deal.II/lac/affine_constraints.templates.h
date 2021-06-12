@@ -286,7 +286,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
       requests.reserve(send_data.size());
 
       // ... send data
-      for (const auto i : send_data)
+      for (const auto &i : send_data)
         {
           if (i.first == my_rank)
             continue;
@@ -391,7 +391,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
       requests.reserve(send_data.size());
 
       // ... send data
-      for (const auto rank_and_indices : locally_relevant_dofs_by_ranks)
+      for (const auto &rank_and_indices : locally_relevant_dofs_by_ranks)
         {
           std::vector<ConstraintType> data;
 
