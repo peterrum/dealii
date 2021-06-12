@@ -254,10 +254,10 @@ AffineConstraints<number>::make_consistent_in_parallel(
 
     using ConstraintType =
       std::tuple<types::global_dof_index,
-                 double,
-                 std::vector<std::pair<types::global_dof_index, double>>>;
+                 number,
+                 std::vector<std::pair<types::global_dof_index, number>>>;
 
-    {
+    const auto locally_constrained_indices_todo = [&]() {
       const unsigned int tag = 0; // TODO
 
       std::map<unsigned int, std::vector<ConstraintType>> send_data_temp;
@@ -266,7 +266,19 @@ AffineConstraints<number>::make_consistent_in_parallel(
         {
           ConstraintType temp;
 
-          std::get<0>(temp) = constrained_indices.nth_index_in_set(i);
+          const types::global_dof_index index =
+            constrained_indices.nth_index_in_set(i);
+
+          std::get<0>(temp) = index;
+
+          if (is_inhomogeneously_constrained(index))
+            std::get<1>(temp) = get_inhomogeneity(index);
+
+          const auto constraints = get_constraint_entries(index);
+
+          if (constraints)
+            for (const auto &i : *constraints)
+              std::get<2>(temp).push_back(i);
 
           send_data_temp[constrained_indices_owners[i]].push_back(temp);
         }
@@ -337,7 +349,25 @@ AffineConstraints<number>::make_consistent_in_parallel(
       const int ierr =
         MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
       AssertThrowMPI(ierr);
-    }
+
+      std::sort(locally_constrained_indices.begin(),
+                locally_constrained_indices.end(),
+                [](const auto &a, const auto &b) {
+                  return std::get<0>(a) < std::get<0>(b);
+                });
+
+      locally_constrained_indices.erase(
+        std::unique(locally_constrained_indices.begin(),
+                    locally_constrained_indices.end(),
+                    [](const auto &a, const auto &b) {
+                      return std::get<0>(a) == std::get<0>(b);
+                    }),
+        locally_constrained_indices.end());
+
+      return locally_constrained_indices;
+    };
+
+    (void)locally_constrained_indices_todo; // TODO
 
     // step 3: communicate constraints so that each process know how the
     // locally active dofs are constrained
