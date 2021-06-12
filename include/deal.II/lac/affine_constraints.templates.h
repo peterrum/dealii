@@ -214,8 +214,12 @@ AffineConstraints<number>::make_consistent_in_parallel(
                number,
                std::vector<std::pair<types::global_dof_index, number>>>;
 
-  const auto compute_locally_contrained_indices =
-    [&](const IndexSet &constrained_indices) -> std::vector<ConstraintType> {
+  const auto compute_temporal_constraint_matrix =
+    [&]() -> std::vector<ConstraintType> {
+    IndexSet constrained_indices(locally_owned_dofs.size());
+    for (const auto &line : this->get_lines())
+      constrained_indices.add_index(line.index);
+
     const unsigned int my_rank =
       Utilities::MPI::this_mpi_process(mpi_communicator);
 
@@ -476,27 +480,28 @@ AffineConstraints<number>::make_consistent_in_parallel(
     }();
   };
 
-  IndexSet constrained_indices(locally_owned_dofs.size());
-  for (const auto &line : this->get_lines())
-    constrained_indices.add_index(line.index);
+  // 1) get all locally relevant constraints ("temporal constraint matrix")
+  const auto temporal_constraint_matrix = compute_temporal_constraint_matrix();
 
-  const auto locally_contrained_indices =
-    compute_locally_contrained_indices(constrained_indices);
-
+  // 2) clear the content of this constraint matrix
   lines.clear();
   lines_cache.clear();
 
-  for (const auto &i : locally_contrained_indices)
+  // 3) refill this constraint matrix
+  for (const auto &line : temporal_constraint_matrix)
     {
-      const types::global_dof_index index = std::get<0>(i);
+      const types::global_dof_index index = std::get<0>(line);
 
+      // ... line
       this->add_line(index);
 
-      if (std::get<1>(i) != number())
-        this->set_inhomogeneity(index, std::get<1>(i));
+      // ... inhomogeneity
+      if (std::get<1>(line) != number())
+        this->set_inhomogeneity(index, std::get<1>(line));
 
-      if (std::get<2>(i).size() > 0)
-        for (const auto &j : std::get<2>(i))
+      // ... entries
+      if (std::get<2>(line).size() > 0)
+        for (const auto &j : std::get<2>(line))
           this->add_entry(index, j.first, j.second);
     }
 #endif
