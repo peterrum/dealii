@@ -214,14 +214,15 @@ AffineConstraints<number>::make_consistent_in_parallel(
                number,
                std::vector<std::pair<types::global_dof_index, number>>>;
 
+  const unsigned int my_rank =
+    Utilities::MPI::this_mpi_process(mpi_communicator);
+
   const auto compute_temporal_constraint_matrix =
     [&]() -> std::vector<ConstraintType> {
+    // 0) collect constrained indices of the current object
     IndexSet constrained_indices(locally_owned_dofs.size());
     for (const auto &line : this->get_lines())
       constrained_indices.add_index(line.index);
-
-    const unsigned int my_rank =
-      Utilities::MPI::this_mpi_process(mpi_communicator);
 
     // step 1: identify owners of constraints
     std::vector<unsigned int> constrained_indices_owners(
@@ -356,8 +357,6 @@ AffineConstraints<number>::make_consistent_in_parallel(
 
       return locally_constrained_indices;
     }();
-
-    (void)locally_constrained_indices_todo; // TODO
 
     // step 3: communicate constraints so that each process know how the
     // locally active dofs are constrained
