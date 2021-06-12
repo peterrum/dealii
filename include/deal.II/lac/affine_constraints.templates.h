@@ -217,8 +217,11 @@ AffineConstraints<number>::make_consistent_in_parallel(
   const unsigned int my_rank =
     Utilities::MPI::this_mpi_process(mpi_communicator);
 
-  const auto compute_temporal_constraint_matrix =
+  const auto compute_locally_relevant_constrains =
     [&]() -> std::vector<ConstraintType> {
+    // The result vector filled step by step.
+    std::vector<ConstraintType> locally_relevant_constrains;
+
     // 0) collect constrained indices of the current object
     IndexSet constrained_indices(locally_owned_dofs.size());
     for (const auto &line : this->get_lines())
@@ -239,39 +242,39 @@ AffineConstraints<number>::make_consistent_in_parallel(
       unsigned int>(constrained_indices_process, mpi_communicator)
       .run();
 
-    // step 2: collect actual constraints
+    // step 2: collect all locally owned constraints
     const auto constrained_indices_by_ranks =
       constrained_indices_process.get_requesters();
 
-    std::vector<ConstraintType> locally_relevant_constrains;
+    const auto all_locally_owned_constraints = [&]() {
+      const unsigned int tag = Utilities::MPI::internal::Tags::
+        affine_constraints_make_consistent_in_parallel_0;
 
-    const auto locally_constrained_indices_todo = [&]() {
-      const unsigned int tag = 0; // TODO
-
+      // ... collect data and sort according to owner
       std::map<unsigned int, std::vector<ConstraintType>> send_data_temp;
 
       for (unsigned int i = 0; i < constrained_indices_owners.size(); ++i)
         {
-          ConstraintType temp;
+          ConstraintType entry;
 
           const types::global_dof_index index =
             constrained_indices.nth_index_in_set(i);
 
-          std::get<0>(temp) = index;
+          std::get<0>(entry) = index;
 
           if (is_inhomogeneously_constrained(index))
-            std::get<1>(temp) = get_inhomogeneity(index);
+            std::get<1>(entry) = get_inhomogeneity(index);
 
           const auto constraints = get_constraint_entries(index);
 
           if (constraints)
             for (const auto &i : *constraints)
-              std::get<2>(temp).push_back(i);
+              std::get<2>(entry).push_back(i);
 
           if (constrained_indices_owners[i] == my_rank)
-            locally_relevant_constrains.push_back(temp);
+            locally_relevant_constrains.push_back(entry);
           else
-            send_data_temp[constrained_indices_owners[i]].push_back(temp);
+            send_data_temp[constrained_indices_owners[i]].push_back(entry);
         }
 
       std::map<unsigned int, std::vector<char>> send_data;
@@ -301,15 +304,15 @@ AffineConstraints<number>::make_consistent_in_parallel(
         }
 
       // ... receive data
-      std::set<unsigned int> ranks;
+      std::set<unsigned int> rec_ranks;
 
       for (const auto &i : constrained_indices_by_ranks)
         if (i.first != my_rank)
-          ranks.insert(i.first);
+          rec_ranks.insert(i.first);
 
-      std::vector<ConstraintType> locally_constrained_indices;
+      std::vector<ConstraintType> all_locally_owned_constraints;
 
-      for (unsigned int i = 0; i < ranks.size(); ++i)
+      for (unsigned int i = 0; i < rec_ranks.size(); ++i)
         {
           MPI_Status status;
           int ierr = MPI_Probe(MPI_ANY_SOURCE, tag, mpi_communicator, &status);
@@ -334,35 +337,37 @@ AffineConstraints<number>::make_consistent_in_parallel(
             Utilities::unpack<std::vector<ConstraintType>>(buffer, false);
 
           for (const auto &i : data)
-            locally_constrained_indices.push_back(i);
+            all_locally_owned_constraints.push_back(i);
         }
 
       const int ierr =
         MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
       AssertThrowMPI(ierr);
 
-      std::sort(locally_constrained_indices.begin(),
-                locally_constrained_indices.end(),
+      std::sort(all_locally_owned_constraints.begin(),
+                all_locally_owned_constraints.end(),
                 [](const auto &a, const auto &b) {
                   return std::get<0>(a) < std::get<0>(b);
                 });
 
-      locally_constrained_indices.erase(
-        std::unique(locally_constrained_indices.begin(),
-                    locally_constrained_indices.end(),
+      all_locally_owned_constraints.erase(
+        std::unique(all_locally_owned_constraints.begin(),
+                    all_locally_owned_constraints.end(),
                     [](const auto &a, const auto &b) {
                       return std::get<0>(a) == std::get<0>(b);
                     }),
-        locally_constrained_indices.end());
+        all_locally_owned_constraints.end());
 
-      return locally_constrained_indices;
+      return all_locally_owned_constraints;
     }();
 
     // step 3: communicate constraints so that each process know how the
     // locally active dofs are constrained
-    return [&]() {
-      const unsigned int tag = 1; // TODO
+    {
+      const unsigned int tag = Utilities::MPI::internal::Tags::
+        affine_constraints_make_consistent_in_parallel_1;
 
+      // ... determine owners of active dofs
       std::vector<unsigned int> locally_active_dofs_owners(
         locally_active_dofs.n_elements());
       Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
@@ -386,19 +391,19 @@ AffineConstraints<number>::make_consistent_in_parallel(
       requests.reserve(send_data.size());
 
       // ... send data
-      for (const auto i : locally_active_dofs_by_ranks)
+      for (const auto rank_and_indices : locally_active_dofs_by_ranks)
         {
           std::vector<ConstraintType> data;
 
-          for (const auto j : i.second)
+          for (const auto index : rank_and_indices.second)
             {
               const auto prt =
-                std::find_if(locally_constrained_indices_todo.begin(),
-                             locally_constrained_indices_todo.end(),
-                             [j](const auto &a) {
-                               return std::get<0>(a) == j;
+                std::find_if(all_locally_owned_constraints.begin(),
+                             all_locally_owned_constraints.end(),
+                             [index](const auto &a) {
+                               return std::get<0>(a) == index;
                              });
-              if (prt != locally_constrained_indices_todo.end())
+              if (prt != all_locally_owned_constraints.end())
                 data.push_back(*prt);
             }
 
@@ -406,17 +411,17 @@ AffineConstraints<number>::make_consistent_in_parallel(
                                              data.begin(),
                                              data.end());
 
-          if (i.first == my_rank)
+          if (rank_and_indices.first == my_rank)
             continue;
 
-          send_data[i.first] = Utilities::pack(data, false);
+          send_data[rank_and_indices.first] = Utilities::pack(data, false);
 
           requests.resize(requests.size() + 1);
 
-          const int ierr = MPI_Isend(send_data[i.first].data(),
-                                     send_data[i.first].size(),
+          const int ierr = MPI_Isend(send_data[rank_and_indices.first].data(),
+                                     send_data[rank_and_indices.first].size(),
                                      MPI_CHAR,
-                                     i.first,
+                                     rank_and_indices.first,
                                      tag,
                                      mpi_communicator,
                                      &requests.back());
@@ -426,11 +431,11 @@ AffineConstraints<number>::make_consistent_in_parallel(
       // ... receive data
       std::set<unsigned int> ranks;
 
-      for (const unsigned int i : locally_active_dofs_owners)
-        if (i != my_rank)
-          ranks.insert(i);
+      for (const unsigned int rank : locally_active_dofs_owners)
+        if (rank != my_rank)
+          ranks.insert(rank);
 
-      for (unsigned int i = 0; i < ranks.size(); ++i)
+      for (unsigned int counter = 0; counter < ranks.size(); ++counter)
         {
           MPI_Status status;
           int ierr = MPI_Probe(MPI_ANY_SOURCE, tag, mpi_communicator, &status);
@@ -451,36 +456,38 @@ AffineConstraints<number>::make_consistent_in_parallel(
                           MPI_STATUS_IGNORE);
           AssertThrowMPI(ierr);
 
-          const auto data =
+          const auto received_locally_relevant_constrain =
             Utilities::unpack<std::vector<ConstraintType>>(buffer, false);
 
-          for (const auto &i : data)
-            locally_relevant_constrains.push_back(i);
+          for (const auto &locally_relevant_constrain :
+               received_locally_relevant_constrain)
+            locally_relevant_constrains.push_back(locally_relevant_constrain);
         }
 
       const int ierr =
         MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
       AssertThrowMPI(ierr);
+    }
 
-      std::sort(locally_relevant_constrains.begin(),
-                locally_relevant_constrains.end(),
-                [](const auto &a, const auto &b) {
-                  return std::get<0>(a) < std::get<0>(b);
-                });
-      locally_relevant_constrains.erase(
-        std::unique(locally_relevant_constrains.begin(),
-                    locally_relevant_constrains.end(),
-                    [](const auto &a, const auto &b) {
-                      return std::get<0>(a) == std::get<0>(b);
-                    }),
-        locally_relevant_constrains.end());
+    // step 4: sort constraints and make unique
+    std::sort(locally_relevant_constrains.begin(),
+              locally_relevant_constrains.end(),
+              [](const auto &a, const auto &b) {
+                return std::get<0>(a) < std::get<0>(b);
+              });
+    locally_relevant_constrains.erase(
+      std::unique(locally_relevant_constrains.begin(),
+                  locally_relevant_constrains.end(),
+                  [](const auto &a, const auto &b) {
+                    return std::get<0>(a) == std::get<0>(b);
+                  }),
+      locally_relevant_constrains.end());
 
-      return locally_relevant_constrains;
-    }();
+    return locally_relevant_constrains;
   };
 
   // 1) get all locally relevant constraints ("temporal constraint matrix")
-  const auto temporal_constraint_matrix = compute_temporal_constraint_matrix();
+  const auto temporal_constraint_matrix = compute_locally_relevant_constrains();
 
   // 2) clear the content of this constraint matrix
   lines.clear();
