@@ -252,6 +252,8 @@ AffineConstraints<number>::make_consistent_in_parallel(
                   locally_constrained_indices.end()),
       locally_constrained_indices.end());
 
+    std::vector<ConstraintType> locally_relevant_constrains;
+
     const auto locally_constrained_indices_todo = [&]() {
       const unsigned int tag = 0; // TODO
 
@@ -275,7 +277,10 @@ AffineConstraints<number>::make_consistent_in_parallel(
             for (const auto &i : *constraints)
               std::get<2>(temp).push_back(i);
 
-          send_data_temp[constrained_indices_owners[i]].push_back(temp);
+          if (constrained_indices_owners[i] == my_rank)
+            locally_relevant_constrains.push_back(temp);
+          else
+            send_data_temp[constrained_indices_owners[i]].push_back(temp);
         }
 
       std::map<unsigned int, std::vector<char>> send_data;
@@ -432,8 +437,6 @@ AffineConstraints<number>::make_consistent_in_parallel(
         if (i != my_rank)
           ranks.insert(i);
 
-      std::vector<ConstraintType> locally_constrained_indices;
-
       for (unsigned int i = 0; i < ranks.size(); ++i)
         {
           MPI_Status status;
@@ -459,27 +462,27 @@ AffineConstraints<number>::make_consistent_in_parallel(
             Utilities::unpack<std::vector<ConstraintType>>(buffer, false);
 
           for (const auto &i : data)
-            locally_constrained_indices.push_back(i);
+            locally_relevant_constrains.push_back(i);
         }
 
       const int ierr =
         MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
       AssertThrowMPI(ierr);
 
-      std::sort(locally_constrained_indices.begin(),
-                locally_constrained_indices.end(),
+      std::sort(locally_relevant_constrains.begin(),
+                locally_relevant_constrains.end(),
                 [](const auto &a, const auto &b) {
                   return std::get<0>(a) < std::get<0>(b);
                 });
-      locally_constrained_indices.erase(
-        std::unique(locally_constrained_indices.begin(),
-                    locally_constrained_indices.end(),
+      locally_relevant_constrains.erase(
+        std::unique(locally_relevant_constrains.begin(),
+                    locally_relevant_constrains.end(),
                     [](const auto &a, const auto &b) {
                       return std::get<0>(a) == std::get<0>(b);
                     }),
-        locally_constrained_indices.end());
+        locally_relevant_constrains.end());
 
-      return locally_constrained_indices;
+      return locally_relevant_constrains;
     }();
   };
 
