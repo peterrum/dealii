@@ -199,16 +199,17 @@ AffineConstraints<number>::make_consistent_in_parallel(
   const IndexSet &locally_relevant_dofs,
   const MPI_Comm &mpi_communicator)
 {
-#ifndef DEAL_II_WITH_MPI
   if (Utilities::MPI::job_supports_mpi() == false ||
       Utilities::MPI::n_mpi_processes(mpi_communicator) == 1)
-    {
-      (void)locally_owned_dofs;
-      (void)locally_relevant_dofs;
+    return; // nothing to do, since serial
 
-      return; // nothing to do, since serial
-    }
+#ifndef DEAL_II_WITH_MPI
+  AssertThrow(false, ExcNotImplemented()); // one should not come here
+  (void)locally_owned_dofs;
+  (void)locally_relevant_dofs;
 #else
+  Assert(sorted == false, ExcMatrixIsClosed());
+
   using ConstraintType =
     std::tuple<types::global_dof_index,
                number,
@@ -217,7 +218,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
   const unsigned int my_rank =
     Utilities::MPI::this_mpi_process(mpi_communicator);
 
-  const auto compute_locally_relevant_constrains =
+  const auto compute_locally_relevant_constraints =
     [&]() -> std::vector<ConstraintType> {
     // The result vector filled step by step.
     std::vector<ConstraintType> locally_relevant_constrains;
@@ -291,7 +292,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
           if (i.first == my_rank)
             continue;
 
-          requests.resize(requests.size() + 1);
+          requests.push_back({});
 
           const int ierr = MPI_Isend(i.second.data(),
                                      i.second.size(),
@@ -416,7 +417,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
 
           send_data[rank_and_indices.first] = Utilities::pack(data, false);
 
-          requests.resize(requests.size() + 1);
+          requests.push_back({});
 
           const int ierr = MPI_Isend(send_data[rank_and_indices.first].data(),
                                      send_data[rank_and_indices.first].size(),
@@ -487,7 +488,8 @@ AffineConstraints<number>::make_consistent_in_parallel(
   };
 
   // 1) get all locally relevant constraints ("temporal constraint matrix")
-  const auto temporal_constraint_matrix = compute_locally_relevant_constrains();
+  const auto temporal_constraint_matrix =
+    compute_locally_relevant_constraints();
 
   // 2) clear the content of this constraint matrix
   lines.clear();
@@ -510,6 +512,15 @@ AffineConstraints<number>::make_consistent_in_parallel(
         for (const auto &j : std::get<2>(line))
           this->add_entry(index, j.first, j.second);
     }
+
+#  ifdef DEBUG
+  Assert(this->is_consistent_in_parallel(
+           Utilities::MPI::all_gather(mpi_communicator, locally_owned_dofs),
+           locally_relevant_dofs,
+           mpi_communicator),
+         ExcInternalError());
+#  endif
+
 #endif
 }
 
