@@ -223,6 +223,23 @@ AffineConstraints<number>::make_consistent_in_parallel(
     // The result vector filled step by step.
     std::vector<ConstraintType> locally_relevant_constrains;
 
+    // helper function
+    const auto sort_constraints = [&]() {
+      std::sort(locally_relevant_constrains.begin(),
+                locally_relevant_constrains.end(),
+                [](const auto &a, const auto &b) {
+                  return std::get<0>(a) < std::get<0>(b);
+                });
+
+      locally_relevant_constrains.erase(
+        std::unique(locally_relevant_constrains.begin(),
+                    locally_relevant_constrains.end(),
+                    [](const auto &a, const auto &b) {
+                      return std::get<0>(a) == std::get<0>(b);
+                    }),
+        locally_relevant_constrains.end());
+    };
+
     // 0) collect constrained indices of the current object
     IndexSet constrained_indices(locally_owned_dofs.size());
     for (const auto &line : this->get_lines())
@@ -343,20 +360,9 @@ AffineConstraints<number>::make_consistent_in_parallel(
         MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
       AssertThrowMPI(ierr);
 
-      std::sort(locally_relevant_constrains.begin(),
-                locally_relevant_constrains.end(),
-                [](const auto &a, const auto &b) {
-                  return std::get<0>(a) < std::get<0>(b);
-                });
+      sort_constraints();
+    }
 
-      locally_relevant_constrains.erase(
-        std::unique(locally_relevant_constrains.begin(),
-                    locally_relevant_constrains.end(),
-                    [](const auto &a, const auto &b) {
-                      return std::get<0>(a) == std::get<0>(b);
-                    }),
-        locally_relevant_constrains.end());
-    };
 
     // step 3: communicate constraints so that each process know how the
     // locally active dofs are constrained
@@ -466,21 +472,9 @@ AffineConstraints<number>::make_consistent_in_parallel(
       const int ierr =
         MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
       AssertThrowMPI(ierr);
-    }
 
-    // step 4: sort constraints and make unique
-    std::sort(locally_relevant_constrains.begin(),
-              locally_relevant_constrains.end(),
-              [](const auto &a, const auto &b) {
-                return std::get<0>(a) < std::get<0>(b);
-              });
-    locally_relevant_constrains.erase(
-      std::unique(locally_relevant_constrains.begin(),
-                  locally_relevant_constrains.end(),
-                  [](const auto &a, const auto &b) {
-                    return std::get<0>(a) == std::get<0>(b);
-                  }),
-      locally_relevant_constrains.end());
+      sort_constraints();
+    }
 
     return locally_relevant_constrains;
   };
