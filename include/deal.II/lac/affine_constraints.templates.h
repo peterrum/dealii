@@ -280,7 +280,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
 
       std::map<unsigned int, std::vector<char>> send_data;
 
-      for (const auto i : send_data_temp)
+      for (const auto &i : send_data_temp)
         send_data[i.first] = Utilities::pack(i.second, false);
 
       std::vector<MPI_Request> requests;

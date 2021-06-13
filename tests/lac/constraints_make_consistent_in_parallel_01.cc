@@ -58,6 +58,37 @@ collect_lines(const AffineConstraints<Number> &constraints,
   return lines_local;
 }
 
+template <int dim, int spacedim>
+void
+test(const DoFHandler<dim, spacedim> &dof_handler,
+     const IndexSet &                 locally_relevant_dofs)
+{
+  AffineConstraints<double> constraints;
+
+  std::vector<types::global_dof_index> dof_indices(
+    dof_handler.get_fe().n_dofs_per_face());
+
+  for (const auto &cell : dof_handler.active_cell_iterators())
+    for (const auto face : cell->face_indices())
+      if (cell->is_locally_owned() && !cell->at_boundary(face) &&
+          cell->material_id() != cell->neighbor(face)->material_id())
+        {
+          cell->face(face)->get_dof_indices(dof_indices);
+          for (const auto i : dof_indices)
+            constraints.add_line(i);
+        }
+
+  const auto a = collect_lines(constraints, dof_handler.n_dofs());
+  a.print(deallog.get_file_stream());
+
+  constraints.make_consistent_in_parallel(dof_handler.locally_owned_dofs(),
+                                          locally_relevant_dofs,
+                                          dof_handler.get_communicator());
+
+  const auto b = collect_lines(constraints, dof_handler.n_dofs());
+  b.print(deallog.get_file_stream());
+}
+
 int
 main(int argc, char **argv)
 {
@@ -80,31 +111,11 @@ main(int argc, char **argv)
     if (cell->center()[0] > 0.5 && cell->center()[1] > 0.5)
       cell->set_material_id(1);
 
-  AffineConstraints<double> constraints;
-
-  std::vector<types::global_dof_index> dof_indices(
-    dof_handler.get_fe().n_dofs_per_face());
-
-  for (const auto &cell : dof_handler.active_cell_iterators())
-    for (const auto face : cell->face_indices())
-      if (cell->is_locally_owned() && !cell->at_boundary(face) &&
-          cell->material_id() != cell->neighbor(face)->material_id())
-        {
-          cell->face(face)->get_dof_indices(dof_indices);
-          for (const auto i : dof_indices)
-            constraints.add_line(i);
-        }
-
-  const auto a = collect_lines(constraints, dof_handler.n_dofs());
-  a.print(deallog.get_file_stream());
+  IndexSet locally_active_dofs;
+  DoFTools::extract_locally_active_dofs(dof_handler, locally_active_dofs);
+  test(dof_handler, locally_active_dofs);
 
   IndexSet locally_relevant_dofs;
   DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
-
-  constraints.make_consistent_in_parallel(dof_handler.locally_owned_dofs(),
-                                          locally_relevant_dofs,
-                                          MPI_COMM_WORLD);
-
-  const auto b = collect_lines(constraints, dof_handler.n_dofs());
-  b.print(deallog.get_file_stream());
+  test(dof_handler, locally_relevant_dofs);
 }
