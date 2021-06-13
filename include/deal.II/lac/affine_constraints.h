@@ -1714,7 +1714,7 @@ public:
   /**
    * Make the current object consistent on all processors
    * in a distributed computation. One should call this function before
-   * calling compress().
+   * calling close().
    */
   void
   make_consistent_in_parallel(const IndexSet &locally_owned_dofs,

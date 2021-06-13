@@ -221,29 +221,34 @@ AffineConstraints<number>::make_consistent_in_parallel(
   const auto compute_locally_relevant_constraints =
     [&]() -> std::vector<ConstraintType> {
     // The result vector filled step by step.
-    std::vector<ConstraintType> locally_relevant_constrains;
+    std::vector<ConstraintType> locally_relevant_constraints;
 
     // helper function
     const auto sort_constraints = [&]() {
-      std::sort(locally_relevant_constrains.begin(),
-                locally_relevant_constrains.end(),
+      std::sort(locally_relevant_constraints.begin(),
+                locally_relevant_constraints.end(),
                 [](const auto &a, const auto &b) {
                   return std::get<0>(a) < std::get<0>(b);
                 });
 
-      locally_relevant_constrains.erase(
-        std::unique(locally_relevant_constrains.begin(),
-                    locally_relevant_constrains.end(),
+      locally_relevant_constraints.erase(
+        std::unique(locally_relevant_constraints.begin(),
+                    locally_relevant_constraints.end(),
                     [](const auto &a, const auto &b) {
                       return std::get<0>(a) == std::get<0>(b);
                     }),
-        locally_relevant_constrains.end());
+        locally_relevant_constraints.end());
     };
 
     // 0) collect constrained indices of the current object
     IndexSet constrained_indices(locally_owned_dofs.size());
+
+    std::vector<types::global_dof_index> constrained_indices_temp;
     for (const auto &line : this->get_lines())
-      constrained_indices.add_index(line.index);
+      constrained_indices_temp.push_back(line.index);
+
+    constrained_indices.add_indices(constrained_indices_temp.begin(),
+                                    constrained_indices_temp.end());
 
     // step 1: identify owners of constraints
     std::vector<unsigned int> constrained_indices_owners(
@@ -290,7 +295,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
               std::get<2>(entry).push_back(i);
 
           if (constrained_indices_owners[i] == my_rank)
-            locally_relevant_constrains.push_back(entry);
+            locally_relevant_constraints.push_back(entry);
           else
             send_data_temp[constrained_indices_owners[i]].push_back(entry);
         }
@@ -322,13 +327,13 @@ AffineConstraints<number>::make_consistent_in_parallel(
         }
 
       // ... receive data
-      std::set<unsigned int> rec_ranks;
+      unsigned int rec_ranks_nr = 0;
 
       for (const auto &i : constrained_indices_by_ranks)
         if (i.first != my_rank)
-          rec_ranks.insert(i.first);
+          rec_ranks_nr++;
 
-      for (unsigned int i = 0; i < rec_ranks.size(); ++i)
+      for (unsigned int i = 0; i < rec_ranks_nr; ++i)
         {
           MPI_Status status;
           int ierr = MPI_Probe(MPI_ANY_SOURCE, tag, mpi_communicator, &status);
@@ -353,7 +358,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
             Utilities::unpack<std::vector<ConstraintType>>(buffer, false);
 
           for (const auto &i : data)
-            locally_relevant_constrains.push_back(i);
+            locally_relevant_constraints.push_back(i);
         }
 
       const int ierr =
@@ -363,14 +368,13 @@ AffineConstraints<number>::make_consistent_in_parallel(
       sort_constraints();
     }
 
-
     // step 3: communicate constraints so that each process know how the
-    // locally active dofs are constrained
+    // locally locally relevant dofs are constrained
     {
       const unsigned int tag = Utilities::MPI::internal::Tags::
         affine_constraints_make_consistent_in_parallel_1;
 
-      // ... determine owners of active dofs
+      // ... determine owners of locally relevant dofs
       IndexSet locally_relevant_dofs_non_local = locally_relevant_dofs;
       locally_relevant_dofs_non_local.subtract_set(locally_owned_dofs);
 
@@ -399,25 +403,23 @@ AffineConstraints<number>::make_consistent_in_parallel(
       // ... send data
       for (const auto &rank_and_indices : locally_relevant_dofs_by_ranks)
         {
+          Assert(rank_and_indices.first != my_rank, ExcInternalError());
+
           std::vector<ConstraintType> data;
 
           for (const auto index : rank_and_indices.second)
             {
-              const auto prt = std::find_if(locally_relevant_constrains.begin(),
-                                            locally_relevant_constrains.end(),
-                                            [index](const auto &a) {
-                                              return std::get<0>(a) == index;
-                                            });
-              if (prt != locally_relevant_constrains.end())
+              // note: at this stage locally_relevant_constraints still
+              // contains only locally owned constraints
+              const auto prt =
+                std::find_if(locally_relevant_constraints.begin(),
+                             locally_relevant_constraints.end(),
+                             [index](const auto &a) {
+                               return std::get<0>(a) == index;
+                             });
+              if (prt != locally_relevant_constraints.end())
                 data.push_back(*prt);
             }
-
-          locally_relevant_constrains.insert(locally_relevant_constrains.end(),
-                                             data.begin(),
-                                             data.end());
-
-          if (rank_and_indices.first == my_rank)
-            continue;
 
           send_data[rank_and_indices.first] = Utilities::pack(data, false);
 
@@ -434,13 +436,21 @@ AffineConstraints<number>::make_consistent_in_parallel(
         }
 
       // ... receive data
-      std::set<unsigned int> ranks;
+      const unsigned int rec_ranks_nr = [&]() {
+        // count number of ranks from where data will be received from
+        // by looping locally_relevant_dofs_owners and identifying unique
+        // rank (ignoring the current rank)
 
-      for (const unsigned int rank : locally_relevant_dofs_owners)
-        if (rank != my_rank)
-          ranks.insert(rank);
+        std::set<unsigned int> rec_ranks;
 
-      for (unsigned int counter = 0; counter < ranks.size(); ++counter)
+        for (const unsigned int rank : locally_relevant_dofs_owners)
+          if (rank != my_rank)
+            rec_ranks.insert(rank);
+
+        return rec_ranks.size();
+      }();
+
+      for (unsigned int counter = 0; counter < rec_ranks_nr; ++counter)
         {
           MPI_Status status;
           int ierr = MPI_Probe(MPI_ANY_SOURCE, tag, mpi_communicator, &status);
@@ -466,7 +476,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
 
           for (const auto &locally_relevant_constrain :
                received_locally_relevant_constrain)
-            locally_relevant_constrains.push_back(locally_relevant_constrain);
+            locally_relevant_constraints.push_back(locally_relevant_constrain);
         }
 
       const int ierr =
@@ -476,7 +486,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
       sort_constraints();
     }
 
-    return locally_relevant_constrains;
+    return locally_relevant_constraints;
   };
 
   // 1) get all locally relevant constraints ("temporal constraint matrix")
