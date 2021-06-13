@@ -247,7 +247,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
     const auto constrained_indices_by_ranks =
       constrained_indices_process.get_requesters();
 
-    const auto all_locally_owned_constraints = [&]() {
+    {
       const unsigned int tag = Utilities::MPI::internal::Tags::
         affine_constraints_make_consistent_in_parallel_0;
 
@@ -311,8 +311,6 @@ AffineConstraints<number>::make_consistent_in_parallel(
         if (i.first != my_rank)
           rec_ranks.insert(i.first);
 
-      std::vector<ConstraintType> all_locally_owned_constraints;
-
       for (unsigned int i = 0; i < rec_ranks.size(); ++i)
         {
           MPI_Status status;
@@ -338,29 +336,27 @@ AffineConstraints<number>::make_consistent_in_parallel(
             Utilities::unpack<std::vector<ConstraintType>>(buffer, false);
 
           for (const auto &i : data)
-            all_locally_owned_constraints.push_back(i);
+            locally_relevant_constrains.push_back(i);
         }
 
       const int ierr =
         MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
       AssertThrowMPI(ierr);
 
-      std::sort(all_locally_owned_constraints.begin(),
-                all_locally_owned_constraints.end(),
+      std::sort(locally_relevant_constrains.begin(),
+                locally_relevant_constrains.end(),
                 [](const auto &a, const auto &b) {
                   return std::get<0>(a) < std::get<0>(b);
                 });
 
-      all_locally_owned_constraints.erase(
-        std::unique(all_locally_owned_constraints.begin(),
-                    all_locally_owned_constraints.end(),
+      locally_relevant_constrains.erase(
+        std::unique(locally_relevant_constrains.begin(),
+                    locally_relevant_constrains.end(),
                     [](const auto &a, const auto &b) {
                       return std::get<0>(a) == std::get<0>(b);
                     }),
-        all_locally_owned_constraints.end());
-
-      return all_locally_owned_constraints;
-    }();
+        locally_relevant_constrains.end());
+    };
 
     // step 3: communicate constraints so that each process know how the
     // locally active dofs are constrained
@@ -369,11 +365,14 @@ AffineConstraints<number>::make_consistent_in_parallel(
         affine_constraints_make_consistent_in_parallel_1;
 
       // ... determine owners of active dofs
+      IndexSet locally_relevant_dofs_non_local = locally_relevant_dofs;
+      locally_relevant_dofs_non_local.subtract_set(locally_owned_dofs);
+
       std::vector<unsigned int> locally_relevant_dofs_owners(
-        locally_relevant_dofs.n_elements());
+        locally_relevant_dofs_non_local.n_elements());
       Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
         locally_relevant_dofs_process(locally_owned_dofs,
-                                      locally_relevant_dofs,
+                                      locally_relevant_dofs_non_local,
                                       mpi_communicator,
                                       locally_relevant_dofs_owners,
                                       true);
@@ -398,13 +397,12 @@ AffineConstraints<number>::make_consistent_in_parallel(
 
           for (const auto index : rank_and_indices.second)
             {
-              const auto prt =
-                std::find_if(all_locally_owned_constraints.begin(),
-                             all_locally_owned_constraints.end(),
-                             [index](const auto &a) {
-                               return std::get<0>(a) == index;
-                             });
-              if (prt != all_locally_owned_constraints.end())
+              const auto prt = std::find_if(locally_relevant_constrains.begin(),
+                                            locally_relevant_constrains.end(),
+                                            [index](const auto &a) {
+                                              return std::get<0>(a) == index;
+                                            });
+              if (prt != locally_relevant_constrains.end())
                 data.push_back(*prt);
             }
 
