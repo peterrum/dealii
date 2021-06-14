@@ -1719,7 +1719,7 @@ public:
   void
   make_consistent_in_parallel(const IndexSet &locally_owned_dofs,
                               const IndexSet &locally_relevant_dofs,
-                              const MPI_Comm &mpi_communicator);
+                              const MPI_Comm  mpi_communicator);
 
   /**
    * Exception

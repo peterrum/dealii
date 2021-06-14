@@ -197,7 +197,7 @@ void
 AffineConstraints<number>::make_consistent_in_parallel(
   const IndexSet &locally_owned_dofs,
   const IndexSet &locally_relevant_dofs,
-  const MPI_Comm &mpi_communicator)
+  const MPI_Comm  mpi_communicator)
 {
   if (Utilities::MPI::job_supports_mpi() == false ||
       Utilities::MPI::n_mpi_processes(mpi_communicator) == 1)
