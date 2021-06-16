@@ -327,13 +327,13 @@ AffineConstraints<number>::make_consistent_in_parallel(
         }
 
       // ... receive data
-      unsigned int rec_ranks_nr = 0;
+      unsigned int n_rec_ranks = 0;
 
       for (const auto &i : constrained_indices_by_ranks)
         if (i.first != my_rank)
-          rec_ranks_nr++;
+          n_rec_ranks++;
 
-      for (unsigned int i = 0; i < rec_ranks_nr; ++i)
+      for (unsigned int i = 0; i < n_rec_ranks; ++i)
         {
           MPI_Status status;
           int ierr = MPI_Probe(MPI_ANY_SOURCE, tag, mpi_communicator, &status);
@@ -436,7 +436,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
         }
 
       // ... receive data
-      const unsigned int rec_ranks_nr = [&]() {
+      const unsigned int n_rec_ranks = [&]() {
         // count number of ranks from where data will be received from
         // by looping locally_relevant_dofs_owners and identifying unique
         // rank (ignoring the current rank)
@@ -450,7 +450,7 @@ AffineConstraints<number>::make_consistent_in_parallel(
         return rec_ranks.size();
       }();
 
-      for (unsigned int counter = 0; counter < rec_ranks_nr; ++counter)
+      for (unsigned int counter = 0; counter < n_rec_ranks; ++counter)
         {
           MPI_Status status;
           int ierr = MPI_Probe(MPI_ANY_SOURCE, tag, mpi_communicator, &status);
