@@ -93,7 +93,8 @@ namespace internal
 
       const auto fe_poly = dynamic_cast<const FE_Poly<dim, dim> *>(&fe);
 
-      if (dynamic_cast<const FE_SimplexPoly<dim, dim> *>(&fe) != nullptr ||
+      if (true ||
+          dynamic_cast<const FE_SimplexPoly<dim, dim> *>(&fe) != nullptr ||
           dynamic_cast<const FE_WedgePoly<dim, dim> *>(&fe) != nullptr ||
           dynamic_cast<const FE_PyramidPoly<dim, dim> *>(&fe) != nullptr)
         {
@@ -241,7 +242,7 @@ namespace internal
                               const FiniteElement<dim> &fe_in,
                               const unsigned int        base_element_number)
     {
-      if (quad_in.is_tensor_product() == false ||
+      if (true || quad_in.is_tensor_product() == false ||
           dynamic_cast<const FE_SimplexP<dim> *>(
             &fe_in.base_element(base_element_number)) ||
           dynamic_cast<const FE_SimplexDGP<dim> *>(

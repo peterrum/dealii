@@ -42,6 +42,21 @@ namespace internal
       if (dim == 2 || dim == 3)
         {
           for (unsigned int i = 1; i <= 4; ++i)
+            if (quad == QGauss<dim>(i))
+              {
+                QGauss<dim - 1> quad(i);
+
+                if (dim == 2)
+                  return {
+                    ReferenceCells::Quadrilateral,
+                    dealii::hp::QCollection<dim - 1>(quad, quad, quad, quad)};
+                else
+                  return {ReferenceCells::Hexahedron,
+                          dealii::hp::QCollection<dim - 1>(
+                            quad, quad, quad, quad, quad, quad)};
+              }
+
+          for (unsigned int i = 1; i <= 4; ++i)
             if (quad == QGaussSimplex<dim>(i))
               {
                 QGaussSimplex<dim - 1> tri(i);
