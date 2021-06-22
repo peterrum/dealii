@@ -411,6 +411,33 @@ namespace internal
     const std::function<unsigned int()> active_fe_index_function;
   };
 
+
+
+  template <int dim>
+  unsigned int
+  n_coarse_cells(const DoFHandler<dim> &mesh)
+  {
+    types::coarse_cell_id n_coarse_cells = 0;
+
+    for (const auto &cell : mesh.get_triangulation().active_cell_iterators())
+      if (!cell->is_artificial())
+        n_coarse_cells =
+          std::max(n_coarse_cells, cell->id().get_coarse_cell_id());
+
+    return Utilities::MPI::max(n_coarse_cells, mesh.get_communicator()) + 1;
+  }
+
+
+
+  template <int dim>
+  unsigned int
+  n_global_levels(const DoFHandler<dim> &mesh)
+  {
+    return mesh.get_triangulation().n_global_levels();
+  }
+
+
+
   template <int dim>
   class FineDoFHandlerView
   {
@@ -841,25 +868,6 @@ namespace internal
     std::map<unsigned int,
              std::pair<unsigned int, std::vector<types::global_dof_index>>>
       map;
-
-    static unsigned int
-    n_coarse_cells(const DoFHandler<dim> &mesh)
-    {
-      types::coarse_cell_id n_coarse_cells = 0;
-
-      for (const auto &cell : mesh.get_triangulation().active_cell_iterators())
-        if (!cell->is_artificial())
-          n_coarse_cells =
-            std::max(n_coarse_cells, cell->id().get_coarse_cell_id());
-
-      return Utilities::MPI::max(n_coarse_cells, mesh.get_communicator()) + 1;
-    }
-
-    static unsigned int
-    n_global_levels(const DoFHandler<dim> &mesh)
-    {
-      return mesh.get_triangulation().n_global_levels();
-    }
   };
 
   template <int dim>
@@ -2817,6 +2825,94 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
     mg_level_fine,
     mg_level_coarse,
     *this);
+}
+
+
+
+template <int dim, typename Number>
+void
+MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::reinit(
+  const DoFHandler<dim> &          dof_handler_fine,
+  const DoFHandler<dim> &          dof_handler_coarse,
+  const AffineConstraints<Number> &constraint_fine,
+  const AffineConstraints<Number> &constraint_coarse,
+  const unsigned int               mg_level_fine,
+  const unsigned int               mg_level_coarse)
+{
+  // determine if polynomial transfer can be performed via the following two
+  // criteria:
+  // 1) multigrid levels can be only used with polynomial transfer
+  bool do_polynomial_transfer =
+    (mg_level_fine != numbers::invalid_unsigned_int) ||
+    (mg_level_coarse != numbers::invalid_unsigned_int);
+
+  // 2) the meshes are identical
+  if (do_polynomial_transfer == false)
+    {
+      const internal::CellIDTranslator<dim> cell_id_translator(
+        internal::n_coarse_cells(dof_handler_fine),
+        internal::n_global_levels(dof_handler_fine));
+
+      AssertDimension(internal::n_coarse_cells(dof_handler_fine),
+                      internal::n_coarse_cells(dof_handler_coarse));
+      AssertIndexRange(internal::n_global_levels(dof_handler_coarse),
+                       internal::n_global_levels(dof_handler_fine) + 1);
+
+      IndexSet is_locally_owned_fine(cell_id_translator.size());
+      IndexSet is_locally_owned_coarse(cell_id_translator.size());
+
+      for (const auto &cell : dof_handler_fine.active_cell_iterators())
+        if (!cell->is_artificial() && cell->is_locally_owned())
+          is_locally_owned_fine.add_index(cell_id_translator.translate(cell));
+
+      for (const auto &cell : dof_handler_coarse.active_cell_iterators())
+        if (!cell->is_artificial() && cell->is_locally_owned())
+          is_locally_owned_coarse.add_index(cell_id_translator.translate(cell));
+
+      const MPI_Comm communicator = dof_handler_fine.get_communicator();
+
+      std::vector<unsigned int> owning_ranks(
+        is_locally_owned_coarse.n_elements());
+
+      Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
+        process(is_locally_owned_fine,
+                is_locally_owned_coarse,
+                communicator,
+                owning_ranks,
+                false);
+
+      Utilities::MPI::ConsensusAlgorithms::Selector<
+        std::pair<types::global_cell_index, types::global_cell_index>,
+        unsigned int>
+        consensus_algorithm(process, communicator);
+      consensus_algorithm.run();
+
+      bool all_cells_found = true;
+
+      for (unsigned i = 0; i < is_locally_owned_coarse.n_elements(); ++i)
+        all_cells_found &= (owning_ranks[i] != numbers::invalid_unsigned_int);
+
+      do_polynomial_transfer =
+        Utilities::MPI::min(static_cast<unsigned int>(all_cells_found),
+                            communicator) == 1;
+    }
+
+  if (do_polynomial_transfer)
+    internal::MGTwoLevelTransferImplementation::reinit_polynomial_transfer(
+      dof_handler_fine,
+      dof_handler_coarse,
+      constraint_fine,
+      constraint_coarse,
+      mg_level_fine,
+      mg_level_coarse,
+      *this);
+  else
+    internal::MGTwoLevelTransferImplementation::reinit_geometric_transfer(
+      dof_handler_fine,
+      dof_handler_coarse,
+      constraint_fine,
+      constraint_coarse,
+      *this);
 }
 
 
