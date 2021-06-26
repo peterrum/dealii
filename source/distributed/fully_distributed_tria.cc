@@ -53,6 +53,7 @@ namespace parallel
       , currently_processing_create_triangulation_for_internal_usage(false)
       , currently_processing_prepare_coarsening_and_refinement_for_internal_usage(
           false)
+      , number_of_global_coarse_cells(0)
     {}
 
 
@@ -698,6 +699,38 @@ namespace parallel
 
       AssertThrow(false, ExcNeedsMPI());
 #endif
+    }
+
+
+
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim, spacedim>::update_number_cache()
+    {
+      dealii::parallel::TriangulationBase<dim, spacedim>::update_number_cache();
+
+      // additionally update the number of global coarse cells
+      this->number_of_global_coarse_cells = 0;
+
+      for (const auto &cell : this->active_cell_iterators())
+        if (!cell->is_artificial())
+          this->number_of_global_coarse_cells =
+            std::max(this->number_of_global_coarse_cells,
+                     cell->id().get_coarse_cell_id());
+
+      this->number_of_global_coarse_cells =
+        Utilities::MPI::max(this->number_of_global_coarse_cells,
+                            this->mpi_communicator) +
+        1;
+    }
+
+
+
+    template <int dim, int spacedim>
+    types::global_cell_index
+    Triangulation<dim, spacedim>::n_global_coarse_cells() const
+    {
+      return number_of_global_coarse_cells;
     }
 
 

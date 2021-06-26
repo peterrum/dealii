@@ -255,6 +255,9 @@ namespace parallel
       load(const std::string &filename,
            const bool         autopartition = false) override;
 
+      virtual types::global_cell_index
+      n_global_coarse_cells() const override;
+
     private:
       virtual unsigned int
       coarse_cell_id_to_coarse_cell_index(
@@ -277,6 +280,9 @@ namespace parallel
        */
       virtual void
       update_cell_relations() override;
+
+      virtual void
+      update_number_cache() override;
 
       /**
        * store the Settings.
@@ -315,6 +321,11 @@ namespace parallel
        */
       bool
         currently_processing_prepare_coarsening_and_refinement_for_internal_usage;
+
+      /**
+       *
+       */
+      unsigned int number_of_global_coarse_cells;
     };
 
   } // namespace fullydistributed
