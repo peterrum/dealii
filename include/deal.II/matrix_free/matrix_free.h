@@ -3355,6 +3355,9 @@ namespace internal
     {
       (void)component_in_block_vector;
       bool ghosts_set = vec.has_ghost_elements();
+
+      Assert(ghosts_set == false, ExcNotImplemented());
+
       if (ghosts_set)
         ghosts_were_set = true;
 
@@ -3379,6 +3382,9 @@ namespace internal
     {
       (void)component_in_block_vector;
       bool ghosts_set = vec.has_ghost_elements();
+
+      Assert(ghosts_set == false, ExcNotImplemented());
+
       if (ghosts_set)
         ghosts_were_set = true;
 
@@ -3407,6 +3413,9 @@ namespace internal
         "Type mismatch between VectorType and VectorDataExchange");
       (void)component_in_block_vector;
       bool ghosts_set = vec.has_ghost_elements();
+
+      Assert(ghosts_set == false, ExcNotImplemented());
+
       if (ghosts_set)
         ghosts_were_set = true;
 

@@ -111,10 +111,16 @@ Multigrid<VectorType>::level_v_step(const unsigned int level)
 
   // smoothing of the residual
   this->signals.pre_smoother_step(true, level);
+  // auto temp = std::chrono::system_clock::now();
   pre_smooth->apply(level, solution[level], defect[level]);
+  // std::cout << "AA " << std::chrono::duration_cast<std::chrono::nanoseconds>(
+  //              std::chrono::system_clock::now() - temp)
+  //              .count() /
+  //            1e9 << std::endl;
   this->signals.pre_smoother_step(false, level);
 
   // compute residual on level, which includes the (CG) edge matrix
+  this->signals.residuum_step(true, level);
   matrix->vmult(level, t[level], solution[level]);
   if (edge_out != nullptr)
     {
@@ -130,6 +136,9 @@ Multigrid<VectorType>::level_v_step(const unsigned int level)
       defect[level - 1] -= t[level - 1];
     }
 
+
+  this->signals.residuum_step(false, level);
+
   this->signals.restriction(true, level);
   transfer->restrict_and_add(level, defect[level - 1], t[level]);
   this->signals.restriction(false, level);
@@ -139,11 +148,10 @@ Multigrid<VectorType>::level_v_step(const unsigned int level)
 
   // do coarse grid correction
   this->signals.prolongation(true, level);
-  transfer->prolongate(level, t[level], solution[level - 1]);
+  transfer->prolongate_and_add(level, solution[level], solution[level - 1]);
   this->signals.prolongation(false, level);
 
-  solution[level] += t[level];
-
+  this->signals.edge_prolongation(true, level);
   // get in contribution from edge matrices to the defect
   if (edge_in != nullptr)
     {
@@ -155,6 +163,7 @@ Multigrid<VectorType>::level_v_step(const unsigned int level)
       edge_up->Tvmult(level, t[level], solution[level - 1]);
       defect[level] -= t[level];
     }
+  this->signals.edge_prolongation(false, level);
 
   // post-smoothing
   this->signals.post_smoother_step(true, level);
@@ -349,6 +358,26 @@ Multigrid<VectorType>::connect_post_smoother_step(
   const std::function<void(const bool, const unsigned int)> &slot)
 {
   return this->signals.post_smoother_step.connect(slot);
+}
+
+
+
+template <typename VectorType>
+boost::signals2::connection
+Multigrid<VectorType>::connect_residuum_step(
+  const std::function<void(const bool, const unsigned int)> &slot)
+{
+  return this->signals.residuum_step.connect(slot);
+}
+
+
+
+template <typename VectorType>
+boost::signals2::connection
+Multigrid<VectorType>::connect_edge_prolongation(
+  const std::function<void(const bool, const unsigned int)> &slot)
+{
+  return this->signals.edge_prolongation.connect(slot);
 }
 
 

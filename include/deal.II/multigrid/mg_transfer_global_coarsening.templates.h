@@ -33,6 +33,7 @@
 #include <deal.II/fe/fe_tools.h>
 
 #include <deal.II/grid/cell_id_translator.h>
+#include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/grid_tools.h>
 #include <deal.II/grid/tria_description.h>
 
