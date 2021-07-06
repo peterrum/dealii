@@ -109,6 +109,14 @@ MGTransferMatrixFree<dim, Number>::build(
   const std::vector<std::shared_ptr<const Utilities::MPI::Partitioner>>
     &external_partitioners)
 {
+  if (external_partitioners.size() > 0)
+    this->initialize_dof_vector =
+      [&external_partitioners](
+        const unsigned int                          level,
+        LinearAlgebra::distributed::Vector<Number> &vec) {
+        vec.reinit(external_partitioners[level]);
+      };
+
   this->fill_and_communicate_copy_indices(dof_handler);
 
   vector_partitioners.resize(0,
