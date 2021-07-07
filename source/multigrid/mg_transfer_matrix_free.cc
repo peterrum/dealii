@@ -149,7 +149,8 @@ MGTransferMatrixFree<dim, Number>::build(
   this->ghosted_level_vector.resize(0, vector_partitioners.max_level());
   for (unsigned int level = 0; level <= vector_partitioners.max_level();
        ++level)
-    if (external_partitioners.size() == vector_partitioners.max_level() + 1 &&
+    if (false &&
+        external_partitioners.size() == vector_partitioners.max_level() + 1 &&
         external_partitioners[level].get() == vector_partitioners[level].get())
       this->ghosted_level_vector[level].reinit(0);
     else
