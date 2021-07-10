@@ -4418,6 +4418,65 @@ namespace internal
     }
   };
 
+  template <int dim, typename Number>
+  struct FEEvaluationImplHangingNodes
+  {
+    template <int fe_degree, int n_q_points_1d>
+    static bool
+    run(const bool         transpose,
+        const unsigned int constraint_mask,
+        Number *           values)
+    {
+      if (dim == 2)
+        {
+          if (transpose)
+            {
+              interpolate_boundary_2d<0, true>(constraint_mask, values);
+              interpolate_boundary_2d<1, true>(constraint_mask, values);
+            }
+          else
+            {
+              interpolate_boundary_2d<0, false>(constraint_mask, values);
+              interpolate_boundary_2d<1, false>(constraint_mask, values);
+            }
+        }
+      else if (dim == 3)
+        {
+          if (transpose)
+            {
+              interpolate_boundary_3d<0, true>(constraint_mask, values);
+              interpolate_boundary_3d<1, true>(constraint_mask, values);
+              interpolate_boundary_3d<2, true>(constraint_mask, values);
+            }
+          else
+            {
+              interpolate_boundary_3d<0, false>(constraint_mask, values);
+              interpolate_boundary_3d<1, false>(constraint_mask, values);
+              interpolate_boundary_3d<2, false>(constraint_mask, values);
+            }
+        }
+
+      return false; // TODO
+    }
+
+    template <unsigned int direction, bool transpose>
+    static void
+    interpolate_boundary_2d(const unsigned int constraint_mask, Number *values)
+    {
+      (void)constraint_mask;
+      (void)values;
+    }
+
+    template <unsigned int direction, bool transpose>
+    static void
+    interpolate_boundary_3d(const unsigned int constraint_mask, Number *values)
+    {
+      (void)constraint_mask;
+      (void)values;
+    }
+  };
+
+
 } // end of namespace internal
 
 

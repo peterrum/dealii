@@ -4580,16 +4580,11 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
           for (unsigned int i = 0; i < dofs_per_component; ++i)
             operation.process_empty(values_dofs[comp][i]);
 
-      if (constraint_mask != 0 &&
-          transposed == true) // TODO: merge code with below
+      // TODO: merge code with below
+      if (constraint_mask != 0 && transposed == true)
         for (unsigned int comp = 0; comp < n_components; ++comp)
-          {
-            /*
-            operation.template process_constraints_pre<dim, fe_degree>(
-              constraint_mask, values_dofs[comp], shape_info); // TODO new
-            function
-             */
-          }
+          internal::FEEvaluationImplHangingNodes<dim, VectorizedArrayType>::
+            template run<-1, -1>(true, constraint_mask, values_dofs[comp]);
 
       if (n_components == 1 || n_fe_components == 1)
         {
@@ -4611,16 +4606,11 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
                   values_dofs[comp][i][v]);
         }
 
-      if (constraint_mask != 0 &&
-          transposed == false) // TODO: merge code with above
+      // TODO: merge code with above
+      if (constraint_mask != 0 && transposed == false)
         for (unsigned int comp = 0; comp < n_components; ++comp)
-          {
-            /*
-            operation.template process_constraints_post<dim, fe_degree>(
-              constraint_mask, values_dofs[comp], shape_info); // TODO new
-            function
-             */
-          }
+          internal::FEEvaluationImplHangingNodes<dim, VectorizedArrayType>::
+            template run<-1, -1>(false, constraint_mask, values_dofs[comp]);
 
       return;
     }
