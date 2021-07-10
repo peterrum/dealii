@@ -4562,14 +4562,27 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
         dof_indices[v] = nullptr;
     }
 
+  unsigned int constraint_mask = 0; // TODO
+  
+  // TODO: we need access to 
+  // ShapeInfo::UnivariateShapeData::values_within_subface and the same for
+  // edges
+  
   // Case where we have no constraints throughout the whole cell: Can go
   // through the list of DoFs directly
-  if (!has_constraints)
+  if (!has_constraints || constraint_mask!=numbers::invalid_unsigned_int)
     {
       if (n_vectorization_actual < n_lanes)
         for (unsigned int comp = 0; comp < n_components; ++comp)
           for (unsigned int i = 0; i < dofs_per_component; ++i)
             operation.process_empty(values_dofs[comp][i]);
+        
+        if(constraint_mask != 0) // TODO: merge code with below
+          for (unsigned int comp = 0; comp < n_components; ++comp)
+            operation.process_constraints_pre(constraint_mask, 
+                                              values_dofs[comp], 
+                                              shape_info); // TODO new function
+        
       if (n_components == 1 || n_fe_components == 1)
         {
           for (unsigned int v = 0; v < n_vectorization_actual; ++v)
@@ -4589,6 +4602,13 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
                   *src[0],
                   values_dofs[comp][i][v]);
         }
+        
+        if(constraint_mask != 0) // TODO: merge code with above
+          for (unsigned int comp = 0; comp < n_components; ++comp)
+            operation.process_constraints_pre(constraint_mask, 
+                                              values_dofs[comp], 
+                                              shape_info); // TODO new function
+      
       return;
     }
 
