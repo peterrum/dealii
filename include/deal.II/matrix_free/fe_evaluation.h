@@ -1223,7 +1223,8 @@ protected:
       const std::vector<ArrayView<const typename VectorType::value_type>> *,
       n_components_> &                              vectors_sm,
     const std::bitset<VectorizedArrayType::size()> &mask,
-    const bool apply_constraints = true) const;
+    const bool                                      apply_constraints = true,
+    const bool                                      transposed = false) const;
 
   /**
    * A unified function to read from and write into vectors based on the given
@@ -4398,7 +4399,8 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
       const std::vector<ArrayView<const typename VectorType::value_type>> *,
       n_components_> &                              src_sm,
     const std::bitset<VectorizedArrayType::size()> &mask,
-    const bool                                      apply_constraints) const
+    const bool                                      apply_constraints,
+    const bool                                      transposed) const
 {
   // Case 1: No MatrixFree object given, simple case because we do not need to
   // process constraints and need not care about vectorization -> go to
@@ -4562,27 +4564,33 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
         dof_indices[v] = nullptr;
     }
 
-  unsigned int constraint_mask = 0; // TODO
-  
-  // TODO: we need access to 
-  // ShapeInfo::UnivariateShapeData::values_within_subface and the same for
-  // edges
-  
+  unsigned int constraint_mask =
+    this->dof_info->component_masks.size() == 0 ?
+      0 :
+      this->dof_info->component_masks[this->active_fe_index];
+
+  // TODO: we need ShapeInfo here
+
   // Case where we have no constraints throughout the whole cell: Can go
   // through the list of DoFs directly
-  if (!has_constraints || constraint_mask!=numbers::invalid_unsigned_int)
+  if (!has_constraints || constraint_mask != numbers::invalid_unsigned_int)
     {
       if (n_vectorization_actual < n_lanes)
         for (unsigned int comp = 0; comp < n_components; ++comp)
           for (unsigned int i = 0; i < dofs_per_component; ++i)
             operation.process_empty(values_dofs[comp][i]);
-        
-        if(constraint_mask != 0) // TODO: merge code with below
-          for (unsigned int comp = 0; comp < n_components; ++comp)
-            operation.process_constraints_pre(constraint_mask, 
-                                              values_dofs[comp], 
-                                              shape_info); // TODO new function
-        
+
+      if (constraint_mask != 0 &&
+          transposed == true) // TODO: merge code with below
+        for (unsigned int comp = 0; comp < n_components; ++comp)
+          {
+            /*
+            operation.template process_constraints_pre<dim, fe_degree>(
+              constraint_mask, values_dofs[comp], shape_info); // TODO new
+            function
+             */
+          }
+
       if (n_components == 1 || n_fe_components == 1)
         {
           for (unsigned int v = 0; v < n_vectorization_actual; ++v)
@@ -4602,13 +4610,18 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
                   *src[0],
                   values_dofs[comp][i][v]);
         }
-        
-        if(constraint_mask != 0) // TODO: merge code with above
-          for (unsigned int comp = 0; comp < n_components; ++comp)
-            operation.process_constraints_pre(constraint_mask, 
-                                              values_dofs[comp], 
-                                              shape_info); // TODO new function
-      
+
+      if (constraint_mask != 0 &&
+          transposed == false) // TODO: merge code with above
+        for (unsigned int comp = 0; comp < n_components; ++comp)
+          {
+            /*
+            operation.template process_constraints_post<dim, fe_degree>(
+              constraint_mask, values_dofs[comp], shape_info); // TODO new
+            function
+             */
+          }
+
       return;
     }
 
@@ -5300,7 +5313,8 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
                        src_data.first,
                        src_data.second,
                        std::bitset<VectorizedArrayType::size()>().flip(),
-                       true);
+                       true,
+                       false);
 
 #  ifdef DEBUG
   dof_values_initialized = true;
@@ -5332,6 +5346,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
                        src_data.first,
                        src_data.second,
                        std::bitset<VectorizedArrayType::size()>().flip(),
+                       false,
                        false);
 
 #  ifdef DEBUG
@@ -5369,7 +5384,8 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
 
   internal::VectorDistributorLocalToGlobal<Number, VectorizedArrayType>
     distributor;
-  read_write_operation(distributor, dst_data.first, dst_data.second, mask);
+  read_write_operation(
+    distributor, dst_data.first, dst_data.second, mask, true, true);
 }
 
 
@@ -5400,7 +5416,8 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
     this->dof_info);
 
   internal::VectorSetter<Number, VectorizedArrayType> setter;
-  read_write_operation(setter, dst_data.first, dst_data.second, mask);
+  read_write_operation(
+    setter, dst_data.first, dst_data.second, mask, true, true);
 }
 
 

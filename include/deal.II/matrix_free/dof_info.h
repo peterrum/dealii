@@ -498,6 +498,11 @@ namespace internal
       std::vector<unsigned int> dof_indices;
 
       /**
+       * TODO
+       */
+      std::vector<unsigned int> component_masks;
+
+      /**
        * This variable describes the position of constraints in terms of the
        * local numbering of degrees of freedom on a cell. The first number
        * stores the distance from one constrained degree of freedom to the
