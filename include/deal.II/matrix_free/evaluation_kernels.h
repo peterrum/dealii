@@ -22,6 +22,8 @@
 #include <deal.II/base/utilities.h>
 #include <deal.II/base/vectorization.h>
 
+#include <deal.II/fe/fe_q.h>
+
 #include <deal.II/matrix_free/dof_info.h>
 #include <deal.II/matrix_free/evaluation_flags.h>
 #include <deal.II/matrix_free/hanging_nodes_internal.h>
@@ -4489,13 +4491,14 @@ namespace internal
            Number *                                        values)
     {
       // TODO!!!
-      // const auto constraint_weights =
-      //  fe_eval.get_shape_info().data.front().values_within_subface[0];
+      const auto constraint_weights =
+        fe_eval.get_shape_info().data.front().subface_interpolation_matrix;
 
       const int fe_degree = fe_degree_ != -1 ?
                               fe_degree_ :
                               fe_eval.get_shape_info().data.front().fe_degree;
 
+      /*
       const unsigned int face_no = 0;
       FE_Q<2>            fe_q(fe_degree);
       FullMatrix<double> interpolation_matrix(fe_q.n_dofs_per_face(face_no),
@@ -4515,6 +4518,7 @@ namespace internal
           mapped_matrix(i, j) = interpolation_matrix(mapping[i], mapping[j]);
 
       double *constraint_weights = &mapped_matrix[0][0];
+       */
 
       const unsigned int n_dofs =
         Utilities::pow<unsigned int>(fe_degree + 1, 2);
@@ -4577,10 +4581,10 @@ namespace internal
                             const auto w =
                               transpose ?
                                 constraint_weights[i * (fe_degree + 1) +
-                                                   interp_idx] :
+                                                   interp_idx][v] :
                                 constraint_weights[interp_idx *
                                                      (fe_degree + 1) +
-                                                   i];
+                                                   i][v];
                             t += w * values_temp[real_idx][v];
                           }
                       }
@@ -4597,10 +4601,10 @@ namespace internal
                               transpose ?
                                 constraint_weights[(fe_degree - i) *
                                                      (fe_degree + 1) +
-                                                   fe_degree - interp_idx] :
+                                                   fe_degree - interp_idx][v] :
                                 constraint_weights[(fe_degree - interp_idx) *
                                                      (fe_degree + 1) +
-                                                   fe_degree - i];
+                                                   fe_degree - i][v];
                             t += w * values_temp[real_idx][v];
                           }
                       }
