@@ -77,9 +77,9 @@ namespace internal
     setup_constraints(
       const CellIterator &                                      cell,
       const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
-      const std::vector<unsigned int> &     lexicographic_mapping,
-      std::vector<types::global_dof_index> &dof_indices,
-      unsigned int &                        mask) const;
+      const std::vector<unsigned int> &lexicographic_mapping,
+      const ArrayView<unsigned int> &  dof_indices,
+      unsigned int &                   mask) const;
 
   private:
     /**
@@ -217,9 +217,9 @@ namespace internal
   HangingNodes<dim>::setup_constraints(
     const CellIterator &                                      cell,
     const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
-    const std::vector<unsigned int> &     lexicographic_mapping,
-    std::vector<types::global_dof_index> &dof_indices,
-    unsigned int &                        mask) const
+    const std::vector<unsigned int> &lexicographic_mapping,
+    const ArrayView<unsigned int> &  dof_indices,
+    unsigned int &                   mask) const
   {
     mask                         = 0;
     const unsigned int fe_degree = cell->get_fe().tensor_degree();

@@ -1299,6 +1299,8 @@ namespace internal
       {
         HangingNodes<dim> hanging_nodes(tria);
 
+        const std::vector<unsigned int> lexicographic_mapping; // TODO
+
         for (unsigned int no = 0; no < n_dof_handlers; ++no)
           dof_info[no].component_masks.resize(n_active_cells);
 
@@ -1312,9 +1314,11 @@ namespace internal
                   cell_level_index[counter].first,
                   cell_level_index[counter].second,
                   dofh);
-                dof_info[no].process_hanging_node_constraints(hanging_nodes,
-                                                              n_active_cells,
-                                                              cell_it);
+                dof_info[no].process_hanging_node_constraints(
+                  hanging_nodes,
+                  lexicographic_mapping,
+                  n_active_cells,
+                  cell_it);
               }
           }
       }
