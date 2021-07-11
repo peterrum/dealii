@@ -18,6 +18,8 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/fe/fe_tools.h>
+
 DEAL_II_NAMESPACE_OPEN
 
 namespace internal

@@ -28,6 +28,7 @@
 #include <deal.II/lac/sparsity_pattern.h>
 
 #include <deal.II/matrix_free/dof_info.h>
+#include <deal.II/matrix_free/hanging_nodes_internal.h>
 #include <deal.II/matrix_free/mapping_info.h>
 #include <deal.II/matrix_free/task_info.h>
 

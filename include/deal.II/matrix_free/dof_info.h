@@ -26,13 +26,10 @@
 
 #include <deal.II/dofs/dof_handler.h>
 
-#include <deal.II/fe/fe_tools.h>
-
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
 
 #include <deal.II/matrix_free/face_info.h>
-#include <deal.II/matrix_free/hanging_nodes_internal.h>
 #include <deal.II/matrix_free/mapping_info.h>
 #include <deal.II/matrix_free/shape_info.h>
 #include <deal.II/matrix_free/task_info.h>
@@ -43,6 +40,14 @@
 
 
 DEAL_II_NAMESPACE_OPEN
+
+#ifndef DOXYGEN
+namespace internal
+{
+  template <int dim>
+  class HangingNodes;
+}
+#endif
 
 namespace internal
 {

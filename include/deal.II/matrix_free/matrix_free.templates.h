@@ -40,6 +40,7 @@
 
 #include <deal.II/matrix_free/face_info.h>
 #include <deal.II/matrix_free/face_setup_internal.h>
+#include <deal.II/matrix_free/hanging_nodes_internal.h>
 #include <deal.II/matrix_free/matrix_free.h>
 
 #ifdef DEAL_II_WITH_TBB
