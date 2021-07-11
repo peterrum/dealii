@@ -4490,22 +4490,21 @@ namespace internal
            const unsigned int           constraint_mask,
            Number *                     values)
     {
+      const unsigned int this_type =
+        (direction == 0) ? internal::constr_type_x : internal::constr_type_y;
+
+      const bool constrained_face =
+        (constraint_mask & (((direction == 0) ? internal::constr_face_y : 0) |
+                            ((direction == 1) ? internal::constr_face_x : 0)));
+
       for (int x_idx = 0; x_idx < fe_degree + 1; ++x_idx)
         for (int y_idx = 0; y_idx < fe_degree + 1; ++y_idx)
           {
-            const unsigned int this_type = (direction == 0) ?
-                                             internal::constr_type_x :
-                                             internal::constr_type_y;
-
             const unsigned int interp_idx = (direction == 0) ? x_idx : y_idx;
 
             Number t = 0;
             // Flag is true if dof is constrained for the given direction and
             // the given face.
-            const bool constrained_face =
-              (constraint_mask &
-               (((direction == 0) ? internal::constr_face_y : 0) |
-                ((direction == 1) ? internal::constr_face_x : 0)));
 
             // Flag is true if for the given direction, the dof is constrained
             // with the right type and is on the correct side (left (= 0) or
@@ -4573,40 +4572,40 @@ namespace internal
            const unsigned int           constraint_mask,
            Number *                     values)
     {
+      const unsigned int this_type =
+        (direction == 0) ?
+          internal::constr_type_x :
+          (direction == 1) ? internal::constr_type_y : internal::constr_type_z;
+      const unsigned int face1_type =
+        (direction == 0) ?
+          internal::constr_type_y :
+          (direction == 1) ? internal::constr_type_z : internal::constr_type_x;
+      const unsigned int face2_type =
+        (direction == 0) ?
+          internal::constr_type_z :
+          (direction == 1) ? internal::constr_type_x : internal::constr_type_y;
+
+      // If computing in x-direction, need to match against
+      // constr_face_y or constr_face_z
+      const unsigned int face1 =
+        (direction == 0) ?
+          internal::constr_face_y :
+          (direction == 1) ? internal::constr_face_z : internal::constr_face_x;
+      const unsigned int face2 =
+        (direction == 0) ?
+          internal::constr_face_z :
+          (direction == 1) ? internal::constr_face_x : internal::constr_face_y;
+      const unsigned int edge = (direction == 0) ?
+                                  internal::constr_edge_yz :
+                                  (direction == 1) ? internal::constr_edge_zx :
+                                                     internal::constr_edge_xy;
+      const unsigned int constrained_face =
+        constraint_mask & (face1 | face2 | edge);
+
       for (int x_idx = 0; x_idx < fe_degree + 1; ++x_idx)
         for (int y_idx = 0; y_idx < fe_degree + 1; ++y_idx)
           for (int z_idx = 0; z_idx < fe_degree + 1; ++z_idx)
             {
-              const unsigned int this_type =
-                (direction == 0) ? internal::constr_type_x :
-                                   (direction == 1) ? internal::constr_type_y :
-                                                      internal::constr_type_z;
-              const unsigned int face1_type =
-                (direction == 0) ? internal::constr_type_y :
-                                   (direction == 1) ? internal::constr_type_z :
-                                                      internal::constr_type_x;
-              const unsigned int face2_type =
-                (direction == 0) ? internal::constr_type_z :
-                                   (direction == 1) ? internal::constr_type_x :
-                                                      internal::constr_type_y;
-
-              // If computing in x-direction, need to match against
-              // constr_face_y or constr_face_z
-              const unsigned int face1 =
-                (direction == 0) ? internal::constr_face_y :
-                                   (direction == 1) ? internal::constr_face_z :
-                                                      internal::constr_face_x;
-              const unsigned int face2 =
-                (direction == 0) ? internal::constr_face_z :
-                                   (direction == 1) ? internal::constr_face_x :
-                                                      internal::constr_face_y;
-              const unsigned int edge =
-                (direction == 0) ? internal::constr_edge_yz :
-                                   (direction == 1) ? internal::constr_edge_zx :
-                                                      internal::constr_edge_xy;
-              const unsigned int constrained_face =
-                constraint_mask & (face1 | face2 | edge);
-
               const int interp_idx =
                 (direction == 0) ? x_idx : (direction == 1) ? y_idx : z_idx;
               const int face1_idx =
