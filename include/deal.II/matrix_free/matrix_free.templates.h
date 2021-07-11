@@ -1318,7 +1318,7 @@ namespace internal
                   &dofh);
 
                 dof_info[no].process_hanging_node_constraints(
-                  hanging_nodes, lexicographic[no][0], n_active_cells, cell_it);
+                  hanging_nodes, lexicographic[no][0], counter, cell_it);
               }
           }
       }

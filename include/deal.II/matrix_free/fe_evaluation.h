@@ -4504,6 +4504,10 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
       ->n_vectorization_lanes_filled[this->dof_access_index][this->cell];
   bool               has_constraints   = false;
   const unsigned int n_components_read = n_fe_components > 1 ? n_components : 1;
+
+  std::array<unsigned int, n_lanes> constraint_mask;
+  std::fill(constraint_mask.begin(), constraint_mask.end(), 0);
+
   if (is_face)
     {
       if (this->dof_access_index ==
@@ -4559,21 +4563,25 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
                                this->dof_info->dof_indices.size()));
           dof_indices[v] =
             this->dof_info->dof_indices.data() + my_index_start[0].first;
+
+          // TODO: better way!!!
+          constraint_mask[v] =
+            this->dof_info
+              ->component_masks[my_index_start[0].first / dofs_per_component];
         }
       for (unsigned int v = n_vectorization_actual; v < n_lanes; ++v)
         dof_indices[v] = nullptr;
     }
 
-  unsigned int constraint_mask =
-    this->dof_info->component_masks.size() == 0 ?
-      0 :
-      this->dof_info->component_masks[this->active_fe_index];
-
   // TODO: we need ShapeInfo here
+
+  const bool has_hn = std::find_if_not(constraint_mask.begin(),
+                                       constraint_mask.end(),
+                                       [](const auto &v) { return v == 0; });
 
   // Case where we have no constraints throughout the whole cell: Can go
   // through the list of DoFs directly
-  if (!has_constraints || constraint_mask != numbers::invalid_unsigned_int)
+  if (!has_constraints /*|| constraint_mask != numbers::invalid_unsigned_int*/)
     {
       if (n_vectorization_actual < n_lanes)
         for (unsigned int comp = 0; comp < n_components; ++comp)
@@ -4581,7 +4589,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
             operation.process_empty(values_dofs[comp][i]);
 
       // TODO: merge code with below
-      if (constraint_mask != 0 && transposed == true)
+      if (has_hn && transposed == true)
         for (unsigned int comp = 0; comp < n_components; ++comp)
           internal::FEEvaluationImplHangingNodes<dim,
                                                  VectorizedArrayType,
@@ -4610,7 +4618,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
         }
 
       // TODO: merge code with above
-      if (constraint_mask != 0 && transposed == false)
+      if (has_hn && transposed == false)
         for (unsigned int comp = 0; comp < n_components; ++comp)
           internal::FEEvaluationImplHangingNodes<dim,
                                                  VectorizedArrayType,

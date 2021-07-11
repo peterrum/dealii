@@ -4427,10 +4427,10 @@ namespace internal
     run(const FEEvaluationBaseData<dim,
                                    typename Number::value_type,
                                    is_face,
-                                   Number> &fe_eval,
-        const bool                          transpose,
-        const unsigned int                  c_mask,
-        Number *                            values)
+                                   Number> &            fe_eval,
+        const bool                                      transpose,
+        const std::array<unsigned int, Number::size()> &c_mask,
+        Number *                                        values)
     {
       Assert(is_face == false, ExcInternalError());
 
@@ -4486,92 +4486,114 @@ namespace internal
 
     template <int fe_degree, unsigned int direction, bool transpose>
     static void
-    run_2D(const AlignedVector<Number> &constraint_weights,
-           const unsigned int           constraint_mask,
-           Number *                     values)
+    run_2D(const AlignedVector<Number> &                   constraint_weights,
+           const std::array<unsigned int, Number::size()> &constraint_mask,
+           Number *                                        values)
     {
-      const unsigned int this_type =
-        (direction == 0) ? internal::constr_type_x : internal::constr_type_y;
+      const unsigned int n_dofs =
+        Utilities::pow<unsigned int>(fe_degree + 1, 2);
 
-      const bool constrained_face =
-        (constraint_mask & (((direction == 0) ? internal::constr_face_y : 0) |
-                            ((direction == 1) ? internal::constr_face_x : 0)));
+      AlignedVector<Number> values_temp(n_dofs);
 
-      const bool type = constraint_mask & this_type;
+      for (unsigned int i = 0; i < n_dofs; ++i)
+        values_temp[i] = values[i];
 
-      for (int x_idx = 0; x_idx < fe_degree + 1; ++x_idx)
-        for (int y_idx = 0; y_idx < fe_degree + 1; ++y_idx)
-          {
-            const unsigned int interp_idx = (direction == 0) ? x_idx : y_idx;
+      for (unsigned int v = 0; v < Number::size(); ++v)
+        {
+          if (constraint_mask[v] == 0)
+            continue;
 
-            Number t = 0;
-            // Flag is true if dof is constrained for the given direction and
-            // the given face.
+          const unsigned int this_type = (direction == 0) ?
+                                           internal::constr_type_x :
+                                           internal::constr_type_y;
 
-            // Flag is true if for the given direction, the dof is constrained
-            // with the right type and is on the correct side (left (= 0) or
-            // right (= fe_degree))
-            const bool constrained_dof =
-              ((direction == 0) &&
-               ((constraint_mask & internal::constr_type_y) ?
-                  (y_idx == 0) :
-                  (y_idx == fe_degree))) ||
-              ((direction == 1) &&
-               ((constraint_mask & internal::constr_type_x) ?
-                  (x_idx == 0) :
-                  (x_idx == fe_degree)));
+          const bool constrained_face =
+            (constraint_mask[v] &
+             (((direction == 0) ? internal::constr_face_y : 0) |
+              ((direction == 1) ? internal::constr_face_x : 0)));
 
-            if (constrained_face && constrained_dof)
+          const bool type = constraint_mask[v] & this_type;
+
+          for (int x_idx = 0; x_idx < fe_degree + 1; ++x_idx)
+            for (int y_idx = 0; y_idx < fe_degree + 1; ++y_idx)
               {
-                if (type)
-                  {
-                    for (int i = 0; i <= fe_degree; ++i)
-                      {
-                        const unsigned int real_idx =
-                          (direction == 0) ? index2<fe_degree + 1>(i, y_idx) :
-                                             index2<fe_degree + 1>(x_idx, i);
+                const unsigned int interp_idx =
+                  (direction == 0) ? x_idx : y_idx;
 
-                        const Number w =
-                          transpose ?
-                            constraint_weights[i * (fe_degree + 1) +
-                                               interp_idx] :
-                            constraint_weights[interp_idx * (fe_degree + 1) +
-                                               i];
-                        t += w * values[real_idx];
+                typename Number::value_type t = 0.0;
+                // Flag is true if dof is constrained for the given direction
+                // and the given face.
+
+                // Flag is true if for the given direction, the dof is
+                // constrained with the right type and is on the correct side
+                // (left (= 0) or right (= fe_degree))
+                const bool constrained_dof =
+                  ((direction == 0) &&
+                   ((constraint_mask[v] & internal::constr_type_y) ?
+                      (y_idx == 0) :
+                      (y_idx == fe_degree))) ||
+                  ((direction == 1) &&
+                   ((constraint_mask[v] & internal::constr_type_x) ?
+                      (x_idx == 0) :
+                      (x_idx == fe_degree)));
+
+                if (constrained_face && constrained_dof)
+                  {
+                    if (type)
+                      {
+                        for (int i = 0; i <= fe_degree; ++i)
+                          {
+                            const unsigned int real_idx =
+                              (direction == 0) ?
+                                index2<fe_degree + 1>(i, y_idx) :
+                                index2<fe_degree + 1>(x_idx, i);
+
+                            const auto w =
+                              transpose ?
+                                constraint_weights[i * (fe_degree + 1) +
+                                                   interp_idx][v] :
+                                constraint_weights[interp_idx *
+                                                     (fe_degree + 1) +
+                                                   i][v];
+                            t += w * values[real_idx][v];
+                          }
+                      }
+                    else
+                      {
+                        for (int i = 0; i <= fe_degree; ++i)
+                          {
+                            const unsigned int real_idx =
+                              (direction == 0) ?
+                                index2<fe_degree + 1>(i, y_idx) :
+                                index2<fe_degree + 1>(x_idx, i);
+
+                            const auto w =
+                              transpose ?
+                                constraint_weights[(fe_degree - i) *
+                                                     (fe_degree + 1) +
+                                                   fe_degree - interp_idx][v] :
+                                constraint_weights[(fe_degree - interp_idx) *
+                                                     (fe_degree + 1) +
+                                                   fe_degree - i][v];
+                            t += w * values[real_idx][v];
+                          }
                       }
                   }
-                else
-                  {
-                    for (int i = 0; i <= fe_degree; ++i)
-                      {
-                        const unsigned int real_idx =
-                          (direction == 0) ? index2<fe_degree + 1>(i, y_idx) :
-                                             index2<fe_degree + 1>(x_idx, i);
 
-                        const Number w =
-                          transpose ?
-                            constraint_weights[(fe_degree - i) *
-                                                 (fe_degree + 1) +
-                                               fe_degree - interp_idx] :
-                            constraint_weights[(fe_degree - interp_idx) *
-                                                 (fe_degree + 1) +
-                                               fe_degree - i];
-                        t += w * values[real_idx];
-                      }
-                  }
+                if (constrained_face && constrained_dof)
+                  values[index2<fe_degree + 1>(x_idx, y_idx)] = t; // TODO
               }
-
-            if (constrained_face && constrained_dof)
-              values[index2<fe_degree + 1>(x_idx, y_idx)] = t; // TODO
-          }
+        }
     }
 
     template <int fe_degree, unsigned int direction, bool transpose>
     static void
-    run_3D(const AlignedVector<Number> &constraint_weights,
-           const unsigned int           constraint_mask,
-           Number *                     values)
+    run_3D(const AlignedVector<Number> &                   constraint_weights,
+           const std::array<unsigned int, Number::size()> &constraint_mask,
+           Number *                                        values)
     {
+      Assert(false, ExcNotImplemented());
+
       const unsigned int this_type =
         (direction == 0) ?
           internal::constr_type_x :
@@ -4600,9 +4622,9 @@ namespace internal
                                   (direction == 1) ? internal::constr_edge_zx :
                                                      internal::constr_edge_xy;
       const unsigned int constrained_face =
-        constraint_mask & (face1 | face2 | edge);
+        constraint_mask[0] & (face1 | face2 | edge);
 
-      const bool type = constraint_mask & this_type;
+      const bool type = constraint_mask[0] & this_type;
 
       for (int x_idx = 0; x_idx < fe_degree + 1; ++x_idx)
         for (int y_idx = 0; y_idx < fe_degree + 1; ++y_idx)
@@ -4616,16 +4638,16 @@ namespace internal
                 (direction == 0) ? z_idx : (direction == 1) ? x_idx : y_idx;
 
               Number     t        = 0;
-              const bool on_face1 = (constraint_mask & face1_type) ?
+              const bool on_face1 = (constraint_mask[0] & face1_type) ?
                                       (face1_idx == 0) :
                                       (face1_idx == fe_degree);
-              const bool on_face2 = (constraint_mask & face2_type) ?
+              const bool on_face2 = (constraint_mask[0] & face2_type) ?
                                       (face2_idx == 0) :
                                       (face2_idx == fe_degree);
               const bool constrained_dof =
-                (((constraint_mask & face1) && on_face1) ||
-                 ((constraint_mask & face2) && on_face2) ||
-                 ((constraint_mask & edge) && on_face1 && on_face2));
+                (((constraint_mask[0] & face1) && on_face1) ||
+                 ((constraint_mask[0] & face2) && on_face2) ||
+                 ((constraint_mask[0] & edge) && on_face1 && on_face2));
 
               if (constrained_face && constrained_dof)
                 {
