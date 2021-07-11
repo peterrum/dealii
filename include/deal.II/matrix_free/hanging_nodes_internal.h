@@ -67,7 +67,7 @@ namespace internal
     /**
      * Constructor.
      */
-    HangingNodes(const DoFHandler<dim> &          dof_handler,
+    HangingNodes(const Triangulation<dim> &       dof_handler,
                  const std::vector<unsigned int> &lexicographic_mapping);
 
     /**
@@ -86,7 +86,7 @@ namespace internal
      * Set up line-to-cell mapping for edge constraints in 3D.
      */
     void
-    setup_line_to_cell();
+    setup_line_to_cell(const Triangulation<dim> &dof_handler);
 
     void
     rotate_subface_index(int times, unsigned int &subface_index) const;
@@ -108,43 +108,44 @@ namespace internal
     void
     transpose_subface_index(unsigned int &subface) const;
 
-    using cell_iterator        = typename DoFHandler<dim>::cell_iterator;
-    using active_cell_iterator = typename DoFHandler<dim>::active_cell_iterator;
-    const unsigned int n_raw_lines;
+    using cell_iterator = typename Triangulation<dim>::cell_iterator;
+    using active_cell_iterator =
+      typename Triangulation<dim>::active_cell_iterator;
     std::vector<std::vector<std::pair<cell_iterator, unsigned int>>>
                                      line_to_cells;
     const std::vector<unsigned int> &lexicographic_mapping;
-    const DoFHandler<dim> &          dof_handler;
   };
 
 
 
   template <int dim>
   inline HangingNodes<dim>::HangingNodes(
-    const DoFHandler<dim> &          dof_handler,
+    const Triangulation<dim> &       triangulation,
     const std::vector<unsigned int> &lexicographic_mapping)
-    : n_raw_lines(dof_handler.get_triangulation().n_raw_lines())
-    , line_to_cells(dim == 3 ? n_raw_lines : 0)
-    , lexicographic_mapping(lexicographic_mapping)
-    , dof_handler(dof_handler)
+    : lexicographic_mapping(lexicographic_mapping)
   {
     // Set up line-to-cell mapping for edge constraints (only if dim = 3)
-    setup_line_to_cell();
+    setup_line_to_cell(triangulation);
   }
 
 
 
   template <int dim>
   inline void
-  HangingNodes<dim>::setup_line_to_cell()
-  {}
+  HangingNodes<dim>::setup_line_to_cell(const Triangulation<dim> &triangulation)
+  {
+    (void)triangulation;
+  }
 
 
 
   template <>
   inline void
-  HangingNodes<3>::setup_line_to_cell()
+  HangingNodes<3>::setup_line_to_cell(const Triangulation<3> &triangulation)
   {
+    const unsigned int n_raw_lines = triangulation.n_raw_lines();
+    this->line_to_cells.resize(n_raw_lines);
+
     // In 3D, we can have DoFs on only an edge being constrained (e.g. in a
     // cartesian 2x2x2 grid, where only the upper left 2 cells are refined).
     // This sets up a helper data structure in the form of a mapping from
@@ -168,7 +169,7 @@ namespace internal
       line_to_inactive_cells(n_raw_lines);
 
     // First add active and inactive cells to their lines:
-    for (const auto &cell : dof_handler.cell_iterators())
+    for (const auto &cell : triangulation.cell_iterators())
       {
         for (unsigned int line = 0; line < GeometryInfo<3>::lines_per_cell;
              ++line)
@@ -255,7 +256,13 @@ namespace internal
                     break;
 
                 // Get indices to read
-                neighbor->face(neighbor_face)->get_dof_indices(neighbor_dofs);
+                DoFAccessor<dim - 1, dim, dim, false>(
+                  &neighbor->face(neighbor_face)->get_triangulation(),
+                  neighbor->face(neighbor_face)->level(),
+                  neighbor->face(neighbor_face)->index(),
+                  &cell->get_dof_handler())
+                  .get_dof_indices(neighbor_dofs);
+
                 // If the vector is distributed, we need to transform the
                 // global indices to local ones.
                 if (partitioner)
@@ -502,7 +509,12 @@ namespace internal
 
                         // Copy the unconstrained values
                         neighbor_dofs.resize(n_dofs_1d * n_dofs_1d * n_dofs_1d);
-                        neighbor_cell->get_dof_indices(neighbor_dofs);
+                        DoFCellAccessor<dim, dim, false>(
+                          &neighbor_cell->get_triangulation(),
+                          neighbor_cell->level(),
+                          neighbor_cell->index(),
+                          &cell->get_dof_handler())
+                          .get_dof_indices(neighbor_dofs);
                         // If the vector is distributed, we need to transform
                         // the global indices to local ones.
                         if (partitioner)

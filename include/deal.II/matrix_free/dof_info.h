@@ -214,7 +214,7 @@ namespace internal
       {
         std::vector<unsigned int> lexicographic_mapping; // TODO
 
-        HangingNodes<dim> hanging_nodes(cell->get_dof_handler(),
+        HangingNodes<dim> hanging_nodes(cell->get_triangulation(),
                                         lexicographic_mapping);
 
         std::vector<types::global_dof_index> dof_indices; // TODO
