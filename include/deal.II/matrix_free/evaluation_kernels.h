@@ -4497,6 +4497,8 @@ namespace internal
         (constraint_mask & (((direction == 0) ? internal::constr_face_y : 0) |
                             ((direction == 1) ? internal::constr_face_x : 0)));
 
+      const bool type = constraint_mask & this_type;
+
       for (int x_idx = 0; x_idx < fe_degree + 1; ++x_idx)
         for (int y_idx = 0; y_idx < fe_degree + 1; ++y_idx)
           {
@@ -4521,8 +4523,6 @@ namespace internal
 
             if (constrained_face && constrained_dof)
               {
-                const bool type = constraint_mask & this_type;
-
                 if (type)
                   {
                     for (int i = 0; i <= fe_degree; ++i)
@@ -4602,6 +4602,8 @@ namespace internal
       const unsigned int constrained_face =
         constraint_mask & (face1 | face2 | edge);
 
+      const bool type = constraint_mask & this_type;
+
       for (int x_idx = 0; x_idx < fe_degree + 1; ++x_idx)
         for (int y_idx = 0; y_idx < fe_degree + 1; ++y_idx)
           for (int z_idx = 0; z_idx < fe_degree + 1; ++z_idx)
@@ -4627,7 +4629,6 @@ namespace internal
 
               if (constrained_face && constrained_dof)
                 {
-                  const bool type = constraint_mask & this_type;
                   if (type)
                     {
                       for (int i = 0; i <= fe_degree; ++i)
