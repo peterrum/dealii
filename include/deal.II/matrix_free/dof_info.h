@@ -212,18 +212,15 @@ namespace internal
       process_hanging_node_constraints(
         const TriaIterator<DoFCellAccessor<dim, dim, false>> &cell)
       {
-        std::vector<unsigned int> lexicographic_mapping; // TODO
+        HangingNodes<dim> hanging_nodes(cell->get_triangulation());
 
-        HangingNodes<dim> hanging_nodes(cell->get_triangulation(),
-                                        lexicographic_mapping);
+        std::vector<unsigned int> lexicographic_mapping; // TODO
 
         std::vector<types::global_dof_index> dof_indices; // TODO
         unsigned int                         mask;        // TODO
 
-        hanging_nodes.setup_constraints(dof_indices,
-                                        cell,
-                                        vector_partitioner,
-                                        mask);
+        hanging_nodes.setup_constraints(
+          cell, vector_partitioner, lexicographic_mapping, dof_indices, mask);
       }
 
       /**

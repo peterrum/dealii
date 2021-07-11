@@ -67,8 +67,7 @@ namespace internal
     /**
      * Constructor.
      */
-    HangingNodes(const Triangulation<dim> &       dof_handler,
-                 const std::vector<unsigned int> &lexicographic_mapping);
+    HangingNodes(const Triangulation<dim> &dof_handler);
 
     /**
      * Compute the value of the constraint mask for a given cell.
@@ -76,10 +75,11 @@ namespace internal
     template <typename CellIterator>
     void
     setup_constraints(
-      std::vector<types::global_dof_index> &                    dof_indices,
       const CellIterator &                                      cell,
       const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
-      unsigned int &                                            mask) const;
+      const std::vector<unsigned int> &     lexicographic_mapping,
+      std::vector<types::global_dof_index> &dof_indices,
+      unsigned int &                        mask) const;
 
   private:
     /**
@@ -108,21 +108,16 @@ namespace internal
     void
     transpose_subface_index(unsigned int &subface) const;
 
-    using cell_iterator = typename Triangulation<dim>::cell_iterator;
-    using active_cell_iterator =
-      typename Triangulation<dim>::active_cell_iterator;
-    std::vector<std::vector<std::pair<cell_iterator, unsigned int>>>
-                                     line_to_cells;
-    const std::vector<unsigned int> &lexicographic_mapping;
+    std::vector<std::vector<
+      std::pair<typename Triangulation<dim>::cell_iterator, unsigned int>>>
+      line_to_cells;
   };
 
 
 
   template <int dim>
   inline HangingNodes<dim>::HangingNodes(
-    const Triangulation<dim> &       triangulation,
-    const std::vector<unsigned int> &lexicographic_mapping)
-    : lexicographic_mapping(lexicographic_mapping)
+    const Triangulation<dim> &triangulation)
   {
     // Set up line-to-cell mapping for edge constraints (only if dim = 3)
     setup_line_to_cell(triangulation);
@@ -165,7 +160,8 @@ namespace internal
                                                   {2, 6},
                                                   {3, 7}};
 
-    std::vector<std::vector<std::pair<cell_iterator, unsigned int>>>
+    std::vector<std::vector<
+      std::pair<typename Triangulation<3>::cell_iterator, unsigned int>>>
       line_to_inactive_cells(n_raw_lines);
 
     // First add active and inactive cells to their lines:
@@ -193,14 +189,14 @@ namespace internal
           {
             // We now have cells to add (active ones) and edges to which they
             // should be added (inactive cells).
-            const cell_iterator &inactive_cell =
+            const auto &inactive_cell =
               line_to_inactive_cells[line_idx][0].first;
             const unsigned int neighbor_line =
               line_to_inactive_cells[line_idx][0].second;
 
             for (unsigned int c = 0; c < 2; ++c)
               {
-                const cell_iterator &child =
+                const auto &child =
                   inactive_cell->child(line_to_children[neighbor_line][c]);
                 const unsigned int child_line_idx =
                   child->line(neighbor_line)->index();
@@ -219,10 +215,11 @@ namespace internal
   template <typename CellIterator>
   inline void
   HangingNodes<dim>::setup_constraints(
-    std::vector<types::global_dof_index> &                    dof_indices,
     const CellIterator &                                      cell,
     const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
-    unsigned int &                                            mask) const
+    const std::vector<unsigned int> &     lexicographic_mapping,
+    std::vector<types::global_dof_index> &dof_indices,
+    unsigned int &                        mask) const
   {
     mask                         = 0;
     const unsigned int fe_degree = cell->get_fe().tensor_degree();
@@ -240,7 +237,7 @@ namespace internal
         if ((!cell->at_boundary(face)) &&
             (cell->neighbor(face)->has_children() == false))
           {
-            const active_cell_iterator &neighbor = cell->neighbor(face);
+            const auto &neighbor = cell->neighbor(face);
 
             // Neighbor is coarser than us, i.e., face is constrained
             if (neighbor->level() < cell->level())
@@ -466,7 +463,7 @@ namespace internal
                 for (const auto edge_neighbor : line_to_cells[line])
                   {
                     // If one of them is coarser than us
-                    const cell_iterator neighbor_cell = edge_neighbor.first;
+                    const auto neighbor_cell = edge_neighbor.first;
                     if (neighbor_cell->level() < cell->level())
                       {
                         const unsigned int local_line_neighbor =
