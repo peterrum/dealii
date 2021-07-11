@@ -4583,8 +4583,11 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
       // TODO: merge code with below
       if (constraint_mask != 0 && transposed == true)
         for (unsigned int comp = 0; comp < n_components; ++comp)
-          internal::FEEvaluationImplHangingNodes<dim, VectorizedArrayType>::
-            template run<-1, -1>(true, constraint_mask, values_dofs[comp]);
+          internal::FEEvaluationImplHangingNodes<dim,
+                                                 VectorizedArrayType,
+                                                 is_face>::template run<-1,
+                                                                        -1>(
+            *this, true, constraint_mask, values_dofs[comp]);
 
       if (n_components == 1 || n_fe_components == 1)
         {
@@ -4609,8 +4612,11 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
       // TODO: merge code with above
       if (constraint_mask != 0 && transposed == false)
         for (unsigned int comp = 0; comp < n_components; ++comp)
-          internal::FEEvaluationImplHangingNodes<dim, VectorizedArrayType>::
-            template run<-1, -1>(false, constraint_mask, values_dofs[comp]);
+          internal::FEEvaluationImplHangingNodes<dim,
+                                                 VectorizedArrayType,
+                                                 is_face>::template run<-1,
+                                                                        -1>(
+            *this, false, constraint_mask, values_dofs[comp]);
 
       return;
     }
