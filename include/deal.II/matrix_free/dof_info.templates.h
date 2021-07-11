@@ -273,6 +273,28 @@ namespace internal
 
 
 
+    template <int dim>
+    void
+    DoFInfo::process_hanging_node_constraints(
+      const HangingNodes<dim> &        hanging_nodes,
+      const std::vector<unsigned int> &lexicographic_mapping,
+      const unsigned int               cell_number,
+      const TriaIterator<DoFCellAccessor<dim, dim, false>> &cell)
+    {
+      const ArrayView<unsigned int> dof_indices(
+        this->dof_indices.data() +
+          cell->get_fe().n_dofs_per_cell() * cell_number /*TODO*/,
+        cell->get_fe().n_dofs_per_cell());
+
+      hanging_nodes.setup_constraints(cell,
+                                      vector_partitioner,
+                                      lexicographic_mapping,
+                                      dof_indices,
+                                      component_masks[cell_number]);
+    }
+
+
+
     template <int length>
     void
     DoFInfo::compute_face_index_compression(

@@ -1299,8 +1299,6 @@ namespace internal
       {
         HangingNodes<dim> hanging_nodes(tria);
 
-        const std::vector<unsigned int> lexicographic_mapping; // TODO
-
         for (unsigned int no = 0; no < n_dof_handlers; ++no)
           dof_info[no].component_masks.resize(n_active_cells);
 
@@ -1308,17 +1306,18 @@ namespace internal
           {
             for (unsigned int no = 0; no < n_dof_handlers; ++no)
               {
-                const DoFHandler<dim> *dofh = &*dof_handler[no];
+                const DoFHandler<dim> &dofh = *dof_handler[no];
+
+                AssertDimension(dofh.get_fe_collection().size(), 1);
+
                 typename DoFHandler<dim>::active_cell_iterator cell_it(
                   &tria,
                   cell_level_index[counter].first,
                   cell_level_index[counter].second,
-                  dofh);
+                  &dofh);
+
                 dof_info[no].process_hanging_node_constraints(
-                  hanging_nodes,
-                  lexicographic_mapping,
-                  n_active_cells,
-                  cell_it);
+                  hanging_nodes, lexicographic[no][0], n_active_cells, cell_it);
               }
           }
       }

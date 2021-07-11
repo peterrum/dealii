@@ -1475,6 +1475,25 @@ namespace internal
       bool &);
 
     template void
+    DoFInfo::process_hanging_node_constraints<1>(
+      const HangingNodes<1> &                           hanging_nodes,
+      const std::vector<unsigned int> &                 lexicographic_mapping,
+      const unsigned int                                cell_number,
+      const TriaIterator<DoFCellAccessor<1, 1, false>> &cell);
+    template void
+    DoFInfo::process_hanging_node_constraints<2>(
+      const HangingNodes<2> &                           hanging_nodes,
+      const std::vector<unsigned int> &                 lexicographic_mapping,
+      const unsigned int                                cell_number,
+      const TriaIterator<DoFCellAccessor<2, 2, false>> &cell);
+    template void
+    DoFInfo::process_hanging_node_constraints<3>(
+      const HangingNodes<3> &                           hanging_nodes,
+      const std::vector<unsigned int> &                 lexicographic_mapping,
+      const unsigned int                                cell_number,
+      const TriaIterator<DoFCellAccessor<3, 3, false>> &cell);
+
+    template void
     DoFInfo::compute_face_index_compression<1>(
       const std::vector<FaceToCellTopology<1>> &);
     template void
