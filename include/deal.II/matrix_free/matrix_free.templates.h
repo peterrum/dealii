@@ -1293,6 +1293,28 @@ namespace internal
         }
     }
 
+
+    // treat hanging-node constraints (only on active level)
+    if (mg_level == numbers::invalid_unsigned_int)
+      {
+        for (unsigned int no = 0; no < n_dof_handlers; ++no)
+          dof_info[no].component_masks.resize(n_active_cells);
+
+        for (unsigned int counter = 0; counter < n_active_cells; ++counter)
+          {
+            for (unsigned int no = 0; no < n_dof_handlers; ++no)
+              {
+                const DoFHandler<dim> *dofh = &*dof_handler[no];
+                typename DoFHandler<dim>::active_cell_iterator cell_it(
+                  &tria,
+                  cell_level_index[counter].first,
+                  cell_level_index[counter].second,
+                  dofh);
+                dof_info[no].process_hanging_node_constraints(cell_it);
+              }
+          }
+      }
+
     bool hp_functionality_enabled = false;
     for (const auto &dh : dof_handler)
       if (dh->get_fe_collection().size() > 1)

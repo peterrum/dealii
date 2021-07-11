@@ -26,10 +26,13 @@
 
 #include <deal.II/dofs/dof_handler.h>
 
+#include <deal.II/fe/fe_tools.h>
+
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
 
 #include <deal.II/matrix_free/face_info.h>
+#include <deal.II/matrix_free/hanging_nodes_internal.h>
 #include <deal.II/matrix_free/mapping_info.h>
 #include <deal.II/matrix_free/shape_info.h>
 #include <deal.II/matrix_free/task_info.h>
@@ -200,6 +203,30 @@ namespace internal
         const unsigned int                          cell_number,
         ConstraintValues<double> &                  constraint_values,
         bool &                                      cell_at_boundary);
+
+      /**
+       * TODO
+       */
+      template <int dim>
+      void
+      process_hanging_node_constraints(
+        const TriaIterator<DoFCellAccessor<dim, dim, false>> &cell)
+      {
+        unsigned int              fe_degree = 1;         // TODO;
+        std::vector<unsigned int> lexicographic_mapping; // TODO
+
+        HangingNodes<dim> hanging_nodes(fe_degree,
+                                        cell->get_dof_handler(),
+                                        lexicographic_mapping);
+
+        std::vector<types::global_dof_index> dof_indices; // TODO
+        unsigned int                         mask;        // TODO
+
+        hanging_nodes.setup_constraints(dof_indices,
+                                        cell,
+                                        vector_partitioner,
+                                        mask);
+      }
 
       /**
        * This method assigns the correct indices to ghost indices from the
