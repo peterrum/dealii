@@ -4434,35 +4434,32 @@ namespace internal
     {
       Assert(is_face == false, ExcInternalError());
 
-      const auto c_weights =
-        fe_eval.get_shape_info().data.front().values_within_subface[0];
-
       if (dim == 2)
         {
           if (transpose)
             {
-              run_2D<fe_degree, 0, true>(c_weights, c_mask, values);
-              run_2D<fe_degree, 1, true>(c_weights, c_mask, values);
+              run_2D<fe_degree, 0, true>(fe_eval, c_mask, values);
+              run_2D<fe_degree, 1, true>(fe_eval, c_mask, values);
             }
           else
             {
-              run_2D<fe_degree, 0, false>(c_weights, c_mask, values);
-              run_2D<fe_degree, 1, false>(c_weights, c_mask, values);
+              run_2D<fe_degree, 0, false>(fe_eval, c_mask, values);
+              run_2D<fe_degree, 1, false>(fe_eval, c_mask, values);
             }
         }
       else if (dim == 3)
         {
           if (transpose)
             {
-              run_3D<fe_degree, 0, true>(c_weights, c_mask, values);
-              run_3D<fe_degree, 1, true>(c_weights, c_mask, values);
-              run_3D<fe_degree, 2, true>(c_weights, c_mask, values);
+              run_3D<fe_degree, 0, true>(fe_eval, c_mask, values);
+              run_3D<fe_degree, 1, true>(fe_eval, c_mask, values);
+              run_3D<fe_degree, 2, true>(fe_eval, c_mask, values);
             }
           else
             {
-              run_3D<fe_degree, 0, false>(c_weights, c_mask, values);
-              run_3D<fe_degree, 1, false>(c_weights, c_mask, values);
-              run_3D<fe_degree, 2, false>(c_weights, c_mask, values);
+              run_3D<fe_degree, 0, false>(fe_eval, c_mask, values);
+              run_3D<fe_degree, 1, false>(fe_eval, c_mask, values);
+              run_3D<fe_degree, 2, false>(fe_eval, c_mask, values);
             }
         }
 
@@ -4470,26 +4467,55 @@ namespace internal
     }
 
   private:
-    template <unsigned int size>
     static unsigned int
-    index2(unsigned int i, unsigned int j)
+    index2(unsigned int size, unsigned int i, unsigned int j)
     {
       return i + size * j;
     }
 
-    template <unsigned int size>
     static inline unsigned int
-    index3(unsigned int i, unsigned int j, unsigned int k)
+    index3(unsigned int size, unsigned int i, unsigned int j, unsigned int k)
     {
       return i + size * j + size * size * k;
     }
 
-    template <int fe_degree, unsigned int direction, bool transpose>
+    template <int fe_degree_, unsigned int direction, bool transpose>
     static void
-    run_2D(const AlignedVector<Number> &                   constraint_weights,
+    run_2D(const FEEvaluationBaseData<dim,
+                                      typename Number::value_type,
+                                      is_face,
+                                      Number> &            fe_eval,
            const std::array<unsigned int, Number::size()> &constraint_mask,
            Number *                                        values)
     {
+      // TODO!!!
+      // const auto constraint_weights =
+      //  fe_eval.get_shape_info().data.front().values_within_subface[0];
+
+      const int fe_degree = fe_degree_ != -1 ?
+                              fe_degree_ :
+                              fe_eval.get_shape_info().data.front().fe_degree;
+
+      const unsigned int face_no = 0;
+      FE_Q<2>            fe_q(fe_degree);
+      FullMatrix<double> interpolation_matrix(fe_q.n_dofs_per_face(face_no),
+                                              fe_q.n_dofs_per_face(face_no));
+      fe_q.get_subface_interpolation_matrix(fe_q,
+                                            0,
+                                            interpolation_matrix,
+                                            face_no);
+
+      std::vector<unsigned int> mapping =
+        FETools::lexicographic_to_hierarchic_numbering<1>(fe_degree);
+
+      FullMatrix<double> mapped_matrix(fe_q.n_dofs_per_face(face_no),
+                                       fe_q.n_dofs_per_face(face_no));
+      for (unsigned int i = 0; i < fe_q.n_dofs_per_face(face_no); ++i)
+        for (unsigned int j = 0; j < fe_q.n_dofs_per_face(face_no); ++j)
+          mapped_matrix(i, j) = interpolation_matrix(mapping[i], mapping[j]);
+
+      double *constraint_weights = &mapped_matrix[0][0];
+
       const unsigned int n_dofs =
         Utilities::pow<unsigned int>(fe_degree + 1, 2);
 
@@ -4545,17 +4571,17 @@ namespace internal
                           {
                             const unsigned int real_idx =
                               (direction == 0) ?
-                                index2<fe_degree + 1>(i, y_idx) :
-                                index2<fe_degree + 1>(x_idx, i);
+                                index2(fe_degree + 1, i, y_idx) :
+                                index2(fe_degree + 1, x_idx, i);
 
                             const auto w =
                               transpose ?
                                 constraint_weights[i * (fe_degree + 1) +
-                                                   interp_idx][v] :
+                                                   interp_idx] :
                                 constraint_weights[interp_idx *
                                                      (fe_degree + 1) +
-                                                   i][v];
-                            t += w * values[real_idx][v];
+                                                   i];
+                            t += w * values_temp[real_idx][v];
                           }
                       }
                     else
@@ -4564,34 +4590,43 @@ namespace internal
                           {
                             const unsigned int real_idx =
                               (direction == 0) ?
-                                index2<fe_degree + 1>(i, y_idx) :
-                                index2<fe_degree + 1>(x_idx, i);
+                                index2(fe_degree + 1, i, y_idx) :
+                                index2(fe_degree + 1, x_idx, i);
 
                             const auto w =
                               transpose ?
                                 constraint_weights[(fe_degree - i) *
                                                      (fe_degree + 1) +
-                                                   fe_degree - interp_idx][v] :
+                                                   fe_degree - interp_idx] :
                                 constraint_weights[(fe_degree - interp_idx) *
                                                      (fe_degree + 1) +
-                                                   fe_degree - i][v];
-                            t += w * values[real_idx][v];
+                                                   fe_degree - i];
+                            t += w * values_temp[real_idx][v];
                           }
                       }
-                  }
 
-                if (constrained_face && constrained_dof)
-                  values[index2<fe_degree + 1>(x_idx, y_idx)] = t; // TODO
+                    values[index2(fe_degree + 1, x_idx, y_idx)][v] = t; // TODO
+                  }
               }
         }
     }
 
-    template <int fe_degree, unsigned int direction, bool transpose>
+    template <int fe_degree_, unsigned int direction, bool transpose>
     static void
-    run_3D(const AlignedVector<Number> &                   constraint_weights,
+    run_3D(const FEEvaluationBaseData<dim,
+                                      typename Number::value_type,
+                                      is_face,
+                                      Number> &            fe_eval,
            const std::array<unsigned int, Number::size()> &constraint_mask,
            Number *                                        values)
     {
+      const auto constraint_weights =
+        fe_eval.get_shape_info().data.front().values_within_subface[0];
+
+      const int fe_degree = fe_degree_ != -1 ?
+                              fe_degree_ :
+                              fe_eval.get_shape_info().data.front().fe_degree;
+
       Assert(false, ExcNotImplemented());
 
       const unsigned int this_type =
@@ -4657,10 +4692,10 @@ namespace internal
                         {
                           const unsigned int real_idx =
                             (direction == 0) ?
-                              index3<fe_degree + 1>(i, y_idx, z_idx) :
+                              index3(fe_degree + 1, i, y_idx, z_idx) :
                               (direction == 1) ?
-                              index3<fe_degree + 1>(x_idx, i, z_idx) :
-                              index3<fe_degree + 1>(x_idx, y_idx, i);
+                              index3(fe_degree + 1, x_idx, i, z_idx) :
+                              index3(fe_degree + 1, x_idx, y_idx, i);
 
                           const Number w =
                             transpose ?
@@ -4677,10 +4712,10 @@ namespace internal
                         {
                           const unsigned int real_idx =
                             (direction == 0) ?
-                              index3<fe_degree + 1>(i, y_idx, z_idx) :
+                              index3(fe_degree + 1, i, y_idx, z_idx) :
                               (direction == 1) ?
-                              index3<fe_degree + 1>(x_idx, i, z_idx) :
-                              index3<fe_degree + 1>(x_idx, y_idx, i);
+                              index3(fe_degree + 1, x_idx, i, z_idx) :
+                              index3(fe_degree + 1, x_idx, y_idx, i);
 
                           const Number w =
                             transpose ?
@@ -4696,7 +4731,7 @@ namespace internal
                 }
 
               if (constrained_face && constrained_dof)
-                values[index3<fe_degree + 1>(x_idx, y_idx, z_idx)] = t; // TODO
+                values[index3(fe_degree + 1, x_idx, y_idx, z_idx)] = t; // TODO
             }
     }
   };
