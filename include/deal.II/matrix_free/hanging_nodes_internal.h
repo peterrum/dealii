@@ -67,8 +67,7 @@ namespace internal
     /**
      * Constructor.
      */
-    HangingNodes(unsigned int                     fe_degree,
-                 const DoFHandler<dim> &          dof_handler,
+    HangingNodes(const DoFHandler<dim> &          dof_handler,
                  const std::vector<unsigned int> &lexicographic_mapping);
 
     /**
@@ -103,7 +102,8 @@ namespace internal
                  unsigned int n_dofs_1d) const;
 
     void
-    transpose_face(std::vector<types::global_dof_index> &dofs) const;
+    transpose_face(const unsigned int                    fe_degree,
+                   std::vector<types::global_dof_index> &dofs) const;
 
     void
     transpose_subface_index(unsigned int &subface) const;
@@ -114,7 +114,6 @@ namespace internal
     std::vector<std::vector<std::pair<cell_iterator, unsigned int>>>
                                      line_to_cells;
     const std::vector<unsigned int> &lexicographic_mapping;
-    const unsigned int               fe_degree;
     const DoFHandler<dim> &          dof_handler;
   };
 
@@ -122,13 +121,11 @@ namespace internal
 
   template <int dim>
   inline HangingNodes<dim>::HangingNodes(
-    unsigned int                     fe_degree,
     const DoFHandler<dim> &          dof_handler,
     const std::vector<unsigned int> &lexicographic_mapping)
     : n_raw_lines(dof_handler.get_triangulation().n_raw_lines())
     , line_to_cells(dim == 3 ? n_raw_lines : 0)
     , lexicographic_mapping(lexicographic_mapping)
-    , fe_degree(fe_degree)
     , dof_handler(dof_handler)
   {
     // Set up line-to-cell mapping for edge constraints (only if dim = 3)
@@ -227,6 +224,7 @@ namespace internal
     unsigned int &                                            mask) const
   {
     mask                         = 0;
+    const unsigned int fe_degree = cell->get_fe().tensor_degree();
     const unsigned int n_dofs_1d = fe_degree + 1;
     const unsigned int dofs_per_face =
       Utilities::fixed_power<dim - 1>(n_dofs_1d);
@@ -318,7 +316,7 @@ namespace internal
 
                     if (transpose)
                       {
-                        transpose_face(neighbor_dofs);
+                        transpose_face(fe_degree, neighbor_dofs);
                         transpose_subface_index(subface);
                       }
 
@@ -606,6 +604,8 @@ namespace internal
   {
     unsigned int x, y, z;
 
+    const unsigned int fe_degree = n_dofs_1d - 1;
+
     if (local_line < 8)
       {
         x = (local_line % 4 == 0) ? 0 : (local_line % 4 == 1) ? fe_degree : dof;
@@ -627,6 +627,7 @@ namespace internal
   template <int dim>
   inline void
   HangingNodes<dim>::transpose_face(
+    const unsigned int                    fe_degree,
     std::vector<types::global_dof_index> &dofs) const
   {
     const std::vector<types::global_dof_index> copy(dofs);

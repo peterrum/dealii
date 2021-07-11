@@ -212,11 +212,9 @@ namespace internal
       process_hanging_node_constraints(
         const TriaIterator<DoFCellAccessor<dim, dim, false>> &cell)
       {
-        unsigned int              fe_degree = 1;         // TODO;
         std::vector<unsigned int> lexicographic_mapping; // TODO
 
-        HangingNodes<dim> hanging_nodes(fe_degree,
-                                        cell->get_dof_handler(),
+        HangingNodes<dim> hanging_nodes(cell->get_dof_handler(),
                                         lexicographic_mapping);
 
         std::vector<types::global_dof_index> dof_indices; // TODO
