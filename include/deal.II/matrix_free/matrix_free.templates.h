@@ -1297,6 +1297,8 @@ namespace internal
     // treat hanging-node constraints (only on active level)
     if (mg_level == numbers::invalid_unsigned_int)
       {
+        HangingNodes<dim> hanging_nodes(tria);
+
         for (unsigned int no = 0; no < n_dof_handlers; ++no)
           dof_info[no].component_masks.resize(n_active_cells);
 
@@ -1310,7 +1312,9 @@ namespace internal
                   cell_level_index[counter].first,
                   cell_level_index[counter].second,
                   dofh);
-                dof_info[no].process_hanging_node_constraints(cell_it);
+                dof_info[no].process_hanging_node_constraints(hanging_nodes,
+                                                              n_active_cells,
+                                                              cell_it);
               }
           }
       }
