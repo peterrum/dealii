@@ -1383,7 +1383,7 @@ private:
    */
   template <bool transpose>
   void
-  apply_hanging_node_constraints();
+  apply_hanging_node_constraints() const;
 };
 
 
@@ -5275,7 +5275,7 @@ template <int dim,
 template <bool transpose>
 inline void
 FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
-  apply_hanging_node_constraints()
+  apply_hanging_node_constraints() const
 {
   if (is_face)
     return; // nothing to do with faces
