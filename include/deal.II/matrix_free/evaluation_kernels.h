@@ -4493,9 +4493,9 @@ namespace internal
       const auto &constraint_weights =
         fe_eval.get_shape_info().data.front().subface_interpolation_matrix;
 
-      const int fe_degree = fe_degree_ != -1 ?
-                              fe_degree_ :
-                              fe_eval.get_shape_info().data.front().fe_degree;
+      const unsigned int fe_degree =
+        fe_degree_ != -1 ? fe_degree_ :
+                           fe_eval.get_shape_info().data.front().fe_degree;
 
       const unsigned int n_dofs =
         Utilities::pow<unsigned int>(fe_degree + 1, 2);
@@ -4521,8 +4521,8 @@ namespace internal
 
           const bool type = constraint_mask[v] & this_type;
 
-          for (int x_idx = 0; x_idx < fe_degree + 1; ++x_idx)
-            for (int y_idx = 0; y_idx < fe_degree + 1; ++y_idx)
+          for (unsigned int x_idx = 0; x_idx < fe_degree + 1; ++x_idx)
+            for (unsigned int y_idx = 0; y_idx < fe_degree + 1; ++y_idx)
               {
                 const unsigned int interp_idx =
                   (direction == 0) ? x_idx : y_idx;
@@ -4548,7 +4548,7 @@ namespace internal
                   {
                     if (type)
                       {
-                        for (int i = 0; i <= fe_degree; ++i)
+                        for (unsigned int i = 0; i <= fe_degree; ++i)
                           {
                             const unsigned int real_idx =
                               (direction == 0) ?
@@ -4567,7 +4567,7 @@ namespace internal
                       }
                     else
                       {
-                        for (int i = 0; i <= fe_degree; ++i)
+                        for (unsigned int i = 0; i <= fe_degree; ++i)
                           {
                             const unsigned int real_idx =
                               (direction == 0) ?
@@ -4604,9 +4604,9 @@ namespace internal
       const auto &constraint_weights =
         fe_eval.get_shape_info().data.front().subface_interpolation_matrix;
 
-      const int fe_degree = fe_degree_ != -1 ?
-                              fe_degree_ :
-                              fe_eval.get_shape_info().data.front().fe_degree;
+      const unsigned int fe_degree =
+        fe_degree_ != -1 ? fe_degree_ :
+                           fe_eval.get_shape_info().data.front().fe_degree;
 
       const unsigned int n_dofs =
         Utilities::pow<unsigned int>(fe_degree + 1, 3);
@@ -4654,18 +4654,18 @@ namespace internal
 
           const bool type = constraint_mask[v] & this_type;
 
-          for (int x_idx = 0; x_idx < fe_degree + 1; ++x_idx)
-            for (int y_idx = 0; y_idx < fe_degree + 1; ++y_idx)
-              for (int z_idx = 0; z_idx < fe_degree + 1; ++z_idx)
+          for (unsigned int x_idx = 0; x_idx < fe_degree + 1; ++x_idx)
+            for (unsigned int y_idx = 0; y_idx < fe_degree + 1; ++y_idx)
+              for (unsigned int z_idx = 0; z_idx < fe_degree + 1; ++z_idx)
                 {
-                  const int interp_idx =
+                  const unsigned int interp_idx =
                     (direction == 0) ? x_idx : (direction == 1) ? y_idx : z_idx;
-                  const int face1_idx =
+                  const unsigned int face1_idx =
                     (direction == 0) ? y_idx : (direction == 1) ? z_idx : x_idx;
-                  const int face2_idx =
+                  const unsigned int face2_idx =
                     (direction == 0) ? z_idx : (direction == 1) ? x_idx : y_idx;
 
-                  Number     t        = 0;
+                  typename Number::value_type t = 0;
                   const bool on_face1 = (constraint_mask[v] & face1_type) ?
                                           (face1_idx == 0) :
                                           (face1_idx == fe_degree);
@@ -4681,7 +4681,7 @@ namespace internal
                     {
                       if (type)
                         {
-                          for (int i = 0; i <= fe_degree; ++i)
+                          for (unsigned int i = 0; i <= fe_degree; ++i)
                             {
                               const unsigned int real_idx =
                                 (direction == 0) ?
@@ -4690,19 +4690,19 @@ namespace internal
                                   index3(fe_degree + 1, x_idx, i, z_idx) :
                                   index3(fe_degree + 1, x_idx, y_idx, i);
 
-                              const Number w =
+                              const auto w =
                                 transpose ?
                                   constraint_weights[i * (fe_degree + 1) +
                                                      interp_idx][v] :
                                   constraint_weights[interp_idx *
                                                        (fe_degree + 1) +
                                                      i][v];
-                              t += w * values_temp[real_idx];
+                              t += w * values_temp[real_idx][v];
                             }
                         }
                       else
                         {
-                          for (int i = 0; i <= fe_degree; ++i)
+                          for (unsigned int i = 0; i <= fe_degree; ++i)
                             {
                               const unsigned int real_idx =
                                 (direction == 0) ?
@@ -4711,7 +4711,7 @@ namespace internal
                                   index3(fe_degree + 1, x_idx, i, z_idx) :
                                   index3(fe_degree + 1, x_idx, y_idx, i);
 
-                              const Number w =
+                              const auto w =
                                 transpose ?
                                   constraint_weights[(fe_degree - i) *
                                                        (fe_degree + 1) +
@@ -4720,11 +4720,11 @@ namespace internal
                                   constraint_weights[(fe_degree - interp_idx) *
                                                        (fe_degree + 1) +
                                                      fe_degree - i][v];
-                              t += w * values_temp[real_idx];
+                              t += w * values_temp[real_idx][v];
                             }
                         }
 
-                      values[index3(fe_degree + 1, x_idx, y_idx, z_idx)] = t;
+                      values[index3(fe_degree + 1, x_idx, y_idx, z_idx)][v] = t;
                     }
                 }
         }
