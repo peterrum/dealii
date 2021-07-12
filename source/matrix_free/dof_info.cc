@@ -322,6 +322,10 @@ namespace internal
       unsigned int              position_cell = 0;
       new_dof_indices.reserve(dof_indices.size());
       new_constraint_indicator.reserve(constraint_indicator.size());
+
+      std::vector<unsigned int> new_component_masks;
+      new_component_masks.resize(new_component_masks.size());
+
       if (store_plain_indices == true)
         {
           new_rowstart_plain.resize(vectorization_length *
@@ -350,6 +354,8 @@ namespace internal
             {
               const unsigned int cell_no =
                 renumbering[position_cell + j] * n_components;
+              new_component_masks.push_back(
+                component_masks[renumbering[position_cell + j]]);
               for (unsigned int comp = 0; comp < n_components; ++comp)
                 {
                   new_row_starts[(i * vectorization_length + j) * n_components +
@@ -393,6 +399,7 @@ namespace internal
                 new_row_starts[(i * vectorization_length + j) * n_components +
                                comp]
                   .second = new_constraint_indicator.size();
+                new_component_masks.push_back(0);
               }
           position_cell += n_vect;
         }
@@ -414,6 +421,7 @@ namespace internal
       new_constraint_indicator.swap(constraint_indicator);
       new_plain_indices.swap(plain_dof_indices);
       new_rowstart_plain.swap(row_starts_plain_indices);
+      new_component_masks.swap(component_masks);
 
 #ifdef DEBUG
       // sanity check 1: all indices should be smaller than the number of dofs
