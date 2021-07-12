@@ -1172,7 +1172,16 @@ namespace internal
 
     // extract all the global indices associated with the computation, and form
     // the ghost indices
-    std::vector<unsigned int> subdomain_boundary_cells;
+    std::vector<unsigned int>          subdomain_boundary_cells;
+    std::unique_ptr<HangingNodes<dim>> hanging_nodes;
+
+    if (mg_level == numbers::invalid_unsigned_int)
+      {
+        hanging_nodes = std::make_unique<HangingNodes<dim>>(tria);
+        for (unsigned int no = 0; no < n_dof_handlers; ++no)
+          dof_info[no].component_masks.resize(n_active_cells);
+      }
+
     for (unsigned int counter = 0; counter < n_active_cells; ++counter)
       {
         bool cell_at_subdomain_boundary =
@@ -1199,8 +1208,26 @@ namespace internal
                   dof_info[no].cell_active_fe_index[counter] = fe_index;
                 local_dof_indices.resize(dof_info[no].dofs_per_cell[fe_index]);
                 cell_it->get_dof_indices(local_dof_indices);
-                dof_info[no].read_dof_indices(local_dof_indices,
-                                              lexicographic[no][fe_index],
+
+                std::vector<types::global_dof_index> local_dof_indices_2(
+                  local_dof_indices.size());
+                for (unsigned int i = 0; i < local_dof_indices.size(); ++i)
+                  local_dof_indices_2[i] =
+                    local_dof_indices[lexicographic[no][fe_index][i]];
+
+                std::vector<unsigned int> identity(local_dof_indices.size());
+                for (unsigned int i = 0; i < local_dof_indices.size(); ++i)
+                  identity[i] = i;
+
+                dof_info[no].process_hanging_node_constraints(
+                  *hanging_nodes,
+                  lexicographic[no][0],
+                  counter,
+                  cell_it,
+                  local_dof_indices_2);
+
+                dof_info[no].read_dof_indices(local_dof_indices_2,
+                                              identity,
                                               *constraint[no],
                                               counter,
                                               constraint_values,
@@ -1293,35 +1320,6 @@ namespace internal
                                      use_vector_data_exchanger_full);
         }
     }
-
-
-    // treat hanging-node constraints (only on active level)
-    if (mg_level == numbers::invalid_unsigned_int)
-      {
-        HangingNodes<dim> hanging_nodes(tria);
-
-        for (unsigned int no = 0; no < n_dof_handlers; ++no)
-          dof_info[no].component_masks.resize(n_active_cells);
-
-        for (unsigned int counter = 0; counter < n_active_cells; ++counter)
-          {
-            for (unsigned int no = 0; no < n_dof_handlers; ++no)
-              {
-                const DoFHandler<dim> &dofh = *dof_handler[no];
-
-                AssertDimension(dofh.get_fe_collection().size(), 1);
-
-                typename DoFHandler<dim>::active_cell_iterator cell_it(
-                  &tria,
-                  cell_level_index[counter].first,
-                  cell_level_index[counter].second,
-                  &dofh);
-
-                dof_info[no].process_hanging_node_constraints(
-                  hanging_nodes, lexicographic[no][0], counter, cell_it);
-              }
-          }
-      }
 
     bool hp_functionality_enabled = false;
     for (const auto &dh : dof_handler)

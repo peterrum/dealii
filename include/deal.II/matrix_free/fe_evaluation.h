@@ -1223,8 +1223,7 @@ protected:
       const std::vector<ArrayView<const typename VectorType::value_type>> *,
       n_components_> &                              vectors_sm,
     const std::bitset<VectorizedArrayType::size()> &mask,
-    const bool                                      apply_constraints = true,
-    const bool                                      transposed = false) const;
+    const bool apply_constraints = true) const;
 
   /**
    * A unified function to read from and write into vectors based on the given
@@ -4399,8 +4398,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
       const std::vector<ArrayView<const typename VectorType::value_type>> *,
       n_components_> &                              src_sm,
     const std::bitset<VectorizedArrayType::size()> &mask,
-    const bool                                      apply_constraints,
-    const bool                                      transposed) const
+    const bool                                      apply_constraints) const
 {
   // Case 1: No MatrixFree object given, simple case because we do not need to
   // process constraints and need not care about vectorization -> go to
@@ -4505,9 +4503,6 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
   bool               has_constraints   = false;
   const unsigned int n_components_read = n_fe_components > 1 ? n_components : 1;
 
-  std::array<unsigned int, n_lanes> constraint_mask;
-  std::fill(constraint_mask.begin(), constraint_mask.end(), 0);
-
   if (is_face)
     {
       if (this->dof_access_index ==
@@ -4563,39 +4558,19 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
                                this->dof_info->dof_indices.size()));
           dof_indices[v] =
             this->dof_info->dof_indices.data() + my_index_start[0].first;
-
-          // TODO: better way!!!
-          constraint_mask[v] =
-            this->dof_info
-              ->component_masks[my_index_start[0].first / dofs_per_component];
         }
       for (unsigned int v = n_vectorization_actual; v < n_lanes; ++v)
         dof_indices[v] = nullptr;
     }
 
-  // TODO: we need ShapeInfo here
-
-  const bool has_hn = std::find_if_not(constraint_mask.begin(),
-                                       constraint_mask.end(),
-                                       [](const auto &v) { return v == 0; });
-
   // Case where we have no constraints throughout the whole cell: Can go
   // through the list of DoFs directly
-  if (!has_constraints /*|| constraint_mask != numbers::invalid_unsigned_int*/)
+  if (!has_constraints)
     {
       if (n_vectorization_actual < n_lanes)
         for (unsigned int comp = 0; comp < n_components; ++comp)
           for (unsigned int i = 0; i < dofs_per_component; ++i)
             operation.process_empty(values_dofs[comp][i]);
-
-      // TODO: merge code with below
-      if (has_hn && transposed == true)
-        for (unsigned int comp = 0; comp < n_components; ++comp)
-          internal::FEEvaluationImplHangingNodes<dim,
-                                                 VectorizedArrayType,
-                                                 is_face>::template run<-1,
-                                                                        -1>(
-            *this, true, constraint_mask, values_dofs[comp]);
 
       if (n_components == 1 || n_fe_components == 1)
         {
@@ -4616,15 +4591,6 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
                   *src[0],
                   values_dofs[comp][i][v]);
         }
-
-      // TODO: merge code with above
-      if (has_hn && transposed == false)
-        for (unsigned int comp = 0; comp < n_components; ++comp)
-          internal::FEEvaluationImplHangingNodes<dim,
-                                                 VectorizedArrayType,
-                                                 is_face>::template run<-1,
-                                                                        -1>(
-            *this, false, constraint_mask, values_dofs[comp]);
 
       return;
     }
@@ -5317,8 +5283,37 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
                        src_data.first,
                        src_data.second,
                        std::bitset<VectorizedArrayType::size()>().flip(),
-                       true,
-                       false);
+                       true);
+
+  if (is_face == false) // apply hanging-node constraints
+    {
+      unsigned int n_vectorization_actual =
+        this->dof_info
+          ->n_vectorization_lanes_filled[this->dof_access_index][this->cell];
+
+      constexpr unsigned int            n_lanes = VectorizedArrayType::size();
+      std::array<unsigned int, n_lanes> constraint_mask;
+      std::fill(constraint_mask.begin(), constraint_mask.end(), 0);
+
+      for (unsigned int v = 0; v < n_vectorization_actual; ++v)
+        {
+          // TODO: better way!
+          constraint_mask[v] =
+            this->dof_info->component_masks
+              [this->dof_info
+                 ->row_starts[(this->cell * n_lanes + v) * n_fe_components +
+                              first_selected_component]
+                 .first /
+               this->data->dofs_per_component_on_cell];
+        }
+
+      for (unsigned int comp = 0; comp < n_components; ++comp)
+        internal::FEEvaluationImplHangingNodes<dim,
+                                               VectorizedArrayType,
+                                               is_face>::template run<-1,
+                                                                      -1>(
+          *this, false, constraint_mask, values_dofs[comp]);
+    }
 
 #  ifdef DEBUG
   dof_values_initialized = true;
@@ -5350,7 +5345,6 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
                        src_data.first,
                        src_data.second,
                        std::bitset<VectorizedArrayType::size()>().flip(),
-                       false,
                        false);
 
 #  ifdef DEBUG
@@ -5378,6 +5372,36 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
          internal::ExcAccessToUninitializedField());
 #  endif
 
+  if (is_face == false) // apply hanging-node constraints
+    {
+      unsigned int n_vectorization_actual =
+        this->dof_info
+          ->n_vectorization_lanes_filled[this->dof_access_index][this->cell];
+
+      constexpr unsigned int            n_lanes = VectorizedArrayType::size();
+      std::array<unsigned int, n_lanes> constraint_mask;
+      std::fill(constraint_mask.begin(), constraint_mask.end(), 0);
+
+      for (unsigned int v = 0; v < n_vectorization_actual; ++v)
+        {
+          // TODO: better way!
+          constraint_mask[v] =
+            this->dof_info->component_masks
+              [this->dof_info
+                 ->row_starts[(this->cell * n_lanes + v) * n_fe_components +
+                              first_selected_component]
+                 .first /
+               this->data->dofs_per_component_on_cell];
+        }
+
+      for (unsigned int comp = 0; comp < n_components; ++comp)
+        internal::FEEvaluationImplHangingNodes<dim,
+                                               VectorizedArrayType,
+                                               is_face>::template run<-1,
+                                                                      -1>(
+          *this, true, constraint_mask, values_dofs[comp]);
+    }
+
   const auto dst_data = internal::get_vector_data<n_components_>(
     dst,
     first_index,
@@ -5389,7 +5413,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
   internal::VectorDistributorLocalToGlobal<Number, VectorizedArrayType>
     distributor;
   read_write_operation(
-    distributor, dst_data.first, dst_data.second, mask, true, true);
+    distributor, dst_data.first, dst_data.second, mask, true);
 }
 
 
@@ -5420,8 +5444,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
     this->dof_info);
 
   internal::VectorSetter<Number, VectorizedArrayType> setter;
-  read_write_operation(
-    setter, dst_data.first, dst_data.second, mask, true, true);
+  read_write_operation(setter, dst_data.first, dst_data.second, mask, true);
 }
 
 

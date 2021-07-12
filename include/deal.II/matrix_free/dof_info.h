@@ -218,7 +218,8 @@ namespace internal
         const HangingNodes<dim> &        hanging_nodes,
         const std::vector<unsigned int> &lexicographic_mapping,
         const unsigned int               cell_number,
-        const TriaIterator<DoFCellAccessor<dim, dim, false>> &cell);
+        const TriaIterator<DoFCellAccessor<dim, dim, false>> &cell,
+        std::vector<types::global_dof_index> &                dof_indices);
 
       /**
        * This method assigns the correct indices to ghost indices from the
