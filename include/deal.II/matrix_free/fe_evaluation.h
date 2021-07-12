@@ -1379,7 +1379,7 @@ private:
   set_data_pointers();
 
   /**
-   * Apply haning-node constraints.
+   * Apply hanging-node constraints.
    */
   template <bool transpose>
   void
