@@ -5293,19 +5293,13 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
 
       constexpr unsigned int            n_lanes = VectorizedArrayType::size();
       std::array<unsigned int, n_lanes> constraint_mask;
-      std::fill(constraint_mask.begin(), constraint_mask.end(), 0);
 
       for (unsigned int v = 0; v < n_vectorization_actual; ++v)
-        {
-          // TODO: better way!
-          constraint_mask[v] =
-            this->dof_info->component_masks
-              [this->dof_info
-                 ->row_starts[(this->cell * n_lanes + v) * n_fe_components +
-                              first_selected_component]
-                 .first /
-               this->data->dofs_per_component_on_cell];
-        }
+        constraint_mask[v] =
+          this->dof_info->component_masks[this->cell * n_lanes + v];
+
+      for (unsigned int v = n_vectorization_actual; v < n_lanes; ++v)
+        constraint_mask[v] = 0;
 
       for (unsigned int comp = 0; comp < n_components; ++comp)
         internal::FEEvaluationImplHangingNodes<dim,
