@@ -1377,6 +1377,13 @@ private:
    */
   void
   set_data_pointers();
+
+  /**
+   * Apply haning-node constraints.
+   */
+  template <bool transpose>
+  void
+  apply_hanging_node_constraints();
 };
 
 
@@ -5265,6 +5272,43 @@ template <int dim,
           typename Number,
           bool is_face,
           typename VectorizedArrayType>
+template <bool transpose>
+inline void
+FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
+  apply_hanging_node_constraints()
+{
+  if (is_face)
+    return; // nothing to do with faces
+
+  unsigned int n_vectorization_actual =
+    this->dof_info
+      ->n_vectorization_lanes_filled[this->dof_access_index][this->cell];
+
+  constexpr unsigned int            n_lanes = VectorizedArrayType::size();
+  std::array<unsigned int, n_lanes> constraint_mask;
+
+  for (unsigned int v = 0; v < n_vectorization_actual; ++v)
+    constraint_mask[v] =
+      this->dof_info->component_masks[this->cell * n_lanes + v];
+
+  for (unsigned int v = n_vectorization_actual; v < n_lanes; ++v)
+    constraint_mask[v] = 0;
+
+  for (unsigned int comp = 0; comp < n_components; ++comp)
+    internal::FEEvaluationImplHangingNodes<dim, VectorizedArrayType, is_face>::
+      template run<-1, -1>(*this,
+                           transpose,
+                           constraint_mask,
+                           values_dofs[comp]);
+}
+
+
+
+template <int dim,
+          int n_components_,
+          typename Number,
+          bool is_face,
+          typename VectorizedArrayType>
 template <typename VectorType>
 inline void
 FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
@@ -5285,29 +5329,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
                        std::bitset<VectorizedArrayType::size()>().flip(),
                        true);
 
-  if (is_face == false) // apply hanging-node constraints
-    {
-      unsigned int n_vectorization_actual =
-        this->dof_info
-          ->n_vectorization_lanes_filled[this->dof_access_index][this->cell];
-
-      constexpr unsigned int            n_lanes = VectorizedArrayType::size();
-      std::array<unsigned int, n_lanes> constraint_mask;
-
-      for (unsigned int v = 0; v < n_vectorization_actual; ++v)
-        constraint_mask[v] =
-          this->dof_info->component_masks[this->cell * n_lanes + v];
-
-      for (unsigned int v = n_vectorization_actual; v < n_lanes; ++v)
-        constraint_mask[v] = 0;
-
-      for (unsigned int comp = 0; comp < n_components; ++comp)
-        internal::FEEvaluationImplHangingNodes<dim,
-                                               VectorizedArrayType,
-                                               is_face>::template run<-1,
-                                                                      -1>(
-          *this, false, constraint_mask, values_dofs[comp]);
-    }
+  apply_hanging_node_constraints<false>();
 
 #  ifdef DEBUG
   dof_values_initialized = true;
@@ -5366,35 +5388,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
          internal::ExcAccessToUninitializedField());
 #  endif
 
-  if (is_face == false) // apply hanging-node constraints
-    {
-      unsigned int n_vectorization_actual =
-        this->dof_info
-          ->n_vectorization_lanes_filled[this->dof_access_index][this->cell];
-
-      constexpr unsigned int            n_lanes = VectorizedArrayType::size();
-      std::array<unsigned int, n_lanes> constraint_mask;
-      std::fill(constraint_mask.begin(), constraint_mask.end(), 0);
-
-      for (unsigned int v = 0; v < n_vectorization_actual; ++v)
-        {
-          // TODO: better way!
-          constraint_mask[v] =
-            this->dof_info->component_masks
-              [this->dof_info
-                 ->row_starts[(this->cell * n_lanes + v) * n_fe_components +
-                              first_selected_component]
-                 .first /
-               this->data->dofs_per_component_on_cell];
-        }
-
-      for (unsigned int comp = 0; comp < n_components; ++comp)
-        internal::FEEvaluationImplHangingNodes<dim,
-                                               VectorizedArrayType,
-                                               is_face>::template run<-1,
-                                                                      -1>(
-          *this, true, constraint_mask, values_dofs[comp]);
-    }
+  apply_hanging_node_constraints<true>();
 
   const auto dst_data = internal::get_vector_data<n_components_>(
     dst,
