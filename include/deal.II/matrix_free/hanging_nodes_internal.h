@@ -18,6 +18,10 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/dofs/dof_accessor.h>
+
+#include <deal.II/fe/fe_q.h>
+#include <deal.II/fe/fe_system.h>
 #include <deal.II/fe/fe_tools.h>
 
 DEAL_II_NAMESPACE_OPEN
@@ -224,12 +228,35 @@ namespace internal
     unsigned int &                        mask) const
   {
     mask                         = 0;
-    const unsigned int fe_degree = cell->get_fe().tensor_degree();
+    const auto &       fe        = cell->get_fe();
+    const unsigned int fe_degree = fe.tensor_degree();
     const unsigned int n_dofs_1d = fe_degree + 1;
     const unsigned int dofs_per_face =
       Utilities::fixed_power<dim - 1>(n_dofs_1d);
+    const unsigned int n_dofs_per_component =
+      Utilities::fixed_power<dim>(n_dofs_1d);
 
-    std::vector<types::global_dof_index> neighbor_dofs(dofs_per_face);
+    const unsigned int n_components = fe.n_components();
+
+    AssertDimension(n_dofs_per_component * n_components, fe.n_dofs_per_cell());
+
+    std::vector<types::global_dof_index> neighbor_dofs(dofs_per_face *
+                                                       n_components);
+    std::vector<types::global_dof_index> temp(dofs_per_face);
+
+    std::vector<std::vector<unsigned int>> component_to_system_index_face_array(
+      n_components);
+
+    for (unsigned int i = 0; i < dofs_per_face * n_components; ++i)
+      component_to_system_index_face_array
+        [fe.face_system_to_component_index(i, /*face_no=*/0).first]
+          .push_back(i);
+
+    const auto component_to_system_index_face = [&](const auto comp,
+                                                    const auto i) {
+      return component_to_system_index_face_array[comp][i];
+    };
+
 
     const auto lex_face_mapping =
       FETools::lexicographic_to_hierarchic_numbering<dim - 1>(fe_degree);
@@ -303,7 +330,10 @@ namespace internal
                         else
                           idx = n_dofs_1d * i + offset;
 
-                        dof_indices[idx] = neighbor_dofs[lex_face_mapping[i]];
+                        for (unsigned int comp = 0; comp < n_components; ++comp)
+                          dof_indices[idx + comp * n_dofs_per_component] =
+                            neighbor_dofs[component_to_system_index_face(
+                              comp, lex_face_mapping[i])];
                       }
                   }
                 else if (dim == 3)
@@ -317,12 +347,39 @@ namespace internal
                     if (cell->face_flip(face))
                       rotate -= 2;
 
-                    rotate_face(rotate, n_dofs_1d, neighbor_dofs);
+                    for (unsigned int comp = 0; comp < n_components; ++comp)
+                      {
+                        for (unsigned int i = 0; i < dofs_per_face; ++i)
+                          temp[i] =
+                            neighbor_dofs[component_to_system_index_face(comp,
+                                                                         i)];
+
+                        rotate_face(rotate, n_dofs_1d, temp);
+
+                        for (unsigned int i = 0; i < dofs_per_face; ++i)
+                          neighbor_dofs[component_to_system_index_face(comp,
+                                                                       i)] =
+                            temp[i];
+                      }
                     rotate_subface_index(rotate, subface);
 
                     if (transpose)
                       {
-                        transpose_face(fe_degree, neighbor_dofs);
+                        for (unsigned int comp = 0; comp < n_components; ++comp)
+                          {
+                            for (unsigned int i = 0; i < dofs_per_face; ++i)
+                              temp[i] =
+                                neighbor_dofs[component_to_system_index_face(
+                                  comp, i)];
+
+                            transpose_face(fe_degree, temp);
+
+                            for (unsigned int i = 0; i < dofs_per_face; ++i)
+                              neighbor_dofs[component_to_system_index_face(comp,
+                                                                           i)] =
+                                temp[i];
+                          }
+
                         transpose_subface_index(subface);
                       }
 
@@ -384,9 +441,11 @@ namespace internal
                               idx = n_dofs_1d * n_dofs_1d * offset +
                                     n_dofs_1d * i + j;
 
-                            dof_indices[idx] =
-                              neighbor_dofs[lex_face_mapping[n_dofs_1d * i +
-                                                             j]];
+                            for (unsigned int comp = 0; comp < n_components;
+                                 ++comp)
+                              dof_indices[idx + comp * n_dofs_per_component] =
+                                neighbor_dofs[component_to_system_index_face(
+                                  comp, lex_face_mapping[n_dofs_1d * i + j])];
                           }
                       }
                   }
@@ -525,11 +584,17 @@ namespace internal
                             // Get local dof index along line
                             const unsigned int idx =
                               line_dof_idx(local_line, i, n_dofs_1d);
-                            dof_indices[idx] =
-                              neighbor_dofs[lexicographic_mapping[line_dof_idx(
-                                local_line_neighbor,
-                                flipped ? fe_degree - i : i,
-                                n_dofs_1d)]];
+
+                            for (unsigned int comp = 0; comp < n_components;
+                                 ++comp)
+                              dof_indices[idx + comp * n_dofs_per_component] =
+                                neighbor_dofs
+                                  [lexicographic_mapping
+                                     [fe.component_to_system_index(
+                                       comp,
+                                       line_dof_idx(local_line_neighbor,
+                                                    flipped ? fe_degree - i : i,
+                                                    n_dofs_1d))]];
                           }
 
                         // Stop looping over edge neighbors

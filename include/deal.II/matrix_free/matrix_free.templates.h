@@ -1219,12 +1219,15 @@ namespace internal
                 for (unsigned int i = 0; i < local_dof_indices.size(); ++i)
                   identity[i] = i;
 
-                dof_info[no].process_hanging_node_constraints(
-                  *hanging_nodes,
-                  lexicographic[no][0],
-                  counter,
-                  cell_it,
-                  local_dof_indices_2);
+                if (dofh->get_fe_collection().size() == 1)
+                  {
+                    dof_info[no].process_hanging_node_constraints(
+                      *hanging_nodes,
+                      lexicographic[no][0],
+                      counter,
+                      cell_it,
+                      local_dof_indices_2);
+                  }
 
                 dof_info[no].read_dof_indices(local_dof_indices_2,
                                               identity,

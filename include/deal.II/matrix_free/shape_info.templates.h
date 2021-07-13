@@ -30,6 +30,7 @@
 #include <deal.II/fe/fe_dgq.h>
 #include <deal.II/fe/fe_poly.h>
 #include <deal.II/fe/fe_pyramid_p.h>
+#include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_q_dg0.h>
 #include <deal.II/fe/fe_simplex_p.h>
 #include <deal.II/fe/fe_simplex_p_bubbles.h>
@@ -618,7 +619,7 @@ namespace internal
             }
         }
 
-      if (dim > 1 && fe.n_dofs_per_face(0) > 0)
+      if (dim > 1 && dynamic_cast<const FE_Q<dim> *>(&fe))
         {
           auto &subface_interpolation_matrix =
             univariate_shape_data.subface_interpolation_matrix;

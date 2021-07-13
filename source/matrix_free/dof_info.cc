@@ -354,8 +354,11 @@ namespace internal
             {
               const unsigned int cell_no =
                 renumbering[position_cell + j] * n_components;
-              new_component_masks.push_back(
-                component_masks[renumbering[position_cell + j]]);
+
+              if (component_masks.size() > 0)
+                new_component_masks.push_back(
+                  component_masks[renumbering[position_cell + j]]);
+
               for (unsigned int comp = 0; comp < n_components; ++comp)
                 {
                   new_row_starts[(i * vectorization_length + j) * n_components +
@@ -399,7 +402,9 @@ namespace internal
                 new_row_starts[(i * vectorization_length + j) * n_components +
                                comp]
                   .second = new_constraint_indicator.size();
-                new_component_masks.push_back(0);
+
+                if (component_masks.size() > 0)
+                  new_component_masks.push_back(0);
               }
           position_cell += n_vect;
         }
