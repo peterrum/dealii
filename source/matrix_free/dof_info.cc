@@ -103,7 +103,8 @@ namespace internal
           // shift for this cell within the block as compared to the next
           // one
           const bool has_constraints =
-            row_starts[ib].second != row_starts[ib + n_fe_components].second;
+            (component_masks.size() != 0 && component_masks[ib] != 0) ||
+            (row_starts[ib].second != row_starts[ib + n_fe_components].second);
 
           auto do_copy = [&](const unsigned int *begin,
                              const unsigned int *end) {
