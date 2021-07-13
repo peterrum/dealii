@@ -229,11 +229,8 @@ namespace internal
   {
     bool cell_has_hanging_node_constraints = false;
 
-    const unsigned int n_components = cell->get_fe().n_components();
-    AssertDimension(n_components, 1);
-
     for (unsigned int base_element_index = 0, comp = 0;
-         base_element_index < n_components;
+         base_element_index < cell->get_fe().n_base_elements();
          ++base_element_index)
       for (unsigned int c = 0;
            c < cell->get_fe().element_multiplicity(base_element_index);
@@ -246,6 +243,10 @@ namespace internal
 
           if (dim == 1 || dynamic_cast<const FE_Q<dim> *>(&fe) == nullptr)
             continue;
+
+          // TODO
+          const unsigned int n_components = cell->get_fe().n_components();
+          AssertDimension(n_components, 1);
 
           const unsigned int fe_degree = fe.tensor_degree();
           const unsigned int n_dofs_1d = fe_degree + 1;

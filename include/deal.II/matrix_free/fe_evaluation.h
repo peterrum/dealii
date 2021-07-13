@@ -5299,7 +5299,8 @@ inline void
 FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
   apply_hanging_node_constraints() const
 {
-  if (is_face || this->dof_info->component_masks.size() == 0)
+  if (is_face || this->dof_info == nullptr ||
+      this->dof_info->component_masks.size() == 0)
     return; // nothing to do with faces
 
   unsigned int n_vectorization_actual =
