@@ -4506,16 +4506,15 @@ namespace internal
       for (unsigned int h = 0; h < points; ++h)
         for (unsigned int i = 0, k = 0; i < r1; ++i)
           for (unsigned int j = 0; j < r2; ++j, ++k)
-          {
-            const unsigned int index = ((transpose ? points : 1) *
-                               (d == 0 ? h : (fe_degree - h))) +
-                              ((transpose ? 1 : points) *
-                               (d == 0 ? k : (fe_degree - k)));
-            if(k == 0)
-              temp[h] = weight[index][v] * values[i * b1 + b2 + j][v];
-            else
-              temp[h] += weight[index][v] * values[i * b1 + b2 + j][v];
-          }
+            {
+              const unsigned int index =
+                ((transpose ? points : 1) * (d == 0 ? h : (fe_degree - h))) +
+                ((transpose ? 1 : points) * (d == 0 ? k : (fe_degree - k)));
+              if (k == 0)
+                temp[h] = weight[index][v] * values[i * b1 + b2 + j][v];
+              else
+                temp[h] += weight[index][v] * values[i * b1 + b2 + j][v];
+            }
 
       // copy result back
       for (unsigned int i = 0, k = 0; i < r1; ++i)
@@ -4560,7 +4559,7 @@ namespace internal
 
           if (mask & internal::constr_face_y)
             {
-              if (mask & constr_type_y) // interpolate face 1 in direction 1
+              if (mask & constr_type_x) // interpolate face 1 in direction 1
                 interpolate_2D<1, transpose>(fe_degree, v, weights, values);
               else // interpolate face 0 in direction 1
                 interpolate_2D<0, transpose>(fe_degree, v, weights, values);
