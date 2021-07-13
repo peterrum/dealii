@@ -4458,6 +4458,22 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
          ExcNotImplemented("Masking currently not implemented for "
                            "non-contiguous DoF storage"));
 
+  unsigned int n_vectorization_actual =
+    this->dof_info
+      ->n_vectorization_lanes_filled[this->dof_access_index][this->cell];
+
+  bool has_hn_constraints = false;
+
+  if (is_face == false)
+    {
+      for (unsigned int v = 0; v < n_vectorization_actual; ++v)
+        if (this->dof_info->component_masks.size() > 0 &&
+            this->dof_info
+                ->component_masks[(this->cell * n_lanes + v) * n_fe_components +
+                                  first_selected_component] != 0)
+          has_hn_constraints = true;
+    }
+
   std::integral_constant<bool,
                          internal::is_vectorizable<VectorType, Number>::value>
     vector_selector;
@@ -4465,10 +4481,11 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
   const unsigned int dofs_per_component =
     this->data->dofs_per_component_on_cell;
   if (this->dof_info->index_storage_variants
-        [is_face ? this->dof_access_index :
-                   internal::MatrixFreeFunctions::DoFInfo::dof_access_cell]
-        [this->cell] ==
-      internal::MatrixFreeFunctions::DoFInfo::IndexStorageVariants::interleaved)
+          [is_face ? this->dof_access_index :
+                     internal::MatrixFreeFunctions::DoFInfo::dof_access_cell]
+          [this->cell] == internal::MatrixFreeFunctions::DoFInfo::
+                            IndexStorageVariants::interleaved &&
+      (has_hn_constraints == false))
     {
       const unsigned int *dof_indices =
         this->dof_info->dof_indices_interleaved.data() +
@@ -4504,10 +4521,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
   // to the dof indices of the cells on all lanes
   unsigned int        cells_copied[n_lanes];
   const unsigned int *cells;
-  unsigned int        n_vectorization_actual =
-    this->dof_info
-      ->n_vectorization_lanes_filled[this->dof_access_index][this->cell];
-  bool               has_constraints   = false;
+  bool                has_constraints  = false;
   const unsigned int n_components_read = n_fe_components > 1 ? n_components : 1;
 
   if (is_face)
@@ -4557,6 +4571,13 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
           if (my_index_start[n_components_read].second !=
               my_index_start[0].second)
             has_constraints = true;
+
+          if (this->dof_info->component_masks.size() > 0 &&
+              this->dof_info->component_masks[(this->cell * n_lanes + v) *
+                                                n_fe_components +
+                                              first_selected_component] != 0)
+            has_hn_constraints = true;
+
           Assert(my_index_start[n_components_read].first ==
                      my_index_start[0].first ||
                    my_index_start[0].first < this->dof_info->dof_indices.size(),
@@ -4572,7 +4593,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
 
   // Case where we have no constraints throughout the whole cell: Can go
   // through the list of DoFs directly
-  if (!has_constraints)
+  if (!has_constraints && (apply_constraints || !has_hn_constraints))
     {
       if (n_vectorization_actual < n_lanes)
         for (unsigned int comp = 0; comp < n_components; ++comp)
@@ -4627,9 +4648,10 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
       // For read_dof_values_plain, redirect the dof_indices field to the
       // unconstrained indices
       if (apply_constraints == false &&
-          this->dof_info->row_starts[cell_dof_index].second !=
-            this->dof_info->row_starts[cell_dof_index + n_components_read]
-              .second)
+          (this->dof_info->row_starts[cell_dof_index].second !=
+             this->dof_info->row_starts[cell_dof_index + n_components_read]
+               .second ||
+           has_hn_constraints))
         {
           Assert(this->dof_info->row_starts_plain_indices[cell_index] !=
                    numbers::invalid_unsigned_int,
@@ -5289,8 +5311,9 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
 
   for (unsigned int v = 0; v < n_vectorization_actual; ++v)
     constraint_mask[v] =
-      this->dof_info->component_masks[this->cell * n_lanes + v];
-
+      this->dof_info
+        ->component_masks[(this->cell * n_lanes + v) * n_fe_components +
+                          first_selected_component];
   for (unsigned int v = n_vectorization_actual; v < n_lanes; ++v)
     constraint_mask[v] = 0;
 

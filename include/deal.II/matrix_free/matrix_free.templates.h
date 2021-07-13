@@ -1175,11 +1175,13 @@ namespace internal
     std::vector<unsigned int>          subdomain_boundary_cells;
     std::unique_ptr<HangingNodes<dim>> hanging_nodes;
 
-    if (mg_level == numbers::invalid_unsigned_int)
+    if (dim > 1 && mg_level == numbers::invalid_unsigned_int)
       {
         hanging_nodes = std::make_unique<HangingNodes<dim>>(tria);
         for (unsigned int no = 0; no < n_dof_handlers; ++no)
-          dof_info[no].component_masks.resize(n_active_cells);
+          if (dof_handler[no]->get_fe_collection().size() == 1)
+            dof_info[no].component_masks.resize(
+              n_active_cells * dof_handler[no]->get_fe().n_components());
       }
 
     for (unsigned int counter = 0; counter < n_active_cells; ++counter)
@@ -1215,21 +1217,28 @@ namespace internal
                   local_dof_indices_2[i] =
                     local_dof_indices[lexicographic[no][fe_index][i]];
 
+                const auto local_dof_indices_plain = local_dof_indices_2;
+
                 std::vector<unsigned int> identity(local_dof_indices.size());
                 for (unsigned int i = 0; i < local_dof_indices.size(); ++i)
                   identity[i] = i;
 
-                if (dofh->get_fe_collection().size() == 1)
+                bool cell_has_hanging_node_constraints = false;
+
+                if (dim > 1 && dofh->get_fe_collection().size() == 1)
                   {
-                    dof_info[no].process_hanging_node_constraints(
-                      *hanging_nodes,
-                      lexicographic[no][0],
-                      counter,
-                      cell_it,
-                      local_dof_indices_2);
+                    cell_has_hanging_node_constraints |=
+                      dof_info[no].process_hanging_node_constraints(
+                        *hanging_nodes,
+                        lexicographic[no][0],
+                        counter,
+                        cell_it,
+                        local_dof_indices_2);
                   }
 
                 dof_info[no].read_dof_indices(local_dof_indices_2,
+                                              local_dof_indices_plain,
+                                              cell_has_hanging_node_constraints,
                                               identity,
                                               *constraint[no],
                                               counter,
@@ -1257,6 +1266,8 @@ namespace internal
                 local_dof_indices.resize(dof_info[no].dofs_per_cell[0]);
                 cell_it->get_mg_dof_indices(local_dof_indices);
                 dof_info[no].read_dof_indices(local_dof_indices,
+                                              local_dof_indices,
+                                              false,
                                               lexicographic[no][0],
                                               *constraint[no],
                                               counter,

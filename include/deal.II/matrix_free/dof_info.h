@@ -203,17 +203,19 @@ namespace internal
       void
       read_dof_indices(
         const std::vector<types::global_dof_index> &local_indices,
-        const std::vector<unsigned int> &           lexicographic_inv,
-        const dealii::AffineConstraints<number> &   constraints,
-        const unsigned int                          cell_number,
-        ConstraintValues<double> &                  constraint_values,
-        bool &                                      cell_at_boundary);
+        const std::vector<types::global_dof_index> &local_indices_plain,
+        const bool                       cell_has_hanging_node_constraints,
+        const std::vector<unsigned int> &lexicographic_inv,
+        const dealii::AffineConstraints<number> &constraints,
+        const unsigned int                       cell_number,
+        ConstraintValues<double> &               constraint_values,
+        bool &                                   cell_at_boundary);
 
       /**
        * TODO
        */
       template <int dim>
-      void
+      bool
       process_hanging_node_constraints(
         const HangingNodes<dim> &        hanging_nodes,
         const std::vector<unsigned int> &lexicographic_mapping,

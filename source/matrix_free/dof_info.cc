@@ -324,7 +324,7 @@ namespace internal
       new_constraint_indicator.reserve(constraint_indicator.size());
 
       std::vector<unsigned int> new_component_masks;
-      new_component_masks.resize(new_component_masks.size());
+      new_component_masks.reserve(new_component_masks.size());
 
       if (store_plain_indices == true)
         {
@@ -355,10 +355,6 @@ namespace internal
               const unsigned int cell_no =
                 renumbering[position_cell + j] * n_components;
 
-              if (component_masks.size() > 0)
-                new_component_masks.push_back(
-                  component_masks[renumbering[position_cell + j]]);
-
               for (unsigned int comp = 0; comp < n_components; ++comp)
                 {
                   new_row_starts[(i * vectorization_length + j) * n_components +
@@ -367,6 +363,9 @@ namespace internal
                   new_row_starts[(i * vectorization_length + j) * n_components +
                                  comp]
                     .second = new_constraint_indicator.size();
+
+                  if (component_masks.size() > 0)
+                    new_component_masks.push_back(component_masks[cell_no]);
 
                   new_dof_indices.insert(
                     new_dof_indices.end(),
@@ -378,9 +377,9 @@ namespace internal
                     new_constraint_indicator.push_back(
                       constraint_indicator[index]);
                 }
-              if (store_plain_indices &&
+              if (store_plain_indices /*&&
                   row_starts[cell_no].second !=
-                    row_starts[cell_no + n_components].second)
+                    row_starts[cell_no + n_components].second*/)
                 {
                   new_rowstart_plain[i * vectorization_length + j] =
                     new_plain_indices.size();
@@ -1472,6 +1471,8 @@ namespace internal
     template void
     DoFInfo::read_dof_indices<double>(
       const std::vector<types::global_dof_index> &,
+      const std::vector<types::global_dof_index> &,
+      const bool cell_has_hanging_node_constraints,
       const std::vector<unsigned int> &,
       const dealii::AffineConstraints<double> &,
       const unsigned int,
@@ -1481,27 +1482,29 @@ namespace internal
     template void
     DoFInfo::read_dof_indices<float>(
       const std::vector<types::global_dof_index> &,
+      const std::vector<types::global_dof_index> &,
+      const bool cell_has_hanging_node_constraints,
       const std::vector<unsigned int> &,
       const dealii::AffineConstraints<float> &,
       const unsigned int,
       ConstraintValues<double> &,
       bool &);
 
-    template void
+    template bool
     DoFInfo::process_hanging_node_constraints<1>(
       const HangingNodes<1> &                           hanging_nodes,
       const std::vector<unsigned int> &                 lexicographic_mapping,
       const unsigned int                                cell_number,
       const TriaIterator<DoFCellAccessor<1, 1, false>> &cell,
       std::vector<types::global_dof_index> &            dof_indices);
-    template void
+    template bool
     DoFInfo::process_hanging_node_constraints<2>(
       const HangingNodes<2> &                           hanging_nodes,
       const std::vector<unsigned int> &                 lexicographic_mapping,
       const unsigned int                                cell_number,
       const TriaIterator<DoFCellAccessor<2, 2, false>> &cell,
       std::vector<types::global_dof_index> &            dof_indices);
-    template void
+    template bool
     DoFInfo::process_hanging_node_constraints<3>(
       const HangingNodes<3> &                           hanging_nodes,
       const std::vector<unsigned int> &                 lexicographic_mapping,
