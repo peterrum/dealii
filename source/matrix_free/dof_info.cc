@@ -222,8 +222,10 @@ namespace internal
               // now the same procedure for plain indices
               if (store_plain_indices == true)
                 {
-                  if (row_starts[boundary_cells[i] * n_components].second !=
-                      row_starts[(boundary_cells[i] + 1) * n_components].second)
+                  if (true ||
+                      row_starts[boundary_cells[i] * n_components].second !=
+                        row_starts[(boundary_cells[i] + 1) * n_components]
+                          .second)
                     {
                       unsigned int *data_ptr =
                         plain_dof_indices.data() +
