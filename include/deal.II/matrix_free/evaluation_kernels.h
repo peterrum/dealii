@@ -4481,7 +4481,7 @@ namespace internal
       return i + size * j + size * size * k;
     }
 
-    template <unsigned int side, bool transpose>
+    template <unsigned int side, bool type, bool transpose>
     static void
     interpolate_2D(const unsigned int fe_degree,
                    const unsigned int v,
@@ -4508,8 +4508,8 @@ namespace internal
           for (unsigned int j = 0; j < r2; ++j, ++k)
             {
               const unsigned int index =
-                ((transpose ? points : 1) * (d == 0 ? h : (fe_degree - h))) +
-                ((transpose ? 1 : points) * (d == 0 ? k : (fe_degree - k)));
+                ((transpose ? 1 : points) * (type ? h : (fe_degree - h))) +
+                ((transpose ? points : 1) * (type ? k : (fe_degree - k)));
               if (k == 0)
                 temp[h] = weight[index][v] * values[i * b1 + b2 + j][v];
               else
@@ -4551,18 +4551,52 @@ namespace internal
 
           if (mask & internal::constr_face_x)
             {
-              if (mask & constr_type_y) // interpolate face 3 in direction 0
-                interpolate_2D<3, transpose>(fe_degree, v, weights, values);
-              else // interpolate face 2 in direction 0
-                interpolate_2D<2, transpose>(fe_degree, v, weights, values);
+              if (mask ==
+                  (internal::constr_face_x | constr_type_x | constr_type_y))
+                interpolate_2D<0, true, transpose>(fe_degree,
+                                                   v,
+                                                   weights,
+                                                   values);
+              else if (mask == (internal::constr_face_x | constr_type_x))
+                interpolate_2D<0, false, transpose>(fe_degree,
+                                                    v,
+                                                    weights,
+                                                    values);
+              else if (mask == (internal::constr_face_x | constr_type_y))
+                interpolate_2D<1, true, transpose>(fe_degree,
+                                                   v,
+                                                   weights,
+                                                   values);
+              else
+                interpolate_2D<1, false, transpose>(fe_degree,
+                                                    v,
+                                                    weights,
+                                                    values);
             }
 
           if (mask & internal::constr_face_y)
             {
-              if (mask & constr_type_x) // interpolate face 1 in direction 1
-                interpolate_2D<1, transpose>(fe_degree, v, weights, values);
-              else // interpolate face 0 in direction 1
-                interpolate_2D<0, transpose>(fe_degree, v, weights, values);
+              if (mask ==
+                  (internal::constr_face_y | constr_type_y | constr_type_x))
+                interpolate_2D<2, true, transpose>(fe_degree,
+                                                   v,
+                                                   weights,
+                                                   values);
+              else if (mask == (internal::constr_face_y | constr_type_y))
+                interpolate_2D<2, false, transpose>(fe_degree,
+                                                    v,
+                                                    weights,
+                                                    values);
+              else if (mask == (internal::constr_face_y | constr_type_x))
+                interpolate_2D<3, true, transpose>(fe_degree,
+                                                   v,
+                                                   weights,
+                                                   values);
+              else
+                interpolate_2D<3, false, transpose>(fe_degree,
+                                                    v,
+                                                    weights,
+                                                    values);
             }
         }
     }
