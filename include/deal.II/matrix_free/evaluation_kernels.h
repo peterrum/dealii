@@ -4577,6 +4577,21 @@ namespace internal
         }
     }
 
+    template <unsigned int side, bool transpose>
+    static void
+    interpolate_3D_face(const unsigned int fe_degree,
+                        bool               type,
+                        const unsigned int v,
+                        const Number *     weight,
+                        Number *           values)
+    {
+      (void)fe_degree;
+      (void)type;
+      (void)v;
+      (void)weight;
+      (void)values;
+    }
+
     template <unsigned int direction, bool transpose>
     static void
     interpolate_3D_edge(const unsigned int p,
@@ -4648,19 +4663,45 @@ namespace internal
               (void)at_least;
 
               // clang-format off
+              const unsigned int p0 = 0;
+              const unsigned int p2 = points * points - points;
+              const unsigned int p4 = points * points * points - points * points;
+              const unsigned int p6 = points * points * points - points;
               
+              // direction 0: faces
+              if (at_least(mask, constr_face_y))
+                {
+                  const bool not_flipped = mask & constr_type_x;
+                  
+                  if (at_least(mask, constr_type_y))                                               //
+                    interpolate_3D_face<2, transpose>(fe_degree, not_flipped, v, weights, values); // face 2
+                  else                                                                             //
+                    interpolate_3D_face<3, transpose>(fe_degree, not_flipped, v, weights, values); // face 3
+                }
+              
+              if (at_least(mask, constr_face_z))
+                {
+                  const bool not_flipped = mask & constr_type_x;
+                  
+                  if (at_least(mask, constr_type_z))                                               //
+                    interpolate_3D_face<4, transpose>(fe_degree, not_flipped, v, weights, values); // face 4
+                  else                                                                             //
+                    interpolate_3D_face<5, transpose>(fe_degree, not_flipped, v, weights, values); // face 5
+                }
+              
+              // direction 0: edges
               if (at_least(mask, constr_edge_yz))
                 {
                   const bool not_flipped = mask & constr_type_x;
 
-                  if (at_least(mask, constr_type_y | constr_type_z))
-                    interpolate_3D_edge<0, transpose>(0, fe_degree, not_flipped, v, weights, values);                                          // edge 2
-                  else if (at_least(mask, constr_type_z))                                                                                      //
-                    interpolate_3D_edge<0, transpose>(points * points - points, fe_degree, not_flipped, v, weights, values);                   // edge 3
-                  else if (at_least(mask, constr_type_y))                                                                                      //
-                    interpolate_3D_edge<0, transpose>(points * points * points - points * points, fe_degree, not_flipped, v, weights, values); // edge 6
-                  else                                                                                                                         //
-                    interpolate_3D_edge<0, transpose>(points * points * points - points, fe_degree, not_flipped, v, weights, values);          // edge 7
+                  if (at_least(mask, constr_type_y | constr_type_z))                                   //
+                    interpolate_3D_edge<0, transpose>(p0, fe_degree, not_flipped, v, weights, values); // edge 2
+                  else if (at_least(mask, constr_type_z))                                              //
+                    interpolate_3D_edge<0, transpose>(p2, fe_degree, not_flipped, v, weights, values); // edge 3
+                  else if (at_least(mask, constr_type_y))                                              //
+                    interpolate_3D_edge<0, transpose>(p4, fe_degree, not_flipped, v, weights, values); // edge 6
+                  else                                                                                 //
+                    interpolate_3D_edge<0, transpose>(p6, fe_degree, not_flipped, v, weights, values); // edge 7
                 }
 
               // clang-format on
