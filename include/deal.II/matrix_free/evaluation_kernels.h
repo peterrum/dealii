@@ -4577,7 +4577,7 @@ namespace internal
         }
     }
 
-    template <unsigned int side, bool transpose>
+    template <unsigned int direction, unsigned int side, bool transpose>
     static void
     interpolate_3D_face(const unsigned int fe_degree,
                         bool               type,
@@ -4648,44 +4648,20 @@ namespace internal
 
       const unsigned int points = fe_degree + 1;
 
+      const auto is_set = [](const unsigned int a, const unsigned int b) {
+        return (a & b) == b;
+      };
+
+      const auto not_set = [](const unsigned int a, const unsigned int b) {
+        return (a & b) == 0;
+      };
+
       for (unsigned int v = 0; v < Number::size(); ++v)
         {
           if (constraint_mask[v] == 0)
             continue;
 
-          // X-DIRECTION
-          // face  2/3
-          // face  4/5
-          // edge  2 (or face 2/4)
-          // edge  3 (or face 3/4)
-          // edge  6 (or face 2/5)
-          // edge  7 (or face 3/5)
-          //
-          // Y-DIRECTION
-          // face  0/1
-          // face  4/5
-          // edge  0 (or face 0/4)
-          // edge  1 (or face 1/4)
-          // edge  4 (or face 0/5)
-          // edge  5 (or face 1/5)
-          //
-          // Z-DIRECTION
-          // face  0/1
-          // face  2/3
-          // edge  8 (or face 0/2)
-          // edge  9 (or face 1/2)
-          // edge 10 (or face 0/3)
-          // edge 11 (or face 1/3)
-
           const auto mask = constraint_mask[v];
-
-          const auto is_set = [](const unsigned int a, const unsigned int b) {
-            return (a & b) == b;
-          };
-
-          const auto not_set = [](const unsigned int a, const unsigned int b) {
-            return (a & b) == 0;
-          };
 
           // clang-format off
           const unsigned int p0 = 0;
@@ -4724,13 +4700,13 @@ namespace internal
 
             // ... faces
             if (is_face_2)                                                                       //
-              interpolate_3D_face<2, transpose>(fe_degree, not_flipped, v, weights, values);     // face 2
+              interpolate_3D_face<0, 2, transpose>(fe_degree, not_flipped, v, weights, values);  // face 2
             else if(is_face_3)                                                                   //
-              interpolate_3D_face<3, transpose>(fe_degree, not_flipped, v, weights, values);     // face 3
+              interpolate_3D_face<0, 3, transpose>(fe_degree, not_flipped, v, weights, values);  // face 3
             if (is_face_4)                                                                       //
-              interpolate_3D_face<4, transpose>(fe_degree, not_flipped, v, weights, values);     // face 4
+              interpolate_3D_face<0, 4, transpose>(fe_degree, not_flipped, v, weights, values);  // face 4
             else if (is_face_5)                                                                  //
-              interpolate_3D_face<5, transpose>(fe_degree, not_flipped, v, weights, values);     // face 5
+              interpolate_3D_face<0, 5, transpose>(fe_degree, not_flipped, v, weights, values);  // face 5
                                                                                                  //
             // ... edges                                                                         //
             if (is_face_2 || is_face_4 || is_edge_2)                                             //
@@ -4749,13 +4725,13 @@ namespace internal
 
             // ... faces
             if (is_face_0)                                                                       //
-              interpolate_3D_face<0, transpose>(fe_degree, not_flipped, v, weights, values);     // face 0
+              interpolate_3D_face<1, 0, transpose>(fe_degree, not_flipped, v, weights, values);  // face 0
             else if(is_face_1)                                                                   //
-              interpolate_3D_face<1, transpose>(fe_degree, not_flipped, v, weights, values);     // face 1
+              interpolate_3D_face<1, 1, transpose>(fe_degree, not_flipped, v, weights, values);  // face 1
             if (is_face_4)                                                                       //
-              interpolate_3D_face<4, transpose>(fe_degree, not_flipped, v, weights, values);     // face 4
+              interpolate_3D_face<1, 4, transpose>(fe_degree, not_flipped, v, weights, values);  // face 4
             else if (is_face_5)                                                                  //
-              interpolate_3D_face<5, transpose>(fe_degree, not_flipped, v, weights, values);     // face 5
+              interpolate_3D_face<1, 5, transpose>(fe_degree, not_flipped, v, weights, values);  // face 5
                                                                                                  //
             // ... edges                                                                         //
             if (is_face_0 || is_face_4 || is_edge_0)                                             //
@@ -4774,13 +4750,13 @@ namespace internal
 
             // ... faces
             if (is_face_0)                                                                       //
-              interpolate_3D_face<0, transpose>(fe_degree, not_flipped, v, weights, values);     // face 0
+              interpolate_3D_face<2, 0, transpose>(fe_degree, not_flipped, v, weights, values);  // face 0
             else if(is_face_1)                                                                   //
-              interpolate_3D_face<1, transpose>(fe_degree, not_flipped, v, weights, values);     // face 1
+              interpolate_3D_face<2, 1, transpose>(fe_degree, not_flipped, v, weights, values);  // face 1
             if (is_face_2)                                                                       //
-              interpolate_3D_face<2, transpose>(fe_degree, not_flipped, v, weights, values);     // face 2
+              interpolate_3D_face<2, 2, transpose>(fe_degree, not_flipped, v, weights, values);  // face 2
             else if (is_face_3)                                                                  //
-              interpolate_3D_face<3, transpose>(fe_degree, not_flipped, v, weights, values);     // face 3
+              interpolate_3D_face<2, 3, transpose>(fe_degree, not_flipped, v, weights, values);  // face 3
                                                                                                  //
             // ... edges                                                                         //
             if (is_face_0 || is_face_2 || is_edge_8)                                             //
