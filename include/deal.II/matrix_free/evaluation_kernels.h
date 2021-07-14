@@ -4507,13 +4507,14 @@ namespace internal
         for (unsigned int i = 0, k = 0; i < r1; ++i)
           for (unsigned int j = 0; j < r2; ++j, ++k)
             {
-              const unsigned int index =
+              const unsigned int index_v = i * b1 + b2 + j;
+              const unsigned int index_w =
                 ((transpose ? 1 : points) * (type ? h : (fe_degree - h))) +
                 ((transpose ? points : 1) * (type ? k : (fe_degree - k)));
               if (k == 0)
-                temp[h] = weight[index][v] * values[i * b1 + b2 + j][v];
+                temp[h] = weight[index_w][v] * values[index_v][v];
               else
-                temp[h] += weight[index][v] * values[i * b1 + b2 + j][v];
+                temp[h] += weight[index_w][v] * values[index_v][v];
             }
 
       // copy result back
@@ -4549,55 +4550,31 @@ namespace internal
 
           const auto mask = constraint_mask[v];
 
+          // clang-format off
           if (mask & internal::constr_face_x)
             {
-              if (mask ==
-                  (internal::constr_face_x | constr_type_x | constr_type_y))
-                interpolate_2D<0, true, transpose>(fe_degree,
-                                                   v,
-                                                   weights,
-                                                   values);
+              if (mask == (internal::constr_face_x | constr_type_x | constr_type_y))
+                interpolate_2D<0, true, transpose>(fe_degree, v, weights, values);
               else if (mask == (internal::constr_face_x | constr_type_x))
-                interpolate_2D<0, false, transpose>(fe_degree,
-                                                    v,
-                                                    weights,
-                                                    values);
+                interpolate_2D<0, false, transpose>(fe_degree, v, weights, values);
               else if (mask == (internal::constr_face_x | constr_type_y))
-                interpolate_2D<1, true, transpose>(fe_degree,
-                                                   v,
-                                                   weights,
-                                                   values);
+                interpolate_2D<1, true, transpose>(fe_degree, v, weights, values);
               else
-                interpolate_2D<1, false, transpose>(fe_degree,
-                                                    v,
-                                                    weights,
-                                                    values);
+                interpolate_2D<1, false, transpose>(fe_degree, v, weights, values);
             }
 
           if (mask & internal::constr_face_y)
             {
-              if (mask ==
-                  (internal::constr_face_y | constr_type_y | constr_type_x))
-                interpolate_2D<2, true, transpose>(fe_degree,
-                                                   v,
-                                                   weights,
-                                                   values);
+              if (mask == (internal::constr_face_y | constr_type_y | constr_type_x))
+                interpolate_2D<2, true, transpose>(fe_degree, v, weights, values);
               else if (mask == (internal::constr_face_y | constr_type_y))
-                interpolate_2D<2, false, transpose>(fe_degree,
-                                                    v,
-                                                    weights,
-                                                    values);
+                interpolate_2D<2, false, transpose>(fe_degree, v, weights, values);
               else if (mask == (internal::constr_face_y | constr_type_x))
-                interpolate_2D<3, true, transpose>(fe_degree,
-                                                   v,
-                                                   weights,
-                                                   values);
+                interpolate_2D<3, true, transpose>(fe_degree, v, weights, values);
               else
-                interpolate_2D<3, false, transpose>(fe_degree,
-                                                    v,
-                                                    weights,
-                                                    values);
+                interpolate_2D<3, false, transpose>(fe_degree, v, weights, values);
             }
+          // clang-format on
         }
     }
 
