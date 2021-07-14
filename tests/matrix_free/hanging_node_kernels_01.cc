@@ -424,17 +424,16 @@ main(int argc, char **argv)
       test<2>(degree, 0 | constr_face_y);                         // face 3/1
       deallog << std::endl;
     }
+  
+  // clang-format off
 
   // edge 2
-  test<3>(1,
-          constr_edge_yz | internal::constr_type_y | internal::constr_type_z);
-  test<3>(1,
-          constr_edge_yz | internal::constr_type_y | internal::constr_type_z |
-            constr_type_x);
+  test<3>(1, constr_edge_yz | internal::constr_type_y | internal::constr_type_z);
+  test<3>(1, constr_edge_yz | internal::constr_type_y | internal::constr_type_z | constr_type_x);
 
   // edge 3
   test<3>(1, constr_edge_yz | internal::constr_type_z);
-  test<3>(1, constr_edge_yz | internal::constr_type_y | constr_type_x);
+  test<3>(1, constr_edge_yz | internal::constr_type_z | constr_type_x);
 
   // edge 6
   test<3>(1, constr_edge_yz | constr_type_y);
@@ -443,4 +442,23 @@ main(int argc, char **argv)
   // edge 7
   test<3>(1, constr_edge_yz);
   test<3>(1, constr_edge_yz | constr_type_x);
+
+  
+  // edge 0
+  test<3>(1, constr_edge_zx | internal::constr_type_x | internal::constr_type_z);
+  test<3>(1, constr_edge_zx | internal::constr_type_x | internal::constr_type_z | constr_type_y);
+
+  // edge 1
+  test<3>(1, constr_edge_zx | internal::constr_type_z);
+  test<3>(1, constr_edge_zx | internal::constr_type_z | constr_type_y);
+
+  // edge 4
+  test<3>(1, constr_edge_zx | constr_type_x);
+  test<3>(1, constr_edge_zx | constr_type_x | constr_type_y);
+
+  // edge 5
+  test<3>(1, constr_edge_zx);
+  test<3>(1, constr_edge_zx | constr_type_y);
+  
+  // clang-format on
 }

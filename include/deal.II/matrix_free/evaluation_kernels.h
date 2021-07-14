@@ -4604,12 +4604,14 @@ namespace internal
       typename Number::value_type temp[10];
 
       const unsigned int points = fe_degree + 1;
+      const unsigned int stride =
+        Utilities::pow<unsigned int>(points, direction);
 
       // perform interpolation point by point
       for (unsigned int h = 0; h < points; ++h)
         for (unsigned int k = 0; k < points; ++k)
           {
-            const unsigned int index_v = p + k * 1 /*TODO*/;
+            const unsigned int index_v = p + k * stride;
             const unsigned int index_w =
               ((transpose ? 1 : points) * (type ? h : (fe_degree - h))) +
               ((transpose ? points : 1) * (type ? k : (fe_degree - k)));
@@ -4621,7 +4623,7 @@ namespace internal
 
       // copy result back
       for (unsigned int k = 0; k < points; ++k)
-        values[p + k * 1 /*TODO*/][v] = temp[k];
+        values[p + k * stride][v] = temp[k];
     }
 
     template <int fe_degree_, unsigned int direction, bool transpose>
