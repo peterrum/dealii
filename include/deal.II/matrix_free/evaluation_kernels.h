@@ -4687,12 +4687,15 @@ namespace internal
 
           // clang-format off
           const unsigned int p0 = 0;
+          const unsigned int p1 = points - 1;
           const unsigned int p2 = points * points - points;
+          const unsigned int p3 = points * points - 1;
           const unsigned int p4 = points * points * points - points * points;
+          const unsigned int p5 = points * points * points - points * points + points - 1;
           const unsigned int p6 = points * points * points - points;
 
-          const bool is_face_0 = false; // TODO
-          const bool is_face_1 = false; // TODO
+          const bool is_face_0 = is_set(mask, constr_face_x) &&  is_set(mask, constr_type_x);
+          const bool is_face_1 = is_set(mask, constr_face_x) && not_set(mask, constr_type_x);
           const bool is_face_2 = is_set(mask, constr_face_y) &&  is_set(mask, constr_type_y);
           const bool is_face_3 = is_set(mask, constr_face_y) && not_set(mask, constr_type_y);
           const bool is_face_4 = is_set(mask, constr_face_z) &&  is_set(mask, constr_type_z);
@@ -4703,15 +4706,15 @@ namespace internal
           const bool is_edge_6 = is_set(mask, constr_edge_yz) &&  is_set(mask, constr_type_y) && not_set(mask, constr_type_z);
           const bool is_edge_7 = is_set(mask, constr_edge_yz) && not_set(mask, constr_type_y) && not_set(mask, constr_type_z);
           
-          const bool is_edge_0 = false;
-          const bool is_edge_1 = false;
-          const bool is_edge_4 = false;
-          const bool is_edge_5 = false;
+          const bool is_edge_0 = is_set(mask, constr_edge_zx) &&  is_set(mask, constr_type_x) &&  is_set(mask, constr_type_z);
+          const bool is_edge_1 = is_set(mask, constr_edge_zx) && not_set(mask, constr_type_x) &&  is_set(mask, constr_type_z);
+          const bool is_edge_4 = is_set(mask, constr_edge_zx) &&  is_set(mask, constr_type_x) && not_set(mask, constr_type_z);
+          const bool is_edge_5 = is_set(mask, constr_edge_zx) && not_set(mask, constr_type_x) && not_set(mask, constr_type_z);
           
-          const bool is_edge_8  = false;
-          const bool is_edge_9  = false;
-          const bool is_edge_10 = false;
-          const bool is_edge_11 = false;
+          const bool is_edge_8  = is_set(mask, constr_edge_xy) &&  is_set(mask, constr_type_x) &&  is_set(mask, constr_type_y);
+          const bool is_edge_9  = is_set(mask, constr_edge_xy) && not_set(mask, constr_type_x) &&  is_set(mask, constr_type_y);
+          const bool is_edge_10 = is_set(mask, constr_edge_xy) &&  is_set(mask, constr_type_x) && not_set(mask, constr_type_y);
+          const bool is_edge_11 = is_set(mask, constr_edge_xy) && not_set(mask, constr_type_x) && not_set(mask, constr_type_y);
           
           // direction 0:
           {
@@ -4754,13 +4757,13 @@ namespace internal
                                                                                                  //
             // ... edges                                                                         //
             if (is_face_0 || is_face_4 || is_edge_0)                                             //
-              interpolate_3D_edge<0, transpose>(p0, fe_degree, not_flipped, v, weights, values); // edge 0
+              interpolate_3D_edge<1, transpose>(p0, fe_degree, not_flipped, v, weights, values); // edge 0
             if (is_face_1 || is_face_4 || is_edge_1)                                             //
-              interpolate_3D_edge<0, transpose>(p2, fe_degree, not_flipped, v, weights, values); // edge 1
+              interpolate_3D_edge<1, transpose>(p1, fe_degree, not_flipped, v, weights, values); // edge 1
             if (is_face_0 || is_face_5 || is_edge_4)                                             //
-              interpolate_3D_edge<0, transpose>(p4, fe_degree, not_flipped, v, weights, values); // edge 4
+              interpolate_3D_edge<1, transpose>(p4, fe_degree, not_flipped, v, weights, values); // edge 4
             if (is_face_1 || is_face_5 || is_edge_5)                                             //
-              interpolate_3D_edge<0, transpose>(p6, fe_degree, not_flipped, v, weights, values); // edge 5
+              interpolate_3D_edge<1, transpose>(p5, fe_degree, not_flipped, v, weights, values); // edge 5
           }
           
           // direction 2:
@@ -4779,13 +4782,13 @@ namespace internal
                                                                                                  //
             // ... edges                                                                         //
             if (is_face_0 || is_face_2 || is_edge_8)                                             //
-              interpolate_3D_edge<0, transpose>(p0, fe_degree, not_flipped, v, weights, values); // edge 0
+              interpolate_3D_edge<2, transpose>(p0, fe_degree, not_flipped, v, weights, values); // edge 8
             if (is_face_1 || is_face_2 || is_edge_9)                                             //
-              interpolate_3D_edge<0, transpose>(p2, fe_degree, not_flipped, v, weights, values); // edge 1
+              interpolate_3D_edge<2, transpose>(p1, fe_degree, not_flipped, v, weights, values); // edge 9
             if (is_face_0 || is_face_3 || is_edge_10)                                            //
-              interpolate_3D_edge<0, transpose>(p4, fe_degree, not_flipped, v, weights, values); // edge 4
+              interpolate_3D_edge<2, transpose>(p2, fe_degree, not_flipped, v, weights, values); // edge 10
             if (is_face_1 || is_face_3 || is_edge_11)                                            //
-              interpolate_3D_edge<0, transpose>(p6, fe_degree, not_flipped, v, weights, values); // edge 5
+              interpolate_3D_edge<2, transpose>(p3, fe_degree, not_flipped, v, weights, values); // edge 11
           }
 
           // clang-format on
