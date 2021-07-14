@@ -4692,6 +4692,11 @@ namespace internal
           const unsigned int p6 = points * points * points - points;
 
           // direction 0: faces
+          const bool is_face_2 = at_least(mask, constr_face_y) && at_least(mask, constr_type_y);
+          const bool is_face_3 = at_least(mask, constr_face_y) && not_set(mask, constr_type_y);
+          const bool is_face_4 = at_least(mask, constr_face_z) && at_least(mask, constr_type_z);
+          const bool is_face_5 = at_least(mask, constr_face_z) && not_set(mask, constr_type_z);
+          
           if (at_least(mask, constr_face_y))
             {
               const bool not_flipped = mask & constr_type_x;
@@ -4717,17 +4722,16 @@ namespace internal
             }
 
           // direction 0: edges
-          if (at_least(mask, constr_edge_yz))
             {
               const bool not_flipped = mask & constr_type_x;
 
-              if (at_least(mask, constr_type_y) && at_least(mask, constr_type_z))                  //
+              if (at_least(mask, constr_edge_yz) && at_least(mask, constr_type_y) && at_least(mask, constr_type_z))                  //
                 interpolate_3D_edge<0, transpose>(p0, fe_degree, not_flipped, v, weights, values); // edge 2
-              if (not_set(mask, constr_type_y) && at_least(mask, constr_type_z))                   //
+              if (at_least(mask, constr_edge_yz) && not_set(mask, constr_type_y) && at_least(mask, constr_type_z))                   //
                 interpolate_3D_edge<0, transpose>(p2, fe_degree, not_flipped, v, weights, values); // edge 3
-              if (at_least(mask, constr_type_y) && not_set(mask, constr_type_z))                   //
+              if (at_least(mask, constr_edge_yz) && at_least(mask, constr_type_y) && not_set(mask, constr_type_z))                   //
                 interpolate_3D_edge<0, transpose>(p4, fe_degree, not_flipped, v, weights, values); // edge 6
-              if (not_set(mask, constr_type_y) && not_set(mask, constr_type_z))                    //
+              if (at_least(mask, constr_edge_yz) && not_set(mask, constr_type_y) && not_set(mask, constr_type_z))                    //
                 interpolate_3D_edge<0, transpose>(p6, fe_degree, not_flipped, v, weights, values); // edge 7
             }
 
