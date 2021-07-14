@@ -4681,6 +4681,10 @@ namespace internal
             return (a & b) == b;
           };
 
+          const auto not_set = [](const unsigned int a, const unsigned int b) {
+            return (a & b) == 0;
+          };
+
           // clang-format off
           const unsigned int p0 = 0;
           const unsigned int p2 = points * points - points;
@@ -4694,8 +4698,10 @@ namespace internal
 
               if (at_least(mask, constr_type_y))                                               //
                 interpolate_3D_face<2, transpose>(fe_degree, not_flipped, v, weights, values); // face 2
-              else                                                                             //
+              else if(not_set(mask, constr_type_y))                                            //
                 interpolate_3D_face<3, transpose>(fe_degree, not_flipped, v, weights, values); // face 3
+              else                                                                             //
+                Assert(false, ExcNotImplemented());                                            //
             }
 
           if (at_least(mask, constr_face_z))
@@ -4704,8 +4710,10 @@ namespace internal
 
               if (at_least(mask, constr_type_z))                                               //
                 interpolate_3D_face<4, transpose>(fe_degree, not_flipped, v, weights, values); // face 4
-              else                                                                             //
+              else if (not_set(mask, constr_type_z))                                           //
                 interpolate_3D_face<5, transpose>(fe_degree, not_flipped, v, weights, values); // face 5
+              else                                                                             //
+                Assert(false, ExcNotImplemented());                                            //
             }
 
           // direction 0: edges
@@ -4713,13 +4721,13 @@ namespace internal
             {
               const bool not_flipped = mask & constr_type_x;
 
-              if (at_least(mask, constr_type_y | constr_type_z))                                   //
+              if (at_least(mask, constr_type_y) && at_least(mask, constr_type_z))                  //
                 interpolate_3D_edge<0, transpose>(p0, fe_degree, not_flipped, v, weights, values); // edge 2
-              else if (at_least(mask, constr_type_z))                                              //
+              if (not_set(mask, constr_type_y) && at_least(mask, constr_type_z))                   //
                 interpolate_3D_edge<0, transpose>(p2, fe_degree, not_flipped, v, weights, values); // edge 3
-              else if (at_least(mask, constr_type_y))                                              //
+              if (at_least(mask, constr_type_y) && not_set(mask, constr_type_z))                   //
                 interpolate_3D_edge<0, transpose>(p4, fe_degree, not_flipped, v, weights, values); // edge 6
-              else                                                                                 //
+              if (not_set(mask, constr_type_y) && not_set(mask, constr_type_z))                    //
                 interpolate_3D_edge<0, transpose>(p6, fe_degree, not_flipped, v, weights, values); // edge 7
             }
 
