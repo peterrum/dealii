@@ -4594,13 +4594,13 @@ namespace internal
 
       // direction   side0   side1   side2
       // 0             -      p^2      p
-      // 1             p       -       1
+      // 1            p^2      -       1
       // 2             p       -       1
 
       const unsigned int d       = side / 2; // direction
       unsigned int       stride2 = 1;
 
-      if (direction == 0 && d == 1)
+      if ((direction == 0 && d == 1) || (direction == 1 && d == 0))
         stride2 = p * p;
       else if ((direction == 0 && d == 2) || (direction == 1 && d == 0) ||
                (direction == 1 && d == 0))
