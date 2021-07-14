@@ -395,6 +395,9 @@ test(const unsigned int degree, const unsigned int mask_value)
     deallog << i[0] << " ";
   deallog << std::endl;
   deallog << std::endl;
+
+  for (unsigned int i = 0; i < values1.size(); ++i)
+    Assert(std::abs(values1[i][0] - values2[i][0]) < 1e-5, ExcInternalError());
 }
 
 int
@@ -476,6 +479,25 @@ main(int argc, char **argv)
   // edge 11
   test<3>(1, constr_edge_xy);
   test<3>(1, constr_edge_xy | constr_type_z);
+
+  
+  // face 0
+  test<3>(1, constr_face_x | constr_type_x);
+  
+  // face 1
+  test<3>(1, constr_face_x);
+  
+  // face 2
+  test<3>(1, constr_face_y | constr_type_y);
+  
+  // face 3
+  test<3>(1, constr_face_y);
+  
+  // face 4
+  test<3>(1, constr_face_z | constr_type_z);
+  
+  // face 5
+  test<3>(1, constr_face_z);
 
   // clang-format on
 }
