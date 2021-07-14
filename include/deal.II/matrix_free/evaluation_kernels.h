@@ -4653,11 +4653,11 @@ namespace internal
                 {
                   const bool not_flipped = mask & constr_type_x;
 
-                  if (at_least(mask, internal::constr_type_y | internal::constr_type_z))
+                  if (at_least(mask, constr_type_y | constr_type_z))
                     interpolate_3D_edge<0, transpose>(0, fe_degree, not_flipped, v, weights, values);                                          // edge 2
-                  else if (at_least(mask, internal::constr_type_y))                                                                            //
+                  else if (at_least(mask, constr_type_z))                                                                                      //
                     interpolate_3D_edge<0, transpose>(points * points - points, fe_degree, not_flipped, v, weights, values);                   // edge 3
-                  else if (at_least(mask, internal::constr_type_z))                                                                            //
+                  else if (at_least(mask, constr_type_y))                                                                                      //
                     interpolate_3D_edge<0, transpose>(points * points * points - points * points, fe_degree, not_flipped, v, weights, values); // edge 6
                   else                                                                                                                         //
                     interpolate_3D_edge<0, transpose>(points * points * points - points, fe_degree, not_flipped, v, weights, values);          // edge 7

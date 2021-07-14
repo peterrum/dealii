@@ -425,6 +425,21 @@ main(int argc, char **argv)
       deallog << std::endl;
     }
 
+  // edge 2
+  test<3>(1,
+          constr_edge_yz | internal::constr_type_y | internal::constr_type_z);
+  test<3>(1,
+          constr_edge_yz | internal::constr_type_y | internal::constr_type_z |
+            constr_type_x);
+
+  // edge 3
+  test<3>(1, constr_edge_yz | internal::constr_type_z);
+  test<3>(1, constr_edge_yz | internal::constr_type_y | constr_type_x);
+
+  // edge 6
+  test<3>(1, constr_edge_yz | constr_type_y);
+  test<3>(1, constr_edge_yz | constr_type_y | constr_type_x);
+
   // edge 7
   test<3>(1, constr_edge_yz);
   test<3>(1, constr_edge_yz | constr_type_x);
