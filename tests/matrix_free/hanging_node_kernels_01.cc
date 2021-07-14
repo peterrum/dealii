@@ -460,5 +460,22 @@ main(int argc, char **argv)
   test<3>(1, constr_edge_zx);
   test<3>(1, constr_edge_zx | constr_type_y);
 
+  
+  // edge 8
+  test<3>(1, constr_edge_xy | internal::constr_type_x | internal::constr_type_y);
+  test<3>(1, constr_edge_xy | internal::constr_type_x | internal::constr_type_y | constr_type_z);
+
+  // edge 9
+  test<3>(1, constr_edge_xy | internal::constr_type_y);
+  test<3>(1, constr_edge_xy | internal::constr_type_y | constr_type_z);
+
+  // edge 10
+  test<3>(1, constr_edge_xy | constr_type_x);
+  test<3>(1, constr_edge_xy | constr_type_x | constr_type_z);
+
+  // edge 11
+  test<3>(1, constr_edge_xy);
+  test<3>(1, constr_edge_xy | constr_type_z);
+
   // clang-format on
 }
