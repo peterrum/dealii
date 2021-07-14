@@ -424,4 +424,7 @@ main(int argc, char **argv)
       test<2>(degree, 0 | constr_face_y);                         // face 3/1
       deallog << std::endl;
     }
+
+  test<3>(1, constr_edge_yz);
+  test<3>(1, constr_edge_yz | constr_type_x);
 }
