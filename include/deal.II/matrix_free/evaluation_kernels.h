@@ -4633,91 +4633,23 @@ namespace internal
            const std::array<unsigned int, Number::size()> &constraint_mask,
            Number *                                        values)
     {
-      if (true)
+      if (direction != 0)
+        return;
+
+      const auto &weights = fe_eval.get_shape_info()
+                              .data.front()
+                              .subface_interpolation_matrix.data();
+
+      const unsigned int fe_degree =
+        fe_degree_ != -1 ? fe_degree_ :
+                           fe_eval.get_shape_info().data.front().fe_degree;
+
+      const unsigned int points = fe_degree + 1;
+
+      for (unsigned int v = 0; v < Number::size(); ++v)
         {
-          if (direction != 0)
-            return;
-
-          const auto &weights = fe_eval.get_shape_info()
-                                  .data.front()
-                                  .subface_interpolation_matrix.data();
-
-          const unsigned int fe_degree =
-            fe_degree_ != -1 ? fe_degree_ :
-                               fe_eval.get_shape_info().data.front().fe_degree;
-
-          const unsigned int points = fe_degree + 1;
-
-          for (unsigned int v = 0; v < Number::size(); ++v)
-            {
-              if (constraint_mask[v] == 0)
-                continue;
-
-              const auto mask = constraint_mask[v];
-
-              const auto at_least = [](const unsigned int a,
-                                       const unsigned int b) {
-                return (a & b) == b;
-              };
-
-              (void)at_least;
-
-              // clang-format off
-              const unsigned int p0 = 0;
-              const unsigned int p2 = points * points - points;
-              const unsigned int p4 = points * points * points - points * points;
-              const unsigned int p6 = points * points * points - points;
-              
-              // direction 0: faces
-              if (at_least(mask, constr_face_y))
-                {
-                  const bool not_flipped = mask & constr_type_x;
-                  
-                  if (at_least(mask, constr_type_y))                                               //
-                    interpolate_3D_face<2, transpose>(fe_degree, not_flipped, v, weights, values); // face 2
-                  else                                                                             //
-                    interpolate_3D_face<3, transpose>(fe_degree, not_flipped, v, weights, values); // face 3
-                }
-              
-              if (at_least(mask, constr_face_z))
-                {
-                  const bool not_flipped = mask & constr_type_x;
-                  
-                  if (at_least(mask, constr_type_z))                                               //
-                    interpolate_3D_face<4, transpose>(fe_degree, not_flipped, v, weights, values); // face 4
-                  else                                                                             //
-                    interpolate_3D_face<5, transpose>(fe_degree, not_flipped, v, weights, values); // face 5
-                }
-              
-              // direction 0: edges
-              if (at_least(mask, constr_edge_yz))
-                {
-                  const bool not_flipped = mask & constr_type_x;
-
-                  if (at_least(mask, constr_type_y | constr_type_z))                                   //
-                    interpolate_3D_edge<0, transpose>(p0, fe_degree, not_flipped, v, weights, values); // edge 2
-                  else if (at_least(mask, constr_type_z))                                              //
-                    interpolate_3D_edge<0, transpose>(p2, fe_degree, not_flipped, v, weights, values); // edge 3
-                  else if (at_least(mask, constr_type_y))                                              //
-                    interpolate_3D_edge<0, transpose>(p4, fe_degree, not_flipped, v, weights, values); // edge 6
-                  else                                                                                 //
-                    interpolate_3D_edge<0, transpose>(p6, fe_degree, not_flipped, v, weights, values); // edge 7
-                }
-
-              // clang-format on
-            }
-        }
-      else
-        {
-          const auto &weights =
-            fe_eval.get_shape_info().data.front().subface_interpolation_matrix;
-
-          const unsigned int fe_degree =
-            fe_degree_ != -1 ? fe_degree_ :
-                               fe_eval.get_shape_info().data.front().fe_degree;
-
-          const unsigned int n_dofs =
-            Utilities::pow<unsigned int>(fe_degree + 1, 3);
+          if (constraint_mask[v] == 0)
+            continue;
 
           // X-DIRECTION
           // face  2/3
@@ -4743,125 +4675,55 @@ namespace internal
           // edge 10 (or face 0/3)
           // edge 11 (or face 1/3)
 
-          AlignedVector<Number> values_temp(n_dofs);
+          const auto mask = constraint_mask[v];
 
-          for (unsigned int i = 0; i < n_dofs; ++i)
-            values_temp[i] = values[i];
+          const auto at_least = [](const unsigned int a, const unsigned int b) {
+            return (a & b) == b;
+          };
 
-          const unsigned int this_type =
-            (direction == 0) ? internal::constr_type_x :
-                               (direction == 1) ? internal::constr_type_y :
-                                                  internal::constr_type_z;
-          const unsigned int face1_type =
-            (direction == 0) ? internal::constr_type_y :
-                               (direction == 1) ? internal::constr_type_z :
-                                                  internal::constr_type_x;
-          const unsigned int face2_type =
-            (direction == 0) ? internal::constr_type_z :
-                               (direction == 1) ? internal::constr_type_x :
-                                                  internal::constr_type_y;
+          // clang-format off
+          const unsigned int p0 = 0;
+          const unsigned int p2 = points * points - points;
+          const unsigned int p4 = points * points * points - points * points;
+          const unsigned int p6 = points * points * points - points;
 
-          // If computing in x-direction, need to match against
-          // constr_face_y or constr_face_z
-          const unsigned int face1 =
-            (direction == 0) ? internal::constr_face_y :
-                               (direction == 1) ? internal::constr_face_z :
-                                                  internal::constr_face_x;
-          const unsigned int face2 =
-            (direction == 0) ? internal::constr_face_z :
-                               (direction == 1) ? internal::constr_face_x :
-                                                  internal::constr_face_y;
-          const unsigned int edge =
-            (direction == 0) ? internal::constr_edge_yz :
-                               (direction == 1) ? internal::constr_edge_zx :
-                                                  internal::constr_edge_xy;
-
-          for (unsigned int v = 0; v < Number::size(); ++v)
+          // direction 0: faces
+          if (at_least(mask, constr_face_y))
             {
-              if (constraint_mask[v] == 0)
-                continue;
+              const bool not_flipped = mask & constr_type_x;
 
-              const unsigned int constrained_face =
-                constraint_mask[v] & (face1 | face2 | edge);
-
-              const bool type = constraint_mask[v] & this_type;
-
-              for (unsigned int x_idx = 0; x_idx < fe_degree + 1; ++x_idx)
-                for (unsigned int y_idx = 0; y_idx < fe_degree + 1; ++y_idx)
-                  for (unsigned int z_idx = 0; z_idx < fe_degree + 1; ++z_idx)
-                    {
-                      const unsigned int interp_idx =
-                        (direction == 0) ? x_idx :
-                                           (direction == 1) ? y_idx : z_idx;
-                      const unsigned int face1_idx =
-                        (direction == 0) ? y_idx :
-                                           (direction == 1) ? z_idx : x_idx;
-                      const unsigned int face2_idx =
-                        (direction == 0) ? z_idx :
-                                           (direction == 1) ? x_idx : y_idx;
-
-                      typename Number::value_type t = 0;
-                      const bool on_face1 = (constraint_mask[v] & face1_type) ?
-                                              (face1_idx == 0) :
-                                              (face1_idx == fe_degree);
-                      const bool on_face2 = (constraint_mask[v] & face2_type) ?
-                                              (face2_idx == 0) :
-                                              (face2_idx == fe_degree);
-                      const bool constrained_dof =
-                        (((constraint_mask[v] & face1) && on_face1) ||
-                         ((constraint_mask[v] & face2) && on_face2) ||
-                         ((constraint_mask[v] & edge) && on_face1 && on_face2));
-
-                      if (constrained_face && constrained_dof)
-                        {
-                          if (type)
-                            {
-                              for (unsigned int i = 0; i <= fe_degree; ++i)
-                                {
-                                  const unsigned int real_idx =
-                                    (direction == 0) ?
-                                      index3(fe_degree + 1, i, y_idx, z_idx) :
-                                      (direction == 1) ?
-                                      index3(fe_degree + 1, x_idx, i, z_idx) :
-                                      index3(fe_degree + 1, x_idx, y_idx, i);
-
-                                  const auto w =
-                                    transpose ?
-                                      weights[i * (fe_degree + 1) + interp_idx]
-                                             [v] :
-                                      weights[interp_idx * (fe_degree + 1) + i]
-                                             [v];
-                                  t += w * values_temp[real_idx][v];
-                                }
-                            }
-                          else
-                            {
-                              for (unsigned int i = 0; i <= fe_degree; ++i)
-                                {
-                                  const unsigned int real_idx =
-                                    (direction == 0) ?
-                                      index3(fe_degree + 1, i, y_idx, z_idx) :
-                                      (direction == 1) ?
-                                      index3(fe_degree + 1, x_idx, i, z_idx) :
-                                      index3(fe_degree + 1, x_idx, y_idx, i);
-
-                                  const auto w =
-                                    transpose ?
-                                      weights[(fe_degree - i) *
-                                                (fe_degree + 1) +
-                                              fe_degree - interp_idx][v] :
-                                      weights[(fe_degree - interp_idx) *
-                                                (fe_degree + 1) +
-                                              fe_degree - i][v];
-                                  t += w * values_temp[real_idx][v];
-                                }
-                            }
-
-                          values[index3(fe_degree + 1, x_idx, y_idx, z_idx)]
-                                [v] = t;
-                        }
-                    }
+              if (at_least(mask, constr_type_y))                                               //
+                interpolate_3D_face<2, transpose>(fe_degree, not_flipped, v, weights, values); // face 2
+              else                                                                             //
+                interpolate_3D_face<3, transpose>(fe_degree, not_flipped, v, weights, values); // face 3
             }
+
+          if (at_least(mask, constr_face_z))
+            {
+              const bool not_flipped = mask & constr_type_x;
+
+              if (at_least(mask, constr_type_z))                                               //
+                interpolate_3D_face<4, transpose>(fe_degree, not_flipped, v, weights, values); // face 4
+              else                                                                             //
+                interpolate_3D_face<5, transpose>(fe_degree, not_flipped, v, weights, values); // face 5
+            }
+
+          // direction 0: edges
+          if (at_least(mask, constr_edge_yz))
+            {
+              const bool not_flipped = mask & constr_type_x;
+
+              if (at_least(mask, constr_type_y | constr_type_z))                                   //
+                interpolate_3D_edge<0, transpose>(p0, fe_degree, not_flipped, v, weights, values); // edge 2
+              else if (at_least(mask, constr_type_z))                                              //
+                interpolate_3D_edge<0, transpose>(p2, fe_degree, not_flipped, v, weights, values); // edge 3
+              else if (at_least(mask, constr_type_y))                                              //
+                interpolate_3D_edge<0, transpose>(p4, fe_degree, not_flipped, v, weights, values); // edge 6
+              else                                                                                 //
+                interpolate_3D_edge<0, transpose>(p6, fe_degree, not_flipped, v, weights, values); // edge 7
+            }
+
+          // clang-format on
         }
     }
   };
