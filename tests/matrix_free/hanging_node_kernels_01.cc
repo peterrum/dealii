@@ -332,12 +332,10 @@ namespace dealii::internal
   };
 } // namespace dealii::internal
 
+template <int dim>
 void
-test(const unsigned int mask_value)
+test(const unsigned int degree, const unsigned int mask_value)
 {
-  const int dim    = 2;
-  const int degree = 1;
-
   Triangulation<dim> tria;
   GridGenerator::subdivided_hyper_cube(tria, 2);
   tria.begin()->set_refine_flag();
@@ -362,7 +360,7 @@ test(const unsigned int mask_value)
   MatrixFree<dim, double, VectorizedArray<double>> matrix_free;
   matrix_free.reinit(mapping, dof_handler, constraints, quad, additional_data);
 
-  FEEvaluation<dim, degree, degree + 1, 1, double> eval(matrix_free);
+  FEEvaluation<dim, -1, 0, 1, double> eval(matrix_free);
   eval.reinit(0);
 
   std::array<unsigned int, VectorizedArray<double>::size()> cmask;
@@ -407,18 +405,23 @@ main(int argc, char **argv)
 
   using namespace dealii::internal;
 
-  test(0);
-  deallog << std::endl;
+  for (unsigned int degree = 1; degree <= 3; ++degree)
+    {
+      test<2>(degree, 0);
+      deallog << std::endl;
 
-  test(0 | constr_face_x | constr_type_x | constr_type_y); // face 0/0
-  test(0 | constr_face_x | constr_type_x);                 // face 0/1
-  test(0 | constr_face_x | constr_type_y);                 // face 1/0
-  test(0 | constr_face_x);                                 // face 1/1
-  deallog << std::endl;
+      test<2>(degree,
+              0 | constr_face_x | constr_type_x | constr_type_y); // face 0/0
+      test<2>(degree, 0 | constr_face_x | constr_type_x);         // face 0/1
+      test<2>(degree, 0 | constr_face_x | constr_type_y);         // face 1/0
+      test<2>(degree, 0 | constr_face_x);                         // face 1/1
+      deallog << std::endl;
 
-  test(0 | constr_face_y | constr_type_y | constr_type_x); // face 2/0
-  test(0 | constr_face_y | constr_type_y);                 // face 2/1
-  test(0 | constr_face_y | constr_type_x);                 // face 3/0
-  test(0 | constr_face_y);                                 // face 3/1
-  deallog << std::endl;
+      test<2>(degree,
+              0 | constr_face_y | constr_type_y | constr_type_x); // face 2/0
+      test<2>(degree, 0 | constr_face_y | constr_type_y);         // face 2/1
+      test<2>(degree, 0 | constr_face_y | constr_type_x);         // face 3/0
+      test<2>(degree, 0 | constr_face_y);                         // face 3/1
+      deallog << std::endl;
+    }
 }
