@@ -4647,17 +4647,38 @@ namespace internal
 
               (void)at_least;
 
-              if (mask == constr_edge_yz ||
-                  mask == (constr_edge_yz | constr_type_x))
+              if (at_least(mask, constr_edge_yz))
                 {
                   const bool not_flipped = mask & constr_type_x;
-                  interpolate_3D_edge<0, transpose>(points * points * points -
-                                                      points,
-                                                    fe_degree,
-                                                    not_flipped,
-                                                    v,
-                                                    weights,
-                                                    values); // face 2
+
+                  if (at_least(mask,
+                               internal::constr_type_y |
+                                 internal::constr_type_z))
+                    interpolate_3D_edge<0, transpose>(
+                      0, fe_degree, not_flipped, v, weights, values); // edge 2
+                  else if (at_least(mask, internal::constr_type_y))
+                    interpolate_3D_edge<0, transpose>(points * points - points,
+                                                      fe_degree,
+                                                      not_flipped,
+                                                      v,
+                                                      weights,
+                                                      values); // edge 3
+                  else if (at_least(mask, internal::constr_type_z))
+                    interpolate_3D_edge<0, transpose>(points * points * points -
+                                                        points * points,
+                                                      fe_degree,
+                                                      not_flipped,
+                                                      v,
+                                                      weights,
+                                                      values); // edge 6
+                  else
+                    interpolate_3D_edge<0, transpose>(points * points * points -
+                                                        points,
+                                                      fe_degree,
+                                                      not_flipped,
+                                                      v,
+                                                      weights,
+                                                      values); // edge 7
                 }
             }
         }

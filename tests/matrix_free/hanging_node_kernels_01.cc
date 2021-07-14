@@ -425,6 +425,7 @@ main(int argc, char **argv)
       deallog << std::endl;
     }
 
+  // edge 7
   test<3>(1, constr_edge_yz);
   test<3>(1, constr_edge_yz | constr_type_x);
 }
