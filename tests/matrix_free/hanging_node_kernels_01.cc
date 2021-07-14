@@ -424,7 +424,7 @@ main(int argc, char **argv)
       test<2>(degree, 0 | constr_face_y);                         // face 3/1
       deallog << std::endl;
     }
-  
+
   // clang-format off
 
   // edge 2
@@ -459,6 +459,6 @@ main(int argc, char **argv)
   // edge 5
   test<3>(1, constr_edge_zx);
   test<3>(1, constr_edge_zx | constr_type_y);
-  
+
   // clang-format on
 }
