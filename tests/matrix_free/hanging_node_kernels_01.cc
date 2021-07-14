@@ -408,96 +408,97 @@ main(int argc, char **argv)
 
   using namespace dealii::internal;
 
+  // clang-format off
+  
   for (unsigned int degree = 1; degree <= 3; ++degree)
     {
       test<2>(degree, 0);
       deallog << std::endl;
 
-      test<2>(degree,
-              0 | constr_face_x | constr_type_x | constr_type_y); // face 0/0
-      test<2>(degree, 0 | constr_face_x | constr_type_x);         // face 0/1
-      test<2>(degree, 0 | constr_face_x | constr_type_y);         // face 1/0
-      test<2>(degree, 0 | constr_face_x);                         // face 1/1
+      test<2>(degree, 0 | constr_face_x | constr_type_x | constr_type_y); // face 0/0
+      test<2>(degree, 0 | constr_face_x | constr_type_x                ); // face 0/1
+      test<2>(degree, 0 | constr_face_x | constr_type_y                ); // face 1/0
+      test<2>(degree, 0 | constr_face_x                                ); // face 1/1
       deallog << std::endl;
 
-      test<2>(degree,
-              0 | constr_face_y | constr_type_y | constr_type_x); // face 2/0
-      test<2>(degree, 0 | constr_face_y | constr_type_y);         // face 2/1
-      test<2>(degree, 0 | constr_face_y | constr_type_x);         // face 3/0
-      test<2>(degree, 0 | constr_face_y);                         // face 3/1
+      test<2>(degree, 0 | constr_face_y | constr_type_y | constr_type_x); // face 2/0
+      test<2>(degree, 0 | constr_face_y | constr_type_y                ); // face 2/1
+      test<2>(degree, 0 | constr_face_y | constr_type_x                ); // face 3/0
+      test<2>(degree, 0 | constr_face_y                                ); // face 3/1
       deallog << std::endl;
     }
 
-  // clang-format off
+  for (unsigned int degree = 1; degree <= 1; ++degree)
+    {
+      // edge 2
+      test<3>(degree, constr_edge_yz | internal::constr_type_y | internal::constr_type_z);
+      test<3>(degree, constr_edge_yz | internal::constr_type_y | internal::constr_type_z | constr_type_x);
 
-  // edge 2
-  test<3>(1, constr_edge_yz | internal::constr_type_y | internal::constr_type_z);
-  test<3>(1, constr_edge_yz | internal::constr_type_y | internal::constr_type_z | constr_type_x);
+      // edge 3
+      test<3>(degree, constr_edge_yz | internal::constr_type_z);
+      test<3>(degree, constr_edge_yz | internal::constr_type_z | constr_type_x);
 
-  // edge 3
-  test<3>(1, constr_edge_yz | internal::constr_type_z);
-  test<3>(1, constr_edge_yz | internal::constr_type_z | constr_type_x);
+      // edge 6
+      test<3>(degree, constr_edge_yz | constr_type_y);
+      test<3>(degree, constr_edge_yz | constr_type_y | constr_type_x);
 
-  // edge 6
-  test<3>(1, constr_edge_yz | constr_type_y);
-  test<3>(1, constr_edge_yz | constr_type_y | constr_type_x);
+      // edge 7
+      test<3>(degree, constr_edge_yz);
+      test<3>(degree, constr_edge_yz | constr_type_x);
 
-  // edge 7
-  test<3>(1, constr_edge_yz);
-  test<3>(1, constr_edge_yz | constr_type_x);
 
-  
-  // edge 0
-  test<3>(1, constr_edge_zx | internal::constr_type_x | internal::constr_type_z);
-  test<3>(1, constr_edge_zx | internal::constr_type_x | internal::constr_type_z | constr_type_y);
+      // edge 0
+      test<3>(degree, constr_edge_zx | internal::constr_type_x | internal::constr_type_z);
+      test<3>(degree, constr_edge_zx | internal::constr_type_x | internal::constr_type_z | constr_type_y);
 
-  // edge 1
-  test<3>(1, constr_edge_zx | internal::constr_type_z);
-  test<3>(1, constr_edge_zx | internal::constr_type_z | constr_type_y);
+      // edge 1
+      test<3>(degree, constr_edge_zx | internal::constr_type_z);
+      test<3>(degree, constr_edge_zx | internal::constr_type_z | constr_type_y);
 
-  // edge 4
-  test<3>(1, constr_edge_zx | constr_type_x);
-  test<3>(1, constr_edge_zx | constr_type_x | constr_type_y);
+      // edge 4
+      test<3>(degree, constr_edge_zx | constr_type_x);
+      test<3>(degree, constr_edge_zx | constr_type_x | constr_type_y);
 
-  // edge 5
-  test<3>(1, constr_edge_zx);
-  test<3>(1, constr_edge_zx | constr_type_y);
+      // edge 5
+      test<3>(degree, constr_edge_zx);
+      test<3>(degree, constr_edge_zx | constr_type_y);
 
-  
-  // edge 8
-  test<3>(1, constr_edge_xy | internal::constr_type_x | internal::constr_type_y);
-  test<3>(1, constr_edge_xy | internal::constr_type_x | internal::constr_type_y | constr_type_z);
 
-  // edge 9
-  test<3>(1, constr_edge_xy | internal::constr_type_y);
-  test<3>(1, constr_edge_xy | internal::constr_type_y | constr_type_z);
+      // edge 8
+      test<3>(degree, constr_edge_xy | internal::constr_type_x | internal::constr_type_y);
+      test<3>(degree, constr_edge_xy | internal::constr_type_x | internal::constr_type_y | constr_type_z);
 
-  // edge 10
-  test<3>(1, constr_edge_xy | constr_type_x);
-  test<3>(1, constr_edge_xy | constr_type_x | constr_type_z);
+      // edge 9
+      test<3>(degree, constr_edge_xy | internal::constr_type_y);
+      test<3>(degree, constr_edge_xy | internal::constr_type_y | constr_type_z);
 
-  // edge 11
-  test<3>(1, constr_edge_xy);
-  test<3>(1, constr_edge_xy | constr_type_z);
+      // edge 10
+      test<3>(degree, constr_edge_xy | constr_type_x);
+      test<3>(degree, constr_edge_xy | constr_type_x | constr_type_z);
 
-  
-  // face 0
-  test<3>(1, constr_face_x | constr_type_x);
-  
-  // face 1
-  test<3>(1, constr_face_x);
-  
-  // face 2
-  test<3>(1, constr_face_y | constr_type_y);
-  
-  // face 3
-  test<3>(1, constr_face_y);
-  
-  // face 4
-  test<3>(1, constr_face_z | constr_type_z);
-  
-  // face 5
-  test<3>(1, constr_face_z);
+      // edge 11
+      test<3>(degree, constr_edge_xy);
+      test<3>(degree, constr_edge_xy | constr_type_z);
+
+
+      // face 0
+      test<3>(degree, constr_face_x | constr_type_x);
+
+      // face 1
+      test<3>(degree, constr_face_x);
+
+      // face 2
+      test<3>(degree, constr_face_y | constr_type_y);
+
+      // face 3
+      test<3>(degree, constr_face_y);
+
+      // face 4
+      test<3>(degree, constr_face_z | constr_type_z);
+
+      // face 5
+      test<3>(degree, constr_face_z);
+    }
 
   // clang-format on
 }
