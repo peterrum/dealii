@@ -4481,9 +4481,10 @@ namespace internal
       return i + size * j + size * size * k;
     }
 
-    template <unsigned int side, bool type, bool transpose>
+    template <unsigned int side, bool transpose>
     static void
     interpolate_2D(const unsigned int fe_degree,
+                   bool               type,
                    const unsigned int v,
                    const Number *     weight,
                    Number *           values)
@@ -4550,29 +4551,27 @@ namespace internal
 
           const auto mask = constraint_mask[v];
 
+          const auto at_least = [](const unsigned int a, const unsigned int b) {
+            return (a & b) == b;
+          };
+
           // clang-format off
-          if (mask & internal::constr_face_x)
+          if (mask & constr_face_x)
             {
-              if (mask == (internal::constr_face_x | constr_type_x | constr_type_y))
-                interpolate_2D<0, true, transpose>(fe_degree, v, weights, values);
-              else if (mask == (internal::constr_face_x | constr_type_x))
-                interpolate_2D<0, false, transpose>(fe_degree, v, weights, values);
-              else if (mask == (internal::constr_face_x | constr_type_y))
-                interpolate_2D<1, true, transpose>(fe_degree, v, weights, values);
+              const bool not_flipped = mask & constr_type_y;
+              if (at_least(mask, constr_face_x | constr_type_x))
+                interpolate_2D<0, transpose>(fe_degree, not_flipped, v, weights, values); // face 0
               else
-                interpolate_2D<1, false, transpose>(fe_degree, v, weights, values);
+                interpolate_2D<1, transpose>(fe_degree, not_flipped, v, weights, values); // face 1
             }
 
-          if (mask & internal::constr_face_y)
+          if (mask & constr_face_y)
             {
-              if (mask == (internal::constr_face_y | constr_type_y | constr_type_x))
-                interpolate_2D<2, true, transpose>(fe_degree, v, weights, values);
-              else if (mask == (internal::constr_face_y | constr_type_y))
-                interpolate_2D<2, false, transpose>(fe_degree, v, weights, values);
-              else if (mask == (internal::constr_face_y | constr_type_x))
-                interpolate_2D<3, true, transpose>(fe_degree, v, weights, values);
+              const bool not_flipped = mask & constr_type_x;
+              if (at_least(mask, constr_face_y | constr_type_y))
+                interpolate_2D<2, transpose>(fe_degree, not_flipped, v, weights, values); // face 2
               else
-                interpolate_2D<3, false, transpose>(fe_degree, v, weights, values);
+                interpolate_2D<3, transpose>(fe_degree, not_flipped, v, weights, values); // face 3
             }
           // clang-format on
         }
@@ -4596,6 +4595,30 @@ namespace internal
 
       const unsigned int n_dofs =
         Utilities::pow<unsigned int>(fe_degree + 1, 3);
+
+      // X-DIRECTION
+      // face  2/3
+      // face  4/5
+      // edge  2 (or face 2/4)
+      // edge  3 (or face 3/4)
+      // edge  6 (or face 2/5)
+      // edge  7 (or face 3/5)
+      //
+      // Y-DIRECTION
+      // face  0/1
+      // face  4/5
+      // edge  0 (or face 0/4)
+      // edge  1 (or face 1/4)
+      // edge  4 (or face 0/5)
+      // edge  5 (or face 1/5)
+      //
+      // Z-DIRECTION
+      // face  0/1
+      // face  2/3
+      // edge  8 (or face 0/2)
+      // edge  9 (or face 1/2)
+      // edge 10 (or face 0/3)
+      // edge 11 (or face 1/3)
 
       AlignedVector<Number> values_temp(n_dofs);
 
