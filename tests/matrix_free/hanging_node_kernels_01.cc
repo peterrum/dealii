@@ -415,7 +415,7 @@ main(int argc, char **argv)
   using namespace dealii::internal;
 
   // clang-format off
-  
+
   for (unsigned int degree = 1; degree <= 3; ++degree)
     {
       test<2>(degree, 0);
@@ -505,7 +505,7 @@ main(int argc, char **argv)
       // face 5
       test<3>(degree, constr_face_z);
     }
-  
+
   // face 2
   //test<3>(2, constr_face_y | constr_type_y);
 

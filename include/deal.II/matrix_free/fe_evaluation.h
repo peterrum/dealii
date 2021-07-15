@@ -5319,11 +5319,9 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
     constraint_mask[v] = 0;
 
   for (unsigned int comp = 0; comp < n_components; ++comp)
-    internal::FEEvaluationImplHangingNodes<dim, VectorizedArrayType, is_face>::
-      template run<-1, -1>(*this,
-                           transpose,
-                           constraint_mask,
-                           values_dofs[comp]);
+    internal::
+      FEEvaluationHangingNodesFactory<dim, Number, VectorizedArrayType>::apply(
+        -1, *this, transpose, constraint_mask, values_dofs[comp]);
 }
 
 
