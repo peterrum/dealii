@@ -4421,6 +4421,8 @@ namespace internal
     }
   };
 
+
+
   template <int dim, typename Number, bool is_face>
   struct FEEvaluationImplHangingNodes
   {
@@ -4469,18 +4471,6 @@ namespace internal
     }
 
   private:
-    static unsigned int
-    index2(unsigned int size, unsigned int i, unsigned int j)
-    {
-      return i + size * j;
-    }
-
-    static inline unsigned int
-    index3(unsigned int size, unsigned int i, unsigned int j, unsigned int k)
-    {
-      return i + size * j + size * size * k;
-    }
-
     template <unsigned int side, bool transpose>
     static void
     interpolate_2D(const unsigned int fe_degree,
@@ -4544,6 +4534,10 @@ namespace internal
         fe_degree_ != -1 ? fe_degree_ :
                            fe_eval.get_shape_info().data.front().fe_degree;
 
+      const auto is_set = [](const unsigned int a, const unsigned int b) {
+        return (a & b) == b;
+      };
+
       for (unsigned int v = 0; v < Number::size(); ++v)
         {
           if (constraint_mask[v] == 0)
@@ -4551,15 +4545,11 @@ namespace internal
 
           const auto mask = constraint_mask[v];
 
-          const auto at_least = [](const unsigned int a, const unsigned int b) {
-            return (a & b) == b;
-          };
-
           // clang-format off
           if (mask & constr_face_x)
             {
               const bool not_flipped = mask & constr_type_y;
-              if (at_least(mask, constr_type_x))
+              if (is_set(mask, constr_type_x))
                 interpolate_2D<0, transpose>(fe_degree, not_flipped, v, weights, values); // face 0
               else
                 interpolate_2D<1, transpose>(fe_degree, not_flipped, v, weights, values); // face 1
@@ -4568,7 +4558,7 @@ namespace internal
           if (mask & constr_face_y)
             {
               const bool not_flipped = mask & constr_type_x;
-              if (at_least(mask, constr_type_y))
+              if (is_set(mask, constr_type_y))
                 interpolate_2D<2, transpose>(fe_degree, not_flipped, v, weights, values); // face 2
               else
                 interpolate_2D<3, transpose>(fe_degree, not_flipped, v, weights, values); // face 3
