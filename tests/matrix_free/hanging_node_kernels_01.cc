@@ -367,37 +367,43 @@ test(const unsigned int degree, const unsigned int mask_value)
   std::fill(cmask.begin(), cmask.end(), 0);
   cmask[0] = mask_value;
 
-  AlignedVector<VectorizedArray<double>> values1(fe.n_dofs_per_cell());
-  AlignedVector<VectorizedArray<double>> values2(fe.n_dofs_per_cell());
-
-  for (unsigned int i = 0; i < values1.size(); ++i)
+  for (unsigned int b = 0; b < 2; ++b)
     {
-      values1[i][0] = i;
-      values2[i][0] = i;
+      AlignedVector<VectorizedArray<double>> values1(fe.n_dofs_per_cell());
+      AlignedVector<VectorizedArray<double>> values2(fe.n_dofs_per_cell());
+
+      for (unsigned int i = 0; i < values1.size(); ++i)
+        {
+          values1[i][0] = i;
+          values2[i][0] = i;
+        }
+
+      for (const auto i : values1)
+        deallog << i[0] << " ";
+      deallog << std::endl;
+
+      internal::FEEvaluationImplHangingNodesReference<
+        dim,
+        VectorizedArray<double>,
+        false>::template run<-1, -1>(eval, b == 1, cmask, values1.data());
+      internal::FEEvaluationImplHangingNodes<
+        dim,
+        VectorizedArray<double>,
+        false>::template run<-1, -1>(eval, b == 1, cmask, values2.data());
+
+      for (const auto i : values1)
+        deallog << i[0] << " ";
+      deallog << std::endl;
+
+      for (const auto i : values2)
+        deallog << i[0] << " ";
+      deallog << std::endl;
+      deallog << std::endl;
+
+      for (unsigned int i = 0; i < values1.size(); ++i)
+        Assert(std::abs(values1[i][0] - values2[i][0]) < 1e-5,
+               ExcInternalError());
     }
-
-  for (const auto i : values1)
-    deallog << i[0] << " ";
-  deallog << std::endl;
-
-  internal::FEEvaluationImplHangingNodesReference<
-    dim,
-    VectorizedArray<double>,
-    false>::template run<-1, -1>(eval, false, cmask, values1.data());
-  internal::FEEvaluationImplHangingNodes<dim, VectorizedArray<double>, false>::
-    template run<-1, -1>(eval, false, cmask, values2.data());
-
-  for (const auto i : values1)
-    deallog << i[0] << " ";
-  deallog << std::endl;
-
-  for (const auto i : values2)
-    deallog << i[0] << " ";
-  deallog << std::endl;
-  deallog << std::endl;
-
-  for (unsigned int i = 0; i < values1.size(); ++i)
-    Assert(std::abs(values1[i][0] - values2[i][0]) < 1e-5, ExcInternalError());
 }
 
 int
