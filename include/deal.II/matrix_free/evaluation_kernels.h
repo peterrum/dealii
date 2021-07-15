@@ -4601,9 +4601,9 @@ namespace internal
       unsigned int       stride2 = 1;
 
       if ((direction == 0 && d == 1) || (direction == 1 && d == 0))
-        stride2 = p * p;
+        stride2 = points * points;
       else if ((direction == 0 && d == 2) || (direction == 2 && d == 0))
-        stride2 = p;
+        stride2 = points;
 
       // perform interpolation point by point
       for (unsigned int g = 1; g < points - 1; ++g)
