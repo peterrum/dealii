@@ -196,7 +196,8 @@ namespace internal
      * For cells.
      */
     static void
-    apply(const unsigned int fe_degree,
+    apply(const unsigned int n_components,
+          const unsigned int fe_degree,
           const FEEvaluationBaseData<dim, Number, false, VectorizedArrayType>
             &        fe_eval,
           const bool transpose,
@@ -209,7 +210,8 @@ namespace internal
      * @note Not implemented.
      */
     static void
-    apply(const unsigned int fe_degree,
+    apply(const unsigned int n_components,
+          const unsigned int fe_degree,
           const FEEvaluationBaseData<dim, Number, true, VectorizedArrayType>
             &        fe_eval,
           const bool transpose,

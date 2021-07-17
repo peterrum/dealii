@@ -389,7 +389,7 @@ test(const unsigned int degree, const unsigned int mask_value)
       internal::FEEvaluationImplHangingNodes<
         dim,
         VectorizedArray<double>,
-        false>::template run<-1, -1>(eval, b == 1, cmask, values2.data());
+        false>::template run<-1, -1>(1, eval, b == 1, cmask, values2.data());
 
       for (const auto i : values1)
         deallog << i[0] << " ";

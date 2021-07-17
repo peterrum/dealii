@@ -5310,22 +5310,32 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
   constexpr unsigned int            n_lanes = VectorizedArrayType::size();
   std::array<unsigned int, n_lanes> constraint_mask;
 
+  bool hn_available = false;
+
   for (unsigned int v = 0; v < n_vectorization_actual; ++v)
-    constraint_mask[v] =
-      this->dof_info
-        ->component_masks[(this->cell * n_lanes + v) * n_fe_components +
-                          first_selected_component];
+    {
+      const auto mask =
+        this->dof_info
+          ->component_masks[(this->cell * n_lanes + v) * n_fe_components +
+                            first_selected_component];
+      constraint_mask[v] = mask;
+
+      hn_available |= (mask != 0);
+    }
+
+  if (hn_available == false)
+    return; // no hanging node on cell batch -> nothing to do
+
   for (unsigned int v = n_vectorization_actual; v < n_lanes; ++v)
     constraint_mask[v] = 0;
 
-  for (unsigned int comp = 0; comp < n_components; ++comp)
-    internal::
-      FEEvaluationHangingNodesFactory<dim, Number, VectorizedArrayType>::apply(
-        this->data->data.front().fe_degree,
-        *this,
-        transpose,
-        constraint_mask,
-        values_dofs[comp]);
+  internal::FEEvaluationHangingNodesFactory<dim, Number, VectorizedArrayType>::
+    apply(n_components,
+          this->data->data.front().fe_degree,
+          *this,
+          transpose,
+          constraint_mask,
+          values_dofs[0]);
 }
 
 

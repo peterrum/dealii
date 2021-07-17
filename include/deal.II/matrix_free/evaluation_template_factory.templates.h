@@ -407,6 +407,7 @@ namespace internal
   template <int dim, typename Number, typename VectorizedArrayType>
   void
   FEEvaluationHangingNodesFactory<dim, Number, VectorizedArrayType>::apply(
+    const unsigned int n_components,
     const unsigned int fe_degree,
     const FEEvaluationBaseData<dim, Number, false, VectorizedArrayType>
       &                                                          fe_eval,
@@ -417,7 +418,13 @@ namespace internal
     instantiation_helper_run<
       1,
       FEEvaluationImplHangingNodes<dim, VectorizedArrayType, false>>(
-      fe_degree, fe_degree + 1, fe_eval, transpose, c_mask, values);
+      fe_degree,
+      fe_degree + 1,
+      n_components,
+      fe_eval,
+      transpose,
+      c_mask,
+      values);
   }
 
 
@@ -425,6 +432,7 @@ namespace internal
   template <int dim, typename Number, typename VectorizedArrayType>
   void
   FEEvaluationHangingNodesFactory<dim, Number, VectorizedArrayType>::apply(
+    const unsigned int n_components,
     const unsigned int fe_degree,
     const FEEvaluationBaseData<dim, Number, true, VectorizedArrayType> &fe_eval,
     const bool                                                   transpose,
@@ -433,6 +441,7 @@ namespace internal
   {
     Assert(false, ExcNotImplemented());
 
+    (void)n_components;
     (void)fe_degree;
     (void)fe_eval;
     (void)transpose;
