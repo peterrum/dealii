@@ -4462,6 +4462,25 @@ namespace internal
                    const Number *     weight,
                    Number *           values)
     {
+      if (type)
+        interpolate_2D<fe_degree_, side, transpose, true>(fe_degree,
+                                                          v,
+                                                          weight,
+                                                          values);
+      else
+        interpolate_2D<fe_degree_, side, transpose, false>(fe_degree,
+                                                           v,
+                                                           weight,
+                                                           values);
+    }
+
+    template <int fe_degree_, unsigned int side, bool transpose, bool type>
+    static void
+    interpolate_2D(const unsigned int fe_degree,
+                   const unsigned int v,
+                   const Number *     weight,
+                   Number *           values)
+    {
       typename Number::value_type temp[10 /*TODO*/];
 
       const unsigned int points =
@@ -4506,6 +4525,26 @@ namespace internal
     interpolate_3D_face(const unsigned int p,
                         const unsigned int fe_degree,
                         bool               type,
+                        const unsigned int v,
+                        const Number *     weight,
+                        Number *           values)
+    {
+      if (type)
+        interpolate_3D_face<fe_degree_, direction, side, transpose, true>(
+          p, fe_degree, v, weight, values);
+      else
+        interpolate_3D_face<fe_degree_, direction, side, transpose, false>(
+          p, fe_degree, v, weight, values);
+    }
+
+    template <int          fe_degree_,
+              unsigned int direction,
+              unsigned int side,
+              bool         transpose,
+              bool         type>
+    static void
+    interpolate_3D_face(const unsigned int p,
+                        const unsigned int fe_degree,
                         const unsigned int v,
                         const Number *     weight,
                         Number *           values)
@@ -4555,6 +4594,22 @@ namespace internal
     interpolate_3D_edge(const unsigned int p,
                         const unsigned int fe_degree,
                         bool               type,
+                        const unsigned int v,
+                        const Number *     weight,
+                        Number *           values)
+    {
+      if (type)
+        interpolate_3D_edge<fe_degree_, direction, transpose, true>(
+          p, fe_degree, v, weight, values);
+      else
+        interpolate_3D_edge<fe_degree_, direction, transpose, false>(
+          p, fe_degree, v, weight, values);
+    }
+
+    template <int fe_degree_, unsigned int direction, bool transpose, bool type>
+    static void
+    interpolate_3D_edge(const unsigned int p,
+                        const unsigned int fe_degree,
                         const unsigned int v,
                         const Number *     weight,
                         Number *           values)
