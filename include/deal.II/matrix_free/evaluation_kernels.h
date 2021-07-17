@@ -4511,19 +4511,17 @@ namespace internal
       const unsigned int points = fe_degree + 1;
       const unsigned int stride =
         Utilities::pow<unsigned int>(points, direction);
+      const unsigned int d = side / 2;
 
       // direction   side0   side1   side2
       // 0             -      p^2      p
       // 1            p^2      -       1
       // 2             p       -       1
-
-      const unsigned int d       = side / 2; // direction
-      unsigned int       stride2 = 1;
-
-      if ((direction == 0 && d == 1) || (direction == 1 && d == 0))
-        stride2 = points * points;
-      else if ((direction == 0 && d == 2) || (direction == 2 && d == 0))
-        stride2 = points;
+      const unsigned int stride2 =
+        ((direction == 0 && d == 1) || (direction == 1 && d == 0)) ?
+          (points * points) :
+          (((direction == 0 && d == 2) || (direction == 2 && d == 0)) ? points :
+                                                                        1);
 
       // perform interpolation point by point
       for (unsigned int g = 1; g < points - 1; ++g)
