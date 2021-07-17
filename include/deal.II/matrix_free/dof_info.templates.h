@@ -107,12 +107,12 @@ namespace internal
     DoFInfo::read_dof_indices(
       const std::vector<types::global_dof_index> &local_indices,
       const std::vector<types::global_dof_index> &local_indices_plain,
-      const bool                       cell_has_hanging_node_constraints,
-      const std::vector<unsigned int> &lexicographic_inv,
-      const dealii::AffineConstraints<number> &constraints,
-      const unsigned int                       cell_number,
-      ConstraintValues<double> &               constraint_values,
-      bool &                                   cell_at_subdomain_boundary)
+      const bool                                  cell_has_hanging_nodes,
+      const std::vector<unsigned int> &           lexicographic_inv,
+      const dealii::AffineConstraints<number> &   constraints,
+      const unsigned int                          cell_number,
+      ConstraintValues<double> &                  constraint_values,
+      bool &                                      cell_at_subdomain_boundary)
     {
       Assert(vector_partitioner.get() != nullptr, ExcInternalError());
       const unsigned int n_mpi_procs = vector_partitioner->n_mpi_processes();
@@ -250,7 +250,7 @@ namespace internal
               (row_starts.size() - 1) / n_components + 1);
           row_starts_plain_indices[cell_number] = plain_dof_indices.size();
           const bool cell_has_constraints =
-            cell_has_hanging_node_constraints ||
+            cell_has_hanging_nodes ||
             (row_starts[(cell_number + 1) * n_components].second >
              row_starts[cell_number * n_components].second);
           if (true || cell_has_constraints == true)

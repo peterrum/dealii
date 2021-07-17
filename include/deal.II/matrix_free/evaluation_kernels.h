@@ -4553,9 +4553,8 @@ namespace internal
 
       const unsigned int points =
         (fe_degree_ != -1 ? fe_degree_ : fe_degree) + 1;
-      const unsigned int stride =
-        Utilities::pow<unsigned int>(points, direction);
-      const unsigned int d = side / 2;
+      const unsigned int stride = Utilities::pow(points, direction);
+      const unsigned int d      = side / 2;
 
       // direction   side0   side1   side2
       // 0             -      p^2      p
@@ -4618,8 +4617,7 @@ namespace internal
 
       const unsigned int points =
         (fe_degree_ != -1 ? fe_degree_ : fe_degree) + 1;
-      const unsigned int stride =
-        Utilities::pow<unsigned int>(points, direction);
+      const unsigned int stride = Utilities::pow(points, direction);
 
       // perform interpolation point by point
       for (unsigned int h = 0; h < points; ++h)
@@ -4651,9 +4649,9 @@ namespace internal
       const std::array<unsigned int, Number::size()> &constraint_mask,
       Number *                                        values)
     {
-      const auto &weights = fe_eval.get_shape_info()
-                              .data.front()
-                              .subface_interpolation_matrix.data();
+      const Number *weights = fe_eval.get_shape_info()
+                                .data.front()
+                                .subface_interpolation_matrix.data();
 
       const unsigned int fe_degree =
         fe_degree_ != -1 ? fe_degree_ :
