@@ -546,23 +546,22 @@ namespace MatrixFreeTools
                       }
                     else
                       {
+                        const unsigned int p0 = 0;
+                        const unsigned int p1 = n_points_1d - 1;
+                        const unsigned int p2 =
+                          n_points_1d * n_points_1d - n_points_1d;
+                        const unsigned int p3 = n_points_1d * n_points_1d - 1;
+                        const unsigned int p4 =
+                          n_points_1d * n_points_1d * n_points_1d -
+                          n_points_1d * n_points_1d;
+                        const unsigned int p5 =
+                          n_points_1d * n_points_1d * n_points_1d -
+                          n_points_1d * n_points_1d + n_points_1d - 1;
+                        const unsigned int p6 =
+                          n_points_1d * n_points_1d * n_points_1d - n_points_1d;
+
                         const auto process_edge = [&](const auto face,
                                                       const auto type) {
-                          const unsigned int p0 = 0;
-                          const unsigned int p1 = n_points_1d - 1;
-                          const unsigned int p2 =
-                            n_points_1d * n_points_1d - n_points_1d;
-                          const unsigned int p3 = n_points_1d * n_points_1d - 1;
-                          const unsigned int p4 =
-                            n_points_1d * n_points_1d * n_points_1d -
-                            n_points_1d * n_points_1d;
-                          const unsigned int p5 =
-                            n_points_1d * n_points_1d * n_points_1d -
-                            n_points_1d * n_points_1d + n_points_1d - 1;
-                          const unsigned int p6 =
-                            n_points_1d * n_points_1d * n_points_1d -
-                            n_points_1d;
-
                           std::array<std::pair<unsigned int, unsigned int>, 12>
                             start_and_strides{{
                               {p0, n_points_1d},               // 0
@@ -576,7 +575,7 @@ namespace MatrixFreeTools
                               {p0, n_points_1d * n_points_1d}, // 8
                               {p1, n_points_1d * n_points_1d}, // 9
                               {p2, n_points_1d * n_points_1d}, // 10
-                              {p3, n_points_1d * n_points_1d}, // 11
+                              {p3, n_points_1d * n_points_1d}  // 11
                             }};
 
 
@@ -604,9 +603,53 @@ namespace MatrixFreeTools
                         const auto process_face = [&](const auto face,
                                                       const auto type_1,
                                                       const auto type_2) {
-                          (void)face;
-                          (void)type_1;
-                          (void)type_2;
+                          std::array<std::array<unsigned int, 3>, 12>
+                            start_and_strides{{
+                              {{p0,
+                                n_points_1d,
+                                n_points_1d * n_points_1d}}, // 0
+                              {{p1,
+                                n_points_1d,
+                                n_points_1d * n_points_1d}},        // 1
+                              {{p0, 1, n_points_1d}},               // 2
+                              {{p2, 1, n_points_1d}},               // 3
+                              {{p0, 1, n_points_1d * n_points_1d}}, // 4
+                              {{p4, 1, n_points_1d * n_points_1d}}  // 5
+                            }};
+
+
+                          const auto ss = start_and_strides[face];
+
+                          for (unsigned int h1 = 1; h1 < n_points_1d - 1; ++h1)
+                            for (unsigned int h2 = 1; h2 < n_points_1d - 1;
+                                 ++h2)
+                              for (unsigned int k1 = 0; k1 < n_points_1d; ++k1)
+                                for (unsigned int k2 = 0; k2 < n_points_1d;
+                                     ++k2)
+                                  {
+                                    const unsigned int index_h =
+                                      ss[0] + ss[2] * h1 + ss[2] * h2;
+                                    const unsigned int index_k =
+                                      ss[0] + ss[1] * k1 + ss[2] * k2;
+                                    const unsigned int index_w1 =
+                                      n_points_1d *
+                                        (type_1 ? h1 : (n_points_1d - 1 - h1)) +
+                                      (type_1 ? k1 : (n_points_1d - 1 - k1));
+                                    const unsigned int index_w2 =
+                                      n_points_1d *
+                                        (type_2 ? h2 : (n_points_1d - 1 - h2)) +
+                                      (type_2 ? k2 : (n_points_1d - 1 - k2));
+
+                                    if ((0.0 < weight[index_w1][v] &&
+                                         weight[index_w1][v] < 1.0) &&
+                                        (0.0 < weight[index_w2][v] &&
+                                         weight[index_w2][v] < 1.0))
+                                      locally_relevant_constrains_hn
+                                        .emplace_back(index_h,
+                                                      index_k,
+                                                      weight[index_w1][v] *
+                                                        weight[index_w2][v]);
+                                  }
                         };
 
                         const bool is_face_0 =
