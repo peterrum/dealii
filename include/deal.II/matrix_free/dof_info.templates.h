@@ -253,7 +253,7 @@ namespace internal
             cell_has_hanging_nodes ||
             (row_starts[(cell_number + 1) * n_components].second >
              row_starts[cell_number * n_components].second);
-          if (true || cell_has_constraints == true)
+          if (cell_has_constraints == true)
             {
               for (unsigned int i = 0; i < dofs_this_cell; ++i)
                 {

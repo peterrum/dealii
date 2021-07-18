@@ -4651,7 +4651,10 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
           (this->dof_info->row_starts[cell_dof_index].second !=
              this->dof_info->row_starts[cell_dof_index + n_components_read]
                .second ||
-           has_hn_constraints))
+           (this->dof_info->component_masks.size() > 0 &&
+            this->dof_info
+                ->component_masks[(this->cell * n_lanes + v) * n_fe_components +
+                                  first_selected_component] > 0)))
         {
           Assert(this->dof_info->row_starts_plain_indices[cell_index] !=
                    numbers::invalid_unsigned_int,

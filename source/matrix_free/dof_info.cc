@@ -222,7 +222,15 @@ namespace internal
               // now the same procedure for plain indices
               if (store_plain_indices == true)
                 {
-                  if (true ||
+                  bool has_hanging_nodes = false;
+
+                  if (component_masks.size() > 0)
+                    for (unsigned int comp = 0; comp < n_components; ++comp)
+                      has_hanging_nodes |=
+                        component_masks[boundary_cells[i] * n_components +
+                                        comp] > 0;
+
+                  if (has_hanging_nodes ||
                       row_starts[boundary_cells[i] * n_components].second !=
                         row_starts[(boundary_cells[i] + 1) * n_components]
                           .second)
@@ -358,6 +366,8 @@ namespace internal
               const unsigned int cell_no =
                 renumbering[position_cell + j] * n_components;
 
+              bool has_hanging_nodes = false;
+
               for (unsigned int comp = 0; comp < n_components; ++comp)
                 {
                   new_row_starts[(i * vectorization_length + j) * n_components +
@@ -368,7 +378,11 @@ namespace internal
                     .second = new_constraint_indicator.size();
 
                   if (component_masks.size() > 0)
-                    new_component_masks.push_back(component_masks[cell_no]);
+                    {
+                      const auto mask = component_masks[cell_no + comp];
+                      new_component_masks.push_back(mask);
+                      has_hanging_nodes |= mask > 0;
+                    }
 
                   new_dof_indices.insert(
                     new_dof_indices.end(),
@@ -380,9 +394,10 @@ namespace internal
                     new_constraint_indicator.push_back(
                       constraint_indicator[index]);
                 }
-              if (store_plain_indices /*&&
-                  row_starts[cell_no].second !=
-                    row_starts[cell_no + n_components].second*/)
+              if (store_plain_indices &&
+                  ((row_starts[cell_no].second !=
+                    row_starts[cell_no + n_components].second) ||
+                   has_hanging_nodes))
                 {
                   new_rowstart_plain[i * vectorization_length + j] =
                     new_plain_indices.size();
