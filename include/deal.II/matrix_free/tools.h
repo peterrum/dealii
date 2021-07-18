@@ -592,20 +592,26 @@ namespace MatrixFreeTools
                          i < dofs_per_component * n_components;
                          ++i)
                       {
+                        const auto lower_bound_fu = [](const auto &a,
+                                                       const auto &b) {
+                          return std::get<0>(a) < b;
+                        };
+
+                        const auto upper_bound_fu = [](const auto &a,
+                                                       const auto &b) {
+                          return a < std::get<0>(b);
+                        };
+
                         const auto i_begin = std::lower_bound(
                           locally_relevant_constrains_hn.begin(),
                           locally_relevant_constrains_hn.end(),
                           i,
-                          [](const auto &a, const auto &b) {
-                            return std::get<0>(a) < b;
-                          });
+                          lower_bound_fu);
                         const auto i_end = std::upper_bound(
                           locally_relevant_constrains_hn.begin(),
                           locally_relevant_constrains_hn.end(),
                           i,
-                          [](const auto &a, const auto &b) {
-                            return a < std::get<0>(b);
-                          });
+                          upper_bound_fu);
 
                         if (i_begin == i_end)
                           {
@@ -615,16 +621,12 @@ namespace MatrixFreeTools
                               locally_relevant_constrains.begin(),
                               locally_relevant_constrains.end(),
                               i,
-                              [](const auto &a, const auto &b) {
-                                return std::get<0>(a) < b;
-                              });
+                              lower_bound_fu);
                             const auto j_end = std::upper_bound(
                               locally_relevant_constrains.begin(),
                               locally_relevant_constrains.end(),
                               i,
-                              [](const auto &a, const auto &b) {
-                                return a < std::get<0>(b);
-                              });
+                              upper_bound_fu);
 
                             for (auto v = j_begin; v != j_end; ++v)
                               locally_relevant_constrains_temp.emplace_back(*v);
@@ -638,16 +640,12 @@ namespace MatrixFreeTools
                                   locally_relevant_constrains.begin(),
                                   locally_relevant_constrains.end(),
                                   std::get<1>(*v0),
-                                  [](const auto &a, const auto &b) {
-                                    return std::get<0>(a) < b;
-                                  });
+                                  lower_bound_fu);
                                 const auto j_end = std::upper_bound(
                                   locally_relevant_constrains.begin(),
                                   locally_relevant_constrains.end(),
                                   std::get<1>(*v0),
-                                  [](const auto &a, const auto &b) {
-                                    return a < std::get<0>(b);
-                                  });
+                                  upper_bound_fu);
 
                                 for (auto v1 = j_begin; v1 != j_end; ++v1)
                                   locally_relevant_constrains_temp.emplace_back(
