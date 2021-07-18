@@ -546,7 +546,161 @@ namespace MatrixFreeTools
                       }
                     else
                       {
-                        Assert(false, ExcNotImplemented());
+                        const auto process_edge = [&](const auto face,
+                                                      const auto type) {
+                          (void)face;
+                          (void)type;
+                        };
+
+                        const auto process_face = [&](const auto face,
+                                                      const auto type_1,
+                                                      const auto type_2) {
+                          (void)face;
+                          (void)type_1;
+                          (void)type_2;
+                        };
+
+                        const bool is_face_0 =
+                          is_set(mask, dealii::internal::constr_face_x) &&
+                          is_set(mask, dealii::internal::constr_type_x);
+                        const bool is_face_1 =
+                          is_set(mask, dealii::internal::constr_face_x) &&
+                          not_set(mask, dealii::internal::constr_type_x);
+                        const bool is_face_2 =
+                          is_set(mask, dealii::internal::constr_face_y) &&
+                          is_set(mask, dealii::internal::constr_type_y);
+                        const bool is_face_3 =
+                          is_set(mask, dealii::internal::constr_face_y) &&
+                          not_set(mask, dealii::internal::constr_type_y);
+                        const bool is_face_4 =
+                          is_set(mask, dealii::internal::constr_face_z) &&
+                          is_set(mask, dealii::internal::constr_type_z);
+                        const bool is_face_5 =
+                          is_set(mask, dealii::internal::constr_face_z) &&
+                          not_set(mask, dealii::internal::constr_type_z);
+
+                        const bool is_edge_2 =
+                          is_set(mask, dealii::internal::constr_edge_yz) &&
+                          is_set(mask, dealii::internal::constr_type_y) &&
+                          is_set(mask, dealii::internal::constr_type_z);
+                        const bool is_edge_3 =
+                          is_set(mask, dealii::internal::constr_edge_yz) &&
+                          not_set(mask, dealii::internal::constr_type_y) &&
+                          is_set(mask, dealii::internal::constr_type_z);
+                        const bool is_edge_6 =
+                          is_set(mask, dealii::internal::constr_edge_yz) &&
+                          is_set(mask, dealii::internal::constr_type_y) &&
+                          not_set(mask, dealii::internal::constr_type_z);
+                        const bool is_edge_7 =
+                          is_set(mask, dealii::internal::constr_edge_yz) &&
+                          not_set(mask, dealii::internal::constr_type_y) &&
+                          not_set(mask, dealii::internal::constr_type_z);
+
+                        const bool is_edge_0 =
+                          is_set(mask, dealii::internal::constr_edge_zx) &&
+                          is_set(mask, dealii::internal::constr_type_x) &&
+                          is_set(mask, dealii::internal::constr_type_z);
+                        const bool is_edge_1 =
+                          is_set(mask, dealii::internal::constr_edge_zx) &&
+                          not_set(mask, dealii::internal::constr_type_x) &&
+                          is_set(mask, dealii::internal::constr_type_z);
+                        const bool is_edge_4 =
+                          is_set(mask, dealii::internal::constr_edge_zx) &&
+                          is_set(mask, dealii::internal::constr_type_x) &&
+                          not_set(mask, dealii::internal::constr_type_z);
+                        const bool is_edge_5 =
+                          is_set(mask, dealii::internal::constr_edge_zx) &&
+                          not_set(mask, dealii::internal::constr_type_x) &&
+                          not_set(mask, dealii::internal::constr_type_z);
+
+                        const bool is_edge_8 =
+                          is_set(mask, dealii::internal::constr_edge_xy) &&
+                          is_set(mask, dealii::internal::constr_type_x) &&
+                          is_set(mask, dealii::internal::constr_type_y);
+                        const bool is_edge_9 =
+                          is_set(mask, dealii::internal::constr_edge_xy) &&
+                          not_set(mask, dealii::internal::constr_type_x) &&
+                          is_set(mask, dealii::internal::constr_type_y);
+                        const bool is_edge_10 =
+                          is_set(mask, dealii::internal::constr_edge_xy) &&
+                          is_set(mask, dealii::internal::constr_type_x) &&
+                          not_set(mask, dealii::internal::constr_type_y);
+                        const bool is_edge_11 =
+                          is_set(mask, dealii::internal::constr_edge_xy) &&
+                          not_set(mask, dealii::internal::constr_type_x) &&
+                          not_set(mask, dealii::internal::constr_type_y);
+
+                        if (is_face_0)
+                          process_face(0,
+                                       mask & dealii::internal::constr_type_y,
+                                       mask & dealii::internal::constr_type_z);
+                        if (is_face_1)
+                          process_face(1,
+                                       mask & dealii::internal::constr_type_y,
+                                       mask & dealii::internal::constr_type_z);
+
+                        if (is_face_2)
+                          process_face(2,
+                                       mask & dealii::internal::constr_type_x,
+                                       mask & dealii::internal::constr_type_z);
+                        if (is_face_3)
+                          process_face(3,
+                                       mask & dealii::internal::constr_type_x,
+                                       mask & dealii::internal::constr_type_z);
+
+                        if (is_face_4)
+                          process_face(4,
+                                       mask & dealii::internal::constr_type_x,
+                                       mask & dealii::internal::constr_type_y);
+                        if (is_face_5)
+                          process_face(5,
+                                       mask & dealii::internal::constr_type_x,
+                                       mask & dealii::internal::constr_type_y);
+
+                        {
+                          const bool not_flipped =
+                            mask & dealii::internal::constr_type_x;
+
+                          // ... edges
+                          if (is_face_2 || is_face_4 || is_edge_2)
+                            process_edge(2, not_flipped);
+                          if (is_face_3 || is_face_4 || is_edge_3)
+                            process_edge(3, not_flipped);
+                          if (is_face_2 || is_face_5 || is_edge_6)
+                            process_edge(6, not_flipped);
+                          if (is_face_3 || is_face_5 || is_edge_7)
+                            process_edge(7, not_flipped);
+                        }
+
+                        // direction 1:
+                        {
+                          const bool not_flipped =
+                            mask & dealii::internal::constr_type_y;
+
+                          if (is_face_0 || is_face_4 || is_edge_0)
+                            process_edge(0, not_flipped);
+                          if (is_face_1 || is_face_4 || is_edge_1)
+                            process_edge(1, not_flipped);
+                          if (is_face_0 || is_face_5 || is_edge_4)
+                            process_edge(4, not_flipped);
+                          if (is_face_1 || is_face_5 || is_edge_5)
+                            process_edge(5, not_flipped);
+                        }
+
+                        // direction 2:
+                        {
+                          const bool not_flipped =
+                            mask & dealii::internal::constr_type_z;
+
+                          if (is_face_0 || is_face_2 || is_edge_8)
+                            process_edge(8, not_flipped);
+                          if (is_face_1 || is_face_2 || is_edge_9)
+                            process_edge(9, not_flipped);
+                          if (is_face_0 || is_face_3 || is_edge_10)
+                            process_edge(10, not_flipped);
+                          if (is_face_1 || is_face_3 || is_edge_11)
+                            process_edge(11, not_flipped);
+                        }
                       }
 
                     std::sort(locally_relevant_constrains_hn.begin(),
