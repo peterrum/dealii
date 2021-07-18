@@ -443,6 +443,65 @@ namespace MatrixFreeTools
                      }),
               locally_relevant_constrains.end());
 
+            if (false && dim > 1)
+              {
+                // compute interpolation matrices for all orientations
+                // face
+                std::vector<FullMatrix<Number>> face_matrices(dim == 2 ? 2 : 4);
+                // edge
+                std::vector<FullMatrix<Number>> edge_matrices(dim == 2 ? 0 : 2);
+
+                const unsigned int n_points_1d =
+                  this->phi.get_shape_info().data.front().n_q_points_1d;
+                const auto &subface_interpolation_matrix =
+                  this->phi.get_shape_info()
+                    .data.front()
+                    .subface_interpolation_matrix;
+
+                auto &codim_matrices = dim == 2 ? face_matrices : edge_matrices;
+
+                codim_matrices[0] =
+                  FullMatrix<Number>(n_points_1d, n_points_1d);
+                codim_matrices[1] =
+                  FullMatrix<Number>(n_points_1d, n_points_1d);
+
+                for (unsigned int j = 0; j < n_points_1d; ++j)
+                  for (unsigned int i = 0; i < n_points_1d; ++i)
+                    codim_matrices[0][i][j] = codim_matrices[1][j][i] =
+                      subface_interpolation_matrix[j * n_points_1d + i][0];
+
+                if (dim == 3)
+                  {
+                    // construct face matrices via the tensor product of the
+                    // edge matrices
+                    const auto tp =
+                      [](const FullMatrix<Number> &A,
+                         const FullMatrix<Number> &B) -> FullMatrix<Number> {
+                      FullMatrix<Number> temp(A.m() * B.m(), A.n() * B.n());
+
+                      for (unsigned int i_A = 0; i_A < A.m(); ++i_A)
+                        for (unsigned int j_A = 0; j_A < A.n(); ++j_A)
+                          for (unsigned int i_B = 0; i_B < B.m(); ++i_B)
+                            for (unsigned int j_B = 0; j_B < B.n(); ++j_B)
+                              temp(i_A * B.m() + i_B, j_A * B.n() + j_B) =
+                                A(i_A, j_A) * B(i_B, j_B);
+
+                      return temp;
+                    };
+
+                    for (unsigned int j = 0; j < 2; ++j)
+                      for (unsigned int i = 0; i < 2; ++i)
+                        face_matrices[j * 2 + i] =
+                          tp(edge_matrices[i], edge_matrices[j]);
+                  }
+
+                // collect constraints for cell
+
+                // apply vmult with other constraints
+
+                // replace locally_relevant_constrains
+              }
+
             // STEP 2c: translate COO to CRS
             auto &c_pool = c_pools[v];
             {
