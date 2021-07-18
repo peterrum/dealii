@@ -92,8 +92,8 @@ main(int argc, char **argv)
   MPILogInitAll                    all;
 
   test<2, 1, 2, 1>(); // scalar
-  //test<2, 1, 2, 2>(); // vector
+  test<2, 1, 2, 2>(); // vector
 
   test<2, 1, 2, 1, float>(); // scalar
-  //test<2, 1, 2, 2, float>(); // vector
+  test<2, 1, 2, 2, float>(); // vector
 }

@@ -421,9 +421,9 @@ namespace MatrixFreeTools
                   }
               }
 
-            // STEP 2b: transpose COO
+            // STEP 2b: sort and make unique
 
-            // presort vector for transposed access (TODO)
+            // sort vector
             std::sort(locally_relevant_constrains.begin(),
                       locally_relevant_constrains.end(),
                       [](const auto &a, const auto &b) {
@@ -443,6 +443,7 @@ namespace MatrixFreeTools
                      }),
               locally_relevant_constrains.end());
 
+            // STEP 2b: apply hanging-node constraints
             if (dof_info.component_masks.size() > 0)
               {
 #  if false
@@ -481,9 +482,11 @@ namespace MatrixFreeTools
                     std::vector<std::tuple<unsigned int, unsigned int, Number>>
                       locally_relevant_constrains_hn;
 
-                    // collect constraints for cell
+                    // 1) collect hanging-node constraints for cell assuming
+                    // scalar finite element
                     if (dim == 2)
                       {
+                        // helper function to process faces
                         const auto process = [&](const auto face,
                                                  const auto type) {
                           const std::array<
@@ -519,6 +522,7 @@ namespace MatrixFreeTools
                               }
                         };
 
+                        // direction 0:
                         if (mask & dealii::internal::constr_face_y)
                           {
                             const bool not_flipped =
@@ -545,7 +549,27 @@ namespace MatrixFreeTools
                         Assert(false, ExcNotImplemented());
                       }
 
+                    // 2) extend for multiple components
+                    std::vector<std::tuple<unsigned int, unsigned int, Number>>
+                      locally_relevant_constrains_hn_temp;
+
+                    for (unsigned int c = 0; c < n_components; ++c)
+                      for (auto i : locally_relevant_constrains_hn)
+                        locally_relevant_constrains_hn_temp.emplace_back(
+                          std::get<0>(i) + c * dofs_per_component,
+                          std::get<1>(i) + c * dofs_per_component,
+                          std::get<2>(i));
+
+                    locally_relevant_constrains_hn =
+                      locally_relevant_constrains_hn_temp;
+
 #  if false
+                    std::cout << "BBB" << std::endl;
+                    for (auto i : locally_relevant_constrains_hn_temp)
+                      std::cout << std::get<0>(i) << " " << std::get<1>(i)
+                                << " " << std::get<2>(i) << " " << std::endl;
+                    std::cout << std::endl;
+                    
                     std::cout << "B" << std::endl;
                     for (auto i : locally_relevant_constrains_hn)
                       std::cout << std::get<0>(i) << " " << std::get<1>(i)
@@ -560,11 +584,13 @@ namespace MatrixFreeTools
 #  endif
 
 
-                    // apply vmult with other constraints
+                    // 3) perform vmult with other constraints
                     std::vector<std::tuple<unsigned int, unsigned int, Number>>
                       locally_relevant_constrains_temp;
 
-                    for (unsigned int i = 0; i < dofs_per_component; ++i)
+                    for (unsigned int i = 0;
+                         i < dofs_per_component * n_components;
+                         ++i)
                       {
                         const auto i_begin = std::lower_bound(
                           locally_relevant_constrains_hn.begin(),
@@ -583,6 +609,8 @@ namespace MatrixFreeTools
 
                         if (i_begin == i_end)
                           {
+                            // dof is not constrained by hanging-node constraint
+                            // (identity matrix): simply copy constraints
                             const auto j_begin = std::lower_bound(
                               locally_relevant_constrains.begin(),
                               locally_relevant_constrains.end(),
@@ -603,6 +631,7 @@ namespace MatrixFreeTools
                           }
                         else
                           {
+                            // dof is constrained: build transitive closure
                             for (auto v0 = i_begin; v0 != i_end; ++v0)
                               {
                                 const auto j_begin = std::lower_bound(
@@ -637,13 +666,12 @@ namespace MatrixFreeTools
                     std::cout << std::endl << std::endl << std::endl;
 #  endif
 
-                    // replace locally_relevant_constrains
                     locally_relevant_constrains =
                       locally_relevant_constrains_temp;
                   }
               }
 
-            // transpose
+            // STEP 2d: transpose COO
             std::sort(locally_relevant_constrains.begin(),
                       locally_relevant_constrains.end(),
                       [](const auto &a, const auto &b) {
@@ -661,7 +689,7 @@ namespace MatrixFreeTools
             std::cout << std::endl << std::endl << std::endl;
 #  endif
 
-            // STEP 2c: translate COO to CRS
+            // STEP 2e: translate COO to CRS
             auto &c_pool = c_pools[v];
             {
               if (locally_relevant_constrains.size() > 0)
