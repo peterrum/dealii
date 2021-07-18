@@ -549,6 +549,15 @@ namespace MatrixFreeTools
                         Assert(false, ExcNotImplemented());
                       }
 
+                    std::sort(locally_relevant_constrains_hn.begin(),
+                              locally_relevant_constrains_hn.end(),
+                              [](const auto &a, const auto &b) {
+                                if (std::get<0>(a) < std::get<0>(b))
+                                  return true;
+                                return (std::get<0>(a) == std::get<0>(b)) &&
+                                       (std::get<1>(a) < std::get<1>(b));
+                              });
+
                     // 2) extend for multiple components
                     std::vector<std::tuple<unsigned int, unsigned int, Number>>
                       locally_relevant_constrains_hn_temp;
