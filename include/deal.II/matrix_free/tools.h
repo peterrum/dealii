@@ -423,14 +423,14 @@ namespace MatrixFreeTools
 
             // STEP 2b: transpose COO
 
-            // presort vector for transposed access
+            // presort vector for transposed access (TODO)
             std::sort(locally_relevant_constrains.begin(),
                       locally_relevant_constrains.end(),
                       [](const auto &a, const auto &b) {
-                        if (std::get<1>(a) < std::get<1>(b))
+                        if (std::get<0>(a) < std::get<0>(b))
                           return true;
-                        return (std::get<1>(a) == std::get<1>(b)) &&
-                               (std::get<0>(a) < std::get<0>(b));
+                        return (std::get<0>(a) == std::get<0>(b)) &&
+                               (std::get<1>(a) < std::get<1>(b));
                       });
 
             // make sure that all entries are unique
@@ -443,64 +443,223 @@ namespace MatrixFreeTools
                      }),
               locally_relevant_constrains.end());
 
-            if (false && dim > 1)
+            if (dof_info.component_masks.size() > 0)
               {
-                // compute interpolation matrices for all orientations
-                // face
-                std::vector<FullMatrix<Number>> face_matrices(dim == 2 ? 2 : 4);
-                // edge
-                std::vector<FullMatrix<Number>> edge_matrices(dim == 2 ? 0 : 2);
+#  if false
+                std::cout << "A" << std::endl;
+                for (auto i : locally_relevant_constrains)
+                  std::cout << std::get<0>(i) << " " << std::get<1>(i) << " "
+                            << std::get<2>(i) << " " << std::endl;
+                std::cout << std::endl << std::endl << std::endl;
+#  endif
 
-                const unsigned int n_points_1d =
-                  this->phi.get_shape_info().data.front().n_q_points_1d;
-                const auto &subface_interpolation_matrix =
-                  this->phi.get_shape_info()
-                    .data.front()
-                    .subface_interpolation_matrix;
+                const auto mask =
+                  dof_info
+                    .component_masks[(cell * n_lanes + v) * n_fe_components +
+                                     first_selected_component];
 
-                auto &codim_matrices = dim == 2 ? face_matrices : edge_matrices;
-
-                codim_matrices[0] =
-                  FullMatrix<Number>(n_points_1d, n_points_1d);
-                codim_matrices[1] =
-                  FullMatrix<Number>(n_points_1d, n_points_1d);
-
-                for (unsigned int j = 0; j < n_points_1d; ++j)
-                  for (unsigned int i = 0; i < n_points_1d; ++i)
-                    codim_matrices[0][i][j] = codim_matrices[1][j][i] =
-                      subface_interpolation_matrix[j * n_points_1d + i][0];
-
-                if (dim == 3)
+                if (mask != 0)
                   {
-                    // construct face matrices via the tensor product of the
-                    // edge matrices
-                    const auto tp =
-                      [](const FullMatrix<Number> &A,
-                         const FullMatrix<Number> &B) -> FullMatrix<Number> {
-                      FullMatrix<Number> temp(A.m() * B.m(), A.n() * B.n());
+                    const unsigned int n_points_1d =
+                      this->phi.get_shape_info().data.front().n_q_points_1d;
+                    const auto &weight = this->phi.get_shape_info()
+                                           .data.front()
+                                           .subface_interpolation_matrix;
 
-                      for (unsigned int i_A = 0; i_A < A.m(); ++i_A)
-                        for (unsigned int j_A = 0; j_A < A.n(); ++j_A)
-                          for (unsigned int i_B = 0; i_B < B.m(); ++i_B)
-                            for (unsigned int j_B = 0; j_B < B.n(); ++j_B)
-                              temp(i_A * B.m() + i_B, j_A * B.n() + j_B) =
-                                A(i_A, j_A) * B(i_B, j_B);
-
-                      return temp;
+                    const auto is_set = [](const unsigned int a,
+                                           const unsigned int b) {
+                      return (a & b) == b;
                     };
 
-                    for (unsigned int j = 0; j < 2; ++j)
-                      for (unsigned int i = 0; i < 2; ++i)
-                        face_matrices[j * 2 + i] =
-                          tp(edge_matrices[i], edge_matrices[j]);
+                    const auto not_set = [](const unsigned int a,
+                                            const unsigned int b) {
+                      return (a & b) == 0;
+                    };
+
+                    (void)not_set;
+
+                    std::vector<std::tuple<unsigned int, unsigned int, Number>>
+                      locally_relevant_constrains_hn;
+
+                    // collect constraints for cell
+                    if (dim == 2)
+                      {
+                        const auto process = [&](const auto face,
+                                                 const auto type) {
+                          const std::array<
+                            std::array<std::pair<unsigned int, unsigned int>,
+                                       2>,
+                            2>
+                            start_and_strides{
+                              {{{{0, n_points_1d},
+                                 {n_points_1d - 1, n_points_1d}}},
+                               {{{0, 1},
+                                 {n_points_1d * n_points_1d - n_points_1d,
+                                  1}}}}};
+
+
+                          const auto ss = start_and_strides[face / 2][face % 2];
+
+                          for (unsigned int h = 0; h < n_points_1d; ++h)
+                            for (unsigned int k = 0; k < n_points_1d; ++k)
+                              {
+                                const unsigned int index_h =
+                                  ss.first + ss.second * h;
+                                const unsigned int index_k =
+                                  ss.first + ss.second * k;
+                                const unsigned int index_w =
+                                  n_points_1d *
+                                    (type ? h : (n_points_1d - 1 - h)) +
+                                  (type ? k : (n_points_1d - 1 - k));
+
+                                if (0.0 < weight[index_w][v] &&
+                                    weight[index_w][v] < 1.0)
+                                  locally_relevant_constrains_hn.emplace_back(
+                                    index_h, index_k, weight[index_w][v]);
+                              }
+                        };
+
+                        if (mask & dealii::internal::constr_face_y)
+                          {
+                            const bool not_flipped =
+                              mask & dealii::internal::constr_type_x;
+                            if (is_set(mask, dealii::internal::constr_type_y))
+                              process(2, not_flipped);
+                            else
+                              process(3, not_flipped);
+                          }
+
+                        // direction 1:
+                        if (mask & dealii::internal::constr_face_x)
+                          {
+                            const bool not_flipped =
+                              mask & dealii::internal::constr_type_y;
+                            if (is_set(mask, dealii::internal::constr_type_x))
+                              process(0, not_flipped);
+                            else
+                              process(1, not_flipped);
+                          }
+                      }
+                    else
+                      {
+                        Assert(false, ExcNotImplemented());
+                      }
+
+#  if false
+                    std::cout << "B" << std::endl;
+                    for (auto i : locally_relevant_constrains_hn)
+                      std::cout << std::get<0>(i) << " " << std::get<1>(i)
+                                << " " << std::get<2>(i) << " " << std::endl;
+                    std::cout << std::endl;
+
+                    std::cout << "C" << std::endl;
+                    for (auto i : locally_relevant_constrains)
+                      std::cout << std::get<0>(i) << " " << std::get<1>(i)
+                                << " " << std::get<2>(i) << " " << std::endl;
+                    std::cout << std::endl << std::endl << std::endl;
+#  endif
+
+
+                    // apply vmult with other constraints
+                    std::vector<std::tuple<unsigned int, unsigned int, Number>>
+                      locally_relevant_constrains_temp;
+
+                    for (unsigned int i = 0; i < dofs_per_component; ++i)
+                      {
+                        const auto i_begin = std::lower_bound(
+                          locally_relevant_constrains_hn.begin(),
+                          locally_relevant_constrains_hn.end(),
+                          i,
+                          [](const auto &a, const auto &b) {
+                            return std::get<0>(a) < b;
+                          });
+                        const auto i_end = std::upper_bound(
+                          locally_relevant_constrains_hn.begin(),
+                          locally_relevant_constrains_hn.end(),
+                          i,
+                          [](const auto &a, const auto &b) {
+                            return a < std::get<0>(b);
+                          });
+
+                        if (i_begin == i_end)
+                          {
+                            const auto j_begin = std::lower_bound(
+                              locally_relevant_constrains.begin(),
+                              locally_relevant_constrains.end(),
+                              i,
+                              [](const auto &a, const auto &b) {
+                                return std::get<0>(a) < b;
+                              });
+                            const auto j_end = std::upper_bound(
+                              locally_relevant_constrains.begin(),
+                              locally_relevant_constrains.end(),
+                              i,
+                              [](const auto &a, const auto &b) {
+                                return a < std::get<0>(b);
+                              });
+
+                            for (auto v = j_begin; v != j_end; ++v)
+                              locally_relevant_constrains_temp.emplace_back(*v);
+                          }
+                        else
+                          {
+                            for (auto v0 = i_begin; v0 != i_end; ++v0)
+                              {
+                                const auto j_begin = std::lower_bound(
+                                  locally_relevant_constrains.begin(),
+                                  locally_relevant_constrains.end(),
+                                  std::get<1>(*v0),
+                                  [](const auto &a, const auto &b) {
+                                    return std::get<0>(a) < b;
+                                  });
+                                const auto j_end = std::upper_bound(
+                                  locally_relevant_constrains.begin(),
+                                  locally_relevant_constrains.end(),
+                                  std::get<1>(*v0),
+                                  [](const auto &a, const auto &b) {
+                                    return a < std::get<0>(b);
+                                  });
+
+                                for (auto v1 = j_begin; v1 != j_end; ++v1)
+                                  locally_relevant_constrains_temp.emplace_back(
+                                    std::get<0>(*v0),
+                                    std::get<1>(*v1),
+                                    std::get<2>(*v0) * std::get<2>(*v1));
+                              }
+                          }
+                      }
+
+#  if false
+                    std::cout << "D" << std::endl;
+                    for (auto i : locally_relevant_constrains_temp)
+                      std::cout << std::get<0>(i) << " " << std::get<1>(i)
+                                << " " << std::get<2>(i) << " " << std::endl;
+                    std::cout << std::endl << std::endl << std::endl;
+#  endif
+
+                    // replace locally_relevant_constrains
+                    locally_relevant_constrains =
+                      locally_relevant_constrains_temp;
                   }
-
-                // collect constraints for cell
-
-                // apply vmult with other constraints
-
-                // replace locally_relevant_constrains
               }
+
+            // transpose
+            std::sort(locally_relevant_constrains.begin(),
+                      locally_relevant_constrains.end(),
+                      [](const auto &a, const auto &b) {
+                        if (std::get<1>(a) < std::get<1>(b))
+                          return true;
+                        return (std::get<1>(a) == std::get<1>(b)) &&
+                               (std::get<0>(a) < std::get<0>(b));
+                      });
+
+#  if false
+            std::cout << "OOOO" << std::endl;
+            for (auto i : locally_relevant_constrains)
+              std::cout << std::get<0>(i) << " " << std::get<1>(i) << " "
+                        << std::get<2>(i) << " " << std::endl;
+            std::cout << std::endl << std::endl << std::endl;
+#  endif
 
             // STEP 2c: translate COO to CRS
             auto &c_pool = c_pools[v];
