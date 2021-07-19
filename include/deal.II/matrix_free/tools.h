@@ -510,19 +510,21 @@ namespace MatrixFreeTools
                                   });
 
                         // 1b) extend for multiple components
-                        std::vector<
-                          std::tuple<unsigned int, unsigned int, Number>>
-                          locally_relevant_constrains_hn_temp;
+                        const unsigned int n_hn_constraints =
+                          locally_relevant_constrains_hn.size();
+                        locally_relevant_constrains_hn.resize(n_hn_constraints *
+                                                              n_components);
 
                         for (unsigned int c = 0; c < n_components; ++c)
-                          for (auto i : locally_relevant_constrains_hn)
-                            locally_relevant_constrains_hn_temp.emplace_back(
-                              std::get<0>(i) + c * dofs_per_component,
-                              std::get<1>(i) + c * dofs_per_component,
-                              std::get<2>(i));
-
-                        locally_relevant_constrains_hn =
-                          locally_relevant_constrains_hn_temp;
+                          for (unsigned int i = 0; i < n_hn_constraints; ++i)
+                            locally_relevant_constrains_hn[c *
+                                                             n_hn_constraints +
+                                                           i] = {
+                              std::get<0>(locally_relevant_constrains_hn[i]) +
+                                c * dofs_per_component,
+                              std::get<1>(locally_relevant_constrains_hn[i]) +
+                                c * dofs_per_component,
+                              std::get<2>(locally_relevant_constrains_hn[i])};
 
 
                         locally_relevant_constrains_hn_map[mask] =
