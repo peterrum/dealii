@@ -1052,6 +1052,8 @@ namespace internal
     AssertDimension(n_dof_handlers, constraint.size());
 
     std::vector<types::global_dof_index>                local_dof_indices;
+    std::vector<types::global_dof_index>                local_dof_indices_plain;
+    std::vector<types::global_dof_index>                local_dof_indices_hn;
     std::vector<std::vector<std::vector<unsigned int>>> lexicographic(
       n_dof_handlers);
 
@@ -1211,8 +1213,7 @@ namespace internal
                 local_dof_indices.resize(dof_info[no].dofs_per_cell[fe_index]);
                 cell_it->get_dof_indices(local_dof_indices);
 
-                std::vector<types::global_dof_index> local_dof_indices_plain(
-                  local_dof_indices.size());
+                local_dof_indices_plain.resize(local_dof_indices.size());
                 for (unsigned int i = 0; i < local_dof_indices.size(); ++i)
                   local_dof_indices_plain[i] =
                     local_dof_indices[lexicographic[no][fe_index][i]];
@@ -1222,7 +1223,6 @@ namespace internal
                   identity[i] = i;
 
                 bool cell_has_hanging_node_constraints = false;
-                std::vector<types::global_dof_index> local_dof_indices_hn;
 
                 if (dim > 1 && dofh->get_fe_collection().size() == 1)
                   {
