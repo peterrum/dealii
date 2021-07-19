@@ -619,14 +619,6 @@ namespace MatrixFreeTools
                                (std::get<0>(a) < std::get<0>(b));
                       });
 
-#  if false
-            std::cout << "OOOO" << std::endl;
-            for (auto i : locally_relevant_constrains)
-              std::cout << std::get<0>(i) << " " << std::get<1>(i) << " "
-                        << std::get<2>(i) << " " << std::endl;
-            std::cout << std::endl << std::endl << std::endl;
-#  endif
-
             // STEP 2e: translate COO to CRS
             auto &c_pool = c_pools[v];
             {

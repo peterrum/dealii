@@ -4602,7 +4602,6 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
         for (unsigned int comp = 0; comp < n_components; ++comp)
           for (unsigned int i = 0; i < dofs_per_component; ++i)
             operation.process_empty(values_dofs[comp][i]);
-
       if (n_components == 1 || n_fe_components == 1)
         {
           for (unsigned int v = 0; v < n_vectorization_actual; ++v)
@@ -4622,7 +4621,6 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
                   *src[0],
                   values_dofs[comp][i][v]);
         }
-
       return;
     }
 
@@ -5444,8 +5442,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
 
   internal::VectorDistributorLocalToGlobal<Number, VectorizedArrayType>
     distributor;
-  read_write_operation(
-    distributor, dst_data.first, dst_data.second, mask, true);
+  read_write_operation(distributor, dst_data.first, dst_data.second, mask);
 }
 
 
@@ -5476,7 +5473,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
     this->dof_info);
 
   internal::VectorSetter<Number, VectorizedArrayType> setter;
-  read_write_operation(setter, dst_data.first, dst_data.second, mask, true);
+  read_write_operation(setter, dst_data.first, dst_data.second, mask);
 }
 
 
