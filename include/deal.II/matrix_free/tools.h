@@ -544,6 +544,41 @@ namespace MatrixFreeTools
                               process(1, not_flipped);
                           }
                       }
+                    else if (dim == 3)
+                      {
+                        AlignedVector<VectorizedArrayType> values_dofs(
+                          dofs_per_component);
+
+                        std::array<unsigned int, VectorizedArrayType::size()>
+                          constraint_mask;
+                        constraint_mask[0] = mask;
+
+                        for (unsigned int i = 0; i < dofs_per_component; ++i)
+                          {
+                            for (unsigned int j = 0; j < dofs_per_component;
+                                 ++j)
+                              values_dofs[j] = static_cast<Number>(i == j);
+
+                            dealii::internal::FEEvaluationHangingNodesFactory<
+                              dim,
+                              Number,
+                              VectorizedArrayType>::apply(1,
+                                                          phi.get_shape_info()
+                                                            .data.front()
+                                                            .fe_degree,
+                                                          phi,
+                                                          false,
+                                                          constraint_mask,
+                                                          values_dofs.data());
+
+                            for (unsigned int j = 0; j < dofs_per_component;
+                                 ++j)
+                              if (0.0 < values_dofs[j][0] &&
+                                  values_dofs[j][0] < 1.0)
+                                locally_relevant_constrains_hn.emplace_back(
+                                  j, i, values_dofs[j][0]);
+                          }
+                      }
                     else
                       {
                         const unsigned int p0 = 0;
