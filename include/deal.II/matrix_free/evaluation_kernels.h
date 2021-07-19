@@ -4679,10 +4679,12 @@ namespace internal
               if (dim == 2) // 2D: only faces
                 {
                   // direction 0:
-                  if (mask & constr_face_y)
+                  if (mask & MatrixFreeFunctions::ConstraintTypes::face_y)
                     {
-                      const bool not_flipped = mask & constr_type_x;
-                      if (is_set(mask, constr_type_y))
+                      const bool not_flipped =
+                        mask & MatrixFreeFunctions::ConstraintTypes::type_x;
+                      if (is_set(mask,
+                                 MatrixFreeFunctions::ConstraintTypes::type_y))
                         interpolate_2D<fe_degree_, 2, transpose>(
                           fe_degree, not_flipped, v, weights, values); // face 2
                       else
@@ -4691,10 +4693,12 @@ namespace internal
                     }
 
                   // direction 1:
-                  if (mask & constr_face_x)
+                  if (mask & MatrixFreeFunctions::ConstraintTypes::face_x)
                     {
-                      const bool not_flipped = mask & constr_type_y;
-                      if (is_set(mask, constr_type_x))
+                      const bool not_flipped =
+                        mask & MatrixFreeFunctions::ConstraintTypes::type_y;
+                      if (is_set(mask,
+                                 MatrixFreeFunctions::ConstraintTypes::type_x))
                         interpolate_2D<fe_degree_, 0, transpose>(
                           fe_degree, not_flipped, v, weights, values); // face 0
                       else
@@ -4715,60 +4719,109 @@ namespace internal
                   const unsigned int p6 = points * points * points - points;
 
                   const bool is_face_0 =
-                    is_set(mask, constr_face_x) && is_set(mask, constr_type_x);
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::face_x) &&
+                    is_set(mask, MatrixFreeFunctions::ConstraintTypes::type_x);
                   const bool is_face_1 =
-                    is_set(mask, constr_face_x) && not_set(mask, constr_type_x);
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::face_x) &&
+                    not_set(mask, MatrixFreeFunctions::ConstraintTypes::type_x);
                   const bool is_face_2 =
-                    is_set(mask, constr_face_y) && is_set(mask, constr_type_y);
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::face_y) &&
+                    is_set(mask, MatrixFreeFunctions::ConstraintTypes::type_y);
                   const bool is_face_3 =
-                    is_set(mask, constr_face_y) && not_set(mask, constr_type_y);
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::face_y) &&
+                    not_set(mask, MatrixFreeFunctions::ConstraintTypes::type_y);
                   const bool is_face_4 =
-                    is_set(mask, constr_face_z) && is_set(mask, constr_type_z);
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::face_z) &&
+                    is_set(mask, MatrixFreeFunctions::ConstraintTypes::type_z);
                   const bool is_face_5 =
-                    is_set(mask, constr_face_z) && not_set(mask, constr_type_z);
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::face_z) &&
+                    not_set(mask, MatrixFreeFunctions::ConstraintTypes::type_z);
 
-                  const bool is_edge_2 = is_set(mask, constr_edge_yz) &&
-                                         is_set(mask, constr_type_y) &&
-                                         is_set(mask, constr_type_z);
-                  const bool is_edge_3 = is_set(mask, constr_edge_yz) &&
-                                         not_set(mask, constr_type_y) &&
-                                         is_set(mask, constr_type_z);
-                  const bool is_edge_6 = is_set(mask, constr_edge_yz) &&
-                                         is_set(mask, constr_type_y) &&
-                                         not_set(mask, constr_type_z);
-                  const bool is_edge_7 = is_set(mask, constr_edge_yz) &&
-                                         not_set(mask, constr_type_y) &&
-                                         not_set(mask, constr_type_z);
+                  const bool is_edge_2 =
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::edge_yz) &&
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::type_y) &&
+                    is_set(mask, MatrixFreeFunctions::ConstraintTypes::type_z);
+                  const bool is_edge_3 =
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::edge_yz) &&
+                    not_set(mask,
+                            MatrixFreeFunctions::ConstraintTypes::type_y) &&
+                    is_set(mask, MatrixFreeFunctions::ConstraintTypes::type_z);
+                  const bool is_edge_6 =
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::edge_yz) &&
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::type_y) &&
+                    not_set(mask, MatrixFreeFunctions::ConstraintTypes::type_z);
+                  const bool is_edge_7 =
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::edge_yz) &&
+                    not_set(mask,
+                            MatrixFreeFunctions::ConstraintTypes::type_y) &&
+                    not_set(mask, MatrixFreeFunctions::ConstraintTypes::type_z);
 
-                  const bool is_edge_0 = is_set(mask, constr_edge_zx) &&
-                                         is_set(mask, constr_type_x) &&
-                                         is_set(mask, constr_type_z);
-                  const bool is_edge_1 = is_set(mask, constr_edge_zx) &&
-                                         not_set(mask, constr_type_x) &&
-                                         is_set(mask, constr_type_z);
-                  const bool is_edge_4 = is_set(mask, constr_edge_zx) &&
-                                         is_set(mask, constr_type_x) &&
-                                         not_set(mask, constr_type_z);
-                  const bool is_edge_5 = is_set(mask, constr_edge_zx) &&
-                                         not_set(mask, constr_type_x) &&
-                                         not_set(mask, constr_type_z);
+                  const bool is_edge_0 =
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::edge_zx) &&
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::type_x) &&
+                    is_set(mask, MatrixFreeFunctions::ConstraintTypes::type_z);
+                  const bool is_edge_1 =
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::edge_zx) &&
+                    not_set(mask,
+                            MatrixFreeFunctions::ConstraintTypes::type_x) &&
+                    is_set(mask, MatrixFreeFunctions::ConstraintTypes::type_z);
+                  const bool is_edge_4 =
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::edge_zx) &&
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::type_x) &&
+                    not_set(mask, MatrixFreeFunctions::ConstraintTypes::type_z);
+                  const bool is_edge_5 =
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::edge_zx) &&
+                    not_set(mask,
+                            MatrixFreeFunctions::ConstraintTypes::type_x) &&
+                    not_set(mask, MatrixFreeFunctions::ConstraintTypes::type_z);
 
-                  const bool is_edge_8 = is_set(mask, constr_edge_xy) &&
-                                         is_set(mask, constr_type_x) &&
-                                         is_set(mask, constr_type_y);
-                  const bool is_edge_9 = is_set(mask, constr_edge_xy) &&
-                                         not_set(mask, constr_type_x) &&
-                                         is_set(mask, constr_type_y);
-                  const bool is_edge_10 = is_set(mask, constr_edge_xy) &&
-                                          is_set(mask, constr_type_x) &&
-                                          not_set(mask, constr_type_y);
-                  const bool is_edge_11 = is_set(mask, constr_edge_xy) &&
-                                          not_set(mask, constr_type_x) &&
-                                          not_set(mask, constr_type_y);
+                  const bool is_edge_8 =
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::edge_xy) &&
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::type_x) &&
+                    is_set(mask, MatrixFreeFunctions::ConstraintTypes::type_y);
+                  const bool is_edge_9 =
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::edge_xy) &&
+                    not_set(mask,
+                            MatrixFreeFunctions::ConstraintTypes::type_x) &&
+                    is_set(mask, MatrixFreeFunctions::ConstraintTypes::type_y);
+                  const bool is_edge_10 =
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::edge_xy) &&
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::type_x) &&
+                    not_set(mask, MatrixFreeFunctions::ConstraintTypes::type_y);
+                  const bool is_edge_11 =
+                    is_set(mask,
+                           MatrixFreeFunctions::ConstraintTypes::edge_xy) &&
+                    not_set(mask,
+                            MatrixFreeFunctions::ConstraintTypes::type_x) &&
+                    not_set(mask, MatrixFreeFunctions::ConstraintTypes::type_y);
 
                   // direction 0:
                   {
-                    const bool not_flipped = mask & constr_type_x;
+                    const bool not_flipped =
+                      mask & MatrixFreeFunctions::ConstraintTypes::type_x;
 
                     // ... faces
                     if (is_face_2)
@@ -4841,7 +4894,8 @@ namespace internal
 
                   // direction 1:
                   {
-                    const bool not_flipped = mask & constr_type_y;
+                    const bool not_flipped =
+                      mask & MatrixFreeFunctions::ConstraintTypes::type_y;
 
                     // ... faces
                     if (is_face_0)
@@ -4914,7 +4968,8 @@ namespace internal
 
                   // direction 2:
                   {
-                    const bool not_flipped = mask & constr_type_z;
+                    const bool not_flipped =
+                      mask & MatrixFreeFunctions::ConstraintTypes::type_z;
 
                     // ... faces
                     if (is_face_0)

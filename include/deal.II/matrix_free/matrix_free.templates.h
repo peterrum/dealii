@@ -1182,12 +1182,14 @@ namespace internal
 
     // extract all the global indices associated with the computation, and form
     // the ghost indices
-    std::vector<unsigned int>          subdomain_boundary_cells;
-    std::unique_ptr<HangingNodes<dim>> hanging_nodes;
+    std::vector<unsigned int> subdomain_boundary_cells;
+    std::unique_ptr<dealii::internal::MatrixFreeFunctions::HangingNodes<dim>>
+      hanging_nodes;
 
     if (dim > 1 && mg_level == numbers::invalid_unsigned_int)
       {
-        hanging_nodes = std::make_unique<HangingNodes<dim>>(tria);
+        hanging_nodes = std::make_unique<
+          dealii::internal::MatrixFreeFunctions::HangingNodes<dim>>(tria);
         for (unsigned int no = 0; no < n_dof_handlers; ++no)
           if (dof_handler[no]->get_fe_collection().size() == 1)
             dof_info[no].hanging_node_constraint_masks.resize(

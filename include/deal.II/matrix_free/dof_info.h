@@ -44,9 +44,12 @@ DEAL_II_NAMESPACE_OPEN
 #ifndef DOXYGEN
 namespace internal
 {
-  template <int dim>
-  class HangingNodes;
-}
+  namespace MatrixFreeFunctions
+  {
+    template <int dim>
+    class HangingNodes;
+  }
+} // namespace internal
 #endif
 
 namespace internal
