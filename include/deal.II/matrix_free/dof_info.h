@@ -212,7 +212,8 @@ namespace internal
         bool &                                      cell_at_boundary);
 
       /**
-       * TODO
+       * For a given cell, determine if it has hanging node constraints. If yes,
+       * adjust the dof indices, store the mask, and return true as indication.
        */
       template <int dim>
       bool
@@ -520,9 +521,10 @@ namespace internal
       std::vector<unsigned int> dof_indices;
 
       /**
-       * TODO
+       * Masks indicating for each cell and component if the optimized
+       * hanging-node constraint is applicable and if yes which type.
        */
-      std::vector<unsigned int> component_masks;
+      std::vector<unsigned int> hanging_node_constraint_masks;
 
       /**
        * This variable describes the position of constraints in terms of the

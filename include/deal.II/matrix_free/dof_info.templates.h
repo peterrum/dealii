@@ -286,13 +286,13 @@ namespace internal
       const TriaIterator<DoFCellAccessor<dim, dim, false>> &cell,
       std::vector<types::global_dof_index> &                dof_indices)
     {
-      return hanging_nodes.setup_constraints(cell,
-                                             {},
-                                             lexicographic_mapping,
-                                             dof_indices,
-                                             component_masks.data() +
-                                               cell_number *
-                                                 cell->get_fe().n_components());
+      return hanging_nodes.setup_constraints(
+        cell,
+        {},
+        lexicographic_mapping,
+        dof_indices,
+        hanging_node_constraint_masks.data() +
+          cell_number * cell->get_fe().n_components());
     }
 
 

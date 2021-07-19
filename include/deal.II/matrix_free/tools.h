@@ -444,12 +444,13 @@ namespace MatrixFreeTools
               locally_relevant_constrains.end());
 
             // STEP 2b: apply hanging-node constraints
-            if (dof_info.component_masks.size() > 0)
+            if (dof_info.hanging_node_constraint_masks.size() > 0)
               {
                 const auto mask =
                   dof_info
-                    .component_masks[(cell * n_lanes + v) * n_fe_components +
-                                     first_selected_component];
+                    .hanging_node_constraint_masks[(cell * n_lanes + v) *
+                                                     n_fe_components +
+                                                   first_selected_component];
 
                 // cell has hanging nodes
                 if (mask != 0)

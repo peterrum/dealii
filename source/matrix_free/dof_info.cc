@@ -103,7 +103,8 @@ namespace internal
           // shift for this cell within the block as compared to the next
           // one
           const bool has_constraints =
-            (component_masks.size() != 0 && component_masks[ib] != 0) ||
+            (hanging_node_constraint_masks.size() != 0 &&
+             hanging_node_constraint_masks[ib] != 0) ||
             (row_starts[ib].second != row_starts[ib + n_fe_components].second);
 
           auto do_copy = [&](const unsigned int *begin,
@@ -224,11 +225,12 @@ namespace internal
                 {
                   bool has_hanging_nodes = false;
 
-                  if (component_masks.size() > 0)
+                  if (hanging_node_constraint_masks.size() > 0)
                     for (unsigned int comp = 0; comp < n_components; ++comp)
                       has_hanging_nodes |=
-                        component_masks[boundary_cells[i] * n_components +
-                                        comp] > 0;
+                        hanging_node_constraint_masks[boundary_cells[i] *
+                                                        n_components +
+                                                      comp] > 0;
 
                   if (has_hanging_nodes ||
                       row_starts[boundary_cells[i] * n_components].second !=
@@ -334,8 +336,9 @@ namespace internal
       new_dof_indices.reserve(dof_indices.size());
       new_constraint_indicator.reserve(constraint_indicator.size());
 
-      std::vector<unsigned int> new_component_masks;
-      new_component_masks.reserve(new_component_masks.size());
+      std::vector<unsigned int> new_hanging_node_constraint_masks;
+      new_hanging_node_constraint_masks.reserve(
+        new_hanging_node_constraint_masks.size());
 
       if (store_plain_indices == true)
         {
@@ -377,10 +380,11 @@ namespace internal
                                  comp]
                     .second = new_constraint_indicator.size();
 
-                  if (component_masks.size() > 0)
+                  if (hanging_node_constraint_masks.size() > 0)
                     {
-                      const auto mask = component_masks[cell_no + comp];
-                      new_component_masks.push_back(mask);
+                      const auto mask =
+                        hanging_node_constraint_masks[cell_no + comp];
+                      new_hanging_node_constraint_masks.push_back(mask);
                       has_hanging_nodes |= mask > 0;
                     }
 
@@ -420,8 +424,8 @@ namespace internal
                                comp]
                   .second = new_constraint_indicator.size();
 
-                if (component_masks.size() > 0)
-                  new_component_masks.push_back(0);
+                if (hanging_node_constraint_masks.size() > 0)
+                  new_hanging_node_constraint_masks.push_back(0);
               }
           position_cell += n_vect;
         }
@@ -443,7 +447,7 @@ namespace internal
       new_constraint_indicator.swap(constraint_indicator);
       new_plain_indices.swap(plain_dof_indices);
       new_rowstart_plain.swap(row_starts_plain_indices);
-      new_component_masks.swap(component_masks);
+      new_hanging_node_constraint_masks.swap(hanging_node_constraint_masks);
 
 #ifdef DEBUG
       // sanity check 1: all indices should be smaller than the number of dofs
