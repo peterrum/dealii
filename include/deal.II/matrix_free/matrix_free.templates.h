@@ -1211,39 +1211,42 @@ namespace internal
                 local_dof_indices.resize(dof_info[no].dofs_per_cell[fe_index]);
                 cell_it->get_dof_indices(local_dof_indices);
 
-                std::vector<types::global_dof_index> local_dof_indices_2(
+                std::vector<types::global_dof_index> local_dof_indices_plain(
                   local_dof_indices.size());
                 for (unsigned int i = 0; i < local_dof_indices.size(); ++i)
-                  local_dof_indices_2[i] =
+                  local_dof_indices_plain[i] =
                     local_dof_indices[lexicographic[no][fe_index][i]];
-
-                const auto local_dof_indices_plain = local_dof_indices_2;
 
                 std::vector<unsigned int> identity(local_dof_indices.size());
                 for (unsigned int i = 0; i < local_dof_indices.size(); ++i)
                   identity[i] = i;
 
                 bool cell_has_hanging_node_constraints = false;
+                std::vector<types::global_dof_index> local_dof_indices_hn;
 
                 if (dim > 1 && dofh->get_fe_collection().size() == 1)
                   {
+                    local_dof_indices_hn = local_dof_indices_plain;
+
                     cell_has_hanging_node_constraints |=
                       dof_info[no].process_hanging_node_constraints(
                         *hanging_nodes,
                         lexicographic[no][0],
                         counter,
                         cell_it,
-                        local_dof_indices_2);
+                        local_dof_indices_hn);
                   }
 
-                dof_info[no].read_dof_indices(local_dof_indices_2,
-                                              local_dof_indices_plain,
-                                              cell_has_hanging_node_constraints,
-                                              identity,
-                                              *constraint[no],
-                                              counter,
-                                              constraint_values,
-                                              cell_at_subdomain_boundary);
+                dof_info[no].read_dof_indices(
+                  cell_has_hanging_node_constraints ? local_dof_indices_hn :
+                                                      local_dof_indices_plain,
+                  local_dof_indices_plain,
+                  cell_has_hanging_node_constraints,
+                  identity,
+                  *constraint[no],
+                  counter,
+                  constraint_values,
+                  cell_at_subdomain_boundary);
                 if (dofh->get_fe_collection().size() == 1 &&
                     cell_categorization_enabled)
                   {
