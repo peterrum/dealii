@@ -158,22 +158,22 @@ namespace internal
     // determine which face is constrained. For example, in 2D, if
     // face_x and type are set, then x = 0 is constrained.
 
-    namespace ConstraintTypes
+    enum ConstraintTypes : unsigned int
     {
-      constexpr unsigned int type_x = 1 << 0;
-      constexpr unsigned int type_y = 1 << 1;
-      constexpr unsigned int type_z = 1 << 2;
+      type_x = 1 << 0,
+      type_y = 1 << 1,
+      type_z = 1 << 2,
 
       // Element has as a constraint at * = 0 or * = fe_degree face
-      constexpr unsigned int face_x = 1 << 3;
-      constexpr unsigned int face_y = 1 << 4;
-      constexpr unsigned int face_z = 1 << 5;
+      face_x = 1 << 3,
+      face_y = 1 << 4,
+      face_z = 1 << 5,
 
       // Element has as a constraint at * = 0 or * = fe_degree edge
-      constexpr unsigned int edge_xy = 1 << 6;
-      constexpr unsigned int edge_yz = 1 << 7;
-      constexpr unsigned int edge_zx = 1 << 8;
-    } // namespace ConstraintTypes
+      edge_xy = 1 << 6,
+      edge_yz = 1 << 7,
+      edge_zx = 1 << 8
+    };
 
 
     template <int dim>
