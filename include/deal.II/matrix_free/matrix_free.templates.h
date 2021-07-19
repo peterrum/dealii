@@ -1056,6 +1056,8 @@ namespace internal
     std::vector<types::global_dof_index>                local_dof_indices_hn;
     std::vector<std::vector<std::vector<unsigned int>>> lexicographic(
       n_dof_handlers);
+    std::vector<std::vector<std::vector<unsigned int>>> identity(
+      n_dof_handlers);
 
     std::vector<bool> is_fe_dg(n_dof_handlers, false);
 
@@ -1079,6 +1081,7 @@ namespace internal
         is_fe_dg[no] = fes[0].n_dofs_per_vertex() == 0;
 
         lexicographic[no].resize(fes.size());
+        identity[no].resize(fes.size());
 
         dof_info[no].fe_index_conversion.resize(fes.size());
         dof_info[no].max_fe_index = fes.size();
@@ -1125,6 +1128,11 @@ namespace internal
                 lexicographic[no][fe_index].insert(
                   lexicographic[no][fe_index].end(), lex.begin(), lex.end());
               }
+
+            identity[no][fe_index].resize(lexicographic[no][fe_index].size());
+            for (unsigned int i = 0; i < lexicographic[no][fe_index].size();
+                 ++i)
+              identity[no][fe_index][i] = i;
 
             AssertDimension(lexicographic[no][fe_index].size(),
                             dof_info[no].dofs_per_cell[fe_index]);
@@ -1218,10 +1226,6 @@ namespace internal
                   local_dof_indices_plain[i] =
                     local_dof_indices[lexicographic[no][fe_index][i]];
 
-                std::vector<unsigned int> identity(local_dof_indices.size());
-                for (unsigned int i = 0; i < local_dof_indices.size(); ++i)
-                  identity[i] = i;
-
                 bool cell_has_hanging_node_constraints = false;
 
                 if (dim > 1 && dofh->get_fe_collection().size() == 1)
@@ -1242,7 +1246,7 @@ namespace internal
                                                       local_dof_indices_plain,
                   local_dof_indices_plain,
                   cell_has_hanging_node_constraints,
-                  identity,
+                  identity[no][fe_index],
                   *constraint[no],
                   counter,
                   constraint_values,
