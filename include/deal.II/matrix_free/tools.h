@@ -461,374 +461,43 @@ namespace MatrixFreeTools
 
                 if (mask != 0)
                   {
-                    const unsigned int n_points_1d =
-                      this->phi.get_shape_info().data.front().n_q_points_1d;
-                    const auto &weight = this->phi.get_shape_info()
-                                           .data.front()
-                                           .subface_interpolation_matrix;
-
-                    const auto is_set = [](const unsigned int a,
-                                           const unsigned int b) {
-                      return (a & b) == b;
-                    };
-
-                    const auto not_set = [](const unsigned int a,
-                                            const unsigned int b) {
-                      return (a & b) == 0;
-                    };
-
-                    (void)not_set;
-
                     std::vector<std::tuple<unsigned int, unsigned int, Number>>
                       locally_relevant_constrains_hn;
 
                     // 1) collect hanging-node constraints for cell assuming
                     // scalar finite element
-                    if (dim == 2)
-                      {
-                        // helper function to process faces
-                        const auto process = [&](const auto face,
-                                                 const auto type) {
-                          const std::array<
-                            std::array<std::pair<unsigned int, unsigned int>,
-                                       2>,
-                            2>
-                            start_and_strides{
-                              {{{{0, n_points_1d},
-                                 {n_points_1d - 1, n_points_1d}}},
-                               {{{0, 1},
-                                 {n_points_1d * n_points_1d - n_points_1d,
-                                  1}}}}};
+                    {
+                      AlignedVector<VectorizedArrayType> values_dofs(
+                        dofs_per_component);
 
+                      std::array<unsigned int, VectorizedArrayType::size()>
+                        constraint_mask;
+                      constraint_mask[0] = mask;
 
-                          const auto ss = start_and_strides[face / 2][face % 2];
-
-                          for (unsigned int h = 0; h < n_points_1d; ++h)
-                            for (unsigned int k = 0; k < n_points_1d; ++k)
-                              {
-                                const unsigned int index_h =
-                                  ss.first + ss.second * h;
-                                const unsigned int index_k =
-                                  ss.first + ss.second * k;
-                                const unsigned int index_w =
-                                  n_points_1d *
-                                    (type ? h : (n_points_1d - 1 - h)) +
-                                  (type ? k : (n_points_1d - 1 - k));
-
-                                if (0.0 < weight[index_w][v] &&
-                                    weight[index_w][v] < 1.0)
-                                  locally_relevant_constrains_hn.emplace_back(
-                                    index_h, index_k, weight[index_w][v]);
-                              }
-                        };
-
-                        // direction 0:
-                        if (mask & dealii::internal::constr_face_y)
-                          {
-                            const bool not_flipped =
-                              mask & dealii::internal::constr_type_x;
-                            if (is_set(mask, dealii::internal::constr_type_y))
-                              process(2, not_flipped);
-                            else
-                              process(3, not_flipped);
-                          }
-
-                        // direction 1:
-                        if (mask & dealii::internal::constr_face_x)
-                          {
-                            const bool not_flipped =
-                              mask & dealii::internal::constr_type_y;
-                            if (is_set(mask, dealii::internal::constr_type_x))
-                              process(0, not_flipped);
-                            else
-                              process(1, not_flipped);
-                          }
-                      }
-                    else if (dim == 3)
-                      {
-                        AlignedVector<VectorizedArrayType> values_dofs(
-                          dofs_per_component);
-
-                        std::array<unsigned int, VectorizedArrayType::size()>
-                          constraint_mask;
-                        constraint_mask[0] = mask;
-
-                        for (unsigned int i = 0; i < dofs_per_component; ++i)
-                          {
-                            for (unsigned int j = 0; j < dofs_per_component;
-                                 ++j)
-                              values_dofs[j] = static_cast<Number>(i == j);
-
-                            dealii::internal::FEEvaluationHangingNodesFactory<
-                              dim,
-                              Number,
-                              VectorizedArrayType>::apply(1,
-                                                          phi.get_shape_info()
-                                                            .data.front()
-                                                            .fe_degree,
-                                                          phi,
-                                                          false,
-                                                          constraint_mask,
-                                                          values_dofs.data());
-
-                            for (unsigned int j = 0; j < dofs_per_component;
-                                 ++j)
-                              if (0.0 < values_dofs[j][0] &&
-                                  values_dofs[j][0] < 1.0)
-                                locally_relevant_constrains_hn.emplace_back(
-                                  j, i, values_dofs[j][0]);
-                          }
-                      }
-                    else
-                      {
-                        const unsigned int p0 = 0;
-                        const unsigned int p1 = n_points_1d - 1;
-                        const unsigned int p2 =
-                          n_points_1d * n_points_1d - n_points_1d;
-                        const unsigned int p3 = n_points_1d * n_points_1d - 1;
-                        const unsigned int p4 =
-                          n_points_1d * n_points_1d * n_points_1d -
-                          n_points_1d * n_points_1d;
-                        const unsigned int p5 =
-                          n_points_1d * n_points_1d * n_points_1d -
-                          n_points_1d * n_points_1d + n_points_1d - 1;
-                        const unsigned int p6 =
-                          n_points_1d * n_points_1d * n_points_1d - n_points_1d;
-
-                        const auto process_edge = [&](const auto face,
-                                                      const auto type) {
-                          std::array<std::pair<unsigned int, unsigned int>, 12>
-                            start_and_strides{{
-                              {p0, n_points_1d},               // 0
-                              {p2, n_points_1d},               // 1
-                              {p4, 1},                         // 2
-                              {p6, 1},                         // 3
-                              {p0, n_points_1d},               // 4
-                              {p1, n_points_1d},               // 5
-                              {p4, 1},                         // 6
-                              {p5, 1},                         // 7
-                              {p0, n_points_1d * n_points_1d}, // 8
-                              {p1, n_points_1d * n_points_1d}, // 9
-                              {p2, n_points_1d * n_points_1d}, // 10
-                              {p3, n_points_1d * n_points_1d}  // 11
-                            }};
-
-
-                          const auto ss = start_and_strides[face];
-
-                          for (unsigned int h = 0; h < n_points_1d; ++h)
-                            for (unsigned int k = 0; k < n_points_1d; ++k)
-                              {
-                                const unsigned int index_h =
-                                  ss.first + ss.second * h;
-                                const unsigned int index_k =
-                                  ss.first + ss.second * k;
-                                const unsigned int index_w =
-                                  n_points_1d *
-                                    (type ? h : (n_points_1d - 1 - h)) +
-                                  (type ? k : (n_points_1d - 1 - k));
-
-                                if (0.0 < weight[index_w][v] &&
-                                    weight[index_w][v] < 1.0)
-                                  locally_relevant_constrains_hn.emplace_back(
-                                    index_h, index_k, weight[index_w][v]);
-                              }
-                        };
-
-                        const auto process_face = [&](const auto face,
-                                                      const auto type_1,
-                                                      const auto type_2) {
-                          std::array<std::array<unsigned int, 3>, 12>
-                            start_and_strides{{
-                              {{p0,
-                                n_points_1d,
-                                n_points_1d * n_points_1d}}, // 0
-                              {{p1,
-                                n_points_1d,
-                                n_points_1d * n_points_1d}},        // 1
-                              {{p0, 1, n_points_1d}},               // 2
-                              {{p2, 1, n_points_1d}},               // 3
-                              {{p0, 1, n_points_1d * n_points_1d}}, // 4
-                              {{p4, 1, n_points_1d * n_points_1d}}  // 5
-                            }};
-
-
-                          const auto ss = start_and_strides[face];
-
-                          for (unsigned int h1 = 1; h1 < n_points_1d - 1; ++h1)
-                            for (unsigned int h2 = 1; h2 < n_points_1d - 1;
-                                 ++h2)
-                              for (unsigned int k1 = 0; k1 < n_points_1d; ++k1)
-                                for (unsigned int k2 = 0; k2 < n_points_1d;
-                                     ++k2)
-                                  {
-                                    const unsigned int index_h =
-                                      ss[0] + ss[2] * h1 + ss[2] * h2;
-                                    const unsigned int index_k =
-                                      ss[0] + ss[1] * k1 + ss[2] * k2;
-                                    const unsigned int index_w1 =
-                                      n_points_1d *
-                                        (type_1 ? h1 : (n_points_1d - 1 - h1)) +
-                                      (type_1 ? k1 : (n_points_1d - 1 - k1));
-                                    const unsigned int index_w2 =
-                                      n_points_1d *
-                                        (type_2 ? h2 : (n_points_1d - 1 - h2)) +
-                                      (type_2 ? k2 : (n_points_1d - 1 - k2));
-
-                                    if ((0.0 < weight[index_w1][v] &&
-                                         weight[index_w1][v] < 1.0) &&
-                                        (0.0 < weight[index_w2][v] &&
-                                         weight[index_w2][v] < 1.0))
-                                      locally_relevant_constrains_hn
-                                        .emplace_back(index_h,
-                                                      index_k,
-                                                      weight[index_w1][v] *
-                                                        weight[index_w2][v]);
-                                  }
-                        };
-
-                        const bool is_face_0 =
-                          is_set(mask, dealii::internal::constr_face_x) &&
-                          is_set(mask, dealii::internal::constr_type_x);
-                        const bool is_face_1 =
-                          is_set(mask, dealii::internal::constr_face_x) &&
-                          not_set(mask, dealii::internal::constr_type_x);
-                        const bool is_face_2 =
-                          is_set(mask, dealii::internal::constr_face_y) &&
-                          is_set(mask, dealii::internal::constr_type_y);
-                        const bool is_face_3 =
-                          is_set(mask, dealii::internal::constr_face_y) &&
-                          not_set(mask, dealii::internal::constr_type_y);
-                        const bool is_face_4 =
-                          is_set(mask, dealii::internal::constr_face_z) &&
-                          is_set(mask, dealii::internal::constr_type_z);
-                        const bool is_face_5 =
-                          is_set(mask, dealii::internal::constr_face_z) &&
-                          not_set(mask, dealii::internal::constr_type_z);
-
-                        const bool is_edge_2 =
-                          is_set(mask, dealii::internal::constr_edge_yz) &&
-                          is_set(mask, dealii::internal::constr_type_y) &&
-                          is_set(mask, dealii::internal::constr_type_z);
-                        const bool is_edge_3 =
-                          is_set(mask, dealii::internal::constr_edge_yz) &&
-                          not_set(mask, dealii::internal::constr_type_y) &&
-                          is_set(mask, dealii::internal::constr_type_z);
-                        const bool is_edge_6 =
-                          is_set(mask, dealii::internal::constr_edge_yz) &&
-                          is_set(mask, dealii::internal::constr_type_y) &&
-                          not_set(mask, dealii::internal::constr_type_z);
-                        const bool is_edge_7 =
-                          is_set(mask, dealii::internal::constr_edge_yz) &&
-                          not_set(mask, dealii::internal::constr_type_y) &&
-                          not_set(mask, dealii::internal::constr_type_z);
-
-                        const bool is_edge_0 =
-                          is_set(mask, dealii::internal::constr_edge_zx) &&
-                          is_set(mask, dealii::internal::constr_type_x) &&
-                          is_set(mask, dealii::internal::constr_type_z);
-                        const bool is_edge_1 =
-                          is_set(mask, dealii::internal::constr_edge_zx) &&
-                          not_set(mask, dealii::internal::constr_type_x) &&
-                          is_set(mask, dealii::internal::constr_type_z);
-                        const bool is_edge_4 =
-                          is_set(mask, dealii::internal::constr_edge_zx) &&
-                          is_set(mask, dealii::internal::constr_type_x) &&
-                          not_set(mask, dealii::internal::constr_type_z);
-                        const bool is_edge_5 =
-                          is_set(mask, dealii::internal::constr_edge_zx) &&
-                          not_set(mask, dealii::internal::constr_type_x) &&
-                          not_set(mask, dealii::internal::constr_type_z);
-
-                        const bool is_edge_8 =
-                          is_set(mask, dealii::internal::constr_edge_xy) &&
-                          is_set(mask, dealii::internal::constr_type_x) &&
-                          is_set(mask, dealii::internal::constr_type_y);
-                        const bool is_edge_9 =
-                          is_set(mask, dealii::internal::constr_edge_xy) &&
-                          not_set(mask, dealii::internal::constr_type_x) &&
-                          is_set(mask, dealii::internal::constr_type_y);
-                        const bool is_edge_10 =
-                          is_set(mask, dealii::internal::constr_edge_xy) &&
-                          is_set(mask, dealii::internal::constr_type_x) &&
-                          not_set(mask, dealii::internal::constr_type_y);
-                        const bool is_edge_11 =
-                          is_set(mask, dealii::internal::constr_edge_xy) &&
-                          not_set(mask, dealii::internal::constr_type_x) &&
-                          not_set(mask, dealii::internal::constr_type_y);
-
-                        if (is_face_0)
-                          process_face(0,
-                                       mask & dealii::internal::constr_type_y,
-                                       mask & dealii::internal::constr_type_z);
-                        if (is_face_1)
-                          process_face(1,
-                                       mask & dealii::internal::constr_type_y,
-                                       mask & dealii::internal::constr_type_z);
-
-                        if (is_face_2)
-                          process_face(2,
-                                       mask & dealii::internal::constr_type_x,
-                                       mask & dealii::internal::constr_type_z);
-                        if (is_face_3)
-                          process_face(3,
-                                       mask & dealii::internal::constr_type_x,
-                                       mask & dealii::internal::constr_type_z);
-
-                        if (is_face_4)
-                          process_face(4,
-                                       mask & dealii::internal::constr_type_x,
-                                       mask & dealii::internal::constr_type_y);
-                        if (is_face_5)
-                          process_face(5,
-                                       mask & dealii::internal::constr_type_x,
-                                       mask & dealii::internal::constr_type_y);
-
+                      for (unsigned int i = 0; i < dofs_per_component; ++i)
                         {
-                          const bool not_flipped =
-                            mask & dealii::internal::constr_type_x;
+                          for (unsigned int j = 0; j < dofs_per_component; ++j)
+                            values_dofs[j] = static_cast<Number>(i == j);
 
-                          // ... edges
-                          if (is_face_2 || is_face_4 || is_edge_2)
-                            process_edge(2, not_flipped);
-                          if (is_face_3 || is_face_4 || is_edge_3)
-                            process_edge(3, not_flipped);
-                          if (is_face_2 || is_face_5 || is_edge_6)
-                            process_edge(6, not_flipped);
-                          if (is_face_3 || is_face_5 || is_edge_7)
-                            process_edge(7, not_flipped);
+                          dealii::internal::FEEvaluationHangingNodesFactory<
+                            dim,
+                            Number,
+                            VectorizedArrayType>::apply(1,
+                                                        phi.get_shape_info()
+                                                          .data.front()
+                                                          .fe_degree,
+                                                        phi,
+                                                        false,
+                                                        constraint_mask,
+                                                        values_dofs.data());
+
+                          for (unsigned int j = 0; j < dofs_per_component; ++j)
+                            if (0.0 < values_dofs[j][0] &&
+                                values_dofs[j][0] < 1.0)
+                              locally_relevant_constrains_hn.emplace_back(
+                                j, i, values_dofs[j][0]);
                         }
-
-                        // direction 1:
-                        {
-                          const bool not_flipped =
-                            mask & dealii::internal::constr_type_y;
-
-                          if (is_face_0 || is_face_4 || is_edge_0)
-                            process_edge(0, not_flipped);
-                          if (is_face_1 || is_face_4 || is_edge_1)
-                            process_edge(1, not_flipped);
-                          if (is_face_0 || is_face_5 || is_edge_4)
-                            process_edge(4, not_flipped);
-                          if (is_face_1 || is_face_5 || is_edge_5)
-                            process_edge(5, not_flipped);
-                        }
-
-                        // direction 2:
-                        {
-                          const bool not_flipped =
-                            mask & dealii::internal::constr_type_z;
-
-                          if (is_face_0 || is_face_2 || is_edge_8)
-                            process_edge(8, not_flipped);
-                          if (is_face_1 || is_face_2 || is_edge_9)
-                            process_edge(9, not_flipped);
-                          if (is_face_0 || is_face_3 || is_edge_10)
-                            process_edge(10, not_flipped);
-                          if (is_face_1 || is_face_3 || is_edge_11)
-                            process_edge(11, not_flipped);
-                        }
-                      }
+                    }
 
                     std::sort(locally_relevant_constrains_hn.begin(),
                               locally_relevant_constrains_hn.end(),
