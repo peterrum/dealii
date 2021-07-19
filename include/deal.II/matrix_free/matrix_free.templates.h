@@ -1300,6 +1300,17 @@ namespace internal
           subdomain_boundary_cells.push_back(counter);
       }
 
+    // clear hanging_node_constraint_masks if there are no hanging nodes
+    if (dim > 1 && mg_level == numbers::invalid_unsigned_int)
+      for (unsigned int no = 0; no < n_dof_handlers; ++no)
+        {
+          auto &vec = dof_info[no].hanging_node_constraint_masks;
+          if (std::all_of(vec.begin(), vec.end(), [](const auto i) {
+                return i == 0;
+              }))
+            vec.clear();
+        }
+
     task_info.n_active_cells = cell_level_index_end_local;
     task_info.n_ghost_cells  = n_active_cells - cell_level_index_end_local;
 
