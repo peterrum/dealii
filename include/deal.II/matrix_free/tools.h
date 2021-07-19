@@ -446,104 +446,92 @@ namespace MatrixFreeTools
             // STEP 2b: apply hanging-node constraints
             if (dof_info.component_masks.size() > 0)
               {
-#  if false
-                std::cout << "A" << std::endl;
-                for (auto i : locally_relevant_constrains)
-                  std::cout << std::get<0>(i) << " " << std::get<1>(i) << " "
-                            << std::get<2>(i) << " " << std::endl;
-                std::cout << std::endl << std::endl << std::endl;
-#  endif
-
                 const auto mask =
                   dof_info
                     .component_masks[(cell * n_lanes + v) * n_fe_components +
                                      first_selected_component];
 
+                // cell has hanging nodes
                 if (mask != 0)
                   {
-                    std::vector<std::tuple<unsigned int, unsigned int, Number>>
-                      locally_relevant_constrains_hn;
+                    // check if hanging node internpolation matrix has been set
+                    // up
+                    if (locally_relevant_constrains_hn_map.find(mask) ==
+                        locally_relevant_constrains_hn_map.end())
+                      {
+                        // 1) collect hanging-node constraints for cell assuming
+                        // scalar finite element
+                        AlignedVector<VectorizedArrayType> values_dofs(
+                          dofs_per_component);
 
-                    // 1) collect hanging-node constraints for cell assuming
-                    // scalar finite element
-                    {
-                      AlignedVector<VectorizedArrayType> values_dofs(
-                        dofs_per_component);
+                        std::array<unsigned int, VectorizedArrayType::size()>
+                          constraint_mask;
+                        constraint_mask[0] = mask;
 
-                      std::array<unsigned int, VectorizedArrayType::size()>
-                        constraint_mask;
-                      constraint_mask[0] = mask;
+                        std::vector<
+                          std::tuple<unsigned int, unsigned int, Number>>
+                          locally_relevant_constrains_hn;
 
-                      for (unsigned int i = 0; i < dofs_per_component; ++i)
-                        {
-                          for (unsigned int j = 0; j < dofs_per_component; ++j)
-                            values_dofs[j] = static_cast<Number>(i == j);
+                        for (unsigned int i = 0; i < dofs_per_component; ++i)
+                          {
+                            for (unsigned int j = 0; j < dofs_per_component;
+                                 ++j)
+                              values_dofs[j] = static_cast<Number>(i == j);
 
-                          dealii::internal::FEEvaluationHangingNodesFactory<
-                            dim,
-                            Number,
-                            VectorizedArrayType>::apply(1,
-                                                        phi.get_shape_info()
-                                                          .data.front()
-                                                          .fe_degree,
-                                                        phi,
-                                                        false,
-                                                        constraint_mask,
-                                                        values_dofs.data());
+                            dealii::internal::FEEvaluationHangingNodesFactory<
+                              dim,
+                              Number,
+                              VectorizedArrayType>::apply(1,
+                                                          phi.get_shape_info()
+                                                            .data.front()
+                                                            .fe_degree,
+                                                          phi,
+                                                          false,
+                                                          constraint_mask,
+                                                          values_dofs.data());
 
-                          for (unsigned int j = 0; j < dofs_per_component; ++j)
-                            if (0.0 < values_dofs[j][0] &&
-                                values_dofs[j][0] < 1.0)
-                              locally_relevant_constrains_hn.emplace_back(
-                                j, i, values_dofs[j][0]);
-                        }
-                    }
-
-                    std::sort(locally_relevant_constrains_hn.begin(),
-                              locally_relevant_constrains_hn.end(),
-                              [](const auto &a, const auto &b) {
-                                if (std::get<0>(a) < std::get<0>(b))
-                                  return true;
-                                return (std::get<0>(a) == std::get<0>(b)) &&
-                                       (std::get<1>(a) < std::get<1>(b));
-                              });
-
-                    // 2) extend for multiple components
-                    std::vector<std::tuple<unsigned int, unsigned int, Number>>
-                      locally_relevant_constrains_hn_temp;
-
-                    for (unsigned int c = 0; c < n_components; ++c)
-                      for (auto i : locally_relevant_constrains_hn)
-                        locally_relevant_constrains_hn_temp.emplace_back(
-                          std::get<0>(i) + c * dofs_per_component,
-                          std::get<1>(i) + c * dofs_per_component,
-                          std::get<2>(i));
-
-                    locally_relevant_constrains_hn =
-                      locally_relevant_constrains_hn_temp;
-
-#  if false
-                    std::cout << "BBB" << std::endl;
-                    for (auto i : locally_relevant_constrains_hn_temp)
-                      std::cout << std::get<0>(i) << " " << std::get<1>(i)
-                                << " " << std::get<2>(i) << " " << std::endl;
-                    std::cout << std::endl;
-                    
-                    std::cout << "B" << std::endl;
-                    for (auto i : locally_relevant_constrains_hn)
-                      std::cout << std::get<0>(i) << " " << std::get<1>(i)
-                                << " " << std::get<2>(i) << " " << std::endl;
-                    std::cout << std::endl;
-
-                    std::cout << "C" << std::endl;
-                    for (auto i : locally_relevant_constrains)
-                      std::cout << std::get<0>(i) << " " << std::get<1>(i)
-                                << " " << std::get<2>(i) << " " << std::endl;
-                    std::cout << std::endl << std::endl << std::endl;
-#  endif
+                            for (unsigned int j = 0; j < dofs_per_component;
+                                 ++j)
+                              if (0.0 < values_dofs[j][0] &&
+                                  values_dofs[j][0] < 1.0)
+                                locally_relevant_constrains_hn.emplace_back(
+                                  j, i, values_dofs[j][0]);
+                          }
 
 
-                    // 3) perform vmult with other constraints
+                        std::sort(locally_relevant_constrains_hn.begin(),
+                                  locally_relevant_constrains_hn.end(),
+                                  [](const auto &a, const auto &b) {
+                                    if (std::get<0>(a) < std::get<0>(b))
+                                      return true;
+                                    return (std::get<0>(a) == std::get<0>(b)) &&
+                                           (std::get<1>(a) < std::get<1>(b));
+                                  });
+
+                        // 1b) extend for multiple components
+                        std::vector<
+                          std::tuple<unsigned int, unsigned int, Number>>
+                          locally_relevant_constrains_hn_temp;
+
+                        for (unsigned int c = 0; c < n_components; ++c)
+                          for (auto i : locally_relevant_constrains_hn)
+                            locally_relevant_constrains_hn_temp.emplace_back(
+                              std::get<0>(i) + c * dofs_per_component,
+                              std::get<1>(i) + c * dofs_per_component,
+                              std::get<2>(i));
+
+                        locally_relevant_constrains_hn =
+                          locally_relevant_constrains_hn_temp;
+
+
+                        locally_relevant_constrains_hn_map[mask] =
+                          locally_relevant_constrains_hn;
+                      }
+
+                    const auto locally_relevant_constrains_hn =
+                      locally_relevant_constrains_hn_map[mask];
+
+                    // 2) perform vmult with other constraints
                     std::vector<std::tuple<unsigned int, unsigned int, Number>>
                       locally_relevant_constrains_temp;
 
@@ -614,14 +602,6 @@ namespace MatrixFreeTools
                               }
                           }
                       }
-
-#  if false
-                    std::cout << "D" << std::endl;
-                    for (auto i : locally_relevant_constrains_temp)
-                      std::cout << std::get<0>(i) << " " << std::get<1>(i)
-                                << " " << std::get<2>(i) << " " << std::endl;
-                    std::cout << std::endl << std::endl << std::endl;
-#  endif
 
                     locally_relevant_constrains =
                       locally_relevant_constrains_temp;
@@ -785,6 +765,10 @@ namespace MatrixFreeTools
       // note: may be larger then dofs_per_cell in the presence of
       // constraints!
       std::array<std::vector<Number>, n_lanes> diagonals_local_constrained;
+
+      std::map<unsigned int,
+               std::vector<std::tuple<unsigned int, unsigned int, Number>>>
+        locally_relevant_constrains_hn_map;
     };
 
   } // namespace internal
