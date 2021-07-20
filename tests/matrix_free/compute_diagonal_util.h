@@ -97,7 +97,7 @@ public:
         A_ref.reinit(sparsity_pattern);
       }
 
-    double error_local, error_global;
+    double error_local_1, error_local_2, error_global;
 
     {
       MatrixFreeTools::compute_diagonal<dim,
@@ -111,8 +111,8 @@ public:
         });
 
       diagonal_global.print(deallog.get_file_stream());
-      error_local = diagonal_global.l2_norm();
-      deallog << error_local << std::endl;
+      error_local_1 = diagonal_global.l2_norm();
+      deallog << error_local_1 << std::endl;
     }
 
     {
@@ -123,11 +123,11 @@ public:
                                         this);
 
       diagonal_global.print(deallog.get_file_stream());
-      error_global = diagonal_global.l2_norm();
-      deallog << error_global << std::endl;
+      error_local_2 = diagonal_global.l2_norm();
+      deallog << error_local_2 << std::endl;
     }
 
-    Assert(std::abs(error_local - error_global) < 1e-10, ExcInternalError());
+    Assert(std::abs(error_local_1 - error_local_2) < 1e-10, ExcInternalError());
 
     if (test_matrix)
       {
@@ -183,8 +183,12 @@ public:
         }
 
       diagonal_global_reference.print(deallog.get_file_stream());
+
+      error_global = diagonal_global_reference.l2_norm();
       deallog << diagonal_global_reference.l2_norm() << std::endl;
     }
+
+    Assert(std::abs(error_local_1 - error_global) < 1e-10, ExcInternalError());
 
     if (test_matrix)
       {
