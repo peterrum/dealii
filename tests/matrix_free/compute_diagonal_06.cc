@@ -14,7 +14,8 @@
 // ---------------------------------------------------------------------
 
 
-// Test MatrixFreeTools::compute_diagonal() for a Laplace operator
+// Test MatrixFreeTools::compute_diagonal() for differently refined
+// triangulations
 
 #include "compute_diagonal_util.h"
 
@@ -99,6 +100,27 @@ create_triangulations()
       GridGenerator::hyper_cross(*tria, sizes);
       CellAccessor<dim, dim>(tria.get(), 0, i).set_refine_flag();
       tria->execute_coarsening_and_refinement();
+      result.push_back(tria);
+    }
+
+  // refine all cell of a 2^dim subdivided_hyper_cube but one
+  for (unsigned int i = 0; i < Utilities::pow<unsigned int>(2, dim); ++i)
+    {
+      std::shared_ptr<Triangulation<dim>> tria =
+        std::make_shared<parallel::distributed::Triangulation<dim>>(
+          MPI_COMM_WORLD);
+      GridGenerator::subdivided_hyper_cube(*tria, 2);
+
+      unsigned int counter = 0;
+
+      for (const auto &cell : tria->active_cell_iterators())
+        {
+          if (i != counter)
+            cell->set_refine_flag();
+
+          ++counter;
+        }
+
       result.push_back(tria);
     }
 
