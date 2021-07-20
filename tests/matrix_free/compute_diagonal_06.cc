@@ -77,12 +77,26 @@ create_triangulations()
 {
   std::vector<std::shared_ptr<Triangulation<dim>>> result;
 
+  // refine one cell of a 3^dim subdivided_hyper_cube
   for (unsigned int i = 0; i < Utilities::pow<unsigned int>(3, dim); ++i)
     {
       std::shared_ptr<Triangulation<dim>> tria =
         std::make_shared<parallel::distributed::Triangulation<dim>>(
           MPI_COMM_WORLD);
       GridGenerator::subdivided_hyper_cube(*tria, 3);
+      CellAccessor<dim, dim>(tria.get(), 0, i).set_refine_flag();
+      tria->execute_coarsening_and_refinement();
+      result.push_back(tria);
+    }
+
+  // refine one cell of a hyper_cross
+  for (unsigned int i = 0; i < 4 * dim + 1; ++i)
+    {
+      std::shared_ptr<Triangulation<dim>> tria =
+        std::make_shared<parallel::distributed::Triangulation<dim>>(
+          MPI_COMM_WORLD);
+      std::vector<unsigned int> sizes(dim * 2, 2);
+      GridGenerator::hyper_cross(*tria, sizes);
       CellAccessor<dim, dim>(tria.get(), 0, i).set_refine_flag();
       tria->execute_coarsening_and_refinement();
       result.push_back(tria);
