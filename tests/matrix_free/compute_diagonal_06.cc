@@ -46,13 +46,6 @@ test()
 
       AffineConstraints<Number> constraint;
       DoFTools::make_hanging_node_constraints(dof_handler, constraint);
-
-      VectorTools::interpolate_boundary_values(
-        dof_handler,
-        0,
-        Functions::ZeroFunction<dim, Number>(n_components),
-        constraint);
-
       constraint.close();
 
       typename MatrixFree<dim, Number, VectorizedArrayType>::AdditionalData
@@ -92,12 +85,11 @@ main(int argc, char **argv)
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    all;
 
+  // 2D - linear
   test<2, 1, 2, 1>(); // scalar
   test<2, 1, 2, 2>(); // vector
 
-  test<2, 1, 2, 1, float>(); // scalar
-  test<2, 1, 2, 2, float>(); // vector
-
-  test<3, 1, 2, 1>();
-  test<3, 1, 2, 3>();
+  // 3D - linear
+  test<3, 1, 2, 1>(); // scalar
+  test<3, 1, 2, 3>(); // vector
 }
