@@ -103,6 +103,10 @@ main(int argc, char **argv)
     // 2D - linear
     test<2, 1, 2, 1>(trias); // scalar
     test<2, 1, 2, 2>(trias); // vector
+
+    // 2D - quadratic
+    test<2, 2, 3, 1>(trias); // scalar
+    test<2, 2, 3, 2>(trias); // vector
   }
 
   {
@@ -111,5 +115,9 @@ main(int argc, char **argv)
     // 3D - linear
     test<3, 1, 2, 1>(trias); // scalar
     test<3, 1, 2, 3>(trias); // vector
+
+    // 3D - quadratic
+    test<3, 2, 3, 1>(trias); // scalar
+    test<3, 2, 3, 3>(trias); // vector
   }
 }
