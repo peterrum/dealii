@@ -477,7 +477,7 @@ namespace MatrixFreeTools
                           {
                             for (unsigned int j = 0; j < dofs_per_component;
                                  ++j)
-                              values_dofs[j] = static_cast<Number>(i == j);
+                              values_dofs[j][0] = static_cast<Number>(i == j);
 
                             dealii::internal::FEEvaluationHangingNodesFactory<
                               dim,
@@ -493,8 +493,11 @@ namespace MatrixFreeTools
 
                             for (unsigned int j = 0; j < dofs_per_component;
                                  ++j)
-                              if (0.0 < values_dofs[j][0] &&
-                                  values_dofs[j][0] < 1.0)
+                              if (1e-10 <
+                                  std::abs(values_dofs[j][0] &&
+                                           (j != i ||
+                                            1e-10 < std::abs(values_dofs[j][0] -
+                                                             1.0))))
                                 locally_relevant_constrains_hn.emplace_back(
                                   j, i, values_dofs[j][0]);
                           }
@@ -531,8 +534,21 @@ namespace MatrixFreeTools
                           locally_relevant_constrains_hn;
                       }
 
-                    const auto locally_relevant_constrains_hn =
+                    const auto &locally_relevant_constrains_hn =
                       locally_relevant_constrains_hn_map[mask];
+
+#  if false
+            std::cout << "AAAA" << std::endl;
+            for (auto i : locally_relevant_constrains)
+              std::cout << std::get<0>(i) << " " << std::get<1>(i) << " "
+                        << std::get<2>(i) << " " << std::endl;
+            std::cout << std::endl << std::endl << std::endl;
+            std::cout << "BBBB" << std::endl;
+            for (auto i : locally_relevant_constrains_hn)
+              std::cout << std::get<0>(i) << " " << std::get<1>(i) << " "
+                        << std::get<2>(i) << " " << std::endl;
+            std::cout << std::endl << std::endl << std::endl;
+#  endif
 
                     // 2) perform vmult with other constraints
                     std::vector<std::tuple<unsigned int, unsigned int, Number>>
@@ -620,6 +636,14 @@ namespace MatrixFreeTools
                         return (std::get<1>(a) == std::get<1>(b)) &&
                                (std::get<0>(a) < std::get<0>(b));
                       });
+
+#  if false
+            std::cout << "OOOO" << std::endl;
+            for (auto i : locally_relevant_constrains)
+              std::cout << std::get<0>(i) << " " << std::get<1>(i) << " "
+                        << std::get<2>(i) << " " << std::endl;
+            std::cout << std::endl << std::endl << std::endl;
+#  endif
 
             // STEP 2e: translate COO to CRS
             auto &c_pool = c_pools[v];

@@ -67,7 +67,7 @@ namespace internal
        * Set up line-to-cell mapping for edge constraints in 3D.
        */
       void
-      setup_line_to_cell(const Triangulation<dim> &dof_handler);
+      setup_line_to_cell(const Triangulation<dim> &triangulation);
 
       void
       rotate_subface_index(int times, unsigned int &subface_index) const;
@@ -217,7 +217,7 @@ namespace internal
                     child->line(neighbor_line)->index();
 
                   // Now add all active cells
-                  for (const auto cl : line_to_cells[line_idx])
+                  for (const auto &cl : line_to_cells[line_idx])
                     line_to_cells[child_line_idx].push_back(cl);
                 }
             }
@@ -248,20 +248,15 @@ namespace internal
           [fe.face_system_to_component_index(i, /*face_no=*/0).first]
             .push_back(i);
 
-      const auto component_to_system_index_face = [&](const auto comp,
-                                                      const auto i) {
-        return component_to_system_index_face_array[comp][i];
-      };
-
       std::vector<unsigned int> idx_offset = {0};
 
 
-      for (unsigned int base_element_index = 0, comp = 0;
+      for (unsigned int base_element_index = 0;
            base_element_index < cell->get_fe().n_base_elements();
            ++base_element_index)
         for (unsigned int c = 0;
              c < cell->get_fe().element_multiplicity(base_element_index);
-             ++c, ++comp)
+             ++c)
           idx_offset.push_back(
             idx_offset.back() +
             cell->get_fe().base_element(base_element_index).n_dofs_per_cell());
@@ -327,9 +322,8 @@ namespace internal
                           .get_dof_indices(neighbor_dofs_all);
 
                         for (unsigned int i = 0; i < dofs_per_face; ++i)
-                          neighbor_dofs[i] =
-                            neighbor_dofs_all[component_to_system_index_face(
-                              comp, i)];
+                          neighbor_dofs[i] = neighbor_dofs_all
+                            [component_to_system_index_face_array[comp][i]];
 
                         // If the vector is distributed, we need to transform
                         // the global indices to local ones.
