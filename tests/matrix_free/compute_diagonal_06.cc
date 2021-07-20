@@ -25,23 +25,15 @@ template <int dim,
           typename Number              = double,
           typename VectorizedArrayType = VectorizedArray<Number>>
 void
-test()
+test(const std::vector<std::shared_ptr<Triangulation<dim>>> &trias)
 {
-  for (unsigned int i = 0; i < Utilities::pow<unsigned int>(3, dim); ++i)
+  for (const auto &tria : trias)
     {
-      parallel::distributed::Triangulation<dim> tria(MPI_COMM_WORLD);
-
-      GridGenerator::subdivided_hyper_cube(tria, 3);
-
-      CellAccessor<dim, dim>(&tria, 0, i).set_refine_flag();
-
-      tria.execute_coarsening_and_refinement();
-
       const FE_Q<dim>     fe_q(fe_degree);
       const FESystem<dim> fe(fe_q, n_components);
 
       // setup dof-handlers
-      DoFHandler<dim> dof_handler(tria);
+      DoFHandler<dim> dof_handler(*tria);
       dof_handler.distribute_dofs(fe);
 
       AffineConstraints<Number> constraint;
@@ -79,17 +71,45 @@ test()
     }
 }
 
+template <int dim>
+std::vector<std::shared_ptr<Triangulation<dim>>>
+create_triangulations()
+{
+  std::vector<std::shared_ptr<Triangulation<dim>>> result;
+
+  for (unsigned int i = 0; i < Utilities::pow<unsigned int>(3, dim); ++i)
+    {
+      std::shared_ptr<Triangulation<dim>> tria =
+        std::make_shared<parallel::distributed::Triangulation<dim>>(
+          MPI_COMM_WORLD);
+      GridGenerator::subdivided_hyper_cube(*tria, 3);
+      CellAccessor<dim, dim>(tria.get(), 0, i).set_refine_flag();
+      tria->execute_coarsening_and_refinement();
+      result.push_back(tria);
+    }
+
+  return result;
+}
+
 int
 main(int argc, char **argv)
 {
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
   MPILogInitAll                    all;
 
-  // 2D - linear
-  test<2, 1, 2, 1>(); // scalar
-  test<2, 1, 2, 2>(); // vector
+  {
+    const auto trias = create_triangulations<2>();
 
-  // 3D - linear
-  test<3, 1, 2, 1>(); // scalar
-  test<3, 1, 2, 3>(); // vector
+    // 2D - linear
+    test<2, 1, 2, 1>(trias); // scalar
+    test<2, 1, 2, 2>(trias); // vector
+  }
+
+  {
+    const auto trias = create_triangulations<3>();
+
+    // 3D - linear
+    test<3, 1, 2, 1>(trias); // scalar
+    test<3, 1, 2, 3>(trias); // vector
+  }
 }
