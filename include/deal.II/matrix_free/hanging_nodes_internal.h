@@ -531,7 +531,7 @@ namespace internal
                         // For each cell which share that edge
                         const unsigned int line =
                           cell->line(local_line)->index();
-                        for (const auto edge_neighbor : line_to_cells[line])
+                        for (const auto &edge_neighbor : line_to_cells[line])
                           {
                             // If one of them is coarser than us
                             const auto neighbor_cell = edge_neighbor.first;
