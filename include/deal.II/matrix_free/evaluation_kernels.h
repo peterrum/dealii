@@ -4492,19 +4492,19 @@ namespace internal
       const unsigned int d = side / 2; // direction
       const unsigned int s = side % 2; // left or right surface
 
-      const unsigned int b1 = dealii::Utilities::pow(points, d + 1);
-      const unsigned int b2 =
+      const unsigned int offset = dealii::Utilities::pow(points, d + 1);
+      const unsigned int stride =
         (s == 0 ? 0 : (points - 1)) * dealii::Utilities::pow(points, d);
 
       const unsigned int r1 = dealii::Utilities::pow(points, dim - d - 1);
       const unsigned int r2 = dealii::Utilities::pow(points, d);
 
-      // perform interpolation point by point
+      // perform interpolation point by point (note: r1 * r2 == points^(dim-1))
       for (unsigned int h = 0; h < points; ++h)
         for (unsigned int i = 0, k = 0; i < r1; ++i)
           for (unsigned int j = 0; j < r2; ++j, ++k)
             {
-              const unsigned int index_v = i * b1 + b2 + j;
+              const unsigned int index_v = i * offset + stride + j;
               const unsigned int index_w =
                 ((transpose ? 1 : points) *
                  (is_subface_0 ? h : (points - 1 - h))) +
@@ -4519,7 +4519,7 @@ namespace internal
       // copy result back
       for (unsigned int i = 0, k = 0; i < r1; ++i)
         for (unsigned int j = 0; j < r2; ++j, ++k)
-          values[i * b1 + b2 + j][v] = temp[k];
+          values[i * offset + stride + j][v] = temp[k];
     }
 
     template <int          fe_degree,
@@ -4527,7 +4527,7 @@ namespace internal
               unsigned int side,
               bool         transpose>
     static void
-    interpolate_3D_face(const unsigned int p,
+    interpolate_3D_face(const unsigned int dof_offset,
                         const unsigned int given_degree,
                         bool               is_subface_0,
                         const unsigned int v,
@@ -4536,10 +4536,10 @@ namespace internal
     {
       if (is_subface_0)
         interpolate_3D_face<fe_degree, direction, side, transpose, true>(
-          p, given_degree, v, weight, values);
+          dof_offset, given_degree, v, weight, values);
       else
         interpolate_3D_face<fe_degree, direction, side, transpose, false>(
-          p, given_degree, v, weight, values);
+          dof_offset, given_degree, v, weight, values);
     }
 
     template <int          fe_degree,
@@ -4548,7 +4548,7 @@ namespace internal
               bool         transpose,
               bool         is_subface_0>
     static void
-    interpolate_3D_face(const unsigned int p,
+    interpolate_3D_face(const unsigned int dof_offset,
                         const unsigned int given_degree,
                         const unsigned int v,
                         const Number *     weight,
@@ -4577,7 +4577,8 @@ namespace internal
           for (unsigned int h = 0; h < points; ++h)
             for (unsigned int k = 0; k < points; ++k)
               {
-                const unsigned int index_v = p + k * stride + stride2 * g;
+                const unsigned int index_v =
+                  dof_offset + k * stride + stride2 * g;
                 const unsigned int index_w =
                   ((transpose ? 1 : points) *
                    (is_subface_0 ? h : (points - 1 - h))) +
@@ -4591,7 +4592,7 @@ namespace internal
 
           // copy result back
           for (unsigned int k = 0; k < points; ++k)
-            values[p + k * stride + stride2 * g][v] = temp[k];
+            values[dof_offset + k * stride + stride2 * g][v] = temp[k];
         }
     }
 
