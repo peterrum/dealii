@@ -4499,27 +4499,27 @@ namespace internal
       const unsigned int r1 = dealii::Utilities::pow(points, dim - d - 1);
       const unsigned int r2 = dealii::Utilities::pow(points, d);
 
+      // copy result back
+      for (unsigned int i = 0, k = 0; i < r1; ++i)
+        for (unsigned int j = 0; j < r2; ++j, ++k)
+          temp[k] = values[i * offset + stride + j][v];
+
       // perform interpolation point by point (note: r1 * r2 == points^(dim-1))
-      for (unsigned int h = 0; h < points; ++h)
-        for (unsigned int i = 0, k = 0; i < r1; ++i)
-          for (unsigned int j = 0; j < r2; ++j, ++k)
+      for (unsigned int i = 0, k = 0; i < r1; ++i)
+        for (unsigned int j = 0; j < r2; ++j, ++k)
+          for (unsigned int h = 0; h < points; ++h)
             {
               const unsigned int index_v = i * offset + stride + j;
               const unsigned int index_w =
                 ((transpose ? 1 : points) *
-                 (is_subface_0 ? h : (points - 1 - h))) +
+                 (is_subface_0 ? k : (points - 1 - k))) +
                 ((transpose ? points : 1) *
-                 (is_subface_0 ? k : (points - 1 - k)));
-              if (k == 0)
-                temp[h] = weight[index_w][v] * values[index_v][v];
+                 (is_subface_0 ? h : (points - 1 - h)));
+              if (h == 0)
+                values[index_v][v] = weight[index_w][v] * temp[h];
               else
-                temp[h] += weight[index_w][v] * values[index_v][v];
+                values[index_v][v] += weight[index_w][v] * temp[h];
             }
-
-      // copy result back
-      for (unsigned int i = 0, k = 0; i < r1; ++i)
-        for (unsigned int j = 0; j < r2; ++j, ++k)
-          values[i * offset + stride + j][v] = temp[k];
     }
 
     template <int          fe_degree,
@@ -4571,28 +4571,28 @@ namespace internal
           (((direction == 0 && d == 2) || (direction == 2 && d == 0)) ? points :
                                                                         1);
 
-      // perform interpolation point by point
       for (unsigned int g = 1; g < points - 1; ++g)
         {
-          for (unsigned int h = 0; h < points; ++h)
-            for (unsigned int k = 0; k < points; ++k)
+          // copy result back
+          for (unsigned int k = 0; k < points; ++k)
+            temp[k] = values[dof_offset + k * stride + stride2 * g][v];
+
+          // perform interpolation point by point
+          for (unsigned int k = 0; k < points; ++k)
+            for (unsigned int h = 0; h < points; ++h)
               {
                 const unsigned int index_v =
                   dof_offset + k * stride + stride2 * g;
                 const unsigned int index_w =
                   ((transpose ? 1 : points) *
-                   (is_subface_0 ? h : (points - 1 - h))) +
+                   (is_subface_0 ? k : (points - 1 - k))) +
                   ((transpose ? points : 1) *
-                   (is_subface_0 ? k : (points - 1 - k)));
-                if (k == 0)
-                  temp[h] = weight[index_w][v] * values[index_v][v];
+                   (is_subface_0 ? h : (points - 1 - h)));
+                if (h == 0)
+                  values[index_v][v] = weight[index_w][v] * temp[h];
                 else
-                  temp[h] += weight[index_w][v] * values[index_v][v];
+                  values[index_v][v] += weight[index_w][v] * temp[h];
               }
-
-          // copy result back
-          for (unsigned int k = 0; k < points; ++k)
-            values[dof_offset + k * stride + stride2 * g][v] = temp[k];
         }
     }
 
@@ -4630,25 +4630,25 @@ namespace internal
         (fe_degree != -1 ? fe_degree : given_degree) + 1;
       const unsigned int stride = Utilities::pow(points, direction);
 
+      // copy result back
+      for (unsigned int k = 0; k < points; ++k)
+        temp[k] = values[p + k * stride][v];
+
       // perform interpolation point by point
-      for (unsigned int h = 0; h < points; ++h)
-        for (unsigned int k = 0; k < points; ++k)
+      for (unsigned int k = 0; k < points; ++k)
+        for (unsigned int h = 0; h < points; ++h)
           {
             const unsigned int index_v = p + k * stride;
             const unsigned int index_w =
               ((transpose ? 1 : points) *
-               (is_subface_0 ? h : (points - 1 - h))) +
+               (is_subface_0 ? k : (points - 1 - k))) +
               ((transpose ? points : 1) *
-               (is_subface_0 ? k : (points - 1 - k)));
-            if (k == 0)
-              temp[h] = weight[index_w][v] * values[index_v][v];
+               (is_subface_0 ? h : (points - 1 - h)));
+            if (h == 0)
+              values[index_v][v] = weight[index_w][v] * temp[h];
             else
-              temp[h] += weight[index_w][v] * values[index_v][v];
+              values[index_v][v] += weight[index_w][v] * temp[h];
           }
-
-      // copy result back
-      for (unsigned int k = 0; k < points; ++k)
-        values[p + k * stride][v] = temp[k];
     }
 
     template <int fe_degree, bool transpose>
