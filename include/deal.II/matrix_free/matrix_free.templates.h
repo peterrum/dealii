@@ -1227,7 +1227,7 @@ namespace internal
                   {
                     local_dof_indices_resolved = local_dof_indices;
 
-                    cell_has_hanging_node_constraints |=
+                    cell_has_hanging_node_constraints =
                       dof_info[no].process_hanging_node_constraints(
                         *hanging_nodes,
                         lexicographic[no][0],

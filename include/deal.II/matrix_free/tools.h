@@ -443,7 +443,7 @@ namespace MatrixFreeTools
                      }),
               locally_relevant_constrains.end());
 
-            // STEP 2b: apply hanging-node constraints
+            // STEP 2c: apply hanging-node constraints
             if (dof_info.hanging_node_constraint_masks.size() > 0)
               {
                 const auto mask =
