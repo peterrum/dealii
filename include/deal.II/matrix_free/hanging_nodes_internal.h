@@ -133,8 +133,10 @@ namespace internal
     inline HangingNodes<dim>::HangingNodes(
       const Triangulation<dim> &triangulation)
     {
-      // Set up line-to-cell mapping for edge constraints (only if dim = 3)
-      setup_line_to_cell(triangulation);
+      // Set up line-to-cell mapping for edge constraints (only if dim = 3 and
+      // for pure hex meshes)
+      if (triangulation.all_reference_cells_are_hyper_cube())
+        setup_line_to_cell(triangulation);
     }
 
 
@@ -237,6 +239,10 @@ namespace internal
       const ArrayView<unsigned int> &       masks) const
     {
       bool cell_has_hanging_node_constraints = false;
+
+      // for simplex or mixed meshes: nothing to do
+      if (dim == 3 && line_to_cells.size() == 0)
+        return cell_has_hanging_node_constraints;
 
       const auto &fe = cell->get_fe();
 
