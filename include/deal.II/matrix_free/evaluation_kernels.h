@@ -4484,10 +4484,12 @@ namespace internal
                    const Number *     weight,
                    Number *           values)
     {
-      typename Number::value_type temp[10 /*TODO*/];
+      typename Number::value_type temp[40];
 
       const unsigned int points =
         (fe_degree != -1 ? fe_degree : given_degree) + 1;
+
+      AssertIndexRange(points, 40);
 
       const unsigned int d = side / 2; // direction
       const unsigned int s = side % 2; // left or right surface
@@ -4507,19 +4509,16 @@ namespace internal
       // perform interpolation point by point (note: r1 * r2 == points^(dim-1))
       for (unsigned int i = 0, k = 0; i < r1; ++i)
         for (unsigned int j = 0; j < r2; ++j, ++k)
-          for (unsigned int h = 0; h < points; ++h)
-            {
-              const unsigned int index_v = i * offset + stride + j;
-              const unsigned int index_w =
-                ((transpose ? 1 : points) *
-                 (is_subface_0 ? k : (points - 1 - k))) +
-                ((transpose ? points : 1) *
-                 (is_subface_0 ? h : (points - 1 - h)));
-              if (h == 0)
-                values[index_v][v] = weight[index_w][v] * temp[h];
-              else
-                values[index_v][v] += weight[index_w][v] * temp[h];
-            }
+          {
+            typename Number::value_type sum = 0.0;
+            for (unsigned int h = 0; h < points; ++h)
+              sum += weight[((transpose ? 1 : points) *
+                             (is_subface_0 ? k : (points - 1 - k))) +
+                            ((transpose ? points : 1) *
+                             (is_subface_0 ? h : (points - 1 - h)))][v] *
+                     temp[h];
+            values[i * offset + stride + j][v] = sum;
+          }
     }
 
     template <int          fe_degree,
@@ -4554,10 +4553,13 @@ namespace internal
                         const Number *     weight,
                         Number *           values)
     {
-      typename Number::value_type temp[10 /*TODO*/];
+      typename Number::value_type temp[40];
 
       const unsigned int points =
         (fe_degree != -1 ? fe_degree : given_degree) + 1;
+
+      AssertIndexRange(points, 40);
+
       const unsigned int stride = Utilities::pow(points, direction);
       const unsigned int d      = side / 2;
 
@@ -4579,20 +4581,16 @@ namespace internal
 
           // perform interpolation point by point
           for (unsigned int k = 0; k < points; ++k)
-            for (unsigned int h = 0; h < points; ++h)
-              {
-                const unsigned int index_v =
-                  dof_offset + k * stride + stride2 * g;
-                const unsigned int index_w =
-                  ((transpose ? 1 : points) *
-                   (is_subface_0 ? k : (points - 1 - k))) +
-                  ((transpose ? points : 1) *
-                   (is_subface_0 ? h : (points - 1 - h)));
-                if (h == 0)
-                  values[index_v][v] = weight[index_w][v] * temp[h];
-                else
-                  values[index_v][v] += weight[index_w][v] * temp[h];
-              }
+            {
+              typename Number::value_type sum = 0.0;
+              for (unsigned int h = 0; h < points; ++h)
+                sum += weight[((transpose ? 1 : points) *
+                               (is_subface_0 ? k : (points - 1 - k))) +
+                              ((transpose ? points : 1) *
+                               (is_subface_0 ? h : (points - 1 - h)))][v] *
+                       temp[h];
+              values[dof_offset + k * stride + stride2 * g][v] = sum;
+            }
         }
     }
 
@@ -4624,10 +4622,13 @@ namespace internal
                         const Number *     weight,
                         Number *           values)
     {
-      typename Number::value_type temp[10 /*TODO*/];
+      typename Number::value_type temp[40];
 
       const unsigned int points =
         (fe_degree != -1 ? fe_degree : given_degree) + 1;
+
+      AssertIndexRange(points, 40);
+
       const unsigned int stride = Utilities::pow(points, direction);
 
       // copy result back
@@ -4636,19 +4637,16 @@ namespace internal
 
       // perform interpolation point by point
       for (unsigned int k = 0; k < points; ++k)
-        for (unsigned int h = 0; h < points; ++h)
-          {
-            const unsigned int index_v = p + k * stride;
-            const unsigned int index_w =
-              ((transpose ? 1 : points) *
-               (is_subface_0 ? k : (points - 1 - k))) +
-              ((transpose ? points : 1) *
-               (is_subface_0 ? h : (points - 1 - h)));
-            if (h == 0)
-              values[index_v][v] = weight[index_w][v] * temp[h];
-            else
-              values[index_v][v] += weight[index_w][v] * temp[h];
-          }
+        {
+          typename Number::value_type sum = 0.0;
+          for (unsigned int h = 0; h < points; ++h)
+            sum += weight[((transpose ? 1 : points) *
+                           (is_subface_0 ? k : (points - 1 - k))) +
+                          ((transpose ? points : 1) *
+                           (is_subface_0 ? h : (points - 1 - h)))][v] *
+                   temp[h];
+          values[p + k * stride][v] = sum;
+        }
     }
 
     template <int fe_degree, bool transpose>
