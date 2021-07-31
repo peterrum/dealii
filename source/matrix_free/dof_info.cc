@@ -104,7 +104,8 @@ namespace internal
           // one
           const bool has_constraints =
             (hanging_node_constraint_masks.size() != 0 &&
-             hanging_node_constraint_masks[ib] != 0) ||
+             hanging_node_constraint_masks[cell * n_vectorization + v] != 0 &&
+             hanging_node_constraint_masks_comp[0 /*TODO*/]) ||
             (row_starts[ib].second != row_starts[ib + n_fe_components].second);
 
           auto do_copy = [&](const unsigned int *begin,
@@ -225,12 +226,11 @@ namespace internal
                 {
                   bool has_hanging_nodes = false;
 
-                  if (hanging_node_constraint_masks.size() > 0)
+                  if (hanging_node_constraint_masks.size() > 0 &&
+                      hanging_node_constraint_masks[boundary_cells[i]] > 0)
                     for (unsigned int comp = 0; comp < n_components; ++comp)
                       has_hanging_nodes |=
-                        hanging_node_constraint_masks[boundary_cells[i] *
-                                                        n_components +
-                                                      comp] > 0;
+                        hanging_node_constraint_masks_comp[comp];
 
                   if (has_hanging_nodes ||
                       row_starts[boundary_cells[i] * n_components].second !=
@@ -338,7 +338,7 @@ namespace internal
 
       std::vector<ConstraintTypes> new_hanging_node_constraint_masks;
       new_hanging_node_constraint_masks.reserve(
-        new_hanging_node_constraint_masks.size());
+        hanging_node_constraint_masks.size());
 
       if (store_plain_indices == true)
         {
@@ -371,6 +371,19 @@ namespace internal
 
               bool has_hanging_nodes = false;
 
+              if (hanging_node_constraint_masks.size() > 0)
+                {
+                  const auto mask =
+                    hanging_node_constraint_masks[renumbering[position_cell +
+                                                              j]];
+                  new_hanging_node_constraint_masks.push_back(mask);
+
+                  if (mask > 0)
+                    for (unsigned int comp = 0; comp < n_components; ++comp)
+                      has_hanging_nodes |=
+                        hanging_node_constraint_masks_comp[comp];
+                }
+
               for (unsigned int comp = 0; comp < n_components; ++comp)
                 {
                   new_row_starts[(i * vectorization_length + j) * n_components +
@@ -379,14 +392,6 @@ namespace internal
                   new_row_starts[(i * vectorization_length + j) * n_components +
                                  comp]
                     .second = new_constraint_indicator.size();
-
-                  if (hanging_node_constraint_masks.size() > 0)
-                    {
-                      const auto mask =
-                        hanging_node_constraint_masks[cell_no + comp];
-                      new_hanging_node_constraint_masks.push_back(mask);
-                      has_hanging_nodes |= mask > 0;
-                    }
 
                   new_dof_indices.insert(
                     new_dof_indices.end(),
@@ -423,11 +428,12 @@ namespace internal
                 new_row_starts[(i * vectorization_length + j) * n_components +
                                comp]
                   .second = new_constraint_indicator.size();
-
-                if (hanging_node_constraint_masks.size() > 0)
-                  new_hanging_node_constraint_masks.push_back(
-                    ConstraintTypes::unconstrained);
               }
+          for (unsigned int j = n_vect; j < vectorization_length; ++j)
+            if (hanging_node_constraint_masks.size() > 0)
+              new_hanging_node_constraint_masks.push_back(
+                ConstraintTypes::unconstrained);
+
           position_cell += n_vect;
         }
       AssertDimension(position_cell * n_components + 1, row_starts.size());

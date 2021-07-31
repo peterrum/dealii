@@ -4472,9 +4472,9 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
       for (unsigned int v = 0; v < n_vectorization_actual; ++v)
         if (this->dof_info->hanging_node_constraint_masks.size() > 0 &&
             this->dof_info
-                ->hanging_node_constraint_masks[(this->cell * n_lanes + v) *
-                                                  n_fe_components +
-                                                first_selected_component] != 0)
+              ->hanging_node_constraint_masks[this->cell * n_lanes + v] &&
+            this->dof_info->hanging_node_constraint_masks_comp
+                [first_selected_component] != 0)
           has_hn_constraints = true;
     }
 
@@ -4578,10 +4578,10 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
 
           if (this->dof_info->hanging_node_constraint_masks.size() > 0 &&
               this->dof_info
-                  ->hanging_node_constraint_masks[(this->cell * n_lanes + v) *
-                                                    n_fe_components +
-                                                  first_selected_component] !=
-                0)
+                  ->hanging_node_constraint_masks[this->cell * n_lanes + v] !=
+                0 &&
+              this->dof_info
+                ->hanging_node_constraint_masks_comp[first_selected_component])
             has_hn_constraints = true;
 
           Assert(my_index_start[n_components_read].first ==
@@ -4656,7 +4656,9 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
              this->dof_info->row_starts[cell_dof_index + n_components_read]
                .second ||
            (this->dof_info->hanging_node_constraint_masks.size() > 0 &&
-            this->dof_info->hanging_node_constraint_masks[cell_dof_index] > 0)))
+            this->dof_info->hanging_node_constraint_masks[cell_index] > 0 &&
+            this->dof_info->hanging_node_constraint_masks_comp
+              [this->first_selected_component])))
         {
           Assert(this->dof_info->row_starts_plain_indices[cell_index] !=
                    numbers::invalid_unsigned_int,
@@ -5305,7 +5307,10 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
   apply_hanging_node_constraints() const
 {
   if (this->dof_info == nullptr ||
-      this->dof_info->hanging_node_constraint_masks.size() == 0)
+      this->dof_info->hanging_node_constraint_masks.size() == 0 ||
+      this->dof_info
+          ->hanging_node_constraint_masks_comp[first_selected_component] ==
+        false)
     return; // nothing to do with faces
 
   unsigned int n_vectorization_actual =
@@ -5340,11 +5345,9 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
     {
       const unsigned int cell_index =
         is_face ? cells[v] : this->cell * n_lanes + v;
-      const unsigned int cell_dof_index =
-        cell_index * n_fe_components + first_selected_component;
 
       const auto mask =
-        this->dof_info->hanging_node_constraint_masks[cell_dof_index];
+        this->dof_info->hanging_node_constraint_masks[cell_index];
       constraint_mask[v] = mask;
 
       hn_available |=

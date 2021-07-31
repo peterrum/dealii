@@ -303,6 +303,8 @@ namespace internal
             idx_offset.back() +
             cell->get_fe().base_element(base_element_index).n_dofs_per_cell());
 
+      masks[0] = ConstraintTypes::unconstrained;
+
       for (unsigned int base_element_index = 0, comp = 0;
            base_element_index < cell->get_fe().n_base_elements();
            ++base_element_index)
@@ -313,8 +315,7 @@ namespace internal
             if (comp_mask[comp] == false)
               continue;
 
-            auto &mask = masks[comp];
-            mask       = ConstraintTypes::unconstrained;
+            auto mask = ConstraintTypes::unconstrained;
 
             const auto &fe = cell->get_fe().base_element(base_element_index);
 
@@ -666,6 +667,8 @@ namespace internal
                       }
                   }
               }
+
+            masks[0] |= mask;
             cell_has_hanging_node_constraints |= mask != 0;
           }
       return cell_has_hanging_node_constraints;

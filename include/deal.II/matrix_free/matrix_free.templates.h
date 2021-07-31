@@ -1183,8 +1183,7 @@ namespace internal
           dealii::internal::MatrixFreeFunctions::HangingNodes<dim>>(tria);
         for (unsigned int no = 0; no < n_dof_handlers; ++no)
           if (dof_handler[no]->get_fe_collection().size() == 1)
-            dof_info[no].hanging_node_constraint_masks.resize(
-              n_active_cells * dof_handler[no]->get_fe().n_components());
+            dof_info[no].hanging_node_constraint_masks.resize(n_active_cells);
       }
 
     if (dim > 1 && mg_level == numbers::invalid_unsigned_int)

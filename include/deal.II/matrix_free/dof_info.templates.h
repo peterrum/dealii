@@ -284,9 +284,7 @@ namespace internal
       std::vector<types::global_dof_index> &                dof_indices)
     {
       const ArrayView<ConstraintTypes> mask_view(
-        hanging_node_constraint_masks.data() +
-          cell_number * cell->get_fe().n_components(),
-        cell->get_fe().n_components());
+        hanging_node_constraint_masks.data() + cell_number, 1);
 
       return hanging_nodes.setup_constraints(
         cell,
