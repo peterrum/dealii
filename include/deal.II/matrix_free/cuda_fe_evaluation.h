@@ -238,7 +238,7 @@ namespace CUDAWrappers
     unsigned int             padding_length;
     const unsigned int       mf_object_id;
 
-    const unsigned int constraint_mask;
+    const ConstraintTypes constraint_mask;
 
     const bool use_coloring;
 
