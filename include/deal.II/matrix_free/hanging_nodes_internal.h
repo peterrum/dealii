@@ -127,7 +127,8 @@ namespace internal
         const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
         const std::vector<unsigned int> &     lexicographic_mapping,
         std::vector<types::global_dof_index> &dof_indices,
-        const ArrayView<ConstraintTypes> &    mask) const;
+        const ArrayView<ConstraintTypes> &    mask,
+        const std::vector<bool> &             comp_mask) const;
 
     private:
       /**
@@ -270,23 +271,9 @@ namespace internal
       const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
       const std::vector<unsigned int> &     lexicographic_mapping,
       std::vector<types::global_dof_index> &dof_indices,
-      const ArrayView<ConstraintTypes> &    masks) const
+      const ArrayView<ConstraintTypes> &    masks,
+      const std::vector<bool> &             comp_mask) const
     {
-      std::vector<bool> comp_mask(cell->get_fe().n_components());
-
-      for (unsigned int base_element_index = 0, comp = 0;
-           base_element_index < cell->get_fe().n_base_elements();
-           ++base_element_index)
-        for (unsigned int c = 0;
-             c < cell->get_fe().element_multiplicity(base_element_index);
-             ++c, ++comp)
-          {
-            const auto &fe = cell->get_fe().base_element(base_element_index);
-            comp_mask[comp] =
-              (dim == 1 || dynamic_cast<const FE_Q<dim> *>(&fe) == nullptr) ==
-              false;
-          }
-
       bool cell_has_hanging_node_constraints = false;
 
       // for simplex or mixed meshes: nothing to do

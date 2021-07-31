@@ -1187,6 +1187,15 @@ namespace internal
               n_active_cells * dof_handler[no]->get_fe().n_components());
       }
 
+    if (dim > 1 && mg_level == numbers::invalid_unsigned_int)
+      for (unsigned int no = 0; no < n_dof_handlers; ++no)
+        {
+          const auto &dofh = *dof_handler[no];
+
+          if (dofh.get_fe_collection().size() == 1)
+            dof_info[no].process_hanging_node_constraints_pre(dofh);
+        }
+
     for (unsigned int counter = 0; counter < n_active_cells; ++counter)
       {
         bool cell_at_subdomain_boundary =

@@ -289,7 +289,12 @@ namespace internal
         cell->get_fe().n_components());
 
       return hanging_nodes.setup_constraints(
-        cell, {}, lexicographic_mapping, dof_indices, mask_view);
+        cell,
+        {},
+        lexicographic_mapping,
+        dof_indices,
+        mask_view,
+        hanging_node_constraint_masks_comp);
     }
 
 

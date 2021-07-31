@@ -216,6 +216,32 @@ namespace internal
         bool &                                      cell_at_boundary);
 
       /**
+       * TODO
+       */
+      template <int dim>
+      void
+      process_hanging_node_constraints_pre(const DoFHandler<dim> &dof_handler)
+      {
+        AssertDimension(dof_handler.get_fe_collection().size(), 1);
+        const auto &fe = dof_handler.get_fe();
+
+        hanging_node_constraint_masks_comp.assign(fe.n_components(), false);
+
+        for (unsigned int base_element_index = 0, comp = 0;
+             base_element_index < fe.n_base_elements();
+             ++base_element_index)
+          for (unsigned int c = 0;
+               c < fe.element_multiplicity(base_element_index);
+               ++c, ++comp)
+            {
+              const auto &fe_comp = fe.base_element(base_element_index);
+              hanging_node_constraint_masks_comp[comp] =
+                (dim == 1 ||
+                 dynamic_cast<const FE_Q<dim> *>(&fe_comp) == nullptr) == false;
+            }
+      }
+
+      /**
        * For a given cell, determine if it has hanging node constraints. If yes,
        * adjust the dof indices, store the mask, and return true as indication.
        */
@@ -523,6 +549,11 @@ namespace internal
        * in the variable @p row_starts.
        */
       std::vector<unsigned int> dof_indices;
+
+      /**
+       * TODO
+       */
+      std::vector<bool> hanging_node_constraint_masks_comp;
 
       /**
        * Masks indicating for each cell and component if the optimized
