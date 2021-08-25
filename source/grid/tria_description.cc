@@ -211,9 +211,7 @@ namespace TriangulationDescription
           std::vector<bool> vertices_owned_by_locally_owned_cells_on_level(
             tria.n_vertices());
           for (const auto &cell : tria.cell_iterators_on_level(level))
-            if ((construct_multigrid &&
-                 (cell->level_subdomain_id() == my_rank)) ||
-                (cell->is_active() && cell->subdomain_id() == my_rank))
+            if (construct_multigrid && (cell->level_subdomain_id() == my_rank))
               add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
                 cell, vertices_owned_by_locally_owned_cells_on_level);
 
@@ -618,32 +616,61 @@ namespace TriangulationDescription
         // make cells unique
         for (unsigned int i = 0; i < this->cell_infos.size(); ++i)
           {
+            if(this->cell_infos[i].size() == 0)
+              continue;
+
+            
+
             std::sort(this->cell_infos[i].begin(),
                       this->cell_infos[i].end(),
-                      [](const auto &a, const auto &b) { return a.id < b.id; });
-            this->cell_infos[i].erase(std::unique(this->cell_infos[i].begin(),
-                                                  this->cell_infos[i].end(),
-                                                  [](const auto &a,
-                                                     const auto &b) {
-                                                    return a.id == b.id;
-                                                  }),
-                                      this->cell_infos[i].end());
+                      [](const auto &a, const auto &b) {
+                          return a.id < b.id;
+                      });
+
+            std::vector<CellData<dim>> temp;
+            temp.push_back(this->cell_infos[i][0]);
+
+            for(unsigned int j = 1; j < this->cell_infos[i].size(); ++j)
+              if(temp.back().id == cell_infos[i][j].id)
+                {
+                  temp.back().subdomain_id = std::min(temp.back().subdomain_id, this->cell_infos[i][j].subdomain_id);
+                  temp.back().level_subdomain_id = std::min(temp.back().level_subdomain_id, this->cell_infos[i][j].level_subdomain_id);
+                }
+              else
+               {
+                  temp.push_back(this->cell_infos[i][j]);
+               }
+
+            this->cell_infos[i] = temp;
+
+             /*
+            this->cell_infos[i].erase(
+              std::unique(this->cell_infos[i].begin(),
+                          this->cell_infos[i].end(),
+                          [](const auto &a, const auto &b) {
+                            if(a.id == b.id)
+                             AssertDimension(a.subdomain_id, b.subdomain_id);
+
+                            return a.id == b.id;
+                          }),
+              this->cell_infos[i].end());
+             */
+             
           }
       }
 
       Description<dim, spacedim>
       convert(const MPI_Comm comm,
               const typename Triangulation<dim, spacedim>::MeshSmoothing
-                mesh_smoothing)
+                                                       mesh_smoothing,
+              const TriangulationDescription::Settings settings)
       {
         Description<dim, spacedim> description;
 
         // copy communicator
         description.comm = comm;
 
-        // set settings (no multigrid levels are set for now)
-        description.settings =
-          TriangulationDescription::Settings::default_setting;
+        description.settings = settings;
 
         // use mesh smoothing from base triangulation
         description.smoothing = mesh_smoothing;
@@ -682,17 +709,17 @@ namespace TriangulationDescription
 
 
 
-    template <int dim, int spacedim>
+    template <int dim, int spacedim, typename T1, typename T2>
     void
-    fill_cell_infos(const TriaIterator<CellAccessor<dim, spacedim>> &cell,
-                    std::vector<std::vector<CellData<dim>>> &        cell_infos,
-                    const LinearAlgebra::distributed::Vector<double> &partition)
+    fill_cell_infos(
+      const TriaIterator<CellAccessor<dim, spacedim>> & cell,
+      std::vector<std::vector<CellData<dim>>> &         cell_infos,
+      const LinearAlgebra::distributed::Vector<double> &partition,
+      const std::vector<LinearAlgebra::distributed::Vector<double>>
+        &       partitions_mg,
+      const T1 &is_locally_relevant_on_active_level,
+      const T2 &is_locally_relevant_on_level)
     {
-      if (cell->user_flag_set())
-        return; // cell has been already added -> nothing to do
-
-      cell->set_user_flag();
-
       CellData<dim> cell_info;
 
       // save coarse-cell id
@@ -722,19 +749,20 @@ namespace TriangulationDescription
             cell_info.manifold_quad_ids[f] = cell->quad(f)->manifold_id();
       }
 
-      // subdomain and level subdomain id
-      if (cell->is_active())
+
+      if (is_locally_relevant_on_active_level(cell))
         cell_info.subdomain_id = static_cast<unsigned int>(
           partition[cell->global_active_cell_index()]);
       else
         cell_info.subdomain_id = numbers::artificial_subdomain_id;
 
-      cell_info.level_subdomain_id = numbers::artificial_subdomain_id;
+      if (is_locally_relevant_on_level(cell))
+        cell_info.level_subdomain_id = static_cast<unsigned int>(
+          partitions_mg[cell->level()][cell->global_level_cell_index()]);
+      else
+        cell_info.level_subdomain_id = numbers::artificial_subdomain_id;
 
       cell_infos[cell->level()].emplace_back(cell_info);
-
-      if (cell->level() != 0) // proceed with parent
-        fill_cell_infos(cell->parent(), cell_infos, partition);
     }
 
 
@@ -743,7 +771,77 @@ namespace TriangulationDescription
     Description<dim, spacedim>
     create_description_from_triangulation(
       const Triangulation<dim, spacedim> &              tria,
-      const LinearAlgebra::distributed::Vector<double> &partition)
+      const LinearAlgebra::distributed::Vector<double> &partition,
+      const TriangulationDescription::Settings          settings)
+    {
+      const bool construct_multigrid =
+        (partition.size() > 0) &&
+        (settings &
+         TriangulationDescription::Settings::construct_multigrid_hierarchy);
+
+      Assert(
+        construct_multigrid == false ||
+          (tria.get_mesh_smoothing() &
+           Triangulation<dim, spacedim>::limit_level_difference_at_vertices),
+        ExcMessage(
+          "Source triangulation has to be set up with "
+          "limit_level_difference_at_vertices if the construction of the "
+          "multigrid hierarchy is requested!"));
+
+      std::vector<LinearAlgebra::distributed::Vector<double>> partitions_mg;
+
+      if (construct_multigrid) // perform first child policy
+        {
+          const auto tria_parallel =
+            dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
+              &tria);
+
+          Assert(tria_parallel, ExcInternalError());
+
+          partition.update_ghost_values();
+
+          partitions_mg.resize(tria.n_global_levels());
+
+          for (unsigned int l = 0; l < tria.n_global_levels(); ++l)
+            partitions_mg[l].reinit(
+              tria_parallel->global_level_cell_index_partitioner(l).lock());
+
+          for (int level = tria.n_global_levels() - 1; level >= 0; --level)
+            {
+              for (const auto &cell : tria.cell_iterators_on_level(level))
+                {
+                  if (cell->is_locally_owned_on_level() == false)
+                    continue;
+
+                  if (cell->is_active())
+                    partitions_mg[level][cell->global_level_cell_index()] =
+                      partition[cell->global_active_cell_index()];
+                  else
+                    partitions_mg[level][cell->global_level_cell_index()] =
+                      partitions_mg[level + 1]
+                                   [cell->child(0)->global_level_cell_index()];
+                }
+
+              partitions_mg[level].update_ghost_values();
+            }
+        }
+
+      return create_description_from_triangulation(tria,
+                                                   partition,
+                                                   partitions_mg,
+                                                   settings);
+    }
+
+
+
+    template <int dim, int spacedim>
+    Description<dim, spacedim>
+    create_description_from_triangulation(
+      const Triangulation<dim, spacedim> &              tria,
+      const LinearAlgebra::distributed::Vector<double> &partition,
+      const std::vector<LinearAlgebra::distributed::Vector<double>>
+        &                                      partitions_mg,
+      const TriangulationDescription::Settings settings_in)
     {
 #ifdef DEAL_II_WITH_MPI
       if (tria.get_communicator() == MPI_COMM_NULL)
@@ -751,10 +849,35 @@ namespace TriangulationDescription
 #endif
 
       if (partition.size() == 0)
-        return create_description_from_triangulation(tria,
-                                                     tria.get_communicator());
+        {
+          AssertDimension(partitions_mg.size(), 0);
+          return create_description_from_triangulation(tria,
+                                                       tria.get_communicator(),
+                                                       settings_in);
+        }
 
       partition.update_ghost_values();
+
+      for (const auto &partition : partitions_mg)
+        partition.update_ghost_values();
+
+      const bool construct_multigrid = partitions_mg.size() > 0;
+
+      TriangulationDescription::Settings settings = settings_in;
+
+      if (construct_multigrid)
+        settings = static_cast<TriangulationDescription::Settings>(
+          settings |
+          TriangulationDescription::Settings::construct_multigrid_hierarchy);
+
+      Assert(
+        construct_multigrid == false ||
+          (tria.get_mesh_smoothing() &
+           Triangulation<dim, spacedim>::limit_level_difference_at_vertices),
+        ExcMessage(
+          "Source triangulation has to be set up with "
+          "limit_level_difference_at_vertices if the construction of the "
+          "multigrid hierarchy is requested!"));
 
       // 1) determine processes owning locally owned cells
       const std::vector<unsigned int> relevant_processes = [&]() {
@@ -763,6 +886,11 @@ namespace TriangulationDescription
         for (unsigned int i = 0; i < partition.local_size(); ++i)
           relevant_processes.insert(
             static_cast<unsigned int>(partition.local_element(i)));
+
+        for (const auto &partition : partitions_mg)
+          for (unsigned int i = 0; i < partition.local_size(); ++i)
+            relevant_processes.insert(
+              static_cast<unsigned int>(partition.local_element(i)));
 
         return std::vector<unsigned int>(relevant_processes.begin(),
                                          relevant_processes.end());
@@ -800,6 +928,10 @@ namespace TriangulationDescription
       std::vector<DescriptionTemp<dim, spacedim>> description_temp(
         relevant_processes.size());
 
+      std::vector<bool> old_user_flags;
+      if (description_temp.size() > 0)
+        tria.save_user_flags(old_user_flags);
+
       for (unsigned int i = 0; i < description_temp.size(); ++i)
         {
           const unsigned int proc               = relevant_processes[i];
@@ -808,35 +940,100 @@ namespace TriangulationDescription
             tria.get_triangulation().n_global_levels());
 
           // clear user_flags
-          std::vector<bool> old_user_flags;
-          tria.save_user_flags(old_user_flags);
-
           const_cast<dealii::Triangulation<dim, spacedim> &>(tria)
             .clear_user_flags();
 
-          // mark all vertices attached to locally owned cells
-          std::vector<bool> vertices_owned_by_locally_owned_cells(
+          for (int level = tria.get_triangulation().n_global_levels() - 1;
+               level >= 0;
+               --level)
+            {
+              // mark all vertices attached to locally owned cells
+              std::vector<bool> vertices_owned_by_locally_owned_cells_on_level(
+                tria.n_vertices());
+
+              for (const auto &cell : tria.cell_iterators_on_level(level))
+                if (construct_multigrid && cell->is_locally_owned_on_level() &&
+                    (partitions_mg[level][cell->global_level_cell_index()] ==
+                     proc))
+                  add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
+                    cell, vertices_owned_by_locally_owned_cells_on_level);
+
+              for (const auto &cell : tria.active_cell_iterators())
+                if (cell->is_active() && cell->is_locally_owned() &&
+                    static_cast<unsigned int>(
+                      partition[cell->global_active_cell_index()]) == proc)
+                  add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
+                    cell, vertices_owned_by_locally_owned_cells_on_level);
+
+              // helper function if a cell is locally relevant (active and
+              // connected to cell via a vertex)
+              const auto is_locally_relevant_on_level = [&](const auto &cell) {
+                for (const auto v : cell->vertex_indices())
+                  if (vertices_owned_by_locally_owned_cells_on_level
+                        [cell->vertex_index(v)])
+                    return true;
+                return false;
+              };
+
+              // collect locally relevant cells (including their parents)
+              for (const auto &cell : tria.cell_iterators_on_level(level))
+                if (is_locally_relevant_on_level(cell))
+                  set_user_flag_and_of_its_parents(cell);
+            }
+
+          // collect local vertices on active level
+          std::vector<bool> vertices_owned_by_locally_owned_active_cells(
             tria.n_vertices());
           for (const auto &cell : tria.active_cell_iterators())
-            if (cell->is_locally_owned() &&
+            if (cell->is_active() && cell->is_locally_owned() &&
                 static_cast<unsigned int>(
                   partition[cell->global_active_cell_index()]) == proc)
               add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
-                cell, vertices_owned_by_locally_owned_cells);
+                cell, vertices_owned_by_locally_owned_active_cells);
 
-          // helper function if a cell is locally relevant (active and
-          // connected to cell via a vertex)
-          const auto is_locally_relevant_on_level = [&](const auto &cell) {
-            for (const auto v : cell->vertex_indices())
-              if (vertices_owned_by_locally_owned_cells[cell->vertex_index(v)])
-                return true;
-            return false;
-          };
+          // helper function to determine if cell is locally relevant
+          // on active level
+          const auto is_locally_relevant_on_active_level =
+            [&](const auto &cell) {
+              if (cell->is_active())
+                for (const auto v : cell->vertex_indices())
+                  if (vertices_owned_by_locally_owned_active_cells
+                        [cell->vertex_index(v)])
+                    return true;
+              return false;
+            };
 
-          // collect locally relevant cells (including their parents)
-          for (const auto &cell : tria.active_cell_iterators())
-            if (is_locally_relevant_on_level(cell))
-              fill_cell_infos(cell, description_temp_i.cell_infos, partition);
+          for (unsigned int level = 0; level < tria.n_global_levels(); ++level)
+            {
+              // collect local vertices on level
+              std::vector<bool> vertices_owned_by_locally_owned_cells_on_level(
+                tria.n_vertices());
+              for (const auto &cell : tria.cell_iterators_on_level(level))
+                if (construct_multigrid && cell->is_locally_owned_on_level() &&
+                    (partitions_mg[level][cell->global_level_cell_index()] ==
+                     proc))
+                  add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
+                    cell, vertices_owned_by_locally_owned_cells_on_level);
+
+              // helper function to determine if cell is locally relevant
+              // on level
+              const auto is_locally_relevant_on_level = [&](const auto &cell) {
+                for (const auto v : cell->vertex_indices())
+                  if (vertices_owned_by_locally_owned_cells_on_level
+                        [cell->vertex_index(v)])
+                    return true;
+                return false;
+              };
+
+              for (const auto &cell : tria.cell_iterators_on_level(level))
+                if (cell->user_flag_set())
+                  fill_cell_infos(cell,
+                                  description_temp_i.cell_infos,
+                                  partition,
+                                  partitions_mg,
+                                  is_locally_relevant_on_active_level,
+                                  is_locally_relevant_on_level);
+            }
 
           // collect coarse-grid cells
           std::vector<bool> vertices_locally_relevant(tria.n_vertices(), false);
@@ -868,11 +1065,12 @@ namespace TriangulationDescription
             if (vertices_locally_relevant[i])
               description_temp_i.coarse_cell_vertices.emplace_back(
                 i, tria.get_vertices()[i]);
-
-          // restore flags
-          const_cast<dealii::Triangulation<dim, spacedim> &>(tria)
-            .load_user_flags(old_user_flags);
         }
+
+      // restore flags
+      if (description_temp.size() > 0)
+        const_cast<dealii::Triangulation<dim, spacedim> &>(tria)
+          .load_user_flags(old_user_flags);
 
       // collect description from all processes that used to own locally-owned
       // active cells of this process in a single description
@@ -912,7 +1110,8 @@ namespace TriangulationDescription
 
       // convert to actual description
       return description_merged.convert(partition.get_mpi_communicator(),
-                                        tria.get_mesh_smoothing());
+                                        tria.get_mesh_smoothing(),
+                                        settings);
     }
 
   } // namespace Utilities
