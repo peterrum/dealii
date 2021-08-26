@@ -144,7 +144,9 @@ namespace TriangulationDescription
       Description<dim, spacedim> construction_data;
 
       // store the communicator
-      construction_data.comm = comm;
+      construction_data.comm      = comm;
+      construction_data.smoothing = tria.get_mesh_smoothing();
+      construction_data.settings  = settings;
 
       std::map<unsigned int, std::vector<unsigned int>>
                                            coinciding_vertex_groups;
@@ -174,9 +176,6 @@ namespace TriangulationDescription
                   vertices_owned_by_locally_owned_cells[co_vertex] = true;
             }
         };
-
-      construction_data.smoothing = tria.get_mesh_smoothing();
-      construction_data.settings  = settings;
 
       const bool construct_multigrid =
         settings &
@@ -917,9 +916,6 @@ namespace TriangulationDescription
       std::vector<DescriptionTemp<dim, spacedim>> description_temp(
         relevant_processes.size());
 
-      std::vector<bool> old_user_flags;
-      if (description_temp.size() > 0)
-        tria.save_user_flags(old_user_flags);
 
       for (unsigned int i = 0; i < description_temp.size(); ++i)
         {
@@ -929,6 +925,8 @@ namespace TriangulationDescription
             tria.get_triangulation().n_global_levels());
 
           // clear user_flags
+          std::vector<bool> old_user_flags;
+          tria.save_user_flags(old_user_flags);
           const_cast<dealii::Triangulation<dim, spacedim> &>(tria)
             .clear_user_flags();
 
@@ -1054,12 +1052,11 @@ namespace TriangulationDescription
             if (vertices_locally_relevant[i])
               description_temp_i.coarse_cell_vertices.emplace_back(
                 i, tria.get_vertices()[i]);
-        }
 
-      // restore flags
-      if (description_temp.size() > 0)
-        const_cast<dealii::Triangulation<dim, spacedim> &>(tria)
-          .load_user_flags(old_user_flags);
+          // restore flags
+          const_cast<dealii::Triangulation<dim, spacedim> &>(tria)
+            .load_user_flags(old_user_flags);
+        }
 
       // collect description from all processes that used to own locally-owned
       // active cells of this process in a single description
