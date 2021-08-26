@@ -619,8 +619,6 @@ namespace TriangulationDescription
             if (this->cell_infos[i].size() == 0)
               continue;
 
-
-
             std::sort(this->cell_infos[i].begin(),
                       this->cell_infos[i].end(),
                       [](const auto &a, const auto &b) { return a.id < b.id; });
@@ -644,19 +642,6 @@ namespace TriangulationDescription
                 }
 
             this->cell_infos[i] = temp;
-
-            /*
-           this->cell_infos[i].erase(
-             std::unique(this->cell_infos[i].begin(),
-                         this->cell_infos[i].end(),
-                         [](const auto &a, const auto &b) {
-                           if(a.id == b.id)
-                            AssertDimension(a.subdomain_id, b.subdomain_id);
-
-                           return a.id == b.id;
-                         }),
-             this->cell_infos[i].end());
-            */
           }
       }
 
