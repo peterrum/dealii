@@ -176,8 +176,8 @@ TriaAccessorBase<structdim, dim, spacedim>::copy_from(
 
 template <int structdim, int dim, int spacedim>
 inline TriaAccessorBase<structdim, dim, spacedim> &
-TriaAccessorBase<structdim, dim, spacedim>::
-operator=(const TriaAccessorBase<structdim, dim, spacedim> &a)
+TriaAccessorBase<structdim, dim, spacedim>::operator=(
+  const TriaAccessorBase<structdim, dim, spacedim> &a)
 {
   present_level = a.present_level;
   present_index = a.present_index;
@@ -196,8 +196,8 @@ operator=(const TriaAccessorBase<structdim, dim, spacedim> &a)
 
 template <int structdim, int dim, int spacedim>
 inline bool
-TriaAccessorBase<structdim, dim, spacedim>::
-operator==(const TriaAccessorBase<structdim, dim, spacedim> &a) const
+TriaAccessorBase<structdim, dim, spacedim>::operator==(
+  const TriaAccessorBase<structdim, dim, spacedim> &a) const
 {
   Assert(tria == a.tria || tria == nullptr || a.tria == nullptr,
          TriaAccessorExceptions::ExcCantCompareIterators());
@@ -209,8 +209,8 @@ operator==(const TriaAccessorBase<structdim, dim, spacedim> &a) const
 
 template <int structdim, int dim, int spacedim>
 inline bool
-TriaAccessorBase<structdim, dim, spacedim>::
-operator!=(const TriaAccessorBase<structdim, dim, spacedim> &a) const
+TriaAccessorBase<structdim, dim, spacedim>::operator!=(
+  const TriaAccessorBase<structdim, dim, spacedim> &a) const
 {
   Assert(tria == a.tria || tria == nullptr || a.tria == nullptr,
          TriaAccessorExceptions::ExcCantCompareIterators());
@@ -222,8 +222,8 @@ operator!=(const TriaAccessorBase<structdim, dim, spacedim> &a) const
 
 template <int structdim, int dim, int spacedim>
 inline bool
-TriaAccessorBase<structdim, dim, spacedim>::
-operator<(const TriaAccessorBase<structdim, dim, spacedim> &other) const
+TriaAccessorBase<structdim, dim, spacedim>::operator<(
+  const TriaAccessorBase<structdim, dim, spacedim> &other) const
 {
   Assert(tria == other.tria, TriaAccessorExceptions::ExcCantCompareIterators());
 
@@ -423,8 +423,8 @@ InvalidAccessor<structdim, dim, spacedim>::copy_from(const InvalidAccessor &)
 
 template <int structdim, int dim, int spacedim>
 bool
-InvalidAccessor<structdim, dim, spacedim>::
-operator==(const InvalidAccessor &) const
+InvalidAccessor<structdim, dim, spacedim>::operator==(
+  const InvalidAccessor &) const
 {
   // nothing to do here. we could
   // throw an exception but we can't
@@ -438,8 +438,8 @@ operator==(const InvalidAccessor &) const
 
 template <int structdim, int dim, int spacedim>
 bool
-InvalidAccessor<structdim, dim, spacedim>::
-operator!=(const InvalidAccessor &) const
+InvalidAccessor<structdim, dim, spacedim>::operator!=(
+  const InvalidAccessor &) const
 {
   // nothing to do here. we could
   // throw an exception but we can't
@@ -1346,8 +1346,7 @@ TriaAccessor<structdim, dim, spacedim>::isotropic_child_index(
     {
       case 1:
         return child_index(i);
-      case 2:
-        {
+        case 2: {
           const RefinementCase<2> this_refinement_case(
             static_cast<std::uint8_t>(refinement_case()));
 
@@ -1468,8 +1467,7 @@ TriaAccessor<structdim, dim, spacedim>::isotropic_child(
         // no anisotropic refinement in 1D
         return child(i);
 
-      case 2:
-        {
+        case 2: {
           const RefinementCase<2> this_refinement_case(
             static_cast<std::uint8_t>(refinement_case()));
 
@@ -2051,8 +2049,7 @@ TriaAccessor<structdim, dim, spacedim>::enclosing_ball() const
 
   switch (structdim)
     {
-      case 2:
-        {
+        case 2: {
           const Point<spacedim> p30(this->vertex(3) - this->vertex(0));
           const Point<spacedim> p21(this->vertex(2) - this->vertex(1));
           if (p30.norm() > p21.norm())
@@ -2071,8 +2068,7 @@ TriaAccessor<structdim, dim, spacedim>::enclosing_ball() const
             }
           break;
         }
-      case 3:
-        {
+        case 3: {
           const Point<spacedim>     p70(this->vertex(7) - this->vertex(0));
           const Point<spacedim>     p61(this->vertex(6) - this->vertex(1));
           const Point<spacedim>     p25(this->vertex(2) - this->vertex(5));
@@ -2163,8 +2159,7 @@ TriaAccessor<structdim, dim, spacedim>::minimum_vertex_distance() const
       case 1:
         return (this->vertex(1) - this->vertex(0)).norm();
       case 2:
-      case 3:
-        {
+        case 3: {
           double min = std::numeric_limits<double>::max();
           for (const unsigned int i : this->vertex_indices())
             for (unsigned int j = i + 1; j < this->n_vertices(); ++j)
@@ -2334,8 +2329,8 @@ TriaAccessor<0, dim, spacedim>::copy_from(const TriaAccessor &t)
 
 template <int dim, int spacedim>
 inline bool
-TriaAccessor<0, dim, spacedim>::
-operator<(const TriaAccessor<0, dim, spacedim> &other) const
+TriaAccessor<0, dim, spacedim>::operator<(
+  const TriaAccessor<0, dim, spacedim> &other) const
 {
   Assert(tria == other.tria, TriaAccessorExceptions::ExcCantCompareIterators());
 
@@ -2749,8 +2744,8 @@ TriaAccessor<0, 1, spacedim>::copy_from(const TriaAccessor &t)
 
 template <int spacedim>
 inline bool
-TriaAccessor<0, 1, spacedim>::
-operator<(const TriaAccessor<0, 1, spacedim> &other) const
+TriaAccessor<0, 1, spacedim>::operator<(
+  const TriaAccessor<0, 1, spacedim> &other) const
 {
   Assert(tria == other.tria, TriaAccessorExceptions::ExcCantCompareIterators());
 
@@ -2921,8 +2916,7 @@ TriaAccessor<0, 1, spacedim>::boundary_id() const
   switch (vertex_kind)
     {
       case left_vertex:
-      case right_vertex:
-        {
+        case right_vertex: {
           Assert(tria->vertex_to_boundary_id_map_1d->find(
                    this->vertex_index()) !=
                    tria->vertex_to_boundary_id_map_1d->end(),
@@ -3092,11 +3086,12 @@ TriaAccessor<0, 1, spacedim>::isotropic_child_index(const unsigned int)
 
 template <int spacedim>
 inline void
-TriaAccessor<0, 1, spacedim>::set_boundary_id(const types::boundary_id b)
+TriaAccessor<0, 1, spacedim>::set_boundary_id(const types::boundary_id b) const
 {
   Assert(tria->vertex_to_boundary_id_map_1d->find(this->vertex_index()) !=
            tria->vertex_to_boundary_id_map_1d->end(),
-         ExcInternalError());
+         ExcMessage("You can't set the boundary_id of a face of a cell that is "
+                    "not actually at the boundary."));
 
   (*tria->vertex_to_boundary_id_map_1d)[this->vertex_index()] = b;
 }
@@ -3114,7 +3109,8 @@ TriaAccessor<0, 1, spacedim>::set_manifold_id(const types::manifold_id b)
 
 template <int spacedim>
 inline void
-TriaAccessor<0, 1, spacedim>::set_all_boundary_ids(const types::boundary_id b)
+TriaAccessor<0, 1, spacedim>::set_all_boundary_ids(
+  const types::boundary_id b) const
 {
   set_boundary_id(b);
 }
@@ -3332,8 +3328,7 @@ CellAccessor<dim, spacedim>::face_index(const unsigned int i) const
 {
   switch (dim)
     {
-      case 1:
-        {
+        case 1: {
           return this->vertex_index(i);
         }
 
@@ -3776,6 +3771,19 @@ CellAccessor<dim, spacedim>::is_artificial() const
             numbers::invalid_subdomain_id &&
           this->subdomain_id() == numbers::artificial_subdomain_id);
 
+#endif
+}
+
+
+
+template <int dim, int spacedim>
+inline bool
+CellAccessor<dim, spacedim>::is_artificial_on_level() const
+{
+#ifndef DEAL_II_WITH_MPI
+  return false;
+#else
+  return (is_locally_owned_on_level() || is_ghost_on_level()) == false;
 #endif
 }
 

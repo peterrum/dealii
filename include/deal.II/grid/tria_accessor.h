@@ -1687,7 +1687,7 @@ public:
   /**
    * Number of faces.
    *
-   * @note Only implemented for cells (dim==spacedim).
+   * @note Only implemented for cells (structdim==dim).
    */
   unsigned int
   n_faces() const;
@@ -1710,7 +1710,7 @@ public:
    * Return an object that can be thought of as an array containing all indices
    * from zero to n_faces().
    *
-   * @note Only implemented for cells (dim==spacedim).
+   * @note Only implemented for cells (structdim==dim).
    */
   std_cxx20::ranges::iota_view<unsigned int, unsigned int>
   face_indices() const;
@@ -2707,7 +2707,7 @@ public:
    * @ref GlossBoundaryIndicator "Glossary entry on boundary indicators"
    */
   void
-  set_boundary_id(const types::boundary_id);
+  set_boundary_id(const types::boundary_id) const;
 
   /**
    * Set the manifold indicator of this vertex. This does nothing so far since
@@ -2730,7 +2730,7 @@ public:
    * @ref GlossBoundaryIndicator "Glossary entry on boundary indicators"
    */
   void
-  set_all_boundary_ids(const types::boundary_id);
+  set_all_boundary_ids(const types::boundary_id) const;
 
   /**
    * Set the manifold indicator of this object and all of its lower-
@@ -3749,6 +3749,15 @@ public:
    */
   bool
   is_artificial() const;
+
+  /**
+   * Similar to is_artificial() but checking the conditions on the levels.
+   *
+   * @post The returned value is equal to <code>!is_ghost_on_level() &&
+   * !is_locally_owned_on_level()</code>.
+   */
+  bool
+  is_artificial_on_level() const;
 
   /**
    * Test whether the point @p p is inside this cell. Points on the boundary
