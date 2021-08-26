@@ -616,46 +616,47 @@ namespace TriangulationDescription
         // make cells unique
         for (unsigned int i = 0; i < this->cell_infos.size(); ++i)
           {
-            if(this->cell_infos[i].size() == 0)
+            if (this->cell_infos[i].size() == 0)
               continue;
 
-            
+
 
             std::sort(this->cell_infos[i].begin(),
                       this->cell_infos[i].end(),
-                      [](const auto &a, const auto &b) {
-                          return a.id < b.id;
-                      });
+                      [](const auto &a, const auto &b) { return a.id < b.id; });
 
             std::vector<CellData<dim>> temp;
             temp.push_back(this->cell_infos[i][0]);
 
-            for(unsigned int j = 1; j < this->cell_infos[i].size(); ++j)
-              if(temp.back().id == cell_infos[i][j].id)
+            for (unsigned int j = 1; j < this->cell_infos[i].size(); ++j)
+              if (temp.back().id == cell_infos[i][j].id)
                 {
-                  temp.back().subdomain_id = std::min(temp.back().subdomain_id, this->cell_infos[i][j].subdomain_id);
-                  temp.back().level_subdomain_id = std::min(temp.back().level_subdomain_id, this->cell_infos[i][j].level_subdomain_id);
+                  temp.back().subdomain_id =
+                    std::min(temp.back().subdomain_id,
+                             this->cell_infos[i][j].subdomain_id);
+                  temp.back().level_subdomain_id =
+                    std::min(temp.back().level_subdomain_id,
+                             this->cell_infos[i][j].level_subdomain_id);
                 }
               else
-               {
+                {
                   temp.push_back(this->cell_infos[i][j]);
-               }
+                }
 
             this->cell_infos[i] = temp;
 
-             /*
-            this->cell_infos[i].erase(
-              std::unique(this->cell_infos[i].begin(),
-                          this->cell_infos[i].end(),
-                          [](const auto &a, const auto &b) {
-                            if(a.id == b.id)
-                             AssertDimension(a.subdomain_id, b.subdomain_id);
+            /*
+           this->cell_infos[i].erase(
+             std::unique(this->cell_infos[i].begin(),
+                         this->cell_infos[i].end(),
+                         [](const auto &a, const auto &b) {
+                           if(a.id == b.id)
+                            AssertDimension(a.subdomain_id, b.subdomain_id);
 
-                            return a.id == b.id;
-                          }),
-              this->cell_infos[i].end());
-             */
-             
+                           return a.id == b.id;
+                         }),
+             this->cell_infos[i].end());
+            */
           }
       }
 
@@ -749,18 +750,21 @@ namespace TriangulationDescription
             cell_info.manifold_quad_ids[f] = cell->quad(f)->manifold_id();
       }
 
+      cell_info.subdomain_id       = numbers::artificial_subdomain_id;
+      cell_info.level_subdomain_id = numbers::artificial_subdomain_id;
 
       if (is_locally_relevant_on_active_level(cell))
-        cell_info.subdomain_id = static_cast<unsigned int>(
-          partition[cell->global_active_cell_index()]);
-      else
-        cell_info.subdomain_id = numbers::artificial_subdomain_id;
-
-      if (is_locally_relevant_on_level(cell))
+        {
+          cell_info.subdomain_id = static_cast<unsigned int>(
+            partition[cell->global_active_cell_index()]);
+          if (partitions_mg.size() > 0 &&
+              (cell->is_locally_owned_on_level() || cell->is_ghost_on_level()))
+            cell_info.level_subdomain_id = static_cast<unsigned int>(
+              partitions_mg[cell->level()][cell->global_level_cell_index()]);
+        }
+      else if (is_locally_relevant_on_level(cell))
         cell_info.level_subdomain_id = static_cast<unsigned int>(
           partitions_mg[cell->level()][cell->global_level_cell_index()]);
-      else
-        cell_info.level_subdomain_id = numbers::artificial_subdomain_id;
 
       cell_infos[cell->level()].emplace_back(cell_info);
     }
