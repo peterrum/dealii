@@ -108,7 +108,26 @@ namespace TriangulationDescription
             : tria(tria)
             , comm(comm)
             , settings(settings)
-          {}
+            , construct_multigrid(settings &
+                                  TriangulationDescription::Settings::
+                                    construct_multigrid_hierarchy)
+          {
+            Assert(
+              !(settings & TriangulationDescription::Settings::
+                             construct_multigrid_hierarchy) ||
+                (tria.get_mesh_smoothing() &
+                 Triangulation<dim,
+                               spacedim>::limit_level_difference_at_vertices),
+              ExcMessage(
+                "Source triangulation has to be set up with "
+                "limit_level_difference_at_vertices if the construction of the "
+                "multigrid hierarchy is requested!"));
+
+            GridTools::collect_coinciding_vertices(
+              tria,
+              coinciding_vertex_groups,
+              vertex_to_coinciding_vertex_group);
+          }
 
           Description<dim, spacedim>
           create_description_for_rank(const unsigned int my_rank)
@@ -120,21 +139,11 @@ namespace TriangulationDescription
             construction_data.smoothing = tria.get_mesh_smoothing();
             construction_data.settings  = settings;
 
-            std::map<unsigned int, std::vector<unsigned int>>
-              coinciding_vertex_groups;
-            std::map<unsigned int, unsigned int>
-              vertex_to_coinciding_vertex_group;
-
-            GridTools::collect_coinciding_vertices(
-              tria,
-              coinciding_vertex_groups,
-              vertex_to_coinciding_vertex_group);
-
             // helper function, which collects all vertices belonging to a cell
             // (also taking into account periodicity)
             const auto
               add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells =
-                [&coinciding_vertex_groups, &vertex_to_coinciding_vertex_group](
+                [this](
                   const auto &       cell,
                   std::vector<bool> &vertices_owned_by_locally_owned_cells) {
                   // add local vertices
@@ -154,21 +163,6 @@ namespace TriangulationDescription
                             true;
                     }
                 };
-
-            const bool construct_multigrid =
-              settings &
-              TriangulationDescription::Settings::construct_multigrid_hierarchy;
-
-            Assert(
-              !(settings & TriangulationDescription::Settings::
-                             construct_multigrid_hierarchy) ||
-                (tria.get_mesh_smoothing() &
-                 Triangulation<dim,
-                               spacedim>::limit_level_difference_at_vertices),
-              ExcMessage(
-                "Source triangulation has to be set up with "
-                "limit_level_difference_at_vertices if the construction of the "
-                "multigrid hierarchy is requested!"));
 
             // 1) collect locally relevant cells (set user_flag)
             std::vector<bool> old_user_flags;
@@ -387,6 +381,12 @@ namespace TriangulationDescription
           const dealii::Triangulation<dim, spacedim> &tria;
           const MPI_Comm &                            comm;
           const TriangulationDescription::Settings    settings;
+          const bool                                  construct_multigrid;
+
+          std::map<unsigned int, std::vector<unsigned int>>
+            coinciding_vertex_groups;
+          std::map<unsigned int, unsigned int>
+            vertex_to_coinciding_vertex_group;
         };
       } // namespace internal
 
