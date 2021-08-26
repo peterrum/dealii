@@ -94,6 +94,277 @@ namespace TriangulationDescription
         if (cell->level() != 0)
           set_user_flag_and_of_its_parents(cell->parent());
       }
+
+      namespace internal
+      {
+        template <int dim, int spacedim>
+        Description<dim, spacedim>
+        create_description_from_triangulation(
+          const dealii::Triangulation<dim, spacedim> &tria,
+          const MPI_Comm &                            comm,
+          const TriangulationDescription::Settings    settings,
+          const unsigned int                          my_rank)
+        {
+          Description<dim, spacedim> construction_data;
+
+          // store the communicator
+          construction_data.comm      = comm;
+          construction_data.smoothing = tria.get_mesh_smoothing();
+          construction_data.settings  = settings;
+
+          std::map<unsigned int, std::vector<unsigned int>>
+            coinciding_vertex_groups;
+          std::map<unsigned int, unsigned int>
+            vertex_to_coinciding_vertex_group;
+
+          GridTools::collect_coinciding_vertices(
+            tria, coinciding_vertex_groups, vertex_to_coinciding_vertex_group);
+
+          // helper function, which collects all vertices belonging to a cell
+          // (also taking into account periodicity)
+          const auto
+            add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells =
+              [&coinciding_vertex_groups, &vertex_to_coinciding_vertex_group](
+                const auto &       cell,
+                std::vector<bool> &vertices_owned_by_locally_owned_cells) {
+                // add local vertices
+                for (const auto v : cell->vertex_indices())
+                  {
+                    vertices_owned_by_locally_owned_cells[cell->vertex_index(
+                      v)] = true;
+                    const auto coinciding_vertex_group =
+                      vertex_to_coinciding_vertex_group.find(
+                        cell->vertex_index(v));
+                    if (coinciding_vertex_group !=
+                        vertex_to_coinciding_vertex_group.end())
+                      for (const auto &co_vertex : coinciding_vertex_groups.at(
+                             coinciding_vertex_group->second))
+                        vertices_owned_by_locally_owned_cells[co_vertex] = true;
+                  }
+              };
+
+          const bool construct_multigrid =
+            settings &
+            TriangulationDescription::Settings::construct_multigrid_hierarchy;
+
+          Assert(
+            !(settings & TriangulationDescription::Settings::
+                           construct_multigrid_hierarchy) ||
+              (tria.get_mesh_smoothing() &
+               Triangulation<dim,
+                             spacedim>::limit_level_difference_at_vertices),
+            ExcMessage(
+              "Source triangulation has to be set up with "
+              "limit_level_difference_at_vertices if the construction of the "
+              "multigrid hierarchy is requested!"));
+
+          // 1) collect locally relevant cells (set user_flag)
+          std::vector<bool> old_user_flags;
+          tria.save_user_flags(old_user_flags);
+
+          // 1a) clear user_flags
+          const_cast<dealii::Triangulation<dim, spacedim> &>(tria)
+            .clear_user_flags();
+
+          // 1b) loop over levels (from fine to coarse) and mark on each level
+          //     the locally relevant cells
+          for (int level = tria.get_triangulation().n_global_levels() - 1;
+               level >= 0;
+               --level)
+            {
+              // collect vertices connected to a (on any level) locally owned
+              // cell
+              std::vector<bool> vertices_owned_by_locally_owned_cells_on_level(
+                tria.n_vertices());
+              for (const auto &cell : tria.cell_iterators_on_level(level))
+                if (construct_multigrid &&
+                    (cell->level_subdomain_id() == my_rank))
+                  add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
+                    cell, vertices_owned_by_locally_owned_cells_on_level);
+
+              for (const auto &cell : tria.active_cell_iterators())
+                if (cell->subdomain_id() == my_rank)
+                  add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
+                    cell, vertices_owned_by_locally_owned_cells_on_level);
+
+              // helper function to determine if cell is locally relevant
+              // (i.e. a cell which is connected to a vertex via a locally
+              // owned cell)
+              const auto is_locally_relevant_on_level = [&](const auto &cell) {
+                for (const auto v : cell->vertex_indices())
+                  if (vertices_owned_by_locally_owned_cells_on_level
+                        [cell->vertex_index(v)])
+                    return true;
+                return false;
+              };
+
+              // mark all locally relevant cells
+              for (const auto &cell : tria.cell_iterators_on_level(level))
+                if (is_locally_relevant_on_level(cell))
+                  set_user_flag_and_of_its_parents(cell);
+            }
+
+          // 2) set_up coarse-grid triangulation
+          {
+            std::map<unsigned int, unsigned int> vertices_locally_relevant;
+
+            // a) loop over all cells
+            for (const auto &cell : tria.cell_iterators_on_level(0))
+              {
+                if (!cell->user_flag_set())
+                  continue;
+
+                // extract cell definition (with old numbering of vertices)
+                dealii::CellData<dim> cell_data(cell->n_vertices());
+                cell_data.material_id = cell->material_id();
+                cell_data.manifold_id = cell->manifold_id();
+                for (const auto v : cell->vertex_indices())
+                  cell_data.vertices[v] = cell->vertex_index(v);
+                construction_data.coarse_cells.push_back(cell_data);
+
+                // save indices of each vertex of this cell
+                for (const auto v : cell->vertex_indices())
+                  vertices_locally_relevant[cell->vertex_index(v)] =
+                    numbers::invalid_unsigned_int;
+
+                // save translation for corase grid: lid -> gid
+                construction_data.coarse_cell_index_to_coarse_cell_id.push_back(
+                  cell->id().get_coarse_cell_id());
+              }
+
+            // b) enumerate locally relevant vertices
+            unsigned int vertex_counter = 0;
+            for (auto &vertex : vertices_locally_relevant)
+              {
+                construction_data.coarse_cell_vertices.push_back(
+                  tria.get_vertices()[vertex.first]);
+                vertex.second = vertex_counter++;
+              }
+
+            // c) correct vertices of cells (make them local)
+            for (auto &cell : construction_data.coarse_cells)
+              for (unsigned int v = 0; v < cell.vertices.size(); ++v)
+                cell.vertices[v] = vertices_locally_relevant[cell.vertices[v]];
+          }
+
+
+          // 3) collect info of each cell
+          construction_data.cell_infos.resize(
+            tria.get_triangulation().n_global_levels());
+
+          // collect local vertices on active level
+          std::vector<bool> vertices_owned_by_locally_owned_active_cells(
+            tria.n_vertices());
+          for (const auto &cell : tria.active_cell_iterators())
+            if (cell->subdomain_id() == my_rank)
+              add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
+                cell, vertices_owned_by_locally_owned_active_cells);
+
+          // helper function to determine if cell is locally relevant
+          // on active level
+          const auto is_locally_relevant_on_active_level =
+            [&](const auto &cell) {
+              if (cell->is_active())
+                for (const auto v : cell->vertex_indices())
+                  if (vertices_owned_by_locally_owned_active_cells
+                        [cell->vertex_index(v)])
+                    return true;
+              return false;
+            };
+
+          for (unsigned int level = 0;
+               level < tria.get_triangulation().n_global_levels();
+               ++level)
+            {
+              // collect local vertices on level
+              std::vector<bool> vertices_owned_by_locally_owned_cells_on_level(
+                tria.n_vertices());
+              for (const auto &cell : tria.cell_iterators_on_level(level))
+                if ((construct_multigrid &&
+                     (cell->level_subdomain_id() == my_rank)) ||
+                    (cell->is_active() && cell->subdomain_id() == my_rank))
+                  add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
+                    cell, vertices_owned_by_locally_owned_cells_on_level);
+
+              // helper function to determine if cell is locally relevant
+              // on level
+              const auto is_locally_relevant_on_level = [&](const auto &cell) {
+                for (const auto v : cell->vertex_indices())
+                  if (vertices_owned_by_locally_owned_cells_on_level
+                        [cell->vertex_index(v)])
+                    return true;
+                return false;
+              };
+
+              auto &level_cell_infos = construction_data.cell_infos[level];
+              for (const auto &cell : tria.cell_iterators_on_level(level))
+                {
+                  // check if cell is locally relevant
+                  if (!(cell->user_flag_set()))
+                    continue;
+
+                  CellData<dim> cell_info;
+
+                  // save coarse-cell id
+                  cell_info.id = cell->id().template to_binary<dim>();
+
+                  // save boundary_ids of each face of this cell
+                  for (const auto f : cell->face_indices())
+                    {
+                      types::boundary_id boundary_ind =
+                        cell->face(f)->boundary_id();
+                      if (boundary_ind != numbers::internal_face_boundary_id)
+                        cell_info.boundary_ids.emplace_back(f, boundary_ind);
+                    }
+
+                  // save manifold id
+                  {
+                    // ... of cell
+                    cell_info.manifold_id = cell->manifold_id();
+
+                    // ... of lines
+                    if (dim >= 2)
+                      for (const auto line : cell->line_indices())
+                        cell_info.manifold_line_ids[line] =
+                          cell->line(line)->manifold_id();
+
+                    // ... of quads
+                    if (dim == 3)
+                      for (const auto f : cell->face_indices())
+                        cell_info.manifold_quad_ids[f] =
+                          cell->quad(f)->manifold_id();
+                  }
+
+                  // subdomain and level subdomain id
+                  cell_info.subdomain_id = numbers::artificial_subdomain_id;
+                  cell_info.level_subdomain_id =
+                    numbers::artificial_subdomain_id;
+
+                  if (is_locally_relevant_on_active_level(cell))
+                    {
+                      cell_info.level_subdomain_id = cell->level_subdomain_id();
+                      cell_info.subdomain_id       = cell->subdomain_id();
+                    }
+                  else if (is_locally_relevant_on_level(cell))
+                    {
+                      cell_info.level_subdomain_id = cell->level_subdomain_id();
+                    }
+                  else
+                    {
+                      // cell is locally relevant but an artificial cell
+                    }
+
+                  level_cell_infos.emplace_back(cell_info);
+                }
+            }
+
+          const_cast<dealii::Triangulation<dim, spacedim> &>(tria)
+            .load_user_flags(old_user_flags);
+
+          return construction_data;
+        }
+      } // namespace internal
+
     } // namespace
 
 
@@ -141,254 +412,10 @@ namespace TriangulationDescription
                  ExcMessage("This type of triangulation is not supported!"));
         }
 
-      Description<dim, spacedim> construction_data;
-
-      // store the communicator
-      construction_data.comm      = comm;
-      construction_data.smoothing = tria.get_mesh_smoothing();
-      construction_data.settings  = settings;
-
-      std::map<unsigned int, std::vector<unsigned int>>
-                                           coinciding_vertex_groups;
-      std::map<unsigned int, unsigned int> vertex_to_coinciding_vertex_group;
-
-      GridTools::collect_coinciding_vertices(tria,
-                                             coinciding_vertex_groups,
-                                             vertex_to_coinciding_vertex_group);
-
-      // helper function, which collects all vertices belonging to a cell
-      // (also taking into account periodicity)
-      const auto add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells =
-        [&coinciding_vertex_groups, &vertex_to_coinciding_vertex_group](
-          const auto &       cell,
-          std::vector<bool> &vertices_owned_by_locally_owned_cells) {
-          // add local vertices
-          for (const auto v : cell->vertex_indices())
-            {
-              vertices_owned_by_locally_owned_cells[cell->vertex_index(v)] =
-                true;
-              const auto coinciding_vertex_group =
-                vertex_to_coinciding_vertex_group.find(cell->vertex_index(v));
-              if (coinciding_vertex_group !=
-                  vertex_to_coinciding_vertex_group.end())
-                for (const auto &co_vertex : coinciding_vertex_groups.at(
-                       coinciding_vertex_group->second))
-                  vertices_owned_by_locally_owned_cells[co_vertex] = true;
-            }
-        };
-
-      const bool construct_multigrid =
-        settings &
-        TriangulationDescription::Settings::construct_multigrid_hierarchy;
-
-      Assert(
-        !(settings &
-          TriangulationDescription::Settings::construct_multigrid_hierarchy) ||
-          (tria.get_mesh_smoothing() &
-           Triangulation<dim, spacedim>::limit_level_difference_at_vertices),
-        ExcMessage(
-          "Source triangulation has to be set up with "
-          "limit_level_difference_at_vertices if the construction of the "
-          "multigrid hierarchy is requested!"));
-
-      // 1) collect locally relevant cells (set user_flag)
-      std::vector<bool> old_user_flags;
-      tria.save_user_flags(old_user_flags);
-
-      // 1a) clear user_flags
-      const_cast<dealii::Triangulation<dim, spacedim> &>(tria)
-        .clear_user_flags();
-
-      // 1b) loop over levels (from fine to coarse) and mark on each level
-      //     the locally relevant cells
-      for (int level = tria.get_triangulation().n_global_levels() - 1;
-           level >= 0;
-           --level)
-        {
-          // collect vertices connected to a (on any level) locally owned
-          // cell
-          std::vector<bool> vertices_owned_by_locally_owned_cells_on_level(
-            tria.n_vertices());
-          for (const auto &cell : tria.cell_iterators_on_level(level))
-            if (construct_multigrid && (cell->level_subdomain_id() == my_rank))
-              add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
-                cell, vertices_owned_by_locally_owned_cells_on_level);
-
-          for (const auto &cell : tria.active_cell_iterators())
-            if (cell->subdomain_id() == my_rank)
-              add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
-                cell, vertices_owned_by_locally_owned_cells_on_level);
-
-          // helper function to determine if cell is locally relevant
-          // (i.e. a cell which is connected to a vertex via a locally
-          // owned cell)
-          const auto is_locally_relevant_on_level = [&](const auto &cell) {
-            for (const auto v : cell->vertex_indices())
-              if (vertices_owned_by_locally_owned_cells_on_level
-                    [cell->vertex_index(v)])
-                return true;
-            return false;
-          };
-
-          // mark all locally relevant cells
-          for (const auto &cell : tria.cell_iterators_on_level(level))
-            if (is_locally_relevant_on_level(cell))
-              set_user_flag_and_of_its_parents(cell);
-        }
-
-      // 2) set_up coarse-grid triangulation
-      {
-        std::map<unsigned int, unsigned int> vertices_locally_relevant;
-
-        // a) loop over all cells
-        for (const auto &cell : tria.cell_iterators_on_level(0))
-          {
-            if (!cell->user_flag_set())
-              continue;
-
-            // extract cell definition (with old numbering of vertices)
-            dealii::CellData<dim> cell_data(cell->n_vertices());
-            cell_data.material_id = cell->material_id();
-            cell_data.manifold_id = cell->manifold_id();
-            for (const auto v : cell->vertex_indices())
-              cell_data.vertices[v] = cell->vertex_index(v);
-            construction_data.coarse_cells.push_back(cell_data);
-
-            // save indices of each vertex of this cell
-            for (const auto v : cell->vertex_indices())
-              vertices_locally_relevant[cell->vertex_index(v)] =
-                numbers::invalid_unsigned_int;
-
-            // save translation for corase grid: lid -> gid
-            construction_data.coarse_cell_index_to_coarse_cell_id.push_back(
-              cell->id().get_coarse_cell_id());
-          }
-
-        // b) enumerate locally relevant vertices
-        unsigned int vertex_counter = 0;
-        for (auto &vertex : vertices_locally_relevant)
-          {
-            construction_data.coarse_cell_vertices.push_back(
-              tria.get_vertices()[vertex.first]);
-            vertex.second = vertex_counter++;
-          }
-
-        // c) correct vertices of cells (make them local)
-        for (auto &cell : construction_data.coarse_cells)
-          for (unsigned int v = 0; v < cell.vertices.size(); ++v)
-            cell.vertices[v] = vertices_locally_relevant[cell.vertices[v]];
-      }
-
-
-      // 3) collect info of each cell
-      construction_data.cell_infos.resize(
-        tria.get_triangulation().n_global_levels());
-
-      // collect local vertices on active level
-      std::vector<bool> vertices_owned_by_locally_owned_active_cells(
-        tria.n_vertices());
-      for (const auto &cell : tria.active_cell_iterators())
-        if (cell->subdomain_id() == my_rank)
-          add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
-            cell, vertices_owned_by_locally_owned_active_cells);
-
-      // helper function to determine if cell is locally relevant
-      // on active level
-      const auto is_locally_relevant_on_active_level = [&](const auto &cell) {
-        if (cell->is_active())
-          for (const auto v : cell->vertex_indices())
-            if (vertices_owned_by_locally_owned_active_cells[cell->vertex_index(
-                  v)])
-              return true;
-        return false;
-      };
-
-      for (unsigned int level = 0;
-           level < tria.get_triangulation().n_global_levels();
-           ++level)
-        {
-          // collect local vertices on level
-          std::vector<bool> vertices_owned_by_locally_owned_cells_on_level(
-            tria.n_vertices());
-          for (const auto &cell : tria.cell_iterators_on_level(level))
-            if ((construct_multigrid &&
-                 (cell->level_subdomain_id() == my_rank)) ||
-                (cell->is_active() && cell->subdomain_id() == my_rank))
-              add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
-                cell, vertices_owned_by_locally_owned_cells_on_level);
-
-          // helper function to determine if cell is locally relevant
-          // on level
-          const auto is_locally_relevant_on_level = [&](const auto &cell) {
-            for (const auto v : cell->vertex_indices())
-              if (vertices_owned_by_locally_owned_cells_on_level
-                    [cell->vertex_index(v)])
-                return true;
-            return false;
-          };
-
-          auto &level_cell_infos = construction_data.cell_infos[level];
-          for (const auto &cell : tria.cell_iterators_on_level(level))
-            {
-              // check if cell is locally relevant
-              if (!(cell->user_flag_set()))
-                continue;
-
-              CellData<dim> cell_info;
-
-              // save coarse-cell id
-              cell_info.id = cell->id().template to_binary<dim>();
-
-              // save boundary_ids of each face of this cell
-              for (const auto f : cell->face_indices())
-                {
-                  types::boundary_id boundary_ind =
-                    cell->face(f)->boundary_id();
-                  if (boundary_ind != numbers::internal_face_boundary_id)
-                    cell_info.boundary_ids.emplace_back(f, boundary_ind);
-                }
-
-              // save manifold id
-              {
-                // ... of cell
-                cell_info.manifold_id = cell->manifold_id();
-
-                // ... of lines
-                if (dim >= 2)
-                  for (const auto line : cell->line_indices())
-                    cell_info.manifold_line_ids[line] =
-                      cell->line(line)->manifold_id();
-
-                // ... of quads
-                if (dim == 3)
-                  for (const auto f : cell->face_indices())
-                    cell_info.manifold_quad_ids[f] =
-                      cell->quad(f)->manifold_id();
-              }
-
-              // subdomain and level subdomain id
-              cell_info.subdomain_id       = numbers::artificial_subdomain_id;
-              cell_info.level_subdomain_id = numbers::artificial_subdomain_id;
-
-              if (is_locally_relevant_on_active_level(cell))
-                {
-                  cell_info.level_subdomain_id = cell->level_subdomain_id();
-                  cell_info.subdomain_id       = cell->subdomain_id();
-                }
-              else if (is_locally_relevant_on_level(cell))
-                {
-                  cell_info.level_subdomain_id = cell->level_subdomain_id();
-                }
-              // else: cell is locally relevant but an artificial cell
-
-              level_cell_infos.emplace_back(cell_info);
-            }
-        }
-
-      const_cast<dealii::Triangulation<dim, spacedim> &>(tria).load_user_flags(
-        old_user_flags);
-
-      return construction_data;
+      return internal::create_description_from_triangulation(tria,
+                                                             comm,
+                                                             settings,
+                                                             my_rank);
     }
 
 
