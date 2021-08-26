@@ -103,9 +103,17 @@ namespace TriangulationDescription
         public:
           CreateDescriptionFromTriangulationHelper(
             const dealii::Triangulation<dim, spacedim> &tria,
-            const MPI_Comm &                            comm,
-            const TriangulationDescription::Settings    settings)
+            const std::function<types::subdomain_id(
+              const typename dealii::Triangulation<dim, spacedim>::cell_iterator
+                &)> &                                   subdomain_id_function,
+            const std::function<types::subdomain_id(
+              const typename dealii::Triangulation<dim, spacedim>::cell_iterator
+                &)> &       level_subdomain_id_function,
+            const MPI_Comm &comm,
+            const TriangulationDescription::Settings settings)
             : tria(tria)
+            , subdomain_id_function(subdomain_id_function)
+            , level_subdomain_id_function(level_subdomain_id_function)
             , comm(comm)
             , settings(settings)
             , construct_multigrid(settings &
@@ -185,12 +193,12 @@ namespace TriangulationDescription
                     tria.n_vertices());
                 for (const auto &cell : tria.cell_iterators_on_level(level))
                   if (construct_multigrid &&
-                      (cell->level_subdomain_id() == my_rank))
+                      (level_subdomain_id_function(cell) == my_rank))
                     add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
                       cell, vertices_owned_by_locally_owned_cells_on_level);
 
                 for (const auto &cell : tria.active_cell_iterators())
-                  if (cell->subdomain_id() == my_rank)
+                  if (subdomain_id_function(cell) == my_rank)
                     add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
                       cell, vertices_owned_by_locally_owned_cells_on_level);
 
@@ -265,7 +273,7 @@ namespace TriangulationDescription
             std::vector<bool> vertices_owned_by_locally_owned_active_cells(
               tria.n_vertices());
             for (const auto &cell : tria.active_cell_iterators())
-              if (cell->subdomain_id() == my_rank)
+              if (subdomain_id_function(cell) == my_rank)
                 add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
                   cell, vertices_owned_by_locally_owned_active_cells);
 
@@ -291,8 +299,9 @@ namespace TriangulationDescription
                     tria.n_vertices());
                 for (const auto &cell : tria.cell_iterators_on_level(level))
                   if ((construct_multigrid &&
-                       (cell->level_subdomain_id() == my_rank)) ||
-                      (cell->is_active() && cell->subdomain_id() == my_rank))
+                       (level_subdomain_id_function(cell) == my_rank)) ||
+                      (cell->is_active() &&
+                       subdomain_id_function(cell) == my_rank))
                     add_vertices_of_cell_to_vertices_owned_by_locally_owned_cells(
                       cell, vertices_owned_by_locally_owned_cells_on_level);
 
@@ -353,14 +362,14 @@ namespace TriangulationDescription
 
                     if (is_locally_relevant_on_active_level(cell))
                       {
+                        cell_info.subdomain_id = subdomain_id_function(cell);
                         cell_info.level_subdomain_id =
-                          cell->level_subdomain_id();
-                        cell_info.subdomain_id = cell->subdomain_id();
+                          level_subdomain_id_function(cell);
                       }
                     else if (is_locally_relevant_on_level(cell))
                       {
                         cell_info.level_subdomain_id =
-                          cell->level_subdomain_id();
+                          level_subdomain_id_function(cell);
                       }
                     else
                       {
@@ -379,9 +388,18 @@ namespace TriangulationDescription
 
         private:
           const dealii::Triangulation<dim, spacedim> &tria;
-          const MPI_Comm &                            comm;
-          const TriangulationDescription::Settings    settings;
-          const bool                                  construct_multigrid;
+          const std::function<types::subdomain_id(
+            const typename dealii::Triangulation<dim, spacedim>::cell_iterator
+              &)>
+            subdomain_id_function;
+          const std::function<types::subdomain_id(
+            const typename dealii::Triangulation<dim, spacedim>::cell_iterator
+              &)>
+            level_subdomain_id_function;
+
+          const MPI_Comm &                         comm;
+          const TriangulationDescription::Settings settings;
+          const bool                               construct_multigrid;
 
           std::map<unsigned int, std::vector<unsigned int>>
             coinciding_vertex_groups;
@@ -401,7 +419,7 @@ namespace TriangulationDescription
       const TriangulationDescription::Settings    settings,
       const unsigned int                          my_rank_in)
     {
-      if (auto tria_pdt = dynamic_cast<
+      if (const auto tria_pdt = dynamic_cast<
             const parallel::distributed::Triangulation<dim, spacedim> *>(&tria))
         Assert(comm == tria_pdt->get_communicator(),
                ExcMessage("MPI communicators do not match."));
@@ -437,9 +455,20 @@ namespace TriangulationDescription
                  ExcMessage("This type of triangulation is not supported!"));
         }
 
-      return internal::CreateDescriptionFromTriangulationHelper(tria,
-                                                                comm,
-                                                                settings)
+      const auto subdomain_id_function = [](const auto &cell) {
+        return cell->subdomain_id();
+      };
+
+      const auto level_subdomain_id_function = [](const auto &cell) {
+        return cell->level_subdomain_id();
+      };
+
+      return internal::CreateDescriptionFromTriangulationHelper(
+               tria,
+               subdomain_id_function,
+               level_subdomain_id_function,
+               comm,
+               settings)
         .create_description_for_rank(my_rank);
     }
 
