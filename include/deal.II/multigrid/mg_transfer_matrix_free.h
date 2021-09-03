@@ -536,6 +536,30 @@ MGTransferMatrixFree<dim, Number>::interpolate_to_mg(
 
   // do the transfer from level to level-1:
   dst[max_level].update_ghost_values();
+
+  const auto reduce = [](const MGConstrainedDoFs *mg_constrained_dofs,
+                         const unsigned int       level,
+                         std::vector<types::global_dof_index> &dof_indices) {
+    if (mg_constrained_dofs == nullptr)
+      return;
+
+    if (mg_constrained_dofs != nullptr &&
+        mg_constrained_dofs->get_level_constraints(level).n_constraints() > 0)
+      for (auto &ind : dof_indices)
+        if (mg_constrained_dofs->get_level_constraints(level)
+              .is_identity_constrained(ind))
+          {
+            Assert(mg_constrained_dofs->get_level_constraints(level)
+                       .get_constraint_entries(ind)
+                       ->size() == 1,
+                   ExcInternalError());
+            ind = mg_constrained_dofs->get_level_constraints(level)
+                    .get_constraint_entries(ind)
+                    ->front()
+                    .first;
+          }
+  };
+
   for (unsigned int level = max_level; level > min_level; --level)
     {
       // auxiliary vector which always has ghost elements
@@ -569,6 +593,9 @@ MGTransferMatrixFree<dim, Number>::interpolate_to_mg(
             for (unsigned int child = 0; child < cell->n_children(); ++child)
               {
                 cell->child(child)->get_mg_dof_indices(dof_indices);
+
+                reduce(this->mg_constrained_dofs, level, dof_indices);
+
                 for (unsigned int i = 0; i < fe.n_dofs_per_cell(); ++i)
                   dof_values_fine(i) = (*input)(dof_indices[i]);
                 fe.get_restriction_matrix(child, cell->refinement_case())
