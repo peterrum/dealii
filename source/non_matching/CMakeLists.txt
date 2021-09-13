@@ -16,6 +16,7 @@
 INCLUDE_DIRECTORIES(BEFORE ${CMAKE_CURRENT_BINARY_DIR})
 
 SET(_src
+  fe_values.cc
   mesh_classifier.cc
   quadrature_generator.cc
   coupling.cc
@@ -23,6 +24,7 @@ SET(_src
   )
 
 SET(_inst
+  fe_values.inst.in
   mesh_classifier.inst.in
   quadrature_generator.inst.in
   coupling.inst.in
