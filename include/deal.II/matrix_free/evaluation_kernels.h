@@ -4455,10 +4455,10 @@ namespace internal
 
   private:
     template <int fe_degree_, unsigned int side, bool transpose>
-    static void
+    static inline DEAL_II_ALWAYS_INLINE void
     interpolate_2D(const unsigned int fe_degree,
                    bool               type,
-                   const unsigned int v,
+                   const Number &     v,
                    const Number *     weight,
                    Number *           values)
     {
@@ -4475,13 +4475,14 @@ namespace internal
     }
 
     template <int fe_degree_, unsigned int side, bool transpose, bool type>
-    static void
+    static inline DEAL_II_ALWAYS_INLINE void
     interpolate_2D(const unsigned int fe_degree,
-                   const unsigned int v,
+                   const Number &     v,
                    const Number *     weight,
                    Number *           values)
     {
-      typename Number::value_type temp[10 /*TODO*/];
+      Number temp[10 /*TODO*/];
+      (void) v;
 
       const unsigned int points =
         (fe_degree_ != -1 ? fe_degree_ : fe_degree) + 1;
@@ -4506,26 +4507,27 @@ namespace internal
                 ((transpose ? 1 : points) * (type ? h : (points - 1 - h))) +
                 ((transpose ? points : 1) * (type ? k : (points - 1 - k)));
               if (k == 0)
-                temp[h] = weight[index_w][v] * values[index_v][v];
+                temp[h] = weight[index_w] * values[index_v];
               else
-                temp[h] += weight[index_w][v] * values[index_v][v];
+                temp[h] += weight[index_w] * values[index_v];
             }
 
       // copy result back
       for (unsigned int i = 0, k = 0; i < r1; ++i)
         for (unsigned int j = 0; j < r2; ++j, ++k)
-          values[i * b1 + b2 + j][v] = temp[k];
+          values[i * b1 + b2 + j] =
+            (Number(1.0) - v) * values[i * b1 + b2 + j] + v * temp[k];
     }
 
     template <int          fe_degree_,
               unsigned int direction,
               unsigned int side,
               bool         transpose>
-    static void
+    static inline DEAL_II_ALWAYS_INLINE void
     interpolate_3D_face(const unsigned int p,
                         const unsigned int fe_degree,
                         bool               type,
-                        const unsigned int v,
+                        const Number &     v,
                         const Number *     weight,
                         Number *           values)
     {
@@ -4542,14 +4544,15 @@ namespace internal
               unsigned int side,
               bool         transpose,
               bool         type>
-    static void
+    static inline DEAL_II_ALWAYS_INLINE void
     interpolate_3D_face(const unsigned int p,
                         const unsigned int fe_degree,
-                        const unsigned int v,
+                        const Number &     v,
                         const Number *     weight,
                         Number *           values)
     {
-      typename Number::value_type temp[10 /*TODO*/];
+      Number temp[10 /*TODO*/];
+      (void) v;
 
       const unsigned int points =
         (fe_degree_ != -1 ? fe_degree_ : fe_degree) + 1;
@@ -4569,31 +4572,121 @@ namespace internal
       // perform interpolation point by point
       for (unsigned int g = 1; g < points - 1; ++g)
         {
+          
+          
+          //for (unsigned int h = 0; h < points; ++h)
+          //for (unsigned int k = 0; k < points; ++k)
+          //  values[p + k * stride + stride2 * g] += values[p + k * stride + stride2 * g];
+          //continue;
+          
           for (unsigned int h = 0; h < points; ++h)
             for (unsigned int k = 0; k < points; ++k)
               {
                 const unsigned int index_v = p + k * stride + stride2 * g;
                 const unsigned int index_w =
-                  ((transpose ? 1 : points) * (type ? h : (points - 1 - h))) +
-                  ((transpose ? points : 1) * (type ? k : (points - 1 - k)));
+                  ((transpose ? 1 : points) * h) +
+                  ((transpose ? points : 1) * k);
                 if (k == 0)
-                  temp[h] = weight[index_w][v] * values[index_v][v];
+                  temp[h] = weight[index_w] * values[index_v];
                 else
-                  temp[h] += weight[index_w][v] * values[index_v][v];
+                  temp[h] += weight[index_w] * values[index_v];
               }
 
           // copy result back
           for (unsigned int k = 0; k < points; ++k)
-            values[p + k * stride + stride2 * g][v] = temp[k];
+            values[p + k * stride + stride2 * g] =
+              (Number(1.0) - v) * values[p + k * stride + stride2 * g] +
+              v * temp[k];
+        }
+    }
+
+    template <int          fe_degree_,
+              unsigned int direction,
+              unsigned int side,
+              bool         transpose>
+    static inline DEAL_II_ALWAYS_INLINE void
+    interpolate_3D_face_(const unsigned int p,
+                        const unsigned int fe_degree,
+                        bool               type,
+                        const Number &     v,
+                        const Number *     weight,
+                        Number *           values)
+    {
+      if (type)
+        interpolate_3D_face_<fe_degree_, direction, side, transpose, true>(
+          p, fe_degree, v, weight, values);
+      else
+        interpolate_3D_face_<fe_degree_, direction, side, transpose, false>(
+          p, fe_degree, v, weight, values);
+    }
+
+    template <int          fe_degree_,
+              unsigned int direction,
+              unsigned int side,
+              bool         transpose,
+              bool         type>
+    static inline DEAL_II_ALWAYS_INLINE void
+    interpolate_3D_face_(const unsigned int p,
+                        const unsigned int fe_degree,
+                        const Number &     v,
+                        const Number *     weight,
+                        Number *           values)
+    {
+      Number temp[10 /*TODO*/];
+      (void) v;
+
+      const unsigned int points =
+        (fe_degree_ != -1 ? fe_degree_ : fe_degree) + 1;
+      const unsigned int stride = Utilities::pow(points, direction);
+      const unsigned int d      = side / 2;
+
+      // direction   side0   side1   side2
+      // 0             -      p^2      p
+      // 1            p^2      -       1
+      // 2             p       -       1
+      const unsigned int stride2 =
+        ((direction == 0 && d == 1) || (direction == 1 && d == 0)) ?
+          (points * points) :
+          (((direction == 0 && d == 2) || (direction == 2 && d == 0)) ? points :
+                                                                        1);
+
+      // perform interpolation point by point
+      for (unsigned int g = 0; g < points; ++g)
+        {
+          
+          
+          //for (unsigned int h = 0; h < points; ++h)
+          //for (unsigned int k = 0; k < points; ++k)
+          //  values[p + k * stride + stride2 * g] += values[p + k * stride + stride2 * g];
+          //continue;
+          
+          for (unsigned int h = 0; h < points; ++h)
+            for (unsigned int k = 0; k < points; ++k)
+              {
+                const unsigned int index_v = p + k * stride + stride2 * g;
+                const unsigned int index_w =
+                  ((transpose ? 1 : points) * h) +
+                  ((transpose ? points : 1) * k);
+                if (k == 0)
+                  temp[h] = weight[index_w] * values[index_v];
+                else
+                  temp[h] += weight[index_w] * values[index_v];
+              }
+
+          // copy result back
+          for (unsigned int k = 0; k < points; ++k)
+            values[p + k * stride + stride2 * g] =
+              (Number(1.0) - v) * values[p + k * stride + stride2 * g] +
+              v * temp[k];
         }
     }
 
     template <int fe_degree_, unsigned int direction, bool transpose>
-    static void
+    static inline DEAL_II_ALWAYS_INLINE void
     interpolate_3D_edge(const unsigned int p,
                         const unsigned int fe_degree,
                         bool               type,
-                        const unsigned int v,
+                        const Number &     v,
                         const Number *     weight,
                         Number *           values)
     {
@@ -4606,14 +4699,15 @@ namespace internal
     }
 
     template <int fe_degree_, unsigned int direction, bool transpose, bool type>
-    static void
+    static inline DEAL_II_ALWAYS_INLINE void
     interpolate_3D_edge(const unsigned int p,
                         const unsigned int fe_degree,
-                        const unsigned int v,
+                        const Number &     v,
                         const Number *     weight,
                         Number *           values)
     {
-      typename Number::value_type temp[10 /*TODO*/];
+      Number temp[10 /*TODO*/];
+      (void) v;
 
       const unsigned int points =
         (fe_degree_ != -1 ? fe_degree_ : fe_degree) + 1;
@@ -4625,17 +4719,18 @@ namespace internal
           {
             const unsigned int index_v = p + k * stride;
             const unsigned int index_w =
-              ((transpose ? 1 : points) * (type ? h : (points - 1 - h))) +
-              ((transpose ? points : 1) * (type ? k : (points - 1 - k)));
+              ((transpose ? 1 : points) * h) +
+              ((transpose ? points : 1) * k);
             if (k == 0)
-              temp[h] = weight[index_w][v] * values[index_v][v];
+              temp[h] = weight[index_w] * values[index_v];
             else
-              temp[h] += weight[index_w][v] * values[index_v][v];
+              temp[h] += weight[index_w] * values[index_v];
           }
 
       // copy result back
       for (unsigned int k = 0; k < points; ++k)
-        values[p + k * stride][v] = temp[k];
+          values[p + k * stride] = 
+        (Number(1.0) - v) * values[p + k * stride] + v * temp[k];
     }
 
     template <int fe_degree_, bool transpose>
@@ -4666,15 +4761,44 @@ namespace internal
       };
 
       const unsigned int points = fe_degree + 1;
+      
+      auto constraint_mask_unique = constraint_mask;
+      std::sort(constraint_mask_unique.begin(), constraint_mask_unique.end());
+      std::unique(constraint_mask_unique.begin(), constraint_mask_unique.end());
 
       for (unsigned int c = 0; c < n_desired_components; ++c)
         {
           for (unsigned int v = 0; v < Number::size(); ++v)
             {
+#if true
+              if (v == 0 && (constraint_mask_unique[v] == 0))
+                continue;
+
+              if (v > 0 &&
+                  (constraint_mask_unique[v - 1] >= constraint_mask_unique[v]))
+                break;
+
+              const auto mask = constraint_mask_unique[v];
+
+              Number mask_values;
+
+              for (unsigned int i = 0; i < Number::size(); ++i)
+                mask_values[i] = (mask == constraint_mask[i]) ? 1.0 : 0.0;
+#else
               if (constraint_mask[v] == 0)
                 continue;
 
               const auto mask = constraint_mask[v];
+
+              Number mask_values;
+
+              for (unsigned int i = 0; i < Number::size(); ++i)
+                mask_values[i] = v == i;
+#endif
+
+              //break;
+
+              //const auto mask = constraint_mask[v];
 
               if (dim == 2) // 2D: only faces
                 {
@@ -4686,10 +4810,10 @@ namespace internal
                       if (is_set(mask,
                                  MatrixFreeFunctions::ConstraintTypes::type_y))
                         interpolate_2D<fe_degree_, 2, transpose>(
-                          fe_degree, not_flipped, v, weights, values); // face 2
+                          fe_degree, not_flipped, mask_values, weights, values); // face 2
                       else
                         interpolate_2D<fe_degree_, 3, transpose>(
-                          fe_degree, not_flipped, v, weights, values); // face 3
+                          fe_degree, not_flipped, mask_values, weights, values); // face 3
                     }
 
                   // direction 1:
@@ -4700,10 +4824,10 @@ namespace internal
                       if (is_set(mask,
                                  MatrixFreeFunctions::ConstraintTypes::type_x))
                         interpolate_2D<fe_degree_, 0, transpose>(
-                          fe_degree, not_flipped, v, weights, values); // face 0
+                          fe_degree, not_flipped, mask_values, weights, values); // face 0
                       else
                         interpolate_2D<fe_degree_, 1, transpose>(
-                          fe_degree, not_flipped, v, weights, values); // face 1
+                          fe_degree, not_flipped, mask_values, weights, values); // face 1
                     }
                 }
               else if (dim == 3) // 3D faces and edges
@@ -4822,14 +4946,48 @@ namespace internal
                   {
                     const bool not_flipped =
                       mask & MatrixFreeFunctions::ConstraintTypes::type_x;
-
+                    
+                    if (is_face_2 && ((is_face_4 || is_face_5) == false))
+                      interpolate_3D_face_<fe_degree_, 0, 2, transpose>(
+                        p0,
+                        fe_degree,
+                        not_flipped,
+                        mask_values,
+                        weights,
+                        values); // face 2
+                    else if (is_face_3 && ((is_face_4 || is_face_5) == false))
+                      interpolate_3D_face_<fe_degree_, 0, 3, transpose>(
+                        p2,
+                        fe_degree,
+                        not_flipped,
+                        mask_values,
+                        weights,
+                        values); // face 3
+                    else if (is_face_4 && ((is_face_2 || is_face_3) == false))
+                      interpolate_3D_face_<fe_degree_, 0, 4, transpose>(
+                        p0,
+                        fe_degree,
+                        not_flipped,
+                        mask_values,
+                        weights,
+                        values); // face 4
+                    else if (is_face_5 && ((is_face_2 || is_face_3) == false))
+                      interpolate_3D_face_<fe_degree_, 0, 5, transpose>(
+                        p4,
+                        fe_degree,
+                        not_flipped,
+                        mask_values,
+                        weights,
+                        values); // face 5
+                    else
+                    {
                     // ... faces
                     if (is_face_2)
                       interpolate_3D_face<fe_degree_, 0, 2, transpose>(
                         p0,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // face 2
                     else if (is_face_3)
@@ -4837,7 +4995,7 @@ namespace internal
                         p2,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // face 3
                     if (is_face_4)
@@ -4845,7 +5003,7 @@ namespace internal
                         p0,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // face 4
                     else if (is_face_5)
@@ -4853,7 +5011,7 @@ namespace internal
                         p4,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // face 5
 
@@ -4863,7 +5021,7 @@ namespace internal
                         p0,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // edge 2
                     if (is_face_3 || is_face_4 || is_edge_3)
@@ -4871,7 +5029,7 @@ namespace internal
                         p2,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // edge 3
                     if (is_face_2 || is_face_5 || is_edge_6)
@@ -4879,7 +5037,7 @@ namespace internal
                         p4,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // edge 6
                     if (is_face_3 || is_face_5 || is_edge_7)
@@ -4887,9 +5045,10 @@ namespace internal
                         p6,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // edge 7
+                    }
                   }
 
                   // direction 1:
@@ -4898,12 +5057,47 @@ namespace internal
                       mask & MatrixFreeFunctions::ConstraintTypes::type_y;
 
                     // ... faces
+                    if (is_face_0 && ((is_face_4 || is_face_5) == false))
+                      interpolate_3D_face_<fe_degree_, 1, 0, transpose>(
+                        p0,
+                        fe_degree,
+                        not_flipped,
+                        mask_values,
+                        weights,
+                        values); // face 0
+                    else if (is_face_1 && ((is_face_4 || is_face_5) == false))
+                      interpolate_3D_face_<fe_degree_, 1, 1, transpose>(
+                        p1,
+                        fe_degree,
+                        not_flipped,
+                        mask_values,
+                        weights,
+                        values); // face 1
+                    else if (is_face_4 && ((is_face_0 || is_face_1) == false))
+                      interpolate_3D_face_<fe_degree_, 1, 4, transpose>(
+                        p0,
+                        fe_degree,
+                        not_flipped,
+                        mask_values,
+                        weights,
+                        values); // face 4
+                    else if (is_face_5 && ((is_face_0 || is_face_1) == false))
+                      interpolate_3D_face_<fe_degree_, 1, 5, transpose>(
+                        p4,
+                        fe_degree,
+                        not_flipped,
+                        mask_values,
+                        weights,
+                        values); // face 5
+                    else
+                    {
+                        
                     if (is_face_0)
                       interpolate_3D_face<fe_degree_, 1, 0, transpose>(
                         p0,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // face 0
                     else if (is_face_1)
@@ -4911,7 +5105,7 @@ namespace internal
                         p1,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // face 1
                     if (is_face_4)
@@ -4919,7 +5113,7 @@ namespace internal
                         p0,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // face 4
                     else if (is_face_5)
@@ -4927,7 +5121,7 @@ namespace internal
                         p4,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // face 5
 
@@ -4937,7 +5131,7 @@ namespace internal
                         p0,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // edge 0
                     if (is_face_1 || is_face_4 || is_edge_1)
@@ -4945,7 +5139,7 @@ namespace internal
                         p1,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // edge 1
                     if (is_face_0 || is_face_5 || is_edge_4)
@@ -4953,7 +5147,7 @@ namespace internal
                         p4,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // edge 4
                     if (is_face_1 || is_face_5 || is_edge_5)
@@ -4961,9 +5155,10 @@ namespace internal
                         p5,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // edge 5
+                    }
                   }
 
                   // direction 2:
@@ -4972,12 +5167,46 @@ namespace internal
                       mask & MatrixFreeFunctions::ConstraintTypes::type_z;
 
                     // ... faces
+                    if (is_face_0 && ((is_face_2 || is_face_3)==false))
+                      interpolate_3D_face_<fe_degree_, 2, 0, transpose>(
+                        p0,
+                        fe_degree,
+                        not_flipped,
+                        mask_values,
+                        weights,
+                        values); // face 0
+                    else if (is_face_1 && ((is_face_2 || is_face_3)==false))
+                      interpolate_3D_face_<fe_degree_, 2, 1, transpose>(
+                        p1,
+                        fe_degree,
+                        not_flipped,
+                        mask_values,
+                        weights,
+                        values); // face 1
+                    else if (is_face_2 && ((is_face_0 || is_face_1)==false))
+                      interpolate_3D_face_<fe_degree_, 2, 2, transpose>(
+                        p0,
+                        fe_degree,
+                        not_flipped,
+                        mask_values,
+                        weights,
+                        values); // face 2
+                    else if (is_face_3 && ((is_face_0 || is_face_1)==false))
+                      interpolate_3D_face_<fe_degree_, 2, 3, transpose>(
+                        p2,
+                        fe_degree,
+                        not_flipped,
+                        mask_values,
+                        weights,
+                        values); // face 3
+                    else
+                    {
                     if (is_face_0)
                       interpolate_3D_face<fe_degree_, 2, 0, transpose>(
                         p0,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // face 0
                     else if (is_face_1)
@@ -4985,7 +5214,7 @@ namespace internal
                         p1,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // face 1
                     if (is_face_2)
@@ -4993,7 +5222,7 @@ namespace internal
                         p0,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // face 2
                     else if (is_face_3)
@@ -5001,7 +5230,7 @@ namespace internal
                         p2,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // face 3
 
@@ -5011,7 +5240,7 @@ namespace internal
                         p0,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // edge 8
                     if (is_face_1 || is_face_2 || is_edge_9)
@@ -5019,7 +5248,7 @@ namespace internal
                         p1,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // edge 9
                     if (is_face_0 || is_face_3 || is_edge_10)
@@ -5027,7 +5256,7 @@ namespace internal
                         p2,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // edge 10
                     if (is_face_1 || is_face_3 || is_edge_11)
@@ -5035,15 +5264,18 @@ namespace internal
                         p3,
                         fe_degree,
                         not_flipped,
-                        v,
+                        mask_values,
                         weights,
                         values); // edge 11
+                    }
                   }
                 }
               else
                 {
                   Assert(false, ExcNotImplemented());
                 }
+
+              //break;
             }
 
           values += fe_eval.get_shape_info().dofs_per_component_on_cell;
