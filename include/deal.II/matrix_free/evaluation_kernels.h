@@ -5170,20 +5170,8 @@ namespace internal
                   const bool type_y = (m >> 1) & 1;
                   const bool type_z = (m >> 2) & 1;
 
-                  const std::array<unsigned int, 12> line_to_point = {{
-                    p0, // 0
-                    p1, // 1
-                    p0, // 2
-                    p2, // 3
-                    p4, // 4
-                    p5, // 5
-                    p4, // 6
-                    p6, // 7
-                    p0, // 8
-                    p1, // 9
-                    p2, // 10
-                    p3  // 11
-                  }};
+                  const std::array<unsigned int, 12> line_to_point = {
+                    {p0, p1, p0, p2, p4, p5, p4, p6, p0, p1, p2, p3}};
 
                   const std::array<std::array<std::array<unsigned int, 2>, 2>,
                                    3>
@@ -5193,6 +5181,15 @@ namespace internal
 
                   const auto faces = (m >> 3) & 7;
                   const auto edges = (m >> 6);
+
+                  Helper<fe_degree, transpose> helper(given_degree,
+                                                      type_x,
+                                                      type_y,
+                                                      type_z,
+                                                      v,
+                                                      interpolation_matrices,
+                                                      line_to_point,
+                                                      values);
 
                   if (edges > 0)
                     {
@@ -5228,7 +5225,7 @@ namespace internal
                           case 0:
                             break;
                           case 1:
-                            process_edge(false, false, true);
+                            helper.template process_edge<false, false, true>();
                             break;
                           case 2:
                             process_edge(true, false, false);
@@ -5519,6 +5516,64 @@ namespace internal
           values += fe_eval.get_shape_info().dofs_per_component_on_cell;
         }
     }
+    
+    template<int fe_degree, bool transpose>
+    class Helper
+    {
+    public:
+        Helper(const unsigned int given_degree, const bool type_x, const bool type_y, const bool type_z,
+          const unsigned int v,
+          const std::array<AlignedVector<Number>, 2> &interpolation_matrices, const std::array<unsigned int, 12> & line_to_point,
+          Number *                            values) : 
+            given_degree(given_degree), type_x(type_x), type_y(type_y), type_z(type_z), v(v),
+            interpolation_matrices(interpolation_matrices), line_to_point(line_to_point), values(values){}
+        
+        const unsigned int given_degree;
+        const bool type_x;
+        const bool type_y;
+        const bool type_z;
+        const unsigned int v; 
+        const std::array<AlignedVector<Number>, 2> &interpolation_matrices;
+        const std::array<unsigned int, 12> & line_to_point; 
+        Number *                            values;
+        
+        template<bool do_x, bool do_y, bool do_z>
+        void
+        process_edge()
+        {
+          if (do_x)
+            interpolate_3D_edge<fe_degree, 0, transpose>(
+              line_to_point[line[0][type_y][type_z]],
+              given_degree,
+              v,
+              interpolation_matrices[!type_x].data(),
+              values);
+
+          if (do_y)
+            interpolate_3D_edge<fe_degree, 1, transpose>(
+              line_to_point[line[1][type_x][type_z]],
+              given_degree,
+              v,
+              interpolation_matrices[!type_y].data(),
+              values);
+
+          if (do_z)
+            interpolate_3D_edge<fe_degree, 2, transpose>(
+              line_to_point[line[2][type_x][type_y]],
+              given_degree,
+              v,
+              interpolation_matrices[!type_z].data(),
+              values);
+        }
+        
+    private:
+            static constexpr std::array<std::array<std::array<unsigned int, 2>, 2>,
+                                   3>
+                    line = {{{{{{7, 3}}, {{6, 2}}}},
+                             {{{{5, 1}}, {{4, 0}}}},
+                             {{{{11, 9}}, {{10, 8}}}}}};
+    };
+    
   };
 
 
