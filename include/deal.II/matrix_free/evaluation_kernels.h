@@ -5196,62 +5196,57 @@ namespace internal
 
                   if (edges > 0)
                     {
-                      const auto process_edge_x = [&]() {
-                        interpolate_3D_edge<fe_degree, 0, transpose>(
-                          line_to_point[line[0][type_y][type_z]],
-                          given_degree,
-                          v,
-                          interpolation_matrices[!type_x].data(),
-                          values);
-                      };
+                      const auto process_edge =
+                        [&](const bool do_x, const bool do_y, const bool do_z) {
+                          if (do_x)
+                            interpolate_3D_edge<fe_degree, 0, transpose>(
+                              line_to_point[line[0][type_y][type_z]],
+                              given_degree,
+                              v,
+                              interpolation_matrices[!type_x].data(),
+                              values);
 
-                      const auto process_edge_y = [&]() {
-                        interpolate_3D_edge<fe_degree, 1, transpose>(
-                          line_to_point[line[1][type_x][type_z]],
-                          given_degree,
-                          v,
-                          interpolation_matrices[!type_y].data(),
-                          values);
-                      };
+                          if (do_y)
+                            interpolate_3D_edge<fe_degree, 1, transpose>(
+                              line_to_point[line[1][type_x][type_z]],
+                              given_degree,
+                              v,
+                              interpolation_matrices[!type_y].data(),
+                              values);
 
-                      const auto process_edge_z = [&]() {
-                        interpolate_3D_edge<fe_degree, 2, transpose>(
-                          line_to_point[line[2][type_x][type_y]],
-                          given_degree,
-                          v,
-                          interpolation_matrices[!type_z].data(),
-                          values);
-                      };
+                          if (do_z)
+                            interpolate_3D_edge<fe_degree, 2, transpose>(
+                              line_to_point[line[2][type_x][type_y]],
+                              given_degree,
+                              v,
+                              interpolation_matrices[!type_z].data(),
+                              values);
+                        };
 
                       switch (edges)
                         {
                           case 0:
                             break;
                           case 1:
-                            process_edge_z();
+                            process_edge(false, false, true);
                             break;
                           case 2:
-                            process_edge_x();
+                            process_edge(true, false, false);
                             break;
                           case 3:
-                            process_edge_x();
-                            process_edge_z();
+                            process_edge(true, false, true);
                             break;
                           case 4:
-                            process_edge_y();
+                            process_edge(false, true, false);
                             break;
                           case 5:
-                            process_edge_y();
-                            process_edge_z();
+                            process_edge(false, true, true);
                             break;
                           case 6:
-                            process_edge_x();
-                            process_edge_y();
+                            process_edge(true, true, false);
                             break;
                           case 7:
-                            process_edge_x();
-                            process_edge_y();
-                            process_edge_z();
+                            process_edge(true, true, true);
                             break;
                         }
                     }
