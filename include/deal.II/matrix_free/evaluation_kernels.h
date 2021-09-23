@@ -5269,15 +5269,15 @@ namespace internal
                       // clang-format off
                       std::array<std::array<std::array<std::array<unsigned int, 4>, 2>, 2>, 3> lines_plane
                       {{
-                          {{{{{{3,7,1,5}},{{2,6,1,5}}}},{{{{3,7,0,4}},{{2,6,0,4}}}}}}, // 
-                          {{{{{{6,7,9,11}},{{2,3,9,11}}}},{{{{6,7,8,10}},{{2,3,8,10}}}}}}, // TODO
-                          {{{{{{1,5,3,7}},{{1,5,2,3}}}},{{{{0,4,3,7}},{{0,4,2,3}}}}}}  // TODO
+                          {{{{{{3,7,1,5}},{{2,6,1,5}}}},{{{{3,7,0,4}},{{2,6,0,4}}}}}},
+                          {{{{{{6,7,9,11}},{{2,3,9,11}}}},{{{{6,7,8,10}},{{2,3,8,10}}}}}},
+                          {{{{{{4,5,10,11}},{{0,1,10,11}}}},{{{{4,5,8,9}},{{0,1,8,9}}}}}}
                        }};
                       std::array<std::array<std::array<std::array<unsigned int, 3>, 2>, 2>, 3> lines
                       {{
-                          {{{{{{9,10,11}},{{8,9,11}}}},{{{{8,10,11}},{{8,9,10}}}}}}, // TODO
-                          {{{{{{1,4,5}},{{0,1,5}}}},{{{{0,4,5}},{{0,1,4}}}}}}, // TODO
-                          {{{{{{9,10,11}},{{8,9,11}}}},{{{{8,10,11}},{{8,9,10}}}}}}  // 
+                          {{{{{{3,6,7}},{{2,3,7}}}},{{{{2,6,7}},{{2,3,6}}}}}},
+                          {{{{{{1,4,5}},{{0,1,5}}}},{{{{0,4,5}},{{0,1,4}}}}}},
+                          {{{{{{9,10,11}},{{8,9,11}}}},{{{{8,10,11}},{{8,9,10}}}}}}
                       }};
 
                       switch (faces)
@@ -5401,6 +5401,47 @@ namespace internal
                           case 6:
                             success = false;
                             break;
+                            // face 2/3 -> x-direction
+                            interpolate_3D_face<fe_degree, 0, 1, transpose, false>(
+                              face_to_point[face[1][type_y]], given_degree, v, interpolation_matrices[!type_x].data(), values);
+                            
+                            // face 4/5 -> x-direction
+                            interpolate_3D_face<fe_degree, 0, 2, transpose, false>(
+                              face_to_point[face[2][type_z]], given_degree, v, interpolation_matrices[!type_x].data(), values);
+                            
+                            // line A/B/C/D -> x-direction (3 lines)
+                            interpolate_3D_edge<fe_degree, 0, transpose>(
+                              line_to_point[lines[0][type_y][type_z][0]], given_degree, v, interpolation_matrices[!type_x].data(), values);
+                            
+                            interpolate_3D_edge<fe_degree, 0, transpose>(
+                              line_to_point[lines[0][type_y][type_z][1]], given_degree, v, interpolation_matrices[!type_x].data(), values);
+                            
+                            interpolate_3D_edge<fe_degree, 0, transpose>(
+                              line_to_point[lines[0][type_y][type_z][2]], given_degree, v, interpolation_matrices[!type_x].data(), values);
+
+                            // face 4/5 -> y-direction
+                            interpolate_3D_face<fe_degree, 1, 2, transpose, false>(
+                              face_to_point[face[2][type_z]], given_degree, v, interpolation_matrices[!type_y].data(), values);
+                            
+                            // line A/B/C/D -> y-direction (2 lines)
+                            interpolate_3D_edge<fe_degree, 1, transpose>(
+                              line_to_point[lines_plane[2][type_y][type_z][0]], given_degree, v, interpolation_matrices[!type_y].data(), values);
+                            
+                            interpolate_3D_edge<fe_degree, 1, transpose>(
+                              line_to_point[lines_plane[2][type_y][type_z][1]], given_degree, v, interpolation_matrices[!type_y].data(), values);
+
+                            // face 2/3 -> z-direction
+                            interpolate_3D_face<fe_degree, 2, 1, transpose, false>(
+                              face_to_point[face[1][type_y]], given_degree, v, interpolation_matrices[!type_z].data(), values);
+                            
+                            // line A/B/C/D -> z-direction (2 lines)
+                            interpolate_3D_edge<fe_degree, 2, transpose>(
+                              line_to_point[lines_plane[2][type_y][type_z][2]], given_degree, v, interpolation_matrices[!type_z].data(), values);
+                            
+                            interpolate_3D_edge<fe_degree, 2, transpose>(
+                              line_to_point[lines_plane[2][type_y][type_z][3]], given_degree, v, interpolation_matrices[!type_z].data(), values);
+                            
+                            break;
                           case 7:
                             success = false;
                             break;
@@ -5455,6 +5496,7 @@ namespace internal
                            MatrixFreeFunctions::ConstraintKinds::face_z) &&
                     not_set(mask, MatrixFreeFunctions::ConstraintKinds::type_z);
 
+                  /*
                   const bool is_edge_2 =
                     is_set(mask,
                            MatrixFreeFunctions::ConstraintKinds::edge_yz) &&
@@ -5529,6 +5571,7 @@ namespace internal
                     not_set(mask,
                             MatrixFreeFunctions::ConstraintKinds::type_x) &&
                     not_set(mask, MatrixFreeFunctions::ConstraintKinds::type_y);
+                   */
 
                   // direction 0:
                   {
@@ -5570,28 +5613,28 @@ namespace internal
                         values); // face 5
 
                     // ... edges
-                    if (is_face_2 || is_face_4 || is_edge_2)
+                    if (is_face_2 || is_face_4)
                       interpolate_3D_edge<fe_degree, 0, transpose>(
                         p0,
                         given_degree,
                         v,
                         weights,
                         values); // edge 2
-                    if (is_face_3 || is_face_4 || is_edge_3)
+                    if (is_face_3 || is_face_4)
                       interpolate_3D_edge<fe_degree, 0, transpose>(
                         p2,
                         given_degree,
                         v,
                         weights,
                         values); // edge 3
-                    if (is_face_2 || is_face_5 || is_edge_6)
+                    if (is_face_2 || is_face_5)
                       interpolate_3D_edge<fe_degree, 0, transpose>(
                         p4,
                         given_degree,
                         v,
                         weights,
                         values); // edge 6
-                    if (is_face_3 || is_face_5 || is_edge_7)
+                    if (is_face_3 || is_face_5)
                       interpolate_3D_edge<fe_degree, 0, transpose>(
                         p6,
                         given_degree,
@@ -5640,28 +5683,28 @@ namespace internal
                         values); // face 5
 
                     // ... edges
-                    if (is_face_0 || is_face_4 || is_edge_0)
+                    if (is_face_0 || is_face_4)
                       interpolate_3D_edge<fe_degree, 1, transpose>(
                         p0,
                         given_degree,
                         v,
                         weights,
                         values); // edge 0
-                    if (is_face_1 || is_face_4 || is_edge_1)
+                    if (is_face_1 || is_face_4)
                       interpolate_3D_edge<fe_degree, 1, transpose>(
                         p1,
                         given_degree,
                         v,
                         weights,
                         values); // edge 1
-                    if (is_face_0 || is_face_5 || is_edge_4)
+                    if (is_face_0 || is_face_5)
                       interpolate_3D_edge<fe_degree, 1, transpose>(
                         p4,
                         given_degree,
                         v,
                         weights,
                         values); // edge 4
-                    if (is_face_1 || is_face_5 || is_edge_5)
+                    if (is_face_1 || is_face_5)
                       interpolate_3D_edge<fe_degree, 1, transpose>(
                         p5,
                         given_degree,
@@ -5710,28 +5753,28 @@ namespace internal
                         values); // face 3
 
                     // ... edges
-                    if (is_face_0 || is_face_2 || is_edge_8)
+                    if (is_face_0 || is_face_2)
                       interpolate_3D_edge<fe_degree, 2, transpose>(
                         p0,
                         given_degree,
                         v,
                         weights,
                         values); // edge 8
-                    if (is_face_1 || is_face_2 || is_edge_9)
+                    if (is_face_1 || is_face_2)
                       interpolate_3D_edge<fe_degree, 2, transpose>(
                         p1,
                         given_degree,
                         v,
                         weights,
                         values); // edge 9
-                    if (is_face_0 || is_face_3 || is_edge_10)
+                    if (is_face_0 || is_face_3)
                       interpolate_3D_edge<fe_degree, 2, transpose>(
                         p2,
                         given_degree,
                         v,
                         weights,
                         values); // edge 10
-                    if (is_face_1 || is_face_3 || is_edge_11)
+                    if (is_face_1 || is_face_3)
                       interpolate_3D_edge<fe_degree, 2, transpose>(
                         p3,
                         given_degree,
