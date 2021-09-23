@@ -4983,7 +4983,8 @@ namespace internal
     template <int          fe_degree,
               unsigned int direction,
               unsigned int d,
-              bool         transpose>
+              bool         transpose,
+              bool         skip_borders = true>
     static void
     interpolate_3D_face(const unsigned int dof_offset,
                         const unsigned int given_degree,
@@ -5010,7 +5011,9 @@ namespace internal
           (((direction == 0 && d == 2) || (direction == 2 && d == 0)) ? points :
                                                                         1);
 
-      for (unsigned int g = 1; g < points - 1; ++g)
+      for (unsigned int g = (skip_borders ? 1 : 0);
+           g < points - (skip_borders ? 1 : 0);
+           ++g)
         {
           // copy result back
           for (unsigned int k = 0; k < points; ++k)
@@ -5080,14 +5083,6 @@ namespace internal
       const auto &interpolation_matrices =
         fe_eval.get_shape_info().data.front().subface_interpolation_matrices;
 
-      const auto is_set = [](const auto a, const auto b) -> bool {
-        return (a & b) == b;
-      };
-
-      const auto not_set = [](const auto a, const auto b) -> bool {
-        return (a & b) == MatrixFreeFunctions::ConstraintKinds::unconstrained;
-      };
-
       const unsigned int points = given_degree + 1;
 
       for (unsigned int c = 0; c < n_desired_components; ++c)
@@ -5101,6 +5096,10 @@ namespace internal
 
               if (dim == 2) // 2D: only faces
                 {
+                  const auto is_set = [](const auto a, const auto b) -> bool {
+                    return (a & b) == b;
+                  };
+
                   // direction 0:
                   if ((mask & MatrixFreeFunctions::ConstraintKinds::face_y) !=
                       MatrixFreeFunctions::ConstraintKinds::unconstrained)
@@ -5155,6 +5154,181 @@ namespace internal
                 }
               else if (dim == 3) // 3D faces and edges
                 {
+                  const unsigned int p0 = 0;
+                  const unsigned int p1 = points - 1;
+                  const unsigned int p2 = points * points - points;
+                  const unsigned int p3 = points * points - 1;
+                  const unsigned int p4 =
+                    points * points * points - points * points;
+                  const unsigned int p5 =
+                    points * points * points - points * points + points - 1;
+                  const unsigned int p6 = points * points * points - points;
+
+                  const auto m = static_cast<std::uint16_t>(mask);
+
+                  const bool type_x = (m >> 0) & 1;
+                  const bool type_y = (m >> 1) & 1;
+                  const bool type_z = (m >> 2) & 1;
+
+                  const std::array<unsigned int, 12> line_to_point = {{
+                    p0, // 0
+                    p1, // 1
+                    p0, // 2
+                    p2, // 3
+                    p4, // 4
+                    p5, // 5
+                    p4, // 6
+                    p6, // 7
+                    p0, // 8
+                    p1, // 9
+                    p2, // 10
+                    p3  // 11
+                  }};
+
+                  const std::array<std::array<std::array<unsigned int, 2>, 2>,
+                                   3>
+                    line = {{{{{{7, 3}}, {{6, 2}}}},
+                             {{{{5, 1}}, {{4, 0}}}},
+                             {{{{11, 9}}, {{10, 8}}}}}};
+
+                  const auto faces = (m >> 3) & 7;
+                  const auto edges = (m >> 6);
+
+                  if (edges > 0)
+                    {
+                      const auto process_edge_x = [&]() {
+                        interpolate_3D_edge<fe_degree, 0, transpose>(
+                          line_to_point[line[0][type_y][type_z]],
+                          given_degree,
+                          v,
+                          interpolation_matrices[!type_x].data(),
+                          values);
+                      };
+
+                      const auto process_edge_y = [&]() {
+                        interpolate_3D_edge<fe_degree, 1, transpose>(
+                          line_to_point[line[1][type_x][type_z]],
+                          given_degree,
+                          v,
+                          interpolation_matrices[!type_y].data(),
+                          values);
+                      };
+
+                      const auto process_edge_z = [&]() {
+                        interpolate_3D_edge<fe_degree, 2, transpose>(
+                          line_to_point[line[2][type_x][type_y]],
+                          given_degree,
+                          v,
+                          interpolation_matrices[!type_z].data(),
+                          values);
+                      };
+
+                      switch (edges)
+                        {
+                          case 0:
+                            break;
+                          case 1:
+                            process_edge_z();
+                            break;
+                          case 2:
+                            process_edge_x();
+                            break;
+                          case 3:
+                            process_edge_x();
+                            process_edge_z();
+                            break;
+                          case 4:
+                            process_edge_y();
+                            break;
+                          case 5:
+                            process_edge_y();
+                            process_edge_z();
+                            break;
+                          case 6:
+                            process_edge_x();
+                            process_edge_y();
+                            break;
+                          case 7:
+                            process_edge_x();
+                            process_edge_y();
+                            process_edge_z();
+                            break;
+                        }
+                    }
+
+                  if (faces > 0)
+                    {
+                      bool success = true;
+
+                      const std::array<unsigned int, 6> face_to_point{
+                        {p0, p1, p0, p2, p0, p4}};
+
+                      const std::array<std::array<unsigned int, 2>, 3> face = {
+                        {{{1, 0}}, {{3, 2}}, {{5, 4}}}};
+
+                      // clang-format off
+                      switch (faces)
+                        {
+                          case 0:
+                            break;
+                          case 1:
+                            // face 0/1 -> y-direction
+                            interpolate_3D_face<fe_degree, 1, 0, transpose, false>(
+                              face_to_point[face[0][type_x]], given_degree, v, interpolation_matrices[!type_y].data(), values);
+
+                            // face 0/1 -> z-direction
+                            interpolate_3D_face<fe_degree, 2, 0, transpose, false>(
+                              face_to_point[face[0][type_x]], given_degree, v, interpolation_matrices[!type_z].data(), values);
+
+                            break;
+                          case 2:
+                            // face 2/3 -> x-direction
+                            interpolate_3D_face<fe_degree, 0, 1, transpose, false>(
+                              face_to_point[face[1][type_y]], given_degree, v, interpolation_matrices[!type_x].data(), values);
+
+                            // face 2/3 -> z-direction
+                            interpolate_3D_face<fe_degree, 2, 1, transpose, false>(
+                              face_to_point[face[1][type_y]], given_degree, v, interpolation_matrices[!type_z].data(), values);
+
+                            break;
+                          case 3:
+                            success = false;
+                            break;
+                          case 4:
+                            // face 4/5 -> x-direction
+                            interpolate_3D_face<fe_degree, 0, 2, transpose, false>(
+                              face_to_point[face[2][type_z]], given_degree, v, interpolation_matrices[!type_x].data(), values);
+
+                            // face 4/5 -> y-direction
+                            interpolate_3D_face<fe_degree, 1, 2, transpose, false>(
+                              face_to_point[face[2][type_z]], given_degree, v, interpolation_matrices[!type_y].data(), values);
+
+                            break;
+                          case 5:
+                            success = false;
+                            break;
+                          case 6:
+                            success = false;
+                            break;
+                          case 7:
+                            success = false;
+                            break;
+                        }
+                      // clang-format on
+
+                      if (success)
+                        continue;
+
+                      // clang-format off
+                {
+                  const auto is_set = [](const auto a, const auto b) -> bool {
+                    return (a & b) == b;
+                  };
+
+                  const auto not_set = [](const auto a, const auto b) -> bool {
+                    return (a & b) == MatrixFreeFunctions::ConstraintKinds::unconstrained;
+                  };
+      
                   const unsigned int p0 = 0;
                   const unsigned int p1 = points - 1;
                   const unsigned int p2 = points * points - points;
@@ -5474,6 +5648,9 @@ namespace internal
                         weights,
                         values); // edge 11
                   }
+                }
+                      // clang-format on
+                    }
                 }
               else
                 {
