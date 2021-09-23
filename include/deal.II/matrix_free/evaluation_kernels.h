@@ -5267,6 +5267,19 @@ namespace internal
                         {{{1, 0}}, {{3, 2}}, {{5, 4}}}};
 
                       // clang-format off
+                      std::array<std::array<std::array<std::array<unsigned int, 4>, 2>, 2>, 3> lines_plane
+                      {{
+                          {{{{{{3,7,1,5}},{{2,6,1,5}}}},{{{{3,7,0,4}},{{2,6,0,4}}}}}}, // 
+                          {{{{{{1,5,3,7}},{{1,5,2,3}}}},{{{{0,4,3,7}},{{0,4,2,3}}}}}}, // TODO
+                          {{{{{{1,5,3,7}},{{1,5,2,3}}}},{{{{0,4,3,7}},{{0,4,2,3}}}}}}  // TODO
+                       }};
+                      std::array<std::array<std::array<std::array<unsigned int, 3>, 2>, 2>, 3> lines
+                      {{
+                          {{{{{{9,10,11}},{{8,9,11}}}},{{{{8,10,11}},{{8,9,10}}}}}}, // TODO
+                          {{{{{{9,10,11}},{{8,9,11}}}},{{{{8,10,11}},{{8,9,10}}}}}}, // TODO
+                          {{{{{{9,10,11}},{{8,9,11}}}},{{{{8,10,11}},{{8,9,10}}}}}}  // 
+                      }};
+
                       switch (faces)
                         {
                           case 0:
@@ -5292,7 +5305,46 @@ namespace internal
 
                             break;
                           case 3:
-                            success = false;
+                            // face 2/3 -> x-direction
+                            interpolate_3D_face<fe_degree, 0, 1, transpose, true>(
+                              face_to_point[face[1][type_y]], given_degree, v, interpolation_matrices[!type_x].data(), values);
+                            
+                            // line A/B/C/D -> x-direction (2 lines)
+                            interpolate_3D_edge<fe_degree, 0, transpose>(
+                              line_to_point[lines_plane[0][type_x][type_y][0]], given_degree, v, interpolation_matrices[!type_x].data(), values);
+                            
+                            interpolate_3D_edge<fe_degree, 0, transpose>(
+                              line_to_point[lines_plane[0][type_x][type_y][1]], given_degree, v, interpolation_matrices[!type_x].data(), values);
+                            
+                            // face 0/1 -> y-direction
+                            interpolate_3D_face<fe_degree, 1, 0, transpose, true>(
+                              face_to_point[face[0][type_x]], given_degree, v, interpolation_matrices[!type_y].data(), values);
+                            
+                            // line A/B/C/D -> y-direction (2 lines)
+                            interpolate_3D_edge<fe_degree, 1, transpose>(
+                              line_to_point[lines_plane[0][type_x][type_y][2]], given_degree, v, interpolation_matrices[!type_y].data(), values);
+                            
+                            interpolate_3D_edge<fe_degree, 1, transpose>(
+                              line_to_point[lines_plane[0][type_x][type_y][3]], given_degree, v, interpolation_matrices[!type_y].data(), values);
+
+                            // face 0/1 -> z-direction
+                            interpolate_3D_face<fe_degree, 2, 0, transpose, true>(
+                              face_to_point[face[0][type_x]], given_degree, v, interpolation_matrices[!type_z].data(), values);
+
+                            // face 2/3 -> z-direction
+                            interpolate_3D_face<fe_degree, 2, 1, transpose, true>(
+                              face_to_point[face[1][type_y]], given_degree, v, interpolation_matrices[!type_z].data(), values);
+                            
+                            // line A/B/C/D -> z-direction (3 lines)
+                            interpolate_3D_edge<fe_degree, 2, transpose>(
+                              line_to_point[lines[2][type_x][type_y][0]], given_degree, v, interpolation_matrices[!type_z].data(), values);
+                            
+                            interpolate_3D_edge<fe_degree, 2, transpose>(
+                              line_to_point[lines[2][type_x][type_y][1]], given_degree, v, interpolation_matrices[!type_z].data(), values);
+                            
+                            interpolate_3D_edge<fe_degree, 2, transpose>(
+                              line_to_point[lines[2][type_x][type_y][2]], given_degree, v, interpolation_matrices[!type_z].data(), values);
+                            
                             break;
                           case 4:
                             // face 4/5 -> x-direction
