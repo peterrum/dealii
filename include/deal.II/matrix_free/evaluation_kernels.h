@@ -5164,23 +5164,16 @@ namespace internal
                     points * points * points - points * points + points - 1;
                   const unsigned int p6 = points * points * points - points;
 
+                  const std::array<unsigned int, 12> line_to_point = {
+                    {p0, p1, p0, p2, p4, p5, p4, p6, p0, p1, p2, p3}};
+
                   const auto m = static_cast<std::uint16_t>(mask);
 
                   const bool type_x = (m >> 0) & 1;
                   const bool type_y = (m >> 1) & 1;
                   const bool type_z = (m >> 2) & 1;
-
-                  const std::array<unsigned int, 12> line_to_point = {
-                    {p0, p1, p0, p2, p4, p5, p4, p6, p0, p1, p2, p3}};
-
-                  const std::array<std::array<std::array<unsigned int, 2>, 2>,
-                                   3>
-                    line = {{{{{{7, 3}}, {{6, 2}}}},
-                             {{{{5, 1}}, {{4, 0}}}},
-                             {{{{11, 9}}, {{10, 8}}}}}};
-
-                  const auto faces = (m >> 3) & 7;
-                  const auto edges = (m >> 6);
+                  const auto faces  = (m >> 3) & 7;
+                  const auto edges  = (m >> 6);
 
                   Helper<fe_degree, transpose> helper(given_degree,
                                                       type_x,
@@ -5192,61 +5185,32 @@ namespace internal
                                                       values);
 
                   if (edges > 0)
-                    {
-                      const auto process_edge =
-                        [&](const bool do_x, const bool do_y, const bool do_z) {
-                          if (do_x)
-                            interpolate_3D_edge<fe_degree, 0, transpose>(
-                              line_to_point[line[0][type_y][type_z]],
-                              given_degree,
-                              v,
-                              interpolation_matrices[!type_x].data(),
-                              values);
-
-                          if (do_y)
-                            interpolate_3D_edge<fe_degree, 1, transpose>(
-                              line_to_point[line[1][type_x][type_z]],
-                              given_degree,
-                              v,
-                              interpolation_matrices[!type_y].data(),
-                              values);
-
-                          if (do_z)
-                            interpolate_3D_edge<fe_degree, 2, transpose>(
-                              line_to_point[line[2][type_x][type_y]],
-                              given_degree,
-                              v,
-                              interpolation_matrices[!type_z].data(),
-                              values);
-                        };
-
-                      switch (edges)
-                        {
-                          case 0:
-                            break;
-                          case 1:
-                            helper.template process_edge<false, false, true>();
-                            break;
-                          case 2:
-                            process_edge(true, false, false);
-                            break;
-                          case 3:
-                            process_edge(true, false, true);
-                            break;
-                          case 4:
-                            process_edge(false, true, false);
-                            break;
-                          case 5:
-                            process_edge(false, true, true);
-                            break;
-                          case 6:
-                            process_edge(true, true, false);
-                            break;
-                          case 7:
-                            process_edge(true, true, true);
-                            break;
-                        }
-                    }
+                    switch (edges)
+                      {
+                        case 0:
+                          break;
+                        case 1:
+                          helper.template process_edge<false, false, true>();
+                          break;
+                        case 2:
+                          helper.template process_edge<true, false, false>();
+                          break;
+                        case 3:
+                          helper.template process_edge<true, false, true>();
+                          break;
+                        case 4:
+                          helper.template process_edge<false, true, false>();
+                          break;
+                        case 5:
+                          helper.template process_edge<false, true, true>();
+                          break;
+                        case 6:
+                          helper.template process_edge<true, true, false>();
+                          break;
+                        case 7:
+                          helper.template process_edge<true, true, true>();
+                          break;
+                      }
 
                   if (faces > 0)
                     {
