@@ -5084,6 +5084,22 @@ namespace internal
         fe_eval.get_shape_info().data.front().subface_interpolation_matrices;
 
       const unsigned int points = given_degree + 1;
+      
+      const unsigned int p0 = 0;
+      const unsigned int p1 = points - 1;
+      const unsigned int p2 = points * points - points;
+      const unsigned int p3 = points * points - 1;
+      const unsigned int p4 =
+        points * points * points - points * points;
+      const unsigned int p5 =
+        points * points * points - points * points + points - 1;
+      const unsigned int p6 = points * points * points - points;
+
+      static const std::array<unsigned int, 12> line_to_point = {
+        {p0, p1, p0, p2, p4, p5, p4, p6, p0, p1, p2, p3}};
+
+      static const std::array<unsigned int, 6> face_to_point{
+        {p0, p1, p0, p2, p0, p4}};
 
       for (unsigned int c = 0; c < n_desired_components; ++c)
         {
@@ -5154,22 +5170,6 @@ namespace internal
                 }
               else if (dim == 3) // 3D faces and edges
                 {
-                  const unsigned int p0 = 0;
-                  const unsigned int p1 = points - 1;
-                  const unsigned int p2 = points * points - points;
-                  const unsigned int p3 = points * points - 1;
-                  const unsigned int p4 =
-                    points * points * points - points * points;
-                  const unsigned int p5 =
-                    points * points * points - points * points + points - 1;
-                  const unsigned int p6 = points * points * points - points;
-
-                  const std::array<unsigned int, 12> line_to_point = {
-                    {p0, p1, p0, p2, p4, p5, p4, p6, p0, p1, p2, p3}};
-
-                  const std::array<unsigned int, 6> face_to_point{
-                    {p0, p1, p0, p2, p0, p4}};
-
                   const auto m = static_cast<std::uint16_t>(mask);
 
                   const bool type_x = (m >> 0) & 1;
@@ -5258,11 +5258,11 @@ namespace internal
     class Helper
     {
     public:
-      Helper(const unsigned int                          given_degree,
-             const bool                                  type_x,
-             const bool                                  type_y,
-             const bool                                  type_z,
-             const unsigned int                          v,
+      inline DEAL_II_ALWAYS_INLINE Helper(const unsigned int &                         given_degree,
+             const bool &                                 type_x,
+             const bool &                                 type_y,
+             const bool &                                 type_z,
+             const unsigned int &                         v,
              const std::array<AlignedVector<Number>, 2> &interpolation_matrices,
              const std::array<unsigned int, 12> &        line_to_point,
              const std::array<unsigned int, 6> &         face_to_point,
@@ -5278,11 +5278,11 @@ namespace internal
         , values(values)
       {}
 
-      const unsigned int                          given_degree;
-      const bool                                  type_x;
-      const bool                                  type_y;
-      const bool                                  type_z;
-      const unsigned int                          v;
+      const unsigned int &                         given_degree;
+      const bool &                                 type_x;
+      const bool &                                 type_y;
+      const bool &                                 type_z;
+      const unsigned int &                         v;
       const std::array<AlignedVector<Number>, 2> &interpolation_matrices;
       const std::array<unsigned int, 12> &        line_to_point;
       const std::array<unsigned int, 6> &         face_to_point;
@@ -5573,7 +5573,7 @@ namespace internal
       static constexpr std::array<std::array<unsigned int, 2>, 3> face = {
         {{{1, 0}}, {{3, 2}}, {{5, 4}}}};
 
-      std::array<std::array<std::array<std::array<unsigned int, 4>, 2>, 2>, 3>
+      static constexpr std::array<std::array<std::array<std::array<unsigned int, 4>, 2>, 2>, 3>
         lines_plane{{{{{{{{3, 7, 1, 5}}, {{2, 6, 1, 5}}}},
                        {{{{3, 7, 0, 4}}, {{2, 6, 0, 4}}}}}},
                      {{{{{{6, 7, 9, 11}}, {{2, 3, 9, 11}}}},
