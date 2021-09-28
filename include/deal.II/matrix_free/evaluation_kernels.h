@@ -5188,34 +5188,6 @@ namespace internal
                                                       face_to_point,
                                                       values);
 
-                  if (edges > 0)
-                    switch (edges)
-                      {
-                        case 0:
-                          break;
-                        case 1:
-                          helper.template process_edge<false, false, true>();
-                          break;
-                        case 2:
-                          helper.template process_edge<true, false, false>();
-                          break;
-                        case 3:
-                          helper.template process_edge<true, false, true>();
-                          break;
-                        case 4:
-                          helper.template process_edge<false, true, false>();
-                          break;
-                        case 5:
-                          helper.template process_edge<false, true, true>();
-                          break;
-                        case 6:
-                          helper.template process_edge<true, true, false>();
-                          break;
-                        case 7:
-                          helper.template process_edge<true, true, true>();
-                          break;
-                      }
-
                   if (faces > 0)
                     switch (faces)
                       {
@@ -5241,6 +5213,34 @@ namespace internal
                           break;
                         case 7:
                           helper.template process_faces<true, true, true>();
+                          break;
+                      }
+
+                  if (edges > 0)
+                    switch (edges)
+                      {
+                        case 0:
+                          break;
+                        case 1:
+                          helper.template process_edge<false, false, true>();
+                          break;
+                        case 2:
+                          helper.template process_edge<true, false, false>();
+                          break;
+                        case 3:
+                          helper.template process_edge<true, false, true>();
+                          break;
+                        case 4:
+                          helper.template process_edge<false, true, false>();
+                          break;
+                        case 5:
+                          helper.template process_edge<false, true, true>();
+                          break;
+                        case 6:
+                          helper.template process_edge<true, true, false>();
+                          break;
+                        case 7:
+                          helper.template process_edge<true, true, true>();
                           break;
                       }
                 }
