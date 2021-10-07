@@ -2560,6 +2560,10 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
         }
     }
 
+  if (fine_element_is_continuous || use_src_inplace == false)
+    vec_fine_ptr->set_ghost_state(false); // clean up related to
+                                          // update_ghost_values()
+
   this->vec_coarse.compress(VectorOperation::add);
 
   dst.copy_locally_owned_data_from(this->vec_coarse);
@@ -2668,6 +2672,10 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
             }
         }
     }
+
+  if (fine_element_is_continuous || use_src_inplace == false)
+    vec_fine_ptr->set_ghost_state(false); // clean up related to
+                                          // update_ghost_values()
 
   dst.copy_locally_owned_data_from(this->vec_coarse);
 }
