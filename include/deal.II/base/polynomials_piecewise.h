@@ -344,8 +344,11 @@ namespace Polynomials
   inline number
   PiecewiseLinearPolynomial<number>::value(const number x) const
   {
-    Assert(false, ExcNotImplemented());
-    (void)x;
+    std::vector<number> temp(1);
+
+    value(x, temp);
+
+    return temp[0];
   }
 
 

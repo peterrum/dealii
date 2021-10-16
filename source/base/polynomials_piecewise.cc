@@ -161,10 +161,33 @@ namespace Polynomials
                                            const unsigned int n_derivatives,
                                            number *           values) const
   {
-    Assert(false, ExcNotImplemented());
-    (void)x;
-    (void)n_derivatives;
-    (void)values;
+    for (unsigned int i = 0; i <= n_derivatives; ++i)
+      values[i] = 0.0;
+
+    if (x > points[index][0])
+      values[0] =
+        std::max<number>(0.0,
+                         1.0 - (x - points[index][0]) /
+                                 (points[index + 1][0] - points[index][0]));
+    else if (x < points[index][0])
+      values[0] =
+        std::max<number>(1.0,
+                         1.0 + (x - points[index - 1][0]) /
+                                 (points[index][0] - points[index - 1][0]));
+    else
+      values[0] = 1.0;
+
+    if (n_derivatives == 1)
+      {
+        if (x > points[index][0] && points[index + 1][0] > x)
+          values[0] = -1.0 / (points[index + 1][0] - points[index][0]);
+        else if (x < points[index][0] && points[index - 1][0] < x)
+          values[0] = +1.0 / (points[index][0] - points[index - 1][0]);
+        else
+          values[0] = 0.0;
+      }
+
+    // all other derivatives are zero
   }
 
 
