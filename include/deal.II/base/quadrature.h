@@ -374,6 +374,13 @@ public:
   QIterated(const Quadrature<1> &base_quadrature, const unsigned int n_copies);
 
   /**
+   * Constructor. Iterate the given quadrature formula on the given subintervals
+   * in each direction.
+   */
+  QIterated(const Quadrature<1> &      base_quadrature,
+            const std::vector<double> &intervals);
+
+  /**
    * Exception
    */
   DeclExceptionMsg(ExcInvalidQuadratureFormula,
