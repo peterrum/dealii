@@ -377,8 +377,8 @@ public:
    * Constructor. Iterate the given quadrature formula on the given subintervals
    * in each direction.
    */
-  QIterated(const Quadrature<1> &      base_quadrature,
-            const std::vector<double> &intervals);
+  QIterated(const Quadrature<1> &        base_quadrature,
+            const std::vector<Point<1>> &intervals);
 
   /**
    * Exception

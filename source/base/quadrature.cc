@@ -450,13 +450,14 @@ namespace internal
         return (at_left && at_right);
       }
 
-      std::vector<double>
+      std::vector<Point<1>>
       create_support_points(const unsigned int n_copies)
       {
-        std::vector<double> support_points(n_copies + 1, 0);
+        std::vector<Point<1>> support_points(n_copies + 1);
 
         for (unsigned int copy = 0; copy < n_copies; ++copy)
-          support_points[copy + 1] += support_points[copy] + 1.0 / n_copies;
+          support_points[copy + 1][0] +=
+            support_points[copy][0] + 1.0 / n_copies;
 
         return support_points;
       }
@@ -467,7 +468,7 @@ namespace internal
 
 
 template <>
-QIterated<0>::QIterated(const Quadrature<1> &, const std::vector<double> &)
+QIterated<0>::QIterated(const Quadrature<1> &, const std::vector<Point<1>> &)
   : Quadrature<0>()
 {
   Assert(false, ExcNotImplemented());
@@ -485,12 +486,12 @@ QIterated<0>::QIterated(const Quadrature<1> &, const unsigned int)
 
 
 template <>
-QIterated<1>::QIterated(const Quadrature<1> &      base_quadrature,
-                        const std::vector<double> &support_points)
+QIterated<1>::QIterated(const Quadrature<1> &        base_quadrature,
+                        const std::vector<Point<1>> &support_points)
   : Quadrature<1>(
       internal::QIteratedImplementation::uses_both_endpoints(base_quadrature) ?
         (base_quadrature.size() - 1) * support_points.size() :
-        base_quadrature.size() * support_points.size() - 1)
+        base_quadrature.size() * (support_points.size() - 1))
 {
   Assert(base_quadrature.size() > 0, ExcNotInitialized());
   Assert(support_points.size() > 1, ExcZero());
@@ -506,13 +507,13 @@ QIterated<1>::QIterated(const Quadrature<1> &      base_quadrature,
         for (unsigned int q_point = 0; q_point < base_quadrature.size();
              ++q_point)
           {
-            this->quadrature_points[next_point] =
-              Point<1>(base_quadrature.point(q_point)(0) *
-                         (support_points[copy + 1] - support_points[copy]) +
-                       support_points[copy]);
+            this->quadrature_points[next_point] = Point<1>(
+              base_quadrature.point(q_point)(0) *
+                (support_points[copy + 1][0] - support_points[copy][0]) +
+              support_points[copy][0]);
             this->weights[next_point] =
               base_quadrature.weight(q_point) *
-              (support_points[copy + 1] - support_points[copy]);
+              (support_points[copy + 1][0] - support_points[copy][0]);
 
             ++next_point;
           }
@@ -547,27 +548,44 @@ QIterated<1>::QIterated(const Quadrature<1> &      base_quadrature,
             // the last time
             if ((copy > 0) && (base_quadrature.point(q_point) == Point<1>(0.0)))
               {
+                Assert(this->quadrature_points[next_point - double_point_offset]
+                           .distance(Point<1>(
+                             base_quadrature.point(q_point)(0) *
+                               (support_points[copy + 1][0] -
+                                support_points[copy][0]) +
+                             support_points[copy][0])) < 1e-10 /*tolerance*/,
+                       ExcInternalError());
+
                 this->weights[next_point - double_point_offset] +=
                   base_quadrature.weight(q_point) *
-                  (support_points[copy + 1] - support_points[copy]);
+                  (support_points[copy + 1][0] - support_points[copy][0]);
 
                 continue;
               }
 
-            this->quadrature_points[next_point] =
-              Point<1>(base_quadrature.point(q_point)(0) *
-                         (support_points[copy + 1] - support_points[copy]) +
-                       support_points[copy]);
+            this->quadrature_points[next_point] = Point<1>(
+              base_quadrature.point(q_point)(0) *
+                (support_points[copy + 1][0] - support_points[copy][0]) +
+              support_points[copy][0]);
 
             // if this is the rightmost point of one of the non-last copies:
             // give it the double weight
             this->weights[next_point] =
               base_quadrature.weight(q_point) *
-              (support_points[copy + 1] - support_points[copy]);
+              (support_points[copy + 1][0] - support_points[copy][0]);
 
             ++next_point;
           }
     }
+
+  // make sure that there is no rounding error for 0.0 and 1.0, since there
+  // are multiple asserts in the library checking for equality without
+  // tolorances
+  for (auto &i : this->quadrature_points)
+    if (std::abs(i[0] - 0.0) < 1e-12)
+      i[0] = 0.0;
+    else if (std::abs(i[0] - 1.0) < 1e-12)
+      i[0] = 1.0;
 
 #if DEBUG
   double sum_of_weights = 0;
@@ -595,17 +613,19 @@ QIterated<1>::QIterated(const Quadrature<1> &base_quadrature,
 // construct higher dimensional quadrature formula by tensor product
 // of lower dimensional iterated quadrature formulae
 template <int dim>
+QIterated<dim>::QIterated(const Quadrature<1> &        base_quadrature,
+                          const std::vector<Point<1>> &intervals)
+  : Quadrature<dim>(QIterated<dim - 1>(base_quadrature, intervals),
+                    QIterated<1>(base_quadrature, intervals))
+{}
+
+
+
+template <int dim>
 QIterated<dim>::QIterated(const Quadrature<1> &base_quadrature,
                           const unsigned int   n_copies)
   : Quadrature<dim>(QIterated<dim - 1>(base_quadrature, n_copies),
                     QIterated<1>(base_quadrature, n_copies))
-{}
-
-template <int dim>
-QIterated<dim>::QIterated(const Quadrature<1> &      base_quadrature,
-                          const std::vector<double> &intervals)
-  : Quadrature<dim>(QIterated<dim - 1>(base_quadrature, intervals),
-                    QIterated<1>(base_quadrature, intervals))
 {}
 
 
