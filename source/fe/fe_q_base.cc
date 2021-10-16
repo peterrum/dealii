@@ -469,6 +469,16 @@ FE_Q_Base<dim, spacedim>::initialize(const std::vector<Point<1>> &points)
         tensor_piecewise_poly_space_ptr->set_numbering(renumber);
         return;
       }
+    auto *tensor_piecewise_linear_poly_space_ptr =
+      dynamic_cast<TensorProductPolynomials<
+        dim,
+        Polynomials::PiecewiseLinearPolynomial<double>> *>(
+        this->poly_space.get());
+    if (tensor_piecewise_linear_poly_space_ptr != nullptr)
+      {
+        tensor_piecewise_linear_poly_space_ptr->set_numbering(renumber);
+        return;
+      }
     auto *tensor_bubbles_poly_space_ptr =
       dynamic_cast<TensorProductPolynomialsBubbles<dim> *>(
         this->poly_space.get());

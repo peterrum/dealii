@@ -174,6 +174,69 @@ namespace Polynomials
     bool spans_two_intervals;
   };
 
+  template <typename number>
+  class PiecewiseLinearPolynomial : public Subscriptor
+  {
+  public:
+    /**
+     * TODO
+     */
+    PiecewiseLinearPolynomial(const std::vector<Point<1>> &points,
+                              const unsigned int           index);
+
+    /**
+     * TODO
+     */
+    number
+    value(const number x) const;
+
+    /**
+     * TODO
+     */
+    void
+    value(const number x, std::vector<number> &values) const;
+
+    /**
+     * TODO
+     */
+    void
+    value(const number       x,
+          const unsigned int n_derivatives,
+          number *           values) const;
+
+    /**
+     * TODO
+     */
+    unsigned int
+    degree() const;
+
+    /**
+     * Write or read the data of this object to or from a stream for the
+     * purpose of serialization using the [BOOST serialization
+     * library](https://www.boost.org/doc/libs/1_74_0/libs/serialization/doc/index.html).
+     */
+    template <class Archive>
+    void
+    serialize(Archive &ar, const unsigned int version);
+
+    /**
+     * Return an estimate (in bytes) for the memory consumption of this object.
+     */
+    virtual std::size_t
+    memory_consumption() const;
+
+  protected:
+    /**
+     * TODO
+     */
+    std::vector<Point<1>> points;
+
+    /**
+     * A variable storing the index of the current polynomial.
+     */
+    unsigned int index;
+  };
+
 
 
   /**
@@ -185,6 +248,14 @@ namespace Polynomials
   generate_complete_Lagrange_basis_on_subdivisions(
     const unsigned int n_subdivisions,
     const unsigned int base_degree);
+
+  /**
+   * Generates a complete linear basis on a subdivision of the unit interval
+   * in smaller intervals for a given vector of points.
+   */
+  std::vector<PiecewiseLinearPolynomial<double>>
+  generate_complete_linear_basis_on_subdivisions(
+    const std::vector<Point<1>> &points);
 
 } // namespace Polynomials
 
@@ -256,6 +327,38 @@ namespace Polynomials
     ar &n_intervals;
     ar &interval;
     ar &spans_two_intervals;
+  }
+
+
+
+  template <typename number>
+  inline unsigned int
+  PiecewiseLinearPolynomial<number>::degree() const
+  {
+    return 1;
+  }
+
+
+
+  template <typename number>
+  inline number
+  PiecewiseLinearPolynomial<number>::value(const number x) const
+  {
+    Assert(false, ExcNotImplemented());
+    (void)x;
+  }
+
+
+
+  template <typename number>
+  template <class Archive>
+  inline void
+  PiecewiseLinearPolynomial<number>::serialize(Archive &ar, const unsigned int)
+  {
+    // forward to serialization function in the base class.
+    ar &static_cast<Subscriptor &>(*this);
+    ar &points;
+    ar &index;
   }
 
 } // namespace Polynomials

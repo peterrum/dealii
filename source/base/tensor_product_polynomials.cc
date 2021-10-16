@@ -911,6 +911,16 @@ template class TensorProductPolynomials<
   3,
   Polynomials::PiecewisePolynomial<double>>;
 
+template class TensorProductPolynomials<
+  1,
+  Polynomials::PiecewiseLinearPolynomial<double>>;
+template class TensorProductPolynomials<
+  2,
+  Polynomials::PiecewiseLinearPolynomial<double>>;
+template class TensorProductPolynomials<
+  3,
+  Polynomials::PiecewiseLinearPolynomial<double>>;
+
 template class AnisotropicPolynomials<0>;
 template class AnisotropicPolynomials<1>;
 template class AnisotropicPolynomials<2>;

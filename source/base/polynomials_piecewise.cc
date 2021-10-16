@@ -130,6 +130,55 @@ namespace Polynomials
 
 
 
+  template <typename number>
+  PiecewiseLinearPolynomial<number>::PiecewiseLinearPolynomial(
+    const std::vector<Point<1>> &points,
+    const unsigned int           index)
+    : points(points)
+    , index(index)
+  {
+    Assert(points.size() > 1, ExcMessage("No enough points given!"));
+    AssertIndexRange(index, points.size());
+  }
+
+
+
+  template <typename number>
+  void
+  PiecewiseLinearPolynomial<number>::value(const number         x,
+                                           std::vector<number> &values) const
+  {
+    Assert(values.size() > 0, ExcZero());
+
+    value(x, values.size() - 1, values.data());
+  }
+
+
+
+  template <typename number>
+  void
+  PiecewiseLinearPolynomial<number>::value(const number       x,
+                                           const unsigned int n_derivatives,
+                                           number *           values) const
+  {
+    Assert(false, ExcNotImplemented());
+    (void)x;
+    (void)n_derivatives;
+    (void)values;
+  }
+
+
+
+  template <typename number>
+  std::size_t
+  PiecewiseLinearPolynomial<number>::memory_consumption() const
+  {
+    return (MemoryConsumption::memory_consumption(points) +
+            MemoryConsumption::memory_consumption(index));
+  }
+
+
+
   std::vector<PiecewisePolynomial<double>>
   generate_complete_Lagrange_basis_on_subdivisions(
     const unsigned int n_subdivisions,
@@ -153,6 +202,21 @@ namespace Polynomials
     return p;
   }
 
+
+
+  std::vector<PiecewiseLinearPolynomial<double>>
+  generate_complete_linear_basis_on_subdivisions(
+    const std::vector<Point<1>> &points)
+  {
+    std::vector<PiecewiseLinearPolynomial<double>> p;
+    p.reserve(points.size());
+
+    for (unsigned int s = 0; s < points.size(); ++s)
+      p.emplace_back(points, s);
+
+    return p;
+  }
+
 } // namespace Polynomials
 
 // ------------------ explicit instantiations --------------- //
@@ -162,6 +226,9 @@ namespace Polynomials
   template class PiecewisePolynomial<float>;
   template class PiecewisePolynomial<double>;
   template class PiecewisePolynomial<long double>;
+  template class PiecewiseLinearPolynomial<float>;
+  template class PiecewiseLinearPolynomial<double>;
+  template class PiecewiseLinearPolynomial<long double>;
 } // namespace Polynomials
 
 DEAL_II_NAMESPACE_CLOSE
