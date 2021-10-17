@@ -59,8 +59,7 @@ template <int dim, int spacedim>
 FE_Q_iso_Q1<dim, spacedim>::FE_Q_iso_Q1(
   const std::vector<Point<1>> &support_points)
   : FE_Q_Base<dim, spacedim>(
-      TensorProductPolynomials<dim,
-                               Polynomials::PiecewiseLinearPolynomial<double>>(
+      TensorProductPolynomials<dim, Polynomials::PiecewisePolynomial<double>>(
         Polynomials::generate_complete_linear_basis_on_subdivisions(
           support_points)),
       FiniteElementData<dim>(this->get_dpo_vector(support_points.size() - 1),

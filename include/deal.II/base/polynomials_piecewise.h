@@ -81,6 +81,12 @@ namespace Polynomials
                         const bool                spans_next_interval);
 
     /**
+     * TODO
+     */
+    PiecewisePolynomial(const std::vector<Point<1>> &points,
+                        const unsigned int           index);
+
+    /**
      * Return the value of this polynomial at the given point, evaluating the
      * underlying polynomial. The polynomial evaluates to zero when outside of
      * the given interval (and possible the next one to the right when it
@@ -172,60 +178,7 @@ namespace Polynomials
      * one given in subinterval and the next one.
      */
     bool spans_two_intervals;
-  };
 
-  template <typename number>
-  class PiecewiseLinearPolynomial : public Subscriptor
-  {
-  public:
-    /**
-     * TODO
-     */
-    PiecewiseLinearPolynomial(const std::vector<Point<1>> &points,
-                              const unsigned int           index);
-
-    /**
-     * TODO
-     */
-    number
-    value(const number x) const;
-
-    /**
-     * TODO
-     */
-    void
-    value(const number x, std::vector<number> &values) const;
-
-    /**
-     * TODO
-     */
-    void
-    value(const number       x,
-          const unsigned int n_derivatives,
-          number *           values) const;
-
-    /**
-     * TODO
-     */
-    unsigned int
-    degree() const;
-
-    /**
-     * Write or read the data of this object to or from a stream for the
-     * purpose of serialization using the [BOOST serialization
-     * library](https://www.boost.org/doc/libs/1_74_0/libs/serialization/doc/index.html).
-     */
-    template <class Archive>
-    void
-    serialize(Archive &ar, const unsigned int version);
-
-    /**
-     * Return an estimate (in bytes) for the memory consumption of this object.
-     */
-    virtual std::size_t
-    memory_consumption() const;
-
-  protected:
     /**
      * TODO
      */
@@ -253,7 +206,7 @@ namespace Polynomials
    * Generates a complete linear basis on a subdivision of the unit interval
    * in smaller intervals for a given vector of points.
    */
-  std::vector<PiecewiseLinearPolynomial<double>>
+  std::vector<PiecewisePolynomial<double>>
   generate_complete_linear_basis_on_subdivisions(
     const std::vector<Point<1>> &points);
 
@@ -270,6 +223,8 @@ namespace Polynomials
   inline unsigned int
   PiecewisePolynomial<number>::degree() const
   {
+    if (points.size() > 0)
+      return 1;
     return polynomial.degree();
   }
 
@@ -279,6 +234,15 @@ namespace Polynomials
   inline number
   PiecewisePolynomial<number>::value(const number x) const
   {
+    if (points.size() > 0)
+      {
+        std::vector<number> temp(1);
+
+        value(x, temp);
+
+        return temp[0];
+      }
+
     AssertIndexRange(interval, n_intervals);
     number y = x;
     // shift polynomial if necessary
@@ -327,43 +291,9 @@ namespace Polynomials
     ar &n_intervals;
     ar &interval;
     ar &spans_two_intervals;
-  }
-
-
-
-  template <typename number>
-  inline unsigned int
-  PiecewiseLinearPolynomial<number>::degree() const
-  {
-    return 1;
-  }
-
-
-
-  template <typename number>
-  inline number
-  PiecewiseLinearPolynomial<number>::value(const number x) const
-  {
-    std::vector<number> temp(1);
-
-    value(x, temp);
-
-    return temp[0];
-  }
-
-
-
-  template <typename number>
-  template <class Archive>
-  inline void
-  PiecewiseLinearPolynomial<number>::serialize(Archive &ar, const unsigned int)
-  {
-    // forward to serialization function in the base class.
-    ar &static_cast<Subscriptor &>(*this);
     ar &points;
     ar &index;
   }
-
 } // namespace Polynomials
 
 DEAL_II_NAMESPACE_CLOSE

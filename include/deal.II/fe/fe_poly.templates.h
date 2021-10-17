@@ -592,13 +592,6 @@ FE_Poly<dim, spacedim>::get_poly_space_numbering() const
   if (space_tensor_prod_piecewise != nullptr)
     return space_tensor_prod_piecewise->get_numbering();
 
-  auto *const space_tensor_prod_piecewise_linear = dynamic_cast<
-    TensorProductPolynomials<dim,
-                             Polynomials::PiecewiseLinearPolynomial<double>> *>(
-    this->poly_space.get());
-  if (space_tensor_prod_piecewise_linear != nullptr)
-    return space_tensor_prod_piecewise_linear->get_numbering();
-
   auto *const space_tensor_prod_bubbles =
     dynamic_cast<TensorProductPolynomialsBubbles<dim> *>(
       this->poly_space.get());
