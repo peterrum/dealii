@@ -81,7 +81,10 @@ namespace Polynomials
                         const bool                spans_next_interval);
 
     /**
-     * TODO
+     * Constructor for linear Lagrange polynomial on an interval that is a
+     * subset of the unit interval. It uses a polynomial description that is
+     * scaled to the size of the subinterval compared to the unit interval.
+     * The subinterval are bounded by the adjacent points in @p points.
      */
     PiecewisePolynomial(const std::vector<Point<1>> &points,
                         const unsigned int           index);
@@ -180,12 +183,14 @@ namespace Polynomials
     bool spans_two_intervals;
 
     /**
-     * TODO
+     * Points bounding the subintervals in the case that piecewise linear
+     * polynomial on varying subintervals was is requested.
      */
     std::vector<Point<1>> points;
 
     /**
-     * A variable storing the index of the current polynomial.
+     * A variable storing the index of the current polynomial in the case that
+     * piecewise linear polynomial on varying subintervals was is requested.
      */
     unsigned int index;
   };
@@ -236,11 +241,18 @@ namespace Polynomials
   {
     if (points.size() > 0)
       {
-        std::vector<number> temp(1);
-
-        value(x, temp);
-
-        return temp[0];
+        if (x > points[index][0])
+          return std::max<number>(0.0,
+                                  1.0 - (x - points[index][0]) /
+                                          (points[index + 1][0] -
+                                           points[index][0]));
+        else if (x < points[index][0])
+          return std::max<number>(0.0,
+                                  0.0 + (x - points[index - 1][0]) /
+                                          (points[index][0] -
+                                           points[index - 1][0]));
+        else
+          return 1.0;
       }
 
     AssertIndexRange(interval, n_intervals);

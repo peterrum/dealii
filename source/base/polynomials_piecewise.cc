@@ -33,6 +33,7 @@ namespace Polynomials
     , n_intervals(n_intervals)
     , interval(interval)
     , spans_two_intervals(spans_next_interval)
+    , index(numbers::invalid_unsigned_int)
   {
     Assert(n_intervals > 0, ExcMessage("No intervals given"));
     AssertIndexRange(interval, n_intervals);
@@ -44,7 +45,10 @@ namespace Polynomials
   PiecewisePolynomial<number>::PiecewisePolynomial(
     const std::vector<Point<1>> &points,
     const unsigned int           index)
-    : points(points)
+    : n_intervals(numbers::invalid_unsigned_int)
+    , interval(numbers::invalid_unsigned_int)
+    , spans_two_intervals(false)
+    , points(points)
     , index(index)
   {
     Assert(points.size() > 1, ExcMessage("No enough points given!"));
@@ -73,9 +77,6 @@ namespace Polynomials
   {
     if (points.size() > 0)
       {
-        for (unsigned int i = 0; i <= n_derivatives; ++i)
-          values[i] = 0.0;
-
         if (x > points[index][0])
           values[0] =
             std::max<number>(0.0,
@@ -83,23 +84,25 @@ namespace Polynomials
                                      (points[index + 1][0] - points[index][0]));
         else if (x < points[index][0])
           values[0] =
-            std::max<number>(1.0,
-                             1.0 + (x - points[index - 1][0]) /
+            std::max<number>(0.0,
+                             0.0 + (x - points[index - 1][0]) /
                                      (points[index][0] - points[index - 1][0]));
         else
           values[0] = 1.0;
 
-        if (n_derivatives == 1)
+        if (n_derivatives >= 1)
           {
-            if (x > points[index][0] && points[index + 1][0] > x)
-              values[0] = -1.0 / (points[index + 1][0] - points[index][0]);
-            else if (x < points[index][0] && points[index - 1][0] < x)
-              values[0] = +1.0 / (points[index][0] - points[index - 1][0]);
+            if ((x > points[index][0]) && (points[index + 1][0] >= x))
+              values[1] = -1.0 / (points[index + 1][0] - points[index][0]);
+            else if ((x < points[index][0]) && (points[index - 1][0] <= x))
+              values[1] = +1.0 / (points[index][0] - points[index - 1][0]);
             else
-              values[0] = 0.0;
+              values[1] = 0.0;
           }
 
         // all other derivatives are zero
+        for (unsigned int i = 2; i <= n_derivatives; ++i)
+          values[i] = 0.0;
 
         return;
       }
