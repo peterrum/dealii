@@ -781,21 +781,28 @@ namespace
   {
     Point<spacedim> node;
 
+    unsigned int point_no_actual = point_no;
+
+    if (patch.reference_cell == ReferenceCells::Pyramid)
+      {
+        AssertDimension(patch.n_subdivisions, 1);
+
+        static std::array<unsigned int, 5> table = {{0, 1, 3, 2, 4}};
+        point_no_actual                          = table[point_no];
+      }
+
     if (patch.points_are_available)
       {
         for (unsigned int d = 0; d < spacedim; ++d)
-          node[d] = patch.data(patch.data.size(0) - spacedim + d, point_no);
+          node[d] =
+            patch.data(patch.data.size(0) - spacedim + d, point_no_actual);
         return node;
       }
     else
       {
         AssertDimension(patch.n_subdivisions, 1);
-        Assert(
-          patch.reference_cell != ReferenceCells::Pyramid,
-          ExcMessage(
-            "Pyramids need different ordering of the vertices, which is not implemented yet here."));
 
-        node = patch.vertices[point_no];
+        node = patch.vertices[point_no_actual];
       }
 
     return node;
