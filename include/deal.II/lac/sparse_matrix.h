@@ -697,6 +697,13 @@ public:
   reinit(const SparsityPattern &sparsity);
 
   /**
+   * Reinitialize the sparse matrix with the sparsity pattern of the given
+   * @p sparse_matrix. See also comments of the function above.
+   */
+  virtual void
+  reinit(const SparseMatrix<number> &sparse_matrix);
+
+  /**
    * Release all memory and return to a state just like after having called
    * the default constructor. It also forgets the sparsity pattern it was
    * previously tied to.

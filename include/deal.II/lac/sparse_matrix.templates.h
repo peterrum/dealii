@@ -280,6 +280,15 @@ SparseMatrix<number>::reinit(const SparsityPattern &sparsity)
 
 template <typename number>
 void
+SparseMatrix<number>::reinit(const SparseMatrix<number> &sparse_matrix)
+{
+  this->reinit(sparse_matrix.get_sparsity_pattern());
+}
+
+
+
+template <typename number>
+void
 SparseMatrix<number>::clear()
 {
   cols = nullptr;
