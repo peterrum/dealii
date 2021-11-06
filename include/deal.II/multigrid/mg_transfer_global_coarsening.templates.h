@@ -1434,8 +1434,8 @@ namespace internal
 
       // ----------------------- prolongation matrix (1) -----------------------
       {
-        AssertDimension(fe_fine.n_base_elements(), 1);
-        if (reference_cell == ReferenceCells::get_hypercube<dim>())
+        if (fe_fine.n_base_elements() == 1 &&
+            reference_cell == ReferenceCells::get_hypercube<dim>())
           {
             const auto fe = create_1D_fe(fe_fine.base_element(0));
 
@@ -1490,7 +1490,7 @@ namespace internal
                 }
             }
           }
-        else
+        else if (fe_fine.n_base_elements() == 1)
           {
             const auto &       fe              = fe_fine.base_element(0);
             const unsigned int n_dofs_per_cell = fe.n_dofs_per_cell();
@@ -1529,6 +1529,10 @@ namespace internal
                          j + c * n_dofs_per_cell] = matrix(i, j);
                 }
             }
+          }
+        else
+          {
+            AssertThrow(false, ExcNotImplemented());
           }
       }
 
@@ -1906,10 +1910,8 @@ namespace internal
           const auto &fe_index_no   = fe_index_pair_.second;
 
           AssertDimension(
-            dof_handler_fine.get_fe(fe_index_pair.second).n_base_elements(), 1);
-          AssertDimension(
-            dof_handler_coarse.get_fe(fe_index_pair.first).n_base_elements(),
-            1);
+            dof_handler_fine.get_fe(fe_index_pair.second).n_base_elements(),
+            dof_handler_coarse.get_fe(fe_index_pair.first).n_base_elements());
 
           const auto reference_cell =
             dof_handler_fine.get_fe(fe_index_pair_.first.second)
@@ -1920,7 +1922,9 @@ namespace internal
                      .reference_cell(),
                  ExcNotImplemented());
 
-          if (reference_cell == ReferenceCells::get_hypercube<dim>() &&
+          if (dof_handler_coarse.get_fe(fe_index_pair.first)
+                  .n_base_elements() == 1 &&
+              reference_cell == ReferenceCells::get_hypercube<dim>() &&
               (dof_handler_coarse.get_fe(fe_index_pair.first) !=
                dof_handler_fine.get_fe(fe_index_pair.second)) &&
               (dof_handler_coarse.get_fe(fe_index_pair.first)
@@ -1998,7 +2002,9 @@ namespace internal
                       matrix(renumbering_coarse[i], renumbering_fine[j]);
               }
             }
-          else if (reference_cell != ReferenceCells::get_hypercube<dim>() &&
+          else if (dof_handler_coarse.get_fe(fe_index_pair.first)
+                       .n_base_elements() == 1 &&
+                   reference_cell != ReferenceCells::get_hypercube<dim>() &&
                    (dof_handler_coarse.get_fe(fe_index_pair.first) !=
                     dof_handler_fine.get_fe(fe_index_pair.second)) &&
                    (dof_handler_coarse.get_fe(fe_index_pair.first)
@@ -2041,6 +2047,10 @@ namespace internal
                     transfer.schemes[fe_index_no].restriction_matrix[k] =
                       matrix(i, j);
               }
+            }
+          else
+            {
+              AssertThrow(false, ExcNotImplemented());
             }
         }
 
