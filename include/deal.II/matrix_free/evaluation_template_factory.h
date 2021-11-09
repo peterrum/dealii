@@ -213,6 +213,8 @@ namespace internal
           const bool                                     transpose,
           const std::array<MatrixFreeFunctions::ConstraintKinds,
                            VectorizedArrayType::size()> &c_mask,
+          const std::array<MatrixFreeFunctions::ConstraintKinds,
+                           VectorizedArrayType::size()> &c_mask_sorted,
           VectorizedArrayType *                          values);
 
     /**
@@ -228,6 +230,8 @@ namespace internal
           const bool                                     transpose,
           const std::array<MatrixFreeFunctions::ConstraintKinds,
                            VectorizedArrayType::size()> &c_mask,
+          const std::array<MatrixFreeFunctions::ConstraintKinds,
+                           VectorizedArrayType::size()> &c_mask_sorted,
           VectorizedArrayType *                          values);
   };
 

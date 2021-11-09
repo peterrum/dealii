@@ -470,6 +470,12 @@ namespace MatrixFreeTools
                                      ConstraintKinds,
                                    VectorizedArrayType::size()>
                           constraint_mask;
+
+                        std::fill(constraint_mask.begin(),
+                                  constraint_mask.end(),
+                                  dealii::internal::MatrixFreeFunctions::
+                                    ConstraintKinds::unconstrained);
+
                         constraint_mask[0] = mask;
 
                         std::vector<
@@ -491,6 +497,7 @@ namespace MatrixFreeTools
                                                             .fe_degree,
                                                           phi,
                                                           false,
+                                                          constraint_mask,
                                                           constraint_mask,
                                                           values_dofs.data());
 

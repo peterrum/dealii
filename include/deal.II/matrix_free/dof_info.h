@@ -531,6 +531,11 @@ namespace internal
       std::vector<ConstraintKinds> hanging_node_constraint_masks;
 
       /**
+       * TODO
+       */
+      std::vector<ConstraintKinds> hanging_node_constraint_masks_sorted;
+
+      /**
        * This variable describes the position of constraints in terms of the
        * local numbering of degrees of freedom on a cell. The first number
        * stores the distance from one constrained degree of freedom to the

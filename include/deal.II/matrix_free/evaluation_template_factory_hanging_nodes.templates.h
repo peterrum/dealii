@@ -39,12 +39,20 @@ namespace internal
     const bool                                     transpose,
     const std::array<MatrixFreeFunctions::ConstraintKinds,
                      VectorizedArrayType::size()> &c_mask,
+    const std::array<MatrixFreeFunctions::ConstraintKinds,
+                     VectorizedArrayType::size()> &c_mask_sorted,
     VectorizedArrayType *                          values)
   {
     instantiation_helper_degree_run<
       1,
       FEEvaluationImplHangingNodes<dim, VectorizedArrayType, false>>(
-      fe_degree, n_components, fe_eval, transpose, c_mask, values);
+      fe_degree,
+      n_components,
+      fe_eval,
+      transpose,
+      c_mask,
+      c_mask_sorted,
+      values);
   }
 
 
@@ -58,12 +66,20 @@ namespace internal
     const bool                                     transpose,
     const std::array<MatrixFreeFunctions::ConstraintKinds,
                      VectorizedArrayType::size()> &c_mask,
+    const std::array<MatrixFreeFunctions::ConstraintKinds,
+                     VectorizedArrayType::size()> &c_mask_sorted,
     VectorizedArrayType *                          values)
   {
     instantiation_helper_degree_run<
       1,
       FEEvaluationImplHangingNodes<dim, VectorizedArrayType, true>>(
-      fe_degree, n_components, fe_eval, transpose, c_mask, values);
+      fe_degree,
+      n_components,
+      fe_eval,
+      transpose,
+      c_mask,
+      c_mask_sorted,
+      values);
   }
 } // end of namespace internal
 

@@ -5374,7 +5374,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
 
   constexpr unsigned int n_lanes = VectorizedArrayType::size();
   std::array<internal::MatrixFreeFunctions::ConstraintKinds, n_lanes>
-    constraint_mask;
+    constraint_mask, constraint_sorted;
 
   bool hn_available = false;
 
@@ -5406,6 +5406,8 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
       const auto mask =
         this->dof_info->hanging_node_constraint_masks[cell_dof_index];
       constraint_mask[v] = mask;
+      constraint_sorted[v] =
+        this->dof_info->hanging_node_constraint_masks_sorted[cell_dof_index];
 
       hn_available |=
         (mask != internal::MatrixFreeFunctions::ConstraintKinds::unconstrained);
@@ -5415,8 +5417,12 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
     return; // no hanging node on cell batch -> nothing to do
 
   for (unsigned int v = n_vectorization_actual; v < n_lanes; ++v)
-    constraint_mask[v] =
-      internal::MatrixFreeFunctions::ConstraintKinds::unconstrained;
+    {
+      constraint_mask[v] =
+        internal::MatrixFreeFunctions::ConstraintKinds::unconstrained;
+      constraint_sorted[v] =
+        internal::MatrixFreeFunctions::ConstraintKinds::unconstrained;
+    }
 
   internal::FEEvaluationHangingNodesFactory<dim, Number, VectorizedArrayType>::
     apply(n_components,
@@ -5424,6 +5430,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
           *this,
           transpose,
           constraint_mask,
+          constraint_sorted,
           values_dofs[0]);
 }
 

@@ -453,6 +453,75 @@ namespace internal
       new_rowstart_plain.swap(row_starts_plain_indices);
       new_hanging_node_constraint_masks.swap(hanging_node_constraint_masks);
 
+      hanging_node_constraint_masks_sorted.assign(
+        hanging_node_constraint_masks.size(), ConstraintKinds::unconstrained);
+
+      for (unsigned int i = 0; i < hanging_node_constraint_masks.size();
+           i += vectorization_length * n_components)
+        {
+          for (unsigned int c = 0; c < n_components; ++c)
+            {
+              std::vector<MatrixFreeFunctions::ConstraintKinds> new_mask(
+                vectorization_length);
+
+              for (unsigned int v = 0; v < vectorization_length; ++v)
+                new_mask[v] =
+                  hanging_node_constraint_masks[i + c + v * n_components];
+
+              /*
+              for(unsigned int v = 0; v < vectorization_length; ++v)
+                  std::cout << static_cast<std::uint16_t>(new_mask[v]) << " ";
+            std::cout << std::endl;
+               */
+
+              std::sort(new_mask.begin(),
+                        new_mask.end(),
+                        [](const auto a, const auto b) {
+                          if ((a == ConstraintKinds::unconstrained) &&
+                              (b == ConstraintKinds::unconstrained))
+                            return false;
+
+                          if (a == ConstraintKinds::unconstrained)
+                            return false;
+
+                          if (b == ConstraintKinds::unconstrained)
+                            return true;
+
+                          return a < b;
+                        });
+              std::fill(std::unique(new_mask.begin(), new_mask.end()),
+                        new_mask.end(),
+                        MatrixFreeFunctions::ConstraintKinds::unconstrained);
+
+              /*
+              for(unsigned int v = 0; v < vectorization_length; ++v)
+                  std::cout << static_cast<std::uint16_t>(new_mask[v]) << " ";
+            std::cout << std::endl;
+            std::cout << std::endl;
+               */
+
+              for (unsigned int v = 0; v < vectorization_length; ++v)
+                hanging_node_constraint_masks_sorted[i + c + v * n_components] =
+                  new_mask[v];
+            }
+        }
+
+        /*
+        unsigned int counter_0 = 0;
+        unsigned int counter_1 = 0;
+
+        for(const auto i : hanging_node_constraint_masks)
+            if(i!=ConstraintKinds::unconstrained)
+                counter_0++;
+
+        for(const auto i : hanging_node_constraint_masks_sorted)
+            if(i!=ConstraintKinds::unconstrained)
+                counter_1++;
+
+        std::cout << counter_0 << " " << counter_1 << std::endl;
+         */
+
+
 #ifdef DEBUG
       // sanity check 1: all indices should be smaller than the number of dofs
       // locally owned plus the number of ghosts

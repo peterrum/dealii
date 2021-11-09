@@ -47,19 +47,17 @@ namespace internal
                                    Number> &fe_eval,
         const bool                          transpose,
         const std::array<MatrixFreeFunctions::ConstraintKinds, Number::size()>
-          &     c_mask,
+          &c_mask,
+        const std::array<MatrixFreeFunctions::ConstraintKinds, Number::size()>
+          &     c_mask_sorted,
         Number *values)
     {
       if (transpose)
-        run_internal<fe_degree, true>(n_desired_components,
-                                      fe_eval,
-                                      c_mask,
-                                      values);
+        run_internal<fe_degree, true>(
+          n_desired_components, fe_eval, c_mask, c_mask_sorted, values);
       else
-        run_internal<fe_degree, false>(n_desired_components,
-                                       fe_eval,
-                                       c_mask,
-                                       values);
+        run_internal<fe_degree, false>(
+          n_desired_components, fe_eval, c_mask, c_mask_sorted, values);
 
       return false;
     }
@@ -85,7 +83,7 @@ namespace internal
     };
 
     static const VectorizationTypes VectorizationType =
-      VectorizationTypes::index;
+      VectorizationTypes::group;
 
   private:
     static constexpr unsigned int max_n_points_1D = 40;
@@ -140,8 +138,12 @@ namespace internal
       static inline DEAL_II_ALWAYS_INLINE
         std::array<MatrixFreeFunctions::ConstraintKinds, Number::size()>
         create_mask(const std::array<MatrixFreeFunctions::ConstraintKinds,
-                                     Number::size()> mask)
+                                     Number::size()> mask,
+                    const std::array<MatrixFreeFunctions::ConstraintKinds,
+                                     Number::size()> mask_sorted)
       {
+        (void)mask_sorted;
+
         return mask;
       }
 
@@ -216,8 +218,12 @@ namespace internal
       static inline DEAL_II_ALWAYS_INLINE
         std::array<MatrixFreeFunctions::ConstraintKinds, Number::size()>
         create_mask(const std::array<MatrixFreeFunctions::ConstraintKinds,
-                                     Number::size()> mask)
+                                     Number::size()> mask,
+                    const std::array<MatrixFreeFunctions::ConstraintKinds,
+                                     Number::size()> mask_sorted)
       {
+        (void)mask_sorted;
+
         return mask;
       }
 
@@ -283,16 +289,13 @@ namespace internal
       static inline DEAL_II_ALWAYS_INLINE
         std::array<MatrixFreeFunctions::ConstraintKinds, Number::size()>
         create_mask(const std::array<MatrixFreeFunctions::ConstraintKinds,
-                                     Number::size()> mask)
+                                     Number::size()> mask,
+                    const std::array<MatrixFreeFunctions::ConstraintKinds,
+                                     Number::size()> mask_sorted)
       {
-        auto new_mask = mask;
+        (void)mask;
 
-        std::sort(new_mask.begin(), new_mask.end());
-        std::fill(std::unique(new_mask.begin(), new_mask.end()),
-                  new_mask.end(),
-                  MatrixFreeFunctions::ConstraintKinds::unconstrained);
-
-        return new_mask;
+        return mask_sorted;
       }
 
       static inline DEAL_II_ALWAYS_INLINE Number
@@ -544,6 +547,8 @@ namespace internal
                                             Number> &fe_eval,
                  const std::array<MatrixFreeFunctions::ConstraintKinds,
                                   Number::size()> &  constraint_mask,
+                 const std::array<MatrixFreeFunctions::ConstraintKinds,
+                                  Number::size()> &  constraint_mask_sorted,
                  Number *                            values)
     {
       const unsigned int given_degree =
@@ -553,14 +558,15 @@ namespace internal
       const auto &interpolation_matrices =
         Trait<Number, VectorizationType>::get_interpolation_matrix(fe_eval);
 
-      const auto constraint_mask_sorted =
-        Trait<Number, VectorizationType>::create_mask(constraint_mask);
+      const auto constraint_mask_new =
+        Trait<Number, VectorizationType>::create_mask(constraint_mask,
+                                                      constraint_mask_sorted);
 
       for (unsigned int c = 0; c < n_desired_components; ++c)
         {
           for (unsigned int v = 0; v < Number::size(); ++v)
             {
-              const auto mask = constraint_mask_sorted[v];
+              const auto mask = constraint_mask_new[v];
 
               if (Trait<Number, VectorizationType>::do_break(v, mask))
                 continue;
@@ -570,7 +576,7 @@ namespace internal
 
               const auto vv =
                 Trait<Number, VectorizationType>::create(constraint_mask,
-                                                         constraint_mask_sorted,
+                                                         constraint_mask_new,
                                                          v);
 
               if (dim == 2) // 2D: only faces
