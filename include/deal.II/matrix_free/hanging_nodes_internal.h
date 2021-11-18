@@ -417,106 +417,38 @@ namespace internal
               FETools::lexicographic_to_hierarchic_numbering<dim - 1>(
                 fe_degree);
 
-            for (const unsigned int face : GeometryInfo<dim>::face_indices())
+            if (cell->level() > 0)
               {
-                if ((!cell->at_boundary(face)) &&
-                    (cell->neighbor(face)->has_children() == false))
-                  {
-                    const auto &neighbor = cell->neighbor(face);
+                const std::uint16_t subcell =
+                  cell->parent()->child_iterator_to_index(cell);
 
-                    if (neighbor->is_artificial())
+                std::uint16_t temp = 0;
+
+                for (int direction = 0; direction < dim; ++direction)
+                  {
+                    const auto side    = (subcell >> direction) & 1U;
+                    const auto face_no = direction * 2 + side;
+
+                    // ignore if at boundary and if neighbor has children
+                    if (cell->at_boundary(face_no) ||
+                        cell->neighbor(face_no)->has_children())
                       continue;
 
-                    // Neighbor is coarser than us, i.e., face is constrained
-                    if (neighbor->level() < cell->level())
-                      {
-                        const unsigned int neighbor_face =
-                          cell->neighbor_face_no(face);
+                    const auto &neighbor = cell->neighbor(face_no);
 
-                        // Find position of face on neighbor
-                        unsigned int subface = 0;
-                        for (;
-                             subface < GeometryInfo<dim>::max_children_per_face;
-                             ++subface)
-                          if (neighbor->neighbor_child_on_subface(neighbor_face,
-                                                                  subface) ==
-                              cell)
-                            break;
+                    // ignore neighbors that are artificial or have the same
+                    // level
+                    if (neighbor->is_artificial() ||
+                        neighbor->level() == cell->level())
+                      continue;
 
-                        if (dim == 2)
-                          {
-                            if (face < 2)
-                              {
-                                mask |= ConstraintKinds::face_x;
-                                if (face == 0)
-                                  mask |= ConstraintKinds::subcell_x;
-                                if (subface == 0)
-                                  mask |= ConstraintKinds::subcell_y;
-                              }
-                            else
-                              {
-                                mask |= ConstraintKinds::face_y;
-                                if (face == 2)
-                                  mask |= ConstraintKinds::subcell_y;
-                                if (subface == 0)
-                                  mask |= ConstraintKinds::subcell_x;
-                              }
-                          }
-                        else if (dim == 3)
-                          {
-                            const bool transpose =
-                              !(cell->face_orientation(face));
-
-                            int rotate = 0;
-
-                            if (cell->face_rotation(face))
-                              rotate -= 1;
-                            if (cell->face_flip(face))
-                              rotate -= 2;
-
-                            rotate_subface_index(rotate, subface);
-
-                            if (transpose)
-                              transpose_subface_index(subface);
-
-                            // YZ-plane
-                            if (face < 2)
-                              {
-                                mask |= ConstraintKinds::face_x;
-                                if (face == 0)
-                                  mask |= ConstraintKinds::subcell_x;
-                                if (subface % 2 == 0)
-                                  mask |= ConstraintKinds::subcell_y;
-                                if (subface / 2 == 0)
-                                  mask |= ConstraintKinds::subcell_z;
-                              }
-                            // XZ-plane
-                            else if (face < 4)
-                              {
-                                mask |= ConstraintKinds::face_y;
-                                if (face == 2)
-                                  mask |= ConstraintKinds::subcell_y;
-                                if (subface % 2 == 0)
-                                  mask |= ConstraintKinds::subcell_z;
-                                if (subface / 2 == 0)
-                                  mask |= ConstraintKinds::subcell_x;
-                              }
-                            // XY-plane
-                            else
-                              {
-                                mask |= ConstraintKinds::face_z;
-                                if (face == 4)
-                                  mask |= ConstraintKinds::subcell_z;
-                                if (subface % 2 == 0)
-                                  mask |= ConstraintKinds::subcell_x;
-                                if (subface / 2 == 0)
-                                  mask |= ConstraintKinds::subcell_y;
-                              }
-                          }
-                        else
-                          ExcNotImplemented();
-                      }
+                    temp |= 1 << (direction + 3);
                   }
+
+                if (temp > 0)
+                  temp |= (subcell ^ (dim == 2 ? 3 : 7));
+
+                mask = static_cast<ConstraintKinds>(temp);
               }
 
             // In 3D we can have a situation where only DoFs on an edge are
