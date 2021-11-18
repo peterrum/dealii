@@ -443,24 +443,6 @@ namespace internal
                               cell)
                             break;
 
-                        // Get indices to read
-                        DoFAccessor<dim - 1, dim, dim, false>(
-                          &neighbor->face(neighbor_face)->get_triangulation(),
-                          neighbor->face(neighbor_face)->level(),
-                          neighbor->face(neighbor_face)->index(),
-                          &cell->get_dof_handler())
-                          .get_dof_indices(neighbor_dofs_all);
-
-                        for (unsigned int i = 0; i < dofs_per_face; ++i)
-                          neighbor_dofs[i] = neighbor_dofs_all
-                            [component_to_system_index_face_array[comp][i]];
-
-                        // If the vector is distributed, we need to transform
-                        // the global indices to local ones.
-                        if (partitioner)
-                          for (auto &index : neighbor_dofs)
-                            index = partitioner->global_to_local(index);
-
                         if (dim == 2)
                           {
                             if (face < 2)
@@ -479,28 +461,6 @@ namespace internal
                                 if (subface == 0)
                                   mask |= ConstraintKinds::subcell_x;
                               }
-
-                            // Reorder neighbor_dofs and copy into faceth face
-                            // of dof_indices
-
-                            // Offset if upper/right face
-                            unsigned int offset =
-                              (face % 2 == 1) ? fe_degree : 0;
-
-                            if (false)
-                              for (unsigned int i = 0; i < n_dofs_1d; ++i)
-                                {
-                                  unsigned int idx = 0;
-                                  // If X-line, i.e., if y = 0 or y = fe_degree
-                                  if (face > 1)
-                                    idx = n_dofs_1d * offset + i;
-                                  // If Y-line, i.e., if x = 0 or x = fe_degree
-                                  else
-                                    idx = n_dofs_1d * i + offset;
-
-                                  dof_indices[idx + idx_offset[comp]] =
-                                    neighbor_dofs[lex_face_mapping[i]];
-                                }
                           }
                         else if (dim == 3)
                           {
@@ -514,14 +474,10 @@ namespace internal
                             if (cell->face_flip(face))
                               rotate -= 2;
 
-                            rotate_face(rotate, n_dofs_1d, neighbor_dofs);
                             rotate_subface_index(rotate, subface);
 
                             if (transpose)
-                              {
-                                transpose_face(fe_degree, neighbor_dofs);
-                                transpose_subface_index(subface);
-                              }
+                              transpose_subface_index(subface);
 
                             // YZ-plane
                             if (face < 2)
@@ -556,38 +512,6 @@ namespace internal
                                 if (subface / 2 == 0)
                                   mask |= ConstraintKinds::subcell_y;
                               }
-
-                            // Offset if upper/right/back face
-                            unsigned int offset =
-                              (face % 2 == 1) ? fe_degree : 0;
-
-                            if (false)
-                              for (unsigned int i = 0; i < n_dofs_1d; ++i)
-                                {
-                                  for (unsigned int j = 0; j < n_dofs_1d; ++j)
-                                    {
-                                      unsigned int idx = 0;
-                                      // If YZ-plane, i.e., if x = 0 or x =
-                                      // fe_degree, and orientation standard
-                                      if (face < 2)
-                                        idx = n_dofs_1d * n_dofs_1d * i +
-                                              n_dofs_1d * j + offset;
-                                      // If XZ-plane, i.e., if y = 0 or y =
-                                      // fe_degree, and orientation standard
-                                      else if (face < 4)
-                                        idx = n_dofs_1d * n_dofs_1d * j +
-                                              n_dofs_1d * offset + i;
-                                      // If XY-plane, i.e., if z = 0 or z =
-                                      // fe_degree, and orientation standard
-                                      else
-                                        idx = n_dofs_1d * n_dofs_1d * offset +
-                                              n_dofs_1d * i + j;
-
-                                      dof_indices[idx + idx_offset[comp]] =
-                                        neighbor_dofs
-                                          [lex_face_mapping[n_dofs_1d * i + j]];
-                                    }
-                                }
                           }
                         else
                           ExcNotImplemented();
