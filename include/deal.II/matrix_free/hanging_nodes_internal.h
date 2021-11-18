@@ -763,34 +763,35 @@ namespace internal
 
             Assert(check(mask, dim), ExcInternalError());
 
-            const auto subface_function =
-              [](const auto subcell, const auto direction) -> std::uint16_t {
-              const auto subcell_x = ((subcell >> 0) & 1) == 0;
-              const auto subcell_y = ((subcell >> 1) & 1) == 0;
-              const auto subcell_z = ((subcell >> 2) & 1) == 0;
+
+            const auto get_face_idx = [](const auto n_dofs_1d,
+                                         const auto face_no,
+                                         const auto i,
+                                         const auto j) -> unsigned int {
+              const auto direction = face_no / 2;
+              const auto side      = face_no % 2;
+              const auto offset    = (side == 1) ? (n_dofs_1d - 1) : 0;
 
               if (dim == 2)
-                return direction == 0 ? subcell_y : subcell_x;
-
-              if (dim == 3)
+                return (direction == 0) ? (n_dofs_1d * i + offset) :
+                                          (n_dofs_1d * offset + i);
+              else if (dim == 3)
                 switch (direction)
                   {
                     case 0:
-                      return subcell_z * 2 + subcell_y;
+                      return n_dofs_1d * n_dofs_1d * i + n_dofs_1d * j + offset;
                     case 1:
-                      return subcell_x * 2 + subcell_z;
+                      return n_dofs_1d * n_dofs_1d * j + n_dofs_1d * offset + i;
                     case 2:
-                      return subcell_y * 2 + subcell_x;
+                      return n_dofs_1d * n_dofs_1d * offset + n_dofs_1d * i + j;
                     default:
-                      Assert(false, ExcNotImplemented())
+                      Assert(false, ExcNotImplemented());
                   }
 
-              Assert(false, ExcNotImplemented())
+              Assert(false, ExcNotImplemented());
 
-                return 0;
+              return 0;
             };
-
-            (void)subface_function;
 
             {
               const std::uint16_t kind    = static_cast<std::uint16_t>(mask);
@@ -801,80 +802,62 @@ namespace internal
               for (int direction = 0; direction < dim; ++direction)
                 if ((face >> direction) & 1U)
                   {
-                    const auto side       = ((subcell >> direction) & 1U) == 0;
-                    const auto face_index = direction * 2 + side;
+                    const auto side    = ((subcell >> direction) & 1U) == 0;
+                    const auto face_no = direction * 2 + side;
 
-                    cell->neighbor(face_index)
-                      ->face(cell->neighbor_face_no(face_index))
+                    // read DoFs of parent of face, ...
+                    cell->neighbor(face_no)
+                      ->face(cell->neighbor_face_no(face_no))
                       ->get_dof_indices(neighbor_dofs_all);
 
+                    // ... convert the global DoFs to serial ones, and ...
+                    if (partitioner)
+                      for (auto &index : neighbor_dofs_all)
+                        index = partitioner->global_to_local(index);
+
+                    // ... extract the DoFs of the current component
                     for (unsigned int i = 0; i < dofs_per_face; ++i)
                       neighbor_dofs[i] = neighbor_dofs_all
                         [component_to_system_index_face_array[comp][i]];
 
-                    if (partitioner)
-                      for (auto &index : neighbor_dofs)
-                        index = partitioner->global_to_local(index);
-
-                    if (dim == 3)
+                    // fix DoFs depending on orientation, flip, and rotation
+                    if (dim == 2)
                       {
-                        int rotate = 0;
-
-                        if (cell->face_rotation(face_index))
-                          rotate -= 1;
-                        if (cell->face_flip(face_index))
-                          rotate -= 2;
+                        // TODO: for mixed meshes we need to take care of
+                        // orientation here
+                      }
+                    else if (dim == 3)
+                      {
+                        int rotate = 0;                   // TODO
+                        if (cell->face_rotation(face_no)) //
+                          rotate -= 1;                    //
+                        if (cell->face_flip(face_no))     //
+                          rotate -= 2;                    //
 
                         rotate_face(rotate, n_dofs_1d, neighbor_dofs);
 
-                        if (cell->face_orientation(face_index) == false)
+                        if (cell->face_orientation(face_no) == false)
                           transpose_face(fe_degree, neighbor_dofs);
                       }
-
-
-                    const auto offset = (side == 1) ? fe_degree : 0;
-
-                    if (dim == 2)
+                    else
                       {
-                        for (unsigned int i = 0; i < n_dofs_1d; ++i)
-                          {
-                            const auto idx = (direction == 0) ?
-                                               (n_dofs_1d * i + offset) :
-                                               (n_dofs_1d * offset + i);
-
-                            dof_indices[idx + idx_offset[comp]] =
-                              neighbor_dofs[lex_face_mapping[i]];
-                          }
+                        Assert(false, ExcNotImplemented());
                       }
 
-                    if (dim == 3)
-                      {
-                        for (unsigned int i = 0; i < n_dofs_1d; ++i)
-                          {
-                            for (unsigned int j = 0; j < n_dofs_1d; ++j)
-                              {
-                                unsigned int idx = 0;
-                                if (face_index < 2)
-                                  idx = n_dofs_1d * n_dofs_1d * i +
-                                        n_dofs_1d * j + offset;
-                                else if (face_index < 4)
-                                  idx = n_dofs_1d * n_dofs_1d * j +
-                                        n_dofs_1d * offset + i;
-                                else
-                                  idx = n_dofs_1d * n_dofs_1d * offset +
-                                        n_dofs_1d * i + j;
-
-                                dof_indices[idx + idx_offset[comp]] =
-                                  neighbor_dofs[lex_face_mapping[n_dofs_1d * i +
-                                                                 j]];
-                              }
-                          }
-                      }
+                    // update DoF map
+                    for (unsigned int i = 0, k = 0; i < n_dofs_1d; ++i)
+                      for (unsigned int j = 0; j < (dim == 2 ? 1 : n_dofs_1d);
+                           ++j, ++k)
+                        dof_indices[get_face_idx(n_dofs_1d, face_no, i, j) +
+                                    idx_offset[comp]] =
+                          neighbor_dofs[lex_face_mapping[k]];
                   }
 
               for (int direction = 0; direction < dim; ++direction)
                 if ((edge >> direction) & 1U)
-                  {}
+                  {
+                    // TODO
+                  }
             }
 
 
