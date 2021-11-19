@@ -243,6 +243,11 @@ namespace internal
       std::vector<std::vector<
         std::pair<typename Triangulation<dim>::cell_iterator, unsigned int>>>
         line_to_cells;
+
+      static constexpr dealii::ndarray<unsigned int, 3, 2, 2> local_lines = {
+        {{{{{7, 3}}, {{6, 2}}}},
+         {{{{5, 1}}, {{4, 0}}}},
+         {{{{11, 9}}, {{10, 8}}}}}};
     };
 
 
@@ -356,38 +361,9 @@ namespace internal
       std::vector<types::global_dof_index> &dof_indices,
       const ArrayView<ConstraintKinds> &    masks) const
     {
-      bool cell_has_hanging_node_constraints = false;
-
       // for simplex or mixed meshes: nothing to do
       if (dim == 3 && line_to_cells.size() == 0)
-        return cell_has_hanging_node_constraints;
-
-      const auto &fe = cell->get_fe();
-
-      std::vector<std::vector<unsigned int>>
-        component_to_system_index_face_array(fe.n_components());
-
-      for (unsigned int i = 0; i < fe.n_dofs_per_face(0); ++i)
-        component_to_system_index_face_array
-          [fe.face_system_to_component_index(i, /*face_no=*/0).first]
-            .push_back(i);
-
-      static constexpr dealii::ndarray<unsigned int, 3, 2, 2> local_lines = {
-        {{{{{7, 3}}, {{6, 2}}}},
-         {{{{5, 1}}, {{4, 0}}}},
-         {{{{11, 9}}, {{10, 8}}}}}};
-
-      std::vector<unsigned int> idx_offset = {0};
-
-      for (unsigned int base_element_index = 0;
-           base_element_index < cell->get_fe().n_base_elements();
-           ++base_element_index)
-        for (unsigned int c = 0;
-             c < cell->get_fe().element_multiplicity(base_element_index);
-             ++c)
-          idx_offset.push_back(
-            idx_offset.back() +
-            cell->get_fe().base_element(base_element_index).n_dofs_per_cell());
+        return false;
 
       std::vector<bool> component_masks(cell->get_fe().n_components(), true);
 
@@ -402,6 +378,106 @@ namespace internal
                 &cell->get_fe().base_element(base_element_index)) == nullptr)
             component_masks[comp] = false;
 
+      if (std::find(component_masks.begin(), component_masks.end(), true) ==
+          component_masks.end())
+        return false;
+
+      ConstraintKinds refinement_mask = ConstraintKinds::unconstrained;
+
+      if (cell->level() > 0)
+        {
+          const std::uint16_t subcell =
+            cell->parent()->child_iterator_to_index(cell);
+          const std::uint16_t subcell_x = (subcell >> 0) & 1;
+          const std::uint16_t subcell_y = (subcell >> 1) & 1;
+          const std::uint16_t subcell_z = (subcell >> 2) & 1;
+
+          std::uint16_t temp = 0;
+
+          for (int direction = 0; direction < dim; ++direction)
+            {
+              const auto side    = (subcell >> direction) & 1U;
+              const auto face_no = direction * 2 + side;
+
+              // ignore if at boundary and if neighbor has children
+              if (cell->at_boundary(face_no) ||
+                  cell->neighbor(face_no)->has_children())
+                continue;
+
+              const auto &neighbor = cell->neighbor(face_no);
+
+              // ignore neighbors that are artificial or have the same
+              // level
+              if (neighbor->is_artificial() ||
+                  neighbor->level() == cell->level())
+                continue;
+
+              temp |= 1 << (direction + 3);
+            }
+
+          if (dim == 3)
+            for (int direction = 0; direction < dim; ++direction)
+              if (((temp >> 3) & 7) == 0 ||
+                  ((temp >> 3) & 7) == (1 << direction))
+                {
+                  const unsigned int local_line =
+                    direction == 0 ?
+                      (local_lines[0][subcell_y == 0][subcell_z == 0]) :
+                      (direction == 1 ?
+                         (local_lines[1][subcell_x == 0][subcell_z == 0]) :
+                         (local_lines[2][subcell_x == 0][subcell_y == 0]));
+
+                  const unsigned int line = cell->line(local_line)->index();
+
+                  const auto edge_neighbor = std::find_if(
+                    line_to_cells[line].begin(),
+                    line_to_cells[line].end(),
+                    [&cell](const auto &edge_neighbor) {
+                      return edge_neighbor.first->is_artificial() == false &&
+                             edge_neighbor.first->level() < cell->level();
+                    });
+
+                  if (edge_neighbor != line_to_cells[line].end())
+                    temp |= 1 << (direction + 6);
+                }
+
+          if (temp > 0)
+            temp |= (subcell ^ (dim == 2 ? 3 : 7));
+
+          refinement_mask = static_cast<ConstraintKinds>(temp);
+
+          Assert(check(refinement_mask, dim), ExcInternalError());
+        }
+
+      if (refinement_mask == ConstraintKinds::unconstrained)
+        return false;
+
+      for (unsigned int c = 0; c < component_masks.size(); ++c)
+        if (component_masks[c])
+          masks[c] = refinement_mask;
+
+      const auto &fe = cell->get_fe();
+
+      std::vector<std::vector<unsigned int>>
+        component_to_system_index_face_array(fe.n_components());
+
+      for (unsigned int i = 0; i < fe.n_dofs_per_face(0); ++i)
+        component_to_system_index_face_array
+          [fe.face_system_to_component_index(i, /*face_no=*/0).first]
+            .push_back(i);
+
+      std::vector<unsigned int> idx_offset = {0};
+
+      for (unsigned int base_element_index = 0;
+           base_element_index < cell->get_fe().n_base_elements();
+           ++base_element_index)
+        for (unsigned int c = 0;
+             c < cell->get_fe().element_multiplicity(base_element_index);
+             ++c)
+          idx_offset.push_back(
+            idx_offset.back() +
+            cell->get_fe().base_element(base_element_index).n_dofs_per_cell());
+
       for (unsigned int base_element_index = 0, comp = 0;
            base_element_index < cell->get_fe().n_base_elements();
            ++base_element_index)
@@ -409,9 +485,6 @@ namespace internal
              c < cell->get_fe().element_multiplicity(base_element_index);
              ++c, ++comp)
           {
-            auto &mask = masks[comp];
-            mask       = ConstraintKinds::unconstrained;
-
             if (component_masks[comp] == false)
               continue;
 
@@ -433,75 +506,6 @@ namespace internal
             const auto lex_face_mapping =
               FETools::lexicographic_to_hierarchic_numbering<dim - 1>(
                 fe_degree);
-
-            if (cell->level() > 0)
-              {
-                const std::uint16_t subcell =
-                  cell->parent()->child_iterator_to_index(cell);
-                const std::uint16_t subcell_x = (subcell >> 0) & 1;
-                const std::uint16_t subcell_y = (subcell >> 1) & 1;
-                const std::uint16_t subcell_z = (subcell >> 2) & 1;
-
-                std::uint16_t temp = 0;
-
-                for (int direction = 0; direction < dim; ++direction)
-                  {
-                    const auto side    = (subcell >> direction) & 1U;
-                    const auto face_no = direction * 2 + side;
-
-                    // ignore if at boundary and if neighbor has children
-                    if (cell->at_boundary(face_no) ||
-                        cell->neighbor(face_no)->has_children())
-                      continue;
-
-                    const auto &neighbor = cell->neighbor(face_no);
-
-                    // ignore neighbors that are artificial or have the same
-                    // level
-                    if (neighbor->is_artificial() ||
-                        neighbor->level() == cell->level())
-                      continue;
-
-                    temp |= 1 << (direction + 3);
-                  }
-
-                if (dim == 3)
-                  for (int direction = 0; direction < dim; ++direction)
-                    if (((temp >> 3) & 7) == 0 ||
-                        ((temp >> 3) & 7) == (1 << direction))
-                      {
-                        const unsigned int local_line =
-                          direction == 0 ?
-                            (local_lines[0][subcell_y == 0][subcell_z == 0]) :
-                            (direction == 1 ? (local_lines[1][subcell_x == 0]
-                                                          [subcell_z == 0]) :
-                                              (local_lines[2][subcell_x == 0]
-                                                          [subcell_y == 0]));
-
-                        const unsigned int line =
-                          cell->line(local_line)->index();
-
-                        const auto edge_neighbor = std::find_if(
-                          line_to_cells[line].begin(),
-                          line_to_cells[line].end(),
-                          [&cell](const auto &edge_neighbor) {
-                            return edge_neighbor.first->is_artificial() ==
-                                     false &&
-                                   edge_neighbor.first->level() < cell->level();
-                          });
-
-                        if (edge_neighbor != line_to_cells[line].end())
-                          temp |= 1 << (direction + 6);
-                      }
-
-                if (temp > 0)
-                  temp |= (subcell ^ (dim == 2 ? 3 : 7));
-
-                mask = static_cast<ConstraintKinds>(temp);
-              }
-
-            Assert(check(mask, dim), ExcInternalError());
-
 
             const auto get_face_idx = [](const auto n_dofs_1d,
                                          const auto face_no,
@@ -533,7 +537,8 @@ namespace internal
             };
 
             {
-              const std::uint16_t kind      = static_cast<std::uint16_t>(mask);
+              const std::uint16_t kind =
+                static_cast<std::uint16_t>(refinement_mask);
               const std::uint16_t subcell   = (kind >> 0) & 7;
               const std::uint16_t subcell_x = (subcell >> 0) & 1;
               const std::uint16_t subcell_y = (subcell >> 1) & 1;
@@ -655,12 +660,8 @@ namespace internal
                            idx_offset[comp]];
                     }
             }
-
-
-            cell_has_hanging_node_constraints |=
-              mask != ConstraintKinds::unconstrained;
           }
-      return cell_has_hanging_node_constraints;
+      return true;
     }
 
 
