@@ -384,6 +384,19 @@ namespace internal
             idx_offset.back() +
             cell->get_fe().base_element(base_element_index).n_dofs_per_cell());
 
+      std::vector<bool> component_masks(cell->get_fe().n_components(), true);
+
+      for (unsigned int base_element_index = 0, comp = 0;
+           base_element_index < cell->get_fe().n_base_elements();
+           ++base_element_index)
+        for (unsigned int c = 0;
+             c < cell->get_fe().element_multiplicity(base_element_index);
+             ++c, ++comp)
+          if (dim == 1 ||
+              dynamic_cast<const FE_Q<dim> *>(
+                &cell->get_fe().base_element(base_element_index)) == nullptr)
+            component_masks[comp] = false;
+
       for (unsigned int base_element_index = 0, comp = 0;
            base_element_index < cell->get_fe().n_base_elements();
            ++base_element_index)
@@ -394,12 +407,11 @@ namespace internal
             auto &mask = masks[comp];
             mask       = ConstraintKinds::unconstrained;
 
+            if (component_masks[comp] == false)
+              continue;
+
             const auto &fe_base =
               cell->get_fe().base_element(base_element_index);
-
-            if (dim == 1 ||
-                dynamic_cast<const FE_Q<dim> *>(&fe_base) == nullptr)
-              continue;
 
             const unsigned int fe_degree = fe_base.tensor_degree();
             const unsigned int n_dofs_1d = fe_degree + 1;
@@ -681,6 +693,8 @@ namespace internal
                       {
                         // TODO: for mixed meshes we need to take care of
                         // orientation here
+                        Assert(cell->face_orientation(face_no),
+                               ExcNotImplemented());
                       }
                     else if (dim == 3)
                       {
