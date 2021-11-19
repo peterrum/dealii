@@ -18,6 +18,7 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/base/ndarray.h>
 #include <deal.II/base/utilities.h>
 
 #include <deal.II/dofs/dof_accessor.h>
@@ -606,20 +607,21 @@ namespace internal
                                   neighbor_dofs_all_temp[i] =
                                     neighbor_dofs_all[lexicographic_mapping[i]];
 
-                                for (unsigned int i = 0; i < n_dofs_1d; ++i)
-                                  {
-                                    // Get local dof index along line
-                                    const unsigned int idx =
-                                      line_dof_idx(local_line, i, n_dofs_1d);
+                                if (false)
+                                  for (unsigned int i = 0; i < n_dofs_1d; ++i)
+                                    {
+                                      // Get local dof index along line
+                                      const unsigned int idx =
+                                        line_dof_idx(local_line, i, n_dofs_1d);
 
-                                    dof_indices[idx + idx_offset[comp]] =
-                                      neighbor_dofs_all_temp
-                                        [line_dof_idx(local_line_neighbor,
-                                                      flipped ? fe_degree - i :
-                                                                i,
-                                                      n_dofs_1d) +
-                                         idx_offset[comp]];
-                                  }
+                                      dof_indices[idx + idx_offset[comp]] =
+                                        neighbor_dofs_all_temp
+                                          [line_dof_idx(
+                                             local_line_neighbor,
+                                             flipped ? fe_degree - i : i,
+                                             n_dofs_1d) +
+                                           idx_offset[comp]];
+                                    }
 
                                 // Stop looping over edge neighbors
                                 break;
@@ -726,7 +728,66 @@ namespace internal
               for (int direction = 0; direction < dim; ++direction)
                 if ((edge >> direction) & 1U)
                   {
-                    // TODO
+                    static constexpr dealii::ndarray<unsigned int, 3, 2, 2>
+                      local_lines = {{{{{{7, 3}}, {{6, 2}}}},
+                                      {{{{5, 1}}, {{4, 0}}}},
+                                      {{{{11, 9}}, {{10, 8}}}}}};
+
+                    const std::uint16_t subcell_x = (kind >> 0) & 1;
+                    const std::uint16_t subcell_y = (kind >> 1) & 1;
+                    const std::uint16_t subcell_z = (kind >> 2) & 1;
+
+                    const unsigned int local_line =
+                      direction == 0 ?
+                        (local_lines[0][subcell_y][subcell_z]) :
+                        (direction == 1 ?
+                           (local_lines[1][subcell_x][subcell_z]) :
+                           (local_lines[2][subcell_x][subcell_y]));
+
+                    const unsigned int line = cell->line(local_line)->index();
+
+                    const auto edge_neighbor = std::find_if(
+                      line_to_cells[line].begin(),
+                      line_to_cells[line].end(),
+                      [&cell](const auto &edge_neighbor) {
+                        return edge_neighbor.first->is_artificial() == false &&
+                               edge_neighbor.first->level() < cell->level();
+                      });
+
+                    if (edge_neighbor == line_to_cells[line].end())
+                      continue;
+
+                    const auto neighbor_cell       = edge_neighbor->first;
+                    const auto local_line_neighbor = edge_neighbor->second;
+
+                    DoFCellAccessor<dim, dim, false>(
+                      &neighbor_cell->get_triangulation(),
+                      neighbor_cell->level(),
+                      neighbor_cell->index(),
+                      &cell->get_dof_handler())
+                      .get_dof_indices(neighbor_dofs_all);
+
+                    if (partitioner)
+                      for (auto &index : neighbor_dofs_all)
+                        index = partitioner->global_to_local(index);
+
+                    for (unsigned int i = 0; i < neighbor_dofs_all_temp.size();
+                         ++i)
+                      neighbor_dofs_all_temp[i] =
+                        neighbor_dofs_all[lexicographic_mapping[i]];
+
+                    const bool flipped =
+                      cell->line_orientation(local_line) !=
+                      neighbor_cell->line_orientation(local_line_neighbor);
+
+                    for (unsigned int i = 0; i < n_dofs_1d; ++i)
+                      dof_indices[line_dof_idx(local_line, i, n_dofs_1d) +
+                                  idx_offset[comp]] =
+                        neighbor_dofs_all_temp[line_dof_idx(
+                                                 local_line_neighbor,
+                                                 flipped ? (fe_degree - i) : i,
+                                                 n_dofs_1d) +
+                                               idx_offset[comp]];
                   }
             }
 
