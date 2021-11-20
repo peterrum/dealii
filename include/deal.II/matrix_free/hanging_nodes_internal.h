@@ -261,7 +261,7 @@ namespace internal
         std::pair<typename Triangulation<dim>::cell_iterator, unsigned int>>>
         line_to_cells;
 
-      static constexpr dealii::ndarray<unsigned int, 3, 2, 2> local_lines = {
+      const dealii::ndarray<unsigned int, 3, 2, 2> local_lines = {
         {{{{{7, 3}}, {{6, 2}}}},
          {{{{5, 1}}, {{4, 0}}}},
          {{{{11, 9}}, {{10, 8}}}}}};
@@ -462,8 +462,10 @@ namespace internal
                                         cell->level();
                              });
 
-              if (edge_neighbor != line_to_cells[line_index].end())
-                edge |= 1 << direction;
+              if (edge_neighbor == line_to_cells[line_index].end())
+                continue;
+
+              edge |= 1 << direction;
             }
 
       if ((face == 0) && (edge == 0))
@@ -733,7 +735,7 @@ namespace internal
 
       if ([](const auto &outer) {
             for (const auto &inner : outer)
-              for (const auto &i : inner)
+              for (const auto i : inner)
                 if (i)
                   return true;
             return false;
