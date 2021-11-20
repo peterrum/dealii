@@ -432,8 +432,7 @@ namespace internal
 
           const auto &neighbor = cell->neighbor(face_no);
 
-          // ignore neighbors that are artificial or have the same
-          // level
+          // ignore neighbors that are artificial or have the same level
           if (neighbor->is_artificial() || neighbor->level() == cell->level())
             continue;
 
@@ -491,7 +490,14 @@ namespace internal
       const ConstraintKinds &               refinement_mask,
       std::vector<types::global_dof_index> &dof_indices) const
     {
+      if (std::find(component_masks[cell->active_fe_index()].begin(),
+                    component_masks[cell->active_fe_index()].end(),
+                    true) == component_masks[cell->active_fe_index()].end())
+        return;
+
       const auto &fe = cell->get_fe();
+
+      AssertDimension(fe.n_unique_faces(), 1);
 
       std::vector<std::vector<unsigned int>>
         component_to_system_index_face_array(fe.n_components());
@@ -513,190 +519,200 @@ namespace internal
             idx_offset.back() +
             cell->get_fe().base_element(base_element_index).n_dofs_per_cell());
 
-      for (unsigned int base_element_index = 0, comp = 0;
-           base_element_index < cell->get_fe().n_base_elements();
-           ++base_element_index)
-        for (unsigned int c = 0;
-             c < cell->get_fe().element_multiplicity(base_element_index);
-             ++c, ++comp)
-          {
-            if (component_masks[cell->active_fe_index()][comp] == false)
-              continue;
+      std::vector<types::global_dof_index> neighbor_dofs_all(idx_offset.back());
+      std::vector<types::global_dof_index> neighbor_dofs_all_temp(
+        idx_offset.back());
 
-            const auto &fe_base =
-              cell->get_fe().base_element(base_element_index);
+      const auto get_face_idx = [](const auto n_dofs_1d,
+                                   const auto face_no,
+                                   const auto i,
+                                   const auto j) -> unsigned int {
+        const auto direction = face_no / 2;
+        const auto side      = face_no % 2;
+        const auto offset    = (side == 1) ? (n_dofs_1d - 1) : 0;
 
-            const unsigned int fe_degree = fe_base.tensor_degree();
-            const unsigned int n_dofs_1d = fe_degree + 1;
-            const unsigned int dofs_per_face =
-              Utilities::fixed_power<dim - 1>(n_dofs_1d);
-
-            std::vector<types::global_dof_index> neighbor_dofs_all(
-              idx_offset.back());
-            std::vector<types::global_dof_index> neighbor_dofs_all_temp(
-              idx_offset.back());
-
-            std::vector<types::global_dof_index> neighbor_dofs(dofs_per_face);
-
-            const auto lex_face_mapping =
-              FETools::lexicographic_to_hierarchic_numbering<dim - 1>(
-                fe_degree);
-
-            const auto get_face_idx = [](const auto n_dofs_1d,
-                                         const auto face_no,
-                                         const auto i,
-                                         const auto j) -> unsigned int {
-              const auto direction = face_no / 2;
-              const auto side      = face_no % 2;
-              const auto offset    = (side == 1) ? (n_dofs_1d - 1) : 0;
-
-              if (dim == 2)
-                return (direction == 0) ? (n_dofs_1d * i + offset) :
-                                          (n_dofs_1d * offset + i);
-              else if (dim == 3)
-                switch (direction)
-                  {
-                    case 0:
-                      return n_dofs_1d * n_dofs_1d * i + n_dofs_1d * j + offset;
-                    case 1:
-                      return n_dofs_1d * n_dofs_1d * j + n_dofs_1d * offset + i;
-                    case 2:
-                      return n_dofs_1d * n_dofs_1d * offset + n_dofs_1d * i + j;
-                    default:
-                      Assert(false, ExcNotImplemented());
-                  }
-
-              Assert(false, ExcNotImplemented());
-
-              return 0;
-            };
-
+        if (dim == 2)
+          return (direction == 0) ? (n_dofs_1d * i + offset) :
+                                    (n_dofs_1d * offset + i);
+        else if (dim == 3)
+          switch (direction)
             {
-              const std::uint16_t kind =
-                static_cast<std::uint16_t>(refinement_mask);
-              const std::uint16_t subcell   = (kind >> 0) & 7;
-              const std::uint16_t subcell_x = (subcell >> 0) & 1;
-              const std::uint16_t subcell_y = (subcell >> 1) & 1;
-              const std::uint16_t subcell_z = (subcell >> 2) & 1;
-              const std::uint16_t face      = (kind >> 3) & 7;
-              const std::uint16_t edge      = (kind >> 6) & 7;
-
-              for (unsigned int direction = 0; direction < dim; ++direction)
-                if ((face >> direction) & 1U)
-                  {
-                    const auto side    = ((subcell >> direction) & 1U) == 0;
-                    const auto face_no = direction * 2 + side;
-
-                    // read DoFs of parent of face, ...
-                    cell->neighbor(face_no)
-                      ->face(cell->neighbor_face_no(face_no))
-                      ->get_dof_indices(neighbor_dofs_all);
-
-                    // ... convert the global DoFs to serial ones, and ...
-                    if (partitioner)
-                      for (auto &index : neighbor_dofs_all)
-                        index = partitioner->global_to_local(index);
-
-                    // ... extract the DoFs of the current component
-                    for (unsigned int i = 0; i < dofs_per_face; ++i)
-                      neighbor_dofs[i] = neighbor_dofs_all
-                        [component_to_system_index_face_array[comp][i]];
-
-                    // fix DoFs depending on orientation, flip, and rotation
-                    if (dim == 2)
-                      {
-                        // TODO: for mixed meshes we need to take care of
-                        // orientation here
-                        Assert(cell->face_orientation(face_no),
-                               ExcNotImplemented());
-                      }
-                    else if (dim == 3)
-                      {
-                        int rotate = 0;                   // TODO
-                        if (cell->face_rotation(face_no)) //
-                          rotate -= 1;                    //
-                        if (cell->face_flip(face_no))     //
-                          rotate -= 2;                    //
-
-                        rotate_face(rotate, n_dofs_1d, neighbor_dofs);
-
-                        if (cell->face_orientation(face_no) == false)
-                          transpose_face(fe_degree, neighbor_dofs);
-                      }
-                    else
-                      {
-                        Assert(false, ExcNotImplemented());
-                      }
-
-                    // update DoF map
-                    for (unsigned int i = 0, k = 0; i < n_dofs_1d; ++i)
-                      for (unsigned int j = 0; j < (dim == 2 ? 1 : n_dofs_1d);
-                           ++j, ++k)
-                        dof_indices[get_face_idx(n_dofs_1d, face_no, i, j) +
-                                    idx_offset[comp]] =
-                          neighbor_dofs[lex_face_mapping[k]];
-                  }
-
-              if (dim == 3)
-                for (unsigned int direction = 0; direction < dim; ++direction)
-                  if ((edge >> direction) & 1U)
-                    {
-                      const unsigned int line_no =
-                        direction == 0 ?
-                          (local_lines[0][subcell_y][subcell_z]) :
-                          (direction == 1 ?
-                             (local_lines[1][subcell_x][subcell_z]) :
-                             (local_lines[2][subcell_x][subcell_y]));
-
-                      const unsigned int line_index =
-                        cell->line(line_no)->index();
-
-                      const auto edge_neighbor = std::find_if(
-                        line_to_cells[line_index].begin(),
-                        line_to_cells[line_index].end(),
-                        [&cell](const auto &edge_neighbor) {
-                          return edge_neighbor.first->is_artificial() ==
-                                   false &&
-                                 edge_neighbor.first->level() < cell->level();
-                        });
-
-                      if (edge_neighbor == line_to_cells[line_index].end())
-                        continue;
-
-                      const auto neighbor_cell       = edge_neighbor->first;
-                      const auto local_line_neighbor = edge_neighbor->second;
-
-                      DoFCellAccessor<dim, dim, false>(
-                        &neighbor_cell->get_triangulation(),
-                        neighbor_cell->level(),
-                        neighbor_cell->index(),
-                        &cell->get_dof_handler())
-                        .get_dof_indices(neighbor_dofs_all);
-
-                      if (partitioner)
-                        for (auto &index : neighbor_dofs_all)
-                          index = partitioner->global_to_local(index);
-
-                      for (unsigned int i = 0;
-                           i < neighbor_dofs_all_temp.size();
-                           ++i)
-                        neighbor_dofs_all_temp[i] =
-                          neighbor_dofs_all[lexicographic_mapping[i]];
-
-                      const bool flipped =
-                        cell->line_orientation(line_no) !=
-                        neighbor_cell->line_orientation(local_line_neighbor);
-
-                      for (unsigned int i = 0; i < n_dofs_1d; ++i)
-                        dof_indices[line_dof_idx(line_no, i, n_dofs_1d) +
-                                    idx_offset[comp]] = neighbor_dofs_all_temp
-                          [line_dof_idx(local_line_neighbor,
-                                        flipped ? (fe_degree - i) : i,
-                                        n_dofs_1d) +
-                           idx_offset[comp]];
-                    }
+              case 0:
+                return n_dofs_1d * n_dofs_1d * i + n_dofs_1d * j + offset;
+              case 1:
+                return n_dofs_1d * n_dofs_1d * j + n_dofs_1d * offset + i;
+              case 2:
+                return n_dofs_1d * n_dofs_1d * offset + n_dofs_1d * i + j;
+              default:
+                Assert(false, ExcNotImplemented());
             }
+
+        Assert(false, ExcNotImplemented());
+
+        return 0;
+      };
+
+      const std::uint16_t kind    = static_cast<std::uint16_t>(refinement_mask);
+      const std::uint16_t subcell = (kind >> 0) & 7;
+      const std::uint16_t subcell_x = (subcell >> 0) & 1;
+      const std::uint16_t subcell_y = (subcell >> 1) & 1;
+      const std::uint16_t subcell_z = (subcell >> 2) & 1;
+      const std::uint16_t face      = (kind >> 3) & 7;
+      const std::uint16_t edge      = (kind >> 6) & 7;
+
+      for (unsigned int direction = 0; direction < dim; ++direction)
+        if ((face >> direction) & 1U)
+          {
+            const auto side    = ((subcell >> direction) & 1U) == 0;
+            const auto face_no = direction * 2 + side;
+
+            // read DoFs of parent of face, ...
+            cell->neighbor(face_no)
+              ->face(cell->neighbor_face_no(face_no))
+              ->get_dof_indices(neighbor_dofs_all);
+
+            // ... convert the global DoFs to serial ones, and ...
+            if (partitioner)
+              for (auto &index : neighbor_dofs_all)
+                index = partitioner->global_to_local(index);
+
+            for (unsigned int base_element_index = 0, comp = 0;
+                 base_element_index < cell->get_fe().n_base_elements();
+                 ++base_element_index)
+              for (unsigned int c = 0;
+                   c < cell->get_fe().element_multiplicity(base_element_index);
+                   ++c, ++comp)
+                {
+                  if (component_masks[cell->active_fe_index()][comp] == false)
+                    continue;
+
+                  const unsigned int n_dofs_1d =
+                    cell->get_fe()
+                      .base_element(base_element_index)
+                      .tensor_degree() +
+                    1;
+                  const unsigned int dofs_per_face =
+                    Utilities::fixed_power<dim - 1>(n_dofs_1d);
+                  std::vector<types::global_dof_index> neighbor_dofs(
+                    dofs_per_face);
+                  const auto lex_face_mapping =
+                    FETools::lexicographic_to_hierarchic_numbering<dim - 1>(
+                      n_dofs_1d - 1);
+
+                  // ... extract the DoFs of the current component
+                  for (unsigned int i = 0; i < dofs_per_face; ++i)
+                    neighbor_dofs[i] = neighbor_dofs_all
+                      [component_to_system_index_face_array[comp][i]];
+
+                  // fix DoFs depending on orientation, flip, and rotation
+                  if (dim == 2)
+                    {
+                      // TODO: for mixed meshes we need to take care of
+                      // orientation here
+                      Assert(cell->face_orientation(face_no),
+                             ExcNotImplemented());
+                    }
+                  else if (dim == 3)
+                    {
+                      int rotate = 0;                   // TODO
+                      if (cell->face_rotation(face_no)) //
+                        rotate -= 1;                    //
+                      if (cell->face_flip(face_no))     //
+                        rotate -= 2;                    //
+
+                      rotate_face(rotate, n_dofs_1d, neighbor_dofs);
+
+                      if (cell->face_orientation(face_no) == false)
+                        transpose_face(n_dofs_1d - 1, neighbor_dofs);
+                    }
+                  else
+                    {
+                      Assert(false, ExcNotImplemented());
+                    }
+
+                  // update DoF map
+                  for (unsigned int i = 0, k = 0; i < n_dofs_1d; ++i)
+                    for (unsigned int j = 0; j < (dim == 2 ? 1 : n_dofs_1d);
+                         ++j, ++k)
+                      dof_indices[get_face_idx(n_dofs_1d, face_no, i, j) +
+                                  idx_offset[comp]] =
+                        neighbor_dofs[lex_face_mapping[k]];
+                }
           }
+
+      if (dim == 3)
+        for (unsigned int direction = 0; direction < dim; ++direction)
+          if ((edge >> direction) & 1U)
+            {
+              const unsigned int line_no =
+                direction == 0 ?
+                  (local_lines[0][subcell_y][subcell_z]) :
+                  (direction == 1 ? (local_lines[1][subcell_x][subcell_z]) :
+                                    (local_lines[2][subcell_x][subcell_y]));
+
+              const unsigned int line_index = cell->line(line_no)->index();
+
+              const auto edge_neighbor =
+                std::find_if(line_to_cells[line_index].begin(),
+                             line_to_cells[line_index].end(),
+                             [&cell](const auto &edge_neighbor) {
+                               return edge_neighbor.first->is_artificial() ==
+                                        false &&
+                                      edge_neighbor.first->level() <
+                                        cell->level();
+                             });
+
+              if (edge_neighbor == line_to_cells[line_index].end())
+                continue;
+
+              const auto neighbor_cell       = edge_neighbor->first;
+              const auto local_line_neighbor = edge_neighbor->second;
+
+              DoFCellAccessor<dim, dim, false>(
+                &neighbor_cell->get_triangulation(),
+                neighbor_cell->level(),
+                neighbor_cell->index(),
+                &cell->get_dof_handler())
+                .get_dof_indices(neighbor_dofs_all);
+
+              if (partitioner)
+                for (auto &index : neighbor_dofs_all)
+                  index = partitioner->global_to_local(index);
+
+              for (unsigned int i = 0; i < neighbor_dofs_all_temp.size(); ++i)
+                neighbor_dofs_all_temp[i] =
+                  neighbor_dofs_all[lexicographic_mapping[i]];
+
+              const bool flipped =
+                cell->line_orientation(line_no) !=
+                neighbor_cell->line_orientation(local_line_neighbor);
+
+              for (unsigned int base_element_index = 0, comp = 0;
+                   base_element_index < cell->get_fe().n_base_elements();
+                   ++base_element_index)
+                for (unsigned int c = 0;
+                     c <
+                     cell->get_fe().element_multiplicity(base_element_index);
+                     ++c, ++comp)
+                  {
+                    if (component_masks[cell->active_fe_index()][comp] == false)
+                      continue;
+
+                    const unsigned int n_dofs_1d =
+                      cell->get_fe()
+                        .base_element(base_element_index)
+                        .tensor_degree() +
+                      1;
+
+                    for (unsigned int i = 0; i < n_dofs_1d; ++i)
+                      dof_indices[line_dof_idx(line_no, i, n_dofs_1d) +
+                                  idx_offset[comp]] = neighbor_dofs_all_temp
+                        [line_dof_idx(local_line_neighbor,
+                                      flipped ? (n_dofs_1d - 1 - i) : i,
+                                      n_dofs_1d) +
+                         idx_offset[comp]];
+                  }
+            }
     }
 
 
