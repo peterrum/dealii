@@ -213,6 +213,23 @@ namespace internal
         std::vector<types::global_dof_index> &dof_indices,
         const ArrayView<ConstraintKinds> &    mask) const;
 
+      std::vector<bool>
+      compute_component_mask(const FiniteElement<dim> &fe) const;
+
+      template <typename CellIterator>
+      ConstraintKinds
+      compute_refinement_configuration(const CellIterator &cell) const;
+
+      template <typename CellIterator>
+      void
+      update_dof_indices(
+        const CellIterator &                                      cell,
+        const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
+        const std::vector<unsigned int> &     lexicographic_mapping,
+        const std::vector<bool> &             component_mask,
+        const ConstraintKinds &               refinement_configuration,
+        std::vector<types::global_dof_index> &dof_indices) const;
+
     private:
       /**
        * Set up line-to-cell mapping for edge constraints in 3D.
@@ -352,36 +369,39 @@ namespace internal
 
 
     template <int dim>
-    template <typename CellIterator>
-    inline bool
-    HangingNodes<dim>::setup_constraints(
-      const CellIterator &                                      cell,
-      const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
-      const std::vector<unsigned int> &     lexicographic_mapping,
-      std::vector<types::global_dof_index> &dof_indices,
-      const ArrayView<ConstraintKinds> &    masks) const
+    inline std::vector<bool>
+    HangingNodes<dim>::compute_component_mask(
+      const FiniteElement<dim> &fe) const
     {
-      // for simplex or mixed meshes: nothing to do
-      if (dim == 3 && line_to_cells.size() == 0)
-        return false;
+      std::vector<bool> component_masks(fe.n_components(), false);
 
-      std::vector<bool> component_masks(cell->get_fe().n_components(), true);
+      // TODO: for simplex or mixed meshes: nothing to do
+      if (dim == 3 && line_to_cells.size() == 0)
+        return component_masks;
 
       for (unsigned int base_element_index = 0, comp = 0;
-           base_element_index < cell->get_fe().n_base_elements();
+           base_element_index < fe.n_base_elements();
            ++base_element_index)
         for (unsigned int c = 0;
-             c < cell->get_fe().element_multiplicity(base_element_index);
+             c < fe.element_multiplicity(base_element_index);
              ++c, ++comp)
-          if (dim == 1 ||
-              dynamic_cast<const FE_Q<dim> *>(
-                &cell->get_fe().base_element(base_element_index)) == nullptr)
+          if (dim == 1 || dynamic_cast<const FE_Q<dim> *>(
+                            &fe.base_element(base_element_index)) == nullptr)
             component_masks[comp] = false;
+          else
+            component_masks[comp] = true;
 
-      if (std::find(component_masks.begin(), component_masks.end(), true) ==
-          component_masks.end())
-        return false;
+      return component_masks;
+    }
 
+
+
+    template <int dim>
+    template <typename CellIterator>
+    inline ConstraintKinds
+    HangingNodes<dim>::compute_refinement_configuration(
+      const CellIterator &cell) const
+    {
       ConstraintKinds refinement_mask = ConstraintKinds::unconstrained;
 
       if (cell->level() > 0)
@@ -449,13 +469,22 @@ namespace internal
           Assert(check(refinement_mask, dim), ExcInternalError());
         }
 
-      if (refinement_mask == ConstraintKinds::unconstrained)
-        return false;
+      return refinement_mask;
+    }
 
-      for (unsigned int c = 0; c < component_masks.size(); ++c)
-        if (component_masks[c])
-          masks[c] = refinement_mask;
 
+
+    template <int dim>
+    template <typename CellIterator>
+    inline void
+    HangingNodes<dim>::update_dof_indices(
+      const CellIterator &                                      cell,
+      const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
+      const std::vector<unsigned int> &     lexicographic_mapping,
+      const std::vector<bool> &             component_masks,
+      const ConstraintKinds &               refinement_mask,
+      std::vector<types::global_dof_index> &dof_indices) const
+    {
       const auto &fe = cell->get_fe();
 
       std::vector<std::vector<unsigned int>>
@@ -661,6 +690,46 @@ namespace internal
                     }
             }
           }
+    }
+
+
+
+    template <int dim>
+    template <typename CellIterator>
+    inline bool
+    HangingNodes<dim>::setup_constraints(
+      const CellIterator &                                      cell,
+      const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
+      const std::vector<unsigned int> &     lexicographic_mapping,
+      std::vector<types::global_dof_index> &dof_indices,
+      const ArrayView<ConstraintKinds> &    masks) const
+    {
+      // 1) check if finite elements support fast hanging-node algorithm
+      const auto component_masks = compute_component_mask(cell->get_fe());
+
+      if (std::find(component_masks.begin(), component_masks.end(), true) ==
+          component_masks.end())
+        return false;
+
+      // 2) determine the refinement configuration of the cell
+      const auto refinement_mask = compute_refinement_configuration(cell);
+
+      if (refinement_mask == ConstraintKinds::unconstrained)
+        return false;
+
+      // 3) update DoF indices of cell for specified components
+      update_dof_indices(cell,
+                         partitioner,
+                         lexicographic_mapping,
+                         component_masks,
+                         refinement_mask,
+                         dof_indices);
+
+      // 4)  TODO: copy refinement configuration to all components
+      for (unsigned int c = 0; c < component_masks.size(); ++c)
+        if (component_masks[c])
+          masks[c] = refinement_mask;
+
       return true;
     }
 
