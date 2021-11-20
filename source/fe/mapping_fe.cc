@@ -844,7 +844,7 @@ namespace internal
 
 template <int dim, int spacedim>
 MappingFE<dim, spacedim>::MappingFE(const FiniteElement<dim, spacedim> &fe)
-  : fe(fe.clone())
+  : fe(fe)
   , polynomial_degree(fe.tensor_degree())
 {
   Assert(polynomial_degree >= 1,
@@ -875,7 +875,7 @@ MappingFE<dim, spacedim>::MappingFE(const FiniteElement<dim, spacedim> &fe)
 
 template <int dim, int spacedim>
 MappingFE<dim, spacedim>::MappingFE(const MappingFE<dim, spacedim> &mapping)
-  : fe(mapping.fe->clone())
+  : fe(mapping.fe)
   , polynomial_degree(mapping.polynomial_degree)
   , mapping_support_point_weights(mapping.mapping_support_point_weights)
 {}
@@ -911,8 +911,8 @@ MappingFE<dim, spacedim>::transform_unit_to_real_cell(
 
   Point<spacedim> mapped_point;
 
-  for (unsigned int i = 0; i < this->fe->n_dofs_per_cell(); ++i)
-    mapped_point += support_points[i] * this->fe->shape_value(i, p);
+  for (unsigned int i = 0; i < this->fe.n_dofs_per_cell(); ++i)
+    mapped_point += support_points[i] * this->fe.shape_value(i, p);
 
   return mapped_point;
 }
@@ -949,11 +949,11 @@ MappingFE<dim, spacedim>::transform_real_to_unit_cell(
       DerivativeForm<1, spacedim, dim> grad_FT;
       DerivativeForm<2, spacedim, dim> hess_FT;
 
-      for (unsigned int i = 0; i < this->fe->n_dofs_per_cell(); ++i)
+      for (unsigned int i = 0; i < this->fe.n_dofs_per_cell(); ++i)
         {
-          mapped_point += support_points[i] * this->fe->shape_value(i, p_unit);
-          const auto grad_F_i    = this->fe->shape_grad(i, p_unit);
-          const auto hessian_F_i = this->fe->shape_grad_grad(i, p_unit);
+          mapped_point += support_points[i] * this->fe.shape_value(i, p_unit);
+          const auto grad_F_i    = this->fe.shape_grad(i, p_unit);
+          const auto hessian_F_i = this->fe.shape_grad_grad(i, p_unit);
           for (unsigned int j = 0; j < dim; ++j)
             {
               grad_FT[j] += grad_F_i[j] * support_points[i];
@@ -1062,7 +1062,7 @@ MappingFE<dim, spacedim>::get_data(const UpdateFlags      update_flags,
                                    const Quadrature<dim> &q) const
 {
   std::unique_ptr<typename Mapping<dim, spacedim>::InternalDataBase> data_ptr =
-    std::make_unique<InternalData>(*this->fe);
+    std::make_unique<InternalData>(this->fe);
   auto &data = dynamic_cast<InternalData &>(*data_ptr);
   data.initialize(this->requires_update_flags(update_flags), q, q.size());
 
@@ -1078,11 +1078,11 @@ MappingFE<dim, spacedim>::get_face_data(
   const hp::QCollection<dim - 1> &quadrature) const
 {
   std::unique_ptr<typename Mapping<dim, spacedim>::InternalDataBase> data_ptr =
-    std::make_unique<InternalData>(*this->fe);
+    std::make_unique<InternalData>(this->fe);
   auto &data = dynamic_cast<InternalData &>(*data_ptr);
   data.initialize_face(this->requires_update_flags(update_flags),
                        QProjector<dim>::project_to_all_faces(
-                         this->fe->reference_cell(), quadrature),
+                         this->fe.reference_cell(), quadrature),
                        quadrature.max_n_quadrature_points());
 
   return data_ptr;
@@ -1097,11 +1097,11 @@ MappingFE<dim, spacedim>::get_subface_data(
   const Quadrature<dim - 1> &quadrature) const
 {
   std::unique_ptr<typename Mapping<dim, spacedim>::InternalDataBase> data_ptr =
-    std::make_unique<InternalData>(*this->fe);
+    std::make_unique<InternalData>(this->fe);
   auto &data = dynamic_cast<InternalData &>(*data_ptr);
   data.initialize_face(this->requires_update_flags(update_flags),
                        QProjector<dim>::project_to_all_subfaces(
-                         this->fe->reference_cell(), quadrature),
+                         this->fe.reference_cell(), quadrature),
                        quadrature.size());
 
   return data_ptr;
@@ -1618,7 +1618,7 @@ MappingFE<dim, spacedim>::fill_fe_face_values(
     cell,
     face_no,
     numbers::invalid_unsigned_int,
-    QProjector<dim>::DataSetDescriptor::face(this->fe->reference_cell(),
+    QProjector<dim>::DataSetDescriptor::face(this->fe.reference_cell(),
                                              face_no,
                                              cell->face_orientation(face_no),
                                              cell->face_flip(face_no),
@@ -1665,7 +1665,7 @@ MappingFE<dim, spacedim>::fill_fe_subface_values(
     cell,
     face_no,
     subface_no,
-    QProjector<dim>::DataSetDescriptor::subface(this->fe->reference_cell(),
+    QProjector<dim>::DataSetDescriptor::subface(this->fe.reference_cell(),
                                                 face_no,
                                                 subface_no,
                                                 cell->face_orientation(face_no),
@@ -2290,7 +2290,7 @@ MappingFE<dim, spacedim>::compute_mapping_support_points(
     vertices[i] = cell->vertex(i);
 
   std::vector<Point<spacedim>> mapping_support_points(
-    fe->get_unit_support_points().size());
+    fe.get_unit_support_points().size());
 
   cell->get_manifold().get_new_points(vertices,
                                       mapping_support_point_weights,
@@ -2323,7 +2323,7 @@ MappingFE<dim, spacedim>::is_compatible_with(
                     Utilities::to_string(reference_cell.get_dimension()) +
                     " ) do not agree."));
 
-  return fe->reference_cell() == reference_cell;
+  return fe.reference_cell() == reference_cell;
 }
 
 

@@ -456,7 +456,7 @@ public:
    */
 
 protected:
-  const std::unique_ptr<FiniteElement<dim, spacedim>> fe;
+  const FiniteElement<dim, spacedim> &fe;
 
   /**
    * The degree of the polynomials used as shape functions for the mapping of
