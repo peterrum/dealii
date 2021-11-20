@@ -420,7 +420,7 @@ namespace internal
       std::uint16_t face = 0;
       std::uint16_t edge = 0;
 
-      for (int direction = 0; direction < dim; ++direction)
+      for (unsigned int direction = 0; direction < dim; ++direction)
         {
           const auto side    = (subcell >> direction) & 1U;
           const auto face_no = direction * 2 + side;
@@ -441,21 +441,21 @@ namespace internal
         }
 
       if (dim == 3)
-        for (int direction = 0; direction < dim; ++direction)
+        for (unsigned int direction = 0; direction < dim; ++direction)
           if (face == 0 || face == (1 << direction))
             {
-              const unsigned int local_line =
+              const unsigned int line_no =
                 direction == 0 ?
                   (local_lines[0][subcell_y == 0][subcell_z == 0]) :
                   (direction == 1 ?
                      (local_lines[1][subcell_x == 0][subcell_z == 0]) :
                      (local_lines[2][subcell_x == 0][subcell_y == 0]));
 
-              const unsigned int line = cell->line(local_line)->index();
+              const unsigned int line_index = cell->line(line_no)->index();
 
               const auto edge_neighbor =
-                std::find_if(line_to_cells[line].begin(),
-                             line_to_cells[line].end(),
+                std::find_if(line_to_cells[line_index].begin(),
+                             line_to_cells[line_index].end(),
                              [&cell](const auto &edge_neighbor) {
                                return edge_neighbor.first->is_artificial() ==
                                         false &&
@@ -463,7 +463,7 @@ namespace internal
                                         cell->level();
                              });
 
-              if (edge_neighbor != line_to_cells[line].end())
+              if (edge_neighbor != line_to_cells[line_index].end())
                 edge |= 1 << direction;
             }
 
@@ -581,7 +581,7 @@ namespace internal
               const std::uint16_t face      = (kind >> 3) & 7;
               const std::uint16_t edge      = (kind >> 6) & 7;
 
-              for (int direction = 0; direction < dim; ++direction)
+              for (unsigned int direction = 0; direction < dim; ++direction)
                 if ((face >> direction) & 1U)
                   {
                     const auto side    = ((subcell >> direction) & 1U) == 0;
@@ -638,28 +638,29 @@ namespace internal
                   }
 
               if (dim == 3)
-                for (int direction = 0; direction < dim; ++direction)
+                for (unsigned int direction = 0; direction < dim; ++direction)
                   if ((edge >> direction) & 1U)
                     {
-                      const unsigned int local_line =
+                      const unsigned int line_no =
                         direction == 0 ?
                           (local_lines[0][subcell_y][subcell_z]) :
                           (direction == 1 ?
                              (local_lines[1][subcell_x][subcell_z]) :
                              (local_lines[2][subcell_x][subcell_y]));
 
-                      const unsigned int line = cell->line(local_line)->index();
+                      const unsigned int line_index =
+                        cell->line(line_no)->index();
 
                       const auto edge_neighbor = std::find_if(
-                        line_to_cells[line].begin(),
-                        line_to_cells[line].end(),
+                        line_to_cells[line_index].begin(),
+                        line_to_cells[line_index].end(),
                         [&cell](const auto &edge_neighbor) {
                           return edge_neighbor.first->is_artificial() ==
                                    false &&
                                  edge_neighbor.first->level() < cell->level();
                         });
 
-                      if (edge_neighbor == line_to_cells[line].end())
+                      if (edge_neighbor == line_to_cells[line_index].end())
                         continue;
 
                       const auto neighbor_cell       = edge_neighbor->first;
@@ -683,11 +684,11 @@ namespace internal
                           neighbor_dofs_all[lexicographic_mapping[i]];
 
                       const bool flipped =
-                        cell->line_orientation(local_line) !=
+                        cell->line_orientation(line_no) !=
                         neighbor_cell->line_orientation(local_line_neighbor);
 
                       for (unsigned int i = 0; i < n_dofs_1d; ++i)
-                        dof_indices[line_dof_idx(local_line, i, n_dofs_1d) +
+                        dof_indices[line_dof_idx(line_no, i, n_dofs_1d) +
                                     idx_offset[comp]] = neighbor_dofs_all_temp
                           [line_dof_idx(local_line_neighbor,
                                         flipped ? (fe_degree - i) : i,
