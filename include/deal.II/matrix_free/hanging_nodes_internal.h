@@ -417,7 +417,8 @@ namespace internal
       const std::uint16_t subcell_y = (subcell >> 1) & 1;
       const std::uint16_t subcell_z = (subcell >> 2) & 1;
 
-      std::uint16_t temp = 0;
+      std::uint16_t face = 0;
+      std::uint16_t edge = 0;
 
       for (int direction = 0; direction < dim; ++direction)
         {
@@ -436,12 +437,12 @@ namespace internal
           if (neighbor->is_artificial() || neighbor->level() == cell->level())
             continue;
 
-          temp |= 1 << (direction + 3);
+          face |= 1 << direction;
         }
 
       if (dim == 3)
         for (int direction = 0; direction < dim; ++direction)
-          if (((temp >> 3) & 7) == 0 || ((temp >> 3) & 7) == (1 << direction))
+          if (face == 0 || face == (1 << direction))
             {
               const unsigned int local_line =
                 direction == 0 ?
@@ -463,15 +464,16 @@ namespace internal
                              });
 
               if (edge_neighbor != line_to_cells[line].end())
-                temp |= 1 << (direction + 6);
+                edge |= 1 << direction;
             }
 
-      if (temp == 0)
+      if ((face == 0) && (edge == 0))
         return ConstraintKinds::unconstrained;
 
-      temp |= (subcell ^ (dim == 2 ? 3 : 7));
+      const std::uint16_t inverted_subcell = (subcell ^ (dim == 2 ? 3 : 7));
 
-      const auto refinement_mask = static_cast<ConstraintKinds>(temp);
+      const auto refinement_mask = static_cast<ConstraintKinds>(
+        inverted_subcell + (face << 3) + (edge << 6));
       Assert(check(refinement_mask, dim), ExcInternalError());
       return refinement_mask;
     }
