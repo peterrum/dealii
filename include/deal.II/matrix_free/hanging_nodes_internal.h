@@ -213,8 +213,8 @@ namespace internal
         std::vector<types::global_dof_index> &dof_indices,
         const ArrayView<ConstraintKinds> &    mask) const;
 
-      std::vector<bool>
-      compute_component_mask(const FiniteElement<dim> &fe) const;
+      std::vector<std::vector<bool>>
+      compute_component_mask(const dealii::hp::FECollection<dim> &fe) const;
 
       template <typename CellIterator>
       ConstraintKinds
@@ -226,7 +226,7 @@ namespace internal
         const CellIterator &                                      cell,
         const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
         const std::vector<unsigned int> &     lexicographic_mapping,
-        const std::vector<bool> &             component_mask,
+        const std::vector<std::vector<bool>> &component_mask,
         const ConstraintKinds &               refinement_configuration,
         std::vector<types::global_dof_index> &dof_indices) const;
 
@@ -369,27 +369,29 @@ namespace internal
 
 
     template <int dim>
-    inline std::vector<bool>
+    inline std::vector<std::vector<bool>>
     HangingNodes<dim>::compute_component_mask(
-      const FiniteElement<dim> &fe) const
+      const dealii::hp::FECollection<dim> &fe_collection) const
     {
-      std::vector<bool> component_masks(fe.n_components(), false);
+      std::vector<std::vector<bool>> component_masks(
+        fe_collection.size(),
+        std::vector<bool>(fe_collection.n_components(), false));
 
-      // TODO: for simplex or mixed meshes: nothing to do
-      if (dim == 3 && line_to_cells.size() == 0)
-        return component_masks;
-
-      for (unsigned int base_element_index = 0, comp = 0;
-           base_element_index < fe.n_base_elements();
-           ++base_element_index)
-        for (unsigned int c = 0;
-             c < fe.element_multiplicity(base_element_index);
-             ++c, ++comp)
-          if (dim == 1 || dynamic_cast<const FE_Q<dim> *>(
-                            &fe.base_element(base_element_index)) == nullptr)
-            component_masks[comp] = false;
-          else
-            component_masks[comp] = true;
+      for (unsigned int i = 0; i < fe_collection.size(); ++i)
+        {
+          for (unsigned int base_element_index = 0, comp = 0;
+               base_element_index < fe_collection[i].n_base_elements();
+               ++base_element_index)
+            for (unsigned int c = 0;
+                 c < fe_collection[i].element_multiplicity(base_element_index);
+                 ++c, ++comp)
+              if (dim == 1 || dynamic_cast<const FE_Q<dim> *>(
+                                &fe_collection[i].base_element(
+                                  base_element_index)) == nullptr)
+                component_masks[i][comp] = false;
+              else
+                component_masks[i][comp] = true;
+        }
 
       return component_masks;
     }
@@ -402,73 +404,75 @@ namespace internal
     HangingNodes<dim>::compute_refinement_configuration(
       const CellIterator &cell) const
     {
-      ConstraintKinds refinement_mask = ConstraintKinds::unconstrained;
+      // TODO: for simplex or mixed meshes: nothing to do
+      if (dim == 3 && line_to_cells.size() == 0)
+        return ConstraintKinds::unconstrained;
 
-      if (cell->level() > 0)
+      if (cell->level() == 0)
+        return ConstraintKinds::unconstrained;
+
+      const std::uint16_t subcell =
+        cell->parent()->child_iterator_to_index(cell);
+      const std::uint16_t subcell_x = (subcell >> 0) & 1;
+      const std::uint16_t subcell_y = (subcell >> 1) & 1;
+      const std::uint16_t subcell_z = (subcell >> 2) & 1;
+
+      std::uint16_t temp = 0;
+
+      for (int direction = 0; direction < dim; ++direction)
         {
-          const std::uint16_t subcell =
-            cell->parent()->child_iterator_to_index(cell);
-          const std::uint16_t subcell_x = (subcell >> 0) & 1;
-          const std::uint16_t subcell_y = (subcell >> 1) & 1;
-          const std::uint16_t subcell_z = (subcell >> 2) & 1;
+          const auto side    = (subcell >> direction) & 1U;
+          const auto face_no = direction * 2 + side;
 
-          std::uint16_t temp = 0;
+          // ignore if at boundary and if neighbor has children
+          if (cell->at_boundary(face_no) ||
+              cell->neighbor(face_no)->has_children())
+            continue;
 
-          for (int direction = 0; direction < dim; ++direction)
-            {
-              const auto side    = (subcell >> direction) & 1U;
-              const auto face_no = direction * 2 + side;
+          const auto &neighbor = cell->neighbor(face_no);
 
-              // ignore if at boundary and if neighbor has children
-              if (cell->at_boundary(face_no) ||
-                  cell->neighbor(face_no)->has_children())
-                continue;
+          // ignore neighbors that are artificial or have the same
+          // level
+          if (neighbor->is_artificial() || neighbor->level() == cell->level())
+            continue;
 
-              const auto &neighbor = cell->neighbor(face_no);
-
-              // ignore neighbors that are artificial or have the same
-              // level
-              if (neighbor->is_artificial() ||
-                  neighbor->level() == cell->level())
-                continue;
-
-              temp |= 1 << (direction + 3);
-            }
-
-          if (dim == 3)
-            for (int direction = 0; direction < dim; ++direction)
-              if (((temp >> 3) & 7) == 0 ||
-                  ((temp >> 3) & 7) == (1 << direction))
-                {
-                  const unsigned int local_line =
-                    direction == 0 ?
-                      (local_lines[0][subcell_y == 0][subcell_z == 0]) :
-                      (direction == 1 ?
-                         (local_lines[1][subcell_x == 0][subcell_z == 0]) :
-                         (local_lines[2][subcell_x == 0][subcell_y == 0]));
-
-                  const unsigned int line = cell->line(local_line)->index();
-
-                  const auto edge_neighbor = std::find_if(
-                    line_to_cells[line].begin(),
-                    line_to_cells[line].end(),
-                    [&cell](const auto &edge_neighbor) {
-                      return edge_neighbor.first->is_artificial() == false &&
-                             edge_neighbor.first->level() < cell->level();
-                    });
-
-                  if (edge_neighbor != line_to_cells[line].end())
-                    temp |= 1 << (direction + 6);
-                }
-
-          if (temp > 0)
-            temp |= (subcell ^ (dim == 2 ? 3 : 7));
-
-          refinement_mask = static_cast<ConstraintKinds>(temp);
-
-          Assert(check(refinement_mask, dim), ExcInternalError());
+          temp |= 1 << (direction + 3);
         }
 
+      if (dim == 3)
+        for (int direction = 0; direction < dim; ++direction)
+          if (((temp >> 3) & 7) == 0 || ((temp >> 3) & 7) == (1 << direction))
+            {
+              const unsigned int local_line =
+                direction == 0 ?
+                  (local_lines[0][subcell_y == 0][subcell_z == 0]) :
+                  (direction == 1 ?
+                     (local_lines[1][subcell_x == 0][subcell_z == 0]) :
+                     (local_lines[2][subcell_x == 0][subcell_y == 0]));
+
+              const unsigned int line = cell->line(local_line)->index();
+
+              const auto edge_neighbor =
+                std::find_if(line_to_cells[line].begin(),
+                             line_to_cells[line].end(),
+                             [&cell](const auto &edge_neighbor) {
+                               return edge_neighbor.first->is_artificial() ==
+                                        false &&
+                                      edge_neighbor.first->level() <
+                                        cell->level();
+                             });
+
+              if (edge_neighbor != line_to_cells[line].end())
+                temp |= 1 << (direction + 6);
+            }
+
+      if (temp == 0)
+        return ConstraintKinds::unconstrained;
+
+      temp |= (subcell ^ (dim == 2 ? 3 : 7));
+
+      const auto refinement_mask = static_cast<ConstraintKinds>(temp);
+      Assert(check(refinement_mask, dim), ExcInternalError());
       return refinement_mask;
     }
 
@@ -481,7 +485,7 @@ namespace internal
       const CellIterator &                                      cell,
       const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
       const std::vector<unsigned int> &     lexicographic_mapping,
-      const std::vector<bool> &             component_masks,
+      const std::vector<std::vector<bool>> &component_masks,
       const ConstraintKinds &               refinement_mask,
       std::vector<types::global_dof_index> &dof_indices) const
     {
@@ -514,7 +518,7 @@ namespace internal
              c < cell->get_fe().element_multiplicity(base_element_index);
              ++c, ++comp)
           {
-            if (component_masks[comp] == false)
+            if (component_masks[cell->active_fe_index()][comp] == false)
               continue;
 
             const auto &fe_base =
@@ -705,10 +709,16 @@ namespace internal
       const ArrayView<ConstraintKinds> &    masks) const
     {
       // 1) check if finite elements support fast hanging-node algorithm
-      const auto component_masks = compute_component_mask(cell->get_fe());
+      const auto component_masks =
+        compute_component_mask(cell->get_dof_handler().get_fe_collection());
 
-      if (std::find(component_masks.begin(), component_masks.end(), true) ==
-          component_masks.end())
+      if ([](const auto &outer) {
+            for (const auto &inner : outer)
+              for (const auto &i : inner)
+                if (i)
+                  return true;
+            return false;
+          }(component_masks) == false)
         return false;
 
       // 2) determine the refinement configuration of the cell
@@ -726,8 +736,10 @@ namespace internal
                          dof_indices);
 
       // 4)  TODO: copy refinement configuration to all components
-      for (unsigned int c = 0; c < component_masks.size(); ++c)
-        if (component_masks[c])
+      AssertDimension(component_masks.size(), 1);
+
+      for (unsigned int c = 0; c < component_masks[0].size(); ++c)
+        if (component_masks[0][c])
           masks[c] = refinement_mask;
 
       return true;
