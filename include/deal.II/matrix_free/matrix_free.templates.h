@@ -1171,9 +1171,8 @@ namespace internal
         hanging_nodes = std::make_unique<
           dealii::internal::MatrixFreeFunctions::HangingNodes<dim>>(tria);
         for (unsigned int no = 0; no < n_dof_handlers; ++no)
-          if (dof_handler[no]->get_fe_collection().size() == 1)
-            dof_info[no].hanging_node_constraint_masks.resize(
-              n_active_cells * dof_handler[no]->get_fe().n_components());
+          dof_info[no].hanging_node_constraint_masks.resize(
+            n_active_cells * dof_handler[no]->get_fe().n_components());
       }
 
     for (unsigned int counter = 0; counter < n_active_cells; ++counter)
@@ -1212,15 +1211,14 @@ namespace internal
 
                 bool cell_has_hanging_node_constraints = false;
 
-                if (dim > 1 && use_fast_hanging_node_algorithm &&
-                    dofh->get_fe_collection().size() == 1)
+                if (dim > 1 && use_fast_hanging_node_algorithm)
                   {
                     local_dof_indices_resolved = local_dof_indices;
 
                     cell_has_hanging_node_constraints =
                       dof_info[no].process_hanging_node_constraints(
                         *hanging_nodes,
-                        lexicographic[no][0],
+                        lexicographic[no],
                         counter,
                         cell_it,
                         local_dof_indices_resolved);

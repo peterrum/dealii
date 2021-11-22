@@ -209,9 +209,9 @@ namespace internal
       setup_constraints(
         const CellIterator &                                      cell,
         const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
-        const std::vector<unsigned int> &     lexicographic_mapping,
-        std::vector<types::global_dof_index> &dof_indices,
-        const ArrayView<ConstraintKinds> &    mask) const;
+        const std::vector<std::vector<unsigned int>> &lexicographic_mapping,
+        std::vector<types::global_dof_index> &        dof_indices,
+        const ArrayView<ConstraintKinds> &            mask) const;
 
       std::vector<std::vector<bool>>
       compute_component_mask(const dealii::hp::FECollection<dim> &fe) const;
@@ -225,10 +225,10 @@ namespace internal
       update_dof_indices(
         const CellIterator &                                      cell,
         const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
-        const std::vector<unsigned int> &     lexicographic_mapping,
-        const std::vector<std::vector<bool>> &component_mask,
-        const ConstraintKinds &               refinement_configuration,
-        std::vector<types::global_dof_index> &dof_indices) const;
+        const std::vector<std::vector<unsigned int>> &lexicographic_mapping,
+        const std::vector<std::vector<bool>> &        component_mask,
+        const ConstraintKinds &                       refinement_configuration,
+        std::vector<types::global_dof_index> &        dof_indices) const;
 
     private:
       /**
@@ -405,7 +405,8 @@ namespace internal
       const CellIterator &cell) const
     {
       // TODO: for simplex or mixed meshes: nothing to do
-      if (dim == 3 && line_to_cells.size() == 0)
+      if ((dim == 3 && line_to_cells.size() == 0) ||
+          (cell->reference_cell().is_hyper_cube() == false))
         return ConstraintKinds::unconstrained;
 
       if (cell->level() == 0)
@@ -487,10 +488,10 @@ namespace internal
     HangingNodes<dim>::update_dof_indices(
       const CellIterator &                                      cell,
       const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
-      const std::vector<unsigned int> &     lexicographic_mapping,
-      const std::vector<std::vector<bool>> &component_masks,
-      const ConstraintKinds &               refinement_mask,
-      std::vector<types::global_dof_index> &dof_indices) const
+      const std::vector<std::vector<unsigned int>> &lexicographic_mapping,
+      const std::vector<std::vector<bool>> &        component_masks,
+      const ConstraintKinds &                       refinement_mask,
+      std::vector<types::global_dof_index> &        dof_indices) const
     {
       if (std::find(component_masks[cell->active_fe_index()].begin(),
                     component_masks[cell->active_fe_index()].end(),
@@ -571,7 +572,8 @@ namespace internal
             // read DoFs of parent of face, ...
             cell->neighbor(face_no)
               ->face(cell->neighbor_face_no(face_no))
-              ->get_dof_indices(neighbor_dofs_all);
+              ->get_dof_indices(neighbor_dofs_all,
+                                cell->neighbor(face_no)->active_fe_index());
 
             // ... convert the global DoFs to serial ones, and ...
             if (partitioner)
@@ -682,8 +684,8 @@ namespace internal
                   index = partitioner->global_to_local(index);
 
               for (unsigned int i = 0; i < neighbor_dofs_all_temp.size(); ++i)
-                neighbor_dofs_all_temp[i] =
-                  neighbor_dofs_all[lexicographic_mapping[i]];
+                neighbor_dofs_all_temp[i] = neighbor_dofs_all
+                  [lexicographic_mapping[cell->active_fe_index()][i]];
 
               const bool flipped =
                 cell->line_orientation(line_no) !=
@@ -725,9 +727,9 @@ namespace internal
     HangingNodes<dim>::setup_constraints(
       const CellIterator &                                      cell,
       const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
-      const std::vector<unsigned int> &     lexicographic_mapping,
-      std::vector<types::global_dof_index> &dof_indices,
-      const ArrayView<ConstraintKinds> &    masks) const
+      const std::vector<std::vector<unsigned int>> &lexicographic_mapping,
+      std::vector<types::global_dof_index> &        dof_indices,
+      const ArrayView<ConstraintKinds> &            masks) const
     {
       // 1) check if finite elements support fast hanging-node algorithm
       const auto component_masks =
@@ -757,10 +759,8 @@ namespace internal
                          dof_indices);
 
       // 4)  TODO: copy refinement configuration to all components
-      AssertDimension(component_masks.size(), 1);
-
       for (unsigned int c = 0; c < component_masks[0].size(); ++c)
-        if (component_masks[0][c])
+        if (component_masks[cell->active_fe_index()][c])
           masks[c] = refinement_mask;
 
       return true;
