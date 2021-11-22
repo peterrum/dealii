@@ -213,13 +213,25 @@ namespace internal
         std::vector<types::global_dof_index> &        dof_indices,
         const ArrayView<ConstraintKinds> &            mask) const;
 
+      /**
+       * Compute the supported components of all entries of the given
+       * hp::FECollection object.
+       */
       std::vector<std::vector<bool>>
-      compute_component_mask(const dealii::hp::FECollection<dim> &fe) const;
+      compute_supported_components(
+        const dealii::hp::FECollection<dim> &fe) const;
 
+      /**
+       * Determine the refinement configuration of the given cell.
+       */
       template <typename CellIterator>
       ConstraintKinds
       compute_refinement_configuration(const CellIterator &cell) const;
 
+      /**
+       * Update the DoF indices of a given cell for the given refinement
+       * configuration and for the given components.
+       */
       template <typename CellIterator>
       void
       update_dof_indices(
@@ -370,10 +382,10 @@ namespace internal
 
     template <int dim>
     inline std::vector<std::vector<bool>>
-    HangingNodes<dim>::compute_component_mask(
+    HangingNodes<dim>::compute_supported_components(
       const dealii::hp::FECollection<dim> &fe_collection) const
     {
-      std::vector<std::vector<bool>> component_masks(
+      std::vector<std::vector<bool>> supported_components(
         fe_collection.size(),
         std::vector<bool>(fe_collection.n_components(), false));
 
@@ -388,12 +400,12 @@ namespace internal
               if (dim == 1 || dynamic_cast<const FE_Q<dim> *>(
                                 &fe_collection[i].base_element(
                                   base_element_index)) == nullptr)
-                component_masks[i][comp] = false;
+                supported_components[i][comp] = false;
               else
-                component_masks[i][comp] = true;
+                supported_components[i][comp] = true;
         }
 
-      return component_masks;
+      return supported_components;
     }
 
 
@@ -426,15 +438,16 @@ namespace internal
           const auto side    = (subcell >> direction) & 1U;
           const auto face_no = direction * 2 + side;
 
-          // ignore if at boundary and if neighbor has children
-          if (cell->at_boundary(face_no) ||
-              cell->neighbor(face_no)->has_children())
+          // ignore if at boundary
+          if (cell->at_boundary(face_no))
             continue;
 
           const auto &neighbor = cell->neighbor(face_no);
 
-          // ignore neighbors that are artificial or have the same level
-          if (neighbor->is_artificial() || neighbor->level() == cell->level())
+          // ignore neighbors that are artificial or have the same level or
+          // have children
+          if (neighbor->is_artificial() || neighbor->level() == cell->level() ||
+              cell->neighbor(face_no)->has_children())
             continue;
 
           face |= 1 << direction;
@@ -474,10 +487,10 @@ namespace internal
 
       const std::uint16_t inverted_subcell = (subcell ^ (dim == 2 ? 3 : 7));
 
-      const auto refinement_mask = static_cast<ConstraintKinds>(
+      const auto refinement_configuration = static_cast<ConstraintKinds>(
         inverted_subcell + (face << 3) + (edge << 6));
-      Assert(check(refinement_mask, dim), ExcInternalError());
-      return refinement_mask;
+      Assert(check(refinement_configuration, dim), ExcInternalError());
+      return refinement_configuration;
     }
 
 
@@ -489,13 +502,14 @@ namespace internal
       const CellIterator &                                      cell,
       const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
       const std::vector<std::vector<unsigned int>> &lexicographic_mapping,
-      const std::vector<std::vector<bool>> &        component_masks,
-      const ConstraintKinds &                       refinement_mask,
+      const std::vector<std::vector<bool>> &        supported_components,
+      const ConstraintKinds &                       refinement_configuration,
       std::vector<types::global_dof_index> &        dof_indices) const
     {
-      if (std::find(component_masks[cell->active_fe_index()].begin(),
-                    component_masks[cell->active_fe_index()].end(),
-                    true) == component_masks[cell->active_fe_index()].end())
+      if (std::find(supported_components[cell->active_fe_index()].begin(),
+                    supported_components[cell->active_fe_index()].end(),
+                    true) ==
+          supported_components[cell->active_fe_index()].end())
         return;
 
       const auto &fe = cell->get_fe();
@@ -555,8 +569,9 @@ namespace internal
         return 0;
       };
 
-      const std::uint16_t kind    = static_cast<std::uint16_t>(refinement_mask);
-      const std::uint16_t subcell = (kind >> 0) & 7;
+      const std::uint16_t kind =
+        static_cast<std::uint16_t>(refinement_configuration);
+      const std::uint16_t subcell   = (kind >> 0) & 7;
       const std::uint16_t subcell_x = (subcell >> 0) & 1;
       const std::uint16_t subcell_y = (subcell >> 1) & 1;
       const std::uint16_t subcell_z = (subcell >> 2) & 1;
@@ -587,7 +602,8 @@ namespace internal
                    c < cell->get_fe().element_multiplicity(base_element_index);
                    ++c, ++comp)
                 {
-                  if (component_masks[cell->active_fe_index()][comp] == false)
+                  if (supported_components[cell->active_fe_index()][comp] ==
+                      false)
                     continue;
 
                   const unsigned int n_dofs_1d =
@@ -596,7 +612,7 @@ namespace internal
                       .tensor_degree() +
                     1;
                   const unsigned int dofs_per_face =
-                    Utilities::fixed_power<dim - 1>(n_dofs_1d);
+                    Utilities::pow(n_dofs_1d, dim - 1);
                   std::vector<types::global_dof_index> neighbor_dofs(
                     dofs_per_face);
                   const auto lex_face_mapping =
@@ -699,7 +715,8 @@ namespace internal
                      cell->get_fe().element_multiplicity(base_element_index);
                      ++c, ++comp)
                   {
-                    if (component_masks[cell->active_fe_index()][comp] == false)
+                    if (supported_components[cell->active_fe_index()][comp] ==
+                        false)
                       continue;
 
                     const unsigned int n_dofs_1d =
@@ -732,36 +749,37 @@ namespace internal
       const ArrayView<ConstraintKinds> &            masks) const
     {
       // 1) check if finite elements support fast hanging-node algorithm
-      const auto component_masks =
-        compute_component_mask(cell->get_dof_handler().get_fe_collection());
+      const auto supported_components = compute_supported_components(
+        cell->get_dof_handler().get_fe_collection());
 
-      if ([](const auto &outer) {
-            for (const auto &inner : outer)
-              for (const auto i : inner)
-                if (i)
-                  return true;
-            return false;
-          }(component_masks) == false)
+      if ([](const auto &supported_components) {
+            return std::none_of(supported_components.begin(),
+                                supported_components.end(),
+                                [](const auto &a) {
+                                  return *std::max_element(a.begin(), a.end());
+                                });
+          }(supported_components))
         return false;
 
       // 2) determine the refinement configuration of the cell
-      const auto refinement_mask = compute_refinement_configuration(cell);
+      const auto refinement_configuration =
+        compute_refinement_configuration(cell);
 
-      if (refinement_mask == ConstraintKinds::unconstrained)
+      if (refinement_configuration == ConstraintKinds::unconstrained)
         return false;
 
       // 3) update DoF indices of cell for specified components
       update_dof_indices(cell,
                          partitioner,
                          lexicographic_mapping,
-                         component_masks,
-                         refinement_mask,
+                         supported_components,
+                         refinement_configuration,
                          dof_indices);
 
       // 4)  TODO: copy refinement configuration to all components
-      for (unsigned int c = 0; c < component_masks[0].size(); ++c)
-        if (component_masks[cell->active_fe_index()][c])
-          masks[c] = refinement_mask;
+      for (unsigned int c = 0; c < supported_components[0].size(); ++c)
+        if (supported_components[cell->active_fe_index()][c])
+          masks[c] = refinement_configuration;
 
       return true;
     }
