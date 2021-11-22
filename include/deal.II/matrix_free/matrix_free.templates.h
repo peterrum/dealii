@@ -1023,7 +1023,7 @@ namespace internal
     MatrixFreeFunctions::FaceSetup<dim> &               face_setup,
     MatrixFreeFunctions::ConstraintValues<double> &     constraint_values,
     const bool use_vector_data_exchanger_full,
-    const bool use_fast_hanging_node_algorithm)
+    const bool use_fast_hanging_node_algorithm_in)
   {
     if (do_face_integrals)
       face_setup.initialize(dof_handler[0]->get_triangulation(),
@@ -1048,6 +1048,21 @@ namespace internal
     std::vector<bool> is_fe_dg(n_dof_handlers, false);
 
     bool cell_categorization_enabled = !cell_vectorization_category.empty();
+
+    bool use_fast_hanging_node_algorithm = use_fast_hanging_node_algorithm_in;
+
+    for (unsigned int no = 0; no < n_dof_handlers; ++no)
+      {
+        const dealii::hp::FECollection<dim> &fes =
+          dof_handler[no]->get_fe_collection();
+
+        use_fast_hanging_node_algorithm &=
+          std::all_of(fes.begin(), fes.end(), [&fes](const auto &fe) {
+            return fes[0].compare_for_domination(fe) ==
+                   FiniteElementDomination::Domination::
+                     either_element_can_dominate;
+          });
+      }
 
     for (unsigned int no = 0; no < n_dof_handlers; ++no)
       {
