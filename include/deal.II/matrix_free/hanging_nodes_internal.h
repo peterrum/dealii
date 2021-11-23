@@ -446,8 +446,8 @@ namespace internal
 
           // ignore neighbors that are artificial or have the same level or
           // have children
-          if (neighbor->is_artificial() || neighbor->level() == cell->level() ||
-              cell->neighbor(face_no)->has_children())
+          if (cell->neighbor(face_no)->has_children() ||
+              neighbor->is_artificial() || neighbor->level() == cell->level())
             continue;
 
           face |= 1 << direction;
