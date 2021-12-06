@@ -32,6 +32,8 @@
 #include <deal.II/base/thread_management.h>
 #include <deal.II/base/utilities.h>
 
+#include <deal.II/tests/tests.h>
+
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -482,126 +484,6 @@ namespace
   }
 } // namespace
 #endif
-
-
-// Function to initialize deallog. Normally, it should be called at
-// the beginning of main() like
-//
-// initlog();
-//
-// This will open the correct output file, divert log output there and
-// switch off screen output. If screen output is desired, provide the
-// optional first argument as 'true'.
-std::string   deallogname;
-std::ofstream deallogfile;
-
-void
-initlog(const bool                    console = false,
-        const std::ios_base::fmtflags flags   = std::ios::showpoint |
-                                              std::ios::left)
-{
-  deallogname = "output";
-  deallogfile.open(deallogname);
-  deallog.attach(deallogfile, true, flags);
-  deallog.depth_console(console ? 10 : 0);
-}
-
-
-inline void
-mpi_initlog(const bool                    console = false,
-            const std::ios_base::fmtflags flags   = std::ios::showpoint |
-                                                  std::ios::left)
-{
-#ifdef DEAL_II_WITH_MPI
-  unsigned int myid = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
-  if (myid == 0)
-    {
-      deallogname = "output";
-      deallogfile.open(deallogname.c_str());
-      deallog.attach(deallogfile, true, flags);
-      deallog.depth_console(console ? 10 : 0);
-    }
-#else
-  (void)console;
-  (void)flags;
-  // can't use this function if not using MPI
-  Assert(false, ExcInternalError());
-#endif
-}
-
-
-
-/**
- * A helper class that gives each MPI process its own output file
- * for the `deallog` stream, and at the end of the program (or,
- * more correctly, the end of the current object), concatenates them
- * all into the output file used on processor 0.
- */
-struct MPILogInitAll
-{
-  MPILogInitAll(const bool                    console = false,
-                const std::ios_base::fmtflags flags   = std::ios::showpoint |
-                                                      std::ios::left)
-  {
-#ifdef DEAL_II_WITH_MPI
-    const unsigned int myid = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
-#else
-    constexpr unsigned int myid = 0;
-#endif
-    if (myid == 0)
-      {
-        if (!deallog.has_file())
-          {
-            deallogfile.open("output");
-            deallog.attach(deallogfile, true, flags);
-          }
-      }
-    else
-      {
-        deallogname = "output" + Utilities::int_to_string(myid);
-        deallogfile.open(deallogname.c_str());
-        deallog.attach(deallogfile, true, flags);
-      }
-
-    deallog.depth_console(console ? 10 : 0);
-
-    deallog.push(Utilities::int_to_string(myid));
-  }
-
-  ~MPILogInitAll()
-  {
-    // pop the prefix for the MPI rank of the current process
-    deallog.pop();
-
-#ifdef DEAL_II_WITH_MPI
-    const unsigned int myid  = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
-    const unsigned int nproc = Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD);
-
-    if (myid != 0)
-      {
-        deallog.detach();
-        deallogfile.close();
-      }
-
-    MPI_Barrier(MPI_COMM_WORLD);
-
-#  ifdef DEAL_II_WITH_PETSC
-    check_petsc_allocations();
-    MPI_Barrier(MPI_COMM_WORLD);
-#  endif
-
-    if (myid == 0)
-      {
-        for (unsigned int i = 1; i < nproc; ++i)
-          {
-            std::string filename = "output" + Utilities::int_to_string(i);
-            cat_file(filename.c_str());
-          }
-      }
-    MPI_Barrier(MPI_COMM_WORLD);
-#endif
-  }
-};
 
 
 #ifdef DEAL_II_COMPILER_CUDA_AWARE
