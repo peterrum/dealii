@@ -157,6 +157,12 @@ ADD_SUBDIRECTORY(contrib/utilities)
 
 IF(DEAL_II_HAVE_TESTS_DIRECTORY)
   ADD_SUBDIRECTORY(tests)
+
+  # install tests/tests.h so that it can be accessed in user-code tests
+  CONFIGURE_FILE(
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/tests.h
+    ${CMAKE_CURRENT_BINARY_DIR}/include/deal.II/tests/tests.h
+    )
 ENDIF()
 
 ADD_SUBDIRECTORY(contrib/python-bindings) # has to be included after tests
