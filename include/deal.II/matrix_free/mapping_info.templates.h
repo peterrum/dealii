@@ -348,6 +348,11 @@ namespace internal
       face_data.resize(quad.size());
       face_data_by_cells.resize(quad.size());
 
+      const auto &reference_cells = tria.get_reference_cells();
+      const bool  is_mixed_mesh   = reference_cells.size() > 1 ||
+                                 ((reference_cells[0].is_hyper_cube() ||
+                                   reference_cells[0].is_simplex()) == false);
+
       // dummy FE that is used to set up an FEValues object. Do not need the
       // actual finite element because we will only evaluate quantities for
       // the mapping that are independent of the FE
@@ -409,10 +414,11 @@ namespace internal
                   if (quad_face.second.size() > 0) // triangle
                     {
                       AssertDimension(dim, 3);
-                      face_data[my_q].descriptor[hpq * scale + 1].initialize(
-                        quad_face.second, update_default);
+                      face_data[my_q]
+                        .descriptor[hpq * scale + (is_mixed_mesh ? 1 : 0)]
+                        .initialize(quad_face.second, update_default);
                       face_data_by_cells[my_q]
-                        .descriptor[hpq * scale + 1]
+                        .descriptor[hpq * scale + (is_mixed_mesh ? 1 : 0)]
                         .initialize(quad_face.second, update_default);
                     }
 
