@@ -24,6 +24,9 @@
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/la_parallel_vector.h>
 
+#include <deal.II/matrix_free/hanging_nodes_internal.h>
+#include <deal.II/matrix_free/shape_info.h>
+
 #include <deal.II/multigrid/mg_base.h>
 
 DEAL_II_NAMESPACE_OPEN
@@ -358,6 +361,12 @@ private:
      * 1D restriction matrix for tensor-product elements.
      */
     AlignedVector<VectorizedArray<Number>> restriction_matrix_1d;
+
+    /**
+     * TODO
+     */
+    internal::MatrixFreeFunctions::ShapeInfo<VectorizedArray<Number>>
+      shape_info_coarse;
   };
 
   /**
@@ -426,6 +435,12 @@ private:
   std::vector<unsigned int> level_dof_indices_coarse;
 
   /**
+   * DoF indices of the coarse cells, expressed in indices local to the MPI
+   * rank.
+   */
+  std::vector<unsigned int> level_dof_indices_coarse_plain;
+
+  /**
    * DoF indices of the fine cells, expressed in indices local to the MPI
    * rank.
    */
@@ -436,7 +451,24 @@ private:
    */
   unsigned int n_components;
 
+  /**
+   * TODO
+   */
+  std::vector<internal::MatrixFreeFunctions::ConstraintKinds>
+    coarse_cell_refinement_configurations;
+
   friend class internal::MGTwoLevelTransferImplementation;
+
+  /**
+   *
+   */
+  void
+  apply_hanging_node_constraints(
+    const MGTransferScheme &                scheme,
+    const unsigned int                      cell,
+    const unsigned int                      n_lanes_filled,
+    const bool                              transpose,
+    AlignedVector<VectorizedArray<Number>> &evaluation_data_coarse) const;
 };
 
 

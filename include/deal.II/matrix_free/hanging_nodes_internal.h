@@ -217,9 +217,8 @@ namespace internal
        * Compute the supported components of all entries of the given
        * hp::FECollection object.
        */
-      std::vector<std::vector<bool>>
-      compute_supported_components(
-        const dealii::hp::FECollection<dim> &fe) const;
+      static std::vector<std::vector<bool>>
+      compute_supported_components(const dealii::hp::FECollection<dim> &fe);
 
       /**
        * Determine the refinement configuration of the given cell.
@@ -383,7 +382,7 @@ namespace internal
     template <int dim>
     inline std::vector<std::vector<bool>>
     HangingNodes<dim>::compute_supported_components(
-      const dealii::hp::FECollection<dim> &fe_collection) const
+      const dealii::hp::FECollection<dim> &fe_collection)
     {
       std::vector<std::vector<bool>> supported_components(
         fe_collection.size(),
