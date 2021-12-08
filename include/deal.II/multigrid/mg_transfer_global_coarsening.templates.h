@@ -40,6 +40,7 @@
 #include <deal.II/hp/dof_handler.h>
 
 #include <deal.II/matrix_free/evaluation_kernels.h>
+#include <deal.II/matrix_free/evaluation_template_factory.h>
 
 #include <deal.II/multigrid/mg_tools.h>
 #include <deal.II/multigrid/mg_transfer_global_coarsening.h>
@@ -2604,6 +2605,43 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
                                          n_scalar_dofs_coarse);
             }
           // ----------------------------- coarse ------------------------------
+
+          if (coarse_cell_refinement_configurations.size() > 0)
+            {
+              std::array<internal::MatrixFreeFunctions::ConstraintKinds,
+                         VectorizedArrayType::size()>
+                constraint_mask;
+
+              bool hn_available = false;
+
+              for (unsigned int v = 0; v < n_lanes_filled; ++v)
+                {
+                  const auto mask =
+                    coarse_cell_refinement_configurations[cell + v];
+
+                  constraint_mask[v] = mask;
+
+                  hn_available |= (mask != internal::MatrixFreeFunctions::
+                                             ConstraintKinds::unconstrained);
+                }
+
+              if (hn_available == true)
+                {
+                  for (unsigned int v = n_lanes_filled; v < n_lanes; ++v)
+                    constraint_mask[v] = internal::MatrixFreeFunctions::
+                      ConstraintKinds::unconstrained;
+
+                  internal::FEEvaluationHangingNodesFactory<
+                    dim,
+                    Number,
+                    VectorizedArrayType>::apply(n_components,
+                                                scheme.degree_coarse,
+                                                scheme.shape_info_coarse,
+                                                true,
+                                                constraint_mask,
+                                                evaluation_data_coarse.begin());
+                }
+            }
 
           // write into dst vector
           for (unsigned int v = 0; v < n_lanes_filled; ++v)

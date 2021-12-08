@@ -5436,7 +5436,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
   internal::FEEvaluationHangingNodesFactory<dim, Number, VectorizedArrayType>::
     apply(n_components,
           this->data->data.front().fe_degree,
-          *this,
+          this->get_shape_info(),
           transpose,
           constraint_mask,
           values_dofs[0]);
@@ -5871,7 +5871,10 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
          internal::ExcMatrixFreeAccessToUninitializedMappingField(
            "update_gradients"));
 
-  const std::size_t                            nqp = this->n_quadrature_points;
+  const std::size_t nqp = this->n_quadrature_points;
+
+  AssertIndexRange(q_point, nqp);
+
   Tensor<1, n_components, VectorizedArrayType> grad_out;
 
   if (this->cell_type == internal::MatrixFreeFunctions::cartesian)
@@ -6885,6 +6888,8 @@ FEEvaluationAccess<dim, 1, Number, is_face, VectorizedArrayType>::submit_value(
 #  ifdef DEBUG
   this->values_quad_submitted = true;
 #  endif
+
+  std::cout << q_point << std::endl;
 
   if (this->cell_type <= internal::MatrixFreeFunctions::affine)
     {

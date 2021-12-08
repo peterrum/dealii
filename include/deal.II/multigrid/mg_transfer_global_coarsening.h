@@ -24,6 +24,9 @@
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/la_parallel_vector.h>
 
+#include <deal.II/matrix_free/hanging_nodes_internal.h>
+#include <deal.II/matrix_free/shape_info.h>
+
 #include <deal.II/multigrid/mg_base.h>
 
 DEAL_II_NAMESPACE_OPEN
@@ -358,6 +361,12 @@ private:
      * 1D restriction matrix for tensor-product elements.
      */
     AlignedVector<VectorizedArray<Number>> restriction_matrix_1d;
+
+    /**
+     * TODO
+     */
+    internal::MatrixFreeFunctions::ShapeInfo<VectorizedArray<Number>>
+      shape_info_coarse;
   };
 
   /**
@@ -435,6 +444,12 @@ private:
    * Number of components.
    */
   unsigned int n_components;
+
+  /**
+   * TODO
+   */
+  std::vector<internal::MatrixFreeFunctions::ConstraintKinds>
+    coarse_cell_refinement_configurations;
 
   friend class internal::MGTwoLevelTransferImplementation;
 };
