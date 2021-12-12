@@ -1134,9 +1134,10 @@ namespace internal
         MappingInfoStorage<dim, dim, VectorizedArrayType>
           temp_data;
       temp_data.descriptor.resize(1);
-      temp_data.descriptor[0].n_q_points = n_q_points;
+      temp_data.descriptor[0].n_q_points                         = n_q_points;
+      const internal::MatrixFreeFunctions::DoFInfo *    dof_info = nullptr;
       FEEvaluationData<dim, VectorizedArrayType, false> eval(
-        {&data.shape_info, nullptr, &temp_data, 0, 0});
+        std::make_tuple(&data.shape_info, dof_info, &temp_data, 0, 0));
 
       // prepare arrays
       if (evaluation_flag != EvaluationFlags::nothing)
