@@ -2852,15 +2852,20 @@ namespace internal
         const Number *                         values_dofs,
         FEEvaluationData<dim, Number, true> &  eval)
     {
-      const auto &       data             = eval.get_shape_info();
-      const auto &       shape_data       = data.data.front();
-      const unsigned int face_no          = eval.get_face_no();
-      const unsigned int face_orientation = eval.get_face_orientation();
+      const auto &data       = eval.get_shape_info();
+      const auto &shape_data = data.data.front();
 
       if (data.element_type == MatrixFreeFunctions::tensor_none)
         {
-          const std::size_t n_dofs     = data.dofs_per_component_on_cell;
-          const std::size_t n_q_points = data.n_q_points_faces[face_no];
+          Assert((eval.get_dof_access_index() ==
+                    MatrixFreeFunctions::DoFInfo::dof_access_cell &&
+                  eval.get_is_interior_face() == false) == false,
+                 ExcNotImplemented());
+
+          const unsigned int face_no          = eval.get_face_no();
+          const unsigned int face_orientation = eval.get_face_orientation();
+          const std::size_t  n_dofs           = data.dofs_per_component_on_cell;
+          const std::size_t  n_q_points       = data.n_q_points_faces[face_no];
 
           using Eval =
             EvaluatorTensorProduct<evaluate_general, 1, 0, 0, Number, Number>;
@@ -2928,9 +2933,42 @@ namespace internal
       Number *temp         = eval.get_scratch_data().begin();
       Number *scratch_data = temp + 3 * n_components * dofs_per_face;
 
-      FEFaceNormalEvaluationImpl<dim, fe_degree, Number>::template interpolate<
-        true,
-        false>(n_components, evaluation_flag, data, values_dofs, temp, face_no);
+      if (eval.get_dof_access_index() ==
+            MatrixFreeFunctions::DoFInfo::dof_access_cell &&
+          eval.get_is_interior_face() == false)
+        {
+          for (unsigned int v = 0; v < Number::size(); ++v)
+            {
+              // the loop breaks once an invalid_unsigned_int is hit for
+              // all cases except the exterior faces in the ECL loop (where
+              // some faces might be at the boundaries but others not)
+              if (eval.get_cell_ids()[v] == numbers::invalid_unsigned_int)
+                continue;
+
+              FEFaceNormalEvaluationImpl<dim, fe_degree, Number>::
+                template interpolate<true, false>(
+                  n_components,
+                  evaluation_flag,
+                  data,
+                  values_dofs,
+                  temp,
+                  eval.get_all_face_numbers()[v]);
+
+              for (unsigned int i = 0; i < 3 * n_components * dofs_per_face;
+                   ++i)
+                temp[i][v] = temp[i][v]; // TODO: we need a second buffer?
+            }
+        }
+      else
+        {
+          FEFaceNormalEvaluationImpl<dim, fe_degree, Number>::
+            template interpolate<true, false>(n_components,
+                                              evaluation_flag,
+                                              data,
+                                              values_dofs,
+                                              temp,
+                                              eval.get_face_no());
+        }
 
       const unsigned int     subface_index = eval.get_subface_index();
       constexpr unsigned int n_q_points_1d_actual =
@@ -2967,12 +3005,41 @@ namespace internal
                                                        scratch_data,
                                                        subface_index);
 
-      if (face_orientation)
+      if (eval.get_dof_access_index() ==
+            MatrixFreeFunctions::DoFInfo::dof_access_cell &&
+          eval.get_is_interior_face() == false)
+        {
+          for (unsigned int v = 0; v < Number::size(); ++v)
+            {
+              // the loop breaks once an invalid_unsigned_int is hit for
+              // all cases except the exterior faces in the ECL loop (where
+              // some faces might be at the boundaries but others not)
+              if (eval.get_cell_ids()[v] == numbers::invalid_unsigned_int)
+                continue;
+
+              if (eval.get_all_face_orientations()[v] != 0)
+                adjust_for_face_orientation_per_lane(
+                  dim,
+                  n_components,
+                  v,
+                  evaluation_flag,
+                  &eval
+                     .get_orientation_map()[eval.get_all_face_orientations()[v]]
+                                           [0],
+                  false,
+                  Utilities::pow(n_q_points_1d, dim - 1),
+                  &temp[0][0],
+                  eval.begin_values(),
+                  eval.begin_gradients(),
+                  eval.begin_hessians());
+            }
+        }
+      else if (eval.get_face_orientation() != 0)
         adjust_for_face_orientation(
           dim,
           n_components,
           evaluation_flag,
-          &eval.get_orientation_map()(face_orientation, 0),
+          &eval.get_orientation_map()(eval.get_face_orientation(), 0),
           false,
           data.n_q_points_face,
           temp,
