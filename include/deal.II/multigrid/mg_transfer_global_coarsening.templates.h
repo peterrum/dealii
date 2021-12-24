@@ -1353,6 +1353,8 @@ namespace internal
               });
           }
 
+        use_fast_hanging_node_algorithm = false;
+
         // create helper class
         if (use_fast_hanging_node_algorithm)
           {
@@ -1623,6 +1625,9 @@ namespace internal
                   local_dof_indices_lex[i] =
                     local_dof_indices[lexicographic_numbering_coarse[i]];
 
+              for (auto &i : local_dof_indices_lex)
+                i = transfer.partitioner_coarse->global_to_local(i);
+
               if (hanging_nodes)
                 {
                   std::vector<internal::MatrixFreeFunctions::ConstraintKinds>
@@ -1648,9 +1653,7 @@ namespace internal
               for (unsigned int i = 0;
                    i < transfer.schemes[0].n_dofs_per_cell_coarse;
                    i++)
-                level_dof_indices_coarse_plain_0[i] =
-                  transfer.partitioner_coarse->global_to_local(
-                    local_dof_indices_lex[i]);
+                level_dof_indices_coarse_plain_0[i] = local_dof_indices_lex[i];
             }
 
             // child
@@ -1695,6 +1698,8 @@ namespace internal
                     local_dof_indices_lex[i] =
                       local_dof_indices[lexicographic_numbering_coarse[i]];
 
+                for (auto &i : local_dof_indices_lex)
+                  i = transfer.partitioner_coarse->global_to_local(i);
 
                 if (hanging_nodes)
                   {
@@ -1711,7 +1716,7 @@ namespace internal
                       mask);
 
                     for (unsigned int i = 0;
-                         i < transfer.schemes[0].n_dofs_per_cell_coarse;
+                         i < transfer.schemes[1].n_dofs_per_cell_coarse;
                          i++)
                       level_dof_indices_coarse_1[i] = local_dof_indices[i];
 
@@ -1723,8 +1728,7 @@ namespace internal
                      i < transfer.schemes[1].n_dofs_per_cell_coarse;
                      i++)
                   level_dof_indices_coarse_plain_1[i] =
-                    transfer.partitioner_coarse->global_to_local(
-                      local_dof_indices_lex[i]);
+                    local_dof_indices_lex[i];
               }
 
             // child
@@ -2717,6 +2721,10 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
       weights_compressed = this->weights_compressed.data();
     }
 
+  const internal::MatrixFreeFunctions::ConstraintKinds
+    *coarse_cell_refinement_configurations_ptr =
+      coarse_cell_refinement_configurations.data();
+
   for (const auto &scheme : schemes)
     {
       // identity -> take short cut and work directly on global vectors
@@ -2762,6 +2770,9 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
                     weights += scheme.n_dofs_per_cell_fine;
                 }
 
+              if (coarse_cell_refinement_configurations.size() > 0)
+                coarse_cell_refinement_configurations_ptr += n_lanes_filled;
+
               if (fine_element_is_continuous)
                 weights_compressed += 1;
             }
@@ -2800,7 +2811,14 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
           // ... fast hanging-node-constraints algorithm
           apply_hanging_node_constraints(
-            scheme, cell, n_lanes_filled, false, evaluation_data_coarse);
+            scheme,
+            coarse_cell_refinement_configurations_ptr,
+            n_lanes_filled,
+            false,
+            evaluation_data_coarse);
+
+          if (coarse_cell_refinement_configurations.size() > 0)
+            coarse_cell_refinement_configurations_ptr += n_lanes_filled;
 
           // ---------------------------- coarse -------------------------------
           for (int c = n_components - 1; c >= 0; --c)
@@ -2919,6 +2937,10 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
       weights_compressed = this->weights_compressed.data();
     }
 
+  const internal::MatrixFreeFunctions::ConstraintKinds
+    *coarse_cell_refinement_configurations_ptr =
+      coarse_cell_refinement_configurations.data();
+
   for (const auto &scheme : schemes)
     {
       // identity -> take short cut and work directly on global vectors
@@ -2967,6 +2989,9 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
               if (fine_element_is_continuous)
                 weights_compressed += 1;
+
+              if (coarse_cell_refinement_configurations.size() > 0)
+                coarse_cell_refinement_configurations_ptr += n_lanes_filled;
             }
 
           continue;
@@ -3039,7 +3064,15 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
           // apply fast hanging-node-constraints algorithm, ...
           apply_hanging_node_constraints(
-            scheme, cell, n_lanes_filled, true, evaluation_data_coarse);
+            scheme,
+            coarse_cell_refinement_configurations_ptr,
+            n_lanes_filled,
+            true,
+            evaluation_data_coarse);
+
+
+          if (coarse_cell_refinement_configurations.size() > 0)
+            coarse_cell_refinement_configurations_ptr += n_lanes_filled;
 
           // ... apply general-purpose constraints, and write into dst vector
           for (unsigned int v = 0; v < n_lanes_filled; ++v)
@@ -3188,10 +3221,11 @@ template <int dim, typename Number>
 void
 MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   apply_hanging_node_constraints(
-    const MGTransferScheme &                scheme,
-    const unsigned int                      cell,
-    const unsigned int                      n_lanes_filled,
-    const bool                              transpose,
+    const MGTransferScheme &scheme,
+    const internal::MatrixFreeFunctions::ConstraintKinds
+      *                coarse_cell_refinement_configurations_ptr,
+    const unsigned int n_lanes_filled,
+    const bool         transpose,
     AlignedVector<VectorizedArray<Number>> &evaluation_data_coarse) const
 {
   if (coarse_cell_refinement_configurations.size() == 0)
@@ -3207,7 +3241,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   for (unsigned int v = 0; v < n_lanes_filled; ++v)
     {
-      const auto mask = coarse_cell_refinement_configurations[cell + v];
+      const auto mask = coarse_cell_refinement_configurations_ptr[v];
 
       constraint_mask[v] = mask;
 

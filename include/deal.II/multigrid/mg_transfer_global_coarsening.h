@@ -475,10 +475,11 @@ private:
    */
   void
   apply_hanging_node_constraints(
-    const MGTransferScheme &                scheme,
-    const unsigned int                      cell,
-    const unsigned int                      n_lanes_filled,
-    const bool                              transpose,
+    const MGTransferScheme &scheme,
+    const internal::MatrixFreeFunctions::ConstraintKinds
+      *                coarse_cell_refinement_configurations_ptr,
+    const unsigned int n_lanes_filled,
+    const bool         transpose,
     AlignedVector<VectorizedArray<Number>> &evaluation_data_coarse) const;
 };
 
