@@ -2727,60 +2727,10 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   for (const auto &scheme : schemes)
     {
-      // identity -> take short cut and work directly on global vectors
-      if (scheme.prolongation_matrix.size() == 0 &&
-          scheme.prolongation_matrix_1d.size() == 0)
-        {
-          for (unsigned int cell = 0; cell < scheme.n_coarse_cells;
-               cell += n_lanes)
-            {
-              const unsigned int n_lanes_filled =
-                (cell + n_lanes > scheme.n_coarse_cells) ?
-                  (scheme.n_coarse_cells - cell) :
-                  n_lanes;
+      const bool needs_interpolation =
+        (scheme.prolongation_matrix.size() == 0 &&
+         scheme.prolongation_matrix_1d.size() == 0) == false;
 
-              // read from source vector
-              for (unsigned int v = 0; v < n_lanes_filled; ++v)
-                {
-                  if ((scheme.n_dofs_per_cell_fine != 0) &&
-                      (scheme.n_dofs_per_cell_coarse != 0))
-                    {
-                      if (fine_element_is_continuous)
-                        for (unsigned int i = 0;
-                             i < scheme.n_dofs_per_cell_fine;
-                             ++i)
-                          vec_fine_ptr->local_element(indices_fine[i]) +=
-                            read_dof_values(indices_coarse_plain[i],
-                                            vec_coarse) *
-                            weights[i];
-                      else
-                        for (unsigned int i = 0;
-                             i < scheme.n_dofs_per_cell_fine;
-                             ++i)
-                          vec_fine_ptr->local_element(indices_fine[i]) +=
-                            read_dof_values(indices_coarse_plain[i],
-                                            vec_coarse);
-                    }
-
-                  indices_fine += scheme.n_dofs_per_cell_fine;
-                  indices_coarse += scheme.n_dofs_per_cell_coarse;
-                  indices_coarse_plain += scheme.n_dofs_per_cell_coarse;
-
-                  if (fine_element_is_continuous)
-                    weights += scheme.n_dofs_per_cell_fine;
-                }
-
-              if (coarse_cell_refinement_configurations.size() > 0)
-                coarse_cell_refinement_configurations_ptr += n_lanes_filled;
-
-              if (fine_element_is_continuous)
-                weights_compressed += 1;
-            }
-
-          continue;
-        }
-
-      // general case -> local restriction is needed
       evaluation_data_fine.resize(scheme.n_dofs_per_cell_fine);
       evaluation_data_coarse.resize(scheme.n_dofs_per_cell_fine);
 
@@ -2821,20 +2771,23 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
             coarse_cell_refinement_configurations_ptr += n_lanes_filled;
 
           // ---------------------------- coarse -------------------------------
-          for (int c = n_components - 1; c >= 0; --c)
-            {
-              CellProlongator<dim, VectorizedArrayType> cell_prolongator(
-                scheme.prolongation_matrix,
-                scheme.prolongation_matrix_1d,
-                evaluation_data_coarse.begin() + c * n_scalar_dofs_coarse,
-                evaluation_data_fine.begin() + c * n_scalar_dofs_fine);
+          if (needs_interpolation)
+            for (int c = n_components - 1; c >= 0; --c)
+              {
+                CellProlongator<dim, VectorizedArrayType> cell_prolongator(
+                  scheme.prolongation_matrix,
+                  scheme.prolongation_matrix_1d,
+                  evaluation_data_coarse.begin() + c * n_scalar_dofs_coarse,
+                  evaluation_data_fine.begin() + c * n_scalar_dofs_fine);
 
-              if (scheme.prolongation_matrix_1d.size() > 0)
-                cell_transfer.run(cell_prolongator);
-              else
-                cell_prolongator.run_full(n_scalar_dofs_fine,
-                                          n_scalar_dofs_coarse);
-            }
+                if (scheme.prolongation_matrix_1d.size() > 0)
+                  cell_transfer.run(cell_prolongator);
+                else
+                  cell_prolongator.run_full(n_scalar_dofs_fine,
+                                            n_scalar_dofs_coarse);
+              }
+          else
+            evaluation_data_fine = evaluation_data_coarse; // TODO
           // ------------------------------ fine -------------------------------
 
           // weight and write into dst vector
@@ -2943,61 +2896,10 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   for (const auto &scheme : schemes)
     {
-      // identity -> take short cut and work directly on global vectors
-      if (scheme.prolongation_matrix.size() == 0 &&
-          scheme.prolongation_matrix_1d.size() == 0)
-        {
-          for (unsigned int cell = 0; cell < scheme.n_coarse_cells;
-               cell += n_lanes)
-            {
-              const unsigned int n_lanes_filled =
-                (cell + n_lanes > scheme.n_coarse_cells) ?
-                  (scheme.n_coarse_cells - cell) :
-                  n_lanes;
+      const bool needs_interpolation =
+        (scheme.prolongation_matrix.size() == 0 &&
+         scheme.prolongation_matrix_1d.size() == 0) == false;
 
-              for (unsigned int v = 0; v < n_lanes_filled; ++v)
-                {
-                  if ((scheme.n_dofs_per_cell_fine != 0) &&
-                      (scheme.n_dofs_per_cell_coarse != 0))
-                    {
-                      if (fine_element_is_continuous)
-                        for (unsigned int i = 0;
-                             i < scheme.n_dofs_per_cell_fine;
-                             ++i)
-                          distribute_local_to_global(
-                            indices_coarse_plain[i],
-                            vec_fine_ptr->local_element(indices_fine[i]) *
-                              weights[i],
-                            this->vec_coarse);
-                      else
-                        for (unsigned int i = 0;
-                             i < scheme.n_dofs_per_cell_fine;
-                             ++i)
-                          distribute_local_to_global(
-                            indices_coarse_plain[i],
-                            vec_fine_ptr->local_element(indices_fine[i]),
-                            this->vec_coarse);
-                    }
-
-                  indices_fine += scheme.n_dofs_per_cell_fine;
-                  indices_coarse += scheme.n_dofs_per_cell_coarse;
-                  indices_coarse_plain += scheme.n_dofs_per_cell_coarse;
-
-                  if (fine_element_is_continuous)
-                    weights += scheme.n_dofs_per_cell_fine;
-                }
-
-              if (fine_element_is_continuous)
-                weights_compressed += 1;
-
-              if (coarse_cell_refinement_configurations.size() > 0)
-                coarse_cell_refinement_configurations_ptr += n_lanes_filled;
-            }
-
-          continue;
-        }
-
-      // general case -> local restriction is needed
       evaluation_data_fine.resize(scheme.n_dofs_per_cell_fine);
       evaluation_data_coarse.resize(scheme.n_dofs_per_cell_fine);
 
@@ -3046,20 +2948,23 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
             }
 
           // ------------------------------ fine -------------------------------
-          for (int c = n_components - 1; c >= 0; --c)
-            {
-              CellRestrictor<dim, VectorizedArrayType> cell_restrictor(
-                scheme.prolongation_matrix,
-                scheme.prolongation_matrix_1d,
-                evaluation_data_fine.begin() + c * n_scalar_dofs_fine,
-                evaluation_data_coarse.begin() + c * n_scalar_dofs_coarse);
+          if (needs_interpolation)
+            for (int c = n_components - 1; c >= 0; --c)
+              {
+                CellRestrictor<dim, VectorizedArrayType> cell_restrictor(
+                  scheme.prolongation_matrix,
+                  scheme.prolongation_matrix_1d,
+                  evaluation_data_fine.begin() + c * n_scalar_dofs_fine,
+                  evaluation_data_coarse.begin() + c * n_scalar_dofs_coarse);
 
-              if (scheme.prolongation_matrix_1d.size() > 0)
-                cell_transfer.run(cell_restrictor);
-              else
-                cell_restrictor.run_full(n_scalar_dofs_fine,
-                                         n_scalar_dofs_coarse);
-            }
+                if (scheme.prolongation_matrix_1d.size() > 0)
+                  cell_transfer.run(cell_restrictor);
+                else
+                  cell_restrictor.run_full(n_scalar_dofs_fine,
+                                           n_scalar_dofs_coarse);
+              }
+          else
+            evaluation_data_coarse = evaluation_data_fine; // TODO
           // ----------------------------- coarse ------------------------------
 
           // apply fast hanging-node-constraints algorithm, ...
