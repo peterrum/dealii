@@ -30,6 +30,7 @@
 
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/diagonal_matrix.h>
+#include <deal.II/lac/identity_matrix.h>
 #include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/vector_memory.h>
 
@@ -398,7 +399,8 @@ private:
  * Jacobi, SOR and SSOR preconditioners are implemented. For preconditioning,
  * refer to derived classes.
  */
-template <typename MatrixType = SparseMatrix<double>>
+template <typename MatrixType         = SparseMatrix<double>,
+          typename PreconditionerType = IdentityMatrix>
 class PreconditionRelaxation : public Subscriptor
 {
 public:
@@ -422,6 +424,11 @@ public:
      * Relaxation parameter.
      */
     double relaxation;
+
+    /*
+     * Preconditioner.
+     */
+    std::shared_ptr<PreconditionerType> preconditioner;
   };
 
   /**
@@ -453,6 +460,35 @@ public:
   size_type
   n() const;
 
+  /**
+   * Apply preconditioner.
+   */
+  template <class VectorType>
+  void
+  vmult(VectorType &, const VectorType &) const;
+
+  /**
+   * Apply transpose preconditioner. Since this is a symmetric preconditioner,
+   * this function is the same as vmult().
+   */
+  template <class VectorType>
+  void
+  Tvmult(VectorType &, const VectorType &) const;
+
+  /**
+   * Perform one step of the preconditioned Richardson iteration
+   */
+  template <class VectorType>
+  void
+  step(VectorType &x, const VectorType &rhs) const;
+
+  /**
+   * Perform one transposed step of the preconditioned Richardson iteration.
+   */
+  template <class VectorType>
+  void
+  Tstep(VectorType &x, const VectorType &rhs) const;
+
 protected:
   /**
    * Pointer to the matrix object.
@@ -463,8 +499,50 @@ protected:
    * Relaxation parameter.
    */
   double relaxation;
+
+  /*
+   * Preconditioner.
+   */
+  std::shared_ptr<PreconditionerType> preconditioner;
 };
 
+
+namespace internal
+{
+  namespace PreconditionRelaxation
+  {
+    template <typename MatrixType>
+    class PreconditionJacobiPreconditioner
+    {
+    public:
+      PreconditionJacobiPreconditioner(const MatrixType &A,
+                                       const double      relaxation)
+        : A(&A)
+        , relaxation(relaxation)
+      {}
+
+      template <typename VectorType>
+      void
+      vmult(VectorType &dst, const VectorType &src)
+      {
+        this->A->precondition_Jacobi(dst, src, this->relaxation);
+      }
+
+      template <typename VectorType>
+      void
+      Tvmult(VectorType &dst, const VectorType &src)
+      {
+        // call vmult, since preconditioner is symmetrical
+        this->vmult(dst, src);
+      }
+
+    private:
+      const SmartPointer<const MatrixType> A;
+      const double                         relaxation;
+    };
+
+  } // namespace PreconditionRelaxation
+} // namespace internal
 
 
 /**
@@ -494,48 +572,34 @@ protected:
  * @endcode
  */
 template <typename MatrixType = SparseMatrix<double>>
-class PreconditionJacobi : public PreconditionRelaxation<MatrixType>
+class PreconditionJacobi
+  : public PreconditionRelaxation<
+      MatrixType,
+      internal::PreconditionRelaxation::PreconditionJacobiPreconditioner<
+        MatrixType>>
 {
+  using PreconditionerType =
+    internal::PreconditionRelaxation::PreconditionJacobiPreconditioner<
+      MatrixType>;
+  using Base = PreconditionRelaxation<MatrixType, PreconditionerType>;
+
 public:
   /**
    * Declare type for container size.
    */
-  using size_type = typename PreconditionRelaxation<MatrixType>::size_type;
+  using size_type = typename Base::size_type;
 
   /**
    * An alias to the base class AdditionalData.
    */
-  using AdditionalData =
-    typename PreconditionRelaxation<MatrixType>::AdditionalData;
+  using AdditionalData = typename Base::AdditionalData;
 
   /**
-   * Apply preconditioner.
+   * @copydoc PreconditionRelaxation::initialize()
    */
-  template <class VectorType>
   void
-  vmult(VectorType &, const VectorType &) const;
-
-  /**
-   * Apply transpose preconditioner. Since this is a symmetric preconditioner,
-   * this function is the same as vmult().
-   */
-  template <class VectorType>
-  void
-  Tvmult(VectorType &, const VectorType &) const;
-
-  /**
-   * Perform one step of the preconditioned Richardson iteration.
-   */
-  template <class VectorType>
-  void
-  step(VectorType &x, const VectorType &rhs) const;
-
-  /**
-   * Perform one transposed step of the preconditioned Richardson iteration.
-   */
-  template <class VectorType>
-  void
-  Tstep(VectorType &x, const VectorType &rhs) const;
+  initialize(const MatrixType &    A,
+             const AdditionalData &parameters = AdditionalData());
 };
 
 
@@ -598,34 +662,6 @@ public:
    */
   using AdditionalData =
     typename PreconditionRelaxation<MatrixType>::AdditionalData;
-
-  /**
-   * Apply preconditioner.
-   */
-  template <class VectorType>
-  void
-  vmult(VectorType &, const VectorType &) const;
-
-  /**
-   * Apply transpose preconditioner.
-   */
-  template <class VectorType>
-  void
-  Tvmult(VectorType &, const VectorType &) const;
-
-  /**
-   * Perform one step of the preconditioned Richardson iteration.
-   */
-  template <class VectorType>
-  void
-  step(VectorType &x, const VectorType &rhs) const;
-
-  /**
-   * Perform one transposed step of the preconditioned Richardson iteration.
-   */
-  template <class VectorType>
-  void
-  Tstep(VectorType &x, const VectorType &rhs) const;
 };
 
 
@@ -686,36 +722,6 @@ public:
   initialize(const MatrixType &                        A,
              const typename BaseClass::AdditionalData &parameters =
                typename BaseClass::AdditionalData());
-
-  /**
-   * Apply preconditioner.
-   */
-  template <class VectorType>
-  void
-  vmult(VectorType &, const VectorType &) const;
-
-  /**
-   * Apply transpose preconditioner. Since this is a symmetric preconditioner,
-   * this function is the same as vmult().
-   */
-  template <class VectorType>
-  void
-  Tvmult(VectorType &, const VectorType &) const;
-
-
-  /**
-   * Perform one step of the preconditioned Richardson iteration
-   */
-  template <class VectorType>
-  void
-  step(VectorType &x, const VectorType &rhs) const;
-
-  /**
-   * Perform one transposed step of the preconditioned Richardson iteration.
-   */
-  template <class VectorType>
-  void
-  Tstep(VectorType &x, const VectorType &rhs) const;
 
 private:
   /**
@@ -832,20 +838,6 @@ public:
    */
   void
   initialize(const MatrixType &A, const AdditionalData &additional_data);
-
-  /**
-   * Apply preconditioner.
-   */
-  template <class VectorType>
-  void
-  vmult(VectorType &, const VectorType &) const;
-
-  /**
-   * Apply transpose preconditioner.
-   */
-  template <class VectorType>
-  void
-  Tvmult(VectorType &, const VectorType &) const;
 
 private:
   /**
@@ -1486,170 +1478,104 @@ PreconditionRichardson::n() const
 
 //---------------------------------------------------------------------------
 
-template <typename MatrixType>
+template <typename MatrixType, typename PreconditionerType>
 inline void
-PreconditionRelaxation<MatrixType>::initialize(const MatrixType &    rA,
-                                               const AdditionalData &parameters)
+PreconditionRelaxation<MatrixType, PreconditionerType>::initialize(
+  const MatrixType &    rA,
+  const AdditionalData &parameters)
 {
   A          = &rA;
   relaxation = parameters.relaxation;
 }
 
 
-template <typename MatrixType>
+template <typename MatrixType, typename PreconditionerType>
 inline void
-PreconditionRelaxation<MatrixType>::clear()
+PreconditionRelaxation<MatrixType, PreconditionerType>::clear()
 {
   A = nullptr;
 }
 
-template <typename MatrixType>
-inline typename PreconditionRelaxation<MatrixType>::size_type
-PreconditionRelaxation<MatrixType>::m() const
+template <typename MatrixType, typename PreconditionerType>
+inline
+  typename PreconditionRelaxation<MatrixType, PreconditionerType>::size_type
+  PreconditionRelaxation<MatrixType, PreconditionerType>::m() const
 {
   Assert(A != nullptr, ExcNotInitialized());
   return A->m();
 }
 
-template <typename MatrixType>
-inline typename PreconditionRelaxation<MatrixType>::size_type
-PreconditionRelaxation<MatrixType>::n() const
+template <typename MatrixType, typename PreconditionerType>
+inline
+  typename PreconditionRelaxation<MatrixType, PreconditionerType>::size_type
+  PreconditionRelaxation<MatrixType, PreconditionerType>::n() const
 {
   Assert(A != nullptr, ExcNotInitialized());
   return A->n();
 }
 
-//---------------------------------------------------------------------------
-
-template <typename MatrixType>
+template <typename MatrixType, typename PreconditionerType>
 template <class VectorType>
 inline void
-PreconditionJacobi<MatrixType>::vmult(VectorType &      dst,
-                                      const VectorType &src) const
+PreconditionRelaxation<MatrixType, PreconditionerType>::vmult(
+  VectorType &      dst,
+  const VectorType &src) const
 {
-  static_assert(
-    std::is_same<typename PreconditionJacobi<MatrixType>::size_type,
-                 typename VectorType::size_type>::value,
-    "PreconditionJacobi and VectorType must have the same size_type.");
+  preconditioner->vmult(dst, src);
 
-  Assert(this->A != nullptr, ExcNotInitialized());
-  this->A->precondition_Jacobi(dst, src, this->relaxation);
+  if (this->relaxation != 1.0)
+    dst *= this->relaxation;
 }
 
-
-
-template <typename MatrixType>
+template <typename MatrixType, typename PreconditionerType>
 template <class VectorType>
 inline void
-PreconditionJacobi<MatrixType>::Tvmult(VectorType &      dst,
-                                       const VectorType &src) const
+PreconditionRelaxation<MatrixType, PreconditionerType>::Tvmult(
+  VectorType &      dst,
+  const VectorType &src) const
 {
-  static_assert(
-    std::is_same<typename PreconditionJacobi<MatrixType>::size_type,
-                 typename VectorType::size_type>::value,
-    "PreconditionJacobi and VectorType must have the same size_type.");
+  preconditioner->Tvmult(dst, src);
 
-  Assert(this->A != nullptr, ExcNotInitialized());
-  this->A->precondition_Jacobi(dst, src, this->relaxation);
+  if (this->relaxation != 1.0)
+    dst *= this->relaxation;
 }
 
-
-
-template <typename MatrixType>
+template <typename MatrixType, typename PreconditionerType>
 template <class VectorType>
 inline void
-PreconditionJacobi<MatrixType>::step(VectorType &      dst,
-                                     const VectorType &src) const
+PreconditionRelaxation<MatrixType, PreconditionerType>::step(
+  VectorType &,
+  const VectorType &) const
 {
-  static_assert(
-    std::is_same<typename PreconditionJacobi<MatrixType>::size_type,
-                 typename VectorType::size_type>::value,
-    "PreconditionJacobi and VectorType must have the same size_type.");
-
-  Assert(this->A != nullptr, ExcNotInitialized());
-  this->A->Jacobi_step(dst, src, this->relaxation);
+  AssertThrow(false, ExcNotImplemented());
 }
 
-
-
-template <typename MatrixType>
+template <typename MatrixType, typename PreconditionerType>
 template <class VectorType>
 inline void
-PreconditionJacobi<MatrixType>::Tstep(VectorType &      dst,
-                                      const VectorType &src) const
+PreconditionRelaxation<MatrixType, PreconditionerType>::Tstep(
+  VectorType &,
+  const VectorType &) const
 {
-  static_assert(
-    std::is_same<typename PreconditionJacobi<MatrixType>::size_type,
-                 typename VectorType::size_type>::value,
-    "PreconditionJacobi and VectorType must have the same size_type.");
-
-  step(dst, src);
+  AssertThrow(false, ExcNotImplemented());
 }
-
-
 
 //---------------------------------------------------------------------------
 
 template <typename MatrixType>
-template <class VectorType>
 inline void
-PreconditionSOR<MatrixType>::vmult(VectorType &dst, const VectorType &src) const
+PreconditionJacobi<MatrixType>::initialize(const MatrixType &    A,
+                                           const AdditionalData &parameters_in)
 {
-  static_assert(std::is_same<typename PreconditionSOR<MatrixType>::size_type,
-                             typename VectorType::size_type>::value,
-                "PreconditionSOR and VectorType must have the same size_type.");
+  Assert(parameters_in.preconditioner == nullptr, ExcInternalError());
 
-  Assert(this->A != nullptr, ExcNotInitialized());
-  this->A->precondition_SOR(dst, src, this->relaxation);
+  AdditionalData parameters;
+  parameters.relaxation = 1.0;
+  parameters.preconditioner =
+    std::make_shared<PreconditionerType>(A, parameters_in.relaxation);
+
+  Base::initialize(A, parameters);
 }
-
-
-
-template <typename MatrixType>
-template <class VectorType>
-inline void
-PreconditionSOR<MatrixType>::Tvmult(VectorType &      dst,
-                                    const VectorType &src) const
-{
-  static_assert(std::is_same<typename PreconditionSOR<MatrixType>::size_type,
-                             typename VectorType::size_type>::value,
-                "PreconditionSOR and VectorType must have the same size_type.");
-
-  Assert(this->A != nullptr, ExcNotInitialized());
-  this->A->precondition_TSOR(dst, src, this->relaxation);
-}
-
-
-
-template <typename MatrixType>
-template <class VectorType>
-inline void
-PreconditionSOR<MatrixType>::step(VectorType &dst, const VectorType &src) const
-{
-  static_assert(std::is_same<typename PreconditionSOR<MatrixType>::size_type,
-                             typename VectorType::size_type>::value,
-                "PreconditionSOR and VectorType must have the same size_type.");
-
-  Assert(this->A != nullptr, ExcNotInitialized());
-  this->A->SOR_step(dst, src, this->relaxation);
-}
-
-
-
-template <typename MatrixType>
-template <class VectorType>
-inline void
-PreconditionSOR<MatrixType>::Tstep(VectorType &dst, const VectorType &src) const
-{
-  static_assert(std::is_same<typename PreconditionSOR<MatrixType>::size_type,
-                             typename VectorType::size_type>::value,
-                "PreconditionSOR and VectorType must have the same size_type.");
-
-  Assert(this->A != nullptr, ExcNotInitialized());
-  this->A->TSOR_step(dst, src, this->relaxation);
-}
-
-
 
 //---------------------------------------------------------------------------
 
@@ -1689,71 +1615,6 @@ PreconditionSSOR<MatrixType>::initialize(
 }
 
 
-template <typename MatrixType>
-template <class VectorType>
-inline void
-PreconditionSSOR<MatrixType>::vmult(VectorType &      dst,
-                                    const VectorType &src) const
-{
-  static_assert(
-    std::is_same<typename PreconditionSSOR<MatrixType>::size_type,
-                 typename VectorType::size_type>::value,
-    "PreconditionSSOR and VectorType must have the same size_type.");
-
-  Assert(this->A != nullptr, ExcNotInitialized());
-  this->A->precondition_SSOR(dst, src, this->relaxation, pos_right_of_diagonal);
-}
-
-
-
-template <typename MatrixType>
-template <class VectorType>
-inline void
-PreconditionSSOR<MatrixType>::Tvmult(VectorType &      dst,
-                                     const VectorType &src) const
-{
-  static_assert(
-    std::is_same<typename PreconditionSSOR<MatrixType>::size_type,
-                 typename VectorType::size_type>::value,
-    "PreconditionSSOR and VectorType must have the same size_type.");
-
-  Assert(this->A != nullptr, ExcNotInitialized());
-  this->A->precondition_SSOR(dst, src, this->relaxation, pos_right_of_diagonal);
-}
-
-
-
-template <typename MatrixType>
-template <class VectorType>
-inline void
-PreconditionSSOR<MatrixType>::step(VectorType &dst, const VectorType &src) const
-{
-  static_assert(
-    std::is_same<typename PreconditionSSOR<MatrixType>::size_type,
-                 typename VectorType::size_type>::value,
-    "PreconditionSSOR and VectorType must have the same size_type.");
-
-  Assert(this->A != nullptr, ExcNotInitialized());
-  this->A->SSOR_step(dst, src, this->relaxation);
-}
-
-
-
-template <typename MatrixType>
-template <class VectorType>
-inline void
-PreconditionSSOR<MatrixType>::Tstep(VectorType &      dst,
-                                    const VectorType &src) const
-{
-  static_assert(
-    std::is_same<typename PreconditionSSOR<MatrixType>::size_type,
-                 typename VectorType::size_type>::value,
-    "PreconditionSSOR and VectorType must have the same size_type.");
-
-  step(dst, src);
-}
-
-
 
 //---------------------------------------------------------------------------
 
@@ -1780,41 +1641,6 @@ PreconditionPSOR<MatrixType>::initialize(const MatrixType &    A,
              additional_data.permutation,
              additional_data.inverse_permutation,
              additional_data.parameters);
-}
-
-
-template <typename MatrixType>
-template <typename VectorType>
-inline void
-PreconditionPSOR<MatrixType>::vmult(VectorType &      dst,
-                                    const VectorType &src) const
-{
-  static_assert(
-    std::is_same<typename PreconditionPSOR<MatrixType>::size_type,
-                 typename VectorType::size_type>::value,
-    "PreconditionPSOR and VectorType must have the same size_type.");
-
-  Assert(this->A != nullptr, ExcNotInitialized());
-  dst = src;
-  this->A->PSOR(dst, *permutation, *inverse_permutation, this->relaxation);
-}
-
-
-
-template <typename MatrixType>
-template <class VectorType>
-inline void
-PreconditionPSOR<MatrixType>::Tvmult(VectorType &      dst,
-                                     const VectorType &src) const
-{
-  static_assert(
-    std::is_same<typename PreconditionPSOR<MatrixType>::size_type,
-                 typename VectorType::size_type>::value,
-    "PreconditionPSOR and VectorType must have the same size_type.");
-
-  Assert(this->A != nullptr, ExcNotInitialized());
-  dst = src;
-  this->A->TPSOR(dst, *permutation, *inverse_permutation, this->relaxation);
 }
 
 template <typename MatrixType>
@@ -1852,9 +1678,9 @@ PreconditionUseMatrix<MatrixType, VectorType>::vmult(
 
 //---------------------------------------------------------------------------
 
-template <typename MatrixType>
-inline PreconditionRelaxation<MatrixType>::AdditionalData::AdditionalData(
-  const double relaxation)
+template <typename MatrixType, typename PreconditionerType>
+inline PreconditionRelaxation<MatrixType, PreconditionerType>::AdditionalData::
+  AdditionalData(const double relaxation)
   : relaxation(relaxation)
 {}
 
