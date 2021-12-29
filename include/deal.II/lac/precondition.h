@@ -536,6 +536,21 @@ namespace internal
         this->vmult(dst, src);
       }
 
+      template <typename VectorType>
+      void
+      step(VectorType &dst, const VectorType &src)
+      {
+        this->A->Jacobi_step(dst, src, this->relaxation);
+      }
+
+      template <typename VectorType>
+      void
+      Tstep(VectorType &dst, const VectorType &src)
+      {
+        // call step, since preconditioner is symmetrical
+        this->step(dst, src);
+      }
+
     private:
       const SmartPointer<const MatrixType> A;
       const double                         relaxation;
@@ -563,6 +578,20 @@ namespace internal
       Tvmult(VectorType &dst, const VectorType &src)
       {
         this->A->precondition_TSOR(dst, src);
+      }
+
+      template <typename VectorType>
+      void
+      step(VectorType &dst, const VectorType &src)
+      {
+        this->A->SOR_step(dst, src, this->relaxation);
+      }
+
+      template <typename VectorType>
+      void
+      Tstep(VectorType &dst, const VectorType &src)
+      {
+        this->A->TSOR_step(dst, src, this->relaxation);
       }
 
     private:
@@ -629,6 +658,21 @@ namespace internal
                                    pos_right_of_diagonal);
       }
 
+      template <typename VectorType>
+      void
+      step(VectorType &dst, const VectorType &src)
+      {
+        this->A->SSOR_step(dst, src, this->relaxation);
+      }
+
+      template <typename VectorType>
+      void
+      Tstep(VectorType &dst, const VectorType &src)
+      {
+        // call step, since preconditioner is symmetrical
+        this->step(dst, src);
+      }
+
     private:
       const SmartPointer<const MatrixType> A;
       const double                         relaxation;
@@ -686,6 +730,98 @@ namespace internal
       const std::vector<size_type> *permutation;
       const std::vector<size_type> *inverse_permutation;
     };
+
+    template <typename T>
+    struct has_step
+    {
+    private:
+      static bool
+      detect(...);
+
+      template <typename U>
+      static decltype(std::declval<U const>().step(0, 0))
+      detect(const U &);
+
+    public:
+      static const bool value =
+        !std::is_same<bool, decltype(detect(std::declval<T>()))>::value;
+    };
+
+    template <typename T>
+    const bool has_step<T>::value;
+
+    template <typename T>
+    struct has_Tstep
+    {
+    private:
+      static bool
+      detect(...);
+
+      template <typename U>
+      static decltype(std::declval<U const>().Tstep(0, 0))
+      detect(const U &);
+
+    public:
+      static const bool value =
+        !std::is_same<bool, decltype(detect(std::declval<T>()))>::value;
+    };
+
+    template <typename T>
+    const bool has_Tstep<T>::value;
+
+    template <typename PreconditionerType,
+              typename VectorType,
+              typename std::enable_if<has_step<PreconditionerType>::value,
+                                      PreconditionerType>::type * = nullptr>
+    void
+    step(const PreconditionerType &preconditioner,
+         VectorType &              dst,
+         const VectorType &        src)
+    {
+      preconditioner.step(dst, src);
+    }
+
+    template <typename PreconditionerType,
+              typename VectorType,
+              typename std::enable_if<!has_step<PreconditionerType>::value,
+                                      PreconditionerType>::type * = nullptr>
+    void
+    step(const PreconditionerType &preconditioner,
+         VectorType &              dst,
+         const VectorType &        src)
+    {
+      Assert(false, ExcNotImplemented());
+      (void)preconditioner;
+      (void)dst;
+      (void)src;
+    }
+
+    template <typename PreconditionerType,
+              typename VectorType,
+              typename std::enable_if<has_Tstep<PreconditionerType>::value,
+                                      PreconditionerType>::type * = nullptr>
+    void
+    Tstep(const PreconditionerType &preconditioner,
+          VectorType &              dst,
+          const VectorType &        src)
+    {
+      preconditioner.Tstep(dst, src);
+    }
+
+    template <typename PreconditionerType,
+              typename VectorType,
+              typename std::enable_if<!has_Tstep<PreconditionerType>::value,
+                                      PreconditionerType>::type * = nullptr>
+    void
+    Tstep(const PreconditionerType &preconditioner,
+          VectorType &              dst,
+          const VectorType &        src)
+    {
+      Assert(false, ExcNotImplemented());
+      (void)preconditioner;
+      (void)dst;
+      (void)src;
+    }
 
   } // namespace PreconditionRelaxation
 } // namespace internal
@@ -1631,8 +1767,9 @@ PreconditionRelaxation<MatrixType, PreconditionerType>::initialize(
   const MatrixType &    rA,
   const AdditionalData &parameters)
 {
-  A          = &rA;
-  relaxation = parameters.relaxation;
+  A              = &rA;
+  relaxation     = parameters.relaxation;
+  preconditioner = parameters.preconditioner;
 }
 
 
@@ -1691,20 +1828,20 @@ template <typename MatrixType, typename PreconditionerType>
 template <class VectorType>
 inline void
 PreconditionRelaxation<MatrixType, PreconditionerType>::step(
-  VectorType &,
-  const VectorType &) const
+  VectorType &      dst,
+  const VectorType &src) const
 {
-  AssertThrow(false, ExcNotImplemented());
+  internal::PreconditionRelaxation::step(*preconditioner, dst, src);
 }
 
 template <typename MatrixType, typename PreconditionerType>
 template <class VectorType>
 inline void
 PreconditionRelaxation<MatrixType, PreconditionerType>::Tstep(
-  VectorType &,
-  const VectorType &) const
+  VectorType &      dst,
+  const VectorType &src) const
 {
-  AssertThrow(false, ExcNotImplemented());
+  internal::PreconditionRelaxation::Tstep(*preconditioner, dst, src);
 }
 
 //---------------------------------------------------------------------------
