@@ -541,6 +541,152 @@ namespace internal
       const double                         relaxation;
     };
 
+    template <typename MatrixType>
+    class PreconditionSORPreconditioner
+    {
+    public:
+      PreconditionSORPreconditioner(const MatrixType &A,
+                                    const double      relaxation)
+        : A(&A)
+        , relaxation(relaxation)
+      {}
+
+      template <typename VectorType>
+      void
+      vmult(VectorType &dst, const VectorType &src)
+      {
+        this->A->precondition_SOR(dst, src, this->relaxation);
+      }
+
+      template <typename VectorType>
+      void
+      Tvmult(VectorType &dst, const VectorType &src)
+      {
+        this->A->precondition_TSOR(dst, src);
+      }
+
+    private:
+      const SmartPointer<const MatrixType> A;
+      const double                         relaxation;
+    };
+
+    template <typename MatrixType>
+    class PreconditionSSORPreconditioner
+    {
+    public:
+      using size_type = typename MatrixType::size_type;
+
+      PreconditionSSORPreconditioner(const MatrixType &A,
+                                     const double      relaxation)
+        : A(&A)
+        , relaxation(relaxation)
+      {
+        // in case we have a SparseMatrix class, we can extract information
+        // about the diagonal.
+        const SparseMatrix<typename MatrixType::value_type> *mat =
+          dynamic_cast<const SparseMatrix<typename MatrixType::value_type> *>(
+            &*this->A);
+
+        // calculate the positions first after the diagonal.
+        if (mat != nullptr)
+          {
+            const size_type n = this->A->n();
+            pos_right_of_diagonal.resize(n, static_cast<std::size_t>(-1));
+            for (size_type row = 0; row < n; ++row)
+              {
+                // find the first element in this line which is on the right of
+                // the diagonal.  we need to precondition with the elements on
+                // the left only. note: the first entry in each line denotes the
+                // diagonal element, which we need not check.
+                typename SparseMatrix<
+                  typename MatrixType::value_type>::const_iterator it =
+                  mat->begin(row) + 1;
+                for (; it < mat->end(row); ++it)
+                  if (it->column() > row)
+                    break;
+                pos_right_of_diagonal[row] = it - mat->begin();
+              }
+          }
+      }
+
+      template <typename VectorType>
+      void
+      vmult(VectorType &dst, const VectorType &src)
+      {
+        this->A->precondition_SSOR(dst,
+                                   src,
+                                   this->relaxation,
+                                   pos_right_of_diagonal);
+      }
+
+      template <typename VectorType>
+      void
+      Tvmult(VectorType &dst, const VectorType &src)
+      {
+        this->A->precondition_SSOR(dst,
+                                   src,
+                                   this->relaxation,
+                                   pos_right_of_diagonal);
+      }
+
+    private:
+      const SmartPointer<const MatrixType> A;
+      const double                         relaxation;
+
+      /**
+       * An array that stores for each matrix row where the first position after
+       * the diagonal is located.
+       */
+      std::vector<std::size_t> pos_right_of_diagonal;
+    };
+
+    template <typename MatrixType>
+    class PreconditionPSORPreconditioner
+    {
+    public:
+      using size_type = typename MatrixType::size_type;
+
+      PreconditionPSORPreconditioner(
+        const MatrixType &            A,
+        const double                  relaxation,
+        const std::vector<size_type> *permutation,
+        const std::vector<size_type> *inverse_permutation)
+        : A(&A)
+        , relaxation(relaxation)
+        , permutation(permutation)
+        , inverse_permutation(inverse_permutation)
+      {}
+
+      template <typename VectorType>
+      void
+      vmult(VectorType &dst, const VectorType &src)
+      {
+        dst = src;
+        this->A->PSOR(dst,
+                      *permutation,
+                      *inverse_permutation,
+                      this->relaxation);
+      }
+
+      template <typename VectorType>
+      void
+      Tvmult(VectorType &dst, const VectorType &src)
+      {
+        dst = src;
+        this->A->TPSOR(dst,
+                       *permutation,
+                       *inverse_permutation,
+                       this->relaxation);
+      }
+
+    private:
+      const SmartPointer<const MatrixType> A;
+      const double                         relaxation;
+
+      const std::vector<size_type> *permutation;
+      const std::vector<size_type> *inverse_permutation;
+    };
+
   } // namespace PreconditionRelaxation
 } // namespace internal
 
@@ -649,19 +795,32 @@ public:
  * @endcode
  */
 template <typename MatrixType = SparseMatrix<double>>
-class PreconditionSOR : public PreconditionRelaxation<MatrixType>
+class PreconditionSOR
+  : public PreconditionRelaxation<MatrixType,
+                                  internal::PreconditionRelaxation::
+                                    PreconditionSORPreconditioner<MatrixType>>
 {
+  using PreconditionerType =
+    internal::PreconditionRelaxation::PreconditionSORPreconditioner<MatrixType>;
+  using Base = PreconditionRelaxation<MatrixType, PreconditionerType>;
+
 public:
   /**
    * Declare type for container size.
    */
-  using size_type = typename PreconditionRelaxation<MatrixType>::size_type;
+  using size_type = typename Base::size_type;
 
   /**
    * An alias to the base class AdditionalData.
    */
-  using AdditionalData =
-    typename PreconditionRelaxation<MatrixType>::AdditionalData;
+  using AdditionalData = typename Base::AdditionalData;
+
+  /**
+   * @copydoc PreconditionRelaxation::initialize()
+   */
+  void
+  initialize(const MatrixType &    A,
+             const AdditionalData &parameters = AdditionalData());
 };
 
 
@@ -693,25 +852,26 @@ public:
  * @endcode
  */
 template <typename MatrixType = SparseMatrix<double>>
-class PreconditionSSOR : public PreconditionRelaxation<MatrixType>
+class PreconditionSSOR
+  : public PreconditionRelaxation<MatrixType,
+                                  internal::PreconditionRelaxation::
+                                    PreconditionSSORPreconditioner<MatrixType>>
 {
+  using PreconditionerType =
+    internal::PreconditionRelaxation::PreconditionSSORPreconditioner<
+      MatrixType>;
+  using Base = PreconditionRelaxation<MatrixType, PreconditionerType>;
+
 public:
   /**
    * Declare type for container size.
    */
-  using size_type = typename PreconditionRelaxation<MatrixType>::size_type;
+  using size_type = typename Base::size_type;
 
   /**
    * An alias to the base class AdditionalData.
    */
-  using AdditionalData =
-    typename PreconditionRelaxation<MatrixType>::AdditionalData;
-
-  /**
-   * An alias to the base class.
-   */
-  using BaseClass = PreconditionRelaxation<MatrixType>;
-
+  using AdditionalData = typename Base::AdditionalData;
 
   /**
    * Initialize matrix and relaxation parameter. The matrix is just stored in
@@ -719,16 +879,8 @@ public:
    * zero and smaller than 2 for numerical reasons. It defaults to 1.
    */
   void
-  initialize(const MatrixType &                        A,
-             const typename BaseClass::AdditionalData &parameters =
-               typename BaseClass::AdditionalData());
-
-private:
-  /**
-   * An array that stores for each matrix row where the first position after
-   * the diagonal is located.
-   */
-  std::vector<std::size_t> pos_right_of_diagonal;
+  initialize(const MatrixType &    A,
+             const AdditionalData &parameters = AdditionalData());
 };
 
 
@@ -762,13 +914,21 @@ private:
  * @endcode
  */
 template <typename MatrixType = SparseMatrix<double>>
-class PreconditionPSOR : public PreconditionRelaxation<MatrixType>
+class PreconditionPSOR
+  : public PreconditionRelaxation<MatrixType,
+                                  internal::PreconditionRelaxation::
+                                    PreconditionPSORPreconditioner<MatrixType>>
 {
+  using PreconditionerType =
+    internal::PreconditionRelaxation::PreconditionPSORPreconditioner<
+      MatrixType>;
+  using Base = PreconditionRelaxation<MatrixType, PreconditionerType>;
+
 public:
   /**
    * Declare type for container size.
    */
-  using size_type = typename PreconditionRelaxation<MatrixType>::size_type;
+  using size_type = typename Base::size_type;
 
   /**
    * Parameters for PreconditionPSOR.
@@ -786,12 +946,10 @@ public:
      * The relaxation parameter should be larger than zero and smaller than 2
      * for numerical reasons. It defaults to 1.
      */
-    AdditionalData(
-      const std::vector<size_type> &permutation,
-      const std::vector<size_type> &inverse_permutation,
-      const typename PreconditionRelaxation<MatrixType>::AdditionalData
-        &parameters =
-          typename PreconditionRelaxation<MatrixType>::AdditionalData());
+    AdditionalData(const std::vector<size_type> &       permutation,
+                   const std::vector<size_type> &       inverse_permutation,
+                   const typename Base::AdditionalData &parameters =
+                     typename Base::AdditionalData());
 
     /**
      * Storage for the permutation vector.
@@ -804,7 +962,7 @@ public:
     /**
      * Relaxation parameters
      */
-    typename PreconditionRelaxation<MatrixType>::AdditionalData parameters;
+    typename Base::AdditionalData parameters;
   };
 
   /**
@@ -819,12 +977,11 @@ public:
    * for numerical reasons. It defaults to 1.
    */
   void
-  initialize(const MatrixType &            A,
-             const std::vector<size_type> &permutation,
-             const std::vector<size_type> &inverse_permutation,
-             const typename PreconditionRelaxation<MatrixType>::AdditionalData
-               &parameters =
-                 typename PreconditionRelaxation<MatrixType>::AdditionalData());
+  initialize(const MatrixType &                   A,
+             const std::vector<size_type> &       permutation,
+             const std::vector<size_type> &       inverse_permutation,
+             const typename Base::AdditionalData &parameters =
+               typename Base::AdditionalData());
 
   /**
    * Initialize matrix and relaxation parameter. The matrix is just stored in
@@ -838,16 +995,6 @@ public:
    */
   void
   initialize(const MatrixType &A, const AdditionalData &additional_data);
-
-private:
-  /**
-   * Storage for the permutation vector.
-   */
-  const std::vector<size_type> *permutation;
-  /**
-   * Storage for the inverse permutation vector.
-   */
-  const std::vector<size_type> *inverse_permutation;
 };
 
 
@@ -1574,44 +1721,41 @@ PreconditionJacobi<MatrixType>::initialize(const MatrixType &    A,
   parameters.preconditioner =
     std::make_shared<PreconditionerType>(A, parameters_in.relaxation);
 
-  Base::initialize(A, parameters);
+  this->Base::initialize(A, parameters);
 }
 
 //---------------------------------------------------------------------------
 
 template <typename MatrixType>
 inline void
-PreconditionSSOR<MatrixType>::initialize(
-  const MatrixType &                        rA,
-  const typename BaseClass::AdditionalData &parameters)
+PreconditionSOR<MatrixType>::initialize(const MatrixType &    A,
+                                        const AdditionalData &parameters_in)
 {
-  this->PreconditionRelaxation<MatrixType>::initialize(rA, parameters);
+  Assert(parameters_in.preconditioner == nullptr, ExcInternalError());
 
-  // in case we have a SparseMatrix class, we can extract information about
-  // the diagonal.
-  const SparseMatrix<typename MatrixType::value_type> *mat =
-    dynamic_cast<const SparseMatrix<typename MatrixType::value_type> *>(
-      &*this->A);
+  AdditionalData parameters;
+  parameters.relaxation = 1.0;
+  parameters.preconditioner =
+    std::make_shared<PreconditionerType>(A, parameters_in.relaxation);
 
-  // calculate the positions first after the diagonal.
-  if (mat != nullptr)
-    {
-      const size_type n = this->A->n();
-      pos_right_of_diagonal.resize(n, static_cast<std::size_t>(-1));
-      for (size_type row = 0; row < n; ++row)
-        {
-          // find the first element in this line which is on the right of the
-          // diagonal.  we need to precondition with the elements on the left
-          // only. note: the first entry in each line denotes the diagonal
-          // element, which we need not check.
-          typename SparseMatrix<typename MatrixType::value_type>::const_iterator
-            it = mat->begin(row) + 1;
-          for (; it < mat->end(row); ++it)
-            if (it->column() > row)
-              break;
-          pos_right_of_diagonal[row] = it - mat->begin();
-        }
-    }
+  this->Base::initialize(A, parameters);
+}
+
+//---------------------------------------------------------------------------
+
+template <typename MatrixType>
+inline void
+PreconditionSSOR<MatrixType>::initialize(const MatrixType &    A,
+                                         const AdditionalData &parameters_in)
+{
+  Assert(parameters_in.preconditioner == nullptr, ExcInternalError());
+
+  AdditionalData parameters;
+  parameters.relaxation = 1.0;
+  parameters.preconditioner =
+    std::make_shared<PreconditionerType>(A, parameters_in.relaxation);
+
+  this->Base::initialize(A, parameters);
 }
 
 
@@ -1621,14 +1765,19 @@ PreconditionSSOR<MatrixType>::initialize(
 template <typename MatrixType>
 inline void
 PreconditionPSOR<MatrixType>::initialize(
-  const MatrixType &                                                 rA,
-  const std::vector<size_type> &                                     p,
-  const std::vector<size_type> &                                     ip,
-  const typename PreconditionRelaxation<MatrixType>::AdditionalData &parameters)
+  const MatrixType &                   A,
+  const std::vector<size_type> &       p,
+  const std::vector<size_type> &       ip,
+  const typename Base::AdditionalData &parameters_in)
 {
-  permutation         = &p;
-  inverse_permutation = &ip;
-  PreconditionRelaxation<MatrixType>::initialize(rA, parameters);
+  Assert(parameters_in.preconditioner == nullptr, ExcInternalError());
+
+  typename Base::AdditionalData parameters;
+  parameters.relaxation = 1.0;
+  parameters.preconditioner =
+    std::make_shared<PreconditionerType>(A, parameters_in.relaxation, p, ip);
+
+  this->Base::initialize(A, parameters);
 }
 
 
@@ -1647,7 +1796,9 @@ template <typename MatrixType>
 PreconditionPSOR<MatrixType>::AdditionalData::AdditionalData(
   const std::vector<size_type> &permutation,
   const std::vector<size_type> &inverse_permutation,
-  const typename PreconditionRelaxation<MatrixType>::AdditionalData &parameters)
+  const typename PreconditionRelaxation<MatrixType,
+                                        PreconditionerType>::AdditionalData
+    &parameters)
   : permutation(permutation)
   , inverse_permutation(inverse_permutation)
   , parameters(parameters)
