@@ -863,18 +863,18 @@ class PreconditionJacobi
   using PreconditionerType =
     internal::PreconditionRelaxation::PreconditionJacobiPreconditioner<
       MatrixType>;
-  using Base = PreconditionRelaxation<MatrixType, PreconditionerType>;
+  using BaseClass = PreconditionRelaxation<MatrixType, PreconditionerType>;
 
 public:
   /**
    * Declare type for container size.
    */
-  using size_type = typename Base::size_type;
+  using size_type = typename BaseClass::size_type;
 
   /**
    * An alias to the base class AdditionalData.
    */
-  using AdditionalData = typename Base::AdditionalData;
+  using AdditionalData = typename BaseClass::AdditionalData;
 
   /**
    * @copydoc PreconditionRelaxation::initialize()
@@ -938,18 +938,18 @@ class PreconditionSOR
 {
   using PreconditionerType =
     internal::PreconditionRelaxation::PreconditionSORPreconditioner<MatrixType>;
-  using Base = PreconditionRelaxation<MatrixType, PreconditionerType>;
+  using BaseClass = PreconditionRelaxation<MatrixType, PreconditionerType>;
 
 public:
   /**
    * Declare type for container size.
    */
-  using size_type = typename Base::size_type;
+  using size_type = typename BaseClass::size_type;
 
   /**
    * An alias to the base class AdditionalData.
    */
-  using AdditionalData = typename Base::AdditionalData;
+  using AdditionalData = typename BaseClass::AdditionalData;
 
   /**
    * @copydoc PreconditionRelaxation::initialize()
@@ -996,18 +996,18 @@ class PreconditionSSOR
   using PreconditionerType =
     internal::PreconditionRelaxation::PreconditionSSORPreconditioner<
       MatrixType>;
-  using Base = PreconditionRelaxation<MatrixType, PreconditionerType>;
+  using BaseClass = PreconditionRelaxation<MatrixType, PreconditionerType>;
 
 public:
   /**
    * Declare type for container size.
    */
-  using size_type = typename Base::size_type;
+  using size_type = typename BaseClass::size_type;
 
   /**
    * An alias to the base class AdditionalData.
    */
-  using AdditionalData = typename Base::AdditionalData;
+  using AdditionalData = typename BaseClass::AdditionalData;
 
   /**
    * Initialize matrix and relaxation parameter. The matrix is just stored in
@@ -1058,13 +1058,13 @@ class PreconditionPSOR
   using PreconditionerType =
     internal::PreconditionRelaxation::PreconditionPSORPreconditioner<
       MatrixType>;
-  using Base = PreconditionRelaxation<MatrixType, PreconditionerType>;
+  using BaseClass = PreconditionRelaxation<MatrixType, PreconditionerType>;
 
 public:
   /**
    * Declare type for container size.
    */
-  using size_type = typename Base::size_type;
+  using size_type = typename BaseClass::size_type;
 
   /**
    * Parameters for PreconditionPSOR.
@@ -1082,10 +1082,10 @@ public:
      * The relaxation parameter should be larger than zero and smaller than 2
      * for numerical reasons. It defaults to 1.
      */
-    AdditionalData(const std::vector<size_type> &       permutation,
-                   const std::vector<size_type> &       inverse_permutation,
-                   const typename Base::AdditionalData &parameters =
-                     typename Base::AdditionalData());
+    AdditionalData(const std::vector<size_type> &permutation,
+                   const std::vector<size_type> &inverse_permutation,
+                   const typename BaseClass::AdditionalData &parameters =
+                     typename BaseClass::AdditionalData());
 
     /**
      * Storage for the permutation vector.
@@ -1098,7 +1098,7 @@ public:
     /**
      * Relaxation parameters
      */
-    typename Base::AdditionalData parameters;
+    typename BaseClass::AdditionalData parameters;
   };
 
   /**
@@ -1113,11 +1113,11 @@ public:
    * for numerical reasons. It defaults to 1.
    */
   void
-  initialize(const MatrixType &                   A,
-             const std::vector<size_type> &       permutation,
-             const std::vector<size_type> &       inverse_permutation,
-             const typename Base::AdditionalData &parameters =
-               typename Base::AdditionalData());
+  initialize(const MatrixType &                        A,
+             const std::vector<size_type> &            permutation,
+             const std::vector<size_type> &            inverse_permutation,
+             const typename BaseClass::AdditionalData &parameters =
+               typename BaseClass::AdditionalData());
 
   /**
    * Initialize matrix and relaxation parameter. The matrix is just stored in
@@ -1858,7 +1858,7 @@ PreconditionJacobi<MatrixType>::initialize(const MatrixType &    A,
   parameters.preconditioner =
     std::make_shared<PreconditionerType>(A, parameters_in.relaxation);
 
-  this->Base::initialize(A, parameters);
+  this->BaseClass::initialize(A, parameters);
 }
 
 //---------------------------------------------------------------------------
@@ -1875,7 +1875,7 @@ PreconditionSOR<MatrixType>::initialize(const MatrixType &    A,
   parameters.preconditioner =
     std::make_shared<PreconditionerType>(A, parameters_in.relaxation);
 
-  this->Base::initialize(A, parameters);
+  this->BaseClass::initialize(A, parameters);
 }
 
 //---------------------------------------------------------------------------
@@ -1892,7 +1892,7 @@ PreconditionSSOR<MatrixType>::initialize(const MatrixType &    A,
   parameters.preconditioner =
     std::make_shared<PreconditionerType>(A, parameters_in.relaxation);
 
-  this->Base::initialize(A, parameters);
+  this->BaseClass::initialize(A, parameters);
 }
 
 
@@ -1902,19 +1902,19 @@ PreconditionSSOR<MatrixType>::initialize(const MatrixType &    A,
 template <typename MatrixType>
 inline void
 PreconditionPSOR<MatrixType>::initialize(
-  const MatrixType &                   A,
-  const std::vector<size_type> &       p,
-  const std::vector<size_type> &       ip,
-  const typename Base::AdditionalData &parameters_in)
+  const MatrixType &                        A,
+  const std::vector<size_type> &            p,
+  const std::vector<size_type> &            ip,
+  const typename BaseClass::AdditionalData &parameters_in)
 {
   Assert(parameters_in.preconditioner == nullptr, ExcInternalError());
 
-  typename Base::AdditionalData parameters;
+  typename BaseClass::AdditionalData parameters;
   parameters.relaxation = 1.0;
   parameters.preconditioner =
     std::make_shared<PreconditionerType>(A, parameters_in.relaxation, p, ip);
 
-  this->Base::initialize(A, parameters);
+  this->BaseClass::initialize(A, parameters);
 }
 
 
