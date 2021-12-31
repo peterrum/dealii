@@ -1,0 +1,8 @@
+Improved: The class PreconditionRelaxation has been refactored.
+Just like in the case of PreconditionChebyshev, it can be now used
+stand-alone and users can attach their own preconditioners.
+Furthermore, users can specify the number of smoothing steps, 
+which is particularly useful if PreconditionRelaxation is 
+used as smoother in a multigrid algorithm.
+<br>
+(Peter Munch, 2022/01/01)
