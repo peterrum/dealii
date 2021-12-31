@@ -507,6 +507,9 @@ protected:
 };
 
 
+
+#ifndef DOXYGEN
+
 namespace internal
 {
   namespace PreconditionRelaxation
@@ -827,6 +830,9 @@ namespace internal
 
   } // namespace PreconditionRelaxation
 } // namespace internal
+
+#endif
+
 
 
 /**
