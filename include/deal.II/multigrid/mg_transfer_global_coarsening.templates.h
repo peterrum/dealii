@@ -969,6 +969,66 @@ namespace internal
     }
   };
 
+
+
+  // helper class: to process the fine level cells; function @p fu_non_refined is
+  // performed on cells that are not refined and @fu_refined is performed on
+  // children of cells that are refined
+  template <int dim>
+  class CellProcessorH
+  {
+  public:
+    CellProcessorH(const DoFHandler<dim> &dof_handler_coarse,
+                   const unsigned int     mg_level_coarse,
+                   const GlobalCoarseningFineDoFHandlerView<dim> &view)
+      : dof_handler_coarse(dof_handler_coarse)
+      , mg_level_coarse(mg_level_coarse)
+      , view(view)
+    {}
+
+    template <typename U, typename V>
+    void
+    process_cells(const U &fu_non_refined, const V &fu_refined) const
+    {
+      loop_over_active_or_level_cells(
+        dof_handler_coarse, mg_level_coarse, [&](const auto &cell_coarse) {
+          if (mg_level_coarse == numbers::invalid_unsigned_int)
+            {
+              // get a reference to the equivalent cell on the fine
+              // triangulation
+              const auto cell_coarse_on_fine_mesh = view.get_cell(cell_coarse);
+
+              // check if cell has children
+              if (cell_coarse_on_fine_mesh.has_children())
+                // ... cell has children -> process children
+                for (unsigned int c = 0;
+                     c < GeometryInfo<dim>::max_children_per_cell;
+                     c++)
+                  fu_refined(cell_coarse, view.get_cell(cell_coarse, c), c);
+              else // ... cell has no children -> process cell
+                fu_non_refined(cell_coarse, cell_coarse_on_fine_mesh);
+            }
+          else
+            {
+              // check if cell has children
+              if (cell_coarse->has_children())
+                // ... cell has children -> process children
+                for (unsigned int c = 0;
+                     c < GeometryInfo<dim>::max_children_per_cell;
+                     c++)
+                  fu_refined(cell_coarse, view.get_cell(cell_coarse, c), c);
+            }
+        });
+    }
+
+  private:
+    const DoFHandler<dim> &                        dof_handler_coarse;
+    const unsigned int                             mg_level_coarse;
+    const GlobalCoarseningFineDoFHandlerView<dim> &view;
+  };
+
+
+
   class MGTwoLevelTransferImplementation
   {
     template <int dim, typename Number>
@@ -1427,42 +1487,9 @@ namespace internal
         }
       }
 
-      // helper function: to process the fine level cells; function @p fu_non_refined is
-      // performed on cells that are not refined and @fu_refined is performed on
-      // children of cells that are refined
-      const auto process_cells = [&](const auto &fu_non_refined,
-                                     const auto &fu_refined) {
-        loop_over_active_or_level_cells(
-          dof_handler_coarse, mg_level_coarse, [&](const auto &cell_coarse) {
-            if (mg_level_coarse == numbers::invalid_unsigned_int)
-              {
-                // get a reference to the equivalent cell on the fine
-                // triangulation
-                const auto cell_coarse_on_fine_mesh =
-                  view.get_cell(cell_coarse);
-
-                // check if cell has children
-                if (cell_coarse_on_fine_mesh.has_children())
-                  // ... cell has children -> process children
-                  for (unsigned int c = 0;
-                       c < GeometryInfo<dim>::max_children_per_cell;
-                       c++)
-                    fu_refined(cell_coarse, view.get_cell(cell_coarse, c), c);
-                else // ... cell has no children -> process cell
-                  fu_non_refined(cell_coarse, cell_coarse_on_fine_mesh);
-              }
-            else
-              {
-                // check if cell has children
-                if (cell_coarse->has_children())
-                  // ... cell has children -> process children
-                  for (unsigned int c = 0;
-                       c < GeometryInfo<dim>::max_children_per_cell;
-                       c++)
-                    fu_refined(cell_coarse, view.get_cell(cell_coarse, c), c);
-              }
-          });
-      };
+      const CellProcessorH<dim> cell_processor(dof_handler_coarse,
+                                               mg_level_coarse,
+                                               view);
 
       // check if FE is the same
       AssertDimension(fe_coarse.n_dofs_per_cell(), fe_fine.n_dofs_per_cell());
@@ -1498,7 +1525,7 @@ namespace internal
         transfer.schemes[1].n_coarse_cells = 0;
 
         // count by looping over all coarse cells
-        process_cells(
+        cell_processor.process_cells(
           [&](const auto &, const auto &) {
             transfer.schemes[0].n_coarse_cells++;
           },
@@ -1604,7 +1631,7 @@ namespace internal
             coarse_cell_refinement_configurations_0 +
             transfer.schemes[0].n_coarse_cells;
 
-        process_cells(
+        cell_processor.process_cells(
           [&](const auto &cell_coarse, const auto &cell_fine) {
             // parent
             {
@@ -1896,7 +1923,7 @@ namespace internal
           unsigned int *dof_indices_fine_1 =
             transfer.level_dof_indices_fine.data() + n_dof_indices_fine[1];
 
-          process_cells(
+          cell_processor.process_cells(
             [&](const auto &, const auto &) {
               for (unsigned int i = 0;
                    i < transfer.schemes[0].n_dofs_per_cell_fine;
