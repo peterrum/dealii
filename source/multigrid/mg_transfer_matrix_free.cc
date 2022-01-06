@@ -117,12 +117,19 @@ MGTransferMatrixFree<dim, Number>::build(
            "for multigrid transfers. You will need to call this function, "
            "probably close to where you already call distribute_dofs()."));
   if (external_partitioners.size() > 0)
-    this->initialize_dof_vector =
-      [&external_partitioners](
-        const unsigned int                          level,
-        LinearAlgebra::distributed::Vector<Number> &vec) {
-        vec.reinit(external_partitioners[level]);
-      };
+    {
+      Assert(
+        this->initialize_dof_vector == nullptr,
+        ExcMessage(
+          "A initialize_dof_vector function has already been registered in the constructor!"));
+
+      this->initialize_dof_vector =
+        [&external_partitioners](
+          const unsigned int                          level,
+          LinearAlgebra::distributed::Vector<Number> &vec) {
+          vec.reinit(external_partitioners[level]);
+        };
+    }
 
   this->fill_and_communicate_copy_indices(dof_handler);
 
@@ -156,8 +163,7 @@ MGTransferMatrixFree<dim, Number>::build(
   this->ghosted_level_vector.resize(0, vector_partitioners.max_level());
   for (unsigned int level = 0; level <= vector_partitioners.max_level();
        ++level)
-    if (false &&
-        external_partitioners.size() == vector_partitioners.max_level() + 1 &&
+    if (external_partitioners.size() == vector_partitioners.max_level() + 1 &&
         external_partitioners[level].get() == vector_partitioners[level].get())
       this->ghosted_level_vector[level].reinit(0);
     else
