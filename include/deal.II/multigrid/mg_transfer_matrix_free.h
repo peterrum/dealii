@@ -59,20 +59,13 @@ public:
    * Constructor without constraint matrices. Use this constructor only with
    * discontinuous finite elements or with no local refinement.
    */
-  MGTransferMatrixFree(
-    const std::function<void(const unsigned int,
-                             LinearAlgebra::distributed::Vector<Number> &)>
-      &initialize_dof_vector = {});
+  MGTransferMatrixFree();
 
   /**
    * Constructor with constraints. Equivalent to the default constructor
    * followed by initialize_constraints().
    */
-  MGTransferMatrixFree(
-    const MGConstrainedDoFs &mg_constrained_dofs,
-    const std::function<void(const unsigned int,
-                             LinearAlgebra::distributed::Vector<Number> &)>
-      &initialize_dof_vector = {});
+  MGTransferMatrixFree(const MGConstrainedDoFs &mg_constrained_dofs);
 
   /**
    * Destructor.
@@ -111,6 +104,16 @@ public:
         const std::vector<std::shared_ptr<const Utilities::MPI::Partitioner>>
           &external_partitioners =
             std::vector<std::shared_ptr<const Utilities::MPI::Partitioner>>());
+
+  /**
+   * Same as above but taking a lambda for initializing vector instead of
+   * partitioners.
+   */
+  void
+  build(const DoFHandler<dim, dim> &dof_handler,
+        const std::function<void(const unsigned int,
+                                 LinearAlgebra::distributed::Vector<Number> &)>
+          &initialize_dof_vector);
 
   /**
    * Prolongate a vector from level <tt>to_level-1</tt> to level

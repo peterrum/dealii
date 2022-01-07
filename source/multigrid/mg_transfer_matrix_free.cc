@@ -41,13 +41,8 @@ DEAL_II_NAMESPACE_OPEN
 
 
 template <int dim, typename Number>
-MGTransferMatrixFree<dim, Number>::MGTransferMatrixFree(
-  const std::function<void(const unsigned int,
-                           LinearAlgebra::distributed::Vector<Number> &)>
-    &initialize_dof_vector)
-  : MGLevelGlobalTransfer<LinearAlgebra::distributed::Vector<Number>>(
-      initialize_dof_vector)
-  , fe_degree(0)
+MGTransferMatrixFree<dim, Number>::MGTransferMatrixFree()
+  : fe_degree(0)
   , element_is_continuous(false)
   , n_components(0)
   , n_child_cell_dofs(0)
@@ -57,13 +52,8 @@ MGTransferMatrixFree<dim, Number>::MGTransferMatrixFree(
 
 template <int dim, typename Number>
 MGTransferMatrixFree<dim, Number>::MGTransferMatrixFree(
-  const MGConstrainedDoFs &mg_c,
-  const std::function<void(const unsigned int,
-                           LinearAlgebra::distributed::Vector<Number> &)>
-    &initialize_dof_vector)
-  : MGLevelGlobalTransfer<LinearAlgebra::distributed::Vector<Number>>(
-      initialize_dof_vector)
-  , fe_degree(0)
+  const MGConstrainedDoFs &mg_c)
+  : fe_degree(0)
   , element_is_continuous(false)
   , n_components(0)
   , n_child_cell_dofs(0)
@@ -103,6 +93,7 @@ MGTransferMatrixFree<dim, Number>::clear()
 }
 
 
+
 template <int dim, typename Number>
 void
 MGTransferMatrixFree<dim, Number>::build(
@@ -124,7 +115,7 @@ MGTransferMatrixFree<dim, Number>::build(
           "A initialize_dof_vector function has already been registered in the constructor!"));
 
       this->initialize_dof_vector =
-        [&external_partitioners](
+        [external_partitioners](
           const unsigned int                          level,
           LinearAlgebra::distributed::Vector<Number> &vec) {
           vec.reinit(external_partitioners[level]);
@@ -206,6 +197,39 @@ MGTransferMatrixFree<dim, Number>::build(
     }
 
   evaluation_data.resize(n_child_cell_dofs);
+}
+
+
+
+template <int dim, typename Number>
+void
+MGTransferMatrixFree<dim, Number>::build(
+  const DoFHandler<dim, dim> &dof_handler,
+  const std::function<void(const unsigned int,
+                           LinearAlgebra::distributed::Vector<Number> &)>
+    &initialize_dof_vector)
+{
+  if (initialize_dof_vector)
+    {
+      const unsigned int n_levels =
+        dof_handler.get_triangulation().n_global_levels();
+
+      std::vector<std::shared_ptr<const Utilities::MPI::Partitioner>>
+        external_partitioners(n_levels);
+
+      for (unsigned int level = 0; level < n_levels; ++level)
+        {
+          LinearAlgebra::distributed::Vector<Number> vector;
+          initialize_dof_vector(level, vector);
+          external_partitioners[level] = vector.get_partitioner();
+        }
+
+      build(dof_handler, external_partitioners);
+    }
+  else
+    {
+      build(dof_handler);
+    }
 }
 
 

@@ -395,16 +395,6 @@ MGLevelGlobalTransfer<VectorType>::assert_built(
 /* --------- MGLevelGlobalTransfer<LinearAlgebra::distributed::Vector> -------
  */
 
-
-template <typename Number>
-MGLevelGlobalTransfer<LinearAlgebra::distributed::Vector<Number>>::
-  MGLevelGlobalTransfer(
-    const std::function<void(const unsigned int,
-                             LinearAlgebra::distributed::Vector<Number> &)>
-      &initialize_dof_vector)
-  : initialize_dof_vector(initialize_dof_vector)
-{}
-
 template <typename Number>
 template <int dim, typename Number2, int spacedim>
 void
@@ -583,7 +573,6 @@ MGLevelGlobalTransfer<LinearAlgebra::distributed::Vector<Number>>::copy_from_mg(
 
       if (ghosted_level_vector[level].size() > 0)
         ghosted_vector = src[level];
-
 
       const auto ghosted_vector_ptr = (ghosted_level_vector[level].size() > 0) ?
                                         &ghosted_vector :
