@@ -609,6 +609,12 @@ protected:
   const unsigned int n_quadrature_points;
 
   /**
+   * A pointer to the quadrature-point information of the present cell.
+   * Only set to a useful value if on a non-Cartesian cell.
+   */
+  const Point<dim, Number> *quadrature_points;
+
+  /**
    * A pointer to the Jacobian information of the present cell. Only set to a
    * useful value if on a non-Cartesian cell.
    */
