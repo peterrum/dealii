@@ -785,6 +785,28 @@ protected:
    * MatrixFree object was given at initialization.
    */
   mutable std::vector<types::global_dof_index> local_dof_indices;
+
+  /**
+   * TODO.
+   */
+  AlignedVector<Tensor<2, dim, VectorizedArrayType>> jacobian_data;
+
+  /**
+   * TODO.
+   */
+  AlignedVector<VectorizedArrayType> J_value_data;
+
+  /**
+   * TODO.
+   */
+  AlignedVector<
+    Tensor<1, dim *(dim + 1) / 2, Tensor<1, dim, VectorizedArrayType>>>
+    jacobian_gradients_data;
+
+  /**
+   * TODO.
+   */
+  AlignedVector<Point<dim, VectorizedArrayType>> quadrature_points_data;
 };
 
 
@@ -2156,6 +2178,13 @@ public:
    */
   void
   reinit(const unsigned int cell_batch_index);
+
+  /**
+   * TODO
+   */
+  void
+  reinit(const std::array<unsigned int, VectorizedArrayType::size()>
+           &cell_batch_index);
 
   /**
    * Initialize the data to the current cell using a TriaIterator object as
@@ -6942,6 +6971,101 @@ FEEvaluation<dim,
     this->quadrature_points =
       &this->mapping_data->quadrature_points
          [this->mapping_data->quadrature_point_offsets[this->cell]];
+
+#  ifdef DEBUG
+  this->is_reinitialized           = true;
+  this->dof_values_initialized     = false;
+  this->values_quad_initialized    = false;
+  this->gradients_quad_initialized = false;
+  this->hessians_quad_initialized  = false;
+#  endif
+}
+
+
+
+template <int dim,
+          int fe_degree,
+          int n_q_points_1d,
+          int n_components_,
+          typename Number,
+          typename VectorizedArrayType>
+inline void
+FEEvaluation<dim,
+             fe_degree,
+             n_q_points_1d,
+             n_components_,
+             Number,
+             VectorizedArrayType>::
+  reinit(const std::array<unsigned int, VectorizedArrayType::size()> &cell_ids)
+{
+  Assert(this->mapped_geometry == nullptr,
+         ExcMessage("FEEvaluation was initialized without a matrix-free object."
+                    " Integer indexing is not possible"));
+  if (this->mapped_geometry != nullptr)
+    return;
+
+  Assert(this->dof_info != nullptr, ExcNotInitialized());
+  Assert(this->mapping_data != nullptr, ExcNotInitialized());
+
+  this->cell     = numbers::invalid_unsigned_int;
+  this->cell_ids = cell_ids;
+
+  // determine type of cell batch
+  this->cell_type = internal::MatrixFreeFunctions::GeometryType::cartesian;
+
+  for (unsigned int v = 0; v < VectorizedArrayType::size(); ++v)
+    {
+      const unsigned int cell_index = cell_ids[v];
+
+      if (cell_index == numbers::invalid_unsigned_int)
+        continue;
+
+      this->cell_type =
+        std::max(this->cell_type,
+                 this->matrix_free->get_mapping_info().get_cell_type(
+                   cell_index));
+    }
+
+  // allocate memory for internal data storage
+  this->jacobian_data.resize_fast(this->n_quadrature_points);
+  this->J_value_data.resize_fast(this->n_quadrature_points);
+  this->jacobian_gradients_data.resize_fast(this->n_quadrature_points);
+
+  if ((this->matrix_free == nullptr &&
+       (this->mapped_geometry->get_fe_values().get_update_flags() |
+        update_quadrature_points)) ||
+      this->mapping_data->quadrature_point_offsets.empty() == false)
+    this->quadrature_points_data.resize_fast(this->n_quadrature_points);
+
+  // set pointers to internal data storage
+  this->jacobian                = this->jacobian_data.data();
+  this->J_value_data            = this->J_value_data.data();
+  this->jacobian_gradients_data = this->jacobian_gradients_data.data();
+  this->quadrature_points_data  = this->quadrature_points_data.data();
+
+  // fill internal data storage lane by lane
+  for (unsigned int v = 0; v < VectorizedArrayType::size(); ++v)
+    {
+      const unsigned int cell_index = cell_ids[v];
+
+      if (cell_index == numbers::invalid_unsigned_int)
+        continue;
+
+      const unsigned int offsets =
+        this->mapping_data
+          ->data_index_offsets[cell_index / VectorizedArrayType::size()];
+      const unsigned int lane = cell_index % VectorizedArrayType::size();
+
+      // this->jacobian = &this->mapping_data->jacobians[0][offsets];
+      // this->J_value  = &this->mapping_data->JxW_values[offsets];
+      // this->jacobian_gradients =
+      //  this->mapping_data->jacobian_gradients[0].data() + offsets;
+      //
+      // if (jacobian_gradients_data.size() > 0)
+      //  this->quadrature_points =
+      //    &this->mapping_data->quadrature_points
+      //       [this->mapping_data->quadrature_point_offsets[this->cell]];
+    }
 
 #  ifdef DEBUG
   this->is_reinitialized           = true;
