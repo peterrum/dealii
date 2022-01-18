@@ -7026,16 +7026,34 @@ FEEvaluation<dim,
                    cell_index));
     }
 
-  // allocate memory for internal data storage
-  this->jacobian_data.resize_fast(this->n_quadrature_points);
-  this->J_value_data.resize_fast(this->n_quadrature_points);
-  this->jacobian_gradients_data.resize_fast(this->n_quadrature_points);
+  Assert(this->cell_type <= internal::MatrixFreeFunctions::GeometryType::affine,
+         ExcNotImplemented());
 
-  if ((this->matrix_free == nullptr &&
-       (this->mapped_geometry->get_fe_values().get_update_flags() |
-        update_quadrature_points)) ||
-      this->mapping_data->quadrature_point_offsets.empty() == false)
-    this->quadrature_points_data.resize_fast(this->n_quadrature_points);
+  // allocate memory for internal data storage
+  const bool need_quadrature_points =
+    (this->matrix_free == nullptr &&
+     (this->mapped_geometry->get_fe_values().get_update_flags() |
+      update_quadrature_points)) ||
+    this->mapping_data->quadrature_point_offsets.empty() == false;
+
+  if (this->cell_type <= internal::MatrixFreeFunctions::GeometryType::affine)
+    {
+      this->jacobian_data.resize_fast(1);
+      this->J_value_data.resize_fast(1);
+      this->jacobian_gradients_data.resize_fast(1);
+
+      if (need_quadrature_points)
+        this->quadrature_points_data.resize_fast(1);
+    }
+  else
+    {
+      this->jacobian_data.resize_fast(this->n_quadrature_points);
+      this->J_value_data.resize_fast(this->n_quadrature_points);
+      this->jacobian_gradients_data.resize_fast(this->n_quadrature_points);
+
+      if (need_quadrature_points)
+        this->quadrature_points_data.resize_fast(this->n_quadrature_points);
+    }
 
   // set pointers to internal data storage
   this->jacobian                = this->jacobian_data.data();
@@ -7051,20 +7069,43 @@ FEEvaluation<dim,
       if (cell_index == numbers::invalid_unsigned_int)
         continue;
 
+      const unsigned int cell_batch_index =
+        cell_index / VectorizedArrayType::size();
       const unsigned int offsets =
-        this->mapping_data
-          ->data_index_offsets[cell_index / VectorizedArrayType::size()];
+        this->mapping_data->data_index_offsets[cell_batch_index];
       const unsigned int lane = cell_index % VectorizedArrayType::size();
 
-      // this->jacobian = &this->mapping_data->jacobians[0][offsets];
-      // this->J_value  = &this->mapping_data->JxW_values[offsets];
-      // this->jacobian_gradients =
-      //  this->mapping_data->jacobian_gradients[0].data() + offsets;
-      //
-      // if (jacobian_gradients_data.size() > 0)
-      //  this->quadrature_points =
-      //    &this->mapping_data->quadrature_points
-      //       [this->mapping_data->quadrature_point_offsets[this->cell]];
+      if (this->cell_type <=
+          internal::MatrixFreeFunctions::GeometryType::affine)
+        {
+          const unsigned int c = 0;
+
+          this->J_value[c][v] =
+            this->mapping_data->JxW_values[offsets + c][lane];
+
+          for (unsigned int i = 0; i < dim; ++i)
+            for (unsigned int j = 0; j < dim; ++j)
+              this->jacobian[c][i][j][v] =
+                &this->mapping_data->jacobians[0][offsets + c][i][j][lane];
+
+          for (unsigned int i = 0; i < dim * (dim + 1) / 2; ++i)
+            for (unsigned int j = 0; j < dim; ++j)
+              this->jacobian_gradients[c][i][j][v] =
+                this->mapping_data
+                  ->jacobian_gradients[0][offsets + c][i][j][lane];
+
+          if (need_quadrature_points)
+            for (unsigned int i = 0; i < dim; ++i)
+              this->quadrature_points[c][i][v] =
+                this->mapping_data->quadrature_points
+                  [this->mapping_data
+                     ->quadrature_point_offsets[cell_batch_index] +
+                   c][i][lane];
+        }
+      else
+        {
+          Assert(false, ExcNotImplemented());
+        }
     }
 
 #  ifdef DEBUG
