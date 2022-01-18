@@ -3518,7 +3518,8 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
     values_dofs[c] = const_cast<VectorizedArrayType *>(this->values_dofs) +
                      c * dofs_per_component;
 
-  if (this->dof_info->index_storage_variants
+  if (this->cell != numbers::invalid_unsigned_int &&
+      this->dof_info->index_storage_variants
           [is_face ? this->dof_access_index :
                      internal::MatrixFreeFunctions::DoFInfo::dof_access_cell]
           [this->cell] == internal::MatrixFreeFunctions::DoFInfo::

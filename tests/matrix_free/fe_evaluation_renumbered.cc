@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 2020 - 2021 by the deal.II authors
+// Copyright (C) 2021 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -32,11 +32,7 @@
 #include "../tests.h"
 
 
-// Test FEFaceEvaluation::read_dof_values() and
-// FEFaceEvaluation::gather_evaluate() for ECL for two cells.
-//
-// @note Since this program assumes that both cells are within the same
-//   macro cell, this test is only run if vectorization is enabled.
+// Test FEEvaluation::reinit() that thaes std::array of indices.
 
 template <int dim, int fe_degree, int n_points, typename Number>
 void
@@ -90,7 +86,13 @@ test(const unsigned int n_refinements)
     return std::get<1>(a) < std::get<1>(b);
   });
 
+  // collect reference data with normal reinit function
+
+  // quadrature points -> mapping
   std::vector<std::vector<Point<dim>>> quadrature_points_ref;
+
+  // dof values -> read/write operation
+  std::vector<std::vector<Number>> values_ref;
 
   {
     FEEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType> phi(
@@ -99,6 +101,7 @@ test(const unsigned int n_refinements)
     for (unsigned int cell = 0; cell < matrix_free.n_cell_batches(); ++cell)
       {
         phi.reinit(cell);
+        phi.read_dof_values(src);
 
         for (unsigned int v = 0;
              v < matrix_free.n_active_entries_per_cell_batch(cell);
@@ -118,12 +121,17 @@ test(const unsigned int n_refinements)
               }
 
             quadrature_points_ref.emplace_back(points);
+
+            std::vector<Number> values;
+
+            for (unsigned int i = 0; i < phi.dofs_per_cell; ++i)
+              values.emplace_back(phi.get_dof_value(i)[v]);
+            values_ref.emplace_back(values);
           }
       }
   }
 
-
-
+  // test variable reinit() function
   {
     FEEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType> phi(
       matrix_free);
@@ -142,12 +150,8 @@ test(const unsigned int n_refinements)
           indices_[c] = std::get<1>(indices[i]) * VectorizedArrayType::size() +
                         std::get<2>(indices[i]);
 
-        for (const auto i : indices_)
-          std::cout << i << " ";
-        std::cout << std::endl;
-
         phi.reinit(indices_);
-
+        phi.read_dof_values(src);
 
         for (unsigned int i = v, c = 0; i < v + n_lanes_filled; ++i, ++c)
           {
@@ -164,7 +168,17 @@ test(const unsigned int n_refinements)
                 points.emplace_back(temp);
               }
 
+            // perform comparison
             Assert(points == quadrature_points_ref[std::get<0>(indices[i])],
+                   ExcInternalError());
+
+            std::vector<Number> values;
+
+            for (unsigned int i = 0; i < phi.dofs_per_cell; ++i)
+              values.emplace_back(phi.get_dof_value(i)[c]);
+
+            // perform comparison
+            Assert(values == values_ref[std::get<0>(indices[i])],
                    ExcInternalError());
           }
       }
@@ -177,5 +191,5 @@ int
 main()
 {
   initlog();
-  test<2, 1, 2, double>(2);
+  test<2, 1, 2, double>(3);
 }
