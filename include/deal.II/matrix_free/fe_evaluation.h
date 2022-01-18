@@ -7026,40 +7026,42 @@ FEEvaluation<dim,
                    cell_index));
     }
 
-  Assert(this->cell_type <= internal::MatrixFreeFunctions::GeometryType::affine,
-         ExcNotImplemented());
-
   // allocate memory for internal data storage
-  const bool need_quadrature_points =
-    (this->matrix_free == nullptr &&
-     (this->mapped_geometry->get_fe_values().get_update_flags() |
-      update_quadrature_points)) ||
-    this->mapping_data->quadrature_point_offsets.empty() == false;
 
   if (this->cell_type <= internal::MatrixFreeFunctions::GeometryType::affine)
     {
-      this->jacobian_data.resize_fast(1);
-      this->J_value_data.resize_fast(1);
-      this->jacobian_gradients_data.resize_fast(1);
+      if (this->mapping_data->JxW_values.size() > 0)
+        this->jacobian_data.resize_fast(2);
 
-      if (need_quadrature_points)
+      if (this->mapping_data->jacobians[0].size() > 0)
+        this->J_value_data.resize_fast(1);
+
+      if (this->mapping_data->jacobian_gradients[0].size() > 0)
+        this->jacobian_gradients_data.resize_fast(1);
+
+      if (this->mapping_data->quadrature_points.size() > 0)
         this->quadrature_points_data.resize_fast(1);
     }
   else
     {
-      this->jacobian_data.resize_fast(this->n_quadrature_points);
-      this->J_value_data.resize_fast(this->n_quadrature_points);
-      this->jacobian_gradients_data.resize_fast(this->n_quadrature_points);
+      if (this->mapping_data->JxW_values.size() > 0)
+        this->jacobian_data.resize_fast(this->n_quadrature_points);
 
-      if (need_quadrature_points)
+      if (this->mapping_data->jacobians[0].size() > 0)
+        this->J_value_data.resize_fast(this->n_quadrature_points);
+
+      if (this->mapping_data->jacobian_gradients[0].size() > 0)
+        this->jacobian_gradients_data.resize_fast(this->n_quadrature_points);
+
+      if (this->mapping_data->quadrature_points.size() > 0)
         this->quadrature_points_data.resize_fast(this->n_quadrature_points);
     }
 
   // set pointers to internal data storage
-  this->jacobian                = this->jacobian_data.data();
-  this->J_value_data            = this->J_value_data.data();
-  this->jacobian_gradients_data = this->jacobian_gradients_data.data();
-  this->quadrature_points_data  = this->quadrature_points_data.data();
+  this->jacobian           = this->jacobian_data.data();
+  this->J_value            = this->J_value_data.data();
+  this->jacobian_gradients = this->jacobian_gradients_data.data();
+  this->quadrature_points  = this->quadrature_points_data.data();
 
   // fill internal data storage lane by lane
   for (unsigned int v = 0; v < VectorizedArrayType::size(); ++v)
@@ -7080,23 +7082,27 @@ FEEvaluation<dim,
         {
           const unsigned int c = 0;
 
-          this->J_value[c][v] =
-            this->mapping_data->JxW_values[offsets + c][lane];
+          if (this->mapping_data->JxW_values.size() > 0)
+            this->J_value_data[c][v] =
+              this->mapping_data->JxW_values[offsets + c][lane];
 
-          for (unsigned int i = 0; i < dim; ++i)
-            for (unsigned int j = 0; j < dim; ++j)
-              this->jacobian[c][i][j][v] =
-                &this->mapping_data->jacobians[0][offsets + c][i][j][lane];
+          if (this->mapping_data->jacobians[0].size() > 0)
+            for (unsigned int c = 0; c < 2; ++c)
+              for (unsigned int i = 0; i < dim; ++i)
+                for (unsigned int j = 0; j < dim; ++j)
+                  this->jacobian_data[c][i][j][v] =
+                    this->mapping_data->jacobians[0][offsets + c][i][j][lane];
 
-          for (unsigned int i = 0; i < dim * (dim + 1) / 2; ++i)
-            for (unsigned int j = 0; j < dim; ++j)
-              this->jacobian_gradients[c][i][j][v] =
-                this->mapping_data
-                  ->jacobian_gradients[0][offsets + c][i][j][lane];
+          if (this->mapping_data->jacobian_gradients[0].size() > 0)
+            for (unsigned int i = 0; i < dim * (dim + 1) / 2; ++i)
+              for (unsigned int j = 0; j < dim; ++j)
+                this->jacobian_gradients_data[c][i][j][v] =
+                  this->mapping_data
+                    ->jacobian_gradients[0][offsets + c][i][j][lane];
 
-          if (need_quadrature_points)
+          if (this->mapping_data->quadrature_points.size() > 0)
             for (unsigned int i = 0; i < dim; ++i)
-              this->quadrature_points[c][i][v] =
+              this->quadrature_points_data[c][i][v] =
                 this->mapping_data->quadrature_points
                   [this->mapping_data
                      ->quadrature_point_offsets[cell_batch_index] +
