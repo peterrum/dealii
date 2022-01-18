@@ -7023,7 +7023,7 @@ FEEvaluation<dim,
       this->cell_type =
         std::max(this->cell_type,
                  this->matrix_free->get_mapping_info().get_cell_type(
-                   cell_index));
+                   cell_index / VectorizedArrayType::size()));
     }
 
   // allocate memory for internal data storage

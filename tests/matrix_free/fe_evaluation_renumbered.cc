@@ -40,7 +40,7 @@
 
 template <int dim, int fe_degree, int n_points, typename Number>
 void
-test(const unsigned int n_refinements = 1)
+test(const unsigned int n_refinements)
 {
   using VectorizedArrayType = VectorizedArray<Number>;
 
@@ -48,6 +48,7 @@ test(const unsigned int n_refinements = 1)
 
   Triangulation<dim> tria;
   GridGenerator::hyper_cube(tria);
+  tria.refine_global(n_refinements);
 
   FE_Q<dim>       fe(fe_degree);
   DoFHandler<dim> dof_handler(tria);
@@ -72,27 +73,109 @@ test(const unsigned int n_refinements = 1)
   matrix_free.initialize_dof_vector(src);
   matrix_free.initialize_dof_vector(dst);
 
-
-  FEEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType> phi(
-    matrix_free);
+  std::vector<std::tuple<unsigned int, unsigned int, unsigned int>> indices;
 
   for (unsigned int cell = 0; cell < matrix_free.n_cell_batches(); ++cell)
     {
-      std::array<unsigned int, VectorizedArrayType::size()> indices;
-
-      indices.fill(numbers::invalid_unsigned_int);
-      indices[0] = 0;
-
-      phi.reinit(indices);
-
-      for (unsigned int i = 0; i < phi.n_q_points; ++i)
-        deallog << phi.quadrature_point(i) << std::endl;
+      for (unsigned int i = 0;
+           i < matrix_free.n_active_entries_per_cell_batch(cell);
+           ++i)
+        indices.emplace_back(indices.size(), cell, i);
     }
+
+  std::sort(indices.begin(), indices.end(), [](const auto &a, const auto &b) {
+    if (std::get<2>(a) != std::get<2>(b))
+      return std::get<2>(a) < std::get<2>(b);
+
+    return std::get<1>(a) < std::get<1>(b);
+  });
+
+  std::vector<std::vector<Point<dim>>> quadrature_points_ref;
+
+  {
+    FEEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType> phi(
+      matrix_free);
+
+    for (unsigned int cell = 0; cell < matrix_free.n_cell_batches(); ++cell)
+      {
+        phi.reinit(cell);
+
+        for (unsigned int v = 0;
+             v < matrix_free.n_active_entries_per_cell_batch(cell);
+             ++v)
+          {
+            std::vector<Point<dim>> points;
+
+            for (unsigned int i = 0; i < phi.n_q_points; ++i)
+              {
+                auto temp_v = phi.quadrature_point(i);
+
+                Point<dim> temp;
+                for (unsigned int d = 0; d < dim; ++d)
+                  temp[d] = temp_v[d][v];
+
+                points.emplace_back(temp);
+              }
+
+            quadrature_points_ref.emplace_back(points);
+          }
+      }
+  }
+
+
+
+  {
+    FEEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType> phi(
+      matrix_free);
+
+    for (unsigned int v = 0; v < indices.size();
+         v += VectorizedArrayType::size())
+      {
+        std::array<unsigned int, VectorizedArrayType::size()> indices_;
+
+        indices_.fill(numbers::invalid_unsigned_int);
+
+        const unsigned int n_lanes_filled =
+          std::min(v + VectorizedArrayType::size(), indices.size()) - v;
+
+        for (unsigned int i = v, c = 0; i < v + n_lanes_filled; ++i, ++c)
+          indices_[c] = std::get<1>(indices[i]) * VectorizedArrayType::size() +
+                        std::get<2>(indices[i]);
+
+        for (const auto i : indices_)
+          std::cout << i << " ";
+        std::cout << std::endl;
+
+        phi.reinit(indices_);
+
+
+        for (unsigned int i = v, c = 0; i < v + n_lanes_filled; ++i, ++c)
+          {
+            std::vector<Point<dim>> points;
+
+            for (unsigned int i = 0; i < phi.n_q_points; ++i)
+              {
+                auto temp_v = phi.quadrature_point(i);
+
+                Point<dim> temp;
+                for (unsigned int d = 0; d < dim; ++d)
+                  temp[d] = temp_v[d][c];
+
+                points.emplace_back(temp);
+              }
+
+            Assert(points == quadrature_points_ref[std::get<0>(indices[i])],
+                   ExcInternalError());
+          }
+      }
+  }
+
+  deallog << "OK!" << std::endl;
 }
 
 int
 main()
 {
   initlog();
-  test<2, 1, 2, double>(1);
+  test<2, 1, 2, double>(2);
 }
