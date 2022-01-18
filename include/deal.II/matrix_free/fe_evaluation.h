@@ -5007,7 +5007,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
   submit_value(const Tensor<1, n_components_, VectorizedArrayType> val_in,
                const unsigned int                                  q_point)
 {
-  Assert(this->cell != numbers::invalid_unsigned_int, ExcNotInitialized());
+  Assert(this->is_reinitialized, ExcNotInitialized());
   AssertIndexRange(q_point, this->n_quadrature_points);
   Assert(this->J_value != nullptr,
          internal::ExcMatrixFreeAccessToUninitializedMappingField(
@@ -5045,7 +5045,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
     const Tensor<1, n_components_, Tensor<1, dim, VectorizedArrayType>> grad_in,
     const unsigned int                                                  q_point)
 {
-  Assert(this->cell != numbers::invalid_unsigned_int, ExcNotInitialized());
+  Assert(this->is_reinitialized, ExcNotInitialized());
   AssertIndexRange(q_point, this->n_quadrature_points);
   Assert(this->J_value != nullptr,
          internal::ExcMatrixFreeAccessToUninitializedMappingField(
@@ -5157,7 +5157,7 @@ FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
                        hessian_in,
     const unsigned int q_point)
 {
-  Assert(this->cell != numbers::invalid_unsigned_int, ExcNotInitialized());
+  Assert(this->is_reinitialized, ExcNotInitialized());
   AssertIndexRange(q_point, this->n_quadrature_points);
   Assert(this->J_value != nullptr,
          internal::ExcMatrixFreeAccessToUninitializedMappingField(
@@ -5305,7 +5305,7 @@ inline Tensor<1, n_components_, VectorizedArrayType>
 FEEvaluationBase<dim, n_components_, Number, is_face, VectorizedArrayType>::
   integrate_value() const
 {
-  Assert(this->cell != numbers::invalid_unsigned_int, ExcNotInitialized());
+  Assert(this->is_reinitialized, ExcNotInitialized());
 #  ifdef DEBUG
   Assert(this->values_quad_submitted == true,
          internal::ExcAccessToUninitializedField());
@@ -5642,7 +5642,7 @@ FEEvaluationAccess<dim, 1, Number, is_face, VectorizedArrayType>::submit_value(
   const VectorizedArrayType val_in,
   const unsigned int        q_point)
 {
-  Assert(this->cell != numbers::invalid_unsigned_int, ExcNotInitialized());
+  Assert(this->is_reinitialized, ExcNotInitialized());
   AssertIndexRange(q_point, this->n_quadrature_points);
   Assert(this->J_value != nullptr,
          internal::ExcMatrixFreeAccessToUninitializedMappingField(
@@ -5695,7 +5695,7 @@ FEEvaluationAccess<dim, 1, Number, is_face, VectorizedArrayType>::
   submit_gradient(const Tensor<1, dim, VectorizedArrayType> grad_in,
                   const unsigned int                        q_point)
 {
-  Assert(this->cell != numbers::invalid_unsigned_int, ExcNotInitialized());
+  Assert(this->is_reinitialized, ExcNotInitialized());
   AssertIndexRange(q_point, this->n_quadrature_points);
   Assert(this->J_value != nullptr,
          internal::ExcMatrixFreeAccessToUninitializedMappingField(
@@ -6012,7 +6012,7 @@ FEEvaluationAccess<dim, dim, Number, is_face, VectorizedArrayType>::
   submit_divergence(const VectorizedArrayType div_in,
                     const unsigned int        q_point)
 {
-  Assert(this->cell != numbers::invalid_unsigned_int, ExcNotInitialized());
+  Assert(this->is_reinitialized, ExcNotInitialized());
   AssertIndexRange(q_point, this->n_quadrature_points);
   Assert(this->J_value != nullptr,
          internal::ExcMatrixFreeAccessToUninitializedMappingField(
@@ -6074,7 +6074,7 @@ FEEvaluationAccess<dim, dim, Number, is_face, VectorizedArrayType>::
   // could have used base class operator, but that involves some overhead
   // which is inefficient. it is nice to have the symmetric tensor because
   // that saves some operations
-  Assert(this->cell != numbers::invalid_unsigned_int, ExcNotInitialized());
+  Assert(this->is_reinitialized, ExcNotInitialized());
   AssertIndexRange(q_point, this->n_quadrature_points);
   Assert(this->J_value != nullptr,
          internal::ExcMatrixFreeAccessToUninitializedMappingField(
@@ -6368,7 +6368,7 @@ FEEvaluationAccess<1, 1, Number, is_face, VectorizedArrayType>::submit_value(
   const VectorizedArrayType val_in,
   const unsigned int        q_point)
 {
-  Assert(this->cell != numbers::invalid_unsigned_int, ExcNotInitialized());
+  Assert(this->is_reinitialized, ExcNotInitialized());
   AssertIndexRange(q_point, this->n_quadrature_points);
 #  ifdef DEBUG
   this->values_quad_submitted = true;
@@ -6417,7 +6417,7 @@ FEEvaluationAccess<1, 1, Number, is_face, VectorizedArrayType>::submit_gradient(
   const VectorizedArrayType grad_in,
   const unsigned int        q_point)
 {
-  Assert(this->cell != numbers::invalid_unsigned_int, ExcNotInitialized());
+  Assert(this->is_reinitialized, ExcNotInitialized());
   AssertIndexRange(q_point, this->n_quadrature_points);
 #  ifdef DEBUG
   this->gradients_quad_submitted = true;
@@ -6913,6 +6913,7 @@ FEEvaluation<dim,
          [this->mapping_data->quadrature_point_offsets[this->cell]];
 
 #  ifdef DEBUG
+  this->is_reinitialized           = true;
   this->dof_values_initialized     = false;
   this->values_quad_initialized    = false;
   this->gradients_quad_initialized = false;
@@ -6951,6 +6952,10 @@ FEEvaluation<dim,
     cell->get_mg_dof_indices(this->local_dof_indices);
   else
     cell->get_dof_indices(this->local_dof_indices);
+
+#  ifdef DEBUG
+  this->is_reinitialized = true;
+#  endif
 }
 
 
@@ -6977,6 +6982,10 @@ FEEvaluation<dim,
                     "instead"));
   Assert(this->mapped_geometry.get() != 0, ExcNotInitialized());
   this->mapped_geometry->reinit(cell);
+
+#  ifdef DEBUG
+  this->is_reinitialized = true;
+#  endif
 }
 
 
@@ -7598,6 +7607,7 @@ FEFaceEvaluation<dim,
     }
 
 #  ifdef DEBUG
+  this->is_reinitialized           = true;
   this->dof_values_initialized     = false;
   this->values_quad_initialized    = false;
   this->gradients_quad_initialized = false;
@@ -7755,6 +7765,7 @@ FEFaceEvaluation<dim,
     }
 
 #  ifdef DEBUG
+  this->is_reinitialized           = true;
   this->dof_values_initialized     = false;
   this->values_quad_initialized    = false;
   this->gradients_quad_initialized = false;
