@@ -94,42 +94,45 @@ test(const unsigned int n_refinements)
   // dof values -> read/write operation
   std::vector<std::vector<Number>> values_ref;
 
-  {
-    FEEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType> phi(
-      matrix_free);
+  matrix_free.template cell_loop<VectorType, VectorType>(
+    [&](const auto &matrix_free, auto &dst, const auto &src, auto range) {
+      FEEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType>
+        phi(matrix_free);
 
-    for (unsigned int cell = 0; cell < matrix_free.n_cell_batches(); ++cell)
-      {
-        phi.reinit(cell);
-        phi.read_dof_values(src);
+      for (unsigned int cell = range.first; cell < range.second; ++cell)
+        {
+          phi.reinit(cell);
+          phi.read_dof_values(src);
 
-        for (unsigned int v = 0;
-             v < matrix_free.n_active_entries_per_cell_batch(cell);
-             ++v)
-          {
-            std::vector<Point<dim>> points;
+          for (unsigned int v = 0;
+               v < matrix_free.n_active_entries_per_cell_batch(cell);
+               ++v)
+            {
+              std::vector<Point<dim>> points;
 
-            for (unsigned int i = 0; i < phi.n_q_points; ++i)
-              {
-                auto temp_v = phi.quadrature_point(i);
+              for (unsigned int i = 0; i < phi.n_q_points; ++i)
+                {
+                  auto temp_v = phi.quadrature_point(i);
 
-                Point<dim> temp;
-                for (unsigned int d = 0; d < dim; ++d)
-                  temp[d] = temp_v[d][v];
+                  Point<dim> temp;
+                  for (unsigned int d = 0; d < dim; ++d)
+                    temp[d] = temp_v[d][v];
 
-                points.emplace_back(temp);
-              }
+                  points.emplace_back(temp);
+                }
 
-            quadrature_points_ref.emplace_back(points);
+              quadrature_points_ref.emplace_back(points);
 
-            std::vector<Number> values;
+              std::vector<Number> values;
 
-            for (unsigned int i = 0; i < phi.dofs_per_cell; ++i)
-              values.emplace_back(phi.get_dof_value(i)[v]);
-            values_ref.emplace_back(values);
-          }
-      }
-  }
+              for (unsigned int i = 0; i < phi.dofs_per_cell; ++i)
+                values.emplace_back(phi.get_dof_value(i)[v]);
+              values_ref.emplace_back(values);
+            }
+        }
+    },
+    dst,
+    src);
 
   // test variable reinit() function
   {
