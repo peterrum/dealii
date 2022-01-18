@@ -787,24 +787,29 @@ protected:
   mutable std::vector<types::global_dof_index> local_dof_indices;
 
   /**
-   * TODO.
+   * A temporary data structure for the Jacobian information necessary if
+   * the reinit() function is used that allows to construct user batches.
    */
   AlignedVector<Tensor<2, dim, VectorizedArrayType>> jacobian_data;
 
   /**
-   * TODO.
+   * A temporary data structure for the Jacobian determinant necessary if
+   * the reinit() function is used that allows to construct user batches.
    */
   AlignedVector<VectorizedArrayType> J_value_data;
 
   /**
-   * TODO.
+   * A temporary data structure for the gradients of the inverse Jacobian
+   * transformation necessary if the reinit() function is used that allows
+   * to construct user batches.
    */
   AlignedVector<
     Tensor<1, dim *(dim + 1) / 2, Tensor<1, dim, VectorizedArrayType>>>
     jacobian_gradients_data;
 
   /**
-   * TODO.
+   * A temporary data structure for the quadrature-point locations necessary if
+   * the reinit() function is used that allows to construct user batches.
    */
   AlignedVector<Point<dim, VectorizedArrayType>> quadrature_points_data;
 };
@@ -2180,11 +2185,13 @@ public:
   reinit(const unsigned int cell_batch_index);
 
   /**
-   * TODO
+   * Similar as the above function but allowing to define customized cell
+   * batches on the fly. A cell batch is defined by the (matrix-free) index of
+   * its cells: see also the documentation of get_cell_ids () or
+   * get_cell_or_face_ids ().
    */
   void
-  reinit(const std::array<unsigned int, VectorizedArrayType::size()>
-           &cell_batch_index);
+  reinit(const std::array<unsigned int, VectorizedArrayType::size()> &cell_ids);
 
   /**
    * Initialize the data to the current cell using a TriaIterator object as
@@ -7081,37 +7088,115 @@ FEEvaluation<dim,
       if (this->cell_type <=
           internal::MatrixFreeFunctions::GeometryType::affine)
         {
-          const unsigned int c = 0;
+          // case that all cells are Cartesian or affine
+          const unsigned int q = 0;
 
           if (this->mapping_data->JxW_values.size() > 0)
-            this->J_value_data[c][v] =
-              this->mapping_data->JxW_values[offsets + c][lane];
+            this->J_value_data[q][v] =
+              this->mapping_data->JxW_values[offsets + q][lane];
 
           if (this->mapping_data->jacobians[0].size() > 0)
-            for (unsigned int c = 0; c < 2; ++c)
+            for (unsigned int q = 0; q < 2; ++q)
               for (unsigned int i = 0; i < dim; ++i)
                 for (unsigned int j = 0; j < dim; ++j)
-                  this->jacobian_data[c][i][j][v] =
-                    this->mapping_data->jacobians[0][offsets + c][i][j][lane];
+                  this->jacobian_data[q][i][j][v] =
+                    this->mapping_data->jacobians[0][offsets + q][i][j][lane];
 
           if (this->mapping_data->jacobian_gradients[0].size() > 0)
             for (unsigned int i = 0; i < dim * (dim + 1) / 2; ++i)
               for (unsigned int j = 0; j < dim; ++j)
-                this->jacobian_gradients_data[c][i][j][v] =
+                this->jacobian_gradients_data[q][i][j][v] =
                   this->mapping_data
-                    ->jacobian_gradients[0][offsets + c][i][j][lane];
+                    ->jacobian_gradients[0][offsets + q][i][j][lane];
 
           if (this->mapping_data->quadrature_points.size() > 0)
             for (unsigned int i = 0; i < dim; ++i)
-              this->quadrature_points_data[c][i][v] =
+              this->quadrature_points_data[q][i][v] =
                 this->mapping_data->quadrature_points
                   [this->mapping_data
                      ->quadrature_point_offsets[cell_batch_index] +
-                   c][i][lane];
+                   q][i][lane];
         }
       else
         {
-          Assert(false, ExcNotImplemented());
+          // general case that at least one cell is not Cartesian or affine
+
+          for (unsigned int q = 0; q < this->n_quadrature_points; ++q)
+            {
+              const auto cell_type =
+                this->matrix_free->get_mapping_info().get_cell_type(
+                  cell_index / VectorizedArrayType::size());
+
+              const unsigned int q_src =
+                (this->cell_type <=
+                 internal::MatrixFreeFunctions::GeometryType::affine) ?
+                  0 :
+                  q;
+
+              if (this->mapping_data->JxW_values.size() > 0)
+                this->J_value_data[q][v] =
+                  this->mapping_data->JxW_values[offsets + q_src][lane];
+
+              if (this->mapping_data->jacobians[0].size() > 0)
+                for (unsigned int i = 0; i < dim; ++i)
+                  for (unsigned int j = 0; j < dim; ++j)
+                    this->jacobian_data[q][i][j][v] =
+                      this->mapping_data
+                        ->jacobians[0][offsets + q_src][i][j][lane];
+
+              if (this->mapping_data->jacobian_gradients[0].size() > 0)
+                for (unsigned int i = 0; i < dim * (dim + 1) / 2; ++i)
+                  for (unsigned int j = 0; j < dim; ++j)
+                    this->jacobian_gradients_data[q][i][j][v] =
+                      this->mapping_data
+                        ->jacobian_gradients[0][offsets + q_src][i][j][lane];
+
+              if (this->mapping_data->quadrature_points.size() > 0)
+                {
+                  if (this->cell_type <=
+                      internal::MatrixFreeFunctions::GeometryType::affine)
+                    {
+                      // affine case: quadrature points are not available but
+                      // have to be computed from the the corner point and the
+                      // Jacobian
+                      Point<dim, VectorizedArrayType> point =
+                        this->mapping_data->quadrature_points
+                          [this->mapping_data
+                             ->quadrature_point_offsets[cell_batch_index] +
+                           0];
+
+                      const Tensor<2, dim, VectorizedArrayType> &jac =
+                        this->mapping_data->jacobians[0][offsets + 1];
+                      if (this->cell_type ==
+                          internal::MatrixFreeFunctions::cartesian)
+                        for (unsigned int d = 0; d < dim; ++d)
+                          point[d] +=
+                            jac[d][d] *
+                            static_cast<Number>(
+                              this->descriptor->quadrature.point(q)[d]);
+                      else
+                        for (unsigned int d = 0; d < dim; ++d)
+                          for (unsigned int e = 0; e < dim; ++e)
+                            point[d] +=
+                              jac[d][e] *
+                              static_cast<Number>(
+                                this->descriptor->quadrature.point(q)[e]);
+
+                      for (unsigned int i = 0; i < dim; ++i)
+                        this->quadrature_points_data[q][i][v] = point[i][lane];
+                    }
+                  else
+                    {
+                      // general case: quadrature points are available
+                      for (unsigned int i = 0; i < dim; ++i)
+                        this->quadrature_points_data[q][i][v] =
+                          this->mapping_data->quadrature_points
+                            [this->mapping_data
+                               ->quadrature_point_offsets[cell_batch_index] +
+                             q][i][lane];
+                    }
+                }
+            }
         }
     }
 
