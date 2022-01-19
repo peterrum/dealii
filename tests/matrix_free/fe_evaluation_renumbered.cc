@@ -34,16 +34,40 @@
 
 // Test FEEvaluation::reinit() that thaes std::array of indices.
 
+
+
+template <int dim>
+class RightHandSideFunction : public Function<dim>
+{
+public:
+  RightHandSideFunction(const unsigned int n_components = 1)
+    : Function<dim>(n_components)
+  {}
+
+  virtual double
+  value(const Point<dim> &p, const unsigned int component = 0) const
+  {
+    return p[component % dim] * p[component % dim];
+  }
+};
+
 template <int dim, int fe_degree, int n_points, typename Number>
 void
-test(const unsigned int n_refinements)
+test(const unsigned int n_refinements, const unsigned int geometry_type)
 {
   using VectorizedArrayType = VectorizedArray<Number>;
 
   using VectorType = LinearAlgebra::Vector<Number>;
 
   Triangulation<dim> tria;
-  GridGenerator::hyper_cube(tria);
+
+  if (geometry_type == 0)
+    GridGenerator::hyper_cube(tria);
+  else if (geometry_type == 1)
+    GridGenerator::hyper_ball(tria);
+  else
+    AssertThrow(false, ExcNotImplemented());
+
   tria.refine_global(n_refinements);
 
   FE_Q<dim>       fe(fe_degree);
@@ -60,6 +84,7 @@ test(const unsigned int n_refinements)
   typename MF::AdditionalData additional_data;
   additional_data.mapping_update_flags =
     update_values | update_quadrature_points;
+  additional_data.tasks_parallel_scheme = MF::AdditionalData::none;
 
   MF matrix_free;
   matrix_free.reinit(mapping, dof_handler, constraint, quad, additional_data);
@@ -68,6 +93,11 @@ test(const unsigned int n_refinements)
 
   matrix_free.initialize_dof_vector(src);
   matrix_free.initialize_dof_vector(dst);
+
+  VectorTools::interpolate(mapping,
+                           dof_handler,
+                           RightHandSideFunction<dim>(1),
+                           src);
 
   std::vector<std::tuple<unsigned int, unsigned int, unsigned int>> indices;
 
@@ -79,6 +109,7 @@ test(const unsigned int n_refinements)
         indices.emplace_back(indices.size(), cell, i);
     }
 
+  // if(false)
   std::sort(indices.begin(), indices.end(), [](const auto &a, const auto &b) {
     if (std::get<2>(a) != std::get<2>(b))
       return std::get<2>(a) < std::get<2>(b);
@@ -172,6 +203,7 @@ test(const unsigned int n_refinements)
               }
 
             // perform comparison
+
             Assert(points == quadrature_points_ref[std::get<0>(indices[i])],
                    ExcInternalError());
 
@@ -194,5 +226,6 @@ int
 main()
 {
   initlog();
-  test<2, 1, 2, double>(3);
+  test<2, 1, 2, double>(3, 0);
+  test<2, 1, 2, double>(3, 1);
 }

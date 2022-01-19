@@ -7130,10 +7130,10 @@ FEEvaluation<dim,
 
   if (this->cell_type <= internal::MatrixFreeFunctions::GeometryType::affine)
     {
-      if (this->mapping_data->JxW_values.size() > 0)
+      if (this->mapping_data->jacobians[0].size() > 0)
         this->jacobian_data.resize_fast(2);
 
-      if (this->mapping_data->jacobians[0].size() > 0)
+      if (this->mapping_data->JxW_values.size() > 0)
         this->J_value_data.resize_fast(1);
 
       if (this->mapping_data->jacobian_gradients[0].size() > 0)
@@ -7144,10 +7144,10 @@ FEEvaluation<dim,
     }
   else
     {
-      if (this->mapping_data->JxW_values.size() > 0)
+      if (this->mapping_data->jacobians[0].size() > 0)
         this->jacobian_data.resize_fast(this->n_quadrature_points);
 
-      if (this->mapping_data->jacobians[0].size() > 0)
+      if (this->mapping_data->JxW_values.size() > 0)
         this->J_value_data.resize_fast(this->n_quadrature_points);
 
       if (this->mapping_data->jacobian_gradients[0].size() > 0)
@@ -7212,15 +7212,14 @@ FEEvaluation<dim,
       else
         {
           // general case that at least one cell is not Cartesian or affine
+          const auto cell_type =
+            this->matrix_free->get_mapping_info().get_cell_type(
+              cell_batch_index);
 
           for (unsigned int q = 0; q < this->n_quadrature_points; ++q)
             {
-              const auto cell_type =
-                this->matrix_free->get_mapping_info().get_cell_type(
-                  cell_index / VectorizedArrayType::size());
-
               const unsigned int q_src =
-                (this->cell_type <=
+                (cell_type <=
                  internal::MatrixFreeFunctions::GeometryType::affine) ?
                   0 :
                   q;
@@ -7245,7 +7244,7 @@ FEEvaluation<dim,
 
               if (this->mapping_data->quadrature_points.size() > 0)
                 {
-                  if (this->cell_type <=
+                  if (cell_type <=
                       internal::MatrixFreeFunctions::GeometryType::affine)
                     {
                       // affine case: quadrature points are not available but
@@ -7259,8 +7258,7 @@ FEEvaluation<dim,
 
                       const Tensor<2, dim, VectorizedArrayType> &jac =
                         this->mapping_data->jacobians[0][offsets + 1];
-                      if (this->cell_type ==
-                          internal::MatrixFreeFunctions::cartesian)
+                      if (cell_type == internal::MatrixFreeFunctions::cartesian)
                         for (unsigned int d = 0; d < dim; ++d)
                           point[d] +=
                             jac[d][d] *
