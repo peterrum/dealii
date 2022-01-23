@@ -486,6 +486,20 @@ public:
   }
 
   /**
+   * Return the id of the faces this FEFaceEvaluation is
+   * associated with.
+   */
+  const std::array<unsigned int, n_lanes> &
+  get_face_ids() const
+  {
+// implemented inline to avoid compilation problems on Windows
+#ifdef DEBUG
+    Assert(is_reinitialized && is_face, ExcNotInitialized());
+#endif
+    return face_ids;
+  }
+
+  /**
    * Return the id of the cell/face batch this FEEvaluation/FEFaceEvaluation is
    * associated with.
    */
@@ -516,7 +530,7 @@ public:
                       internal::MatrixFreeFunctions::DoFInfo::dof_access_cell)
       return cell_ids;
     else
-      return cell_or_face_ids;
+      return face_ids;
   }
 
   //@}
@@ -855,7 +869,7 @@ protected:
    * Stores the (non-vectorized) id of the cells or faces this object is
    * initialized to. Relevant for ECL.
    */
-  std::array<unsigned int, n_lanes> cell_or_face_ids;
+  std::array<unsigned int, n_lanes> face_ids;
 
   /**
    * Geometry data that can be generated FEValues on the fly with the
