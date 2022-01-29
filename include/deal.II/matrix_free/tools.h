@@ -18,7 +18,12 @@
 
 #include <deal.II/base/config.h>
 
+#include <deal.II/base/graph_coloring.h>
+
 #include <deal.II/grid/tria.h>
+
+#include <deal.II/lac/dynamic_sparsity_pattern.h>
+#include <deal.II/lac/sparsity_pattern.h>
 
 #include <deal.II/matrix_free/fe_evaluation.h>
 #include <deal.II/matrix_free/matrix_free.h>
@@ -39,9 +44,44 @@ namespace MatrixFreeTools
    * cell-centric loop simpler.
    */
   template <int dim, typename AdditionalData>
-  void
+  std::vector<unsigned int>
   categorize_by_boundary_ids(const Triangulation<dim> &tria,
-                             AdditionalData &          additional_data);
+                             const AdditionalData &    additional_data);
+
+  /**
+   * TODO.
+   */
+  template <int dim, typename AdditionalData>
+  std::vector<unsigned int>
+  categorize_read_write_per_cell(const Triangulation<dim> &tria,
+                                 const AdditionalData &    additional_data);
+
+
+  inline std::vector<unsigned int>
+  merge_catergories(const std::vector<unsigned int> &vector_0,
+                    const std::vector<unsigned int> &vector_1)
+  {
+    AssertDimension(vector_0.size(), vector_1.size());
+
+    std::vector<unsigned int> result(vector_0.size());
+
+    std::map<unsigned int, unsigned int> map_0;
+
+    unsigned int counter = 0;
+    for (const auto i : vector_0)
+      map_0[i] = counter++;
+
+    std::map<unsigned int, unsigned int> map_1;
+
+    counter = 0;
+    for (const auto i : vector_1)
+      map_1[i] = counter++;
+
+    for (unsigned int i = 0; i < vector_0.size(); ++i)
+      result[i] = map_0[vector_0[i]] + map_1[vector_1[i]] * map_0.size();
+
+    return result;
+  }
 
   /**
    * Compute the diagonal of a linear operator (@p diagonal_global), given
@@ -160,21 +200,30 @@ namespace MatrixFreeTools
 #ifndef DOXYGEN
 
   template <int dim, typename AdditionalData>
-  void
+  std::vector<unsigned int>
   categorize_by_boundary_ids(const Triangulation<dim> &tria,
-                             AdditionalData &          additional_data)
+                             const AdditionalData &    additional_data)
   {
+    Assert(additional_data.hold_all_faces_to_owned_cells, ExcInternalError());
+    Assert(additional_data.cell_vectorization_categories_strict,
+           ExcInternalError());
+    Assert(additional_data.mapping_update_flags_faces_by_cells ==
+             additional_data.mapping_update_flags_inner_faces,
+           ExcInternalError());
+
     // ... determine if we are on an active or a multigrid level
     const unsigned int level = additional_data.mg_level;
     const bool         is_mg = (level != numbers::invalid_unsigned_int);
 
+    std::vector<unsigned int> cell_vectorization_category;
+
     // ... create empty list for the category of each cell
     if (is_mg)
-      additional_data.cell_vectorization_category.assign(
-        std::distance(tria.begin(level), tria.end(level)), 0);
+      cell_vectorization_category.assign(std::distance(tria.begin(level),
+                                                       tria.end(level)),
+                                         0);
     else
-      additional_data.cell_vectorization_category.assign(tria.n_active_cells(),
-                                                         0);
+      cell_vectorization_category.assign(tria.n_active_cells(), 0);
 
     // ... set up scaling factor
     std::vector<unsigned int> factors(GeometryInfo<dim>::faces_per_cell);
@@ -194,13 +243,13 @@ namespace MatrixFreeTools
       unsigned int c_num = 0;
       for (unsigned int i = 0; i < GeometryInfo<dim>::faces_per_cell; ++i)
         {
-          auto &face = *cell->face(i);
-          if (face.at_boundary() && !cell->has_periodic_neighbor(i))
+          const auto face = cell->face(i);
+          if (face->at_boundary() && !cell->has_periodic_neighbor(i))
             c_num +=
               factors[i] * (1 + std::distance(bids.begin(),
                                               std::find(bids.begin(),
                                                         bids.end(),
-                                                        face.boundary_id())));
+                                                        face->boundary_id())));
         }
       return c_num;
     };
@@ -208,29 +257,65 @@ namespace MatrixFreeTools
     if (!is_mg)
       {
         for (auto cell = tria.begin_active(); cell != tria.end(); ++cell)
-          {
-            if (cell->is_locally_owned())
-              additional_data
-                .cell_vectorization_category[cell->active_cell_index()] =
-                to_category(cell);
-          }
+          if (cell->is_locally_owned())
+            cell_vectorization_category[cell->active_cell_index()] =
+              to_category(cell);
       }
     else
       {
         for (auto cell = tria.begin(level); cell != tria.end(level); ++cell)
-          {
-            if (cell->is_locally_owned_on_level())
-              additional_data.cell_vectorization_category[cell->index()] =
-                to_category(cell);
-          }
+          if (cell->is_locally_owned_on_level())
+            cell_vectorization_category[cell->index()] = to_category(cell);
       }
 
-    // ... finalize set up of matrix_free
-    additional_data.hold_all_faces_to_owned_cells        = true;
-    additional_data.cell_vectorization_categories_strict = true;
-    additional_data.mapping_update_flags_faces_by_cells =
-      additional_data.mapping_update_flags_inner_faces |
-      additional_data.mapping_update_flags_boundary_faces;
+    return cell_vectorization_category;
+  }
+
+  template <int dim, typename AdditionalData>
+  std::vector<unsigned int>
+  categorize_read_write_per_cell(const Triangulation<dim> &tria,
+                                 const AdditionalData &    additional_data)
+  {
+    Assert(additional_data.cell_vectorization_categories_strict,
+           ExcInternalError());
+
+    // ... determine if we are on an active or a multigrid level
+    const unsigned int level = additional_data.mg_level;
+    const bool         is_mg = (level != numbers::invalid_unsigned_int);
+
+    Assert(is_mg == false, ExcNotImplemented());
+
+    std::vector<unsigned int> cell_vectorization_category;
+
+    // ... create empty list for the category of each cell
+    if (is_mg)
+      cell_vectorization_category.assign(std::distance(tria.begin(level),
+                                                       tria.end(level)),
+                                         0);
+    else
+      cell_vectorization_category.assign(tria.n_active_cells(), 0);
+
+    std::vector<unsigned int> color_indices(tria.n_active_cells());
+
+    DynamicSparsityPattern dsp(tria.n_active_cells());
+
+    for (const auto &cell : tria.active_cell_iterators())
+      if (cell->is_locally_owned())
+        for (const auto f : cell->face_indices())
+          if (cell->at_boundary(f) == false &&
+              cell->neighbor(f)->is_locally_owned())
+            dsp.add(cell->active_cell_index(),
+                    cell->neighbor(f)->active_cell_index());
+
+    SparsityPattern sp;
+    sp.copy_from(dsp);
+
+    unsigned int n_colors =
+      GraphColoring::color_sparsity_pattern(sp, color_indices);
+
+    (void)n_colors;
+
+    return color_indices;
   }
 
   namespace internal
