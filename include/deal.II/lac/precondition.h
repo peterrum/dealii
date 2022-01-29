@@ -528,6 +528,24 @@ namespace internal
   namespace PreconditionRelaxation
   {
     template <typename T, typename VectorType>
+    using vmult_omega_t =
+      decltype(std::declval<T const>().vmult(std::declval<VectorType &>(),
+                                             std::declval<const VectorType &>(),
+                                             std::declval<const double>()));
+
+    template <typename T, typename VectorType>
+    using has_vmult_omega = is_detected<vmult_omega_t, T, VectorType>;
+
+    template <typename T, typename VectorType>
+    using Tvmult_omega_t = decltype(
+      std::declval<T const>().Tvmult(std::declval<VectorType &>(),
+                                     std::declval<const VectorType &>(),
+                                     std::declval<const double>()));
+
+    template <typename T, typename VectorType>
+    using has_Tvmult_omega = is_detected<Tvmult_omega_t, T, VectorType>;
+
+    template <typename T, typename VectorType>
     using Tvmult_t = decltype(
       std::declval<T const>().Tvmult(std::declval<VectorType &>(),
                                      std::declval<const VectorType &>()));
@@ -971,6 +989,37 @@ namespace internal
       preconditioner.Tstep(dst, src);
     }
 
+    template <
+      typename MatrixType,
+      typename VectorType,
+      typename std::enable_if<has_vmult_omega<MatrixType, VectorType>::value,
+                              MatrixType>::type * = nullptr>
+    void
+    vmult_omega(const MatrixType &A,
+                VectorType &      dst,
+                const VectorType &src,
+                const double      relaxation)
+    {
+      A.vmult(dst, src, relaxation);
+    }
+
+    template <
+      typename MatrixType,
+      typename VectorType,
+      typename std::enable_if<!has_vmult_omega<MatrixType, VectorType>::value,
+                              MatrixType>::type * = nullptr>
+    void
+    vmult_omega(const MatrixType &A,
+                VectorType &      dst,
+                const VectorType &src,
+                const double      relaxation)
+    {
+      A.vmult(dst, src);
+
+      if (relaxation != 1.0)
+        dst *= relaxation;
+    }
+
     template <typename MatrixType,
               typename VectorType,
               typename std::enable_if<has_Tvmult<MatrixType, VectorType>::value,
@@ -991,6 +1040,37 @@ namespace internal
     {
       Assert(false,
              ExcMessage("Matrix A does not provide a Tvmult() function!"));
+    }
+
+    template <
+      typename MatrixType,
+      typename VectorType,
+      typename std::enable_if<has_Tvmult_omega<MatrixType, VectorType>::value,
+                              MatrixType>::type * = nullptr>
+    void
+    Tvmult_omega(const MatrixType &A,
+                 VectorType &      dst,
+                 const VectorType &src,
+                 const double      relaxation)
+    {
+      A.Tvmult(dst, src, relaxation);
+    }
+
+    template <
+      typename MatrixType,
+      typename VectorType,
+      typename std::enable_if<!has_Tvmult_omega<MatrixType, VectorType>::value,
+                              MatrixType>::type * = nullptr>
+    void
+    Tvmult_omega(const MatrixType &A,
+                 VectorType &      dst,
+                 const VectorType &src,
+                 const double      relaxation)
+    {
+      Tvmult(A, dst, src);
+
+      if (relaxation != 1.0)
+        dst *= relaxation;
     }
 
     template <typename MatrixType,
@@ -1036,12 +1116,9 @@ namespace internal
       if (i == 0)
         {
           if (transposed)
-            Tvmult(preconditioner, dst, src);
+            Tvmult_omega(preconditioner, dst, src, relaxation);
           else
-            preconditioner.vmult(dst, src);
-
-          if (relaxation != 1.0)
-            dst *= relaxation;
+            vmult_omega(preconditioner, dst, src, relaxation);
         }
       else
         {
