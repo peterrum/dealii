@@ -561,7 +561,7 @@ public:
   memory_consumption() const;
 
 
-private:
+public:
   /**
    * Pointer to the matrices.
    */
