@@ -2350,6 +2350,7 @@ namespace internal
         const Number factor2        = this->factor2;
         if (iteration_index == 0)
           {
+            // x^{n+1} = f_2 * P^{-1} * b
             DEAL_II_OPENMP_SIMD_PRAGMA
             for (std::size_t i = begin; i < end; ++i)
               solution[i] = factor2 * matrix_diagonal_inverse[i] * rhs[i];
@@ -2541,13 +2542,71 @@ namespace internal
     template <typename T, typename U, typename V>
     const bool supports_vmult_with_std_functions<T, U, V>::value;
 
+    template <typename T, typename VectorType>
+    struct has_vmult_and_update_for_chebyshev
+    {
+    private:
+      static bool
+      detect(...);
+
+      template <typename U>
+      static decltype(std::declval<const U>().vmult_and_update_for_chebyshev(
+        std::declval<VectorType &>(),
+        std::declval<const VectorType &>(),
+        std::declval<const VectorType &>(),
+        std::declval<const double>(),
+        std::declval<const double>(),
+        std::declval<const unsigned int>()))
+      detect(const U &);
+
+    public:
+      static const bool value =
+        !std::is_same<decltype(detect(std::declval<T>())), bool>::value;
+    };
+
+    // We need to have a separate declaration for static const members
+    template <typename T, typename VectorType>
+    const bool has_vmult_and_update_for_chebyshev<T, VectorType>::value;
+
     template <typename MatrixType,
               typename VectorType,
               typename PreconditionerType,
               typename std::enable_if<
-                !supports_vmult_with_std_functions<MatrixType,
-                                                   VectorType,
-                                                   PreconditionerType>::value,
+                has_vmult_and_update_for_chebyshev<PreconditionerType,
+                                                   VectorType>::value,
+                int>::type * = nullptr>
+    inline void
+    vmult_and_update(const MatrixType &        matrix,
+                     const PreconditionerType &preconditioner,
+                     const VectorType &        rhs,
+                     const unsigned int        iteration_index,
+                     const double              factor1,
+                     const double              factor2,
+                     VectorType &              solution,
+                     VectorType &              solution_old,
+                     VectorType &              temp_vector1,
+                     VectorType &)
+    {
+      using Number = typename VectorType::value_type;
+
+      (void)matrix;
+      (void)temp_vector1;
+
+      preconditioner.vmult_and_update_for_chebyshev(
+        solution_old, solution, rhs, factor1, factor2, iteration_index);
+
+      solution.swap(solution_old);
+    }
+
+    template <typename MatrixType,
+              typename VectorType,
+              typename PreconditionerType,
+              typename std::enable_if<
+                !has_vmult_and_update_for_chebyshev<PreconditionerType,
+                                                    VectorType>::value &&
+                  !supports_vmult_with_std_functions<MatrixType,
+                                                     VectorType,
+                                                     PreconditionerType>::value,
                 int>::type * = nullptr>
     inline void
     vmult_and_update(const MatrixType &        matrix,
@@ -2578,9 +2637,11 @@ namespace internal
               typename VectorType,
               typename PreconditionerType,
               typename std::enable_if<
-                supports_vmult_with_std_functions<MatrixType,
-                                                  VectorType,
-                                                  PreconditionerType>::value,
+                !has_vmult_and_update_for_chebyshev<PreconditionerType,
+                                                    VectorType>::value &&
+                  supports_vmult_with_std_functions<MatrixType,
+                                                    VectorType,
+                                                    PreconditionerType>::value,
                 int>::type * = nullptr>
     inline void
     vmult_and_update(const MatrixType &        matrix,
