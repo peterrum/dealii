@@ -56,11 +56,12 @@ namespace MatrixFreeTools
             int n_q_points_1d,
             int n_components,
             typename Number,
-            typename VectorizedArrayType>
+            typename VectorizedArrayType,
+            typename VectorType>
   void
   compute_diagonal(
     const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
-    LinearAlgebra::distributed::Vector<Number> &        diagonal_global,
+    VectorType &                                        diagonal_global,
     const std::function<void(FEEvaluation<dim,
                                           fe_degree,
                                           n_q_points_1d,
@@ -80,11 +81,12 @@ namespace MatrixFreeTools
             int n_q_points_1d,
             int n_components,
             typename Number,
-            typename VectorizedArrayType>
+            typename VectorizedArrayType,
+            typename VectorType>
   void
   compute_diagonal(
     const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
-    LinearAlgebra::distributed::Vector<Number> &        diagonal_global,
+    VectorType &                                        diagonal_global,
     void (CLASS::*cell_operation)(FEEvaluation<dim,
                                                fe_degree,
                                                n_q_points_1d,
@@ -253,7 +255,8 @@ namespace MatrixFreeTools
               int n_q_points_1d,
               int n_components,
               typename Number,
-              typename VectorizedArrayType>
+              typename VectorizedArrayType,
+              typename VectorType>
     class ComputeDiagonalHelper
     {
     public:
@@ -322,9 +325,6 @@ namespace MatrixFreeTools
 
             if (n_components == 1 || n_fe_components == 1)
               {
-                AssertDimension(n_components,
-                                1); // TODO: currently no block vector supported
-
                 unsigned int ind_local = 0;
                 for (; index_indicators != next_index_indicators;
                      ++index_indicators, ++ind_local)
@@ -420,7 +420,6 @@ namespace MatrixFreeTools
                       }
                   }
               }
-
             // STEP 2b: sort and make unique
 
             // sort vector
@@ -692,61 +691,76 @@ namespace MatrixFreeTools
       void
       submit()
       {
-        const auto ith_column = phi.begin_dof_values();
-
-        // apply local constraint matrix from left and from right:
-        // loop over all rows of transposed constrained matrix
-        for (unsigned int v = 0;
-             v < phi.get_matrix_free().n_active_entries_per_cell_batch(
-                   phi.get_current_cell_index());
-             ++v)
+        for (unsigned int comp = 0; comp < n_components; ++comp)
           {
-            const auto &c_pool = c_pools[v];
+            const auto ith_column =
+              phi.begin_dof_values() + comp * phi.dofs_per_component;
 
-            for (unsigned int j = 0; j < c_pool.row.size() - 1; ++j)
+            // apply local constraint matrix from left and from right:
+            // loop over all rows of transposed constrained matrix
+            for (unsigned int v = 0;
+                 v < phi.get_matrix_free().n_active_entries_per_cell_batch(
+                       phi.get_current_cell_index());
+                 ++v)
               {
-                // check if the result will be zero, so that we can skip
-                // the following computations -> binary search
-                const auto scale_iterator =
-                  std::lower_bound(c_pool.col.begin() + c_pool.row[j],
-                                   c_pool.col.begin() + c_pool.row[j + 1],
-                                   i);
+                const auto &c_pool = c_pools[v];
 
-                // explanation: j-th row of C_e^T is empty (see above)
-                if (scale_iterator == c_pool.col.begin() + c_pool.row[j + 1])
-                  continue;
+                for (unsigned int j = 0; j < c_pool.row.size() - 1; ++j)
+                  {
+                    // check if the result will be zero, so that we can skip
+                    // the following computations -> binary search
+                    const auto scale_iterator =
+                      std::lower_bound(c_pool.col.begin() + c_pool.row[j],
+                                       c_pool.col.begin() + c_pool.row[j + 1],
+                                       i);
 
-                // explanation: C_e^T(j,i) is zero (see above)
-                if (*scale_iterator != i)
-                  continue;
+                    // explanation: j-th row of C_e^T is empty (see above)
+                    if (scale_iterator ==
+                        c_pool.col.begin() + c_pool.row[j + 1])
+                      continue;
 
-                // apply constraint matrix from the left
-                Number temp = 0.0;
-                for (unsigned int k = c_pool.row[j]; k < c_pool.row[j + 1]; ++k)
-                  temp += c_pool.val[k] * ith_column[c_pool.col[k]][v];
+                    // explanation: C_e^T(j,i) is zero (see above)
+                    if (*scale_iterator != i)
+                      continue;
 
-                // apply constraint matrix from the right
-                diagonals_local_constrained[v][j] +=
-                  temp *
-                  c_pool.val[std::distance(c_pool.col.begin(), scale_iterator)];
+                    // apply constraint matrix from the left
+                    Number temp = 0.0;
+                    for (unsigned int k = c_pool.row[j]; k < c_pool.row[j + 1];
+                         ++k)
+                      temp += c_pool.val[k] * ith_column[c_pool.col[k]][v];
+
+                    // apply constraint matrix from the right
+                    diagonals_local_constrained[v]
+                                               [j + comp *
+                                                      phi.dofs_per_component] +=
+                      temp *
+                      c_pool
+                        .val[std::distance(c_pool.col.begin(), scale_iterator)];
+                  }
               }
           }
       }
 
       void
-      distribute_local_to_global(
-        LinearAlgebra::distributed::Vector<Number> &diagonal_global)
+      distribute_local_to_global(VectorType &       diagonal_global,
+                                 const unsigned int first_selected_component)
       {
         // STEP 4: assembly results: add into global vector
-        for (unsigned int v = 0;
-             v < phi.get_matrix_free().n_active_entries_per_cell_batch(
-                   phi.get_current_cell_index());
-             ++v)
-          for (unsigned int j = 0; j < c_pools[v].row.size() - 1; ++j)
-            ::dealii::internal::vector_access_add(
-              diagonal_global,
-              c_pools[v].row_lid_to_gid[j],
-              diagonals_local_constrained[v][j]);
+        for (unsigned int comp = 0; comp < n_components; ++comp)
+          for (unsigned int v = 0;
+               v < phi.get_matrix_free().n_active_entries_per_cell_batch(
+                     phi.get_current_cell_index());
+               ++v)
+            for (unsigned int j = 0; j < c_pools[v].row.size() - 1; ++j)
+              ::dealii::internal::vector_access_add(
+                *::dealii::internal::BlockVectorSelector<
+                  VectorType,
+                  IsBlockVector<VectorType>::value>::
+                  get_vector_component(diagonal_global,
+                                       comp + first_selected_component),
+                c_pools[v].row_lid_to_gid[j],
+                diagonals_local_constrained[v]
+                                           [j + comp * phi.dofs_per_component]);
       }
 
     private:
@@ -778,11 +792,12 @@ namespace MatrixFreeTools
             int n_q_points_1d,
             int n_components,
             typename Number,
-            typename VectorizedArrayType>
+            typename VectorizedArrayType,
+            typename VectorType>
   void
   compute_diagonal(
     const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
-    LinearAlgebra::distributed::Vector<Number> &        diagonal_global,
+    VectorType &                                        diagonal_global,
     const std::function<void(FEEvaluation<dim,
                                           fe_degree,
                                           n_q_points_1d,
@@ -793,16 +808,20 @@ namespace MatrixFreeTools
     const unsigned int                                              quad_no,
     const unsigned int first_selected_component)
   {
-    using VectorType = LinearAlgebra::distributed::Vector<Number>;
-
     // initialize vector
-    matrix_free.initialize_dof_vector(diagonal_global, dof_no);
+    for (unsigned int comp = 0; comp < n_components; ++comp)
+      {
+        auto vec = ::dealii::internal::
+          BlockVectorSelector<VectorType, IsBlockVector<VectorType>::value>::
+            get_vector_component(diagonal_global, comp);
+        matrix_free.initialize_dof_vector(*vec, dof_no);
+      }
 
     int dummy = 0;
 
     matrix_free.template cell_loop<VectorType, int>(
       [&](const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
-          LinearAlgebra::distributed::Vector<Number> &        diagonal_global,
+          VectorType &                                        diagonal_global,
           const int &,
           const std::pair<unsigned int, unsigned int> &range) mutable {
         FEEvaluation<dim,
@@ -818,7 +837,8 @@ namespace MatrixFreeTools
                                         n_q_points_1d,
                                         n_components,
                                         Number,
-                                        VectorizedArrayType>
+                                        VectorizedArrayType,
+                                        VectorType>
           helper(phi);
 
         for (unsigned int cell = range.first; cell < range.second; ++cell)
@@ -832,7 +852,8 @@ namespace MatrixFreeTools
                 helper.submit();
               }
 
-            helper.distribute_local_to_global(diagonal_global);
+            helper.distribute_local_to_global(diagonal_global,
+                                              first_selected_component);
           }
       },
       diagonal_global,
@@ -846,11 +867,12 @@ namespace MatrixFreeTools
             int n_q_points_1d,
             int n_components,
             typename Number,
-            typename VectorizedArrayType>
+            typename VectorizedArrayType,
+            typename VectorType>
   void
   compute_diagonal(
     const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
-    LinearAlgebra::distributed::Vector<Number> &        diagonal_global,
+    VectorType &                                        diagonal_global,
     void (CLASS::*cell_operation)(FEEvaluation<dim,
                                                fe_degree,
                                                n_q_points_1d,
@@ -867,7 +889,8 @@ namespace MatrixFreeTools
                      n_q_points_1d,
                      n_components,
                      Number,
-                     VectorizedArrayType>(
+                     VectorizedArrayType,
+                     VectorType>(
       matrix_free,
       diagonal_global,
       [&](auto &feeval) { (owning_class->*cell_operation)(feeval); },
