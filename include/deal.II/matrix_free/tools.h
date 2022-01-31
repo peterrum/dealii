@@ -691,76 +691,75 @@ namespace MatrixFreeTools
       void
       submit()
       {
-        for (unsigned int comp = 0; comp < n_components; ++comp)
+        // for (unsigned int comp = 0; comp < n_components; ++comp)
+        //{
+        const auto ith_column = phi.begin_dof_values();
+
+        // apply local constraint matrix from left and from right:
+        // loop over all rows of transposed constrained matrix
+        for (unsigned int v = 0;
+             v < phi.get_matrix_free().n_active_entries_per_cell_batch(
+                   phi.get_current_cell_index());
+             ++v)
           {
-            const auto ith_column =
-              phi.begin_dof_values() + comp * phi.dofs_per_component;
+            const auto &c_pool = c_pools[v];
 
-            // apply local constraint matrix from left and from right:
-            // loop over all rows of transposed constrained matrix
-            for (unsigned int v = 0;
-                 v < phi.get_matrix_free().n_active_entries_per_cell_batch(
-                       phi.get_current_cell_index());
-                 ++v)
+            for (unsigned int j = 0; j < c_pool.row.size() - 1; ++j)
               {
-                const auto &c_pool = c_pools[v];
+                // check if the result will be zero, so that we can skip
+                // the following computations -> binary search
+                const auto scale_iterator =
+                  std::lower_bound(c_pool.col.begin() + c_pool.row[j],
+                                   c_pool.col.begin() + c_pool.row[j + 1],
+                                   i);
 
-                for (unsigned int j = 0; j < c_pool.row.size() - 1; ++j)
-                  {
-                    // check if the result will be zero, so that we can skip
-                    // the following computations -> binary search
-                    const auto scale_iterator =
-                      std::lower_bound(c_pool.col.begin() + c_pool.row[j],
-                                       c_pool.col.begin() + c_pool.row[j + 1],
-                                       i);
+                // explanation: j-th row of C_e^T is empty (see above)
+                if (scale_iterator == c_pool.col.begin() + c_pool.row[j + 1])
+                  continue;
 
-                    // explanation: j-th row of C_e^T is empty (see above)
-                    if (scale_iterator ==
-                        c_pool.col.begin() + c_pool.row[j + 1])
-                      continue;
+                // explanation: C_e^T(j,i) is zero (see above)
+                if (*scale_iterator != i)
+                  continue;
 
-                    // explanation: C_e^T(j,i) is zero (see above)
-                    if (*scale_iterator != i)
-                      continue;
+                // apply constraint matrix from the left
+                Number temp = 0.0;
+                for (unsigned int k = c_pool.row[j]; k < c_pool.row[j + 1]; ++k)
+                  temp += c_pool.val[k] * ith_column[c_pool.col[k]][v];
 
-                    // apply constraint matrix from the left
-                    Number temp = 0.0;
-                    for (unsigned int k = c_pool.row[j]; k < c_pool.row[j + 1];
-                         ++k)
-                      temp += c_pool.val[k] * ith_column[c_pool.col[k]][v];
-
-                    // apply constraint matrix from the right
-                    diagonals_local_constrained[v]
-                                               [j + comp *
-                                                      phi.dofs_per_component] +=
-                      temp *
-                      c_pool
-                        .val[std::distance(c_pool.col.begin(), scale_iterator)];
-                  }
+                // apply constraint matrix from the right
+                diagonals_local_constrained[v][j] +=
+                  temp *
+                  c_pool.val[std::distance(c_pool.col.begin(), scale_iterator)];
               }
+            //}
           }
       }
 
       void
-      distribute_local_to_global(VectorType &       diagonal_global,
-                                 const unsigned int first_selected_component)
+      distribute_local_to_global(VectorType &diagonal_global)
       {
         // STEP 4: assembly results: add into global vector
-        for (unsigned int comp = 0; comp < n_components; ++comp)
-          for (unsigned int v = 0;
-               v < phi.get_matrix_free().n_active_entries_per_cell_batch(
-                     phi.get_current_cell_index());
-               ++v)
-            for (unsigned int j = 0; j < c_pools[v].row.size() - 1; ++j)
+        for (unsigned int v = 0;
+             v < phi.get_matrix_free().n_active_entries_per_cell_batch(
+                   phi.get_current_cell_index());
+             ++v)
+          for (unsigned int j = 0; j < c_pools[v].row.size() - 1; ++j)
+            if (IsBlockVector<VectorType>::value)
+              {
+                for (unsigned int comp = 0; comp < n_components; ++comp)
+                  ::dealii::internal::vector_access_add(
+                    *::dealii::internal::BlockVectorSelector<
+                      VectorType,
+                      IsBlockVector<VectorType>::value>::
+                      get_vector_component(diagonal_global, comp),
+                    c_pools[v].row_lid_to_gid[j],
+                    diagonals_local_constrained[v][j]);
+              }
+            else
               ::dealii::internal::vector_access_add(
-                *::dealii::internal::BlockVectorSelector<
-                  VectorType,
-                  IsBlockVector<VectorType>::value>::
-                  get_vector_component(diagonal_global,
-                                       comp + first_selected_component),
+                diagonal_global,
                 c_pools[v].row_lid_to_gid[j],
-                diagonals_local_constrained[v]
-                                           [j + comp * phi.dofs_per_component]);
+                diagonals_local_constrained[v][j]);
       }
 
     private:
@@ -809,13 +808,19 @@ namespace MatrixFreeTools
     const unsigned int first_selected_component)
   {
     // initialize vector
-    for (unsigned int comp = 0; comp < n_components; ++comp)
+    if (IsBlockVector<VectorType>::value)
       {
-        auto vec = ::dealii::internal::
-          BlockVectorSelector<VectorType, IsBlockVector<VectorType>::value>::
-            get_vector_component(diagonal_global, comp);
-        matrix_free.initialize_dof_vector(*vec, dof_no);
+        for (unsigned int comp = 0; comp < n_components; ++comp)
+          {
+            auto vec = ::dealii::internal::BlockVectorSelector<
+              VectorType,
+              IsBlockVector<VectorType>::value>::
+              get_vector_component(diagonal_global, comp);
+            matrix_free.initialize_dof_vector(*vec, dof_no);
+          }
       }
+    else
+      matrix_free.initialize_dof_vector(diagonal_global, dof_no);
 
     int dummy = 0;
 
@@ -852,8 +857,7 @@ namespace MatrixFreeTools
                 helper.submit();
               }
 
-            helper.distribute_local_to_global(diagonal_global,
-                                              first_selected_component);
+            helper.distribute_local_to_global(diagonal_global);
           }
       },
       diagonal_global,
