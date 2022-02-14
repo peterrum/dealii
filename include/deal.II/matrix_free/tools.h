@@ -321,13 +321,70 @@ namespace MatrixFreeTools
                                      const bool                ignore_ranks,
                                      const AdditionalData &    additional_data)
   {
-    Assert(false, ExcNotImplemented());
+    Assert(additional_data.mg_level == numbers::invalid_unsigned_int, ExcNotImplemented());
 
-    (void)tria;
-    (void)ignore_ranks;
-    (void)additional_data;
+    std::vector<unsigned int> ranks;
 
-    return {};
+    for (const auto &cell : tria.active_cell_iterators())
+      if (cell->is_locally_owned())
+        for (const auto f : cell->face_indices())
+          if (cell->at_boundary(f) == false)
+            ranks.push_back(cell->neighbor(f)->subdomain_id());
+
+    std::sort(ranks.begin(), ranks.end());
+    ranks.erase(std::unique(ranks.begin(), ranks.end()), ranks.end());
+
+    const auto ranks_to_ranks =
+      Utilities::MPI::all_gather(MPI_COMM_WORLD, ranks);
+
+    DynamicSparsityPattern dsp(ranks_to_ranks.size());
+
+    for (unsigned int r = 0; r < ranks_to_ranks.size(); ++r)
+      for (const auto o : ranks_to_ranks[r])
+        dsp.add(r, o);
+
+    SparsityPattern sp;
+    sp.copy_from(dsp);
+
+    std::vector<unsigned int> color_indices(ranks_to_ranks.size());
+
+    const unsigned int n_colors =
+      GraphColoring::color_sparsity_pattern(sp, color_indices);
+
+    std::vector<unsigned int> result(tria.n_active_cells(),
+                                     numbers::invalid_unsigned_int);
+
+    const unsigned int my_rank =
+      color_indices[Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)];
+
+    for (const auto &cell : tria.active_cell_iterators())
+      if (cell->is_locally_owned())
+        {
+          std::set<unsigned int> ranks_min;
+          std::set<unsigned int> ranks_max;
+
+          for (const auto f : cell->face_indices())
+            if (cell->at_boundary(f) == false)
+              {
+                const unsigned int other_subdomain_id =
+                  color_indices[cell->neighbor(f)->subdomain_id()];
+                if (other_subdomain_id < my_rank)
+                  ranks_min.insert(other_subdomain_id);
+                if (other_subdomain_id > my_rank)
+                  ranks_max.insert(other_subdomain_id);
+              }
+
+          if (ignore_ranks)
+            result[cell->active_cell_index()] =
+              2 * (ranks_min.size() > 0) + (ranks_max.size() > 0);
+          else
+            result[cell->active_cell_index()] =
+              n_colors *
+                (ranks_min.size() > 0 ? *(--ranks_min.end()) : my_rank) +
+              (ranks_max.size() > 0 ? *ranks_max.begin() : my_rank);
+        }
+
+    return compress_catergories(result);
   }
 
   inline std::vector<unsigned int>
