@@ -59,48 +59,15 @@ namespace MatrixFreeTools
   /**
    * TODO.
    */
-  inline std::vector<unsigned int>
+  std::vector<unsigned int>
   merge_catergories(const std::vector<unsigned int> &vector_0,
-                    const std::vector<unsigned int> &vector_1)
-  {
-    AssertDimension(vector_0.size(), vector_1.size());
+                    const std::vector<unsigned int> &vector_1);
 
-    std::vector<unsigned int> result(vector_0.size(),
-                                     numbers::invalid_unsigned_int);
-
-    std::map<unsigned int, unsigned int> map_0;
-
-    unsigned int counter = 0;
-    for (const auto i : vector_0)
-      map_0[i] = counter++;
-
-    std::map<unsigned int, unsigned int> map_1;
-
-    counter = 0;
-    for (const auto i : vector_1)
-      map_1[i] = counter++;
-
-    for (unsigned int i = 0; i < vector_0.size(); ++i)
-      result[i] = map_0[vector_0[i]] + map_1[vector_1[i]] * map_0.size();
-
-    {
-      std::map<unsigned int, unsigned int> new_indices;
-      unsigned int                         counter = 0;
-
-      for (unsigned int i = 0; i < result.size(); ++i)
-        {
-          if (result[i] == numbers::invalid_unsigned_int)
-            continue;
-
-          if (new_indices.find(result[i]) == new_indices.end())
-            new_indices[result[i]] = counter++;
-
-          result[i] = new_indices[result[i]];
-        }
-    }
-
-    return result;
-  }
+  /**
+   * TODO.
+   */
+  std::vector<unsigned int>
+  compress_catergories(const std::vector<unsigned int> &vector_0);
 
   /**
    * Compute the diagonal of a linear operator (@p diagonal_global), given
@@ -288,7 +255,7 @@ namespace MatrixFreeTools
             cell_vectorization_category[cell->index()] = to_category(cell);
       }
 
-    return cell_vectorization_category;
+    return compress_catergories(cell_vectorization_category);
   }
 
   template <int dim, typename AdditionalData>
@@ -336,7 +303,57 @@ namespace MatrixFreeTools
 
     (void)n_colors;
 
-    return color_indices;
+    return compress_catergories(color_indices);
+  }
+
+  inline std::vector<unsigned int>
+  merge_catergories(const std::vector<unsigned int> &vector_0,
+                    const std::vector<unsigned int> &vector_1)
+  {
+    AssertDimension(vector_0.size(), vector_1.size());
+
+    std::vector<unsigned int> result(vector_0.size(),
+                                     numbers::invalid_unsigned_int);
+
+    std::map<unsigned int, unsigned int> map_0;
+
+    unsigned int counter = 0;
+    for (const auto i : vector_0)
+      map_0[i] = counter++;
+
+    std::map<unsigned int, unsigned int> map_1;
+
+    counter = 0;
+    for (const auto i : vector_1)
+      map_1[i] = counter++;
+
+    for (unsigned int i = 0; i < vector_0.size(); ++i)
+      result[i] = map_0[vector_0[i]] + map_1[vector_1[i]] * map_0.size();
+
+    return compress_catergories(result);
+  }
+
+
+  inline std::vector<unsigned int>
+  compress_catergories(const std::vector<unsigned int> &vector_in)
+  {
+    auto result = vector_in;
+
+    std::map<unsigned int, unsigned int> new_indices;
+    unsigned int                         counter = 0;
+
+    for (unsigned int i = 0; i < result.size(); ++i)
+      {
+        if (result[i] == numbers::invalid_unsigned_int)
+          continue;
+
+        if (new_indices.find(result[i]) == new_indices.end())
+          new_indices[result[i]] = counter++;
+
+        result[i] = new_indices[result[i]];
+      }
+
+    return result;
   }
 
   namespace internal
