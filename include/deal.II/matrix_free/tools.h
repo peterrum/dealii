@@ -59,6 +59,15 @@ namespace MatrixFreeTools
   /**
    * TODO.
    */
+  template <int dim, typename AdditionalData>
+  std::vector<unsigned int>
+  categorize_internal_boundary_cells(const Triangulation<dim> &tria,
+                                     const bool                ignore_ranks,
+                                     const AdditionalData &    additional_data);
+
+  /**
+   * TODO.
+   */
   std::vector<unsigned int>
   merge_catergories(const std::vector<unsigned int> &vector_0,
                     const std::vector<unsigned int> &vector_1);
@@ -304,6 +313,21 @@ namespace MatrixFreeTools
     (void)n_colors;
 
     return compress_catergories(color_indices);
+  }
+
+  template <int dim, typename AdditionalData>
+  std::vector<unsigned int>
+  categorize_internal_boundary_cells(const Triangulation<dim> &tria,
+                                     const bool                ignore_ranks,
+                                     const AdditionalData &    additional_data)
+  {
+    Assert(false, ExcNotImplemented());
+
+    (void)tria;
+    (void)ignore_ranks;
+    (void)additional_data;
+
+    return {};
   }
 
   inline std::vector<unsigned int>
