@@ -56,14 +56,17 @@ namespace MatrixFreeTools
   categorize_read_write_per_cell(const Triangulation<dim> &tria,
                                  const AdditionalData &    additional_data);
 
-
+  /**
+   * TODO.
+   */
   inline std::vector<unsigned int>
   merge_catergories(const std::vector<unsigned int> &vector_0,
                     const std::vector<unsigned int> &vector_1)
   {
     AssertDimension(vector_0.size(), vector_1.size());
 
-    std::vector<unsigned int> result(vector_0.size());
+    std::vector<unsigned int> result(vector_0.size(),
+                                     numbers::invalid_unsigned_int);
 
     std::map<unsigned int, unsigned int> map_0;
 
@@ -79,6 +82,22 @@ namespace MatrixFreeTools
 
     for (unsigned int i = 0; i < vector_0.size(); ++i)
       result[i] = map_0[vector_0[i]] + map_1[vector_1[i]] * map_0.size();
+
+    {
+      std::map<unsigned int, unsigned int> new_indices;
+      unsigned int                         counter = 0;
+
+      for (unsigned int i = 0; i < result.size(); ++i)
+        {
+          if (result[i] == numbers::invalid_unsigned_int)
+            continue;
+
+          if (new_indices.find(result[i]) == new_indices.end())
+            new_indices[result[i]] = counter++;
+
+          result[i] = new_indices[result[i]];
+        }
+    }
 
     return result;
   }
@@ -221,9 +240,10 @@ namespace MatrixFreeTools
     if (is_mg)
       cell_vectorization_category.assign(std::distance(tria.begin(level),
                                                        tria.end(level)),
-                                         0);
+                                         numbers::invalid_unsigned_int);
     else
-      cell_vectorization_category.assign(tria.n_active_cells(), 0);
+      cell_vectorization_category.assign(tria.n_active_cells(),
+                                         numbers::invalid_unsigned_int);
 
     // ... set up scaling factor
     std::vector<unsigned int> factors(GeometryInfo<dim>::faces_per_cell);
@@ -291,9 +311,10 @@ namespace MatrixFreeTools
     if (is_mg)
       cell_vectorization_category.assign(std::distance(tria.begin(level),
                                                        tria.end(level)),
-                                         0);
+                                         numbers::invalid_unsigned_int);
     else
-      cell_vectorization_category.assign(tria.n_active_cells(), 0);
+      cell_vectorization_category.assign(tria.n_active_cells(),
+                                         numbers::invalid_unsigned_int);
 
     std::vector<unsigned int> color_indices(tria.n_active_cells());
 
