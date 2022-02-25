@@ -116,8 +116,10 @@ namespace parallel
   {
     template <int dim, typename VectorType, int spacedim>
     SolutionTransfer<dim, VectorType, spacedim>::SolutionTransfer(
-      const DoFHandler<dim, spacedim> &dof)
+      const DoFHandler<dim, spacedim> &dof,
+      const bool                       average_values)
       : dof_handler(&dof, typeid(*this).name())
+      , average_values(average_values)
       , handle(numbers::invalid_unsigned_int)
     {
       Assert(
@@ -242,20 +244,44 @@ namespace parallel
             &dof_handler->get_triangulation())));
       Assert(tria != nullptr, ExcInternalError());
 
+      for (const auto vec : all_out)
+        *vec = 0.0;
+
+      VectorType weights;
+
+      if (average_values)
+        weights.reinit(*all_out[0]);
+
       tria->notify_ready_to_unpack(
         handle,
-        [this, &all_out](
+        [this, &all_out, &weights](
           const typename Triangulation<dim, spacedim>::cell_iterator &cell_,
           const typename Triangulation<dim, spacedim>::CellStatus     status,
           const boost::iterator_range<std::vector<char>::const_iterator>
             &data_range) {
-          this->unpack_callback(cell_, status, data_range, all_out);
+          this->unpack_callback(cell_, status, data_range, all_out, weights);
         });
 
-      for (typename std::vector<VectorType *>::iterator it = all_out.begin();
-           it != all_out.end();
-           ++it)
-        (*it)->compress(::dealii::VectorOperation::insert);
+      if (average_values)
+        {
+          weights.compress(::dealii::VectorOperation::add);
+
+          for (const auto i : weights.locally_owned_elements())
+            weights[i] = weights[i] == 0.0 ? 0.0 : (1.0 / weights[i]);
+
+          weights.compress(::dealii::VectorOperation::insert);
+
+          for (const auto vec : all_out)
+            {
+              vec->compress(::dealii::VectorOperation::add);
+              vec->scale(weights);
+            }
+        }
+      else
+        {
+          for (const auto vec : all_out)
+            vec->compress(::dealii::VectorOperation::insert);
+        }
 
       input_vectors.clear();
     }
@@ -350,7 +376,8 @@ namespace parallel
       const typename Triangulation<dim, spacedim>::CellStatus     status,
       const boost::iterator_range<std::vector<char>::const_iterator>
         &                        data_range,
-      std::vector<VectorType *> &all_out)
+      std::vector<VectorType *> &all_out,
+      VectorType &               weights)
     {
       typename DoFHandler<dim, spacedim>::cell_iterator cell(*cell_,
                                                              dof_handler);
@@ -422,9 +449,24 @@ namespace parallel
       auto it_input  = dof_values.cbegin();
       auto it_output = all_out.begin();
       for (; it_input != dof_values.cend(); ++it_input, ++it_output)
-        cell->set_dof_values_by_interpolation(*it_input,
-                                              *(*it_output),
-                                              fe_index);
+        if (average_values)
+          cell->distribute_local_to_global_by_interpolation(*it_input,
+                                                            *(*it_output),
+                                                            fe_index);
+        else
+          cell->set_dof_values_by_interpolation(*it_input,
+                                                *(*it_output),
+                                                fe_index,
+                                                true);
+
+      if (average_values)
+        {
+          Vector<typename VectorType::value_type> ones(dofs_per_cell);
+          ones = 1.0;
+          cell->distribute_local_to_global_by_interpolation(ones,
+                                                            weights,
+                                                            fe_index);
+        }
     }
   } // namespace distributed
 } // namespace parallel

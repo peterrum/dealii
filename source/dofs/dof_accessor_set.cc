@@ -41,6 +41,94 @@
 
 DEAL_II_NAMESPACE_OPEN
 
+template <typename Number>
+DeclException2(ExcNonMatchingElementsSetDofValuesByInterpolation,
+               Number,
+               Number,
+               << "Called set_dof_values_by_interpolation(), but"
+               << " the element to be set, value " << std::setprecision(16)
+               << arg1 << ", does not match with the value "
+               << std::setprecision(16) << arg2 << " already set before.");
+
+namespace internal
+{
+  template <typename Number>
+  typename std::enable_if<
+    !std::is_unsigned<Number>::value,
+    typename numbers::NumberTraits<Number>::real_type>::type
+  get_abs(const Number a)
+  {
+    return std::abs(a);
+  }
+
+  template <typename Number>
+  typename std::enable_if<std::is_unsigned<Number>::value, Number>::type
+  get_abs(const Number a)
+  {
+    return a;
+  }
+
+  template <typename T>
+  bool
+  is_petsc_vector(const T &vec)
+  {
+    (void)vec;
+    return false;
+  }
+
+#ifdef DEAL_II_WITH_PETSC
+  bool
+  is_petsc_vector(const PETScWrappers::MPI::Vector &vec)
+  {
+    (void)vec;
+    return true;
+  }
+
+  bool
+  is_petsc_vector(const PETScWrappers::MPI::BlockVector &vec)
+  {
+    (void)vec;
+    return true;
+  }
+#endif
+
+  template <int  dim,
+            int  spacedim,
+            bool lda,
+            class OutputVector,
+            typename number>
+  void
+  set_dof_values_with_check(const DoFCellAccessor<dim, spacedim, lda> &cell,
+                            const Vector<number> &local_values,
+                            OutputVector &        values,
+                            const bool            perform_check)
+  {
+    (void)perform_check;
+
+#ifdef DEBUG
+    if (perform_check && (is_petsc_vector(values) == false))
+      {
+        Vector<number> tmp(cell.get_fe().n_dofs_per_cell());
+        cell.get_dof_values(values, tmp);
+
+        for (unsigned int i = 0; i < cell.get_fe().n_dofs_per_cell(); ++i)
+          {
+            Assert(tmp[i] == number() ||
+                     get_abs(tmp[i] - local_values[i]) <=
+                       get_abs(tmp[i] + local_values[i]) * 100000. *
+                         std::numeric_limits<typename numbers::NumberTraits<
+                           number>::real_type>::epsilon(),
+                   ExcNonMatchingElementsSetDofValuesByInterpolation(
+                     local_values[i], tmp[i]));
+          }
+      }
+#endif
+
+    cell.set_dof_values(local_values, values);
+  }
+} // namespace internal
+
+
 
 template <int dim, int spacedim, bool lda>
 template <class OutputVector, typename number>
@@ -48,7 +136,8 @@ void
 DoFCellAccessor<dim, spacedim, lda>::set_dof_values_by_interpolation(
   const Vector<number> &local_values,
   OutputVector &        values,
-  const unsigned int    fe_index_) const
+  const unsigned int    fe_index_,
+  const bool            perform_check) const
 {
   const unsigned int fe_index =
     (this->dof_handler->hp_capability_enabled == false &&
@@ -65,7 +154,10 @@ DoFCellAccessor<dim, spacedim, lda>::set_dof_values_by_interpolation(
           (fe_index == this->active_fe_index()) ||
           (fe_index == DoFHandler<dim, spacedim>::invalid_fe_index))
         // simply set the values on this cell
-        this->set_dof_values(local_values, values);
+        internal::set_dof_values_with_check(*this,
+                                            local_values,
+                                            values,
+                                            perform_check);
       else
         {
           Assert(local_values.size() ==
@@ -87,7 +179,10 @@ DoFCellAccessor<dim, spacedim, lda>::set_dof_values_by_interpolation(
             interpolation.vmult(tmp, local_values);
 
           // now set the dof values in the global vector
-          this->set_dof_values(tmp, values);
+          internal::set_dof_values_with_check(*this,
+                                              tmp,
+                                              values,
+                                              perform_check);
         }
     }
   else
@@ -123,7 +218,107 @@ DoFCellAccessor<dim, spacedim, lda>::set_dof_values_by_interpolation(
               .vmult(tmp, local_values);
           this->child(child)->set_dof_values_by_interpolation(tmp,
                                                               values,
-                                                              fe_index);
+                                                              fe_index,
+                                                              perform_check);
+        }
+    }
+}
+
+
+template <int dim, int spacedim, bool lda>
+template <class OutputVector, typename number>
+void
+DoFCellAccessor<dim, spacedim, lda>::
+  distribute_local_to_global_by_interpolation(
+    const Vector<number> &local_values,
+    OutputVector &        values,
+    const unsigned int    fe_index_) const
+{
+  const unsigned int fe_index =
+    (this->dof_handler->hp_capability_enabled == false &&
+     fe_index_ == DoFHandler<dim, spacedim>::invalid_fe_index) ?
+      DoFHandler<dim, spacedim>::default_fe_index :
+      fe_index_;
+
+  if (this->is_active() && !this->is_artificial())
+    {
+      if ((this->dof_handler->hp_capability_enabled == false) ||
+          // for hp-DoFHandlers, we need to require that on
+          // active cells, you either don't specify an fe_index,
+          // or that you specify the correct one
+          (fe_index == this->active_fe_index()) ||
+          (fe_index == DoFHandler<dim, spacedim>::invalid_fe_index))
+        // simply set the values on this cell
+        {
+          std::vector<types::global_dof_index> dof_indices;
+          this->get_dof_indices(dof_indices);
+          AffineConstraints<number>().distribute_local_to_global(local_values,
+                                                                 dof_indices,
+                                                                 values);
+        }
+      else
+        {
+          Assert(local_values.size() ==
+                   this->dof_handler->get_fe(fe_index).n_dofs_per_cell(),
+                 ExcMessage("Incorrect size of local_values vector."));
+
+          FullMatrix<double> interpolation(
+            this->get_fe().n_dofs_per_cell(),
+            this->dof_handler->get_fe(fe_index).n_dofs_per_cell());
+
+          this->get_fe().get_interpolation_matrix(
+            this->dof_handler->get_fe(fe_index), interpolation);
+
+          // do the interpolation to the target space. for historical
+          // reasons, matrices are set to size 0x0 internally even
+          // we reinit as 4x0, so we have to treat this case specially
+          Vector<number> tmp(this->get_fe().n_dofs_per_cell());
+          if ((tmp.size() > 0) && (local_values.size() > 0))
+            interpolation.vmult(tmp, local_values);
+
+          // now set the dof values in the global vector
+          {
+            std::vector<types::global_dof_index> dof_indices;
+            this->get_dof_indices(dof_indices);
+            AffineConstraints<number>().distribute_local_to_global(tmp,
+                                                                   dof_indices,
+                                                                   values);
+          }
+        }
+    }
+  else
+    // otherwise distribute them to the children
+    {
+      Assert((this->dof_handler->hp_capability_enabled == false) ||
+               (fe_index != DoFHandler<dim, spacedim>::invalid_fe_index),
+             ExcMessage(
+               "You cannot call this function on non-active cells "
+               "of DoFHandler objects unless you provide an explicit "
+               "finite element index because they do not have naturally "
+               "associated finite element spaces associated: degrees "
+               "of freedom are only distributed on active cells for which "
+               "the active FE index has been set."));
+
+      const FiniteElement<dim, spacedim> &fe =
+        this->get_dof_handler().get_fe(fe_index);
+      const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
+
+      Assert(this->dof_handler != nullptr,
+             typename BaseClass::ExcInvalidObject());
+      Assert(local_values.size() == dofs_per_cell,
+             typename BaseClass::ExcVectorDoesNotMatch());
+      Assert(values.size() == this->dof_handler->n_dofs(),
+             typename BaseClass::ExcVectorDoesNotMatch());
+
+      Vector<number> tmp(dofs_per_cell);
+
+      for (unsigned int child = 0; child < this->n_children(); ++child)
+        {
+          if (tmp.size() > 0)
+            fe.get_prolongation_matrix(child, this->refinement_case())
+              .vmult(tmp, local_values);
+          this->child(child)->distribute_local_to_global_by_interpolation(
+            tmp, values, fe_index);
         }
     }
 }

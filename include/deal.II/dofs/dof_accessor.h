@@ -1754,6 +1754,18 @@ public:
     const Vector<number> &local_values,
     OutputVector &        values,
     const unsigned int    fe_index =
+      DoFHandler<dimension_, space_dimension_>::invalid_fe_index,
+    const bool perform_check = false) const;
+
+  /**
+   * TODO
+   */
+  template <class OutputVector, typename number>
+  void
+  distribute_local_to_global_by_interpolation(
+    const Vector<number> &local_values,
+    OutputVector &        values,
+    const unsigned int    fe_index =
       DoFHandler<dimension_, space_dimension_>::invalid_fe_index) const;
 
   /**

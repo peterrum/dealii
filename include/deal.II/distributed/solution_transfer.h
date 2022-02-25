@@ -233,7 +233,8 @@ namespace parallel
        *   points to the Triangulation before the refinement in question
        *   happens.
        */
-      SolutionTransfer(const DoFHandler<dim, spacedim> &dof);
+      SolutionTransfer(const DoFHandler<dim, spacedim> &dof,
+                       const bool                       average_values = false);
 
       /**
        * Destructor.
@@ -320,6 +321,11 @@ namespace parallel
         dof_handler;
 
       /**
+       * TODO
+       */
+      const bool average_values;
+
+      /**
        * A vector that stores pointers to all the vectors we are supposed to
        * copy over from the old to the new mesh.
        */
@@ -352,7 +358,8 @@ namespace parallel
         const typename Triangulation<dim, spacedim>::CellStatus     status,
         const boost::iterator_range<std::vector<char>::const_iterator>
           &                        data_range,
-        std::vector<VectorType *> &all_out);
+        std::vector<VectorType *> &all_out,
+        VectorType &               weights);
 
 
       /**
