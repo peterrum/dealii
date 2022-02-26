@@ -367,6 +367,12 @@ namespace LinearAlgebra
       has_ghost_elements() const;
 
       /**
+       * Change the ghost state of this vector to @p ghosted.
+       */
+      void
+      set_ghost_state(const bool ghosted) const;
+
+      /**
        * This method copies the data in the locally owned range from another
        * distributed vector @p src into the calling vector. As opposed to
        * operator= that also includes ghost entries, this operation ignores

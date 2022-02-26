@@ -68,29 +68,47 @@ namespace internal
     return a;
   }
 
+  template <typename VectorType>
+  constexpr bool is_dealii_vector =
+    std::is_same<VectorType,
+                 dealii::Vector<typename VectorType::value_type>>::value ||
+    std::is_same<VectorType,
+                 dealii::BlockVector<typename VectorType::value_type>>::value ||
+    std::is_same<
+      VectorType,
+      dealii::LinearAlgebra::Vector<typename VectorType::value_type>>::value ||
+    std::is_same<VectorType,
+                 dealii::LinearAlgebra::distributed::Vector<
+                   typename VectorType::value_type>>::value ||
+    std::is_same<VectorType,
+                 dealii::LinearAlgebra::distributed::BlockVector<
+                   typename VectorType::value_type>>::value;
+
   template <typename T>
-  bool
-  is_petsc_vector(const T &vec)
+  using set_ghost_state_t = decltype(
+    std::declval<T const>().set_ghost_state(std::declval<const bool &>()));
+
+  template <typename T>
+  constexpr bool has_set_ghost_state =
+    is_supported_operation<set_ghost_state_t, T>;
+
+  template <typename VectorType,
+            typename std::enable_if<has_set_ghost_state<VectorType>,
+                                    VectorType>::type * = nullptr>
+  void
+  set_ghost_state(VectorType &vector, const bool ghosted)
   {
-    (void)vec;
-    return false;
+    vector.set_ghost_state(ghosted);
   }
 
-#ifdef DEAL_II_WITH_PETSC
-  bool
-  is_petsc_vector(const PETScWrappers::MPI::Vector &vec)
+  template <typename VectorType,
+            typename std::enable_if<!has_set_ghost_state<VectorType>,
+                                    VectorType>::type * = nullptr>
+  void
+  set_ghost_state(VectorType &, const bool)
   {
-    (void)vec;
-    return true;
+    // serial vector: nothing to do
   }
-
-  bool
-  is_petsc_vector(const PETScWrappers::MPI::BlockVector &vec)
-  {
-    (void)vec;
-    return true;
-  }
-#endif
 
   template <int  dim,
             int  spacedim,
@@ -106,8 +124,10 @@ namespace internal
     (void)perform_check;
 
 #ifdef DEBUG
-    if (perform_check && (is_petsc_vector(values) == false))
+    if (perform_check && is_dealii_vector<OutputVector>)
       {
+        set_ghost_state(values, true);
+
         Vector<number> tmp(cell.get_fe().n_dofs_per_cell());
         cell.get_dof_values(values, tmp);
 
@@ -121,6 +141,8 @@ namespace internal
                    ExcNonMatchingElementsSetDofValuesByInterpolation(
                      local_values[i], tmp[i]));
           }
+
+        set_ghost_state(values, false);
       }
 #endif
 
@@ -250,7 +272,8 @@ DoFCellAccessor<dim, spacedim, lda>::
           (fe_index == DoFHandler<dim, spacedim>::invalid_fe_index))
         // simply set the values on this cell
         {
-          std::vector<types::global_dof_index> dof_indices;
+          std::vector<types::global_dof_index> dof_indices(
+            this->dof_handler->get_fe(fe_index).n_dofs_per_cell());
           this->get_dof_indices(dof_indices);
           AffineConstraints<number>().distribute_local_to_global(local_values,
                                                                  dof_indices,
@@ -278,7 +301,8 @@ DoFCellAccessor<dim, spacedim, lda>::
 
           // now set the dof values in the global vector
           {
-            std::vector<types::global_dof_index> dof_indices;
+            std::vector<types::global_dof_index> dof_indices(
+              this->dof_handler->get_fe(fe_index).n_dofs_per_cell());
             this->get_dof_indices(dof_indices);
             AffineConstraints<number>().distribute_local_to_global(tmp,
                                                                    dof_indices,
