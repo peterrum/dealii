@@ -1758,7 +1758,13 @@ public:
     const bool perform_check = false) const;
 
   /**
-   * TODO
+   * Similar to set_dof_values_by_interpolation() with the difference that
+   * values are added into the vector.
+   *
+   * @note In parallel::distributed::SolutionTransfer, this function is used
+   *   to accumulate the contributions of all cells to a DoF; with a
+   *   subsequent multiplication with the inverse of the valence, finally,
+   *   the average value is obtained.
    */
   template <class OutputVector, typename number>
   void

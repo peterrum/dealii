@@ -247,34 +247,35 @@ namespace parallel
       for (const auto vec : all_out)
         *vec = 0.0;
 
-      VectorType weights;
+      VectorType valence;
 
+      // initialize valence vector only if we need to average
       if (average_values)
-        weights.reinit(*all_out[0]);
+        valence.reinit(*all_out[0]);
 
       tria->notify_ready_to_unpack(
         handle,
-        [this, &all_out, &weights](
+        [this, &all_out, &valence](
           const typename Triangulation<dim, spacedim>::cell_iterator &cell_,
           const typename Triangulation<dim, spacedim>::CellStatus     status,
           const boost::iterator_range<std::vector<char>::const_iterator>
             &data_range) {
-          this->unpack_callback(cell_, status, data_range, all_out, weights);
+          this->unpack_callback(cell_, status, data_range, all_out, valence);
         });
 
       if (average_values)
         {
-          weights.compress(::dealii::VectorOperation::add);
-
-          for (const auto i : weights.locally_owned_elements())
-            weights[i] = weights[i] == 0.0 ? 0.0 : (1.0 / weights[i]);
-
-          weights.compress(::dealii::VectorOperation::insert);
+          // finalize valence: compress and invert
+          valence.compress(::dealii::VectorOperation::add);
+          for (const auto i : valence.locally_owned_elements())
+            valence[i] = valence[i] == 0.0 ? 0.0 : (1.0 / valence[i]);
+          valence.compress(::dealii::VectorOperation::insert);
 
           for (const auto vec : all_out)
             {
+              // comress and weight with valence
               vec->compress(::dealii::VectorOperation::add);
-              vec->scale(weights);
+              vec->scale(valence);
             }
         }
       else
@@ -377,7 +378,7 @@ namespace parallel
       const boost::iterator_range<std::vector<char>::const_iterator>
         &                        data_range,
       std::vector<VectorType *> &all_out,
-      VectorType &               weights)
+      VectorType &               valence)
     {
       typename DoFHandler<dim, spacedim>::cell_iterator cell(*cell_,
                                                              dof_handler);
@@ -461,10 +462,11 @@ namespace parallel
 
       if (average_values)
         {
+          // compute valence vector if averaging should be performed
           Vector<typename VectorType::value_type> ones(dofs_per_cell);
           ones = 1.0;
           cell->distribute_local_to_global_by_interpolation(ones,
-                                                            weights,
+                                                            valence,
                                                             fe_index);
         }
     }
