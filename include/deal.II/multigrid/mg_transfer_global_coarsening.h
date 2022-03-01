@@ -644,50 +644,13 @@ MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
 
       initialize_dof_vector(level, temp);
       if(temp.get_partitioner()->is_globally_compatible(*transfer.vec_fine.get_partitioner()))
-      {
         transfer.vec_fine.reinit(0);
-        if(do_print)
-        std::cout << "A0" << std::endl;
-      }
-      else if(Utilities::MPI::min((
-         (temp.get_partitioner()->ghost_indices() & transfer.vec_fine.get_partitioner()->ghost_indices()) ==
-           transfer.vec_fine.get_partitioner()->ghost_indices()) ?
-          1 :
-          0, MPI_COMM_WORLD) == 1)
-        {
-        if(do_print)
-          std::cout << "B0" << std::endl;
-        }
-      else
-        {
-          if(do_print)
-          std::cout << "C0" << std::endl;
-        }
         
 
       initialize_dof_vector(level - 1, temp);
 
       if(temp.get_partitioner()->is_globally_compatible(*transfer.vec_coarse.get_partitioner()))
-      {
         transfer.vec_coarse.reinit(0);  
-        if(do_print) 
-        std::cout << "A1" << std::endl;
-      }
-      else if(Utilities::MPI::min((
-         (temp.get_partitioner()->ghost_indices() & transfer.vec_coarse.get_partitioner()->ghost_indices()) ==
-           transfer.vec_coarse.get_partitioner()->ghost_indices()) ?
-          1 :
-          0, MPI_COMM_WORLD) == 1)
-        {
-        if(do_print)
-          std::cout << "B1" << std::endl;
-        }
-      else
-        {
-          if(do_print)
-          std::cout << "C1" << std::endl;
-        }
-        
     }
 
 }

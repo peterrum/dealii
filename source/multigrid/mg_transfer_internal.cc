@@ -449,8 +449,6 @@ namespace internal
           ghosted_dofs.add_indices(target_partitioner->ghost_indices());
         }
 
-      const bool do_print = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0;
-
       // check if the given partitioner's ghosts represent a superset of the
       // ghosts we require in this function
       const int ghosts_locally_contained =
@@ -473,9 +471,6 @@ namespace internal
                   target_partitioner->local_to_global(
                     copy_indices_global_mine(1, i)));
           target_partitioner = external_partitioner;
-
-          if(do_print)
-          std::cout << "B" << std::endl;
         }
       else
         {
@@ -489,9 +484,6 @@ namespace internal
                     copy_indices_global_mine(1, i)));
           target_partitioner.reset(new Utilities::MPI::Partitioner(
             locally_owned, ghosted_dofs, communicator));
-
-          if(do_print)
-          std::cout << "C" << std::endl;
         }
     }
 
