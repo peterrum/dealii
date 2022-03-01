@@ -970,6 +970,51 @@ namespace internal
   class MGTwoLevelTransferImplementation
   {
     template <int dim, typename Number>
+    static std::shared_ptr<const Utilities::MPI::Partitioner>
+    create_coarse_partitioner(const DoFHandler<dim> &dof_handler_coarse,
+      const dealii::AffineConstraints<Number> &constraint_coarse,
+                              const unsigned int     mg_level_coarse)
+    {
+        const IndexSet locally_active_dofs = 
+          (mg_level_coarse == numbers::invalid_unsigned_int) ?
+            DoFTools::extract_locally_active_dofs(dof_handler_coarse) :
+            DoFTools::extract_locally_active_level_dofs(dof_handler_coarse,
+                                                        mg_level_coarse);
+
+        std::vector<types::global_dof_index> locally_relevant_dofs_temp;
+
+        for (const auto i : locally_active_dofs)
+          {
+            locally_relevant_dofs_temp.emplace_back(i);
+
+            if (constraint_coarse.is_constrained(i))
+              {
+                const auto constraints =
+                  constraint_coarse.get_constraint_entries(i);
+
+                if (constraints)
+                  for (const auto &p : *constraints)
+                    locally_relevant_dofs_temp.emplace_back(p.first);
+              }
+          }          
+
+        std::sort(locally_relevant_dofs_temp.begin(), locally_relevant_dofs_temp.end());
+
+        locally_relevant_dofs_temp.erase(std::unique(locally_relevant_dofs_temp.begin(), locally_relevant_dofs_temp.end()), locally_relevant_dofs_temp.end());
+
+        IndexSet locally_relevant_dofs(locally_active_dofs.size()); 
+        locally_relevant_dofs.add_indices(locally_relevant_dofs_temp.begin(), locally_relevant_dofs_temp.end());
+
+        return
+          std::make_shared<Utilities::MPI::Partitioner>(
+            mg_level_coarse == numbers::invalid_unsigned_int ?
+              dof_handler_coarse.locally_owned_dofs() :
+              dof_handler_coarse.locally_owned_mg_dofs(mg_level_coarse),
+            locally_relevant_dofs,
+            dof_handler_coarse.get_communicator());
+    }
+
+    template <int dim, typename Number>
     static void
     precompute_restriction_constraints(
       const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
@@ -1402,22 +1447,7 @@ namespace internal
 
         // ... coarse mesh (needed since user vector might be const)
         {
-          IndexSet locally_relevant_dofs;
-
-          if (mg_level_coarse == numbers::invalid_unsigned_int)
-            DoFTools::extract_locally_active_dofs(dof_handler_coarse,
-                                                    locally_relevant_dofs);
-          else
-            DoFTools::extract_locally_active_level_dofs(
-              dof_handler_coarse, locally_relevant_dofs, mg_level_coarse);
-
-          transfer.partitioner_coarse =
-            std::make_shared<Utilities::MPI::Partitioner>(
-              mg_level_coarse == numbers::invalid_unsigned_int ?
-                dof_handler_coarse.locally_owned_dofs() :
-                dof_handler_coarse.locally_owned_mg_dofs(mg_level_coarse),
-              locally_relevant_dofs,
-              dof_handler_coarse.get_communicator());
+          transfer.partitioner_coarse = create_coarse_partitioner(dof_handler_coarse, constraint_coarse, mg_level_coarse );
           transfer.vec_coarse.reinit(transfer.partitioner_coarse);
           precompute_restriction_constraints(transfer.partitioner_coarse,
                                              constraint_coarse,
@@ -2066,43 +2096,7 @@ namespace internal
         transfer.vec_fine.reinit(transfer.partitioner_fine);
       }
       {
-        const IndexSet locally_active_dofs = 
-          (mg_level_coarse == numbers::invalid_unsigned_int) ?
-            DoFTools::extract_locally_active_dofs(dof_handler_coarse) :
-            DoFTools::extract_locally_active_level_dofs(dof_handler_coarse,
-                                                        mg_level_coarse);
-
-        std::vector<types::global_dof_index> locally_relevant_dofs_temp;
-
-        for (const auto i : locally_active_dofs)
-          {
-            locally_relevant_dofs_temp.emplace_back(i);
-
-            if (constraint_coarse.is_constrained(i))
-              {
-                const auto constraints =
-                  constraint_coarse.get_constraint_entries(i);
-
-                if (constraints)
-                  for (const auto &p : *constraints)
-                    locally_relevant_dofs_temp.emplace_back(p.first);
-              }
-          }          
-
-        std::sort(locally_relevant_dofs_temp.begin(), locally_relevant_dofs_temp.end());
-
-        locally_relevant_dofs_temp.erase(std::unique(locally_relevant_dofs_temp.begin(), locally_relevant_dofs_temp.end()), locally_relevant_dofs_temp.end());
-
-        IndexSet locally_relevant_dofs(locally_active_dofs.size()); 
-        locally_relevant_dofs.add_indices(locally_relevant_dofs_temp.begin(), locally_relevant_dofs_temp.end());
-
-        transfer.partitioner_coarse =
-          std::make_shared<Utilities::MPI::Partitioner>(
-            mg_level_coarse == numbers::invalid_unsigned_int ?
-              dof_handler_coarse.locally_owned_dofs() :
-              dof_handler_coarse.locally_owned_mg_dofs(mg_level_coarse),
-            locally_relevant_dofs,
-            comm);
+        transfer.partitioner_coarse = create_coarse_partitioner(dof_handler_coarse, constraint_coarse, mg_level_coarse );
         transfer.vec_coarse.reinit(transfer.partitioner_coarse);
         precompute_restriction_constraints(transfer.partitioner_coarse,
                                            constraint_coarse,
