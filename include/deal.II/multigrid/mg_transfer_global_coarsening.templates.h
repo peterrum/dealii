@@ -2768,7 +2768,6 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
             }
 
           // ... fast hanging-node-constraints algorithm
-          if(false)
           apply_hanging_node_constraints(
             scheme,
             coarse_cell_refinement_configurations_ptr,
@@ -2802,7 +2801,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           // weight and write into dst vector
           if (fine_element_is_continuous && this->weights_compressed.size() > 0)
             {
-              internal::weight_fe_q_dofs_by_entity<dim, 9, Number>(
+              internal::weight_fe_q_dofs_by_entity<dim, -1, Number>(
                 weights_compressed->data(),
                 n_components,
                 scheme.degree_fine + 1,
@@ -2866,7 +2865,6 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   if(use_dst_inplace == false)
     *vec_coarse_ptr = 0.0;
-    //vec_coarse_ptr->copy_locally_owned_data_from(dst);
 
   vec_coarse_ptr->zero_out_ghost_values(); // since we might add into the
                                             // ghost values and call compress 
@@ -2965,7 +2963,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
           if (fine_element_is_continuous && this->weights_compressed.size() > 0)
             {
-              internal::weight_fe_q_dofs_by_entity<dim, 9, Number>(
+              internal::weight_fe_q_dofs_by_entity<dim, -1, Number>(
                 weights_compressed->data(),
                 n_components,
                 scheme.degree_fine + 1,
@@ -2994,7 +2992,6 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           // ----------------------------- coarse ------------------------------
 
           // apply fast hanging-node-constraints algorithm, ...
-          if(false)
           apply_hanging_node_constraints(
             scheme,
             coarse_cell_refinement_configurations_ptr,
@@ -3031,8 +3028,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   vec_coarse_ptr->compress(VectorOperation::add);
 
   if(use_dst_inplace == false)
-  dst += this->vec_coarse;
-  //dst.copy_locally_owned_data_from(this->vec_coarse);
+    dst += this->vec_coarse;
 }
 
 
