@@ -971,47 +971,52 @@ namespace internal
   {
     template <int dim, typename Number>
     static std::shared_ptr<const Utilities::MPI::Partitioner>
-    create_coarse_partitioner(const DoFHandler<dim> &dof_handler_coarse,
+    create_coarse_partitioner(
+      const DoFHandler<dim> &                  dof_handler_coarse,
       const dealii::AffineConstraints<Number> &constraint_coarse,
-                              const unsigned int     mg_level_coarse)
+      const unsigned int                       mg_level_coarse)
     {
-        const IndexSet locally_active_dofs = 
-          (mg_level_coarse == numbers::invalid_unsigned_int) ?
-            DoFTools::extract_locally_active_dofs(dof_handler_coarse) :
-            DoFTools::extract_locally_active_level_dofs(dof_handler_coarse,
-                                                        mg_level_coarse);
+      const IndexSet locally_active_dofs =
+        (mg_level_coarse == numbers::invalid_unsigned_int) ?
+          DoFTools::extract_locally_active_dofs(dof_handler_coarse) :
+          DoFTools::extract_locally_active_level_dofs(dof_handler_coarse,
+                                                      mg_level_coarse);
 
-        std::vector<types::global_dof_index> locally_relevant_dofs_temp;
+      std::vector<types::global_dof_index> locally_relevant_dofs_temp;
 
-        for (const auto i : locally_active_dofs)
-          {
-            locally_relevant_dofs_temp.emplace_back(i);
+      for (const auto i : locally_active_dofs)
+        {
+          locally_relevant_dofs_temp.emplace_back(i);
 
-            if (constraint_coarse.is_constrained(i))
-              {
-                const auto constraints =
-                  constraint_coarse.get_constraint_entries(i);
+          if (constraint_coarse.is_constrained(i))
+            {
+              const auto constraints =
+                constraint_coarse.get_constraint_entries(i);
 
-                if (constraints)
-                  for (const auto &p : *constraints)
-                    locally_relevant_dofs_temp.emplace_back(p.first);
-              }
-          }          
+              if (constraints)
+                for (const auto &p : *constraints)
+                  locally_relevant_dofs_temp.emplace_back(p.first);
+            }
+        }
 
-        std::sort(locally_relevant_dofs_temp.begin(), locally_relevant_dofs_temp.end());
+      std::sort(locally_relevant_dofs_temp.begin(),
+                locally_relevant_dofs_temp.end());
 
-        locally_relevant_dofs_temp.erase(std::unique(locally_relevant_dofs_temp.begin(), locally_relevant_dofs_temp.end()), locally_relevant_dofs_temp.end());
+      locally_relevant_dofs_temp.erase(
+        std::unique(locally_relevant_dofs_temp.begin(),
+                    locally_relevant_dofs_temp.end()),
+        locally_relevant_dofs_temp.end());
 
-        IndexSet locally_relevant_dofs(locally_active_dofs.size()); 
-        locally_relevant_dofs.add_indices(locally_relevant_dofs_temp.begin(), locally_relevant_dofs_temp.end());
+      IndexSet locally_relevant_dofs(locally_active_dofs.size());
+      locally_relevant_dofs.add_indices(locally_relevant_dofs_temp.begin(),
+                                        locally_relevant_dofs_temp.end());
 
-        return
-          std::make_shared<Utilities::MPI::Partitioner>(
-            mg_level_coarse == numbers::invalid_unsigned_int ?
-              dof_handler_coarse.locally_owned_dofs() :
-              dof_handler_coarse.locally_owned_mg_dofs(mg_level_coarse),
-            locally_relevant_dofs,
-            dof_handler_coarse.get_communicator());
+      return std::make_shared<Utilities::MPI::Partitioner>(
+        mg_level_coarse == numbers::invalid_unsigned_int ?
+          dof_handler_coarse.locally_owned_dofs() :
+          dof_handler_coarse.locally_owned_mg_dofs(mg_level_coarse),
+        locally_relevant_dofs,
+        dof_handler_coarse.get_communicator());
     }
 
     template <int dim, typename Number>
@@ -1069,7 +1074,7 @@ namespace internal
       fu(partitioner->locally_owned_range());
       fu(partitioner->ghost_indices());
 
-      if(has_constraints == false)
+      if (has_constraints == false)
         {
           transfer.distribute_local_to_global_indices.clear();
           transfer.distribute_local_to_global_values.clear();
@@ -1458,7 +1463,10 @@ namespace internal
 
         // ... coarse mesh (needed since user vector might be const)
         {
-          transfer.partitioner_coarse = create_coarse_partitioner(dof_handler_coarse, constraint_coarse, mg_level_coarse );
+          transfer.partitioner_coarse =
+            create_coarse_partitioner(dof_handler_coarse,
+                                      constraint_coarse,
+                                      mg_level_coarse);
           transfer.vec_coarse.reinit(transfer.partitioner_coarse);
           precompute_restriction_constraints(transfer.partitioner_coarse,
                                              constraint_coarse,
@@ -2107,7 +2115,10 @@ namespace internal
         transfer.vec_fine.reinit(transfer.partitioner_fine);
       }
       {
-        transfer.partitioner_coarse = create_coarse_partitioner(dof_handler_coarse, constraint_coarse, mg_level_coarse );
+        transfer.partitioner_coarse =
+          create_coarse_partitioner(dof_handler_coarse,
+                                    constraint_coarse,
+                                    mg_level_coarse);
         transfer.vec_coarse.reinit(transfer.partitioner_coarse);
         precompute_restriction_constraints(transfer.partitioner_coarse,
                                            constraint_coarse,
@@ -2685,12 +2696,12 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   const unsigned int n_lanes = VectorizedArrayType::size();
 
   const bool use_dst_inplace = this->vec_fine.size() == 0;
-  const auto vec_fine_ptr = use_dst_inplace ? &dst : &this->vec_fine;
+  const auto vec_fine_ptr    = use_dst_inplace ? &dst : &this->vec_fine;
 
   const bool use_src_inplace = this->vec_coarse.size() == 0;
   const auto vec_coarse_ptr  = use_src_inplace ? &src : &this->vec_coarse;
 
-  if(use_src_inplace == false)
+  if (use_src_inplace == false)
     vec_coarse.copy_locally_owned_data_from(src);
 
   vec_coarse_ptr->update_ghost_values();
@@ -2723,7 +2734,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   for (const auto &scheme : schemes)
     {
-      if(scheme.n_coarse_cells == 0)
+      if (scheme.n_coarse_cells == 0)
         continue;
 
       const bool needs_interpolation =
@@ -2752,35 +2763,36 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           for (unsigned int v = 0; v < n_lanes_filled; ++v)
             {
               for (unsigned int i = 0; i < scheme.n_dofs_per_cell_coarse; ++i)
-              {
-                const auto &index = indices_coarse[i]; 
-                const auto &global_vector = *vec_coarse_ptr;
-                auto &value = evaluation_data_coarse[i][v];
+                {
+                  const auto &index         = indices_coarse[i];
+                  const auto &global_vector = *vec_coarse_ptr;
+                  auto &      value         = evaluation_data_coarse[i][v];
 
-    if (distribute_local_to_global_ptr.empty())                                  
-      value = global_vector.local_element(index);                                 
-    else if (distribute_local_to_global_ptr[index + 1] ==
-        distribute_local_to_global_ptr[index])
-      value = global_vector.local_element(index);
-    else if (((distribute_local_to_global_ptr[index + 1] -
-               distribute_local_to_global_ptr[index]) == 1 &&
-              distribute_local_to_global_indices
-                  [distribute_local_to_global_ptr[index]] ==
-                numbers::invalid_unsigned_int) == false)
-      {
-        Number value_temp = 0.0;
-        for (unsigned int j = distribute_local_to_global_ptr[index];
-             j < distribute_local_to_global_ptr[index + 1];
-             ++j)
-          value_temp +=
-            global_vector.local_element(distribute_local_to_global_indices[j]) *
-            distribute_local_to_global_values[j];
-        value = value_temp;
-      }
-    else
-      value = 0.0;
-              }
-                  
+                  if (distribute_local_to_global_ptr.empty())
+                    value = global_vector.local_element(index);
+                  else if (distribute_local_to_global_ptr[index + 1] ==
+                           distribute_local_to_global_ptr[index])
+                    value = global_vector.local_element(index);
+                  else if (((distribute_local_to_global_ptr[index + 1] -
+                             distribute_local_to_global_ptr[index]) == 1 &&
+                            distribute_local_to_global_indices
+                                [distribute_local_to_global_ptr[index]] ==
+                              numbers::invalid_unsigned_int) == false)
+                    {
+                      Number value_temp = 0.0;
+                      for (unsigned int j =
+                             distribute_local_to_global_ptr[index];
+                           j < distribute_local_to_global_ptr[index + 1];
+                           ++j)
+                        value_temp += global_vector.local_element(
+                                        distribute_local_to_global_indices[j]) *
+                                      distribute_local_to_global_values[j];
+                      value = value_temp;
+                    }
+                  else
+                    value = 0.0;
+                }
+
               indices_coarse += scheme.n_dofs_per_cell_coarse;
               indices_coarse_plain += scheme.n_dofs_per_cell_coarse;
             }
@@ -2853,7 +2865,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   if (use_dst_inplace == false)
     dst += this->vec_fine;
 
-  if(use_src_inplace)
+  if (use_src_inplace)
     vec_coarse_ptr->zero_out_ghost_values();
 }
 
@@ -2881,11 +2893,11 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   if (fine_element_is_continuous || use_src_inplace == false)
     vec_fine_ptr->update_ghost_values();
 
-  if(use_dst_inplace == false)
+  if (use_dst_inplace == false)
     *vec_coarse_ptr = 0.0;
 
   vec_coarse_ptr->zero_out_ghost_values(); // since we might add into the
-                                            // ghost values and call compress 
+                                           // ghost values and call compress
 
   AlignedVector<VectorizedArrayType> evaluation_data_fine;
   AlignedVector<VectorizedArrayType> evaluation_data_coarse;
@@ -2912,7 +2924,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   for (const auto &scheme : schemes)
     {
-      if(scheme.n_coarse_cells == 0)
+      if (scheme.n_coarse_cells == 0)
         continue;
 
       const bool needs_interpolation =
@@ -3002,27 +3014,28 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           for (unsigned int v = 0; v < n_lanes_filled; ++v)
             {
               for (unsigned int i = 0; i < scheme.n_dofs_per_cell_coarse; ++i)
-              {
-                const auto &index = indices_coarse[i];
-                const auto &value = evaluation_data_coarse[i][v];
-                auto &global_vector = *vec_coarse_ptr;
+                {
+                  const auto &index         = indices_coarse[i];
+                  const auto &value         = evaluation_data_coarse[i][v];
+                  auto &      global_vector = *vec_coarse_ptr;
 
-      if(distribute_local_to_global_ptr.empty())
-        global_vector.local_element(index) += value;
-      else if (distribute_local_to_global_ptr[index + 1] ==
-          distribute_local_to_global_ptr[index])
-        global_vector.local_element(index) += value;
-      else if (((distribute_local_to_global_ptr[index + 1] -
-                 distribute_local_to_global_ptr[index]) == 1 &&
-                distribute_local_to_global_indices
-                    [distribute_local_to_global_ptr[index]] ==
-                  numbers::invalid_unsigned_int) == false)
-        for (unsigned int j = distribute_local_to_global_ptr[index];
-             j < distribute_local_to_global_ptr[index + 1];
-             ++j)
-          global_vector.local_element(distribute_local_to_global_indices[j]) +=
-            value * distribute_local_to_global_values[j];
-              }
+                  if (distribute_local_to_global_ptr.empty())
+                    global_vector.local_element(index) += value;
+                  else if (distribute_local_to_global_ptr[index + 1] ==
+                           distribute_local_to_global_ptr[index])
+                    global_vector.local_element(index) += value;
+                  else if (((distribute_local_to_global_ptr[index + 1] -
+                             distribute_local_to_global_ptr[index]) == 1 &&
+                            distribute_local_to_global_indices
+                                [distribute_local_to_global_ptr[index]] ==
+                              numbers::invalid_unsigned_int) == false)
+                    for (unsigned int j = distribute_local_to_global_ptr[index];
+                         j < distribute_local_to_global_ptr[index + 1];
+                         ++j)
+                      global_vector.local_element(
+                        distribute_local_to_global_indices[j]) +=
+                        value * distribute_local_to_global_values[j];
+                }
               indices_coarse += scheme.n_dofs_per_cell_coarse;
               indices_coarse_plain += scheme.n_dofs_per_cell_coarse;
             }
@@ -3039,7 +3052,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   vec_coarse_ptr->compress(VectorOperation::add);
 
-  if(use_dst_inplace == false)
+  if (use_dst_inplace == false)
     dst += this->vec_coarse;
 }
 

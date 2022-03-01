@@ -399,7 +399,7 @@ private:
    * accessed by the given vectors in the prolongate/restrict functions),
    * otherwise it is left at size zero.
    */
-   public:
+public:
   mutable LinearAlgebra::distributed::Vector<Number> vec_fine;
   /**
    * Internal vector on that the actual prolongation/restriction is performed.
@@ -631,28 +631,28 @@ MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
   : transfer(transfer)
   , initialize_dof_vector(initialize_dof_vector)
 {
-
   const unsigned int min_level = transfer.min_level();
   const unsigned int max_level = transfer.max_level();
 
-  const bool do_print = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0;
+  const bool do_print = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0;
 
   for (unsigned int level = min_level + 1; level <= max_level; ++level)
     {
       VectorType temp;
-      auto & transfer = this->transfer[level];
+      auto &     transfer = this->transfer[level];
 
       initialize_dof_vector(level, temp);
-      if(temp.get_partitioner()->is_globally_compatible(*transfer.vec_fine.get_partitioner()))
+      if (temp.get_partitioner()->is_globally_compatible(
+            *transfer.vec_fine.get_partitioner()))
         transfer.vec_fine.reinit(0);
-        
+
 
       initialize_dof_vector(level - 1, temp);
 
-      if(temp.get_partitioner()->is_globally_compatible(*transfer.vec_coarse.get_partitioner()))
-        transfer.vec_coarse.reinit(0);  
+      if (temp.get_partitioner()->is_globally_compatible(
+            *transfer.vec_coarse.get_partitioner()))
+        transfer.vec_coarse.reinit(0);
     }
-
 }
 
 
