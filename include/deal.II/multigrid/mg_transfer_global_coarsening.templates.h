@@ -1064,6 +1064,15 @@ namespace internal
 
       fu(partitioner->locally_owned_range());
       fu(partitioner->ghost_indices());
+
+      if(false)
+      if(transfer.distribute_local_to_global_ptr.back() == 
+        partitioner->locally_owned_range().n_elements() + partitioner->ghost_indices().n_elements())
+        {
+          transfer.distribute_local_to_global_indices.clear();
+          transfer.distribute_local_to_global_values.clear();
+          transfer.distribute_local_to_global_ptr.clear();
+        }
     }
 
 
@@ -2685,32 +2694,32 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   vec_coarse_ptr->update_ghost_values();
 
   // a helper function similar to FEEvaluation::read_dof_values()
-  /*
-  const auto read_dof_values = [&](const auto &index,
-                                   const auto &global_vector) -> Number {
-    return global_vector.local_element(index);                                 
-    if (distribute_local_to_global_ptr[index + 1] ==
+  const auto read_dof_values = [&](const auto &index, 
+                                   const auto &global_vector,
+                                   auto &value) {
+    if (true || distribute_local_to_global_ptr.empty())                                  
+      value = global_vector.local_element(index);                                 
+    else if (distribute_local_to_global_ptr[index + 1] ==
         distribute_local_to_global_ptr[index])
-      return global_vector.local_element(index);
+      value = global_vector.local_element(index);
     else if (((distribute_local_to_global_ptr[index + 1] -
                distribute_local_to_global_ptr[index]) == 1 &&
               distribute_local_to_global_indices
                   [distribute_local_to_global_ptr[index]] ==
                 numbers::invalid_unsigned_int) == false)
       {
-        Number value = 0.0;
+        Number value_temp = 0.0;
         for (unsigned int j = distribute_local_to_global_ptr[index];
              j < distribute_local_to_global_ptr[index + 1];
              ++j)
-          value +=
+          value_temp +=
             global_vector.local_element(distribute_local_to_global_indices[j]) *
             distribute_local_to_global_values[j];
-        return value;
+        value = value_temp;
       }
     else
-      return 0.0;
+      value = 0.0;
   };
-  */
 
   if (fine_element_is_continuous && (use_dst_inplace == false))
     *vec_fine_ptr = Number(0.);
@@ -2769,9 +2778,8 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           for (unsigned int v = 0; v < n_lanes_filled; ++v)
             {
               for (unsigned int i = 0; i < scheme.n_dofs_per_cell_coarse; ++i)
-                evaluation_data_coarse[i][v] =
-                  vec_coarse_ptr->local_element(indices_coarse[i]);
-                //  read_dof_values(indices_coarse[i], this->vec_coarse);
+                   read_dof_values(indices_coarse[i], *vec_coarse_ptr, evaluation_data_coarse[i][v]);
+                  
               indices_coarse += scheme.n_dofs_per_cell_coarse;
               indices_coarse_plain += scheme.n_dofs_per_cell_coarse;
             }
