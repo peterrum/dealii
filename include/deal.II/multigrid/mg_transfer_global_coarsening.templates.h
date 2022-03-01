@@ -2066,15 +2066,35 @@ namespace internal
         transfer.vec_fine.reinit(transfer.partitioner_fine);
       }
       {
-        IndexSet locally_relevant_dofs;
-
-        if (mg_level_coarse == numbers::invalid_unsigned_int)
-          DoFTools::extract_locally_active_dofs(dof_handler_coarse,
-                                                  locally_relevant_dofs);
-        else
-          DoFTools::extract_locally_active_level_dofs(dof_handler_coarse,
-                                                        locally_relevant_dofs,
+        const IndexSet locally_active_dofs = 
+          (mg_level_coarse == numbers::invalid_unsigned_int) ?
+            DoFTools::extract_locally_active_dofs(dof_handler_coarse) :
+            DoFTools::extract_locally_active_level_dofs(dof_handler_coarse,
                                                         mg_level_coarse);
+
+        std::vector<types::global_dof_index> locally_relevant_dofs_temp;
+
+        for (const auto i : locally_active_dofs)
+          {
+            locally_relevant_dofs_temp.emplace_back(i);
+
+            if (constraint_coarse.is_constrained(i))
+              {
+                const auto constraints =
+                  constraint_coarse.get_constraint_entries(i);
+
+                if (constraints)
+                  for (const auto &p : *constraints)
+                    locally_relevant_dofs_temp.emplace_back(p.first);
+              }
+          }          
+
+        std::sort(locally_relevant_dofs_temp.begin(), locally_relevant_dofs_temp.end());
+
+        locally_relevant_dofs_temp.erase(std::unique(locally_relevant_dofs_temp.begin(), locally_relevant_dofs_temp.end()), locally_relevant_dofs_temp.end());
+
+        IndexSet locally_relevant_dofs(locally_active_dofs.size()); 
+        locally_relevant_dofs.add_indices(locally_relevant_dofs_temp.begin(), locally_relevant_dofs_temp.end());
 
         transfer.partitioner_coarse =
           std::make_shared<Utilities::MPI::Partitioner>(
@@ -2724,15 +2744,10 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
     *coarse_cell_refinement_configurations_ptr =
       coarse_cell_refinement_configurations.data();
 
-  //if(false)
   for (const auto &scheme : schemes)
     {
       if(scheme.n_coarse_cells == 0)
         continue;
-
-      AssertThrow(scheme.degree_coarse == 4, ExcInternalError());
-      AssertThrow(scheme.degree_fine == 8, ExcInternalError());
-      AssertThrow(this->weights_compressed.size() != 0, ExcInternalError());
 
       const bool needs_interpolation =
         (scheme.prolongation_matrix.size() == 0 &&
