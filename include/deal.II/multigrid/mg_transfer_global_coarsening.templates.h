@@ -1405,11 +1405,11 @@ namespace internal
           IndexSet locally_relevant_dofs;
 
           if (mg_level_coarse == numbers::invalid_unsigned_int)
-            DoFTools::extract_locally_relevant_dofs(dof_handler_coarse,
+            DoFTools::extract_locally_active_dofs(dof_handler_coarse,
                                                     locally_relevant_dofs);
           else
-            DoFTools::extract_locally_relevant_level_dofs(
-              dof_handler_coarse, mg_level_coarse, locally_relevant_dofs);
+            DoFTools::extract_locally_active_level_dofs(
+              dof_handler_coarse, locally_relevant_dofs, mg_level_coarse);
 
           transfer.partitioner_coarse =
             std::make_shared<Utilities::MPI::Partitioner>(
@@ -2069,12 +2069,12 @@ namespace internal
         IndexSet locally_relevant_dofs;
 
         if (mg_level_coarse == numbers::invalid_unsigned_int)
-          DoFTools::extract_locally_relevant_dofs(dof_handler_coarse,
+          DoFTools::extract_locally_active_dofs(dof_handler_coarse,
                                                   locally_relevant_dofs);
         else
-          DoFTools::extract_locally_relevant_level_dofs(dof_handler_coarse,
-                                                        mg_level_coarse,
-                                                        locally_relevant_dofs);
+          DoFTools::extract_locally_active_level_dofs(dof_handler_coarse,
+                                                        locally_relevant_dofs,
+                                                        mg_level_coarse);
 
         transfer.partitioner_coarse =
           std::make_shared<Utilities::MPI::Partitioner>(
@@ -2660,15 +2660,21 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   const unsigned int n_lanes = VectorizedArrayType::size();
 
   const bool use_dst_inplace = this->vec_fine.size() == 0;
-
   const auto vec_fine_ptr = use_dst_inplace ? &dst : &this->vec_fine;
 
-  this->vec_coarse.copy_locally_owned_data_from(src);
-  this->vec_coarse.update_ghost_values();
+  const bool use_src_inplace = this->vec_coarse.size() == 0;
+  const auto vec_coarse_ptr  = use_src_inplace ? &src : &this->vec_coarse;
+
+  if(use_src_inplace == false)
+    vec_coarse.copy_locally_owned_data_from(src);
+
+  vec_coarse_ptr->update_ghost_values();
 
   // a helper function similar to FEEvaluation::read_dof_values()
+  /*
   const auto read_dof_values = [&](const auto &index,
                                    const auto &global_vector) -> Number {
+    return global_vector.local_element(index);                                 
     if (distribute_local_to_global_ptr[index + 1] ==
         distribute_local_to_global_ptr[index])
       return global_vector.local_element(index);
@@ -2690,6 +2696,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
     else
       return 0.0;
   };
+  */
 
   if (fine_element_is_continuous && (use_dst_inplace == false))
     *vec_fine_ptr = Number(0.);
@@ -2717,8 +2724,16 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
     *coarse_cell_refinement_configurations_ptr =
       coarse_cell_refinement_configurations.data();
 
+  //if(false)
   for (const auto &scheme : schemes)
     {
+      if(scheme.n_coarse_cells == 0)
+        continue;
+
+      AssertThrow(scheme.degree_coarse == 4, ExcInternalError());
+      AssertThrow(scheme.degree_fine == 8, ExcInternalError());
+      AssertThrow(this->weights_compressed.size() != 0, ExcInternalError());
+
       const bool needs_interpolation =
         (scheme.prolongation_matrix.size() == 0 &&
          scheme.prolongation_matrix_1d.size() == 0) == false;
@@ -2746,12 +2761,14 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
             {
               for (unsigned int i = 0; i < scheme.n_dofs_per_cell_coarse; ++i)
                 evaluation_data_coarse[i][v] =
-                  read_dof_values(indices_coarse[i], this->vec_coarse);
+                  vec_coarse_ptr->local_element(indices_coarse[i]);
+                //  read_dof_values(indices_coarse[i], this->vec_coarse);
               indices_coarse += scheme.n_dofs_per_cell_coarse;
               indices_coarse_plain += scheme.n_dofs_per_cell_coarse;
             }
 
           // ... fast hanging-node-constraints algorithm
+          if(false)
           apply_hanging_node_constraints(
             scheme,
             coarse_cell_refinement_configurations_ptr,
@@ -2785,7 +2802,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           // weight and write into dst vector
           if (fine_element_is_continuous && this->weights_compressed.size() > 0)
             {
-              internal::weight_fe_q_dofs_by_entity<dim, -1, Number>(
+              internal::weight_fe_q_dofs_by_entity<dim, 9, Number>(
                 weights_compressed->data(),
                 n_components,
                 scheme.degree_fine + 1,
@@ -2818,6 +2835,9 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   if (use_dst_inplace == false)
     dst += this->vec_fine;
+
+  if(use_src_inplace)
+    vec_coarse_ptr->zero_out_ghost_values();
 }
 
 
@@ -2835,22 +2855,32 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   const bool use_src_inplace = this->vec_fine.size() == 0;
   const auto vec_fine_ptr    = use_src_inplace ? &src : &this->vec_fine;
 
+  const bool use_dst_inplace = this->vec_coarse.size() == 0;
+  const auto vec_coarse_ptr  = use_dst_inplace ? &dst : &this->vec_coarse;
+
   if (use_src_inplace == false)
     this->vec_fine.copy_locally_owned_data_from(src);
 
   if (fine_element_is_continuous || use_src_inplace == false)
     vec_fine_ptr->update_ghost_values();
 
-  this->vec_coarse.copy_locally_owned_data_from(dst);
-  this->vec_coarse.zero_out_ghost_values(); // since we might add into the
-                                            // ghost values and call compress
+  if(use_dst_inplace == false)
+    *vec_coarse_ptr = 0.0;
+    //vec_coarse_ptr->copy_locally_owned_data_from(dst);
+
+  vec_coarse_ptr->zero_out_ghost_values(); // since we might add into the
+                                            // ghost values and call compress 
 
   AlignedVector<VectorizedArrayType> evaluation_data_fine;
   AlignedVector<VectorizedArrayType> evaluation_data_coarse;
 
   // a helper function similar to FEEvaluation::distribute_local_to_global()
+  /*
   const auto distribute_local_to_global =
     [&](const auto &index, const auto &value, auto &global_vector) {
+      global_vector.local_element(index) += value;
+      return;
+
       if (distribute_local_to_global_ptr[index + 1] ==
           distribute_local_to_global_ptr[index])
         global_vector.local_element(index) += value;
@@ -2865,6 +2895,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           global_vector.local_element(distribute_local_to_global_indices[j]) +=
             value * distribute_local_to_global_values[j];
     };
+  */
 
   const unsigned int *indices_coarse = level_dof_indices_coarse.size() > 0 ?
                                          level_dof_indices_coarse.data() :
@@ -2888,6 +2919,9 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   for (const auto &scheme : schemes)
     {
+      if(scheme.n_coarse_cells == 0)
+        continue;
+
       const bool needs_interpolation =
         (scheme.prolongation_matrix.size() == 0 &&
          scheme.prolongation_matrix_1d.size() == 0) == false;
@@ -2931,7 +2965,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
           if (fine_element_is_continuous && this->weights_compressed.size() > 0)
             {
-              internal::weight_fe_q_dofs_by_entity<dim, -1, Number>(
+              internal::weight_fe_q_dofs_by_entity<dim, 9, Number>(
                 weights_compressed->data(),
                 n_components,
                 scheme.degree_fine + 1,
@@ -2960,6 +2994,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           // ----------------------------- coarse ------------------------------
 
           // apply fast hanging-node-constraints algorithm, ...
+          if(false)
           apply_hanging_node_constraints(
             scheme,
             coarse_cell_refinement_configurations_ptr,
@@ -2975,9 +3010,10 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           for (unsigned int v = 0; v < n_lanes_filled; ++v)
             {
               for (unsigned int i = 0; i < scheme.n_dofs_per_cell_coarse; ++i)
-                distribute_local_to_global(indices_coarse[i],
-                                           evaluation_data_coarse[i][v],
-                                           this->vec_coarse);
+                vec_coarse_ptr->local_element(indices_coarse[i]) += evaluation_data_coarse[i][v];
+                //distribute_local_to_global(indices_coarse[i],
+                //                           evaluation_data_coarse[i][v],
+                //                           this->vec_coarse);
               indices_coarse += scheme.n_dofs_per_cell_coarse;
               indices_coarse_plain += scheme.n_dofs_per_cell_coarse;
             }
@@ -2992,9 +3028,11 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   else if (fine_element_is_continuous)
     vec_fine_ptr->zero_out_ghost_values(); // external vector
 
-  this->vec_coarse.compress(VectorOperation::add);
+  vec_coarse_ptr->compress(VectorOperation::add);
 
-  dst.copy_locally_owned_data_from(this->vec_coarse);
+  if(use_dst_inplace == false)
+  dst += this->vec_coarse;
+  //dst.copy_locally_owned_data_from(this->vec_coarse);
 }
 
 

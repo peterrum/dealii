@@ -399,13 +399,14 @@ private:
    * accessed by the given vectors in the prolongate/restrict functions),
    * otherwise it is left at size zero.
    */
+   public:
   mutable LinearAlgebra::distributed::Vector<Number> vec_fine;
-
   /**
    * Internal vector on that the actual prolongation/restriction is performed.
    */
   mutable LinearAlgebra::distributed::Vector<Number> vec_coarse;
 
+private:
   /**
    * Constraint-entry indices for performing manual
    * constraint_coarse.distribute_local_to_global().
@@ -605,7 +606,7 @@ private:
   /**
    * Collection of the two-level transfer operators.
    */
-  const MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> &transfer;
+  MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfer;
 
   /**
    * %Function to initialize internal level vectors.
@@ -629,7 +630,67 @@ MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
     &initialize_dof_vector)
   : transfer(transfer)
   , initialize_dof_vector(initialize_dof_vector)
-{}
+{
+
+  const unsigned int min_level = transfer.min_level();
+  const unsigned int max_level = transfer.max_level();
+
+  const bool do_print = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0;
+
+  for (unsigned int level = min_level + 1; level <= max_level; ++level)
+    {
+      VectorType temp;
+      auto & transfer = this->transfer[level];
+
+      initialize_dof_vector(level, temp);
+      if(temp.get_partitioner()->is_globally_compatible(*transfer.vec_fine.get_partitioner()))
+      {
+        transfer.vec_fine.reinit(0);
+        if(do_print)
+        std::cout << "A0" << std::endl;
+      }
+      else if(Utilities::MPI::min((
+         (temp.get_partitioner()->ghost_indices() & transfer.vec_fine.get_partitioner()->ghost_indices()) ==
+           transfer.vec_fine.get_partitioner()->ghost_indices()) ?
+          1 :
+          0, MPI_COMM_WORLD) == 1)
+        {
+        if(do_print)
+          std::cout << "B0" << std::endl;
+        }
+      else
+        {
+          if(do_print)
+          std::cout << "C0" << std::endl;
+        }
+        
+
+      initialize_dof_vector(level - 1, temp);
+
+      if(temp.get_partitioner()->is_globally_compatible(*transfer.vec_coarse.get_partitioner()))
+      {
+        transfer.vec_coarse.reinit(0);  
+        if(do_print) 
+        std::cout << "A1" << std::endl;
+      }
+      else if(Utilities::MPI::min((
+         (temp.get_partitioner()->ghost_indices() & transfer.vec_coarse.get_partitioner()->ghost_indices()) ==
+           transfer.vec_coarse.get_partitioner()->ghost_indices()) ?
+          1 :
+          0, MPI_COMM_WORLD) == 1)
+        {
+        if(do_print)
+          std::cout << "B1" << std::endl;
+        }
+      else
+        {
+          if(do_print)
+          std::cout << "C1" << std::endl;
+        }
+        
+    }
+
+}
 
 
 
