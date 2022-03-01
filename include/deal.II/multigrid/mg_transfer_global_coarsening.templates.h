@@ -1026,6 +1026,8 @@ namespace internal
       transfer.distribute_local_to_global_values.clear();
       transfer.distribute_local_to_global_ptr = {0};
 
+      bool has_constraints = false;
+
       const auto fu = [&](const auto &index_set) {
         for (const auto i : index_set)
           {
@@ -1040,6 +1042,8 @@ namespace internal
                 if (constraints)
                   for (const auto &p : *constraints)
                     {
+                      has_constraints = true;
+
                       transfer.distribute_local_to_global_indices.emplace_back(
                         partitioner->global_to_local(p.first));
                       transfer.distribute_local_to_global_values.emplace_back(
@@ -1065,9 +1069,7 @@ namespace internal
       fu(partitioner->locally_owned_range());
       fu(partitioner->ghost_indices());
 
-      if(false)
-      if(transfer.distribute_local_to_global_ptr.back() == 
-        partitioner->locally_owned_range().n_elements() + partitioner->ghost_indices().n_elements())
+      if(has_constraints == false)
         {
           transfer.distribute_local_to_global_indices.clear();
           transfer.distribute_local_to_global_values.clear();
@@ -2697,7 +2699,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   const auto read_dof_values = [&](const auto &index, 
                                    const auto &global_vector,
                                    auto &value) {
-    if (true || distribute_local_to_global_ptr.empty())                                  
+    if (distribute_local_to_global_ptr.empty())                                  
       value = global_vector.local_element(index);                                 
     else if (distribute_local_to_global_ptr[index + 1] ==
         distribute_local_to_global_ptr[index])
@@ -2778,7 +2780,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           for (unsigned int v = 0; v < n_lanes_filled; ++v)
             {
               for (unsigned int i = 0; i < scheme.n_dofs_per_cell_coarse; ++i)
-                   read_dof_values(indices_coarse[i], *vec_coarse_ptr, evaluation_data_coarse[i][v]);
+                read_dof_values(indices_coarse[i], *vec_coarse_ptr, evaluation_data_coarse[i][v]);
                   
               indices_coarse += scheme.n_dofs_per_cell_coarse;
               indices_coarse_plain += scheme.n_dofs_per_cell_coarse;
@@ -2890,13 +2892,11 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   AlignedVector<VectorizedArrayType> evaluation_data_coarse;
 
   // a helper function similar to FEEvaluation::distribute_local_to_global()
-  /*
   const auto distribute_local_to_global =
     [&](const auto &index, const auto &value, auto &global_vector) {
-      global_vector.local_element(index) += value;
-      return;
-
-      if (distribute_local_to_global_ptr[index + 1] ==
+      if(distribute_local_to_global_ptr.empty())
+        global_vector.local_element(index) += value;
+      else if (distribute_local_to_global_ptr[index + 1] ==
           distribute_local_to_global_ptr[index])
         global_vector.local_element(index) += value;
       else if (((distribute_local_to_global_ptr[index + 1] -
@@ -2910,7 +2910,6 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           global_vector.local_element(distribute_local_to_global_indices[j]) +=
             value * distribute_local_to_global_values[j];
     };
-  */
 
   const unsigned int *indices_coarse = level_dof_indices_coarse.size() > 0 ?
                                          level_dof_indices_coarse.data() :
@@ -3024,10 +3023,9 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           for (unsigned int v = 0; v < n_lanes_filled; ++v)
             {
               for (unsigned int i = 0; i < scheme.n_dofs_per_cell_coarse; ++i)
-                vec_coarse_ptr->local_element(indices_coarse[i]) += evaluation_data_coarse[i][v];
-                //distribute_local_to_global(indices_coarse[i],
-                //                           evaluation_data_coarse[i][v],
-                //                           this->vec_coarse);
+                distribute_local_to_global(indices_coarse[i],
+                                           evaluation_data_coarse[i][v],
+                                           *vec_coarse_ptr);
               indices_coarse += scheme.n_dofs_per_cell_coarse;
               indices_coarse_plain += scheme.n_dofs_per_cell_coarse;
             }
