@@ -1074,7 +1074,7 @@ namespace internal
       fu(partitioner->locally_owned_range());
       fu(partitioner->ghost_indices());
 
-      if (has_constraints == false)
+      if (false && has_constraints == false)
         {
           transfer.distribute_local_to_global_indices.clear();
           transfer.distribute_local_to_global_values.clear();
@@ -3071,13 +3071,16 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   const bool use_src_inplace = this->vec_fine.size() == 0;
   const auto vec_fine_ptr    = use_src_inplace ? &src : &this->vec_fine;
 
+  const bool use_dst_inplace = this->vec_coarse.size() == 0;
+  const auto vec_coarse_ptr  = use_dst_inplace ? &dst : &this->vec_coarse;
+
   if (use_src_inplace == false)
     this->vec_fine.copy_locally_owned_data_from(src);
 
   if (fine_element_is_continuous || use_src_inplace == false)
     vec_fine_ptr->update_ghost_values();
 
-  this->vec_coarse = 0.0;
+  *vec_coarse_ptr = 0.0;
 
   AlignedVector<VectorizedArrayType> evaluation_data_fine;
   AlignedVector<VectorizedArrayType> evaluation_data_coarse;
@@ -3097,7 +3100,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
               if ((scheme.n_dofs_per_cell_fine != 0) &&
                   (scheme.n_dofs_per_cell_coarse != 0))
                 for (unsigned int i = 0; i < scheme.n_dofs_per_cell_fine; ++i)
-                  this->vec_coarse.local_element(indices_coarse_plain[i]) =
+                  vec_coarse_ptr->local_element(indices_coarse_plain[i]) =
                     vec_fine_ptr->local_element(indices_fine[i]);
 
               indices_fine += scheme.n_dofs_per_cell_fine;
@@ -3157,7 +3160,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           for (unsigned int v = 0; v < n_lanes_filled; ++v)
             {
               for (unsigned int i = 0; i < scheme.n_dofs_per_cell_coarse; ++i)
-                this->vec_coarse.local_element(indices_coarse_plain[i]) =
+                vec_coarse_ptr->local_element(indices_coarse_plain[i]) =
                   evaluation_data_coarse[i][v];
               indices_coarse_plain += scheme.n_dofs_per_cell_coarse;
             }
@@ -3170,7 +3173,8 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   else if (fine_element_is_continuous)
     vec_fine_ptr->zero_out_ghost_values(); // external vector
 
-  dst.copy_locally_owned_data_from(this->vec_coarse);
+  if (use_dst_inplace == false)
+    dst.copy_locally_owned_data_from(*vec_coarse_ptr);
 }
 
 

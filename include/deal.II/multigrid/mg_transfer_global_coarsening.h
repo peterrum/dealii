@@ -634,8 +634,6 @@ MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
   const unsigned int min_level = transfer.min_level();
   const unsigned int max_level = transfer.max_level();
 
-  const bool do_print = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0;
-
   for (unsigned int level = min_level + 1; level <= max_level; ++level)
     {
       VectorType temp;
