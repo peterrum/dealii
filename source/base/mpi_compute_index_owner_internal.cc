@@ -36,8 +36,8 @@ namespace Utilities
           const std::map<unsigned int,
                          std::vector<std::pair<types::global_dof_index,
                                                types::global_dof_index>>>
-            &                        buffers,
-          std::vector<unsigned int> &actually_owning_ranks,
+            &                  buffers,
+          FlexibleIndexVector &actually_owning_ranks,
           const std::pair<types::global_dof_index, types::global_dof_index>
             &                        local_range,
           std::vector<unsigned int> &actually_owning_rank_list)
@@ -92,8 +92,8 @@ namespace Utilities
                    i < interval.second;
                    i++)
                 Assert(
-                  actually_owning_ranks[i - local_range.first] ==
-                    numbers::invalid_unsigned_int,
+                  actually_owning_ranks.entry_has_been_set(
+                    i - local_range.first) == false,
                   ExcMessage(
                     "Multiple processes seem to own the same global index. "
                     "A possible reason is that the sets of locally owned "
@@ -105,11 +105,9 @@ namespace Utilities
                 ExcMessage(
                   "The specified interval is not handled by the current process."));
 #endif
-              std::fill(actually_owning_ranks.data() + interval.first -
-                          local_range.first,
-                        actually_owning_ranks.data() + interval.second -
-                          local_range.first,
-                        other_rank);
+              actually_owning_ranks.fill(interval.first - local_range.first,
+                                         interval.second - local_range.first,
+                                         other_rank);
             }
           actually_owning_rank_list.push_back(other_rank);
         }
@@ -131,9 +129,13 @@ namespace Utilities
                                          types::global_dof_index>>>
             buffers;
 
-          std::fill(actually_owning_ranks.begin(),
-                    actually_owning_ranks.end(),
-                    numbers::invalid_subdomain_id);
+          const auto owned_indices_size_actual =
+            Utilities::MPI::sum(owned_indices.n_elements(), comm);
+
+          actually_owning_ranks.reset_type(owned_indices_size_actual * 4 >
+                                           owned_indices.size());
+          actually_owning_ranks.resize(locally_owned_size);
+          actually_owning_ranks.clear_entries();
 
           // 2) collect relevant processes and process local dict entries
           for (auto interval = owned_indices.begin_intervals();
@@ -177,11 +179,10 @@ namespace Utilities
                   // buffer to be sent to another processor
                   if (owner_first == my_rank)
                     {
-                      std::fill(actually_owning_ranks.data() +
-                                  index_range.first - local_range.first,
-                                actually_owning_ranks.data() + next_index -
-                                  local_range.first,
-                                my_rank);
+                      actually_owning_ranks.fill(index_range.first -
+                                                   local_range.first,
+                                                 next_index - local_range.first,
+                                                 my_rank);
                       dic_local_received += next_index - index_range.first;
                       if (actually_owning_rank_list.empty())
                         actually_owning_rank_list.push_back(my_rank);
@@ -198,8 +199,7 @@ namespace Utilities
           std::vector<MPI_Request> request;
 
           // Check if index set space is partitioned globally without gaps.
-          if (Utilities::MPI::sum(owned_indices.n_elements(), comm) ==
-              owned_indices.size())
+          if (owned_indices_size_actual == owned_indices.size())
             {
               // no gaps: setup is simple! Processes send their locally owned
               // indices to the dictionary. The dictionary stores the sending
@@ -269,8 +269,8 @@ namespace Utilities
                       for (types::global_dof_index i = interval.first;
                            i < interval.second;
                            i++)
-                        Assert(actually_owning_ranks[i - local_range.first] ==
-                                 numbers::invalid_unsigned_int,
+                        Assert(actually_owning_ranks.entry_has_been_set(
+                                 i - local_range.first) == false,
                                ExcInternalError());
                       Assert(interval.first >= local_range.first &&
                                interval.first < local_range.second,
@@ -280,11 +280,11 @@ namespace Utilities
                              ExcInternalError());
 #  endif
 
-                      std::fill(actually_owning_ranks.data() + interval.first -
-                                  local_range.first,
-                                actually_owning_ranks.data() + interval.second -
-                                  local_range.first,
-                                other_rank);
+                      actually_owning_ranks.fill(interval.first -
+                                                   local_range.first,
+                                                 interval.second -
+                                                   local_range.first,
+                                                 other_rank);
                       dic_local_received += interval.second - interval.first;
                     }
                 }
@@ -357,10 +357,6 @@ namespace Utilities
           local_range.second = get_index_offset(my_rank + 1);
 
           locally_owned_size = local_range.second - local_range.first;
-
-          actually_owning_ranks = {};
-          actually_owning_ranks.resize(locally_owned_size,
-                                       numbers::invalid_unsigned_int);
 #else
           (void)owned_indices;
           (void)comm;

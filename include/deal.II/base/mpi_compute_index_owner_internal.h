@@ -35,6 +35,96 @@ namespace Utilities
        */
       namespace ComputeIndexOwner
       {
+        class FlexibleIndexVector
+        {
+        public:
+          using index_type = unsigned int;
+          static constexpr index_type invalid_index_value =
+            numbers::invalid_unsigned_int;
+
+          FlexibleIndexVector(const bool full_index_set = true)
+            : full_index_set(full_index_set)
+          {}
+
+          void
+          reset_type(const bool full_index_set)
+          {
+            this->full_index_set = full_index_set;
+            data.clear();
+            data_map.clear();
+          }
+
+          void
+          resize(const index_type size)
+          {
+            if (full_index_set)
+              {
+                data.assign(size, invalid_index_value);
+              }
+            else
+              {
+                // nothing to do
+              }
+          }
+
+          void
+          fill(const index_type  start,
+               const index_type  end,
+               const index_type &value)
+          {
+            if (full_index_set)
+              {
+                std::fill(data.begin() + start, data.begin() + end, value);
+              }
+            else
+              {
+                for (auto i = start; i < end; ++i)
+                  data_map[i] = value;
+              }
+          }
+
+          index_type &
+          operator[](const index_type index)
+          {
+            if (full_index_set)
+              return data[index];
+            else
+              return data_map[index];
+          }
+
+          const index_type &
+          operator[](const index_type index) const
+          {
+            if (full_index_set)
+              return data[index];
+            else
+              return data_map.at(index);
+          }
+
+          bool
+          entry_has_been_set(const index_type index) const
+          {
+            if (full_index_set)
+              return data[index] != invalid_index_value;
+            else
+              return data_map.find(index) != data_map.end();
+          }
+
+          void
+          clear_entries()
+          {
+            if (full_index_set)
+              std::fill(data.begin(), data.end(), invalid_index_value);
+            else
+              data_map.clear();
+          }
+
+        private:
+          bool                             full_index_set;
+          std::vector<index_type>          data;
+          std::map<index_type, index_type> data_map;
+        };
+
         /**
          * Specialization of ConsensusAlgorithms::Process for setting up the
          * Dictionary even if there are ranges in the IndexSet space not owned
@@ -55,8 +145,8 @@ namespace Utilities
             const std::map<unsigned int,
                            std::vector<std::pair<types::global_dof_index,
                                                  types::global_dof_index>>>
-              &                        buffers,
-            std::vector<unsigned int> &actually_owning_ranks,
+              &                  buffers,
+            FlexibleIndexVector &actually_owning_ranks,
             const std::pair<types::global_dof_index, types::global_dof_index>
               &                        local_range,
             std::vector<unsigned int> &actually_owning_rank_list);
@@ -95,7 +185,7 @@ namespace Utilities
                                                types::global_dof_index>>>
             &buffers;
 
-          std::vector<unsigned int> &actually_owning_ranks;
+          FlexibleIndexVector &actually_owning_ranks;
 
           const std::pair<types::global_dof_index, types::global_dof_index>
             &local_range;
@@ -141,7 +231,7 @@ namespace Utilities
            * owner of that dof in the IndexSet `owned_indices`. This is
            * queried in the index lookup, so we keep an expanded list.
            */
-          std::vector<unsigned int> actually_owning_ranks;
+          FlexibleIndexVector actually_owning_ranks;
 
           /**
            * A sorted vector containing the MPI ranks appearing in
