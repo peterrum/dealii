@@ -2198,40 +2198,48 @@ namespace internal
             fe_index_pairs[std::pair<unsigned int, unsigned int>(
               cell_coarse->active_fe_index(), cell_fine->active_fe_index())];
 
-          if (mg_level_coarse == numbers::invalid_unsigned_int)
-            cell_coarse->get_dof_indices(local_dof_indices_coarse[fe_pair_no]);
-          else
-            cell_coarse->get_mg_dof_indices(
-              local_dof_indices_coarse[fe_pair_no]);
+          {
+            if (mg_level_coarse == numbers::invalid_unsigned_int)
+              cell_coarse->get_dof_indices(
+                local_dof_indices_coarse[fe_pair_no]);
+            else
+              cell_coarse->get_mg_dof_indices(
+                local_dof_indices_coarse[fe_pair_no]);
 
-          for (unsigned int i = 0;
-               i < transfer.schemes[fe_pair_no].n_dofs_per_cell_coarse;
-               i++)
-            level_dof_indices_coarse_[fe_pair_no][i] =
-              transfer.partitioner_coarse->global_to_local(
-                local_dof_indices_coarse
-                  [fe_pair_no][lexicographic_numbering_coarse[fe_pair_no][i]]);
+            for (unsigned int i = 0;
+                 i < transfer.schemes[fe_pair_no].n_dofs_per_cell_coarse;
+                 i++)
+              level_dof_indices_coarse_[fe_pair_no][i] =
+                transfer.partitioner_coarse->global_to_local(
+                  local_dof_indices_coarse
+                    [fe_pair_no]
+                    [lexicographic_numbering_coarse[fe_pair_no][i]]);
 
-          cell_fine->get_dof_indices(local_dof_indices_fine[fe_pair_no]);
-          for (unsigned int i = 0;
-               i < transfer.schemes[fe_pair_no].n_dofs_per_cell_fine;
-               i++)
-            {
-              level_dof_indices_fine_[fe_pair_no][i] =
-                transfer.partitioner_fine->global_to_local(
-                  local_dof_indices_fine
-                    [fe_pair_no][lexicographic_numbering_fine[fe_pair_no][i]]);
-              if (!locally_owned_dofs.is_element(
+            level_dof_indices_coarse_[fe_pair_no] +=
+              transfer.schemes[fe_pair_no].n_dofs_per_cell_coarse;
+          }
+
+          {
+            cell_fine->get_dof_indices(local_dof_indices_fine[fe_pair_no]);
+            for (unsigned int i = 0;
+                 i < transfer.schemes[fe_pair_no].n_dofs_per_cell_fine;
+                 i++)
+              {
+                level_dof_indices_fine_[fe_pair_no][i] =
+                  transfer.partitioner_fine->global_to_local(
                     local_dof_indices_fine
                       [fe_pair_no]
-                      [lexicographic_numbering_fine[fe_pair_no][i]]))
-                fine_indices_touch_remote_dofs = true;
-            }
+                      [lexicographic_numbering_fine[fe_pair_no][i]]);
+                if (!locally_owned_dofs.is_element(
+                      local_dof_indices_fine
+                        [fe_pair_no]
+                        [lexicographic_numbering_fine[fe_pair_no][i]]))
+                  fine_indices_touch_remote_dofs = true;
+              }
 
-          level_dof_indices_coarse_[fe_pair_no] +=
-            transfer.schemes[fe_pair_no].n_dofs_per_cell_coarse;
-          level_dof_indices_fine_[fe_pair_no] +=
-            transfer.schemes[fe_pair_no].n_dofs_per_cell_fine;
+            level_dof_indices_fine_[fe_pair_no] +=
+              transfer.schemes[fe_pair_no].n_dofs_per_cell_fine;
+          }
         });
 
         // if all access goes to the locally owned dofs on all ranks, we do
