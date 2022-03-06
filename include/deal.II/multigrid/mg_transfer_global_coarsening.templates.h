@@ -395,6 +395,74 @@ namespace internal
       return matrix;
     }
 
+    template <int dim>
+    bool
+    use_fast_hanging_node_algorithm(const DoFHandler<dim> &dof_handler_coarse,
+                                    const unsigned int     mg_level_coarse)
+    {
+      // algorithm is only needed on active levels
+      bool use_fast_hanging_node_algorithm =
+        mg_level_coarse == numbers::invalid_unsigned_int;
+
+      // algorithm can be only used on meshes consisting of hypercube and
+      // simplices
+      if (use_fast_hanging_node_algorithm)
+        {
+          const auto &reference_cells =
+            dof_handler_coarse.get_triangulation().get_reference_cells();
+          use_fast_hanging_node_algorithm =
+            std::all_of(reference_cells.begin(),
+                        reference_cells.end(),
+                        [](const auto &r) {
+                          return r.is_hyper_cube() || r.is_simplex();
+                        });
+        }
+
+      // local p-refinement is not supported
+      if (use_fast_hanging_node_algorithm)
+        {
+          const auto &fes = dof_handler_coarse.get_fe_collection();
+
+          use_fast_hanging_node_algorithm &=
+            std::all_of(fes.begin(), fes.end(), [&fes](const auto &fe) {
+              return fes[0].compare_for_domination(fe) ==
+                     FiniteElementDomination::Domination::
+                       either_element_can_dominate;
+            });
+        }
+
+      // check that all components are either supported or not
+      if (use_fast_hanging_node_algorithm)
+        {
+          const std::vector<std::vector<bool>> supported_components =
+            internal::MatrixFreeFunctions::HangingNodes<
+              dim>::compute_supported_components(dof_handler_coarse
+                                                   .get_fe_collection());
+
+          use_fast_hanging_node_algorithm &= std::any_of(
+            supported_components.begin(),
+            supported_components.end(),
+            [](const auto &supported_components_per_fe) {
+              return std::all_of(supported_components_per_fe.begin(),
+                                 supported_components_per_fe.end(),
+                                 [](const auto &a) { return a == true; });
+            });
+
+          use_fast_hanging_node_algorithm &= std::all_of(
+            supported_components.begin(),
+            supported_components.end(),
+            [](const auto &supported_components_per_fe) {
+              return std::all_of(supported_components_per_fe.begin(),
+                                 supported_components_per_fe.end(),
+                                 [&supported_components_per_fe](const auto &a) {
+                                   return a == supported_components_per_fe[0];
+                                 });
+            });
+        }
+
+      return mg_level_coarse;
+    }
+
   } // namespace
 
   class FineDoFHandlerViewCell
@@ -1288,94 +1356,32 @@ namespace internal
                                              hanging_nodes;
       std::vector<std::vector<unsigned int>> lexicographic_mappings;
 
-      {
-        // algorithm is only needed on active levels
-        bool use_fast_hanging_node_algorithm =
-          mg_level_coarse == numbers::invalid_unsigned_int;
+      // create helper class
+      if (use_fast_hanging_node_algorithm(dof_handler_coarse, mg_level_coarse))
+        {
+          hanging_nodes =
+            std::make_unique<internal::MatrixFreeFunctions::HangingNodes<dim>>(
+              dof_handler_coarse.get_triangulation());
 
-        const auto &tria = dof_handler_coarse.get_triangulation();
+          const auto &fes = dof_handler_coarse.get_fe_collection();
+          lexicographic_mappings.resize(fes.size());
 
-        // algorithm can be only used on meshes consisting of hypercube and
-        // simplices
-        if (use_fast_hanging_node_algorithm)
-          {
-            const auto &reference_cells = tria.get_reference_cells();
-            use_fast_hanging_node_algorithm =
-              std::all_of(reference_cells.begin(),
-                          reference_cells.end(),
-                          [](const auto &r) {
-                            return r.is_hyper_cube() || r.is_simplex();
-                          });
-          }
+          for (unsigned int i = 0; i < fes.size(); ++i)
+            if (fes[i].reference_cell().is_hyper_cube())
+              {
+                const Quadrature<1> dummy_quadrature(
+                  std::vector<Point<1>>(1, Point<1>()));
+                internal::MatrixFreeFunctions::ShapeInfo<
+                  VectorizedArray<Number>>
+                  shape_info;
+                shape_info.reinit(dummy_quadrature, fes[i], 0);
+                lexicographic_mappings[i] = shape_info.lexicographic_numbering;
 
-        // local p-refinement is not supported
-        if (use_fast_hanging_node_algorithm)
-          {
-            const auto &fes = dof_handler_coarse.get_fe_collection();
-
-            use_fast_hanging_node_algorithm &=
-              std::all_of(fes.begin(), fes.end(), [&fes](const auto &fe) {
-                return fes[0].compare_for_domination(fe) ==
-                       FiniteElementDomination::Domination::
-                         either_element_can_dominate;
-              });
-          }
-
-        // check that all components are either supported or not
-        if (use_fast_hanging_node_algorithm)
-          {
-            const std::vector<std::vector<bool>> supported_components =
-              internal::MatrixFreeFunctions::HangingNodes<
-                dim>::compute_supported_components(dof_handler_coarse
-                                                     .get_fe_collection());
-
-            use_fast_hanging_node_algorithm &= std::any_of(
-              supported_components.begin(),
-              supported_components.end(),
-              [](const auto &supported_components_per_fe) {
-                return std::all_of(supported_components_per_fe.begin(),
-                                   supported_components_per_fe.end(),
-                                   [](const auto &a) { return a == true; });
-              });
-
-            use_fast_hanging_node_algorithm &=
-              std::all_of(supported_components.begin(),
-                          supported_components.end(),
-                          [](const auto &supported_components_per_fe) {
-                            return std::all_of(
-                              supported_components_per_fe.begin(),
-                              supported_components_per_fe.end(),
-                              [&supported_components_per_fe](const auto &a) {
-                                return a == supported_components_per_fe[0];
-                              });
-                          });
-          }
-
-        // create helper class
-        if (use_fast_hanging_node_algorithm)
-          {
-            hanging_nodes = std::make_unique<
-              internal::MatrixFreeFunctions::HangingNodes<dim>>(tria);
-
-            const auto &fes = dof_handler_coarse.get_fe_collection();
-            lexicographic_mappings.resize(fes.size());
-
-            for (unsigned int i = 0; i < fes.size(); ++i)
-              if (fes[i].reference_cell().is_hyper_cube())
-                {
-                  const Quadrature<1> dummy_quadrature(
-                    std::vector<Point<1>>(1, Point<1>()));
-                  internal::MatrixFreeFunctions::ShapeInfo<Number> shape_info;
-                  shape_info.reinit(dummy_quadrature, fes[i], 0);
-                  lexicographic_mappings[i] =
-                    shape_info.lexicographic_numbering;
-
-                  if (i == fe_index_coarse)
-                    transfer.schemes[0].shape_info_coarse =
-                      transfer.schemes[1].shape_info_coarse = shape_info;
-                }
-          }
-      }
+                if (i == fe_index_coarse)
+                  transfer.schemes[0].shape_info_coarse =
+                    transfer.schemes[1].shape_info_coarse = shape_info;
+              }
+        }
 
       // create partitioners and vectors for internal purposes
       {
