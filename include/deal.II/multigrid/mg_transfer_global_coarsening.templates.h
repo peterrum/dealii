@@ -460,7 +460,7 @@ namespace internal
             });
         }
 
-      return mg_level_coarse;
+      return use_fast_hanging_node_algorithm;
     }
 
   } // namespace
@@ -1997,8 +1997,15 @@ namespace internal
                       return fe.n_base_elements() == 1 &&
                              (dynamic_cast<const FE_Q<dim> *>(
                                 &fe.base_element(0)) != nullptr);
-                      ;
                     });
+
+      std::unique_ptr<internal::MatrixFreeFunctions::HangingNodes<dim>>
+        hanging_nodes;
+
+      if (use_fast_hanging_node_algorithm(dof_handler_coarse, mg_level_coarse))
+        {
+          // TODO
+        }
 
       const auto process_cells = [&](const auto &fu) {
         loop_over_active_or_level_cells(
@@ -2095,11 +2102,15 @@ namespace internal
         std::vector<std::vector<types::global_dof_index>>
           local_dof_indices_coarse(fe_index_pairs.size());
         std::vector<std::vector<types::global_dof_index>>
+          local_dof_indices_coarse_lex(fe_index_pairs.size());
+        std::vector<std::vector<types::global_dof_index>>
           local_dof_indices_fine(fe_index_pairs.size());
 
         for (const auto &fe_index_pair : fe_index_pairs)
           {
             local_dof_indices_coarse[fe_index_pair.second].resize(
+              transfer.schemes[fe_index_pair.second].n_dofs_per_cell_coarse);
+            local_dof_indices_coarse_lex[fe_index_pair.second].resize(
               transfer.schemes[fe_index_pair.second].n_dofs_per_cell_coarse);
             local_dof_indices_fine[fe_index_pair.second].resize(
               transfer.schemes[fe_index_pair.second].n_dofs_per_cell_fine);
@@ -2208,13 +2219,25 @@ namespace internal
                 local_dof_indices_coarse[fe_pair_no]);
 
             for (unsigned int i = 0;
+                 i < local_dof_indices_coarse[fe_pair_no].size();
+                 ++i)
+              local_dof_indices_coarse_lex[fe_pair_no][i] =
+                local_dof_indices_coarse
+                  [fe_pair_no][lexicographic_numbering_coarse[fe_pair_no][i]];
+
+            for (auto &i : local_dof_indices_coarse_lex[fe_pair_no])
+              i = transfer.partitioner_coarse->global_to_local(i);
+
+            if (hanging_nodes)
+              {
+                // TODO
+              }
+
+            for (unsigned int i = 0;
                  i < transfer.schemes[fe_pair_no].n_dofs_per_cell_coarse;
                  i++)
               level_dof_indices_coarse_plain[fe_pair_no][i] =
-                transfer.partitioner_coarse->global_to_local(
-                  local_dof_indices_coarse
-                    [fe_pair_no]
-                    [lexicographic_numbering_coarse[fe_pair_no][i]]);
+                local_dof_indices_coarse_lex[fe_pair_no][i];
           }
 
           // child
@@ -2252,6 +2275,15 @@ namespace internal
                                   fine_indices_touch_remote_dofs),
                                 comm) == 0)
           transfer.vec_fine.reinit(0);
+
+        if (hanging_nodes &&
+            std::all_of(transfer.coarse_cell_refinement_configurations.begin(),
+                        transfer.coarse_cell_refinement_configurations.end(),
+                        [](const auto i) {
+                          return i == internal::MatrixFreeFunctions::
+                                        ConstraintKinds::unconstrained;
+                        }))
+          transfer.coarse_cell_refinement_configurations.clear();
       }
 
       // ------------------------- prolongation matrix -------------------------
