@@ -2173,16 +2173,16 @@ namespace internal
           n_dof_indices_coarse.back());
 
         // ------------------------------ indices  -----------------------------
-        std::vector<unsigned int *> level_dof_indices_coarse_(
+        std::vector<unsigned int *> level_dof_indices_coarse_plain(
           fe_index_pairs.size());
-        std::vector<unsigned int *> level_dof_indices_fine_(
+        std::vector<unsigned int *> level_dof_indices_fine(
           fe_index_pairs.size());
 
         for (unsigned int i = 0; i < fe_index_pairs.size(); ++i)
           {
-            level_dof_indices_fine_[i] =
+            level_dof_indices_fine[i] =
               transfer.level_dof_indices_fine.data() + n_dof_indices_fine[i];
-            level_dof_indices_coarse_[i] =
+            level_dof_indices_coarse_plain[i] =
               transfer.level_dof_indices_coarse_plain.data() +
               n_dof_indices_coarse[i];
           }
@@ -2198,6 +2198,7 @@ namespace internal
             fe_index_pairs[std::pair<unsigned int, unsigned int>(
               cell_coarse->active_fe_index(), cell_fine->active_fe_index())];
 
+          // parent
           {
             if (mg_level_coarse == numbers::invalid_unsigned_int)
               cell_coarse->get_dof_indices(
@@ -2209,23 +2210,21 @@ namespace internal
             for (unsigned int i = 0;
                  i < transfer.schemes[fe_pair_no].n_dofs_per_cell_coarse;
                  i++)
-              level_dof_indices_coarse_[fe_pair_no][i] =
+              level_dof_indices_coarse_plain[fe_pair_no][i] =
                 transfer.partitioner_coarse->global_to_local(
                   local_dof_indices_coarse
                     [fe_pair_no]
                     [lexicographic_numbering_coarse[fe_pair_no][i]]);
-
-            level_dof_indices_coarse_[fe_pair_no] +=
-              transfer.schemes[fe_pair_no].n_dofs_per_cell_coarse;
           }
 
+          // child
           {
             cell_fine->get_dof_indices(local_dof_indices_fine[fe_pair_no]);
             for (unsigned int i = 0;
                  i < transfer.schemes[fe_pair_no].n_dofs_per_cell_fine;
                  i++)
               {
-                level_dof_indices_fine_[fe_pair_no][i] =
+                level_dof_indices_fine[fe_pair_no][i] =
                   transfer.partitioner_fine->global_to_local(
                     local_dof_indices_fine
                       [fe_pair_no]
@@ -2236,8 +2235,13 @@ namespace internal
                         [lexicographic_numbering_fine[fe_pair_no][i]]))
                   fine_indices_touch_remote_dofs = true;
               }
+          }
 
-            level_dof_indices_fine_[fe_pair_no] +=
+          // move pointers
+          {
+            level_dof_indices_coarse_plain[fe_pair_no] +=
+              transfer.schemes[fe_pair_no].n_dofs_per_cell_coarse;
+            level_dof_indices_fine[fe_pair_no] +=
               transfer.schemes[fe_pair_no].n_dofs_per_cell_fine;
           }
         });
