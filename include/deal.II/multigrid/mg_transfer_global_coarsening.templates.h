@@ -1351,8 +1351,6 @@ namespace internal
                           });
           }
 
-        use_fast_hanging_node_algorithm = false;
-
         // create helper class
         if (use_fast_hanging_node_algorithm)
           {
@@ -1371,20 +1369,11 @@ namespace internal
                   shape_info.reinit(dummy_quadrature, fes[i], 0);
                   lexicographic_mappings[i] =
                     shape_info.lexicographic_numbering;
+
+                  if (i == fe_index_coarse)
+                    transfer.schemes[0].shape_info_coarse =
+                      transfer.schemes[1].shape_info_coarse = shape_info;
                 }
-
-            if (fes[fe_index_coarse].reference_cell().is_hyper_cube())
-              {
-                const Quadrature<1> dummy_quadrature(
-                  std::vector<Point<1>>(1, Point<1>()));
-                internal::MatrixFreeFunctions::ShapeInfo<
-                  VectorizedArray<Number>>
-                  shape_info;
-                shape_info.reinit(dummy_quadrature, fes[fe_index_coarse], 0);
-
-                transfer.schemes[0].shape_info_coarse =
-                  transfer.schemes[1].shape_info_coarse = shape_info;
-              }
           }
       }
 
@@ -2700,10 +2689,8 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   const unsigned int *indices_coarse = level_dof_indices_coarse.size() > 0 ?
                                          level_dof_indices_coarse.data() :
                                          level_dof_indices_coarse_plain.data();
-  const unsigned int *indices_coarse_plain =
-    level_dof_indices_coarse_plain.data();
-  const unsigned int *indices_fine = level_dof_indices_fine.data();
-  const Number *      weights      = nullptr;
+  const unsigned int *indices_fine   = level_dof_indices_fine.data();
+  const Number *      weights        = nullptr;
   const std::array<VectorizedArray<Number>, Utilities::pow(3, dim)>
     *weights_compressed = nullptr;
 
@@ -2748,7 +2735,6 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
                 evaluation_data_coarse[i][v] =
                   read_dof_values(indices_coarse[i], this->vec_coarse);
               indices_coarse += scheme.n_dofs_per_cell_coarse;
-              indices_coarse_plain += scheme.n_dofs_per_cell_coarse;
             }
 
           // ... fast hanging-node-constraints algorithm
@@ -2869,10 +2855,8 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   const unsigned int *indices_coarse = level_dof_indices_coarse.size() > 0 ?
                                          level_dof_indices_coarse.data() :
                                          level_dof_indices_coarse_plain.data();
-  const unsigned int *indices_coarse_plain =
-    level_dof_indices_coarse_plain.data();
-  const unsigned int *indices_fine = level_dof_indices_fine.data();
-  const Number *      weights      = nullptr;
+  const unsigned int *indices_fine   = level_dof_indices_fine.data();
+  const Number *      weights        = nullptr;
   const std::array<VectorizedArray<Number>, Utilities::pow(3, dim)>
     *weights_compressed = nullptr;
 
@@ -2979,7 +2963,6 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
                                            evaluation_data_coarse[i][v],
                                            this->vec_coarse);
               indices_coarse += scheme.n_dofs_per_cell_coarse;
-              indices_coarse_plain += scheme.n_dofs_per_cell_coarse;
             }
         }
     }
