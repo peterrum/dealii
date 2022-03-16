@@ -79,6 +79,10 @@ void
 Multigrid<VectorType>::set_edge_matrices(const MGMatrixBase<VectorType> &down,
                                          const MGMatrixBase<VectorType> &up)
 {
+  Assert(
+    edge_down == nullptr && edge_up == nullptr,
+    ExcMessage(
+      "You cannot call this function once you have called set_edge_flux_matrices()."));
   edge_out = &down;
   edge_in  = &up;
 }
@@ -91,6 +95,10 @@ Multigrid<VectorType>::set_edge_flux_matrices(
   const MGMatrixBase<VectorType> &down,
   const MGMatrixBase<VectorType> &up)
 {
+  Assert(
+    edge_out == nullptr && edge_in == nullptr,
+    ExcMessage(
+      "You cannot call this function once you have called set_edge_matrices()."));
   edge_down = &down;
   edge_up   = &up;
 }
