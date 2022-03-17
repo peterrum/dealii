@@ -13,6 +13,8 @@
 //
 // ---------------------------------------------------------------------
 
+#ifndef SHAPES_TEST_HEADER
+#define SHAPES_TEST_HEADER
 
 // Show the shape functions implemented.
 
@@ -515,3 +517,5 @@ test_compute_functions(const Mapping<dim> &      mapping,
       check_values_and_derivatives(fe, fe_values, q);
     };
 }
+
+#endif

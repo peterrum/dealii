@@ -53,6 +53,7 @@ SET(_separate_src
   solution_transfer_inst2.cc
   solution_transfer_inst3.cc
   solution_transfer_inst4.cc
+  vector_tools_hermite.cc
   vector_tools_integrate_difference.cc
   vector_tools_interpolate.cc
   vector_tools_point_value.cc
@@ -95,6 +96,7 @@ SET(_inst
   time_dependent.inst.in
   vector_tools_boundary.inst.in
   vector_tools_constraints.inst.in
+  vector_tools_hermite.inst.in
   vector_tools_integrate_difference.inst.in
   vector_tools_interpolate.inst.in
   vector_tools_mean_value.inst.in

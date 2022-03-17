@@ -29,6 +29,7 @@
 #include <deal.II/fe/fe.h>
 #include <deal.II/fe/fe_dgp.h>
 #include <deal.II/fe/fe_dgq.h>
+#include <deal.II/fe/fe_hermite.h>
 #include <deal.II/fe/fe_poly.h>
 #include <deal.II/fe/fe_pyramid_p.h>
 #include <deal.II/fe/fe_q.h>
@@ -1095,7 +1096,9 @@ namespace internal
             return false;
 
           // then check if the base element is supported or not
-          if (dynamic_cast<const FE_Poly<dim, spacedim> *>(fe_ptr) != nullptr)
+          if (dynamic_cast<const FE_Poly<dim, spacedim> *>(fe_ptr) != nullptr &&
+              dynamic_cast<const FE_Hermite<dim, spacedim> *>(fe_ptr) ==
+                nullptr)
             {
               const FE_Poly<dim, spacedim> *fe_poly_ptr =
                 dynamic_cast<const FE_Poly<dim, spacedim> *>(fe_ptr);

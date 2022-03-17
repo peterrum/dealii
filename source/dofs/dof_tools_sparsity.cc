@@ -26,6 +26,7 @@
 #include <deal.II/dofs/dof_tools.h>
 
 #include <deal.II/fe/fe.h>
+#include <deal.II/fe/fe_hermite.h>
 #include <deal.II/fe/fe_tools.h>
 #include <deal.II/fe/fe_values.h>
 
@@ -471,12 +472,20 @@ namespace DoFTools
     Assert(boundary_ids.find(numbers::internal_face_boundary_id) ==
              boundary_ids.end(),
            (typename DoFHandler<dim, spacedim>::ExcInvalidBoundaryIndicator()));
-    Assert(sparsity.n_rows() == dof.n_boundary_dofs(boundary_ids),
+
+    const bool fe_is_hermite = (dynamic_cast<const FE_Hermite<dim, spacedim> *>(
+                                  &(dof.get_fe())) != nullptr);
+
+    Assert(fe_is_hermite ||
+             sparsity.n_rows() == dof.n_boundary_dofs(boundary_ids),
            ExcDimensionMismatch(sparsity.n_rows(),
                                 dof.n_boundary_dofs(boundary_ids)));
-    Assert(sparsity.n_cols() == dof.n_boundary_dofs(boundary_ids),
+    Assert(fe_is_hermite ||
+             sparsity.n_cols() == dof.n_boundary_dofs(boundary_ids),
            ExcDimensionMismatch(sparsity.n_cols(),
                                 dof.n_boundary_dofs(boundary_ids)));
+    (void)fe_is_hermite;
+
 #ifdef DEBUG
     if (sparsity.n_rows() != 0)
       {
@@ -502,10 +511,20 @@ namespace DoFTools
                                            cell->active_fe_index());
 
             // make sparsity pattern for this cell
+            /*
+             * This loop has been edited to check for invalid dof indices, which
+             * the current implementation of Hermite elements uses to denote
+             * degrees of freedom assigned on the boundary but that have a zero
+             * shape value across the entire boundary.
+             */
             for (unsigned int i = 0; i < dofs_per_face; ++i)
               for (unsigned int j = 0; j < dofs_per_face; ++j)
-                sparsity.add(dof_to_boundary_mapping[dofs_on_this_face[i]],
-                             dof_to_boundary_mapping[dofs_on_this_face[j]]);
+                if (dof_to_boundary_mapping[dofs_on_this_face[i]] !=
+                      numbers::invalid_dof_index &&
+                    dof_to_boundary_mapping[dofs_on_this_face[j]] !=
+                      numbers::invalid_dof_index)
+                  sparsity.add(dof_to_boundary_mapping[dofs_on_this_face[i]],
+                               dof_to_boundary_mapping[dofs_on_this_face[j]]);
           }
   }
 
