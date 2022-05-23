@@ -334,6 +334,29 @@ namespace
   }
 
   /**
+   * Demangle all parameters.
+   */
+  void
+  recursively_demangle(const boost::property_tree::ptree &tree_in,
+                       boost::property_tree::ptree &      tree_out)
+  {
+    // Now transverse subsections tree recursively.
+    for (auto &p : tree_in)
+      {
+        tree_out.put_child(demangle(p.first), p.second);
+
+        if ((is_parameter_node(p.second) == false) &&
+            (is_alias_node(p.second) == false))
+          {
+            std::cout << demangle(p.first) << std::endl;
+
+            recursively_demangle(p.second,
+                                 tree_out.get_child(demangle(p.first)));
+          }
+      }
+  }
+
+  /**
    * Assert validity of of given output @p style.
    */
   void
@@ -1308,7 +1331,9 @@ ParameterHandler::print_parameters(std::ostream &    out,
 
   if ((style & JSON) != 0)
     {
-      write_json(out, current_entries);
+      boost::property_tree::ptree current_entries_damangled;
+      recursively_demangle(current_entries, current_entries_damangled);
+      write_json(out, current_entries_damangled);
       return out;
     }
 
