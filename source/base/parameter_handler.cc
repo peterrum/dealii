@@ -338,20 +338,25 @@ namespace
    */
   void
   recursively_demangle(const boost::property_tree::ptree &tree_in,
-                       boost::property_tree::ptree &      tree_out)
+                       boost::property_tree::ptree &      tree_out,
+                       const bool parameter_node = false)
   {
     // Now transverse subsections tree recursively.
     for (auto &p : tree_in)
       {
-        tree_out.put_child(demangle(p.first), p.second);
-
-        if ((is_parameter_node(p.second) == false) &&
-            (is_alias_node(p.second) == false))
+        if (parameter_node)
           {
-            std::cout << demangle(p.first) << std::endl;
+            tree_out.put_child(p.first, p.second);
+          }
+        else
+          {
+            boost::property_tree::ptree temp;
 
-            recursively_demangle(p.second,
-                                 tree_out.get_child(demangle(p.first)));
+            if (const auto val = p.second.get_value_optional<std::string>())
+              temp.put_value<std::string>(*val);
+
+            recursively_demangle(p.second, temp, is_parameter_node(p.second));
+            tree_out.put_child(demangle(p.first), temp);
           }
       }
   }
