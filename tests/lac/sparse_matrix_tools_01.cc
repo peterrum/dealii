@@ -49,7 +49,7 @@ test()
   QGauss<dim> quadrature(fe_degree + 1);
 
   AffineConstraints<double> constraints;
-  // DoFTools::make_zero_boundary_constraints (dof_handler, constraints);
+  DoFTools::make_zero_boundary_constraints(dof_handler, constraints);
   constraints.close();
 
   // create system matrix
@@ -70,7 +70,10 @@ test()
 
   // extract blocks
   std::vector<FullMatrix<double>> blocks;
-  SparseMatrixTools::restrict_to_cells(laplace_matrix, dof_handler, blocks);
+  SparseMatrixTools::restrict_to_cells(laplace_matrix,
+                                       sparsity_pattern,
+                                       dof_handler,
+                                       blocks);
 
   for (const auto &block : blocks)
     {

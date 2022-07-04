@@ -24,9 +24,14 @@ DEAL_II_NAMESPACE_OPEN
 
 namespace SparseMatrixTools
 {
-  template <int dim, int spacedim, typename SparseMatrixType, typename Number>
+  template <int dim,
+            int spacedim,
+            typename SparseMatrixType,
+            typename SparsityPatternType,
+            typename Number>
   void
   restrict_to_cells(const SparseMatrixType &         system_matrix,
+                    const SparsityPatternType &      sparsity_pattern,
                     const DoFHandler<dim, spacedim> &dof_handler,
                     std::vector<FullMatrix<Number>> &blocks)
   {
@@ -123,7 +128,11 @@ namespace SparseMatrixTools
                     local_dof_indices[i])) // row is local
                 {
                   cell_matrix(i, j) =
-                    system_matrix(local_dof_indices[i], local_dof_indices[j]);
+                    sparsity_pattern.exists(local_dof_indices[i],
+                                            local_dof_indices[j]) ?
+                      system_matrix(local_dof_indices[i],
+                                    local_dof_indices[j]) :
+                      0;
                 }
               else // row is ghost
                 {
@@ -144,11 +153,11 @@ namespace SparseMatrixTools
                                        return a.first < b.first;
                                      });
 
-                  Assert(ptr != row_entries.end() &&
-                           local_dof_indices[j] == ptr->first,
-                         ExcInternalError());
-
-                  cell_matrix(i, j) = ptr->second;
+                  if (ptr != row_entries.end() &&
+                      local_dof_indices[j] == ptr->first)
+                    cell_matrix(i, j) = ptr->second;
+                  else
+                    cell_matrix(i, j) = 0.0;
                 }
             }
       }
