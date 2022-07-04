@@ -24,30 +24,13 @@ DEAL_II_NAMESPACE_OPEN
 
 namespace SparseMatrixTools
 {
-  template <int dim,
-            int spacedim,
-            typename SparseMatrixType,
-            typename SparsityPatternType,
-            typename Number>
-  void
-  restrict_to_cells(const SparseMatrixType &         system_matrix,
-                    const SparsityPatternType &      sparsity_pattern,
-                    const DoFHandler<dim, spacedim> &dof_handler,
-                    std::vector<FullMatrix<Number>> &blocks)
+  template <typename Number, typename SpareMatrixType>
+  std::vector<std::vector<std::pair<types::global_dof_index, Number>>>
+  extract_remote_rows(const SpareMatrixType &system_matrix,
+                      const IndexSet &       locally_owned_dofs,
+                      const IndexSet &       locally_active_dofs,
+                      const MPI_Comm &       comm)
   {
-    const unsigned int dofs_per_cell = dof_handler.get_fe().n_dofs_per_cell();
-
-    std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
-
-    const auto locally_owned_dofs = dof_handler.locally_owned_dofs();
-
-    IndexSet locally_active_dofs;
-    DoFTools::extract_locally_active_dofs(dof_handler, locally_active_dofs);
-
-    locally_active_dofs.subtract_set(locally_owned_dofs);
-
-    const auto comm = dof_handler.get_communicator();
-
     std::vector<unsigned int> dummy(locally_active_dofs.n_elements());
 
     Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
@@ -107,13 +90,44 @@ namespace SparseMatrixTools
       },
       comm);
 
+    return locally_relevant_matrix_entries;
+  }
+
+  template <int dim,
+            int spacedim,
+            typename SparseMatrixType,
+            typename SparsityPatternType,
+            typename Number>
+  void
+  restrict_to_cells(const SparseMatrixType &         system_matrix,
+                    const SparsityPatternType &      sparsity_pattern,
+                    const DoFHandler<dim, spacedim> &dof_handler,
+                    std::vector<FullMatrix<Number>> &blocks)
+  {
+    const auto locally_owned_dofs = dof_handler.locally_owned_dofs();
+    auto       locally_active_dofs =
+      DoFTools::extract_locally_active_dofs(dof_handler);
+    locally_active_dofs.subtract_set(locally_owned_dofs);
+
+    const auto locally_relevant_matrix_entries =
+      extract_remote_rows<Number>(system_matrix,
+                                  locally_owned_dofs,
+                                  locally_active_dofs,
+                                  dof_handler.get_communicator());
+
     blocks.clear();
     blocks.resize(dof_handler.get_triangulation().n_active_cells());
+
+    std::vector<types::global_dof_index> local_dof_indices;
 
     for (const auto &cell : dof_handler.active_cell_iterators())
       {
         if (cell->is_locally_owned() == false)
           continue;
+
+        const unsigned int dofs_per_cell = cell->get_fe().n_dofs_per_cell();
+
+        local_dof_indices.resize(dofs_per_cell);
 
         cell->get_dof_indices(local_dof_indices);
 
