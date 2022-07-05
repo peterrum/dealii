@@ -141,24 +141,46 @@ namespace SparseMatrixTools
   void
   restrict_to_serial_sparse_matrix(const SparseMatrixType &   system_matrix,
                                    const SparsityPatternType &sparsity_pattern,
-                                   const IndexSet &           requested_is,
+                                   const IndexSet &           index_set_0,
+                                   const IndexSet &           index_set_1,
                                    SparseMatrix<Number> &     system_matrix_out,
                                    SparsityPattern &sparsity_pattern_out)
   {
+    Assert(index_set_1.size() == 0 || index_set_0.size() == index_set_1.size(),
+           ExcInternalError());
+
+    auto index_set_1_cleared = index_set_1;
+    if (index_set_1.size() != 0)
+      index_set_1_cleared.subtract_set(index_set_0);
+
+    const auto index_within_set = [&index_set_0,
+                                   &index_set_1_cleared](const auto n) {
+      if (index_set_0.is_element(n))
+        return index_set_0.index_within_set(n);
+      else
+        return index_set_0.n_elements() +
+               index_set_1_cleared.index_within_set(n);
+    };
+
     // 1) collect needed rows
+    auto index_set_union = index_set_0;
+
+    if (index_set_1.size() != 0)
+      index_set_union.add_indices(index_set_1_cleared);
+
     const auto locally_relevant_matrix_entries =
       extract_remote_rows<Number>(system_matrix,
-                                  requested_is,
+                                  index_set_union,
                                   system_matrix.get_mpi_communicator());
 
 
     // 2) create sparsity pattern
-    DynamicSparsityPattern dsp(requested_is.n_elements());
+    DynamicSparsityPattern dsp(index_set_union.n_elements());
 
     std::vector<types::global_dof_index> temp_indices;
     std::vector<Number>                  temp_values;
 
-    for (unsigned int row = 0; row < requested_is.n_elements(); ++row)
+    for (unsigned int row = 0; row < index_set_union.n_elements(); ++row)
       {
         const auto &global_row_entries = locally_relevant_matrix_entries[row];
 
@@ -168,12 +190,13 @@ namespace SparseMatrixTools
           {
             const auto global_index = std::get<0>(global_row_entry);
 
-            if (requested_is.is_element(global_index))
-              temp_indices.push_back(
-                requested_is.index_within_set(global_index));
+            if (index_set_union.is_element(global_index))
+              temp_indices.push_back(index_within_set(global_index));
           }
 
-        dsp.add_entries(row, temp_indices.begin(), temp_indices.end());
+        dsp.add_entries(index_within_set(index_set_union.nth_index_in_set(row)),
+                        temp_indices.begin(),
+                        temp_indices.end());
       }
 
     sparsity_pattern_out.copy_from(dsp);
@@ -182,7 +205,7 @@ namespace SparseMatrixTools
     system_matrix_out.reinit(sparsity_pattern_out);
 
     // 4) fill entries
-    for (unsigned int row = 0; row < requested_is.n_elements(); ++row)
+    for (unsigned int row = 0; row < index_set_union.n_elements(); ++row)
       {
         const auto &global_row_entries = locally_relevant_matrix_entries[row];
 
@@ -193,18 +216,38 @@ namespace SparseMatrixTools
           {
             const auto global_index = std::get<0>(global_row_entry);
 
-            if (requested_is.is_element(global_index))
+            if (index_set_union.is_element(global_index))
               {
-                temp_indices.push_back(
-                  requested_is.index_within_set(global_index));
+                temp_indices.push_back(index_within_set(global_index));
                 temp_values.push_back(std::get<1>(global_row_entry));
               }
           }
 
-        system_matrix_out.add(row, temp_indices, temp_values);
+        system_matrix_out.add(index_within_set(
+                                index_set_union.nth_index_in_set(row)),
+                              temp_indices,
+                              temp_values);
       }
 
     system_matrix_out.compress(VectorOperation::add);
+  }
+
+  template <typename SparseMatrixType,
+            typename SparsityPatternType,
+            typename Number>
+  void
+  restrict_to_serial_sparse_matrix(const SparseMatrixType &   system_matrix,
+                                   const SparsityPatternType &sparsity_pattern,
+                                   const IndexSet &           requested_is,
+                                   SparseMatrix<Number> &     system_matrix_out,
+                                   SparsityPattern &sparsity_pattern_out)
+  {
+    restrict_to_serial_sparse_matrix(system_matrix,
+                                     sparsity_pattern,
+                                     requested_is,
+                                     IndexSet(),
+                                     system_matrix_out,
+                                     sparsity_pattern_out);
   }
 
   template <int dim,

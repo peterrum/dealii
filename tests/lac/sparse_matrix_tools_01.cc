@@ -97,7 +97,13 @@ test()
         serial_sparse_matrix,
         serial_sparsity_pattern);
     else
-      AssertThrow(false, ExcNotImplemented());
+      SparseMatrixTools::restrict_to_serial_sparse_matrix(
+        laplace_matrix,
+        sparsity_pattern,
+        is_0,
+        is_1,
+        serial_sparse_matrix,
+        serial_sparsity_pattern);
 
     FullMatrix<double> serial_sparse_matrix_full;
     serial_sparse_matrix_full.copy_from(serial_sparse_matrix);
@@ -109,6 +115,8 @@ test()
 
   test_restrict(dof_handler.locally_owned_dofs(), {});
   test_restrict(DoFTools::extract_locally_active_dofs(dof_handler), {});
+  test_restrict(dof_handler.locally_owned_dofs(),
+                DoFTools::extract_locally_active_dofs(dof_handler));
 }
 
 #include "../tests.h"
