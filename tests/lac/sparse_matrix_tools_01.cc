@@ -84,22 +84,31 @@ test()
       deallog << std::endl;
     }
 
-  const auto locally_owned_dofs = dof_handler.locally_owned_dofs();
+  const auto test_restrict = [&](const IndexSet &is_0, const IndexSet &is_1) {
+    (void)is_1;
+    SparsityPattern      serial_sparsity_pattern;
+    SparseMatrix<double> serial_sparse_matrix;
 
-  SparsityPattern      serial_sparsity_pattern;
-  SparseMatrix<double> serial_sparse_matrix;
-  SparseMatrixTools::restrict_to_serial_sparse_matrix(laplace_matrix,
-                                                      sparsity_pattern,
-                                                      locally_owned_dofs,
-                                                      serial_sparse_matrix,
-                                                      serial_sparsity_pattern);
+    if (is_1.size() == 0)
+      SparseMatrixTools::restrict_to_serial_sparse_matrix(
+        laplace_matrix,
+        sparsity_pattern,
+        is_0,
+        serial_sparse_matrix,
+        serial_sparsity_pattern);
+    else
+      AssertThrow(false, ExcNotImplemented());
 
-  FullMatrix<double> serial_sparse_matrix_full;
-  serial_sparse_matrix_full.copy_from(serial_sparse_matrix);
-  serial_sparse_matrix_full.print_formatted(deallog.get_file_stream(),
-                                            2,
-                                            false,
-                                            8);
+    FullMatrix<double> serial_sparse_matrix_full;
+    serial_sparse_matrix_full.copy_from(serial_sparse_matrix);
+    serial_sparse_matrix_full.print_formatted(deallog.get_file_stream(),
+                                              2,
+                                              false,
+                                              8);
+  };
+
+  test_restrict(dof_handler.locally_owned_dofs(), {});
+  test_restrict(DoFTools::extract_locally_active_dofs(dof_handler), {});
 }
 
 #include "../tests.h"
