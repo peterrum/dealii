@@ -266,7 +266,19 @@ namespace SparseMatrixTools
 
 
     // 2) create sparsity pattern
-    DynamicSparsityPattern dsp(index_set_union.n_elements());
+    const unsigned int n_rows = index_set_union.n_elements();
+    const unsigned int n_cols = index_set_union.n_elements();
+    const unsigned int entries_per_row =
+      locally_relevant_matrix_entries.size() == 0 ?
+        0 :
+        std::max_element(locally_relevant_matrix_entries.begin(),
+                         locally_relevant_matrix_entries.end(),
+                         [](const auto &a, const auto &b) {
+                           return a.size() < b.size();
+                         })
+          ->size();
+
+    sparsity_pattern_out.reinit(n_rows, n_cols, entries_per_row);
 
     std::vector<types::global_dof_index>                temp_indices;
     std::vector<typename SparseMatrixType2::value_type> temp_values;
@@ -285,12 +297,13 @@ namespace SparseMatrixTools
               temp_indices.push_back(index_within_set(global_index));
           }
 
-        dsp.add_entries(index_within_set(index_set_union.nth_index_in_set(row)),
-                        temp_indices.begin(),
-                        temp_indices.end());
+        sparsity_pattern_out.add_entries(
+          index_within_set(index_set_union.nth_index_in_set(row)),
+          temp_indices.begin(),
+          temp_indices.end());
       }
 
-    sparsity_pattern_out.copy_from(dsp);
+    sparsity_pattern_out.compress();
 
     // 3) setup matrix
     system_matrix_out.reinit(sparsity_pattern_out);
