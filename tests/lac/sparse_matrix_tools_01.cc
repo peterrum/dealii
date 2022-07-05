@@ -83,6 +83,12 @@ test()
       block.print_formatted(deallog.get_file_stream(), 2, false, 8);
       deallog << std::endl;
     }
+
+  SparseMatrix<double> serial_sparse_matrix;
+  SparseMatrixTools::restrict_to_serial_sparse_matrix(laplace_matrix,
+                                                      sparsity_pattern,
+                                                      {},
+                                                      serial_sparse_matrix);
 }
 
 #include "../tests.h"

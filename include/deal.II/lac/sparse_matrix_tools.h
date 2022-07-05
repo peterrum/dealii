@@ -133,6 +133,21 @@ namespace SparseMatrixTools
     return locally_relevant_matrix_entries;
   }
 
+  template <typename SparseMatrixType,
+            typename SparsityPatternType,
+            typename Number>
+  void
+  restrict_to_serial_sparse_matrix(const SparseMatrixType &   system_matrix,
+                                   const SparsityPatternType &sparsity_pattern,
+                                   const IndexSet &           requested_is,
+                                   SparseMatrix<Number> &     system_matrix_out)
+  {
+    (void)system_matrix;
+    (void)sparsity_pattern;
+    (void)requested_is;
+    (void)system_matrix_out;
+  }
+
   template <int dim,
             int spacedim,
             typename SparseMatrixType,
