@@ -22,16 +22,56 @@
 
 DEAL_II_NAMESPACE_OPEN
 
+namespace Utilities
+{
+  namespace MPI
+  {
+    template <typename T>
+    std::tuple<T, T>
+    prefix_sum(const T &       value,
+               const MPI_Comm &comm,
+               const bool      exclusive = true)
+    {
+      T prefix = {};
+
+      if (exclusive)
+        {
+          int ierr =
+            MPI_Exscan(&value,
+                       &prefix,
+                       1,
+                       Utilities::MPI::mpi_type_id_for_type<decltype(value)>,
+                       MPI_SUM,
+                       comm);
+          AssertThrowMPI(ierr);
+        }
+      else
+        {
+          AssertThrow(false, ExcNotImplemented());
+        }
+
+      T sum = Utilities::MPI::sum(value, comm);
+
+      return {prefix, sum};
+    }
+  } // namespace MPI
+} // namespace Utilities
+
 namespace SparseMatrixTools
 {
   template <typename Number, typename SpareMatrixType>
   std::vector<std::vector<std::pair<types::global_dof_index, Number>>>
   extract_remote_rows(const SpareMatrixType &system_matrix,
-                      const IndexSet &       locally_owned_dofs,
                       const IndexSet &       locally_active_dofs,
                       const MPI_Comm &       comm)
   {
     std::vector<unsigned int> dummy(locally_active_dofs.n_elements());
+
+    const auto local_size = system_matrix.local_size();
+    const auto prefix_sum = Utilities::MPI::prefix_sum(local_size, comm);
+    IndexSet   locally_owned_dofs(std::get<1>(prefix_sum));
+    locally_owned_dofs.add_range(std::get<0>(prefix_sum),
+                                 std::get<0>(prefix_sum) + local_size);
 
     Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
       process(locally_owned_dofs, locally_active_dofs, comm, dummy, true);
@@ -111,7 +151,6 @@ namespace SparseMatrixTools
 
     const auto locally_relevant_matrix_entries =
       extract_remote_rows<Number>(system_matrix,
-                                  locally_owned_dofs,
                                   locally_active_dofs,
                                   dof_handler.get_communicator());
 
