@@ -139,4 +139,11 @@ main(int argc, char *argv[])
        TrilinosWrappers::SparsityPattern,
        SparseMatrix<double>,
        SparsityPattern>();
+
+
+  test<2,
+       TrilinosWrappers::SparseMatrix,
+       TrilinosWrappers::SparsityPattern,
+       TrilinosWrappers::SparseMatrix,
+       TrilinosWrappers::SparsityPattern>();
 }
