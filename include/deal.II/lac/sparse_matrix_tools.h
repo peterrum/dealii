@@ -61,79 +61,119 @@ namespace Utilities
 
 namespace SparseMatrixTools
 {
-  template <typename Number, typename SpareMatrixType>
-  std::vector<std::vector<std::pair<types::global_dof_index, Number>>>
-  extract_remote_rows(const SpareMatrixType &system_matrix,
-                      const IndexSet &       locally_active_dofs,
-                      const MPI_Comm &       comm)
+  template <typename SparseMatrixType,
+            typename SparsityPatternType,
+            typename Number>
+  void
+  restrict_to_serial_sparse_matrix(const SparseMatrixType &   system_matrix,
+                                   const SparsityPatternType &sparsity_pattern,
+                                   const IndexSet &           requested_is,
+                                   SparseMatrix<Number> &     system_matrix_out,
+                                   SparsityPattern &sparsity_pattern_out);
+
+  template <typename SparseMatrixType,
+            typename SparsityPatternType,
+            typename Number>
+  void
+  restrict_to_serial_sparse_matrix(const SparseMatrixType &   system_matrix,
+                                   const SparsityPatternType &sparsity_pattern,
+                                   const IndexSet &           index_set_0,
+                                   const IndexSet &           index_set_1,
+                                   SparseMatrix<Number> &     system_matrix_out,
+                                   SparsityPattern &sparsity_pattern_out);
+
+
+  template <int dim,
+            int spacedim,
+            typename SparseMatrixType,
+            typename SparsityPatternType,
+            typename Number>
+  void
+  restrict_to_cells(const SparseMatrixType &         system_matrix,
+                    const SparsityPatternType &      sparsity_pattern,
+                    const DoFHandler<dim, spacedim> &dof_handler,
+                    std::vector<FullMatrix<Number>> &blocks);
+
+
+  namespace internal
   {
-    std::vector<unsigned int> dummy(locally_active_dofs.n_elements());
-
-    const auto local_size = system_matrix.local_size();
-    const auto prefix_sum = Utilities::MPI::prefix_sum(local_size, comm);
-    IndexSet   locally_owned_dofs(std::get<1>(prefix_sum));
-    locally_owned_dofs.add_range(std::get<0>(prefix_sum),
-                                 std::get<0>(prefix_sum) + local_size);
-
-    Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
-      process(locally_owned_dofs, locally_active_dofs, comm, dummy, true);
-
-    Utilities::MPI::ConsensusAlgorithms::Selector<
-      std::vector<std::pair<types::global_dof_index, types::global_dof_index>>,
-      std::vector<unsigned int>>
-      consensus_algorithm;
-    consensus_algorithm.run(process, comm);
-
-    using T1 = std::vector<
-      std::pair<types::global_dof_index,
-                std::vector<std::pair<types::global_dof_index, Number>>>>;
-
-    auto requesters = process.get_requesters();
-
+    template <typename Number, typename SpareMatrixType>
     std::vector<std::vector<std::pair<types::global_dof_index, Number>>>
-      locally_relevant_matrix_entries(locally_active_dofs.n_elements());
+    extract_remote_rows(const SpareMatrixType &system_matrix,
+                        const IndexSet &       locally_active_dofs,
+                        const MPI_Comm &       comm)
+    {
+      std::vector<unsigned int> dummy(locally_active_dofs.n_elements());
+
+      const auto local_size = system_matrix.local_size();
+      const auto prefix_sum = Utilities::MPI::prefix_sum(local_size, comm);
+      IndexSet   locally_owned_dofs(std::get<1>(prefix_sum));
+      locally_owned_dofs.add_range(std::get<0>(prefix_sum),
+                                   std::get<0>(prefix_sum) + local_size);
+
+      Utilities::MPI::internal::ComputeIndexOwner::ConsensusAlgorithmsPayload
+        process(locally_owned_dofs, locally_active_dofs, comm, dummy, true);
+
+      Utilities::MPI::ConsensusAlgorithms::Selector<
+        std::vector<
+          std::pair<types::global_dof_index, types::global_dof_index>>,
+        std::vector<unsigned int>>
+        consensus_algorithm;
+      consensus_algorithm.run(process, comm);
+
+      using T1 = std::vector<
+        std::pair<types::global_dof_index,
+                  std::vector<std::pair<types::global_dof_index, Number>>>>;
+
+      auto requesters = process.get_requesters();
+
+      std::vector<std::vector<std::pair<types::global_dof_index, Number>>>
+        locally_relevant_matrix_entries(locally_active_dofs.n_elements());
 
 
-    std::vector<unsigned int> ranks;
+      std::vector<unsigned int> ranks;
 
-    for (const auto &i : requesters)
-      ranks.push_back(i.first);
+      for (const auto &i : requesters)
+        ranks.push_back(i.first);
 
-    dealii::Utilities::MPI::ConsensusAlgorithms::selector<T1>(
-      ranks,
-      [&](const unsigned int other_rank) {
-        T1 send_buffer;
+      dealii::Utilities::MPI::ConsensusAlgorithms::selector<T1>(
+        ranks,
+        [&](const unsigned int other_rank) {
+          T1 send_buffer;
 
-        for (auto index : requesters[other_rank])
-          {
-            std::vector<std::pair<types::global_dof_index, Number>> t;
+          for (auto index : requesters[other_rank])
+            {
+              std::vector<std::pair<types::global_dof_index, Number>> t;
 
-            for (auto entry = system_matrix.begin(index);
-                 entry != system_matrix.end(index);
-                 ++entry)
-              t.emplace_back(entry->column(), entry->value());
+              for (auto entry = system_matrix.begin(index);
+                   entry != system_matrix.end(index);
+                   ++entry)
+                t.emplace_back(entry->column(), entry->value());
 
-            send_buffer.emplace_back(index, t);
-          }
+              send_buffer.emplace_back(index, t);
+            }
 
-        return send_buffer;
-      },
-      [&](const unsigned int &, const T1 &buffer_recv) {
-        for (const auto &i : buffer_recv)
-          {
-            auto &dst =
-              locally_relevant_matrix_entries[locally_active_dofs
-                                                .index_within_set(i.first)];
-            dst = i.second;
-            std::sort(dst.begin(), dst.end(), [](const auto &a, const auto &b) {
-              return a.first < b.first;
-            });
-          }
-      },
-      comm);
+          return send_buffer;
+        },
+        [&](const unsigned int &, const T1 &buffer_recv) {
+          for (const auto &i : buffer_recv)
+            {
+              auto &dst =
+                locally_relevant_matrix_entries[locally_active_dofs
+                                                  .index_within_set(i.first)];
+              dst = i.second;
+              std::sort(dst.begin(),
+                        dst.end(),
+                        [](const auto &a, const auto &b) {
+                          return a.first < b.first;
+                        });
+            }
+        },
+        comm);
 
-    return locally_relevant_matrix_entries;
-  }
+      return locally_relevant_matrix_entries;
+    }
+  } // namespace internal
 
   template <typename SparseMatrixType,
             typename SparsityPatternType,
@@ -169,9 +209,8 @@ namespace SparseMatrixTools
       index_set_union.add_indices(index_set_1_cleared);
 
     const auto locally_relevant_matrix_entries =
-      extract_remote_rows<Number>(system_matrix,
-                                  index_set_union,
-                                  system_matrix.get_mpi_communicator());
+      internal::extract_remote_rows<Number>(
+        system_matrix, index_set_union, system_matrix.get_mpi_communicator());
 
 
     // 2) create sparsity pattern
@@ -267,9 +306,9 @@ namespace SparseMatrixTools
     locally_active_dofs.subtract_set(locally_owned_dofs);
 
     const auto locally_relevant_matrix_entries =
-      extract_remote_rows<Number>(system_matrix,
-                                  locally_active_dofs,
-                                  dof_handler.get_communicator());
+      internal::extract_remote_rows<Number>(system_matrix,
+                                            locally_active_dofs,
+                                            dof_handler.get_communicator());
 
     blocks.clear();
     blocks.resize(dof_handler.get_triangulation().n_active_cells());
