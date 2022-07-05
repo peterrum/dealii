@@ -36,7 +36,11 @@
 
 #include "../tests.h"
 
-template <int dim>
+template <int dim,
+          typename SpareMatrixType,
+          typename SparsityPatternType,
+          typename SparseMatrixType2,
+          typename SparsityPatternType2>
 void
 test()
 {
@@ -56,20 +60,19 @@ test()
   constraints.close();
 
   // create system matrix
-  TrilinosWrappers::SparsityPattern sparsity_pattern(
-    dof_handler.locally_owned_dofs(), dof_handler.get_communicator());
+  SparsityPatternType sparsity_pattern(dof_handler.locally_owned_dofs(),
+                                       dof_handler.get_communicator());
   DoFTools::make_sparsity_pattern(dof_handler,
                                   sparsity_pattern,
                                   constraints,
                                   false);
   sparsity_pattern.compress();
 
-  TrilinosWrappers::SparseMatrix laplace_matrix;
+  SpareMatrixType laplace_matrix;
   laplace_matrix.reinit(sparsity_pattern);
 
-  MatrixCreator::
-    create_laplace_matrix<dim, dim, TrilinosWrappers::SparseMatrix>(
-      dof_handler, quadrature, laplace_matrix, nullptr, constraints);
+  MatrixCreator::create_laplace_matrix<dim, dim, SpareMatrixType>(
+    dof_handler, quadrature, laplace_matrix, nullptr, constraints);
 
   // extract blocks
   std::vector<FullMatrix<double>> blocks;
@@ -89,8 +92,8 @@ test()
 
   const auto test_restrict = [&](const IndexSet &is_0, const IndexSet &is_1) {
     (void)is_1;
-    SparsityPattern      serial_sparsity_pattern;
-    SparseMatrix<double> serial_sparse_matrix;
+    SparsityPatternType2 serial_sparsity_pattern;
+    SparseMatrixType2    serial_sparse_matrix;
 
     if (is_1.size() == 0)
       SparseMatrixTools::restrict_to_serial_sparse_matrix(
@@ -131,5 +134,9 @@ main(int argc, char *argv[])
 
   MPILogInitAll all;
 
-  test<2>();
+  test<2,
+       TrilinosWrappers::SparseMatrix,
+       TrilinosWrappers::SparsityPattern,
+       SparseMatrix<double>,
+       SparsityPattern>();
 }
