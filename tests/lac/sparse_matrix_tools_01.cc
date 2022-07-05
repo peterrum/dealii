@@ -13,6 +13,9 @@
 //
 // ---------------------------------------------------------------------
 
+
+// check different functions from the SparseMatrixTools namespace
+
 #include <deal.II/base/quadrature_lib.h>
 
 #include <deal.II/distributed/tria.h>

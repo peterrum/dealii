@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------
 //
-// Copyright (C) 1999 - 2022 by the deal.II authors
+// Copyright (C) 2022 by the deal.II authors
 //
 // This file is part of the deal.II library.
 //
@@ -59,8 +59,30 @@ namespace Utilities
   } // namespace MPI
 } // namespace Utilities
 
+/**
+ * A namespace to process sparse matrices.
+ */
 namespace SparseMatrixTools
 {
+  /**
+   * Given a sparse matrix (@p system_matrix, @p sparsity_pattern),
+   * construct a new sparse matrix (@p system_matrix_out, @p sparsity_pattern_out)
+   * by restriction
+   * @f[
+   *  A_i = R_i A R_i^T,
+   * @f]
+   * where the Boolean matrix $R_i$ is defined by the entries of @p requested_is.
+   *
+   * The function can be called by multiple processes with different sets
+   * of indices, allowing to assign each process a different $A_i$.
+   *
+   * Such a function is useful to implement Schwarz methods, where
+   * operations of type
+   * @f[
+   *  u^{n} = u^{n-1} + \sum_{i} R_i^T A_i^{-1} R_i (f - A u^{n-1})
+   * @f]
+   * is performed to iterativly solve a system of type $Au=f$.
+   */
   template <typename SparseMatrixType,
             typename SparsityPatternType,
             typename Number>
@@ -71,6 +93,15 @@ namespace SparseMatrixTools
                                    SparseMatrix<Number> &     system_matrix_out,
                                    SparsityPattern &sparsity_pattern_out);
 
+  /**
+   * Similar to the above function, but taking two index sets
+   * (@p index_set_0, @p index_set_1), allowing to block the matrix. This
+   * is particularly useful, when dealing with vectors of type
+   * parallel::distributed::Vector, where the vector is blocked according
+   * to locally owned and ghost indices. As a consequence, the most
+   * typical usecase will be to pass in the set of locally owned DoFs and set
+   * of active or locally relevant DoFs.
+   */
   template <typename SparseMatrixType,
             typename SparsityPatternType,
             typename Number>
@@ -82,7 +113,18 @@ namespace SparseMatrixTools
                                    SparseMatrix<Number> &     system_matrix_out,
                                    SparsityPattern &sparsity_pattern_out);
 
-
+  /**
+   * A restriction operation similar to the above one. However, the operation
+   * is performed for each locally owned active cell individually and index sets
+   * are given by their DoFs. The correct entries in the resulting vector can
+   * accessed by CellAccessor::active_cell_index().
+   *
+   * @note In a certain sense, this is the reversion of the cell loop during
+   * matrix assembly. However, doing this on a distributed matrix is not
+   * trivial, since 1) rows might be owned by different processes and 2) degrees
+   * of freedoms might be constrained, resulting in "missing" entries in the
+   * matrix.
+   */
   template <int dim,
             int spacedim,
             typename SparseMatrixType,
@@ -95,8 +137,13 @@ namespace SparseMatrixTools
                     std::vector<FullMatrix<Number>> &blocks);
 
 
+#ifndef DOXYGEN
+  /*---------------------- Inline functions ---------------------------------*/
+
   namespace internal
   {
+    // Helper function to extract for a distributed sparse matrix rows
+    // potentially not owned by the current process.
     template <typename Number, typename SpareMatrixType>
     std::vector<std::vector<std::pair<types::global_dof_index, Number>>>
     extract_remote_rows(const SpareMatrixType &system_matrix,
@@ -174,6 +221,8 @@ namespace SparseMatrixTools
       return locally_relevant_matrix_entries;
     }
   } // namespace internal
+
+
 
   template <typename SparseMatrixType,
             typename SparsityPatternType,
@@ -271,6 +320,8 @@ namespace SparseMatrixTools
     system_matrix_out.compress(VectorOperation::add);
   }
 
+
+
   template <typename SparseMatrixType,
             typename SparsityPatternType,
             typename Number>
@@ -284,10 +335,12 @@ namespace SparseMatrixTools
     restrict_to_serial_sparse_matrix(system_matrix,
                                      sparsity_pattern,
                                      requested_is,
-                                     IndexSet(),
+                                     IndexSet(), // simply pass empty index set
                                      system_matrix_out,
                                      sparsity_pattern_out);
   }
+
+
 
   template <int dim,
             int spacedim,
@@ -300,6 +353,7 @@ namespace SparseMatrixTools
                     const DoFHandler<dim, spacedim> &dof_handler,
                     std::vector<FullMatrix<Number>> &blocks)
   {
+    // 1) collect remote rows of sparse matrix
     const auto locally_owned_dofs = dof_handler.locally_owned_dofs();
     auto       locally_active_dofs =
       DoFTools::extract_locally_active_dofs(dof_handler);
@@ -310,6 +364,8 @@ namespace SparseMatrixTools
                                             locally_active_dofs,
                                             dof_handler.get_communicator());
 
+
+    // 2) loop over all cells and "revert" assemly
     blocks.clear();
     blocks.resize(dof_handler.get_triangulation().n_active_cells());
 
@@ -320,16 +376,20 @@ namespace SparseMatrixTools
         if (cell->is_locally_owned() == false)
           continue;
 
+        auto &cell_matrix = blocks[cell->active_cell_index()];
+
+        // allocate memory
         const unsigned int dofs_per_cell = cell->get_fe().n_dofs_per_cell();
 
         local_dof_indices.resize(dofs_per_cell);
-
-        cell->get_dof_indices(local_dof_indices);
-
-        auto &cell_matrix = blocks[cell->active_cell_index()];
-
         cell_matrix = FullMatrix<Number>(dofs_per_cell, dofs_per_cell);
 
+        // get dof indices of current cell
+        cell->get_dof_indices(local_dof_indices);
+
+        // loop over all entries of the restricted element matrix and
+        // do different things if rows are locally owned or not and
+        // if column entries of that row exist or not
         for (unsigned int i = 0; i < dofs_per_cell; ++i)
           for (unsigned int j = 0; j < dofs_per_cell; ++j)
             {
@@ -371,6 +431,7 @@ namespace SparseMatrixTools
             }
       }
   }
+#endif
 
 } // namespace SparseMatrixTools
 
