@@ -36,6 +36,37 @@
 
 #include "../tests.h"
 
+template <int dim, int spacedim>
+void
+reinit_sparsity_pattern(const DoFHandler<dim, spacedim> &dof_handler,
+                        SparsityPattern &                sparsity_pattern)
+{
+  std::vector<unsigned int> counter(dof_handler.n_dofs(), 0);
+
+  std::vector<types::global_dof_index> local_dof_indices;
+
+  for (const auto &cell : dof_handler.active_cell_iterators())
+    {
+      local_dof_indices.resize(cell->get_fe().n_dofs_per_cell());
+
+      for (const auto i : local_dof_indices)
+        counter[i]++;
+    }
+
+  sparsity_pattern.reinit(dof_handler.n_dofs(),
+                          dof_handler.n_dofs(),
+                          *std::max_element(counter.begin(), counter.end()));
+}
+
+template <int dim, int spacedim>
+void
+reinit_sparsity_pattern(const DoFHandler<dim, spacedim> &  dof_handler,
+                        TrilinosWrappers::SparsityPattern &sparsity_pattern)
+{
+  sparsity_pattern.reinit(dof_handler.locally_owned_dofs(),
+                          dof_handler.get_communicator());
+}
+
 template <int dim,
           typename SpareMatrixType,
           typename SparsityPatternType,
@@ -60,8 +91,8 @@ test()
   constraints.close();
 
   // create system matrix
-  SparsityPatternType sparsity_pattern(dof_handler.locally_owned_dofs(),
-                                       dof_handler.get_communicator());
+  SparsityPatternType sparsity_pattern;
+  reinit_sparsity_pattern(dof_handler, sparsity_pattern);
   DoFTools::make_sparsity_pattern(dof_handler,
                                   sparsity_pattern,
                                   constraints,
@@ -133,6 +164,13 @@ main(int argc, char *argv[])
   Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
 
   MPILogInitAll all;
+
+  if (Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) == 1)
+    test<2,
+         SparseMatrix<double>,
+         SparsityPattern,
+         SparseMatrix<double>,
+         SparsityPattern>();
 
   test<2,
        TrilinosWrappers::SparseMatrix,

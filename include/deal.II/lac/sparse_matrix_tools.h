@@ -144,17 +144,47 @@ namespace SparseMatrixTools
 
   namespace internal
   {
+    template <typename SparseMatrixType>
+    MPI_Comm
+    get_mpi_communicator(const SparseMatrixType &sparse_matrix)
+    {
+      return sparse_matrix.get_mpi_communicator();
+    }
+
+    template <typename Number>
+    MPI_Comm
+    get_mpi_communicator(const SparseMatrix<Number> &sparse_matrix)
+    {
+      return MPI_COMM_SELF;
+    }
+
+    template <typename SparseMatrixType>
+    unsigned int
+    get_local_size(const SparseMatrixType &sparse_matrix)
+    {
+      return sparse_matrix.local_size();
+    }
+
+    template <typename Number>
+    unsigned int
+    get_local_size(const SparseMatrix<Number> &sparse_matrix)
+    {
+      AssertDimension(sparse_matrix.m(), sparse_matrix.n());
+
+      return sparse_matrix.m();
+    }
+
     // Helper function to extract for a distributed sparse matrix rows
     // potentially not owned by the current process.
-    template <typename Number, typename SpareMatrixType>
+    template <typename Number, typename SparseMatrixType>
     std::vector<std::vector<std::pair<types::global_dof_index, Number>>>
-    extract_remote_rows(const SpareMatrixType &system_matrix,
-                        const IndexSet &       locally_active_dofs,
-                        const MPI_Comm &       comm)
+    extract_remote_rows(const SparseMatrixType &system_matrix,
+                        const IndexSet &        locally_active_dofs,
+                        const MPI_Comm &        comm)
     {
       std::vector<unsigned int> dummy(locally_active_dofs.n_elements());
 
-      const auto local_size = system_matrix.local_size();
+      const auto local_size = get_local_size(system_matrix);
       const auto prefix_sum = Utilities::MPI::prefix_sum(local_size, comm);
       IndexSet   locally_owned_dofs(std::get<1>(prefix_sum));
       locally_owned_dofs.add_range(std::get<0>(prefix_sum),
@@ -262,7 +292,9 @@ namespace SparseMatrixTools
 
     const auto locally_relevant_matrix_entries =
       internal::extract_remote_rows<typename SparseMatrixType2::value_type>(
-        system_matrix, index_set_union, system_matrix.get_mpi_communicator());
+        system_matrix,
+        index_set_union,
+        internal::get_mpi_communicator(system_matrix));
 
 
     // 2) create sparsity pattern
