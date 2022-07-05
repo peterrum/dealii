@@ -85,13 +85,14 @@ namespace SparseMatrixTools
    */
   template <typename SparseMatrixType,
             typename SparsityPatternType,
-            typename Number>
+            typename SparseMatrixType2,
+            typename SparsityPatternType2>
   void
   restrict_to_serial_sparse_matrix(const SparseMatrixType &   system_matrix,
                                    const SparsityPatternType &sparsity_pattern,
                                    const IndexSet &           requested_is,
-                                   SparseMatrix<Number> &     system_matrix_out,
-                                   SparsityPattern &sparsity_pattern_out);
+                                   SparseMatrixType2 &        system_matrix_out,
+                                   SparsityPatternType2 &sparsity_pattern_out);
 
   /**
    * Similar to the above function, but taking two index sets
@@ -104,14 +105,15 @@ namespace SparseMatrixTools
    */
   template <typename SparseMatrixType,
             typename SparsityPatternType,
-            typename Number>
+            typename SparseMatrixType2,
+            typename SparsityPatternType2>
   void
   restrict_to_serial_sparse_matrix(const SparseMatrixType &   system_matrix,
                                    const SparsityPatternType &sparsity_pattern,
                                    const IndexSet &           index_set_0,
                                    const IndexSet &           index_set_1,
-                                   SparseMatrix<Number> &     system_matrix_out,
-                                   SparsityPattern &sparsity_pattern_out);
+                                   SparseMatrixType2 &        system_matrix_out,
+                                   SparsityPatternType2 &sparsity_pattern_out);
 
   /**
    * A restriction operation similar to the above one. However, the operation
@@ -226,14 +228,15 @@ namespace SparseMatrixTools
 
   template <typename SparseMatrixType,
             typename SparsityPatternType,
-            typename Number>
+            typename SparseMatrixType2,
+            typename SparsityPatternType2>
   void
   restrict_to_serial_sparse_matrix(const SparseMatrixType &   system_matrix,
                                    const SparsityPatternType &sparsity_pattern,
                                    const IndexSet &           index_set_0,
                                    const IndexSet &           index_set_1,
-                                   SparseMatrix<Number> &     system_matrix_out,
-                                   SparsityPattern &sparsity_pattern_out)
+                                   SparseMatrixType2 &        system_matrix_out,
+                                   SparsityPatternType2 &sparsity_pattern_out)
   {
     Assert(index_set_1.size() == 0 || index_set_0.size() == index_set_1.size(),
            ExcInternalError());
@@ -258,15 +261,15 @@ namespace SparseMatrixTools
       index_set_union.add_indices(index_set_1_cleared);
 
     const auto locally_relevant_matrix_entries =
-      internal::extract_remote_rows<Number>(
+      internal::extract_remote_rows<typename SparseMatrixType2::value_type>(
         system_matrix, index_set_union, system_matrix.get_mpi_communicator());
 
 
     // 2) create sparsity pattern
     DynamicSparsityPattern dsp(index_set_union.n_elements());
 
-    std::vector<types::global_dof_index> temp_indices;
-    std::vector<Number>                  temp_values;
+    std::vector<types::global_dof_index>                temp_indices;
+    std::vector<typename SparseMatrixType2::value_type> temp_values;
 
     for (unsigned int row = 0; row < index_set_union.n_elements(); ++row)
       {
@@ -324,13 +327,14 @@ namespace SparseMatrixTools
 
   template <typename SparseMatrixType,
             typename SparsityPatternType,
-            typename Number>
+            typename SparseMatrixType2,
+            typename SparsityPatternType2>
   void
   restrict_to_serial_sparse_matrix(const SparseMatrixType &   system_matrix,
                                    const SparsityPatternType &sparsity_pattern,
                                    const IndexSet &           requested_is,
-                                   SparseMatrix<Number> &     system_matrix_out,
-                                   SparsityPattern &sparsity_pattern_out)
+                                   SparseMatrixType2 &        system_matrix_out,
+                                   SparsityPatternType2 &sparsity_pattern_out)
   {
     restrict_to_serial_sparse_matrix(system_matrix,
                                      sparsity_pattern,
