@@ -20,6 +20,8 @@
 
 #include <deal.II/base/mpi_compute_index_owner_internal.h>
 
+#include <deal.II/lac/dynamic_sparsity_pattern.h>
+
 DEAL_II_NAMESPACE_OPEN
 
 namespace Utilities
@@ -140,12 +142,69 @@ namespace SparseMatrixTools
   restrict_to_serial_sparse_matrix(const SparseMatrixType &   system_matrix,
                                    const SparsityPatternType &sparsity_pattern,
                                    const IndexSet &           requested_is,
-                                   SparseMatrix<Number> &     system_matrix_out)
+                                   SparseMatrix<Number> &     system_matrix_out,
+                                   SparsityPattern &sparsity_pattern_out)
   {
-    (void)system_matrix;
-    (void)sparsity_pattern;
-    (void)requested_is;
-    (void)system_matrix_out;
+    // 1) collect needed rows
+    const auto locally_relevant_matrix_entries =
+      extract_remote_rows<Number>(system_matrix,
+                                  requested_is,
+                                  system_matrix.get_mpi_communicator());
+
+
+    // 2) create sparsity pattern
+    DynamicSparsityPattern dsp(requested_is.n_elements());
+
+    std::vector<types::global_dof_index> temp_indices;
+    std::vector<Number>                  temp_values;
+
+    for (unsigned int row = 0; row < requested_is.n_elements(); ++row)
+      {
+        const auto &global_row_entries = locally_relevant_matrix_entries[row];
+
+        temp_indices.clear();
+
+        for (const auto &global_row_entry : global_row_entries)
+          {
+            const auto global_index = std::get<0>(global_row_entry);
+
+            if (requested_is.is_element(global_index))
+              temp_indices.push_back(
+                requested_is.index_within_set(global_index));
+          }
+
+        dsp.add_entries(row, temp_indices.begin(), temp_indices.end());
+      }
+
+    sparsity_pattern_out.copy_from(dsp);
+
+    // 3) setup matrix
+    system_matrix_out.reinit(sparsity_pattern_out);
+
+    // 4) fill entries
+    for (unsigned int row = 0; row < requested_is.n_elements(); ++row)
+      {
+        const auto &global_row_entries = locally_relevant_matrix_entries[row];
+
+        temp_indices.clear();
+        temp_values.clear();
+
+        for (const auto &global_row_entry : global_row_entries)
+          {
+            const auto global_index = std::get<0>(global_row_entry);
+
+            if (requested_is.is_element(global_index))
+              {
+                temp_indices.push_back(
+                  requested_is.index_within_set(global_index));
+                temp_values.push_back(std::get<1>(global_row_entry));
+              }
+          }
+
+        system_matrix_out.add(row, temp_indices, temp_values);
+      }
+
+    system_matrix_out.compress(VectorOperation::add);
   }
 
   template <int dim,

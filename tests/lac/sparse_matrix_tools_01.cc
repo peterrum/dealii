@@ -84,11 +84,22 @@ test()
       deallog << std::endl;
     }
 
+  const auto locally_owned_dofs = dof_handler.locally_owned_dofs();
+
+  SparsityPattern      serial_sparsity_pattern;
   SparseMatrix<double> serial_sparse_matrix;
   SparseMatrixTools::restrict_to_serial_sparse_matrix(laplace_matrix,
                                                       sparsity_pattern,
-                                                      {},
-                                                      serial_sparse_matrix);
+                                                      locally_owned_dofs,
+                                                      serial_sparse_matrix,
+                                                      serial_sparsity_pattern);
+
+  FullMatrix<double> serial_sparse_matrix_full;
+  serial_sparse_matrix_full.copy_from(serial_sparse_matrix);
+  serial_sparse_matrix_full.print_formatted(deallog.get_file_stream(),
+                                            2,
+                                            false,
+                                            8);
 }
 
 #include "../tests.h"
