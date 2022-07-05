@@ -165,6 +165,7 @@ main(int argc, char *argv[])
 
   MPILogInitAll all;
 
+  // SparseMatrix -> SparseMatrix
   if (Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) == 1)
     test<2,
          SparseMatrix<double>,
@@ -172,13 +173,14 @@ main(int argc, char *argv[])
          SparseMatrix<double>,
          SparsityPattern>();
 
+  // TrilinosWrappers::SparseMatrix -> SparseMatrix
   test<2,
        TrilinosWrappers::SparseMatrix,
        TrilinosWrappers::SparsityPattern,
        SparseMatrix<double>,
        SparsityPattern>();
 
-
+  // TrilinosWrappers::SparseMatrix -> TrilinosWrappers::SparseMatrix
   test<2,
        TrilinosWrappers::SparseMatrix,
        TrilinosWrappers::SparsityPattern,

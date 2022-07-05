@@ -82,6 +82,9 @@ namespace SparseMatrixTools
    *  u^{n} = u^{n-1} + \sum_{i} R_i^T A_i^{-1} R_i (f - A u^{n-1})
    * @f]
    * is performed to iterativly solve a system of type $Au=f$.
+   *
+   * @warning This is a collective call that needs to be executed by all
+   * processes in the communicator.
    */
   template <typename SparseMatrixType,
             typename SparsityPatternType,
@@ -102,6 +105,9 @@ namespace SparseMatrixTools
    * to locally owned and ghost indices. As a consequence, the most
    * typical usecase will be to pass in the set of locally owned DoFs and set
    * of active or locally relevant DoFs.
+   *
+   * @warning This is a collective call that needs to be executed by all
+   * processes in the communicator.
    */
   template <typename SparseMatrixType,
             typename SparsityPatternType,
@@ -126,6 +132,9 @@ namespace SparseMatrixTools
    * trivial, since 1) rows might be owned by different processes and 2) degrees
    * of freedoms might be constrained, resulting in "missing" entries in the
    * matrix.
+   *
+   * @warning This is a collective call that needs to be executed by all
+   * processes in the communicator.
    */
   template <int dim,
             int spacedim,
@@ -290,6 +299,8 @@ namespace SparseMatrixTools
     if (index_set_1.size() != 0)
       index_set_union.add_indices(index_set_1_cleared);
 
+    // TODO: actually only communicate remote rows as in the case of
+    // SparseMatrixTools::restrict_to_cells()
     const auto locally_relevant_matrix_entries =
       internal::extract_remote_rows<typename SparseMatrixType2::value_type>(
         system_matrix,
