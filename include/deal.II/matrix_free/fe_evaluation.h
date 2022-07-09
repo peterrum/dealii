@@ -2732,6 +2732,22 @@ public:
   dof_indices() const;
 
   /**
+   * Return whether the face is at the boundary.
+   */
+  bool
+  at_boundary() const;
+
+  /**
+   * Return the boundary indicator of this object.
+   *
+   * If the return value is the special value
+   * numbers::internal_face_boundary_id, then this object is in the interior of
+   * the domain.
+   */
+  types::boundary_id
+  boundary_id() const;
+
+  /**
    * The number of degrees of freedom of a single component on the cell for
    * the underlying evaluation object. Usually close to
    * static_dofs_per_component, but the number depends on the actual element
@@ -8877,6 +8893,63 @@ FEFaceEvaluation<dim,
            internal::FEEvaluationFactory<dim, VectorizedArrayType>::
              fast_evaluation_supported(given_degree, give_n_q_points_1d) :
            true;
+}
+
+
+
+template <int dim,
+          int fe_degree,
+          int n_q_points_1d,
+          int n_components_,
+          typename Number,
+          typename VectorizedArrayType>
+bool
+FEFaceEvaluation<dim,
+                 fe_degree,
+                 n_q_points_1d,
+                 n_components_,
+                 Number,
+                 VectorizedArrayType>::at_boundary() const
+{
+  Assert(this->dof_access_index !=
+           internal::MatrixFreeFunctions::DoFInfo::dof_access_cell,
+         ExcNotImplemented());
+
+  if (this->is_interior_face() == false)
+    return false;
+  else if (this->cell < this->matrix_free->n_inner_face_batches())
+    return false;
+  else if (this->cell < (this->matrix_free->n_inner_face_batches() +
+                         this->matrix_free->n_boundary_face_batches()))
+    return true;
+  else
+    return false;
+}
+
+
+
+template <int dim,
+          int fe_degree,
+          int n_q_points_1d,
+          int n_components_,
+          typename Number,
+          typename VectorizedArrayType>
+types::boundary_id
+FEFaceEvaluation<dim,
+                 fe_degree,
+                 n_q_points_1d,
+                 n_components_,
+                 Number,
+                 VectorizedArrayType>::boundary_id() const
+{
+  Assert(this->dof_access_index !=
+           internal::MatrixFreeFunctions::DoFInfo::dof_access_cell,
+         ExcNotImplemented());
+
+  if (at_boundary())
+    return this->matrix_free->get_boundary_id(this->cell);
+  else
+    return numbers::internal_face_boundary_id;
 }
 
 
