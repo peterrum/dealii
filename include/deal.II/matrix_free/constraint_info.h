@@ -41,6 +41,9 @@ namespace internal
     class ConstraintInfo
     {
     public:
+      /**
+       * Version 1
+       */
       void
       reinit(const DoFHandler<dim> &dof_handler,
              const unsigned int     n_cells,
@@ -55,8 +58,30 @@ namespace internal
           &                                                       constraints,
         const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner);
 
+      /**
+       * Version 2
+       */
+      void
+      reinit(const unsigned int n_cells);
+
+      void
+      read_dof_indices(
+        const unsigned int                                        cell_no,
+        const std::vector<types::global_dof_index> &              dof_indices,
+        const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner);
+
       void
       finalize();
+
+      template <typename T, typename VectorType>
+      void
+      read_write_operation(const T &          operation,
+                           VectorType &       global_vector,
+                           Number *           local_vector,
+                           const unsigned int first_cell,
+                           const unsigned int n_cells,
+                           const unsigned int n_dofs_per_cell,
+                           const bool         apply_constraints) const;
 
       template <typename T, typename VectorType>
       void
@@ -66,7 +91,16 @@ namespace internal
                            const unsigned int     first_cell,
                            const unsigned int     n_cells,
                            const unsigned int     n_dofs_per_cell,
-                           const bool             apply_constraints) const;
+                           const bool             apply_constraints) const
+      {
+        read_write_operation<T, VectorType>(operation,
+                                            global_vector,
+                                            local_vector.begin(),
+                                            first_cell,
+                                            n_cells,
+                                            n_dofs_per_cell,
+                                            apply_constraints);
+      }
 
       void
       apply_hanging_node_constraints(
@@ -160,6 +194,17 @@ namespace internal
           lexicographic_numbering[i] = shape_infos[i].lexicographic_numbering;
         }
       active_fe_indices.resize(n_cells);
+    }
+
+
+
+    template <int dim, typename Number>
+    inline void
+    ConstraintInfo<dim, Number>::reinit(const unsigned int n_cells)
+    {
+      this->dof_indices_per_cell.resize(n_cells);
+      this->plain_dof_indices_per_cell.resize(0);
+      this->constraint_indicator_per_cell.resize(n_cells);
     }
 
 
@@ -293,6 +338,57 @@ namespace internal
 
     template <int dim, typename Number>
     inline void
+    ConstraintInfo<dim, Number>::read_dof_indices(
+      const unsigned int                          cell_no,
+      const std::vector<types::global_dof_index> &local_dof_indices_lex,
+      const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner)
+    {
+      const auto global_to_local =
+        [&](const types::global_dof_index global_index) -> unsigned int {
+        if (partitioner)
+          return partitioner->global_to_local(global_index);
+        else
+          return global_index;
+      };
+
+      std::pair<unsigned short, unsigned short> constraint_iterator(0, 0);
+
+      auto &constraint_indicator = this->constraint_indicator_per_cell[cell_no];
+      auto &dof_indices          = this->dof_indices_per_cell[cell_no];
+
+      for (const auto current_dof : local_dof_indices_lex)
+        {
+          // dof is constrained
+          if (current_dof == numbers::invalid_dof_index)
+            {
+              const std::vector<
+                std::pair<types::global_dof_index, typename Number::value_type>>
+                entries = {};
+
+              constraint_indicator.push_back(constraint_iterator);
+              constraint_indicator.back().second =
+                constraint_values.insert_entries(entries);
+
+              constraint_iterator.first = 0;
+            }
+          else
+            {
+              dof_indices.push_back(global_to_local(current_dof));
+
+              // make sure constraint_iterator.first is always within the
+              // bounds of unsigned short
+              Assert(constraint_iterator.first <
+                       (1 << (8 * sizeof(unsigned short))) - 1,
+                     ExcInternalError());
+              constraint_iterator.first++;
+            }
+        }
+    }
+
+
+
+    template <int dim, typename Number>
+    inline void
     ConstraintInfo<dim, Number>::finalize()
     {
       this->dof_indices          = {};
@@ -302,8 +398,11 @@ namespace internal
       this->row_starts = {};
       this->row_starts.emplace_back(0, 0);
 
-      this->row_starts_plain_indices = {};
-      this->row_starts_plain_indices.emplace_back(0);
+      if (plain_dof_indices_per_cell.empty() == false)
+        {
+          this->row_starts_plain_indices = {};
+          this->row_starts_plain_indices.emplace_back(0);
+        }
 
       for (unsigned int i = 0; i < dof_indices_per_cell.size(); ++i)
         {
@@ -318,12 +417,16 @@ namespace internal
           this->row_starts.emplace_back(this->dof_indices.size(),
                                         this->constraint_indicator.size());
 
-          this->plain_dof_indices.insert(this->plain_dof_indices.end(),
-                                         plain_dof_indices_per_cell[i].begin(),
-                                         plain_dof_indices_per_cell[i].end());
+          if (plain_dof_indices_per_cell.empty() == false)
+            {
+              this->plain_dof_indices.insert(
+                this->plain_dof_indices.end(),
+                plain_dof_indices_per_cell[i].begin(),
+                plain_dof_indices_per_cell[i].end());
 
-          this->row_starts_plain_indices.emplace_back(
-            this->plain_dof_indices.size());
+              this->row_starts_plain_indices.emplace_back(
+                this->plain_dof_indices.size());
+            }
         }
 
       std::vector<const std::vector<double> *> constraints(
@@ -371,13 +474,13 @@ namespace internal
     template <typename T, typename VectorType>
     inline void
     ConstraintInfo<dim, Number>::read_write_operation(
-      const T &              operation,
-      VectorType &           global_vector,
-      AlignedVector<Number> &local_vector,
-      const unsigned int     first_cell,
-      const unsigned int     n_cells,
-      const unsigned int     n_dofs_per_cell,
-      const bool             apply_constraints) const
+      const T &          operation,
+      VectorType &       global_vector,
+      Number *           local_vector,
+      const unsigned int first_cell,
+      const unsigned int n_cells,
+      const unsigned int n_dofs_per_cell,
+      const bool         apply_constraints) const
     {
       if (apply_constraints == false)
         {
