@@ -20,6 +20,7 @@
 #include <deal.II/base/config.h>
 
 #include <deal.II/base/array_view.h>
+#include <deal.II/base/floating_point_comparator.h>
 #include <deal.II/base/mutex.h>
 #include <deal.II/base/vectorization.h>
 
@@ -290,63 +291,41 @@ namespace internal
         const auto &M_1 = right.first;
         const auto &K_1 = right.second;
 
-        const unsigned int n_lanes = Number::size();
+        using VectorizedArrayTrait =
+          dealii::internal::VectorizedArrayTrait<Number>;
 
-        std::array<bool, n_lanes> mask;
+        using ScalarNumber = typename VectorizedArrayTrait::value_type;
+        static constexpr std::size_t width = VectorizedArrayTrait::width;
+
+        std::bitset<width> mask;
 
         using NumberScalar = typename Number::value_type;
 
-        for (unsigned int v = 0; v < n_lanes; ++v)
+        for (unsigned int v = 0; v < width; ++v)
           {
-            NumberScalar a = 0.0;
-            NumberScalar b = 0.0;
+            ScalarNumber a = 0.0;
+            ScalarNumber b = 0.0;
 
             for (unsigned int i = 0; i < M_0.size(0); ++i)
               for (unsigned int j = 0; j < M_0.size(1); ++j)
                 {
-                  a += std::abs(M_0[i][j][v]);
-                  b += std::abs(M_1[i][j][v]);
+                  a += std::abs(VectorizedArrayTrait::get(M_0[i][j], v));
+                  b += std::abs(VectorizedArrayTrait::get(M_1[i][j], v));
                 }
 
             mask[v] = (a != 0.0) && (b != 0.0);
           }
 
-        const auto eps = std::pow<NumberScalar>(
-          static_cast<NumberScalar>(10.0),
-          static_cast<NumberScalar>(
-            std::log10(std::numeric_limits<NumberScalar>::epsilon()) / 2.0));
+        FloatingPointComparator<Number> comparator(1.0, mask);
 
-        const auto less = [eps](const auto a, const auto b) -> bool {
-          return (b - a) > std::max(eps, std::abs(a + b) * eps);
-        };
-
-        const auto greater = [eps](const auto a, const auto b) -> bool {
-          return (a - b) > std::max(eps, std::abs(a + b) * eps);
-        };
-
-        for (unsigned int v = 0; v < n_lanes; ++v)
-          if (mask[v])
-            for (unsigned int i = 0; i < M_0.size(0); ++i)
-              for (unsigned int j = 0; j < M_0.size(1); ++j)
-                {
-                  if (less(M_0[i][j][v], M_1[i][j][v]))
-                    return true;
-                  else if (greater(M_0[i][j][v], M_1[i][j][v]))
-                    return false;
-                }
-
-        for (unsigned int v = 0; v < n_lanes; ++v)
-          if (mask[v])
-            for (unsigned int i = 0; i < K_0.size(0); ++i)
-              for (unsigned int j = 0; j < K_0.size(1); ++j)
-                {
-                  if (less(K_0[i][j][v], K_1[i][j][v]))
-                    return true;
-                  else if (greater(K_0[i][j][v], K_1[i][j][v]))
-                    return false;
-                }
-
-        return false;
+        if (comparator(M_0, M_1))
+          return true;
+        else if (comparator(M_1, M_0))
+          return false;
+        else if (comparator(K_0, K_1))
+          return true;
+        else
+          return false;
       }
     };
   } // namespace TensorProductMatrixSymmetricSum
