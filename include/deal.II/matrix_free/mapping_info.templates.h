@@ -348,7 +348,8 @@ namespace internal
       struct CompressedCellData
       {
         CompressedCellData(const double expected_size)
-          : data(FloatingPointComparator<VectorizedArrayType>(expected_size))
+          : data(FloatingPointComparator<VectorizedArrayType>(
+              expected_size * std::numeric_limits<double>::epsilon() * 1024.))
         {}
 
         std::map<Tensor<2, dim, Tensor<1, VectorizedArrayType::size(), Number>>,
@@ -1079,7 +1080,7 @@ namespace internal
         // tolerance to account for some inaccuracies in the manifold
         // evaluation
         const FloatingPointComparator<VectorizedArray<double>> comparator(
-          1e4 * jacobian_size);
+          1e4 * jacobian_size * std::numeric_limits<double>::epsilon() * 1024.);
         std::map<std::array<Tensor<2, dim>, dim + 1>,
                  unsigned int,
                  FloatingPointComparator<VectorizedArray<double>>>
@@ -1505,8 +1506,9 @@ namespace internal
         // CompressedCellData) and add another factor of 512 to account for
         // some roundoff effects.
         CompressedFaceData(const Number jacobian_size)
-          : data(FloatingPointComparator<VectorizedArrayType>(512. /
-                                                              jacobian_size))
+          : data(FloatingPointComparator<VectorizedArrayType>(
+              512. / jacobian_size * std::numeric_limits<double>::epsilon() *
+              1024.))
           , jacobian_size(jacobian_size)
         {}
 

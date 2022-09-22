@@ -50,11 +50,10 @@ struct FloatingPointComparator
 
   /**
    * Constructor.
-   *
-   * TODO: What is scaling?
    */
   FloatingPointComparator(
-    const ScalarNumber       scaling,
+    const ScalarNumber       tolerance,
+    const bool               use_absolute_tolerance = true,
     const std::bitset<width> mask = std::bitset<width>().flip());
 
   /**
@@ -116,6 +115,7 @@ struct FloatingPointComparator
 
 private:
   const ScalarNumber       tolerance;
+  const bool               use_absolute_tolerance;
   const std::bitset<width> mask;
 };
 
@@ -125,9 +125,11 @@ private:
 
 template <typename Number>
 FloatingPointComparator<Number>::FloatingPointComparator(
-  const ScalarNumber       scaling,
+  const ScalarNumber       tolerance,
+  const bool               use_absolute_tolerance,
   const std::bitset<width> mask)
-  : tolerance(scaling * std::numeric_limits<double>::epsilon() * 1024.)
+  : tolerance(tolerance)
+  , use_absolute_tolerance(use_absolute_tolerance)
   , mask(mask)
 {}
 
@@ -249,10 +251,19 @@ bool
 FloatingPointComparator<Number>::operator()(const ScalarNumber &s1,
                                             const ScalarNumber &s2) const
 {
-  if (mask[0] && (s1 < s2 - tolerance))
-    return true;
-  else
-    return false;
+  if (mask[0])
+    {
+      const ScalarNumber tolerance = use_absolute_tolerance ?
+                                       this->tolerance :
+                                       (std::abs(s1 + s2) * this->tolerance);
+
+      if ((s1 < s2 - tolerance))
+        return true;
+      else
+        return false;
+    }
+
+  return false;
 }
 
 template <typename Number>
@@ -264,6 +275,10 @@ FloatingPointComparator<Number>::operator()(
   for (unsigned int v = 0; v < width; ++v)
     if (mask[v])
       {
+        const ScalarNumber tolerance =
+          use_absolute_tolerance ? this->tolerance :
+                                   (std::abs(v1[v] + v2[v]) * this->tolerance);
+
         if (v1[v] < v2[v] - tolerance)
           return true;
         if (v1[v] > v2[v] + tolerance)

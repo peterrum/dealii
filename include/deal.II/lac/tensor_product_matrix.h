@@ -282,6 +282,17 @@ namespace internal
     struct MatrixPairComparator
     {
       using MatrixPairType = std::pair<Table<2, Number>, Table<2, Number>>;
+      using VectorizedArrayTrait =
+        dealii::internal::VectorizedArrayTrait<Number>;
+      using ScalarNumber = typename VectorizedArrayTrait::value_type;
+      static constexpr std::size_t width = VectorizedArrayTrait::width;
+
+      MatrixPairComparator()
+        : eps(std::pow<ScalarNumber>(
+            static_cast<ScalarNumber>(10.0),
+            static_cast<ScalarNumber>(
+              std::log10(std::numeric_limits<ScalarNumber>::epsilon()) / 2.0)))
+      {}
 
       bool
       operator()(const MatrixPairType &left, const MatrixPairType &right) const
@@ -291,15 +302,9 @@ namespace internal
         const auto &M_1 = right.first;
         const auto &K_1 = right.second;
 
-        using VectorizedArrayTrait =
-          dealii::internal::VectorizedArrayTrait<Number>;
-
-        using ScalarNumber = typename VectorizedArrayTrait::value_type;
-        static constexpr std::size_t width = VectorizedArrayTrait::width;
-
         std::bitset<width> mask;
 
-        using NumberScalar = typename Number::value_type;
+        using ScalarNumber = typename Number::value_type;
 
         for (unsigned int v = 0; v < width; ++v)
           {
@@ -310,13 +315,16 @@ namespace internal
               for (unsigned int j = 0; j < M_0.size(1); ++j)
                 {
                   a += std::abs(VectorizedArrayTrait::get(M_0[i][j], v));
+                  a += std::abs(VectorizedArrayTrait::get(K_0[i][j], v));
                   b += std::abs(VectorizedArrayTrait::get(M_1[i][j], v));
+                  b += std::abs(VectorizedArrayTrait::get(K_1[i][j], v));
                 }
 
             mask[v] = (a != 0.0) && (b != 0.0);
           }
 
-        FloatingPointComparator<Number> comparator(1.0, mask);
+        const FloatingPointComparator<Number> comparator(
+          eps, false /*use relativ torlerance*/, mask);
 
         if (comparator(M_0, M_1))
           return true;
@@ -327,6 +335,9 @@ namespace internal
         else
           return false;
       }
+
+    private:
+      const ScalarNumber eps;
     };
   } // namespace TensorProductMatrixSymmetricSum
 } // namespace internal
@@ -1210,7 +1221,9 @@ TensorProductMatrixSymmetricSumCollection<dim, Number, n_rows_1d>::
          MemoryConsumption::memory_consumption(mass_matrices) +
          MemoryConsumption::memory_consumption(derivative_matrices) +
          MemoryConsumption::memory_consumption(eigenvectors) +
-         MemoryConsumption::memory_consumption(eigenvalues);
+         MemoryConsumption::memory_consumption(eigenvalues) +
+         MemoryConsumption::memory_consumption(matrix_ptr) +
+         MemoryConsumption::memory_consumption(vector_ptr);
 }
 
 
@@ -1220,7 +1233,10 @@ std::size_t
 TensorProductMatrixSymmetricSumCollection<dim, Number, n_rows_1d>::
   storage_size() const
 {
-  return mass_matrices.size();
+  if (matrix_ptr.size() == 0)
+    return 0; // if not initialized
+
+  return matrix_ptr.size() - 1;
 }
 
 
