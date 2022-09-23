@@ -61,43 +61,24 @@ struct FloatingPointComparator
    * where vectors of different lengths are first sorted by their length and
    * then by the entries.
    */
+  template <typename T>
   bool
-  operator()(const std::vector<ScalarNumber> &v1,
-             const std::vector<ScalarNumber> &v2) const;
+  operator()(const std::vector<T> &v1, const std::vector<T> &v2) const;
 
   /**
-   * Compare two vectorized arrays (stored as tensors to avoid alignment
-   * issues).
+   * Compare two arrays.
    */
+  template <std::size_t dim, typename T>
   bool
-  operator()(const Tensor<1, width, ScalarNumber> &t1,
-             const Tensor<1, width, ScalarNumber> &t2) const;
+  operator()(const std::array<T, dim> &t1, const std::array<T, dim> &t2) const;
 
   /**
-   * Compare two rank-1 tensors of vectorized arrays (stored as tensors to
-   * avoid alignment issues).
+   * Compare two tensors.
    */
-  template <int dim>
+  template <int rank, int dim, typename T>
   bool
-  operator()(const Tensor<1, dim, Tensor<1, width, ScalarNumber>> &t1,
-             const Tensor<1, dim, Tensor<1, width, ScalarNumber>> &t2) const;
-
-  /**
-   * Compare two rank-2 tensors of vectorized arrays (stored as tensors to
-   * avoid alignment issues).
-   */
-  template <int dim>
-  bool
-  operator()(const Tensor<2, dim, Tensor<1, width, ScalarNumber>> &t1,
-             const Tensor<2, dim, Tensor<1, width, ScalarNumber>> &t2) const;
-
-  /**
-   * Compare two arrays of tensors.
-   */
-  template <int dim>
-  bool
-  operator()(const std::array<Tensor<2, dim, ScalarNumber>, dim + 1> &t1,
-             const std::array<Tensor<2, dim, ScalarNumber>, dim + 1> &t2) const;
+  operator()(const Tensor<rank, dim, T> &t1,
+             const Tensor<rank, dim, T> &t2) const;
 
   /**
    * Compare two tables.
@@ -106,9 +87,15 @@ struct FloatingPointComparator
   bool
   operator()(const Table<2, T> &t1, const Table<2, T> &t2) const;
 
+  /**
+   * Compare two scalar numbers.
+   */
   bool
   operator()(const ScalarNumber &s1, const ScalarNumber &s2) const;
 
+  /**
+   * Compare two  VectorizedArray instances.
+   */
   bool
   operator()(const VectorizedArray<ScalarNumber, width> &v1,
              const VectorizedArray<ScalarNumber, width> &v2) const;
@@ -136,10 +123,10 @@ FloatingPointComparator<Number>::FloatingPointComparator(
 
 
 template <typename Number>
+template <typename T>
 bool
-FloatingPointComparator<Number>::operator()(
-  const std::vector<ScalarNumber> &v1,
-  const std::vector<ScalarNumber> &v2) const
+FloatingPointComparator<Number>::operator()(const std::vector<T> &v1,
+                                            const std::vector<T> &v2) const
 {
   const unsigned int s1 = v1.size(), s2 = v2.size();
   if (s1 < s2)
@@ -158,15 +145,15 @@ FloatingPointComparator<Number>::operator()(
 
 
 template <typename Number>
+template <std::size_t dim, typename T>
 bool
-FloatingPointComparator<Number>::operator()(
-  const Tensor<1, width, ScalarNumber> &t1,
-  const Tensor<1, width, ScalarNumber> &t2) const
+FloatingPointComparator<Number>::operator()(const std::array<T, dim> &t1,
+                                            const std::array<T, dim> &t2) const
 {
-  for (unsigned int k = 0; k < width; ++k)
-    if (this->operator()(t1[k], t2[k]))
+  for (unsigned int i = 0; i < t1.size(); ++i)
+    if (this->operator()(t1[i], t2[i]))
       return true;
-    else if (this->operator()(t2[k], t1[k]))
+    else if (this->operator()(t2[i], t1[i]))
       return false;
   return false;
 }
@@ -174,58 +161,20 @@ FloatingPointComparator<Number>::operator()(
 
 
 template <typename Number>
-template <int dim>
+template <int rank, int dim, typename T>
 bool
 FloatingPointComparator<Number>::operator()(
-  const Tensor<1, dim, Tensor<1, width, ScalarNumber>> &t1,
-  const Tensor<1, dim, Tensor<1, width, ScalarNumber>> &t2) const
+  const Tensor<rank, dim, T> &t1,
+  const Tensor<rank, dim, T> &t2) const
 {
-  for (unsigned int d = 0; d < dim; ++d)
-    for (unsigned int k = 0; k < width; ++k)
-      if (this->operator()(t1[d][k], t2[d][k]))
-        return true;
-      else if (this->operator()(t2[d][k], t1[d][k]))
-        return false;
+  for (unsigned int k = 0; k < dim; ++k)
+    if (this->operator()(t1[k], t2[k]))
+      return true;
+    else if (this->operator()(t2[k], t1[k]))
+      return false;
   return false;
 }
 
-
-
-template <typename Number>
-template <int dim>
-bool
-FloatingPointComparator<Number>::operator()(
-  const Tensor<2, dim, Tensor<1, width, ScalarNumber>> &t1,
-  const Tensor<2, dim, Tensor<1, width, ScalarNumber>> &t2) const
-{
-  for (unsigned int d = 0; d < dim; ++d)
-    for (unsigned int e = 0; e < dim; ++e)
-      for (unsigned int k = 0; k < width; ++k)
-        if (this->operator()(t1[d][e][k], t2[d][e][k]))
-          return true;
-        else if (this->operator()(t2[d][e][k], t1[d][e][k]))
-          return false;
-  return false;
-}
-
-
-
-template <typename Number>
-template <int dim>
-bool
-FloatingPointComparator<Number>::operator()(
-  const std::array<Tensor<2, dim, ScalarNumber>, dim + 1> &t1,
-  const std::array<Tensor<2, dim, ScalarNumber>, dim + 1> &t2) const
-{
-  for (unsigned int i = 0; i < t1.size(); ++i)
-    for (unsigned int d = 0; d < dim; ++d)
-      for (unsigned int e = 0; e < dim; ++e)
-        if (this->operator()(t1[i][d][e], t2[i][d][e]))
-          return true;
-        else if (this->operator()(t2[i][d][e], t1[i][d][e]))
-          return false;
-  return false;
-}
 
 
 template <typename Number>
