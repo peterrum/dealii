@@ -56,6 +56,8 @@
 #include <deal.II/numerics/error_estimator.h>
 #include <deal.II/numerics/solution_transfer.h>
 
+// Include the actual non-linear solvers.
+#include <deal.II/nox/nox.h>
 #include <deal.II/sundials/kinsol.h>
 
 #include <fstream>
@@ -66,6 +68,7 @@ namespace Step77
 {
   using namespace dealii;
 
+  const std::string non_liner_solver_name = "NOX"; // TODO
 
   // @sect3{The <code>MinimalSurfaceProblem</code> class template}
 
@@ -554,77 +557,130 @@ namespace Step77
         // specifics (of which we only change the nonlinear tolerance we want to
         // reach; but you might want to look into what other members the
         // SUNDIALS::KINSOL::AdditionalData class has and play with them).
-        {
-          typename SUNDIALS::KINSOL<Vector<double>>::AdditionalData
-            additional_data;
-          additional_data.function_tolerance = target_tolerance;
+#ifdef DEAL_II_WITH_SUNDIALS
+        if (non_liner_solver_name == "KINSOL")
+          {
+            typename SUNDIALS::KINSOL<Vector<double>>::AdditionalData
+              additional_data;
+            additional_data.function_tolerance = target_tolerance;
 
-          SUNDIALS::KINSOL<Vector<double>> nonlinear_solver(additional_data);
+            SUNDIALS::KINSOL<Vector<double>> nonlinear_solver(additional_data);
 
-          // Then we have to describe the operations that were already mentioned
-          // in the introduction. In essence, we have to teach KINSOL how to (i)
-          // resize a vector to the correct size, (ii) compute the residual
-          // vector, (iii) compute the Jacobian matrix (during which we also
-          // compute its factorization), and (iv) solve a linear system with the
-          // Jacobian.
-          //
-          // All four of these operations are represented by member variables of
-          // the SUNDIALS::KINSOL class that are of type `std::function`, i.e.,
-          // they are objects to which we can assign a pointer to a function or,
-          // as we do here, a "lambda function" that takes the appropriate
-          // arguments and returns the appropriate information. By convention,
-          // KINSOL wants that functions doing something nontrivial return an
-          // integer where zero indicates success. It turns out that we can do
-          // all of this in just 25 lines of code.
-          //
-          // (If you're not familiar what "lambda functions" are, take
-          // a look at step-12 or at the
-          // [wikipedia page](https://en.wikipedia.org/wiki/Anonymous_function)
-          // on the subject. The idea of lambda functions is that one
-          // wants to define a function with a certain set of
-          // arguments, but (i) not make it a named functions because,
-          // typically, the function is used in only one place and it
-          // seems unnecessary to give it a global name; and (ii) that
-          // the function has access to some of the variables that
-          // exist at the place where it is defined, including member
-          // variables. The syntax of lambda functions is awkward, but
-          // ultimately quite useful.)
-          //
-          // At the very end of the code block we then tell KINSOL to go to work
-          // and solve our problem. The member functions called from the
-          // 'residual', 'setup_jacobian', and 'solve_jacobian_system' functions
-          // will then print output to screen that allows us to follow along
-          // with the progress of the program.
-          nonlinear_solver.reinit_vector = [&](Vector<double> &x) {
-            x.reinit(dof_handler.n_dofs());
-          };
+            // Then we have to describe the operations that were already
+            // mentioned in the introduction. In essence, we have to teach
+            // KINSOL how to (i) resize a vector to the correct size, (ii)
+            // compute the residual vector, (iii) compute the Jacobian matrix
+            // (during which we also compute its factorization), and (iv) solve
+            // a linear system with the Jacobian.
+            //
+            // All four of these operations are represented by member variables
+            // of the SUNDIALS::KINSOL class that are of type `std::function`,
+            // i.e., they are objects to which we can assign a pointer to a
+            // function or, as we do here, a "lambda function" that takes the
+            // appropriate arguments and returns the appropriate information. By
+            // convention, KINSOL wants that functions doing something
+            // nontrivial return an integer where zero indicates success. It
+            // turns out that we can do all of this in just 25 lines of code.
+            //
+            // (If you're not familiar what "lambda functions" are, take
+            // a look at step-12 or at the
+            // [wikipedia
+            // page](https://en.wikipedia.org/wiki/Anonymous_function) on the
+            // subject. The idea of lambda functions is that one wants to define
+            // a function with a certain set of arguments, but (i) not make it a
+            // named functions because, typically, the function is used in only
+            // one place and it seems unnecessary to give it a global name; and
+            // (ii) that the function has access to some of the variables that
+            // exist at the place where it is defined, including member
+            // variables. The syntax of lambda functions is awkward, but
+            // ultimately quite useful.)
+            //
+            // At the very end of the code block we then tell KINSOL to go to
+            // work and solve our problem. The member functions called from the
+            // 'residual', 'setup_jacobian', and 'solve_jacobian_system'
+            // functions will then print output to screen that allows us to
+            // follow along with the progress of the program.
+            nonlinear_solver.reinit_vector = [&](Vector<double> &x) {
+              x.reinit(dof_handler.n_dofs());
+            };
 
-          nonlinear_solver.residual =
-            [&](const Vector<double> &evaluation_point,
-                Vector<double> &      residual) {
+            nonlinear_solver.residual =
+              [&](const Vector<double> &evaluation_point,
+                  Vector<double> &      residual) {
+                compute_residual(evaluation_point, residual);
+
+                return 0;
+              };
+
+            nonlinear_solver.setup_jacobian =
+              [&](const Vector<double> &current_u,
+                  const Vector<double> & /*current_f*/) {
+                compute_and_factorize_jacobian(current_u);
+
+                return 0;
+              };
+
+            nonlinear_solver.solve_with_jacobian =
+              [&](const Vector<double> &rhs,
+                  Vector<double> &      dst,
+                  const double          tolerance) {
+                this->solve(rhs, dst, tolerance);
+
+                return 0;
+              };
+
+            nonlinear_solver.solve(current_solution);
+          }
+        else
+#endif
+#ifdef DEAL_II_WITH_TRILINOS
+          if (non_liner_solver_name == "NOX")
+          {
+            // 1) configure solver
+            NOXWrappers::SolverControl statistics(1000, target_tolerance, 1e-8);
+
+            Teuchos::RCP<Teuchos::ParameterList> non_linear_parameters =
+              Teuchos::rcp(new Teuchos::ParameterList);
+
+            non_linear_parameters->set("Nonlinear Solver", "Line Search Based");
+
+            auto &print_params = non_linear_parameters->sublist("Printing");
+            print_params.set("Output Information", 0);
+
+            auto &dir_parameters = non_linear_parameters->sublist("Direction");
+            dir_parameters.set("Method", "Newton");
+
+            auto &search_parameters =
+              non_linear_parameters->sublist("Line Search");
+            search_parameters.set("Method", "Polynomial");
+
+            // 2) set up solver
+            NOXWrappers::NOXSolver<Vector<double>> solver(
+              statistics, non_linear_parameters);
+
+            solver.residual = [&](const auto &evaluation_point,
+                                  auto &      residual) {
               compute_residual(evaluation_point, residual);
-
-              return 0;
             };
 
-          nonlinear_solver.setup_jacobian =
-            [&](const Vector<double> &current_u,
-                const Vector<double> & /*current_f*/) {
+            solver.setup_jacobian = [&](const auto &current_u, const auto) {
               compute_and_factorize_jacobian(current_u);
-
-              return 0;
             };
 
-          nonlinear_solver.solve_with_jacobian = [&](const Vector<double> &rhs,
-                                                     Vector<double> &      dst,
-                                                     const double tolerance) {
-            this->solve(rhs, dst, tolerance);
+            solver.solve_with_jacobian = [&](const auto &rhs, auto &dst) {
+              this->solve(rhs, dst, 0.0 /*TODO*/);
+              return 1; // TODO
+            };
 
-            return 0;
-          };
+            // 3) solve
+            solver.solve(current_solution);
+          }
+        else
+#endif
+          {
+            AssertThrow(false, ExcNotImplemented());
+          }
 
-          nonlinear_solver.solve(current_solution);
-        }
 
         // The rest is then just house-keeping: Writing data to a file for
         // visualizing, and showing a summary of the timing collected so that we

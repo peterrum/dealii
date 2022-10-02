@@ -234,7 +234,7 @@ namespace NOXWrappers
              const NOX::Abstract::Vector &a,
              double                       beta,
              const NOX::Abstract::Vector &b,
-             double                       gamma = 0.0)
+             double                       gamma = 0.0) override
       {
         const auto a_ = dynamic_cast<const Vector<VectorType> *>(&a);
         const auto b_ = dynamic_cast<const Vector<VectorType> *>(&b);
@@ -263,7 +263,7 @@ namespace NOXWrappers
 
       double
       norm(NOX::Abstract::Vector::NormType type =
-             NOX::Abstract::Vector::TwoNorm) const
+             NOX::Abstract::Vector::TwoNorm) const override
       {
         if (type == NOX::Abstract::Vector::NormType::TwoNorm)
           return vector->l2_norm();
@@ -411,7 +411,7 @@ namespace NOXWrappers
       void
       computeX(const NOX::Abstract::Group & grp,
                const NOX::Abstract::Vector &d,
-               double                       step)
+               double                       step) override
       {
         reset();
 
@@ -573,7 +573,7 @@ namespace NOXWrappers
       }
 
       NOX::Abstract::Group::ReturnType
-      computeNewton(Teuchos::ParameterList &p)
+      computeNewton(Teuchos::ParameterList &p) override
       {
         (void)p; // TODO
 

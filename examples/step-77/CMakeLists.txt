@@ -34,7 +34,7 @@ IF(NOT ${deal.II_FOUND})
     )
 ENDIF()
 
-IF(NOT DEAL_II_WITH_SUNDIALS) # keep in one line
+IF(NOT (DEAL_II_WITH_SUNDIALS OR DEAL_II_WITH_TRILINOS)) # keep in one line
   MESSAGE(FATAL_ERROR "
 Error! This tutorial requires a deal.II library that was configured with the following options:
     DEAL_II_WITH_SUNDIALS = ON
