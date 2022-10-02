@@ -658,21 +658,22 @@ namespace Step77
             NOXWrappers::NOXSolver<Vector<double>> nonlinear_solver(
               statistics, non_linear_parameters);
 
-            nonlinear_solver.residual = [&](const auto &evaluation_point,
-                                            auto &      residual) {
-              compute_residual(evaluation_point, residual);
-            };
+            nonlinear_solver.residual =
+              [&](const Vector<double> &evaluation_point,
+                  Vector<double> &      residual) {
+                compute_residual(evaluation_point, residual);
+              };
 
-            nonlinear_solver.setup_jacobian = [&](const auto &current_u,
-                                                  const auto) {
-              compute_and_factorize_jacobian(current_u);
-            };
+            nonlinear_solver.setup_jacobian =
+              [&](const Vector<double> &current_u, const bool /*do_update*/) {
+                compute_and_factorize_jacobian(current_u);
+              };
 
-            nonlinear_solver.solve_with_jacobian = [&](const auto &rhs,
-                                                       auto &      dst) {
-              this->solve(rhs, dst, 0.0 /*TODO*/);
-              return 1; // TODO
-            };
+            nonlinear_solver.solve_with_jacobian =
+              [&](const Vector<double> &rhs, Vector<double> &dst) {
+                this->solve(rhs, dst, 0.0 /*TODO: tolerance*/);
+                return 1; // single iteration
+              };
 
             // 3) solve
             nonlinear_solver.solve(current_solution);
