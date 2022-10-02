@@ -655,25 +655,27 @@ namespace Step77
             search_parameters.set("Method", "Polynomial");
 
             // 2) set up solver
-            NOXWrappers::NOXSolver<Vector<double>> solver(
+            NOXWrappers::NOXSolver<Vector<double>> nonlinear_solver(
               statistics, non_linear_parameters);
 
-            solver.residual = [&](const auto &evaluation_point,
-                                  auto &      residual) {
+            nonlinear_solver.residual = [&](const auto &evaluation_point,
+                                            auto &      residual) {
               compute_residual(evaluation_point, residual);
             };
 
-            solver.setup_jacobian = [&](const auto &current_u, const auto) {
+            nonlinear_solver.setup_jacobian = [&](const auto &current_u,
+                                                  const auto) {
               compute_and_factorize_jacobian(current_u);
             };
 
-            solver.solve_with_jacobian = [&](const auto &rhs, auto &dst) {
+            nonlinear_solver.solve_with_jacobian = [&](const auto &rhs,
+                                                       auto &      dst) {
               this->solve(rhs, dst, 0.0 /*TODO*/);
               return 1; // TODO
             };
 
             // 3) solve
-            solver.solve(current_solution);
+            nonlinear_solver.solve(current_solution);
           }
         else
 #endif
