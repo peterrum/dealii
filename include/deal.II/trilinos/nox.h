@@ -704,8 +704,6 @@ namespace TrilinosWrappers
 
         const double tolerance = p.get<double>("Tolerance");
 
-        std::cout << tolerance << std::endl;
-
         if (solve_with_jacobian(*f.vector, *newton.vector, tolerance) != 0)
           return NOX::Abstract::Group::NotConverged;
 

@@ -49,18 +49,13 @@ main(int argc, char **argv)
     Teuchos::rcp(new Teuchos::ParameterList);
 
   non_linear_parameters->set("Nonlinear Solver", "Line Search Based");
-
-  auto &printParams = non_linear_parameters->sublist("Printing");
-  printParams.set("Output Information", 0);
-
-  auto &dir_parameters = non_linear_parameters->sublist("Direction");
-  dir_parameters.set("Method", "Newton");
-
-  auto &ls_parameters = dir_parameters.sublist("Linear Solver");
-  ls_parameters.set("Tolerance", lin_rel_tolerance);
-
-  auto &search_parameters = non_linear_parameters->sublist("Line Search");
-  search_parameters.set("Method", "Polynomial");
+  non_linear_parameters->sublist("Printing").set("Output Information", 0);
+  non_linear_parameters->sublist("Direction").set("Method", "Newton");
+  non_linear_parameters->sublist("Direction")
+    .sublist("Newton")
+    .sublist("Linear Solver")
+    .set("Tolerance", lin_rel_tolerance);
+  non_linear_parameters->sublist("Line Search").set("Method", "Polynomial");
 
   // set up solver
   TrilinosWrappers::NOXSolver<VectorType> solver(additional_data,
