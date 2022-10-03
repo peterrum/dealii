@@ -38,13 +38,6 @@ DEAL_II_NAMESPACE_OPEN
 
 namespace TrilinosWrappers
 {
-// Forward declaration
-#  ifndef DOXYGEN
-  template <typename VectorType>
-  class NOXSolver;
-#  endif
-
-
   // Indicate that NOXSolver has not converged.
   DeclException0(ExcNOXNoConvergence);
 
