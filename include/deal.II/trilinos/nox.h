@@ -22,6 +22,8 @@
 
 #  include <deal.II/base/exceptions.h>
 
+#  include <deal.II/lac/solver_control.h>
+
 #  include <NOX_Abstract_Group.H>
 #  include <NOX_Abstract_Vector.H>
 #  include <NOX_Solver_Factory.H>
@@ -44,30 +46,13 @@ namespace TrilinosWrappers
 
   DeclException0(ExcNOXNoConvergence);
 
-  struct SolverControl
+  struct AdditionalData
   {
   public:
-    enum State
-    {
-      iterate,
-      success,
-      failure
-    };
+    AdditionalData(const unsigned int max_iter = 10,
+                   const double       abs_tol  = 1.e-20,
+                   const double       rel_tol  = 1.e-5);
 
-    SolverControl(const unsigned int max_iter = 10,
-                  const double       abs_tol  = 1.e-20,
-                  const double       rel_tol  = 1.e-5);
-
-    unsigned int
-    get_max_iter() const;
-
-    double
-    get_abs_tol() const;
-
-    double
-    get_rel_tol() const;
-
-  private:
     const unsigned int max_iter;
     const double       abs_tol;
     const double       rel_tol;
@@ -79,7 +64,7 @@ namespace TrilinosWrappers
   class NOXSolver
   {
   public:
-    NOXSolver(SolverControl &                             solver_control,
+    NOXSolver(AdditionalData &                            solver_control,
               const Teuchos::RCP<Teuchos::ParameterList> &parameters);
 
     unsigned int
@@ -96,7 +81,7 @@ namespace TrilinosWrappers
       check_iteration_status = {};
 
   private:
-    SolverControl &                            solver_control;
+    AdditionalData &                           solver_control;
     const Teuchos::RCP<Teuchos::ParameterList> parameters;
   };
 } // namespace TrilinosWrappers
@@ -885,9 +870,9 @@ namespace TrilinosWrappers
 
 
 
-  SolverControl::SolverControl(const unsigned int max_iter,
-                               const double       abs_tol,
-                               const double       rel_tol)
+  AdditionalData::AdditionalData(const unsigned int max_iter,
+                                 const double       abs_tol,
+                                 const double       rel_tol)
     : max_iter(max_iter)
     , abs_tol(abs_tol)
     , rel_tol(rel_tol)
@@ -895,33 +880,9 @@ namespace TrilinosWrappers
 
 
 
-  unsigned int
-  SolverControl::get_max_iter() const
-  {
-    return max_iter;
-  }
-
-
-
-  double
-  SolverControl::get_abs_tol() const
-  {
-    return abs_tol;
-  }
-
-
-
-  double
-  SolverControl::get_rel_tol() const
-  {
-    return rel_tol;
-  }
-
-
-
   template <typename VectorType>
   NOXSolver<VectorType>::NOXSolver(
-    SolverControl &                             solver_control,
+    AdditionalData &                            solver_control,
     const Teuchos::RCP<Teuchos::ParameterList> &parameters)
     : solver_control(solver_control)
     , parameters(parameters)
@@ -946,13 +907,13 @@ namespace TrilinosWrappers
 
     // setup solver control
     const auto solver_control_norm_f_abs =
-      Teuchos::rcp(new NOX::StatusTest::NormF(solver_control.get_abs_tol()));
+      Teuchos::rcp(new NOX::StatusTest::NormF(solver_control.abs_tol));
 
-    const auto solver_control_norm_f_rel = Teuchos::rcp(
-      new NOX::StatusTest::RelativeNormF(solver_control.get_rel_tol()));
+    const auto solver_control_norm_f_rel =
+      Teuchos::rcp(new NOX::StatusTest::RelativeNormF(solver_control.rel_tol));
 
-    const auto solver_control_max_iterations = Teuchos::rcp(
-      new NOX::StatusTest::MaxIters(solver_control.get_max_iter()));
+    const auto solver_control_max_iterations =
+      Teuchos::rcp(new NOX::StatusTest::MaxIters(solver_control.max_iter));
 
     auto check =
       Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::OR));

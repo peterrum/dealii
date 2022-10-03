@@ -40,9 +40,9 @@ main(int argc, char **argv)
   const double       abs_tolerance    = 1e-9;
   const double       rel_tolerance    = 1e-5;
 
-  TrilinosWrappers::SolverControl statistics(n_max_iterations,
-                                             abs_tolerance,
-                                             rel_tolerance);
+  TrilinosWrappers::AdditionalData statistics(n_max_iterations,
+                                              abs_tolerance,
+                                              rel_tolerance);
 
   // set up parameters
   Teuchos::RCP<Teuchos::ParameterList> non_linear_parameters =
