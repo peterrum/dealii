@@ -42,11 +42,11 @@ namespace TrilinosWrappers
   class NOXSolver;
 #  endif
 
+  DeclException0(ExcNOXNoConvergence);
+
   struct SolverControl
   {
   public:
-    DeclExceptionMsg(NoConvergence, "NOX solver did not converge.");
-
     enum State
     {
       iterate,
@@ -57,15 +57,6 @@ namespace TrilinosWrappers
     SolverControl(const unsigned int max_iter = 10,
                   const double       abs_tol  = 1.e-20,
                   const double       rel_tol  = 1.e-5);
-
-    unsigned int
-    n_newton_iterations() const;
-
-    unsigned int
-    n_linear_iterations() const;
-
-    unsigned int
-    n_residual_evaluations() const;
 
     unsigned int
     get_max_iter() const;
@@ -80,13 +71,6 @@ namespace TrilinosWrappers
     const unsigned int max_iter;
     const double       abs_tol;
     const double       rel_tol;
-
-    unsigned int newton_iterations    = 0;
-    unsigned int linear_iterations    = 0;
-    unsigned int residual_evaluations = 0;
-
-    template <typename>
-    friend class NOXSolver;
   };
 
 
@@ -98,7 +82,7 @@ namespace TrilinosWrappers
     NOXSolver(SolverControl &                             solver_control,
               const Teuchos::RCP<Teuchos::ParameterList> &parameters);
 
-    void
+    unsigned int
     solve(VectorType &solution);
 
     std::function<int(const VectorType &, VectorType &)> residual       = {};
@@ -912,30 +896,6 @@ namespace TrilinosWrappers
 
 
   unsigned int
-  SolverControl::n_newton_iterations() const
-  {
-    return newton_iterations;
-  }
-
-
-
-  unsigned int
-  SolverControl::n_linear_iterations() const
-  {
-    return linear_iterations;
-  }
-
-
-
-  unsigned int
-  SolverControl::n_residual_evaluations() const
-  {
-    return residual_evaluations;
-  }
-
-
-
-  unsigned int
   SolverControl::get_max_iter() const
   {
     return max_iter;
@@ -970,7 +930,7 @@ namespace TrilinosWrappers
 
 
   template <typename VectorType>
-  void
+  unsigned int
   NOXSolver<VectorType>::solve(VectorType &solution)
   {
     // create group
@@ -980,7 +940,7 @@ namespace TrilinosWrappers
         return this->residual(src, dst);
       },
       [&](const VectorType &src) { return this->setup_jacobian(src); },
-      [&](const VectorType &src, VectorType &dst) -> unsigned int {
+      [&](const VectorType &src, VectorType &dst) {
         return this->solve_with_jacobian(src, dst);
       }));
 
@@ -1014,8 +974,9 @@ namespace TrilinosWrappers
     // solve
     const auto status = solver->solve();
 
-    AssertThrow(status == NOX::StatusTest::Converged,
-                SolverControl::NoConvergence());
+    AssertThrow(status == NOX::StatusTest::Converged, ExcNOXNoConvergence());
+
+    return solver->getNumIterations();
   }
 
 } // namespace TrilinosWrappers
