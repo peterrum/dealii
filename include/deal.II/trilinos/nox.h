@@ -75,8 +75,8 @@ namespace TrilinosWrappers
     std::function<int(const VectorType &, VectorType &)> residual       = {};
     std::function<int(const VectorType &)>               setup_jacobian = {};
     std::function<int(const VectorType &, VectorType &)> apply_jacobian = {};
-    std::function<int(const VectorType &, VectorType &)> solve_with_jacobian =
-      {};
+    std::function<int(const VectorType &, VectorType &, const double)>
+      solve_with_jacobian = {};
     std::function<SolverControl::State(const unsigned int,
                                        const double,
                                        const VectorType &,
@@ -373,7 +373,7 @@ namespace TrilinosWrappers
         const std::function<int(const VectorType &)> &setup_jacobian,
         const std::function<int(const VectorType &, VectorType &)>
           &apply_jacobian,
-        const std::function<int(const VectorType &, VectorType &)>
+        const std::function<int(const VectorType &, VectorType &, const double)>
           &solve_with_jacobian)
         : x(solution)
         , residual(residual)
@@ -704,7 +704,9 @@ namespace TrilinosWrappers
 
         const double tolerance = p.get<double>("Tolerance");
 
-        if (solve_with_jacobian(*f.vector, *newton.vector) != 0)
+        std::cout << tolerance << std::endl;
+
+        if (solve_with_jacobian(*f.vector, *newton.vector, tolerance) != 0)
           return NOX::Abstract::Group::NotConverged;
 
         newton.scale(-1.0);
@@ -754,7 +756,8 @@ namespace TrilinosWrappers
       std::function<int(const VectorType &, VectorType &)> residual;
       std::function<int(const VectorType &)>               setup_jacobian;
       std::function<int(const VectorType &, VectorType &)> apply_jacobian;
-      std::function<int(const VectorType &, VectorType &)> solve_with_jacobian;
+      std::function<int(const VectorType &, VectorType &, const double)>
+        solve_with_jacobian;
 
       // internal state (are residuum and jacobian computed?)
       bool is_valid_f, is_valid_j;

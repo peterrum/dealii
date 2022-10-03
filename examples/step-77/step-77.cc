@@ -675,8 +675,10 @@ namespace Step77
               };
 
             nonlinear_solver.solve_with_jacobian =
-              [&](const Vector<double> &rhs, Vector<double> &dst) {
-                this->solve(rhs, dst, 0.0 /*TODO: tolerance*/);
+              [&](const Vector<double> &rhs,
+                  Vector<double> &      dst,
+                  const double          tolerance) {
+                this->solve(rhs, dst, tolerance);
 
                 return 0;
               };

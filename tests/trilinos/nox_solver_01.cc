@@ -36,9 +36,10 @@ main(int argc, char **argv)
   using VectorType = LinearAlgebra::distributed::Vector<Number>;
 
   // set up solver control
-  const unsigned int n_max_iterations = 100;
-  const double       abs_tolerance    = 1e-9;
-  const double       rel_tolerance    = 1e-5;
+  const unsigned int n_max_iterations  = 100;
+  const double       abs_tolerance     = 1e-9;
+  const double       rel_tolerance     = 1e-5;
+  const double       lin_rel_tolerance = 1e-3;
 
   TrilinosWrappers::NOXSolver<VectorType>::AdditionalData additional_data(
     n_max_iterations, abs_tolerance, rel_tolerance);
@@ -54,6 +55,9 @@ main(int argc, char **argv)
 
   auto &dir_parameters = non_linear_parameters->sublist("Direction");
   dir_parameters.set("Method", "Newton");
+
+  auto &ls_parameters = dir_parameters.sublist("Linear Solver");
+  ls_parameters.set("Tolerance", lin_rel_tolerance);
 
   auto &search_parameters = non_linear_parameters->sublist("Line Search");
   search_parameters.set("Method", "Polynomial");
@@ -83,7 +87,7 @@ main(int argc, char **argv)
     return 0;
   };
 
-  solver.solve_with_jacobian = [&](const auto &src, auto &dst) {
+  solver.solve_with_jacobian = [&](const auto &src, auto &dst, const auto) {
     // solve with Jacobian
     dst[0] = src[0] / J;
     return 0;
