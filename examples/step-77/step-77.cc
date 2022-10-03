@@ -674,6 +674,13 @@ namespace Step77
                 return 0;
               };
 
+            nonlinear_solver.apply_jacobian = [&](const Vector<double> &src,
+                                                  Vector<double> &      dst) {
+              this->jacobian_matrix.vmult(dst, src);
+
+              return 0;
+            };
+
             nonlinear_solver.solve_with_jacobian =
               [&](const Vector<double> &rhs,
                   Vector<double> &      dst,
