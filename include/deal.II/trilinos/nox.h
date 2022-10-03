@@ -49,34 +49,91 @@ namespace TrilinosWrappers
   DeclException0(ExcNOXNoConvergence);
 
 
-
+  /**
+   * Wrapper around the non-linear solver from the NOX
+   * packge (https://docs.trilinos.org/dev/packages/nox/doc/html/index.html),
+   * targeting deal.II data structures.
+   */
   template <typename VectorType>
   class NOXSolver
   {
   public:
+    /**
+     * Struct that helps to configure NOXSolver. More advanced
+     * parameters are passed to the constructor NOXSolver
+     * directly via a Teuchos::ParameterList.
+     */
     struct AdditionalData
     {
     public:
+      /**
+       * Constructor.
+       */
       AdditionalData(const unsigned int max_iter = 10,
                      const double       abs_tol  = 1.e-20,
                      const double       rel_tol  = 1.e-5);
 
+      /**
+       * Max number of non-linear iterations.
+       */
       const unsigned int max_iter;
-      const double       abs_tol;
-      const double       rel_tol;
+
+      /**
+       * Absolute l2 tolerance to be reached.
+       */
+      const double abs_tol;
+
+      /**
+       * Relative l2 tolerance to be reached.
+       */
+      const double rel_tol;
     };
 
-    NOXSolver(AdditionalData &                            solver_control,
+    /**
+     * Constructor.
+     */
+    NOXSolver(AdditionalData &                            additional_data,
               const Teuchos::RCP<Teuchos::ParameterList> &parameters);
 
+    /**
+     * Solve non-linear problem.
+     */
     unsigned int
     solve(VectorType &solution);
 
-    std::function<int(const VectorType &, VectorType &)> residual       = {};
-    std::function<int(const VectorType &)>               setup_jacobian = {};
-    std::function<int(const VectorType &, VectorType &)> apply_jacobian = {};
-    std::function<int(const VectorType &, VectorType &, const double)>
+    /**
+     * User function that computes the residual.
+     */
+    std::function<int(const VectorType &x, VectorType &f)> residual = {};
+
+    /**
+     * User function that sets up the Jacobian.
+     */
+    std::function<int(const VectorType &x)> setup_jacobian = {};
+
+    /**
+     * User function that applies the Jacobian.
+     *
+     * @note The function is optional and is used in the case of certain
+     * configurations.
+     */
+    std::function<int(const VectorType &x, VectorType &v)> apply_jacobian = {};
+
+    /**
+     * User function that applies the inverse of the Jacobian.
+     *
+     * @note The function is optional and is used in the case of certain
+     * configurations.
+     */
+    std::function<
+      int(const VectorType &f, VectorType &x, const double tolerance)>
       solve_with_jacobian = {};
+
+    /**
+     * User function that allows to check convergence in addition to
+     * ones checking the l2-norm and the number of iterations (see
+     * AdditionalData).
+     */
     std::function<SolverControl::State(const unsigned int,
                                        const double,
                                        const VectorType &,
@@ -84,7 +141,14 @@ namespace TrilinosWrappers
       check_iteration_status = {};
 
   private:
-    AdditionalData &                           solver_control;
+    /**
+     * Additional data with basic settings.
+     */
+    AdditionalData &additional_data;
+
+    /**
+     * Additional data with advanced settings.
+     */
     const Teuchos::RCP<Teuchos::ParameterList> parameters;
   };
 } // namespace TrilinosWrappers
@@ -900,9 +964,9 @@ namespace TrilinosWrappers
 
   template <typename VectorType>
   NOXSolver<VectorType>::NOXSolver(
-    AdditionalData &                            solver_control,
+    AdditionalData &                            additional_data,
     const Teuchos::RCP<Teuchos::ParameterList> &parameters)
-    : solver_control(solver_control)
+    : additional_data(additional_data)
     , parameters(parameters)
   {}
 
@@ -920,25 +984,25 @@ namespace TrilinosWrappers
     auto check =
       Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::OR));
 
-    if (solver_control.abs_tol > 0.0)
+    if (additional_data.abs_tol > 0.0)
       {
-        const auto solver_control_norm_f_abs =
-          Teuchos::rcp(new NOX::StatusTest::NormF(solver_control.abs_tol));
-        check->addStatusTest(solver_control_norm_f_abs);
+        const auto additional_data_norm_f_abs =
+          Teuchos::rcp(new NOX::StatusTest::NormF(additional_data.abs_tol));
+        check->addStatusTest(additional_data_norm_f_abs);
       }
 
-    if (solver_control.rel_tol > 0.0)
+    if (additional_data.rel_tol > 0.0)
       {
-        const auto solver_control_norm_f_rel = Teuchos::rcp(
-          new NOX::StatusTest::RelativeNormF(solver_control.rel_tol));
-        check->addStatusTest(solver_control_norm_f_rel);
+        const auto additional_data_norm_f_rel = Teuchos::rcp(
+          new NOX::StatusTest::RelativeNormF(additional_data.rel_tol));
+        check->addStatusTest(additional_data_norm_f_rel);
       }
 
-    if (solver_control.max_iter > 0)
+    if (additional_data.max_iter > 0)
       {
-        const auto solver_control_max_iterations =
-          Teuchos::rcp(new NOX::StatusTest::MaxIters(solver_control.max_iter));
-        check->addStatusTest(solver_control_max_iterations);
+        const auto additional_data_max_iterations =
+          Teuchos::rcp(new NOX::StatusTest::MaxIters(additional_data.max_iter));
+        check->addStatusTest(additional_data_max_iterations);
       }
 
     if (this->check_iteration_status)
