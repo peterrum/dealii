@@ -40,9 +40,8 @@ main(int argc, char **argv)
   const double       abs_tolerance    = 1e-9;
   const double       rel_tolerance    = 1e-5;
 
-  TrilinosWrappers::AdditionalData statistics(n_max_iterations,
-                                              abs_tolerance,
-                                              rel_tolerance);
+  TrilinosWrappers::NOXSolver<VectorType>::AdditionalData additional_data(
+    n_max_iterations, abs_tolerance, rel_tolerance);
 
   // set up parameters
   Teuchos::RCP<Teuchos::ParameterList> non_linear_parameters =
@@ -60,7 +59,7 @@ main(int argc, char **argv)
   search_parameters.set("Method", "Polynomial");
 
   // set up solver
-  TrilinosWrappers::NOXSolver<VectorType> solver(statistics,
+  TrilinosWrappers::NOXSolver<VectorType> solver(additional_data,
                                                  non_linear_parameters);
 
   // ... helper functions

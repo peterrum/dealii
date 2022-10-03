@@ -44,19 +44,9 @@ namespace TrilinosWrappers
   class NOXSolver;
 #  endif
 
+
+  // Indicate that NOXSolver has not converged.
   DeclException0(ExcNOXNoConvergence);
-
-  struct AdditionalData
-  {
-  public:
-    AdditionalData(const unsigned int max_iter = 10,
-                   const double       abs_tol  = 1.e-20,
-                   const double       rel_tol  = 1.e-5);
-
-    const unsigned int max_iter;
-    const double       abs_tol;
-    const double       rel_tol;
-  };
 
 
 
@@ -64,6 +54,18 @@ namespace TrilinosWrappers
   class NOXSolver
   {
   public:
+    struct AdditionalData
+    {
+    public:
+      AdditionalData(const unsigned int max_iter = 10,
+                     const double       abs_tol  = 1.e-20,
+                     const double       rel_tol  = 1.e-5);
+
+      const unsigned int max_iter;
+      const double       abs_tol;
+      const double       rel_tol;
+    };
+
     NOXSolver(AdditionalData &                            solver_control,
               const Teuchos::RCP<Teuchos::ParameterList> &parameters);
 
@@ -870,9 +872,11 @@ namespace TrilinosWrappers
 
 
 
-  AdditionalData::AdditionalData(const unsigned int max_iter,
-                                 const double       abs_tol,
-                                 const double       rel_tol)
+  template <typename VectorType>
+  NOXSolver<VectorType>::AdditionalData::AdditionalData(
+    const unsigned int max_iter,
+    const double       abs_tol,
+    const double       rel_tol)
     : max_iter(max_iter)
     , abs_tol(abs_tol)
     , rel_tol(rel_tol)

@@ -637,9 +637,8 @@ namespace Step77
           if (non_liner_solver_name == "NOX")
           {
             // 1) configure solver
-            TrilinosWrappers::AdditionalData statistics(1000,
-                                                        target_tolerance,
-                                                        1e-8);
+            TrilinosWrappers::NOXSolver<Vector<double>>::AdditionalData
+              additional_data(1000, target_tolerance, 1e-8);
 
             Teuchos::RCP<Teuchos::ParameterList> non_linear_parameters =
               Teuchos::rcp(new Teuchos::ParameterList);
@@ -658,7 +657,7 @@ namespace Step77
 
             // 2) set up solver
             TrilinosWrappers::NOXSolver<Vector<double>> nonlinear_solver(
-              statistics, non_linear_parameters);
+              additional_data, non_linear_parameters);
 
             nonlinear_solver.residual =
               [&](const Vector<double> &evaluation_point,
