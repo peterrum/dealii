@@ -13,8 +13,8 @@
 //
 // ---------------------------------------------------------------------
 
-#ifndef dealii_nox_solver
-#define dealii_nox_solver
+#ifndef dealii_trilinos_nox
+#define dealii_trilinos_nox
 
 #include <deal.II/base/config.h>
 
@@ -34,7 +34,7 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-namespace NOXWrappers
+namespace TrilinosWrappers
 {
 // Forward declaration
 #  ifndef DOXYGEN
@@ -116,13 +116,13 @@ namespace NOXWrappers
     SolverControl &                            solver_control;
     const Teuchos::RCP<Teuchos::ParameterList> parameters;
   };
-} // namespace NOXWrappers
+} // namespace TrilinosWrappers
 
 
 
 #  ifndef DOXYGEN
 
-namespace NOXWrappers
+namespace TrilinosWrappers
 {
   namespace internal
   {
@@ -140,6 +140,9 @@ namespace NOXWrappers
         this->vector.reset(&vector, [](auto *) { /*nothing to do*/ });
       }
 
+      /**
+       * Initialize every element of this vector with gamma.
+       */
       NOX::Abstract::Vector &
       init(double gamma) override
       {
@@ -147,6 +150,9 @@ namespace NOXWrappers
         return *this;
       }
 
+      /**
+       * Initialize each element of this vector with a random value.
+       */
       NOX::Abstract::Vector &
       random(bool useSeed = false, int seed = 1) override
       {
@@ -158,6 +164,9 @@ namespace NOXWrappers
         return *this;
       }
 
+      /**
+       * Put element-wise absolute values of source vector y into this vector.
+       */
       NOX::Abstract::Vector &
       abs(const NOX::Abstract::Vector &y) override
       {
@@ -168,6 +177,9 @@ namespace NOXWrappers
         return *this;
       }
 
+      /**
+       * Copy source vector y into this vector.
+       */
       NOX::Abstract::Vector &
       operator=(const NOX::Abstract::Vector &y) override
       {
@@ -885,7 +897,7 @@ namespace NOXWrappers
     solver_control.residual_evaluations = total_residual_evaluations;
   }
 
-} // namespace NOXWrappers
+} // namespace TrilinosWrappers
 
 #  endif
 

@@ -15,13 +15,13 @@
 
 
 
-// Check NOXWrappers::NOXSolver.
+// Check TrilinosWrappers::NOXSolver.
 
 #include <deal.II/base/mpi.h>
 
 #include <deal.II/lac/la_parallel_vector.h>
 
-#include <deal.II/nox/nox.h>
+#include <deal.II/trilinos/nox.h>
 
 #include "../tests.h"
 
@@ -40,9 +40,9 @@ main(int argc, char **argv)
   const double       abs_tolerance    = 1e-9;
   const double       rel_tolerance    = 1e-5;
 
-  NOXWrappers::SolverControl statistics(n_max_iterations,
-                                        abs_tolerance,
-                                        rel_tolerance);
+  TrilinosWrappers::SolverControl statistics(n_max_iterations,
+                                             abs_tolerance,
+                                             rel_tolerance);
 
   // set up parameters
   Teuchos::RCP<Teuchos::ParameterList> non_linear_parameters =
@@ -60,7 +60,8 @@ main(int argc, char **argv)
   search_parameters.set("Method", "Polynomial");
 
   // set up solver
-  NOXWrappers::NOXSolver<VectorType> solver(statistics, non_linear_parameters);
+  TrilinosWrappers::NOXSolver<VectorType> solver(statistics,
+                                                 non_linear_parameters);
 
   // ... helper functions
   double J = 0.0;

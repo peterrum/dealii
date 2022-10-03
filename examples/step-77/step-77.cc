@@ -57,7 +57,7 @@
 #include <deal.II/numerics/solution_transfer.h>
 
 // Include the actual non-linear solvers.
-#include <deal.II/nox/nox.h>
+#include <deal.II/trilinos/nox.h>
 #include <deal.II/sundials/kinsol.h>
 
 #include <fstream>
@@ -637,7 +637,9 @@ namespace Step77
           if (non_liner_solver_name == "NOX")
           {
             // 1) configure solver
-            NOXWrappers::SolverControl statistics(1000, target_tolerance, 1e-8);
+            TrilinosWrappers::SolverControl statistics(1000,
+                                                       target_tolerance,
+                                                       1e-8);
 
             Teuchos::RCP<Teuchos::ParameterList> non_linear_parameters =
               Teuchos::rcp(new Teuchos::ParameterList);
@@ -655,7 +657,7 @@ namespace Step77
             search_parameters.set("Method", "Polynomial");
 
             // 2) set up solver
-            NOXWrappers::NOXSolver<Vector<double>> nonlinear_solver(
+            TrilinosWrappers::NOXSolver<Vector<double>> nonlinear_solver(
               statistics, non_linear_parameters);
 
             nonlinear_solver.residual =
