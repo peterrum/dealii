@@ -72,7 +72,7 @@ main(int argc, char **argv)
     return 0;
   };
 
-  solver.setup_jacobian = [&](const auto &src, const auto) {
+  solver.setup_jacobian = [&](const auto &src) {
     // compute Jacobian
     J = 2.0 * src[0];
     return 0;

@@ -669,7 +669,7 @@ namespace Step77
               };
 
             nonlinear_solver.setup_jacobian =
-              [&](const Vector<double> &current_u, const bool /*do_update*/) {
+              [&](const Vector<double> &current_u) {
                 compute_and_factorize_jacobian(current_u);
 
                 return 0;

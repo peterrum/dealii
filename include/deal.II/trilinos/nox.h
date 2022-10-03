@@ -102,7 +102,7 @@ namespace TrilinosWrappers
     solve(VectorType &solution);
 
     std::function<int(const VectorType &, VectorType &)> residual       = {};
-    std::function<int(const VectorType &, const bool)>   setup_jacobian = {};
+    std::function<int(const VectorType &)>               setup_jacobian = {};
     std::function<int(const VectorType &, VectorType &)> solve_with_jacobian =
       {};
     std::function<SolverControl::State(const unsigned int,
@@ -398,8 +398,7 @@ namespace TrilinosWrappers
       Group(
         VectorType &                                                solution,
         const std::function<int(const VectorType &, VectorType &)> &residual,
-        const std::function<int(const VectorType &, const bool)>
-          &setup_jacobian,
+        const std::function<int(const VectorType &)> &setup_jacobian,
         const std::function<int(const VectorType &, VectorType &)>
           &solve_with_jacobian)
         : x(solution)
@@ -546,7 +545,7 @@ namespace TrilinosWrappers
       {
         if (isJacobian() == false)
           {
-            if (setup_jacobian(*x.vector, true) != 0)
+            if (setup_jacobian(*x.vector) != 0)
               return NOX::Abstract::Group::Failed;
 
             is_valid_j = true;
@@ -733,6 +732,10 @@ namespace TrilinosWrappers
         return NOX::Abstract::Group::Ok;
       }
 
+      /**
+       * Applies Jacobian-Transpose to the given input vector and puts
+       * the answer in the result.
+       */
       NOX::Abstract::Group::ReturnType
       applyJacobian(const NOX::Abstract::Vector &input,
                     NOX::Abstract::Vector &      result) const override
@@ -743,13 +746,16 @@ namespace TrilinosWrappers
         const auto *input_  = dynamic_cast<const Vector<VectorType> *>(&input);
         const auto *result_ = dynamic_cast<const Vector<VectorType> *>(&result);
 
-        if (solve_with_jacobian(*input_->vector, *result_->vector))
+        if (solve_with_jacobian(*input_->vector, *result_->vector) != 0)
           return NOX::Abstract::Group::NotConverged;
 
         return NOX::Abstract::Group::Ok;
       }
 
     private:
+      /**
+       * Reset state.
+       */
       void
       reset()
       {
@@ -757,14 +763,17 @@ namespace TrilinosWrappers
         is_valid_j = false;
       }
 
+      // internal vectors
       Vector<VectorType> x, f, gradient, newton;
 
+      // helper functions to compute residual, to setup jacobian, and
+      // solve jacobian
       std::function<int(const VectorType &, VectorType &)> residual;
-      std::function<int(const VectorType &, const bool)>   setup_jacobian;
+      std::function<int(const VectorType &)>               setup_jacobian;
       std::function<int(const VectorType &, VectorType &)> solve_with_jacobian;
 
-      bool is_valid_f;
-      bool is_valid_j;
+      // internal state (are residuum and jacobian computed?)
+      bool is_valid_f, is_valid_j;
     };
 
 
@@ -970,9 +979,7 @@ namespace TrilinosWrappers
       [&](const VectorType &src, VectorType &dst) {
         return this->residual(src, dst);
       },
-      [&](const VectorType &src, const bool flag) {
-        return this->setup_jacobian(src, flag);
-      },
+      [&](const VectorType &src) { return this->setup_jacobian(src); },
       [&](const VectorType &src, VectorType &dst) -> unsigned int {
         return this->solve_with_jacobian(src, dst);
       }));
