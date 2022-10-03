@@ -74,6 +74,7 @@ namespace TrilinosWrappers
 
     std::function<int(const VectorType &, VectorType &)> residual       = {};
     std::function<int(const VectorType &)>               setup_jacobian = {};
+    std::function<int(const VectorType &, VectorType &)> apply_jacobian = {};
     std::function<int(const VectorType &, VectorType &)> solve_with_jacobian =
       {};
     std::function<SolverControl::State(const unsigned int,
@@ -371,10 +372,13 @@ namespace TrilinosWrappers
         const std::function<int(const VectorType &, VectorType &)> &residual,
         const std::function<int(const VectorType &)> &setup_jacobian,
         const std::function<int(const VectorType &, VectorType &)>
+          &apply_jacobian,
+        const std::function<int(const VectorType &, VectorType &)>
           &solve_with_jacobian)
         : x(solution)
         , residual(residual)
         , setup_jacobian(setup_jacobian)
+        , apply_jacobian(apply_jacobian)
         , solve_with_jacobian(solve_with_jacobian)
         , is_valid_f(false)
         , is_valid_j(false)
@@ -442,6 +446,7 @@ namespace TrilinosWrappers
 
             this->residual            = other->residual;
             this->setup_jacobian      = other->setup_jacobian;
+            this->apply_jacobian      = other->apply_jacobian;
             this->solve_with_jacobian = other->solve_with_jacobian;
 
             this->is_valid_f = other->is_valid_f;
@@ -626,8 +631,12 @@ namespace TrilinosWrappers
       Teuchos::RCP<NOX::Abstract::Group>
       clone(NOX::CopyType copy_type) const override
       {
-        auto new_group = Teuchos::rcp(new Group<VectorType>(
-          *x.vector, residual, setup_jacobian, solve_with_jacobian));
+        auto new_group =
+          Teuchos::rcp(new Group<VectorType>(*x.vector,
+                                             residual,
+                                             setup_jacobian,
+                                             apply_jacobian,
+                                             solve_with_jacobian));
 
         if (x.vector)
           {
@@ -682,8 +691,6 @@ namespace TrilinosWrappers
       NOX::Abstract::Group::ReturnType
       computeNewton(Teuchos::ParameterList &p) override
       {
-        (void)p; // TODO
-
         if (isNewton())
           return NOX::Abstract::Group::Ok;
 
@@ -694,6 +701,8 @@ namespace TrilinosWrappers
           newton.vector = std::make_shared<VectorType>();
 
         newton.vector->reinit(*f.vector, false);
+
+        const double tolerance = p.get<double>("Tolerance");
 
         if (solve_with_jacobian(*f.vector, *newton.vector) != 0)
           return NOX::Abstract::Group::NotConverged;
@@ -711,14 +720,17 @@ namespace TrilinosWrappers
       applyJacobian(const NOX::Abstract::Vector &input,
                     NOX::Abstract::Vector &      result) const override
       {
+        if (apply_jacobian == nullptr)
+          return NOX::Abstract::Group::NotDefined;
+
         if (!isJacobian())
           return NOX::Abstract::Group::BadDependency;
 
         const auto *input_  = dynamic_cast<const Vector<VectorType> *>(&input);
         const auto *result_ = dynamic_cast<const Vector<VectorType> *>(&result);
 
-        if (solve_with_jacobian(*input_->vector, *result_->vector) != 0)
-          return NOX::Abstract::Group::NotConverged;
+        if (apply_jacobian(*input_->vector, *result_->vector) != 0)
+          return NOX::Abstract::Group::Failed;
 
         return NOX::Abstract::Group::Ok;
       }
@@ -741,6 +753,7 @@ namespace TrilinosWrappers
       // solve jacobian
       std::function<int(const VectorType &, VectorType &)> residual;
       std::function<int(const VectorType &)>               setup_jacobian;
+      std::function<int(const VectorType &, VectorType &)> apply_jacobian;
       std::function<int(const VectorType &, VectorType &)> solve_with_jacobian;
 
       // internal state (are residuum and jacobian computed?)
@@ -900,14 +913,7 @@ namespace TrilinosWrappers
   {
     // create group
     const auto group = Teuchos::rcp(new internal::Group<VectorType>(
-      solution,
-      [&](const VectorType &src, VectorType &dst) {
-        return this->residual(src, dst);
-      },
-      [&](const VectorType &src) { return this->setup_jacobian(src); },
-      [&](const VectorType &src, VectorType &dst) {
-        return this->solve_with_jacobian(src, dst);
-      }));
+      solution, residual, setup_jacobian, apply_jacobian, solve_with_jacobian));
 
     // setup solver control
     auto check =

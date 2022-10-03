@@ -77,6 +77,12 @@ main(int argc, char **argv)
     return 0;
   };
 
+  solver.apply_jacobian = [&](const auto &src, auto &dst) {
+    // solve with Jacobian
+    dst[0] = src[0] * J;
+    return 0;
+  };
+
   solver.solve_with_jacobian = [&](const auto &src, auto &dst) {
     // solve with Jacobian
     dst[0] = src[0] / J;
