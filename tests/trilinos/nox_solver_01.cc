@@ -69,18 +69,19 @@ main(int argc, char **argv)
   solver.residual = [](const auto &src, auto &dst) {
     // compute residual
     dst[0] = src[0] * src[0];
+    return 0;
   };
 
   solver.setup_jacobian = [&](const auto &src, const auto) {
     // compute Jacobian
     J = 2.0 * src[0];
+    return 0;
   };
 
   solver.solve_with_jacobian = [&](const auto &src, auto &dst) {
     // solve with Jacobian
     dst[0] = src[0] / J;
-
-    return 1;
+    return 0;
   };
 
   // initial guess

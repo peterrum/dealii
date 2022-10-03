@@ -101,11 +101,10 @@ namespace TrilinosWrappers
     void
     solve(VectorType &solution);
 
-    std::function<void(VectorType &)>                     reinit_vector  = {};
-    std::function<void(const VectorType &, VectorType &)> residual       = {};
-    std::function<void(const VectorType &, const bool)>   setup_jacobian = {};
-    std::function<unsigned int(const VectorType &, VectorType &)>
-      solve_with_jacobian = {};
+    std::function<int(const VectorType &, VectorType &)> residual       = {};
+    std::function<int(const VectorType &, const bool)>   setup_jacobian = {};
+    std::function<int(const VectorType &, VectorType &)> solve_with_jacobian =
+      {};
     std::function<SolverControl::State(const unsigned int,
                                        const double,
                                        const VectorType &,
@@ -129,12 +128,24 @@ namespace TrilinosWrappers
     template <typename VectorType>
     class Group;
 
+    /**
+     * Implementation of the abstract interface
+     * NOX::Abstract::Vector for deal.II vectors. For details,
+     * see
+     * https://docs.trilinos.org/dev/packages/nox/doc/html/classNOX_1_1Abstract_1_1Vector.html.
+     */
     template <typename VectorType>
     class Vector : public NOX::Abstract::Vector
     {
     public:
+      /**
+       * Create empty vector.
+       */
       Vector() = default;
 
+      /**
+       * Wrap an existing vector.
+       */
       Vector(VectorType &vector)
       {
         this->vector.reset(&vector, [](auto *) { /*nothing to do*/ });
@@ -197,6 +208,9 @@ namespace TrilinosWrappers
         return *this;
       }
 
+      /**
+       * Put element-wise reciprocal of source vector y into this vector.
+       */
       NOX::Abstract::Vector &
       reciprocal(const NOX::Abstract::Vector &y) override
       {
@@ -207,6 +221,9 @@ namespace TrilinosWrappers
         return *this;
       }
 
+      /**
+       * Scale each element of this vector by gamma.
+       */
       NOX::Abstract::Vector &
       scale(double gamma) override
       {
@@ -215,6 +232,9 @@ namespace TrilinosWrappers
         return *this;
       }
 
+      /**
+       * Scale this vector element-by-element by the vector a.
+       */
       NOX::Abstract::Vector &
       scale(const NOX::Abstract::Vector &a) override
       {
@@ -227,6 +247,9 @@ namespace TrilinosWrappers
         return *this;
       }
 
+      /**
+       * Compute x = (alpha * a) + (gamma * x) where x is this vector.
+       */
       NOX::Abstract::Vector &
       update(double                       alpha,
              const NOX::Abstract::Vector &a,
@@ -241,6 +264,10 @@ namespace TrilinosWrappers
         return *this;
       }
 
+      /**
+       * Compute x = (alpha * a) + (beta * b) + (gamma * x) where x is this
+       * vector.
+       */
       NOX::Abstract::Vector &
       update(double                       alpha,
              const NOX::Abstract::Vector &a,
@@ -260,6 +287,10 @@ namespace TrilinosWrappers
         return *this;
       }
 
+      /**
+       * Create a new Vector of the same underlying type by cloning "this",
+       * and return a pointer to the new vector.
+       */
       Teuchos::RCP<NOX::Abstract::Vector>
       clone(NOX::CopyType copy_type) const override
       {
@@ -269,10 +300,15 @@ namespace TrilinosWrappers
 
         if (copy_type == NOX::CopyType::DeepCopy)
           *new_vector->vector = *this->vector;
+        else
+          Assert(copy_type == NOX::CopyType::ShapeCopy, ExcInternalError());
 
         return new_vector;
       }
 
+      /**
+       * Norm.
+       */
       double
       norm(NOX::Abstract::Vector::NormType type =
              NOX::Abstract::Vector::TwoNorm) const override
@@ -284,9 +320,14 @@ namespace TrilinosWrappers
         if (type == NOX::Abstract::Vector::NormType::MaxNorm)
           return vector->linfty_norm();
 
+        Assert(false, ExcInternalError());
+
         return 0.0;
       }
 
+      /**
+       * Weighted 2-Norm.
+       */
       double
       norm(const NOX::Abstract::Vector &weights) const override
       {
@@ -297,6 +338,9 @@ namespace TrilinosWrappers
         return 0.0;
       }
 
+      /**
+       * Inner product with y.
+       */
       double
       innerProduct(const NOX::Abstract::Vector &y) const override
       {
@@ -307,34 +351,56 @@ namespace TrilinosWrappers
         return (*vector) * (*y_->vector);
       }
 
+      /**
+       * Return the length of vector.
+       */
       NOX::size_type
       length() const override
       {
         return vector->size();
       }
 
-      std::shared_ptr<VectorType>
+      /**
+       * Return underlying vector.
+       */
+      const VectorType &
       genericVector() const
       {
-        return vector;
+        AssertThrow(vector, ExcInternalError());
+
+        return *vector;
       }
 
     private:
+      /**
+       * Underlying deal.II vector.
+       */
       std::shared_ptr<VectorType> vector;
 
       friend Group<VectorType>;
     };
 
+    /**
+     * Implementation of the abstract interface
+     * NOX::Abstract::Group for deal.II vectors and deal.II solvers. For
+     * details, see
+     * https://docs.trilinos.org/dev/packages/nox/doc/html/classNOX_1_1Abstract_1_1Group.html.
+     */
     template <typename VectorType>
     class Group : public NOX::Abstract::Group
     {
     public:
+      /**
+       * Constructor. The class is intialized by the solution vector and
+       * functions to compute the residual, to setup the jacobian, and
+       * to solve the Jacobian.
+       */
       Group(
-        VectorType &                                                 solution,
-        const std::function<void(const VectorType &, VectorType &)> &residual,
-        const std::function<void(const VectorType &, const bool)>
+        VectorType &                                                solution,
+        const std::function<int(const VectorType &, VectorType &)> &residual,
+        const std::function<int(const VectorType &, const bool)>
           &setup_jacobian,
-        const std::function<unsigned int(const VectorType &, VectorType &)>
+        const std::function<int(const VectorType &, VectorType &)>
           &solve_with_jacobian)
         : x(solution)
         , residual(residual)
@@ -344,6 +410,9 @@ namespace TrilinosWrappers
         , is_valid_j(false)
       {}
 
+      /**
+       * Copies the source group into this group.
+       */
       NOX::Abstract::Group &
       operator=(const NOX::Abstract::Group &source) override
       {
@@ -412,6 +481,9 @@ namespace TrilinosWrappers
         return *this;
       }
 
+      /**
+       * Set the solution vector x to y.
+       */
       void
       setX(const NOX::Abstract::Vector &y) override
       {
@@ -420,6 +492,9 @@ namespace TrilinosWrappers
         x = y;
       }
 
+      /**
+       * Compute x = grp.x + step * d.
+       */
       void
       computeX(const NOX::Abstract::Group & grp,
                const NOX::Abstract::Vector &d,
@@ -434,33 +509,45 @@ namespace TrilinosWrappers
         x.update(1.0, grp_->x, step, d);
       }
 
+      /**
+       * Compute and store F(x).
+       */
       NOX::Abstract::Group::ReturnType
       computeF() override
       {
-        if (is_valid_f == false)
+        if (isF() == false)
           {
             f.vector = std::make_shared<VectorType>();
             f.vector->reinit(*x.vector);
 
-            residual(*x.vector, *f.vector);
+            if (residual(*x.vector, *f.vector) != 0)
+              return NOX::Abstract::Group::Failed;
+
             is_valid_f = true;
           }
 
         return NOX::Abstract::Group::Ok;
       }
 
+      /**
+       * Return true if F is valid.
+       */
       bool
       isF() const override
       {
         return is_valid_f;
       }
 
+      /**
+       * Compute and store Jacobian.
+       */
       NOX::Abstract::Group::ReturnType
       computeJacobian() override
       {
-        if (is_valid_j == false)
+        if (isJacobian() == false)
           {
-            setup_jacobian(*x.vector, true);
+            if (setup_jacobian(*x.vector, true) != 0)
+              return NOX::Abstract::Group::Failed;
 
             is_valid_j = true;
           }
@@ -468,43 +555,63 @@ namespace TrilinosWrappers
         return NOX::Abstract::Group::Ok;
       }
 
+      /**
+       * Return true if the Jacobian is valid.
+       */
       bool
       isJacobian() const override
       {
         return is_valid_j;
       }
 
-
+      /**
+       * Return solution vector.
+       */
       const NOX::Abstract::Vector &
       getX() const override
       {
         return x;
       }
 
+      /**
+       * Return F(x).
+       */
       const NOX::Abstract::Vector &
       getF() const override
       {
         return f;
       }
 
+      /**
+       * Return 2-norm of F(x)
+       */
       double
       getNormF() const override
       {
         return f.norm();
       }
 
+      /**
+       * Return gradient.
+       */
       const NOX::Abstract::Vector &
       getGradient() const override
       {
         return gradient;
       }
 
+      /**
+       * Return Newton direction.
+       */
       const NOX::Abstract::Vector &
       getNewton() const override
       {
         return newton;
       }
 
+      /**
+       * Return RCP to solution vector.
+       */
       Teuchos::RCP<const NOX::Abstract::Vector>
       getXPtr() const override
       {
@@ -512,6 +619,9 @@ namespace TrilinosWrappers
         return {};
       }
 
+      /**
+       * Return RCP to F(x).
+       */
       Teuchos::RCP<const NOX::Abstract::Vector>
       getFPtr() const override
       {
@@ -519,6 +629,9 @@ namespace TrilinosWrappers
         return {};
       }
 
+      /**
+       * Return RCP to gradient.
+       */
       Teuchos::RCP<const NOX::Abstract::Vector>
       getGradientPtr() const override
       {
@@ -526,6 +639,9 @@ namespace TrilinosWrappers
         return {};
       }
 
+      /**
+       * Return RCP to Newton direction.
+       */
       Teuchos::RCP<const NOX::Abstract::Vector>
       getNewtonPtr() const override
       {
@@ -533,6 +649,10 @@ namespace TrilinosWrappers
         return {};
       }
 
+      /**
+       * Create a new Group of the same derived type as this one by
+       * cloning this one, and return a ref count pointer to the new group.
+       */
       Teuchos::RCP<NOX::Abstract::Group>
       clone(NOX::CopyType copy_type) const override
       {
@@ -580,10 +700,15 @@ namespace TrilinosWrappers
             new_group->is_valid_f = is_valid_f;
             new_group->is_valid_j = is_valid_j;
           }
+        else
+          Assert(copy_type == NOX::CopyType::ShapeCopy, ExcInternalError());
 
         return new_group;
       }
 
+      /**
+       * Compute the Newton direction, using parameters for the linear solve.
+       */
       NOX::Abstract::Group::ReturnType
       computeNewton(Teuchos::ParameterList &p) override
       {
@@ -592,17 +717,16 @@ namespace TrilinosWrappers
         if (isNewton())
           return NOX::Abstract::Group::Ok;
 
-        Assert(isF(), ExcMessage("Residual has not been computed yet!"));
-        Assert(isJacobian(), ExcMessage("Jacobian has not been setup yet!"));
+        if (isF() == false || isJacobian() == false)
+          return NOX::Abstract::Group::BadDependency;
 
         if (newton.vector == nullptr)
           newton.vector = std::make_shared<VectorType>();
 
         newton.vector->reinit(*f.vector, false);
 
-        solve_with_jacobian(*f.vector, *newton.vector);
-
-        // TODO: use status of linear solver
+        if (solve_with_jacobian(*f.vector, *newton.vector) != 0)
+          return NOX::Abstract::Group::NotConverged;
 
         newton.scale(-1.0);
 
@@ -619,7 +743,8 @@ namespace TrilinosWrappers
         const auto *input_  = dynamic_cast<const Vector<VectorType> *>(&input);
         const auto *result_ = dynamic_cast<const Vector<VectorType> *>(&result);
 
-        solve_with_jacobian(*input_->vector, *result_->vector);
+        if (solve_with_jacobian(*input_->vector, *result_->vector))
+          return NOX::Abstract::Group::NotConverged;
 
         return NOX::Abstract::Group::Ok;
       }
@@ -634,10 +759,9 @@ namespace TrilinosWrappers
 
       Vector<VectorType> x, f, gradient, newton;
 
-      std::function<void(const VectorType &, VectorType &)> residual;
-      std::function<void(const VectorType &, const bool)>   setup_jacobian;
-      std::function<unsigned int(const VectorType &, VectorType &)>
-        solve_with_jacobian;
+      std::function<int(const VectorType &, VectorType &)> residual;
+      std::function<int(const VectorType &, const bool)>   setup_jacobian;
+      std::function<int(const VectorType &, VectorType &)> solve_with_jacobian;
 
       bool is_valid_f;
       bool is_valid_j;
@@ -685,12 +809,12 @@ namespace TrilinosWrappers
 
                 const unsigned int step = problem.getNumIterations();
 
-                const double norm_f = f_->genericVector()->l2_norm();
+                const double norm_f = f_->genericVector().l2_norm();
 
                 state = this->check_iteration_status(step,
                                                      norm_f,
-                                                     *x_->genericVector(),
-                                                     *f_->genericVector());
+                                                     x_->genericVector(),
+                                                     f_->genericVector());
 
                 switch (state)
                   {
@@ -840,23 +964,17 @@ namespace TrilinosWrappers
   void
   NOXSolver<VectorType>::solve(VectorType &solution)
   {
-    unsigned int total_linear_iterations    = 0;
-    unsigned int total_residual_evaluations = 0;
-
     // create group
     const auto group = Teuchos::rcp(new internal::Group<VectorType>(
       solution,
       [&](const VectorType &src, VectorType &dst) {
-        total_residual_evaluations++;
-        this->residual(src, dst);
+        return this->residual(src, dst);
       },
       [&](const VectorType &src, const bool flag) {
-        this->setup_jacobian(src, flag);
+        return this->setup_jacobian(src, flag);
       },
       [&](const VectorType &src, VectorType &dst) -> unsigned int {
-        const auto linear_iterations = this->solve_with_jacobian(src, dst);
-        total_linear_iterations += linear_iterations;
-        return linear_iterations;
+        return this->solve_with_jacobian(src, dst);
       }));
 
     // setup solver control
@@ -891,10 +1009,6 @@ namespace TrilinosWrappers
 
     AssertThrow(status == NOX::StatusTest::Converged,
                 SolverControl::NoConvergence());
-
-    solver_control.newton_iterations    = solver->getNumIterations();
-    solver_control.linear_iterations    = total_linear_iterations;
-    solver_control.residual_evaluations = total_residual_evaluations;
   }
 
 } // namespace TrilinosWrappers

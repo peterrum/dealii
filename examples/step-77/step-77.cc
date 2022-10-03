@@ -664,17 +664,22 @@ namespace Step77
               [&](const Vector<double> &evaluation_point,
                   Vector<double> &      residual) {
                 compute_residual(evaluation_point, residual);
+
+                return 0;
               };
 
             nonlinear_solver.setup_jacobian =
               [&](const Vector<double> &current_u, const bool /*do_update*/) {
                 compute_and_factorize_jacobian(current_u);
+
+                return 0;
               };
 
             nonlinear_solver.solve_with_jacobian =
               [&](const Vector<double> &rhs, Vector<double> &dst) {
                 this->solve(rhs, dst, 0.0 /*TODO: tolerance*/);
-                return 1; // single iteration
+
+                return 0;
               };
 
             // 3) solve
