@@ -140,7 +140,9 @@ namespace TrilinosWrappers
     AdditionalData &additional_data;
 
     /**
-     * Additional data with advanced settings.
+     * Additional data with advanced settings. An overview of
+     * possible parameters is given at
+     * https://docs.trilinos.org/dev/packages/nox/doc/html/parameters.html.
      */
     const Teuchos::RCP<Teuchos::ParameterList> parameters;
   };
