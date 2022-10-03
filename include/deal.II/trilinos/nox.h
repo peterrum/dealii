@@ -910,17 +910,29 @@ namespace TrilinosWrappers
       }));
 
     // setup solver control
-    const auto solver_control_norm_f_abs =
-      Teuchos::rcp(new NOX::StatusTest::NormF(solver_control.abs_tol));
-
-    const auto solver_control_norm_f_rel =
-      Teuchos::rcp(new NOX::StatusTest::RelativeNormF(solver_control.rel_tol));
-
-    const auto solver_control_max_iterations =
-      Teuchos::rcp(new NOX::StatusTest::MaxIters(solver_control.max_iter));
-
     auto check =
       Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::OR));
+
+    if (solver_control.abs_tol > 0.0)
+      {
+        const auto solver_control_norm_f_abs =
+          Teuchos::rcp(new NOX::StatusTest::NormF(solver_control.abs_tol));
+        check->addStatusTest(solver_control_norm_f_abs);
+      }
+
+    if (solver_control.rel_tol > 0.0)
+      {
+        const auto solver_control_norm_f_rel = Teuchos::rcp(
+          new NOX::StatusTest::RelativeNormF(solver_control.rel_tol));
+        check->addStatusTest(solver_control_norm_f_rel);
+      }
+
+    if (solver_control.max_iter > 0)
+      {
+        const auto solver_control_max_iterations =
+          Teuchos::rcp(new NOX::StatusTest::MaxIters(solver_control.max_iter));
+        check->addStatusTest(solver_control_max_iterations);
+      }
 
     if (this->check_iteration_status)
       {
@@ -928,10 +940,6 @@ namespace TrilinosWrappers
           new internal::NOXCheck(this->check_iteration_status, true));
         check->addStatusTest(info);
       }
-
-    check->addStatusTest(solver_control_norm_f_abs);
-    check->addStatusTest(solver_control_norm_f_rel);
-    check->addStatusTest(solver_control_max_iterations);
 
     // create non-linear solver
     const auto solver = NOX::Solver::buildSolver(group, check, parameters);
