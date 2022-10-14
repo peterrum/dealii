@@ -38,6 +38,18 @@
 
 DEAL_II_NAMESPACE_OPEN
 
+// forward declarations
+#ifndef DOXYGEN
+namespace LinearAlgebra
+{
+  namespace distributed
+  {
+    template <typename, typename>
+    class Vector;
+  } // namespace distributed
+} // namespace LinearAlgebra
+#endif
+
 /**
  * @addtogroup Solvers
  * @{
@@ -184,6 +196,18 @@ public:
    */
   struct AdditionalData
   {
+    enum class OrthogonalizationStrategy
+    {
+      /**
+       * Use modified Gram-Schmidt algorithm.
+       */
+      modified_gram_schmidt,
+      /**
+       * Use classical Gram-Schmidt algorithm.
+       */
+      classical_gram_schmidt
+    };
+
     /**
      * Constructor. By default, set the number of temporary vectors to 30,
      * i.e. do a restart every 28 iterations. Also set preconditioning from
@@ -191,11 +215,14 @@ public:
      * and re-orthogonalization only if necessary. Also, the batched mode with
      * reduced functionality to track information is disabled by default.
      */
-    explicit AdditionalData(const unsigned int max_n_tmp_vectors     = 30,
-                            const bool         right_preconditioning = false,
-                            const bool         use_default_residual  = true,
-                            const bool force_re_orthogonalization    = false,
-                            const bool batched_mode                  = false);
+    explicit AdditionalData(
+      const unsigned int              max_n_tmp_vectors          = 30,
+      const bool                      right_preconditioning      = false,
+      const bool                      use_default_residual       = true,
+      const bool                      force_re_orthogonalization = false,
+      const bool                      batched_mode               = false,
+      const OrthogonalizationStrategy orthogonalization_strategy =
+        OrthogonalizationStrategy::modified_gram_schmidt);
 
     /**
      * Maximum number of temporary vectors. This parameter controls the size
@@ -234,6 +261,11 @@ public:
      * all signals, eigenvalue computations, and log stream are disabled.
      */
     bool batched_mode;
+
+    /**
+     * Strategy to orthogonalize vectors.
+     */
+    OrthogonalizationStrategy orthogonalization_strategy;
   };
 
   /**
@@ -406,28 +438,6 @@ protected:
                   Vector<double> &ci,
                   Vector<double> &si,
                   int             col) const;
-
-  /**
-   * Orthogonalize the vector @p vv against the @p dim (orthogonal) vectors
-   * given by the first argument using the modified Gram-Schmidt algorithm.
-   * The factors used for orthogonalization are stored in @p h. The boolean @p
-   * re_orthogonalize specifies whether the modified Gram-Schmidt algorithm
-   * should be applied twice. The algorithm checks loss of orthogonality in
-   * the procedure every fifth step and sets the flag to true in that case.
-   * All subsequent iterations use re-orthogonalization.
-   * Calls the signal re_orthogonalize_signal if it is connected.
-   */
-  static double
-  modified_gram_schmidt(
-    const internal::SolverGMRESImplementation::TmpVectors<VectorType>
-      &                                       orthogonal_vectors,
-    const unsigned int                        dim,
-    const unsigned int                        accumulated_iterations,
-    VectorType &                              vv,
-    Vector<double> &                          h,
-    bool &                                    re_orthogonalize,
-    const boost::signals2::signal<void(int)> &re_orthogonalize_signal =
-      boost::signals2::signal<void(int)>());
 
   /**
    * Estimates the eigenvalues from the Hessenberg matrix, H_orig, generated
@@ -644,16 +654,18 @@ namespace internal
 
 template <class VectorType>
 inline SolverGMRES<VectorType>::AdditionalData::AdditionalData(
-  const unsigned int max_n_tmp_vectors,
-  const bool         right_preconditioning,
-  const bool         use_default_residual,
-  const bool         force_re_orthogonalization,
-  const bool         batched_mode)
+  const unsigned int              max_n_tmp_vectors,
+  const bool                      right_preconditioning,
+  const bool                      use_default_residual,
+  const bool                      force_re_orthogonalization,
+  const bool                      batched_mode,
+  const OrthogonalizationStrategy orthogonalization_strategy)
   : max_n_tmp_vectors(max_n_tmp_vectors)
   , right_preconditioning(right_preconditioning)
   , use_default_residual(use_default_residual)
   , force_re_orthogonalization(force_re_orthogonalization)
   , batched_mode(batched_mode)
+  , orthogonalization_strategy(orthogonalization_strategy)
 {
   Assert(3 <= max_n_tmp_vectors,
          ExcMessage("SolverGMRES needs at least three "
@@ -710,77 +722,222 @@ SolverGMRES<VectorType>::givens_rotation(Vector<double> &h,
 
 
 
-template <class VectorType>
-inline double
-SolverGMRES<VectorType>::modified_gram_schmidt(
-  const internal::SolverGMRESImplementation::TmpVectors<VectorType>
-    &                                       orthogonal_vectors,
-  const unsigned int                        dim,
-  const unsigned int                        accumulated_iterations,
-  VectorType &                              vv,
-  Vector<double> &                          h,
-  bool &                                    reorthogonalize,
-  const boost::signals2::signal<void(int)> &reorthogonalize_signal)
+namespace internal
 {
-  Assert(dim > 0, ExcInternalError());
-  const unsigned int inner_iteration = dim - 1;
-
-  // need initial norm for detection of re-orthogonalization, see below
-  double     norm_vv_start = 0;
-  const bool consider_reorthogonalize =
-    (reorthogonalize == false) && (inner_iteration % 5 == 4);
-  if (consider_reorthogonalize)
-    norm_vv_start = vv.l2_norm();
-
-  // Orthogonalization
-  h(0) = vv * orthogonal_vectors[0];
-  for (unsigned int i = 1; i < dim; ++i)
-    h(i) = vv.add_and_dot(-h(i - 1),
-                          orthogonal_vectors[i - 1],
-                          orthogonal_vectors[i]);
-  double norm_vv =
-    std::sqrt(vv.add_and_dot(-h(dim - 1), orthogonal_vectors[dim - 1], vv));
-
-  // Re-orthogonalization if loss of orthogonality detected. For the test, use
-  // a strategy discussed in C. T. Kelley, Iterative Methods for Linear and
-  // Nonlinear Equations, SIAM, Philadelphia, 1995: Compare the norm of vv
-  // after orthogonalization with its norm when starting the
-  // orthogonalization. If vv became very small (here: less than the square
-  // root of the machine precision times 10), it is almost in the span of the
-  // previous vectors, which indicates loss of precision.
-  if (consider_reorthogonalize)
+  namespace SolverGMRESImplementation
+  {
+    /**
+     * Orthogonalize the vector @p vv against the @p dim (orthogonal) vectors
+     * given by the first argument using the modified Gram-Schmidt algorithm.
+     * The factors used for orthogonalization are stored in @p h. The boolean @p
+     * re_orthogonalize specifies whether the modified Gram-Schmidt algorithm
+     * should be applied twice. The algorithm checks loss of orthogonality in
+     * the procedure every fifth step and sets the flag to true in that case.
+     * All subsequent iterations use re-orthogonalization.
+     * Calls the signal re_orthogonalize_signal if it is connected.
+     */
+    template <class VectorType>
+    inline double
+    modified_gram_schmidt(
+      const internal::SolverGMRESImplementation::TmpVectors<VectorType>
+        &                                       orthogonal_vectors,
+      const unsigned int                        dim,
+      const unsigned int                        accumulated_iterations,
+      VectorType &                              vv,
+      Vector<double> &                          h,
+      bool &                                    reorthogonalize,
+      const boost::signals2::signal<void(int)> &reorthogonalize_signal =
+        boost::signals2::signal<void(int)>())
     {
-      if (norm_vv >
-          10. * norm_vv_start *
-            std::sqrt(
-              std::numeric_limits<typename VectorType::value_type>::epsilon()))
-        return norm_vv;
+      Assert(dim > 0, ExcInternalError());
+      const unsigned int inner_iteration = dim - 1;
 
-      else
-        {
-          reorthogonalize = true;
-          if (!reorthogonalize_signal.empty())
-            reorthogonalize_signal(accumulated_iterations);
-        }
-    }
+      // need initial norm for detection of re-orthogonalization, see below
+      double     norm_vv_start = 0;
+      const bool consider_reorthogonalize =
+        (reorthogonalize == false) && (inner_iteration % 5 == 4);
+      if (consider_reorthogonalize)
+        norm_vv_start = vv.l2_norm();
 
-  if (reorthogonalize == true)
-    {
-      double htmp = vv * orthogonal_vectors[0];
-      h(0) += htmp;
+      // Orthogonalization
+      h(0) = vv * orthogonal_vectors[0];
       for (unsigned int i = 1; i < dim; ++i)
+        h(i) = vv.add_and_dot(-h(i - 1),
+                              orthogonal_vectors[i - 1],
+                              orthogonal_vectors[i]);
+      double norm_vv =
+        std::sqrt(vv.add_and_dot(-h(dim - 1), orthogonal_vectors[dim - 1], vv));
+
+      // Re-orthogonalization if loss of orthogonality detected. For the test,
+      // use a strategy discussed in C. T. Kelley, Iterative Methods for Linear
+      // and Nonlinear Equations, SIAM, Philadelphia, 1995: Compare the norm of
+      // vv after orthogonalization with its norm when starting the
+      // orthogonalization. If vv became very small (here: less than the square
+      // root of the machine precision times 10), it is almost in the span of
+      // the previous vectors, which indicates loss of precision.
+      if (consider_reorthogonalize)
         {
-          htmp = vv.add_and_dot(-htmp,
-                                orthogonal_vectors[i - 1],
-                                orthogonal_vectors[i]);
-          h(i) += htmp;
+          if (norm_vv >
+              10. * norm_vv_start *
+                std::sqrt(std::numeric_limits<
+                          typename VectorType::value_type>::epsilon()))
+            return norm_vv;
+
+          else
+            {
+              reorthogonalize = true;
+              if (!reorthogonalize_signal.empty())
+                reorthogonalize_signal(accumulated_iterations);
+            }
         }
-      norm_vv =
-        std::sqrt(vv.add_and_dot(-htmp, orthogonal_vectors[dim - 1], vv));
+
+      if (reorthogonalize == true)
+        {
+          double htmp = vv * orthogonal_vectors[0];
+          h(0) += htmp;
+          for (unsigned int i = 1; i < dim; ++i)
+            {
+              htmp = vv.add_and_dot(-htmp,
+                                    orthogonal_vectors[i - 1],
+                                    orthogonal_vectors[i]);
+              h(i) += htmp;
+            }
+          norm_vv =
+            std::sqrt(vv.add_and_dot(-htmp, orthogonal_vectors[dim - 1], vv));
+        }
+
+      return norm_vv;
     }
 
-  return norm_vv;
-}
+
+
+    /**
+     * Orthogonalize the vector @p vv against the @p dim (orthogonal) vectors
+     * given by the first argument using the classical Gram-Schmidt algorithm.
+     */
+    template <class VectorType>
+    inline double
+    classical_gram_schmidt(
+      const internal::SolverGMRESImplementation::TmpVectors<VectorType>
+        &                                       orthogonal_vectors,
+      const unsigned int                        dim,
+      const unsigned int                        accumulated_iterations,
+      VectorType &                              vv,
+      Vector<double> &                          h,
+      bool &                                    reorthogonalize,
+      const boost::signals2::signal<void(int)> &reorthogonalize_signal)
+    {
+      AssertThrow(false, ExcNotImplemented());
+
+      (void)orthogonal_vectors;
+      (void)dim;
+      (void)accumulated_iterations;
+      (void)vv;
+      (void)h;
+      (void)reorthogonalize;
+      (void)reorthogonalize_signal;
+
+      return 0.0;
+    }
+
+
+
+    /**
+     * Orthogonalize the deal.II vector @p vv against the @p dim (orthogonal) vectors
+     * given by the first argument using the classical Gram-Schmidt algorithm.
+     */
+    template <class Number>
+    inline double
+    classical_gram_schmidt(
+      const internal::SolverGMRESImplementation::TmpVectors<
+        LinearAlgebra::distributed::Vector<Number, MemorySpace::Host>>
+        &                orthogonal_vectors,
+      const unsigned int dim,
+      const unsigned int accumulated_iterations,
+      LinearAlgebra::distributed::Vector<Number, MemorySpace::Host> &vv,
+      Vector<double> &                                               h,
+      bool &                                    reorthogonalize,
+      const boost::signals2::signal<void(int)> &reorthogonalize_signal)
+    {
+      Assert(dim > 0, ExcInternalError());
+      const unsigned int inner_iteration = dim - 1;
+
+      // need initial norm for detection of re-orthogonalization, see below
+      double     norm_vv_start = 0;
+      const bool consider_reorthogonalize =
+        (reorthogonalize == false) && (inner_iteration % 5 == 4);
+      if (consider_reorthogonalize)
+        norm_vv_start = vv.l2_norm();
+
+      // Orthogonalization
+      for (auto &i : h)
+        i = 0.0;
+
+      DEAL_II_OPENMP_SIMD_PRAGMA
+      for (unsigned int j = 0; j < vv.locally_owned_size(); ++j)
+        for (unsigned int i = 0; i < dim; ++i)
+          h(i) += orthogonal_vectors[i].local_element(j) *
+                  vv.local_element(j); // dot (2+d) r; 1 w
+
+      Utilities::MPI::sum(h, MPI_COMM_WORLD, h);
+
+      double norm_vv_temp = 0.0;
+
+      DEAL_II_OPENMP_SIMD_PRAGMA
+      for (unsigned int j = 0; j < vv.locally_owned_size(); ++j)
+        {
+          double temp = vv.local_element(j);
+          for (unsigned int i = 0; i < dim; ++i)
+            temp -=
+              h(i) * orthogonal_vectors[i].local_element(j); // add (1+d) r; 1 w
+          vv.local_element(j) = temp;
+
+          norm_vv_temp += temp * temp;
+        }
+
+      double norm_vv =
+        std::sqrt(Utilities::MPI::sum(norm_vv_temp, MPI_COMM_WORLD));
+
+      // Re-orthogonalization if loss of orthogonality detected. For the test,
+      // use a strategy discussed in C. T. Kelley, Iterative Methods for Linear
+      // and Nonlinear Equations, SIAM, Philadelphia, 1995: Compare the norm of
+      // vv after orthogonalization with its norm when starting the
+      // orthogonalization. If vv became very small (here: less than the square
+      // root of the machine precision times 10), it is almost in the span of
+      // the previous vectors, which indicates loss of precision.
+      if (consider_reorthogonalize)
+        {
+          if (norm_vv > 10. * norm_vv_start *
+                          std::sqrt(std::numeric_limits<Number>::epsilon()))
+            return norm_vv;
+
+          else
+            {
+              reorthogonalize = true;
+              if (!reorthogonalize_signal.empty())
+                reorthogonalize_signal(accumulated_iterations);
+            }
+        }
+
+      if (reorthogonalize == true)
+        {
+          double htmp = vv * orthogonal_vectors[0];
+          h(0) += htmp;
+          for (unsigned int i = 1; i < dim; ++i)
+            {
+              htmp = vv.add_and_dot(-htmp,
+                                    orthogonal_vectors[i - 1],
+                                    orthogonal_vectors[i]);
+              h(i) += htmp;
+            }
+          norm_vv =
+            std::sqrt(vv.add_and_dot(-htmp, orthogonal_vectors[dim - 1], vv));
+        }
+
+      return norm_vv;
+    }
+  } // namespace SolverGMRESImplementation
+} // namespace internal
 
 
 
@@ -1013,13 +1170,32 @@ SolverGMRES<VectorType>::solve(const MatrixType &        A,
 
           dim = inner_iteration + 1;
 
-          const double s         = modified_gram_schmidt(tmp_vectors,
-                                                 dim,
-                                                 accumulated_iterations,
-                                                 vv,
-                                                 h,
-                                                 re_orthogonalize,
-                                                 re_orthogonalize_signal);
+          double s = 0.0;
+
+          if (additional_data.orthogonalization_strategy ==
+              AdditionalData::OrthogonalizationStrategy::modified_gram_schmidt)
+            s = internal::SolverGMRESImplementation::modified_gram_schmidt(
+              tmp_vectors,
+              dim,
+              accumulated_iterations,
+              vv,
+              h,
+              re_orthogonalize,
+              re_orthogonalize_signal);
+          else if (additional_data.orthogonalization_strategy ==
+                   AdditionalData::OrthogonalizationStrategy::
+                     classical_gram_schmidt)
+            s = internal::SolverGMRESImplementation::classical_gram_schmidt(
+              tmp_vectors,
+              dim,
+              accumulated_iterations,
+              vv,
+              h,
+              re_orthogonalize,
+              re_orthogonalize_signal);
+          else
+            Assert(false, ExcNotImplemented());
+
           h(inner_iteration + 1) = s;
 
           // s=0 is a lucky breakdown, the solver will reach convergence,
