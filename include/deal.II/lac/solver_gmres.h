@@ -751,11 +751,26 @@ namespace internal
         &             orthogonal_vectors,
       Vector<double> &h)
     {
-      DEAL_II_OPENMP_SIMD_PRAGMA
-      for (unsigned int j = 0; j < vv.locally_owned_size(); ++j)
+      AlignedVector<VectorizedArray<double>> hs(dim,
+                                                VectorizedArray<double>(0.0));
+
+      unsigned int j = 0;
+      for (unsigned int c = 0;
+           j < vv.locally_owned_size() / VectorizedArray<double>::size();
+           ++c, j += VectorizedArray<double>::size())
         for (unsigned int i = 0; i < dim; ++i)
-          h(i) += orthogonal_vectors[i].local_element(j) *
-                  vv.local_element(j); // (1+d) r; 0 w
+          DEAL_II_OPENMP_SIMD_PRAGMA
+      for (unsigned int v = 0; v < VectorizedArray<double>::size(); ++v)
+        hs[i][v] +=
+          orthogonal_vectors[i].local_element(j + v) * vv.local_element(j + v);
+
+      for (unsigned int i = 0; i < dim; ++i)
+        for (unsigned int v = 0; v < VectorizedArray<double>::size(); ++v)
+          h(i) += hs[i][v];
+
+      for (; j < vv.locally_owned_size(); ++j)
+        for (unsigned int i = 0; i < dim; ++i)
+          h(i) += orthogonal_vectors[i].local_element(j) * vv.local_element(j);
 
       Utilities::MPI::sum(h, MPI_COMM_WORLD, h);
     }
@@ -789,15 +804,40 @@ namespace internal
       const Vector<double> &h,
       LinearAlgebra::distributed::Vector<Number, MemorySpace::Host> &vv)
     {
-      double norm_vv_temp = 0.0;
+      double                  norm_vv_temp            = 0.0;
+      VectorizedArray<double> norm_vv_temp_vectorized = 0.0;
 
-      DEAL_II_OPENMP_SIMD_PRAGMA
-      for (unsigned int j = 0; j < vv.locally_owned_size(); ++j)
+      unsigned int j = 0;
+      for (unsigned int c = 0;
+           j < vv.locally_owned_size() / VectorizedArray<double>::size();
+           ++c, j += VectorizedArray<double>::size())
+        {
+          VectorizedArray<double> temp;
+
+          DEAL_II_OPENMP_SIMD_PRAGMA
+          for (unsigned int v = 0; v < VectorizedArray<double>::size(); ++v)
+            temp[v] = vv.local_element(j + v);
+
+          for (unsigned int i = 0; i < dim; ++i)
+            DEAL_II_OPENMP_SIMD_PRAGMA
+          for (unsigned int v = 0; v < VectorizedArray<double>::size(); ++v)
+            temp[v] -= h(i) * orthogonal_vectors[i].local_element(j + v);
+
+          DEAL_II_OPENMP_SIMD_PRAGMA
+          for (unsigned int v = 0; v < VectorizedArray<double>::size(); ++v)
+            vv.local_element(j + v) = temp[v];
+
+          norm_vv_temp_vectorized += temp * temp;
+        }
+
+      for (unsigned int v = 0; v < VectorizedArray<double>::size(); ++v)
+        norm_vv_temp += norm_vv_temp_vectorized[v];
+
+      for (; j < vv.locally_owned_size(); ++j)
         {
           double temp = vv.local_element(j);
           for (unsigned int i = 0; i < dim; ++i)
-            temp -=
-              h(i) * orthogonal_vectors[i].local_element(j); // (1+d) r; 1 w
+            temp -= h(i) * orthogonal_vectors[i].local_element(j);
           vv.local_element(j) = temp;
 
           norm_vv_temp += temp * temp;
