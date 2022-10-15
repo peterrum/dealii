@@ -847,6 +847,78 @@ namespace internal
     }
 
 
+    template <class VectorType>
+    double
+    sadd_and_norm(VectorType &      v,
+                  const double      factor_a,
+                  const VectorType &b,
+                  const double      factor_b)
+    {
+      v.sadd(factor_a, factor_b, b);
+      return v.l2_norm();
+    }
+
+
+    template <class Number>
+    double
+    sadd_and_norm(
+      LinearAlgebra::distributed::Vector<Number, MemorySpace::Host> &v,
+      const double                                                   factor_a,
+      const LinearAlgebra::distributed::Vector<Number, MemorySpace::Host> &b,
+      const double factor_b)
+    {
+      double norm = 0;
+
+      for (unsigned int j = 0; j < v.locally_owned_size(); ++j)
+        {
+          const double temp =
+            v.local_element(j) * factor_a + b.local_element(j) * factor_b;
+
+          v.local_element(j) = temp;
+
+          norm += temp * temp;
+        }
+
+      return std::sqrt(Utilities::MPI::sum(norm, MPI_COMM_WORLD));
+    }
+
+
+
+    template <class VectorType>
+    void
+    add(VectorType &          p,
+        const unsigned int    dim,
+        const Vector<double> &h,
+        const internal::SolverGMRESImplementation::TmpVectors<VectorType>
+          &tmp_vectors)
+    {
+      p.equ(h(0), tmp_vectors[0]);
+      for (unsigned int i = 1; i < dim; ++i)
+        p.add(h(i), tmp_vectors[i]);
+    }
+
+
+
+    template <class Number>
+    void
+    add(LinearAlgebra::distributed::Vector<Number, MemorySpace::Host> &p,
+        const unsigned int                                             dim,
+        const Vector<double> &                                         h,
+        const internal::SolverGMRESImplementation::TmpVectors<
+          LinearAlgebra::distributed::Vector<Number, MemorySpace::Host>>
+          &        tmp_vectors,
+        const bool zero_out)
+    {
+      for (unsigned int j = 0; j < p.locally_owned_size(); ++j)
+        {
+          double temp = zero_out ? 0 : p.local_element(j);
+          for (unsigned int i = 0; i < dim; ++i)
+            temp += tmp_vectors[i].local_element(j) * h(i);
+          p.local_element(j) = temp;
+        }
+    }
+
+
 
     /**
      * Orthogonalize the vector @p vv against the @p dim (orthogonal) vectors
@@ -1108,19 +1180,23 @@ SolverGMRES<VectorType>::solve(const MatrixType &        A,
       // reset this vector to the right size
       h.reinit(n_tmp_vectors - 1);
 
+      double rho = 0.0;
+
       if (left_precondition)
         {
           A.vmult(p, x);
           p.sadd(-1., 1., b);
           preconditioner.vmult(v, p);
+          rho = v.l2_norm();
         }
       else
         {
           A.vmult(v, x);
-          v.sadd(-1., 1., b);
-        };
-
-      double rho = v.l2_norm();
+          rho = dealii::internal::SolverGMRESImplementation::sadd_and_norm(v,
+                                                                           -1,
+                                                                           b,
+                                                                           1.0);
+        }
 
       // check the residual here as well since it may be that we got the exact
       // (or an almost exact) solution vector at the outset. if we wouldn't
@@ -1297,13 +1373,12 @@ SolverGMRES<VectorType>::solve(const MatrixType &        A,
                               condition_number_signal);
 
       if (left_precondition)
-        for (unsigned int i = 0; i < dim; ++i)
-          x.add(h(i), tmp_vectors[i]);
+        dealii::internal::SolverGMRESImplementation::add(
+          x, dim, h, tmp_vectors, false);
       else
         {
-          p.equ(h(0), tmp_vectors[0]);
-          for (unsigned int i = 1; i < dim; ++i)
-            p.add(h(i), tmp_vectors[i]);
+          dealii::internal::SolverGMRESImplementation::add(
+            p, dim, h, tmp_vectors, true);
           preconditioner.vmult(v, p);
           x.add(1., v);
         };
