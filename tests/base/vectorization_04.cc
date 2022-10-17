@@ -73,26 +73,35 @@ main()
   test<float, VectorizedArray<float, 1>>();
   deallog.pop();
 
+#if DEAL_II_VECTORIZATION_WIDTH_IN_BITS >= 128
   deallog.push("double <-> VectorizedArray<double, 2>");
   test<double, VectorizedArray<double, 2>>();
   deallog.pop();
   deallog.push("float <-> VectorizedArray<float, 4>");
   test<float, VectorizedArray<float, 4>>();
   deallog.pop();
+#endif
 
+#if DEAL_II_VECTORIZATION_WIDTH_IN_BITS >= 256
   deallog.push("double <-> VectorizedArray<double, 4>");
   test<double, VectorizedArray<double, 4>>();
   deallog.pop();
   deallog.push("float <-> VectorizedArray<float, 8>");
   test<float, VectorizedArray<float, 8>>();
   deallog.pop();
+#endif
 
+#if DEAL_II_VECTORIZATION_WIDTH_IN_BITS >= 512
   deallog.push("double <-> VectorizedArray<double, 8>");
   test<double, VectorizedArray<double, 8>>();
   deallog.pop();
   deallog.push("float <-> VectorizedArray<float, 16>");
   test<float, VectorizedArray<float, 16>>();
   deallog.pop();
+  deallog.push("float <-> VectorizedArray<double, 8>");
+  test<float, VectorizedArray<double, 8>>();
+  deallog.pop();
+#endif
 
   // test long double and unsigned int: in these cases, the default path of
   // VectorizedArray is taken no matter what was done for double or float
