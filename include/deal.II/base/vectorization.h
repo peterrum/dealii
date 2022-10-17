@@ -2336,6 +2336,13 @@ public:
     data = _mm256_loadu_pd(ptr);
   }
 
+  DEAL_II_ALWAYS_INLINE
+  void
+  load(const float *ptr)
+  {
+    data = _mm256_cvtps_pd(_mm_loadu_ps(ptr));
+  }
+
   /**
    * Write the content of the calling class into memory in form of @p
    * size() to the given address. The memory need not be aligned by
@@ -2347,6 +2354,13 @@ public:
   store(double *ptr) const
   {
     _mm256_storeu_pd(ptr, data);
+  }
+
+  DEAL_II_ALWAYS_INLINE
+  void
+  store(float *ptr) const
+  {
+    _mm_storeu_ps(ptr, _mm256_cvtpd_ps(data));
   }
 
   /**
@@ -3414,6 +3428,15 @@ public:
     data = _mm_loadu_pd(ptr);
   }
 
+  DEAL_II_ALWAYS_INLINE
+  void
+  load(const float *ptr)
+  {
+    DEAL_II_OPENMP_SIMD_PRAGMA
+    for (unsigned int i = 0; i < 2; ++i)
+      data[i] = ptr[i];
+  }
+
   /**
    * Write the content of the calling class into memory in form of @p
    * size() to the given address. The memory need not be aligned by
@@ -3425,6 +3448,15 @@ public:
   store(double *ptr) const
   {
     _mm_storeu_pd(ptr, data);
+  }
+
+  DEAL_II_ALWAYS_INLINE
+  void
+  store(float *ptr) const
+  {
+    DEAL_II_OPENMP_SIMD_PRAGMA
+    for (unsigned int i = 0; i < 2; ++i)
+      ptr[i] = data[i];
   }
 
   /**
