@@ -72,6 +72,9 @@ main()
   deallog.push("float <-> VectorizedArray<float, 1>");
   test<float, VectorizedArray<float, 1>>();
   deallog.pop();
+  deallog.push("float <-> VectorizedArray<double, 1>");
+  test<float, VectorizedArray<double, 1>>();
+  deallog.pop();
 
 #if DEAL_II_VECTORIZATION_WIDTH_IN_BITS >= 128
   deallog.push("double <-> VectorizedArray<double, 2>");
