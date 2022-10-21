@@ -62,24 +62,31 @@ namespace TrilinosWrappers
       /**
        * Constructor.
        */
-      AdditionalData(const unsigned int max_iter = 10,
-                     const double       abs_tol  = 1.e-20,
-                     const double       rel_tol  = 1.e-5);
+      AdditionalData(const unsigned int max_iter                       = 10,
+                     const double       abs_tol                        = 1.e-20,
+                     const double       rel_tol                        = 1.e-5,
+                     const unsigned int threshold_nonlinear_iterations = 1);
 
       /**
        * Max number of non-linear iterations.
        */
-      const unsigned int max_iter;
+      unsigned int max_iter;
 
       /**
        * Absolute l2 tolerance to be reached.
        */
-      const double abs_tol;
+      double abs_tol;
 
       /**
        * Relative l2 tolerance to be reached.
        */
-      const double rel_tol;
+      double rel_tol;
+
+      /**
+       * Number of non-linear iterations after which the preconditioner
+       * should be updated.
+       */
+      unsigned int threshold_nonlinear_iterations;
     };
 
     /**
@@ -103,6 +110,12 @@ namespace TrilinosWrappers
      * User function that sets up the Jacobian.
      */
     std::function<int(const VectorType &x)> setup_jacobian = {};
+
+    /**
+     * User function that sets up the preconditioner for inverting
+     * the Jacobian.
+     */
+    std::function<int(const VectorType &x)> setup_preconditioner = {};
 
     /**
      * User function that applies the Jacobian.
@@ -132,6 +145,14 @@ namespace TrilinosWrappers
                                        const VectorType &,
                                        const VectorType &)>
       check_iteration_status = {};
+
+    /**
+     * Function that allows to force to update the preconditioner in
+     * addition to AdditionalData::threshold_nonlinear_iterations. A reason
+     * for wanting to update the preconditioner is when the expected number
+     * of linear iterations exceeds.
+     */
+    std::function<bool()> update_preconditioner_predicate = {};
 
   private:
     /**
@@ -949,10 +970,12 @@ namespace TrilinosWrappers
   NOXSolver<VectorType>::AdditionalData::AdditionalData(
     const unsigned int max_iter,
     const double       abs_tol,
-    const double       rel_tol)
+    const double       rel_tol,
+    const unsigned int threshold_nonlinear_iterations)
     : max_iter(max_iter)
     , abs_tol(abs_tol)
     , rel_tol(rel_tol)
+    , threshold_nonlinear_iterations(threshold_nonlinear_iterations)
   {}
 
 
@@ -972,14 +995,39 @@ namespace TrilinosWrappers
   NOXSolver<VectorType>::solve(VectorType &solution)
   {
     // create group
+    unsigned int n_nonlinear_iterations = 0;
+
     const auto group = Teuchos::rcp(new internal::Group<VectorType>(
       solution,
       [&](const VectorType &x, VectorType &f) -> int { return residual(x, f); },
-      [&](const VectorType &x) -> int { return setup_jacobian(x); },
+      [&](const VectorType &x) -> int {
+        int flag = setup_jacobian(x);
+
+        if (flag != 0)
+          return flag;
+
+        if (setup_preconditioner)
+          {
+            bool update_preconditioner =
+              (additional_data.threshold_nonlinear_iterations > 0) &&
+              ((n_nonlinear_iterations %
+                additional_data.threshold_nonlinear_iterations) == 0);
+
+            if ((update_preconditioner == false) &&
+                (update_preconditioner_predicate != nullptr))
+              update_preconditioner = update_preconditioner_predicate();
+
+            if (update_preconditioner)
+              flag = setup_preconditioner(x);
+          }
+
+        return flag;
+      },
       [&](const VectorType &x, VectorType &v) -> int {
         return apply_jacobian(x, v);
       },
       [&](const VectorType &f, VectorType &x, const double tolerance) -> int {
+        n_nonlinear_iterations++;
         return solve_with_jacobian(f, x, tolerance);
       }));
 
