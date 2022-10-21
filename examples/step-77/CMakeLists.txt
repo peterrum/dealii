@@ -38,8 +38,12 @@ IF(NOT (DEAL_II_WITH_SUNDIALS OR DEAL_II_WITH_TRILINOS)) # keep in one line
   MESSAGE(FATAL_ERROR "
 Error! This tutorial requires a deal.II library that was configured with the following options:
     DEAL_II_WITH_SUNDIALS = ON
+or
+    DEAL_II_WITH_TRILINOS = ON
 However, the deal.II library found at ${DEAL_II_PATH} was configured with these options:
     DEAL_II_WITH_SUNDIALS = ${DEAL_II_WITH_SUNDIALS}
+    or
+    DEAL_II_WITH_TRILINOS = ${DEAL_II_WITH_TRILINOS}
 This conflicts with the requirements."
     )
 ENDIF()
