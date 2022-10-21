@@ -348,6 +348,40 @@ namespace internal
     process_dofs_vectorized_transpose(const unsigned int   dofs_per_cell,
                                       const unsigned int * dof_indices,
                                       VectorType &         vec,
+                                      const unsigned int   constant_offset,
+                                      VectorizedArrayType *dof_values,
+                                      std::integral_constant<bool, true>) const
+    {
+      dealii::vectorized_load_and_transpose(dofs_per_cell,
+                                            vec.begin() + constant_offset,
+                                            dof_indices,
+                                            dof_values);
+    }
+
+
+
+    template <typename VectorType>
+    void
+    process_dofs_vectorized_transpose(const unsigned int   dofs_per_cell,
+                                      const unsigned int * dof_indices,
+                                      const VectorType &   vec,
+                                      const unsigned int   constant_offset,
+                                      VectorizedArrayType *dof_values,
+                                      std::integral_constant<bool, false>) const
+    {
+      for (unsigned int d = 0; d < dofs_per_cell; ++d)
+        for (unsigned int v = 0; v < VectorizedArrayType::size(); ++v)
+          dof_values[d][v] =
+            vector_access(vec, dof_indices[v] + constant_offset + d);
+    }
+
+
+
+    template <typename VectorType>
+    void
+    process_dofs_vectorized_transpose(const unsigned int   dofs_per_cell,
+                                      const unsigned int * dof_indices,
+                                      VectorType &         vec,
                                       VectorizedArrayType *dof_values,
                                       std::integral_constant<bool, true>) const
     {
@@ -556,6 +590,42 @@ namespace internal
     process_dofs_vectorized_transpose(const unsigned int   dofs_per_cell,
                                       const unsigned int * dof_indices,
                                       VectorType &         vec,
+                                      const unsigned int   constant_offset,
+                                      VectorizedArrayType *dof_values,
+                                      std::integral_constant<bool, true>) const
+    {
+      vectorized_transpose_and_store(true,
+                                     dofs_per_cell,
+                                     dof_values,
+                                     dof_indices,
+                                     vec.begin() + constant_offset);
+    }
+
+
+
+    template <typename VectorType>
+    void
+    process_dofs_vectorized_transpose(const unsigned int   dofs_per_cell,
+                                      const unsigned int * dof_indices,
+                                      VectorType &         vec,
+                                      const unsigned int   constant_offset,
+                                      VectorizedArrayType *dof_values,
+                                      std::integral_constant<bool, false>) const
+    {
+      for (unsigned int d = 0; d < dofs_per_cell; ++d)
+        for (unsigned int v = 0; v < VectorizedArrayType::size(); ++v)
+          vector_access_add(vec,
+                            dof_indices[v] + constant_offset + d,
+                            dof_values[d][v]);
+    }
+
+
+
+    template <typename VectorType>
+    void
+    process_dofs_vectorized_transpose(const unsigned int   dofs_per_cell,
+                                      const unsigned int * dof_indices,
+                                      VectorType &         vec,
                                       VectorizedArrayType *dof_values,
                                       std::integral_constant<bool, true>) const
     {
@@ -742,6 +812,41 @@ namespace internal
       for (unsigned int i = 0; i < dofs_per_cell; ++i)
         for (unsigned int v = 0; v < VectorizedArrayType::size(); ++v)
           vector_access(vec, dof_index + v + i * VectorizedArrayType::size()) =
+            dof_values[i][v];
+    }
+
+
+
+    template <typename VectorType>
+    void
+    process_dofs_vectorized_transpose(const unsigned int   dofs_per_cell,
+                                      const unsigned int * dof_indices,
+                                      const unsigned int   constant_offset,
+                                      VectorType &         vec,
+                                      VectorizedArrayType *dof_values,
+                                      std::integral_constant<bool, true>) const
+    {
+      vectorized_transpose_and_store(false,
+                                     dofs_per_cell,
+                                     dof_values,
+                                     dof_indices,
+                                     vec.begin() + constant_offset);
+    }
+
+
+
+    template <typename VectorType, bool booltype>
+    void
+    process_dofs_vectorized_transpose(const unsigned int   dofs_per_cell,
+                                      const unsigned int * dof_indices,
+                                      const unsigned int   constant_offset,
+                                      VectorType &         vec,
+                                      VectorizedArrayType *dof_values,
+                                      std::integral_constant<bool, false>) const
+    {
+      for (unsigned int i = 0; i < dofs_per_cell; ++i)
+        for (unsigned int v = 0; v < VectorizedArrayType::size(); ++v)
+          vector_access(vec, constant_offset + dof_indices[v] + i) =
             dof_values[i][v];
     }
 
