@@ -973,7 +973,15 @@ namespace TrilinosWrappers
   {
     // create group
     const auto group = Teuchos::rcp(new internal::Group<VectorType>(
-      solution, residual, setup_jacobian, apply_jacobian, solve_with_jacobian));
+      solution,
+      [&](const VectorType &x, VectorType &f) -> int { return residual(x, f); },
+      [&](const VectorType &x) -> int { return setup_jacobian(x); },
+      [&](const VectorType &x, VectorType &v) -> int {
+        return apply_jacobian(x, v);
+      },
+      [&](const VectorType &f, VectorType &x, const double tolerance) -> int {
+        return solve_with_jacobian(f, x, tolerance);
+      }));
 
     // setup solver control
     auto check =
