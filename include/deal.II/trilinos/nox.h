@@ -91,9 +91,14 @@ namespace TrilinosWrappers
 
     /**
      * Constructor.
+     *
+     * If @p parameters is not filled, a Newton solver with full step is used.
+     * An overview of possible parameters is given at
+     * https://docs.trilinos.org/dev/packages/nox/doc/html/parameters.html.
      */
     NOXSolver(AdditionalData &                            additional_data,
-              const Teuchos::RCP<Teuchos::ParameterList> &parameters);
+              const Teuchos::RCP<Teuchos::ParameterList> &parameters =
+                Teuchos::rcp(new Teuchos::ParameterList));
 
     /**
      * Solve non-linear problem.
