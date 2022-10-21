@@ -751,45 +751,53 @@ namespace internal
         &             orthogonal_vectors,
       Vector<double> &h)
     {
-      static constexpr unsigned int vlen = VectorizedArray<double>::size();
-
-      VectorizedArray<double> hs[128];
-      AssertThrow(dim <= 128, ExcNotImplemented());
-      for (unsigned int d = 0; d < dim; ++d)
-        hs[d] = 0.0;
-
       unsigned int j = 0;
-      unsigned int c = 0;
 
-      for (; c < vv.locally_owned_size() / vlen / 4; ++c, j += vlen * 4)
-        for (unsigned int i = 0; i < dim; ++i)
-          {
-            VectorizedArray<double> vvec[4];
-            for (unsigned int k = 0; k < 4; ++k)
-              vvec[k].load(vv.begin() + j + k * vlen);
+      if (dim <= 128)
+        {
+          // optimized path
+          static constexpr unsigned int n_lanes =
+            VectorizedArray<double>::size();
 
-            for (unsigned int k = 0; k < 4; ++k)
+          VectorizedArray<double> hs[128];
+          for (unsigned int d = 0; d < dim; ++d)
+            hs[d] = 0.0;
+
+          unsigned int c = 0;
+
+          for (; c < vv.locally_owned_size() / n_lanes / 4;
+               ++c, j += n_lanes * 4)
+            for (unsigned int i = 0; i < dim; ++i)
               {
-                VectorizedArray<double> temp;
-                temp.load(orthogonal_vectors[i].begin() + j + k * vlen);
-                hs[i] += temp * vvec[k];
+                VectorizedArray<double> vvec[4];
+                for (unsigned int k = 0; k < 4; ++k)
+                  vvec[k].load(vv.begin() + j + k * n_lanes);
+
+                for (unsigned int k = 0; k < 4; ++k)
+                  {
+                    VectorizedArray<double> temp;
+                    temp.load(orthogonal_vectors[i].begin() + j + k * n_lanes);
+                    hs[i] += temp * vvec[k];
+                  }
               }
-          }
 
-      c *= 4;
-      for (; c < vv.locally_owned_size() / vlen; ++c, j += vlen)
-        for (unsigned int i = 0; i < dim; ++i)
-          {
-            VectorizedArray<double> vvec, temp;
-            vvec.load(vv.begin() + j);
-            temp.load(orthogonal_vectors[i].begin() + j);
-            hs[i] += temp * vvec;
-          }
+          c *= 4;
+          for (; c < vv.locally_owned_size() / n_lanes; ++c, j += n_lanes)
+            for (unsigned int i = 0; i < dim; ++i)
+              {
+                VectorizedArray<double> vvec, temp;
+                vvec.load(vv.begin() + j);
+                temp.load(orthogonal_vectors[i].begin() + j);
+                hs[i] += temp * vvec;
+              }
 
-      for (unsigned int i = 0; i < dim; ++i)
-        for (unsigned int v = 0; v < vlen; ++v)
-          h(i) += hs[i][v];
+          for (unsigned int i = 0; i < dim; ++i)
+            for (unsigned int v = 0; v < n_lanes; ++v)
+              h(i) += hs[i][v];
+        }
 
+      // remainder loop of optimized path or non-optimized path (if
+      // dim>128)
       for (; j < vv.locally_owned_size(); ++j)
         for (unsigned int i = 0; i < dim; ++i)
           h(i) += orthogonal_vectors[i].local_element(j) * vv.local_element(j);
@@ -828,19 +836,19 @@ namespace internal
       const Vector<double> &h,
       LinearAlgebra::distributed::Vector<Number, MemorySpace::Host> &vv)
     {
-      static constexpr unsigned int vlen = VectorizedArray<double>::size();
+      static constexpr unsigned int n_lanes = VectorizedArray<double>::size();
 
       double                  norm_vv_temp            = 0.0;
       VectorizedArray<double> norm_vv_temp_vectorized = 0.0;
 
       unsigned int j = 0;
       unsigned int c = 0;
-      for (; c < vv.locally_owned_size() / vlen / 4; ++c, j += vlen * 4)
+      for (; c < vv.locally_owned_size() / n_lanes / 4; ++c, j += n_lanes * 4)
         {
           VectorizedArray<double> temp[4];
 
           for (unsigned int k = 0; k < 4; ++k)
-            temp[k].load(vv.begin() + j + k * vlen);
+            temp[k].load(vv.begin() + j + k * n_lanes);
 
           for (unsigned int i = 0; i < dim; ++i)
             {
@@ -848,20 +856,20 @@ namespace internal
               for (unsigned int k = 0; k < 4; ++k)
                 {
                   VectorizedArray<double> vec;
-                  vec.load(orthogonal_vectors[i].begin() + j + k * vlen);
+                  vec.load(orthogonal_vectors[i].begin() + j + k * n_lanes);
                   temp[k] -= factor * vec;
                 }
             }
 
           for (unsigned int k = 0; k < 4; ++k)
-            temp[k].store(vv.begin() + j + k * vlen);
+            temp[k].store(vv.begin() + j + k * n_lanes);
 
           norm_vv_temp_vectorized += (temp[0] * temp[0] + temp[1] * temp[1]) +
                                      (temp[2] * temp[2] + temp[3] * temp[3]);
         }
 
       c *= 4;
-      for (; c < vv.locally_owned_size() / vlen; ++c, j += vlen)
+      for (; c < vv.locally_owned_size() / n_lanes; ++c, j += n_lanes)
         {
           VectorizedArray<double> temp;
           temp.load(vv.begin() + j);
@@ -878,7 +886,7 @@ namespace internal
           norm_vv_temp_vectorized += temp * temp;
         }
 
-      for (unsigned int v = 0; v < vlen; ++v)
+      for (unsigned int v = 0; v < n_lanes; ++v)
         norm_vv_temp += norm_vv_temp_vectorized[v];
 
       for (; j < vv.locally_owned_size(); ++j)
