@@ -472,7 +472,7 @@ namespace TrilinosWrappers
                 if (this->f.vector == nullptr)
                   this->f.vector = std::make_shared<VectorType>();
 
-                *this->f.vector = *other->x.vector;
+                *this->f.vector = *other->f.vector;
               }
             else
               {
