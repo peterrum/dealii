@@ -227,7 +227,7 @@ namespace TrilinosWrappers
         Vector() = default;
 
         /**
-         * Wrap an existing vector.
+         * Wrap an existing vector. The ownership is not transferred.
          */
         Vector(VectorType &vector)
         {
