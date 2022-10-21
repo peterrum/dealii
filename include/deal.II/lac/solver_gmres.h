@@ -22,6 +22,7 @@
 
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/subscriptor.h>
+#include <deal.II/base/vectorization.h>
 
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/householder.h>
@@ -728,12 +729,11 @@ namespace internal
   {
     template <class VectorType>
     void
-    dot_and_add(
-      const unsigned int dim,
-      const VectorType & vv,
-      const internal::SolverGMRESImplementation::TmpVectors<VectorType>
-        &             orthogonal_vectors,
-      Vector<double> &h)
+    Tvmult_add(const unsigned int dim,
+               const VectorType & vv,
+               const internal::SolverGMRESImplementation::TmpVectors<VectorType>
+                 &             orthogonal_vectors,
+               Vector<double> &h)
     {
       for (unsigned int i = 0; i < dim; ++i)
         h[i] += vv * orthogonal_vectors[i];
@@ -743,7 +743,7 @@ namespace internal
 
     template <class Number>
     void
-    dot_and_add(
+    Tvmult_add(
       const unsigned int                                                   dim,
       const LinearAlgebra::distributed::Vector<Number, MemorySpace::Host> &vv,
       const internal::SolverGMRESImplementation::TmpVectors<
@@ -751,21 +751,43 @@ namespace internal
         &             orthogonal_vectors,
       Vector<double> &h)
     {
-      AlignedVector<VectorizedArray<double>> hs(dim,
-                                                VectorizedArray<double>(0.0));
+      static constexpr unsigned int vlen = VectorizedArray<double>::size();
+
+      VectorizedArray<double> hs[128];
+      AssertThrow(dim <= 128, ExcNotImplemented());
+      for (unsigned int d = 0; d < dim; ++d)
+        hs[d] = 0.0;
 
       unsigned int j = 0;
-      for (unsigned int c = 0;
-           j < vv.locally_owned_size() / VectorizedArray<double>::size();
-           ++c, j += VectorizedArray<double>::size())
+      unsigned int c = 0;
+
+      for (; c < vv.locally_owned_size() / vlen / 4; ++c, j += vlen * 4)
         for (unsigned int i = 0; i < dim; ++i)
-          DEAL_II_OPENMP_SIMD_PRAGMA
-      for (unsigned int v = 0; v < VectorizedArray<double>::size(); ++v)
-        hs[i][v] +=
-          orthogonal_vectors[i].local_element(j + v) * vv.local_element(j + v);
+          {
+            VectorizedArray<double> vvec[4];
+            for (unsigned int k = 0; k < 4; ++k)
+              vvec[k].load(vv.begin() + j + k * vlen);
+
+            for (unsigned int k = 0; k < 4; ++k)
+              {
+                VectorizedArray<double> temp;
+                temp.load(orthogonal_vectors[i].begin() + j + k * vlen);
+                hs[i] += temp * vvec[k];
+              }
+          }
+
+      c *= 4;
+      for (; c < vv.locally_owned_size() / vlen; ++c, j += vlen)
+        for (unsigned int i = 0; i < dim; ++i)
+          {
+            VectorizedArray<double> vvec, temp;
+            vvec.load(vv.begin() + j);
+            temp.load(orthogonal_vectors[i].begin() + j);
+            hs[i] += temp * vvec;
+          }
 
       for (unsigned int i = 0; i < dim; ++i)
-        for (unsigned int v = 0; v < VectorizedArray<double>::size(); ++v)
+        for (unsigned int v = 0; v < vlen; ++v)
           h(i) += hs[i][v];
 
       for (; j < vv.locally_owned_size(); ++j)
@@ -786,10 +808,12 @@ namespace internal
       const Vector<double> &h,
       VectorType &          vv)
     {
-      for (unsigned int i = 0; i < dim; ++i)
+      Assert(dim > 0, ExcInternalError());
+
+      for (unsigned int i = 0; i < dim - 1; ++i)
         vv.add(-h(i), orthogonal_vectors[i]);
 
-      return vv.l2_norm();
+      return vv.add_and_dot(-h(dim - 1), orthogonal_vectors[dim - 1], vv);
     }
 
 
@@ -804,41 +828,65 @@ namespace internal
       const Vector<double> &h,
       LinearAlgebra::distributed::Vector<Number, MemorySpace::Host> &vv)
     {
+      static constexpr unsigned int vlen = VectorizedArray<double>::size();
+
       double                  norm_vv_temp            = 0.0;
       VectorizedArray<double> norm_vv_temp_vectorized = 0.0;
 
       unsigned int j = 0;
-      for (unsigned int c = 0;
-           j < vv.locally_owned_size() / VectorizedArray<double>::size();
-           ++c, j += VectorizedArray<double>::size())
+      unsigned int c = 0;
+      for (; c < vv.locally_owned_size() / vlen / 4; ++c, j += vlen * 4)
         {
-          VectorizedArray<double> temp;
+          VectorizedArray<double> temp[4];
 
-          DEAL_II_OPENMP_SIMD_PRAGMA
-          for (unsigned int v = 0; v < VectorizedArray<double>::size(); ++v)
-            temp[v] = vv.local_element(j + v);
+          for (unsigned int k = 0; k < 4; ++k)
+            temp[k].load(vv.begin() + j + k * vlen);
 
           for (unsigned int i = 0; i < dim; ++i)
-            DEAL_II_OPENMP_SIMD_PRAGMA
-          for (unsigned int v = 0; v < VectorizedArray<double>::size(); ++v)
-            temp[v] -= h(i) * orthogonal_vectors[i].local_element(j + v);
+            {
+              const double factor = h(i);
+              for (unsigned int k = 0; k < 4; ++k)
+                {
+                  VectorizedArray<double> vec;
+                  vec.load(orthogonal_vectors[i].begin() + j + k * vlen);
+                  temp[k] -= factor * vec;
+                }
+            }
 
-          DEAL_II_OPENMP_SIMD_PRAGMA
-          for (unsigned int v = 0; v < VectorizedArray<double>::size(); ++v)
-            vv.local_element(j + v) = temp[v];
+          for (unsigned int k = 0; k < 4; ++k)
+            temp[k].store(vv.begin() + j + k * vlen);
+
+          norm_vv_temp_vectorized += (temp[0] * temp[0] + temp[1] * temp[1]) +
+                                     (temp[2] * temp[2] + temp[3] * temp[3]);
+        }
+
+      c *= 4;
+      for (; c < vv.locally_owned_size() / vlen; ++c, j += vlen)
+        {
+          VectorizedArray<double> temp;
+          temp.load(vv.begin() + j);
+
+          for (unsigned int i = 0; i < dim; ++i)
+            {
+              VectorizedArray<double> vec;
+              vec.load(orthogonal_vectors[i].begin() + j);
+              temp -= h(i) * vec;
+            }
+
+          temp.store(vv.begin() + j);
 
           norm_vv_temp_vectorized += temp * temp;
         }
 
-      for (unsigned int v = 0; v < VectorizedArray<double>::size(); ++v)
+      for (unsigned int v = 0; v < vlen; ++v)
         norm_vv_temp += norm_vv_temp_vectorized[v];
 
       for (; j < vv.locally_owned_size(); ++j)
         {
-          double temp = vv.local_element(j);
+          double temp = vv(j);
           for (unsigned int i = 0; i < dim; ++i)
-            temp -= h(i) * orthogonal_vectors[i].local_element(j);
-          vv.local_element(j) = temp;
+            temp -= h(i) * orthogonal_vectors[i](j);
+          vv(j) = temp;
 
           norm_vv_temp += temp * temp;
         }
@@ -890,9 +938,14 @@ namespace internal
         const unsigned int    dim,
         const Vector<double> &h,
         const internal::SolverGMRESImplementation::TmpVectors<VectorType>
-          &tmp_vectors)
+          &        tmp_vectors,
+        const bool zero_out)
     {
-      p.equ(h(0), tmp_vectors[0]);
+      if (zero_out)
+        p.equ(h(0), tmp_vectors[0]);
+      else
+        p.add(h(0), tmp_vectors[0]);
+
       for (unsigned int i = 1; i < dim; ++i)
         p.add(h(i), tmp_vectors[i]);
     }
@@ -922,9 +975,10 @@ namespace internal
 
     /**
      * Orthogonalize the vector @p vv against the @p dim (orthogonal) vectors
-     * given by the first argument using the modified Gram-Schmidt algorithm.
+     * given by @p orthogonal_vectors using the modified or classical
+     * Gram-Schmidt algorithm.
      * The factors used for orthogonalization are stored in @p h. The boolean @p
-     * re_orthogonalize specifies whether the modified Gram-Schmidt algorithm
+     * re_orthogonalize specifies whether the Gram-Schmidt algorithm
      * should be applied twice. The algorithm checks loss of orthogonality in
      * the procedure every fifth step and sets the flag to true in that case.
      * All subsequent iterations use re-orthogonalization.
@@ -985,7 +1039,7 @@ namespace internal
                    SolverGMRES<VectorType>::AdditionalData::
                      OrthogonalizationStrategy::classical_gram_schmidt)
             {
-              dot_and_add(dim, vv, orthogonal_vectors, h);
+              Tvmult_add(dim, vv, orthogonal_vectors, h);
               norm_vv = substract_and_norm(dim, orthogonal_vectors, h, vv);
             }
           else
