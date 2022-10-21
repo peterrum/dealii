@@ -103,56 +103,76 @@ namespace TrilinosWrappers
 
     /**
      * User function that computes the residual.
+     *
+     * @note This function should return 0 in the case of success.
      */
-    std::function<int(const VectorType &x, VectorType &f)> residual = {};
+    std::function<int(const VectorType &x, VectorType &f)> residual;
 
     /**
      * User function that sets up the Jacobian.
+     *
+     * @note This function should return 0 in the case of success.
      */
-    std::function<int(const VectorType &x)> setup_jacobian = {};
+    std::function<int(const VectorType &x)> setup_jacobian;
 
     /**
      * User function that sets up the preconditioner for inverting
      * the Jacobian.
+     *
+     * @note The function is optional and is used when setup_jacobian is
+     * called and the preconditioner needs to updated (see
+     * update_preconditioner_predicate and
+     * AdditionalData::threshold_nonlinear_iterations).
+     *
+     * @note This function should return 0 in the case of success.
      */
-    std::function<int(const VectorType &x)> setup_preconditioner = {};
+    std::function<int(const VectorType &x)> setup_preconditioner;
 
     /**
      * User function that applies the Jacobian.
      *
      * @note The function is optional and is used in the case of certain
      * configurations.
+     *
+     * @note This function should return 0 in the case of success.
      */
-    std::function<int(const VectorType &x, VectorType &v)> apply_jacobian = {};
+    std::function<int(const VectorType &x, VectorType &v)> apply_jacobian;
 
     /**
      * User function that applies the inverse of the Jacobian.
      *
      * @note The function is optional and is used in the case of certain
      * configurations.
+     *
+     * @note This function should return 0 in the case of success.
      */
     std::function<
       int(const VectorType &f, VectorType &x, const double tolerance)>
-      solve_with_jacobian = {};
+      solve_with_jacobian;
 
     /**
      * User function that allows to check convergence in addition to
      * ones checking the l2-norm and the number of iterations (see
      * AdditionalData).
+     *
+     * @note The function is optional.
      */
     std::function<SolverControl::State(const unsigned int,
                                        const double,
                                        const VectorType &,
                                        const VectorType &)>
-      check_iteration_status = {};
+      check_iteration_status;
 
     /**
      * Function that allows to force to update the preconditioner in
      * addition to AdditionalData::threshold_nonlinear_iterations. A reason
      * for wanting to update the preconditioner is when the expected number
      * of linear iterations exceeds.
+     *
+     * @note The function is optional. If no function is attached, this
+     * means implicitly a return value of false.
      */
-    std::function<bool()> update_preconditioner_predicate = {};
+    std::function<bool()> update_preconditioner_predicate;
 
   private:
     /**
