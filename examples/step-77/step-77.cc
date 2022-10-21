@@ -552,6 +552,38 @@ namespace Step77
         std::cout << "  Target_tolerance: " << target_tolerance << std::endl
                   << std::endl;
 
+        const auto reinit_vector = [&](Vector<double> &x) {
+          x.reinit(dof_handler.n_dofs());
+        };
+
+        const auto residual = [&](const Vector<double> &evaluation_point,
+                                  Vector<double> &      residual) {
+          compute_residual(evaluation_point, residual);
+
+          return 0;
+        };
+
+        const auto setup_jacobian = [&](const Vector<double> &current_u) {
+          compute_and_factorize_jacobian(current_u);
+
+          return 0;
+        };
+
+        const auto solve_with_jacobian = [&](const Vector<double> &rhs,
+                                             Vector<double> &      dst,
+                                             const double          tolerance) {
+          this->solve(rhs, dst, tolerance);
+
+          return 0;
+        };
+
+        const auto apply_jacobian = [&](const Vector<double> &src,
+                                        Vector<double> &      dst) {
+          this->jacobian_matrix.vmult(dst, src);
+
+          return 0;
+        };
+
         // This is where the fun starts. At the top we create the KINSOL solver
         // object and feed it with an object that encodes a number of additional
         // specifics (of which we only change the nonlinear tolerance we want to
@@ -600,34 +632,14 @@ namespace Step77
             // 'residual', 'setup_jacobian', and 'solve_jacobian_system'
             // functions will then print output to screen that allows us to
             // follow along with the progress of the program.
-            nonlinear_solver.reinit_vector = [&](Vector<double> &x) {
-              x.reinit(dof_handler.n_dofs());
-            };
-
-            nonlinear_solver.residual =
-              [&](const Vector<double> &evaluation_point,
-                  Vector<double> &      residual) {
-                compute_residual(evaluation_point, residual);
-
-                return 0;
-              };
-
+            nonlinear_solver.reinit_vector = reinit_vector;
+            nonlinear_solver.residual      = residual;
             nonlinear_solver.setup_jacobian =
               [&](const Vector<double> &current_u,
                   const Vector<double> & /*current_f*/) {
-                compute_and_factorize_jacobian(current_u);
-
-                return 0;
+                return setup_jacobian(current_u);
               };
-
-            nonlinear_solver.solve_with_jacobian =
-              [&](const Vector<double> &rhs,
-                  Vector<double> &      dst,
-                  const double          tolerance) {
-                this->solve(rhs, dst, tolerance);
-
-                return 0;
-              };
+            nonlinear_solver.solve_with_jacobian = solve_with_jacobian;
 
             nonlinear_solver.solve(current_solution);
           }
@@ -659,36 +671,10 @@ namespace Step77
             TrilinosWrappers::NOXSolver<Vector<double>> nonlinear_solver(
               additional_data, non_linear_parameters);
 
-            nonlinear_solver.residual =
-              [&](const Vector<double> &evaluation_point,
-                  Vector<double> &      residual) {
-                compute_residual(evaluation_point, residual);
-
-                return 0;
-              };
-
-            nonlinear_solver.setup_jacobian =
-              [&](const Vector<double> &current_u) {
-                compute_and_factorize_jacobian(current_u);
-
-                return 0;
-              };
-
-            nonlinear_solver.apply_jacobian = [&](const Vector<double> &src,
-                                                  Vector<double> &      dst) {
-              this->jacobian_matrix.vmult(dst, src);
-
-              return 0;
-            };
-
-            nonlinear_solver.solve_with_jacobian =
-              [&](const Vector<double> &rhs,
-                  Vector<double> &      dst,
-                  const double          tolerance) {
-                this->solve(rhs, dst, tolerance);
-
-                return 0;
-              };
+            nonlinear_solver.residual            = residual;
+            nonlinear_solver.setup_jacobian      = setup_jacobian;
+            nonlinear_solver.apply_jacobian      = apply_jacobian;
+            nonlinear_solver.solve_with_jacobian = solve_with_jacobian;
 
             // 3) solve
             nonlinear_solver.solve(current_solution);
@@ -707,8 +693,6 @@ namespace Step77
         output_results(refinement_cycle);
 
         computing_timer.print_summary();
-
-        std::cout << std::endl;
       }
   }
 } // namespace Step77
