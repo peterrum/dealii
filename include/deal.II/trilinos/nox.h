@@ -182,7 +182,7 @@ namespace TrilinosWrappers
     /**
      * Additional data with basic settings.
      */
-    AdditionalData &additional_data;
+    AdditionalData additional_data;
 
     /**
      * Additional data with advanced settings. An overview of
