@@ -153,14 +153,18 @@ namespace TrilinosWrappers
     /**
      * User function that allows to check convergence in addition to
      * ones checking the l2-norm and the number of iterations (see
-     * AdditionalData).
+     * AdditionalData). It is run after each non-linear iteration.
+     *
+     * The input are the current iteration number @p i, the l2-norm
+     * @p norm_f of the residual vector, the current solution @p x,
+     * and the current residual vector @p f.
      *
      * @note The function is optional.
      */
-    std::function<SolverControl::State(const unsigned int,
-                                       const double,
-                                       const VectorType &,
-                                       const VectorType &)>
+    std::function<SolverControl::State(const unsigned int i,
+                                       const double       norm_f,
+                                       const VectorType & x,
+                                       const VectorType & f)>
       check_iteration_status;
 
     /**
