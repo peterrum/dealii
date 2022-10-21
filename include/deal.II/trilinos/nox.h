@@ -444,8 +444,7 @@ namespace TrilinosWrappers
       /**
        * Return underlying vector.
        */
-      const VectorType &
-      genericVector() const
+      operator VectorType &() const
       {
         AssertThrow(vector, ExcInternalError());
 
@@ -875,12 +874,12 @@ namespace TrilinosWrappers
     class NOXCheck : public NOX::StatusTest::Generic
     {
     public:
-      NOXCheck(std::function<SolverControl::State(const unsigned int,
-                                                  const double,
-                                                  const VectorType &,
-                                                  const VectorType &)>
-                    check_iteration_status,
-               bool as_dummy = false)
+      NOXCheck(const std::function<SolverControl::State(const unsigned int,
+                                                        const double,
+                                                        const VectorType &,
+                                                        const VectorType &)>
+                          check_iteration_status,
+               const bool as_dummy = false)
         : check_iteration_status(check_iteration_status)
         , as_dummy(as_dummy)
         , status(NOX::StatusTest::Unevaluated)
@@ -912,12 +911,11 @@ namespace TrilinosWrappers
 
                 const unsigned int step = problem.getNumIterations();
 
-                const double norm_f = f_->genericVector().l2_norm();
+                const VectorType &x__ = *x_;
+                const VectorType &f__ = *f_;
 
-                state = this->check_iteration_status(step,
-                                                     norm_f,
-                                                     x_->genericVector(),
-                                                     f_->genericVector());
+                state =
+                  this->check_iteration_status(step, f__.l2_norm(), x__, f__);
 
                 switch (state)
                   {
@@ -980,11 +978,11 @@ namespace TrilinosWrappers
       }
 
     private:
-      std::function<SolverControl::State(const unsigned int,
-                                         const double,
-                                         const VectorType &,
-                                         const VectorType &)>
-        check_iteration_status = {};
+      const std::function<SolverControl::State(const unsigned int,
+                                               const double,
+                                               const VectorType &,
+                                               const VectorType &)>
+        check_iteration_status;
 
       const bool as_dummy = false;
 
