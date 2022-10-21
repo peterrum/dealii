@@ -870,21 +870,28 @@ namespace TrilinosWrappers
     };
 
 
+    /**
+     * Wrapper class around the user function that allows to check convergence.
+     */
     template <typename VectorType>
     class NOXCheck : public NOX::StatusTest::Generic
     {
     public:
+      /**
+       * Constructor.
+       */
       NOXCheck(const std::function<SolverControl::State(const unsigned int,
                                                         const double,
                                                         const VectorType &,
                                                         const VectorType &)>
-                          check_iteration_status,
-               const bool as_dummy = false)
+                 check_iteration_status)
         : check_iteration_status(check_iteration_status)
-        , as_dummy(as_dummy)
         , status(NOX::StatusTest::Unevaluated)
       {}
 
+      /**
+       * Check status.
+       */
       NOX::StatusTest::StatusType
       checkStatus(const NOX::Solver::Generic &problem,
                   NOX::StatusTest::CheckType  checkType) override
@@ -901,22 +908,19 @@ namespace TrilinosWrappers
               }
             else
               {
-                const auto &x = problem.getSolutionGroup().getX();
-                const auto *x_ =
-                  dynamic_cast<const internal::Vector<VectorType> *>(&x);
+                // unwrap the various vectors
+                const VectorType &x__ =
+                  *dynamic_cast<const internal::Vector<VectorType> *>(
+                    &problem.getSolutionGroup().getX());
+                const VectorType &f__ =
+                  *dynamic_cast<const internal::Vector<VectorType> *>(
+                    &problem.getSolutionGroup().getF());
 
-                const auto &f = problem.getSolutionGroup().getF();
-                const auto *f_ =
-                  dynamic_cast<const internal::Vector<VectorType> *>(&f);
+                // forward to the user-provided function and checks convergence
+                const auto state = this->check_iteration_status(
+                  problem.getNumIterations(), f__.l2_norm(), x__, f__);
 
-                const unsigned int step = problem.getNumIterations();
-
-                const VectorType &x__ = *x_;
-                const VectorType &f__ = *f_;
-
-                state =
-                  this->check_iteration_status(step, f__.l2_norm(), x__, f__);
-
+                // translate the returned value back to Trilinos data structure
                 switch (state)
                   {
                     case SolverControl::iterate:
@@ -934,60 +938,45 @@ namespace TrilinosWrappers
               }
           }
 
-        if (as_dummy)
-          status = NOX::StatusTest::Unconverged;
-
         return status;
       }
 
+      /**
+       * Return last return value of checkStatus().
+       */
       NOX::StatusTest::StatusType
       getStatus() const override
       {
         return status;
       }
 
+      /**
+       * Print last return value of print().
+       */
       virtual std::ostream &
       print(std::ostream &stream, int indent = 0) const override
       {
-        (void)indent;
-
-        std::string state_str;
-        switch (state)
-          {
-            case SolverControl::iterate:
-              state_str = "iterate";
-              break;
-            case SolverControl::failure:
-              state_str = "failure";
-              break;
-            case SolverControl::success:
-              state_str = "success";
-              break;
-            default:
-              AssertThrow(false, ExcNotImplemented());
-          }
-
-        for (int j = 0; j < indent; j++)
+        for (int j = 0; j < indent; ++j)
           stream << ' ';
-        stream << status;
-        stream << "check_iteration_status() = " << state_str
-               << " (dummy = " << (as_dummy ? "yes" : "no") << ")";
-        stream << std::endl;
-
+        stream << status << std::endl;
         return stream;
       }
 
     private:
-      const std::function<SolverControl::State(const unsigned int,
-                                               const double,
-                                               const VectorType &,
-                                               const VectorType &)>
+      /**
+       * User function that allows to check convergence.
+       */
+      const std::function<SolverControl::State(const unsigned int i,
+                                               const double       f_norm,
+                                               const VectorType & x,
+                                               const VectorType & f)>
         check_iteration_status;
 
-      const bool as_dummy = false;
-
+      /**
+       *  Last retured value of checkStatus(), which is used for
+       * getStatus() and print().
+       */
       NOX::StatusTest::StatusType status;
-      SolverControl::State        state;
     };
   } // namespace internal
 
@@ -1101,8 +1090,8 @@ namespace TrilinosWrappers
 
     if (this->check_iteration_status)
       {
-        const auto info = Teuchos::rcp(
-          new internal::NOXCheck(this->check_iteration_status, true));
+        const auto info =
+          Teuchos::rcp(new internal::NOXCheck(this->check_iteration_status));
         check->addStatusTest(info);
       }
 
