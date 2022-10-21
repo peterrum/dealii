@@ -994,13 +994,22 @@ namespace TrilinosWrappers
   unsigned int
   NOXSolver<VectorType>::solve(VectorType &solution)
   {
-    // create group
-    unsigned int n_nonlinear_iterations = 0;
+    // some internal counters
+    unsigned int n_residual_evluations   = 0;
+    unsigned int n_jacobian_applications = 0;
+    unsigned int n_nonlinear_iterations  = 0;
 
+    // create group
     const auto group = Teuchos::rcp(new internal::Group<VectorType>(
       solution,
-      [&](const VectorType &x, VectorType &f) -> int { return residual(x, f); },
+      [&](const VectorType &x, VectorType &f) -> int {
+        n_residual_evluations++;
+
+        // evalute residual
+        return residual(x, f);
+      },
       [&](const VectorType &x) -> int {
+        // setup Jacobian
         int flag = setup_jacobian(x);
 
         if (flag != 0)
@@ -1008,6 +1017,7 @@ namespace TrilinosWrappers
 
         if (setup_preconditioner)
           {
+            // check if preconditioner needs to be updated
             bool update_preconditioner =
               (additional_data.threshold_nonlinear_iterations > 0) &&
               ((n_nonlinear_iterations %
@@ -1018,16 +1028,22 @@ namespace TrilinosWrappers
               update_preconditioner = update_preconditioner_predicate();
 
             if (update_preconditioner)
+              // update preconditioner
               flag = setup_preconditioner(x);
           }
 
         return flag;
       },
       [&](const VectorType &x, VectorType &v) -> int {
+        n_jacobian_applications++;
+
+        // apply Jacobian
         return apply_jacobian(x, v);
       },
       [&](const VectorType &f, VectorType &x, const double tolerance) -> int {
         n_nonlinear_iterations++;
+
+        // invert Jacobian
         return solve_with_jacobian(f, x, tolerance);
       }));
 
