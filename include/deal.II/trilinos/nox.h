@@ -245,11 +245,6 @@ namespace TrilinosWrappers
      * Number of linear iterations of the last Jacobian solve.
      */
     mutable unsigned int n_last_linear_iterations;
-
-    /**
-     * NOX solver that can be reused in the next non-linear solution.
-     */
-    Teuchos::RCP<NOX::Solver::Generic> solver;
   };
 } // namespace TrilinosWrappers
 
@@ -1087,9 +1082,6 @@ namespace TrilinosWrappers
     n_jacobian_applications  = 0;
     n_nonlinear_iterations   = 0;
     n_last_linear_iterations = 0;
-
-    // reset solver
-    solver.reset();
   }
 
 
@@ -1101,142 +1093,137 @@ namespace TrilinosWrappers
     if (additional_data.reuse_solver == false)
       clear(); // clear state
 
-    // create solver
-    if (solver.is_null())
+    // create group
+    const auto group = Teuchos::rcp(new internal::NOXWrappers::Group<
+                                    VectorType>(
+      solution,
+      [&](const VectorType &x, VectorType &f) -> int {
+        Assert(
+          residual,
+          ExcMessage(
+            "No residual function has been attached to the NOXSolver object."));
+
+        n_residual_evluations++;
+
+        // evalute residual
+        return residual(x, f);
+      },
+      [&](const VectorType &x) -> int {
+        Assert(
+          setup_jacobian,
+          ExcMessage(
+            "No setup_jacobian function has been attached to the NOXSolver object."));
+
+        // setup Jacobian
+        int flag = setup_jacobian(x);
+
+        if (flag != 0)
+          return flag;
+
+        if (setup_preconditioner)
+          {
+            // check if preconditioner needs to be updated
+            bool update_preconditioner =
+              ((additional_data.threshold_nonlinear_iterations > 0) &&
+               ((n_nonlinear_iterations %
+                 additional_data.threshold_nonlinear_iterations) == 0)) ||
+              (solve_with_jacobian_and_track_n_linear_iterations &&
+               (n_last_linear_iterations >
+                additional_data.threshold_n_linear_iterations));
+
+            if ((update_preconditioner == false) &&
+                (update_preconditioner_predicate != nullptr))
+              update_preconditioner = update_preconditioner_predicate();
+
+            if (update_preconditioner) // update preconditioner
+              flag = setup_preconditioner(x);
+          }
+
+        return flag;
+      },
+      [&](const VectorType &x, VectorType &v) -> int {
+        Assert(
+          apply_jacobian,
+          ExcMessage(
+            "No apply_jacobian function has been attached to the NOXSolver object."));
+
+        n_jacobian_applications++;
+
+        // apply Jacobian
+        return apply_jacobian(x, v);
+      },
+      [&](const VectorType &f, VectorType &x, const double tolerance) -> int {
+        n_nonlinear_iterations++;
+
+        // invert Jacobian
+        if (solve_with_jacobian)
+          {
+            // without tracking of linear iterations
+            return solve_with_jacobian(f, x, tolerance);
+          }
+        else if (solve_with_jacobian_and_track_n_linear_iterations)
+          {
+            // with tracking of linear iterations
+            const int n_linear_iterations =
+              solve_with_jacobian_and_track_n_linear_iterations(f,
+                                                                x,
+                                                                tolerance);
+
+            if (n_linear_iterations == -1)
+              return 1;
+
+            this->n_last_linear_iterations = n_linear_iterations;
+
+            return 0;
+          }
+        else
+          {
+            Assert(
+              false,
+              ExcMessage(
+                "Neither a solve_with_jacobian or a "
+                "solve_with_jacobian_and_track_n_linear_iterations function "
+                "has been attached to the NOXSolver object."));
+
+            Assert(false, ExcNotImplemented());
+            return 1;
+          }
+      }));
+
+    // setup solver control
+    auto check =
+      Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::OR));
+
+    if (additional_data.abs_tol > 0.0)
       {
-        // create group
-        const auto group = Teuchos::rcp(new internal::NOXWrappers::Group<
-                                        VectorType>(
-          solution,
-          [&](const VectorType &x, VectorType &f) -> int {
-            Assert(
-              residual,
-              ExcMessage(
-                "No residual function has been attached to the NOXSolver object."));
-
-            n_residual_evluations++;
-
-            // evalute residual
-            return residual(x, f);
-          },
-          [&](const VectorType &x) -> int {
-            Assert(
-              setup_jacobian,
-              ExcMessage(
-                "No setup_jacobian function has been attached to the NOXSolver object."));
-
-            // setup Jacobian
-            int flag = setup_jacobian(x);
-
-            if (flag != 0)
-              return flag;
-
-            if (setup_preconditioner)
-              {
-                // check if preconditioner needs to be updated
-                bool update_preconditioner =
-                  ((additional_data.threshold_nonlinear_iterations > 0) &&
-                   ((n_nonlinear_iterations %
-                     additional_data.threshold_nonlinear_iterations) == 0)) ||
-                  (solve_with_jacobian_and_track_n_linear_iterations &&
-                   (n_last_linear_iterations >
-                    additional_data.threshold_n_linear_iterations));
-
-                if ((update_preconditioner == false) &&
-                    (update_preconditioner_predicate != nullptr))
-                  update_preconditioner = update_preconditioner_predicate();
-
-                if (update_preconditioner) // update preconditioner
-                  flag = setup_preconditioner(x);
-              }
-
-            return flag;
-          },
-          [&](const VectorType &x, VectorType &v) -> int {
-            Assert(
-              apply_jacobian,
-              ExcMessage(
-                "No apply_jacobian function has been attached to the NOXSolver object."));
-
-            n_jacobian_applications++;
-
-            // apply Jacobian
-            return apply_jacobian(x, v);
-          },
-          [&](const VectorType &f, VectorType &x, const double tolerance)
-            -> int {
-            n_nonlinear_iterations++;
-
-            // invert Jacobian
-            if (solve_with_jacobian)
-              {
-                // without tracking of linear iterations
-                return solve_with_jacobian(f, x, tolerance);
-              }
-            else if (solve_with_jacobian_and_track_n_linear_iterations)
-              {
-                // with tracking of linear iterations
-                const int n_linear_iterations =
-                  solve_with_jacobian_and_track_n_linear_iterations(f,
-                                                                    x,
-                                                                    tolerance);
-
-                if (n_linear_iterations == -1)
-                  return 1;
-
-                this->n_last_linear_iterations = n_linear_iterations;
-
-                return 0;
-              }
-            else
-              {
-                Assert(
-                  false,
-                  ExcMessage(
-                    "Neither a solve_with_jacobian or a "
-                    "solve_with_jacobian_and_track_n_linear_iterations function "
-                    "has been attached to the NOXSolver object."));
-
-                Assert(false, ExcNotImplemented());
-                return 1;
-              }
-          }));
-
-        // setup solver control
-        auto check =
-          Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::OR));
-
-        if (additional_data.abs_tol > 0.0)
-          {
-            const auto additional_data_norm_f_abs =
-              Teuchos::rcp(new NOX::StatusTest::NormF(additional_data.abs_tol));
-            check->addStatusTest(additional_data_norm_f_abs);
-          }
-
-        if (additional_data.rel_tol > 0.0)
-          {
-            const auto additional_data_norm_f_rel = Teuchos::rcp(
-              new NOX::StatusTest::RelativeNormF(additional_data.rel_tol));
-            check->addStatusTest(additional_data_norm_f_rel);
-          }
-
-        if (additional_data.max_iter > 0)
-          {
-            const auto additional_data_max_iterations = Teuchos::rcp(
-              new NOX::StatusTest::MaxIters(additional_data.max_iter));
-            check->addStatusTest(additional_data_max_iterations);
-          }
-
-        if (this->check_iteration_status)
-          {
-            const auto info = Teuchos::rcp(new internal::NOXWrappers::NOXCheck(
-              this->check_iteration_status));
-            check->addStatusTest(info);
-          }
-
-        // create non-linear solver
-        solver = NOX::Solver::buildSolver(group, check, parameters);
+        const auto additional_data_norm_f_abs =
+          Teuchos::rcp(new NOX::StatusTest::NormF(additional_data.abs_tol));
+        check->addStatusTest(additional_data_norm_f_abs);
       }
+
+    if (additional_data.rel_tol > 0.0)
+      {
+        const auto additional_data_norm_f_rel = Teuchos::rcp(
+          new NOX::StatusTest::RelativeNormF(additional_data.rel_tol));
+        check->addStatusTest(additional_data_norm_f_rel);
+      }
+
+    if (additional_data.max_iter > 0)
+      {
+        const auto additional_data_max_iterations =
+          Teuchos::rcp(new NOX::StatusTest::MaxIters(additional_data.max_iter));
+        check->addStatusTest(additional_data_max_iterations);
+      }
+
+    if (this->check_iteration_status)
+      {
+        const auto info = Teuchos::rcp(
+          new internal::NOXWrappers::NOXCheck(this->check_iteration_status));
+        check->addStatusTest(info);
+      }
+
+    // create non-linear solver
+    const auto solver = NOX::Solver::buildSolver(group, check, parameters);
 
     // solve
     const auto status = solver->solve();
