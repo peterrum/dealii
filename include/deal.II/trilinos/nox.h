@@ -115,6 +115,12 @@ namespace TrilinosWrappers
                 Teuchos::rcp(new Teuchos::ParameterList));
 
     /**
+     * Clear internal state.
+     */
+    void
+    clear();
+
+    /**
      * Solve non-linear problem and return number of iterations.
      */
     unsigned int
@@ -1073,19 +1079,30 @@ namespace TrilinosWrappers
 
 
   template <typename VectorType>
+  void
+  NOXSolver<VectorType>::clear()
+  {
+    // clear interal counters
+    n_residual_evluations    = 0;
+    n_jacobian_applications  = 0;
+    n_nonlinear_iterations   = 0;
+    n_last_linear_iterations = 0;
+
+    // reset solver
+    solver.reset();
+  }
+
+
+
+  template <typename VectorType>
   unsigned int
   NOXSolver<VectorType>::solve(VectorType &solution)
   {
-    // some internal counters
     if (additional_data.reuse_solver == false)
-      {
-        n_residual_evluations    = 0;
-        n_jacobian_applications  = 0;
-        n_nonlinear_iterations   = 0;
-        n_last_linear_iterations = 0;
-      }
+      clear(); // clear state
 
-    if (solver.is_null() || (additional_data.reuse_solver == false))
+    // create solver
+    if (solver.is_null())
       {
         // create group
         const auto group =
@@ -1119,8 +1136,7 @@ namespace TrilinosWrappers
                       (update_preconditioner_predicate != nullptr))
                     update_preconditioner = update_preconditioner_predicate();
 
-                  if (update_preconditioner)
-                    // update preconditioner
+                  if (update_preconditioner) // update preconditioner
                     flag = setup_preconditioner(x);
                 }
 
