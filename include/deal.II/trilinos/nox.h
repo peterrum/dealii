@@ -66,6 +66,7 @@ namespace TrilinosWrappers
                      const double       abs_tol                        = 1.e-20,
                      const double       rel_tol                        = 1.e-5,
                      const unsigned int threshold_nonlinear_iterations = 1,
+                     const unsigned int threshold_n_linear_iterations  = 0,
                      const bool         reuse_solver                   = false);
 
       /**
@@ -88,6 +89,13 @@ namespace TrilinosWrappers
        * should be updated.
        */
       unsigned int threshold_nonlinear_iterations;
+
+      /**
+       * Max number of linear iterations after which the preconditioner
+       * should be updated. This is only used if a lambda is attached to
+       * solve_with_jacobian_and_track_n_linear_iterations.
+       */
+      unsigned int threshold_n_linear_iterations;
 
       /**
        * Reuse NOX solver instance in the next non-linear solution.
@@ -162,6 +170,16 @@ namespace TrilinosWrappers
       solve_with_jacobian;
 
     /**
+     * User function that applies the inverse of the Jacobian and
+     * returns the numer of linear iterations the linear solver needed.
+     *
+     * @note This function should return -1 in the case of failure.
+     */
+    std::function<
+      int(const VectorType &f, VectorType &x, const double tolerance)>
+      solve_with_jacobian_and_track_n_linear_iterations;
+
+    /**
      * User function that allows to check convergence in addition to
      * ones checking the l2-norm and the number of iterations (see
      * AdditionalData). It is run after each non-linear iteration.
@@ -216,6 +234,11 @@ namespace TrilinosWrappers
      * Counter for number of (accumulated) non-linear iterations.
      */
     mutable unsigned int n_nonlinear_iterations;
+
+    /**
+     * Number of linear iterations of the last Jacobian solve.
+     */
+    mutable unsigned int n_last_linear_iterations;
 
     /**
      * NOX solver that can be reused in the next non-linear solution.
@@ -1023,11 +1046,13 @@ namespace TrilinosWrappers
     const double       abs_tol,
     const double       rel_tol,
     const unsigned int threshold_nonlinear_iterations,
+    const unsigned int threshold_n_linear_iterations,
     const bool         reuse_solver)
     : max_iter(max_iter)
     , abs_tol(abs_tol)
     , rel_tol(rel_tol)
     , threshold_nonlinear_iterations(threshold_nonlinear_iterations)
+    , threshold_n_linear_iterations(threshold_n_linear_iterations)
     , reuse_solver(reuse_solver)
   {}
 
@@ -1042,6 +1067,7 @@ namespace TrilinosWrappers
     , n_residual_evluations(0)
     , n_jacobian_applications(0)
     , n_nonlinear_iterations(0)
+    , n_last_linear_iterations(0)
   {}
 
 
@@ -1053,9 +1079,10 @@ namespace TrilinosWrappers
     // some internal counters
     if (additional_data.reuse_solver == false)
       {
-        n_residual_evluations   = 0;
-        n_jacobian_applications = 0;
-        n_nonlinear_iterations  = 0;
+        n_residual_evluations    = 0;
+        n_jacobian_applications  = 0;
+        n_nonlinear_iterations   = 0;
+        n_last_linear_iterations = 0;
       }
 
     if (solver.is_null() || (additional_data.reuse_solver == false))
@@ -1081,9 +1108,12 @@ namespace TrilinosWrappers
                 {
                   // check if preconditioner needs to be updated
                   bool update_preconditioner =
-                    (additional_data.threshold_nonlinear_iterations > 0) &&
-                    ((n_nonlinear_iterations %
-                      additional_data.threshold_nonlinear_iterations) == 0);
+                    ((additional_data.threshold_nonlinear_iterations > 0) &&
+                     ((n_nonlinear_iterations %
+                       additional_data.threshold_nonlinear_iterations) == 0)) ||
+                    (solve_with_jacobian_and_track_n_linear_iterations &&
+                     (n_last_linear_iterations >
+                      additional_data.threshold_n_linear_iterations));
 
                   if ((update_preconditioner == false) &&
                       (update_preconditioner_predicate != nullptr))
@@ -1107,7 +1137,30 @@ namespace TrilinosWrappers
               n_nonlinear_iterations++;
 
               // invert Jacobian
-              return solve_with_jacobian(f, x, tolerance);
+              if (solve_with_jacobian)
+                {
+                  // without tracking of linear iterations
+                  return solve_with_jacobian(f, x, tolerance);
+                }
+              else if (solve_with_jacobian_and_track_n_linear_iterations)
+                {
+                  // with tracking of linear iterations
+                  const int n_linear_iterations =
+                    solve_with_jacobian_and_track_n_linear_iterations(
+                      f, x, tolerance);
+
+                  if (n_linear_iterations == -1)
+                    return 1;
+
+                  this->n_last_linear_iterations = n_linear_iterations;
+
+                  return 0;
+                }
+              else
+                {
+                  Assert(false, ExcNotImplemented());
+                  return 1;
+                }
             }));
 
         // setup solver control
