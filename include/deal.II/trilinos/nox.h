@@ -229,22 +229,22 @@ namespace TrilinosWrappers
     /**
      * Counter for number of (accumulated) residual evaluations.
      */
-    mutable unsigned int n_residual_evluations;
+    unsigned int n_residual_evaluations;
 
     /**
      * Counter for number of (accumulated) Jacobi applications.
      */
-    mutable unsigned int n_jacobian_applications;
+    unsigned int n_jacobian_applications;
 
     /**
      * Counter for number of (accumulated) non-linear iterations.
      */
-    mutable unsigned int n_nonlinear_iterations;
+    unsigned int n_nonlinear_iterations;
 
     /**
      * Number of linear iterations of the last Jacobian solve.
      */
-    mutable unsigned int n_last_linear_iterations;
+    unsigned int n_last_linear_iterations;
   };
 } // namespace TrilinosWrappers
 
@@ -1065,7 +1065,7 @@ namespace TrilinosWrappers
     const Teuchos::RCP<Teuchos::ParameterList> &parameters)
     : additional_data(additional_data)
     , parameters(parameters)
-    , n_residual_evluations(0)
+    , n_residual_evaluations(0)
     , n_jacobian_applications(0)
     , n_nonlinear_iterations(0)
     , n_last_linear_iterations(0)
@@ -1078,7 +1078,7 @@ namespace TrilinosWrappers
   NOXSolver<VectorType>::clear()
   {
     // clear interal counters
-    n_residual_evluations    = 0;
+    n_residual_evaluations   = 0;
     n_jacobian_applications  = 0;
     n_nonlinear_iterations   = 0;
     n_last_linear_iterations = 0;
@@ -1103,7 +1103,7 @@ namespace TrilinosWrappers
           ExcMessage(
             "No residual function has been attached to the NOXSolver object."));
 
-        n_residual_evluations++;
+        n_residual_evaluations++;
 
         // evalute residual
         return residual(x, f);
@@ -1194,6 +1194,13 @@ namespace TrilinosWrappers
     auto check =
       Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::OR));
 
+    if (this->check_iteration_status)
+      {
+        const auto info = Teuchos::rcp(
+          new internal::NOXWrappers::NOXCheck(this->check_iteration_status));
+        check->addStatusTest(info);
+      }
+
     if (additional_data.abs_tol > 0.0)
       {
         const auto additional_data_norm_f_abs =
@@ -1213,13 +1220,6 @@ namespace TrilinosWrappers
         const auto additional_data_max_iterations =
           Teuchos::rcp(new NOX::StatusTest::MaxIters(additional_data.max_iter));
         check->addStatusTest(additional_data_max_iterations);
-      }
-
-    if (this->check_iteration_status)
-      {
-        const auto info = Teuchos::rcp(
-          new internal::NOXWrappers::NOXCheck(this->check_iteration_status));
-        check->addStatusTest(info);
       }
 
     // create non-linear solver

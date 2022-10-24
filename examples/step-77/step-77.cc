@@ -693,6 +693,8 @@ namespace Step77
         output_results(refinement_cycle);
 
         computing_timer.print_summary();
+
+        std::cout << std::endl;
       }
   }
 } // namespace Step77
