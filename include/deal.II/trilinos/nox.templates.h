@@ -658,7 +658,7 @@ namespace TrilinosWrappers
         }
 
         /**
-         * Applies Jacobian-Transpose to the given input vector and puts
+         * Applies Jacobian to the given input vector and puts
          * the answer in the result.
          */
         NOX::Abstract::Group::ReturnType

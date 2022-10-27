@@ -137,7 +137,7 @@ namespace TrilinosWrappers
      * the Jacobian.
      *
      * @note The function is optional and is used when setup_jacobian is
-     * called and the preconditioner needs to updated (see
+     * called and the preconditioner needs to be updated (see
      * update_preconditioner_predicate and
      * AdditionalData::threshold_nonlinear_iterations).
      *
@@ -149,7 +149,10 @@ namespace TrilinosWrappers
      * User function that applies the Jacobian.
      *
      * @note The function is optional and is used in the case of certain
-     * configurations.
+     * configurations. For instance, this function is required if the
+     * polynomial line search (@p NOX::LineSearch::Polynomial) is
+     * chosen, whereas for the full step case (@p NOX::LineSearch::FullStep)
+     * it won't be called.
      *
      * @note This function should return 0 in the case of success.
      */
