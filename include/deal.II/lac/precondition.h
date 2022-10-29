@@ -1975,7 +1975,8 @@ public:
                    const double              eig_cg_residual     = 1e-2,
                    const double              max_eigenvalue      = 1,
                    const EigenvalueAlgorithm eigenvalue_algorithm =
-                     EigenvalueAlgorithm::lanczos);
+                     EigenvalueAlgorithm::lanczos,
+                   const bool use_fourth_kind = false);
 
     /**
      * Copy assignment operator.
@@ -2046,6 +2047,12 @@ public:
      * Specifies the underlying eigenvalue estimation algorithm.
      */
     EigenvalueAlgorithm eigenvalue_algorithm;
+
+    /**
+     * Use fourth-kind Chebyshev according to @cite lottes2022optimal and
+     * @cite phillips2022optimal.
+     */
+    bool use_fourth_kind = false;
   };
 
 
@@ -3462,13 +3469,15 @@ inline PreconditionChebyshev<MatrixType, VectorType, PreconditionerType>::
                                  const unsigned int        eig_cg_n_iterations,
                                  const double              eig_cg_residual,
                                  const double              max_eigenvalue,
-                                 const EigenvalueAlgorithm eigenvalue_algorithm)
+                                 const EigenvalueAlgorithm eigenvalue_algorithm,
+                                 const bool                use_fourth_kind)
   : degree(degree)
   , smoothing_range(smoothing_range)
   , eig_cg_n_iterations(eig_cg_n_iterations)
   , eig_cg_residual(eig_cg_residual)
   , max_eigenvalue(max_eigenvalue)
   , eigenvalue_algorithm(eigenvalue_algorithm)
+  , use_fourth_kind(use_fourth_kind)
 {}
 
 
@@ -3487,6 +3496,7 @@ PreconditionChebyshev<MatrixType, VectorType, PreconditionerType>::
   max_eigenvalue       = other_data.max_eigenvalue;
   preconditioner       = other_data.preconditioner;
   eigenvalue_algorithm = other_data.eigenvalue_algorithm;
+  use_fourth_kind      = other_data.use_fourth_kind;
   constraints.copy_from(other_data.constraints);
 
   return *this;
@@ -3623,7 +3633,8 @@ PreconditionChebyshev<MatrixType, VectorType, PreconditionerType>::
 
           // include a safety factor since the CG method will in general not
           // be converged
-          info.max_eigenvalue_estimate = 1.2 * eigenvalue_tracker.values.back();
+          info.max_eigenvalue_estimate = (data.use_fourth_kind ? 1.1 : 1.2) *
+                                         eigenvalue_tracker.values.back();
         }
     }
   else
@@ -3661,7 +3672,9 @@ PreconditionChebyshev<MatrixType, VectorType, PreconditionerType>::
 
   const_cast<
     PreconditionChebyshev<MatrixType, VectorType, PreconditionerType> *>(this)
-    ->delta = (info.max_eigenvalue_estimate - alpha) * 0.5;
+    ->delta = data.use_fourth_kind ?
+                (info.max_eigenvalue_estimate) :
+                ((info.max_eigenvalue_estimate - alpha) * 0.5);
   const_cast<
     PreconditionChebyshev<MatrixType, VectorType, PreconditionerType> *>(this)
     ->theta = (info.max_eigenvalue_estimate + alpha) * 0.5;
@@ -3712,7 +3725,7 @@ PreconditionChebyshev<MatrixType, VectorType, PreconditionerType>::vmult(
     rhs,
     0,
     0.,
-    1. / theta,
+    data.use_fourth_kind ? (4. / (3. * delta)) : (1. / theta),
     solution,
     solution_old,
     temp_vector1,
@@ -3726,9 +3739,22 @@ PreconditionChebyshev<MatrixType, VectorType, PreconditionerType>::vmult(
   double rhok = delta / theta, sigma = theta / delta;
   for (unsigned int k = 0; k < data.degree - 1; ++k)
     {
-      const double rhokp   = 1. / (2. * sigma - rhok);
-      const double factor1 = rhokp * rhok, factor2 = 2. * rhokp / delta;
-      rhok = rhokp;
+      double factor1 = 0.0;
+      double factor2 = 0.0;
+
+      if (data.use_fourth_kind)
+        {
+          factor1 = (2 * k + 1.) / (2 * k + 5.);
+          factor2 = (8 * k + 12.) / (delta * (2 * k + 5.));
+        }
+      else
+        {
+          const double rhokp = 1. / (2. * sigma - rhok);
+          factor1            = rhokp * rhok;
+          factor2            = 2. * rhokp / delta;
+          rhok               = rhokp;
+        }
+
       internal::PreconditionChebyshevImplementation::vmult_and_update(
         *matrix_ptr,
         *data.preconditioner,
@@ -3760,7 +3786,7 @@ PreconditionChebyshev<MatrixType, VectorType, PreconditionerType>::Tvmult(
     *data.preconditioner,
     0,
     0.,
-    1. / theta,
+    data.use_fourth_kind ? (4. / (3. * delta)) : (1. / theta),
     solution_old,
     temp_vector1,
     temp_vector2,
@@ -3772,9 +3798,22 @@ PreconditionChebyshev<MatrixType, VectorType, PreconditionerType>::Tvmult(
   double rhok = delta / theta, sigma = theta / delta;
   for (unsigned int k = 0; k < data.degree - 1; ++k)
     {
-      const double rhokp   = 1. / (2. * sigma - rhok);
-      const double factor1 = rhokp * rhok, factor2 = 2. * rhokp / delta;
-      rhok = rhokp;
+      double factor1 = 0.0;
+      double factor2 = 0.0;
+
+      if (data.use_fourth_kind)
+        {
+          factor1 = (2 * k + 1.) / (2 * k + 5.);
+          factor2 = (8 * k + 12.) / (delta * (2 * k + 5.));
+        }
+      else
+        {
+          const double rhokp = 1. / (2. * sigma - rhok);
+          factor1            = rhokp * rhok;
+          factor2            = 2. * rhokp / delta;
+          rhok               = rhokp;
+        }
+
       matrix_ptr->Tvmult(temp_vector1, solution);
       internal::PreconditionChebyshevImplementation::vector_updates(
         rhs,
@@ -3807,7 +3846,7 @@ PreconditionChebyshev<MatrixType, VectorType, PreconditionerType>::step(
     rhs,
     1,
     0.,
-    1. / theta,
+    data.use_fourth_kind ? (4. / (3. * delta)) : (1. / theta),
     solution,
     solution_old,
     temp_vector1,
@@ -3819,9 +3858,22 @@ PreconditionChebyshev<MatrixType, VectorType, PreconditionerType>::step(
   double rhok = delta / theta, sigma = theta / delta;
   for (unsigned int k = 0; k < data.degree - 1; ++k)
     {
-      const double rhokp   = 1. / (2. * sigma - rhok);
-      const double factor1 = rhokp * rhok, factor2 = 2. * rhokp / delta;
-      rhok = rhokp;
+      double factor1 = 0.0;
+      double factor2 = 0.0;
+
+      if (data.use_fourth_kind)
+        {
+          factor1 = (2 * k + 1.) / (2 * k + 5.);
+          factor2 = (8 * k + 12.) / (delta * (2 * k + 5.));
+        }
+      else
+        {
+          const double rhokp = 1. / (2. * sigma - rhok);
+          factor1            = rhokp * rhok;
+          factor2            = 2. * rhokp / delta;
+          rhok               = rhokp;
+        }
+
       internal::PreconditionChebyshevImplementation::vmult_and_update(
         *matrix_ptr,
         *data.preconditioner,
@@ -3854,7 +3906,7 @@ PreconditionChebyshev<MatrixType, VectorType, PreconditionerType>::Tstep(
     *data.preconditioner,
     1,
     0.,
-    1. / theta,
+    data.use_fourth_kind ? (4. / (3. * delta)) : (1. / theta),
     solution_old,
     temp_vector1,
     temp_vector2,
@@ -3866,9 +3918,22 @@ PreconditionChebyshev<MatrixType, VectorType, PreconditionerType>::Tstep(
   double rhok = delta / theta, sigma = theta / delta;
   for (unsigned int k = 0; k < data.degree - 1; ++k)
     {
-      const double rhokp   = 1. / (2. * sigma - rhok);
-      const double factor1 = rhokp * rhok, factor2 = 2. * rhokp / delta;
-      rhok = rhokp;
+      double factor1 = 0.0;
+      double factor2 = 0.0;
+
+      if (data.use_fourth_kind)
+        {
+          factor1 = (2 * k + 1.) / (2 * k + 5.);
+          factor2 = (8 * k + 12.) / (delta * (2 * k + 5.));
+        }
+      else
+        {
+          const double rhokp = 1. / (2. * sigma - rhok);
+          factor1            = rhokp * rhok;
+          factor2            = 2. * rhokp / delta;
+          rhok               = rhokp;
+        }
+
       matrix_ptr->Tvmult(temp_vector1, solution);
       internal::PreconditionChebyshevImplementation::vector_updates(
         rhs,
