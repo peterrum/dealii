@@ -63,7 +63,8 @@ main()
       cheby.initialize(A, cheby_data);
 
       Chebyshev cheby_4;
-      cheby_data.use_fourth_kind = true;
+      cheby_data.polynomial_type =
+        Chebyshev::AdditionalData::PolynomialType::fourth_kind;
       cheby_4.initialize(A, cheby_data);
 
       Vector<double> v(dim);
