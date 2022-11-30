@@ -122,15 +122,18 @@ SolverRelaxation<VectorType>::solve(const MatrixType &    A,
       A.vmult(r, x);
       r.sadd(-1., 1., b);
 
-      // The required norm of the
-      // (preconditioned)
-      // residual is computed in
-      // criterion() and stored
-      // in res.
+      // The required norm of the (preconditioned) residual
+      // is computed in criterion() and stored in res.
       conv = this->iteration_status(iter, r.l2_norm(), x);
       if (conv != SolverControl::iterate)
         break;
-      R.step(x, b);
+      // R.step(x, b);
+
+      A.vmult(r, x);
+      r.sadd(-1.0, 1.0, b);
+
+      R.vmult(d, r);
+      x.add(1.0, d);
     }
 
   // in case of failure: throw exception
