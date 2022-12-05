@@ -1174,7 +1174,13 @@ TensorProductMatrixSymmetricSumCollection<dim, Number, n_rows_1d>::insert(
           const auto ptr_index     = ptr->second;
           indices[index * dim + d] = ptr_index;
 
-          if (mask == ptr->first.first)
+          if ([&]() {
+                for (unsigned int v = 0; v < VectorizedArrayTrait::width; ++v)
+                  if ((mask[v] == true) && (ptr->first.first[v] == false))
+                    return false;
+
+                return true;
+              }())
             {
               // nothing to do
             }
@@ -1200,7 +1206,15 @@ TensorProductMatrixSymmetricSumCollection<dim, Number, n_rows_1d>::insert(
                   }
 
               cache.erase(ptr);
-              cache[MatrixPairType{mask_new, {Ms_new, Ks_new}}] = ptr_index;
+
+              MatrixPairType entry_new{mask_new, {Ms_new, Ks_new}};
+
+              const auto ptr_ = cache.find(entry_new);
+
+              if (ptr_ != cache.end())
+                AssertThrow(false, ExcNotImplemented());
+
+              cache[entry_new] = ptr_index;
             }
         }
       else
