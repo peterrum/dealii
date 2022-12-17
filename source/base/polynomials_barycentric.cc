@@ -13,8 +13,9 @@
 //
 // ---------------------------------------------------------------------
 
-
 #include <deal.II/base/polynomials_barycentric.h>
+
+#include <deal.II/grid/reference_cell.h>
 
 DEAL_II_NAMESPACE_OPEN
 
@@ -60,6 +61,8 @@ BarycentricPolynomials<dim>::get_fe_p_basis(const unsigned int degree)
 {
   std::vector<PolyType> polys;
 
+  const auto reference_cell = ReferenceCells::get_simplex<dim>();
+
   auto M = [](const unsigned int d) {
     return BarycentricPolynomial<dim, double>::monomial(d);
   };
@@ -70,25 +73,20 @@ BarycentricPolynomials<dim>::get_fe_p_basis(const unsigned int degree)
         break;
       case 1:
         {
-          for (unsigned int d = 0; d < dim + 1; ++d)
-            polys.push_back(M(d));
+          for (unsigned int v : reference_cell.vertex_indices())
+            polys.push_back(M(v));
           break;
         }
       case 2:
         {
-          for (unsigned int d = 0; d < dim + 1; ++d)
-            polys.push_back(M(d) * (2 * M(d) - 1));
-          polys.push_back(4 * M(1) * M(0));
-          if (dim >= 2)
+          // vertices, then lines:
+          for (unsigned int v : reference_cell.vertex_indices())
+            polys.push_back(M(v) * (2 * M(v) - 1));
+          for (unsigned int l : reference_cell.line_indices())
             {
-              polys.push_back(4 * M(1) * M(2));
-              polys.push_back(4 * M(2) * M(0));
-            }
-          if (dim == 3)
-            {
-              polys.push_back(4 * M(3) * M(0));
-              polys.push_back(4 * M(1) * M(3));
-              polys.push_back(4 * M(2) * M(3));
+              const auto v0 = reference_cell.line_to_cell_vertices(l, 0);
+              const auto v1 = reference_cell.line_to_cell_vertices(l, 1);
+              polys.push_back(4 * M(v0) * M(v1));
             }
           break;
         }
