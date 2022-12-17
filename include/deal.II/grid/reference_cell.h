@@ -424,6 +424,19 @@ public:
   standard_line_to_face_and_line_index(const unsigned int line) const;
 
   /**
+   * Map line vertex number to cell vertex number, i.e. give the cell vertex
+   * number of the <tt>vertex</tt>th vertex of line <tt>line</tt>.
+   *
+   * The order of the lines, as well as their direction (which in turn
+   * determines which is the first and which the second vertex on a line) is
+   * the canonical one in deal.II, as described in the general documentation
+   * of this class.
+   */
+  unsigned int
+  line_to_cell_vertices(const unsigned int line,
+                        const unsigned int vertex) const;
+
+  /**
    * Map face line number to cell line number.
    */
   unsigned int
@@ -1440,6 +1453,62 @@ ReferenceCell::standard_line_to_face_and_line_index(
   return {};
 }
 
+
+inline unsigned int
+ReferenceCell::line_to_cell_vertices(const unsigned int line,
+                                     const unsigned int vertex) const
+{
+  AssertIndexRange(vertex, 2);
+  AssertIndexRange(line, n_lines());
+
+  if (*this == ReferenceCells::Vertex)
+    return vertex;
+  else if (*this == ReferenceCells::Line)
+    return vertex;
+  else if (*this == ReferenceCells::Quadrilateral)
+    return GeometryInfo<2>::line_to_cell_vertices(line, vertex);
+  else if (*this == ReferenceCells::Hexahedron)
+    return GeometryInfo<3>::line_to_cell_vertices(line, vertex);
+  else if (*this == ReferenceCells::Triangle)
+    {
+      static const ndarray<unsigned int, 4, 2> table = {
+        {{{0, 1}}, {{1, 2}}, {{2, 0}}}};
+      return table[line][vertex];
+    }
+  else if (*this == ReferenceCells::Tetrahedron)
+    {
+      static const ndarray<unsigned int, 6, 2> table = {
+        {{{0, 1}}, {{1, 2}}, {{2, 0}}, {{0, 3}}, {{1, 3}}, {{2, 3}}}};
+      return table[line][vertex];
+    }
+  else if (*this == ReferenceCells::Pyramid)
+    {
+      static const ndarray<unsigned int, 8, 2> table = {{{{0, 2}},
+                                                         {{1, 3}},
+                                                         {{0, 1}},
+                                                         {{2, 3}},
+                                                         {{4, 0}},
+                                                         {{1, 4}},
+                                                         {{2, 4}},
+                                                         {{4, 3}}}};
+      return table[line][vertex];
+    }
+  else if (*this == ReferenceCells::Wedge)
+    {
+      static const ndarray<unsigned int, 9, 2> table = {{{{1, 0}},
+                                                         {{2, 1}},
+                                                         {{0, 2}},
+                                                         {{3, 4}},
+                                                         {{4, 5}},
+                                                         {{5, 3}},
+                                                         {{0, 3}},
+                                                         {{1, 4}},
+                                                         {{2, 5}}}};
+      return table[line][vertex];
+    }
+  Assert(false, ExcInternalError());
+  return numbers::invalid_unsigned_int;
+}
 
 
 inline unsigned int
