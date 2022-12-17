@@ -44,6 +44,8 @@ namespace
                 return {1, 0};
               case 2:
                 return {1, 1};
+              case 3:
+                return {1, 2};
               default:
                 Assert(false, ExcNotImplemented());
             }
@@ -54,6 +56,8 @@ namespace
                 return {1, 0, 0};
               case 2:
                 return {1, 1, 0};
+              case 3:
+                return {1, 2, 1};
               default:
                 Assert(false, ExcNotImplemented());
             }
@@ -64,6 +68,8 @@ namespace
                 return {1, 0, 0, 0};
               case 2:
                 return {1, 1, 0, 0};
+              case 3:
+                return {1, 2, 1, 0};
               default:
                 Assert(false, ExcNotImplemented());
             }
@@ -83,6 +89,7 @@ namespace
   std::vector<Point<dim>>
   unit_support_points_fe_p(const unsigned int degree)
   {
+    Assert(degree <= 3, ExcNotImplemented());
     std::vector<Point<dim>> unit_points;
     // If we do dim - 1 we can get here in dim = 0:
     if (dim == 0)
@@ -101,61 +108,40 @@ namespace
         return unit_points;
       }
 
-    if (dim == 1)
+    // otherwise write everything as linear combinations of vertices
+    const auto dpo = get_dpo_vector_fe_p(dim, degree);
+    Assert(dpo[0] == 1, ExcNotImplemented());
+    // vertices:
+    for (unsigned int d : reference_cell.vertex_indices())
+      unit_points.push_back(reference_cell.template vertex<dim>(d));
+    // lines:
+    for (unsigned int l : reference_cell.line_indices())
       {
-        // We don't really have dim = 1 support for simplex elements yet, but
-        // its convenient for populating the face array
-        Assert(degree <= 2, ExcNotImplemented());
-        if (degree >= 1)
-          {
-            unit_points.emplace_back(0.0);
-            unit_points.emplace_back(1.0);
-
-            if (degree == 2)
-              unit_points.emplace_back(0.5);
-          }
+        const Point<dim> p0 =
+          unit_points[reference_cell.line_to_cell_vertices(l, 0)];
+        const Point<dim> p1 =
+          unit_points[reference_cell.line_to_cell_vertices(l, 1)];
+        for (unsigned int p = 0; p < dpo[1]; ++p)
+          unit_points.push_back((double(dpo[1] - p) / (dpo[1] + 1)) * p0 +
+                                (double(p + 1) / (dpo[1] + 1)) * p1);
       }
-    else if (dim == 2)
+    // faces in 3D:
+    if (dim == 2 && dpo[2] > 0)
       {
-        Assert(degree <= 2, ExcNotImplemented());
-        if (degree >= 1)
-          {
-            unit_points.emplace_back(0.0, 0.0);
-            unit_points.emplace_back(1.0, 0.0);
-            unit_points.emplace_back(0.0, 1.0);
-
-            if (degree == 2)
-              {
-                unit_points.emplace_back(0.5, 0.0);
-                unit_points.emplace_back(0.5, 0.5);
-                unit_points.emplace_back(0.0, 0.5);
-              }
-          }
+        Assert(dpo[2] == 1, ExcNotImplemented());
+        const double q13 = 1.0 / 3.0;
+        unit_points.emplace_back(q13, q13);
       }
-    else if (dim == 3)
+    else if (dim == 3 && dpo[2] > 0)
       {
-        Assert(degree <= 2, ExcNotImplemented());
-        if (degree >= 1)
-          {
-            unit_points.emplace_back(0.0, 0.0, 0.0);
-            unit_points.emplace_back(1.0, 0.0, 0.0);
-            unit_points.emplace_back(0.0, 1.0, 0.0);
-            unit_points.emplace_back(0.0, 0.0, 1.0);
-
-            if (degree == 2)
-              {
-                unit_points.emplace_back(0.5, 0.0, 0.0);
-                unit_points.emplace_back(0.5, 0.5, 0.0);
-                unit_points.emplace_back(0.0, 0.5, 0.0);
-                unit_points.emplace_back(0.0, 0.0, 0.5);
-                unit_points.emplace_back(0.5, 0.0, 0.5);
-                unit_points.emplace_back(0.0, 0.5, 0.5);
-              }
-          }
-      }
-    else
-      {
-        Assert(false, ExcNotImplemented());
+        // only supports cubic elements for now, which have 1 DoF at the face
+        // midpoint
+        Assert(dpo[2] == 1, ExcNotImplemented());
+        const double q13 = 1.0 / 3.0;
+        unit_points.emplace_back(q13, q13, 0.0);
+        unit_points.emplace_back(q13, 0.0, q13);
+        unit_points.emplace_back(0.0, q13, q13);
+        unit_points.emplace_back(q13, q13, q13);
       }
 
     return unit_points;
@@ -211,8 +197,6 @@ namespace
   constraints_fe_p<2>(const unsigned int degree)
   {
     const unsigned int dim = 2;
-
-    Assert(degree <= 2, ExcNotImplemented());
 
     // the following implements the 2d case
     // (the 3d case is not implemented yet)

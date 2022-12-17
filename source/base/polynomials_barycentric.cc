@@ -90,6 +90,33 @@ BarycentricPolynomials<dim>::get_fe_p_basis(const unsigned int degree)
             }
           break;
         }
+      case 3:
+        {
+          // vertices, then lines, then quads:
+          for (unsigned int v : reference_cell.vertex_indices())
+            polys.push_back(0.5 * M(v) * (3 * M(v) - 1) * (3 * M(v) - 2));
+          for (unsigned int l : reference_cell.line_indices())
+            {
+              const auto v0 = reference_cell.line_to_cell_vertices(l, 0);
+              const auto v1 = reference_cell.line_to_cell_vertices(l, 1);
+              polys.push_back(4.5 * M(v0) * (3 * M(v0) - 1) * M(v1));
+              polys.push_back(4.5 * M(v0) * (3 * M(v1) - 1) * M(v1));
+            }
+
+          if (dim == 2)
+            {
+              polys.push_back(27 * M(0) * M(1) * M(2));
+            }
+          else if (dim == 3)
+            {
+              polys.push_back(27 * M(0) * M(1) * M(2));
+              polys.push_back(27 * M(0) * M(1) * M(3));
+              polys.push_back(27 * M(0) * M(2) * M(3));
+              polys.push_back(27 * M(1) * M(2) * M(3));
+            }
+
+          break;
+        }
       default:
         Assert(false, ExcNotImplemented());
     }
