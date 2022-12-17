@@ -91,15 +91,13 @@ namespace
         return unit_points;
       }
 
+    const auto reference_cell = ReferenceCells::get_simplex<dim>();
+
     // Piecewise constants are a special case: use a support point at the
     // centroid and only the centroid
     if (degree == 0)
       {
-        Point<dim> centroid;
-        std::fill(centroid.begin_raw(),
-                  centroid.end_raw(),
-                  1.0 / double(dim + 1));
-        unit_points.emplace_back(centroid);
+        unit_points.emplace_back(reference_cell.template barycenter<dim>());
         return unit_points;
       }
 

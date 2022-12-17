@@ -67,8 +67,8 @@ namespace FE_P_BubblesImplementation
     FE_SimplexP<dim>        fe_p(degree);
     std::vector<Point<dim>> points = fe_p.get_unit_support_points();
 
-    Point<dim> centroid;
-    std::fill(centroid.begin_raw(), centroid.end_raw(), 1.0 / double(dim + 1));
+    const auto       reference_cell = ReferenceCells::get_simplex<dim>();
+    const Point<dim> centroid       = reference_cell.template barycenter<dim>();
 
     switch (dim)
       {
