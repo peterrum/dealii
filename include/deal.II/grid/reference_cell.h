@@ -1478,7 +1478,7 @@ ReferenceCell::line_to_cell_vertices(const unsigned int line,
   else if (*this == ReferenceCells::Tetrahedron)
     {
       static const ndarray<unsigned int, 6, 2> table = {
-        {{{0, 1}}, {{1, 2}}, {{2, 0}}, {{0, 3}}, {{1, 3}}, {{2, 3}}}};
+        {{{0, 1}}, {{1, 2}}, {{0, 2}}, {{0, 3}}, {{1, 3}}, {{2, 3}}}};
       return table[line][vertex];
     }
   else if (*this == ReferenceCells::Pyramid)
@@ -2344,6 +2344,15 @@ ReferenceCell::standard_vs_true_line_orientation(
          {{true, true, true, false, false, false, false, true}}}};
 
       return (line_orientation == bool_table[line / 2][face_orientation_raw]);
+    }
+  else if (*this == ReferenceCells::Tetrahedron)
+    {
+      static constexpr dealii::ndarray<bool, 3, 6> bool_table{
+        {{{true, true, false, true, false, true}},
+         {{false, true, false, true, true, true}},
+         {{true, true, true, true, true, true}}}};
+
+      return (line_orientation == bool_table[line][face_orientation_raw]);
     }
   else
     // TODO: This might actually be wrong for some of the other
