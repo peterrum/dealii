@@ -2349,16 +2349,33 @@ ReferenceCell::standard_vs_true_line_orientation(
     }
   else if (*this == ReferenceCells::Tetrahedron)
     {
-      static constexpr dealii::ndarray<bool, 4, 3> bool_table{
-        {{{true, true, false}},
-         {{false, true, false}},
-         {{true, true, false}},
-         {{false, true, false}}}};
+      static constexpr dealii::ndarray<bool, 4, 6, 3> bool_table{
+        {{{{{true, false, true}},
+           {{true, true, true}},
+           {{false, false, false}},
+           {{true, false, false}},
+           {{false, true, true}},
+           {{false, true, false}}}},
+         {{{{true, false, false}},
+           {{false, true, true}},
+           {{false, true, false}},
+           {{true, false, true}},
+           {{true, true, true}},
+           {{false, false, false}}}},
+         {{{{true, false, true}},
+           {{true, true, true}},
+           {{false, false, false}},
+           {{true, false, false}},
+           {{false, true, true}},
+           {{false, true, false}}}},
+         {{{{true, false, false}},
+           {{false, true, true}},
+           {{false, true, false}},
+           {{true, false, true}},
+           {{true, true, true}},
+           {{false, false, false}}}}}};
 
-      return (line_orientation ==
-              ReferenceCell(ReferenceCells::Triangle)
-                .permute_according_orientation(bool_table[face],
-                                               face_orientation_raw)[line]);
+      return (line_orientation == bool_table[face][face_orientation_raw][line]);
     }
   else
     // TODO: This might actually be wrong for some of the other
