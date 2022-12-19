@@ -480,6 +480,7 @@ public:
    */
   bool
   standard_vs_true_line_orientation(const unsigned int  line,
+                                    const unsigned int  face,
                                     const unsigned char face_orientation,
                                     const bool          line_orientation) const;
 
@@ -2334,6 +2335,7 @@ ReferenceCell::n_face_orientations(const unsigned int face_no) const
 inline bool
 ReferenceCell::standard_vs_true_line_orientation(
   const unsigned int  line,
+  const unsigned int  face,
   const unsigned char face_orientation_raw,
   const bool          line_orientation) const
 {
@@ -2347,12 +2349,16 @@ ReferenceCell::standard_vs_true_line_orientation(
     }
   else if (*this == ReferenceCells::Tetrahedron)
     {
-      static constexpr dealii::ndarray<bool, 3, 6> bool_table{
-        {{{true, true, false, true, false, true}},
-         {{false, true, false, true, true, true}},
-         {{true, true, true, true, true, true}}}};
+      static constexpr dealii::ndarray<bool, 4, 3> bool_table{
+        {{{true, true, false}},
+         {{false, true, false}},
+         {{true, true, false}},
+         {{false, true, false}}}};
 
-      return (line_orientation == bool_table[line][face_orientation_raw]);
+      return (line_orientation ==
+              ReferenceCell(ReferenceCells::Triangle)
+                .permute_according_orientation(bool_table[face],
+                                               face_orientation_raw)[line]);
     }
   else
     // TODO: This might actually be wrong for some of the other
