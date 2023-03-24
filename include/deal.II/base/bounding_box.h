@@ -143,6 +143,22 @@ public:
   BoundingBox() = default;
 
   /**
+   * Standard copy constructor operator.
+   */
+  BoundingBox(const BoundingBox<spacedim, Number> &box) = default;
+
+  /**
+   * Standard copy assignment operator.
+   */
+  BoundingBox<spacedim, Number> &
+  operator=(const BoundingBox<spacedim, Number> &t) = default;
+
+  /**
+   * Standard constructor for an empty box around a point @p point.
+   */
+  BoundingBox(const Point<spacedim, Number> &point);
+
+  /**
    * Standard constructor for non-empty boxes: it uses a pair of points
    * which describe the box: one for the bottom and one for the top
    * corner.
@@ -159,6 +175,13 @@ public:
    */
   template <class Container>
   BoundingBox(const Container &points);
+
+  /**
+   * Check the bounding box is not degenerate, i.e., the value of the second
+   * point is larger or equal to the value of the first point in each direction.
+   */
+  bool
+  is_valid() const;
 
   /**
    * Return a reference to the boundary_points
@@ -232,6 +255,13 @@ public:
    */
   void
   extend(const Number amount);
+
+  /**
+   * The same as above with the difference that a new BoundingBox instance is
+   * created without changing the current object.
+   */
+  BoundingBox<spacedim, Number>
+  create_extended(const Number amount) const;
 
   /**
    * Compute the volume (i.e. the dim-dimensional measure) of the BoundingBox.
@@ -418,6 +448,14 @@ namespace internal
 
 template <int spacedim, typename Number>
 inline BoundingBox<spacedim, Number>::BoundingBox(
+  const Point<spacedim, Number> &p)
+  : BoundingBox({p, p})
+{}
+
+
+
+template <int spacedim, typename Number>
+inline BoundingBox<spacedim, Number>::BoundingBox(
   const std::pair<Point<spacedim, Number>, Point<spacedim, Number>>
     &boundary_points)
 {
@@ -428,6 +466,19 @@ inline BoundingBox<spacedim, Number>::BoundingBox(
                       "order should be bottom left, top right!"));
 
   this->boundary_points = boundary_points;
+}
+
+
+
+template <int spacedim, typename Number>
+inline bool
+BoundingBox<spacedim, Number>::is_valid() const
+{
+  for (unsigned int i = 0; i < spacedim; ++i)
+    if (this->boundary_points.first[i] > this->boundary_points.second[i])
+      return false;
+
+  return true;
 }
 
 
@@ -509,6 +560,19 @@ BoundingBox<spacedim, Number>::extend(const Number amount)
              ExcMessage("Bounding Box can't be shrunk this much: the points' "
                         "order should remain bottom left, top right."));
     }
+}
+
+
+
+template <int spacedim, typename Number>
+inline BoundingBox<spacedim, Number>
+BoundingBox<spacedim, Number>::create_extended(const Number amount) const
+{
+  // create and modify copy
+  auto bb = *this;
+  bb.extend(amount);
+
+  return bb;
 }
 
 
