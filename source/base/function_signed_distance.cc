@@ -332,6 +332,88 @@ namespace Functions
 
       return evaluate_ellipsoid(point) < 0.0 ? -distance : distance;
     }
+
+
+
+    template <int dim>
+    Rectangle<dim>::Rectangle(const Point<dim> &bottom_left,
+                              const Point<dim> &top_right)
+      : bounding_box({bottom_left, top_right})
+    {}
+
+
+
+    template <int dim>
+    double
+    Rectangle<dim>::value(const Point<dim> & p,
+                          const unsigned int component) const
+    {
+      (void)component;
+
+      // calculate signed distance vector to bounding box
+      std::array<double, dim> distances;
+      for (unsigned int d = 0; d < dim; ++d)
+        distances[d] = bounding_box.signed_distance(p, d);
+
+      if (dim == 1)
+        {
+          // case: specialization for 1D
+          return distances[0];
+        }
+
+      unsigned int counter = 0;
+
+      for (unsigned int d = 0; d < dim; ++d)
+        if (distances[d] > 0)
+          counter++;
+
+      if (counter == 0)
+        {
+          // case: inside + on rectangle
+          double temp = std::abs(distances[0]);
+
+          for (unsigned int d = 1; d < dim; ++d)
+            temp = std::min(temp, std::abs(distances[d]));
+
+          return -temp;
+        }
+      else if (counter == dim)
+        {
+          // case: corner
+          double temp = 0;
+
+          for (unsigned int d = 0; d < dim; ++d)
+            temp += distances[d] * distances[d];
+
+          return std::sqrt(temp);
+        }
+      else
+        {
+          // else: create lower dimensional rectangle
+          unsigned int index = 0;
+
+          for (unsigned int d = 0; d < dim; ++d)
+            if (distances[d] <= 0)
+              {
+                index = d;
+                break;
+              }
+
+          Point<std::max(dim - 1, 1)> p0, p1, p2;
+
+          for (unsigned int d = 0, c = 0; d < dim; ++d)
+            if (d != index)
+              {
+                p0[c] = p[d];
+                p1[c] = bounding_box.lower_bound(d);
+                p2[c] = bounding_box.upper_bound(d);
+                ++c;
+              }
+
+          return Rectangle<std::max(dim - 1, 1)>(p1, p2).value(p0);
+        }
+    }
+
   } // namespace SignedDistance
 } // namespace Functions
 

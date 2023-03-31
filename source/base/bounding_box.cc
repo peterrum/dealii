@@ -335,6 +335,25 @@ BoundingBox<spacedim, Number>::unit_to_real(
 
 
 
+template <int spacedim, typename Number>
+Number
+BoundingBox<spacedim, Number>::signed_distance(
+  const Point<spacedim, Number> &point,
+  const unsigned int             direction) const
+{
+  const Number p1 = lower_bound(direction);
+  const Number p2 = upper_bound(direction);
+
+  if (point[direction] > p2)
+    return point[direction] - p2;
+  else if (point[direction] < p1)
+    return p1 - point[direction];
+  else
+    return -std::min(point[direction] - p1, p2 - point[direction]);
+}
+
+
+
 template <int dim, typename Number>
 BoundingBox<dim, Number>
 create_unit_bounding_box()

@@ -339,6 +339,16 @@ public:
   unit_to_real(const Point<spacedim, Number> &point) const;
 
   /**
+   * Returns the signed distance from a @p point orthogonal to the bounds of the
+   * box in @p direction. The signed distance is negative for points inside the
+   * rectangle, zero for points on the rectangle and positive for points outside
+   * the rectangle.
+   */
+  Number
+  signed_distance(const Point<spacedim, Number> &point,
+                  const unsigned int             direction) const;
+
+  /**
    * Write or read the data of this object to or from a stream for the
    * purpose of serialization using the [BOOST serialization
    * library](https://www.boost.org/doc/libs/1_74_0/libs/serialization/doc/index.html).
