@@ -15,9 +15,11 @@
 
 #include <deal.II/base/exceptions.h>
 #include <deal.II/base/function_signed_distance.h>
+#include <deal.II/base/geometry_info.h>
 #include <deal.II/base/utilities.h>
 
 #include <algorithm>
+#include <numeric>
 
 DEAL_II_NAMESPACE_OPEN
 
@@ -25,6 +27,41 @@ namespace Functions
 {
   namespace SignedDistance
   {
+    namespace internal
+    {
+      /**
+       * Compute the minimal distance between a point @p p and an infinite line described by two support
+       * points a (@p bottom_left) and b (@p top_right) according to
+       *
+       * @f[
+       * d = \frac{|| (b - a) \times (f1 - p)||}{||b-a||}
+       * @f]
+       */
+      template <int dim>
+      double
+      distance_to_line(const Point<dim> &p,
+                       const Point<dim> &bottom_left,
+                       const Point<dim> &top_right)
+      {
+        Assert(
+          (top_right - bottom_left).norm() >=
+            std::numeric_limits<double>::epsilon(),
+          ExcMessage(
+            "The support points must not lie on top of each other! Abort.."));
+        if (dim == 3)
+          return cross_product_3d(top_right - bottom_left, bottom_left - p)
+                   .norm() /
+                 (top_right - bottom_left).norm();
+        else if (dim == 2)
+          return std::abs((top_right - bottom_left) *
+                          cross_product_2d(bottom_left - p)) /
+                 (top_right - bottom_left).norm();
+        else
+          AssertThrow(false,
+                      ExcMessage(
+                        "distance to infinite line: dim must be 2 or 3."));
+      }
+    } // namespace internal
     template <int dim>
     Sphere<dim>::Sphere(const Point<dim> &center, const double radius)
       : center(center)
@@ -332,6 +369,214 @@ namespace Functions
 
       return evaluate_ellipsoid(point) < 0.0 ? -distance : distance;
     }
+
+
+
+    template <int dim>
+    Rectangle<dim>::Rectangle(const Point<dim> &bottom_left,
+                              const Point<dim> &top_right)
+      : bounding_box({bottom_left, top_right})
+    {
+      if constexpr (dim == 3)
+        {
+          boundary_faces.emplace_back(Functions::SignedDistance::Plane(
+            bottom_left, -Point<dim>::unit_vector(0))); // left
+          boundary_faces.emplace_back(Functions::SignedDistance::Plane(
+            top_right, Point<dim>::unit_vector(0))); // right
+          boundary_faces.emplace_back(Functions::SignedDistance::Plane(
+            bottom_left,
+            -Point<dim>::unit_vector(1))); // front
+          boundary_faces.emplace_back(Functions::SignedDistance::Plane(
+            top_right, Point<dim>::unit_vector(1))); // back
+          boundary_faces.emplace_back(Functions::SignedDistance::Plane(
+            bottom_left,
+            -Point<dim>::unit_vector(2))); // bottom
+          boundary_faces.emplace_back(Functions::SignedDistance::Plane(
+            top_right, Point<dim>::unit_vector(2))); // top
+        }
+    }
+
+
+
+    template <int dim>
+    double
+    Rectangle<dim>::value(const Point<dim> & p,
+                          const unsigned int component) const
+    {
+      (void)component;
+      const Point<dim> &bottom_left = bounding_box.get_boundary_points().first;
+      const Point<dim> &top_right   = bounding_box.get_boundary_points().second;
+
+      if constexpr (dim == 3)
+        {
+          // inside (1 case)
+          if (bounding_box.point_inside(p))
+            {
+              double signed_distance = std::numeric_limits<double>::lowest();
+
+              for (const auto &plane : boundary_faces)
+                signed_distance = std::max(plane.value(p), signed_distance);
+
+              return signed_distance;
+            }
+          // boundary faces (6 cases)
+          for (unsigned int i = 0; i < boundary_faces.size(); ++i)
+            {
+              // check if the point has a positive value for the signed distance
+              // to the current face
+              if (boundary_faces[i].value(p) >= 1e-16)
+                {
+                  // check if all other faces have negative distance values
+                  bool all_other_faces_negative = true;
+                  for (unsigned int j = 0; j < boundary_faces.size(); ++j)
+                    {
+                      if ((i != j) && boundary_faces[j].value(p) > 0)
+                        {
+                          all_other_faces_negative = false;
+                          break;
+                        }
+                    }
+
+                  if (all_other_faces_negative)
+                    return boundary_faces[i].value(p);
+                }
+            }
+          // corners (8 cases)
+          for (unsigned int i = 0; i < 8; i++)
+            {
+              const auto face_indices = GeometryInfo<dim>::vertex_to_face[i];
+
+              bool found = true;
+
+              std::vector<unsigned int> processed_faces(6);
+              std::iota(processed_faces.begin(), processed_faces.end(), 0);
+
+              // check if the point has a positive value for the signed distance
+              // to adjoining faces of the current corner
+              for (const auto &f : face_indices)
+                {
+                  if (boundary_faces[f].value(p) < 0)
+                    {
+                      found = false;
+                      break;
+                    }
+
+                  processed_faces.erase(std::find(processed_faces.begin(),
+                                                  processed_faces.end(),
+                                                  f));
+                }
+
+              // check if the point has a negative value for the signed distance
+              // to all remaining faces
+              if (found)
+                {
+                  for (const auto &f : processed_faces)
+                    {
+                      if (boundary_faces[f].value(p) > 0)
+                        {
+                          found = false;
+                          break;
+                        }
+                    }
+                }
+
+              if (found)
+                return bounding_box.vertex(i).distance(p);
+            }
+          // boundary lines (12 cases)
+          for (unsigned int i = 0; i < 12; i++)
+            {
+              bool found = true;
+
+              std::vector<unsigned int> processed_faces(6);
+              std::iota(processed_faces.begin(), processed_faces.end(), 0);
+
+              // check if the point has a positive value for the signed distance
+              // to adjoining faces of the current edge
+              for (const auto &f : GeometryInfo<dim>::line_to_face[i])
+                {
+                  if (boundary_faces[f].value(p) < 0)
+                    {
+                      found = false;
+                      break;
+                    }
+
+                  processed_faces.erase(std::find(processed_faces.begin(),
+                                                  processed_faces.end(),
+                                                  f));
+                }
+
+              // check if the point has a negative value for the signed distance
+              // to all remaining faces
+              if (found)
+                {
+                  for (const auto &f : processed_faces)
+                    {
+                      if (boundary_faces[f].value(p) > 0)
+                        {
+                          found = false;
+                          break;
+                        }
+                    }
+                }
+
+              if (found)
+                return internal::distance_to_line(
+                  p,
+                  bounding_box.vertex(
+                    GeometryInfo<dim>::line_to_cell_vertices(i, 0)),
+                  bounding_box.vertex(
+                    GeometryInfo<dim>::line_to_cell_vertices(i, 1)));
+            }
+          AssertThrow(
+            false,
+            ExcMessage(
+              "The distance of your requested point could not be calculated."));
+          return 0;
+        }
+      else if constexpr (dim == 2)
+        {
+          // inside
+          if (bounding_box.point_inside(p))
+            return -std::min({p[0] - bottom_left[0],
+                              top_right[0] - p[0],
+                              p[1] - bottom_left[1],
+                              top_right[1] - p[1]});
+          // top or bottom
+          else if (bottom_left[0] <= p[0] && p[0] <= top_right[0])
+            return std::min(std::abs(bottom_left[1] - p[1]),
+                            std::abs(p[1] - top_right[1]));
+          // left or right
+          else if (bottom_left[1] <= p[1] && p[1] <= top_right[1])
+            return std::min(std::abs(bottom_left[0] - p[0]),
+                            std::abs(p[0] - top_right[0]));
+          else
+            // corner
+            return std::min(
+              {p.distance(bottom_left),
+               p.distance(top_right),
+               p.distance(Point<2>(bottom_left[0], top_right[1])),
+               p.distance(Point<2>(top_right[0], bottom_left[1]))});
+        }
+      else if constexpr (dim == 1)
+        {
+          // left
+          if (p[0] <= bottom_left[0])
+            return p.distance(bottom_left);
+          // right
+          else if (p[0] >= top_right[0])
+            return p.distance(top_right);
+          // inside left
+          else if (p[0] <= bounding_box.center()[0])
+            return -p.distance(bottom_left);
+          // inside right
+          else
+            return -p.distance(top_right);
+        }
+      else
+        return 0;
+    }
+
   } // namespace SignedDistance
 } // namespace Functions
 

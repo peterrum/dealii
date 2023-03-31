@@ -91,6 +91,24 @@ namespace internal
       {
         return {{{{0}}, {{1}}}};
       }
+
+      static constexpr dealii::ndarray<unsigned int, 12, 2>
+      line_to_face()
+      {
+        return {
+          {{{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}}};
+      }
     };
 
     template <>
@@ -148,6 +166,24 @@ namespace internal
       vertex_to_face()
       {
         return {{{{0, 2}}, {{1, 2}}, {{0, 3}}, {{1, 3}}}};
+      }
+
+      static constexpr dealii::ndarray<unsigned int, 12, 2>
+      line_to_face()
+      {
+        return {
+          {{{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}}};
       }
     };
 
@@ -217,6 +253,23 @@ namespace internal
                  {{1, 2, 5}},
                  {{0, 3, 5}},
                  {{1, 3, 5}}}};
+      }
+
+      static constexpr dealii::ndarray<unsigned int, 12, 2>
+      line_to_face()
+      {
+        return {{{{0, 4}},
+                 {{1, 4}},
+                 {{2, 4}},
+                 {{3, 4}},
+                 {{0, 5}},
+                 {{1, 5}},
+                 {{2, 5}},
+                 {{3, 5}},
+                 {{0, 2}},
+                 {{1, 2}},
+                 {{0, 3}},
+                 {{1, 3}}}};
       }
     };
 
@@ -392,6 +445,24 @@ namespace internal
                    numbers::invalid_unsigned_int,
                    numbers::invalid_unsigned_int,
                    numbers::invalid_unsigned_int}}}};
+      }
+
+      static constexpr dealii::ndarray<unsigned int, 12, 2>
+      line_to_face()
+      {
+        return {
+          {{{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}},
+           {{numbers::invalid_unsigned_int, numbers::invalid_unsigned_int}}}};
       }
     };
   } // namespace GeometryInfoHelper
@@ -2131,6 +2202,18 @@ struct GeometryInfo
   static constexpr ndarray<unsigned int, vertices_per_cell, dim>
     vertex_to_face =
       internal::GeometryInfoHelper::Initializers<dim>::vertex_to_face();
+
+  /**
+   * This field stores for each line to which faces it belongs for a 3d
+   * reference cell. The first index in this 2d-array runs over all lines, the
+   * second index over two faces to which the line belongs.
+   *
+   * The order of the faces for each line is such that the first listed face
+   * bounds the reference cell in <i>x</i> direction, the second in <i>y</i>
+   * direction, and so on.
+   */
+  static constexpr ndarray<unsigned int, 12, 2> line_to_face =
+    internal::GeometryInfoHelper::Initializers<3>::line_to_face();
 
   /**
    * Return the number of children of a cell (or face) refined with
