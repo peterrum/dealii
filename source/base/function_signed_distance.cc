@@ -348,18 +348,13 @@ namespace Functions
     Rectangle<dim>::value(const Point<dim> & p,
                           const unsigned int component) const
     {
+      AssertDimension(component, 0);
       (void)component;
 
       // calculate signed distance vector to bounding box
       std::array<double, dim> distances;
       for (unsigned int d = 0; d < dim; ++d)
-        distances[d] = bounding_box.signed_distance(p, d);
-
-      if (dim == 1)
-        {
-          // case: specialization for 1D
-          return distances[0];
-        }
+        distances[d] = bounding_box.signed_distance(p, d); // TODO
 
       unsigned int n_faces_outside = 0;
 
@@ -367,39 +362,21 @@ namespace Functions
         if (distances[d] > 0)
           n_faces_outside++;
 
-      if (n_faces_outside == 0)
+      if (n_faces_outside <= 1)
         {
-          // case: inside of or on rectangle
-
-          // All directional distances are zero or negative. The distance to the
-          // boundary is the largest of these values.
+          // TODO: add comment
           return *std::max_element(distances.begin(), distances.end());
         }
       else
         {
-          // else: only consider outside distances
-          std::vector<double> distances_outside;
+          // TODO: add comment
+          double temp = 0;
 
-          for (unsigned int d = 0; d < dim; ++d)
+          for (const auto &d : distances)
             if (distances[d] > 0)
-              {
-                distances_outside.emplace_back(distances[d]);
-              }
+              temp += d * d;
 
-          // case: boundary line (2d) or boundary face (3d)
-          if (distances_outside.size() == 1)
-            return *std::max_element(distances_outside.begin(),
-                                     distances_outside.end());
-          // case: corner (2d) or boundary line (3d)
-          else
-            {
-              double temp = 0;
-
-              for (const auto &d : distances_outside)
-                temp += d * d;
-
-              return std::sqrt(temp);
-            }
+          return std::sqrt(temp);
         }
     }
   } // namespace SignedDistance
