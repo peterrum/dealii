@@ -216,10 +216,15 @@ namespace Functions
 
 
     /**
-     * Signed-distance level set function of a rectangle
+     * Signed-distance level set function of a rectangle.
      *
      * This function is zero on the rectangle, negative "inside" and positive
      * in the rest of $\mathbb{R}^{dim}$.
+     *
+     * Contour surfaces of the signed distance function of a 3D rectangle are
+     * illustrated below:
+     *
+     * @image html signed_distance_hyper_rectangle.png
      *
      * @ingroup functions
      */

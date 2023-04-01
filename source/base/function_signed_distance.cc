@@ -361,59 +361,47 @@ namespace Functions
           return distances[0];
         }
 
-      unsigned int counter = 0;
+      unsigned int n_faces_outside = 0;
 
       for (unsigned int d = 0; d < dim; ++d)
         if (distances[d] > 0)
-          counter++;
+          n_faces_outside++;
 
-      if (counter == 0)
+      if (n_faces_outside == 0)
         {
-          // case: inside + on rectangle
-          double temp = std::abs(distances[0]);
+          // case: inside of or on rectangle
 
-          for (unsigned int d = 1; d < dim; ++d)
-            temp = std::min(temp, std::abs(distances[d]));
-
-          return -temp;
-        }
-      else if (counter == dim)
-        {
-          // case: corner
-          double temp = 0;
-
-          for (unsigned int d = 0; d < dim; ++d)
-            temp += distances[d] * distances[d];
-
-          return std::sqrt(temp);
+          // All directional distances are zero or negative. The distance to the
+          // boundary is the largest of these values.
+          return *std::max_element(distances.begin(), distances.end());
         }
       else
         {
-          // else: create lower dimensional rectangle
-          unsigned int index = 0;
+          // else: only consider outside distances
+          std::vector<double> distances_outside;
 
           for (unsigned int d = 0; d < dim; ++d)
-            if (distances[d] <= 0)
+            if (distances[d] > 0)
               {
-                index = d;
-                break;
+                distances_outside.emplace_back(distances[d]);
               }
 
-          Point<std::max(dim - 1, 1)> p0, p1, p2;
+          // case: boundary line (2d) or boundary face (3d)
+          if (distances_outside.size() == 1)
+            return *std::max_element(distances_outside.begin(),
+                                     distances_outside.end());
+          // case: corner (2d) or boundary line (3d)
+          else
+            {
+              double temp = 0;
 
-          for (unsigned int d = 0, c = 0; d < dim; ++d)
-            if (d != index)
-              {
-                p0[c] = p[d];
-                p1[c] = bounding_box.lower_bound(d);
-                p2[c] = bounding_box.upper_bound(d);
-                ++c;
-              }
+              for (const auto &d : distances_outside)
+                temp += d * d;
 
-          return Rectangle<std::max(dim - 1, 1)>(p1, p2).value(p0);
+              return std::sqrt(temp);
+            }
         }
     }
-
   } // namespace SignedDistance
 } // namespace Functions
 
