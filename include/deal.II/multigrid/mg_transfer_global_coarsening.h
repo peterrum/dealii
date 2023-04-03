@@ -156,6 +156,7 @@ namespace MGTransferGlobalCoarseningTools
 template <typename VectorType>
 class MGTwoLevelTransferBase
 {
+public:
   /**
    * Perform prolongation.
    */
@@ -583,6 +584,15 @@ public:
       &initialize_dof_vector = {});
 
   /**
+   * Constructor taking MGTwoLevelTransferBase.
+   */
+  MGTransferGlobalCoarsening(
+    const MGLevelObject<std::shared_ptr<MGTwoLevelTransferBase<VectorType>>>
+      &transfer,
+    const std::function<void(const unsigned int, VectorType &)>
+      &initialize_dof_vector = {});
+
+  /**
    * Similar function to MGTransferMatrixFree::build() with the difference that
    * the information for the prolongation for each level has already been built.
    * So this function only tries to optimize the data structures of the
@@ -709,7 +719,7 @@ private:
   /**
    * Collection of the two-level transfer operators.
    */
-  MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> transfer;
+  MGLevelObject<std::shared_ptr<MGTwoLevelTransferBase<VectorType>>> transfer;
 
   /**
    * External partitioners used during initialize_dof_vector().
@@ -763,10 +773,32 @@ MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
   const MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> &transfer,
   const std::function<void(const unsigned int, VectorType &)>
     &initialize_dof_vector)
-  : transfer(transfer)
 {
+  const unsigned int min_level = transfer.min_level();
+  const unsigned int max_level = transfer.max_level();
+
+  this->transfer.resize(min_level, max_level);
+
+  for (unsigned int l = min_level; l <= max_level; ++l)
+    {
+      this->transfer[l] =
+        std::make_shared<MGTwoLevelTransfer<dim, VectorType>>();
+      *this->transfer[l] = transfer[l];
+    }
+
   this->build(initialize_dof_vector);
 }
+
+
+
+template <int dim, typename VectorType>
+MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
+  const MGLevelObject<std::shared_ptr<MGTwoLevelTransferBase<VectorType>>>
+    &transfer,
+  const std::function<void(const unsigned int, VectorType &)>
+    &initialize_dof_vector)
+  : transfer(transfer)
+{}
 
 
 
@@ -786,7 +818,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::build(
       AssertDimension(this->external_partitioners.size(), transfer.n_levels());
 
       for (unsigned int l = min_level + 1; l <= max_level; ++l)
-        transfer[l].enable_inplace_operations_if_possible(
+        transfer[l]->enable_inplace_operations_if_possible(
           this->external_partitioners[l - 1 - min_level],
           this->external_partitioners[l - min_level]);
     }
@@ -865,7 +897,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::prolongate_and_add(
   VectorType &       dst,
   const VectorType & src) const
 {
-  this->transfer[to_level].prolongate_and_add(dst, src);
+  this->transfer[to_level]->prolongate_and_add(dst, src);
 }
 
 
@@ -877,7 +909,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::restrict_and_add(
   VectorType &       dst,
   const VectorType & src) const
 {
-  this->transfer[from_level].restrict_and_add(dst, src);
+  this->transfer[from_level]->restrict_and_add(dst, src);
 }
 
 
@@ -939,7 +971,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::interpolate_to_mg(
   dst[transfer.max_level()].copy_locally_owned_data_from(src);
 
   for (unsigned int l = max_level; l > min_level; --l)
-    this->transfer[l].interpolate(dst[l - 1], dst[l]);
+    this->transfer[l]->interpolate(dst[l - 1], dst[l]);
 }
 
 
@@ -969,7 +1001,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::memory_consumption() const
   const unsigned int max_level = transfer.max_level();
 
   for (unsigned int l = min_level + 1; l <= max_level; ++l)
-    size += this->transfer[l].memory_consumption();
+    size += this->transfer[l]->memory_consumption();
 
   return size;
 }
