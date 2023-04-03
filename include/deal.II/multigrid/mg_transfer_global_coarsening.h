@@ -153,26 +153,69 @@ namespace MGTransferGlobalCoarseningTools
 
 
 
+template <typename VectorType>
+class MGTwoLevelTransferBase
+{
+  /**
+   * Perform prolongation.
+   */
+  virtual void
+  prolongate_and_add(VectorType &dst, const VectorType &src) const = 0;
+
+  /**
+   * Perform restriction.
+   */
+  virtual void
+  restrict_and_add(VectorType &dst, const VectorType &src) const = 0;
+
+  /**
+   * Perform interpolation of a solution vector from the fine level to the
+   * coarse level. This function is different from restriction, where a
+   * weighted residual is transferred to a coarser level (transposition of
+   * prolongation matrix).
+   */
+  virtual void
+  interpolate(VectorType &dst, const VectorType &src) const = 0;
+
+  /**
+   * Enable inplace vector operations if external and internal vectors
+   * are compatible.
+   */
+  virtual void
+  enable_inplace_operations_if_possible(
+    const std::shared_ptr<const Utilities::MPI::Partitioner>
+      &partitioner_coarse,
+    const std::shared_ptr<const Utilities::MPI::Partitioner>
+      &partitioner_fine) = 0;
+
+  /**
+   * Return the memory consumption of the allocated memory in this class.
+   */
+  virtual std::size_t
+  memory_consumption() const = 0;
+};
+
+
 /**
  * Class for transfer between two multigrid levels for p- or global coarsening.
  *
  * The implementation of this class is explained in detail in @cite munch2022gc.
  */
 template <int dim, typename VectorType>
-class MGTwoLevelTransfer
+class MGTwoLevelTransfer : public MGTwoLevelTransferBase<VectorType>
 {
 public:
   /**
    * Perform prolongation.
    */
   void
-  prolongate_and_add(VectorType &dst, const VectorType &src) const;
+  prolongate_and_add(VectorType &dst, const VectorType &src) const override;
 
   /**
    * Perform restriction.
    */
   void
-  restrict_and_add(VectorType &dst, const VectorType &src) const;
+  restrict_and_add(VectorType &dst, const VectorType &src) const override;
 
   /**
    * Perform interpolation of a solution vector from the fine level to the
@@ -181,7 +224,7 @@ public:
    * prolongation matrix).
    */
   void
-  interpolate(VectorType &dst, const VectorType &src) const;
+  interpolate(VectorType &dst, const VectorType &src) const override;
 
   /**
    * Enable inplace vector operations if external and internal vectors
@@ -191,13 +234,14 @@ public:
   enable_inplace_operations_if_possible(
     const std::shared_ptr<const Utilities::MPI::Partitioner>
       &partitioner_coarse,
-    const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner_fine);
+    const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner_fine)
+    override;
 
   /**
    * Return the memory consumption of the allocated memory in this class.
    */
   std::size_t
-  memory_consumption() const;
+  memory_consumption() const override;
 };
 
 
@@ -210,6 +254,7 @@ public:
  */
 template <int dim, typename Number>
 class MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>
+  : public MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>
 {
 public:
   /**
@@ -289,14 +334,15 @@ public:
   void
   prolongate_and_add(
     LinearAlgebra::distributed::Vector<Number> &      dst,
-    const LinearAlgebra::distributed::Vector<Number> &src) const;
+    const LinearAlgebra::distributed::Vector<Number> &src) const override;
 
   /**
    * Perform restriction.
    */
   void
-  restrict_and_add(LinearAlgebra::distributed::Vector<Number> &      dst,
-                   const LinearAlgebra::distributed::Vector<Number> &src) const;
+  restrict_and_add(
+    LinearAlgebra::distributed::Vector<Number> &      dst,
+    const LinearAlgebra::distributed::Vector<Number> &src) const override;
 
   /**
    * Perform interpolation of a solution vector from the fine level to the
@@ -305,8 +351,9 @@ public:
    * prolongation matrix).
    */
   void
-  interpolate(LinearAlgebra::distributed::Vector<Number> &      dst,
-              const LinearAlgebra::distributed::Vector<Number> &src) const;
+  interpolate(
+    LinearAlgebra::distributed::Vector<Number> &      dst,
+    const LinearAlgebra::distributed::Vector<Number> &src) const override;
 
   /**
    * Enable inplace vector operations if external and internal vectors
@@ -316,13 +363,14 @@ public:
   enable_inplace_operations_if_possible(
     const std::shared_ptr<const Utilities::MPI::Partitioner>
       &partitioner_coarse,
-    const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner_fine);
+    const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner_fine)
+    override;
 
   /**
    * Return the memory consumption of the allocated memory in this class.
    */
   std::size_t
-  memory_consumption() const;
+  memory_consumption() const override;
 
 private:
   void
