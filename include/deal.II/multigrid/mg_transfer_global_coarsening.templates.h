@@ -31,6 +31,7 @@
 #include <deal.II/dofs/dof_tools.h>
 
 #include <deal.II/fe/fe_tools.h>
+#include <deal.II/fe/fe_values.h>
 
 #include <deal.II/grid/cell_id_translator.h>
 #include <deal.II/grid/filtered_iterator.h>
@@ -38,6 +39,7 @@
 
 #include <deal.II/matrix_free/evaluation_kernels.h>
 #include <deal.II/matrix_free/evaluation_template_factory.h>
+#include <deal.II/matrix_free/fe_point_evaluation.h>
 #include <deal.II/matrix_free/tensor_product_kernels.h>
 #include <deal.II/matrix_free/vector_access_internal.h>
 
@@ -3398,6 +3400,157 @@ MGTransferBlockGlobalCoarsening<dim, VectorType>::get_matrix_free_transfer(
   return transfer_operator;
 }
 
+
+template <int dim, typename Number>
+void
+MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
+  reinit(const DoFHandler<dim> &dof_handler_fine,
+         const DoFHandler<dim> &dof_handler_coarse,
+         const Mapping<dim> &   mapping_fine,
+         const Mapping<dim> &   mapping_coarse)
+{
+  Assert(dof_handler_fine.n_dofs() >= dof_handler_coarse.n_dofs(),
+         ExcMessage(
+           "Two coarser handler cannot have more DoFs than the finer one. "));
+  // Loop over fine cells and collect points, removing possible duplicates
+  auto &      fe_space = dof_handler_coarse.get_fe();
+  const auto &unit_pts = fe_space.get_unit_support_points();
+  std::vector<std::pair<types::global_dof_index, Point<dim>>> points_all;
+  std::vector<types::global_dof_index>                        dof_indices(
+    dof_handler_fine.get_fe().n_dofs_per_cell());
+
+  partitioner_fine = std::make_shared<Utilities::MPI::Partitioner>(
+    dof_handler_fine.locally_owned_dofs(),
+    DoFTools::extract_locally_active_dofs(dof_handler_fine),
+    dof_handler_fine.get_communicator());
+
+  Quadrature<dim> quadrature(unit_pts);
+  FEValues<dim>   fe_values(mapping_fine,
+                          fe_space,
+                          quadrature,
+                          update_quadrature_points);
+
+  for (const auto &cell : dof_handler_fine.active_cell_iterators() |
+                            IteratorFilters::LocallyOwnedCell())
+    {
+      fe_values.reinit(cell);
+      cell->get_dof_indices(dof_indices);
+
+      for (unsigned int i = 0; i < dof_indices.size(); ++i)
+        points_all.emplace_back(partitioner_fine->global_to_local(
+                                  dof_indices[i]),
+                                fe_values.quadrature_point(i));
+    }
+
+  std::sort(points_all.begin(),
+            points_all.end(),
+            [](const auto &a, const auto &b) { return a.first < b.first; });
+  points_all.erase(std::unique(points_all.begin(),
+                               points_all.end(),
+                               [](const auto &a, const auto &b) {
+                                 return a.first == b.first;
+                               }),
+                   points_all.end());
+
+  std::vector<Point<dim>> points;
+  for (const auto &i : points_all)
+    {
+      point_to_local_vector_indices.push_back(i.first);
+      points.push_back(i.second);
+    }
+
+  // Duplicates support points have been removed, hand them over to rpe.
+  rpe.reinit(points, dof_handler_coarse.get_triangulation(), mapping_coarse);
+
+  // Update DoFHandlers
+  internal_dof_handler_fine =
+    std::make_unique<DoFHandler<dim>>(&dof_handler_fine);
+  internal_dof_handler_coarse =
+    std::make_unique<DoFHandler<dim>>(dof_handler_coarse);
+}
+
+
+
+/**
+ * Perform prolongation.
+ */
+template <int dim, typename Number>
+void
+MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
+  prolongate_and_add(
+    LinearAlgebra::distributed::Vector<Number> &      dst,
+    const LinearAlgebra::distributed::Vector<Number> &src) const
+{
+  std::vector<Number> evaluation_point_results;
+  std::vector<Number> buffer;
+
+  const auto evaluation_function = [&](auto &values, const auto &cell_data) {
+    std::vector<Number> solution_values;
+
+    FEPointEvaluation<1, dim, dim, Number> evaluator(
+      rpe.get_mapping(), internal_dof_handler_coarse->get_fe(), update_values);
+
+    for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
+      {
+        typename DoFHandler<dim>::active_cell_iterator cell = {
+          &rpe.get_triangulation(),
+          cell_data.cells[i].first,
+          cell_data.cells[i].second,
+          *internal_dof_handler_coarse};
+
+        const ArrayView<const Point<dim>> unit_points(
+          cell_data.reference_point_values.data() +
+            cell_data.reference_point_ptrs[i],
+          cell_data.reference_point_ptrs[i + 1] -
+            cell_data.reference_point_ptrs[i]);
+
+        solution_values.resize(
+          internal_dof_handler_coarse->get_fe().n_dofs_per_cell());
+        cell->get_dof_values(src,
+                             solution_values.begin(),
+                             solution_values.end());
+
+        evaluator.reinit(cell, unit_points);
+        evaluator.evaluate(solution_values, dealii::EvaluationFlags::values);
+
+        for (unsigned int q = 0; q < unit_points.size(); ++q)
+          values[q + cell_data.reference_point_ptrs[i]] =
+            evaluator.get_value(q);
+      }
+  };
+
+  rpe.template evaluate_and_process<Number>(evaluation_point_results,
+                                            buffer,
+                                            evaluation_function);
+
+  // Weight operator in case some points are owned by multiple cells.
+  if (rpe.is_map_unique() == false)
+    {
+      const auto evaluation_point_results_temp = evaluation_point_results;
+      evaluation_point_results.assign(rpe.get_point_ptrs().size() - 1, 0);
+
+      const auto &ptr = rpe.get_point_ptrs();
+
+      for (unsigned int i = 0; i < ptr.size() - 1; ++i)
+        {
+          const auto n_entries = ptr[i + 1] - ptr[i];
+          if (n_entries == 0)
+            continue;
+
+          Number result = 0.0;
+
+          for (unsigned int j = 0; j < n_entries; ++j)
+            result += evaluation_point_results_temp[ptr[i] + j];
+          result /= n_entries;
+
+          evaluation_point_results[i] = result;
+        }
+    }
+
+  for (unsigned int j = 0; j < evaluation_point_results.size(); ++j)
+    dst.local_element(point_to_local_vector_indices[j]) +=
+      evaluation_point_results[j];
+}
 
 DEAL_II_NAMESPACE_CLOSE
 
