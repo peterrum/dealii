@@ -670,6 +670,8 @@ public:
 
 private:
   Utilities::MPI::RemotePointEvaluation<dim> rpe;
+
+  std::shared_ptr<Utilities::hMPI::Partitioner> partitioner;
 };
 
 
