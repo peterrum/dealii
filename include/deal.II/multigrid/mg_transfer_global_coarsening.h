@@ -680,9 +680,7 @@ private:
   std::unique_ptr<DoFHandler<dim>> internal_dof_handler_coarse;
 
   std::vector<types::global_dof_index> point_to_local_vector_indices;
-  /**
-   * Weights for continuous elements.
-   */
+
   std::vector<Number> weights;
 };
 

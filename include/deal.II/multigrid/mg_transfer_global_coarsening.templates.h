@@ -3464,9 +3464,12 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   // Update DoFHandlers
   internal_dof_handler_fine =
-    std::make_unique<DoFHandler<dim>>(&dof_handler_fine);
+    std::make_unique<DoFHandler<dim>>(dof_handler_fine.get_triangulation());
+  internal_dof_handler_fine->distribute_dofs(dof_handler_fine.get_fe());
+
   internal_dof_handler_coarse =
-    std::make_unique<DoFHandler<dim>>(dof_handler_coarse);
+    std::make_unique<DoFHandler<dim>>(dof_handler_coarse.get_triangulation());
+  internal_dof_handler_coarse->distribute_dofs(dof_handler_coarse.get_fe());
 }
 
 
@@ -3496,7 +3499,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
           &rpe.get_triangulation(),
           cell_data.cells[i].first,
           cell_data.cells[i].second,
-          *internal_dof_handler_coarse};
+          internal_dof_handler_coarse.get()};
 
         const ArrayView<const Point<dim>> unit_points(
           cell_data.reference_point_values.data() +
@@ -3551,6 +3554,52 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     dst.local_element(point_to_local_vector_indices[j]) +=
       evaluation_point_results[j];
 }
+
+
+
+template <int dim, typename Number>
+void
+MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
+  restrict_and_add(LinearAlgebra::distributed::Vector<Number> &      dst,
+                   const LinearAlgebra::distributed::Vector<Number> &src) const
+{
+  Assert(false, ExcNotImplemented());
+  (void)dst;
+  (void)src;
+}
+
+template <int dim, typename Number>
+void
+MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
+  interpolate(LinearAlgebra::distributed::Vector<Number> &      dst,
+              const LinearAlgebra::distributed::Vector<Number> &src) const
+{
+  (void)dst;
+  (void)src;
+}
+
+template <int dim, typename Number>
+void
+MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
+  enable_inplace_operations_if_possible(
+    const std::shared_ptr<const Utilities::MPI::Partitioner>
+      &partitioner_coarse,
+    const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner_fine)
+{
+  Assert(false, ExcNotImplemented());
+  (void)partitioner_coarse;
+  (void)partitioner_fine;
+}
+
+template <int dim, typename Number>
+std::size_t
+MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
+  memory_consumption() const
+{
+  Assert(false, ExcNotImplemented());
+  return 0.;
+}
+
 
 DEAL_II_NAMESPACE_CLOSE
 
