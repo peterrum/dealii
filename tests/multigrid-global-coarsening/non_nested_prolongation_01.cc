@@ -136,6 +136,8 @@ test(int fe_degree)
     do_test<dim, double>(FE_DGQ<dim>(fe_degree), FE_DGQ<dim>(fe_degree));
     deallog.pop();
   }
+  if (fe_degree == 1)
+    Assert(false, ExcMessage("just testing."));
 }
 
 int

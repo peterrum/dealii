@@ -3565,6 +3565,9 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
                    const LinearAlgebra::distributed::Vector<Number> &src) const
 {
   std::vector<Number> evaluation_point_results;
+  // std::cout << "Here's the size of rpe: " << rpe.get_point_ptrs().size() - 1
+  //           << " and here's the size of src: " << src.size() << std::endl;
+
   evaluation_point_results.resize(rpe.get_point_ptrs().size() - 1);
 
   for (unsigned int j = 0; j < evaluation_point_results.size(); ++j)
@@ -3582,11 +3585,12 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
       for (unsigned int i = 0; i < ptr.size() - 1; ++i)
         {
           const auto n_entries = ptr[i + 1] - ptr[i];
+          // std::cout << "Weights = " << n_entries << std::endl;
           if (n_entries == 0)
             continue;
 
           for (unsigned int j = 0; j < n_entries; ++j)
-            evaluation_point_results[ptr[i] + j] =
+            evaluation_point_results[ptr[i] + j] +=
               evaluation_point_results_temp[i] / n_entries;
         }
     }
@@ -3595,12 +3599,10 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   const auto evaluation_function = [&](const auto &values,
                                        const auto &cell_data) {
-    std::vector<Number> solution_values;
-
+    std::vector<Number>                    solution_values;
     FEPointEvaluation<1, dim, dim, Number> evaluator(
       rpe.get_mapping(), internal_dof_handler_coarse->get_fe(), update_values);
 
-    AffineConstraints<Number> dummy_constraint;
     for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
       {
         typename DoFHandler<dim>::active_cell_iterator cell = {
@@ -3615,10 +3617,10 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
           cell_data.reference_point_ptrs[i + 1] -
             cell_data.reference_point_ptrs[i]);
 
+        evaluator.reinit(cell, unit_points);
+
         solution_values.resize(
           internal_dof_handler_coarse->get_fe().n_dofs_per_cell());
-
-        evaluator.reinit(cell, unit_points);
 
         for (unsigned int q = 0; q < unit_points.size(); ++q)
           evaluator.submit_value(values[q + cell_data.reference_point_ptrs[i]],
@@ -3626,6 +3628,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
         evaluator.integrate(solution_values, EvaluationFlags::values);
 
+        AffineConstraints<Number> dummy_constraint;
         cell->distribute_local_to_global(dummy_constraint,
                                          solution_values.begin(),
                                          solution_values.end(),
