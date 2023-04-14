@@ -3409,11 +3409,12 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
          const Mapping<dim> &   mapping_fine,
          const Mapping<dim> &   mapping_coarse)
 {
-  Assert(dof_handler_fine.n_dofs() >= dof_handler_coarse.n_dofs(),
-         ExcMessage(
-           "Two coarser handler cannot have more DoFs than the finer one. "));
+  Assert(
+    dof_handler_fine.n_dofs() >= dof_handler_coarse.n_dofs(),
+    ExcMessage(
+      "The coarser DoFHandler cannot have more DoFs than the finer one. "));
   // Loop over fine cells and collect points, removing possible duplicates
-  auto &      fe_space = dof_handler_coarse.get_fe();
+  auto &      fe_space = dof_handler_fine.get_fe();
   const auto &unit_pts = fe_space.get_unit_support_points();
   std::vector<std::pair<types::global_dof_index, Point<dim>>> points_all;
   std::vector<types::global_dof_index>                        dof_indices(
@@ -3563,9 +3564,78 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   restrict_and_add(LinearAlgebra::distributed::Vector<Number> &      dst,
                    const LinearAlgebra::distributed::Vector<Number> &src) const
 {
-  Assert(false, ExcNotImplemented());
-  (void)dst;
-  (void)src;
+  std::vector<Number> evaluation_point_results;
+  evaluation_point_results.resize(rpe.get_point_ptrs().size() - 1);
+
+  for (unsigned int j = 0; j < evaluation_point_results.size(); ++j)
+    evaluation_point_results[j] =
+      src.local_element(point_to_local_vector_indices[j]);
+
+  // Weight operator in case some points are owned by multiple cells.
+  if (rpe.is_map_unique() == false)
+    {
+      const auto evaluation_point_results_temp = evaluation_point_results;
+      evaluation_point_results.assign(rpe.get_point_ptrs().back(), 0);
+
+      const auto &ptr = rpe.get_point_ptrs();
+
+      for (unsigned int i = 0; i < ptr.size() - 1; ++i)
+        {
+          const auto n_entries = ptr[i + 1] - ptr[i];
+          if (n_entries == 0)
+            continue;
+
+          for (unsigned int j = 0; j < n_entries; ++j)
+            evaluation_point_results[ptr[i] + j] =
+              evaluation_point_results_temp[i] / n_entries;
+        }
+    }
+
+  std::vector<Number> buffer;
+
+  const auto evaluation_function = [&](const auto &values,
+                                       const auto &cell_data) {
+    std::vector<Number> solution_values;
+
+    FEPointEvaluation<1, dim, dim, Number> evaluator(
+      rpe.get_mapping(), internal_dof_handler_coarse->get_fe(), update_values);
+
+    AffineConstraints<Number> dummy_constraint;
+    for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
+      {
+        typename DoFHandler<dim>::active_cell_iterator cell = {
+          &rpe.get_triangulation(),
+          cell_data.cells[i].first,
+          cell_data.cells[i].second,
+          internal_dof_handler_coarse.get()};
+
+        const ArrayView<const Point<dim>> unit_points(
+          cell_data.reference_point_values.data() +
+            cell_data.reference_point_ptrs[i],
+          cell_data.reference_point_ptrs[i + 1] -
+            cell_data.reference_point_ptrs[i]);
+
+        solution_values.resize(
+          internal_dof_handler_coarse->get_fe().n_dofs_per_cell());
+
+        evaluator.reinit(cell, unit_points);
+
+        for (unsigned int q = 0; q < unit_points.size(); ++q)
+          evaluator.submit_value(values[q + cell_data.reference_point_ptrs[i]],
+                                 q);
+
+        evaluator.integrate(solution_values, EvaluationFlags::values);
+
+        cell->distribute_local_to_global(dummy_constraint,
+                                         solution_values.begin(),
+                                         solution_values.end(),
+                                         dst);
+      }
+  };
+
+  rpe.template process_and_evaluate<Number>(evaluation_point_results,
+                                            buffer,
+                                            evaluation_function);
 }
 
 template <int dim, typename Number>

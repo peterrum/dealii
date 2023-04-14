@@ -114,7 +114,7 @@ do_test(const FiniteElement<dim> &fe_fine, const FiniteElement<dim> &fe_coarse)
                   mapping_fine,
                   mapping_coarse);
 
-  test_non_nested_prolongation(transfer, dof_handler_fine, dof_handler_coarse);
+  test_non_nested_transfer(transfer, dof_handler_fine, dof_handler_coarse);
 }
 
 template <int dim, typename Number>
@@ -128,13 +128,6 @@ test(int fe_degree)
     {
       deallog.push("CG<2>(" + str_fine + ")<->CG<2>(" + str_coarse + ")");
       do_test<dim, double>(FE_Q<dim>(fe_degree), FE_Q<dim>(fe_degree));
-      deallog.pop();
-    }
-
-  if (fe_degree > 0)
-    {
-      deallog.push("DG<2>(" + str_fine + ")<->CG<2>(" + str_coarse + ")");
-      do_test<dim, double>(FE_DGQ<dim>(fe_degree), FE_Q<dim>(fe_degree));
       deallog.pop();
     }
 

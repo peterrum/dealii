@@ -171,7 +171,7 @@ test_transfer_operator(
 
 template <int dim, typename Number, typename MeshType>
 void
-test_non_nested_prolongation(
+test_non_nested_transfer(
   const MGTwoLevelTransferNonNested<dim,
                                     LinearAlgebra::distributed::Vector<Number>>
     &                transfer,
@@ -235,45 +235,45 @@ test_non_nested_prolongation(
       }
   }
 
-  // // test restriction
-  // {
-  //   dst = 1.0;
-  //   src = 0.0;
-  //   transfer.restrict_and_add(src, dst);
+  // test restriction
+  {
+    dst = 1.0;
+    src = 0.0;
+    transfer.restrict_and_add(src, dst);
 
-  //   // print norms
-  //   if (true)
-  //     {
-  //       deallog << src.l2_norm() << std::endl;
-  //     }
+    // print norms
+    if (true)
+      {
+        deallog << src.l2_norm() << std::endl;
+      }
 
-  //   // print vectors
-  //   if (true)
-  //     {
-  //       print(dst);
-  //       print(src);
-  //     }
+    // print vectors
+    if (true)
+      {
+        print(dst);
+        print(src);
+      }
 
-  //   // print full restriction matrix
-  //   if (Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) == 1 && false)
-  //     {
-  //       FullMatrix<Number> restriction_matrix(src.size(), dst.size());
-  //       for (unsigned int i = 0; i < dst.size(); ++i)
-  //         {
-  //           dst    = 0.0;
-  //           dst[i] = 1.0;
-  //           src    = 0.0;
+    // print full restriction matrix
+    if (Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) == 1 && false)
+      {
+        FullMatrix<Number> restriction_matrix(src.size(), dst.size());
+        for (unsigned int i = 0; i < dst.size(); ++i)
+          {
+            dst    = 0.0;
+            dst[i] = 1.0;
+            src    = 0.0;
 
-  //           transfer.restrict_and_add(src, dst);
+            transfer.restrict_and_add(src, dst);
 
-  //           for (unsigned int j = 0; j < src.size(); ++j)
-  //             restriction_matrix[j][i] = src[j];
-  //         }
+            for (unsigned int j = 0; j < src.size(); ++j)
+              restriction_matrix[j][i] = src[j];
+          }
 
-  //       restriction_matrix.print_formatted(
-  //         deallog.get_file_stream(), 2, false, 5, "", 1, 1e-5);
-  //     }
-  // }
+        restriction_matrix.print_formatted(
+          deallog.get_file_stream(), 2, false, 5, "", 1, 1e-5);
+      }
+  }
 }
 
 #endif
