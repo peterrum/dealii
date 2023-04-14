@@ -63,16 +63,6 @@ template <int dim, typename Number>
 void
 do_test(const FiniteElement<dim> &fe_fine, const FiniteElement<dim> &fe_coarse)
 {
-  auto create_fine_grid = [](Triangulation<dim> &tria) {
-    GridGenerator::hyper_cube(tria);
-    tria.refine_global();
-    tria.refine_global();
-  };
-
-  auto execute_global_coarsening = [](Triangulation<dim> &tria) {
-    tria.refine_global();
-  };
-
   // create coarse grid
   parallel::distributed::Triangulation<dim> tria_coarse(MPI_COMM_WORLD);
   GridGenerator::hyper_cube(tria_coarse);
