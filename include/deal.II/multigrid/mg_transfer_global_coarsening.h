@@ -671,17 +671,11 @@ public:
 private:
   Utilities::MPI::RemotePointEvaluation<dim> rpe;
 
-  std::shared_ptr<Utilities::MPI::Partitioner> partitioner_fine;
-
   std::shared_ptr<Utilities::MPI::Partitioner> partitioner_coarse;
-
-  std::unique_ptr<DoFHandler<dim>> internal_dof_handler_fine;
 
   std::unique_ptr<DoFHandler<dim>> internal_dof_handler_coarse;
 
   std::vector<types::global_dof_index> point_to_local_vector_indices;
-
-  std::vector<Number> weights;
 };
 
 

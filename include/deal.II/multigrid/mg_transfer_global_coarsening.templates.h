@@ -3442,10 +3442,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   std::vector<types::global_dof_index>                        dof_indices(
     dof_handler_fine.get_fe().n_dofs_per_cell());
 
-  partitioner_fine = std::make_shared<Utilities::MPI::Partitioner>(
-    dof_handler_fine.locally_owned_dofs(),
-    DoFTools::extract_locally_active_dofs(dof_handler_fine),
-    dof_handler_fine.get_communicator());
+  const auto local_indices_fine = dof_handler_fine.locally_owned_dofs();
 
   Quadrature<dim> quadrature(unit_pts);
   FEValues<dim>   fe_values(mapping_fine,
@@ -3460,8 +3457,8 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
       cell->get_dof_indices(dof_indices);
 
       for (unsigned int i = 0; i < dof_indices.size(); ++i)
-        if (partitioner_fine->in_local_range(dof_indices[i]))
-          points_all.emplace_back(partitioner_fine->global_to_local(
+        if (local_indices_fine.is_element(dof_indices[i]))
+          points_all.emplace_back(local_indices_fine.index_within_set(
                                     dof_indices[i]),
                                   fe_values.quadrature_point(i));
     }
@@ -3487,10 +3484,6 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   rpe.reinit(points, dof_handler_coarse.get_triangulation(), mapping_coarse);
 
   // Update DoFHandlers
-  internal_dof_handler_fine =
-    std::make_unique<DoFHandler<dim>>(dof_handler_fine.get_triangulation());
-  internal_dof_handler_fine->distribute_dofs(dof_handler_fine.get_fe());
-
   internal_dof_handler_coarse =
     std::make_unique<DoFHandler<dim>>(dof_handler_coarse.get_triangulation());
   internal_dof_handler_coarse->distribute_dofs(dof_handler_coarse.get_fe());
@@ -3670,6 +3663,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   interpolate(LinearAlgebra::distributed::Vector<Number> &      dst,
               const LinearAlgebra::distributed::Vector<Number> &src) const
 {
+  AssertThrow(false, ExcNotImplemented());
   (void)dst;
   (void)src;
 }
@@ -3682,7 +3676,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
       &partitioner_coarse,
     const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner_fine)
 {
-  Assert(false, ExcNotImplemented());
+  AssertThrow(false, ExcNotImplemented());
   (void)partitioner_coarse;
   (void)partitioner_fine;
 }
@@ -3692,7 +3686,7 @@ std::size_t
 MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   memory_consumption() const
 {
-  Assert(false, ExcNotImplemented());
+  AssertThrow(false, ExcNotImplemented());
   return 0.;
 }
 
