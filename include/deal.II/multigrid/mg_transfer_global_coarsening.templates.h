@@ -3460,9 +3460,10 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
       cell->get_dof_indices(dof_indices);
 
       for (unsigned int i = 0; i < dof_indices.size(); ++i)
-        points_all.emplace_back(partitioner_fine->global_to_local(
-                                  dof_indices[i]),
-                                fe_values.quadrature_point(i));
+        if (partitioner_fine->in_local_range(dof_indices[i]))
+          points_all.emplace_back(partitioner_fine->global_to_local(
+                                    dof_indices[i]),
+                                  fe_values.quadrature_point(i));
     }
 
   std::sort(points_all.begin(),
@@ -3509,6 +3510,9 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 {
   std::vector<Number> evaluation_point_results;
   std::vector<Number> buffer;
+
+  src.update_ghost_values();
+  dst.zero_out_ghost_values();
 
   const auto evaluation_function = [&](auto &values, const auto &cell_data) {
     std::vector<Number> solution_values;
@@ -3576,6 +3580,9 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   for (unsigned int j = 0; j < evaluation_point_results.size(); ++j)
     dst.local_element(point_to_local_vector_indices[j]) +=
       evaluation_point_results[j];
+
+  src.zero_out_ghost_values();
+  dst.compress(VectorOperation::add);
 }
 
 
@@ -3586,6 +3593,9 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   restrict_and_add(LinearAlgebra::distributed::Vector<Number> &      dst,
                    const LinearAlgebra::distributed::Vector<Number> &src) const
 {
+  src.update_ghost_values();
+  dst.zero_out_ghost_values();
+
   std::vector<Number> evaluation_point_results;
 
   evaluation_point_results.resize(rpe.get_point_ptrs().size() - 1);
@@ -3653,6 +3663,9 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   rpe.template process_and_evaluate<Number>(evaluation_point_results,
                                             buffer,
                                             evaluation_function);
+
+  src.zero_out_ghost_values();
+  dst.compress(VectorOperation::add);
 }
 
 template <int dim, typename Number>
