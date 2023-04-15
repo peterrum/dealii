@@ -3587,8 +3587,6 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
                    const LinearAlgebra::distributed::Vector<Number> &src) const
 {
   std::vector<Number> evaluation_point_results;
-  // std::cout << "Here's the size of rpe: " << rpe.get_point_ptrs().size() - 1
-  //           << " and here's the size of src: " << src.size() << std::endl;
 
   evaluation_point_results.resize(rpe.get_point_ptrs().size() - 1);
 
@@ -3599,21 +3597,15 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   // Weight operator in case some points are owned by multiple cells.
   if (rpe.is_map_unique() == false)
     {
-      const auto evaluation_point_results_temp = evaluation_point_results;
-      evaluation_point_results.assign(rpe.get_point_ptrs().back(), 0);
-
       const auto &ptr = rpe.get_point_ptrs();
 
       for (unsigned int i = 0; i < ptr.size() - 1; ++i)
         {
           const auto n_entries = ptr[i + 1] - ptr[i];
-          // std::cout << "Weights = " << n_entries << std::endl;
           if (n_entries == 0)
             continue;
 
-          for (unsigned int j = 0; j < n_entries; ++j)
-            evaluation_point_results[ptr[i] + j] +=
-              evaluation_point_results_temp[i] / n_entries;
+          evaluation_point_results[i] /= n_entries;
         }
     }
 

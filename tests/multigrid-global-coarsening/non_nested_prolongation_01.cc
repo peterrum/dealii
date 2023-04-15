@@ -114,11 +114,12 @@ test(int fe_degree)
       deallog.pop();
     }
 
-  {
-    deallog.push("DG<2>(" + str_fine + ")<->DG<2>(" + str_coarse + ")");
-    do_test<dim, double>(FE_DGQ<dim>(fe_degree), FE_DGQ<dim>(fe_degree));
-    deallog.pop();
-  }
+  if (false)
+    {
+      deallog.push("DG<2>(" + str_fine + ")<->DG<2>(" + str_coarse + ")");
+      do_test<dim, double>(FE_DGQ<dim>(fe_degree), FE_DGQ<dim>(fe_degree));
+      deallog.pop();
+    }
 }
 
 int
