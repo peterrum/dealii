@@ -3483,7 +3483,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   // Duplicates support points have been removed, hand them over to rpe.
   rpe.reinit(points, dof_handler_coarse.get_triangulation(), mapping_coarse);
 
-  // Update DoFHandlers
+  // TODO: store reference as smart pointer
   internal_dof_handler_coarse =
     std::make_unique<DoFHandler<dim>>(dof_handler_coarse.get_triangulation());
   internal_dof_handler_coarse->distribute_dofs(dof_handler_coarse.get_fe());
@@ -3501,10 +3501,11 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     LinearAlgebra::distributed::Vector<Number> &      dst,
     const LinearAlgebra::distributed::Vector<Number> &src) const
 {
+  // TODO: make copy of source vector if partitioners so not match
+  src.update_ghost_values();
+
   std::vector<Number> evaluation_point_results;
   std::vector<Number> buffer;
-
-  src.update_ghost_values();
 
   const auto evaluation_function = [&](auto &values, const auto &cell_data) {
     std::vector<Number> solution_values;
@@ -3584,6 +3585,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   restrict_and_add(LinearAlgebra::distributed::Vector<Number> &      dst,
                    const LinearAlgebra::distributed::Vector<Number> &src) const
 {
+  // TODO: make copy of destination vector if partitioners so not match
   dst.zero_out_ghost_values();
 
   std::vector<Number> evaluation_point_results;
@@ -3676,9 +3678,10 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
       &partitioner_coarse,
     const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner_fine)
 {
-  AssertThrow(false, ExcNotImplemented());
+  AssertThrow(false, ExcNotImplemented()); // TODO: implement
   (void)partitioner_coarse;
-  (void)partitioner_fine;
+  (void)partitioner_fine; // fine one can be ignored, since only locally owned
+                          // values are touched
 }
 
 template <int dim, typename Number>
