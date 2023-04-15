@@ -3512,7 +3512,6 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   std::vector<Number> buffer;
 
   src.update_ghost_values();
-  dst.zero_out_ghost_values();
 
   const auto evaluation_function = [&](auto &values, const auto &cell_data) {
     std::vector<Number> solution_values;
@@ -3582,7 +3581,6 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
       evaluation_point_results[j];
 
   src.zero_out_ghost_values();
-  dst.compress(VectorOperation::add);
 }
 
 
@@ -3593,7 +3591,6 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   restrict_and_add(LinearAlgebra::distributed::Vector<Number> &      dst,
                    const LinearAlgebra::distributed::Vector<Number> &src) const
 {
-  src.update_ghost_values();
   dst.zero_out_ghost_values();
 
   std::vector<Number> evaluation_point_results;
@@ -3664,7 +3661,6 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
                                             buffer,
                                             evaluation_function);
 
-  src.zero_out_ghost_values();
   dst.compress(VectorOperation::add);
 }
 
