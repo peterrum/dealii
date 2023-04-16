@@ -16,6 +16,11 @@
 #ifndef dealii_multigrid_transfer_tests_h
 #define dealii_multigrid_transfer_tests_h
 
+#include <deal.II/base/function_lib.h>
+
+#include <deal.II/numerics/data_out.h>
+#include <deal.II/numerics/vector_tools.h>
+
 #include "../tests.h"
 
 using namespace dealii;
@@ -174,9 +179,11 @@ void
 test_non_nested_transfer(
   const MGTwoLevelTransferNonNested<dim,
                                     LinearAlgebra::distributed::Vector<Number>>
-    &                transfer,
-  const MeshType &   dof_handler_fine,
-  const MeshType &   dof_handler_coarse,
+    &                          transfer,
+  const MeshType &             dof_handler_fine,
+  const MeshType &             dof_handler_coarse,
+  const Function<dim, Number> &function =
+    Functions::ZeroFunction<dim, Number>(),
   const unsigned int mg_level_fine   = numbers::invalid_unsigned_int,
   const unsigned int mg_level_coarse = numbers::invalid_unsigned_int)
 {
@@ -193,13 +200,36 @@ test_non_nested_transfer(
   // test prolongation
   {
     src = 0.0;
-    src = 1.0;
+    VectorTools::interpolate(dof_handler_coarse, function, src); // src = 1.0
     dst = 0.0;
     transfer.prolongate_and_add(dst, src);
 
     // transfer operator sets only non-constrained dofs -> update the rest
     // via constraint matrix
     constraint_fine.distribute(dst);
+
+    // Visualize the result
+    {
+      DataOut<2> data_out;
+      data_out.attach_dof_handler(dof_handler_coarse);
+      data_out.add_data_vector(
+        src,
+        "coarse_solution",
+        DataOut_DoFData<dim, dim>::DataVectorType::type_dof_data);
+      data_out.build_patches();
+      std::ofstream output_coarse("coarse_sol.vtk");
+      data_out.write_vtk(output_coarse);
+      data_out.clear();
+      std::ofstream output_fine("prolonged_sol.vtk");
+      data_out.attach_dof_handler(dof_handler_fine);
+      data_out.add_data_vector(
+        dst,
+        "prolonged_solution",
+        DataOut_DoFData<dim, dim>::DataVectorType::type_dof_data);
+
+      data_out.build_patches();
+      data_out.write_vtk(output_fine);
+    }
 
     // print norms
     if (true)
@@ -237,7 +267,7 @@ test_non_nested_transfer(
 
   // test restriction
   {
-    dst = 1.0;
+    VectorTools::interpolate(dof_handler_fine, function, dst); // dst = 1.0
     src = 0.0;
     transfer.restrict_and_add(src, dst);
 
