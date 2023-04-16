@@ -3442,7 +3442,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   std::vector<types::global_dof_index>                        dof_indices(
     dof_handler_fine.get_fe().n_dofs_per_cell());
 
-  const auto local_indices_fine = dof_handler_fine.locally_owned_dofs();
+  const auto &local_indices_fine = dof_handler_fine.locally_owned_dofs();
 
   Quadrature<dim> quadrature(unit_pts);
   FEValues<dim>   fe_values(mapping_fine,
