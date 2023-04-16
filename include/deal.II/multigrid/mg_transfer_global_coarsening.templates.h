@@ -3439,6 +3439,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   auto &      fe_space = dof_handler_fine.get_fe();
   const auto &unit_pts = fe_space.get_unit_support_points();
   std::vector<std::pair<types::global_dof_index, Point<dim>>> points_all;
+  std::vector<Point<dim>>                                     points;
   std::vector<types::global_dof_index>                        dof_indices(
     dof_handler_fine.get_fe().n_dofs_per_cell());
 
@@ -3473,7 +3474,6 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
                                }),
                    points_all.end());
 
-  std::vector<Point<dim>> points;
   for (const auto &i : points_all)
     {
       point_to_local_vector_indices.push_back(i.first);
@@ -3483,10 +3483,8 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   // Duplicates support points have been removed, hand them over to rpe.
   rpe.reinit(points, dof_handler_coarse.get_triangulation(), mapping_coarse);
 
-  // TODO: store reference as smart pointer
   internal_dof_handler_coarse =
-    std::make_unique<DoFHandler<dim>>(dof_handler_coarse.get_triangulation());
-  internal_dof_handler_coarse->distribute_dofs(dof_handler_coarse.get_fe());
+    const_cast<DoFHandler<dim> *>(&dof_handler_coarse);
 }
 
 
@@ -3519,7 +3517,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
           &rpe.get_triangulation(),
           cell_data.cells[i].first,
           cell_data.cells[i].second,
-          internal_dof_handler_coarse.get()};
+          &(*internal_dof_handler_coarse)};
 
         const ArrayView<const Point<dim>> unit_points(
           cell_data.reference_point_values.data() +
@@ -3625,7 +3623,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
           &rpe.get_triangulation(),
           cell_data.cells[i].first,
           cell_data.cells[i].second,
-          internal_dof_handler_coarse.get()};
+          &(*internal_dof_handler_coarse)};
 
         const ArrayView<const Point<dim>> unit_points(
           cell_data.reference_point_values.data() +
