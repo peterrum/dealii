@@ -3479,12 +3479,11 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
       point_to_local_vector_indices.push_back(i.first);
       points.push_back(i.second);
     }
-
+ 
   // Duplicates support points have been removed, hand them over to rpe.
   rpe.reinit(points, dof_handler_coarse.get_triangulation(), mapping_coarse);
 
-  internal_dof_handler_coarse =
-    const_cast<DoFHandler<dim> *>(&dof_handler_coarse);
+  internal_dof_handler_coarse = &dof_handler_coarse;
 }
 
 

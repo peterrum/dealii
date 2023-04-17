@@ -673,7 +673,7 @@ private:
 
   std::shared_ptr<Utilities::MPI::Partitioner> partitioner_coarse;
 
-  SmartPointer<DoFHandler<dim>> internal_dof_handler_coarse;
+  SmartPointer<const DoFHandler<dim>> internal_dof_handler_coarse;
 
   std::vector<types::global_dof_index> point_to_local_vector_indices;
 };
