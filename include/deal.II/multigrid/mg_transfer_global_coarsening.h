@@ -261,6 +261,9 @@ class MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>
   : public MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>
 {
 public:
+  // MGTwoLevelTransfer&
+  // operator=(const MGTwoLevelTransfer & other) = default;
+
   /**
    * Set up global coarsening between the given DoFHandler objects (
    * @p dof_handler_fine and @p dof_handler_coarse). The transfer
@@ -716,8 +719,9 @@ public:
    * internal level vectors within the function call copy_to_mg() if used in the
    * context of PreconditionMG.
    */
+  template <typename T>
   MGTransferGlobalCoarsening(
-    const MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> &transfer,
+    const MGLevelObject<T> &transfer,
     const std::function<void(const unsigned int, VectorType &)>
       &initialize_dof_vector = {});
 
@@ -916,8 +920,9 @@ private:
 
 
 template <int dim, typename VectorType>
+template <typename T>
 MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
-  const MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> &transfer,
+  const MGLevelObject<T> &transfer,
   const std::function<void(const unsigned int, VectorType &)>
     &initialize_dof_vector)
 {
@@ -928,13 +933,23 @@ MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
 
   for (unsigned int l = min_level; l <= max_level; ++l)
     {
-      this->transfer[l] =
-        std::make_shared<MGTwoLevelTransfer<dim, VectorType>>();
-      dynamic_cast<MGTwoLevelTransfer<dim, VectorType> &>(*this->transfer[l]) =
-        transfer[l];
-      // not working: implicitely deleted copy assignment
+      this->transfer[l] = std::shared_ptr<MGTwoLevelTransferBase<VectorType>>(
+        const_cast<T *>(&transfer[l]), [](auto *) {});
     }
 
+  this->build(initialize_dof_vector);
+}
+
+
+
+template <int dim, typename VectorType>
+MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
+  const MGLevelObject<std::shared_ptr<MGTwoLevelTransferBase<VectorType>>>
+    &transfer,
+  const std::function<void(const unsigned int, VectorType &)>
+    &initialize_dof_vector)
+  : transfer(transfer)
+{
   this->build(initialize_dof_vector);
 }
 
@@ -942,39 +957,26 @@ MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
 
 // template <int dim, typename VectorType>
 // MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
-//   const MGLevelObject<std::shared_ptr<MGTwoLevelTransferBase<VectorType>>>
-//     &transfer,
-//   const std::function<void(const unsigned int, VectorType &)>
-//     &initialize_dof_vector)
-//   : transfer(transfer)
-// {
-//   this->build(initialize_dof_vector);
-// }
-
-
-
-template <int dim, typename VectorType>
-MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
-  const MGLevelObject<
-    std::shared_ptr<MGTwoLevelTransferNonNested<dim, VectorType>>> &transfer,
-  const std::function<void(const unsigned int, VectorType &)>
-    &initialize_dof_vector)
-{
-  const unsigned int min_level = transfer.min_level();
-  const unsigned int max_level = transfer.max_level();
-
-  this->transfer.resize(min_level, max_level);
-
-  for (unsigned int l = min_level; l <= max_level; ++l)
-    {
-      // this->transfer[l + 1] =
-      //   std::make_shared<MGTwoLevelTransferNonNested<dim, VectorType>>();
-      // *this->transfer[l + 1] = transfer[l + 1];
-      this->transfer[l] = transfer[l];
-    }
-
-  this->build(initialize_dof_vector);
-}
+//  const MGLevelObject<
+//    std::shared_ptr<MGTwoLevelTransferNonNested<dim, VectorType>>> &transfer,
+//  const std::function<void(const unsigned int, VectorType &)>
+//    &initialize_dof_vector)
+//{
+//  const unsigned int min_level = transfer.min_level();
+//  const unsigned int max_level = transfer.max_level();
+//
+//  this->transfer.resize(min_level, max_level);
+//
+//  for (unsigned int l = min_level; l <= max_level; ++l)
+//    {
+//      // this->transfer[l + 1] =
+//      //   std::make_shared<MGTwoLevelTransferNonNested<dim, VectorType>>();
+//      // *this->transfer[l + 1] = transfer[l + 1];
+//      this->transfer[l] = transfer[l];
+//    }
+//
+//  this->build(initialize_dof_vector);
+//}
 
 
 
