@@ -3426,10 +3426,12 @@ MGTransferBlockGlobalCoarsening<dim, VectorType>::get_matrix_free_transfer(
 template <int dim, typename Number>
 void
 MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
-  reinit(const DoFHandler<dim> &dof_handler_fine,
-         const DoFHandler<dim> &dof_handler_coarse,
-         const Mapping<dim> &   mapping_fine,
-         const Mapping<dim> &   mapping_coarse)
+  reinit(const DoFHandler<dim> &          dof_handler_fine,
+         const DoFHandler<dim> &          dof_handler_coarse,
+         const Mapping<dim> &             mapping_fine,
+         const Mapping<dim> &             mapping_coarse,
+         const AffineConstraints<Number> &constraint_fine,
+         const AffineConstraints<Number> &constraint_coarse)
 {
   Assert(
     dof_handler_fine.n_dofs() >= dof_handler_coarse.n_dofs(),
@@ -3479,11 +3481,13 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
       point_to_local_vector_indices.push_back(i.first);
       points.push_back(i.second);
     }
- 
+
   // Duplicates support points have been removed, hand them over to rpe.
   rpe.reinit(points, dof_handler_coarse.get_triangulation(), mapping_coarse);
 
   internal_dof_handler_coarse = &dof_handler_coarse;
+  internal_constraint_fine.copy_from(constraint_fine);
+  internal_constraint_coarse.copy_from(constraint_coarse);
 }
 
 
@@ -3499,6 +3503,10 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     const LinearAlgebra::distributed::Vector<Number> &src) const
 {
   // TODO: make copy of source vector if partitioners so not match
+  // if (src.get_partitioner().get() != partitioner_coarse.get())
+
+  // distribute constraints_coarse vec_coarse provided by user in reinit()
+  // internal_constraint_coarse.distribute(this->vec_coarse);
   src.update_ghost_values();
 
   std::vector<Number> evaluation_point_results;
@@ -3641,8 +3649,8 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
         evaluator.integrate(solution_values, EvaluationFlags::values);
 
-        AffineConstraints<Number> dummy_constraint;
-        cell->distribute_local_to_global(dummy_constraint,
+        // using constraints_coarse provided in reinit()
+        cell->distribute_local_to_global(internal_constraint_coarse,
                                          solution_values.begin(),
                                          solution_values.end(),
                                          dst);
@@ -3672,13 +3680,16 @@ void
 MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   enable_inplace_operations_if_possible(
     const std::shared_ptr<const Utilities::MPI::Partitioner>
-      &partitioner_coarse,
-    const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner_fine)
+      &external_partitioner_coarse,
+    const std::shared_ptr<const Utilities::MPI::Partitioner>
+      &external_partitioner_fine)
 {
-  AssertThrow(false, ExcNotImplemented()); // TODO: implement
-  (void)partitioner_coarse;
-  (void)partitioner_fine; // fine one can be ignored, since only locally owned
-                          // values are touched
+  this->partitioner_coarse = external_partitioner_coarse;
+  // this->partitioner_fine   = external_partitioner_fine;
+  // (void)partitioner_coarse;
+  (void)
+    external_partitioner_fine; // fine one can be ignored, since only locally
+  // owned values are touched
 }
 
 template <int dim, typename Number>

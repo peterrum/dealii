@@ -619,10 +619,14 @@ public:
    * @p dof_handler_fine and @p dof_handler_coarse).
    */
   void
-  reinit(const DoFHandler<dim> &dof_handler_fine,
-         const DoFHandler<dim> &dof_handler_coarse,
-         const Mapping<dim> &   mapping_fine,
-         const Mapping<dim> &   mapping_coarse);
+  reinit(const DoFHandler<dim> &          dof_handler_fine,
+         const DoFHandler<dim> &          dof_handler_coarse,
+         const Mapping<dim> &             mapping_fine,
+         const Mapping<dim> &             mapping_coarse,
+         const AffineConstraints<Number> &constraint_fine =
+           AffineConstraints<Number>(),
+         const AffineConstraints<Number> &constraint_coarse =
+           AffineConstraints<Number>());
 
   /**
    * Perform prolongation.
@@ -671,9 +675,13 @@ public:
 private:
   Utilities::MPI::RemotePointEvaluation<dim> rpe;
 
-  std::shared_ptr<Utilities::MPI::Partitioner> partitioner_coarse;
+  std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_coarse;
 
   SmartPointer<const DoFHandler<dim>> internal_dof_handler_coarse;
+
+  AffineConstraints<Number> internal_constraint_coarse;
+
+  AffineConstraints<Number> internal_constraint_fine;
 
   std::vector<types::global_dof_index> point_to_local_vector_indices;
 };
@@ -719,6 +727,15 @@ public:
   MGTransferGlobalCoarsening(
     const MGLevelObject<std::shared_ptr<MGTwoLevelTransferBase<VectorType>>>
       &transfer,
+    const std::function<void(const unsigned int, VectorType &)>
+      &initialize_dof_vector = {});
+
+  /**
+   * Constructor taking MGTwoLevelTransferNonNested (just for testing purposes)
+   */
+  MGTransferGlobalCoarsening(
+    const MGLevelObject<
+      std::shared_ptr<MGTwoLevelTransferNonNested<dim, VectorType>>> &transfer,
     const std::function<void(const unsigned int, VectorType &)>
       &initialize_dof_vector = {});
 
@@ -913,7 +930,9 @@ MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
     {
       this->transfer[l] =
         std::make_shared<MGTwoLevelTransfer<dim, VectorType>>();
-      *this->transfer[l] = transfer[l];
+      dynamic_cast<MGTwoLevelTransfer<dim, VectorType> &>(*this->transfer[l]) =
+        transfer[l];
+      // not working: implicitely deleted copy assignment
     }
 
   this->build(initialize_dof_vector);
@@ -921,14 +940,41 @@ MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
 
 
 
+// template <int dim, typename VectorType>
+// MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
+//   const MGLevelObject<std::shared_ptr<MGTwoLevelTransferBase<VectorType>>>
+//     &transfer,
+//   const std::function<void(const unsigned int, VectorType &)>
+//     &initialize_dof_vector)
+//   : transfer(transfer)
+// {
+//   this->build(initialize_dof_vector);
+// }
+
+
+
 template <int dim, typename VectorType>
 MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
-  const MGLevelObject<std::shared_ptr<MGTwoLevelTransferBase<VectorType>>>
-    &transfer,
+  const MGLevelObject<
+    std::shared_ptr<MGTwoLevelTransferNonNested<dim, VectorType>>> &transfer,
   const std::function<void(const unsigned int, VectorType &)>
     &initialize_dof_vector)
-  : transfer(transfer)
-{}
+{
+  const unsigned int min_level = transfer.min_level();
+  const unsigned int max_level = transfer.max_level();
+
+  this->transfer.resize(min_level, max_level);
+
+  for (unsigned int l = min_level; l <= max_level; ++l)
+    {
+      // this->transfer[l + 1] =
+      //   std::make_shared<MGTwoLevelTransferNonNested<dim, VectorType>>();
+      // *this->transfer[l + 1] = transfer[l + 1];
+      this->transfer[l] = transfer[l];
+    }
+
+  this->build(initialize_dof_vector);
+}
 
 
 
