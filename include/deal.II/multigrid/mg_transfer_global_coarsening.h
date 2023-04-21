@@ -726,16 +726,16 @@ public:
       &initialize_dof_vector = {});
 
   /**
-   * Constructor taking MGTwoLevelTransferBase.
+   * Constructor taking MGTwoLevelTransfer.
    */
   MGTransferGlobalCoarsening(
-    const MGLevelObject<std::shared_ptr<MGTwoLevelTransferBase<VectorType>>>
+    const MGLevelObject<std::shared_ptr<MGTwoLevelTransfer<dim, VectorType>>>
       &transfer,
     const std::function<void(const unsigned int, VectorType &)>
       &initialize_dof_vector = {});
 
   /**
-   * Constructor taking MGTwoLevelTransferNonNested (just for testing purposes)
+   * Constructor taking MGTwoLevelTransferNonNested.
    */
   MGTransferGlobalCoarsening(
     const MGLevelObject<
@@ -944,39 +944,41 @@ MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
 
 template <int dim, typename VectorType>
 MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
-  const MGLevelObject<std::shared_ptr<MGTwoLevelTransferBase<VectorType>>>
+  const MGLevelObject<std::shared_ptr<MGTwoLevelTransfer<dim, VectorType>>>
     &transfer,
   const std::function<void(const unsigned int, VectorType &)>
     &initialize_dof_vector)
-  : transfer(transfer)
 {
+  const unsigned int min_level = transfer.min_level();
+  const unsigned int max_level = transfer.max_level();
+
+  this->transfer.resize(min_level, max_level);
+
+  for (unsigned int l = min_level; l <= max_level; ++l)
+    this->transfer[l] = transfer[l];
+
   this->build(initialize_dof_vector);
 }
 
 
 
-// template <int dim, typename VectorType>
-// MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
-//  const MGLevelObject<
-//    std::shared_ptr<MGTwoLevelTransferNonNested<dim, VectorType>>> &transfer,
-//  const std::function<void(const unsigned int, VectorType &)>
-//    &initialize_dof_vector)
-//{
-//  const unsigned int min_level = transfer.min_level();
-//  const unsigned int max_level = transfer.max_level();
-//
-//  this->transfer.resize(min_level, max_level);
-//
-//  for (unsigned int l = min_level; l <= max_level; ++l)
-//    {
-//      // this->transfer[l + 1] =
-//      //   std::make_shared<MGTwoLevelTransferNonNested<dim, VectorType>>();
-//      // *this->transfer[l + 1] = transfer[l + 1];
-//      this->transfer[l] = transfer[l];
-//    }
-//
-//  this->build(initialize_dof_vector);
-//}
+template <int dim, typename VectorType>
+MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
+  const MGLevelObject<
+    std::shared_ptr<MGTwoLevelTransferNonNested<dim, VectorType>>> &transfer,
+  const std::function<void(const unsigned int, VectorType &)>
+    &initialize_dof_vector)
+{
+  const unsigned int min_level = transfer.min_level();
+  const unsigned int max_level = transfer.max_level();
+
+  this->transfer.resize(min_level, max_level);
+
+  for (unsigned int l = min_level; l <= max_level; ++l)
+    this->transfer[l] = transfer[l];
+
+  this->build(initialize_dof_vector);
+}
 
 
 
