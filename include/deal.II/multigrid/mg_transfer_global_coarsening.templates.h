@@ -3433,10 +3433,26 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
          const AffineConstraints<Number> &constraint_fine,
          const AffineConstraints<Number> &constraint_coarse)
 {
-  Assert(
-    dof_handler_fine.n_dofs() >= dof_handler_coarse.n_dofs(),
-    ExcMessage(
-      "The coarser DoFHandler cannot have more DoFs than the finer one. "));
+  AssertThrow(dof_handler_coarse.get_fe().has_support_points(),
+              ExcNotImplemented());
+  Assert(dof_handler_fine.n_dofs() >= dof_handler_coarse.n_dofs(),
+         ExcMessage(
+           "The coarser DoFHandler cannot have more DoFs than the fine one. "));
+
+  // create partitioners and internal vectors
+  {
+    IndexSet locally_relevant_dofs;
+    DoFTools::extract_locally_relevant_dofs(dof_handler_coarse,
+                                            locally_relevant_dofs);
+    partitioner_coarse.reset(
+      new Utilities::MPI::Partitioner(dof_handler_coarse.locally_owned_dofs(),
+                                      locally_relevant_dofs,
+                                      dof_handler_coarse.get_communicator()));
+
+    vec_coarse.reinit(partitioner_coarse);
+  }
+
+
   // Loop over fine cells and collect points, removing possible duplicates
   auto &      fe_space = dof_handler_fine.get_fe();
   const auto &unit_pts = fe_space.get_unit_support_points();
@@ -3503,11 +3519,26 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     const LinearAlgebra::distributed::Vector<Number> &src) const
 {
   // TODO: make copy of source vector if partitioners so not match
-  // if (src.get_partitioner().get() != partitioner_coarse.get())
+  /*
+  const bool use_src_inplace = vec_coarse.size() == 0;
+  const auto vec_coarse_ptr  = use_src_inplace ? &src : &vec_coarse;
+  Assert(vec_coarse_ptr->get_partitioner().get() == partitioner_coarse.get(),
+         ExcInternalError());
+
+  if (use_src_inplace == false)
+    vec_coarse.copy_locally_owned_data_from(src);
+
+  vec_coarse_ptr->update_ghost_values();
+  // src.update_ghost_values();
 
   // distribute constraints_coarse vec_coarse provided by user in reinit()
-  // internal_constraint_coarse.distribute(this->vec_coarse);
-  src.update_ghost_values();
+  internal_constraint_coarse.distribute(vec_coarse);
+  */
+
+  vec_coarse.copy_locally_owned_data_from(src);
+  vec_coarse.update_ghost_values();
+  internal_constraint_coarse.distribute(vec_coarse);
+  vec_coarse.update_ghost_values(); // to make sure that ghost values are set
 
   std::vector<Number> evaluation_point_results;
   std::vector<Number> buffer;
@@ -3534,7 +3565,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
         solution_values.resize(
           internal_dof_handler_coarse->get_fe().n_dofs_per_cell());
-        cell->get_dof_values(src,
+        cell->get_dof_values(vec_coarse,
                              solution_values.begin(),
                              solution_values.end());
 
@@ -3579,7 +3610,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     dst.local_element(point_to_local_vector_indices[j]) +=
       evaluation_point_results[j];
 
-  src.zero_out_ghost_values();
+  vec_coarse.zero_out_ghost_values(); // src.zero_out_ghost_values();
 }
 
 

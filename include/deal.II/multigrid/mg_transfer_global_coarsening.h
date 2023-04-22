@@ -687,6 +687,17 @@ private:
   AffineConstraints<Number> internal_constraint_fine;
 
   std::vector<types::global_dof_index> point_to_local_vector_indices;
+
+  /**
+   * Internal vector needed for collecting all degrees of freedom of the
+   * fine cells.
+   */
+  mutable LinearAlgebra::distributed::Vector<Number> vec_fine;
+
+  /**
+   * Internal vector on that the actual prolongation/restriction is performed.
+   */
+  mutable LinearAlgebra::distributed::Vector<Number> vec_coarse;
 };
 
 
