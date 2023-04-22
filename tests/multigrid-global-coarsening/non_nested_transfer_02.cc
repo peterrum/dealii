@@ -86,7 +86,9 @@ do_test(const FiniteElement<dim> &   fe_fine,
   transfer.reinit(dof_handler_fine,
                   dof_handler_coarse,
                   mapping_fine,
-                  mapping_coarse);
+                  mapping_coarse,
+                  constraint_fine,
+                  constraint_coarse);
 
   test_non_nested_transfer(transfer,
                            dof_handler_fine,

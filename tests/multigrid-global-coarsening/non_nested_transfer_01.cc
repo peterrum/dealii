@@ -33,6 +33,7 @@
  */
 
 #include <deal.II/base/conditional_ostream.h>
+#include <deal.II/base/function.h>
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/mpi.h>
 #include <deal.II/base/quadrature_lib.h>
@@ -61,7 +62,9 @@ using namespace dealii;
 
 template <int dim, typename Number>
 void
-do_test(const FiniteElement<dim> &fe_fine, const FiniteElement<dim> &fe_coarse)
+do_test(const FiniteElement<dim> &   fe_fine,
+        const FiniteElement<dim> &   fe_coarse,
+        const Function<dim, Number> &function)
 {
   // create coarse grid
   parallel::distributed::Triangulation<dim> tria_coarse(MPI_COMM_WORLD);
@@ -95,14 +98,19 @@ do_test(const FiniteElement<dim> &fe_fine, const FiniteElement<dim> &fe_coarse)
   transfer.reinit(dof_handler_fine,
                   dof_handler_coarse,
                   mapping_fine,
-                  mapping_coarse);
+                  mapping_coarse,
+                  constraint_fine,
+                  constraint_coarse);
 
-  test_non_nested_transfer(transfer, dof_handler_fine, dof_handler_coarse);
+  test_non_nested_transfer(transfer,
+                           dof_handler_fine,
+                           dof_handler_coarse,
+                           function);
 }
 
 template <int dim, typename Number>
 void
-test(int fe_degree)
+test(int fe_degree, const Function<dim, Number> &function)
 {
   const auto str_fine   = std::to_string(fe_degree);
   const auto str_coarse = std::to_string(fe_degree);
@@ -110,14 +118,18 @@ test(int fe_degree)
   if (fe_degree > 0)
     {
       deallog.push("CG<2>(" + str_fine + ")<->CG<2>(" + str_coarse + ")");
-      do_test<dim, double>(FE_Q<dim>(fe_degree), FE_Q<dim>(fe_degree));
+      do_test<dim, double>(FE_Q<dim>(fe_degree),
+                           FE_Q<dim>(fe_degree),
+                           function);
       deallog.pop();
     }
 
   if (false)
     {
       deallog.push("DG<2>(" + str_fine + ")<->DG<2>(" + str_coarse + ")");
-      do_test<dim, double>(FE_DGQ<dim>(fe_degree), FE_DGQ<dim>(fe_degree));
+      do_test<dim, double>(FE_DGQ<dim>(fe_degree),
+                           FE_DGQ<dim>(fe_degree),
+                           function);
       deallog.pop();
     }
 }
@@ -130,6 +142,7 @@ main(int argc, char **argv)
 
   deallog.precision(8);
 
+  Functions::ConstantFunction<2, double> constant(1.);
   for (unsigned int i = 0; i < 5; ++i)
-    test<2, double>(i);
+    test<2, double>(i, constant);
 }
