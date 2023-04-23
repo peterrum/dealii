@@ -3422,6 +3422,53 @@ MGTransferBlockGlobalCoarsening<dim, VectorType>::get_matrix_free_transfer(
   return transfer_operator;
 }
 
+namespace internal
+{
+  namespace
+  {
+    template <int dim>
+    std::shared_ptr<NonMatching::MappingInfo<dim>>
+    fill_mapping_info(const Utilities::MPI::RemotePointEvaluation<dim> &rpe)
+    {
+      const auto &cell_data = rpe.get_cell_data();
+
+      std::vector<typename Triangulation<dim>::active_cell_iterator>
+                                           cell_iterators;
+      std::vector<std::vector<Point<dim>>> unit_points_vector;
+
+      for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
+        {
+          typename Triangulation<dim>::active_cell_iterator cell = {
+            &rpe.get_triangulation(),
+            cell_data.cells[i].first,
+            cell_data.cells[i].second};
+
+          const ArrayView<const Point<dim>> unit_points(
+            cell_data.reference_point_values.data() +
+              cell_data.reference_point_ptrs[i],
+            cell_data.reference_point_ptrs[i + 1] -
+              cell_data.reference_point_ptrs[i]);
+
+          std::vector<Point<dim>> unit_points_vector_cell;
+
+          unit_points_vector_cell.insert(unit_points_vector_cell.begin(),
+                                         unit_points.begin(),
+                                         unit_points.end());
+
+          cell_iterators.emplace_back(cell);
+          unit_points_vector.emplace_back(unit_points_vector_cell);
+        }
+
+      auto mapping_info =
+        std::make_shared<NonMatching::MappingInfo<dim>>(rpe.get_mapping(),
+                                                        update_values);
+      mapping_info->reinit_cells(cell_iterators, unit_points_vector);
+
+      return mapping_info;
+    }
+  } // namespace
+} // namespace internal
+
 
 template <int dim, typename Number>
 void
@@ -3502,39 +3549,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   rpe.reinit(points, dof_handler_coarse.get_triangulation(), mapping_coarse);
 
   // set up MappingInfo for easier data access
-  const auto &cell_data = rpe.get_cell_data();
-
-  std::vector<typename DoFHandler<dim>::active_cell_iterator> cell_iterators;
-  std::vector<std::vector<Point<dim>>> unit_points_vector;
-
-  for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
-    {
-      typename DoFHandler<dim>::active_cell_iterator cell = {
-        &rpe.get_triangulation(),
-        cell_data.cells[i].first,
-        cell_data.cells[i].second,
-        &dof_handler_coarse};
-
-      const ArrayView<const Point<dim>> unit_points(
-        cell_data.reference_point_values.data() +
-          cell_data.reference_point_ptrs[i],
-        cell_data.reference_point_ptrs[i + 1] -
-          cell_data.reference_point_ptrs[i]);
-
-      std::vector<Point<dim>> unit_points_vector_cell;
-
-      unit_points_vector_cell.insert(unit_points_vector_cell.begin(),
-                                     unit_points.begin(),
-                                     unit_points.end());
-
-      cell_iterators.emplace_back(cell);
-      unit_points_vector.emplace_back(unit_points_vector_cell);
-    }
-
-  this->mapping_info =
-    std::make_shared<NonMatching::MappingInfo<dim>>(mapping_coarse,
-                                                    update_values);
-  mapping_info->reinit_cells(cell_iterators, unit_points_vector);
+  mapping_info = internal::fill_mapping_info(rpe);
 
   internal_dof_handler_coarse = &dof_handler_coarse;
   internal_constraint_fine.copy_from(constraint_fine);
