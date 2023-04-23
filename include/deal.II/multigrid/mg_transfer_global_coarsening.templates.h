@@ -3501,6 +3501,41 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   // Duplicates support points have been removed, hand them over to rpe.
   rpe.reinit(points, dof_handler_coarse.get_triangulation(), mapping_coarse);
 
+  // set up MappingInfo for easier data access
+  const auto &cell_data = rpe.get_cell_data();
+
+  std::vector<typename DoFHandler<dim>::active_cell_iterator> cell_iterators;
+  std::vector<std::vector<Point<dim>>> unit_points_vector;
+
+  for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
+    {
+      typename DoFHandler<dim>::active_cell_iterator cell = {
+        &rpe.get_triangulation(),
+        cell_data.cells[i].first,
+        cell_data.cells[i].second,
+        &dof_handler_coarse};
+
+      const ArrayView<const Point<dim>> unit_points(
+        cell_data.reference_point_values.data() +
+          cell_data.reference_point_ptrs[i],
+        cell_data.reference_point_ptrs[i + 1] -
+          cell_data.reference_point_ptrs[i]);
+
+      std::vector<Point<dim>> unit_points_vector_cell;
+
+      unit_points_vector_cell.insert(unit_points_vector_cell.begin(),
+                                     unit_points.begin(),
+                                     unit_points.end());
+
+      cell_iterators.emplace_back(cell);
+      unit_points_vector.emplace_back(unit_points_vector_cell);
+    }
+
+  this->mapping_info =
+    std::make_shared<NonMatching::MappingInfo<dim>>(mapping_coarse,
+                                                    update_values);
+  mapping_info->reinit_cells(cell_iterators, unit_points_vector);
+
   internal_dof_handler_coarse = &dof_handler_coarse;
   internal_constraint_fine.copy_from(constraint_fine);
   internal_constraint_coarse.copy_from(constraint_coarse);
@@ -3547,7 +3582,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     std::vector<Number> solution_values;
 
     FEPointEvaluation<1, dim, dim, Number> evaluator(
-      rpe.get_mapping(), internal_dof_handler_coarse->get_fe(), update_values);
+      *mapping_info, internal_dof_handler_coarse->get_fe());
 
     for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
       {
@@ -3557,22 +3592,16 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
           cell_data.cells[i].second,
           &(*internal_dof_handler_coarse)};
 
-        const ArrayView<const Point<dim>> unit_points(
-          cell_data.reference_point_values.data() +
-            cell_data.reference_point_ptrs[i],
-          cell_data.reference_point_ptrs[i + 1] -
-            cell_data.reference_point_ptrs[i]);
-
         solution_values.resize(
           internal_dof_handler_coarse->get_fe().n_dofs_per_cell());
         cell->get_dof_values(vec_coarse,
                              solution_values.begin(),
                              solution_values.end());
 
-        evaluator.reinit(cell, unit_points);
+        evaluator.reinit(i);
         evaluator.evaluate(solution_values, dealii::EvaluationFlags::values);
 
-        for (unsigned int q = 0; q < unit_points.size(); ++q)
+        for (const auto q : evaluator.quadrature_point_indices())
           values[q + cell_data.reference_point_ptrs[i]] =
             evaluator.get_value(q);
       }
@@ -3653,7 +3682,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
                                        const auto &cell_data) {
     std::vector<Number>                    solution_values;
     FEPointEvaluation<1, dim, dim, Number> evaluator(
-      rpe.get_mapping(), internal_dof_handler_coarse->get_fe(), update_values);
+      *mapping_info, internal_dof_handler_coarse->get_fe());
 
     for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
       {
@@ -3663,18 +3692,12 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
           cell_data.cells[i].second,
           &(*internal_dof_handler_coarse)};
 
-        const ArrayView<const Point<dim>> unit_points(
-          cell_data.reference_point_values.data() +
-            cell_data.reference_point_ptrs[i],
-          cell_data.reference_point_ptrs[i + 1] -
-            cell_data.reference_point_ptrs[i]);
-
-        evaluator.reinit(cell, unit_points);
+        evaluator.reinit(i);
 
         solution_values.resize(
           internal_dof_handler_coarse->get_fe().n_dofs_per_cell());
 
-        for (unsigned int q = 0; q < unit_points.size(); ++q)
+        for (const auto q : evaluator.quadrature_point_indices())
           evaluator.submit_value(values[q + cell_data.reference_point_ptrs[i]],
                                  q);
 

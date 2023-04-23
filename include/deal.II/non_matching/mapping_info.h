@@ -96,10 +96,10 @@ namespace NonMatching
      * with the "unfiltered" index. The default argument for
      * @p n_unfiltered_cells disables this built-in compression.
      */
-    template <typename Iterator>
+    template <typename Iterators>
     void
     reinit_cells(
-      const IteratorRange<Iterator> &             cell_iterator_range,
+      const Iterators &                           cell_iterator_range,
       const std::vector<std::vector<Point<dim>>> &unit_points_vector,
       const unsigned int n_unfiltered_cells = numbers::invalid_unsigned_int);
 
@@ -108,10 +108,10 @@ namespace NonMatching
      * corresponding vector of quadratures. As opposed to the other `reinit`
      * function, this method allows to access a `JxW` factor at the points.
      */
-    template <typename Iterator>
+    template <typename Iterators>
     void
     reinit_cells(
-      const IteratorRange<Iterator> &     cell_iterator_range,
+      const Iterators &                   cell_iterator_range,
       const std::vector<Quadrature<dim>> &quadrature_vector,
       const unsigned int n_unfiltered_cells = numbers::invalid_unsigned_int);
 
@@ -374,10 +374,10 @@ namespace NonMatching
 
 
   template <int dim, int spacedim>
-  template <typename Iterator>
+  template <typename Iterators>
   void
   MappingInfo<dim, spacedim>::reinit_cells(
-    const IteratorRange<Iterator> &             cell_iterator_range,
+    const Iterators &                           cell_iterator_range,
     const std::vector<std::vector<Point<dim>>> &unit_points_vector,
     const unsigned int                          n_unfiltered_cells)
   {
@@ -432,10 +432,10 @@ namespace NonMatching
 
 
   template <int dim, int spacedim>
-  template <typename Iterator>
+  template <typename Iterators>
   void
   MappingInfo<dim, spacedim>::reinit_cells(
-    const IteratorRange<Iterator> &     cell_iterator_range,
+    const Iterators &                   cell_iterator_range,
     const std::vector<Quadrature<dim>> &quadrature_vector,
     const unsigned int                  n_unfiltered_cells)
   {

@@ -65,7 +65,7 @@ test(const unsigned int n_refinements,
         {
           fe      = std::make_unique<FE_Q<dim>>(fe_degree_fine);
           quad    = std::make_unique<QGauss<dim>>(fe_degree_fine + 1);
-          mapping = std::make_unique<MappingFE<dim>>(FE_Q<dim>(1));
+          mapping = std::make_unique<MappingQ<dim>>(1);
         }
 
       mappings[l] = mapping->clone();

@@ -109,6 +109,16 @@ namespace Utilities
       };
 
       /**
+       * Return internal data structure storing the data of points
+       * poistioned in cells.
+       */
+      const CellData &
+      get_cell_data() const
+      {
+        return cell_data;
+      }
+
+      /**
        * Evaluate function @p evaluation_function in the given  points and
        * triangulation. The result is stored in @p output.
        *

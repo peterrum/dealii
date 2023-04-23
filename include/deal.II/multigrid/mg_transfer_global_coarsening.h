@@ -678,6 +678,8 @@ public:
 private:
   Utilities::MPI::RemotePointEvaluation<dim> rpe;
 
+  std::shared_ptr<NonMatching::MappingInfo<dim, dim>> mapping_info;
+
   std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_coarse;
 
   SmartPointer<const DoFHandler<dim>> internal_dof_handler_coarse;
