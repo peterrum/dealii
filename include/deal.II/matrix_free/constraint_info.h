@@ -92,7 +92,8 @@ namespace internal
       void
       reinit(const DoFHandler<dim> &dof_handler,
              const unsigned int     n_cells,
-             const bool             use_fast_hanging_node_algorithm = true);
+             const bool             use_fast_hanging_node_algorithm = true,
+             const bool             do_lexicographic_numbering      = true);
 
       void
       read_dof_indices(
@@ -253,7 +254,8 @@ namespace internal
     ConstraintInfo<dim, Number>::reinit(
       const DoFHandler<dim> &dof_handler,
       const unsigned int     n_cells,
-      const bool             use_fast_hanging_node_algorithm)
+      const bool             use_fast_hanging_node_algorithm,
+      const bool             do_lexicographic_numbering)
     {
       this->dof_indices_per_cell.resize(n_cells);
       this->plain_dof_indices_per_cell.resize(n_cells);
@@ -272,7 +274,8 @@ namespace internal
         }
 
       const auto &fes = dof_handler.get_fe_collection();
-      lexicographic_numbering.resize(fes.size());
+      if (do_lexicographic_numbering)
+        lexicographic_numbering.resize(fes.size());
       shape_infos.resize(fes.size());
 
       for (unsigned int i = 0; i < fes.size(); ++i)
@@ -291,7 +294,8 @@ namespace internal
               shape_infos[i].reinit(dummy_quadrature, fes[i], 0);
             }
 
-          lexicographic_numbering[i] = shape_infos[i].lexicographic_numbering;
+          if (do_lexicographic_numbering)
+            lexicographic_numbering[i] = shape_infos[i].lexicographic_numbering;
         }
       active_fe_indices.resize(n_cells);
     }
@@ -328,19 +332,24 @@ namespace internal
       else
         cell->get_mg_dof_indices(local_dof_indices);
 
-      {
-        AssertIndexRange(cell->active_fe_index(), shape_infos.size());
+      if (lexicographic_numbering.size() == 0)
+        {
+          local_dof_indices_lex = local_dof_indices;
+        }
+      else
+        {
+          AssertIndexRange(cell->active_fe_index(), shape_infos.size());
 
-        const auto &lexicographic_numbering =
-          shape_infos[cell->active_fe_index()].lexicographic_numbering;
+          const auto &lexicographic_numbering =
+            shape_infos[cell->active_fe_index()].lexicographic_numbering;
 
-        AssertDimension(lexicographic_numbering.size(),
-                        local_dof_indices.size());
+          AssertDimension(lexicographic_numbering.size(),
+                          local_dof_indices.size());
 
-        for (unsigned int i = 0; i < cell->get_fe().n_dofs_per_cell(); ++i)
-          local_dof_indices_lex[i] =
-            local_dof_indices[lexicographic_numbering[i]];
-      }
+          for (unsigned int i = 0; i < cell->get_fe().n_dofs_per_cell(); ++i)
+            local_dof_indices_lex[i] =
+              local_dof_indices[lexicographic_numbering[i]];
+        }
 
       std::pair<unsigned short, unsigned short> constraint_iterator(0, 0);
 
@@ -590,7 +599,6 @@ namespace internal
               const unsigned int *dof_indices =
                 this->plain_dof_indices.data() +
                 this->row_starts_plain_indices[cell_index];
-
               for (unsigned int i = 0; i < n_dofs_per_cell; ++dof_indices, ++i)
                 operation.process_dof(*dof_indices,
                                       global_vector,

@@ -616,6 +616,9 @@ class MGTwoLevelTransferNonNested<dim,
                                   LinearAlgebra::distributed::Vector<Number>>
   : public MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>
 {
+private:
+  using VectorizedArrayType = VectorizedArray<Number, 1>;
+
 public:
   /**
    * Set up transfer operator between the given DoFHandler objects (
@@ -684,11 +687,10 @@ private:
 
   SmartPointer<const DoFHandler<dim>> internal_dof_handler_coarse;
 
-  AffineConstraints<Number> internal_constraint_coarse;
-
-  AffineConstraints<Number> internal_constraint_fine;
-
   std::vector<types::global_dof_index> point_to_local_vector_indices;
+
+  internal::MatrixFreeFunctions::ConstraintInfo<dim, VectorizedArrayType>
+    constraint_info;
 
   /**
    * Internal vector needed for collecting all degrees of freedom of the

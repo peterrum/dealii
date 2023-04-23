@@ -3480,6 +3480,8 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
          const AffineConstraints<Number> &constraint_fine,
          const AffineConstraints<Number> &constraint_coarse)
 {
+  (void)constraint_fine; // TODO: use
+
   AssertThrow(dof_handler_coarse.get_fe().has_support_points(),
               ExcNotImplemented());
   Assert(dof_handler_fine.n_dofs() >= dof_handler_coarse.n_dofs(),
@@ -3551,9 +3553,32 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   // set up MappingInfo for easier data access
   mapping_info = internal::fill_mapping_info(rpe);
 
+  // set up constraints
+  const auto &cell_data = rpe.get_cell_data();
+
+  constraint_info.reinit(dof_handler_coarse,
+                         cell_data.cells.size(),
+                         false /*TODO*/,
+                         false /*TODO*/);
+
+  for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
+    {
+      typename DoFHandler<dim>::active_cell_iterator cell = {
+        &rpe.get_triangulation(),
+        cell_data.cells[i].first,
+        cell_data.cells[i].second,
+        &dof_handler_coarse};
+
+      constraint_info.read_dof_indices(i,
+                                       numbers::invalid_unsigned_int,
+                                       cell,
+                                       constraint_coarse,
+                                       partitioner_coarse);
+    }
+
+  constraint_info.finalize();
+
   internal_dof_handler_coarse = &dof_handler_coarse;
-  internal_constraint_fine.copy_from(constraint_fine);
-  internal_constraint_coarse.copy_from(constraint_coarse);
 }
 
 
@@ -3587,8 +3612,8 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   vec_coarse.copy_locally_owned_data_from(src);
   vec_coarse.update_ghost_values();
-  internal_constraint_coarse.distribute(vec_coarse);
-  vec_coarse.update_ghost_values(); // to make sure that ghost values are set
+  // internal_constraint_coarse.distribute(vec_coarse);
+  // vec_coarse.update_ghost_values(); // to make sure that ghost values are set
 
   std::vector<Number> evaluation_point_results;
   std::vector<Number> buffer;
@@ -3601,21 +3626,25 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
     for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
       {
-        typename DoFHandler<dim>::active_cell_iterator cell = {
-          &rpe.get_triangulation(),
-          cell_data.cells[i].first,
-          cell_data.cells[i].second,
-          &(*internal_dof_handler_coarse)};
-
         solution_values.resize(
           internal_dof_handler_coarse->get_fe().n_dofs_per_cell());
-        cell->get_dof_values(vec_coarse,
-                             solution_values.begin(),
-                             solution_values.end());
 
+        // gather and resolve constraints
+        internal::VectorReader<Number, VectorizedArrayType> reader;
+        constraint_info.read_write_operation(
+          reader,
+          vec_coarse,
+          reinterpret_cast<VectorizedArrayType *>(solution_values.data()),
+          i,
+          1,
+          solution_values.size(),
+          true);
+
+        // evaluate
         evaluator.reinit(i);
         evaluator.evaluate(solution_values, dealii::EvaluationFlags::values);
 
+        // scatter
         for (const auto q : evaluator.quadrature_point_indices())
           values[q + cell_data.reference_point_ptrs[i]] =
             evaluator.get_value(q);
@@ -3666,7 +3695,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
                    const LinearAlgebra::distributed::Vector<Number> &src) const
 {
   // TODO: make copy of destination vector if partitioners so not match
-  dst.zero_out_ghost_values();
+  this->vec_coarse = 0.0;
 
   std::vector<Number> evaluation_point_results;
 
@@ -3701,28 +3730,29 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
     for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
       {
-        typename DoFHandler<dim>::active_cell_iterator cell = {
-          &rpe.get_triangulation(),
-          cell_data.cells[i].first,
-          cell_data.cells[i].second,
-          &(*internal_dof_handler_coarse)};
-
         evaluator.reinit(i);
 
         solution_values.resize(
           internal_dof_handler_coarse->get_fe().n_dofs_per_cell());
 
+        // gather and integrate
         for (const auto q : evaluator.quadrature_point_indices())
           evaluator.submit_value(values[q + cell_data.reference_point_ptrs[i]],
                                  q);
 
         evaluator.integrate(solution_values, EvaluationFlags::values);
 
-        // using constraints_coarse provided in reinit()
-        cell->distribute_local_to_global(internal_constraint_coarse,
-                                         solution_values.begin(),
-                                         solution_values.end(),
-                                         dst);
+        // resolve constraints and scatter
+        internal::VectorDistributorLocalToGlobal<Number, VectorizedArrayType>
+          writer;
+        constraint_info.read_write_operation(
+          writer,
+          vec_coarse,
+          reinterpret_cast<VectorizedArrayType *>(solution_values.data()),
+          i,
+          1,
+          solution_values.size(),
+          true);
       }
   };
 
@@ -3730,7 +3760,8 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
                                             buffer,
                                             evaluation_function);
 
-  dst.compress(VectorOperation::add);
+  this->vec_coarse.compress(VectorOperation::add);
+  dst += this->vec_coarse;
 }
 
 template <int dim, typename Number>
