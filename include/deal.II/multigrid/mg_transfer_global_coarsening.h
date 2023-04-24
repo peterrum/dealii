@@ -200,6 +200,54 @@ public:
 };
 
 
+
+template <typename Number>
+class MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>
+{
+public:
+  using VectorType = LinearAlgebra::distributed::Vector<Number>;
+
+  /**
+   * Perform prolongation.
+   */
+  virtual void
+  prolongate_and_add(VectorType &dst, const VectorType &src) const = 0;
+
+  /**
+   * Perform restriction.
+   */
+  virtual void
+  restrict_and_add(VectorType &dst, const VectorType &src) const = 0;
+
+  /**
+   * Perform interpolation of a solution vector from the fine level to the
+   * coarse level. This function is different from restriction, where a
+   * weighted residual is transferred to a coarser level (transposition of
+   * prolongation matrix).
+   */
+  virtual void
+  interpolate(VectorType &dst, const VectorType &src) const = 0;
+
+  /**
+   * Enable inplace vector operations if external and internal vectors
+   * are compatible.
+   */
+  virtual void
+  enable_inplace_operations_if_possible(
+    const std::shared_ptr<const Utilities::MPI::Partitioner>
+      &partitioner_coarse,
+    const std::shared_ptr<const Utilities::MPI::Partitioner>
+      &partitioner_fine) = 0;
+
+  /**
+   * Return the memory consumption of the allocated memory in this class.
+   */
+  virtual std::size_t
+  memory_consumption() const = 0;
+};
+
+
+
 /**
  * Class for transfer between two multigrid levels for p- or global coarsening.
  *
