@@ -3597,27 +3597,17 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     LinearAlgebra::distributed::Vector<Number> &      dst,
     const LinearAlgebra::distributed::Vector<Number> &src) const
 {
-  // TODO: make copy of source vector if partitioners so not match
-  /*
-  const bool use_src_inplace = vec_coarse.size() == 0;
-  const auto vec_coarse_ptr  = use_src_inplace ? &src : &vec_coarse;
-  Assert(vec_coarse_ptr->get_partitioner().get() == partitioner_coarse.get(),
+  // make copy of source vector if partitioners do not match
+  const bool use_src_inplace = this->vec_coarse.size() == 0;
+  const auto vec_coarse_ptr  = use_src_inplace ? &src : &this->vec_coarse;
+  Assert(vec_coarse_ptr->get_partitioner().get() ==
+           this->partitioner_coarse.get(),
          ExcInternalError());
 
   if (use_src_inplace == false)
     vec_coarse.copy_locally_owned_data_from(src);
 
-  vec_coarse_ptr->update_ghost_values();
-  // src.update_ghost_values();
-
-  // distribute constraints_coarse vec_coarse provided by user in reinit()
-  internal_constraint_coarse.distribute(vec_coarse);
-  */
-
-  vec_coarse.copy_locally_owned_data_from(src);
-  vec_coarse.update_ghost_values();
-  // internal_constraint_coarse.distribute(vec_coarse);
-  // vec_coarse.update_ghost_values(); // to make sure that ghost values are set
+  this->update_ghost_values(*vec_coarse_ptr);
 
   std::vector<Number> evaluation_point_results;
   std::vector<Number> buffer;
@@ -3637,7 +3627,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
         internal::VectorReader<Number, VectorizedArrayType> reader;
         constraint_info.read_write_operation(
           reader,
-          vec_coarse,
+          *vec_coarse_ptr,
           reinterpret_cast<VectorizedArrayType *>(solution_values.data()),
           i,
           1,
@@ -3687,7 +3677,8 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     dst.local_element(point_to_local_vector_indices[j]) +=
       evaluation_point_results[j];
 
-  vec_coarse.zero_out_ghost_values(); // src.zero_out_ghost_values();
+  if (use_src_inplace)
+    this->zero_out_ghost_values(*vec_coarse_ptr);
 }
 
 
@@ -3698,8 +3689,20 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   restrict_and_add(LinearAlgebra::distributed::Vector<Number> &      dst,
                    const LinearAlgebra::distributed::Vector<Number> &src) const
 {
-  // TODO: make copy of destination vector if partitioners so not match
-  this->vec_coarse = 0.0;
+  // make copy of destination vector if partitioners do not match
+  const bool use_dst_inplace = this->vec_coarse.size() == 0;
+  const auto vec_coarse_ptr  = use_dst_inplace ? &dst : &this->vec_coarse;
+  Assert(vec_coarse_ptr->get_partitioner().get() ==
+           this->partitioner_coarse.get(),
+         ExcInternalError());
+
+  if (use_dst_inplace == false)
+    *vec_coarse_ptr = 0.0;
+
+  this->zero_out_ghost_values(
+    *vec_coarse_ptr); // since we might add into the
+                      // ghost values and call compress
+
 
   std::vector<Number> evaluation_point_results;
 
@@ -3751,7 +3754,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
           writer;
         constraint_info.read_write_operation(
           writer,
-          vec_coarse,
+          *vec_coarse_ptr,
           reinterpret_cast<VectorizedArrayType *>(solution_values.data()),
           i,
           1,
@@ -3764,9 +3767,13 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
                                             buffer,
                                             evaluation_function);
 
-  this->vec_coarse.compress(VectorOperation::add);
-  dst += this->vec_coarse;
+  this->compress(*vec_coarse_ptr, VectorOperation::add);
+
+  if (use_dst_inplace == false)
+    dst += this->vec_coarse;
 }
+
+
 
 template <int dim, typename Number>
 void
@@ -3779,6 +3786,8 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   (void)src;
 }
 
+
+
 template <int dim, typename Number>
 void
 MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
@@ -3788,9 +3797,71 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     const std::shared_ptr<const Utilities::MPI::Partitioner>
       &external_partitioner_fine)
 {
-  this->partitioner_coarse = external_partitioner_coarse;
-  // this->partitioner_fine   = external_partitioner_fine;
-  // (void)partitioner_coarse;
+  // TODO after dinner: do this once in base class
+  const auto is_partitioner_contained =
+    [](const auto &partitioner, const auto &external_partitioner) -> bool {
+    // no external partitioner has been given
+    if (external_partitioner.get() == nullptr)
+      return false;
+
+    // check if locally owned ranges are the same
+    if (external_partitioner->size() != partitioner->size())
+      return false;
+
+    if (external_partitioner->locally_owned_range() !=
+        partitioner->locally_owned_range())
+      return false;
+
+    const int ghosts_locally_contained =
+      ((external_partitioner->ghost_indices() & partitioner->ghost_indices()) ==
+       partitioner->ghost_indices()) ?
+        1 :
+        0;
+
+    // check if ghost values are contained in external partititioner
+    return Utilities::MPI::min(ghosts_locally_contained,
+                               partitioner->get_mpi_communicator()) == 1;
+  };
+
+  const auto create_embedded_partitioner = [&](const auto &partitioner,
+                                               const auto &larger_partitioner) {
+    auto embedded_partitioner = std::make_shared<Utilities::MPI::Partitioner>(
+      larger_partitioner->locally_owned_range(),
+      larger_partitioner->get_mpi_communicator());
+
+    embedded_partitioner->set_ghost_indices(
+      partitioner->ghost_indices(), larger_partitioner->ghost_indices());
+
+    return embedded_partitioner;
+  };
+
+  if (this->partitioner_coarse->is_globally_compatible(
+        *external_partitioner_coarse))
+    {
+      this->vec_coarse.reinit(0);
+      this->partitioner_coarse = external_partitioner_coarse;
+    }
+  else if (is_partitioner_contained(this->partitioner_coarse,
+                                    external_partitioner_coarse))
+    {
+      this->vec_coarse.reinit(0);
+
+      for (auto &i : constraint_info.dof_indices)
+        i = external_partitioner_coarse->global_to_local(
+          this->partitioner_coarse->local_to_global(i));
+
+      for (auto &i : constraint_info.plain_dof_indices)
+        i = external_partitioner_coarse->global_to_local(
+          this->partitioner_coarse->local_to_global(i));
+
+      this->partitioner_coarse_embedded =
+        create_embedded_partitioner(this->partitioner_coarse,
+                                    external_partitioner_coarse);
+
+      this->partitioner_coarse = external_partitioner_coarse;
+    }
+
+
   (void)
     external_partitioner_fine; // fine one can be ignored, since only locally
   // owned values are touched
