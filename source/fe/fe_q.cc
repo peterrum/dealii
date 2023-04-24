@@ -23,6 +23,7 @@
 #include <deal.II/fe/fe_simplex_p.h>
 #include <deal.II/fe/fe_simplex_p_bubbles.h>
 #include <deal.II/fe/fe_wedge_p.h>
+#include <deal.II/fe/fe_hermite.h>
 
 #include <deal.II/lac/vector.h>
 
@@ -250,6 +251,21 @@ FE_Q<dim, spacedim>::compare_for_domination(
         // in a context where we don't require any continuity along the
         // interface
         return FiniteElementDomination::no_requirements;
+    }
+  else if (const FE_Hermite<dim, spacedim> *fe_hermite_other =
+             dynamic_cast<const FE_Hermite<dim, spacedim> *>(&fe_other))
+    {
+      if (this->degree == 1)
+      {
+        if (fe_hermite_other->degree > 1)
+          return FiniteElementDomination::this_element_dominates;
+        else
+          return FiniteElementDomination::either_element_can_dominate;
+      }
+      else if (this->degree >= fe_hermite_other->degree)
+        return FiniteElementDomination::other_element_dominates;
+      else
+        return FiniteElementDomination::neither_element_dominates;
     }
 
   Assert(false, ExcNotImplemented());

@@ -120,6 +120,36 @@ public:
   clone() const override;
 
   /**
+   * @copydoc dealii::FiniteElement::hp_vertex_dof_identities() 
+   */
+virtual std::vector<std::pair<unsigned int, unsigned int>>
+hp_vertex_dof_identities(
+  const FiniteElement<dim, spacedim> &fe_other) const override;
+
+  /**
+   * @copydoc dealii::FiniteElement::hp_line_dof_identities() 
+   */
+virtual std::vector<std::pair<unsigned int, unsigned int>>
+hp_line_dof_identities(
+  const FiniteElement<dim, spacedim> &fe_other) const override;
+
+  /**
+   * @copydoc dealii::FiniteElement::hp_quad_dof_identities() 
+   */
+virtual std::vector<std::pair<unsigned int, unsigned int>>
+hp_quad_dof_identities(
+  const FiniteElement<dim, spacedim> &fe_other,
+  const unsigned int                  face_no = 0) const override;
+  
+  /**
+    * @copydoc FiniteElement::compare_for_domination()
+    */
+  virtual FiniteElementDomination::Domination
+  compare_for_domination(
+    const FiniteElement<dim, spacedim>& other_fe,
+    const unsigned int                  codim) const override;
+
+  /**
    * Returns the mapping between lexicographic and hierarchic numbering
    * schemes for Hermite. See the class documentation for diagrams of
    * examples of lexicographic numbering for Hermite elements.
@@ -178,8 +208,6 @@ public:
     dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,
                                                                        spacedim>
       &output_data) const override;
-
-
 
 protected:
   /**

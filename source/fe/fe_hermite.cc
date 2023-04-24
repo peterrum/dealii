@@ -21,6 +21,13 @@
 #include <deal.II/dofs/dof_tools.h>
 
 #include <deal.II/fe/fe_face.h>
+#include <deal.II/fe/fe_dgq.h>
+#include <deal.II/fe/fe_nothing.h>
+#include <deal.II/fe/fe_pyramid_p.h>
+#include <deal.II/fe/fe_q.h>
+#include <deal.II/fe/fe_simplex_p.h>
+#include <deal.II/fe/fe_simplex_p_bubbles.h>
+#include <deal.II/fe/fe_wedge_p.h>
 #include <deal.II/fe/fe_hermite.h>
 #include <deal.II/fe/fe_tools.h>
 #include <deal.II/fe/fe_values.h>
@@ -560,6 +567,248 @@ FE_Hermite<dim, spacedim>::clone() const
 
 
 
+/**
+ * A large part of the following function is copied from FE_Q_Base, the main 
+ * difference is that some additional constraints are needed between two
+ * Hermite finite elements 
+ */
+template <int dim, int spacedim>
+std::vector<std::pair<unsigned int, unsigned int>>
+FE_Hermite<dim, spacedim>::hp_vertex_dof_identities(
+  const FiniteElement<dim, spacedim> &fe_other) const
+{
+  /*if (const FE_Hermite<dim, spacedim> *fe_herm_other = 
+        dynamic_cast<FE_Hermite<dim, spacedim> *>(&fe_other))
+    {
+      // In this case there will be several DoFs that need to be matched between
+      // the elements to ensure continuity. The number of DoFs to be matched is
+      // dependent on the polynomial degree of the lower order element, and dim
+      //
+      // Note: is this using hierarchical or lexicographic numbering at the vertices?
+      if (this->degree < fe_herm_other->degree)
+        {
+          std::vector<std::pair<unsigned int, unsigned int>> dof_matches;
+          dof_matches.reserve(this->n_dofs_per_vertex());
+
+
+        }
+      else
+        {
+
+        }
+    }
+  else */if (dynamic_cast<const FE_Q_Base<dim, spacedim> *>(&fe_other) != nullptr)
+    {
+      // there should be exactly one single DoF of FE_Q_Base at a vertex, and it
+      // should have an identical value to the first Hermite DoF
+      return {{0U, 0U}};
+    }
+  else if (dynamic_cast<const FE_SimplexP<dim, spacedim> *>(&fe_other) !=
+           nullptr)
+    {
+      // there should be exactly one single DoF of FE_Q_Base at a vertex, and it
+      // should have an identical value to the first Hermite DoF
+      return {{0U, 0U}};
+    }
+  else if (dynamic_cast<const FE_Nothing<dim> *>(&fe_other) != nullptr)
+    {
+      // the FE_Nothing has no degrees of freedom, so there are no
+      // equivalencies to be recorded
+      return {};
+    }
+  else if (fe_other.n_unique_faces() == 1 && fe_other.n_dofs_per_face(0) == 0)
+    {
+      // if the other element has no elements on faces at all,
+      // then it would be impossible to enforce any kind of
+      // continuity even if we knew exactly what kind of element
+      // we have -- simply because the other element declares
+      // that it is discontinuous because it has no DoFs on
+      // its faces. in that case, just state that we have no
+      // constraints to declare
+      return {};
+    }
+  else
+    {
+      Assert(false, ExcNotImplemented());
+      return {};
+    }
+}
+
+
+
+template <int dim, int spacedim>
+std::vector<std::pair<unsigned int, unsigned int>>
+FE_Hermite<dim, spacedim>::hp_line_dof_identities(
+  const FiniteElement<dim, spacedim> &fe_other) const
+{
+  if (dynamic_cast<const FE_Nothing<dim> *>(&fe_other) != nullptr)
+    {
+      // the FE_Nothing has no degrees of freedom, so there are no
+      // equivalencies to be recorded
+      return {};
+    }
+  else if (fe_other.n_unique_faces() == 1 && fe_other.n_dofs_per_face(0) == 0)
+    {
+      // if the other element has no elements on faces at all,
+      // then it would be impossible to enforce any kind of
+      // continuity even if we knew exactly what kind of element
+      // we have -- simply because the other element declares
+      // that it is discontinuous because it has no DoFs on
+      // its faces. in that case, just state that we have no
+      // constraints to declare
+      return {};
+    }
+  else
+    {
+      Assert(false, ExcNotImplemented());
+      return {};
+    }
+}
+
+
+
+template <int dim, int spacedim>
+std::vector<std::pair<unsigned int, unsigned int>>
+FE_Hermite<dim, spacedim>::hp_quad_dof_identities(
+  const FiniteElement<dim, spacedim> &fe_other,
+  const unsigned int                  face_no) const
+{
+  if (dynamic_cast<const FE_Nothing<dim> *>(&fe_other) != nullptr)
+    {
+      // the FE_Nothing has no degrees of freedom, so there are no
+      // equivalencies to be recorded
+      return {};
+    }
+  else if (fe_other.n_unique_faces() == 1 && fe_other.n_dofs_per_face(0) == 0)
+    {
+      // if the other element has no elements on faces at all,
+      // then it would be impossible to enforce any kind of
+      // continuity even if we knew exactly what kind of element
+      // we have -- simply because the other element declares
+      // that it is discontinuous because it has no DoFs on
+      // its faces. in that case, just state that we have no
+      // constraints to declare
+      return {};
+    }
+  else
+    {
+      Assert(false, ExcNotImplemented());
+      return {};
+    }
+}
+
+
+
+/*
+* The layout of this function is largely copied directly from FE_Q,
+* however FE_Hermite can behave significantly differently in terms
+* of domination due to how the function space is defined */
+template <int dim, int spacedim>
+FiniteElementDomination::Domination
+FE_Hermite<dim, spacedim>::compare_for_domination(
+  const FiniteElement<dim, spacedim>& fe_other,
+  const unsigned int                  codim) const
+  {
+    Assert(codim <= dim, ExcImpossibleInDim(dim));
+
+    if (codim > 0)
+      if (dynamic_cast<const FE_DGQ<dim, spacedim> *>(&fe_other) != nullptr)
+        // there are no requirements between continuous and discontinuous elements
+        return FiniteElementDomination::no_requirements;
+
+     
+  // vertex/line/face domination
+  // (if fe_other is not derived from FE_DGQ)
+  // & cell domination
+  // ----------------------------------------
+  if (const FE_Hermite<dim, spacedim> *fe_hermite_other =
+        dynamic_cast<const FE_Hermite<dim, spacedim> *>(&fe_other))
+    {
+      if (this->degree < fe_hermite_other->degree)
+        return FiniteElementDomination::this_element_dominates;
+      else if (this->degree == fe_hermite_other->degree)
+        return FiniteElementDomination::either_element_can_dominate;
+      else
+        return FiniteElementDomination::other_element_dominates;
+    }
+  if (const FE_Q<dim, spacedim> *fe_q_other =
+        dynamic_cast<const FE_Q<dim, spacedim> *>(&fe_other))
+    {
+      if (fe_q_other->degree == 1)
+      {
+        if (this->degree == 1)
+          return FiniteElementDomination::either_element_can_dominate;
+        else
+          return FiniteElementDomination::other_element_dominates;
+      }
+      else if (this->degree <= fe_q_other->degree)
+        return FiniteElementDomination::this_element_dominates;
+      else
+        return FiniteElementDomination::neither_element_dominates;
+    }
+  else if (const FE_SimplexP<dim, spacedim> *fe_p_other =
+             dynamic_cast<const FE_SimplexP<dim, spacedim> *>(&fe_other))
+    {
+      if (fe_p_other->degree == 1)
+      {
+        if (this->degree == 1)
+          return FiniteElementDomination::either_element_can_dominate;
+        else
+          return FiniteElementDomination::other_element_dominates;
+      }
+      else if (this->degree <= fe_p_other->degree)
+        return FiniteElementDomination::this_element_dominates;
+      else
+        return FiniteElementDomination::neither_element_dominates;
+    }
+  else if (const FE_WedgeP<dim, spacedim> *fe_wp_other =
+             dynamic_cast<const FE_WedgeP<dim, spacedim> *>(&fe_other))
+    {
+      if (fe_wp_other->degree == 1)
+      {
+        if (this->degree == 1)
+          return FiniteElementDomination::either_element_can_dominate;
+        else
+          return FiniteElementDomination::other_element_dominates;
+      }
+      else if (this->degree <= fe_wp_other->degree)
+        return FiniteElementDomination::this_element_dominates;
+      else
+        return FiniteElementDomination::neither_element_dominates;
+    }
+  else if (const FE_PyramidP<dim, spacedim> *fe_pp_other =
+             dynamic_cast<const FE_PyramidP<dim, spacedim> *>(&fe_other))
+    {
+      if (fe_pp_other->degree == 1)
+      {
+        if (this->degree == 1)
+          return FiniteElementDomination::either_element_can_dominate;
+        else
+          return FiniteElementDomination::other_element_dominates;
+      }
+      else if (this->degree <= fe_pp_other->degree)
+        return FiniteElementDomination::this_element_dominates;
+      else
+        return FiniteElementDomination::neither_element_dominates;
+    }
+  else if (const FE_Nothing<dim, spacedim> *fe_nothing =
+             dynamic_cast<const FE_Nothing<dim, spacedim> *>(&fe_other))
+    {
+      if (fe_nothing->is_dominating())
+        return FiniteElementDomination::other_element_dominates;
+      else
+        // the FE_Nothing has no degrees of freedom and it is typically used
+        // in a context where we don't require any continuity along the
+        // interface
+        return FiniteElementDomination::no_requirements;
+    }
+ 
+  Assert(false, ExcNotImplemented());
+  return FiniteElementDomination::neither_element_dominates;
+  }
+
+
+
 template <int dim, int spacedim>
 std::vector<unsigned int>
 FE_Hermite<dim, spacedim>::get_lexicographic_to_hierarchic_numbering() const
@@ -597,11 +846,12 @@ FE_Hermite<dim, spacedim>::fill_fe_values(
       fe_internal);
 
   Assert(
-    (dynamic_cast<const typename MappingHermite<dim, spacedim>::InternalData *>(
+    ((dynamic_cast<const typename MappingHermite<dim, spacedim>::InternalData *>(
        &mapping_internal) != nullptr) ||
       (dynamic_cast<const typename MappingCartesian<dim>::InternalData *>(
-         &mapping_internal) != nullptr),
+         &mapping_internal) != nullptr)), 
     ExcInternalError());
+    
 
   const UpdateFlags flags(fe_data.update_each);
 
