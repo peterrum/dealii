@@ -790,15 +790,6 @@ public:
       &initialize_dof_vector = {});
 
   /**
-   * Constructor taking MGTwoLevelTransfer.
-   */
-  template <typename T>
-  MGTransferGlobalCoarsening(
-    const MGLevelObject<std::shared_ptr<T>> &transfer,
-    const std::function<void(const unsigned int, VectorType &)>
-      &initialize_dof_vector = {});
-
-  /**
    * Similar function to MGTransferMatrixFree::build() with the difference that
    * the information for the prolongation for each level has already been built.
    * So this function only tries to optimize the data structures of the
@@ -987,30 +978,11 @@ MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
   this->transfer.resize(min_level, max_level);
 
   for (unsigned int l = min_level; l <= max_level; ++l)
-    {
-      this->transfer[l] = std::shared_ptr<MGTwoLevelTransferBase<VectorType>>(
-        const_cast<T *>(&transfer[l]), [](auto *) {});
-    }
-
-  this->build(initialize_dof_vector);
-}
-
-
-
-template <int dim, typename VectorType>
-template <typename T>
-MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
-  const MGLevelObject<std::shared_ptr<T>> &transfer,
-  const std::function<void(const unsigned int, VectorType &)>
-    &initialize_dof_vector)
-{
-  const unsigned int min_level = transfer.min_level();
-  const unsigned int max_level = transfer.max_level();
-
-  this->transfer.resize(min_level, max_level);
-
-  for (unsigned int l = min_level; l <= max_level; ++l)
-    this->transfer[l] = transfer[l];
+    this->transfer[l] = std::shared_ptr<MGTwoLevelTransferBase<VectorType>>(
+      &const_cast<MGTwoLevelTransferBase<VectorType> &>(
+        static_cast<const MGTwoLevelTransferBase<VectorType> &>(
+          Utilities::get_underlying_value(transfer[l]))),
+      [](auto *) {});
 
   this->build(initialize_dof_vector);
 }
