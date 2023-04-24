@@ -566,6 +566,17 @@ FE_Hermite<dim, spacedim>::clone() const
 }
 
 
+template <int dim, int spacedim>
+UpdateFlags
+FE_Hermite<dim, spacedim>::requires_update_flags(const UpdateFlags flags) const
+{
+  UpdateFlags out = FE_Poly<dim, spacedim>::requires_update_flags(flags);
+  if (flags&(update_values|update_gradients|update_hessians|update_3rd_derivatives))
+    out |= update_JxW_values; // TODO: trigger that InternalData is created
+  return out;
+}
+
+
 
 /**
  * A large part of the following function is copied from FE_Q_Base, the main 

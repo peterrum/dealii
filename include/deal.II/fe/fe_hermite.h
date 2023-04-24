@@ -119,6 +119,9 @@ public:
   virtual std::unique_ptr<FiniteElement<dim, spacedim>>
   clone() const override;
 
+  virtual UpdateFlags
+  requires_update_flags(const UpdateFlags update_flags) const override;
+
   /**
    * @copydoc dealii::FiniteElement::hp_vertex_dof_identities() 
    */
