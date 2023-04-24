@@ -244,6 +244,54 @@ public:
    */
   virtual std::size_t
   memory_consumption() const = 0;
+
+protected:
+  void
+  update_ghost_values(
+    const LinearAlgebra::distributed::Vector<Number> &vec) const;
+
+  void
+  compress(LinearAlgebra::distributed::Vector<Number> &vec,
+           const VectorOperation::values               op) const;
+
+  void
+  zero_out_ghost_values(
+    const LinearAlgebra::distributed::Vector<Number> &vec) const;
+
+  /**
+   * Partitioner needed by the intermediate vector.
+   */
+  std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_coarse;
+
+  /**
+   * Partitioner needed by the intermediate vector.
+   */
+  std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_fine;
+
+  /**
+   * Embedded partitioner for efficient communication if locally relevant DoFs
+   * are a subset of an external Partitioner object.
+   */
+  std::shared_ptr<const Utilities::MPI::Partitioner>
+    partitioner_coarse_embedded;
+
+  /**
+   * Embedded partitioner for efficient communication if locally relevant DoFs
+   * are a subset of an external Partitioner object.
+   */
+  std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_fine_embedded;
+
+  /**
+   * Buffer for efficient communication if locally relevant DoFs
+   * are a subset of an external Partitioner object.
+   */
+  mutable AlignedVector<Number> buffer_coarse_embedded;
+
+  /**
+   * Buffer for efficient communication if locally relevant DoFs
+   * are a subset of an external Partitioner object.
+   */
+  mutable AlignedVector<Number> buffer_fine_embedded;
 };
 
 
@@ -428,17 +476,6 @@ public:
   memory_consumption() const override;
 
 private:
-  void
-  update_ghost_values(const LinearAlgebra::distributed::Vector<Number> &) const;
-
-  void
-  compress(LinearAlgebra::distributed::Vector<Number> &,
-           const VectorOperation::values) const;
-
-  void
-  zero_out_ghost_values(
-    const LinearAlgebra::distributed::Vector<Number> &) const;
-
   /**
    * A multigrid transfer scheme. A multrigrid transfer class can have different
    * transfer schemes to enable p-adaptivity (one transfer scheme per
@@ -521,40 +558,6 @@ private:
    */
   bool fine_element_is_continuous;
 
-  /**
-   * Partitioner needed by the intermediate vector.
-   */
-  std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_fine;
-
-  /**
-   * Embedded partitioner for efficient communication if locally relevant DoFs
-   * are a subset of an external Partitioner object.
-   */
-  std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_fine_embedded;
-
-  /**
-   * Buffer for efficient communication if locally relevant DoFs
-   * are a subset of an external Partitioner object.
-   */
-  mutable AlignedVector<Number> buffer_fine_embedded;
-
-  /**
-   * Partitioner needed by the intermediate vector.
-   */
-  std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_coarse;
-
-  /**
-   * Embedded partitioner for efficient communication if locally relevant DoFs
-   * are a subset of an external Partitioner object.
-   */
-  std::shared_ptr<const Utilities::MPI::Partitioner>
-    partitioner_coarse_embedded;
-
-  /**
-   * Buffer for efficient communication if locally relevant DoFs
-   * are a subset of an external Partitioner object.
-   */
-  mutable AlignedVector<Number> buffer_coarse_embedded;
 
   /**
    * Internal vector needed for collecting all degrees of freedom of the fine
@@ -730,8 +733,6 @@ private:
   Utilities::MPI::RemotePointEvaluation<dim> rpe;
 
   std::shared_ptr<NonMatching::MappingInfo<dim, dim>> mapping_info;
-
-  std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_coarse;
 
   SmartPointer<const DoFHandler<dim>> internal_dof_handler_coarse;
 

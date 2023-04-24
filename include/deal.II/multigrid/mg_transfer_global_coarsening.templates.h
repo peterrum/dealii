@@ -2631,18 +2631,19 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   const bool use_dst_inplace = this->vec_fine.size() == 0;
   const auto vec_fine_ptr    = use_dst_inplace ? &dst : &this->vec_fine;
-  Assert(vec_fine_ptr->get_partitioner().get() == partitioner_fine.get(),
+  Assert(vec_fine_ptr->get_partitioner().get() == this->partitioner_fine.get(),
          ExcInternalError());
 
   const bool use_src_inplace = this->vec_coarse.size() == 0;
   const auto vec_coarse_ptr  = use_src_inplace ? &src : &this->vec_coarse;
-  Assert(vec_coarse_ptr->get_partitioner().get() == partitioner_coarse.get(),
+  Assert(vec_coarse_ptr->get_partitioner().get() ==
+           this->partitioner_coarse.get(),
          ExcInternalError());
 
   if (use_src_inplace == false)
     vec_coarse.copy_locally_owned_data_from(src);
 
-  update_ghost_values(*vec_coarse_ptr);
+  this->update_ghost_values(*vec_coarse_ptr);
 
   if (fine_element_is_continuous && (use_dst_inplace == false))
     *vec_fine_ptr = Number(0.);
@@ -2756,13 +2757,13 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
     }
 
   if (fine_element_is_continuous || use_dst_inplace == false)
-    compress(*vec_fine_ptr, VectorOperation::add);
+    this->compress(*vec_fine_ptr, VectorOperation::add);
 
   if (use_dst_inplace == false)
     dst += this->vec_fine;
 
   if (use_src_inplace)
-    zero_out_ghost_values(*vec_coarse_ptr);
+    this->zero_out_ghost_values(*vec_coarse_ptr);
 }
 
 
@@ -2779,25 +2780,27 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   const bool use_src_inplace = this->vec_fine.size() == 0;
   const auto vec_fine_ptr    = use_src_inplace ? &src : &this->vec_fine;
-  Assert(vec_fine_ptr->get_partitioner().get() == partitioner_fine.get(),
+  Assert(vec_fine_ptr->get_partitioner().get() == this->partitioner_fine.get(),
          ExcInternalError());
 
   const bool use_dst_inplace = this->vec_coarse.size() == 0;
   const auto vec_coarse_ptr  = use_dst_inplace ? &dst : &this->vec_coarse;
-  Assert(vec_coarse_ptr->get_partitioner().get() == partitioner_coarse.get(),
+  Assert(vec_coarse_ptr->get_partitioner().get() ==
+           this->partitioner_coarse.get(),
          ExcInternalError());
 
   if (use_src_inplace == false)
     this->vec_fine.copy_locally_owned_data_from(src);
 
   if (fine_element_is_continuous || use_src_inplace == false)
-    update_ghost_values(*vec_fine_ptr);
+    this->update_ghost_values(*vec_fine_ptr);
 
   if (use_dst_inplace == false)
     *vec_coarse_ptr = 0.0;
 
-  zero_out_ghost_values(*vec_coarse_ptr); // since we might add into the
-                                          // ghost values and call compress
+  this->zero_out_ghost_values(
+    *vec_coarse_ptr); // since we might add into the
+                      // ghost values and call compress
 
   AlignedVector<VectorizedArrayType> evaluation_data_fine;
   AlignedVector<VectorizedArrayType> evaluation_data_coarse;
@@ -2911,13 +2914,13 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   // clean up related to update_ghost_values()
   if (fine_element_is_continuous == false && use_src_inplace == false)
-    zero_out_ghost_values(*vec_fine_ptr); // internal vector (DG)
+    this->zero_out_ghost_values(*vec_fine_ptr); // internal vector (DG)
   else if (fine_element_is_continuous && use_src_inplace == false)
     vec_fine_ptr->set_ghost_state(false); // internal vector (CG)
   else if (fine_element_is_continuous)
-    zero_out_ghost_values(*vec_fine_ptr); // external vector
+    this->zero_out_ghost_values(*vec_fine_ptr); // external vector
 
-  compress(*vec_coarse_ptr, VectorOperation::add);
+  this->compress(*vec_coarse_ptr, VectorOperation::add);
 
   if (use_dst_inplace == false)
     dst += this->vec_coarse;
@@ -2937,19 +2940,20 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   const bool use_src_inplace = this->vec_fine.size() == 0;
   const auto vec_fine_ptr    = use_src_inplace ? &src : &this->vec_fine;
-  Assert(vec_fine_ptr->get_partitioner().get() == partitioner_fine.get(),
+  Assert(vec_fine_ptr->get_partitioner().get() == this->partitioner_fine.get(),
          ExcInternalError());
 
   const bool use_dst_inplace = this->vec_coarse.size() == 0;
   const auto vec_coarse_ptr  = use_dst_inplace ? &dst : &this->vec_coarse;
-  Assert(vec_coarse_ptr->get_partitioner().get() == partitioner_coarse.get(),
+  Assert(vec_coarse_ptr->get_partitioner().get() ==
+           this->partitioner_coarse.get(),
          ExcInternalError());
 
   if (use_src_inplace == false)
     this->vec_fine.copy_locally_owned_data_from(src);
 
   if (fine_element_is_continuous || use_src_inplace == false)
-    update_ghost_values(*vec_fine_ptr);
+    this->update_ghost_values(*vec_fine_ptr);
 
   *vec_coarse_ptr = 0.0;
 
@@ -3046,7 +3050,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   if (use_src_inplace == false)
     vec_fine_ptr->set_ghost_state(false); // internal vector
   else if (fine_element_is_continuous)
-    zero_out_ghost_values(*vec_fine_ptr); // external vector
+    this->zero_out_ghost_values(*vec_fine_ptr); // external vector
 
   if (use_dst_inplace == false)
     dst.copy_locally_owned_data_from(this->vec_coarse);
@@ -3318,8 +3322,8 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
       size += scheme.restriction_matrix_1d.memory_consumption();
     }
 
-  size += partitioner_fine->memory_consumption();
-  size += partitioner_coarse->memory_consumption();
+  size += this->partitioner_fine->memory_consumption();
+  size += this->partitioner_coarse->memory_consumption();
   size += vec_fine.memory_consumption();
   size += vec_coarse.memory_consumption();
   size += MemoryConsumption::memory_consumption(weights);
@@ -3331,21 +3335,21 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
 
 
-template <int dim, typename Number>
+template <typename Number>
 void
-MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
+MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>::
   update_ghost_values(
     const LinearAlgebra::distributed::Vector<Number> &vec) const
 {
-  if ((vec.get_partitioner().get() == partitioner_coarse.get()) &&
-      (partitioner_coarse_embedded != nullptr))
-    internal::SimpleVectorDataExchange<Number>(partitioner_coarse_embedded,
-                                               buffer_coarse_embedded)
+  if ((vec.get_partitioner().get() == this->partitioner_coarse.get()) &&
+      (this->partitioner_coarse_embedded != nullptr))
+    internal::SimpleVectorDataExchange<Number>(
+      this->partitioner_coarse_embedded, this->buffer_coarse_embedded)
       .update_ghost_values(vec);
-  else if ((vec.get_partitioner().get() == partitioner_fine.get()) &&
-           (partitioner_fine_embedded != nullptr))
-    internal::SimpleVectorDataExchange<Number>(partitioner_fine_embedded,
-                                               buffer_fine_embedded)
+  else if ((vec.get_partitioner().get() == this->partitioner_fine.get()) &&
+           (this->partitioner_fine_embedded != nullptr))
+    internal::SimpleVectorDataExchange<Number>(this->partitioner_fine_embedded,
+                                               this->buffer_fine_embedded)
       .update_ghost_values(vec);
   else
     vec.update_ghost_values();
@@ -3353,23 +3357,23 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
 
 
-template <int dim, typename Number>
+template <typename Number>
 void
-MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::compress(
+MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>::compress(
   LinearAlgebra::distributed::Vector<Number> &vec,
   const VectorOperation::values               op) const
 {
   Assert(op == VectorOperation::add, ExcNotImplemented());
 
-  if ((vec.get_partitioner().get() == partitioner_coarse.get()) &&
-      (partitioner_coarse_embedded != nullptr))
-    internal::SimpleVectorDataExchange<Number>(partitioner_coarse_embedded,
-                                               buffer_coarse_embedded)
+  if ((vec.get_partitioner().get() == this->partitioner_coarse.get()) &&
+      (this->partitioner_coarse_embedded != nullptr))
+    internal::SimpleVectorDataExchange<Number>(
+      this->partitioner_coarse_embedded, this->buffer_coarse_embedded)
       .compress(vec);
-  else if ((vec.get_partitioner().get() == partitioner_fine.get()) &&
-           (partitioner_fine_embedded != nullptr))
-    internal::SimpleVectorDataExchange<Number>(partitioner_fine_embedded,
-                                               buffer_fine_embedded)
+  else if ((vec.get_partitioner().get() == this->partitioner_fine.get()) &&
+           (this->partitioner_fine_embedded != nullptr))
+    internal::SimpleVectorDataExchange<Number>(this->partitioner_fine_embedded,
+                                               this->buffer_fine_embedded)
       .compress(vec);
   else
     vec.compress(op);
@@ -3377,21 +3381,21 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::compress(
 
 
 
-template <int dim, typename Number>
+template <typename Number>
 void
-MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
+MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>::
   zero_out_ghost_values(
     const LinearAlgebra::distributed::Vector<Number> &vec) const
 {
-  if ((vec.get_partitioner().get() == partitioner_coarse.get()) &&
-      (partitioner_coarse_embedded != nullptr))
-    internal::SimpleVectorDataExchange<Number>(partitioner_coarse_embedded,
-                                               buffer_coarse_embedded)
+  if ((vec.get_partitioner().get() == this->partitioner_coarse.get()) &&
+      (this->partitioner_coarse_embedded != nullptr))
+    internal::SimpleVectorDataExchange<Number>(
+      this->partitioner_coarse_embedded, this->buffer_coarse_embedded)
       .zero_out_ghost_values(vec);
-  else if ((vec.get_partitioner().get() == (partitioner_fine.get()) &&
-            partitioner_fine_embedded != nullptr))
-    internal::SimpleVectorDataExchange<Number>(partitioner_fine_embedded,
-                                               buffer_fine_embedded)
+  else if ((vec.get_partitioner().get() == (this->partitioner_fine.get()) &&
+            this->partitioner_fine_embedded != nullptr))
+    internal::SimpleVectorDataExchange<Number>(this->partitioner_fine_embedded,
+                                               this->buffer_fine_embedded)
       .zero_out_ghost_values(vec);
   else
     vec.zero_out_ghost_values();
@@ -3493,12 +3497,12 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     IndexSet locally_relevant_dofs;
     DoFTools::extract_locally_relevant_dofs(dof_handler_coarse,
                                             locally_relevant_dofs);
-    partitioner_coarse.reset(
+    this->partitioner_coarse.reset(
       new Utilities::MPI::Partitioner(dof_handler_coarse.locally_owned_dofs(),
                                       locally_relevant_dofs,
                                       dof_handler_coarse.get_communicator()));
 
-    vec_coarse.reinit(partitioner_coarse);
+    vec_coarse.reinit(this->partitioner_coarse);
   }
 
 
@@ -3573,7 +3577,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
                                        numbers::invalid_unsigned_int,
                                        cell,
                                        constraint_coarse,
-                                       partitioner_coarse);
+                                       this->partitioner_coarse);
     }
 
   constraint_info.finalize();
