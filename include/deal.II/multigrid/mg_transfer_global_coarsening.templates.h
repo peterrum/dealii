@@ -3057,6 +3057,56 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 }
 
 
+namespace internal
+{
+  namespace
+  {
+    bool
+    is_partitioner_contained(
+      const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
+      const std::shared_ptr<const Utilities::MPI::Partitioner>
+        &external_partitioner)
+    {
+      // no external partitioner has been given
+      if (external_partitioner.get() == nullptr)
+        return false;
+
+      // check if locally owned ranges are the same
+      if (external_partitioner->size() != partitioner->size())
+        return false;
+
+      if (external_partitioner->locally_owned_range() !=
+          partitioner->locally_owned_range())
+        return false;
+
+      const int ghosts_locally_contained =
+        ((external_partitioner->ghost_indices() &
+          partitioner->ghost_indices()) == partitioner->ghost_indices()) ?
+          1 :
+          0;
+
+      // check if ghost values are contained in external partititioner
+      return Utilities::MPI::min(ghosts_locally_contained,
+                                 partitioner->get_mpi_communicator()) == 1;
+    }
+
+    std::shared_ptr<Utilities::MPI::Partitioner>
+    create_embedded_partitioner(
+      const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner,
+      const std::shared_ptr<const Utilities::MPI::Partitioner>
+        &larger_partitioner)
+    {
+      auto embedded_partitioner = std::make_shared<Utilities::MPI::Partitioner>(
+        larger_partitioner->locally_owned_range(),
+        larger_partitioner->get_mpi_communicator());
+
+      embedded_partitioner->set_ghost_indices(
+        partitioner->ghost_indices(), larger_partitioner->ghost_indices());
+
+      return embedded_partitioner;
+    }
+  } // namespace
+} // namespace internal
 
 template <int dim, typename Number>
 void
@@ -3067,51 +3117,14 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
     const std::shared_ptr<const Utilities::MPI::Partitioner>
       &external_partitioner_fine)
 {
-  const auto is_partitioner_contained =
-    [](const auto &partitioner, const auto &external_partitioner) -> bool {
-    // no external partitioner has been given
-    if (external_partitioner.get() == nullptr)
-      return false;
-
-    // check if locally owned ranges are the same
-    if (external_partitioner->size() != partitioner->size())
-      return false;
-
-    if (external_partitioner->locally_owned_range() !=
-        partitioner->locally_owned_range())
-      return false;
-
-    const int ghosts_locally_contained =
-      ((external_partitioner->ghost_indices() & partitioner->ghost_indices()) ==
-       partitioner->ghost_indices()) ?
-        1 :
-        0;
-
-    // check if ghost values are contained in external partititioner
-    return Utilities::MPI::min(ghosts_locally_contained,
-                               partitioner->get_mpi_communicator()) == 1;
-  };
-
-  const auto create_embedded_partitioner = [&](const auto &partitioner,
-                                               const auto &larger_partitioner) {
-    auto embedded_partitioner = std::make_shared<Utilities::MPI::Partitioner>(
-      larger_partitioner->locally_owned_range(),
-      larger_partitioner->get_mpi_communicator());
-
-    embedded_partitioner->set_ghost_indices(
-      partitioner->ghost_indices(), larger_partitioner->ghost_indices());
-
-    return embedded_partitioner;
-  };
-
   if (this->partitioner_coarse->is_globally_compatible(
         *external_partitioner_coarse))
     {
       this->vec_coarse.reinit(0);
       this->partitioner_coarse = external_partitioner_coarse;
     }
-  else if (is_partitioner_contained(this->partitioner_coarse,
-                                    external_partitioner_coarse))
+  else if (internal::is_partitioner_contained(this->partitioner_coarse,
+                                              external_partitioner_coarse))
     {
       this->vec_coarse.reinit(0);
 
@@ -3124,8 +3137,8 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           this->partitioner_coarse->local_to_global(i));
 
       this->partitioner_coarse_embedded =
-        create_embedded_partitioner(this->partitioner_coarse,
-                                    external_partitioner_coarse);
+        internal::create_embedded_partitioner(this->partitioner_coarse,
+                                              external_partitioner_coarse);
 
       this->partitioner_coarse = external_partitioner_coarse;
     }
@@ -3136,8 +3149,8 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
       this->vec_fine.reinit(0);
       this->partitioner_fine = external_partitioner_fine;
     }
-  else if (is_partitioner_contained(this->partitioner_fine,
-                                    external_partitioner_fine))
+  else if (internal::is_partitioner_contained(this->partitioner_fine,
+                                              external_partitioner_fine))
     {
       this->vec_fine.reinit(0);
 
@@ -3146,8 +3159,8 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           this->partitioner_fine->local_to_global(i));
 
       this->partitioner_fine_embedded =
-        create_embedded_partitioner(this->partitioner_fine,
-                                    external_partitioner_fine);
+        internal::create_embedded_partitioner(this->partitioner_fine,
+                                              external_partitioner_fine);
 
       this->partitioner_fine = external_partitioner_fine;
     }
@@ -3797,43 +3810,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     const std::shared_ptr<const Utilities::MPI::Partitioner>
       &external_partitioner_fine)
 {
-  // TODO after dinner: do this once in base class
-  const auto is_partitioner_contained =
-    [](const auto &partitioner, const auto &external_partitioner) -> bool {
-    // no external partitioner has been given
-    if (external_partitioner.get() == nullptr)
-      return false;
-
-    // check if locally owned ranges are the same
-    if (external_partitioner->size() != partitioner->size())
-      return false;
-
-    if (external_partitioner->locally_owned_range() !=
-        partitioner->locally_owned_range())
-      return false;
-
-    const int ghosts_locally_contained =
-      ((external_partitioner->ghost_indices() & partitioner->ghost_indices()) ==
-       partitioner->ghost_indices()) ?
-        1 :
-        0;
-
-    // check if ghost values are contained in external partititioner
-    return Utilities::MPI::min(ghosts_locally_contained,
-                               partitioner->get_mpi_communicator()) == 1;
-  };
-
-  const auto create_embedded_partitioner = [&](const auto &partitioner,
-                                               const auto &larger_partitioner) {
-    auto embedded_partitioner = std::make_shared<Utilities::MPI::Partitioner>(
-      larger_partitioner->locally_owned_range(),
-      larger_partitioner->get_mpi_communicator());
-
-    embedded_partitioner->set_ghost_indices(
-      partitioner->ghost_indices(), larger_partitioner->ghost_indices());
-
-    return embedded_partitioner;
-  };
+  // TODO: do this once in base class
 
   if (this->partitioner_coarse->is_globally_compatible(
         *external_partitioner_coarse))
@@ -3841,8 +3818,8 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
       this->vec_coarse.reinit(0);
       this->partitioner_coarse = external_partitioner_coarse;
     }
-  else if (is_partitioner_contained(this->partitioner_coarse,
-                                    external_partitioner_coarse))
+  else if (internal::is_partitioner_contained(this->partitioner_coarse,
+                                              external_partitioner_coarse))
     {
       this->vec_coarse.reinit(0);
 
@@ -3855,12 +3832,11 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
           this->partitioner_coarse->local_to_global(i));
 
       this->partitioner_coarse_embedded =
-        create_embedded_partitioner(this->partitioner_coarse,
-                                    external_partitioner_coarse);
+        internal::create_embedded_partitioner(this->partitioner_coarse,
+                                              external_partitioner_coarse);
 
       this->partitioner_coarse = external_partitioner_coarse;
     }
-
 
   (void)
     external_partitioner_fine; // fine one can be ignored, since only locally
