@@ -157,7 +157,7 @@ namespace MGTransferGlobalCoarseningTools
 
 
 template <typename VectorType>
-class MGTwoLevelTransferBase
+class MGTwoLevelTransferBase : public Subscriptor
 {
 public:
   /**
@@ -203,6 +203,7 @@ public:
 
 template <typename Number>
 class MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>
+  : public Subscriptor
 {
 public:
   using VectorType = LinearAlgebra::distributed::Vector<Number>;
@@ -916,7 +917,7 @@ private:
   /**
    * Collection of the two-level transfer operators.
    */
-  MGLevelObject<std::shared_ptr<MGTwoLevelTransferBase<VectorType>>> transfer;
+  MGLevelObject<SmartPointer<MGTwoLevelTransferBase<VectorType>>> transfer;
 
   /**
    * External partitioners used during initialize_dof_vector().
@@ -978,11 +979,9 @@ MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
   this->transfer.resize(min_level, max_level);
 
   for (unsigned int l = min_level; l <= max_level; ++l)
-    this->transfer[l] = std::shared_ptr<MGTwoLevelTransferBase<VectorType>>(
-      &const_cast<MGTwoLevelTransferBase<VectorType> &>(
-        static_cast<const MGTwoLevelTransferBase<VectorType> &>(
-          Utilities::get_underlying_value(transfer[l]))),
-      [](auto *) {});
+    this->transfer[l] = &const_cast<MGTwoLevelTransferBase<VectorType> &>(
+      static_cast<const MGTwoLevelTransferBase<VectorType> &>(
+        Utilities::get_underlying_value(transfer[l])));
 
   this->build(initialize_dof_vector);
 }
