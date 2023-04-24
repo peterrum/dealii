@@ -844,13 +844,6 @@ FE_Hermite<dim, spacedim>::fill_fe_values(
   const typename FE_Hermite<dim, spacedim>::InternalData &fe_data =
     static_cast<const typename FE_Hermite<dim, spacedim>::InternalData &>(
       fe_internal);
-
-  Assert(
-    ((dynamic_cast<const typename MappingHermite<dim, spacedim>::InternalData *>(
-       &mapping_internal) != nullptr) ||
-      (dynamic_cast<const typename MappingCartesian<dim>::InternalData *>(
-         &mapping_internal) != nullptr)), 
-    ExcInternalError());
     
 
   const UpdateFlags flags(fe_data.update_each);
