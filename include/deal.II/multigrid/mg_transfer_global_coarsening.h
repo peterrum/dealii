@@ -260,6 +260,18 @@ protected:
     const LinearAlgebra::distributed::Vector<Number> &vec) const;
 
   /**
+   * Enable inplace vector operations if external and internal vectors
+   * are compatible.
+   */
+  template <typename ConstraintInfo>
+  void
+  internal_enable_inplace_operations_if_possible(
+    const std::shared_ptr<const Utilities::MPI::Partitioner>
+      &partitioner_coarse,
+    const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner_fine,
+    ConstraintInfo &                                          constraint_info);
+
+  /**
    * Partitioner needed by the intermediate vector.
    */
   std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_coarse;
@@ -307,6 +319,12 @@ protected:
    * are a subset of an external Partitioner object.
    */
   mutable AlignedVector<Number> buffer_fine_embedded;
+
+  /**
+   * DoF indices of the fine cells, expressed in indices local to the MPI
+   * rank.
+   */
+  std::vector<unsigned int> level_dof_indices_fine;
 };
 
 
@@ -589,12 +607,6 @@ private:
   AlignedVector<VectorizedArray<Number>> weights_compressed;
 
   /**
-   * DoF indices of the fine cells, expressed in indices local to the MPI
-   * rank.
-   */
-  std::vector<unsigned int> level_dof_indices_fine;
-
-  /**
    * Number of components.
    */
   unsigned int n_components;
@@ -632,17 +644,6 @@ public:
    */
   void
   interpolate(VectorType &dst, const VectorType &src) const override;
-
-  /**
-   * Enable inplace vector operations if external and internal vectors
-   * are compatible.
-   */
-  void
-  enable_inplace_operations_if_possible(
-    const std::shared_ptr<const Utilities::MPI::Partitioner>
-      &partitioner_coarse,
-    const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner_fine)
-    override;
 
   /**
    * Return the memory consumption of the allocated memory in this class.

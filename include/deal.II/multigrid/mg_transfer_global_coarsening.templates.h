@@ -2629,8 +2629,8 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   AlignedVector<VectorizedArrayType> evaluation_data_fine;
   AlignedVector<VectorizedArrayType> evaluation_data_coarse;
 
-  const unsigned int *           indices_fine = level_dof_indices_fine.data();
-  const Number *                 weights      = nullptr;
+  const unsigned int *indices_fine = this->level_dof_indices_fine.data();
+  const Number *      weights      = nullptr;
   const VectorizedArray<Number> *weights_compressed = nullptr;
 
   if (fine_element_is_continuous)
@@ -2783,8 +2783,8 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   AlignedVector<VectorizedArrayType> evaluation_data_fine;
   AlignedVector<VectorizedArrayType> evaluation_data_coarse;
 
-  const unsigned int *           indices_fine = level_dof_indices_fine.data();
-  const Number *                 weights      = nullptr;
+  const unsigned int *indices_fine = this->level_dof_indices_fine.data();
+  const Number *      weights      = nullptr;
   const VectorizedArray<Number> *weights_compressed = nullptr;
 
   if (fine_element_is_continuous)
@@ -2938,7 +2938,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   AlignedVector<VectorizedArrayType> evaluation_data_fine;
   AlignedVector<VectorizedArrayType> evaluation_data_coarse;
 
-  const unsigned int *indices_fine = level_dof_indices_fine.data();
+  const unsigned int *indices_fine = this->level_dof_indices_fine.data();
 
   unsigned int cell_counter = 0;
 
@@ -3086,14 +3086,16 @@ namespace internal
   } // namespace
 } // namespace internal
 
-template <int dim, typename Number>
+template <typename Number>
+template <typename ConstraintInfo>
 void
-MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
-  enable_inplace_operations_if_possible(
+MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>::
+  internal_enable_inplace_operations_if_possible(
     const std::shared_ptr<const Utilities::MPI::Partitioner>
       &external_partitioner_coarse,
     const std::shared_ptr<const Utilities::MPI::Partitioner>
-      &external_partitioner_fine)
+      &             external_partitioner_fine,
+    ConstraintInfo &constraint_info)
 {
   if (this->partitioner_coarse->is_globally_compatible(
         *external_partitioner_coarse))
@@ -3132,7 +3134,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
     {
       this->vec_fine.reinit(0);
 
-      for (auto &i : level_dof_indices_fine)
+      for (auto &i : this->level_dof_indices_fine)
         i = external_partitioner_fine->global_to_local(
           this->partitioner_fine->local_to_global(i));
 
@@ -3142,6 +3144,19 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
       this->partitioner_fine = external_partitioner_fine;
     }
+}
+
+template <int dim, typename Number>
+void
+MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
+  enable_inplace_operations_if_possible(
+    const std::shared_ptr<const Utilities::MPI::Partitioner>
+      &external_partitioner_coarse,
+    const std::shared_ptr<const Utilities::MPI::Partitioner>
+      &external_partitioner_fine)
+{
+  this->internal_enable_inplace_operations_if_possible(
+    external_partitioner_coarse, external_partitioner_fine, constraint_info);
 }
 
 
@@ -3318,7 +3333,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   size += this->vec_fine.memory_consumption();
   size += this->vec_coarse.memory_consumption();
   size += MemoryConsumption::memory_consumption(weights);
-  size += MemoryConsumption::memory_consumption(level_dof_indices_fine);
+  size += MemoryConsumption::memory_consumption(this->level_dof_indices_fine);
   size += constraint_info.memory_consumption();
 
   return size;
@@ -3495,6 +3510,17 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
                                       dof_handler_coarse.get_communicator()));
 
     this->vec_coarse.reinit(this->partitioner_coarse);
+  }
+  {
+    IndexSet locally_relevant_dofs;
+    DoFTools::extract_locally_relevant_dofs(dof_handler_fine,
+                                            locally_relevant_dofs);
+    this->partitioner_fine.reset(
+      new Utilities::MPI::Partitioner(dof_handler_fine.locally_owned_dofs(),
+                                      locally_relevant_dofs,
+                                      dof_handler_fine.get_communicator()));
+
+    this->vec_fine.reinit(this->partitioner_fine);
   }
 
 
@@ -3785,36 +3811,11 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     const std::shared_ptr<const Utilities::MPI::Partitioner>
       &external_partitioner_fine)
 {
-  if (this->partitioner_coarse->is_globally_compatible(
-        *external_partitioner_coarse))
-    {
-      this->vec_coarse.reinit(0);
-      this->partitioner_coarse = external_partitioner_coarse;
-    }
-  else if (internal::is_partitioner_contained(this->partitioner_coarse,
-                                              external_partitioner_coarse))
-    {
-      this->vec_coarse.reinit(0);
-
-      for (auto &i : constraint_info.dof_indices)
-        i = external_partitioner_coarse->global_to_local(
-          this->partitioner_coarse->local_to_global(i));
-
-      for (auto &i : constraint_info.plain_dof_indices)
-        i = external_partitioner_coarse->global_to_local(
-          this->partitioner_coarse->local_to_global(i));
-
-      this->partitioner_coarse_embedded =
-        internal::create_embedded_partitioner(this->partitioner_coarse,
-                                              external_partitioner_coarse);
-
-      this->partitioner_coarse = external_partitioner_coarse;
-    }
-
-  (void)
-    external_partitioner_fine; // fine one can be ignored, since only locally
-  // owned values are touched
+  this->internal_enable_inplace_operations_if_possible(
+    external_partitioner_coarse, external_partitioner_fine, constraint_info);
 }
+
+
 
 template <int dim, typename Number>
 std::size_t
