@@ -753,6 +753,10 @@ private:
    */
   std::shared_ptr<NonMatching::MappingInfo<dim, dim>> mapping_info;
 
+  /**
+   * Helper class for reading from and writing to global vectors and for
+   * applying constraints.
+   */
   internal::MatrixFreeFunctions::ConstraintInfo<dim, VectorizedArrayType>
     constraint_info;
 
