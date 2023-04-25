@@ -3501,9 +3501,12 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   AssertThrow(dof_handler_coarse.get_fe().has_support_points(),
               ExcNotImplemented());
-  Assert(dof_handler_fine.n_dofs() >= dof_handler_coarse.n_dofs(),
+  Assert(dof_handler_coarse.get_fe().n_components() > 0 &&
+           dof_handler_fine.get_fe().n_components() > 0,
+         ExcNotImplemented());
+  Assert(dof_handler_fine.n_dofs() > dof_handler_coarse.n_dofs(),
          ExcMessage(
-           "The coarser DoFHandler cannot have more DoFs than the fine one. "));
+           "The coarser DoFHandler has more DoFs than the finer DoFHandler."));
 
   // create partitioners and internal vectors
   {
@@ -3716,7 +3719,6 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     *vec_coarse_ptr); // since we might add into the
                       // ghost values and call compress
 
-
   std::vector<Number> evaluation_point_results;
 
   evaluation_point_results.resize(rpe.get_point_ptrs().size() - 1);
@@ -3810,8 +3812,6 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     const std::shared_ptr<const Utilities::MPI::Partitioner>
       &external_partitioner_fine)
 {
-  // TODO: do this once in base class
-
   if (this->partitioner_coarse->is_globally_compatible(
         *external_partitioner_coarse))
     {
@@ -3848,8 +3848,14 @@ std::size_t
 MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   memory_consumption() const
 {
-  AssertThrow(false, ExcNotImplemented());
-  return 0.;
+  std::size_t size = 0;
+
+  size += this->partitioner_coarse->memory_consumption();
+  size += vec_coarse.memory_consumption();
+  size += MemoryConsumption::memory_consumption(point_to_local_vector_indices);
+  // TODO: add consumption for rpe, mapping_info and constraint_info.
+
+  return size;
 }
 
 
