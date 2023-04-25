@@ -506,6 +506,17 @@ public:
   std::size_t
   memory_consumption() const override;
 
+protected:
+  void
+  prolongate_and_add_internal(
+    LinearAlgebra::distributed::Vector<Number> &      dst,
+    const LinearAlgebra::distributed::Vector<Number> &src) const;
+
+  void
+  restrict_and_add_internal(
+    LinearAlgebra::distributed::Vector<Number> &      dst,
+    const LinearAlgebra::distributed::Vector<Number> &src) const;
+
 private:
   /**
    * A multigrid transfer scheme. A multrigrid transfer class can have different

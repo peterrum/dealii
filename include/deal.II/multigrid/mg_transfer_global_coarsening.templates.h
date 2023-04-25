@@ -2603,10 +2603,6 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
     LinearAlgebra::distributed::Vector<Number> &      dst,
     const LinearAlgebra::distributed::Vector<Number> &src) const
 {
-  using VectorizedArrayType = VectorizedArray<Number>;
-
-  const unsigned int n_lanes = VectorizedArrayType::size();
-
   const bool use_dst_inplace = this->vec_fine.size() == 0;
   const auto vec_fine_ptr    = use_dst_inplace ? &dst : &this->vec_fine;
   Assert(vec_fine_ptr->get_partitioner().get() == this->partitioner_fine.get(),
@@ -2625,6 +2621,31 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   if (fine_element_is_continuous && (use_dst_inplace == false))
     *vec_fine_ptr = Number(0.);
+
+  this->prolongate_and_add_internal(*vec_fine_ptr, *vec_coarse_ptr);
+
+  if (fine_element_is_continuous || use_dst_inplace == false)
+    this->compress(*vec_fine_ptr, VectorOperation::add);
+
+  if (use_dst_inplace == false)
+    dst += this->vec_fine;
+
+  if (use_src_inplace)
+    this->zero_out_ghost_values(*vec_coarse_ptr);
+}
+
+
+
+template <int dim, typename Number>
+void
+MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
+  prolongate_and_add_internal(
+    LinearAlgebra::distributed::Vector<Number> &      dst,
+    const LinearAlgebra::distributed::Vector<Number> &src) const
+{
+  using VectorizedArrayType = VectorizedArray<Number>;
+
+  const unsigned int n_lanes = VectorizedArrayType::size();
 
   AlignedVector<VectorizedArrayType> evaluation_data_fine;
   AlignedVector<VectorizedArrayType> evaluation_data_coarse;
@@ -2671,7 +2692,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           // read from src vector (similar to FEEvaluation::read_dof_values())
           internal::VectorReader<Number, VectorizedArrayType> reader;
           constraint_info.read_write_operation(reader,
-                                               *vec_coarse_ptr,
+                                               src,
                                                evaluation_data_coarse.data(),
                                                cell_counter,
                                                n_lanes_filled,
@@ -2719,11 +2740,11 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
               if (fine_element_is_continuous &&
                   this->weights_compressed.size() == 0)
                 for (unsigned int i = 0; i < scheme.n_dofs_per_cell_fine; ++i)
-                  vec_fine_ptr->local_element(indices_fine[i]) +=
+                  dst.local_element(indices_fine[i]) +=
                     evaluation_data_fine[i][v] * weights[i];
               else
                 for (unsigned int i = 0; i < scheme.n_dofs_per_cell_fine; ++i)
-                  vec_fine_ptr->local_element(indices_fine[i]) +=
+                  dst.local_element(indices_fine[i]) +=
                     evaluation_data_fine[i][v];
 
               indices_fine += scheme.n_dofs_per_cell_fine;
@@ -2733,15 +2754,6 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
             }
         }
     }
-
-  if (fine_element_is_continuous || use_dst_inplace == false)
-    this->compress(*vec_fine_ptr, VectorOperation::add);
-
-  if (use_dst_inplace == false)
-    dst += this->vec_fine;
-
-  if (use_src_inplace)
-    this->zero_out_ghost_values(*vec_coarse_ptr);
 }
 
 
@@ -2752,10 +2764,6 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   restrict_and_add(LinearAlgebra::distributed::Vector<Number> &      dst,
                    const LinearAlgebra::distributed::Vector<Number> &src) const
 {
-  using VectorizedArrayType = VectorizedArray<Number>;
-
-  const unsigned int n_lanes = VectorizedArrayType::size();
-
   const bool use_src_inplace = this->vec_fine.size() == 0;
   const auto vec_fine_ptr    = use_src_inplace ? &src : &this->vec_fine;
   Assert(vec_fine_ptr->get_partitioner().get() == this->partitioner_fine.get(),
@@ -2779,6 +2787,35 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   this->zero_out_ghost_values(
     *vec_coarse_ptr); // since we might add into the
                       // ghost values and call compress
+
+  this->restrict_and_add_internal(*vec_coarse_ptr, *vec_fine_ptr);
+
+  // clean up related to update_ghost_values()
+  if (fine_element_is_continuous == false && use_src_inplace == false)
+    this->zero_out_ghost_values(*vec_fine_ptr); // internal vector (DG)
+  else if (fine_element_is_continuous && use_src_inplace == false)
+    vec_fine_ptr->set_ghost_state(false); // internal vector (CG)
+  else if (fine_element_is_continuous)
+    this->zero_out_ghost_values(*vec_fine_ptr); // external vector
+
+  this->compress(*vec_coarse_ptr, VectorOperation::add);
+
+  if (use_dst_inplace == false)
+    dst += this->vec_coarse;
+}
+
+
+
+template <int dim, typename Number>
+void
+MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
+  restrict_and_add_internal(
+    LinearAlgebra::distributed::Vector<Number> &      dst,
+    const LinearAlgebra::distributed::Vector<Number> &src) const
+{
+  using VectorizedArrayType = VectorizedArray<Number>;
+
+  const unsigned int n_lanes = VectorizedArrayType::size();
 
   AlignedVector<VectorizedArrayType> evaluation_data_fine;
   AlignedVector<VectorizedArrayType> evaluation_data_coarse;
@@ -2829,11 +2866,11 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
                   this->weights_compressed.size() == 0)
                 for (unsigned int i = 0; i < scheme.n_dofs_per_cell_fine; ++i)
                   evaluation_data_fine[i][v] =
-                    vec_fine_ptr->local_element(indices_fine[i]) * weights[i];
+                    src.local_element(indices_fine[i]) * weights[i];
               else
                 for (unsigned int i = 0; i < scheme.n_dofs_per_cell_fine; ++i)
                   evaluation_data_fine[i][v] =
-                    vec_fine_ptr->local_element(indices_fine[i]);
+                    src.local_element(indices_fine[i]);
 
               indices_fine += scheme.n_dofs_per_cell_fine;
 
@@ -2879,7 +2916,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           constraint_info.apply_hanging_node_constraints(
             cell_counter, n_lanes_filled, true, evaluation_data_coarse);
           constraint_info.read_write_operation(writer,
-                                               *vec_coarse_ptr,
+                                               dst,
                                                evaluation_data_coarse.data(),
                                                cell_counter,
                                                n_lanes_filled,
@@ -2889,19 +2926,6 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           cell_counter += n_lanes_filled;
         }
     }
-
-  // clean up related to update_ghost_values()
-  if (fine_element_is_continuous == false && use_src_inplace == false)
-    this->zero_out_ghost_values(*vec_fine_ptr); // internal vector (DG)
-  else if (fine_element_is_continuous && use_src_inplace == false)
-    vec_fine_ptr->set_ghost_state(false); // internal vector (CG)
-  else if (fine_element_is_continuous)
-    this->zero_out_ghost_values(*vec_fine_ptr); // external vector
-
-  this->compress(*vec_coarse_ptr, VectorOperation::add);
-
-  if (use_dst_inplace == false)
-    dst += this->vec_coarse;
 }
 
 
