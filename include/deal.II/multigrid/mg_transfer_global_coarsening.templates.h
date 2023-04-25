@@ -3497,8 +3497,6 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
          const AffineConstraints<Number> &constraint_fine,
          const AffineConstraints<Number> &constraint_coarse)
 {
-  (void)constraint_fine; // TODO: use
-
   AssertThrow(dof_handler_coarse.get_fe().has_support_points(),
               ExcNotImplemented());
   Assert(dof_handler_coarse.get_fe().n_components() > 0 &&
@@ -3545,7 +3543,8 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
       cell->get_dof_indices(dof_indices);
 
       for (unsigned int i = 0; i < dof_indices.size(); ++i)
-        if (local_indices_fine.is_element(dof_indices[i]))
+        if (local_indices_fine.is_element(dof_indices[i]) &&
+            (constraint_fine.is_constrained(dof_indices[i]) == false))
           points_all.emplace_back(local_indices_fine.index_within_set(
                                     dof_indices[i]),
                                   fe_values.quadrature_point(i));

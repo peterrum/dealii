@@ -358,9 +358,6 @@ class MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>
   : public MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>
 {
 public:
-  // MGTwoLevelTransfer&
-  // operator=(const MGTwoLevelTransfer & other) = default;
-
   /**
    * Set up global coarsening between the given DoFHandler objects (
    * @p dof_handler_fine and @p dof_handler_coarse). The transfer
@@ -731,16 +728,30 @@ public:
   memory_consumption() const override;
 
 private:
+  /**
+   * Object to evaluate shape functions on one mesh on visited support points of
+   * the other mesh.
+   */
   Utilities::MPI::RemotePointEvaluation<dim> rpe;
 
+  /**
+   * MappingInfo object needed as Mapping argument by FEPointEvaluation.
+   */
   std::shared_ptr<NonMatching::MappingInfo<dim, dim>> mapping_info;
-
-  SmartPointer<const DoFHandler<dim>> internal_dof_handler_coarse;
-
-  std::vector<types::global_dof_index> point_to_local_vector_indices;
 
   internal::MatrixFreeFunctions::ConstraintInfo<dim, VectorizedArrayType>
     constraint_info;
+
+  /**
+   * SmartPointer to the coarse DoFHandler passed to reinit().
+   */
+  SmartPointer<const DoFHandler<dim>> internal_dof_handler_coarse;
+
+  /**
+   * Vector holding locally owned DoFs
+   */
+  std::vector<types::global_dof_index> point_to_local_vector_indices;
+
 
   /**
    * Internal vector needed for collecting all degrees of freedom of the
