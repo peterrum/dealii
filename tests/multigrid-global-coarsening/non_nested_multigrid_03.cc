@@ -15,7 +15,7 @@
 
 
 /**
- * Test global-coarsening multigrid for a hyper_ball with a manifold attached to
+ * Test global-coarsening multigrid with non-nested levels for a hyper_ball with a SphericalManifold attached to
  * it.
  */
 
@@ -54,14 +54,10 @@ test(const unsigned int n_refinements, const unsigned int fe_degree_fine)
         std::make_unique<FE_Q<dim>>(fe_degree_fine);
       std::unique_ptr<Quadrature<dim>> quad =
         std::make_unique<QGauss<dim>>(fe_degree_fine + 1);
-      std::unique_ptr<Mapping<dim>> _mapping =
-        std::make_unique<MappingQ<dim>>(1);
-
 
       // set up triangulation
       GridGenerator::hyper_ball(tria, {}, 1.0);
       tria.refine_global(l);
-
 
       // set up dofhandler
       dof_handler.reinit(tria);
@@ -73,11 +69,11 @@ test(const unsigned int n_refinements, const unsigned int fe_degree_fine)
                                               locally_relevant_dofs);
       constraint.reinit(locally_relevant_dofs);
       VectorTools::interpolate_boundary_values(
-        *_mapping, dof_handler, 0, Functions::ZeroFunction<dim>(), constraint);
+        mapping, dof_handler, 0, Functions::ZeroFunction<dim>(), constraint);
       constraint.close();
 
       // set up operator
-      op.reinit(*_mapping, dof_handler, *quad, constraint);
+      op.reinit(mapping, dof_handler, *quad, constraint);
     }
 
   // set up transfer operator
