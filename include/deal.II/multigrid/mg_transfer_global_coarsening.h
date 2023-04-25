@@ -270,6 +270,20 @@ protected:
   std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_fine;
 
   /**
+   * Internal vector needed for collecting all degrees of freedom of the fine
+   * cells. It is only initialized if the fine-level DoF indices touch DoFs
+   * other than the locally active ones (which we always assume can be
+   * accessed by the given vectors in the prolongate/restrict functions),
+   * otherwise it is left at size zero.
+   */
+  mutable LinearAlgebra::distributed::Vector<Number> vec_fine;
+
+  /**
+   * Internal vector on that the actual prolongation/restriction is performed.
+   */
+  mutable LinearAlgebra::distributed::Vector<Number> vec_coarse;
+
+  /**
    * Embedded partitioner for efficient communication if locally relevant DoFs
    * are a subset of an external Partitioner object.
    */
@@ -556,21 +570,6 @@ private:
    */
   bool fine_element_is_continuous;
 
-
-  /**
-   * Internal vector needed for collecting all degrees of freedom of the fine
-   * cells. It is only initialized if the fine-level DoF indices touch DoFs
-   * other than the locally active ones (which we always assume can be
-   * accessed by the given vectors in the prolongate/restrict functions),
-   * otherwise it is left at size zero.
-   */
-  mutable LinearAlgebra::distributed::Vector<Number> vec_fine;
-
-  /**
-   * Internal vector on that the actual prolongation/restriction is performed.
-   */
-  mutable LinearAlgebra::distributed::Vector<Number> vec_coarse;
-
   /**
    * Helper class for reading from and writing to global vectors and for
    * applying constraints.
@@ -751,18 +750,6 @@ private:
    * Vector holding locally owned DoFs
    */
   std::vector<types::global_dof_index> point_to_local_vector_indices;
-
-
-  /**
-   * Internal vector needed for collecting all degrees of freedom of the
-   * fine cells.
-   */
-  mutable LinearAlgebra::distributed::Vector<Number> vec_fine;
-
-  /**
-   * Internal vector on that the actual prolongation/restriction is performed.
-   */
-  mutable LinearAlgebra::distributed::Vector<Number> vec_coarse;
 };
 
 

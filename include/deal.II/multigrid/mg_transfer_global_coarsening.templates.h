@@ -2619,7 +2619,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
          ExcInternalError());
 
   if (use_src_inplace == false)
-    vec_coarse.copy_locally_owned_data_from(src);
+    this->vec_coarse.copy_locally_owned_data_from(src);
 
   this->update_ghost_values(*vec_coarse_ptr);
 
@@ -3315,8 +3315,8 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   size += this->partitioner_fine->memory_consumption();
   size += this->partitioner_coarse->memory_consumption();
-  size += vec_fine.memory_consumption();
-  size += vec_coarse.memory_consumption();
+  size += this->vec_fine.memory_consumption();
+  size += this->vec_coarse.memory_consumption();
   size += MemoryConsumption::memory_consumption(weights);
   size += MemoryConsumption::memory_consumption(level_dof_indices_fine);
   size += constraint_info.memory_consumption();
@@ -3494,7 +3494,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
                                       locally_relevant_dofs,
                                       dof_handler_coarse.get_communicator()));
 
-    vec_coarse.reinit(this->partitioner_coarse);
+    this->vec_coarse.reinit(this->partitioner_coarse);
   }
 
 
@@ -3598,7 +3598,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
          ExcInternalError());
 
   if (use_src_inplace == false)
-    vec_coarse.copy_locally_owned_data_from(src);
+    this->vec_coarse.copy_locally_owned_data_from(src);
 
   this->update_ghost_values(*vec_coarse_ptr);
 
@@ -3824,7 +3824,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   std::size_t size = 0;
 
   size += this->partitioner_coarse->memory_consumption();
-  size += vec_coarse.memory_consumption();
+  size += this->vec_coarse.memory_consumption();
   size += MemoryConsumption::memory_consumption(point_to_local_vector_indices);
   // TODO: add consumption for rpe, mapping_info and constraint_info.
 
