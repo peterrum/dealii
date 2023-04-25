@@ -212,13 +212,13 @@ public:
    * Perform prolongation.
    */
   virtual void
-  prolongate_and_add(VectorType &dst, const VectorType &src) const = 0;
+  prolongate_and_add(VectorType &dst, const VectorType &src) const;
 
   /**
    * Perform restriction.
    */
   virtual void
-  restrict_and_add(VectorType &dst, const VectorType &src) const = 0;
+  restrict_and_add(VectorType &dst, const VectorType &src) const;
 
   /**
    * Perform interpolation of a solution vector from the fine level to the
@@ -286,6 +286,13 @@ protected:
       &partitioner_coarse,
     const std::shared_ptr<const Utilities::MPI::Partitioner> &partitioner_fine,
     ConstraintInfo &                                          constraint_info);
+
+  /**
+   * Flag if the finite elements on the fine cells are continuous. If yes,
+   * the multiplicity of DoF sharing a vertex/line as well as constraints have
+   * to be taken into account via weights.
+   */
+  bool fine_element_is_continuous;
 
   /**
    * Partitioner needed by the intermediate vector.
@@ -479,22 +486,6 @@ public:
                                      const unsigned int fe_degree_coarse);
 
   /**
-   * Perform prolongation.
-   */
-  void
-  prolongate_and_add(
-    LinearAlgebra::distributed::Vector<Number> &      dst,
-    const LinearAlgebra::distributed::Vector<Number> &src) const override;
-
-  /**
-   * Perform restriction.
-   */
-  void
-  restrict_and_add(
-    LinearAlgebra::distributed::Vector<Number> &      dst,
-    const LinearAlgebra::distributed::Vector<Number> &src) const override;
-
-  /**
    * Perform interpolation of a solution vector from the fine level to the
    * coarse level. This function is different from restriction, where a
    * weighted residual is transferred to a coarser level (transposition of
@@ -608,13 +599,6 @@ private:
    * Transfer schemes.
    */
   std::vector<MGTransferScheme> schemes;
-
-  /**
-   * Flag if the finite elements on the fine cells are continuous. If yes,
-   * the multiplicity of DoF sharing a vertex/line as well as constraints have
-   * to be taken into account via weights.
-   */
-  bool fine_element_is_continuous;
 
   /**
    * Helper class for reading from and writing to global vectors and for

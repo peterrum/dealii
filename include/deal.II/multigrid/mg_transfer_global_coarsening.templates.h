@@ -2598,7 +2598,7 @@ namespace MGTransferGlobalCoarseningTools
 
 template <int dim, typename Number>
 void
-MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
+MGTwoLevelTransferBase<dim, LinearAlgebra::distributed::Vector<Number>>::
   prolongate_and_add(
     LinearAlgebra::distributed::Vector<Number> &      dst,
     const LinearAlgebra::distributed::Vector<Number> &src) const
@@ -2654,7 +2654,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   const Number *      weights      = nullptr;
   const VectorizedArray<Number> *weights_compressed = nullptr;
 
-  if (fine_element_is_continuous)
+  if (this->fine_element_is_continuous)
     {
       weights            = this->weights.data();
       weights_compressed = this->weights_compressed.data();
@@ -2724,7 +2724,8 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           // ------------------------------ fine -------------------------------
 
           // weight and write into dst vector
-          if (fine_element_is_continuous && this->weights_compressed.size() > 0)
+          if (this->fine_element_is_continuous &&
+              this->weights_compressed.size() > 0)
             {
               internal::
                 weight_fe_q_dofs_by_entity<dim, -1, VectorizedArray<Number>>(
@@ -2737,7 +2738,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
           for (unsigned int v = 0; v < n_lanes_filled; ++v)
             {
-              if (fine_element_is_continuous &&
+              if (this->fine_element_is_continuous &&
                   this->weights_compressed.size() == 0)
                 for (unsigned int i = 0; i < scheme.n_dofs_per_cell_fine; ++i)
                   dst.local_element(indices_fine[i]) +=
@@ -2749,7 +2750,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
               indices_fine += scheme.n_dofs_per_cell_fine;
 
-              if (fine_element_is_continuous)
+              if (this->fine_element_is_continuous)
                 weights += scheme.n_dofs_per_cell_fine;
             }
         }
@@ -2760,7 +2761,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
 template <int dim, typename Number>
 void
-MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
+MGTwoLevelTransferBase<dim, LinearAlgebra::distributed::Vector<Number>>::
   restrict_and_add(LinearAlgebra::distributed::Vector<Number> &      dst,
                    const LinearAlgebra::distributed::Vector<Number> &src) const
 {
@@ -2824,7 +2825,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   const Number *      weights      = nullptr;
   const VectorizedArray<Number> *weights_compressed = nullptr;
 
-  if (fine_element_is_continuous)
+  if (this->fine_element_is_continuous)
     {
       weights            = this->weights.data();
       weights_compressed = this->weights_compressed.data();
@@ -2862,7 +2863,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
           // read from source vector and weight
           for (unsigned int v = 0; v < n_lanes_filled; ++v)
             {
-              if (fine_element_is_continuous &&
+              if (this->fine_element_is_continuous &&
                   this->weights_compressed.size() == 0)
                 for (unsigned int i = 0; i < scheme.n_dofs_per_cell_fine; ++i)
                   evaluation_data_fine[i][v] =
@@ -2874,11 +2875,12 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
               indices_fine += scheme.n_dofs_per_cell_fine;
 
-              if (fine_element_is_continuous)
+              if (this->fine_element_is_continuous)
                 weights += scheme.n_dofs_per_cell_fine;
             }
 
-          if (fine_element_is_continuous && this->weights_compressed.size() > 0)
+          if (this->fine_element_is_continuous &&
+              this->weights_compressed.size() > 0)
             {
               internal::
                 weight_fe_q_dofs_by_entity<dim, -1, VectorizedArray<Number>>(
@@ -2954,7 +2956,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   if (use_src_inplace == false)
     this->vec_fine.copy_locally_owned_data_from(src);
 
-  if (fine_element_is_continuous || use_src_inplace == false)
+  if (this->fine_element_is_continuous || use_src_inplace == false)
     this->update_ghost_values(*vec_fine_ptr);
 
   *vec_coarse_ptr = 0.0;
@@ -3051,7 +3053,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   // clean up related to update_ghost_values()
   if (use_src_inplace == false)
     vec_fine_ptr->set_ghost_state(false); // internal vector
-  else if (fine_element_is_continuous)
+  else if (this->fine_element_is_continuous)
     this->zero_out_ghost_values(*vec_fine_ptr); // external vector
 
   if (use_dst_inplace == false)
