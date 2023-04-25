@@ -1617,26 +1617,6 @@ namespace internal
               transfer.schemes[1].prolongation_matrix_1d.resize(
                 fe->n_dofs_per_cell() * n_child_dofs_1d);
 
-              const auto get_prolongation_matrix = [](const auto &       fe,
-                                                      const unsigned int c,
-                                                      const unsigned int j,
-                                                      const unsigned     i) {
-                if (false)
-                  {
-                    return fe->get_prolongation_matrix(c)(j, i);
-                  }
-                else
-                  {
-                    auto p = fe->unit_support_point(j);
-
-                    if (c == 1)
-                      p[0] += 1.0;
-                    p[0] /= 2.0;
-
-                    return fe->shape_value(i, p);
-                  }
-              };
-
               for (unsigned int c = 0;
                    c < GeometryInfo<1>::max_children_per_cell;
                    ++c)
@@ -1645,10 +1625,8 @@ namespace internal
                     transfer.schemes[1]
                       .prolongation_matrix_1d[i * n_child_dofs_1d + j +
                                               c * shift] =
-                      get_prolongation_matrix(fe,
-                                              c,
-                                              renumbering[j],
-                                              renumbering[i]);
+                      fe->get_prolongation_matrix(c)(renumbering[j],
+                                                     renumbering[i]);
             }
             {
               transfer.schemes[1].restriction_matrix_1d.resize(
