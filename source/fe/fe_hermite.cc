@@ -572,7 +572,7 @@ FE_Hermite<dim, spacedim>::requires_update_flags(const UpdateFlags flags) const
 {
   UpdateFlags out = FE_Poly<dim, spacedim>::requires_update_flags(flags);
   if (flags&(update_values|update_gradients|update_hessians|update_3rd_derivatives))
-    out |= update_JxW_values; // TODO: trigger that InternalData is created
+    out |= update_rescale; // since we need to rescale values, gradients, ...
   return out;
 }
 
