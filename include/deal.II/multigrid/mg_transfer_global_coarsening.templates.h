@@ -3086,10 +3086,12 @@ namespace internal
   } // namespace
 } // namespace internal
 
-template <typename Number>
+
+
+template <int dim, typename Number>
 template <typename ConstraintInfo>
 void
-MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>::
+MGTwoLevelTransferBase<dim, LinearAlgebra::distributed::Vector<Number>>::
   internal_enable_inplace_operations_if_possible(
     const std::shared_ptr<const Utilities::MPI::Partitioner>
       &external_partitioner_coarse,
@@ -3122,6 +3124,13 @@ MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>::
 
       this->partitioner_coarse = external_partitioner_coarse;
     }
+
+
+  // In NonNested case, do nothing for fine partitioner
+  if (dynamic_cast<MGTwoLevelTransferNonNested<
+        dim,
+        LinearAlgebra::distributed::Vector<Number>> *>(this))
+    return;
 
   if (this->partitioner_fine->is_globally_compatible(
         *external_partitioner_fine))
@@ -3341,9 +3350,9 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
 
 
 
-template <typename Number>
+template <int dim, typename Number>
 void
-MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>::
+MGTwoLevelTransferBase<dim, LinearAlgebra::distributed::Vector<Number>>::
   update_ghost_values(
     const LinearAlgebra::distributed::Vector<Number> &vec) const
 {
@@ -3363,11 +3372,11 @@ MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>::
 
 
 
-template <typename Number>
+template <int dim, typename Number>
 void
-MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>::compress(
-  LinearAlgebra::distributed::Vector<Number> &vec,
-  const VectorOperation::values               op) const
+MGTwoLevelTransferBase<dim, LinearAlgebra::distributed::Vector<Number>>::
+  compress(LinearAlgebra::distributed::Vector<Number> &vec,
+           const VectorOperation::values               op) const
 {
   Assert(op == VectorOperation::add, ExcNotImplemented());
 
@@ -3387,9 +3396,9 @@ MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>::compress(
 
 
 
-template <typename Number>
+template <int dim, typename Number>
 void
-MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>::
+MGTwoLevelTransferBase<dim, LinearAlgebra::distributed::Vector<Number>>::
   zero_out_ghost_values(
     const LinearAlgebra::distributed::Vector<Number> &vec) const
 {
