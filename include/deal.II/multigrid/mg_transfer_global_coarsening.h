@@ -743,9 +743,9 @@ private:
     constraint_info;
 
   /**
-   * SmartPointer to the coarse DoFHandler passed to reinit().
+   * Finite element of the coarse DoFHandler passed to reinit().
    */
-  SmartPointer<const DoFHandler<dim>> internal_dof_handler_coarse;
+  std::unique_ptr<FiniteElement<dim>> fe_coarse;
 
   /**
    * Vector holding locally owned DoFs

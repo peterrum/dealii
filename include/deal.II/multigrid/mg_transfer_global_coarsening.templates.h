@@ -3575,7 +3575,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   constraint_info.finalize();
 
-  internal_dof_handler_coarse = &dof_handler_coarse;
+  fe_coarse = dof_handler_coarse.get_fe().clone();
 }
 
 
@@ -3608,13 +3608,11 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   const auto evaluation_function = [&](auto &values, const auto &cell_data) {
     std::vector<Number> solution_values;
 
-    FEPointEvaluation<1, dim, dim, Number> evaluator(
-      *mapping_info, internal_dof_handler_coarse->get_fe());
+    FEPointEvaluation<1, dim, dim, Number> evaluator(*mapping_info, *fe_coarse);
 
     for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
       {
-        solution_values.resize(
-          internal_dof_handler_coarse->get_fe().n_dofs_per_cell());
+        solution_values.resize(fe_coarse->n_dofs_per_cell());
 
         // gather and resolve constraints
         internal::VectorReader<Number, VectorizedArrayType> reader;
@@ -3724,15 +3722,13 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   const auto evaluation_function = [&](const auto &values,
                                        const auto &cell_data) {
     std::vector<Number>                    solution_values;
-    FEPointEvaluation<1, dim, dim, Number> evaluator(
-      *mapping_info, internal_dof_handler_coarse->get_fe());
+    FEPointEvaluation<1, dim, dim, Number> evaluator(*mapping_info, *fe_coarse);
 
     for (unsigned int i = 0; i < cell_data.cells.size(); ++i)
       {
         evaluator.reinit(i);
 
-        solution_values.resize(
-          internal_dof_handler_coarse->get_fe().n_dofs_per_cell());
+        solution_values.resize(fe_coarse->n_dofs_per_cell());
 
         // gather and integrate
         for (const auto q : evaluator.quadrature_point_indices())
