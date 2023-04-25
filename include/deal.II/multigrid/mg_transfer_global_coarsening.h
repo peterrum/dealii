@@ -741,6 +741,23 @@ public:
   std::size_t
   memory_consumption() const override;
 
+protected:
+  /**
+   * Perform prolongation.
+   */
+  void
+  prolongate_and_add_internal(
+    LinearAlgebra::distributed::Vector<Number> &      dst,
+    const LinearAlgebra::distributed::Vector<Number> &src) const;
+
+  /**
+   * Perform restriction.
+   */
+  void
+  restrict_and_add_internal(
+    LinearAlgebra::distributed::Vector<Number> &      dst,
+    const LinearAlgebra::distributed::Vector<Number> &src) const;
+
 private:
   /**
    * Object to evaluate shape functions on one mesh on visited support points of

@@ -3639,9 +3639,6 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
 
 
-/**
- * Perform prolongation.
- */
 template <int dim, typename Number>
 void
 MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
@@ -3661,6 +3658,21 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   this->update_ghost_values(*vec_coarse_ptr);
 
+  this->prolongate_and_add_internal(dst, *vec_coarse_ptr);
+
+  if (use_src_inplace)
+    this->zero_out_ghost_values(*vec_coarse_ptr);
+}
+
+
+
+template <int dim, typename Number>
+void
+MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
+  prolongate_and_add_internal(
+    LinearAlgebra::distributed::Vector<Number> &      dst,
+    const LinearAlgebra::distributed::Vector<Number> &src) const
+{
   std::vector<Number> evaluation_point_results;
   std::vector<Number> buffer;
 
@@ -3677,7 +3689,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
         internal::VectorReader<Number, VectorizedArrayType> reader;
         constraint_info.read_write_operation(
           reader,
-          *vec_coarse_ptr,
+          src,
           reinterpret_cast<VectorizedArrayType *>(solution_values.data()),
           i,
           1,
@@ -3726,9 +3738,6 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   for (unsigned int j = 0; j < evaluation_point_results.size(); ++j)
     dst.local_element(point_to_local_vector_indices[j]) +=
       evaluation_point_results[j];
-
-  if (use_src_inplace)
-    this->zero_out_ghost_values(*vec_coarse_ptr);
 }
 
 
@@ -3753,6 +3762,23 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     *vec_coarse_ptr); // since we might add into the
                       // ghost values and call compress
 
+  this->restrict_and_add_internal(*vec_coarse_ptr, src);
+
+  this->compress(*vec_coarse_ptr, VectorOperation::add);
+
+  if (use_dst_inplace == false)
+    dst += this->vec_coarse;
+}
+
+
+
+template <int dim, typename Number>
+void
+MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
+  restrict_and_add_internal(
+    LinearAlgebra::distributed::Vector<Number> &      dst,
+    const LinearAlgebra::distributed::Vector<Number> &src) const
+{
   std::vector<Number> evaluation_point_results;
 
   evaluation_point_results.resize(rpe.get_point_ptrs().size() - 1);
@@ -3801,7 +3827,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
           writer;
         constraint_info.read_write_operation(
           writer,
-          *vec_coarse_ptr,
+          dst,
           reinterpret_cast<VectorizedArrayType *>(solution_values.data()),
           i,
           1,
@@ -3813,11 +3839,6 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   rpe.template process_and_evaluate<Number>(evaluation_point_results,
                                             buffer,
                                             evaluation_function);
-
-  this->compress(*vec_coarse_ptr, VectorOperation::add);
-
-  if (use_dst_inplace == false)
-    dst += this->vec_coarse;
 }
 
 
