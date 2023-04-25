@@ -247,6 +247,22 @@ public:
   memory_consumption() const = 0;
 
 protected:
+  /**
+   * Perform prolongation.
+   */
+  virtual void
+  prolongate_and_add_internal(
+    LinearAlgebra::distributed::Vector<Number> &      dst,
+    const LinearAlgebra::distributed::Vector<Number> &src) const = 0;
+
+  /**
+   * Perform restriction.
+   */
+  virtual void
+  restrict_and_add_internal(
+    LinearAlgebra::distributed::Vector<Number> &      dst,
+    const LinearAlgebra::distributed::Vector<Number> &src) const = 0;
+
   void
   update_ghost_values(
     const LinearAlgebra::distributed::Vector<Number> &vec) const;
@@ -510,12 +526,12 @@ protected:
   void
   prolongate_and_add_internal(
     LinearAlgebra::distributed::Vector<Number> &      dst,
-    const LinearAlgebra::distributed::Vector<Number> &src) const;
+    const LinearAlgebra::distributed::Vector<Number> &src) const override;
 
   void
   restrict_and_add_internal(
     LinearAlgebra::distributed::Vector<Number> &      dst,
-    const LinearAlgebra::distributed::Vector<Number> &src) const;
+    const LinearAlgebra::distributed::Vector<Number> &src) const override;
 
 private:
   /**
@@ -748,7 +764,7 @@ protected:
   void
   prolongate_and_add_internal(
     LinearAlgebra::distributed::Vector<Number> &      dst,
-    const LinearAlgebra::distributed::Vector<Number> &src) const;
+    const LinearAlgebra::distributed::Vector<Number> &src) const override;
 
   /**
    * Perform restriction.
@@ -756,7 +772,7 @@ protected:
   void
   restrict_and_add_internal(
     LinearAlgebra::distributed::Vector<Number> &      dst,
-    const LinearAlgebra::distributed::Vector<Number> &src) const;
+    const LinearAlgebra::distributed::Vector<Number> &src) const override;
 
 private:
   /**
