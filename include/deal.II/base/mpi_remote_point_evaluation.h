@@ -420,10 +420,14 @@ namespace Utilities
             Utilities::unpack<std::vector<T>>(buffer_char, false);
 
           // write data into output vector
-          const unsigned int j = std::distance(recv_ranks.begin(),
-                                               std::find(recv_ranks.begin(),
-                                                         recv_ranks.end(),
-                                                         status.MPI_SOURCE));
+          const auto ptr =
+            std::find(recv_ranks.begin(), recv_ranks.end(), status.MPI_SOURCE);
+
+          Assert(ptr != recv_ranks.end(), ExcNotImplemented());
+
+          const unsigned int j = std::distance(recv_ranks.begin(), ptr);
+
+          AssertDimension(buffer.size(), recv_ptrs[j + 1] - recv_ptrs[j]);
 
           for (unsigned int i = recv_ptrs[j], c = 0; i < recv_ptrs[j + 1];
                ++i, ++c)
