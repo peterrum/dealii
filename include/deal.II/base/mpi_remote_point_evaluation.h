@@ -468,17 +468,19 @@ namespace Utilities
 
       std::vector<T> buffer_(ptr.back());
 
+      std::vector<unsigned int> recv_permutation_inv(recv_permutation.size());
+
+      for (unsigned int c = 0; c < recv_permutation.size(); ++c)
+        recv_permutation_inv[recv_permutation[c]] = c;
+
+
       for (unsigned int i = 0, c = 0; i < ptr.size() - 1; ++i)
         {
           const auto n_entries = ptr[i + 1] - ptr[i];
 
           for (unsigned int j = 0; j < n_entries; ++j, ++c)
-            buffer_[c] = input[i];
+            buffer_[recv_permutation_inv[c]] = input[i];
         }
-
-      std::vector<T> buffer__(ptr.back());
-      for (unsigned int c = 0; c < buffer__.size(); ++c)
-        buffer__[c] = buffer_[recv_permutation[c]];
 
       // buffer.resize(point_ptrs.back());
       buffer.resize(send_permutation.size() * 2);
@@ -506,8 +508,8 @@ namespace Utilities
           send_requests.push_back(MPI_Request());
 
           send_buffer.emplace_back(
-            Utilities::pack(std::vector<T>(buffer__.begin() + recv_ptrs[i],
-                                           buffer__.begin() + recv_ptrs[i + 1]),
+            Utilities::pack(std::vector<T>(buffer_.begin() + recv_ptrs[i],
+                                           buffer_.begin() + recv_ptrs[i + 1]),
                             false));
 
           const int ierr = MPI_Isend(send_buffer.back().data(),
@@ -535,7 +537,7 @@ namespace Utilities
           for (unsigned int i = send_ptrs[j0], j = recv_ptrs[j1];
                i < send_ptrs[j0 + 1];
                ++i, ++j)
-            buffer_1[i] = buffer__[j];
+            buffer_1[i] = buffer_[j];
         }
 
       // receive data
