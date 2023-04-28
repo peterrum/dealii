@@ -315,6 +315,7 @@ namespace Utilities
       static CollectiveMutex      mutex;
       CollectiveMutex::ScopedLock lock(mutex, tria->get_communicator());
 
+      // allocate memory
       output.resize(point_ptrs.back());
       buffer.resize(send_permutation.size() * 2);
       ArrayView<T> buffer_1(buffer.data(), buffer.size() / 2);
@@ -337,18 +338,10 @@ namespace Utilities
       const unsigned int my_rank =
         Utilities::MPI::this_mpi_process(tria->get_communicator());
 
-      std::map<unsigned int, std::vector<T>> temp_recv_map;
-
       for (unsigned int i = 0; i < send_ranks.size(); ++i)
         {
           if (send_ranks[i] == my_rank)
-            {
-              // process locally-owned values
-              temp_recv_map[my_rank] =
-                std::vector<T>(buffer_2.begin() + send_ptrs[i],
-                               buffer_2.begin() + send_ptrs[i + 1]);
-              continue;
-            }
+            continue;
 
           temp_map[send_ranks[i]] =
             Utilities::pack(std::vector<T>(buffer_2.begin() + send_ptrs[i],
@@ -369,11 +362,27 @@ namespace Utilities
           AssertThrowMPI(ierr);
         }
 
+      std::vector<char> buffer_char;
+
       for (const auto recv_rank : recv_ranks)
         {
           if (recv_rank == my_rank)
-            continue;
+            {
+              const unsigned int j0 = std::distance(
+                recv_ranks.begin(),
+                std::find(recv_ranks.begin(), recv_ranks.end(), my_rank));
+              const unsigned int j1 = std::distance(
+                send_ranks.begin(),
+                std::find(send_ranks.begin(), send_ranks.end(), my_rank));
 
+              for (unsigned int i = recv_ptrs[j0], j = send_ptrs[j1];
+                   i < recv_ptrs[j0 + 1];
+                   ++i, ++j)
+                output[recv_permutation[i]] = buffer_2[j];
+              continue;
+            }
+
+          // receive remote data
           MPI_Status status;
           int        ierr = MPI_Probe(MPI_ANY_SOURCE,
                                internal::Tags::remote_point_evaluation,
@@ -385,10 +394,10 @@ namespace Utilities
           ierr = MPI_Get_count(&status, MPI_CHAR, &message_length);
           AssertThrowMPI(ierr);
 
-          std::vector<char> buffer(message_length);
+          buffer_char.resize(message_length);
 
-          ierr = MPI_Recv(buffer.data(),
-                          buffer.size(),
+          ierr = MPI_Recv(buffer_char.data(),
+                          buffer_char.size(),
                           MPI_CHAR,
                           status.MPI_SOURCE,
                           internal::Tags::remote_point_evaluation,
@@ -396,23 +405,25 @@ namespace Utilities
                           MPI_STATUS_IGNORE);
           AssertThrowMPI(ierr);
 
-          temp_recv_map[status.MPI_SOURCE] =
-            Utilities::unpack<std::vector<T>>(buffer, false);
+          // unpack data
+          const auto buffer =
+            Utilities::unpack<std::vector<T>>(buffer_char, false);
+
+          // write data into output vector
+          const unsigned int j = std::distance(recv_ranks.begin(),
+                                               std::find(recv_ranks.begin(),
+                                                         recv_ranks.end(),
+                                                         status.MPI_SOURCE));
+
+          for (unsigned int i = recv_ptrs[j], c = 0; i < recv_ptrs[j + 1];
+               ++i, ++c)
+            output[recv_permutation[i]] = buffer[c];
         }
 
       // make sure all messages have been sent
       const int ierr =
         MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
       AssertThrowMPI(ierr);
-
-      // copy received data into output vector
-      auto it = recv_permutation.begin();
-      for (const auto &j : temp_recv_map)
-        for (const auto &i : j.second)
-          {
-            output[*it] = i;
-            it++;
-          }
 #endif
     }
 
