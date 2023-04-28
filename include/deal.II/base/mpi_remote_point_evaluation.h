@@ -466,53 +466,15 @@ namespace Utilities
 
       const auto &ptr = this->get_point_ptrs();
 
-      std::map<unsigned int, std::vector<T>> temp_recv_map;
-
-      for (unsigned int i = 0; i < recv_ranks.size(); ++i)
-        temp_recv_map[recv_ranks[i]].resize(recv_ptrs[i + 1] - recv_ptrs[i]);
-
-#  ifdef DEBUG
-      {
-        unsigned int i = 0;
-
-        for (auto &j : temp_recv_map)
-          i += j.second.size();
-
-        AssertDimension(recv_permutation.size(), i);
-      }
-#  endif
-
-      {
-        // duplicate data to be able to sort it more easily in the next step
-        std::vector<T> buffer_(ptr.back());
-        for (unsigned int i = 0, c = 0; i < ptr.size() - 1; ++i)
-          {
-            const auto n_entries = ptr[i + 1] - ptr[i];
-
-            for (unsigned int j = 0; j < n_entries; ++j, ++c)
-              buffer_[c] = input[i];
-          }
-
-        // sort data according to the ranks
-        auto it = recv_permutation.begin();
-        for (auto &j : temp_recv_map)
-          for (auto &i : j.second)
-            {
-              i = buffer_[*it];
-              it++;
-            }
-      }
-
       std::vector<T> buffer_(ptr.back());
-      {
-        for (unsigned int i = 0, c = 0; i < ptr.size() - 1; ++i)
-          {
-            const auto n_entries = ptr[i + 1] - ptr[i];
 
-            for (unsigned int j = 0; j < n_entries; ++j, ++c)
-              buffer_[c] = input[i];
-          }
-      }
+      for (unsigned int i = 0, c = 0; i < ptr.size() - 1; ++i)
+        {
+          const auto n_entries = ptr[i + 1] - ptr[i];
+
+          for (unsigned int j = 0; j < n_entries; ++j, ++c)
+            buffer_[c] = input[i];
+        }
 
       std::vector<T> buffer__(ptr.back());
       for (unsigned int c = 0; c < buffer__.size(); ++c)
