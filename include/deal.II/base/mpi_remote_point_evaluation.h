@@ -315,6 +315,9 @@ namespace Utilities
       static CollectiveMutex      mutex;
       CollectiveMutex::ScopedLock lock(mutex, tria->get_communicator());
 
+      const unsigned int my_rank =
+        Utilities::MPI::this_mpi_process(tria->get_communicator());
+
       // allocate memory
       output.resize(point_ptrs.back());
       buffer.resize(send_permutation.size() * 2);
@@ -335,9 +338,6 @@ namespace Utilities
 
       std::vector<MPI_Request> send_requests;
       send_requests.reserve(send_ranks.size());
-
-      const unsigned int my_rank =
-        Utilities::MPI::this_mpi_process(tria->get_communicator());
 
       bool has_locally_owned_points = false;
 
@@ -457,15 +457,15 @@ namespace Utilities
       static CollectiveMutex      mutex;
       CollectiveMutex::ScopedLock lock(mutex, tria->get_communicator());
 
+      const unsigned int my_rank =
+        Utilities::MPI::this_mpi_process(tria->get_communicator());
+
       const auto &ptr = this->get_point_ptrs();
 
       std::map<unsigned int, std::vector<T>> temp_recv_map;
 
       for (unsigned int i = 0; i < recv_ranks.size(); ++i)
         temp_recv_map[recv_ranks[i]].resize(recv_ptrs[i + 1] - recv_ptrs[i]);
-
-      const unsigned int my_rank =
-        Utilities::MPI::this_mpi_process(tria->get_communicator());
 
 #  ifdef DEBUG
       {
@@ -497,6 +497,17 @@ namespace Utilities
               i = buffer_[*it];
               it++;
             }
+      }
+
+      std::vector<T> buffer_(ptr.back());
+      {
+        for (unsigned int i = 0, c = 0; i < ptr.size() - 1; ++i)
+          {
+            const auto n_entries = ptr[i + 1] - ptr[i];
+
+            for (unsigned int j = 0; j < n_entries; ++j, ++c)
+              buffer_[recv_permutation[c]] = input[i];
+          }
       }
 
       // buffer.resize(point_ptrs.back());
@@ -537,19 +548,18 @@ namespace Utilities
         {
           if (send_ranks[i] == my_rank)
             {
-              const auto &buffer_send = temp_recv_map[send_ranks[i]];
               // process locally-owned values
-              const unsigned int j = std::distance(send_ranks.begin(),
-                                                   std::find(send_ranks.begin(),
-                                                             send_ranks.end(),
-                                                             my_rank));
+              const unsigned int j0 = std::distance(
+                send_ranks.begin(),
+                std::find(send_ranks.begin(), send_ranks.end(), my_rank));
+              const unsigned int j1 = std::distance(
+                recv_ranks.begin(),
+                std::find(recv_ranks.begin(), recv_ranks.end(), my_rank));
 
-              AssertDimension(buffer_send.size(),
-                              send_ptrs[j + 1] - send_ptrs[j]);
-
-              for (unsigned int i = send_ptrs[j], c = 0; i < send_ptrs[j + 1];
-                   ++i, ++c)
-                buffer_1[i] = buffer_send[c];
+              for (unsigned int i = send_ptrs[j0], j = recv_ptrs[j1];
+                   i < send_ptrs[j0 + 1];
+                   ++i, ++j)
+                buffer_1[i] = buffer_[j];
 
               continue;
             }
