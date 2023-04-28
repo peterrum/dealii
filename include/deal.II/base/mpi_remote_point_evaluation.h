@@ -329,58 +329,68 @@ namespace Utilities
       for (unsigned int i = 0; i < send_permutation.size(); ++i)
         buffer_2[send_permutation[i]] = buffer_1[i];
 
-      // process remote quadrature points and send them away
-      std::map<unsigned int, std::vector<char>> temp_map;
+      // send data
+      std::vector<std::vector<char>> send_buffer;
+      send_buffer.reserve(send_ranks.size());
 
-      std::vector<MPI_Request> requests;
-      requests.reserve(send_ranks.size());
+      std::vector<MPI_Request> send_requests;
+      send_requests.reserve(send_ranks.size());
 
       const unsigned int my_rank =
         Utilities::MPI::this_mpi_process(tria->get_communicator());
 
+      bool has_locally_owned_points = false;
+
       for (unsigned int i = 0; i < send_ranks.size(); ++i)
         {
           if (send_ranks[i] == my_rank)
-            continue;
+            {
+              has_locally_owned_points = true;
+              continue;
+            }
 
-          temp_map[send_ranks[i]] =
+          send_requests.emplace_back(MPI_Request());
+
+          send_buffer.emplace_back(
             Utilities::pack(std::vector<T>(buffer_2.begin() + send_ptrs[i],
                                            buffer_2.begin() + send_ptrs[i + 1]),
-                            false);
+                            false));
 
-          auto &buffer = temp_map[send_ranks[i]];
-
-          requests.push_back(MPI_Request());
-
-          const int ierr = MPI_Isend(buffer.data(),
-                                     buffer.size(),
+          const int ierr = MPI_Isend(send_buffer.back().data(),
+                                     send_buffer.back().size(),
                                      MPI_CHAR,
                                      send_ranks[i],
                                      internal::Tags::remote_point_evaluation,
                                      tria->get_communicator(),
-                                     &requests.back());
+                                     &send_requests.back());
           AssertThrowMPI(ierr);
         }
 
+      // process locally owned points
+      if (has_locally_owned_points)
+        {
+          const unsigned int j0 = std::distance(recv_ranks.begin(),
+                                                std::find(recv_ranks.begin(),
+                                                          recv_ranks.end(),
+                                                          my_rank));
+          const unsigned int j1 = std::distance(send_ranks.begin(),
+                                                std::find(send_ranks.begin(),
+                                                          send_ranks.end(),
+                                                          my_rank));
+
+          for (unsigned int i = recv_ptrs[j0], j = send_ptrs[j1];
+               i < recv_ptrs[j0 + 1];
+               ++i, ++j)
+            output[recv_permutation[i]] = buffer_2[j];
+        }
+
+      // receive data
       std::vector<char> buffer_char;
 
-      for (const auto recv_rank : recv_ranks)
+      for (unsigned int i = 0; i < recv_ranks.size(); ++i)
         {
-          if (recv_rank == my_rank)
-            {
-              const unsigned int j0 = std::distance(
-                recv_ranks.begin(),
-                std::find(recv_ranks.begin(), recv_ranks.end(), my_rank));
-              const unsigned int j1 = std::distance(
-                send_ranks.begin(),
-                std::find(send_ranks.begin(), send_ranks.end(), my_rank));
-
-              for (unsigned int i = recv_ptrs[j0], j = send_ptrs[j1];
-                   i < recv_ptrs[j0 + 1];
-                   ++i, ++j)
-                output[recv_permutation[i]] = buffer_2[j];
-              continue;
-            }
+          if (recv_ranks[i] == my_rank)
+            continue;
 
           // receive remote data
           MPI_Status status;
@@ -421,8 +431,9 @@ namespace Utilities
         }
 
       // make sure all messages have been sent
-      const int ierr =
-        MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
+      const int ierr = MPI_Waitall(send_requests.size(),
+                                   send_requests.data(),
+                                   MPI_STATUSES_IGNORE);
       AssertThrowMPI(ierr);
 #endif
     }
