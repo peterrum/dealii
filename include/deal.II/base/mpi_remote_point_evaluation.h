@@ -469,9 +469,12 @@ namespace Utilities
       std::vector<T> buffer_(ptr.back());
 
       std::vector<unsigned int> recv_permutation_inv(recv_permutation.size());
-
       for (unsigned int c = 0; c < recv_permutation.size(); ++c)
         recv_permutation_inv[recv_permutation[c]] = c;
+
+      std::vector<unsigned int> send_permutation_inv(send_permutation.size());
+      for (unsigned int c = 0; c < send_permutation.size(); ++c)
+        send_permutation_inv[send_permutation[c]] = c;
 
 
       for (unsigned int i = 0, c = 0; i < ptr.size() - 1; ++i)
@@ -537,7 +540,7 @@ namespace Utilities
           for (unsigned int i = send_ptrs[j0], j = recv_ptrs[j1];
                i < send_ptrs[j0 + 1];
                ++i, ++j)
-            buffer_1[i] = buffer_[j];
+            buffer_2[send_permutation_inv[i]] = buffer_[j];
         }
 
       // receive data
@@ -585,21 +588,13 @@ namespace Utilities
 
           for (unsigned int i = send_ptrs[j], c = 0; i < send_ptrs[j + 1];
                ++i, ++c)
-            {
-              AssertIndexRange(i, buffer_1.size());
-              AssertIndexRange(c, recv_buffer_unpacked.size());
-              buffer_1[i] = recv_buffer_unpacked[c];
-            }
+            buffer_2[send_permutation_inv[i]] = recv_buffer_unpacked[c];
         }
 
       const int ierr = MPI_Waitall(send_requests.size(),
                                    send_requests.data(),
                                    MPI_STATUSES_IGNORE);
       AssertThrowMPI(ierr);
-
-      // sort for easy access during function call
-      for (unsigned int i = 0; i < send_permutation.size(); ++i)
-        buffer_2[i] = buffer_1[send_permutation[i]];
 
       // evaluate function at points
       evaluation_function(buffer_2, cell_data);
