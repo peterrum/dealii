@@ -522,10 +522,15 @@ namespace Utilities
       std::vector<MPI_Request> requests;
       requests.reserve(recv_ranks.size());
 
+      bool has_locally_owned_points = false;
+
       for (const auto recv_rank : recv_ranks)
         {
           if (recv_rank == my_rank)
-            continue;
+            {
+              has_locally_owned_points = true;
+              continue;
+            }
 
           temp_map[recv_rank] =
             Utilities::pack(temp_recv_map[recv_rank], false);
@@ -544,25 +549,31 @@ namespace Utilities
           AssertThrowMPI(ierr);
         }
 
+      // process locally owned points
+      if (has_locally_owned_points)
+        {
+          const unsigned int j0 = std::distance(send_ranks.begin(),
+                                                std::find(send_ranks.begin(),
+                                                          send_ranks.end(),
+                                                          my_rank));
+          const unsigned int j1 = std::distance(recv_ranks.begin(),
+                                                std::find(recv_ranks.begin(),
+                                                          recv_ranks.end(),
+                                                          my_rank));
+
+          for (unsigned int i = send_ptrs[j0], j = recv_ptrs[j1];
+               i < send_ptrs[j0 + 1];
+               ++i, ++j)
+            buffer_1[i] = buffer_[j];
+        }
+
+      // receive data
+      std::vector<char> recv_buffer;
+
       for (unsigned int i = 0; i < send_ranks.size(); ++i)
         {
           if (send_ranks[i] == my_rank)
-            {
-              // process locally-owned values
-              const unsigned int j0 = std::distance(
-                send_ranks.begin(),
-                std::find(send_ranks.begin(), send_ranks.end(), my_rank));
-              const unsigned int j1 = std::distance(
-                recv_ranks.begin(),
-                std::find(recv_ranks.begin(), recv_ranks.end(), my_rank));
-
-              for (unsigned int i = send_ptrs[j0], j = recv_ptrs[j1];
-                   i < send_ptrs[j0 + 1];
-                   ++i, ++j)
-                buffer_1[i] = buffer_[j];
-
-              continue;
-            }
+            continue;
 
           MPI_Status status;
           int        ierr = MPI_Probe(MPI_ANY_SOURCE,
@@ -575,7 +586,7 @@ namespace Utilities
           ierr = MPI_Get_count(&status, MPI_CHAR, &message_length);
           AssertThrowMPI(ierr);
 
-          std::vector<char> recv_buffer(message_length);
+          recv_buffer.resize(message_length);
 
           ierr = MPI_Recv(recv_buffer.data(),
                           recv_buffer.size(),
