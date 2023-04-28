@@ -321,9 +321,9 @@ namespace Utilities
       // allocate memory
       output.resize(point_ptrs.back());
       buffer.resize(send_permutation.size() * 2);
-      ArrayView<T> buffer_1(buffer.data(), buffer.size() / 2);
-      ArrayView<T> buffer_2(buffer.data() + buffer.size() / 2,
-                            buffer.size() / 2);
+      ArrayView<T> buffer_1(buffer.data(), send_permutation.size());
+      ArrayView<T> buffer_2(buffer.data() + send_permutation.size(),
+                            send_permutation.size());
 
       // evaluate functions at points
       evaluation_function(buffer_1, cell_data);
@@ -464,10 +464,7 @@ namespace Utilities
       const unsigned int my_rank =
         Utilities::MPI::this_mpi_process(tria->get_communicator());
 
-      const auto &ptr = this->get_point_ptrs();
-
-      std::vector<T> buffer_(ptr.back());
-
+      // invert permutation matrices (TODO: precompute)
       std::vector<unsigned int> recv_permutation_inv(recv_permutation.size());
       for (unsigned int c = 0; c < recv_permutation.size(); ++c)
         recv_permutation_inv[recv_permutation[c]] = c;
@@ -476,20 +473,22 @@ namespace Utilities
       for (unsigned int c = 0; c < send_permutation.size(); ++c)
         send_permutation_inv[send_permutation[c]] = c;
 
+      // allocate memory
+      const auto &point_ptrs = this->get_point_ptrs();
 
-      for (unsigned int i = 0, c = 0; i < ptr.size() - 1; ++i)
+      buffer.resize(point_ptrs.back() + send_permutation.size());
+      ArrayView<T> buffer_1(buffer.data(), point_ptrs.back());
+      ArrayView<T> buffer_2(buffer.data() + point_ptrs.back(),
+                            send_permutation.size());
+
+      // sort for communication (and duplicate data if necessary)
+      for (unsigned int i = 0, c = 0; i < point_ptrs.size() - 1; ++i)
         {
-          const auto n_entries = ptr[i + 1] - ptr[i];
+          const auto n_entries = point_ptrs[i + 1] - point_ptrs[i];
 
           for (unsigned int j = 0; j < n_entries; ++j, ++c)
-            buffer_[recv_permutation_inv[c]] = input[i];
+            buffer_1[recv_permutation_inv[c]] = input[i];
         }
-
-      // buffer.resize(point_ptrs.back());
-      buffer.resize(send_permutation.size() * 2);
-      ArrayView<T> buffer_1(buffer.data(), buffer.size() / 2);
-      ArrayView<T> buffer_2(buffer.data() + buffer.size() / 2,
-                            buffer.size() / 2);
 
       // send data
       std::vector<std::vector<char>> send_buffer;
@@ -511,8 +510,8 @@ namespace Utilities
           send_requests.push_back(MPI_Request());
 
           send_buffer.emplace_back(
-            Utilities::pack(std::vector<T>(buffer_.begin() + recv_ptrs[i],
-                                           buffer_.begin() + recv_ptrs[i + 1]),
+            Utilities::pack(std::vector<T>(buffer_1.begin() + recv_ptrs[i],
+                                           buffer_1.begin() + recv_ptrs[i + 1]),
                             false));
 
           const int ierr = MPI_Isend(send_buffer.back().data(),
@@ -540,7 +539,7 @@ namespace Utilities
           for (unsigned int i = send_ptrs[j0], j = recv_ptrs[j1];
                i < send_ptrs[j0 + 1];
                ++i, ++j)
-            buffer_2[send_permutation_inv[i]] = buffer_[j];
+            buffer_2[send_permutation_inv[i]] = buffer_1[j];
         }
 
       // receive data
@@ -551,6 +550,7 @@ namespace Utilities
           if (send_ranks[i] == my_rank)
             continue;
 
+          // receive remote data
           MPI_Status status;
           int        ierr = MPI_Probe(MPI_ANY_SOURCE,
                                internal::Tags::remote_point_evaluation,
@@ -573,10 +573,12 @@ namespace Utilities
                           MPI_STATUS_IGNORE);
           AssertThrowMPI(ierr);
 
+          // unpack data
           const auto recv_buffer_unpacked =
             Utilities::unpack<std::vector<T>>(recv_buffer, false);
 
-          auto ptr =
+          // write data into buffer vector
+          const auto ptr =
             std::find(send_ranks.begin(), send_ranks.end(), status.MPI_SOURCE);
 
           Assert(ptr != send_ranks.end(), ExcNotImplemented());
