@@ -510,9 +510,13 @@ namespace Utilities
             const auto n_entries = ptr[i + 1] - ptr[i];
 
             for (unsigned int j = 0; j < n_entries; ++j, ++c)
-              buffer_[recv_permutation[c]] = input[i];
+              buffer_[c] = input[i];
           }
       }
+
+      std::vector<T> buffer__(ptr.back());
+      for (unsigned int c = 0; c < buffer__.size(); ++c)
+        buffer__[c] = buffer_[recv_permutation[c]];
 
       // buffer.resize(point_ptrs.back());
       buffer.resize(send_permutation.size() * 2);
@@ -520,36 +524,37 @@ namespace Utilities
       ArrayView<T> buffer_2(buffer.data() + buffer.size() / 2,
                             buffer.size() / 2);
 
-      // process remote quadrature points and send them away
-      std::map<unsigned int, std::vector<char>> temp_map;
+      // send data
+      std::vector<std::vector<char>> send_buffer;
+      send_buffer.reserve(recv_ranks.size());
 
-      std::vector<MPI_Request> requests;
-      requests.reserve(recv_ranks.size());
+      std::vector<MPI_Request> send_requests;
+      send_requests.reserve(recv_ranks.size());
 
       bool has_locally_owned_points = false;
 
-      for (const auto recv_rank : recv_ranks)
+      for (unsigned int i = 0; i < recv_ranks.size(); ++i)
         {
-          if (recv_rank == my_rank)
+          if (recv_ranks[i] == my_rank)
             {
               has_locally_owned_points = true;
               continue;
             }
 
-          temp_map[recv_rank] =
-            Utilities::pack(temp_recv_map[recv_rank], false);
+          send_requests.push_back(MPI_Request());
 
-          auto &buffer_send = temp_map[recv_rank];
+          send_buffer.emplace_back(
+            Utilities::pack(std::vector<T>(buffer__.begin() + recv_ptrs[i],
+                                           buffer__.begin() + recv_ptrs[i + 1]),
+                            false));
 
-          requests.push_back(MPI_Request());
-
-          const int ierr = MPI_Isend(buffer_send.data(),
-                                     buffer_send.size(),
+          const int ierr = MPI_Isend(send_buffer.back().data(),
+                                     send_buffer.back().size(),
                                      MPI_CHAR,
-                                     recv_rank,
+                                     recv_ranks[i],
                                      internal::Tags::remote_point_evaluation,
                                      tria->get_communicator(),
-                                     &requests.back());
+                                     &send_requests.back());
           AssertThrowMPI(ierr);
         }
 
@@ -568,7 +573,7 @@ namespace Utilities
           for (unsigned int i = send_ptrs[j0], j = recv_ptrs[j1];
                i < send_ptrs[j0 + 1];
                ++i, ++j)
-            buffer_1[i] = buffer_[j];
+            buffer_1[i] = buffer__[j];
         }
 
       // receive data
@@ -623,8 +628,9 @@ namespace Utilities
             }
         }
 
-      const int ierr =
-        MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
+      const int ierr = MPI_Waitall(send_requests.size(),
+                                   send_requests.data(),
+                                   MPI_STATUSES_IGNORE);
       AssertThrowMPI(ierr);
 
       // sort for easy access during function call
