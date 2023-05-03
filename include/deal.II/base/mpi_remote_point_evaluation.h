@@ -420,8 +420,7 @@ namespace Utilities
        */
       template <typename T>
       std::enable_if_t<Utilities::MPI::is_mpi_type<T> == false, void>
-      pack_and_isend(T *                             data,
-                     const unsigned int              size,
+      pack_and_isend(const ArrayView<const T> &      data,
                      const unsigned int              rank,
                      const unsigned int              tag,
                      const MPI_Comm                  comm,
@@ -430,8 +429,8 @@ namespace Utilities
       {
         requests.emplace_back(MPI_Request());
 
-        buffers.emplace_back(
-          Utilities::pack(std::vector<T>(data, data + size), false));
+        buffers.emplace_back(Utilities::pack(
+          std::vector<T>(data.data(), data.data() + data.size()), false));
 
         const int ierr = MPI_Isend(buffers.back().data(),
                                    buffers.back().size(),
@@ -451,8 +450,7 @@ namespace Utilities
        */
       template <typename T>
       std::enable_if_t<Utilities::MPI::is_mpi_type<T> == true, void>
-      pack_and_isend(T *                             data,
-                     const unsigned int              size,
+      pack_and_isend(const ArrayView<const T> &      data,
                      const unsigned int              rank,
                      const unsigned int              tag,
                      const MPI_Comm                  comm,
@@ -463,8 +461,8 @@ namespace Utilities
 
         requests.emplace_back(MPI_Request());
 
-        const int ierr = MPI_Isend(data,
-                                   size,
+        const int ierr = MPI_Isend(data.data(),
+                                   data.size(),
                                    Utilities::MPI::mpi_type_id_for_type<T>,
                                    rank,
                                    tag,
@@ -480,7 +478,6 @@ namespace Utilities
       template <typename T>
       std::enable_if_t<Utilities::MPI::is_mpi_type<T> == false, void>
       recv_and_upack(std::vector<T> &   data,
-                     const unsigned int size,
                      const MPI_Comm     comm,
                      const MPI_Status & status,
                      std::vector<char> &buffer)
@@ -502,8 +499,6 @@ namespace Utilities
 
         // unpack data
         data = Utilities::unpack<std::vector<T>>(buffer, false);
-
-        AssertDimension(data.size(), size);
       }
 
 
@@ -515,14 +510,11 @@ namespace Utilities
       template <typename T>
       std::enable_if_t<Utilities::MPI::is_mpi_type<T> == true, void>
       recv_and_upack(std::vector<T> &   data,
-                     const unsigned int size,
                      const MPI_Comm     comm,
                      const MPI_Status & status,
                      std::vector<char> &buffer)
       {
         (void)buffer;
-
-        data.resize(size);
 
         const auto ierr = MPI_Recv(data.data(),
                                    data.size(),
@@ -581,9 +573,14 @@ namespace Utilities
       // ... for evaluation
       ArrayView<T> buffer_eval(buffer.data(), send_permutation.size());
 
-      // ... for communication
-      ArrayView<T> buffer_comm(buffer.data() + send_permutation.size(),
+      // ... for communication (send)
+      ArrayView<T> buffer_send(buffer.data() + send_permutation.size(),
                                send_permutation.size());
+
+      // more arrays
+      std::vector<MPI_Request>       send_requests;
+      std::vector<std::vector<char>> send_buffers_packed;
+      std::vector<char>              recv_buffer_packed;
 
       // evaluate functions at points
       evaluation_function(buffer_eval, *cell_data);
@@ -617,14 +614,12 @@ namespace Utilities
                                     recv_ptrs[my_rank_local_recv]]] =
               buffer_eval[i];
           else // data to be sent
-            buffer_comm[send_index] = buffer_eval[i];
+            buffer_send[send_index] = buffer_eval[i];
         }
 
       // send data
-      std::vector<std::vector<char>> send_buffers_packed;
-      send_buffers_packed.reserve(send_ranks.size());
 
-      std::vector<MPI_Request> send_requests;
+      send_buffers_packed.reserve(send_ranks.size());
       send_requests.reserve(send_ranks.size());
 
       for (unsigned int i = 0; i < send_ranks.size(); ++i)
@@ -632,19 +627,17 @@ namespace Utilities
           if (send_ranks[i] == my_rank)
             continue;
 
-          internal::pack_and_isend(buffer_comm.begin() + send_ptrs[i],
-                                   send_ptrs[i + 1] - send_ptrs[i],
-                                   send_ranks[i],
-                                   internal::Tags::remote_point_evaluation,
-                                   tria->get_communicator(),
-                                   send_buffers_packed,
-                                   send_requests);
+          internal::pack_and_isend(
+            ArrayView<const T>(buffer_send.begin() + send_ptrs[i],
+                               send_ptrs[i + 1] - send_ptrs[i]),
+            send_ranks[i],
+            internal::Tags::remote_point_evaluation,
+            tria->get_communicator(),
+            send_buffers_packed,
+            send_requests);
         }
 
       // receive data
-      std::vector<T>    recv_buffer;
-      std::vector<char> recv_buffer_packed;
-
       for (unsigned int i = 0; i < recv_ranks.size(); ++i)
         {
           if (recv_ranks[i] == my_rank)
@@ -665,8 +658,10 @@ namespace Utilities
 
           const unsigned int j = std::distance(recv_ranks.begin(), ptr);
 
-          internal::recv_and_upack(recv_buffer,
-                                   recv_ptrs[j + 1] - recv_ptrs[j],
+          // ... for communication (recv)
+          std::vector<T> buffer_recv(recv_ptrs[j + 1] - recv_ptrs[j]);
+
+          internal::recv_and_upack(buffer_recv,
                                    tria->get_communicator(),
                                    status,
                                    recv_buffer_packed);
@@ -674,7 +669,7 @@ namespace Utilities
           // write data into output vector
           for (unsigned int i = recv_ptrs[j], c = 0; i < recv_ptrs[j + 1];
                ++i, ++c)
-            output[recv_permutation[i]] = recv_buffer[c];
+            output[recv_permutation[i]] = buffer_recv[c];
         }
 
       // make sure all messages have been sent
@@ -745,9 +740,14 @@ namespace Utilities
       // ... for evaluation
       ArrayView<T> buffer_eval(buffer.data(), send_permutation.size());
 
-      // ... for communication
-      ArrayView<T> buffer_comm(buffer.data() + send_permutation.size(),
+      // ... for communication (send)
+      ArrayView<T> buffer_send(buffer.data() + send_permutation.size(),
                                point_ptrs.back());
+
+      // more arrays
+      std::vector<MPI_Request>       send_requests;
+      std::vector<std::vector<char>> send_buffers_packed;
+      std::vector<char>              recv_buffer_packed;
 
       // sort for communication (and duplicate data if necessary)
       unsigned int my_rank_local_recv = numbers::invalid_unsigned_int;
@@ -782,15 +782,12 @@ namespace Utilities
                               [recv_index - recv_ptrs[my_rank_local_recv] +
                                send_ptrs[my_rank_local_send]]] = input[i];
               else // data to be sent
-                buffer_comm[recv_index] = input[i];
+                buffer_send[recv_index] = input[i];
             }
         }
 
       // send data
-      std::vector<std::vector<char>> send_buffers_packed;
       send_buffers_packed.reserve(recv_ranks.size());
-
-      std::vector<MPI_Request> send_requests;
       send_requests.reserve(recv_ranks.size());
 
       for (unsigned int i = 0; i < recv_ranks.size(); ++i)
@@ -798,18 +795,15 @@ namespace Utilities
           if (recv_ranks[i] == my_rank)
             continue;
 
-          internal::pack_and_isend(buffer_comm.begin() + recv_ptrs[i],
-                                   recv_ptrs[i + 1] - recv_ptrs[i],
-                                   recv_ranks[i],
-                                   internal::Tags::remote_point_evaluation,
-                                   tria->get_communicator(),
-                                   send_buffers_packed,
-                                   send_requests);
+          internal::pack_and_isend(
+            ArrayView<const T>(buffer_send.begin() + recv_ptrs[i],
+                               recv_ptrs[i + 1] - recv_ptrs[i]),
+            recv_ranks[i],
+            internal::Tags::remote_point_evaluation,
+            tria->get_communicator(),
+            send_buffers_packed,
+            send_requests);
         }
-
-      // receive data
-      std::vector<T>    recv_buffer;
-      std::vector<char> recv_buffer_packed;
 
       for (unsigned int i = 0; i < send_ranks.size(); ++i)
         {
@@ -832,8 +826,9 @@ namespace Utilities
 
           const unsigned int j = std::distance(send_ranks.begin(), ptr);
 
+          std::vector<T> recv_buffer(send_ptrs[j + 1] - send_ptrs[j]);
+
           internal::recv_and_upack(recv_buffer,
-                                   send_ptrs[j + 1] - send_ptrs[j],
                                    tria->get_communicator(),
                                    status,
                                    recv_buffer_packed);
