@@ -477,10 +477,10 @@ namespace Utilities
        */
       template <typename T>
       std::enable_if_t<Utilities::MPI::is_mpi_type<T> == false, void>
-      recv_and_upack(std::vector<T> &   data,
-                     const MPI_Comm     comm,
-                     const MPI_Status & status,
-                     std::vector<char> &buffer)
+      recv_and_upack(const ArrayView<T> &data,
+                     const MPI_Comm      comm,
+                     const MPI_Status &  status,
+                     std::vector<char> & buffer)
       {
         int message_length;
         int ierr = MPI_Get_count(&status, MPI_CHAR, &message_length);
@@ -498,7 +498,10 @@ namespace Utilities
         AssertThrowMPI(ierr);
 
         // unpack data
-        data = Utilities::unpack<std::vector<T>>(buffer, false);
+        const auto temp = Utilities::unpack<std::vector<T>>(buffer, false);
+
+        for (unsigned int i = 0; i < data.size(); ++i)
+          data[i] = temp[i];
       }
 
 
@@ -509,10 +512,10 @@ namespace Utilities
        */
       template <typename T>
       std::enable_if_t<Utilities::MPI::is_mpi_type<T> == true, void>
-      recv_and_upack(std::vector<T> &   data,
-                     const MPI_Comm     comm,
-                     const MPI_Status & status,
-                     std::vector<char> &buffer)
+      recv_and_upack(const ArrayView<T> &data,
+                     const MPI_Comm      comm,
+                     const MPI_Status &  status,
+                     std::vector<char> & buffer)
       {
         (void)buffer;
 
@@ -566,9 +569,18 @@ namespace Utilities
         Utilities::MPI::this_mpi_process(tria->get_communicator());
 
       // allocate memory for output and buffer
+      unsigned int size_recv = 0;
+      for (unsigned int i = 0; i < recv_ranks.size(); ++i)
+        size_recv = std::max(size_recv, recv_ptrs[i + 1] - recv_ptrs[i]);
+
+      unsigned int size_send = 0;
+      for (unsigned int i = 0; i < send_ranks.size(); ++i)
+        size_send = std::max(size_send, send_ptrs[i + 1] - send_ptrs[i]);
+
       output.resize(point_ptrs.back());
-      buffer.resize(std::max(send_permutation.size() * 2,
-                             point_ptrs.back() + send_permutation.size()));
+      buffer.resize(
+        std::max(send_permutation.size() * 2 + size_recv,
+                 point_ptrs.back() + send_permutation.size() + size_send));
 
       // ... for evaluation
       ArrayView<T> buffer_eval(buffer.data(), send_permutation.size());
@@ -659,9 +671,10 @@ namespace Utilities
           const unsigned int j = std::distance(recv_ranks.begin(), ptr);
 
           // ... for communication (recv)
-          std::vector<T> buffer_recv(recv_ptrs[j + 1] - recv_ptrs[j]);
+          ArrayView<T> recv_buffer(buffer.data() + send_permutation.size() * 2,
+                                   recv_ptrs[j + 1] - recv_ptrs[j]);
 
-          internal::recv_and_upack(buffer_recv,
+          internal::recv_and_upack(recv_buffer,
                                    tria->get_communicator(),
                                    status,
                                    recv_buffer_packed);
@@ -669,7 +682,7 @@ namespace Utilities
           // write data into output vector
           for (unsigned int i = recv_ptrs[j], c = 0; i < recv_ptrs[j + 1];
                ++i, ++c)
-            output[recv_permutation[i]] = buffer_recv[c];
+            output[recv_permutation[i]] = recv_buffer[c];
         }
 
       // make sure all messages have been sent
@@ -733,9 +746,19 @@ namespace Utilities
 
       // allocate memory for buffer
       const auto &point_ptrs = this->get_point_ptrs();
+
+      unsigned int size_recv = 0;
+      for (unsigned int i = 0; i < recv_ranks.size(); ++i)
+        size_recv = std::max(size_recv, recv_ptrs[i + 1] - recv_ptrs[i]);
+
+      unsigned int size_send = 0;
+      for (unsigned int i = 0; i < send_ranks.size(); ++i)
+        size_send = std::max(size_send, send_ptrs[i + 1] - send_ptrs[i]);
+
       AssertDimension(input.size(), point_ptrs.size() - 1);
-      buffer.resize(std::max(send_permutation.size() * 2,
-                             point_ptrs.back() + send_permutation.size()));
+      buffer.resize(
+        std::max(send_permutation.size() * 2 + size_recv,
+                 point_ptrs.back() + send_permutation.size() + size_send));
 
       // ... for evaluation
       ArrayView<T> buffer_eval(buffer.data(), send_permutation.size());
@@ -826,7 +849,9 @@ namespace Utilities
 
           const unsigned int j = std::distance(send_ranks.begin(), ptr);
 
-          std::vector<T> recv_buffer(send_ptrs[j + 1] - send_ptrs[j]);
+          ArrayView<T> recv_buffer(buffer.data() + point_ptrs.back() +
+                                     send_permutation.size(),
+                                   send_ptrs[j + 1] - send_ptrs[j]);
 
           internal::recv_and_upack(recv_buffer,
                                    tria->get_communicator(),
