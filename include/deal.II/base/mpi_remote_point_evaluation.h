@@ -768,12 +768,12 @@ namespace Utilities
         &                evaluation_function,
       const unsigned int n_components) const
     {
-      (void)n_components;
 #ifndef DEAL_II_WITH_MPI
       Assert(false, ExcNeedsMPI());
       (void)input;
       (void)buffer;
       (void)evaluation_function;
+      (void)n_components;
 #else
       static CollectiveMutex      mutex;
       CollectiveMutex::ScopedLock lock(mutex, tria->get_communicator());
@@ -801,17 +801,20 @@ namespace Utilities
       for (unsigned int i = 0; i < send_ranks.size(); ++i)
         size_send = std::max(size_send, send_ptrs[i + 1] - send_ptrs[i]);
 
-      AssertDimension(input.size(), point_ptrs.size() - 1);
+      AssertDimension(input.size(), (point_ptrs.size() - 1) * n_components);
       buffer.resize(
         std::max(send_permutation.size() * 2 + size_recv,
-                 point_ptrs.back() + send_permutation.size() + size_send));
+                 point_ptrs.back() + send_permutation.size() + size_send) *
+        n_components);
 
       // ... for evaluation
-      ArrayView<T> buffer_eval(buffer.data(), send_permutation.size());
+      ArrayView<T> buffer_eval(buffer.data(),
+                               send_permutation.size() * n_components);
 
       // ... for communication (send)
-      ArrayView<T> buffer_send(buffer.data() + send_permutation.size(),
-                               point_ptrs.back());
+      ArrayView<T> buffer_send(buffer.data() +
+                                 send_permutation.size() * n_components,
+                               point_ptrs.back() * n_components);
 
       // more arrays
       std::vector<MPI_Request>       send_requests;
@@ -835,23 +838,33 @@ namespace Utilities
                                                        my_rank));
         }
 
-      for (unsigned int i = 0, c = 0; i < point_ptrs.size() - 1; ++i)
+      for (unsigned int i = 0, k = 0; i < point_ptrs.size() - 1; ++i)
         {
           const auto n_entries = point_ptrs[i + 1] - point_ptrs[i];
 
-          for (unsigned int j = 0; j < n_entries; ++j, ++c)
+          for (unsigned int j = 0; j < n_entries; ++j, ++k)
             {
-              const unsigned int recv_index = recv_permutation_inv[c];
+              const unsigned int recv_index = recv_permutation_inv[k];
 
               // local data -> can be copied to final buffer directly
               if (my_rank_local_recv != numbers::invalid_unsigned_int &&
                   (recv_ptrs[my_rank_local_recv] <= recv_index &&
                    recv_index < recv_ptrs[my_rank_local_recv + 1]))
-                buffer_eval[send_permutation_inv
-                              [recv_index - recv_ptrs[my_rank_local_recv] +
-                               send_ptrs[my_rank_local_send]]] = input[i];
+                {
+                  for (unsigned int c = 0; c < n_components; ++c)
+                    buffer_eval
+                      [send_permutation_inv[recv_index -
+                                            recv_ptrs[my_rank_local_recv] +
+                                            send_ptrs[my_rank_local_send]] *
+                         n_components +
+                       c] = input[i * n_components + c];
+                }
               else // data to be sent
-                buffer_send[recv_index] = input[i];
+                {
+                  for (unsigned int c = 0; c < n_components; ++c)
+                    buffer_send[recv_index * n_components + c] =
+                      input[i * n_components + c];
+                }
             }
         }
 
@@ -865,8 +878,9 @@ namespace Utilities
             continue;
 
           internal::pack_and_isend(
-            ArrayView<const T>(buffer_send.begin() + recv_ptrs[i],
-                               recv_ptrs[i + 1] - recv_ptrs[i]),
+            ArrayView<const T>(
+              buffer_send.begin() + recv_ptrs[i] * n_components,
+              (recv_ptrs[i + 1] - recv_ptrs[i]) * n_components),
             recv_ranks[i],
             internal::Tags::remote_point_evaluation,
             tria->get_communicator(),
@@ -895,18 +909,21 @@ namespace Utilities
 
           const unsigned int j = std::distance(send_ranks.begin(), ptr);
 
-          ArrayView<T> recv_buffer(buffer.data() + point_ptrs.back() +
-                                     send_permutation.size(),
-                                   send_ptrs[j + 1] - send_ptrs[j]);
+          ArrayView<T> recv_buffer(
+            buffer.data() +
+              (point_ptrs.back() + send_permutation.size()) * n_components,
+            (send_ptrs[j + 1] - send_ptrs[j]) * n_components);
 
           internal::recv_and_upack(recv_buffer,
                                    tria->get_communicator(),
                                    status,
                                    recv_buffer_packed);
 
-          for (unsigned int i = send_ptrs[j], c = 0; i < send_ptrs[j + 1];
-               ++i, ++c)
-            buffer_eval[send_permutation_inv[i]] = recv_buffer[c];
+          for (unsigned int i = send_ptrs[j], k = 0; i < send_ptrs[j + 1];
+               ++i, ++k)
+            for (unsigned int c = 0; c < n_components; ++c)
+              buffer_eval[send_permutation_inv[i] * n_components + c] =
+                recv_buffer[k * n_components + c];
         }
 
       if (!send_requests.empty())
