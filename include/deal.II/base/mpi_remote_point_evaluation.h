@@ -627,11 +627,13 @@ namespace Utilities
                  point_ptrs.back() + send_permutation.size() + size_send));
 
       // ... for evaluation
-      ArrayView<T> buffer_eval(buffer.data(), send_permutation.size());
+      ArrayView<T> buffer_eval(buffer.data(),
+                               send_permutation.size() * n_components);
 
       // ... for communication (send)
-      ArrayView<T> buffer_send(buffer.data() + send_permutation.size(),
-                               send_permutation.size());
+      ArrayView<T> buffer_send(buffer.data() +
+                                 send_permutation.size() * n_components,
+                               send_permutation.size() * n_components);
 
       // more arrays
       std::vector<MPI_Request>       send_requests;
@@ -666,11 +668,20 @@ namespace Utilities
           if (my_rank_local_send != numbers::invalid_unsigned_int &&
               (send_ptrs[my_rank_local_send] <= send_index &&
                send_index < send_ptrs[my_rank_local_send + 1]))
-            output[recv_permutation[send_index - send_ptrs[my_rank_local_send] +
-                                    recv_ptrs[my_rank_local_recv]]] =
-              buffer_eval[i];
+            {
+              for (unsigned int c = 0; c < n_components; ++c)
+                output[recv_permutation[send_index -
+                                        send_ptrs[my_rank_local_send] +
+                                        recv_ptrs[my_rank_local_recv]] *
+                         n_components +
+                       c] = buffer_eval[i * n_components + c];
+            }
           else // data to be sent
-            buffer_send[send_index] = buffer_eval[i];
+            {
+              for (unsigned int c = 0; c < n_components; ++c)
+                buffer_send[send_index * n_components + c] =
+                  buffer_eval[i * n_components + c];
+            }
         }
 
       // send data
@@ -684,8 +695,9 @@ namespace Utilities
             continue;
 
           internal::pack_and_isend(
-            ArrayView<const T>(buffer_send.begin() + send_ptrs[i],
-                               send_ptrs[i + 1] - send_ptrs[i]),
+            ArrayView<const T>(
+              buffer_send.begin() + send_ptrs[i] * n_components,
+              (send_ptrs[i + 1] - send_ptrs[i]) * n_components),
             send_ranks[i],
             internal::Tags::remote_point_evaluation,
             tria->get_communicator(),
@@ -715,8 +727,10 @@ namespace Utilities
           const unsigned int j = std::distance(recv_ranks.begin(), ptr);
 
           // ... for communication (recv)
-          ArrayView<T> recv_buffer(buffer.data() + send_permutation.size() * 2,
-                                   recv_ptrs[j + 1] - recv_ptrs[j]);
+          ArrayView<T> recv_buffer(buffer.data() +
+                                     send_permutation.size() * 2 * n_components,
+                                   (recv_ptrs[j + 1] - recv_ptrs[j]) *
+                                     n_components);
 
           internal::recv_and_upack(recv_buffer,
                                    tria->get_communicator(),
@@ -724,9 +738,11 @@ namespace Utilities
                                    recv_buffer_packed);
 
           // write data into output vector
-          for (unsigned int i = recv_ptrs[j], c = 0; i < recv_ptrs[j + 1];
-               ++i, ++c)
-            output[recv_permutation[i]] = recv_buffer[c];
+          for (unsigned int i = recv_ptrs[j], k = 0; i < recv_ptrs[j + 1];
+               ++i, ++k)
+            for (unsigned int c = 0; c < n_components; ++c)
+              output[recv_permutation[i] * n_components + c] =
+                recv_buffer[k * n_components + c];
         }
 
       // make sure all messages have been sent
