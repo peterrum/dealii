@@ -223,7 +223,8 @@ namespace Utilities
         std::vector<T> &output,
         std::vector<T> &buffer,
         const std::function<void(const ArrayView<T> &, const CellData &)>
-          &evaluation_function) const;
+          &                evaluation_function,
+        const unsigned int n_components = 1) const;
 
       /**
        * Same as above but with the result provided as return value and
@@ -260,7 +261,8 @@ namespace Utilities
       process_and_evaluate(
         const std::vector<T> &input,
         const std::function<void(const ArrayView<const T> &, const CellData &)>
-          &evaluation_function) const;
+          &                evaluation_function,
+        const unsigned int n_components = 1) const;
 
       /**
        * Return a CRS-like data structure to determine the position of the
@@ -472,6 +474,27 @@ namespace Utilities
       }
 
 
+
+      /**
+       * Above function specialized for data types supported by MPI
+       * so that one can skip packing.
+       */
+      template <int rank_, int dim, typename T>
+      std::enable_if_t<Utilities::MPI::is_mpi_type<T> == true, void>
+      pack_and_isend(const ArrayView<const Tensor<rank_, dim, T>> &data,
+                     const unsigned int                            rank,
+                     const unsigned int                            tag,
+                     const MPI_Comm                                comm,
+                     std::vector<std::vector<char>> &              buffers,
+                     std::vector<MPI_Request> &                    requests)
+      {
+        ArrayView<const T> data_(reinterpret_cast<const T *>(data.data()),
+                                 data.size() * Utilities::pow(dim, rank_));
+
+        pack_and_isend(data_, rank, tag, comm, buffers, requests);
+      }
+
+
       /**
        * Receive message, unpack it, and store the result in @p data.
        */
@@ -528,6 +551,25 @@ namespace Utilities
                                    MPI_STATUS_IGNORE);
         AssertThrowMPI(ierr);
       }
+
+
+
+      /**
+       * Above function specialized for data types supported by MPI
+       * so that one can skip unpacking.
+       */
+      template <int rank_, int dim, typename T>
+      std::enable_if_t<Utilities::MPI::is_mpi_type<T> == true, void>
+      recv_and_upack(const ArrayView<Tensor<rank_, dim, T>> &data,
+                     const MPI_Comm                          comm,
+                     const MPI_Status &                      status,
+                     std::vector<char> &                     buffer)
+      {
+        const ArrayView<T> data_(reinterpret_cast<T *>(data.data()),
+                                 data.size() * Utilities::pow(dim, rank_));
+
+        recv_and_upack(data_, comm, status, buffer);
+      }
 #endif
     } // namespace internal
 
@@ -554,8 +596,10 @@ namespace Utilities
       std::vector<T> &output,
       std::vector<T> &buffer,
       const std::function<void(const ArrayView<T> &, const CellData &)>
-        &evaluation_function) const
+        &                evaluation_function,
+      const unsigned int n_components) const
     {
+      (void)n_components;
 #ifndef DEAL_II_WITH_MPI
       Assert(false, ExcNeedsMPI());
       (void)output;
@@ -721,8 +765,10 @@ namespace Utilities
       const std::vector<T> &input,
       std::vector<T>       &buffer,
       const std::function<void(const ArrayView<const T> &, const CellData &)>
-        &evaluation_function) const
+        &                evaluation_function,
+      const unsigned int n_components) const
     {
+      (void)n_components;
 #ifndef DEAL_II_WITH_MPI
       Assert(false, ExcNeedsMPI());
       (void)input;
