@@ -792,6 +792,12 @@ private:
    * rank.
    */
   std::vector<unsigned int> level_dof_indices_fine;
+
+  /**
+   * CRS like structure which points to the L2 DoFs accossiated with a H1 DoF,
+   * i.e. in DG multiple DoFs correspond to the same continuous DoF.
+   */
+  std::vector<unsigned int> level_dof_indices_fine_ptrs;
 };
 
 

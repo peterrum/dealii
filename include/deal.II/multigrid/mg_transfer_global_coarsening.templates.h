@@ -3509,6 +3509,10 @@ namespace internal
 
       return mapping_info;
     }
+
+    // TODO: move map_h1_l2_dofs here while it has not been tested for multiple
+    // components
+
   } // namespace
 } // namespace internal
 
@@ -3532,7 +3536,8 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
          ExcMessage(
            "The coarser DoFHandler has more DoFs than the finer DoFHandler."));
 
-  this->fine_element_is_continuous = true;
+  this->fine_element_is_continuous =
+    dof_handler_fine.get_fe().n_dofs_per_vertex() > 0;
 
   // create partitioners and internal vectors
   {
@@ -3555,52 +3560,111 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
 
   // Loop over fine cells and collect points, removing possible duplicates
-  auto &      fe_space = dof_handler_fine.get_fe();
-  const auto &unit_pts = fe_space.get_unit_support_points();
-  std::vector<std::pair<types::global_dof_index, Point<dim>>> points_all;
-  std::vector<Point<dim>>                                     points;
-  std::vector<types::global_dof_index>                        dof_indices(
-    dof_handler_fine.get_fe().n_dofs_per_cell());
+  auto const collect_unique_support_points =
+    [&](const DoFHandler<dim> &dof_handler) {
+      auto &      fe_space = dof_handler.get_fe();
+      const auto &unit_pts = fe_space.get_unit_support_points();
+      std::vector<std::pair<types::global_dof_index, Point<dim>>> points_all;
+      std::vector<types::global_dof_index>                        dof_indices(
+        fe_space.n_dofs_per_cell());
 
-  const auto &local_indices_fine = dof_handler_fine.locally_owned_dofs();
+      const auto &local_indices_fine = dof_handler.locally_owned_dofs();
 
-  Quadrature<dim> quadrature(unit_pts);
-  FEValues<dim>   fe_values(mapping_fine,
-                          fe_space,
-                          quadrature,
-                          update_quadrature_points);
+      Quadrature<dim> quadrature(unit_pts);
+      FEValues<dim>   fe_values(mapping_fine,
+                              fe_space,
+                              quadrature,
+                              update_quadrature_points);
 
-  for (const auto &cell : dof_handler_fine.active_cell_iterators() |
-                            IteratorFilters::LocallyOwnedCell())
+      for (const auto &cell : dof_handler.active_cell_iterators() |
+                                IteratorFilters::LocallyOwnedCell())
+        {
+          fe_values.reinit(cell);
+          cell->get_dof_indices(dof_indices);
+
+          for (unsigned int i = 0; i < dof_indices.size(); ++i)
+            if (local_indices_fine.is_element(dof_indices[i]) &&
+                (constraint_fine.is_constrained(dof_indices[i]) == false))
+              points_all.emplace_back(local_indices_fine.index_within_set(
+                                        dof_indices[i]),
+                                      fe_values.quadrature_point(i));
+        }
+
+      std::sort(points_all.begin(),
+                points_all.end(),
+                [](const auto &a, const auto &b) { return a.first < b.first; });
+      points_all.erase(std::unique(points_all.begin(),
+                                   points_all.end(),
+                                   [](const auto &a, const auto &b) {
+                                     return a.first == b.first;
+                                   }),
+                       points_all.end());
+      return points_all;
+    };
+
+  std::vector<Point<dim>> points; // points for RPE
+  if (this->fine_element_is_continuous)
     {
-      fe_values.reinit(cell);
-      cell->get_dof_indices(dof_indices);
+      // get points and corresponding H1 indices
+      const auto points_all = collect_unique_support_points(dof_handler_fine);
 
-      for (unsigned int i = 0; i < dof_indices.size(); ++i)
-        if (local_indices_fine.is_element(dof_indices[i]) &&
-            (constraint_fine.is_constrained(dof_indices[i]) == false))
-          points_all.emplace_back(local_indices_fine.index_within_set(
-                                    dof_indices[i]),
-                                  fe_values.quadrature_point(i));
+      // fill points and internal data structures
+      points.resize(points_all.size());
+      this->level_dof_indices_fine.resize(points_all.size());
+      this->level_dof_indices_fine_ptrs.resize(points_all.size() + 1);
+      this->level_dof_indices_fine_ptrs[0] = 0;
+      for (unsigned int i = 0; i < points_all.size(); ++i)
+        {
+          points[i]                       = points_all[i].second;
+          this->level_dof_indices_fine[i] = points_all[i].first;
+          this->level_dof_indices_fine_ptrs[i + 1] =
+            this->level_dof_indices_fine.size();
+        }
+    }
+  else
+    {
+      // get map between H1 and L2 DoFs
+      const auto maps_h1_dof_handler =
+        DoFTools::map_l2_h1_dofs(dof_handler_fine);
+      const auto &dof_handler_fine_h1 = std::get<2>(maps_h1_dof_handler);
+      const auto &h1_to_l2_dof_map    = std::get<1>(maps_h1_dof_handler);
+
+      // get points and corresponding H1 indices
+      const auto points_all = collect_unique_support_points(
+        *dof_handler_fine_h1); // points and H1 index
+
+      // fill points and internal data structures
+      points.resize(points_all.size());
+      this->level_dof_indices_fine.clear();
+      this->level_dof_indices_fine.reserve(h1_to_l2_dof_map.size());
+      this->level_dof_indices_fine_ptrs.resize(points_all.size() + 1);
+      this->level_dof_indices_fine_ptrs[0] = 0;
+
+      auto h1_to_l2_it = h1_to_l2_dof_map.begin();
+      for (unsigned int i = 0; i < points_all.size(); ++i)
+        {
+          const auto h1_idx = points_all[i].first;
+
+          Assert(
+            h1_to_l2_it->first == h1_idx,
+            ExcMessage(
+              "H1 indices do not match. This should not happen since both structures are sorted."));
+
+          points[i] = points_all[i].second;
+
+          while (h1_to_l2_it != h1_to_l2_dof_map.end() &&
+                 h1_to_l2_it->first == h1_idx)
+            {
+              this->level_dof_indices_fine.emplace_back(h1_to_l2_it->second);
+              ++h1_to_l2_it;
+            }
+
+          this->level_dof_indices_fine_ptrs[i + 1] =
+            this->level_dof_indices_fine.size();
+        }
     }
 
-  std::sort(points_all.begin(),
-            points_all.end(),
-            [](const auto &a, const auto &b) { return a.first < b.first; });
-  points_all.erase(std::unique(points_all.begin(),
-                               points_all.end(),
-                               [](const auto &a, const auto &b) {
-                                 return a.first == b.first;
-                               }),
-                   points_all.end());
-
-  for (const auto &i : points_all)
-    {
-      this->level_dof_indices_fine.push_back(i.first);
-      points.push_back(i.second);
-    }
-
-  // Duplicates support points have been removed, hand them over to rpe.
+  // Duplicated support points have been removed, hand them over to rpe.
   rpe.reinit(points, dof_handler_coarse.get_triangulation(), mapping_coarse);
 
   // set up MappingInfo for easier data access
@@ -3642,6 +3706,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
 
 
+// TODO: prolongation for DG
 template <int dim, typename Number>
 void
 MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
@@ -3732,8 +3797,15 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   evaluation_point_results.resize(rpe.get_point_ptrs().size() - 1);
 
   for (unsigned int j = 0; j < evaluation_point_results.size(); ++j)
-    evaluation_point_results[j] =
-      src.local_element(this->level_dof_indices_fine[j]);
+    {
+      evaluation_point_results[j] = 0.0;
+      const auto        ptr = this->level_dof_indices_fine_ptrs.begin() + j;
+      const std::size_t n_entries = *(ptr + 1) - *ptr;
+
+      for (unsigned int i = 0; i < n_entries; ++i)
+        evaluation_point_results[j] +=
+          src.local_element(this->level_dof_indices_fine[*ptr + i]);
+    }
 
   // Weight operator in case some points are owned by multiple cells.
   if (rpe.is_map_unique() == false)
