@@ -3778,8 +3778,14 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     }
 
   for (unsigned int j = 0; j < evaluation_point_results.size(); ++j)
-    dst.local_element(this->level_dof_indices_fine[j]) +=
-      evaluation_point_results[j];
+    {
+      const auto        ptr = this->level_dof_indices_fine_ptrs.begin() + j;
+      const std::size_t n_entries = *(ptr + 1) - *ptr;
+
+      for (unsigned int i = 0; i < n_entries; ++i)
+        dst.local_element(this->level_dof_indices_fine[*ptr + i]) +=
+          evaluation_point_results[j];
+    }
 }
 
 
