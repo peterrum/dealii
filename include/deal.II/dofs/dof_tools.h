@@ -2352,6 +2352,48 @@ namespace DoFTools
     const DoFHandler<dim, spacedim> &dof_handler,
     std::map<Point<spacedim>, types::global_dof_index, Comp>
       &point_to_index_map);
+
+
+  /**
+   * This function provides information which L2 DoF index would be accociated
+   * with a H1 DoF. This information is is necessary if we want to convert
+   * vectors between the mentioned spaces or during solution transfer between
+   * different grids.
+   *
+   * @param[in] dof_handler_l2 L2 conforming DoFHandler
+   * @param[in] dof_handler_h1 H1 conforming DoFHandler
+   * @return A pair which contains
+   * 0) a vector of pairs which describe the map between L2 and H1 space
+   * 1) a vector of pairs which describe the map between H1 and L2 space
+   */
+  template <int dim, int spacedim>
+  std::pair<
+    std::vector<std::pair<types::global_dof_index, types::global_dof_index>>,
+    std::vector<std::pair<types::global_dof_index, types::global_dof_index>>>
+  map_l2_h1_dofs(const DoFHandler<dim, spacedim> &dof_handler_l2,
+                 const DoFHandler<dim, spacedim> &dof_handler_h1);
+
+
+  /**
+   * Same as above but a dummy DoFHandler is created internally. Since it might
+   * be helpfull to use the dummy DoFHandler outside the function it is returned
+   * as the last argument in the tuple.
+   *
+   * @param[in] dof_handler_l2 L2 conforming DoFHandler
+   * @return A tuple which contains
+   * 0) a vector of pairs which describe the map between L2 and H1 space
+   * 1) a vector of pairs which describe the map between H1 and L2 space
+   * 3) a shared pointer to the H1 conforming dummy DoFHandler created in the
+   * function
+   */
+  template <int dim, int spacedim>
+  std::tuple<
+    std::vector<std::pair<types::global_dof_index, types::global_dof_index>>,
+    std::vector<std::pair<types::global_dof_index, types::global_dof_index>>,
+    std::shared_ptr<DoFHandler<dim, spacedim>>>
+  map_l2_h1_dofs(const DoFHandler<dim, spacedim> &dof_handler_l2);
+
+
   /**
    * @}
    */
