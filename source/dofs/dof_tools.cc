@@ -2480,6 +2480,11 @@ namespace DoFTools
     std::shared_ptr<DoFHandler<dim, spacedim>>>
   map_l2_h1_dofs(const DoFHandler<dim, spacedim> &dof_handler_l2)
   {
+    Assert(
+      dof_handler_l2.get_fe().degree > 0,
+      ExcMessage(
+        "Within this function a H1 dummy DoFHandler of the same degree as the L2 DoFHandler is built. H1 elements can not be of degree 0."));
+
     Assert(dof_handler_l2.get_fe().conforming_space ==
              FiniteElementData<dim>::Conformity::L2,
            ExcMessage("dof_handler_l2 not L2 conforming"));
