@@ -2377,8 +2377,8 @@ namespace DoFTools
 
     Assert(dof_handler_h1.get_fe().degree == dof_handler_l2.get_fe().degree,
            ExcMessage("DoFhandlers need the same degree."));
-    Assert(dof_handler_h1.get_fe().n_components ==
-             dof_handler_l2.get_fe().n_components,
+    Assert(dof_handler_h1.get_fe().n_components() ==
+             dof_handler_l2.get_fe().n_components(),
            ExcMessage("DoFhandlers need the same number of components."));
     Assert(&dof_handler_l2.get_triangulation() ==
              &dof_handler_l2.get_triangulation(),
@@ -2437,9 +2437,9 @@ namespace DoFTools
             for (unsigned int i = 0; i < dof_indices_l2.size(); ++i)
               if (partitioner_l2.in_local_range(dof_indices_l2[i]))
                 {
-                  auto const local_l2 =
+                  const auto local_l2 =
                     partitioner_l2.global_to_local(dof_indices_l2[i]);
-                  auto const local_h1 =
+                  const auto local_h1 =
                     partitioner_h1.global_to_local(dof_indices_h1[h1_to_l2[i]]);
                   local_l2_to_h1_dofs.emplace_back(local_l2, local_h1);
                 }
@@ -2448,9 +2448,9 @@ namespace DoFTools
             for (unsigned int i = 0; i < dof_indices_h1.size(); ++i)
               if (partitioner_h1.in_local_range(dof_indices_h1[i]))
                 {
-                  auto const local_h1 =
+                  const auto local_h1 =
                     partitioner_h1.global_to_local(dof_indices_h1[i]);
-                  auto const local_l2 =
+                  const auto local_l2 =
                     partitioner_l2.global_to_local(dof_indices_l2[l2_to_h1[i]]);
                   local_h1_to_l2_dofs.emplace_back(local_h1, local_l2);
                 }
@@ -2458,7 +2458,7 @@ namespace DoFTools
       }
 
     // sort for local dofs
-    auto const sort_local_dofs = [](const auto &a, const auto &b) {
+    const auto sort_local_dofs = [](const auto &a, const auto &b) {
       return a.first < b.first;
     };
     std::sort(local_l2_to_h1_dofs.begin(),
