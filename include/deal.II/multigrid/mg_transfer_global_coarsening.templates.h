@@ -3551,8 +3551,9 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     this->vec_coarse.reinit(this->partitioner_coarse);
   }
   {
+    //TODO: This adds to many dofs and therefore the IndexSet has to be created manually.
     IndexSet locally_relevant_dofs;
-    if (!this->fine_element_is_continuous)
+    if (!this->fine_element_is_continuous && !dof_handler_fine.get_fe().degree == 0)
       DoFTools::extract_locally_relevant_dofs(dof_handler_fine,
                                               locally_relevant_dofs);
 
