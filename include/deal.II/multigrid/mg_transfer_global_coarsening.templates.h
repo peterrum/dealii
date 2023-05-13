@@ -3551,8 +3551,14 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     this->vec_coarse.reinit(this->partitioner_coarse);
   }
   {
+    IndexSet locally_relevant_dofs;
+    if (!this->fine_element_is_continuous)
+      DoFTools::extract_locally_relevant_dofs(dof_handler_fine,
+                                              locally_relevant_dofs);
+
     this->partitioner_fine.reset(
       new Utilities::MPI::Partitioner(dof_handler_fine.locally_owned_dofs(),
+                                      locally_relevant_dofs,
                                       dof_handler_fine.get_communicator()));
 
     this->vec_fine.reinit(this->partitioner_fine);
