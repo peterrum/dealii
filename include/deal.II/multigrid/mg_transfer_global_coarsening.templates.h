@@ -3615,8 +3615,8 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
       this->level_dof_indices_fine_ptrs[0] = 0;
       for (unsigned int i = 0; i < points_all.size(); ++i)
         {
-          points[i]                       = points_all[i].second;
-          this->level_dof_indices_fine[i] = points_all[i].first;
+          points[i]                                = points_all[i].second;
+          this->level_dof_indices_fine[i]          = points_all[i].first;
           this->level_dof_indices_fine_ptrs[i + 1] = i + 1;
         }
     }
