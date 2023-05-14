@@ -3695,6 +3695,10 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   {
     // TODO: This adds to many dofs and therefore the IndexSet has to be created
     // manually.
+
+    // in case a DG space of order 0 is provided, DoFs indices are always uniquely
+    // assigned to support points (they are always defined in the center of the element)
+    // and there is no need of checking the latter
     IndexSet locally_relevant_dofs;
     if (!this->fine_element_is_continuous &&
         !dof_handler_fine.get_fe().degree == 0)
@@ -3756,7 +3760,8 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   std::vector<Point<dim>> points; // points for RPE
 
   // in case a DG space of order 0 is provided, DoFs indices are always uniquely
-  // assigned to points and there is no need of checking the latter
+  // assigned to support points (they are always defined in the center of the element)
+  // and there is no need of checking the latter
   if (this->fine_element_is_continuous || dof_handler_fine.get_fe().degree == 0)
     {
       // get points and corresponding H1 indices
