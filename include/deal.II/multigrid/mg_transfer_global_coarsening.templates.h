@@ -3711,7 +3711,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
 
   // Loop over fine cells and collect points, removing possible duplicates
-  auto const collect_unique_support_points =
+  const auto collect_unique_support_points =
     [&](const DoFHandler<dim> &dof_handler) {
       auto &      fe_space = dof_handler.get_fe();
       const auto &unit_pts = fe_space.get_unit_support_points();
