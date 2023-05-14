@@ -3765,13 +3765,11 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
       // fill points and internal data structures
       points.resize(points_all.size());
       this->level_dof_indices_fine.resize(points_all.size());
-      this->level_dof_indices_fine_ptrs.resize(points_all.size() + 1);
-      this->level_dof_indices_fine_ptrs[0] = 0;
+      this->level_dof_indices_fine_ptrs.clear();
       for (unsigned int i = 0; i < points_all.size(); ++i)
         {
           points[i]                                = points_all[i].second;
           this->level_dof_indices_fine[i]          = points_all[i].first;
-          this->level_dof_indices_fine_ptrs[i + 1] = i + 1;
         }
     }
   else
@@ -3931,12 +3929,20 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   for (unsigned int j = 0; j < evaluation_point_results.size(); ++j)
     {
-      const auto        ptr = this->level_dof_indices_fine_ptrs.begin() + j;
-      const std::size_t n_entries = *(ptr + 1) - *ptr;
+      if(level_dof_indices_fine_ptrs.size() == 0)
+        {
+          dst.local_element(this->level_dof_indices_fine[j]) +=
+            evaluation_point_results[j];
+        }
+      else
+        {        
+          const auto        ptr = this->level_dof_indices_fine_ptrs.begin() + j;
+          const std::size_t n_entries = *(ptr + 1) - *ptr;
 
-      for (unsigned int i = 0; i < n_entries; ++i)
-        dst.local_element(this->level_dof_indices_fine[*ptr + i]) +=
-          evaluation_point_results[j];
+          for (unsigned int i = 0; i < n_entries; ++i)
+            dst.local_element(this->level_dof_indices_fine[*ptr + i]) +=
+              evaluation_point_results[j];
+        }
     }
 }
 
@@ -3956,13 +3962,21 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   for (unsigned int j = 0; j < evaluation_point_results.size(); ++j)
     {
-      evaluation_point_results[j] = 0.0;
-      const auto        ptr = this->level_dof_indices_fine_ptrs.begin() + j;
-      const std::size_t n_entries = *(ptr + 1) - *ptr;
+      if(level_dof_indices_fine_ptrs.size() == 0)
+        {
+          evaluation_point_results[j] =
+            src.local_element(this->level_dof_indices_fine[j]);
+        }
+      else
+        {
+          evaluation_point_results[j] = 0.0;
+          const auto        ptr = this->level_dof_indices_fine_ptrs.begin() + j;
+          const std::size_t n_entries = *(ptr + 1) - *ptr;
 
-      for (unsigned int i = 0; i < n_entries; ++i)
-        evaluation_point_results[j] +=
-          src.local_element(this->level_dof_indices_fine[*ptr + i]);
+          for (unsigned int i = 0; i < n_entries; ++i)
+            evaluation_point_results[j] +=
+              src.local_element(this->level_dof_indices_fine[*ptr + i]);
+        }
     }
 
   // Weight operator in case some points are owned by multiple cells.
