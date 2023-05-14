@@ -3512,7 +3512,7 @@ namespace internal
       return mapping_info;
     }
 
-    // TODO: map_l2_h1_dofs should in DoFTools.
+    // TODO: map_l2_h1_dofs should in DoFTools once checked for multiple components.
     /**
      * This function provides information which L2 DoF index would be accociated
      * with a H1 DoF. This information is is necessary if we want to convert
