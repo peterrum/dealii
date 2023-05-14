@@ -3714,7 +3714,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   }
 
 
-  // Loop over fine cells and collect points, removing possible duplicates
+  // Loop over fine cells and collect unique set of points
   const auto collect_unique_support_points =
     [&](const DoFHandler<dim> &dof_handler) {
       auto &      fe_space = dof_handler.get_fe();
@@ -3724,6 +3724,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
         fe_space.n_dofs_per_cell());
 
       const auto &local_indices_fine = dof_handler.locally_owned_dofs();
+      std::vector<bool> index_processed(dof_handler.n_locally_owned_dofs(), false);
 
       Quadrature<dim> quadrature(unit_pts);
       FEValues<dim>   fe_values(mapping_fine,
@@ -3738,22 +3739,26 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
           cell->get_dof_indices(dof_indices);
 
           for (unsigned int i = 0; i < dof_indices.size(); ++i)
-            if (local_indices_fine.is_element(dof_indices[i]) &&
-                (constraint_fine.is_constrained(dof_indices[i]) == false))
-              points_all.emplace_back(local_indices_fine.index_within_set(
-                                        dof_indices[i]),
-                                      fe_values.quadrature_point(i));
+            {
+
+              if (local_indices_fine.is_element(dof_indices[i]) &&
+                  (constraint_fine.is_constrained(dof_indices[i]) == false))
+                {
+                  const auto local_index = local_indices_fine.index_within_set(dof_indices[i]);
+                  if(!index_processed[local_index])
+                    {
+                      points_all.emplace_back(local_index,
+                                          fe_values.quadrature_point(i));
+                      index_processed[local_index] = true;
+                    }
+                }
+            }
         }
 
       std::sort(points_all.begin(),
                 points_all.end(),
                 [](const auto &a, const auto &b) { return a.first < b.first; });
-      points_all.erase(std::unique(points_all.begin(),
-                                   points_all.end(),
-                                   [](const auto &a, const auto &b) {
-                                     return a.first == b.first;
-                                   }),
-                       points_all.end());
+
       return points_all;
     };
 
