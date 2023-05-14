@@ -30,6 +30,8 @@
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
 
+#include <deal.II/fe/fe_q.h> //can be removed once map_l2_h1_dofs is moved to DoFTools
+#include <deal.II/fe/fe_system.h> //can be removed once map_l2_h1_dofs is moved to DoFTools
 #include <deal.II/fe/fe_tools.h>
 #include <deal.II/fe/fe_values.h>
 
@@ -3510,8 +3512,175 @@ namespace internal
       return mapping_info;
     }
 
-    // TODO: move map_h1_l2_dofs here while it has not been tested for multiple
-    // components
+    // TODO: map_l2_h1_dofs should in DoFTools.
+    /**
+     * This function provides information which L2 DoF index would be accociated
+     * with a H1 DoF. This information is is necessary if we want to convert
+     * vectors between the mentioned spaces or during solution transfer between
+     * different grids.
+     *
+     * @param[in] dof_handler_l2 L2 conforming DoFHandler
+     * @param[in] dof_handler_h1 H1 conforming DoFHandler
+     * @return A pair which contains
+     * 0) a vector of pairs which describe the map between L2 and H1 space
+     * 1) a vector of pairs which describe the map between H1 and L2 space
+     */
+    template <int dim, int spacedim>
+    std::pair<
+      std::vector<std::pair<types::global_dof_index, types::global_dof_index>>,
+      std::vector<std::pair<types::global_dof_index, types::global_dof_index>>>
+    map_l2_h1_dofs(const DoFHandler<dim, spacedim> &dof_handler_l2,
+                   const DoFHandler<dim, spacedim> &dof_handler_h1)
+    {
+      Assert(dof_handler_l2.get_fe().conforming_space ==
+               FiniteElementData<dim>::Conformity::L2,
+             ExcMessage("dof_handler_l2 not L2 conforming."));
+      Assert(dof_handler_h1.get_fe().conforming_space ==
+               FiniteElementData<dim>::Conformity::H1,
+             ExcMessage("dof_handler_h1 not H1 conforming."));
+
+      Assert(dof_handler_h1.get_fe().degree == dof_handler_l2.get_fe().degree,
+             ExcMessage("DoFhandlers need the same degree."));
+      Assert(dof_handler_h1.get_fe().n_components() ==
+               dof_handler_l2.get_fe().n_components(),
+             ExcMessage("DoFhandlers need the same number of components."));
+      Assert(&dof_handler_l2.get_triangulation() ==
+               &dof_handler_l2.get_triangulation(),
+             ExcMessage("DoFhandlers need the same underlying triangulation."));
+
+      const auto &tria          = dof_handler_l2.get_triangulation();
+      const auto  degree        = dof_handler_l2.get_fe().degree;
+      const auto  dofs_per_cell = dof_handler_l2.get_fe().n_dofs_per_cell();
+
+      const Utilities::MPI::Partitioner partitioner_h1(
+        dof_handler_h1.locally_owned_dofs(),
+        DoFTools::extract_locally_active_dofs(dof_handler_h1),
+        dof_handler_h1.get_communicator());
+
+      const Utilities::MPI::Partitioner partitioner_l2(
+        dof_handler_l2.locally_owned_dofs(),
+        DoFTools::extract_locally_relevant_dofs(dof_handler_l2),
+        dof_handler_l2.get_communicator());
+
+      // h1 elements have hirarchic numbering, l2 elements have lexiographic
+      // numbering therefore, we need to convert the dof indices
+      const auto h1_to_l2 =
+        FETools::hierarchic_to_lexicographic_numbering<dim>(degree);
+      const auto l2_to_h1 =
+        FETools::lexicographic_to_hierarchic_numbering<dim>(degree);
+
+      using DoFCellIterator =
+        typename DoFHandler<dim, spacedim>::active_cell_iterator;
+
+      std::vector<std::pair<types::global_dof_index, types::global_dof_index>>
+        local_l2_to_h1_dofs;
+      std::vector<std::pair<types::global_dof_index, types::global_dof_index>>
+        local_h1_to_l2_dofs;
+      local_l2_to_h1_dofs.reserve(dof_handler_l2.n_locally_owned_dofs());
+      local_h1_to_l2_dofs.reserve(dof_handler_l2.n_locally_owned_dofs());
+
+      // fill local_l2_to_h1_dofs and local_h1_to_l2_dofs
+      std::vector<types::global_dof_index> dof_indices_h1(dofs_per_cell);
+      std::vector<types::global_dof_index> dof_indices_l2(dofs_per_cell);
+      for (const auto &cell : tria.active_cell_iterators())
+        {
+          if (cell->is_locally_owned() || cell->is_ghost())
+            {
+              DoFCellIterator cell_h1 = {&tria,
+                                         cell->level(),
+                                         cell->index(),
+                                         &dof_handler_h1};
+              DoFCellIterator cell_l2 = {&tria,
+                                         cell->level(),
+                                         cell->index(),
+                                         &dof_handler_l2};
+              cell_h1->get_dof_indices(dof_indices_h1);
+              cell_l2->get_dof_indices(dof_indices_l2);
+
+              // collect l2 to h1
+              for (unsigned int i = 0; i < dof_indices_l2.size(); ++i)
+                if (partitioner_l2.in_local_range(dof_indices_l2[i]))
+                  {
+                    const auto local_l2 =
+                      partitioner_l2.global_to_local(dof_indices_l2[i]);
+                    const auto local_h1 = partitioner_h1.global_to_local(
+                      dof_indices_h1[h1_to_l2[i]]);
+                    local_l2_to_h1_dofs.emplace_back(local_l2, local_h1);
+                  }
+
+              // collect h1 to l2
+              for (unsigned int i = 0; i < dof_indices_h1.size(); ++i)
+                if (partitioner_h1.in_local_range(dof_indices_h1[i]))
+                  {
+                    const auto local_h1 =
+                      partitioner_h1.global_to_local(dof_indices_h1[i]);
+                    const auto local_l2 = partitioner_l2.global_to_local(
+                      dof_indices_l2[l2_to_h1[i]]);
+                    local_h1_to_l2_dofs.emplace_back(local_h1, local_l2);
+                  }
+            }
+        }
+
+      // sort for local dofs
+      const auto sort_local_dofs = [](const auto &a, const auto &b) {
+        return a.first < b.first;
+      };
+      std::sort(local_l2_to_h1_dofs.begin(),
+                local_l2_to_h1_dofs.end(),
+                sort_local_dofs);
+      std::sort(local_h1_to_l2_dofs.begin(),
+                local_h1_to_l2_dofs.end(),
+                sort_local_dofs);
+
+      return std::make_pair(std::move(local_l2_to_h1_dofs),
+                            std::move(local_h1_to_l2_dofs));
+    }
+
+
+    /**
+     * Same as above but a dummy DoFHandler is created internally. Since it
+     * might be helpfull to use the dummy DoFHandler outside the function it is
+     * returned as the last argument in the tuple.
+     *
+     * @param[in] dof_handler_l2 L2 conforming DoFHandler
+     * @return A tuple which contains
+     * 0) a vector of pairs which describe the map between L2 and H1 space
+     * 1) a vector of pairs which describe the map between H1 and L2 space
+     * 3) a shared pointer to the H1 conforming dummy DoFHandler created in the
+     * function
+     */
+    template <int dim, int spacedim>
+    std::tuple<
+      std::vector<std::pair<types::global_dof_index, types::global_dof_index>>,
+      std::vector<std::pair<types::global_dof_index, types::global_dof_index>>,
+      std::shared_ptr<DoFHandler<dim, spacedim>>>
+    map_l2_h1_dofs(const DoFHandler<dim, spacedim> &dof_handler_l2)
+    {
+      Assert(
+        dof_handler_l2.get_fe().degree > 0,
+        ExcMessage(
+          "Within this function a H1 dummy DoFHandler of the same degree as the L2 DoFHandler is built. H1 elements can not be of degree 0."));
+
+      Assert(dof_handler_l2.get_fe().conforming_space ==
+               FiniteElementData<dim>::Conformity::L2,
+             ExcMessage("dof_handler_l2 not L2 conforming"));
+
+      const auto &fe           = dof_handler_l2.get_fe();
+      const auto &tria         = dof_handler_l2.get_triangulation();
+      const auto  degree       = fe.degree;
+      const auto  n_components = fe.n_components();
+
+      // create h1 dummy dof handler
+      auto dof_handler_h1 = std::make_shared<DoFHandler<dim, spacedim>>(tria);
+      FESystem<dim, spacedim> fe_h1(FE_Q<dim, spacedim>(degree), n_components);
+      dof_handler_h1->distribute_dofs(fe_h1);
+
+      const auto &maps = map_l2_h1_dofs(dof_handler_l2, *dof_handler_h1);
+
+      return std::make_tuple(std::move(maps.first),
+                             std::move(maps.second),
+                             dof_handler_h1);
+    }
 
   } // namespace
 } // namespace internal
@@ -3636,7 +3805,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     {
       // get map between H1 and L2 DoFs
       const auto maps_h1_dof_handler =
-        DoFTools::map_l2_h1_dofs(dof_handler_fine);
+        internal::map_l2_h1_dofs(dof_handler_fine);
       const auto &dof_handler_fine_h1 = std::get<2>(maps_h1_dof_handler);
       const auto &h1_to_l2_dof_map    = std::get<1>(maps_h1_dof_handler);
 

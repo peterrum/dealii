@@ -434,24 +434,6 @@ for (deal_II_dimension : DIMENSIONS; deal_II_space_dimension : DIMENSIONS)
         const DoFHandler<deal_II_dimension, deal_II_space_dimension> &,
         const ComponentMask &);
 
-      template std::pair<std::vector<std::pair<types::global_dof_index,
-                                               types::global_dof_index>>,
-                         std::vector<std::pair<types::global_dof_index,
-                                               types::global_dof_index>>>
-      map_l2_h1_dofs(
-        const DoFHandler<deal_II_dimension, deal_II_space_dimension> &,
-        const DoFHandler<deal_II_dimension, deal_II_space_dimension> &);
-
-      template std::tuple<
-        std::vector<
-          std::pair<types::global_dof_index, types::global_dof_index>>,
-        std::vector<
-          std::pair<types::global_dof_index, types::global_dof_index>>,
-        std::shared_ptr<DoFHandler<deal_II_dimension, deal_II_space_dimension>>>
-      map_l2_h1_dofs(
-        const DoFHandler<deal_II_dimension, deal_II_space_dimension> &);
-
-
     \}
 #endif
   }
