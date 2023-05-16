@@ -2352,8 +2352,6 @@ namespace DoFTools
     const DoFHandler<dim, spacedim> &dof_handler,
     std::map<Point<spacedim>, types::global_dof_index, Comp>
       &point_to_index_map);
-
-
   /**
    * @}
    */
