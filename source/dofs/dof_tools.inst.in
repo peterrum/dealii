@@ -433,7 +433,6 @@ for (deal_II_dimension : DIMENSIONS; deal_II_space_dimension : DIMENSIONS)
           &,
         const DoFHandler<deal_II_dimension, deal_II_space_dimension> &,
         const ComponentMask &);
-
     \}
 #endif
   }
