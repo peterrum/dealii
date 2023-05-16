@@ -3739,7 +3739,7 @@ namespace internal
             {
               // ptrs_to_dofs_indices only contains unconstrained dofs. If one
               // DoF is unconstrained we consider the support point to be
-              // constrained
+              // unconstrained
               const unsigned int local_idx =
                 global_to_local_support_point_index(support_point_idx);
               const unsigned int n_entries =
