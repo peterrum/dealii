@@ -3676,7 +3676,7 @@ namespace internal
       return std::make_pair(std::move(ptrs_indices), dof_handler_h1);
     }
 
-    // Loop over fine cells and collect unique set of points
+    // Loop over cells and collect unique set of points
     template <int dim, typename Number>
     std::pair<std::vector<Point<dim>>,
               std::pair<std::vector<unsigned int>,
