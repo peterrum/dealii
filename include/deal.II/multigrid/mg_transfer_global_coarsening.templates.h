@@ -3842,9 +3842,11 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
 
   const auto &points = std::get<0>(points_ptrs_indices);
 
-  // in case of CG or DG with degree==0 support points to dof mapping is unique
-  // and we dont need level_dof_indices_fine_ptrs
-  if (this->fine_element_is_continuous || dof_handler_fine.get_fe().degree == 0)
+  // in case of CG or DG with degree==0 and n_components==1 support points to
+  // dof mapping is unique and we dont need level_dof_indices_fine_ptrs
+  if (dof_handler_fine.get_fe().n_components() == 1 &&
+      (this->fine_element_is_continuous ||
+       dof_handler_fine.get_fe().degree == 0))
     this->level_dof_indices_fine_ptrs.clear();
   else
     this->level_dof_indices_fine_ptrs = std::get<1>(points_ptrs_indices).first;
