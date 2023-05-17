@@ -3635,11 +3635,11 @@ namespace internal
       }
 
       // sort for support points
-      std::sort(sp_cell_dofs.begin(),
-                sp_cell_dofs.end(),
-                [](const auto &a, const auto &b) {
-                  return std::get<0>(a) < std::get<0>(b);
-                });
+      std::stable_sort(sp_cell_dofs.begin(),
+                       sp_cell_dofs.end(),
+                       [](const auto &a, const auto &b) {
+                         return std::get<0>(a) < std::get<0>(b);
+                       });
 
       // convert to CRS format
       auto                                 it = sp_cell_dofs.begin();
