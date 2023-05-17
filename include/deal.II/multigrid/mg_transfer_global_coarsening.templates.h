@@ -3611,16 +3611,17 @@ namespace internal
                 for (unsigned int i = 0; i < sp_indices.size(); ++i)
                   if (partitioner_sp.in_local_range(sp_indices[i]))
                     {
+                      const auto global_dof_idx =
+                        needs_conversion ? dof_indices[to_hierarchic[i]] :
+                                           dof_indices[i];
+
                       const auto local_dof_idx =
-                        partitioner_dof.global_to_local(dof_indices[i]);
+                        partitioner_dof.global_to_local(global_dof_idx);
 
                       AssertIndexRange(local_dof_idx, dof_processed.size());
 
                       if (dof_processed[local_dof_idx] == false)
                         {
-                          const auto global_dof_idx =
-                            needs_conversion ? dof_indices[to_hierarchic[i]] :
-                                               dof_indices[i];
                           if (!constraint.is_constrained(global_dof_idx))
                             sp_cell_dofs.emplace_back(std::make_tuple(
                               partitioner_sp.global_to_local(sp_indices[i]),
