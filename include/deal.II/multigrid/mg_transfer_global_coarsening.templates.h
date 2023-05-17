@@ -3669,48 +3669,28 @@ namespace internal
 
 
     /**
-     * Same as above but a dummy DoFHandler, needed for the numbering of support
-     * points, is created internally if needed. Since it might be helpful to
-     * access the dummy DoFHandler outside the function it is returned in
-     * addition to the CRS structure. If no dummy DoFHandler is created a
-     * nullptr is returned.
-     *
-     * @param[in] dof_handler DoFHandler providing DoF indices which are
-     * collected at support points.
-     * @param[in] dof_handler_sp DoFHandler with unique numbering of support
-     * points used to determine support point indices.
-     * @param[in] constraint AffineConstrains associated with @p dof_handler. Only unconstrained DoFs are considered
-     * @return a pair containing the tuple as in the function above and the dummy DoFHandler. If no dummy DoFHandler is created a nullptr is returned.
+     * Create DoFHandler with unique support points.
      */
-    template <int dim, int spacedim, typename Number>
-    std::pair<std::tuple<std::vector<unsigned int>,
-                         std::vector<unsigned int>,
-                         std::vector<types::global_dof_index>>,
-              std::shared_ptr<const DoFHandler<dim, spacedim>>>
-    support_point_indices_to_dof_indices(
-      const DoFHandler<dim, spacedim> &        dof_handler,
-      const dealii::AffineConstraints<Number> &constraint)
+    template <int dim, int spacedim>
+    std::shared_ptr<const DoFHandler<dim, spacedim>>
+    create_support_point_dof_handler(
+      const DoFHandler<dim, spacedim> &dof_handler)
     {
       const auto &fe           = dof_handler.get_fe();
       const auto &tria         = dof_handler.get_triangulation();
       const auto  degree       = fe.degree;
       const auto  n_components = fe.n_components();
 
-      // in case a DG space of order 0 is provided, DoFs indices are always
-      // uniquely assigned to support points (they are always defined in the
-      // center of the element) and are never shared at vertices or faces.
       if (n_components == 1 &&
           (fe.conforming_space == FiniteElementData<dim>::Conformity::H1 ||
            degree == 0))
         {
-          const auto tuple = support_point_indices_to_dof_indices(dof_handler,
-                                                                  dof_handler,
-                                                                  constraint);
-
-          return std::make_pair(
-            std::move(tuple),
-            std::shared_ptr<const DoFHandler<dim, spacedim>>(&dof_handler,
-                                                             [](auto *) {}));
+          // in case a DG space of order 0 is provided, DoFs indices are always
+          // uniquely assigned to support points (they are always defined in the
+          // center of the element) and are never shared at vertices or faces.
+          return std::shared_ptr<const DoFHandler<dim, spacedim>>(&dof_handler,
+                                                                  [](auto *) {
+                                                                  });
         }
       else
         {
@@ -3727,12 +3707,7 @@ namespace internal
           else
             dof_handler_sp->distribute_dofs(FE_Q<dim, spacedim>(degree));
 
-          const auto tuple =
-            support_point_indices_to_dof_indices(dof_handler,
-                                                 *dof_handler_sp,
-                                                 constraint);
-
-          return std::make_pair(std::move(tuple), dof_handler_sp);
+          return dof_handler_sp;
         }
     }
 
@@ -3742,35 +3717,39 @@ namespace internal
               std::pair<std::vector<unsigned int>,
                         std::vector<types::global_dof_index>>>
     collect_unconstrained_unique_support_points(
-      const DoFHandler<dim> &                  dof_handler_in,
+      const DoFHandler<dim> &                  dof_handler,
       const Mapping<dim> &                     mapping,
       const dealii::AffineConstraints<Number> &constraint)
     {
-      AssertThrow(dof_handler_in.get_fe().has_support_points(),
+      AssertThrow(dof_handler.get_fe().has_support_points(),
                   ExcNotImplemented());
 
-      const auto crs_tuple_dh =
-        support_point_indices_to_dof_indices(dof_handler_in, constraint);
+      // create DoFHandler for support points
+      const auto dof_handler_sp = create_support_point_dof_handler(dof_handler);
 
-      const std::shared_ptr<const DoFHandler<dim>> &dof_handler_sp =
-        crs_tuple_dh.second;
-      const std::vector<unsigned int> &sp_indices =
-        std::get<0>(crs_tuple_dh.first);
-      const std::vector<unsigned int> &dof_ptrs =
-        std::get<1>(crs_tuple_dh.first);
+      // compute mapping: index of locally owned support points to DoF indices
+      const auto support_point_dofs_crs =
+        support_point_indices_to_dof_indices(dof_handler,
+                                             *dof_handler_sp,
+                                             constraint);
+
+      const std::vector<unsigned int> &local_sp_indices =
+        std::get<0>(support_point_dofs_crs);
+      const std::vector<unsigned int> &global_dofs_ptrs =
+        std::get<1>(support_point_dofs_crs);
       const std::vector<types::global_dof_index> &global_dofs_indices =
-        std::get<2>(crs_tuple_dh.first);
+        std::get<2>(support_point_dofs_crs);
 
-      // fill support points and corresponding global indices
+      // compute locally owned support points
       std::vector<Point<dim>> points;
-      points.resize(sp_indices.size());
+      points.resize(local_sp_indices.size());
 
       const auto locally_onwed_sp = dof_handler_sp->locally_owned_dofs();
       std::vector<unsigned int> indices_state(locally_onwed_sp.n_elements(),
                                               numbers::invalid_unsigned_int);
 
-      for (unsigned int i = 0; i < sp_indices.size(); ++i)
-        indices_state[sp_indices[i]] = i;
+      for (unsigned int i = 0; i < local_sp_indices.size(); ++i)
+        indices_state[local_sp_indices[i]] = i;
 
       const auto &  fe_sp = dof_handler_sp->get_fe();
       FEValues<dim> fe_values(mapping,
@@ -3802,7 +3781,8 @@ namespace internal
         }
 
       return std::make_pair(std::move(points),
-                            std::make_pair(dof_ptrs, global_dofs_indices));
+                            std::make_pair(global_dofs_ptrs,
+                                           global_dofs_indices));
     }
 
   } // namespace
