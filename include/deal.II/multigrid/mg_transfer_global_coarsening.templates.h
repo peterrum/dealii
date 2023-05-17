@@ -3568,7 +3568,8 @@ namespace internal
         // numbering. Therefore, we need to convert the dof indices if DoFHander
         // is L2 conforming and has degree > 0.
         const bool needs_conversion =
-          !(dof_handler.get_fe().n_dofs_per_vertex() > 0) &&
+          dof_handler.get_fe().conforming_space ==
+            FiniteElementData<dim>::Conformity::L2 &&
           (dof_handler.get_fe().degree > 0);
         std::vector<unsigned int> to_hierarchic;
         if (needs_conversion)
