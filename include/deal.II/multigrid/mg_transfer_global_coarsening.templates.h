@@ -3519,11 +3519,10 @@ namespace internal
      * collected at support points.
      * @param[in] dof_handler_sp H1 conforming DoFHandler with one component
      * used to determine support point indices.
-     * @param[in] constraint AffineConstrains associated with @p dof_handler. Only unconstrained DoFs are considered
-     * @return a tuple containing
-     * 0) local support point indices
-     * 1) cell level, cell index, and index within cell corresponding to the
-     * local support point 2) pointers to the DoF indices 3) DoF indices.
+     * @param[in] constraint AffineConstrains associated with @p dof_handler.
+     *   Only unconstrained DoFs are considered
+     * @return a tuple containing 0) local support point indices,
+     *   1) pointers to the DoF indices, and 2) DoF indices.
      */
     template <int dim, int spacedim, typename Number>
     std::tuple<std::vector<unsigned int>,
@@ -3578,14 +3577,14 @@ namespace internal
           dof_handler_sp.get_communicator());
 
 
-        auto relevant_dofs =
+        const auto relevant_dofs =
           DoFTools::extract_locally_relevant_dofs(dof_handler);
         const Utilities::MPI::Partitioner partitioner_dof(
           dof_handler.locally_owned_dofs(),
           relevant_dofs,
           dof_handler.get_communicator());
 
-        std::vector<bool> dof_processed(relevant_dofs.size(), false);
+        std::vector<bool> dof_processed(relevant_dofs.n_elements(), false);
 
         using DoFCellIterator =
           typename DoFHandler<dim, spacedim>::active_cell_iterator;
@@ -3597,14 +3596,14 @@ namespace internal
           {
             if (cell->is_locally_owned() || cell->is_ghost())
               {
-                DoFCellIterator cell_sp  = {&tria,
-                                           cell->level(),
-                                           cell->index(),
-                                           &dof_handler_sp};
-                DoFCellIterator cell_dof = {&tria,
-                                            cell->level(),
-                                            cell->index(),
-                                            &dof_handler};
+                const DoFCellIterator cell_sp(&tria,
+                                              cell->level(),
+                                              cell->index(),
+                                              &dof_handler_sp);
+                const DoFCellIterator cell_dof(&tria,
+                                               cell->level(),
+                                               cell->index(),
+                                               &dof_handler);
                 cell_sp->get_dof_indices(sp_indices);
                 cell_dof->get_dof_indices(dof_indices);
 
@@ -3615,6 +3614,8 @@ namespace internal
                     {
                       const auto local_dof_idx =
                         partitioner_dof.global_to_local(dof_indices[i]);
+
+                      AssertIndexRange(local_dof_idx, dof_processed.size());
 
                       if (dof_processed[local_dof_idx] == false)
                         {
@@ -3713,9 +3714,9 @@ namespace internal
 
     // Loop over cells and collect unique set of points
     template <int dim, typename Number>
-    std::pair<std::vector<Point<dim>>,
-              std::pair<std::vector<unsigned int>,
-                        std::vector<types::global_dof_index>>>
+    std::tuple<std::vector<Point<dim>>,
+               std::vector<unsigned int>,
+               std::vector<types::global_dof_index>>
     collect_unconstrained_unique_support_points(
       const DoFHandler<dim> &                  dof_handler,
       const Mapping<dim> &                     mapping,
@@ -3780,9 +3781,9 @@ namespace internal
               }
         }
 
-      return std::make_pair(std::move(points),
-                            std::make_pair(global_dofs_ptrs,
-                                           global_dofs_indices));
+      return std::make_tuple(std::move(points),
+                             std::move(global_dofs_ptrs),
+                             std::move(global_dofs_indices));
     }
 
   } // namespace
@@ -3812,11 +3813,11 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     dof_handler_fine.get_fe().n_dofs_per_vertex() > 0;
 
   // collect points, ptrs, and global indices
-  auto const points_ptrs_indices =
+  const auto points_ptrs_indices =
     internal::collect_unconstrained_unique_support_points(dof_handler_fine,
                                                           mapping_fine,
                                                           constraint_fine);
-  auto const &global_dof_indices = std::get<1>(points_ptrs_indices).second;
+  const auto &global_dof_indices = std::get<2>(points_ptrs_indices);
 
   // create partitioners and internal vectors
   {
@@ -3855,7 +3856,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
        dof_handler_fine.get_fe().degree == 0))
     this->level_dof_indices_fine_ptrs.clear();
   else
-    this->level_dof_indices_fine_ptrs = std::get<1>(points_ptrs_indices).first;
+    this->level_dof_indices_fine_ptrs = std::get<1>(points_ptrs_indices);
 
   // fill level_dof_indices_fine with local indices
   this->level_dof_indices_fine.resize(global_dof_indices.size());
