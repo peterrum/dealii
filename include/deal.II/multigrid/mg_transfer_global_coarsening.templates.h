@@ -3580,8 +3580,15 @@ namespace internal
           dof_handler_sp.locally_owned_dofs(),
           dof_handler_sp.get_communicator());
 
-        std::vector<bool> dof_processed(dof_handler.n_locally_owned_dofs(),
-                                        false);
+
+        auto relevant_dofs =
+          DoFTools::extract_locally_relevant_dofs(dof_handler);
+        const Utilities::MPI::Partitioner partitioner_dof(
+          dof_handler.locally_owned_dofs(),
+          relevant_dofs,
+          dof_handler.get_communicator());
+
+        std::vector<bool> dof_processed(relevant_dofs.size(), false);
 
         using DoFCellIterator =
           typename DoFHandler<dim, spacedim>::active_cell_iterator;
@@ -3591,7 +3598,7 @@ namespace internal
 
         for (const auto &cell : tria.active_cell_iterators())
           {
-            if (cell->is_locally_owned())
+            if (cell->is_locally_owned() || cell->is_ghost())
               {
                 DoFCellIterator cell_sp  = {&tria,
                                            cell->level(),
@@ -3610,8 +3617,8 @@ namespace internal
                   if (partitioner_sp.in_local_range(sp_indices[i]))
                     {
                       const auto local_dof_idx =
-                        dof_handler.locally_owned_dofs().index_within_set(
-                          dof_indices[i]);
+                        partitioner_dof.global_to_local(dof_indices[i]);
+
                       if (dof_processed[local_dof_idx] == false)
                         {
                           const auto global_dof_idx =
