@@ -3512,171 +3512,215 @@ namespace internal
     }
 
     /**
-     * This function provides information which L2 DoF index is associated with
-     * a support point. Support points are numberd according to H1 DoFs.
+     * This function provides information which DoF index is associated with
+     * a support point.
      *
-     * @param[in] dof_handler_l2 L2 conforming DoFHandler
-     * @param[in] dof_handler_h1 H1 conforming DoFHandler
-     * @param[in] constraint AffineConstrains associated with @p dof_handler_l2. Only unconstrained DoFs are considered
-     * @return a pair of vectors which resembles a CRS structure to access global L2 DoF indices from local support point (or H1 DoF) indices.
+     * @param[in] dof_handler DoFHandler providing DoF indices which are
+     * collected at support points.
+     * @param[in] dof_handler_sp H1 conforming DoFHandler with one component
+     * used to determine support point indices.
+     * @param[in] constraint AffineConstrains associated with @p dof_handler. Only unconstrained DoFs are considered
+     * @return a tuple containing
+     * 0) local support point indices
+     * 1) cell level, cell index, and index within cell corresponding to the
+     * local support point 2) pointers to the DoF indices 3) DoF indices.
      */
     template <int dim, int spacedim, typename Number>
-    std::pair<std::vector<unsigned int>, std::vector<types::global_dof_index>>
-    support_points_to_l2_dofs(
-      const DoFHandler<dim, spacedim> &        dof_handler_l2,
-      const DoFHandler<dim, spacedim> &        dof_handler_h1,
+    std::tuple<std::vector<unsigned int>,
+               std::vector<std::tuple<int, int, int>>,
+               std::vector<unsigned int>,
+               std::vector<types::global_dof_index>>
+    support_point_indices_to_dof_indices(
+      const DoFHandler<dim, spacedim> &        dof_handler,
+      const DoFHandler<dim, spacedim> &        dof_handler_sp,
       const dealii::AffineConstraints<Number> &constraint)
     {
-      Assert(dof_handler_l2.get_fe().conforming_space ==
-               FiniteElementData<dim>::Conformity::L2,
-             ExcMessage("dof_handler_l2 not L2 conforming."));
-      Assert(dof_handler_h1.get_fe().conforming_space ==
-               FiniteElementData<dim>::Conformity::H1,
-             ExcMessage("dof_handler_h1 not H1 conforming."));
-
-      Assert(dof_handler_h1.get_fe().degree == dof_handler_l2.get_fe().degree,
-             ExcMessage("DoFhandlers need the same degree."));
-      Assert(dof_handler_h1.get_fe().n_components() ==
-               dof_handler_l2.get_fe().n_components(),
-             ExcMessage("DoFhandlers need the same number of components."));
-      Assert(&dof_handler_l2.get_triangulation() ==
-               &dof_handler_l2.get_triangulation(),
+      // in case a DG space of order 0 is provided, DoFs indices are always
+      // uniquely assigned to support points (they are always defined in the
+      // center of the element) and are never shared at vertices or faces.
+      Assert(
+        (dof_handler_sp.get_fe().conforming_space ==
+           FiniteElementData<dim>::Conformity::H1 &&
+         dof_handler_sp.get_fe().degree == 1) ||
+          dof_handler_sp.get_fe().degree == 0,
+        ExcMessage(
+          "dof_handler_sp has to be H1 conforming with one component or degree 0."));
+      Assert(&dof_handler.get_triangulation() ==
+               &dof_handler_sp.get_triangulation(),
              ExcMessage("DoFhandlers need the same underlying triangulation."));
+      Assert(dof_handler.get_fe().degree == dof_handler_sp.get_fe().degree,
+             ExcMessage("DoFhandlers need the same degree."));
 
-      const auto &tria          = dof_handler_l2.get_triangulation();
-      const auto  degree        = dof_handler_l2.get_fe().degree;
-      const auto  dofs_per_cell = dof_handler_l2.get_fe().n_dofs_per_cell();
+      const auto &tria          = dof_handler.get_triangulation();
+      const auto  degree        = dof_handler.get_fe().degree;
+      const auto  dofs_per_cell = dof_handler.get_fe().n_dofs_per_cell();
+      const auto  sp_per_cell   = dof_handler_sp.get_fe().n_dofs_per_cell();
 
-      const Utilities::MPI::Partitioner partitioner_h1(
-        dof_handler_h1.locally_owned_dofs(),
-        DoFTools::extract_locally_active_dofs(dof_handler_h1),
-        dof_handler_h1.get_communicator());
+      std::vector<std::tuple<unsigned int,
+                             std::tuple<int, int, int>,
+                             types::global_dof_index>>
+        sp_cell_dofs;
+      sp_cell_dofs.reserve(dof_handler.n_locally_owned_dofs());
 
-      const Utilities::MPI::Partitioner partitioner_l2(
-        dof_handler_l2.locally_owned_dofs(),
-        DoFTools::extract_locally_relevant_dofs(dof_handler_l2),
-        dof_handler_l2.get_communicator());
+      // fill sp_cell_dofs
+      {
+        // Support points have hirarchic numbering, l2 dofs have lexiographic
+        // numbering. Therefore, we need to convert the dof indices if DoFHander
+        // is L2 conforming and has degree > 0.
+        const bool needs_conversion =
+          !(dof_handler.get_fe().n_dofs_per_vertex() > 0) &&
+          (dof_handler.get_fe().degree > 0);
+        std::vector<unsigned int> to_hierarchic;
+        if (needs_conversion)
+          to_hierarchic =
+            FETools::lexicographic_to_hierarchic_numbering<dim>(degree);
 
-      // h1 elements have hirarchic numbering, l2 elements have lexiographic
-      // numbering therefore, we need to convert the dof indices
-      const auto l2_to_h1 =
-        FETools::lexicographic_to_hierarchic_numbering<dim>(degree);
+        const Utilities::MPI::Partitioner partitioner_sp(
+          dof_handler_sp.locally_owned_dofs(),
+          dof_handler_sp.get_communicator());
 
-      using DoFCellIterator =
-        typename DoFHandler<dim, spacedim>::active_cell_iterator;
+        using DoFCellIterator =
+          typename DoFHandler<dim, spacedim>::active_cell_iterator;
 
-      std::vector<std::pair<unsigned int, types::global_dof_index>>
-        sp_to_l2_dofs;
-      sp_to_l2_dofs.reserve(dof_handler_l2.n_locally_owned_dofs());
+        std::vector<types::global_dof_index> sp_indices(sp_per_cell);
+        std::vector<types::global_dof_index> dof_indices(dofs_per_cell);
 
-      // fill sp_to_l2_dofs
-      std::vector<types::global_dof_index> dof_indices_h1(dofs_per_cell);
-      std::vector<types::global_dof_index> dof_indices_l2(dofs_per_cell);
-      for (const auto &cell : tria.active_cell_iterators())
-        {
-          if (cell->is_locally_owned() || cell->is_ghost())
-            {
-              DoFCellIterator cell_h1 = {&tria,
-                                         cell->level(),
-                                         cell->index(),
-                                         &dof_handler_h1};
-              DoFCellIterator cell_l2 = {&tria,
-                                         cell->level(),
-                                         cell->index(),
-                                         &dof_handler_l2};
-              cell_h1->get_dof_indices(dof_indices_h1);
-              cell_l2->get_dof_indices(dof_indices_l2);
+        for (const auto &cell : tria.active_cell_iterators())
+          {
+            if (cell->is_locally_owned())
+              {
+                DoFCellIterator cell_sp  = {&tria,
+                                           cell->level(),
+                                           cell->index(),
+                                           &dof_handler_sp};
+                DoFCellIterator cell_dof = {&tria,
+                                            cell->level(),
+                                            cell->index(),
+                                            &dof_handler};
+                cell_sp->get_dof_indices(sp_indices);
+                cell_dof->get_dof_indices(dof_indices);
 
-              // collect unconstrained dofs for support point
-              for (unsigned int i = 0; i < dof_indices_h1.size(); ++i)
-                if (partitioner_h1.in_local_range(dof_indices_h1[i]))
-                  {
-                    const auto global_l2 = dof_indices_l2[l2_to_h1[i]];
-                    if (!constraint.is_constrained(global_l2))
-                      {
-                        const auto local_h1 =
-                          partitioner_h1.global_to_local(dof_indices_h1[i]);
-                        sp_to_l2_dofs.emplace_back(local_h1, global_l2);
-                      }
-                  }
-            }
-        }
+                // collect unconstrained dofs for support point (assuming
+                // sp_per_cell==dofs_per_cell, i.e. n_components==1)
+                for (unsigned int i = 0; i < sp_indices.size(); ++i)
+                  if (partitioner_sp.in_local_range(sp_indices[i]))
+                    {
+                      const auto global_dof_idx =
+                        needs_conversion ? dof_indices[to_hierarchic[i]] :
+                                           dof_indices[i];
+                      if (!constraint.is_constrained(global_dof_idx))
+                        sp_cell_dofs.emplace_back(std::make_tuple(
+                          partitioner_sp.global_to_local(sp_indices[i]),
+                          std::make_tuple(cell->level(), cell->index(), i),
+                          global_dof_idx));
+                    }
+              }
+          }
+      }
 
       // sort for support points
-      std::sort(sp_to_l2_dofs.begin(),
-                sp_to_l2_dofs.end(),
-                [](const auto &a, const auto &b) { return a.first < b.first; });
-
+      std::sort(sp_cell_dofs.begin(),
+                sp_cell_dofs.end(),
+                [](const auto &a, const auto &b) {
+                  return std::get<0>(a) < std::get<0>(b);
+                });
 
       // convert to CRS format
-      auto                                 it = sp_to_l2_dofs.begin();
-      std::vector<types::global_dof_index> l2_dofs;
-      l2_dofs.reserve(sp_to_l2_dofs.size());
-      std::vector<unsigned int> l2_dof_ptrs;
-      l2_dof_ptrs.reserve(dof_handler_h1.n_locally_owned_dofs() + 1);
-      l2_dof_ptrs.emplace_back(0);
-      for (unsigned int i = 0; i < dof_handler_h1.n_locally_owned_dofs(); ++i)
+      auto                                 it = sp_cell_dofs.begin();
+      std::vector<types::global_dof_index> dof_indices;
+      dof_indices.reserve(sp_cell_dofs.size());
+      std::vector<unsigned int> dof_ptrs;
+      dof_ptrs.reserve(dof_handler_sp.n_locally_owned_dofs() + 1);
+      dof_ptrs.emplace_back(0);
+      std::vector<unsigned int> sp_indices;
+      sp_indices.reserve(dof_handler_sp.n_locally_owned_dofs());
+      std::vector<std::tuple<int, int, int>> cell_level_index;
+      cell_level_index.reserve(dof_handler_sp.n_locally_owned_dofs());
+      while (it != sp_cell_dofs.end())
         {
-          const unsigned int index = it->first;
-          while (it != sp_to_l2_dofs.end() && it->first == index)
+          const unsigned int index = std::get<0>(*it);
+          sp_indices.emplace_back(index);
+          // we only store the first cell which contains the support point.
+          cell_level_index.emplace_back(std::get<1>(*it));
+          while (it != sp_cell_dofs.end() && std::get<0>(*it) == index)
             {
-              l2_dofs.emplace_back(it->second);
+              dof_indices.emplace_back(std::get<2>(*it));
               ++it;
             }
-          l2_dof_ptrs.emplace_back(l2_dofs.size());
+          dof_ptrs.emplace_back(dof_indices.size());
         }
 
-      return std::make_pair(std::move(l2_dof_ptrs), std::move(l2_dofs));
+      return std::make_tuple(std::move(sp_indices),
+                             std::move(cell_level_index),
+                             std::move(dof_ptrs),
+                             std::move(dof_indices));
     }
 
 
     /**
-     * Same as above but a H1 dummy DoFHandler is created internally. Since it
-     * might be helpful to use the dummy DoFHandler outside the function it is
-     * returned in addition to the CRS structure.
+     * Same as above but a dummy DoFHandler, needed for the numbering of support
+     * points, is created internally if needed. Since it might be helpful to
+     * access the dummy DoFHandler outside the function it is returned in
+     * addition to the CRS structure. If no dummy DoFHandler is created a
+     * nullptr is returned.
      *
-     * @param[in] dof_handler_l2 L2 conforming DoFHandler
-     * @param[in] constraint AffineConstrains associated with @p dof_handler_l2. Only unconstrained DoFs are considered
-     * @return A pair which contains
-     * 0) a pair of vectors which resembles a CRS structure to access global L2
-     * DoF indices from local support point (or H1 DoF) indices. 1) a shared
-     * pointer to the H1 conforming dummy DoFHandler created in the function
+     * @param[in] dof_handler DoFHandler providing DoF indices which are
+     * collected at support points.
+     * @param[in] dof_handler_sp DoFHandler with unique numbering of support
+     * points used to determine support point indices.
+     * @param[in] constraint AffineConstrains associated with @p dof_handler. Only unconstrained DoFs are considered
+     * @return a pair containing the tuple as in the function above and the dummy DoFHandler. If no dummy DoFHandler is created a nullptr is returned.
      */
     template <int dim, int spacedim, typename Number>
-    std::pair<std::pair<std::vector<unsigned int>,
-                        std::vector<types::global_dof_index>>,
+    std::pair<std::tuple<std::vector<unsigned int>,
+                         std::vector<std::tuple<int, int, int>>,
+                         std::vector<unsigned int>,
+                         std::vector<types::global_dof_index>>,
               std::shared_ptr<DoFHandler<dim, spacedim>>>
-    support_points_to_l2_dofs(
-      const DoFHandler<dim, spacedim> &        dof_handler_l2,
+    support_point_indices_to_dof_indices(
+      const DoFHandler<dim, spacedim> &        dof_handler,
       const dealii::AffineConstraints<Number> &constraint)
     {
-      Assert(
-        dof_handler_l2.get_fe().degree > 0,
-        ExcMessage(
-          "Within this function a H1 dummy DoFHandler of the same degree as the L2 DoFHandler is built. H1 elements can not be of degree 0."));
+      const auto &fe           = dof_handler.get_fe();
+      const auto &tria         = dof_handler.get_triangulation();
+      const auto  degree       = fe.degree;
+      const auto  n_components = fe.n_components();
 
-      Assert(dof_handler_l2.get_fe().conforming_space ==
-               FiniteElementData<dim>::Conformity::L2,
-             ExcMessage("dof_handler_l2 not L2 conforming"));
+      // in case a DG space of order 0 is provided, DoFs indices are always
+      // uniquely assigned to support points (they are always defined in the
+      // center of the element) and are never shared at vertices or faces.
+      if ((fe.conforming_space == FiniteElementData<dim>::Conformity::H1 &&
+           n_components == 1) ||
+          (degree == 0 && n_components == 1))
+        {
+          const auto tuple = support_point_indices_to_dof_indices(dof_handler,
+                                                                  dof_handler,
+                                                                  constraint);
 
-      Assert(dof_handler_l2.get_fe().n_components() == 1,
-             ExcMessage(
-               "Function currently only supported for n_components==1."));
+          return std::make_pair(std::move(tuple), nullptr);
+        }
+      else
+        {
+          // Create dummy dof handler for support point numbering
+          // Unique support points are generally numbered according to FE_Q with
+          // n_components==1. If degree==0 we use FE_DGQ since a unique support
+          // point numbering is still ensured since the support point is located
+          // in the center of the cell.
+          auto dof_handler_sp =
+            std::make_shared<DoFHandler<dim, spacedim>>(tria);
 
+          if (degree != 0)
+            dof_handler_sp->distribute_dofs(FE_Q<dim, spacedim>(degree));
+          else
+            dof_handler_sp->distribute_dofs(FE_DGQ<dim, spacedim>(degree));
 
-      const auto &fe     = dof_handler_l2.get_fe();
-      const auto &tria   = dof_handler_l2.get_triangulation();
-      const auto  degree = fe.degree;
+          const auto tuple =
+            support_point_indices_to_dof_indices(dof_handler,
+                                                 *dof_handler_sp,
+                                                 constraint);
 
-      // create h1 dummy dof handler
-      auto dof_handler_h1 = std::make_shared<DoFHandler<dim, spacedim>>(tria);
-      FE_Q<dim, spacedim> fe_h1(degree);
-      dof_handler_h1->distribute_dofs(fe_h1);
-
-      const auto ptrs_indices =
-        support_points_to_l2_dofs(dof_handler_l2, *dof_handler_h1, constraint);
-
-      return std::make_pair(std::move(ptrs_indices), dof_handler_h1);
+          return std::make_pair(std::move(tuple), dof_handler_sp);
+        }
     }
 
     // Loop over cells and collect unique set of points
@@ -3692,137 +3736,47 @@ namespace internal
       AssertThrow(dof_handler_in.get_fe().has_support_points(),
                   ExcNotImplemented());
 
-      // in case a DG space of order 0 is provided, DoFs indices are always
-      // uniquely assigned to support points (they are always defined in the
-      // center of the element) and are never shared at vertices or faces.
-      const bool unique_support_points =
-        (dof_handler_in.get_fe().n_dofs_per_vertex() > 0) ||
-        (dof_handler_in.get_fe().degree == 0);
+      const auto crs_tuple_dh =
+        support_point_indices_to_dof_indices(dof_handler_in, constraint);
 
-      // only needed if unique_support_points==false
-      std::shared_ptr<DoFHandler<dim>> dummy_dh;
-      // stays empty if unique_support_points==false
-      std::vector<unsigned int> ptrs_to_dofs_indices;
-      // is filled in the end of the function if unique_support_points==false
-      std::vector<types::global_dof_index> global_dofs_indices;
+      const std::shared_ptr<DoFHandler<dim>> &dummy_dh_sp = crs_tuple_dh.second;
+      const std::vector<unsigned int> &       sp_indices =
+        std::get<0>(crs_tuple_dh.first);
+      const std::vector<std::tuple<int, int, int>> &sp_cells =
+        std::get<1>(crs_tuple_dh.first);
+      const std::vector<unsigned int> &dof_ptrs =
+        std::get<2>(crs_tuple_dh.first);
+      const std::vector<types::global_dof_index> &global_dofs_indices =
+        std::get<3>(crs_tuple_dh.first);
 
-      if (!unique_support_points)
-        {
-          const auto dg_data =
-            support_points_to_l2_dofs(dof_handler_in, constraint);
-          dummy_dh             = dg_data.second;
-          ptrs_to_dofs_indices = dg_data.first.first;
-          global_dofs_indices  = dg_data.first.second;
-        }
-
-      // set the corresponding H1 dof_handler we use from here on
-      const DoFHandler<dim> &dof_handler_continuous =
-        unique_support_points ? dof_handler_in : *dummy_dh;
-
-      // support point indices are those of DoFs in the H1 case
-      const auto &global_support_point_indices =
-        dof_handler_continuous.locally_owned_dofs();
-      const unsigned int n_locally_owned_sps =
-        dof_handler_continuous.n_locally_owned_dofs();
-
-      const auto global_to_local_support_point_index =
-        [&](const unsigned int global_idx) {
-          return global_support_point_indices.index_within_set(global_idx);
-        };
-
-      const auto support_point_index_constrained =
-        [&](const unsigned int support_point_idx) {
-          if (unique_support_points)
-            {
-              // if unique_support_points support_point_indices relate to
-              // dof_indices
-              return constraint.is_constrained(support_point_idx);
-            }
-          else
-            {
-              // ptrs_to_dofs_indices only contains unconstrained dofs. If one
-              // DoF is unconstrained we consider the support point to be
-              // unconstrained
-              const unsigned int local_idx =
-                global_to_local_support_point_index(support_point_idx);
-              const unsigned int n_entries =
-                ptrs_to_dofs_indices[local_idx + 1] -
-                ptrs_to_dofs_indices[local_idx];
-              return (n_entries == 0);
-            }
-        };
+      // set the corresponding support point dof_handler we use from here on
+      const DoFHandler<dim> &dof_handler_sp =
+        dummy_dh_sp ? *dummy_dh_sp : dof_handler_in;
 
       // fill support points and corresponding global indices
-      std::vector<std::pair<types::global_dof_index, Point<dim>>> points_all;
-      points_all.reserve(n_locally_owned_sps);
+      std::vector<Point<dim>> points;
+      points.resize(sp_indices.size());
 
-      const auto &                         fe = dof_handler_continuous.get_fe();
-      std::vector<types::global_dof_index> support_point_indices(
-        fe.n_dofs_per_cell());
-      std::vector<bool> index_processed(n_locally_owned_sps, false);
-
-      const Quadrature<dim> quadrature(fe.get_unit_support_points());
-      FEValues<dim>         fe_values(mapping,
-                              fe,
-                              quadrature,
+      const auto &  fe_sp = dof_handler_sp.get_fe();
+      FEValues<dim> fe_values(mapping,
+                              fe_sp,
+                              Quadrature<dim>(fe_sp.get_unit_support_points()),
                               update_quadrature_points);
 
-      for (const auto &cell : dof_handler_continuous.active_cell_iterators() |
-                                IteratorFilters::LocallyOwnedCell())
+      for (unsigned int i = 0; i < sp_indices.size(); ++i)
         {
-          fe_values.reinit(cell);
-          cell->get_dof_indices(support_point_indices);
-
-          for (unsigned int q = 0; q < support_point_indices.size(); ++q)
-            {
-              if (global_support_point_indices.is_element(
-                    support_point_indices[q]))
-                {
-                  const unsigned int local_support_point_idx =
-                    global_to_local_support_point_index(
-                      support_point_indices[q]);
-                  if (!index_processed[local_support_point_idx])
-                    {
-                      if (!support_point_index_constrained(
-                            support_point_indices[q]))
-                        {
-                          points_all.emplace_back(support_point_indices[q],
-                                                  fe_values.quadrature_point(
-                                                    q));
-                        }
-                      index_processed[local_support_point_idx] = true;
-                    }
-                }
-            }
+          typename DoFHandler<dim>::active_cell_iterator cell_sp = {
+            &dof_handler_sp.get_triangulation(),
+            std::get<0>(sp_cells[i]),
+            std::get<1>(sp_cells[i]),
+            &dof_handler_sp};
+          fe_values.reinit(cell_sp);
+          points[i] = fe_values.quadrature_point(std::get<2>(sp_cells[i]));
         }
 
-      // sort for the global support point indices
-      std::sort(points_all.begin(),
-                points_all.end(),
-                [](const auto &a, const auto &b) { return a.first < b.first; });
-
-      // extract the points and fill global_dofs_indices if
-      // unique_support_points==true
-      std::vector<Point<dim>> points;
-      points.reserve(points_all.size());
-      if (unique_support_points)
-        global_dofs_indices.reserve(points_all.size());
-      for (const auto &pa : points_all)
-        {
-          points.emplace_back(pa.second);
-          if (unique_support_points)
-            global_dofs_indices.emplace_back(pa.first);
-        }
-
-      // We do not have to reconstruct dof indices and pointers if
-      // unique_support_points==false. To ensure nothing unexpected happens we
-      // check the size of the ptrs.
-      if (!unique_support_points)
-        AssertDimension(points.size() + 1, ptrs_to_dofs_indices.size());
 
       return std::make_pair(std::move(points),
-                            std::make_pair(ptrs_to_dofs_indices,
-                                           global_dofs_indices));
+                            std::make_pair(dof_ptrs, global_dofs_indices));
     }
 
   } // namespace
@@ -3886,8 +3840,15 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
     this->vec_fine.reinit(this->partitioner_fine);
   }
 
-  const auto &points                = std::get<0>(points_ptrs_indices);
-  this->level_dof_indices_fine_ptrs = std::get<1>(points_ptrs_indices).first;
+  const auto &points = std::get<0>(points_ptrs_indices);
+
+  // in case of CG or DG with degree==0 support points to dof mapping is unique
+  // and we dont need level_dof_indices_fine_ptrs
+  if (this->fine_element_is_continuous || dof_handler_fine.get_fe().degree == 0)
+    this->level_dof_indices_fine_ptrs.clear();
+  else
+    this->level_dof_indices_fine_ptrs = std::get<1>(points_ptrs_indices).first;
+
   // fill level_dof_indices_fine with local indices
   this->level_dof_indices_fine.resize(global_dof_indices.size());
   for (unsigned int i = 0; i < global_dof_indices.size(); ++i)
