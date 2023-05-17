@@ -3576,15 +3576,14 @@ namespace internal
           dof_handler_sp.locally_owned_dofs(),
           dof_handler_sp.get_communicator());
 
-
-        const auto relevant_dofs =
-          DoFTools::extract_locally_relevant_dofs(dof_handler);
         const Utilities::MPI::Partitioner partitioner_dof(
           dof_handler.locally_owned_dofs(),
-          relevant_dofs,
+          DoFTools::extract_locally_relevant_dofs(dof_handler),
           dof_handler.get_communicator());
 
-        std::vector<bool> dof_processed(relevant_dofs.n_elements(), false);
+        std::vector<bool> dof_processed(partitioner_dof.locally_owned_size() +
+                                          partitioner_dof.n_ghost_indices(),
+                                        false);
 
         using DoFCellIterator =
           typename DoFHandler<dim, spacedim>::active_cell_iterator;
