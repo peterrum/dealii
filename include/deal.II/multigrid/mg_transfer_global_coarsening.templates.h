@@ -3580,6 +3580,9 @@ namespace internal
           dof_handler_sp.locally_owned_dofs(),
           dof_handler_sp.get_communicator());
 
+        std::vector<bool> dof_processed(dof_handler.n_locally_owned_dofs(),
+                                        false);
+
         using DoFCellIterator =
           typename DoFHandler<dim, spacedim>::active_cell_iterator;
 
@@ -3606,14 +3609,22 @@ namespace internal
                 for (unsigned int i = 0; i < sp_indices.size(); ++i)
                   if (partitioner_sp.in_local_range(sp_indices[i]))
                     {
-                      const auto global_dof_idx =
-                        needs_conversion ? dof_indices[to_hierarchic[i]] :
-                                           dof_indices[i];
-                      if (!constraint.is_constrained(global_dof_idx))
-                        sp_cell_dofs.emplace_back(std::make_tuple(
-                          partitioner_sp.global_to_local(sp_indices[i]),
-                          std::make_tuple(cell->level(), cell->index(), i),
-                          global_dof_idx));
+                      const auto local_dof_idx =
+                        dof_handler.locally_owned_dofs().index_within_set(
+                          dof_indices[i]);
+                      if (dof_processed[local_dof_idx] == false)
+                        {
+                          const auto global_dof_idx =
+                            needs_conversion ? dof_indices[to_hierarchic[i]] :
+                                               dof_indices[i];
+                          if (!constraint.is_constrained(global_dof_idx))
+                            sp_cell_dofs.emplace_back(std::make_tuple(
+                              partitioner_sp.global_to_local(sp_indices[i]),
+                              std::make_tuple(cell->level(), cell->index(), i),
+                              global_dof_idx));
+
+                          dof_processed[local_dof_idx] = true;
+                        }
                     }
               }
           }
