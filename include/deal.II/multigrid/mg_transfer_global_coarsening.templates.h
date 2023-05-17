@@ -3686,7 +3686,7 @@ namespace internal
     std::pair<std::tuple<std::vector<unsigned int>,
                          std::vector<unsigned int>,
                          std::vector<types::global_dof_index>>,
-              std::shared_ptr<DoFHandler<dim, spacedim>>>
+              std::shared_ptr<const DoFHandler<dim, spacedim>>>
     support_point_indices_to_dof_indices(
       const DoFHandler<dim, spacedim> &        dof_handler,
       const dealii::AffineConstraints<Number> &constraint)
@@ -3707,7 +3707,10 @@ namespace internal
                                                                   dof_handler,
                                                                   constraint);
 
-          return std::make_pair(std::move(tuple), nullptr);
+          return std::make_pair(
+            std::move(tuple),
+            std::shared_ptr<const DoFHandler<dim, spacedim>>(&dof_handler,
+                                                             [](auto *) {}));
         }
       else
         {
@@ -3749,30 +3752,27 @@ namespace internal
       const auto crs_tuple_dh =
         support_point_indices_to_dof_indices(dof_handler_in, constraint);
 
-      const std::shared_ptr<DoFHandler<dim>> &dummy_dh_sp = crs_tuple_dh.second;
-      const std::vector<unsigned int> &       sp_indices =
+      const std::shared_ptr<const DoFHandler<dim>> &dof_handler_sp =
+        crs_tuple_dh.second;
+      const std::vector<unsigned int> &sp_indices =
         std::get<0>(crs_tuple_dh.first);
       const std::vector<unsigned int> &dof_ptrs =
         std::get<1>(crs_tuple_dh.first);
       const std::vector<types::global_dof_index> &global_dofs_indices =
         std::get<2>(crs_tuple_dh.first);
 
-      // set the corresponding support point dof_handler we use from here on
-      const DoFHandler<dim> &dof_handler_sp =
-        dummy_dh_sp ? *dummy_dh_sp : dof_handler_in;
-
       // fill support points and corresponding global indices
       std::vector<Point<dim>> points;
       points.resize(sp_indices.size());
 
-      const auto locally_onwed_sp = dof_handler_sp.locally_owned_dofs();
+      const auto locally_onwed_sp = dof_handler_sp->locally_owned_dofs();
       std::vector<unsigned int> indices_state(locally_onwed_sp.n_elements(),
                                               numbers::invalid_unsigned_int);
 
       for (unsigned int i = 0; i < sp_indices.size(); ++i)
         indices_state[sp_indices[i]] = i;
 
-      const auto &  fe_sp = dof_handler_sp.get_fe();
+      const auto &  fe_sp = dof_handler_sp->get_fe();
       FEValues<dim> fe_values(mapping,
                               fe_sp,
                               Quadrature<dim>(fe_sp.get_unit_support_points()),
@@ -3780,7 +3780,7 @@ namespace internal
 
       std::vector<types::global_dof_index> dof_indices(fe_sp.n_dofs_per_cell());
 
-      for (const auto &cell : dof_handler_sp.active_cell_iterators() |
+      for (const auto &cell : dof_handler_sp->active_cell_iterators() |
                                 IteratorFilters::LocallyOwnedCell())
         {
           fe_values.reinit(cell);
