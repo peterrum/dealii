@@ -3527,7 +3527,6 @@ namespace internal
      */
     template <int dim, int spacedim, typename Number>
     std::tuple<std::vector<unsigned int>,
-               std::vector<std::tuple<int, int, int>>,
                std::vector<unsigned int>,
                std::vector<types::global_dof_index>>
     support_point_indices_to_dof_indices(
@@ -3556,9 +3555,7 @@ namespace internal
       const auto  dofs_per_cell = dof_handler.get_fe().n_dofs_per_cell();
       const auto  sp_per_cell   = dof_handler_sp.get_fe().n_dofs_per_cell();
 
-      std::vector<std::tuple<unsigned int,
-                             std::tuple<int, int, int>,
-                             types::global_dof_index>>
+      std::vector<std::tuple<unsigned int, types::global_dof_index>>
         sp_cell_dofs;
       sp_cell_dofs.reserve(dof_handler.n_locally_owned_dofs());
 
@@ -3627,7 +3624,6 @@ namespace internal
                           if (!constraint.is_constrained(global_dof_idx))
                             sp_cell_dofs.emplace_back(std::make_tuple(
                               partitioner_sp.global_to_local(sp_indices[i]),
-                              std::make_tuple(cell->level(), cell->index(), i),
                               global_dof_idx));
 
                           dof_processed[local_dof_idx] = true;
@@ -3653,24 +3649,20 @@ namespace internal
       dof_ptrs.emplace_back(0);
       std::vector<unsigned int> sp_indices;
       sp_indices.reserve(dof_handler_sp.n_locally_owned_dofs());
-      std::vector<std::tuple<int, int, int>> cell_level_index;
-      cell_level_index.reserve(dof_handler_sp.n_locally_owned_dofs());
       while (it != sp_cell_dofs.end())
         {
           const unsigned int index = std::get<0>(*it);
           sp_indices.emplace_back(index);
           // we only store the first cell which contains the support point.
-          cell_level_index.emplace_back(std::get<1>(*it));
           while (it != sp_cell_dofs.end() && std::get<0>(*it) == index)
             {
-              dof_indices.emplace_back(std::get<2>(*it));
+              dof_indices.emplace_back(std::get<1>(*it));
               ++it;
             }
           dof_ptrs.emplace_back(dof_indices.size());
         }
 
       return std::make_tuple(std::move(sp_indices),
-                             std::move(cell_level_index),
                              std::move(dof_ptrs),
                              std::move(dof_indices));
     }
@@ -3692,7 +3684,6 @@ namespace internal
      */
     template <int dim, int spacedim, typename Number>
     std::pair<std::tuple<std::vector<unsigned int>,
-                         std::vector<std::tuple<int, int, int>>,
                          std::vector<unsigned int>,
                          std::vector<types::global_dof_index>>,
               std::shared_ptr<DoFHandler<dim, spacedim>>>
@@ -3761,12 +3752,10 @@ namespace internal
       const std::shared_ptr<DoFHandler<dim>> &dummy_dh_sp = crs_tuple_dh.second;
       const std::vector<unsigned int> &       sp_indices =
         std::get<0>(crs_tuple_dh.first);
-      const std::vector<std::tuple<int, int, int>> &sp_cells =
-        std::get<1>(crs_tuple_dh.first);
       const std::vector<unsigned int> &dof_ptrs =
-        std::get<2>(crs_tuple_dh.first);
+        std::get<1>(crs_tuple_dh.first);
       const std::vector<types::global_dof_index> &global_dofs_indices =
-        std::get<3>(crs_tuple_dh.first);
+        std::get<2>(crs_tuple_dh.first);
 
       // set the corresponding support point dof_handler we use from here on
       const DoFHandler<dim> &dof_handler_sp =
@@ -3776,23 +3765,41 @@ namespace internal
       std::vector<Point<dim>> points;
       points.resize(sp_indices.size());
 
+      const auto locally_onwed_sp = dof_handler_sp.locally_owned_dofs();
+      std::vector<unsigned int> indices_state(locally_onwed_sp.n_elements(),
+                                              numbers::invalid_unsigned_int);
+
+      for (unsigned int i = 0; i < sp_indices.size(); ++i)
+        indices_state[sp_indices[i]] = i;
+
       const auto &  fe_sp = dof_handler_sp.get_fe();
       FEValues<dim> fe_values(mapping,
                               fe_sp,
                               Quadrature<dim>(fe_sp.get_unit_support_points()),
                               update_quadrature_points);
 
-      for (unsigned int i = 0; i < sp_indices.size(); ++i)
-        {
-          typename DoFHandler<dim>::active_cell_iterator cell_sp = {
-            &dof_handler_sp.get_triangulation(),
-            std::get<0>(sp_cells[i]),
-            std::get<1>(sp_cells[i]),
-            &dof_handler_sp};
-          fe_values.reinit(cell_sp);
-          points[i] = fe_values.quadrature_point(std::get<2>(sp_cells[i]));
-        }
+      std::vector<types::global_dof_index> dof_indices(fe_sp.n_dofs_per_cell());
 
+      for (const auto &cell : dof_handler_sp.active_cell_iterators() |
+                                IteratorFilters::LocallyOwnedCell())
+        {
+          fe_values.reinit(cell);
+          cell->get_dof_indices(dof_indices);
+
+          for (const unsigned int q : fe_values.quadrature_point_indices())
+            if (locally_onwed_sp.is_element(dof_indices[q]))
+              {
+                const auto index =
+                  locally_onwed_sp.index_within_set(dof_indices[q]);
+
+                if (indices_state[index] != numbers::invalid_unsigned_int)
+                  {
+                    points[indices_state[index]] =
+                      fe_values.quadrature_point(q);
+                    indices_state[index] = numbers::invalid_unsigned_int;
+                  }
+              }
+        }
 
       return std::make_pair(std::move(points),
                             std::make_pair(dof_ptrs, global_dofs_indices));
@@ -3845,7 +3852,7 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   {
     // in case a DG space of order 0 is provided, DoFs indices are never defined
     // on element faces or vertices and therefore, the partitioner is fine
-    IndexSet locally_relevant_dofs;
+    IndexSet locally_relevant_dofs(dof_handler_fine.n_dofs());
     if (!this->fine_element_is_continuous &&
         !dof_handler_fine.get_fe().degree == 0)
       locally_relevant_dofs.add_indices(global_dof_indices.begin(),
