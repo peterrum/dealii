@@ -3539,10 +3539,10 @@ namespace internal
       // uniquely assigned to support points (they are always defined in the
       // center of the element) and are never shared at vertices or faces.
       Assert(
-        (dof_handler_sp.get_fe().conforming_space ==
-           FiniteElementData<dim>::Conformity::H1 &&
-         dof_handler_sp.get_fe().degree == 1) ||
-          dof_handler_sp.get_fe().degree == 0,
+        dof_handler_sp.get_fe().n_components() == 1 &&
+          (dof_handler_sp.get_fe().conforming_space ==
+             FiniteElementData<dim>::Conformity::H1 ||
+           dof_handler_sp.get_fe().degree == 0),
         ExcMessage(
           "dof_handler_sp has to be H1 conforming with one component or degree 0."));
       Assert(&dof_handler.get_triangulation() ==
@@ -3689,9 +3689,9 @@ namespace internal
       // in case a DG space of order 0 is provided, DoFs indices are always
       // uniquely assigned to support points (they are always defined in the
       // center of the element) and are never shared at vertices or faces.
-      if ((fe.conforming_space == FiniteElementData<dim>::Conformity::H1 &&
-           n_components == 1) ||
-          (degree == 0 && n_components == 1))
+      if (n_components == 1 &&
+          (fe.conforming_space == FiniteElementData<dim>::Conformity::H1 ||
+           degree == 0))
         {
           const auto tuple = support_point_indices_to_dof_indices(dof_handler,
                                                                   dof_handler,
@@ -3709,10 +3709,10 @@ namespace internal
           auto dof_handler_sp =
             std::make_shared<DoFHandler<dim, spacedim>>(tria);
 
-          if (degree != 0)
-            dof_handler_sp->distribute_dofs(FE_Q<dim, spacedim>(degree));
-          else
+          if (degree == 0)
             dof_handler_sp->distribute_dofs(FE_DGQ<dim, spacedim>(degree));
+          else
+            dof_handler_sp->distribute_dofs(FE_Q<dim, spacedim>(degree));
 
           const auto tuple =
             support_point_indices_to_dof_indices(dof_handler,
