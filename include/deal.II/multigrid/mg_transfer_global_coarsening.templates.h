@@ -31,7 +31,6 @@
 #include <deal.II/dofs/dof_tools.h>
 
 #include <deal.II/fe/fe_q.h>
-#include <deal.II/fe/fe_system.h>
 #include <deal.II/fe/fe_tools.h>
 #include <deal.II/fe/fe_values.h>
 
@@ -3660,14 +3659,18 @@ namespace internal
                FiniteElementData<dim>::Conformity::L2,
              ExcMessage("dof_handler_l2 not L2 conforming"));
 
-      const auto &fe           = dof_handler_l2.get_fe();
-      const auto &tria         = dof_handler_l2.get_triangulation();
-      const auto  degree       = fe.degree;
-      const auto  n_components = fe.n_components();
+      Assert(dof_handler_l2.get_fe().n_components() == 1,
+             ExcMessage(
+               "Function currently only supported for n_components==1."));
+
+
+      const auto &fe     = dof_handler_l2.get_fe();
+      const auto &tria   = dof_handler_l2.get_triangulation();
+      const auto  degree = fe.degree;
 
       // create h1 dummy dof handler
       auto dof_handler_h1 = std::make_shared<DoFHandler<dim, spacedim>>(tria);
-      FESystem<dim, spacedim> fe_h1(FE_Q<dim, spacedim>(degree), n_components);
+      FE_Q<dim, spacedim> fe_h1(degree);
       dof_handler_h1->distribute_dofs(fe_h1);
 
       const auto ptrs_indices =
