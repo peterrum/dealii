@@ -3978,11 +3978,10 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
         }
       else
         {
-          const auto        ptr = this->level_dof_indices_fine_ptrs.begin() + j;
-          const std::size_t n_entries = *(ptr + 1) - *ptr;
-
-          for (unsigned int i = 0; i < n_entries; ++i)
-            dst.local_element(this->level_dof_indices_fine[*ptr + i]) +=
+          for (unsigned int i = this->level_dof_indices_fine_ptrs[j];
+               i < this->level_dof_indices_fine_ptrs[j + 1];
+               ++i)
+            dst.local_element(this->level_dof_indices_fine[i]) +=
               evaluation_point_results[j];
         }
     }
@@ -4012,12 +4011,11 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
       else
         {
           evaluation_point_results[j] = 0.0;
-          const auto        ptr = this->level_dof_indices_fine_ptrs.begin() + j;
-          const std::size_t n_entries = *(ptr + 1) - *ptr;
-
-          for (unsigned int i = 0; i < n_entries; ++i)
+          for (unsigned int i = this->level_dof_indices_fine_ptrs[j];
+               i < this->level_dof_indices_fine_ptrs[j + 1];
+               ++i)
             evaluation_point_results[j] +=
-              src.local_element(this->level_dof_indices_fine[*ptr + i]);
+              src.local_element(this->level_dof_indices_fine[i]);
         }
     }
 
