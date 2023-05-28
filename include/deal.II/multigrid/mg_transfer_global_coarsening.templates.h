@@ -30,6 +30,7 @@
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
 
+#include <deal.II/fe/fe_simplex_p.h>
 #include <deal.II/fe/fe_tools.h>
 #include <deal.II/fe/fe_values.h>
 
@@ -3635,6 +3636,10 @@ MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>::
   if (const auto fe = dynamic_cast<const FE_Q<dim> *>(&fe_base))
     fe_coarse = std::make_unique<FE_DGQ<dim>>(fe->get_degree());
   else if (const auto fe = dynamic_cast<const FE_DGQ<dim> *>(&fe_base))
+    fe_coarse = fe->clone();
+  else if (const auto fe = dynamic_cast<const FE_SimplexP<dim> *>(&fe_base))
+    fe_coarse = fe->clone();
+  else if (const auto fe = dynamic_cast<const FE_SimplexDGP<dim> *>(&fe_base))
     fe_coarse = fe->clone();
   else
     AssertThrow(false, ExcMessage(dof_handler_coarse.get_fe().get_name()));

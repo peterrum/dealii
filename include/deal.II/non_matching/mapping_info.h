@@ -396,6 +396,29 @@ namespace NonMatching
     get_n_q_points_unvectorized(const unsigned int cell_index,
                                 const unsigned int face_number) const;
 
+    const Triangulation<dim, spacedim> &
+    get_triangulation() const
+    {
+      return *triangulation;
+    }
+
+    std::pair<unsigned int, unsigned int>
+    get_cell_level_and_index(const unsigned int cell_index) const
+    {
+      return cell_level_and_indices[cell_index];
+    }
+
+    ArrayView<const Point<dim>>
+    get_unit_points_scalar(const unsigned int cell_index) const
+    {
+      return ArrayView<const Point<dim>>(
+        unit_points_scalar.data() +
+          this->compute_data_index_offset(cell_index,
+                                          numbers::invalid_unsigned_int),
+        this->get_n_q_points_unvectorized(cell_index,
+                                          numbers::invalid_unsigned_int));
+    }
+
   private:
     using MappingData =
       dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
@@ -489,6 +512,8 @@ namespace NonMatching
      * Indexed by @p unit_points_index.
      */
     AlignedVector<Point<dim, VectorizedArrayType>> unit_points;
+
+    AlignedVector<Point<dim>> unit_points_scalar;
 
     /**
      * The reference points on faces specified at reinit().
@@ -595,6 +620,10 @@ namespace NonMatching
      * dependent objects know that they need to reinitialize as well.
      */
     boost::signals2::signal<void()> is_reinitialized;
+
+    SmartPointer<const Triangulation<dim, spacedim>> triangulation;
+
+    std::vector<std::pair<unsigned int, unsigned int>> cell_level_and_indices;
   };
 
   // ----------------------- template functions ----------------------
@@ -753,6 +782,9 @@ namespace NonMatching
 
     n_q_points_unvectorized.reserve(n_cells);
 
+    cell_level_and_indices.resize(n_cells);
+    unit_points_scalar.clear();
+
     // fill unit points index offset vector
     unit_points_index.reserve(n_cells + 1);
     unit_points_index.push_back(0);
@@ -790,6 +822,13 @@ namespace NonMatching
     unsigned int cell_index = 0;
     for (const auto &cell : cell_iterator_range)
       {
+        this->triangulation = &cell->get_triangulation();
+
+        cell_level_and_indices[cell_index] = {cell->level(), cell->index()};
+
+        for (const auto p : quadrature_vector[cell_index].get_points())
+          unit_points_scalar.push_back(p);
+
         // store unit points
         const unsigned int n_q_points = compute_n_q_points<VectorizedArrayType>(
           n_q_points_unvectorized[cell_index]);

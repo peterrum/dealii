@@ -1559,6 +1559,26 @@ FEPointEvaluation<n_components_, dim, spacedim, Number>::reinit(
   current_face_number = numbers::invalid_unsigned_int;
 
   do_reinit();
+
+  if (!fast_path)
+    {
+      const auto &triangulation = mapping_info->get_triangulation();
+      const auto  cell_level_and_index =
+        mapping_info->get_cell_level_and_index(cell_index);
+      const auto unit_points = mapping_info->get_unit_points_scalar(cell_index);
+
+      fe_values = std::make_shared<FEValues<dim, spacedim>>(
+        *mapping,
+        *fe,
+        Quadrature<dim>(
+          std::vector<Point<dim>>(unit_points.begin(), unit_points.end())),
+        update_flags);
+
+      fe_values->reinit(typename Triangulation<dim, spacedim>::cell_iterator(
+        &triangulation,
+        cell_level_and_index.first,
+        cell_level_and_index.second));
+    }
 }
 
 
