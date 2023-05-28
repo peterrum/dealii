@@ -100,25 +100,14 @@ do_test(const FiniteElement<dim> &   fe_fine,
   constraint_fine.close();
 
   // setup transfer operator
-  MGTwoLevelTransferNonNested<dim, LinearAlgebra::distributed::Vector<Number>>
-    transfer;
-
-  const auto mapping_fine =
-    fe_fine.reference_cell().template get_default_mapping<dim>(1);
-  const auto mapping_coarse =
-    fe_coarse.reference_cell().template get_default_mapping<dim>(1);
+  MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>> transfer;
 
   transfer.reinit(dof_handler_fine,
                   dof_handler_coarse,
-                  *mapping_fine,
-                  *mapping_coarse,
                   constraint_fine,
                   constraint_coarse);
 
-  test_non_nested_transfer(transfer,
-                           dof_handler_fine,
-                           dof_handler_coarse,
-                           function);
+  test_transfer_operator(transfer, dof_handler_fine, dof_handler_coarse);
 }
 
 template <int dim, typename Number>
