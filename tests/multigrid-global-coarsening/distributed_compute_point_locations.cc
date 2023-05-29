@@ -39,6 +39,9 @@ test()
       1e-6,
       true,
       false);
+
+  // expectation: each cell finds 6 points with reference positions
+  // (0.0, 0.0), (0.5, 0.0), (1.0, 0.0), (0.0, 0.5), (0.5, 0.5), (0.0, 1.0)
 }
 
 main(int argc, char **argv)
