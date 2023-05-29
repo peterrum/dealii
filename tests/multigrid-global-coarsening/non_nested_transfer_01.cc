@@ -61,6 +61,22 @@
 
 using namespace dealii;
 
+template <int dim>
+class RightHandSideFunction : public Function<dim>
+{
+public:
+  RightHandSideFunction()
+    : Function<dim>(1)
+  {}
+
+  virtual double
+  value(const Point<dim> &p, const unsigned int component = 0) const
+  {
+    (void)component;
+    return p[0];
+  }
+};
+
 template <int dim, typename Number>
 void
 do_test(const FiniteElement<dim> &   fe_fine,
@@ -157,10 +173,12 @@ main(int argc, char **argv)
 
   deallog.precision(8);
 
-  Functions::ConstantFunction<2, double> constant(1.);
+  // Functions::ConstantFunction<2, double> fu(1.);
+  RightHandSideFunction<2> fu;
+
   for (unsigned int i = 0; i <= 4; ++i)
-    test<2, double>(i, constant, false);
+    test<2, double>(i, fu, false);
 
   for (unsigned int i = 0; i <= 2; ++i)
-    test<2, double>(i, constant, true);
+    test<2, double>(i, fu, true);
 }
