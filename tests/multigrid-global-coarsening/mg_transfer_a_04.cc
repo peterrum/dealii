@@ -107,7 +107,10 @@ do_test(const FiniteElement<dim> &   fe_fine,
                   constraint_fine,
                   constraint_coarse);
 
-  test_transfer_operator(transfer, dof_handler_fine, dof_handler_coarse);
+  test_non_nested_transfer(transfer,
+                           dof_handler_fine,
+                           dof_handler_coarse,
+                           function);
 }
 
 template <int dim, typename Number>
