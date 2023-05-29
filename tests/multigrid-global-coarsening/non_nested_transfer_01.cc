@@ -99,7 +99,7 @@ do_test(const FiniteElement<dim> &   fe_fine,
   else
     GridGenerator::hyper_cube(tria_fine);
   tria_fine.refine_global();
-  tria_fine.refine_global();
+  // tria_fine.refine_global();
 
   // setup dof-handlers
   DoFHandler<dim> dof_handler_fine(tria_fine);
