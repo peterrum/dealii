@@ -514,8 +514,18 @@ namespace GridTools
 
                 try
                   {
+                    std::cout
+                      << "-----------------------------------------------"
+                      << std::endl;
+
                     const Point<dim> p_cell =
                       mapping.transform_real_to_unit_cell(*cell, p);
+
+                    for (const auto v : (*cell)->vertex_indices())
+                      std::cout << (*cell)->vertex(v) << "; ";
+                    std::cout << std::endl;
+
+                    std::cout << p << " --> " << p_cell << std::endl;
 
                     // calculate the infinity norm of
                     // the distance vector to the unit cell.
@@ -638,6 +648,8 @@ namespace GridTools
     // need to find all neighbors
     const Point<dim> unit_point = cells_and_points.front().second;
     const auto       my_cell    = cells_and_points.front().first;
+
+    std::cout << unit_point << " -> " << p << std::endl;
 
     Tensor<1, dim> distance_to_center;
     unsigned int   n_dirs_at_threshold     = 0;

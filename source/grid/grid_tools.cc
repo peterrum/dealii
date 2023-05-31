@@ -2992,19 +2992,21 @@ namespace GridTools
                   {
                     const Point<dim> p_unit =
                       mapping.transform_real_to_unit_cell(*cell, p);
-                    if (GeometryInfo<dim>::is_inside_unit_cell(p_unit,
-                                                               tolerance))
+                    if ((*cell)->reference_cell().template contains_point<dim>(
+                          p_unit, tolerance))
                       {
                         cell_and_position.first  = *cell;
                         cell_and_position.second = p_unit;
-                        found_cell               = true;
-                        approx_cell              = false;
+                        std::cout << p << " ===> " << p_unit << std::endl;
+                        found_cell  = true;
+                        approx_cell = false;
                         break;
                       }
                     // The point is not inside this cell: checking how far
                     // outside it is and whether we want to use this cell as a
                     // backup if we can't find a cell within which the point
                     // lies.
+                    std::cout << "AAA" << p_unit << std::endl;
                     const double dist =
                       GeometryInfo<dim>::distance_to_unit_cell(p_unit);
                     if (dist < best_distance)
