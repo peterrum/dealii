@@ -2314,19 +2314,20 @@ namespace internal
 
     template <typename VectorType>
     void
-    compress(VectorType &vec) const
+    compress(VectorType &vec, const VectorOperation::values op) const
     {
-      compress_start(vec);
-      compress_finish(vec);
+      compress_start(vec, op);
+      compress_finish(vec, op);
     }
 
     template <typename VectorType>
     void
-    compress_start(VectorType &vec) const
+    compress_start(VectorType &vec, const VectorOperation::values op) const
     {
 #ifndef DEAL_II_WITH_MPI
       Assert(false, ExcNeedsMPI());
       (void)vec;
+      (void)op;
 #else
       const auto &vector_partitioner = vec.get_partitioner();
 
@@ -2334,7 +2335,7 @@ namespace internal
 
       embedded_partitioner
         ->template import_from_ghosted_array_start<Number, MemorySpace::Host>(
-          VectorOperation::add,
+          op,
           0,
           dealii::ArrayView<Number>(
             const_cast<Number *>(vec.begin()) +
@@ -2347,17 +2348,18 @@ namespace internal
 
     template <typename VectorType>
     void
-    compress_finish(VectorType &vec) const
+    compress_finish(VectorType &vec, const VectorOperation::values op) const
     {
 #ifndef DEAL_II_WITH_MPI
       Assert(false, ExcNeedsMPI());
       (void)vec;
+      (void)op;
 #else
       const auto &vector_partitioner = vec.get_partitioner();
 
       embedded_partitioner
         ->template import_from_ghosted_array_finish<Number, MemorySpace::Host>(
-          VectorOperation::add,
+          op,
           dealii::ArrayView<const Number>(buffer.begin(), buffer.size()),
           dealii::ArrayView<Number>(vec.begin(),
                                     embedded_partitioner->locally_owned_size()),
@@ -2630,12 +2632,19 @@ MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>::
 
   this->update_ghost_values(*vec_coarse_ptr);
 
-  if (use_dst_inplace == false)
+  if (fine_element_is_continuous && (use_dst_inplace == false))
     *vec_fine_ptr = Number(0.);
+  else if (use_dst_inplace == false)
+    {
+      for (const auto &import_range :
+           vec_fine_ptr->get_partitioner()->import_indices())
+        for (unsigned int j = import_range.first; j < import_range.second; ++j)
+          vec_fine_ptr->local_element(j) = 0.0;
+    }
 
   this->prolongate_and_add_internal(*vec_fine_ptr, *vec_coarse_ptr);
 
-  if (fine_element_is_continuous || use_dst_inplace == false)
+  if (fine_element_is_continuous || (use_dst_inplace == false))
     this->compress(*vec_fine_ptr, VectorOperation::add);
 
   if (use_dst_inplace == false)
@@ -2667,6 +2676,9 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
       weights            = this->weights.data();
       weights_compressed = this->weights_compressed.data();
     }
+
+  const bool do_set_fine =
+    (this->fine_element_is_continuous == false) && (&dst == &this->vec_fine);
 
   unsigned int cell_counter = 0;
 
@@ -2752,16 +2764,34 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
                 }
             }
 
-          // add into dst vector
-          internal::VectorDistributorLocalToGlobal<Number, VectorizedArrayType>
-            writer;
-          constraint_info_fine.read_write_operation(writer,
-                                                    dst,
-                                                    evaluation_data_fine.data(),
-                                                    cell_counter,
-                                                    n_lanes_filled,
-                                                    scheme.n_dofs_per_cell_fine,
-                                                    false);
+          if (do_set_fine)
+            {
+              // set values in dst vector
+              internal::VectorSetter<Number, VectorizedArrayType> writer;
+              constraint_info_fine.read_write_operation(
+                writer,
+                dst,
+                evaluation_data_fine.data(),
+                cell_counter,
+                n_lanes_filled,
+                scheme.n_dofs_per_cell_fine,
+                false);
+            }
+          else
+            {
+              // add into dst vector
+              internal::VectorDistributorLocalToGlobal<Number,
+                                                       VectorizedArrayType>
+                writer;
+              constraint_info_fine.read_write_operation(
+                writer,
+                dst,
+                evaluation_data_fine.data(),
+                cell_counter,
+                n_lanes_filled,
+                scheme.n_dofs_per_cell_fine,
+                false);
+            }
 
           cell_counter += n_lanes_filled;
         }
@@ -3407,18 +3437,16 @@ MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>::compress(
   LinearAlgebra::distributed::Vector<Number> &vec,
   const VectorOperation::values               op) const
 {
-  Assert(op == VectorOperation::add, ExcNotImplemented());
-
   if ((vec.get_partitioner().get() == this->partitioner_coarse.get()) &&
       (this->partitioner_coarse_embedded != nullptr))
     internal::SimpleVectorDataExchange<Number>(
       this->partitioner_coarse_embedded, this->buffer_coarse_embedded)
-      .compress(vec);
+      .compress(vec, op);
   else if ((vec.get_partitioner().get() == this->partitioner_fine.get()) &&
            (this->partitioner_fine_embedded != nullptr))
     internal::SimpleVectorDataExchange<Number>(this->partitioner_fine_embedded,
                                                this->buffer_fine_embedded)
-      .compress(vec);
+      .compress(vec, op);
   else
     vec.compress(op);
 }
