@@ -344,9 +344,8 @@ FE_RaviartThomas<dim>::initialize_quad_dof_index_permutation_and_sign_change()
       for (unsigned int case_no = 0; case_no < 8; ++case_no)
         {
           // Get the binary representation of the case
-          const bool face_orientation = Utilities::get_bit(case_no, 2);
-          const bool face_flip        = Utilities::get_bit(case_no, 1);
-          const bool face_rotation    = Utilities::get_bit(case_no, 0);
+          const auto [face_orientation, face_rotation, face_flip] =
+            internal::split_face_orientation(case_no);
 
           if (((!face_orientation) && (!face_rotation)) ||
               ((face_orientation) && (face_rotation)))
