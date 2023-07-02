@@ -688,7 +688,32 @@ namespace internal
       }
 
 
-      inline static unsigned int
+
+      template <int dim, int spacedim, int structdim>
+      inline static unsigned char
+      combined_face_orientation(
+        const TriaAccessor<dim, spacedim, structdim> & /*accessor*/,
+        const unsigned int /*face*/)
+      {
+        Assert(structdim > 1, ExcImpossibleInDim(dim));
+        return ReferenceCell::default_combined_face_orientation();
+      }
+
+
+
+      template <int dim, int spacedim, int structdim>
+      inline static unsigned char
+      combined_face_orientation(const TriaAccessor<dim, spacedim, 2> &accessor,
+                                const unsigned int                    face)
+      {
+        return line_orientation(accessor, face) == true ?
+                 ReferenceCell::default_combined_face_orientation() :
+                 ReferenceCell::reversed_combined_line_orientation();
+      }
+
+
+
+      inline static unsigned char
       combined_face_orientation(const TriaAccessor<3, 3, 3> &accessor,
                                 const unsigned int           face)
       {
@@ -1363,8 +1388,8 @@ inline unsigned char
 TriaAccessor<structdim, dim, spacedim>::combined_face_orientation(
   const unsigned int face) const
 {
-  return this->face_orientation(face) + 4 * this->face_flip(face) +
-         2 * this->face_rotation(face);
+  return dealii::internal::TriaAccessorImplementation::Implementation::
+    combined_face_orientation(*this, face);
 }
 
 
