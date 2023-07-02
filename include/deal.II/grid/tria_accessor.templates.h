@@ -689,19 +689,19 @@ namespace internal
 
 
 
-      template <int dim, int spacedim, int structdim>
+      template <int dim, int spacedim>
       inline static unsigned char
       combined_face_orientation(
-        const TriaAccessor<dim, spacedim, structdim> & /*accessor*/,
+        const TriaAccessor<dim, spacedim, 1> & /*accessor*/,
         const unsigned int /*face*/)
       {
-        Assert(structdim > 1, ExcImpossibleInDim(dim));
+        // There's only one way to orient a vertex
         return ReferenceCell::default_combined_face_orientation();
       }
 
 
 
-      template <int dim, int spacedim, int structdim>
+      template <int dim, int spacedim>
       inline static unsigned char
       combined_face_orientation(const TriaAccessor<dim, spacedim, 2> &accessor,
                                 const unsigned int                    face)
