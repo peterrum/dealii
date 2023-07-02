@@ -26,7 +26,7 @@ DEAL_II_NAMESPACE_OPEN
 
 namespace internal
 {
-  char
+  inline char
   combined_face_orientation(const bool face_orientation,
                             const bool face_rotation,
                             const bool face_flip)
@@ -35,7 +35,7 @@ namespace internal
            (face_flip ? 4 : 0);
   }
 
-  std::tuple<bool, bool, bool>
+  inline std::tuple<bool, bool, bool>
   split_face_orientation(const char combined_face_orientation)
   {
     return {Utilities::get_bit(combined_face_orientation, 0),
