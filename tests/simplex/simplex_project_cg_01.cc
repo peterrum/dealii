@@ -71,6 +71,8 @@ test(const unsigned int degree)
 
   for (unsigned int r = 0; r < 6; ++r)
     {
+      deallog << "Orientation " << r << std::endl;
+
       Triangulation<dim> tria_hex, tria_flat, tria;
 #if 1
       // having two cells is nice for debugging
@@ -133,7 +135,6 @@ test(const unsigned int degree)
       GridGenerator::flatten_triangulation(tria_hex, tria_flat);
       GridGenerator::convert_hypercube_to_simplex_mesh(tria_flat, tria);
 #endif
-      deallog << "Orientation " << r << std::endl;
       deallog << "Number of cells = " << tria.n_active_cells() << std::endl;
 
       ReferenceCell   reference_cell = tria.begin_active()->reference_cell();
