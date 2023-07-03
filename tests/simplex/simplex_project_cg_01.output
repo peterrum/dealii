@@ -73,16 +73,16 @@ DEAL::ratio = 7.99417e-16
 DEAL::
 DEAL::Orientation 3
 DEAL::Number of cells = 2
-DEAL::max error = 3.88578e-16
-DEAL::ratio = 5.36105e+14
+DEAL::max error = 2.22045e-16
+DEAL::ratio = 9.38184e+14
 DEAL::
 DEAL::Orientation 4
 DEAL::Number of cells = 2
 DEAL::max error = 0.208319
-DEAL::ratio = 1.86531e-15
+DEAL::ratio = 1.06589e-15
 DEAL::
 DEAL::Orientation 5
 DEAL::Number of cells = 2
-DEAL::max error = 2.22045e-16
-DEAL::ratio = 9.38184e+14
+DEAL::max error = 3.88578e-16
+DEAL::ratio = 5.36105e+14
 DEAL::

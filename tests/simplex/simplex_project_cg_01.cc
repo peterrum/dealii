@@ -100,20 +100,28 @@ test(const unsigned int degree)
         const auto  permuted =
           ReferenceCell(ReferenceCells::Triangle)
             .permute_according_orientation(
-              std::array<unsigned int, 3>{{face->vertex_index(0),
-                                           face->vertex_index(1),
-                                           face->vertex_index(2)}},
-              orientation);
+              std::array<unsigned int, 3>{{0, 1, 2}}, orientation);
+
+        for (const auto o : permuted)
+          std::cout << o << " ";
+        std::cout << std::endl;
 
         auto direction =
           cross_product_3d(vertices[permuted[1]] - vertices[permuted[0]],
                            vertices[permuted[2]] - vertices[permuted[0]]);
         direction = direction / direction.norm();
 
+        std::cout << direction << std::endl;
+
         vertices.emplace_back(0.0, 0.0, direction[2]);
 
         CellData<3> cell;
-        cell.vertices = {permuted[0], permuted[1], permuted[2], 4u};
+        cell.vertices.resize(4);
+
+        cell.vertices[permuted[0]] = face->vertex_index(0);
+        cell.vertices[permuted[1]] = face->vertex_index(1);
+        cell.vertices[permuted[2]] = face->vertex_index(2);
+        cell.vertices[3]           = 4;
 
         cell.material_id = 1;
         cells.push_back(cell);
