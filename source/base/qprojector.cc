@@ -1452,7 +1452,9 @@ QProjector<dim>::DataSetDescriptor::face(
       else if (dim == 3)
         {
           return {offset +
-                  internal::combined_face_orientation(face_orientation, face_rotation, face_flip) *
+                  internal::combined_face_orientation(face_orientation,
+                                                      face_rotation,
+                                                      face_flip) *
                     quadrature[quadrature.size() == 1 ? 0 : face_no].size()};
         }
     }
