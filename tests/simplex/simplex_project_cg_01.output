@@ -1,31 +1,88 @@
 
 DEAL::FE = FE_SimplexP<3>(1)
+DEAL::Orientation 0
 DEAL::Number of cells = 2
-DEAL::max error = 2.77556e-16
-DEAL::ratio = 3.60288e+15
+DEAL::max error = 0.00000
+DEAL::
+DEAL::Orientation 1
+DEAL::Number of cells = 2
+DEAL::max error = 0.00000
+DEAL::
+DEAL::Orientation 2
+DEAL::Number of cells = 2
+DEAL::max error = 0.00000
+DEAL::
+DEAL::Orientation 3
+DEAL::Number of cells = 2
+DEAL::max error = 0.00000
+DEAL::
+DEAL::Orientation 4
+DEAL::Number of cells = 2
+DEAL::max error = 0.00000
+DEAL::
+DEAL::Orientation 5
+DEAL::Number of cells = 2
+DEAL::max error = 0.00000
+DEAL::
+DEAL::FE = FE_SimplexP<3>(2)
+DEAL::Orientation 0
+DEAL::Number of cells = 2
+DEAL::max error = 1.11022e-16
+DEAL::ratio = 9.00720e+15
+DEAL::
+DEAL::Orientation 1
+DEAL::Number of cells = 2
+DEAL::max error = 1.11022e-16
+DEAL::ratio = 1.00000
+DEAL::
+DEAL::Orientation 2
+DEAL::Number of cells = 2
+DEAL::max error = 1.11022e-16
+DEAL::ratio = 1.00000
+DEAL::
+DEAL::Orientation 3
+DEAL::Number of cells = 2
+DEAL::max error = 1.11022e-16
+DEAL::ratio = 1.00000
+DEAL::
+DEAL::Orientation 4
+DEAL::Number of cells = 2
+DEAL::max error = 1.11022e-16
+DEAL::ratio = 1.00000
+DEAL::
+DEAL::Orientation 5
+DEAL::Number of cells = 2
+DEAL::max error = 1.11022e-16
+DEAL::ratio = 1.00000
+DEAL::
+DEAL::FE = FE_SimplexP<3>(3)
+DEAL::Orientation 0
+DEAL::Number of cells = 2
+DEAL::max error = 0.208319
+DEAL::ratio = 4.80034
+DEAL::
+DEAL::Orientation 1
+DEAL::Number of cells = 2
+DEAL::max error = 1.66533e-16
+DEAL::ratio = 1.25091e+15
+DEAL::
+DEAL::Orientation 2
+DEAL::Number of cells = 2
+DEAL::max error = 0.208319
+DEAL::ratio = 7.99417e-16
+DEAL::
+DEAL::Orientation 3
 DEAL::Number of cells = 2
 DEAL::max error = 3.88578e-16
-DEAL::ratio = 0.714286
+DEAL::ratio = 5.36105e+14
+DEAL::
+DEAL::Orientation 4
 DEAL::Number of cells = 2
-DEAL::max error = 4.16334e-16
-DEAL::ratio = 0.933333
-DEAL::FE = FE_SimplexP<3>(2)
+DEAL::max error = 0.208319
+DEAL::ratio = 1.86531e-15
+DEAL::
+DEAL::Orientation 5
 DEAL::Number of cells = 2
-DEAL::max error = 1.21014e-14
-DEAL::ratio = 8.26349e+13
-DEAL::Number of cells = 2
-DEAL::max error = 3.19189e-15
-DEAL::ratio = 3.79130
-DEAL::Number of cells = 2
-DEAL::max error = 5.00988e-15
-DEAL::ratio = 0.637119
-DEAL::FE = FE_SimplexP<3>(3)
-DEAL::Number of cells = 2
-DEAL::max error = 0.191076
-DEAL::ratio = 5.23351
-DEAL::Number of cells = 2
-DEAL::max error = 0.191076
-DEAL::ratio = 1.00000
-DEAL::Number of cells = 2
-DEAL::max error = 0.191076
-DEAL::ratio = 1.00000
+DEAL::max error = 2.22045e-16
+DEAL::ratio = 9.38184e+14
+DEAL::

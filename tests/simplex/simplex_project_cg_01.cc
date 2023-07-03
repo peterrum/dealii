@@ -198,9 +198,12 @@ test(const unsigned int degree)
         }
 
 
-
+#if false
       VectorTools::project(
         mapping, dof_handler, constraints, quadrature, function, solution);
+#else
+      VectorTools::interpolate(mapping, dof_handler, function, solution);
+#endif
 
       VectorTools::integrate_difference(mapping,
                                         dof_handler,
