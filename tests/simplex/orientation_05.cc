@@ -61,12 +61,8 @@ public:
 
 template <int dim>
 void
-test(const unsigned int degree)
+test()
 {
-  FE_SimplexP<dim> fe(degree);
-  deallog << "FE = " << fe.get_name() << std::endl;
-  QGaussSimplex<dim> quadrature(degree + 1);
-
   double previous_error = 1.0;
 
   for (unsigned int r = 0; r < 6; ++r)
@@ -150,7 +146,5 @@ main()
 {
   initlog();
 
-  test<3>(1);
-  test<3>(2);
-  test<3>(3);
+  test<3>();
 }
