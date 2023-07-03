@@ -341,7 +341,7 @@ FE_RaviartThomas<dim>::initialize_quad_dof_index_permutation_and_sign_change()
       // We have 8 cases that are all treated the same way. Note that the
       // corresponding case to case_no is just its binary representation.
       // The above example of (false | true | true) would be case_no=3
-      for (unsigned int case_no = 0; case_no < 8; ++case_no)
+      for (unsigned char case_no = 0; case_no < 8; ++case_no)
         {
           // Get the binary representation of the case
           const auto [face_orientation, face_rotation, face_flip] =
