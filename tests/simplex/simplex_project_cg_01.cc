@@ -59,6 +59,65 @@ public:
   }
 };
 
+std::tuple<unsigned int, unsigned int>
+create_triangulation(const std::vector<Point<3>> &   vertices_,
+                     const std::vector<CellData<3>> &cell_data_,
+                     const unsigned int              face_n,
+                     const unsigned int              n_permuations,
+                     Triangulation<3> &              tria)
+{
+  const ReferenceCell ref_cell  = ReferenceCells::Tetrahedron;
+  auto                vertices  = vertices_;
+  auto                cell_data = cell_data_;
+
+  Point<3> extra_vertex;
+  for (unsigned int i = 0; i < 3; ++i)
+    extra_vertex += ref_cell.template vertex<3>(ref_cell.face_to_cell_vertices(
+      face_n, i, ReferenceCell::default_combined_face_orientation()));
+
+  extra_vertex /= 3.0;
+  extra_vertex += ref_cell.template unit_normal_vectors<3>(face_n);
+
+  vertices.push_back(extra_vertex);
+
+  cell_data.emplace_back();
+  cell_data.back().vertices.resize(0);
+  for (unsigned int i = 0; i < 3; ++i)
+    cell_data.back().vertices.push_back(ref_cell.face_to_cell_vertices(
+      face_n, i, ref_cell.default_combined_face_orientation()));
+  cell_data.back().vertices.push_back(ref_cell.n_vertices());
+  std::sort(cell_data.back().vertices.begin(), cell_data.back().vertices.end());
+
+  unsigned int permutation_n = 0;
+  do
+    {
+      tria.clear();
+      tria.create_triangulation(vertices, cell_data, SubCellData());
+      ++permutation_n;
+    }
+  while ((permutation_n < n_permuations) &&
+         std::next_permutation(cell_data.back().vertices.begin(),
+                               cell_data.back().vertices.begin()));
+
+  const auto cell = tria.begin();
+
+  const auto face = cell->face(face_n);
+
+  auto ncell = tria.begin();
+  ncell++;
+  ncell->face(face_n);
+
+  unsigned int nf = 0;
+  for (; nf < ref_cell.n_faces(); ++nf)
+    if (ncell->face(nf) == face)
+      break;
+
+  std::cout << ">>>>>>>>>>>>> " << n_permuations << " " << nf << " "
+            << int(ncell->combined_face_orientation(nf)) << std::endl;
+
+  return {nf, ncell->combined_face_orientation(nf)};
+}
+
 template <int dim>
 void
 test(const unsigned int degree)
@@ -69,9 +128,74 @@ test(const unsigned int degree)
 
   double previous_error = 1.0;
 
-  for (unsigned int r = 0; r < 6; ++r)
+  for (unsigned int r = 0; r < 24; ++r)
     {
-      deallog << "Orientation " << r << std::endl;
+      unsigned int orientation = r;
+      unsigned int face_no     = 0;
+
+      Triangulation<dim> tria;
+
+      // having two cells is nice for debugging
+      // GridGenerator::subdivided_hyper_cube_with_simplices(tria,
+      // 1);
+
+
+      Triangulation<3> dummy;
+      GridGenerator::reference_cell(dummy, ReferenceCells::Tetrahedron);
+
+      auto vertices = dummy.get_vertices();
+
+      std::vector<CellData<3>> cells;
+
+      {
+        CellData<3> cell;
+        cell.vertices    = {0, 1, 2, 3};
+        cell.material_id = 0;
+        cells.push_back(cell);
+      }
+
+      if (false)
+        {
+          const auto &face = dummy.begin()->face(face_no);
+          const auto  permuted =
+            ReferenceCell(ReferenceCells::Triangle)
+              .permute_according_orientation(
+                std::array<unsigned int, 3>{{0, 1, 2}}, orientation);
+
+          for (const auto o : permuted)
+            std::cout << o << " ";
+          std::cout << std::endl;
+
+          auto direction =
+            cross_product_3d(vertices[permuted[1]] - vertices[permuted[0]],
+                             vertices[permuted[2]] - vertices[permuted[0]]);
+          direction = direction / direction.norm();
+
+          std::cout << direction << std::endl;
+
+          vertices.emplace_back(0.0, 0.0, direction[2]);
+
+          CellData<3> cell;
+          cell.vertices.resize(4);
+
+          cell.vertices[permuted[0]] = face->vertex_index(0);
+          cell.vertices[permuted[1]] = face->vertex_index(1);
+          cell.vertices[permuted[2]] = face->vertex_index(2);
+          cell.vertices[3]           = 4;
+
+          cell.material_id = 1;
+          cells.push_back(cell);
+
+          tria.create_triangulation(vertices, cells, {});
+        }
+      else
+        {
+          std::tie(face_no, orientation) =
+            create_triangulation(vertices, cells, face_no, r, tria);
+        }
+
+      deallog << "Orientation: " << face_no << " -> " << orientation
+              << std::endl;
       for (const auto i0 : {false, true})
         {
           for (const auto i1 : {false, true})
@@ -80,66 +204,9 @@ test(const unsigned int degree)
                 {
                   bool success = true;
 
-                  internal::bool_table[0][r] = {{i0, i1, i2}};
+                  const auto t = internal::bool_table[face_no][orientation];
 
-                  Triangulation<dim> tria_hex, tria_flat, tria;
-#if 1
-                  // having two cells is nice for debugging
-                  // GridGenerator::subdivided_hyper_cube_with_simplices(tria,
-                  // 1);
-
-                  const unsigned int face_no     = 0;
-                  const unsigned int orientation = r;
-
-                  Triangulation<3> dummy;
-                  GridGenerator::reference_cell(dummy,
-                                                ReferenceCells::Tetrahedron);
-
-                  auto vertices = dummy.get_vertices();
-
-                  std::vector<CellData<3>> cells;
-
-                  {
-                    CellData<3> cell;
-                    cell.vertices    = {0, 1, 2, 3};
-                    cell.material_id = 0;
-                    cells.push_back(cell);
-                  }
-
-                  {
-                    const auto &face = dummy.begin()->face(face_no);
-                    const auto  permuted =
-                      ReferenceCell(ReferenceCells::Triangle)
-                        .permute_according_orientation(
-                          std::array<unsigned int, 3>{{0, 1, 2}}, orientation);
-
-                    for (const auto o : permuted)
-                      std::cout << o << " ";
-                    std::cout << std::endl;
-
-                    auto direction = cross_product_3d(vertices[permuted[1]] -
-                                                        vertices[permuted[0]],
-                                                      vertices[permuted[2]] -
-                                                        vertices[permuted[0]]);
-                    direction      = direction / direction.norm();
-
-                    std::cout << direction << std::endl;
-
-                    vertices.emplace_back(0.0, 0.0, direction[2]);
-
-                    CellData<3> cell;
-                    cell.vertices.resize(4);
-
-                    cell.vertices[permuted[0]] = face->vertex_index(0);
-                    cell.vertices[permuted[1]] = face->vertex_index(1);
-                    cell.vertices[permuted[2]] = face->vertex_index(2);
-                    cell.vertices[3]           = 4;
-
-                    cell.material_id = 1;
-                    cells.push_back(cell);
-                  }
-
-                  tria.create_triangulation(vertices, cells, {});
+                  internal::bool_table[face_no][orientation] = {{i0, i1, i2}};
 
                   for (const auto &cell : tria.active_cell_iterators())
                     {
@@ -149,13 +216,6 @@ test(const unsigned int degree)
                     }
                   std::cout << std::endl;
 
-#else
-                  GridGenerator::hyper_cube(tria_hex);
-                  tria_hex.refine_global(r + 1);
-                  GridGenerator::flatten_triangulation(tria_hex, tria_flat);
-                  GridGenerator::convert_hypercube_to_simplex_mesh(tria_flat,
-                                                                   tria);
-#endif
                   // deallog << "Number of cells = " << tria.n_active_cells() <<
                   // std::endl;
 
@@ -172,87 +232,99 @@ test(const unsigned int degree)
                   const auto &mapping =
                     reference_cell.template get_default_linear_mapping<dim>();
 
-
-
-                  FEValues<dim> fe_values(mapping,
-                                          fe,
-                                          quadrature,
-                                          update_values | update_gradients |
-                                            update_JxW_values);
-
-                  const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
-
-                  FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
-                  Vector<double>     cell_rhs(dofs_per_cell);
-
-                  std::vector<types::global_dof_index> local_dof_indices(
-                    dofs_per_cell);
-
-                  for (const auto &cell : dof_handler.active_cell_iterators())
+                  if (false)
                     {
-                      cell->get_dof_indices(local_dof_indices);
+                      FEValues<dim> fe_values(mapping,
+                                              fe,
+                                              quadrature,
+                                              update_values | update_gradients |
+                                                update_JxW_values);
 
-                      for (const auto i : local_dof_indices)
-                        std::cout << i << " ";
-                      std::cout << std::endl;
+                      const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
 
-                      fe_values.reinit(cell);
+                      FullMatrix<double> cell_matrix(dofs_per_cell,
+                                                     dofs_per_cell);
+                      Vector<double>     cell_rhs(dofs_per_cell);
 
-                      cell_matrix = 0;
-                      cell_rhs    = 0;
+                      std::vector<types::global_dof_index> local_dof_indices(
+                        dofs_per_cell);
 
-                      for (const unsigned int q_index :
-                           fe_values.quadrature_point_indices())
+                      for (const auto &cell :
+                           dof_handler.active_cell_iterators())
                         {
-                          for (const unsigned int i : fe_values.dof_indices())
-                            for (const unsigned int j : fe_values.dof_indices())
-                              cell_matrix(i, j) +=
-                                (fe_values.shape_value(
-                                   i, q_index) * // grad phi_i(x_q)
-                                 fe_values.shape_value(
-                                   j, q_index) *          // grad phi_j(x_q)
-                                 fe_values.JxW(q_index)); // dx
+                          cell->get_dof_indices(local_dof_indices);
 
-                          for (const unsigned int i : fe_values.dof_indices())
-                            cell_rhs(i) +=
-                              (fe_values.shape_value(i, q_index) * // phi_i(x_q)
-                               1. *                                // f(x_q)
-                               fe_values.JxW(q_index));            // dx
+                          for (const auto i : local_dof_indices)
+                            std::cout << i << " ";
+                          std::cout << std::endl;
+
+                          fe_values.reinit(cell);
+
+                          cell_matrix = 0;
+                          cell_rhs    = 0;
+
+                          for (const unsigned int q_index :
+                               fe_values.quadrature_point_indices())
+                            {
+                              for (const unsigned int i :
+                                   fe_values.dof_indices())
+                                for (const unsigned int j :
+                                     fe_values.dof_indices())
+                                  cell_matrix(i, j) +=
+                                    (fe_values.shape_value(
+                                       i, q_index) * // grad phi_i(x_q)
+                                     fe_values.shape_value(
+                                       j, q_index) *          // grad phi_j(x_q)
+                                     fe_values.JxW(q_index)); // dx
+
+                              for (const unsigned int i :
+                                   fe_values.dof_indices())
+                                cell_rhs(i) += (fe_values.shape_value(
+                                                  i, q_index) * // phi_i(x_q)
+                                                1. *            // f(x_q)
+                                                fe_values.JxW(q_index)); // dx
+                            }
+
+                          std::cout << cell_matrix.frobenius_norm()
+                                    << std::endl;
+                          std::cout << cell_rhs.l2_norm() << std::endl;
                         }
-
-                      std::cout << cell_matrix.frobenius_norm() << std::endl;
-                      std::cout << cell_rhs.l2_norm() << std::endl;
                     }
 
-
+                  if (false)
+                    {
 #if false
       VectorTools::project(
         mapping, dof_handler, constraints, quadrature, function, solution);
 #else
-                  VectorTools::interpolate(mapping,
-                                           dof_handler,
-                                           function,
-                                           solution);
+                      VectorTools::interpolate(mapping,
+                                               dof_handler,
+                                               function,
+                                               solution);
 #endif
 
-                  VectorTools::integrate_difference(mapping,
-                                                    dof_handler,
-                                                    solution,
-                                                    function,
-                                                    cell_errors,
-                                                    quadrature,
-                                                    VectorTools::Linfty_norm);
-                  std::vector<Point<dim>> support_points(dof_handler.n_dofs());
-                  DoFTools::map_dofs_to_support_points(mapping,
-                                                       dof_handler,
-                                                       support_points);
-                  const double max_error =
-                    *std::max_element(cell_errors.begin(), cell_errors.end());
-                  deallog << double(int(max_error * 100)) / 100 << " ";
-                  // if (max_error != 0.0)
-                  //  deallog << "ratio = " << previous_error / max_error <<
-                  //  std::endl;
-                  previous_error = max_error;
+                      VectorTools::integrate_difference(
+                        mapping,
+                        dof_handler,
+                        solution,
+                        function,
+                        cell_errors,
+                        quadrature,
+                        VectorTools::Linfty_norm);
+                      std::vector<Point<dim>> support_points(
+                        dof_handler.n_dofs());
+                      DoFTools::map_dofs_to_support_points(mapping,
+                                                           dof_handler,
+                                                           support_points);
+                      const double max_error =
+                        *std::max_element(cell_errors.begin(),
+                                          cell_errors.end());
+                      deallog << double(int(max_error * 100)) / 100 << " ";
+                      // if (max_error != 0.0)
+                      //  deallog << "ratio = " << previous_error / max_error <<
+                      //  std::endl;
+                      previous_error = max_error;
+                    }
 
                   auto cell = tria.begin();
                   cell++;
@@ -300,7 +372,7 @@ test(const unsigned int degree)
                   else
                     deallog << "o ";
 
-#if 1
+#if 0
                   if (dim == 3)
                     {
                       DataOut<dim> data_out;
@@ -316,6 +388,8 @@ test(const unsigned int degree)
                     }
 #endif
                   // deallog << std::endl;
+
+                  internal::bool_table[face_no][orientation] = t;
                 }
             }
         }
