@@ -72,181 +72,253 @@ test(const unsigned int degree)
   for (unsigned int r = 0; r < 6; ++r)
     {
       deallog << "Orientation " << r << std::endl;
-
-      Triangulation<dim> tria_hex, tria_flat, tria;
-#if 1
-      // having two cells is nice for debugging
-      // GridGenerator::subdivided_hyper_cube_with_simplices(tria, 1);
-
-      const unsigned int face_no     = 0;
-      const unsigned int orientation = r;
-
-      Triangulation<3> dummy;
-      GridGenerator::reference_cell(dummy, ReferenceCells::Tetrahedron);
-
-      auto vertices = dummy.get_vertices();
-
-      std::vector<CellData<3>> cells;
-
-      {
-        CellData<3> cell;
-        cell.vertices    = {0, 1, 2, 3};
-        cell.material_id = 0;
-        cells.push_back(cell);
-      }
-
-      {
-        const auto &face = dummy.begin()->face(face_no);
-        const auto  permuted =
-          ReferenceCell(ReferenceCells::Triangle)
-            .permute_according_orientation(
-              std::array<unsigned int, 3>{{0, 1, 2}}, orientation);
-
-        for (const auto o : permuted)
-          std::cout << o << " ";
-        std::cout << std::endl;
-
-        auto direction =
-          cross_product_3d(vertices[permuted[1]] - vertices[permuted[0]],
-                           vertices[permuted[2]] - vertices[permuted[0]]);
-        direction = direction / direction.norm();
-
-        std::cout << direction << std::endl;
-
-        vertices.emplace_back(0.0, 0.0, direction[2]);
-
-        CellData<3> cell;
-        cell.vertices.resize(4);
-
-        cell.vertices[permuted[0]] = face->vertex_index(0);
-        cell.vertices[permuted[1]] = face->vertex_index(1);
-        cell.vertices[permuted[2]] = face->vertex_index(2);
-        cell.vertices[3]           = 4;
-
-        cell.material_id = 1;
-        cells.push_back(cell);
-      }
-
-      tria.create_triangulation(vertices, cells, {});
-
-      for (const auto &cell : tria.active_cell_iterators())
+      for (const auto i0 : {false, true})
         {
-          for (const auto l : cell->line_indices())
-            std::cout << cell->line_orientation(l) << " ";
-          std::cout << std::endl;
-        }
-      std::cout << std::endl;
+          for (const auto i1 : {false, true})
+            {
+              for (const auto i2 : {false, true})
+                {
+                  bool success = true;
+
+                  internal::bool_table[0][r] = {{i0, i1, i2}};
+
+                  Triangulation<dim> tria_hex, tria_flat, tria;
+#if 1
+                  // having two cells is nice for debugging
+                  // GridGenerator::subdivided_hyper_cube_with_simplices(tria,
+                  // 1);
+
+                  const unsigned int face_no     = 0;
+                  const unsigned int orientation = r;
+
+                  Triangulation<3> dummy;
+                  GridGenerator::reference_cell(dummy,
+                                                ReferenceCells::Tetrahedron);
+
+                  auto vertices = dummy.get_vertices();
+
+                  std::vector<CellData<3>> cells;
+
+                  {
+                    CellData<3> cell;
+                    cell.vertices    = {0, 1, 2, 3};
+                    cell.material_id = 0;
+                    cells.push_back(cell);
+                  }
+
+                  {
+                    const auto &face = dummy.begin()->face(face_no);
+                    const auto  permuted =
+                      ReferenceCell(ReferenceCells::Triangle)
+                        .permute_according_orientation(
+                          std::array<unsigned int, 3>{{0, 1, 2}}, orientation);
+
+                    for (const auto o : permuted)
+                      std::cout << o << " ";
+                    std::cout << std::endl;
+
+                    auto direction = cross_product_3d(vertices[permuted[1]] -
+                                                        vertices[permuted[0]],
+                                                      vertices[permuted[2]] -
+                                                        vertices[permuted[0]]);
+                    direction      = direction / direction.norm();
+
+                    std::cout << direction << std::endl;
+
+                    vertices.emplace_back(0.0, 0.0, direction[2]);
+
+                    CellData<3> cell;
+                    cell.vertices.resize(4);
+
+                    cell.vertices[permuted[0]] = face->vertex_index(0);
+                    cell.vertices[permuted[1]] = face->vertex_index(1);
+                    cell.vertices[permuted[2]] = face->vertex_index(2);
+                    cell.vertices[3]           = 4;
+
+                    cell.material_id = 1;
+                    cells.push_back(cell);
+                  }
+
+                  tria.create_triangulation(vertices, cells, {});
+
+                  for (const auto &cell : tria.active_cell_iterators())
+                    {
+                      for (const auto l : cell->line_indices())
+                        std::cout << cell->line_orientation(l) << " ";
+                      std::cout << std::endl;
+                    }
+                  std::cout << std::endl;
 
 #else
-      GridGenerator::hyper_cube(tria_hex);
-      tria_hex.refine_global(r + 1);
-      GridGenerator::flatten_triangulation(tria_hex, tria_flat);
-      GridGenerator::convert_hypercube_to_simplex_mesh(tria_flat, tria);
+                  GridGenerator::hyper_cube(tria_hex);
+                  tria_hex.refine_global(r + 1);
+                  GridGenerator::flatten_triangulation(tria_hex, tria_flat);
+                  GridGenerator::convert_hypercube_to_simplex_mesh(tria_flat,
+                                                                   tria);
 #endif
-      deallog << "Number of cells = " << tria.n_active_cells() << std::endl;
+                  // deallog << "Number of cells = " << tria.n_active_cells() <<
+                  // std::endl;
 
-      ReferenceCell   reference_cell = tria.begin_active()->reference_cell();
-      DoFHandler<dim> dof_handler(tria);
-      dof_handler.distribute_dofs(fe);
+                  ReferenceCell reference_cell =
+                    tria.begin_active()->reference_cell();
+                  DoFHandler<dim> dof_handler(tria);
+                  dof_handler.distribute_dofs(fe);
 
-      Vector<double>            cell_errors(tria.n_active_cells());
-      Vector<double>            solution(dof_handler.n_dofs());
-      LinearFunction<dim>       function;
-      AffineConstraints<double> constraints;
-      constraints.close();
-      const auto &mapping =
-        reference_cell.template get_default_linear_mapping<dim>();
+                  Vector<double>            cell_errors(tria.n_active_cells());
+                  Vector<double>            solution(dof_handler.n_dofs());
+                  LinearFunction<dim>       function;
+                  AffineConstraints<double> constraints;
+                  constraints.close();
+                  const auto &mapping =
+                    reference_cell.template get_default_linear_mapping<dim>();
 
 
 
-      FEValues<dim> fe_values(mapping,
-                              fe,
-                              quadrature,
-                              update_values | update_gradients |
-                                update_JxW_values);
+                  FEValues<dim> fe_values(mapping,
+                                          fe,
+                                          quadrature,
+                                          update_values | update_gradients |
+                                            update_JxW_values);
 
-      const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
+                  const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
 
-      FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
-      Vector<double>     cell_rhs(dofs_per_cell);
+                  FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
+                  Vector<double>     cell_rhs(dofs_per_cell);
 
-      std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
+                  std::vector<types::global_dof_index> local_dof_indices(
+                    dofs_per_cell);
 
-      for (const auto &cell : dof_handler.active_cell_iterators())
-        {
-          cell->get_dof_indices(local_dof_indices);
+                  for (const auto &cell : dof_handler.active_cell_iterators())
+                    {
+                      cell->get_dof_indices(local_dof_indices);
 
-          for (const auto i : local_dof_indices)
-            std::cout << i << " ";
-          std::cout << std::endl;
+                      for (const auto i : local_dof_indices)
+                        std::cout << i << " ";
+                      std::cout << std::endl;
 
-          fe_values.reinit(cell);
+                      fe_values.reinit(cell);
 
-          cell_matrix = 0;
-          cell_rhs    = 0;
+                      cell_matrix = 0;
+                      cell_rhs    = 0;
 
-          for (const unsigned int q_index :
-               fe_values.quadrature_point_indices())
-            {
-              for (const unsigned int i : fe_values.dof_indices())
-                for (const unsigned int j : fe_values.dof_indices())
-                  cell_matrix(i, j) +=
-                    (fe_values.shape_value(i, q_index) * // grad phi_i(x_q)
-                     fe_values.shape_value(j, q_index) * // grad phi_j(x_q)
-                     fe_values.JxW(q_index));            // dx
+                      for (const unsigned int q_index :
+                           fe_values.quadrature_point_indices())
+                        {
+                          for (const unsigned int i : fe_values.dof_indices())
+                            for (const unsigned int j : fe_values.dof_indices())
+                              cell_matrix(i, j) +=
+                                (fe_values.shape_value(
+                                   i, q_index) * // grad phi_i(x_q)
+                                 fe_values.shape_value(
+                                   j, q_index) *          // grad phi_j(x_q)
+                                 fe_values.JxW(q_index)); // dx
 
-              for (const unsigned int i : fe_values.dof_indices())
-                cell_rhs(i) +=
-                  (fe_values.shape_value(i, q_index) * // phi_i(x_q)
-                   1. *                                // f(x_q)
-                   fe_values.JxW(q_index));            // dx
-            }
+                          for (const unsigned int i : fe_values.dof_indices())
+                            cell_rhs(i) +=
+                              (fe_values.shape_value(i, q_index) * // phi_i(x_q)
+                               1. *                                // f(x_q)
+                               fe_values.JxW(q_index));            // dx
+                        }
 
-          std::cout << cell_matrix.frobenius_norm() << std::endl;
-          std::cout << cell_rhs.l2_norm() << std::endl;
-        }
+                      std::cout << cell_matrix.frobenius_norm() << std::endl;
+                      std::cout << cell_rhs.l2_norm() << std::endl;
+                    }
 
 
 #if false
       VectorTools::project(
         mapping, dof_handler, constraints, quadrature, function, solution);
 #else
-      VectorTools::interpolate(mapping, dof_handler, function, solution);
+                  VectorTools::interpolate(mapping,
+                                           dof_handler,
+                                           function,
+                                           solution);
 #endif
 
-      VectorTools::integrate_difference(mapping,
-                                        dof_handler,
-                                        solution,
-                                        function,
-                                        cell_errors,
-                                        quadrature,
-                                        VectorTools::Linfty_norm);
-      std::vector<Point<dim>> support_points(dof_handler.n_dofs());
-      DoFTools::map_dofs_to_support_points(mapping,
-                                           dof_handler,
-                                           support_points);
-      const double max_error =
-        *std::max_element(cell_errors.begin(), cell_errors.end());
-      deallog << "max error = " << max_error << std::endl;
-      if (max_error != 0.0)
-        deallog << "ratio = " << previous_error / max_error << std::endl;
-      previous_error = max_error;
+                  VectorTools::integrate_difference(mapping,
+                                                    dof_handler,
+                                                    solution,
+                                                    function,
+                                                    cell_errors,
+                                                    quadrature,
+                                                    VectorTools::Linfty_norm);
+                  std::vector<Point<dim>> support_points(dof_handler.n_dofs());
+                  DoFTools::map_dofs_to_support_points(mapping,
+                                                       dof_handler,
+                                                       support_points);
+                  const double max_error =
+                    *std::max_element(cell_errors.begin(), cell_errors.end());
+                  deallog << double(int(max_error * 100)) / 100 << " ";
+                  // if (max_error != 0.0)
+                  //  deallog << "ratio = " << previous_error / max_error <<
+                  //  std::endl;
+                  previous_error = max_error;
+
+                  auto cell = tria.begin();
+                  cell++;
+
+                  std::vector<unsigned int> verticess;
+
+                  for (const auto v : cell->vertex_indices())
+                    verticess.emplace_back(cell->vertex_index(v));
+
+                  std::cout << "-------------------------------------"
+                            << std::endl;
+
+                  for (unsigned int ll = 0; ll < 3; ++ll)
+                    {
+                      const unsigned int l =
+                        cell->reference_cell().face_to_cell_lines(face_no,
+                                                                  ll,
+                                                                  1);
+
+                      const auto orientation_exp = cell->line_orientation(l);
+
+                      std::pair<unsigned int, unsigned int> p0;
+                      p0.first =
+                        verticess[cell->reference_cell().line_to_cell_vertices(
+                          l, 0)];
+                      p0.second =
+                        verticess[cell->reference_cell().line_to_cell_vertices(
+                          l, 1)];
+
+                      std::pair<unsigned int, unsigned int> p1;
+                      p1.first  = cell->line(l)->vertex_index(0);
+                      p1.second = cell->line(l)->vertex_index(1);
+
+                      if (orientation_exp == false)
+                        std::swap(p1.first, p1.second);
+
+                      success &= (p0 == p1);
+
+                      std::cout << "Y " << p0.first << " " << p0.second << " "
+                                << p1.first << " " << p1.second << std::endl;
+                    }
+
+                  if (success)
+                    deallog << "x ";
+                  else
+                    deallog << "o ";
 
 #if 1
-      if (dim == 3)
-        {
-          DataOut<dim> data_out;
-          data_out.attach_dof_handler(dof_handler);
-          // solution    = 0.0;
-          // solution[3] = 1.0;
-          data_out.add_data_vector(solution, "u");
-          data_out.build_patches(2);
+                  if (dim == 3)
+                    {
+                      DataOut<dim> data_out;
+                      data_out.attach_dof_handler(dof_handler);
+                      // solution    = 0.0;
+                      // solution[3] = 1.0;
+                      data_out.add_data_vector(solution, "u");
+                      data_out.build_patches(2);
 
-          std::ofstream output("out-" + std::to_string(degree) + "-" +
-                               std::to_string(r) + ".vtu");
-          data_out.write_vtu(output);
-        }
+                      std::ofstream output("out-" + std::to_string(degree) +
+                                           "-" + std::to_string(r) + ".vtu");
+                      data_out.write_vtu(output);
+                    }
 #endif
+                  // deallog << std::endl;
+                }
+            }
+        }
       deallog << std::endl;
     }
 }
@@ -260,7 +332,7 @@ main()
   // test<2>(2);
   // test<2>(3);
 
-  test<3>(1);
-  test<3>(2);
+  // test<3>(1);
+  // test<3>(2);
   test<3>(3);
 }

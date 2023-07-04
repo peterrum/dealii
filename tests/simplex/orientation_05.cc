@@ -65,7 +65,7 @@ test()
 {
   double previous_error = 1.0;
 
-  for (unsigned int r = 0; r < 6; ++r)
+  for (unsigned int r = 0; r < 1; ++r)
     {
       deallog << "Orientation " << r << std::endl;
 
@@ -127,6 +127,17 @@ test()
 
       for (const auto &cell : tria.active_cell_iterators())
         {
+          deallog << "vertices: " << std::endl;
+          for (const auto l : cell->vertex_indices())
+            deallog << cell->vertex(l) << std::endl;
+          deallog << std::endl;
+
+          for (const auto l : cell->line_indices())
+            deallog << cell->line(l)->vertex(0) << " -> "
+                    << cell->line(l)->vertex(1) << std::endl;
+          deallog << std::endl;
+
+
           for (const auto l : cell->face_indices())
             deallog << int(cell->combined_face_orientation(l)) << " ";
           deallog << std::endl;

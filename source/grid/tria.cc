@@ -2320,6 +2320,15 @@ namespace internal
                    ++i, ++j)
                 lines_0.cells[line * GeometryInfo<1>::faces_per_cell + j] =
                   crs.col[i]; // set vertex indices
+
+            std::cout << "lines_0.cells" << std::endl;
+            for (unsigned int i = 0; i < lines_0.cells.size();)
+              {
+                for (unsigned int c = 0; c < 2; ++c, i++)
+                  std::cout << lines_0.cells[i] << " ";
+                std::cout << std::endl;
+              }
+            std::cout << std::endl;
           }
 
         // TriaObjects: quads
@@ -2368,6 +2377,24 @@ namespace internal
                       ReferenceCell::default_combined_face_orientation();
                   }
               }
+
+            std::cout << "quads_0.cells" << std::endl;
+            for (unsigned int i = 0; i < quads_0.cells.size();)
+              {
+                for (unsigned int c = 0; c < 4; ++c, i++)
+                  std::cout << quads_0.cells[i] << " ";
+                std::cout << std::endl;
+              }
+            std::cout << std::endl;
+
+            std::cout << "quads_line_orientations" << std::endl;
+            for (unsigned int i = 0; i < faces.quads_line_orientations.size();)
+              {
+                for (unsigned int c = 0; c < 4; ++c, i++)
+                  std::cout << faces.quads_line_orientations[i] << " ";
+                std::cout << std::endl;
+              }
+            std::cout << std::endl;
           }
 
         // TriaObjects/TriaLevel: cell
@@ -2436,6 +2463,27 @@ namespace internal
                     }
                 }
             }
+
+          std::cout << "cells_0.cells" << std::endl;
+          for (unsigned int i = 0; i < cells_0.cells.size();)
+            {
+              for (unsigned int c = 0; c < 6; ++c, i++)
+                std::cout << cells_0.cells[i] << " ";
+              std::cout << std::endl;
+            }
+          std::cout << std::endl;
+
+
+          std::cout << "face_orientations" << std::endl;
+          for (unsigned int i = 0; i < level.face_orientations.n_objects();)
+            {
+              for (unsigned int c = 0; c < 6; ++c, i++)
+                std::cout
+                  << int(level.face_orientations.get_combined_orientation(i))
+                  << " ";
+              std::cout << std::endl;
+            }
+          std::cout << std::endl;
         }
 
         // TriaFaces: boundary id of boundary faces
