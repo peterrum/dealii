@@ -2640,6 +2640,8 @@ ReferenceCell::standard_vs_true_line_orientation(
     }
   else if (*this == ReferenceCells::Tetrahedron)
     {
+      std::cout << "xxxx " << face << " " << int(combined_face_orientation)
+                << " " << line << std::endl;
       return (line_orientation ==
               internal::bool_table[face][combined_face_orientation][line]);
     }
