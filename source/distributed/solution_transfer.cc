@@ -119,14 +119,7 @@ namespace parallel
       : dof_handler(&dof, typeid(*this).name())
       , average_values(average_values)
       , handle(numbers::invalid_unsigned_int)
-    {
-      Assert(
-        (dynamic_cast<
-           const parallel::DistributedTriangulationBase<dim, spacedim> *>(
-           &dof_handler->get_triangulation()) != nullptr),
-        ExcMessage(
-          "parallel::distributed::SolutionTransfer requires a parallel::distributed::Triangulation object."));
-    }
+    {}
 
 
 
@@ -151,10 +144,8 @@ namespace parallel
     SolutionTransfer<dim, VectorType, spacedim>::register_data_attach()
     {
       // TODO: casting away constness is bad
-      parallel::DistributedTriangulationBase<dim, spacedim> *tria =
-        (dynamic_cast<parallel::DistributedTriangulationBase<dim, spacedim> *>(
-          const_cast<dealii::Triangulation<dim, spacedim> *>(
-            &dof_handler->get_triangulation())));
+      auto tria = const_cast<dealii::Triangulation<dim, spacedim> *>(
+        &dof_handler->get_triangulation());
       Assert(tria != nullptr, ExcInternalError());
 
       Assert(handle == numbers::invalid_unsigned_int,
@@ -240,10 +231,8 @@ namespace parallel
                ExcDimensionMismatch(all_out[i]->size(), dof_handler->n_dofs()));
 
       // TODO: casting away constness is bad
-      parallel::DistributedTriangulationBase<dim, spacedim> *tria =
-        (dynamic_cast<parallel::DistributedTriangulationBase<dim, spacedim> *>(
-          const_cast<dealii::Triangulation<dim, spacedim> *>(
-            &dof_handler->get_triangulation())));
+      auto tria = const_cast<dealii::Triangulation<dim, spacedim> *>(
+        &dof_handler->get_triangulation());
       Assert(tria != nullptr, ExcInternalError());
 
       if (average_values)
