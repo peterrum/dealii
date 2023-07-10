@@ -3896,8 +3896,7 @@ protected:
    * member function register_data_attach().
    */
   virtual void
-  update_cell_relations()
-  {}
+  update_cell_relations();
 
   /**
    * Vector of pairs, each containing a deal.II cell iterator and its

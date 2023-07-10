@@ -1072,7 +1072,6 @@ namespace internal
           std::ifstream file(fname_fixed, std::ios::binary | std::ios::in);
           sizes_fixed_cumulative.resize(1 + n_attached_deserialize_fixed +
                                         (variable_size_data_stored ? 1 : 0));
-
           // Read header data.
           file.read(reinterpret_cast<char *>(sizes_fixed_cumulative.data()),
                     sizes_fixed_cumulative.size() * sizeof(unsigned int));
@@ -13718,20 +13717,68 @@ template <int dim, int spacedim>
 DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
 void Triangulation<dim, spacedim>::save(const std::string &filename) const
 {
-  // Create boost archive then call alternative version of the save function
-  std::ofstream                 ofs(filename);
+  // Save triangulation information.
+  std::ofstream                 ofs(filename + "_triangulation.data");
   boost::archive::text_oarchive oa(ofs, boost::archive::no_header);
   save(oa, 0);
+
+  // Save attached data.
+  {
+    std::ofstream ifs(std::string(filename) + ".info");
+    ifs
+      << "version nproc n_attached_fixed_size_objs n_attached_variable_size_objs n_active_cells"
+      << std::endl
+      << 5 << " " << 1 << " "
+      << this->cell_attached_data.pack_callbacks_fixed.size() << " "
+      << this->cell_attached_data.pack_callbacks_variable.size() << " "
+      << this->n_global_active_cells() << std::endl;
+  }
+
+  this->save_attached_data(0, this->n_global_active_cells(), filename);
 }
 
 template <int dim, int spacedim>
 DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
 void Triangulation<dim, spacedim>::load(const std::string &filename)
 {
-  // Create boost archive then call alternative version of the load function
-  std::ifstream                 ifs(filename);
+  // Load triangulation information.
+  std::ifstream                 ifs(filename + "_triangulation.data");
   boost::archive::text_iarchive ia(ifs, boost::archive::no_header);
   load(ia, 0);
+
+  // Load attached data.
+  unsigned int version, numcpus, attached_count_fixed, attached_count_variable,
+    n_global_active_cells;
+  {
+    std::ifstream ifs(std::string(filename) + ".info");
+    AssertThrow(ifs.fail() == false, ExcIO());
+    std::string firstline;
+    getline(ifs, firstline); // skip first line
+    ifs >> version >> numcpus >> attached_count_fixed >>
+      attached_count_variable >> n_global_active_cells;
+  }
+
+  AssertThrow(numcpus == 1,
+              ExcMessage("Incompatible number of CPUs found in .info file."));
+  AssertThrow(version == 5,
+              ExcMessage("Incompatible version found in .info file."));
+  Assert(this->n_global_active_cells() == n_global_active_cells,
+         ExcMessage("Number of global active cells differ!"));
+
+  // Clear all of the callback data, as explained in the documentation of
+  // register_data_attach().
+  this->cell_attached_data.n_attached_data_sets = 0;
+  this->cell_attached_data.n_attached_deserialize =
+    attached_count_fixed + attached_count_variable;
+
+  this->load_attached_data(0,
+                           this->n_global_active_cells(),
+                           this->n_active_cells(),
+                           filename,
+                           attached_count_fixed,
+                           attached_count_variable);
+
+  this->update_cell_relations();
 }
 
 namespace
@@ -16000,6 +16047,21 @@ void Triangulation<dim, spacedim>::load_attached_data(
 
 template <int dim, int spacedim>
 DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
+void Triangulation<dim, spacedim>::update_cell_relations()
+{
+  // Reorganize memory for local_cell_relations.
+  this->local_cell_relations.clear();
+
+  this->local_cell_relations.reserve(this->n_global_active_cells());
+
+  for (const auto &cell : this->active_cell_iterators())
+    this->local_cell_relations.emplace_back(
+      cell, ::dealii::CellStatus::cell_will_persist);
+}
+
+
+template <int dim, int spacedim>
+DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
 void Triangulation<dim, spacedim>::clear_despite_subscriptions()
 {
   levels.clear();
@@ -16028,6 +16090,8 @@ typename Triangulation<dim, spacedim>::DistortedCellList
   // re-compute number of lines
   internal::TriangulationImplementation::Implementation::compute_number_cache(
     *this, levels.size(), number_cache);
+
+  this->update_cell_relations();
 
 #ifdef DEBUG
   for (const auto &level : levels)
@@ -16126,6 +16190,8 @@ void Triangulation<dim, spacedim>::execute_coarsening()
   // re-compute number of lines and quads
   internal::TriangulationImplementation::Implementation::compute_number_cache(
     *this, levels.size(), number_cache);
+
+  this->update_cell_relations();
 }
 
 
