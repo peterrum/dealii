@@ -15719,9 +15719,34 @@ void Triangulation<dim, spacedim>::execute_coarsening_and_refinement()
   // Inform all listeners about beginning of refinement.
   signals.pre_refinement();
 
+  // pack data before triangulation gets updated
+  if (this->cell_attached_data.n_attached_data_sets > 0)
+    {
+      // store old active cells to determine cell status after
+      // coarsening/refinement
+      active_cell_old.reserve(this->n_active_cells());
+
+      for (const auto &cell : this->active_cell_iterators())
+        active_cell_old.emplace_back(cell->id());
+
+      // pack data
+      this->data_serializer.pack_data(
+        this->local_cell_relations,
+        this->cell_attached_data.pack_callbacks_fixed,
+        this->cell_attached_data.pack_callbacks_variable,
+        this->get_communicator());
+    }
+
   execute_coarsening();
 
   const DistortedCellList cells_with_distorted_children = execute_refinement();
+
+  // transfer data after triangulation got updated
+  if (this->cell_attached_data.n_attached_data_sets > 0)
+    {
+      // cell status has been set during update_cell_relations()
+      active_cell_old.clear();
+    }
 
   reset_cell_vertex_indices_cache();
 
@@ -16123,6 +16148,15 @@ void Triangulation<dim, spacedim>::save_attached_data(
   // cast away constness
   auto tria = const_cast<Triangulation<dim, spacedim> *>(this);
 
+  // each cell should have been flagged `CellStatus::cell_will_persist`
+  for (const auto &cell_rel : this->local_cell_relations)
+    {
+      (void)cell_rel;
+      Assert((cell_rel.second == // cell_status
+              dealii::CellStatus::cell_will_persist),
+             ExcInternalError());
+    }
+
   if (this->cell_attached_data.n_attached_data_sets > 0)
     {
       // pack attached data first
@@ -16197,9 +16231,74 @@ void Triangulation<dim, spacedim>::update_cell_relations()
 
   this->local_cell_relations.reserve(this->n_global_active_cells());
 
-  for (const auto &cell : this->active_cell_iterators())
-    this->local_cell_relations.emplace_back(
-      cell, ::dealii::CellStatus::cell_will_persist);
+  if (active_cell_old.empty())
+    {
+      for (const auto &cell : this->active_cell_iterators())
+        this->local_cell_relations.emplace_back(
+          cell, ::dealii::CellStatus::cell_will_persist);
+    }
+  else
+    {
+      std::vector<
+        std::pair<unsigned int,
+                  typename internal::CellAttachedDataSerializer<dim, spacedim>::
+                    cell_relation_t>>
+        local_cell_relations_tmp;
+
+      for (const auto &cell : this->active_cell_iterators())
+        {
+          unsigned int         index  = numbers::invalid_unsigned_int;
+          ::dealii::CellStatus status = ::dealii::CellStatus::cell_invalid;
+
+          if (std::find(active_cell_old.begin(),
+                        active_cell_old.end(),
+                        cell->id()) != active_cell_old.end())
+            {
+              index  = std::distance(active_cell_old.begin(),
+                                    std::find(active_cell_old.begin(),
+                                              active_cell_old.end(),
+                                              cell->id()));
+              status = ::dealii::CellStatus::cell_will_persist;
+            }
+          else if (cell->level() > 0 &&
+                   std::find(active_cell_old.begin(),
+                             active_cell_old.end(),
+                             cell->parent()->id()) != active_cell_old.end())
+            {
+              index = std::distance(active_cell_old.begin(),
+                                    std::find(active_cell_old.begin(),
+                                              active_cell_old.end(),
+                                              cell->parent()->id()));
+
+              if (cell->parent()->child_iterator_to_index(cell) == 0)
+                status = ::dealii::CellStatus::cell_will_be_refined;
+              else
+                status = ::dealii::CellStatus::cell_invalid;
+            }
+          else
+            {
+              for (index = 0; index < active_cell_old.size(); ++index)
+                if (cell->id().is_parent_of(active_cell_old[index]))
+                  break;
+
+              status = ::dealii::CellStatus::children_will_be_coarsened;
+            }
+
+          local_cell_relations_tmp.emplace_back(
+            index,
+            typename internal::CellAttachedDataSerializer<dim, spacedim>::
+              cell_relation_t{cell, status});
+        }
+
+      std::stable_sort(local_cell_relations_tmp.begin(),
+                       local_cell_relations_tmp.end(),
+                       [](const auto &a, const auto &b) {
+                         return a.first < b.first;
+                       });
+
+      for (const auto &tmp : local_cell_relations_tmp)
+        this->local_cell_relations.emplace_back(tmp.second);
+    }
 }
 
 

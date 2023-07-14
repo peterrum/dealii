@@ -4553,6 +4553,9 @@ private:
   std::unique_ptr<std::map<unsigned int, types::manifold_id>>
     vertex_to_manifold_id_map_1d;
 
+  // TODO
+  std::vector<CellId> active_cell_old;
+
   // make a couple of classes friends
   template <int, int, int>
   friend class TriaAccessorBase;
