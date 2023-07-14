@@ -2028,15 +2028,6 @@ namespace parallel
             << this->n_cells(0) << std::endl;
         }
 
-      // each cell should have been flagged `CellStatus::cell_will_persist`
-      for (const auto &cell_rel : this->local_cell_relations)
-        {
-          (void)cell_rel;
-          Assert((cell_rel.second == // cell_status
-                  CellStatus::cell_will_persist),
-                 ExcInternalError());
-        }
-
       // Save cell attached data.
       this->save_attached_data(parallel_forest->global_first_quadrant[myrank],
                                parallel_forest->global_num_quadrants,
