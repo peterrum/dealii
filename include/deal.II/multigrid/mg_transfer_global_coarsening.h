@@ -860,6 +860,50 @@ public:
           &initialize_dof_vector);
 
   /**
+   * Default constructor.
+   *
+   * @note See also MGTransferMatrixFree.
+   */
+  MGTransferGlobalCoarsening();
+
+  /**
+   * Constructor with constraints. Equivalent to the default constructor
+   * followed by initialize_constraints().
+   *
+   * @note See also MGTransferMatrixFree.
+   */
+  MGTransferGlobalCoarsening(const MGConstrainedDoFs &mg_constrained_dofs);
+
+  /**
+   * Initialize the constraints to be used in build().
+   *
+   * @note See also MGTransferMatrixFree.
+   */
+  void
+  initialize_constraints(const MGConstrainedDoFs &mg_constrained_dofs);
+
+  /**
+   * Actually build the information for the prolongation for each level.
+   *
+   * @note See also MGTransferMatrixFree.
+   */
+  void
+  build(const DoFHandler<dim> &dof_handler,
+        const std::vector<std::shared_ptr<const Utilities::MPI::Partitioner>>
+          &external_partitioners = {});
+
+  /**
+   * Same as above but taking a lambda for initializing vector instead of
+   * partitioners.
+   *
+   * @note See also MGTransferMatrixFree.
+   */
+  void
+  build(const DoFHandler<dim> &dof_handler,
+        const std::function<void(const unsigned int, VectorType &)>
+          &initialize_dof_vector);
+
+  /**
    * Perform prolongation.
    */
   void
@@ -958,10 +1002,42 @@ public:
 
 private:
   /**
+   * Initial internal transfer operator.
+   *
+   * @note See also MGTransferMatrixFree.
+   */
+  void
+  intitialize_internal_transfer(
+    const DoFHandler<dim> &                      dof_handler,
+    const SmartPointer<const MGConstrainedDoFs> &mg_constrained_dofs);
+
+  /**
+   * Set references to two-level transfer operators to be used.
+   */
+  template <typename MGTwoLevelTransferObject>
+  void
+  intitialize_transfer_references(
+    const MGLevelObject<MGTwoLevelTransferObject> &transfer);
+
+  /**
    * Function to initialize internal level vectors.
    */
   void
   initialize_dof_vector(const unsigned int level, VectorType &vector) const;
+
+  /**
+   * MGConstrainedDoFs passed during build().
+   *
+   * @note See also MGTransferMatrixFree.
+   */
+  SmartPointer<const MGConstrainedDoFs> mg_constrained_dofs;
+
+  /**
+   * Internal transfer operator.
+   *
+   * @note See also MGTransferMatrixFree.
+   */
+  MGLevelObject<MGTwoLevelTransfer<dim, VectorType>> internal_transfer;
 
   /**
    * Collection of the two-level transfer operators.
@@ -1016,11 +1092,93 @@ private:
 
 
 template <int dim, typename VectorType>
+MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening()
+{}
+
+
+
+template <int dim, typename VectorType>
 template <typename MGTwoLevelTransferObject>
 MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
   const MGLevelObject<MGTwoLevelTransferObject> &transfer,
   const std::function<void(const unsigned int, VectorType &)>
     &initialize_dof_vector)
+{
+  this->intitialize_transfer_references(transfer);
+  this->build(initialize_dof_vector);
+}
+
+
+
+template <int dim, typename VectorType>
+MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
+  const MGConstrainedDoFs &mg_constrained_dofs)
+{
+  this->initialize_constraints(mg_constrained_dofs);
+}
+
+
+
+template <int dim, typename VectorType>
+void
+MGTransferGlobalCoarsening<dim, VectorType>::initialize_constraints(
+  const MGConstrainedDoFs &mg_constrained_dofs)
+{
+  this->mg_constrained_dofs = &mg_constrained_dofs;
+}
+
+
+
+template <int dim, typename VectorType>
+void
+MGTransferGlobalCoarsening<dim, VectorType>::intitialize_internal_transfer(
+  const DoFHandler<dim> &                      dof_handler,
+  const SmartPointer<const MGConstrainedDoFs> &mg_constrained_dofs)
+{
+  const unsigned int min_level = 0;
+  const unsigned int max_level =
+    dof_handler.get_triangulation().n_global_levels() - 1;
+
+  MGLevelObject<AffineConstraints<typename VectorType::value_type>> constraints(
+    min_level, max_level);
+
+  if (mg_constrained_dofs)
+    for (unsigned int l = min_level; l <= max_level; ++l)
+      {
+        // TODO: set IndexSet
+
+        // Dirichlet boundary conditions
+        constraints[l].add_lines(mg_constrained_dofs->get_boundary_indices(l));
+
+        // periodic-bounary conditions
+        constraints[l].merge(
+          mg_constrained_dofs->get_level_constraints(l),
+          AffineConstraints<typename VectorType::value_type>::left_object_wins,
+          true);
+
+        // user constraints
+        constraints[l].merge(
+          mg_constrained_dofs->get_user_constraint_matrix(l),
+          AffineConstraints<typename VectorType::value_type>::left_object_wins,
+          true);
+
+        constraints[l].close();
+      }
+
+  this->internal_transfer.resize(min_level, max_level);
+
+  for (unsigned int l = min_level; l < max_level; ++l)
+    internal_transfer[l + 1].reinit_geometric_transfer(
+      dof_handler, dof_handler, constraints[l + 1], constraints[l], l + 1, l);
+}
+
+
+
+template <int dim, typename VectorType>
+template <typename MGTwoLevelTransferObject>
+void
+MGTransferGlobalCoarsening<dim, VectorType>::intitialize_transfer_references(
+  const MGLevelObject<MGTwoLevelTransferObject> &transfer)
 {
   const unsigned int min_level = transfer.min_level();
   const unsigned int max_level = transfer.max_level();
@@ -1031,8 +1189,6 @@ MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
     this->transfer[l] = &const_cast<MGTwoLevelTransferBase<VectorType> &>(
       static_cast<const MGTwoLevelTransferBase<VectorType> &>(
         Utilities::get_underlying_value(transfer[l])));
-
-  this->build(initialize_dof_vector);
 }
 
 
@@ -1090,6 +1246,34 @@ MGTransferGlobalCoarsening<dim, VectorType>::build(
     {
       this->build();
     }
+}
+
+
+
+template <int dim, typename VectorType>
+void
+MGTransferGlobalCoarsening<dim, VectorType>::build(
+  const DoFHandler<dim> &dof_handler,
+  const std::vector<std::shared_ptr<const Utilities::MPI::Partitioner>>
+    &external_partitioners)
+{
+  this->intitialize_internal_transfer(dof_handler, mg_constrained_dofs);
+  this->intitialize_transfer_references(internal_transfer);
+  this->build(external_partitioners);
+}
+
+
+
+template <int dim, typename VectorType>
+void
+MGTransferGlobalCoarsening<dim, VectorType>::build(
+  const DoFHandler<dim> &dof_handler,
+  const std::function<void(const unsigned int, VectorType &)>
+    &initialize_dof_vector)
+{
+  this->intitialize_internal_transfer(dof_handler, mg_constrained_dofs);
+  this->intitialize_transfer_references(internal_transfer);
+  this->build(initialize_dof_vector);
 }
 
 
