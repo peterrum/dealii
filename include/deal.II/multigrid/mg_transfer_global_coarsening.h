@@ -1049,6 +1049,56 @@ private:
    */
   std::vector<std::shared_ptr<const Utilities::MPI::Partitioner>>
     external_partitioners;
+
+  /**
+   * TODO
+   */
+  const bool perform_plain_copy = true;
+
+  /**
+   * TODO
+   */
+  const bool perform_renumbered_plain_copy = false;
+
+  /**
+   * TODO
+   */
+  mutable VectorType solution_ghosted_global_vector;
+
+  /**
+   * TODO
+   */
+  mutable VectorType ghosted_global_vector;
+
+  /**
+   * TODO
+   */
+  mutable MGLevelObject<VectorType> ghosted_level_vector;
+
+  /**
+   * TODO
+   */
+  std::vector<Table<2, unsigned int>> solution_copy_indices;
+
+  /**
+   * TODO
+   */
+  std::vector<Table<2, unsigned int>> copy_indices;
+
+  /**
+   * TODO
+   */
+  std::vector<Table<2, unsigned int>> solution_copy_indices_level_mine;
+
+  /**
+   * TODO
+   */
+  std::vector<Table<2, unsigned int>> copy_indices_level_mine;
+
+  /**
+   * TODO
+   */
+  std::vector<Table<2, unsigned int>> copy_indices_global_mine;
 };
 
 
@@ -1338,15 +1388,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::copy_to_mg(
   (void)dof_handler;
 
   // TODO
-  const bool                          solution_transfer             = false;
-  const bool                          perform_plain_copy            = true;
-  const bool                          perform_renumbered_plain_copy = false;
-  VectorType                          solution_ghosted_global_vector;
-  VectorType                          ghosted_global_vector;
-  std::vector<Table<2, unsigned int>> solution_copy_indices;
-  std::vector<Table<2, unsigned int>> copy_indices;
-  std::vector<Table<2, unsigned int>> solution_copy_indices_level_mine;
-  std::vector<Table<2, unsigned int>> copy_indices_level_mine;
+  const bool solution_transfer = false;
 
   for (unsigned int level = dst.min_level(); level <= dst.max_level(); ++level)
     {
@@ -1415,13 +1457,6 @@ MGTransferGlobalCoarsening<dim, VectorType>::copy_from_mg(
   const MGLevelObject<VectorType> &src) const
 {
   (void)dof_handler;
-
-  // TODO
-  const bool                          perform_plain_copy            = true;
-  const bool                          perform_renumbered_plain_copy = false;
-  std::vector<Table<2, unsigned int>> copy_indices;
-  std::vector<Table<2, unsigned int>> copy_indices_global_mine;
-  MGLevelObject<VectorType>           ghosted_level_vector;
 
   if (perform_plain_copy)
     {
