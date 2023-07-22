@@ -1337,14 +1337,70 @@ MGTransferGlobalCoarsening<dim, VectorType>::copy_to_mg(
 {
   (void)dof_handler;
 
+  // TODO
+  const bool                          solution_transfer             = false;
+  const bool                          perform_plain_copy            = true;
+  const bool                          perform_renumbered_plain_copy = false;
+  VectorType                          solution_ghosted_global_vector;
+  VectorType                          ghosted_global_vector;
+  std::vector<Table<2, unsigned int>> solution_copy_indices;
+  std::vector<Table<2, unsigned int>> copy_indices;
+  std::vector<Table<2, unsigned int>> solution_copy_indices_level_mine;
+  std::vector<Table<2, unsigned int>> copy_indices_level_mine;
+
   for (unsigned int level = dst.min_level(); level <= dst.max_level(); ++level)
     {
       initialize_dof_vector(level, dst[level]);
 
-      if (level == dst.max_level())
-        dst[level].copy_locally_owned_data_from(src);
-      else
-        dst[level] = 0.0;
+      dst[level] = 0.0; // TODO
+    }
+
+  if (perform_plain_copy)
+    {
+      dst[dst.max_level()].copy_locally_owned_data_from(src);
+    }
+  else if (perform_renumbered_plain_copy)
+    {
+      const std::vector<Table<2, unsigned int>> &this_copy_indices =
+        solution_transfer ? solution_copy_indices : copy_indices;
+
+      auto &dst_level = dst[dst.max_level()];
+
+      for (unsigned int i = 0; i < this_copy_indices.back().n_cols(); ++i)
+        dst_level.local_element(this_copy_indices.back()(1, i)) =
+          src.local_element(i);
+    }
+  else
+    {
+      VectorType &this_ghosted_global_vector =
+        solution_transfer ? solution_ghosted_global_vector :
+                            ghosted_global_vector;
+      const std::vector<Table<2, unsigned int>> &this_copy_indices =
+        solution_transfer ? solution_copy_indices : copy_indices;
+      const std::vector<Table<2, unsigned int>> &this_copy_indices_level_mine =
+        solution_transfer ? solution_copy_indices_level_mine :
+                            copy_indices_level_mine;
+
+      this_ghosted_global_vector = src;
+      this_ghosted_global_vector.update_ghost_values();
+
+      for (unsigned int l = dst.max_level() + 1; l != dst.min_level();)
+        {
+          --l;
+
+          auto &dst_level = dst[l];
+
+          const auto copy_unknowns = [&](const auto &indices) {
+            for (unsigned int i = 0; i < indices.n_cols(); ++i)
+              dst_level.local_element(indices(1, i)) =
+                this_ghosted_global_vector.local_element(indices(0, i));
+          };
+
+          copy_unknowns(this_copy_indices[l]);
+          copy_unknowns(this_copy_indices_level_mine[l]);
+
+          dst_level.compress(VectorOperation::insert);
+        }
     }
 }
 
@@ -1360,7 +1416,52 @@ MGTransferGlobalCoarsening<dim, VectorType>::copy_from_mg(
 {
   (void)dof_handler;
 
-  dst.copy_locally_owned_data_from(src[src.max_level()]);
+  // TODO
+  const bool                          perform_plain_copy            = true;
+  const bool                          perform_renumbered_plain_copy = false;
+  std::vector<Table<2, unsigned int>> copy_indices;
+  std::vector<Table<2, unsigned int>> copy_indices_global_mine;
+  MGLevelObject<VectorType>           ghosted_level_vector;
+
+  if (perform_plain_copy)
+    {
+      dst.zero_out_ghost_values();
+      dst.copy_locally_owned_data_from(src[src.max_level()]);
+    }
+  else if (perform_renumbered_plain_copy)
+    {
+      const auto &src_level = src[src.max_level()];
+      dst.zero_out_ghost_values();
+      for (unsigned int i = 0; i < copy_indices.back().n_cols(); ++i)
+        dst.local_element(i) =
+          src_level.local_element(copy_indices.back()(1, i));
+    }
+  else
+    {
+      dst = 0;
+      for (unsigned int l = src.min_level(); l <= src.max_level(); ++l)
+        {
+          auto &ghosted_vector = ghosted_level_vector[l];
+
+          if (ghosted_level_vector[l].size() > 0)
+            ghosted_vector = src[l];
+
+          const auto *const ghosted_vector_ptr =
+            (ghosted_level_vector[l].size() > 0) ? &ghosted_vector : &src[l];
+
+          ghosted_vector_ptr->update_ghost_values();
+
+          const auto copy_unknowns = [&](const auto &indices) {
+            for (unsigned int i = 0; i < indices.n_cols(); ++i)
+              dst.local_element(indices(0, i)) =
+                ghosted_vector_ptr->local_element(indices(1, i));
+          };
+
+          copy_unknowns(copy_indices[l]);
+          copy_unknowns(copy_indices_global_mine[l]);
+        }
+      dst.compress(VectorOperation::insert);
+    }
 }
 
 
