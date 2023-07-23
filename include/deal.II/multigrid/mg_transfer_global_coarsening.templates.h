@@ -2960,7 +2960,8 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
   if (this->fine_element_is_continuous || use_src_inplace == false)
     this->update_ghost_values(*vec_fine_ptr);
 
-  *vec_coarse_ptr = 0.0;
+  if (use_dst_inplace == false)
+    *vec_coarse_ptr = 0.0;
 
   AlignedVector<VectorizedArrayType> evaluation_data_fine;
   AlignedVector<VectorizedArrayType> evaluation_data_coarse;
@@ -3056,7 +3057,7 @@ MGTwoLevelTransfer<dim, LinearAlgebra::distributed::Vector<Number>>::
     this->zero_out_ghost_values(*vec_fine_ptr); // external vector
 
   if (use_dst_inplace == false)
-    dst.copy_locally_owned_data_from(this->vec_coarse);
+    dst += this->vec_coarse;
 }
 
 
