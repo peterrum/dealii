@@ -937,7 +937,8 @@ public:
   void
   copy_to_mg(const DoFHandler<dim> &    dof_handler,
              MGLevelObject<VectorType> &dst,
-             const InVector &           src) const;
+             const InVector &           src,
+             const bool                 solution_transfer = false) const;
 
   /**
    * Initialize internal vectors and copy the values on the finest
@@ -1981,12 +1982,10 @@ void
 MGTransferGlobalCoarsening<dim, VectorType>::copy_to_mg(
   const DoFHandler<dim> &    dof_handler,
   MGLevelObject<VectorType> &dst,
-  const InVector &           src) const
+  const InVector &           src,
+  const bool                 solution_transfer) const
 {
   (void)dof_handler;
-
-  // TODO
-  const bool solution_transfer = false;
 
   for (unsigned int level = dst.min_level(); level <= dst.max_level(); ++level)
     {
@@ -2115,7 +2114,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::interpolate_to_mg(
   for (unsigned int level = min_level; level <= max_level; ++level)
     initialize_dof_vector(level, dst[level]);
 
-  dst[transfer.max_level()].copy_locally_owned_data_from(src);
+  this->copy_to_mg({}, dst, src, true);
 
   for (unsigned int l = max_level; l > min_level; --l)
     this->transfer[l]->interpolate(dst[l - 1], dst[l]);
