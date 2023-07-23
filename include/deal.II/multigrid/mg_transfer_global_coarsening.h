@@ -1053,11 +1053,6 @@ private:
   /**
    * TODO
    */
-  SmartPointer<const MGConstrainedDoFs> mg_constrained_dofs;
-
-  /**
-   * TODO
-   */
   bool perform_plain_copy = true;
 
   /**
@@ -1265,13 +1260,6 @@ MGTransferGlobalCoarsening<dim, VectorType>::build(
           this->external_partitioners[l - 1 - min_level],
           this->external_partitioners[l - min_level]);
     }
-
-  if (false)
-    {
-      DoFHandler<dim> dof_handler;
-
-      fill_and_communicate_copy_indices(dof_handler);
-    }
 }
 
 
@@ -1319,6 +1307,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::build(
   this->intitialize_internal_transfer(dof_handler, mg_constrained_dofs);
   this->intitialize_transfer_references(internal_transfer);
   this->build(external_partitioners);
+  this->fill_and_communicate_copy_indices(dof_handler);
 }
 
 
@@ -1333,6 +1322,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::build(
   this->intitialize_internal_transfer(dof_handler, mg_constrained_dofs);
   this->intitialize_transfer_references(internal_transfer);
   this->build(initialize_dof_vector);
+  this->fill_and_communicate_copy_indices(dof_handler);
 }
 
 
