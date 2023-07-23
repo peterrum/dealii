@@ -1196,7 +1196,9 @@ MGTransferGlobalCoarsening<dim, VectorType>::intitialize_internal_transfer(
         // TODO: set IndexSet
 
         // Dirichlet boundary conditions
-        constraints[l].add_lines(mg_constrained_dofs->get_boundary_indices(l));
+        if (mg_constrained_dofs->have_boundary_indices())
+          constraints[l].add_lines(
+            mg_constrained_dofs->get_boundary_indices(l));
 
         // periodic-bounary conditions
         constraints[l].merge(
@@ -1305,9 +1307,27 @@ MGTransferGlobalCoarsening<dim, VectorType>::build(
   const std::vector<std::shared_ptr<const Utilities::MPI::Partitioner>>
     &external_partitioners)
 {
+  auto external_partitioners_to_be_used = external_partitioners;
+
+  if (external_partitioners.empty())
+    {
+      const unsigned int min_level = 0;
+      const unsigned int max_level =
+        dof_handler.get_triangulation().n_global_levels() - 1;
+
+      for (unsigned int l = min_level; l <= max_level; ++l)
+        {
+          external_partitioners_to_be_used.emplace_back(
+            std::make_shared<Utilities::MPI::Partitioner>(
+              dof_handler.locally_owned_mg_dofs(l),
+              DoFTools::extract_locally_active_level_dofs(dof_handler, l),
+              dof_handler.get_communicator()));
+        }
+    }
+
   this->intitialize_internal_transfer(dof_handler, mg_constrained_dofs);
   this->intitialize_transfer_references(internal_transfer);
-  this->build(external_partitioners);
+  this->build(external_partitioners_to_be_used);
   this->fill_and_communicate_copy_indices(dof_handler);
 }
 
@@ -1320,6 +1340,17 @@ MGTransferGlobalCoarsening<dim, VectorType>::build(
   const std::function<void(const unsigned int, VectorType &)>
     &initialize_dof_vector)
 {
+  auto initialize_dof_vector_to_be_used = initialize_dof_vector;
+
+  if (!initialize_dof_vector)
+    {
+      initialize_dof_vector = [&](const auto l, auto &vec) {
+        vec.reinit(dof_handler.locally_owned_mg_dofs(l),
+                   DoFTools::extract_locally_active_level_dofs(dof_handler, l),
+                   dof_handler.get_communicator());
+      };
+    }
+
   this->intitialize_internal_transfer(dof_handler, mg_constrained_dofs);
   this->intitialize_transfer_references(internal_transfer);
   this->build(initialize_dof_vector);
