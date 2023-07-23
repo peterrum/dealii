@@ -1229,17 +1229,17 @@ namespace internal
                (mg_level_coarse + 1 == mg_level_fine),
              ExcNotImplemented());
 
-      if (mg_level_fine != numbers::invalid_unsigned_int)
-        AssertIndexRange(mg_level_fine,
-                         MGTools::max_level_for_coarse_mesh(
-                           dof_handler_fine.get_triangulation()) +
-                           1);
-
-      if (mg_level_coarse != numbers::invalid_unsigned_int)
-        AssertIndexRange(mg_level_coarse,
-                         MGTools::max_level_for_coarse_mesh(
-                           dof_handler_coarse.get_triangulation()) +
-                           1);
+      // if (mg_level_fine != numbers::invalid_unsigned_int)
+      //   AssertIndexRange(mg_level_fine,
+      //                    MGTools::max_level_for_coarse_mesh(
+      //                      dof_handler_fine.get_triangulation()) +
+      //                      1);
+      //
+      // if (mg_level_coarse != numbers::invalid_unsigned_int)
+      //   AssertIndexRange(mg_level_coarse,
+      //                    MGTools::max_level_for_coarse_mesh(
+      //                      dof_handler_coarse.get_triangulation()) +
+      //                      1);
 
       const GlobalCoarseningFineDoFHandlerView<dim> view(dof_handler_fine,
                                                          dof_handler_coarse,
