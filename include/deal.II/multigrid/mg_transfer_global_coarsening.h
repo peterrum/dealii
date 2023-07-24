@@ -1012,6 +1012,27 @@ public:
     (void)os; // TODO
   }
 
+  /**
+   * Clear all data fields and brings the class into a condition similar
+   * to after having called the default constructor.
+   */
+  void
+  clear()
+  {
+    mg_constrained_dofs = nullptr;
+    internal_transfer.clear();
+    transfer.clear();
+    external_partitioners.clear();
+    solution_ghosted_global_vector.reinit(0);
+    ghosted_global_vector.reinit(0);
+    ghosted_level_vector.clear();
+    solution_copy_indices.clear();
+    copy_indices.clear();
+    solution_copy_indices_level_mine.clear();
+    copy_indices_level_mine.clear();
+    copy_indices_global_mine.clear();
+  }
+
 private:
   /**
    * Initial internal transfer operator.
@@ -1041,6 +1062,12 @@ private:
                         const InVector &   vector_reference) const;
 
   /**
+   * TODO
+   */
+  void
+  fill_and_communicate_copy_indices(const DoFHandler<dim> &dof_handler);
+
+  /**
    * MGConstrainedDoFs passed during build().
    *
    * @note See also MGTransferMatrixFree.
@@ -1068,12 +1095,12 @@ private:
   /**
    * TODO
    */
-  bool perform_plain_copy = true;
+  bool perform_plain_copy;
 
   /**
    * TODO
    */
-  bool perform_renumbered_plain_copy = false;
+  bool perform_renumbered_plain_copy;
 
   /**
    * TODO
@@ -1114,9 +1141,6 @@ private:
    * TODO
    */
   std::vector<Table<2, unsigned int>> copy_indices_global_mine;
-
-  void
-  fill_and_communicate_copy_indices(const DoFHandler<dim> &dof_handler);
 };
 
 
@@ -1291,6 +1315,9 @@ MGTransferGlobalCoarsening<dim, VectorType>::build(
           this->external_partitioners.push_back(transfer[l]->partitioner_fine);
         }
     }
+
+  perform_plain_copy            = true;
+  perform_renumbered_plain_copy = false;
 }
 
 
