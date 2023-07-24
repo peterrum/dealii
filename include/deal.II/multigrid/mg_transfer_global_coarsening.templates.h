@@ -3448,8 +3448,102 @@ MGTransferBlockGlobalCoarsening<dim, VectorType>::
                                   typename VectorType::value_type,
                                   MGTransferGlobalCoarsening<dim, VectorType>>(
       true)
-  , transfer_operator(transfer_operator)
-{}
+{
+  this->transfer_operators = {&transfer_operator};
+}
+
+
+
+template <int dim, typename VectorType>
+MGTransferBlockGlobalCoarsening<dim, VectorType>::
+  MGTransferBlockGlobalCoarsening(const MGConstrainedDoFs &mg_constrained_dofs)
+  : MGTransferBlockMatrixFreeBase<dim,
+                                  typename VectorType::value_type,
+                                  MGTransferGlobalCoarsening<dim, VectorType>>(
+      true)
+{
+  initialize_constraints(mg_constrained_dofs);
+}
+
+
+
+template <int dim, typename VectorType>
+MGTransferBlockGlobalCoarsening<dim, VectorType>::
+  MGTransferBlockGlobalCoarsening(
+    const std::vector<MGConstrainedDoFs> &mg_constrained_dofs)
+  : MGTransferBlockMatrixFreeBase<dim,
+                                  typename VectorType::value_type,
+                                  MGTransferGlobalCoarsening<dim, VectorType>>(
+      false)
+{
+  initialize_constraints(mg_constrained_dofs);
+}
+
+
+
+template <int dim, typename VectorType>
+void
+MGTransferBlockGlobalCoarsening<dim, VectorType>::initialize_constraints(
+  const MGConstrainedDoFs &mg_constrained_dofs)
+{
+  this->transfer_operators_internal.clear();
+  this->transfer_operators.clear();
+
+  Assert(this->same_for_all,
+         ExcMessage("This object was initialized with support for usage with "
+                    "one DoFHandler for each block, but this method assumes "
+                    "that the same DoFHandler is used for all the blocks!"));
+
+  this->transfer_operators_internal.emplace_back(mg_constrained_dofs);
+  this->transfer_operators = {&transfer_operators_internal.back()};
+}
+
+
+
+template <int dim, typename VectorType>
+void
+MGTransferBlockGlobalCoarsening<dim, VectorType>::initialize_constraints(
+  const std::vector<MGConstrainedDoFs> &mg_constrained_dofs)
+{
+  this->transfer_operators_internal.clear();
+  this->transfer_operators.clear();
+
+  Assert(!this->same_for_all,
+         ExcMessage("This object was initialized with support for using "
+                    "the same DoFHandler for all the blocks, but this "
+                    "method assumes that there is a separate DoFHandler "
+                    "for each block!"));
+
+  for (const auto &dofs : mg_constrained_dofs)
+    this->transfer_operators_internal.emplace_back(dofs);
+
+  for (const auto &transfer : this->transfer_operators_internal)
+    this->transfer_operators.emplace_back(&transfer);
+}
+
+
+
+template <int dim, typename VectorType>
+void
+MGTransferBlockGlobalCoarsening<dim, VectorType>::build(
+  const DoFHandler<dim> &dof_handler)
+{
+  AssertDimension(transfer_operators.size(), 1);
+  this->transfer_operators_internal[0].build(dof_handler);
+}
+
+
+
+template <int dim, typename VectorType>
+void
+MGTransferBlockGlobalCoarsening<dim, VectorType>::build(
+  const std::vector<const DoFHandler<dim> *> &dof_handler)
+{
+  AssertDimension(transfer_operators.size(), dof_handler.size());
+
+  for (unsigned int i = 0; i < dof_handler.size(); ++i)
+    this->transfer_operators_internal[i].build(*dof_handler[i]);
+}
 
 
 
@@ -3458,9 +3552,8 @@ const MGTransferGlobalCoarsening<dim, VectorType> &
 MGTransferBlockGlobalCoarsening<dim, VectorType>::get_matrix_free_transfer(
   const unsigned int b) const
 {
-  (void)b;
-  AssertDimension(b, 0);
-  return transfer_operator;
+  AssertDimension(b, transfer_operators.size());
+  return *transfer_operators[b];
 }
 
 namespace internal

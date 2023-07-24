@@ -1163,6 +1163,61 @@ public:
   MGTransferBlockGlobalCoarsening(
     const MGTransferGlobalCoarsening<dim, VectorType> &transfer_operator);
 
+  /**
+   * Constructor.
+   *
+   * @note See also MGTransferBlockMatrixFree.
+   */
+  MGTransferBlockGlobalCoarsening() = default;
+
+  /**
+   * Constructor.
+   *
+   * @note See also MGTransferBlockMatrixFree.
+   */
+  MGTransferBlockGlobalCoarsening(const MGConstrainedDoFs &mg_constrained_dofs);
+
+  /**
+   * Constructor.
+   *
+   * @note See also MGTransferBlockMatrixFree.
+   */
+  MGTransferBlockGlobalCoarsening(
+    const std::vector<MGConstrainedDoFs> &mg_constrained_dofs);
+
+  /**
+   * Initialize the constraints to be used in build().
+   *
+   * @note See also MGTransferBlockMatrixFree.
+   */
+  void
+  initialize_constraints(const MGConstrainedDoFs &mg_constrained_dofs);
+
+  /**
+   * Same as above for the case that each block has its own DoFHandler.
+   *
+   * @note See also MGTransferBlockMatrixFree.
+   */
+  void
+  initialize_constraints(
+    const std::vector<MGConstrainedDoFs> &mg_constrained_dofs);
+
+  /**
+   * Actually build the information for the prolongation for each level.
+   *
+   * @note See also MGTransferBlockMatrixFree.
+   */
+  void
+  build(const DoFHandler<dim> &dof_handler);
+
+  /**
+   * Same as above for the case that each block has its own DoFHandler.
+   *
+   * @note See also MGTransferBlockMatrixFree.
+   */
+  void
+  build(const std::vector<const DoFHandler<dim> *> &dof_handler);
+
 protected:
   const MGTransferGlobalCoarsening<dim, VectorType> &
   get_matrix_free_transfer(const unsigned int b) const override;
@@ -1171,7 +1226,14 @@ private:
   /**
    * Non-block version of transfer operation.
    */
-  const MGTransferGlobalCoarsening<dim, VectorType> &transfer_operator;
+  std::vector<SmartPointer<const MGTransferGlobalCoarsening<dim, VectorType>>>
+    transfer_operators;
+
+  /**
+   * Internal non-block version of transfer operation.
+   */
+  std::vector<MGTransferGlobalCoarsening<dim, VectorType>>
+    transfer_operators_internal;
 };
 
 
