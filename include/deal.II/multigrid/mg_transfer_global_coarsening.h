@@ -2153,10 +2153,71 @@ MGTransferGlobalCoarsening<dim, VectorType>::interpolate_to_mg(
   AssertDimension(min_level, dst.min_level());
   AssertDimension(max_level, dst.max_level());
 
-  this->copy_to_mg({}, dst, src, true);
+  const bool solution_transfer = true;
 
-  for (unsigned int l = max_level; l > min_level; --l)
-    this->transfer[l]->interpolate(dst[l - 1], dst[l]);
+  for (unsigned int level = dst.min_level(); level <= dst.max_level(); ++level)
+    {
+      initialize_dof_vector(level, dst[level], src);
+
+      dst[level] = 0.0; // TODO
+    }
+
+  if (perform_plain_copy)
+    {
+      dst[dst.max_level()].copy_locally_owned_data_from(src);
+
+      for (unsigned int l = max_level; l > min_level; --l)
+        this->transfer[l]->interpolate(dst[l - 1], dst[l]);
+    }
+  else if (perform_renumbered_plain_copy)
+    {
+      const std::vector<Table<2, unsigned int>> &this_copy_indices =
+        solution_transfer ? solution_copy_indices : copy_indices;
+
+      auto &dst_level = dst[dst.max_level()];
+
+      for (unsigned int i = 0; i < this_copy_indices.back().n_cols(); ++i)
+        dst_level.local_element(this_copy_indices.back()(1, i)) =
+          src.local_element(i);
+
+      for (unsigned int l = max_level; l > min_level; --l)
+        this->transfer[l]->interpolate(dst[l - 1], dst[l]);
+    }
+  else
+    {
+      VectorType &this_ghosted_global_vector =
+        solution_transfer ? solution_ghosted_global_vector :
+                            ghosted_global_vector;
+      const std::vector<Table<2, unsigned int>> &this_copy_indices =
+        solution_transfer ? solution_copy_indices : copy_indices;
+      const std::vector<Table<2, unsigned int>> &this_copy_indices_level_mine =
+        solution_transfer ? solution_copy_indices_level_mine :
+                            copy_indices_level_mine;
+
+      this_ghosted_global_vector = src;
+      this_ghosted_global_vector.update_ghost_values();
+
+      for (unsigned int l = dst.max_level() + 1; l != dst.min_level();)
+        {
+          --l;
+
+          auto &dst_level = dst[l];
+
+          const auto copy_unknowns = [&](const auto &indices) {
+            for (unsigned int i = 0; i < indices.n_cols(); ++i)
+              dst_level.local_element(indices(1, i)) =
+                this_ghosted_global_vector.local_element(indices(0, i));
+          };
+
+          copy_unknowns(this_copy_indices[l]);
+          copy_unknowns(this_copy_indices_level_mine[l]);
+
+          dst_level.compress(VectorOperation::insert);
+
+          if (l != dst.min_level())
+            this->transfer[l]->interpolate(dst[l - 1], dst[l]);
+        }
+    }
 }
 
 
