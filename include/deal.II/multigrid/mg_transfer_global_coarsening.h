@@ -320,6 +320,7 @@ protected:
    */
   bool fine_element_is_continuous;
 
+public:
   /**
    * Partitioner needed by the intermediate vector.
    */
@@ -330,6 +331,7 @@ protected:
    */
   std::shared_ptr<const Utilities::MPI::Partitioner> partitioner_fine;
 
+protected:
   /**
    * Internal vector needed for collecting all degrees of freedom of the fine
    * cells. It is only initialized if the fine-level DoF indices touch DoFs
@@ -1023,8 +1025,11 @@ private:
   /**
    * Function to initialize internal level vectors.
    */
+  template <class InVector>
   void
-  initialize_dof_vector(const unsigned int level, VectorType &vector) const;
+  initialize_dof_vector(const unsigned int level,
+                        VectorType &       vector,
+                        const InVector &   vector_reference) const;
 
   /**
    * MGConstrainedDoFs passed during build().
@@ -1262,6 +1267,20 @@ MGTransferGlobalCoarsening<dim, VectorType>::build(
         transfer[l]->enable_inplace_operations_if_possible(
           this->external_partitioners[l - 1 - min_level],
           this->external_partitioners[l - min_level]);
+    }
+  else
+    {
+      const unsigned int min_level = transfer.min_level();
+      const unsigned int max_level = transfer.max_level();
+
+      for (unsigned int l = min_level + 1; l <= max_level; ++l)
+        {
+          if (l == min_level + 1)
+            this->external_partitioners.push_back(
+              transfer[l]->partitioner_coarse);
+
+          this->external_partitioners.push_back(transfer[l]->partitioner_fine);
+        }
     }
 }
 
@@ -1924,19 +1943,40 @@ MGTransferGlobalCoarsening<dim, VectorType>::fill_and_communicate_copy_indices(
 
 
 template <int dim, typename VectorType>
+template <class InVector>
 void
 MGTransferGlobalCoarsening<dim, VectorType>::initialize_dof_vector(
   const unsigned int level,
-  VectorType &       vec) const
+  VectorType &       vec,
+  const InVector &   vec_reference) const
 {
-  AssertDimension(transfer.n_levels(), external_partitioners.size());
-  AssertIndexRange(level, transfer.max_level() + 1);
+  std::shared_ptr<const Utilities::MPI::Partitioner> partitioner;
 
-  const auto &external_partitioner =
-    external_partitioners[level - transfer.min_level()];
+  if (external_partitioners.empty())
+    {
+      vec.reinit(vec_reference);
+    }
+  else
+    {
+      Assert(transfer.min_level() <= level && level <= transfer.max_level(),
+             ExcInternalError());
 
-  if (vec.get_partitioner().get() != external_partitioner.get())
-    vec.reinit(external_partitioner);
+      partitioner = external_partitioners[level - transfer.min_level()];
+    }
+
+  // check if vectors are already correctly initalized
+
+  // yes: same partitioners are used
+  if (vec.get_partitioner().get() == partitioner.get())
+    return; // nothing to do
+
+  // yes: vectors are compatible
+  if (vec.size() == partitioner->size() &&
+      vec.locally_owned_size() == partitioner->locally_owned_size())
+    return; // nothing to do
+
+  // no
+  vec.reinit(partitioner);
 }
 
 
@@ -1991,7 +2031,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::copy_to_mg(
 
   for (unsigned int level = dst.min_level(); level <= dst.max_level(); ++level)
     {
-      initialize_dof_vector(level, dst[level]);
+      initialize_dof_vector(level, dst[level], src);
 
       dst[level] = 0.0; // TODO
     }
@@ -2112,9 +2152,6 @@ MGTransferGlobalCoarsening<dim, VectorType>::interpolate_to_mg(
 
   AssertDimension(min_level, dst.min_level());
   AssertDimension(max_level, dst.max_level());
-
-  for (unsigned int level = min_level; level <= max_level; ++level)
-    initialize_dof_vector(level, dst[level]);
 
   this->copy_to_mg({}, dst, src, true);
 
