@@ -3540,6 +3540,7 @@ MGTransferBlockGlobalCoarsening<dim, VectorType>::build(
   const std::vector<const DoFHandler<dim> *> &dof_handler)
 {
   AssertDimension(transfer_operators.size(), dof_handler.size());
+  AssertDimension(transfer_operators_internal.size(), dof_handler.size());
 
   for (unsigned int i = 0; i < dof_handler.size(); ++i)
     this->transfer_operators_internal[i].build(*dof_handler[i]);
@@ -3552,7 +3553,7 @@ const MGTransferGlobalCoarsening<dim, VectorType> &
 MGTransferBlockGlobalCoarsening<dim, VectorType>::get_matrix_free_transfer(
   const unsigned int b) const
 {
-  AssertDimension(b, transfer_operators.size());
+  AssertIndexRange(b, transfer_operators.size());
   return *transfer_operators[b];
 }
 

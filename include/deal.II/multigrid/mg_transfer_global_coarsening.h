@@ -1224,16 +1224,16 @@ protected:
 
 private:
   /**
-   * Non-block version of transfer operation.
-   */
-  std::vector<SmartPointer<const MGTransferGlobalCoarsening<dim, VectorType>>>
-    transfer_operators;
-
-  /**
    * Internal non-block version of transfer operation.
    */
   std::vector<MGTransferGlobalCoarsening<dim, VectorType>>
     transfer_operators_internal;
+
+  /**
+   * Non-block version of transfer operation.
+   */
+  std::vector<SmartPointer<const MGTransferGlobalCoarsening<dim, VectorType>>>
+    transfer_operators;
 };
 
 
@@ -2051,7 +2051,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::initialize_dof_vector(
 
   if (external_partitioners.empty())
     {
-      vec.reinit(vec_reference);
+      partitioner = vec_reference.get_partitioner();
     }
   else
     {
