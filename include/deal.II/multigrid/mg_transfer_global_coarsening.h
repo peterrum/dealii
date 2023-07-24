@@ -1003,6 +1003,15 @@ public:
   unsigned int
   max_level() const;
 
+  /**
+   * TODO.
+   */
+  void
+  print_indices(std::ostream &os) const
+  {
+    (void)os; // TODO
+  }
+
 private:
   /**
    * Initial internal transfer operator.

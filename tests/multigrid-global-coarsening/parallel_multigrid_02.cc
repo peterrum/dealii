@@ -191,15 +191,9 @@ do_test(const DoFHandler<dim> &dof)
       mg_matrices[level].compute_diagonal();
     }
 
-  std::vector<std::shared_ptr<const Utilities::MPI::Partitioner>> partitioners;
-  for (unsigned int level = mg_matrices.min_level();
-       level <= mg_matrices.max_level();
-       ++level)
-    partitioners.push_back(mg_level_data[level].get_vector_partitioner());
-
   MGTransferGlobalCoarsening<dim, LinearAlgebra::distributed::Vector<double>>
     mg_transfer(mg_constrained_dofs);
-  mg_transfer.build(dof, partitioners);
+  mg_transfer.build(dof);
 
   MGCoarseIterative<LevelMatrixType, number> mg_coarse;
   mg_coarse.initialize(mg_matrices[0]);

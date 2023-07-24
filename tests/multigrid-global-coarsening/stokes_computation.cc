@@ -1277,17 +1277,9 @@ namespace StokesClass
       MGTransferGlobalCoarsening<dim,
                                  LinearAlgebra::distributed::Vector<double>>;
 
-    std::vector<std::shared_ptr<const Utilities::MPI::Partitioner>>
-      partitioners;
-    for (unsigned int level = mg_matrices.min_level();
-         level <= mg_matrices.max_level();
-         ++level)
-      partitioners.push_back(
-        mg_matrices[level].get_matrix_free()->get_vector_partitioner());
-
     Transfer mg_transfer(mg_constrained_dofs);
     mg_transfer.initialize_constraints(mg_constrained_dofs);
-    mg_transfer.build(dof_handler_u, partitioners);
+    mg_transfer.build(dof_handler_u);
 
     LevelMatrixType &  coarse_matrix = mg_matrices[0];
     SolverControl      coarse_solver_control(1000, 1e-12, false, false);

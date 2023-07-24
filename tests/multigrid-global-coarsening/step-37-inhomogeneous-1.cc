@@ -514,17 +514,9 @@ namespace Step37
   void
   LaplaceProblem<dim>::solve()
   {
-    std::vector<std::shared_ptr<const Utilities::MPI::Partitioner>>
-      partitioners;
-    for (unsigned int level = mg_matrices.min_level();
-         level <= mg_matrices.max_level();
-         ++level)
-      partitioners.push_back(
-        mg_matrices[level].get_matrix_free()->get_vector_partitioner());
-
     MGTransferGlobalCoarsening<dim, LinearAlgebra::distributed::Vector<float>>
       mg_transfer(mg_constrained_dofs);
-    mg_transfer.build(dof_handler, partitioners);
+    mg_transfer.build(dof_handler);
 
     using SmootherType =
       PreconditionChebyshev<LevelMatrixType,

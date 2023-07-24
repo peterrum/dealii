@@ -184,6 +184,7 @@ test(const unsigned int n_glob_ref = 2, const unsigned int n_ref = 0)
     dim,
     LinearAlgebra::distributed::Vector<LevelNumberType>>
     mg_transfer(mg_constrained_dofs);
+  mg_transfer.build(dof_handler);
 
   // now the core of the test:
   const unsigned int max_level =
@@ -199,13 +200,6 @@ test(const unsigned int n_glob_ref = 2, const unsigned int n_ref = 0)
                                      set,
                                      mpi_communicator);
     }
-
-  std::vector<std::shared_ptr<const Utilities::MPI::Partitioner>> partitioners;
-  for (unsigned int level = min_level; level <= max_level; ++level)
-    partitioners.push_back(level_projection[level].get_partitioner());
-
-  mg_transfer.build(dof_handler, partitioners);
-
   mg_transfer.interpolate_to_mg(dof_handler, level_projection, fine_projection);
 
   // now go through all GMG levels and make sure FE field can represent
@@ -255,9 +249,7 @@ test(const unsigned int n_glob_ref = 2, const unsigned int n_ref = 0)
                     std::cout << std::endl
                               << "val(q)=" << q_values[q] << std::endl;
                     std::cout << "MGTransfer indices:" << std::endl;
-#if 0
                     mg_transfer.print_indices(std::cout);
-#endif
                     AssertThrow(false,
                                 ExcMessage("Level " + std::to_string(level) +
                                            " Diff " + std::to_string(diff) +
