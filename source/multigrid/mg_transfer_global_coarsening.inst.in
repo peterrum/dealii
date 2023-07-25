@@ -31,6 +31,7 @@ for (deal_II_dimension : DIMENSIONS; S1 : REAL_SCALARS)
       deal_II_dimension,
       S1,
       MGTransferMF<deal_II_dimension, S1>>;
+    template class MGTransferMF<deal_II_dimension, S1>;
     template class MGTransferBlockMF<deal_II_dimension, S1>;
   }
 
