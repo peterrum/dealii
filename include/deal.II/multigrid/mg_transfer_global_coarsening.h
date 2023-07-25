@@ -1099,17 +1099,20 @@ private:
  * performs exactly the same transfer operations for each block as
  * MGTransferMF.
  */
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 class MGTransferBlockMF
-  : public MGTransferBlockMatrixFreeBase<dim,
-                                         typename VectorType::value_type,
-                                         MGTransferMF<dim, VectorType>>
+  : public MGTransferBlockMatrixFreeBase<
+      dim,
+      Number,
+      MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>>>
 {
 public:
   /**
    * Constructor.
    */
-  MGTransferBlockMF(const MGTransferMF<dim, VectorType> &transfer_operator);
+  MGTransferBlockMF(
+    const MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>>
+      &transfer_operator);
 
   /**
    * Constructor.
@@ -1166,19 +1169,21 @@ public:
   build(const std::vector<const DoFHandler<dim> *> &dof_handler);
 
 protected:
-  const MGTransferMF<dim, VectorType> &
+  const MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>> &
   get_matrix_free_transfer(const unsigned int b) const override;
 
 private:
   /**
    * Internal non-block version of transfer operation.
    */
-  std::vector<MGTransferMF<dim, VectorType>> transfer_operators_internal;
+  std::vector<MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>>>
+    transfer_operators_internal;
 
   /**
    * Non-block version of transfer operation.
    */
-  std::vector<SmartPointer<const MGTransferMF<dim, VectorType>>>
+  std::vector<SmartPointer<
+    const MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>>>>
     transfer_operators;
 };
 
@@ -1188,7 +1193,8 @@ template <int dim, typename VectorType>
 using MGTransferGlobalCoarsening = MGTransferMF<dim, VectorType>;
 
 template <int dim, typename VectorType>
-using MGTransferBlockGlobalCoarsening = MGTransferBlockMF<dim, VectorType>;
+using MGTransferBlockGlobalCoarsening =
+  MGTransferBlockMF<dim, typename VectorType::value_type>;
 
 
 

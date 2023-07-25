@@ -3440,45 +3440,49 @@ MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>::
 
 
 
-template <int dim, typename VectorType>
-MGTransferBlockMF<dim, VectorType>::MGTransferBlockMF(
-  const MGTransferMF<dim, VectorType> &transfer_operator)
-  : MGTransferBlockMatrixFreeBase<dim,
-                                  typename VectorType::value_type,
-                                  MGTransferMF<dim, VectorType>>(true)
+template <int dim, typename Number>
+MGTransferBlockMF<dim, Number>::MGTransferBlockMF(
+  const MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>>
+    &transfer_operator)
+  : MGTransferBlockMatrixFreeBase<
+      dim,
+      Number,
+      MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>>>(true)
 {
   this->transfer_operators = {&transfer_operator};
 }
 
 
 
-template <int dim, typename VectorType>
-MGTransferBlockMF<dim, VectorType>::MGTransferBlockMF(
+template <int dim, typename Number>
+MGTransferBlockMF<dim, Number>::MGTransferBlockMF(
   const MGConstrainedDoFs &mg_constrained_dofs)
-  : MGTransferBlockMatrixFreeBase<dim,
-                                  typename VectorType::value_type,
-                                  MGTransferMF<dim, VectorType>>(true)
+  : MGTransferBlockMatrixFreeBase<
+      dim,
+      Number,
+      MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>>>(true)
 {
   initialize_constraints(mg_constrained_dofs);
 }
 
 
 
-template <int dim, typename VectorType>
-MGTransferBlockMF<dim, VectorType>::MGTransferBlockMF(
+template <int dim, typename Number>
+MGTransferBlockMF<dim, Number>::MGTransferBlockMF(
   const std::vector<MGConstrainedDoFs> &mg_constrained_dofs)
-  : MGTransferBlockMatrixFreeBase<dim,
-                                  typename VectorType::value_type,
-                                  MGTransferMF<dim, VectorType>>(false)
+  : MGTransferBlockMatrixFreeBase<
+      dim,
+      Number,
+      MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>>>(false)
 {
   initialize_constraints(mg_constrained_dofs);
 }
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 void
-MGTransferBlockMF<dim, VectorType>::initialize_constraints(
+MGTransferBlockMF<dim, Number>::initialize_constraints(
   const MGConstrainedDoFs &mg_constrained_dofs)
 {
   this->transfer_operators_internal.clear();
@@ -3495,9 +3499,9 @@ MGTransferBlockMF<dim, VectorType>::initialize_constraints(
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 void
-MGTransferBlockMF<dim, VectorType>::initialize_constraints(
+MGTransferBlockMF<dim, Number>::initialize_constraints(
   const std::vector<MGConstrainedDoFs> &mg_constrained_dofs)
 {
   this->transfer_operators_internal.clear();
@@ -3518,9 +3522,9 @@ MGTransferBlockMF<dim, VectorType>::initialize_constraints(
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 void
-MGTransferBlockMF<dim, VectorType>::build(const DoFHandler<dim> &dof_handler)
+MGTransferBlockMF<dim, Number>::build(const DoFHandler<dim> &dof_handler)
 {
   AssertDimension(transfer_operators.size(), 1);
   this->transfer_operators_internal[0].build(dof_handler);
@@ -3528,9 +3532,9 @@ MGTransferBlockMF<dim, VectorType>::build(const DoFHandler<dim> &dof_handler)
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 void
-MGTransferBlockMF<dim, VectorType>::build(
+MGTransferBlockMF<dim, Number>::build(
   const std::vector<const DoFHandler<dim> *> &dof_handler)
 {
   AssertDimension(transfer_operators.size(), dof_handler.size());
@@ -3542,9 +3546,9 @@ MGTransferBlockMF<dim, VectorType>::build(
 
 
 
-template <int dim, typename VectorType>
-const MGTransferMF<dim, VectorType> &
-MGTransferBlockMF<dim, VectorType>::get_matrix_free_transfer(
+template <int dim, typename Number>
+const MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>> &
+MGTransferBlockMF<dim, Number>::get_matrix_free_transfer(
   const unsigned int b) const
 {
   AssertIndexRange(b, transfer_operators.size());
