@@ -828,6 +828,18 @@ public:
   using Number = typename VectorType::value_type;
 
   /**
+   * Default constructor.
+   *
+   * @note See also MGTransferMatrixFree.
+   */
+  MGTransferGlobalCoarsening() = default;
+
+  /**
+   * @name Global coarsening.
+   */
+  /** @{ */
+
+  /**
    * Constructor taking a collection of transfer operators (with the coarsest
    * level kept empty in @p transfer) and an optional function that initializes the
    * internal level vectors within the function call copy_to_mg() if used in the
@@ -841,6 +853,14 @@ public:
     const MGLevelObject<MGTwoLevelTransferObject> &transfer,
     const std::function<void(const unsigned int, VectorType &)>
       &initialize_dof_vector = {});
+
+  /**
+   * Set two-level transfers.
+   */
+  template <typename MGTwoLevelTransferObject>
+  void
+  intitialize_two_level_transfers(
+    const MGLevelObject<MGTwoLevelTransferObject> &transfer);
 
   /**
    * Similar function to MGTransferMatrixFree::build() with the difference that
@@ -862,12 +882,12 @@ public:
   build(const std::function<void(const unsigned int, VectorType &)>
           &initialize_dof_vector);
 
+  /** @} */
+
   /**
-   * Default constructor.
-   *
-   * @note See also MGTransferMatrixFree.
+   * @name Local smoothing.
    */
-  MGTransferGlobalCoarsening() = default;
+  /** @{ */
 
   /**
    * Constructor with constraints. Equivalent to the default constructor
@@ -905,6 +925,13 @@ public:
   build(const DoFHandler<dim> &dof_handler,
         const std::function<void(const unsigned int, VectorType &)>
           &initialize_dof_vector);
+
+  /** @} */
+
+  /**
+   * @name Tranfer functions.
+   */
+  /** @{ */
 
   /**
    * Perform prolongation.
@@ -982,6 +1009,13 @@ public:
                     MGLevelObject<VectorType> &dst,
                     const InVector &           src) const;
 
+  /** @} */
+
+  /**
+   * @name Utility functions.
+   */
+  /** @{ */
+
   /**
    * Return the memory consumption of the allocated memory in this class.
    *
@@ -1004,34 +1038,13 @@ public:
   max_level() const;
 
   /**
-   * TODO.
-   */
-  void
-  print_indices(std::ostream &os) const
-  {
-    (void)os; // TODO
-  }
-
-  /**
    * Clear all data fields and brings the class into a condition similar
    * to after having called the default constructor.
    */
   void
-  clear()
-  {
-    internal_transfer.clear();
-    transfer.clear();
-    external_partitioners.clear();
-    this->mg_constrained_dofs = nullptr;
-    this->solution_ghosted_global_vector.reinit(0);
-    this->ghosted_global_vector.reinit(0);
-    this->ghosted_level_vector.clear();
-    this->solution_copy_indices.clear();
-    this->copy_indices.clear();
-    this->solution_copy_indices_level_mine.clear();
-    this->copy_indices_level_mine.clear();
-    this->copy_indices_global_mine.clear();
-  }
+  clear();
+
+  /** @} */
 
 private:
   /**
@@ -1191,6 +1204,17 @@ MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
 {
   this->intitialize_transfer_references(transfer);
   this->build(initialize_dof_vector);
+}
+
+
+
+template <int dim, typename VectorType>
+template <typename MGTwoLevelTransferObject>
+void
+MGTransferGlobalCoarsening<dim, VectorType>::intitialize_two_level_transfers(
+  const MGLevelObject<MGTwoLevelTransferObject> &transfer)
+{
+  this->intitialize_transfer_references(transfer);
 }
 
 
@@ -1472,9 +1496,12 @@ MGTransferGlobalCoarsening<dim, VectorType>::copy_to_mg(
 
   for (unsigned int level = dst.min_level(); level <= dst.max_level(); ++level)
     {
-      initialize_dof_vector(level, dst[level], src);
+      this->initialize_dof_vector(level, dst[level], src);
 
-      dst[level] = 0.0; // TODO
+      if ((this->perform_plain_copy == false &&
+           this->perform_renumbered_plain_copy == false) ||
+          level != dst.max_level())
+        dst[level] = 0;
     }
 
   if (this->perform_plain_copy)
@@ -1584,7 +1611,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::interpolate_to_mg(
   AssertDimension(max_level, dst.max_level());
 
   for (unsigned int level = min_level; level <= max_level; ++level)
-    initialize_dof_vector(level, dst[level], src);
+    this->initialize_dof_vector(level, dst[level], src);
 
   if (this->perform_plain_copy)
     {
@@ -1682,6 +1709,18 @@ inline unsigned int
 MGTransferGlobalCoarsening<dim, VectorType>::max_level() const
 {
   return transfer.max_level();
+}
+
+
+template <int dim, typename VectorType>
+inline void
+MGTransferGlobalCoarsening<dim, VectorType>::clear()
+{
+  MGLevelGlobalTransfer<VectorType>::clear();
+
+  internal_transfer.clear();
+  transfer.clear();
+  external_partitioners.clear();
 }
 
 #endif
