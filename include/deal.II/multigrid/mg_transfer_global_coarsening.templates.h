@@ -3442,12 +3442,8 @@ MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>::
 
 template <int dim, typename Number>
 MGTransferBlockMF<dim, Number>::MGTransferBlockMF(
-  const MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>>
-    &transfer_operator)
-  : MGTransferBlockMatrixFreeBase<
-      dim,
-      Number,
-      MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>>>(true)
+  const MGTransferMF<dim, Number> &transfer_operator)
+  : MGTransferBlockMatrixFreeBase<dim, Number, MGTransferMF<dim, Number>>(true)
 {
   this->transfer_operators = {&transfer_operator};
 }
@@ -3457,10 +3453,7 @@ MGTransferBlockMF<dim, Number>::MGTransferBlockMF(
 template <int dim, typename Number>
 MGTransferBlockMF<dim, Number>::MGTransferBlockMF(
   const MGConstrainedDoFs &mg_constrained_dofs)
-  : MGTransferBlockMatrixFreeBase<
-      dim,
-      Number,
-      MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>>>(true)
+  : MGTransferBlockMatrixFreeBase<dim, Number, MGTransferMF<dim, Number>>(true)
 {
   initialize_constraints(mg_constrained_dofs);
 }
@@ -3470,10 +3463,7 @@ MGTransferBlockMF<dim, Number>::MGTransferBlockMF(
 template <int dim, typename Number>
 MGTransferBlockMF<dim, Number>::MGTransferBlockMF(
   const std::vector<MGConstrainedDoFs> &mg_constrained_dofs)
-  : MGTransferBlockMatrixFreeBase<
-      dim,
-      Number,
-      MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>>>(false)
+  : MGTransferBlockMatrixFreeBase<dim, Number, MGTransferMF<dim, Number>>(false)
 {
   initialize_constraints(mg_constrained_dofs);
 }
@@ -3547,7 +3537,7 @@ MGTransferBlockMF<dim, Number>::build(
 
 
 template <int dim, typename Number>
-const MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>> &
+const MGTransferMF<dim, Number> &
 MGTransferBlockMF<dim, Number>::get_matrix_free_transfer(
   const unsigned int b) const
 {

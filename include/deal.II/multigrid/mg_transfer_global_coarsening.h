@@ -817,14 +817,15 @@ private:
  *
  * The implementation of this class is explained in detail in @cite munch2022gc.
  */
-template <int dim, typename VectorType>
-class MGTransferMF : public dealii::MGLevelGlobalTransfer<VectorType>
+template <int dim, typename Number>
+class MGTransferMF : public dealii::MGLevelGlobalTransfer<
+                       LinearAlgebra::distributed::Vector<Number>>
 {
 public:
   /**
    * Value type.
    */
-  using Number = typename VectorType::value_type;
+  using VectorType = LinearAlgebra::distributed::Vector<Number>;
 
   /**
    * Default constructor.
@@ -1101,18 +1102,13 @@ private:
  */
 template <int dim, typename Number>
 class MGTransferBlockMF
-  : public MGTransferBlockMatrixFreeBase<
-      dim,
-      Number,
-      MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>>>
+  : public MGTransferBlockMatrixFreeBase<dim, Number, MGTransferMF<dim, Number>>
 {
 public:
   /**
    * Constructor.
    */
-  MGTransferBlockMF(
-    const MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>>
-      &transfer_operator);
+  MGTransferBlockMF(const MGTransferMF<dim, Number> &transfer_operator);
 
   /**
    * Constructor.
@@ -1169,28 +1165,26 @@ public:
   build(const std::vector<const DoFHandler<dim> *> &dof_handler);
 
 protected:
-  const MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>> &
+  const MGTransferMF<dim, Number> &
   get_matrix_free_transfer(const unsigned int b) const override;
 
 private:
   /**
    * Internal non-block version of transfer operation.
    */
-  std::vector<MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>>>
-    transfer_operators_internal;
+  std::vector<MGTransferMF<dim, Number>> transfer_operators_internal;
 
   /**
    * Non-block version of transfer operation.
    */
-  std::vector<SmartPointer<
-    const MGTransferMF<dim, LinearAlgebra::distributed::Vector<Number>>>>
-    transfer_operators;
+  std::vector<SmartPointer<const MGTransferMF<dim, Number>>> transfer_operators;
 };
 
 
 
 template <int dim, typename VectorType>
-using MGTransferGlobalCoarsening = MGTransferMF<dim, VectorType>;
+using MGTransferGlobalCoarsening =
+  MGTransferMF<dim, typename VectorType::value_type>;
 
 template <int dim, typename VectorType>
 using MGTransferBlockGlobalCoarsening =
@@ -1204,9 +1198,9 @@ using MGTransferBlockGlobalCoarsening =
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 template <typename MGTwoLevelTransferObject>
-MGTransferMF<dim, VectorType>::MGTransferMF(
+MGTransferMF<dim, Number>::MGTransferMF(
   const MGLevelObject<MGTwoLevelTransferObject> &transfer,
   const std::function<void(const unsigned int, VectorType &)>
     &initialize_dof_vector)
@@ -1217,10 +1211,10 @@ MGTransferMF<dim, VectorType>::MGTransferMF(
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 template <typename MGTwoLevelTransferObject>
 void
-MGTransferMF<dim, VectorType>::intitialize_two_level_transfers(
+MGTransferMF<dim, Number>::intitialize_two_level_transfers(
   const MGLevelObject<MGTwoLevelTransferObject> &transfer)
 {
   this->intitialize_transfer_references(transfer);
@@ -1228,8 +1222,8 @@ MGTransferMF<dim, VectorType>::intitialize_two_level_transfers(
 
 
 
-template <int dim, typename VectorType>
-MGTransferMF<dim, VectorType>::MGTransferMF(
+template <int dim, typename Number>
+MGTransferMF<dim, Number>::MGTransferMF(
   const MGConstrainedDoFs &mg_constrained_dofs)
 {
   this->initialize_constraints(mg_constrained_dofs);
@@ -1237,9 +1231,9 @@ MGTransferMF<dim, VectorType>::MGTransferMF(
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 void
-MGTransferMF<dim, VectorType>::initialize_constraints(
+MGTransferMF<dim, Number>::initialize_constraints(
   const MGConstrainedDoFs &mg_constrained_dofs)
 {
   this->mg_constrained_dofs = &mg_constrained_dofs;
@@ -1247,9 +1241,9 @@ MGTransferMF<dim, VectorType>::initialize_constraints(
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 void
-MGTransferMF<dim, VectorType>::intitialize_internal_transfer(
+MGTransferMF<dim, Number>::intitialize_internal_transfer(
   const DoFHandler<dim> &                      dof_handler,
   const SmartPointer<const MGConstrainedDoFs> &mg_constrained_dofs)
 {
@@ -1294,10 +1288,10 @@ MGTransferMF<dim, VectorType>::intitialize_internal_transfer(
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 template <typename MGTwoLevelTransferObject>
 void
-MGTransferMF<dim, VectorType>::intitialize_transfer_references(
+MGTransferMF<dim, Number>::intitialize_transfer_references(
   const MGLevelObject<MGTwoLevelTransferObject> &transfer)
 {
   const unsigned int min_level = transfer.min_level();
@@ -1313,9 +1307,9 @@ MGTransferMF<dim, VectorType>::intitialize_transfer_references(
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 void
-MGTransferMF<dim, VectorType>::build(
+MGTransferMF<dim, Number>::build(
   const std::vector<std::shared_ptr<const Utilities::MPI::Partitioner>>
     &external_partitioners)
 {
@@ -1354,9 +1348,9 @@ MGTransferMF<dim, VectorType>::build(
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 void
-MGTransferMF<dim, VectorType>::build(
+MGTransferMF<dim, Number>::build(
   const std::function<void(const unsigned int, VectorType &)>
     &initialize_dof_vector)
 {
@@ -1387,9 +1381,9 @@ MGTransferMF<dim, VectorType>::build(
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 void
-MGTransferMF<dim, VectorType>::build(
+MGTransferMF<dim, Number>::build(
   const DoFHandler<dim> &dof_handler,
   const std::vector<std::shared_ptr<const Utilities::MPI::Partitioner>>
     &external_partitioners)
@@ -1402,9 +1396,9 @@ MGTransferMF<dim, VectorType>::build(
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 void
-MGTransferMF<dim, VectorType>::build(
+MGTransferMF<dim, Number>::build(
   const DoFHandler<dim> &dof_handler,
   const std::function<void(const unsigned int, VectorType &)>
     &initialize_dof_vector)
@@ -1417,10 +1411,10 @@ MGTransferMF<dim, VectorType>::build(
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 template <class InVector>
 void
-MGTransferMF<dim, VectorType>::initialize_dof_vector(
+MGTransferMF<dim, Number>::initialize_dof_vector(
   const unsigned int level,
   VectorType &       vec,
   const InVector &   vec_reference,
@@ -1465,11 +1459,11 @@ MGTransferMF<dim, VectorType>::initialize_dof_vector(
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 void
-MGTransferMF<dim, VectorType>::prolongate(const unsigned int to_level,
-                                          VectorType &       dst,
-                                          const VectorType & src) const
+MGTransferMF<dim, Number>::prolongate(const unsigned int to_level,
+                                      VectorType &       dst,
+                                      const VectorType & src) const
 {
   dst = 0;
   prolongate_and_add(to_level, dst, src);
@@ -1477,34 +1471,34 @@ MGTransferMF<dim, VectorType>::prolongate(const unsigned int to_level,
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 void
-MGTransferMF<dim, VectorType>::prolongate_and_add(const unsigned int to_level,
-                                                  VectorType &       dst,
-                                                  const VectorType & src) const
+MGTransferMF<dim, Number>::prolongate_and_add(const unsigned int to_level,
+                                              VectorType &       dst,
+                                              const VectorType & src) const
 {
   this->transfer[to_level]->prolongate_and_add(dst, src);
 }
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 void
-MGTransferMF<dim, VectorType>::restrict_and_add(const unsigned int from_level,
-                                                VectorType &       dst,
-                                                const VectorType & src) const
+MGTransferMF<dim, Number>::restrict_and_add(const unsigned int from_level,
+                                            VectorType &       dst,
+                                            const VectorType & src) const
 {
   this->transfer[from_level]->restrict_and_add(dst, src);
 }
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 template <class InVector>
 void
-MGTransferMF<dim, VectorType>::copy_to_mg(const DoFHandler<dim> &dof_handler,
-                                          MGLevelObject<VectorType> &dst,
-                                          const InVector &           src) const
+MGTransferMF<dim, Number>::copy_to_mg(const DoFHandler<dim> &    dof_handler,
+                                      MGLevelObject<VectorType> &dst,
+                                      const InVector &           src) const
 {
   (void)dof_handler;
 
@@ -1557,10 +1551,10 @@ MGTransferMF<dim, VectorType>::copy_to_mg(const DoFHandler<dim> &dof_handler,
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 template <class OutVector>
 void
-MGTransferMF<dim, VectorType>::copy_from_mg(
+MGTransferMF<dim, Number>::copy_from_mg(
   const DoFHandler<dim> &          dof_handler,
   OutVector &                      dst,
   const MGLevelObject<VectorType> &src) const
@@ -1611,11 +1605,11 @@ MGTransferMF<dim, VectorType>::copy_from_mg(
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 template <class InVector>
 void
-MGTransferMF<dim, VectorType>::interpolate_to_mg(MGLevelObject<VectorType> &dst,
-                                                 const InVector &src) const
+MGTransferMF<dim, Number>::interpolate_to_mg(MGLevelObject<VectorType> &dst,
+                                             const InVector &src) const
 {
   const unsigned int min_level = transfer.min_level();
   const unsigned int max_level = transfer.max_level();
@@ -1679,13 +1673,12 @@ MGTransferMF<dim, VectorType>::interpolate_to_mg(MGLevelObject<VectorType> &dst,
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 template <class InVector>
 void
-MGTransferMF<dim, VectorType>::interpolate_to_mg(
-  const DoFHandler<dim> &    dof_handler,
-  MGLevelObject<VectorType> &dst,
-  const InVector &           src) const
+MGTransferMF<dim, Number>::interpolate_to_mg(const DoFHandler<dim> &dof_handler,
+                                             MGLevelObject<VectorType> &dst,
+                                             const InVector &src) const
 {
   (void)dof_handler;
 
@@ -1694,9 +1687,9 @@ MGTransferMF<dim, VectorType>::interpolate_to_mg(
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 std::size_t
-MGTransferMF<dim, VectorType>::memory_consumption() const
+MGTransferMF<dim, Number>::memory_consumption() const
 {
   std::size_t size = 0;
 
@@ -1711,26 +1704,26 @@ MGTransferMF<dim, VectorType>::memory_consumption() const
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 inline unsigned int
-MGTransferMF<dim, VectorType>::min_level() const
+MGTransferMF<dim, Number>::min_level() const
 {
   return transfer.min_level();
 }
 
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 inline unsigned int
-MGTransferMF<dim, VectorType>::max_level() const
+MGTransferMF<dim, Number>::max_level() const
 {
   return transfer.max_level();
 }
 
 
-template <int dim, typename VectorType>
+template <int dim, typename Number>
 inline void
-MGTransferMF<dim, VectorType>::clear()
+MGTransferMF<dim, Number>::clear()
 {
   MGLevelGlobalTransfer<VectorType>::clear();
 
