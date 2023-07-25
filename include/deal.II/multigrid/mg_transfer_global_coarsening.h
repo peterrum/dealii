@@ -1072,7 +1072,8 @@ private:
   void
   initialize_dof_vector(const unsigned int level,
                         VectorType &       vector,
-                        const InVector &   vector_reference) const;
+                        const InVector &   vector_reference,
+                        const bool         omit_zeroing_entries) const;
 
   /**
    * Internal transfer operator.
@@ -1414,7 +1415,8 @@ void
 MGTransferGlobalCoarsening<dim, VectorType>::initialize_dof_vector(
   const unsigned int level,
   VectorType &       vec,
-  const InVector &   vec_reference) const
+  const InVector &   vec_reference,
+  const bool         omit_zeroing_entries) const
 {
   std::shared_ptr<const Utilities::MPI::Partitioner> partitioner;
 
@@ -1434,15 +1436,23 @@ MGTransferGlobalCoarsening<dim, VectorType>::initialize_dof_vector(
 
   // yes: same partitioners are used
   if (vec.get_partitioner().get() == partitioner.get())
-    return; // nothing to do
+    {
+      if (omit_zeroing_entries == false)
+        vec = 0;
+      return; // nothing to do
+    }
 
   // yes: vectors are compatible
   if (vec.size() == partitioner->size() &&
       vec.locally_owned_size() == partitioner->locally_owned_size())
-    return; // nothing to do
+    {
+      if (omit_zeroing_entries == false)
+        vec = 0;
+      return; // nothing to do
+    }
 
   // no
-  vec.reinit(partitioner);
+  vec.reinit(partitioner, omit_zeroing_entries);
 }
 
 
@@ -1496,12 +1506,12 @@ MGTransferGlobalCoarsening<dim, VectorType>::copy_to_mg(
 
   for (unsigned int level = dst.min_level(); level <= dst.max_level(); ++level)
     {
-      this->initialize_dof_vector(level, dst[level], src);
+      const bool zero_out_values =
+        (this->perform_plain_copy == false &&
+         this->perform_renumbered_plain_copy == false) ||
+        level != dst.max_level();
 
-      if ((this->perform_plain_copy == false &&
-           this->perform_renumbered_plain_copy == false) ||
-          level != dst.max_level())
-        dst[level] = 0;
+      this->initialize_dof_vector(level, dst[level], src, !zero_out_values);
     }
 
   if (this->perform_plain_copy)
@@ -1611,7 +1621,10 @@ MGTransferGlobalCoarsening<dim, VectorType>::interpolate_to_mg(
   AssertDimension(max_level, dst.max_level());
 
   for (unsigned int level = min_level; level <= max_level; ++level)
-    this->initialize_dof_vector(level, dst[level], src);
+    {
+      const bool zero_out_values = false;
+      this->initialize_dof_vector(level, dst[level], src, !zero_out_values);
+    }
 
   if (this->perform_plain_copy)
     {
