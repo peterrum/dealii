@@ -358,8 +358,7 @@ do_test(const DoFHandler<dim> &dof)
        ++level)
     partitioners.push_back(mg_matrices[level].get_vector_partitioner());
 
-  MGTransferGlobalCoarsening<dim, LinearAlgebra::distributed::Vector<number>>
-    mg_transfer(mg_constrained_dofs);
+  MGTransferMF<dim, number> mg_transfer(mg_constrained_dofs);
   mg_transfer.build(dof, partitioners);
 
   MGCoarseIterative<LevelMatrixType, number> mg_coarse;
@@ -396,10 +395,9 @@ do_test(const DoFHandler<dim> &dof)
 
   Multigrid<LinearAlgebra::distributed::Vector<number>> mg(
     mg_matrix, mg_coarse, mg_transfer, mg_smoother, mg_smoother);
-  PreconditionMG<
-    dim,
-    LinearAlgebra::distributed::Vector<number>,
-    MGTransferGlobalCoarsening<dim, LinearAlgebra::distributed::Vector<number>>>
+  PreconditionMG<dim,
+                 LinearAlgebra::distributed::Vector<number>,
+                 MGTransferMF<dim, number>>
     preconditioner(dof, mg, mg_transfer);
 
   {

@@ -561,8 +561,7 @@ do_test(const DoFHandler<dim> &dof, const unsigned n_q_points_1d)
   mg_constrained_dofs.initialize(dof);
   mg_constrained_dofs.make_zero_boundary_constraints(dof, {0});
 
-  MGTransferGlobalCoarsening<dim, LinearAlgebra::distributed::Vector<number>>
-    mg_transfer(mg_constrained_dofs);
+  MGTransferMF<dim, number> mg_transfer(mg_constrained_dofs);
 
   mg_transfer.build(dof, [&](const unsigned int level, auto &vec) {
     mg_matrices[level].initialize_dof_vector(vec);
@@ -572,10 +571,9 @@ do_test(const DoFHandler<dim> &dof, const unsigned n_q_points_1d)
 
   Multigrid<LinearAlgebra::distributed::Vector<double>> mg(
     mg_matrix, mg_coarse, mg_transfer, mg_smoother, mg_smoother);
-  PreconditionMG<
-    dim,
-    LinearAlgebra::distributed::Vector<double>,
-    MGTransferGlobalCoarsening<dim, LinearAlgebra::distributed::Vector<number>>>
+  PreconditionMG<dim,
+                 LinearAlgebra::distributed::Vector<double>,
+                 MGTransferMF<dim, number>>
     preconditioner(dof, mg, mg_transfer);
 
   {

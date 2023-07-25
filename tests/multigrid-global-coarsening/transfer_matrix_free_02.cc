@@ -106,9 +106,7 @@ check(const unsigned int fe_degree)
       transfer_ref.build(mgdof);
 
       // build matrix-free transfer
-      MGTransferGlobalCoarsening<dim,
-                                 LinearAlgebra::distributed::Vector<Number>>
-        transfer(mg_constrained_dofs);
+      MGTransferMF<dim, Number> transfer(mg_constrained_dofs);
       transfer.build(mgdof);
 
       // check prolongation for all levels using random vector

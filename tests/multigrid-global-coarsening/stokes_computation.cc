@@ -1273,9 +1273,7 @@ namespace StokesClass
                                        false,
                                        false);
 
-    using Transfer =
-      MGTransferGlobalCoarsening<dim,
-                                 LinearAlgebra::distributed::Vector<double>>;
+    using Transfer = MGTransferMF<dim, double>;
 
     Transfer mg_transfer(mg_constrained_dofs);
     mg_transfer.initialize_constraints(mg_constrained_dofs);

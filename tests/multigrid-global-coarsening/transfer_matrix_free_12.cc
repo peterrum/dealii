@@ -73,8 +73,7 @@ check(const FiniteElement<dim> &fe_scalar)
   mgdof.distribute_mg_dofs();
 
   // build matrix-free transfer
-  MGTransferGlobalCoarsening<dim, LinearAlgebra::distributed::Vector<Number>>
-    transfer;
+  MGTransferMF<dim, Number> transfer;
   transfer.build(mgdof);
 
   LinearAlgebra::distributed::Vector<double> vrefdouble;

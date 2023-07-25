@@ -191,8 +191,7 @@ do_test(const DoFHandler<dim> &dof)
       mg_matrices[level].compute_diagonal();
     }
 
-  MGTransferGlobalCoarsening<dim, LinearAlgebra::distributed::Vector<double>>
-    mg_transfer(mg_constrained_dofs);
+  MGTransferMF<dim, double> mg_transfer(mg_constrained_dofs);
   mg_transfer.build(dof);
 
   MGCoarseIterative<LevelMatrixType, number> mg_coarse;
@@ -224,10 +223,9 @@ do_test(const DoFHandler<dim> &dof)
 
   Multigrid<LinearAlgebra::distributed::Vector<double>> mg(
     mg_matrix, mg_coarse, mg_transfer, mg_smoother, mg_smoother);
-  PreconditionMG<
-    dim,
-    LinearAlgebra::distributed::Vector<double>,
-    MGTransferGlobalCoarsening<dim, LinearAlgebra::distributed::Vector<double>>>
+  PreconditionMG<dim,
+                 LinearAlgebra::distributed::Vector<double>,
+                 MGTransferMF<dim, double>>
     preconditioner(dof, mg, mg_transfer);
 
   {

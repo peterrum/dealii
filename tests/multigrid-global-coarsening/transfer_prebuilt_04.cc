@@ -95,9 +95,7 @@ check()
 #endif
       {
         // but the matrix free transfer will work without Trilinos
-        MGTransferGlobalCoarsening<dim,
-                                   LinearAlgebra::distributed::Vector<double>>
-          transfer_ref(mg_constrained_dofs);
+        MGTransferMF<dim, double> transfer_ref(mg_constrained_dofs);
         transfer_ref.build(mgdof);
       }
     }

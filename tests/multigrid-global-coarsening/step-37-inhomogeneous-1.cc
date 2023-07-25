@@ -514,8 +514,7 @@ namespace Step37
   void
   LaplaceProblem<dim>::solve()
   {
-    MGTransferGlobalCoarsening<dim, LinearAlgebra::distributed::Vector<float>>
-      mg_transfer(mg_constrained_dofs);
+    MGTransferMF<dim, float> mg_transfer(mg_constrained_dofs);
     mg_transfer.build(dof_handler);
 
     using SmootherType =
@@ -567,11 +566,9 @@ namespace Step37
       mg_matrix, mg_coarse, mg_transfer, mg_smoother, mg_smoother);
     mg.set_edge_matrices(mg_interface, mg_interface);
 
-    PreconditionMG<
-      dim,
-      LinearAlgebra::distributed::Vector<float>,
-      MGTransferGlobalCoarsening<dim,
-                                 LinearAlgebra::distributed::Vector<float>>>
+    PreconditionMG<dim,
+                   LinearAlgebra::distributed::Vector<float>,
+                   MGTransferMF<dim, float>>
       preconditioner(dof_handler, mg, mg_transfer);
 
     SolverControl solver_control(100, 1e-12 * system_rhs.l2_norm());

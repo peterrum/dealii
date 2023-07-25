@@ -69,8 +69,7 @@ check()
   user_constraints.close();
   mg_constrained_dofs.add_user_constraints(0, user_constraints);
 
-  MGTransferGlobalCoarsening<dim, LinearAlgebra::distributed::Vector<double>>
-    transfer_mf(mg_constrained_dofs);
+  MGTransferMF<dim, double> transfer_mf(mg_constrained_dofs);
   transfer_mf.build(mgdof);
 
   deallog << "SRC Vector" << std::endl;
