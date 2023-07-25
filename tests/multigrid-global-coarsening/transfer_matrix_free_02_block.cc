@@ -105,11 +105,16 @@ check(const unsigned int fe_degree)
       mg_constrained_dofs.make_zero_boundary_constraints(mgdof, {0});
 
       // build reference
-      MGTransferGlobalCoarsening<dim, LinearAlgebra::distributed::Vector<Number>> transfer_ref(mg_constrained_dofs);
+      MGTransferGlobalCoarsening<dim,
+                                 LinearAlgebra::distributed::Vector<Number>>
+        transfer_ref(mg_constrained_dofs);
       transfer_ref.build(mgdof);
 
       // build matrix-free transfer
-      MGTransferBlockGlobalCoarsening<dim, LinearAlgebra::distributed::Vector<Number>> transfer(mg_constrained_dofs);
+      MGTransferBlockGlobalCoarsening<
+        dim,
+        LinearAlgebra::distributed::Vector<Number>>
+        transfer(mg_constrained_dofs);
       transfer.build(mgdof);
 
       const unsigned int nb = 3;

@@ -818,8 +818,7 @@ private:
  * The implementation of this class is explained in detail in @cite munch2022gc.
  */
 template <int dim, typename VectorType>
-class MGTransferGlobalCoarsening
-  : public dealii::MGLevelGlobalTransfer<VectorType>
+class MGTransferMF : public dealii::MGLevelGlobalTransfer<VectorType>
 {
 public:
   /**
@@ -832,7 +831,7 @@ public:
    *
    * @note See also MGTransferMatrixFree.
    */
-  MGTransferGlobalCoarsening() = default;
+  MGTransferMF() = default;
 
   /**
    * @name Global coarsening.
@@ -849,10 +848,9 @@ public:
    * std::unique_ptr to the actual transfer operator.
    */
   template <typename MGTwoLevelTransferObject>
-  MGTransferGlobalCoarsening(
-    const MGLevelObject<MGTwoLevelTransferObject> &transfer,
-    const std::function<void(const unsigned int, VectorType &)>
-      &initialize_dof_vector = {});
+  MGTransferMF(const MGLevelObject<MGTwoLevelTransferObject> &transfer,
+               const std::function<void(const unsigned int, VectorType &)>
+                 &initialize_dof_vector = {});
 
   /**
    * Set two-level transfers.
@@ -895,7 +893,7 @@ public:
    *
    * @note See also MGTransferMatrixFree.
    */
-  MGTransferGlobalCoarsening(const MGConstrainedDoFs &mg_constrained_dofs);
+  MGTransferMF(const MGConstrainedDoFs &mg_constrained_dofs);
 
   /**
    * Initialize the constraints to be used in build().
@@ -1000,7 +998,7 @@ public:
   /**
    * Like the above function but with a user-provided DoFHandler as
    * additional argument. However, this DoFHandler is not used internally, but
-   * is required to be able to use MGTransferGlobalCoarsening and
+   * is required to be able to use MGTransferMF and
    * MGTransferMatrixFree as template argument.
    */
   template <class InVector>
@@ -1099,43 +1097,40 @@ private:
 /**
  * This class works with LinearAlgebra::distributed::BlockVector and
  * performs exactly the same transfer operations for each block as
- * MGTransferGlobalCoarsening.
+ * MGTransferMF.
  */
 template <int dim, typename VectorType>
-class MGTransferBlockGlobalCoarsening
-  : public MGTransferBlockMatrixFreeBase<
-      dim,
-      typename VectorType::value_type,
-      MGTransferGlobalCoarsening<dim, VectorType>>
+class MGTransferBlockMF
+  : public MGTransferBlockMatrixFreeBase<dim,
+                                         typename VectorType::value_type,
+                                         MGTransferMF<dim, VectorType>>
 {
 public:
   /**
    * Constructor.
    */
-  MGTransferBlockGlobalCoarsening(
-    const MGTransferGlobalCoarsening<dim, VectorType> &transfer_operator);
+  MGTransferBlockMF(const MGTransferMF<dim, VectorType> &transfer_operator);
 
   /**
    * Constructor.
    *
    * @note See also MGTransferBlockMatrixFree.
    */
-  MGTransferBlockGlobalCoarsening() = default;
+  MGTransferBlockMF() = default;
 
   /**
    * Constructor.
    *
    * @note See also MGTransferBlockMatrixFree.
    */
-  MGTransferBlockGlobalCoarsening(const MGConstrainedDoFs &mg_constrained_dofs);
+  MGTransferBlockMF(const MGConstrainedDoFs &mg_constrained_dofs);
 
   /**
    * Constructor.
    *
    * @note See also MGTransferBlockMatrixFree.
    */
-  MGTransferBlockGlobalCoarsening(
-    const std::vector<MGConstrainedDoFs> &mg_constrained_dofs);
+  MGTransferBlockMF(const std::vector<MGConstrainedDoFs> &mg_constrained_dofs);
 
   /**
    * Initialize the constraints to be used in build().
@@ -1171,22 +1166,29 @@ public:
   build(const std::vector<const DoFHandler<dim> *> &dof_handler);
 
 protected:
-  const MGTransferGlobalCoarsening<dim, VectorType> &
+  const MGTransferMF<dim, VectorType> &
   get_matrix_free_transfer(const unsigned int b) const override;
 
 private:
   /**
    * Internal non-block version of transfer operation.
    */
-  std::vector<MGTransferGlobalCoarsening<dim, VectorType>>
-    transfer_operators_internal;
+  std::vector<MGTransferMF<dim, VectorType>> transfer_operators_internal;
 
   /**
    * Non-block version of transfer operation.
    */
-  std::vector<SmartPointer<const MGTransferGlobalCoarsening<dim, VectorType>>>
+  std::vector<SmartPointer<const MGTransferMF<dim, VectorType>>>
     transfer_operators;
 };
+
+
+
+template <int dim, typename VectorType>
+using MGTransferGlobalCoarsening = MGTransferMF<dim, VectorType>;
+
+template <int dim, typename VectorType>
+using MGTransferBlockGlobalCoarsening = MGTransferBlockMF<dim, VectorType>;
 
 
 
@@ -1198,7 +1200,7 @@ private:
 
 template <int dim, typename VectorType>
 template <typename MGTwoLevelTransferObject>
-MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
+MGTransferMF<dim, VectorType>::MGTransferMF(
   const MGLevelObject<MGTwoLevelTransferObject> &transfer,
   const std::function<void(const unsigned int, VectorType &)>
     &initialize_dof_vector)
@@ -1212,7 +1214,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
 template <int dim, typename VectorType>
 template <typename MGTwoLevelTransferObject>
 void
-MGTransferGlobalCoarsening<dim, VectorType>::intitialize_two_level_transfers(
+MGTransferMF<dim, VectorType>::intitialize_two_level_transfers(
   const MGLevelObject<MGTwoLevelTransferObject> &transfer)
 {
   this->intitialize_transfer_references(transfer);
@@ -1221,7 +1223,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::intitialize_two_level_transfers(
 
 
 template <int dim, typename VectorType>
-MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
+MGTransferMF<dim, VectorType>::MGTransferMF(
   const MGConstrainedDoFs &mg_constrained_dofs)
 {
   this->initialize_constraints(mg_constrained_dofs);
@@ -1231,7 +1233,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::MGTransferGlobalCoarsening(
 
 template <int dim, typename VectorType>
 void
-MGTransferGlobalCoarsening<dim, VectorType>::initialize_constraints(
+MGTransferMF<dim, VectorType>::initialize_constraints(
   const MGConstrainedDoFs &mg_constrained_dofs)
 {
   this->mg_constrained_dofs = &mg_constrained_dofs;
@@ -1241,7 +1243,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::initialize_constraints(
 
 template <int dim, typename VectorType>
 void
-MGTransferGlobalCoarsening<dim, VectorType>::intitialize_internal_transfer(
+MGTransferMF<dim, VectorType>::intitialize_internal_transfer(
   const DoFHandler<dim> &                      dof_handler,
   const SmartPointer<const MGConstrainedDoFs> &mg_constrained_dofs)
 {
@@ -1289,7 +1291,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::intitialize_internal_transfer(
 template <int dim, typename VectorType>
 template <typename MGTwoLevelTransferObject>
 void
-MGTransferGlobalCoarsening<dim, VectorType>::intitialize_transfer_references(
+MGTransferMF<dim, VectorType>::intitialize_transfer_references(
   const MGLevelObject<MGTwoLevelTransferObject> &transfer)
 {
   const unsigned int min_level = transfer.min_level();
@@ -1307,7 +1309,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::intitialize_transfer_references(
 
 template <int dim, typename VectorType>
 void
-MGTransferGlobalCoarsening<dim, VectorType>::build(
+MGTransferMF<dim, VectorType>::build(
   const std::vector<std::shared_ptr<const Utilities::MPI::Partitioner>>
     &external_partitioners)
 {
@@ -1348,7 +1350,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::build(
 
 template <int dim, typename VectorType>
 void
-MGTransferGlobalCoarsening<dim, VectorType>::build(
+MGTransferMF<dim, VectorType>::build(
   const std::function<void(const unsigned int, VectorType &)>
     &initialize_dof_vector)
 {
@@ -1381,7 +1383,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::build(
 
 template <int dim, typename VectorType>
 void
-MGTransferGlobalCoarsening<dim, VectorType>::build(
+MGTransferMF<dim, VectorType>::build(
   const DoFHandler<dim> &dof_handler,
   const std::vector<std::shared_ptr<const Utilities::MPI::Partitioner>>
     &external_partitioners)
@@ -1396,7 +1398,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::build(
 
 template <int dim, typename VectorType>
 void
-MGTransferGlobalCoarsening<dim, VectorType>::build(
+MGTransferMF<dim, VectorType>::build(
   const DoFHandler<dim> &dof_handler,
   const std::function<void(const unsigned int, VectorType &)>
     &initialize_dof_vector)
@@ -1412,7 +1414,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::build(
 template <int dim, typename VectorType>
 template <class InVector>
 void
-MGTransferGlobalCoarsening<dim, VectorType>::initialize_dof_vector(
+MGTransferMF<dim, VectorType>::initialize_dof_vector(
   const unsigned int level,
   VectorType &       vec,
   const InVector &   vec_reference,
@@ -1459,10 +1461,9 @@ MGTransferGlobalCoarsening<dim, VectorType>::initialize_dof_vector(
 
 template <int dim, typename VectorType>
 void
-MGTransferGlobalCoarsening<dim, VectorType>::prolongate(
-  const unsigned int to_level,
-  VectorType &       dst,
-  const VectorType & src) const
+MGTransferMF<dim, VectorType>::prolongate(const unsigned int to_level,
+                                          VectorType &       dst,
+                                          const VectorType & src) const
 {
   dst = 0;
   prolongate_and_add(to_level, dst, src);
@@ -1472,10 +1473,9 @@ MGTransferGlobalCoarsening<dim, VectorType>::prolongate(
 
 template <int dim, typename VectorType>
 void
-MGTransferGlobalCoarsening<dim, VectorType>::prolongate_and_add(
-  const unsigned int to_level,
-  VectorType &       dst,
-  const VectorType & src) const
+MGTransferMF<dim, VectorType>::prolongate_and_add(const unsigned int to_level,
+                                                  VectorType &       dst,
+                                                  const VectorType & src) const
 {
   this->transfer[to_level]->prolongate_and_add(dst, src);
 }
@@ -1484,10 +1484,9 @@ MGTransferGlobalCoarsening<dim, VectorType>::prolongate_and_add(
 
 template <int dim, typename VectorType>
 void
-MGTransferGlobalCoarsening<dim, VectorType>::restrict_and_add(
-  const unsigned int from_level,
-  VectorType &       dst,
-  const VectorType & src) const
+MGTransferMF<dim, VectorType>::restrict_and_add(const unsigned int from_level,
+                                                VectorType &       dst,
+                                                const VectorType & src) const
 {
   this->transfer[from_level]->restrict_and_add(dst, src);
 }
@@ -1497,10 +1496,9 @@ MGTransferGlobalCoarsening<dim, VectorType>::restrict_and_add(
 template <int dim, typename VectorType>
 template <class InVector>
 void
-MGTransferGlobalCoarsening<dim, VectorType>::copy_to_mg(
-  const DoFHandler<dim> &    dof_handler,
-  MGLevelObject<VectorType> &dst,
-  const InVector &           src) const
+MGTransferMF<dim, VectorType>::copy_to_mg(const DoFHandler<dim> &dof_handler,
+                                          MGLevelObject<VectorType> &dst,
+                                          const InVector &           src) const
 {
   (void)dof_handler;
 
@@ -1556,7 +1554,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::copy_to_mg(
 template <int dim, typename VectorType>
 template <class OutVector>
 void
-MGTransferGlobalCoarsening<dim, VectorType>::copy_from_mg(
+MGTransferMF<dim, VectorType>::copy_from_mg(
   const DoFHandler<dim> &          dof_handler,
   OutVector &                      dst,
   const MGLevelObject<VectorType> &src) const
@@ -1610,9 +1608,8 @@ MGTransferGlobalCoarsening<dim, VectorType>::copy_from_mg(
 template <int dim, typename VectorType>
 template <class InVector>
 void
-MGTransferGlobalCoarsening<dim, VectorType>::interpolate_to_mg(
-  MGLevelObject<VectorType> &dst,
-  const InVector &           src) const
+MGTransferMF<dim, VectorType>::interpolate_to_mg(MGLevelObject<VectorType> &dst,
+                                                 const InVector &src) const
 {
   const unsigned int min_level = transfer.min_level();
   const unsigned int max_level = transfer.max_level();
@@ -1679,7 +1676,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::interpolate_to_mg(
 template <int dim, typename VectorType>
 template <class InVector>
 void
-MGTransferGlobalCoarsening<dim, VectorType>::interpolate_to_mg(
+MGTransferMF<dim, VectorType>::interpolate_to_mg(
   const DoFHandler<dim> &    dof_handler,
   MGLevelObject<VectorType> &dst,
   const InVector &           src) const
@@ -1693,7 +1690,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::interpolate_to_mg(
 
 template <int dim, typename VectorType>
 std::size_t
-MGTransferGlobalCoarsening<dim, VectorType>::memory_consumption() const
+MGTransferMF<dim, VectorType>::memory_consumption() const
 {
   std::size_t size = 0;
 
@@ -1710,7 +1707,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::memory_consumption() const
 
 template <int dim, typename VectorType>
 inline unsigned int
-MGTransferGlobalCoarsening<dim, VectorType>::min_level() const
+MGTransferMF<dim, VectorType>::min_level() const
 {
   return transfer.min_level();
 }
@@ -1719,7 +1716,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::min_level() const
 
 template <int dim, typename VectorType>
 inline unsigned int
-MGTransferGlobalCoarsening<dim, VectorType>::max_level() const
+MGTransferMF<dim, VectorType>::max_level() const
 {
   return transfer.max_level();
 }
@@ -1727,7 +1724,7 @@ MGTransferGlobalCoarsening<dim, VectorType>::max_level() const
 
 template <int dim, typename VectorType>
 inline void
-MGTransferGlobalCoarsening<dim, VectorType>::clear()
+MGTransferMF<dim, VectorType>::clear()
 {
   MGLevelGlobalTransfer<VectorType>::clear();
 

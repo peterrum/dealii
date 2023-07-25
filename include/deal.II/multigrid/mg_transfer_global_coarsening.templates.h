@@ -3441,13 +3441,11 @@ MGTwoLevelTransferBase<LinearAlgebra::distributed::Vector<Number>>::
 
 
 template <int dim, typename VectorType>
-MGTransferBlockGlobalCoarsening<dim, VectorType>::
-  MGTransferBlockGlobalCoarsening(
-    const MGTransferGlobalCoarsening<dim, VectorType> &transfer_operator)
+MGTransferBlockMF<dim, VectorType>::MGTransferBlockMF(
+  const MGTransferMF<dim, VectorType> &transfer_operator)
   : MGTransferBlockMatrixFreeBase<dim,
                                   typename VectorType::value_type,
-                                  MGTransferGlobalCoarsening<dim, VectorType>>(
-      true)
+                                  MGTransferMF<dim, VectorType>>(true)
 {
   this->transfer_operators = {&transfer_operator};
 }
@@ -3455,12 +3453,11 @@ MGTransferBlockGlobalCoarsening<dim, VectorType>::
 
 
 template <int dim, typename VectorType>
-MGTransferBlockGlobalCoarsening<dim, VectorType>::
-  MGTransferBlockGlobalCoarsening(const MGConstrainedDoFs &mg_constrained_dofs)
+MGTransferBlockMF<dim, VectorType>::MGTransferBlockMF(
+  const MGConstrainedDoFs &mg_constrained_dofs)
   : MGTransferBlockMatrixFreeBase<dim,
                                   typename VectorType::value_type,
-                                  MGTransferGlobalCoarsening<dim, VectorType>>(
-      true)
+                                  MGTransferMF<dim, VectorType>>(true)
 {
   initialize_constraints(mg_constrained_dofs);
 }
@@ -3468,13 +3465,11 @@ MGTransferBlockGlobalCoarsening<dim, VectorType>::
 
 
 template <int dim, typename VectorType>
-MGTransferBlockGlobalCoarsening<dim, VectorType>::
-  MGTransferBlockGlobalCoarsening(
-    const std::vector<MGConstrainedDoFs> &mg_constrained_dofs)
+MGTransferBlockMF<dim, VectorType>::MGTransferBlockMF(
+  const std::vector<MGConstrainedDoFs> &mg_constrained_dofs)
   : MGTransferBlockMatrixFreeBase<dim,
                                   typename VectorType::value_type,
-                                  MGTransferGlobalCoarsening<dim, VectorType>>(
-      false)
+                                  MGTransferMF<dim, VectorType>>(false)
 {
   initialize_constraints(mg_constrained_dofs);
 }
@@ -3483,7 +3478,7 @@ MGTransferBlockGlobalCoarsening<dim, VectorType>::
 
 template <int dim, typename VectorType>
 void
-MGTransferBlockGlobalCoarsening<dim, VectorType>::initialize_constraints(
+MGTransferBlockMF<dim, VectorType>::initialize_constraints(
   const MGConstrainedDoFs &mg_constrained_dofs)
 {
   this->transfer_operators_internal.clear();
@@ -3502,7 +3497,7 @@ MGTransferBlockGlobalCoarsening<dim, VectorType>::initialize_constraints(
 
 template <int dim, typename VectorType>
 void
-MGTransferBlockGlobalCoarsening<dim, VectorType>::initialize_constraints(
+MGTransferBlockMF<dim, VectorType>::initialize_constraints(
   const std::vector<MGConstrainedDoFs> &mg_constrained_dofs)
 {
   this->transfer_operators_internal.clear();
@@ -3525,8 +3520,7 @@ MGTransferBlockGlobalCoarsening<dim, VectorType>::initialize_constraints(
 
 template <int dim, typename VectorType>
 void
-MGTransferBlockGlobalCoarsening<dim, VectorType>::build(
-  const DoFHandler<dim> &dof_handler)
+MGTransferBlockMF<dim, VectorType>::build(const DoFHandler<dim> &dof_handler)
 {
   AssertDimension(transfer_operators.size(), 1);
   this->transfer_operators_internal[0].build(dof_handler);
@@ -3536,7 +3530,7 @@ MGTransferBlockGlobalCoarsening<dim, VectorType>::build(
 
 template <int dim, typename VectorType>
 void
-MGTransferBlockGlobalCoarsening<dim, VectorType>::build(
+MGTransferBlockMF<dim, VectorType>::build(
   const std::vector<const DoFHandler<dim> *> &dof_handler)
 {
   AssertDimension(transfer_operators.size(), dof_handler.size());
@@ -3549,8 +3543,8 @@ MGTransferBlockGlobalCoarsening<dim, VectorType>::build(
 
 
 template <int dim, typename VectorType>
-const MGTransferGlobalCoarsening<dim, VectorType> &
-MGTransferBlockGlobalCoarsening<dim, VectorType>::get_matrix_free_transfer(
+const MGTransferMF<dim, VectorType> &
+MGTransferBlockMF<dim, VectorType>::get_matrix_free_transfer(
   const unsigned int b) const
 {
   AssertIndexRange(b, transfer_operators.size());

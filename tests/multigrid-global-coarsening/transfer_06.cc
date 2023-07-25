@@ -125,7 +125,10 @@ check(const unsigned int fe_degree)
         }
 
       // build reference non-block
-      std::vector<MGTransferGlobalCoarsening<dim, LinearAlgebra::distributed::Vector<Number>>> transfer_ref;
+      std::vector<
+        MGTransferGlobalCoarsening<dim,
+                                   LinearAlgebra::distributed::Vector<Number>>>
+        transfer_ref;
       for (unsigned int b = 0; b < nb; ++b)
         {
           transfer_ref.emplace_back(mg_constrained_dofs_vector[b]);
@@ -133,8 +136,10 @@ check(const unsigned int fe_degree)
         }
 
       // build matrix-free block transfer
-      MGTransferBlockGlobalCoarsening<dim, LinearAlgebra::distributed::Vector<Number>> transfer(
-        mg_constrained_dofs_vector);
+      MGTransferBlockGlobalCoarsening<
+        dim,
+        LinearAlgebra::distributed::Vector<Number>>
+        transfer(mg_constrained_dofs_vector);
       transfer.build(mgdof_ptr);
 
       MGLevelObject<LinearAlgebra::distributed::BlockVector<Number>> lbv(

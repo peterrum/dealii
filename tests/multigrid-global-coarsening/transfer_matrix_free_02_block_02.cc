@@ -120,7 +120,10 @@ check(const unsigned int fe_degree)
         }
 
       // build reference
-      std::vector<MGTransferGlobalCoarsening<dim, LinearAlgebra::distributed::Vector<Number>>> transfer_ref;
+      std::vector<
+        MGTransferGlobalCoarsening<dim,
+                                   LinearAlgebra::distributed::Vector<Number>>>
+        transfer_ref;
       for (unsigned int b = 0; b < nb; ++b)
         {
           transfer_ref.emplace_back(mg_constrained_dofs_vector[b]);
@@ -128,8 +131,10 @@ check(const unsigned int fe_degree)
         }
 
       // build matrix-free transfer
-      MGTransferBlockGlobalCoarsening<dim, LinearAlgebra::distributed::Vector<Number>> transfer(
-        mg_constrained_dofs_vector);
+      MGTransferBlockGlobalCoarsening<
+        dim,
+        LinearAlgebra::distributed::Vector<Number>>
+        transfer(mg_constrained_dofs_vector);
       transfer.build(mgdof_ptr);
 
       // check prolongation for all levels using random vector
