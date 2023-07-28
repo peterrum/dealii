@@ -469,9 +469,19 @@ namespace internal
 
   } // namespace
 
+
+
+  /**
+   * A class behaving like DoFCellAccessor. Intended to be used for locally
+   * relevant cell as a wrapper around DoFCellAccessor and for other cells
+   * behaving as if the cell would be available.
+   */
   class FineDoFHandlerViewCell
   {
   public:
+    /**
+     * Constructor.
+     */
     FineDoFHandlerViewCell(
       const std::function<bool()> &has_children_function,
       const std::function<void(std::vector<types::global_dof_index> &)>
@@ -482,41 +492,105 @@ namespace internal
       , active_fe_index_function(active_fe_index_function)
     {}
 
+    /**
+     * Return if cell has child.
+     */
     bool
     has_children() const
     {
       return has_children_function();
     }
 
+    /**
+     * Get DoF indices.
+     */
     void
     get_dof_indices(std::vector<types::global_dof_index> &dof_indices) const
     {
       get_dof_indices_function(dof_indices);
     }
-
+    /**
+     * Get active FE index.
+     */
     unsigned int
     active_fe_index() const
     {
       return active_fe_index_function();
     }
 
-
   private:
+    /**
+     * Lambda function returning if cell has child.
+     */
     const std::function<bool()> has_children_function;
+
+    /**
+     * Lambda function returning DoF indices.
+     */
     const std::function<void(std::vector<types::global_dof_index> &)>
-                                        get_dof_indices_function;
+      get_dof_indices_function;
+
+    /**
+     * Lambda function returning active FE index.
+     */
     const std::function<unsigned int()> active_fe_index_function;
   };
 
 
 
+  /**
+   * Base class for a view on fine DoFHandler.
+   *
+   * Implementations include:
+   *  - IdentityFineDoFHandlerView: all cells on the fine mesh are either
+   *    locally owned or ghosted; useful for p-multigrid without repartitioning;
+   *  - FistChildPolicyFineDoFHandlerView: parent cells are owned by the first
+   *    child cell; useful for local smoothing with fast setup;
+   *  - PermutationFineDoFHandlerView: fine mesh has the same set as the coarse
+   *    mesh but are partitioned differently; useful for p-multigrid with
+   *    repartitioning;
+   *  - GlobalCoarseningFineDoFHandlerView: cells on the coarse mesh are either
+   *    refined or not; useful for global coarsening.
+   */
   template <int dim>
-  class FineDoFHandlerView
+  class FineDoFHandlerViewBase
   {
   public:
-    FineDoFHandlerView(const DoFHandler<dim> &dof_handler_fine,
-                       const DoFHandler<dim> &dof_handler_coarse,
-                       const unsigned int     mg_level_fine)
+    /**
+     * Return cell on fine DoFHandler.
+     */
+    virtual FineDoFHandlerViewCell
+    get_cell(const typename DoFHandler<dim>::cell_iterator &cell) const = 0;
+
+    /**
+     * Return child of cell on fine DoFHandler.
+     */
+    virtual FineDoFHandlerViewCell
+    get_cell(const typename DoFHandler<dim>::cell_iterator &cell,
+             const unsigned int                             c) const = 0;
+
+    /**
+     * Return locally owned DoFs.
+     */
+    virtual const IndexSet &
+    locally_owned_dofs() const = 0;
+
+    /**
+     * Return ghost DoFs.
+     */
+    virtual const IndexSet &
+    locally_relevant_dofs() const = 0;
+  };
+
+
+
+  template <int dim>
+  class BlackBoxFineDoFHandlerView : public FineDoFHandlerViewBase<dim>
+  {
+  public:
+    BlackBoxFineDoFHandlerView(const DoFHandler<dim> &dof_handler_fine,
+                               const DoFHandler<dim> &dof_handler_coarse,
+                               const unsigned int     mg_level_fine)
       : dof_handler_fine(dof_handler_fine)
       , dof_handler_coarse(dof_handler_coarse)
       , mg_level_fine(mg_level_fine)
@@ -784,7 +858,7 @@ namespace internal
     }
 
     FineDoFHandlerViewCell
-    get_cell(const typename DoFHandler<dim>::cell_iterator &cell) const
+    get_cell(const typename DoFHandler<dim>::cell_iterator &cell) const override
     {
       const auto id = this->cell_id_translator.translate(cell);
 
@@ -856,7 +930,7 @@ namespace internal
 
     FineDoFHandlerViewCell
     get_cell(const typename DoFHandler<dim>::cell_iterator &cell,
-             const unsigned int                             c) const
+             const unsigned int                             c) const override
     {
       const auto id = this->cell_id_translator.translate(cell, c);
 
@@ -906,13 +980,13 @@ namespace internal
     }
 
     const IndexSet &
-    locally_owned_dofs() const
+    locally_owned_dofs() const override
     {
       return is_extended_locally_owned;
     }
 
     const IndexSet &
-    locally_relevant_dofs() const
+    locally_relevant_dofs() const override
     {
       return is_extended_ghosts;
     }
@@ -941,14 +1015,17 @@ namespace internal
   };
 
   template <int dim>
-  class GlobalCoarseningFineDoFHandlerView : public FineDoFHandlerView<dim>
+  class GlobalCoarseningFineDoFHandlerView
+    : public BlackBoxFineDoFHandlerView<dim>
   {
   public:
     GlobalCoarseningFineDoFHandlerView(const DoFHandler<dim> &dof_handler_dst,
                                        const DoFHandler<dim> &dof_handler_src,
                                        const unsigned int     mg_level_fine,
                                        const unsigned int     mg_level_coarse)
-      : FineDoFHandlerView<dim>(dof_handler_dst, dof_handler_src, mg_level_fine)
+      : BlackBoxFineDoFHandlerView<dim>(dof_handler_dst,
+                                        dof_handler_src,
+                                        mg_level_fine)
     {
       Assert((mg_level_fine == numbers::invalid_unsigned_int &&
               mg_level_coarse == numbers::invalid_unsigned_int) ||
@@ -998,16 +1075,17 @@ namespace internal
   };
 
   template <int dim>
-  class PermutationFineDoFHandlerView : public internal::FineDoFHandlerView<dim>
+  class PermutationFineDoFHandlerView
+    : public internal::BlackBoxFineDoFHandlerView<dim>
   {
   public:
     PermutationFineDoFHandlerView(const DoFHandler<dim> &dof_handler_dst,
                                   const DoFHandler<dim> &dof_handler_src,
                                   const unsigned int     mg_level_fine,
                                   const unsigned int     mg_level_coarse)
-      : internal::FineDoFHandlerView<dim>(dof_handler_dst,
-                                          dof_handler_src,
-                                          mg_level_fine)
+      : internal::BlackBoxFineDoFHandlerView<dim>(dof_handler_dst,
+                                                  dof_handler_src,
+                                                  mg_level_fine)
     {
       // get reference to triangulations
       const auto &tria_dst = dof_handler_dst.get_triangulation();
@@ -1241,7 +1319,7 @@ namespace internal
       //                      dof_handler_coarse.get_triangulation()) +
       //                      1);
 
-      std::unique_ptr<FineDoFHandlerView<dim>> dof_handler_fine_view;
+      std::unique_ptr<FineDoFHandlerViewBase<dim>> dof_handler_fine_view;
 
       if (true)
         dof_handler_fine_view =
@@ -1776,7 +1854,7 @@ namespace internal
           "(numbers::invalid_unsigned_int) or on refinement levels without "
           "hanging nodes."));
 
-      std::unique_ptr<FineDoFHandlerView<dim>> dof_handler_fine_view;
+      std::unique_ptr<FineDoFHandlerViewBase<dim>> dof_handler_fine_view;
 
       if (true)
         dof_handler_fine_view =
