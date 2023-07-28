@@ -3004,6 +3004,12 @@ public:
    */
   cell_iterator
   create_cell_iterator(const CellId &cell_id) const;
+
+  /**
+   * TODO
+   */
+  bool
+  contains_cell(const CellId &cell_id) const;
   /** @} */
 
   /**

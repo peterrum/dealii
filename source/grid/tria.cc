@@ -14213,8 +14213,14 @@ typename Triangulation<dim, spacedim>::cell_iterator
   Triangulation<dim, spacedim>::create_cell_iterator(
     const CellId &cell_id) const
 {
-  cell_iterator cell(
-    this, 0, coarse_cell_id_to_coarse_cell_index(cell_id.get_coarse_cell_id()));
+  const auto coarse_cell_index =
+    coarse_cell_id_to_coarse_cell_index(cell_id.get_coarse_cell_id());
+
+  Assert(coarse_cell_index != numbers::invalid_unsigned_int,
+         ExcMessage("CellId is invalid for this triangulation.\n"
+                    "Coarse cell could not be found."));
+
+  cell_iterator cell(this, 0, coarse_cell_index);
 
   for (const auto &child_index : cell_id.get_child_indices())
     {
@@ -14230,6 +14236,30 @@ typename Triangulation<dim, spacedim>::cell_iterator
     }
 
   return cell;
+}
+
+
+
+template <int dim, int spacedim>
+DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
+bool Triangulation<dim, spacedim>::contains_cell(const CellId &cell_id) const
+{
+  const auto coarse_cell_index =
+    coarse_cell_id_to_coarse_cell_index(cell_id.get_coarse_cell_id());
+
+  if (coarse_cell_index == numbers::invalid_unsigned_int)
+    return false;
+
+  cell_iterator cell(this, 0, coarse_cell_index);
+
+  for (const auto &child_index : cell_id.get_child_indices())
+    {
+      if (cell->has_children() == false)
+        return false;
+      cell = cell->child(static_cast<unsigned int>(child_index));
+    }
+
+  return true;
 }
 
 
