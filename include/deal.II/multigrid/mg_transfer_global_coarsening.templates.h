@@ -678,6 +678,95 @@ namespace internal
 
 
   template <int dim>
+  class FistChildPolicyFineDoFHandlerView : public FineDoFHandlerViewBase<dim>
+  {
+  public:
+    FistChildPolicyFineDoFHandlerView(const DoFHandler<dim> &dof_handler_fine,
+                                      const unsigned int     mg_level_fine)
+      : dof_handler_fine(dof_handler_fine)
+      , mg_level_fine(mg_level_fine)
+    {
+      is_locally_owned_dofs =
+        dof_handler_fine.locally_owned_mg_dofs(mg_level_fine);
+
+      is_locally_relevant_dofs.set_size(is_locally_owned_dofs.size());
+
+      Assert(mg_level_fine > 0, ExcInternalError());
+
+      std::vector<types::global_dof_index> indices;
+
+      std::vector<types::global_dof_index> dof_indices;
+
+      loop_over_active_or_level_cells(
+        dof_handler_fine, mg_level_fine - 1, [&](const auto &cell) {
+          if (cell->has_children())
+            {
+              for (const auto &child : cell->child_iterators())
+                {
+                  dof_indices.resize(child->get_fe().n_dofs_per_cell());
+                  child->get_mg_dof_indices(dof_indices);
+                  indices.insert(indices.end(),
+                                 dof_indices.begin(),
+                                 dof_indices.end());
+                }
+            }
+        });
+
+      std::sort(indices.begin(), indices.end());
+      indices.erase(std::unique(indices.begin(), indices.end()), indices.end());
+
+      is_locally_relevant_dofs.add_indices(indices.begin(), indices.end());
+    }
+
+    FineDoFHandlerViewCell
+    get_cell(const typename DoFHandler<dim>::cell_iterator &cell) const override
+    {
+      return FineDoFHandlerViewCell(
+        [cell]() { return cell->has_children(); },
+        [cell](auto &dof_indices) { cell->get_mg_dof_indices(dof_indices); },
+        [cell]() { return cell->active_fe_index(); });
+    }
+
+    FineDoFHandlerViewCell
+    get_cell(const typename DoFHandler<dim>::cell_iterator &cell,
+             const unsigned int                             c) const override
+    {
+      return FineDoFHandlerViewCell(
+        [cell]() {
+          Assert(false, ExcInternalError());
+          return false;
+        },
+        [cell, c](auto &dof_indices) {
+          cell->child(c)->get_mg_dof_indices(dof_indices);
+        },
+        [cell, c]() { return cell->child(c)->active_fe_index(); });
+    }
+
+    const IndexSet &
+    locally_owned_dofs() const override
+    {
+      return is_locally_owned_dofs;
+    }
+
+    /**
+     * Return ghost DoFs.
+     */
+    const IndexSet &
+    locally_relevant_dofs() const override
+    {
+      return is_locally_relevant_dofs;
+    }
+
+  private:
+    const DoFHandler<dim> &dof_handler_fine;
+    const unsigned int     mg_level_fine;
+    IndexSet               is_locally_owned_dofs;
+    IndexSet               is_locally_relevant_dofs;
+  };
+
+
+
+  template <int dim>
   class BlackBoxFineDoFHandlerView : public FineDoFHandlerViewBase<dim>
   {
   public:
@@ -1214,6 +1303,7 @@ namespace internal
   };
 
 
+
   template <int dim, int spacedim>
   bool
   p_transfer_without_repartitioning(
@@ -1231,6 +1321,30 @@ namespace internal
 
     return true;
   }
+
+
+
+  template <int dim, int spacedim>
+  bool
+  h_transfer_with_first_child_policy(
+    const DoFHandler<dim, spacedim> &dof_handler_fine,
+    const DoFHandler<dim, spacedim> &dof_handler_coarse,
+    const unsigned int               mg_level_fine,
+    const unsigned int               mg_level_coarse)
+  {
+    if (mg_level_fine == numbers::invalid_unsigned_int ||
+        mg_level_coarse == numbers::invalid_unsigned_int)
+      return false;
+
+    if (mg_level_coarse + 1 != mg_level_fine)
+      return false;
+
+    if (&dof_handler_fine != &dof_handler_coarse)
+      return false;
+
+    return true;
+  }
+
 
 
   class MGTwoLevelTransferImplementation
@@ -1435,7 +1549,14 @@ namespace internal
 
       std::unique_ptr<FineDoFHandlerViewBase<dim>> dof_handler_fine_view;
 
-      if (true)
+      if (internal::h_transfer_with_first_child_policy(dof_handler_fine,
+                                                       dof_handler_coarse,
+                                                       mg_level_fine,
+                                                       mg_level_coarse))
+        dof_handler_fine_view =
+          std::make_unique<FistChildPolicyFineDoFHandlerView<dim>>(
+            dof_handler_fine, mg_level_fine);
+      else
         dof_handler_fine_view =
           std::make_unique<GlobalCoarseningFineDoFHandlerView<dim>>(
             dof_handler_fine,
