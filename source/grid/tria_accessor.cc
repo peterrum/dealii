@@ -2071,6 +2071,21 @@ CellAccessor<dim, spacedim>::as_dof_handler_iterator(
 }
 
 
+
+template <int dim, int spacedim>
+TriaIterator<DoFCellAccessor<dim, spacedim, true>>
+CellAccessor<dim, spacedim>::as_dof_handler_level_iterator(
+  const DoFHandler<dim, spacedim> &dof_handler) const
+{
+  return typename DoFHandler<dim, spacedim>::level_cell_iterator(
+    &dof_handler.get_triangulation(),
+    this->level(),
+    this->index(),
+    &dof_handler);
+}
+
+
+
 // For codim>0 we proceed as follows:
 // 1) project point onto manifold and
 // 2) transform to the unit cell with a Q1 mapping

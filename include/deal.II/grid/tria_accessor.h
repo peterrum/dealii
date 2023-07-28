@@ -3185,6 +3185,14 @@ public:
   as_dof_handler_iterator(const DoFHandler<dim, spacedim> &dof_handler) const;
 
   /**
+   * TODO
+   */
+  TriaIterator<DoFCellAccessor<dim, spacedim, true>>
+  as_dof_handler_level_iterator(
+    const DoFHandler<dim, spacedim> &dof_handler) const;
+
+
+  /**
    * @}
    */
 

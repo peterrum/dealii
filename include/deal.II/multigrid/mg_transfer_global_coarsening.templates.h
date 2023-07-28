@@ -585,6 +585,99 @@ namespace internal
 
 
   template <int dim>
+  class IdentityFineDoFHandlerView : public FineDoFHandlerViewBase<dim>
+  {
+  public:
+    IdentityFineDoFHandlerView(const DoFHandler<dim> &dof_handler_fine,
+                               const unsigned int     mg_level_fine)
+      : dof_handler_fine(dof_handler_fine)
+      , mg_level_fine(mg_level_fine)
+    {
+      if (this->mg_level_fine == numbers::invalid_unsigned_int)
+        {
+          is_locally_owned_dofs = dof_handler_fine.locally_owned_dofs();
+          is_locally_relevant_dofs =
+            DoFTools::extract_locally_active_dofs(dof_handler_fine);
+        }
+      else
+        {
+          is_locally_owned_dofs =
+            dof_handler_fine.locally_owned_mg_dofs(mg_level_fine);
+          is_locally_relevant_dofs =
+            DoFTools::extract_locally_active_level_dofs(dof_handler_fine,
+                                                        mg_level_fine);
+        }
+    }
+
+    FineDoFHandlerViewCell
+    get_cell(const typename DoFHandler<dim>::cell_iterator &cell) const override
+    {
+      return FineDoFHandlerViewCell(
+        []() {
+          Assert(false, ExcInternalError());
+          return false;
+        },
+        [this, cell](auto &dof_indices) {
+          if (this->mg_level_fine == numbers::invalid_unsigned_int)
+            cell->as_dof_handler_iterator(this->dof_handler_fine)
+              ->get_dof_indices(dof_indices);
+          else
+            cell->as_dof_handler_level_iterator(this->dof_handler_fine)
+              ->get_mg_dof_indices(dof_indices);
+        },
+        [this, cell]() {
+          if (this->mg_level_fine == numbers::invalid_unsigned_int)
+            return cell->as_dof_handler_iterator(dof_handler_fine)
+              ->active_fe_index();
+          else
+            return cell->as_dof_handler_level_iterator(this->dof_handler_fine)
+              ->active_fe_index();
+        });
+    }
+
+    FineDoFHandlerViewCell
+    get_cell(const typename DoFHandler<dim>::cell_iterator &,
+             const unsigned int) const override
+    {
+      Assert(false, ExcInternalError());
+
+      return FineDoFHandlerViewCell(
+        []() {
+          Assert(false, ExcInternalError());
+          return false;
+        },
+        [](auto &) { Assert(false, ExcInternalError()); },
+        []() {
+          Assert(false, ExcInternalError());
+          return 0;
+        });
+    }
+
+    const IndexSet &
+    locally_owned_dofs() const override
+    {
+      return is_locally_owned_dofs;
+    }
+
+    /**
+     * Return ghost DoFs.
+     */
+    const IndexSet &
+    locally_relevant_dofs() const override
+    {
+      return is_locally_relevant_dofs;
+    }
+
+  private:
+    const DoFHandler<dim> &dof_handler_fine;
+    const unsigned int     mg_level_fine;
+    IndexSet               is_locally_owned_dofs;
+    IndexSet               is_locally_relevant_dofs;
+  };
+
+
+
+  template <int dim>
   class BlackBoxFineDoFHandlerView : public FineDoFHandlerViewBase<dim>
   {
   public:
@@ -1074,18 +1167,19 @@ namespace internal
     }
   };
 
+
+
   template <int dim>
-  class PermutationFineDoFHandlerView
-    : public internal::BlackBoxFineDoFHandlerView<dim>
+  class PermutationFineDoFHandlerView : public BlackBoxFineDoFHandlerView<dim>
   {
   public:
     PermutationFineDoFHandlerView(const DoFHandler<dim> &dof_handler_dst,
                                   const DoFHandler<dim> &dof_handler_src,
                                   const unsigned int     mg_level_fine,
                                   const unsigned int     mg_level_coarse)
-      : internal::BlackBoxFineDoFHandlerView<dim>(dof_handler_dst,
-                                                  dof_handler_src,
-                                                  mg_level_fine)
+      : BlackBoxFineDoFHandlerView<dim>(dof_handler_dst,
+                                        dof_handler_src,
+                                        mg_level_fine)
     {
       // get reference to triangulations
       const auto &tria_dst = dof_handler_dst.get_triangulation();
@@ -1118,6 +1212,26 @@ namespace internal
                    false);
     }
   };
+
+
+  template <int dim, int spacedim>
+  bool
+  p_transfer_without_repartitioning(
+    const DoFHandler<dim, spacedim> &dof_handler_fine,
+    const DoFHandler<dim, spacedim> &dof_handler_coarse,
+    const unsigned int               mg_level_fine,
+    const unsigned int               mg_level_coarse)
+  {
+    if (mg_level_fine != mg_level_coarse)
+      return false;
+
+    if (&dof_handler_fine.get_triangulation() !=
+        &dof_handler_coarse.get_triangulation())
+      return false;
+
+    return true;
+  }
+
 
   class MGTwoLevelTransferImplementation
   {
@@ -1856,7 +1970,14 @@ namespace internal
 
       std::unique_ptr<FineDoFHandlerViewBase<dim>> dof_handler_fine_view;
 
-      if (true)
+      if (internal::p_transfer_without_repartitioning(dof_handler_fine,
+                                                      dof_handler_coarse,
+                                                      mg_level_fine,
+                                                      mg_level_coarse))
+        dof_handler_fine_view =
+          std::make_unique<IdentityFineDoFHandlerView<dim>>(dof_handler_fine,
+                                                            mg_level_fine);
+      else
         dof_handler_fine_view =
           std::make_unique<PermutationFineDoFHandlerView<dim>>(
             dof_handler_fine,
