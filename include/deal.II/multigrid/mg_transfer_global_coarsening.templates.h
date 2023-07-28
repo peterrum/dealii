@@ -1241,10 +1241,15 @@ namespace internal
       //                      dof_handler_coarse.get_triangulation()) +
       //                      1);
 
-      const GlobalCoarseningFineDoFHandlerView<dim> view(dof_handler_fine,
-                                                         dof_handler_coarse,
-                                                         mg_level_fine,
-                                                         mg_level_coarse);
+      std::unique_ptr<FineDoFHandlerView<dim>> dof_handler_fine_view;
+
+      if (true)
+        dof_handler_fine_view =
+          std::make_unique<GlobalCoarseningFineDoFHandlerView<dim>>(
+            dof_handler_fine,
+            dof_handler_coarse,
+            mg_level_fine,
+            mg_level_coarse);
 
       // gather ranges for active FE indices on both fine and coarse dofhandlers
       std::array<unsigned int, 2> min_active_fe_indices = {
@@ -1311,8 +1316,8 @@ namespace internal
         {
           transfer.partitioner_fine =
             std::make_shared<Utilities::MPI::Partitioner>(
-              view.locally_owned_dofs(),
-              view.locally_relevant_dofs(),
+              dof_handler_fine_view->locally_owned_dofs(),
+              dof_handler_fine_view->locally_relevant_dofs(),
               dof_handler_fine.get_communicator());
           transfer.vec_fine.reinit(transfer.partitioner_fine);
         }
@@ -1339,7 +1344,7 @@ namespace internal
                 // get a reference to the equivalent cell on the fine
                 // triangulation
                 const auto cell_coarse_on_fine_mesh =
-                  view.get_cell(cell_coarse);
+                  dof_handler_fine_view->get_cell(cell_coarse);
 
                 // check if cell has children
                 if (cell_coarse_on_fine_mesh.has_children())
@@ -1347,7 +1352,9 @@ namespace internal
                   for (unsigned int c = 0;
                        c < GeometryInfo<dim>::max_children_per_cell;
                        c++)
-                    fu_refined(cell_coarse, view.get_cell(cell_coarse, c), c);
+                    fu_refined(cell_coarse,
+                               dof_handler_fine_view->get_cell(cell_coarse, c),
+                               c);
                 else // ... cell has no children -> process cell
                   fu_non_refined(cell_coarse, cell_coarse_on_fine_mesh);
               }
@@ -1359,7 +1366,9 @@ namespace internal
                   for (unsigned int c = 0;
                        c < GeometryInfo<dim>::max_children_per_cell;
                        c++)
-                    fu_refined(cell_coarse, view.get_cell(cell_coarse, c), c);
+                    fu_refined(cell_coarse,
+                               dof_handler_fine_view->get_cell(cell_coarse, c),
+                               c);
               }
           });
       };
@@ -1767,10 +1776,15 @@ namespace internal
           "(numbers::invalid_unsigned_int) or on refinement levels without "
           "hanging nodes."));
 
-      const PermutationFineDoFHandlerView<dim> view(dof_handler_fine,
-                                                    dof_handler_coarse,
-                                                    mg_level_fine,
-                                                    mg_level_coarse);
+      std::unique_ptr<FineDoFHandlerView<dim>> dof_handler_fine_view;
+
+      if (true)
+        dof_handler_fine_view =
+          std::make_unique<PermutationFineDoFHandlerView<dim>>(
+            dof_handler_fine,
+            dof_handler_coarse,
+            mg_level_fine,
+            mg_level_coarse);
 
       // TODO: adjust assert
       AssertDimension(
@@ -1818,7 +1832,8 @@ namespace internal
       const auto process_cells = [&](const auto &fu) {
         loop_over_active_or_level_cells(
           dof_handler_coarse, mg_level_coarse, [&](const auto &cell_coarse) {
-            const auto cell_coarse_on_fine_mesh = view.get_cell(cell_coarse);
+            const auto cell_coarse_on_fine_mesh =
+              dof_handler_fine_view->get_cell(cell_coarse);
             fu(cell_coarse, &cell_coarse_on_fine_mesh);
           });
       };
@@ -1869,8 +1884,8 @@ namespace internal
       {
         transfer.partitioner_fine =
           std::make_shared<Utilities::MPI::Partitioner>(
-            view.locally_owned_dofs(),
-            view.locally_relevant_dofs(),
+            dof_handler_fine_view->locally_owned_dofs(),
+            dof_handler_fine_view->locally_relevant_dofs(),
             dof_handler_fine.get_communicator());
         transfer.vec_fine.reinit(transfer.partitioner_fine);
       }
