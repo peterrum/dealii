@@ -3474,28 +3474,13 @@ MGTransferMF<dim, Number>::intitialize_internal_transfer(
 
   if (mg_constrained_dofs)
     for (unsigned int l = min_level; l <= max_level; ++l)
-      {
-        // TODO: set IndexSet
-
-        // Dirichlet boundary conditions
-        if (mg_constrained_dofs->have_boundary_indices())
-          constraints[l].add_lines(
-            mg_constrained_dofs->get_boundary_indices(l));
-
-        // periodic-bounary conditions
-        constraints[l].merge(
-          mg_constrained_dofs->get_level_constraints(l),
-          AffineConstraints<typename VectorType::value_type>::left_object_wins,
-          true);
-
-        // user constraints
-        constraints[l].merge(
-          mg_constrained_dofs->get_user_constraint_matrix(l),
-          AffineConstraints<typename VectorType::value_type>::left_object_wins,
-          true);
-
-        constraints[l].close();
-      }
+      mg_constrained_dofs->merge_constraints(
+        constraints[l],
+        l,
+        /*add_boundary_indices*/ true,
+        /*add_refinement_edge_indices*/ false,
+        /*add_level_constraints*/ true,
+        /*add_user_constraints*/ true);
 
   this->internal_transfer.resize(min_level, max_level);
 
