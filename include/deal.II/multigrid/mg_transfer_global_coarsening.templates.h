@@ -689,13 +689,56 @@ namespace internal
     {
       std::vector<types::global_dof_index> indices;
 
+      unsigned int                           n_dofs_per_cell_coarse = 0;
+      unsigned int                           n_dofs_per_cell_fine   = 0;
+      std::vector<std::vector<unsigned int>> cell_local_children_indices;
+      std::vector<unsigned int>              lexicographic_numbering;
+
+      {
+        const auto &fe             = dof_handler_fine.get_fe();
+        const auto &reference_cell = fe.reference_cell();
+
+        const bool is_feq =
+          fe.n_base_elements() == 1 &&
+          (dynamic_cast<const FE_Q<dim> *>(&fe.base_element(0)) != nullptr);
+
+        n_dofs_per_cell_coarse = fe.n_dofs_per_cell();
+        n_dofs_per_cell_fine =
+          is_feq ?
+            (fe.n_components() * Utilities::pow(2 * fe.degree + 1, dim)) :
+            (fe.n_dofs_per_cell() * GeometryInfo<dim>::max_children_per_cell);
+
+        cell_local_children_indices =
+          get_child_offsets<dim>(n_dofs_per_cell_coarse,
+                                 is_feq ? fe.degree : (fe.degree + 1),
+                                 fe.degree);
+
+        if (reference_cell.is_hyper_cube())
+          {
+            const Quadrature<1> dummy_quadrature(
+              std::vector<Point<1>>(1, Point<1>()));
+            internal::MatrixFreeFunctions::ShapeInfo<double> shape_info;
+            shape_info.reinit(dummy_quadrature, fe, 0);
+            lexicographic_numbering = shape_info.lexicographic_numbering;
+          }
+        else
+          {
+            const auto dummy_quadrature =
+              reference_cell.template get_gauss_type_quadrature<dim>(1);
+            internal::MatrixFreeFunctions::ShapeInfo<double> shape_info;
+            shape_info.reinit(dummy_quadrature, fe, 0);
+            lexicographic_numbering = shape_info.lexicographic_numbering;
+          }
+      }
+
       if (this->mg_level_fine == numbers::invalid_unsigned_int)
         {
           is_locally_owned_dofs = dof_handler_fine.locally_owned_dofs();
 
           is_locally_relevant_dofs.set_size(is_locally_owned_dofs.size());
 
-          std::vector<types::global_dof_index> dof_indices;
+          std::vector<types::global_dof_index> dof_indices_cell;
+          std::vector<types::global_dof_index> dof_indices_patch;
 
           loop_over_active_or_level_cells(
             dof_handler_coarse,
@@ -712,25 +755,43 @@ namespace internal
                   const auto cell_fine =
                     cell_fine_raw->as_dof_handler_iterator(dof_handler_fine);
 
-                  dof_indices.resize(cell_fine->get_fe().n_dofs_per_cell());
-                  cell_fine->get_dof_indices(dof_indices);
+                  dof_indices_cell.resize(
+                    cell_fine->get_fe().n_dofs_per_cell());
+                  cell_fine->get_dof_indices(dof_indices_cell);
                   indices.insert(indices.end(),
-                                 dof_indices.begin(),
-                                 dof_indices.end());
+                                 dof_indices_cell.begin(),
+                                 dof_indices_cell.end());
                 }
               else
                 {
+                  unsigned int c = 0;
+
+                  dof_indices_patch.resize(n_dofs_per_cell_fine);
+
                   for (const auto &child_raw : cell_fine_raw->child_iterators())
                     {
                       const auto child =
                         child_raw->as_dof_handler_iterator(dof_handler_fine);
 
-                      dof_indices.resize(child->get_fe().n_dofs_per_cell());
-                      child->get_dof_indices(dof_indices);
-                      indices.insert(indices.end(),
-                                     dof_indices.begin(),
-                                     dof_indices.end());
+                      dof_indices_cell.resize(
+                        child->get_fe().n_dofs_per_cell());
+                      child->get_dof_indices(dof_indices_cell);
+
+                      for (unsigned int i = 0; i < n_dofs_per_cell_coarse; ++i)
+                        {
+                          const auto index =
+                            dof_indices_cell[lexicographic_numbering[i]];
+
+                          dof_indices_patch[cell_local_children_indices[c][i]] =
+                            index;
+                        }
+
+                      c++;
                     }
+
+                  indices.insert(indices.end(),
+                                 dof_indices_patch.begin(),
+                                 dof_indices_patch.end());
                 }
             });
         }
@@ -743,27 +804,44 @@ namespace internal
 
           Assert(mg_level_fine > 0, ExcInternalError());
 
-          std::vector<types::global_dof_index> dof_indices;
+          std::vector<types::global_dof_index> dof_indices_cell;
+          std::vector<types::global_dof_index> dof_indices_patch;
 
           loop_over_active_or_level_cells(
             dof_handler_fine, mg_level_fine - 1, [&](const auto &cell) {
               if (cell->has_children())
                 {
+                  unsigned int c = 0;
+
+                  dof_indices_patch.resize(n_dofs_per_cell_fine);
+
                   for (const auto &child : cell->child_iterators())
                     {
-                      dof_indices.resize(child->get_fe().n_dofs_per_cell());
-                      child->get_mg_dof_indices(dof_indices);
-                      indices.insert(indices.end(),
-                                     dof_indices.begin(),
-                                     dof_indices.end());
+                      dof_indices_cell.resize(
+                        child->get_fe().n_dofs_per_cell());
+                      child->get_mg_dof_indices(dof_indices_cell);
+
+                      for (unsigned int i = 0; i < n_dofs_per_cell_coarse; ++i)
+                        {
+                          const auto index =
+                            dof_indices_cell[lexicographic_numbering[i]];
+
+                          dof_indices_patch[cell_local_children_indices[c][i]] =
+                            index;
+                        }
+
+                      c++;
                     }
+
+                  indices.insert(indices.end(),
+                                 dof_indices_patch.begin(),
+                                 dof_indices_patch.end());
                 }
             });
         }
 
       std::sort(indices.begin(), indices.end());
       indices.erase(std::unique(indices.begin(), indices.end()), indices.end());
-
       is_locally_relevant_dofs.add_indices(indices.begin(), indices.end());
     }
 
