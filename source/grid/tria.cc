@@ -659,8 +659,11 @@ namespace internal
               break;
           }
 
+        const bool invalid_cell_has_data = false; // TODO
+
         if (cell_rel_it != cell_relations.end() - 1)
-          dest_data_it += data_increment;
+          if (invalid_cell_has_data || cell_status != CellStatus::cell_invalid)
+            dest_data_it += data_increment;
       }
   }
 
@@ -12789,6 +12792,8 @@ void Triangulation<dim, spacedim>::create_triangulation(
       clear_user_flags();
     }
 
+  this->update_cell_relations();
+
   // inform all listeners that the triangulation has been created
   signals.create();
 }
@@ -15735,6 +15740,10 @@ void Triangulation<dim, spacedim>::execute_coarsening_and_refinement()
         this->cell_attached_data.pack_callbacks_fixed,
         this->cell_attached_data.pack_callbacks_variable,
         this->get_communicator());
+
+      // dummy copy of data (TODO: fill invalid cells)
+      this->data_serializer.dest_data_fixed =
+        this->data_serializer.src_data_fixed;
     }
 
   execute_coarsening();
