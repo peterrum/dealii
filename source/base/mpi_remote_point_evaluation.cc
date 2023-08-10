@@ -188,7 +188,7 @@ namespace Utilities
       Assert(enforce_unique_mapping == false || unique_mapping,
              ExcInternalError());
 
-      cell_data        = {};
+      cell_data        = std::make_unique<CellData>(tria);
       send_permutation = {};
 
       std::pair<int, int> dummy{-1, -1};
@@ -197,17 +197,17 @@ namespace Utilities
           if (dummy != std::get<0>(i))
             {
               dummy = std::get<0>(i);
-              cell_data.cells.emplace_back(dummy);
-              cell_data.reference_point_ptrs.emplace_back(
-                cell_data.reference_point_values.size());
+              cell_data->cells.emplace_back(dummy);
+              cell_data->reference_point_ptrs.emplace_back(
+                cell_data->reference_point_values.size());
             }
 
-          cell_data.reference_point_values.emplace_back(std::get<3>(i));
+          cell_data->reference_point_values.emplace_back(std::get<3>(i));
           send_permutation.emplace_back(std::get<5>(i));
         }
 
-      cell_data.reference_point_ptrs.emplace_back(
-        cell_data.reference_point_values.size());
+      cell_data->reference_point_ptrs.emplace_back(
+        cell_data->reference_point_values.size());
 
       this->ready_flag = true;
     }
@@ -218,7 +218,7 @@ namespace Utilities
     const typename RemotePointEvaluation<dim, spacedim>::CellData &
     RemotePointEvaluation<dim, spacedim>::get_cell_data() const
     {
-      return cell_data;
+      return *cell_data;
     }
 
 

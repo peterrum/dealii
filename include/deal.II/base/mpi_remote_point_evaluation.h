@@ -115,6 +115,10 @@ namespace Utilities
        */
       struct CellData
       {
+        CellData(const Triangulation<dim, spacedim> &triangulation)
+          : triangulation(triangulation)
+        {}
+
         /**
          * Level and index of cells.
          */
@@ -130,6 +134,36 @@ namespace Utilities
          * Reference points in the interval [0,1]^dim.
          */
         std::vector<Point<dim>> reference_point_values;
+
+        std_cxx20::ranges::iota_view<std::size_t, std::size_t>
+        cell_indices() const
+        {
+          return {0, cells.size()};
+        }
+
+        typename Triangulation<dim, spacedim>::active_cell_iterator
+        get_active_cell_iterator(const unsigned int i) const
+        {
+          return {&triangulation, cells[i].first, cells[i].second};
+        }
+
+        ArrayView<const Point<dim>>
+        get_unit_points(const unsigned int i) const
+        {
+          return {reference_point_values.data() + reference_point_ptrs[i],
+                  reference_point_ptrs[i + 1] - reference_point_ptrs[i]};
+        }
+
+        template <typename T>
+        ArrayView<T>
+        get_data_view(const unsigned int i, const ArrayView<T> &values) const
+        {
+          return {values.data() + reference_point_ptrs[i],
+                  reference_point_ptrs[i + 1] - reference_point_ptrs[i]};
+        }
+
+      private:
+        const Triangulation<dim, spacedim> &triangulation;
       };
 
       /**
@@ -162,6 +196,16 @@ namespace Utilities
           &evaluation_function) const;
 
       /**
+       * TODO
+       */
+      template <typename T>
+      void
+      evaluate_and_process(
+        std::vector<T> &output,
+        const std::function<void(const ArrayView<T> &, const CellData &)>
+          &evaluation_function) const;
+
+      /**
        * This method is the inverse of the method evaluate_and_process(). It
        * makes the data at the points, provided by @p input, available in the
        * function @p evaluation_function.
@@ -174,6 +218,16 @@ namespace Utilities
       process_and_evaluate(
         const std::vector<T> &input,
         std::vector<T>       &buffer,
+        const std::function<void(const ArrayView<const T> &, const CellData &)>
+          &evaluation_function) const;
+
+      /**
+       * TODO
+       */
+      template <typename T>
+      void
+      process_and_evaluate(
+        const std::vector<T> &input,
         const std::function<void(const ArrayView<const T> &, const CellData &)>
           &evaluation_function) const;
 
@@ -308,7 +362,7 @@ namespace Utilities
        * Point data sorted according to cells so that evaluation (incl. reading
        * of degrees of freedoms) needs to performed only once per cell.
        */
-      CellData cell_data;
+      std::unique_ptr<CellData> cell_data;
 
       /**
        * Permutation index within a send buffer.
@@ -326,6 +380,21 @@ namespace Utilities
        */
       std::vector<unsigned int> send_ptrs;
     };
+
+
+
+    template <int dim, int spacedim>
+    template <typename T>
+    void
+    RemotePointEvaluation<dim, spacedim>::evaluate_and_process(
+      std::vector<T> &output,
+      const std::function<void(const ArrayView<T> &, const CellData &)>
+        &evaluation_function) const
+    {
+      std::vector<T> buffer;
+      this->evaluate_and_process(output, buffer, evaluation_function);
+    }
+
 
 
     template <int dim, int spacedim>
@@ -362,7 +431,7 @@ namespace Utilities
                                send_permutation.size());
 
       // evaluate functions at points
-      evaluation_function(buffer_eval, cell_data);
+      evaluation_function(buffer_eval, *cell_data);
 
       // sort for communication
       unsigned int my_rank_local_recv = numbers::invalid_unsigned_int;
@@ -484,6 +553,19 @@ namespace Utilities
           AssertThrowMPI(ierr);
         }
 #endif
+    }
+
+
+    template <int dim, int spacedim>
+    template <typename T>
+    void
+    RemotePointEvaluation<dim, spacedim>::process_and_evaluate(
+      const std::vector<T> &input,
+      const std::function<void(const ArrayView<const T> &, const CellData &)>
+        &evaluation_function) const
+    {
+      std::vector<T> buffer;
+      this->process_and_evaluate(input, buffer, evaluation_function);
     }
 
 
@@ -656,7 +738,7 @@ namespace Utilities
         }
 
       // evaluate function at points
-      evaluation_function(buffer_eval, cell_data);
+      evaluation_function(buffer_eval, *cell_data);
 #endif
     }
 

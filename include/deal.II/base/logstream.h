@@ -276,6 +276,13 @@ public:
   std::ios::fmtflags
   flags(const std::ios::fmtflags f);
 
+  /**
+   * Output a constant something through LogStream.
+   */
+  template <typename T>
+  LogStream &
+  operator<<(const T &t);
+
 
   /**
    * Treat ostream manipulators. This passes on the whole thing to the
@@ -383,31 +390,19 @@ private:
    * every thread that sends log messages.
    */
   Threads::ThreadLocalStorage<std::shared_ptr<std::ostringstream>> outstreams;
-
-  template <typename T>
-  friend LogStream &
-  operator<<(LogStream &log, const T &t);
 };
 
 
 /* ----------------------------- Inline functions and templates ----------------
  */
 
-
-/**
- * Output a constant something through LogStream:
- *
- * @note We declare this operator as a non-member function so that it is
- * possible to overload it with more specialized templated versions under
- * C++11 overload resolution rules
- */
 template <typename T>
 inline LogStream &
-operator<<(LogStream &log, const T &t)
+LogStream::operator<<(const T &t)
 {
   // print to the internal stringstream
-  log.get_stream() << t;
-  return log;
+  get_stream() << t;
+  return *this;
 }
 
 
