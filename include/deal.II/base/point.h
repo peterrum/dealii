@@ -673,10 +673,10 @@ inline DEAL_II_HOST_DEVICE
  *
  * @dealiiConceptRequires{dim >= 0}
  */
-template <int dim, typename Number>
+template <int dim, typename Number, typename StreamType>
 DEAL_II_CXX20_REQUIRES(dim >= 0)
-inline std::ostream &
-operator<<(std::ostream &out, const Point<dim, Number> &p)
+inline StreamType &
+operator<<(StreamType &out, const Point<dim, Number> &p)
 {
   for (unsigned int i = 0; i < dim - 1; ++i)
     out << p[i] << ' ';
@@ -712,9 +712,9 @@ operator>>(std::istream &in, Point<dim, Number> &p)
  * from the general template in order to avoid a compiler warning that the
  * loop is empty.
  */
-template <typename Number>
-inline std::ostream &
-operator<<(std::ostream &out, const Point<1, Number> &p)
+template <typename Number, typename StreamType>
+inline StreamType &
+operator<<(StreamType &out, const Point<1, Number> &p)
 {
   out << p[0];
 

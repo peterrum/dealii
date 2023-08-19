@@ -288,9 +288,9 @@ namespace Algorithms
    *
    * @relatesalso Event
    */
-  template <class OS>
-  OS &
-  operator<<(OS &o, const Event &e)
+  template <class StreamType>
+  StreamType &
+  operator<<(StreamType &o, const Event &e)
   {
     e.print(o);
     return o;

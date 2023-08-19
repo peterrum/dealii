@@ -1921,9 +1921,9 @@ constexpr unsigned int Tensor<rank_, dim, Number>::n_independent_components;
  *
  * @relatesalso Tensor
  */
-template <int rank_, int dim, typename Number>
-inline std::ostream &
-operator<<(std::ostream &out, const Tensor<rank_, dim, Number> &p)
+template <int rank_, int dim, typename Number, typename StreamType>
+inline StreamType &
+operator<<(StreamType &out, const Tensor<rank_, dim, Number> &p)
 {
   for (unsigned int i = 0; i < dim; ++i)
     {
@@ -1942,9 +1942,9 @@ operator<<(std::ostream &out, const Tensor<rank_, dim, Number> &p)
  *
  * @relatesalso Tensor
  */
-template <int dim, typename Number>
-inline std::ostream &
-operator<<(std::ostream &out, const Tensor<0, dim, Number> &p)
+template <int dim, typename Number, typename StreamType>
+inline StreamType &
+operator<<(StreamType &out, const Tensor<0, dim, Number> &p)
 {
   out << static_cast<const Number &>(p);
   return out;
