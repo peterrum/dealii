@@ -14,7 +14,8 @@
  * ---------------------------------------------------------------------
  */
 
-// Verify convergence rates for various simplex elements
+// Test a mesh with two tetrahedra for all possible orientations. Similar to
+// orientation_02 but also checks that line orientations are correct.
 
 #include <deal.II/base/function_lib.h>
 #include <deal.II/base/quadrature_lib.h>
@@ -42,22 +43,6 @@
 #include <deal.II/numerics/vector_tools_project.h>
 
 #include "../tests.h"
-
-template <int dim>
-class LinearFunction : public Function<dim>
-{
-public:
-  LinearFunction()
-    : Function<dim>(1)
-  {}
-
-  virtual double
-  value(const Point<dim> &p,
-        const unsigned int /*component*/ = 0) const override
-  {
-    return p[0];
-  }
-};
 
 std::tuple<unsigned int, unsigned int>
 create_triangulation(const std::vector<Point<3>>    &vertices_,
@@ -112,19 +97,15 @@ create_triangulation(const std::vector<Point<3>>    &vertices_,
     if (ncell->face(nf) == face)
       break;
 
-  std::cout << ">>>>>>>>>>>>> " << n_permuations << " " << nf << " "
-            << int(ncell->combined_face_orientation(nf)) << std::endl;
-
   return {nf, ncell->combined_face_orientation(nf)};
 }
 
-template <int dim>
+
+
 void
-test(const unsigned int degree)
+test()
 {
-  FE_SimplexP<dim> fe(degree);
-  deallog << "FE = " << fe.get_name() << std::endl;
-  QGaussSimplex<dim> quadrature(degree + 1);
+  const unsigned int dim = 3;
 
   double previous_error = 1.0;
 
@@ -154,23 +135,7 @@ test(const unsigned int degree)
           std::tie(face_no, orientation) =
             create_triangulation(vertices, cells, face_no, r, tria);
 
-          // deallog << "Orientation: "
-          //         << " (" << f << ", " << r << ") -> "
-          //         << " (" << face_no << ", " << orientation << ")" <<
-          //         std::endl
-          //         << " ";
-
-          // for (unsigned int i0 = 0; i0 < 6; ++i0)
-          //   {
-          //     for (unsigned int i1 = 0; i1 < 6; ++i1)
-          //       {
-          //         for (const auto i2 : {false, true})
-          //           {
           bool success = true;
-          //
-          //            const auto t = internal::bool_table[i0][i1];
-          //
-          //            internal::bool_table[i0][i1] = i2;
 
           auto cell = tria.begin();
           cell++;
@@ -179,14 +144,6 @@ test(const unsigned int degree)
 
           for (const auto v : cell->vertex_indices())
             verticess.emplace_back(cell->vertex_index(v));
-
-          std::cout << "-------------------------------------" << std::endl;
-
-          std::cout << "X ";
-
-          for (const auto i : verticess)
-            std::cout << i << " ";
-          std::cout << std::endl;
 
           for (unsigned int ll = 0; ll < 3; ++ll)
             {
@@ -209,21 +166,12 @@ test(const unsigned int degree)
                 std::swap(p1.first, p1.second);
 
               success &= (p0 == p1);
-
-              std::cout << "Y " << p0.first << " " << p0.second << " "
-                        << p1.first << " " << p1.second << std::endl;
             }
 
           if (success)
             deallog << "x ";
           else
             deallog << "o ";
-
-          //            internal::bool_table[i0][i1] = t;
-          //          }
-          //      }
-          //  }
-          // deallog << std::endl;
         }
     }
 
@@ -235,11 +183,5 @@ main()
 {
   initlog();
 
-  // test<2>(1);
-  // test<2>(2);
-  // test<2>(3);
-
-  // test<3>(1);
-  test<3>(2);
-  // test<3>(3);
+  test();
 }
