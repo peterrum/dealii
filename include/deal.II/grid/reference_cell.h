@@ -50,8 +50,8 @@ namespace internal
 {
   static dealii::ndarray<bool, 6, 6> bool_table{
     {{{false, true, false, true, false, true}},
-     {{true, true, true, true, true, true}},
-     {{true, true, true, true, true, true}},
+     {{false, true, false, true, false, true}},
+     {{false, true, false, true, false, true}},
      {{true, true, true, true, true, true}},
      {{true, true, true, true, true, true}},
      {{true, true, true, true, true, true}}}};
