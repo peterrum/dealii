@@ -154,10 +154,11 @@ test(const unsigned int degree)
           std::tie(face_no, orientation) =
             create_triangulation(vertices, cells, face_no, r, tria);
 
-          deallog << "Orientation: "
-                  << " (" << f << ", " << r << ") -> "
-                  << " (" << face_no << ", " << orientation << ")" << std::endl
-                  << " ";
+          // deallog << "Orientation: "
+          //         << " (" << f << ", " << r << ") -> "
+          //         << " (" << face_no << ", " << orientation << ")" <<
+          //         std::endl
+          //         << " ";
 
           // for (unsigned int i0 = 0; i0 < 6; ++i0)
           //   {
@@ -222,9 +223,11 @@ test(const unsigned int degree)
           //          }
           //      }
           //  }
-          deallog << std::endl;
+          // deallog << std::endl;
         }
     }
+
+  deallog << std::endl;
 }
 
 int
