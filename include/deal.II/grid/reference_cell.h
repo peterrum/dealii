@@ -49,12 +49,12 @@ class ReferenceCell;
 namespace internal
 {
   static dealii::ndarray<bool, 6, 6> bool_table{
-    {{{true, true, true, true, true}},
-     {{true, true, true, true, true}},
-     {{true, true, true, true, true}},
-     {{true, true, true, true, true}},
-     {{true, true, true, true, true}},
-     {{true, true, true, true, true}}}};
+    {{{true, true, true, true, true, true}},
+     {{true, true, true, true, true, true}},
+     {{true, true, true, true, true, true}},
+     {{true, true, true, true, true, true}},
+     {{true, true, true, true, true, true}},
+     {{true, true, true, true, true, true}}}};
 
   /**
    * A helper function to create a ReferenceCell object from an integer.
