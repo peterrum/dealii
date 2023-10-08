@@ -55,7 +55,7 @@ namespace internal
      {{false, true, false, true, false, true}},
      {{false, true, false, true, false, true}},
      {{false, true, XX, true, false, true}},
-     {{true, false, XX, XX, true, false}},
+     {{true, false, true, XX, true, false}},
      {{false, true, false, true, false, true}}}};
 
   /**
