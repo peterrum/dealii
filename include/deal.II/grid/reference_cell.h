@@ -2616,19 +2616,15 @@ ReferenceCell::standard_vs_true_line_orientation(
     {
       static constexpr unsigned int X = numbers::invalid_unsigned_int;
       static constexpr dealii::ndarray<unsigned int, 3, 3> combined_lines{
-        {{{0, 1, 2}}, {{X, 3, 4}}, {{X, 5, X}}}};
+        {{{0, 0, 0}}, {{X, 0, 1}}, {{X, 0, X}}}};
 
       const auto combined_line = combined_lines[face][line];
 
       Assert(combined_line != X, ExcInternalError());
 
-      static constexpr dealii::ndarray<bool, 6, 6> bool_table{
+      static constexpr dealii::ndarray<bool, 2, 6> bool_table{
         {{{false, true, false, true, false, true}},
-         {{false, true, false, true, false, true}},
-         {{false, true, false, true, false, true}},
-         {{false, true, false, true, false, true}},
-         {{true, false, true, false, true, false}},
-         {{false, true, false, true, false, true}}}};
+         {{true, false, true, false, true, false}}}};
 
       return (line_orientation ==
               bool_table[combined_line][combined_face_orientation]);
