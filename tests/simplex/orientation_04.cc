@@ -158,18 +158,17 @@ test(const unsigned int degree)
                   << " (" << f << ", " << r << ") -> "
                   << " (" << face_no << ", " << orientation << ")" << std::endl
                   << " ";
-          for (const auto i0 : {false, true})
+          for (unsigned int i0 = 0; i0 < 6; ++i0)
             {
-              for (const auto i1 : {false, true})
+              for (unsigned int i1 = 0; i1 < 6; ++i1)
                 {
                   for (const auto i2 : {false, true})
                     {
                       bool success = true;
 
-                      const auto t = internal::bool_table[face_no][orientation];
+                      const auto t = internal::bool_table[i0][i1];
 
-                      internal::bool_table[face_no][orientation] = {
-                        {i0, i1, i2}};
+                      internal::bool_table[i0][i1] = i2;
 
                       auto cell = tria.begin();
                       cell++;
@@ -223,24 +222,7 @@ test(const unsigned int degree)
                       else
                         deallog << "o ";
 
-#if 0
-                  if (dim == 3)
-                    {
-                      DataOut<dim> data_out;
-                      data_out.attach_dof_handler(dof_handler);
-                      // solution    = 0.0;
-                      // solution[3] = 1.0;
-                      data_out.add_data_vector(solution, "u");
-                      data_out.build_patches(2);
-
-                      std::ofstream output("out-" + std::to_string(degree) +
-                                           "-" + std::to_string(r) + ".vtu");
-                      data_out.write_vtu(output);
-                    }
-#endif
-                      // deallog << std::endl;
-
-                      internal::bool_table[face_no][orientation] = t;
+                      internal::bool_table[i0][i1] = t;
                     }
                 }
             }

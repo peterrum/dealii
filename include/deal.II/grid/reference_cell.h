@@ -48,30 +48,13 @@ class ReferenceCell;
 
 namespace internal
 {
-  static dealii::ndarray<bool, 4, 6, 3> bool_table{{{{{{true, true, true}},
-                                                      {{true, true, true}},
-                                                      {{true, true, true}},
-                                                      {{true, true, true}},
-                                                      {{true, true, true}},
-                                                      {{true, true, true}}}},
-                                                    {{{{true, true, true}},
-                                                      {{true, true, true}},
-                                                      {{true, true, true}},
-                                                      {{true, true, true}},
-                                                      {{true, true, true}},
-                                                      {{true, true, true}}}},
-                                                    {{{{true, true, true}},
-                                                      {{true, true, true}},
-                                                      {{true, true, true}},
-                                                      {{true, true, true}},
-                                                      {{true, true, true}},
-                                                      {{true, true, true}}}},
-                                                    {{{{true, true, true}},
-                                                      {{true, true, true}},
-                                                      {{true, true, true}},
-                                                      {{true, true, true}},
-                                                      {{true, true, true}},
-                                                      {{true, true, true}}}}}};
+  static dealii::ndarray<bool, 6, 6> bool_table{
+    {{{true, true, true, true, true}},
+     {{true, true, true, true, true}},
+     {{true, true, true, true, true}},
+     {{true, true, true, true, true}},
+     {{true, true, true, true, true}},
+     {{true, true, true, true, true}}}};
 
   /**
    * A helper function to create a ReferenceCell object from an integer.
@@ -2639,8 +2622,16 @@ ReferenceCell::standard_vs_true_line_orientation(
     }
   else if (*this == ReferenceCells::Tetrahedron)
     {
+      static constexpr unsigned int X = numbers::invalid_unsigned_int;
+      static constexpr dealii::ndarray<unsigned int, 3, 3> combined_lines{
+        {{{0, 1, 2}}, {{X, 3, 4}}, {{X, 5, X}}}};
+
+      const auto combined_line = combined_lines[face][line];
+
+      Assert(combined_line != X, ExcInternalError());
+
       return (line_orientation ==
-              internal::bool_table[face][combined_face_orientation][line]);
+              internal::bool_table[combined_line][combined_face_orientation]);
     }
   else
     // TODO: This might actually be wrong for some of the other
