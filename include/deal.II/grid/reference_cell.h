@@ -48,14 +48,12 @@ class ReferenceCell;
 
 namespace internal
 {
-  static bool XX = false;
-
   static dealii::ndarray<bool, 6, 6> bool_table{
     {{{false, true, false, true, false, true}},
      {{false, true, false, true, false, true}},
      {{false, true, false, true, false, true}},
-     {{false, true, XX, true, false, true}},
-     {{true, false, true, XX, true, false}},
+     {{false, true, false, true, false, true}},
+     {{true, false, true, false, true, false}},
      {{false, true, false, true, false, true}}}};
 
   /**
