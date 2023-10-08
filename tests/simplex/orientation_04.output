@@ -37,7 +37,7 @@ DEAL:: x
 DEAL::Orientation:  (0, 17) ->  (2, 3)
 DEAL:: x 
 DEAL::Orientation:  (0, 18) ->  (2, 2)
-DEAL:: o 
+DEAL:: x 
 DEAL::Orientation:  (0, 19) ->  (3, 4)
 DEAL:: x 
 DEAL::Orientation:  (0, 20) ->  (3, 3)
@@ -83,7 +83,7 @@ DEAL:: x
 DEAL::Orientation:  (1, 16) ->  (1, 0)
 DEAL:: x 
 DEAL::Orientation:  (1, 17) ->  (2, 2)
-DEAL:: o 
+DEAL:: x 
 DEAL::Orientation:  (1, 18) ->  (2, 3)
 DEAL:: x 
 DEAL::Orientation:  (1, 19) ->  (3, 1)
@@ -133,7 +133,7 @@ DEAL:: x
 DEAL::Orientation:  (2, 17) ->  (2, 3)
 DEAL:: x 
 DEAL::Orientation:  (2, 18) ->  (2, 2)
-DEAL:: o 
+DEAL:: x 
 DEAL::Orientation:  (2, 19) ->  (3, 4)
 DEAL:: x 
 DEAL::Orientation:  (2, 20) ->  (3, 3)
@@ -179,7 +179,7 @@ DEAL:: x
 DEAL::Orientation:  (3, 16) ->  (1, 0)
 DEAL:: x 
 DEAL::Orientation:  (3, 17) ->  (2, 2)
-DEAL:: o 
+DEAL:: x 
 DEAL::Orientation:  (3, 18) ->  (2, 3)
 DEAL:: x 
 DEAL::Orientation:  (3, 19) ->  (3, 1)
