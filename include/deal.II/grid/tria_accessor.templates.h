@@ -842,16 +842,17 @@ namespace internal
 
         // First pick a face on which this line is a part of, and the
         // index of the line within.
-        const auto pair =
+        const auto [quad_index, line_index] =
           accessor.reference_cell().standard_line_to_face_and_line_index(line);
-        const auto quad_index = pair[0];
         const auto line_within_face_index =
           accessor.reference_cell().standard_to_real_face_line(
-            pair[1], pair[0], combined_face_orientation(accessor, quad_index));
+            line_index,
+            quad_index,
+            combined_face_orientation(accessor, quad_index));
 
         // Then query how that line is oriented within that face:
         return accessor.reference_cell().standard_vs_true_line_orientation(
-          pair[1],
+          line_index,
           quad_index,
           combined_face_orientation(accessor, quad_index),
           accessor.quad(quad_index)->line_orientation(line_within_face_index));
@@ -1173,7 +1174,10 @@ namespace internal
                    ref_cell.standard_vs_true_line_orientation(
                      2, f, orientation, quad->line_orientation(my_indices[2])),
                    ref_cell.standard_vs_true_line_orientation(
-                     3, f, orientation, quad->line_orientation(my_indices[3]))}};
+                     3,
+                     f,
+                     orientation,
+                     quad->line_orientation(my_indices[3]))}};
                 for (unsigned int l = 0; l < 4; ++l)
                   line_orientations[4 * (f - 4) + l] = my_orientations[l];
               }
@@ -1192,7 +1196,10 @@ namespace internal
                   {ref_cell.standard_vs_true_line_orientation(
                      0, f, orientation, quad->line_orientation(my_indices[0])),
                    ref_cell.standard_vs_true_line_orientation(
-                     1, f, orientation, quad->line_orientation(my_indices[1]))}};
+                     1,
+                     f,
+                     orientation,
+                     quad->line_orientation(my_indices[1]))}};
                 line_orientations[8 + f]  = my_orientations[0];
                 line_orientations[10 + f] = my_orientations[1];
               }
