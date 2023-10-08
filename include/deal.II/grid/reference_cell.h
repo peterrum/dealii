@@ -48,14 +48,6 @@ class ReferenceCell;
 
 namespace internal
 {
-  static dealii::ndarray<bool, 6, 6> bool_table{
-    {{{false, true, false, true, false, true}},
-     {{false, true, false, true, false, true}},
-     {{false, true, false, true, false, true}},
-     {{false, true, false, true, false, true}},
-     {{true, false, true, false, true, false}},
-     {{false, true, false, true, false, true}}}};
-
   /**
    * A helper function to create a ReferenceCell object from an integer.
    * ReferenceCell objects are "singletons" (actually, "multitons" -- there are
@@ -2630,8 +2622,16 @@ ReferenceCell::standard_vs_true_line_orientation(
 
       Assert(combined_line != X, ExcInternalError());
 
+      static constexpr dealii::ndarray<bool, 6, 6> bool_table{
+        {{{false, true, false, true, false, true}},
+         {{false, true, false, true, false, true}},
+         {{false, true, false, true, false, true}},
+         {{false, true, false, true, false, true}},
+         {{true, false, true, false, true, false}},
+         {{false, true, false, true, false, true}}}};
+
       return (line_orientation ==
-              internal::bool_table[combined_line][combined_face_orientation]);
+              bool_table[combined_line][combined_face_orientation]);
     }
   else
     // TODO: This might actually be wrong for some of the other
