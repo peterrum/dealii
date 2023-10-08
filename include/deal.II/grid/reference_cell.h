@@ -48,6 +48,31 @@ class ReferenceCell;
 
 namespace internal
 {
+  static dealii::ndarray<bool, 4, 6, 3> bool_table{{{{{{true, true, true}},
+                                                      {{true, true, true}},
+                                                      {{true, true, true}},
+                                                      {{true, true, true}},
+                                                      {{true, true, true}},
+                                                      {{true, true, true}}}},
+                                                    {{{{true, true, true}},
+                                                      {{true, true, true}},
+                                                      {{true, true, true}},
+                                                      {{true, true, true}},
+                                                      {{true, true, true}},
+                                                      {{true, true, true}}}},
+                                                    {{{{true, true, true}},
+                                                      {{true, true, true}},
+                                                      {{true, true, true}},
+                                                      {{true, true, true}},
+                                                      {{true, true, true}},
+                                                      {{true, true, true}}}},
+                                                    {{{{true, true, true}},
+                                                      {{true, true, true}},
+                                                      {{true, true, true}},
+                                                      {{true, true, true}},
+                                                      {{true, true, true}},
+                                                      {{true, true, true}}}}}};
+
   /**
    * A helper function to create a ReferenceCell object from an integer.
    * ReferenceCell objects are "singletons" (actually, "multitons" -- there are
@@ -522,6 +547,7 @@ public:
    */
   bool
   standard_vs_true_line_orientation(const unsigned int  line,
+                                    const unsigned int  face,
                                     const unsigned char face_orientation,
                                     const bool          line_orientation) const;
 
@@ -2598,6 +2624,7 @@ ReferenceCell::n_face_orientations(const unsigned int face_no) const
 inline bool
 ReferenceCell::standard_vs_true_line_orientation(
   const unsigned int  line,
+  const unsigned int  face,
   const unsigned char combined_face_orientation,
   const bool          line_orientation) const
 {
@@ -2609,6 +2636,11 @@ ReferenceCell::standard_vs_true_line_orientation(
 
       return (line_orientation ==
               bool_table[line / 2][combined_face_orientation]);
+    }
+  else if (*this == ReferenceCells::Tetrahedron)
+    {
+      return (line_orientation ==
+              internal::bool_table[face][combined_face_orientation][line]);
     }
   else
     // TODO: This might actually be wrong for some of the other
