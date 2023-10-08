@@ -128,9 +128,9 @@ test(const unsigned int degree)
 
   double previous_error = 1.0;
 
-  for (unsigned int f = 3; f < 4; ++f)
+  for (unsigned int f = 0; f < 4; ++f)
     {
-      for (unsigned int r = 23; r < 24; ++r)
+      for (unsigned int r = 0; r < 24; ++r)
         {
           unsigned int orientation = r;
           unsigned int face_no     = f;
@@ -158,74 +158,70 @@ test(const unsigned int degree)
                   << " (" << f << ", " << r << ") -> "
                   << " (" << face_no << ", " << orientation << ")" << std::endl
                   << " ";
-          for (unsigned int i0 = 0; i0 < 6; ++i0)
+
+          // for (unsigned int i0 = 0; i0 < 6; ++i0)
+          //   {
+          //     for (unsigned int i1 = 0; i1 < 6; ++i1)
+          //       {
+          //         for (const auto i2 : {false, true})
+          //           {
+          bool success = true;
+          //
+          //            const auto t = internal::bool_table[i0][i1];
+          //
+          //            internal::bool_table[i0][i1] = i2;
+
+          auto cell = tria.begin();
+          cell++;
+
+          std::vector<unsigned int> verticess;
+
+          for (const auto v : cell->vertex_indices())
+            verticess.emplace_back(cell->vertex_index(v));
+
+          std::cout << "-------------------------------------" << std::endl;
+
+          std::cout << "X ";
+
+          for (const auto i : verticess)
+            std::cout << i << " ";
+          std::cout << std::endl;
+
+          for (unsigned int ll = 0; ll < 3; ++ll)
             {
-              for (unsigned int i1 = 0; i1 < 6; ++i1)
-                {
-                  for (const auto i2 : {false, true})
-                    {
-                      bool success = true;
+              const unsigned int l =
+                cell->reference_cell().face_to_cell_lines(face_no, ll, 1);
 
-                      const auto t = internal::bool_table[i0][i1];
+              const auto orientation_exp = cell->line_orientation(l);
 
-                      internal::bool_table[i0][i1] = i2;
+              std::pair<unsigned int, unsigned int> p0;
+              p0.first =
+                verticess[cell->reference_cell().line_to_cell_vertices(l, 0)];
+              p0.second =
+                verticess[cell->reference_cell().line_to_cell_vertices(l, 1)];
 
-                      auto cell = tria.begin();
-                      cell++;
+              std::pair<unsigned int, unsigned int> p1;
+              p1.first  = cell->line(l)->vertex_index(0);
+              p1.second = cell->line(l)->vertex_index(1);
 
-                      std::vector<unsigned int> verticess;
+              if (orientation_exp == false)
+                std::swap(p1.first, p1.second);
 
-                      for (const auto v : cell->vertex_indices())
-                        verticess.emplace_back(cell->vertex_index(v));
+              success &= (p0 == p1);
 
-                      std::cout << "-------------------------------------"
-                                << std::endl;
-
-                      std::cout << "X ";
-
-                      for (const auto i : verticess)
-                        std::cout << i << " ";
-                      std::cout << std::endl;
-
-                      for (unsigned int ll = 0; ll < 3; ++ll)
-                        {
-                          const unsigned int l =
-                            cell->reference_cell().face_to_cell_lines(face_no,
-                                                                      ll,
-                                                                      1);
-
-                          const auto orientation_exp =
-                            cell->line_orientation(l);
-
-                          std::pair<unsigned int, unsigned int> p0;
-                          p0.first  = verticess[cell->reference_cell()
-                                                 .line_to_cell_vertices(l, 0)];
-                          p0.second = verticess[cell->reference_cell()
-                                                  .line_to_cell_vertices(l, 1)];
-
-                          std::pair<unsigned int, unsigned int> p1;
-                          p1.first  = cell->line(l)->vertex_index(0);
-                          p1.second = cell->line(l)->vertex_index(1);
-
-                          if (orientation_exp == false)
-                            std::swap(p1.first, p1.second);
-
-                          success &= (p0 == p1);
-
-                          std::cout << "Y " << p0.first << " " << p0.second
-                                    << " " << p1.first << " " << p1.second
-                                    << std::endl;
-                        }
-
-                      if (success)
-                        deallog << "x ";
-                      else
-                        deallog << "o ";
-
-                      internal::bool_table[i0][i1] = t;
-                    }
-                }
+              std::cout << "Y " << p0.first << " " << p0.second << " "
+                        << p1.first << " " << p1.second << std::endl;
             }
+
+          if (success)
+            deallog << "x ";
+          else
+            deallog << "o ";
+
+          //            internal::bool_table[i0][i1] = t;
+          //          }
+          //      }
+          //  }
           deallog << std::endl;
         }
     }
