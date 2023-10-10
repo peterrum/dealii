@@ -2615,12 +2615,15 @@ ReferenceCell::standard_vs_true_line_orientation(
   else if (*this == ReferenceCells::Tetrahedron)
     {
       static constexpr unsigned int X = numbers::invalid_unsigned_int;
-      static constexpr dealii::ndarray<unsigned int, 3, 3> combined_lines{
-        {{{0, 0, 0}}, {{X, 0, 1}}, {{X, 0, X}}}};
+      static constexpr dealii::ndarray<unsigned int, 4, 3> combined_lines{
+        {{{0, 0, 0}}, {{X, 0, 1}}, {{X, 0, X}}, {{X, X, X}}}};
 
       const auto combined_line = combined_lines[face][line];
 
-      Assert(combined_line != X, ExcInternalError());
+      Assert(combined_line != X,
+             ExcMessage(
+               "This function can only be called for following face-line "
+               "combinations: (0,0), (0,1), (0,2), (1,1), (1,2), (2,1),"));
 
       static constexpr dealii::ndarray<bool, 2, 6> bool_table{
         {{{false, true, false, true, false, true}},
