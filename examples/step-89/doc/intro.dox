@@ -1,0 +1,96 @@
+<br>
+
+<i>
+This program was contributed by Johannes Heinz and Peter Munch.
+Many ideas presented here are the result of common code development with
+Maximilian Bergbauer, Marco Feder, Niklas Fehn, Luca Heltai, Martin Kronbichler,
+Nils Much, Judith Pauen and Magdalena Schreter-Fleischhacker. //TODO: @Peter everyone mentioned?
+
+This tutorial is loosely based on the puplication
+<a href="https://doi.org/10.1002/nme.7199">
+"High-order non-conforming discontinuous Galerkin methods for the acoustic conservation equations"
+</a>
+by Johannes Heinz, Peter Munch, and Manfred Kaltenbacher.
+
+J.~Heinz was supported by the European Union’s Framework Programme for Research
+and Innovation Horizon 2020 (2014-2020) under the Marie Sk\l{}odowska--Curie Grant
+Agreement No. [812719].
+</i>
+
+@dealiiTutorialDOI{TODO...10.5281/zenodo.8411345...TODO,https://zenodo.org/badge/DOI/10.5281/zenodo.8411345.svg}  //TODO: Create DOI!
+
+<h1>Introduction</h1>
+
+This tutorial presents one way how to apply non-matching or Chimera methods
+within matirx-free loops in deal.II. We are following @cite heinz2023high
+to show that in some cases a simple point-to-point interpolation is not
+sufficient. To suppress artificial modes Nitsche-type mortaring is used
+in @cite heinz2023high and in this tutorial.
+
+<h3>%FERemoteEvaluation</h3>
+
+FERemoteEvaluation is a wrapper class which provides a similar interface to, e.g., FEEvaluation to access values over non-matching interfaces in matrix-free loops. 
+A detailed description on how to setup the class and how to use it in actual code is given below on hands-on examples.
+Under the hood, Utilities::MPI::RemotePointEvaluation is used to query the solution or gradients in these points.
+A detailled description how this is done can be found in step-87.
+The main difference of FERemoteEvaluation to FEEvaluation is that values are cached <i>before</i> each loop.
+I.e., the code differs as follows: First the standard code to evaluate fluxes via FEEvaluation
+@code
+    const auto face_function =
+      [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
+        FEFaceIntegrator phi_m(data, true);
+        FEFaceIntegrator phi_p(data, false);
+
+        for (unsigned int f = face_range.first; f < face_range.second;
+             ++f)
+          {
+            phi_m.reinit(f);
+            phi_p.reinit(f);
+
+            phi_p.gather_evaluate(src, EvaluationFlags::values); //compute values on face f
+
+           for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
+                phi_m.submit_value(phi_p.get_value(q), q);
+
+                phi_m.integrate_scatter(EvaluationFlags::values,
+                                    dst);
+          }
+      };
+
+matrix_free.template loop<VectorType, VectorType>({}, face_function, {}, dst, src);
+@endcode
+Second the code to evaluate fluxes over non-matching faces. Lets assume all boundary faces are somehow connected non-conformingly to be able to focus on the call of phi_r.gather_evaluate(src,EvaluationFlags::values) <i>before</i> the loop.
+@code
+    const auto boundary_function =
+      [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
+        FEFaceIntegrator phi_m(data, true);
+
+        for (unsigned int f = face_range.first; f < face_range.second;
+             ++f)
+          {
+            phi_m.reinit(f);
+            phi_r.reinit(f);
+
+            for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
+                phi_m.submit_value(phi_r.get_value(q), q); //access values
+
+                phi_m.integrate_scatter(EvaluationFlags::values,
+                                    dst);
+          }
+      };
+
+mutable FERemoteEvaluation<dim,Number> phi_r(remote_communicator);
+phi_r.gather_evaluate(src,EvaluationFlags::values); //cache all remote values
+matrix_free.template loop<VectorType, VectorType>({}, {}, boundary_function, dst, src);
+@endcode
+TODO: descirbe what communicator does
+TODO: describe why mutable
+
+
+<h3>%Point-to-point interpolation</h3>
+
+<h3>%Nitsche-type mortaring</h3>
+
+<h3>Overview</h3>
+
+In the following, we present two use cases of FERemoteEvaluation.
