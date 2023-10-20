@@ -21,11 +21,11 @@ Agreement No. [812719].
 
 <h1>Introduction</h1>
 
-This tutorial presents one way how to apply non-matching or Chimera methods
+This tutorial presents one way how to apply non-matching and/or Chimera methods
 within matirx-free loops in deal.II. We are following @cite heinz2023high
 to show that in some cases a simple point-to-point interpolation is not
 sufficient. To suppress artificial modes Nitsche-type mortaring is used
-in @cite heinz2023high and in this tutorial.
+in @cite heinz2023high as well as in this tutorial.
 
 <h3>%FERemoteEvaluation</h3>
 
