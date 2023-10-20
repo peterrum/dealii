@@ -27,6 +27,8 @@ to show that in some cases a simple point-to-point interpolation is not
 sufficient. To suppress artificial modes Nitsche-type mortaring is used
 in @cite heinz2023high as well as in this tutorial.
 
+<h3>%Merge multiple meshes to global non-matching mesh</h3>
+
 <h3>%FERemoteEvaluation</h3>
 
 FERemoteEvaluation is a wrapper class which provides a similar interface to, e.g., FEEvaluation to access values over non-matching interfaces in matrix-free loops. 
