@@ -45,8 +45,8 @@ non-matching coupling conditions.
 
 The discretized equations read
 @f[
-  \int_{\Omega} q_h\frac{\partial \, p_h}{\partial \, t} +\int_{\Omega} q_h \rho c^2 \nabla\cdot\mathbf{u}_h \int_{\partial\Omega} q_h\mathbf{n}\cdot\rho c^2(\mathbf{u}^*_h-\mathbf{u}_h)=0,\\
-  \int_{\Omega} \mathbf{w}_h\cdot\frac{\partial \,\mathbf{u}_h}{\partial \, t} +\int_{\Omega} \mathbf{w}_h\cdot \frac{1}{\rho} \nabla p_h \int_{\partial\Omega} \mathbf{w}_h \cdot\mathbf{n} \frac{1}{\rho}(p^*_h-p_h)=\mathbf{0},
+  \int_{\Omega} q_h\frac{\partial \, p_h}{\partial \, t} +\int_{\Omega} q_h \rho c^2 \nabla\cdot\mathbf{u}_h +\int_{\partial\Omega} q_h\mathbf{n}\cdot\rho c^2(\mathbf{u}^*_h-\mathbf{u}_h)=0,\\
+  \int_{\Omega} \mathbf{w}_h\cdot\frac{\partial \,\mathbf{u}_h}{\partial \, t} +\int_{\Omega} \mathbf{w}_h\cdot \frac{1}{\rho} \nabla p_h +\int_{\partial\Omega} \mathbf{w}_h \cdot\mathbf{n} \frac{1}{\rho}(p^*_h-p_h)=\mathbf{0},
 @f]
 where $\mathbf{w}_h$ and $q_h$ are test functions. The numerical fluxes are
 defined as follows @cite hochbruck2014efficient
@@ -98,7 +98,7 @@ const auto face_function =
       phi_p.gather_evaluate(src, EvaluationFlags::values); //compute values on face f
 
       for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
-        phi_m.submit_value(phi_p.get_value(q), q);
+        phi_m.submit_value(phi_p.get_value(q), q); //access values
 
       phi_m.integrate_scatter(EvaluationFlags::values, dst);
      }
@@ -127,7 +127,8 @@ const auto boundary_function =
     }
   };
 
-remote_communicator.update_ghost_values(src,EvaluationFlags::values);// remote_communicator is assumed to be known at this place
+// remote_communicator is assumed to be known at this place
+remote_communicator.update_ghost_values(src, EvaluationFlags::values); //compute values on all non-matching faces
 
 matrix_free.template loop<VectorType, VectorType>({}, {}, boundary_function, dst, src);
 @endcode
