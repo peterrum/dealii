@@ -127,7 +127,7 @@ const auto boundary_function =
     }
   };
 
-// remote_communicator is assumed to be known at this place
+// remote_communicator is assumed to be initialized at this place
 remote_communicator.update_ghost_values(src, EvaluationFlags::values); //compute values on all non-matching faces
 
 matrix_free.template loop<VectorType, VectorType>({}, {}, boundary_function, dst, src);
