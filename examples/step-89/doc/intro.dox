@@ -35,7 +35,7 @@ FERemoteEvaluation is a wrapper class which provides a similar interface to, e.g
 A detailed description on how to setup the class and how to use it in actual code is given below on hands-on examples.
 Under the hood, Utilities::MPI::RemotePointEvaluation is used to query the solution or gradients in these points.
 A detailled description how this is done can be found in step-87.
-The main difference of FERemoteEvaluation to FEEvaluation is that values are cached <i>before</i> each loop.
+The main difference in the usage of FERemoteEvaluation compared to FEEvaluation is that values are cached <i>before</i> each loop.
 I.e., the code differs as follows: First the standard code to evaluate fluxes via FEEvaluation
 @code
     const auto face_function =
