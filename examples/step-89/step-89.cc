@@ -39,7 +39,8 @@
 #include <fstream>
 
 // The following header file provides the class FERemoteEvaluation, which allows
-// to access values and/or gradients at remote triangulations similar to FEEvaluation.
+// to access values and/or gradients at remote triangulations similar to
+// FEEvaluation.
 #include <deal.II/matrix_free/fe_remote_evaluation.h>
 
 // We pack everything that is specific for this program into a namespace
@@ -48,19 +49,20 @@ namespace Step89
 {
   using namespace dealii;
 
-  class //timestepping as in step 76
-  RungeKuttaTimeStepping
+  class // timestepping as in step 76
+    RungeKuttaTimeStepping
   {
-    RungeKuttaTimeStepping(const TimeStepping::runge_kutta_method lsrk=TimeStepping::LOW_STORAGE_RK_STAGE3_ORDER3)
+    RungeKuttaTimeStepping(const TimeStepping::runge_kutta_method lsrk =
+                             TimeStepping::LOW_STORAGE_RK_STAGE3_ORDER3)
     {
       TimeStepping::LowStorageRungeKutta<
         LinearAlgebra::distributed::Vector<Number>>
-                          rk_integrator(lsrk);
+        rk_integrator(lsrk);
       rk_integrator.get_coefficients(ai, bi, {});
     }
-    
 
-   template <typename VectorType, typename Operator>
+
+    template <typename VectorType, typename Operator>
     void perform_time_step(const Operator &pde_operator,
                            const double    current_time,
                            const double    time_step,
@@ -92,154 +94,167 @@ namespace Step89
         }
     }
 
-     private:
+  private:
     std::vector<double> bi;
-    std::vector<double> ai; 
+    std::vector<double> ai;
   };
-  
-  template<int dim, typename Number, typename VectorizedArrayType>
+
+  template <int dim, typename Number, typename VectorizedArrayType>
   class AcousticConservationEquation
   {
-
-    using VectorType  = LinearAlgebra::distributed::Vector<Number>;
-  using This = AcousticConservationEquation<dim, Number>;
+    using VectorType = LinearAlgebra::distributed::Vector<Number>;
+    using This       = AcousticConservationEquation<dim, Number>;
 
   public:
-    void
-  evaluate(MatrixFree<dim, Number> const &   matrix_free,VectorType & dst, VectorType const & src) const
+    void evaluate(const MatrixFree<dim, Number> &matrix_free,
+                  VectorType                    &dst,
+                  const VectorType              &src) const
     {
       matrix_free.loop(&This::cell_loop,
-                    &This::face_loop,
-                    &This::boundary_face_loop,
-                    this,
-                    dst,
-                    src,
-                    true,
-                    MatrixFree<dim, Number>::DataAccessOnFaces::values,
-                    MatrixFree<dim, Number>::DataAccessOnFaces::values);
+                       &This::face_loop,
+                       &This::boundary_face_loop,
+                       this,
+                       dst,
+                       src,
+                       true,
+                       MatrixFree<dim, Number>::DataAccessOnFaces::values,
+                       MatrixFree<dim, Number>::DataAccessOnFaces::values);
     }
 
   private:
-void
-cell_loop(MatrixFree<dim, Number,VectorizedArrayType> const & matrix_free,
-                                         VectorType &              dst,
-                                         VectorType const &                 src,
-                                         std::pair<unsigned int, unsigned int> const &  cell_range) const
-{
-  FEEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType>pressure(matrix_free, 0,0,0);
-  FEEvaluation<dim, -1, 0, dim, Number, VectorizedArrayType>velocity(matrix_free,0,0,1);
-
-  for(unsigned int cell = cell_range.first; cell < cell_range.second; ++cell)
-  {
-    velocity.reinit(cell);
-    pressure.reinit(cell);
-
-    pressure.gather_evaluate(src, EvaluationFlags::gradients);
-    velocity.gather_evaluate(src, EvaluationFlags::gradients);
-
-    do_cell_integral_strong(pressure, velocity);
-
-    for(unsigned int q = 0; q < pressure.n_q_points; ++q)
+    void
+    cell_loop(const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+              VectorType                                         &dst,
+              const VectorType                                   &src,
+              const std::pair<unsigned int, unsigned int> &cell_range) const
     {
-      pressure.submit_value(rho*c*c * velocity.get_divergence(q), q);
-      velocity.submit_value(1.0/rho * pressure.get_gradient(q), q);
+      FEEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> pressure(
+        matrix_free, 0, 0, 0);
+      FEEvaluation<dim, -1, 0, dim, Number, VectorizedArrayType> velocity(
+        matrix_free, 0, 0, 1);
+
+      for (unsigned int cell = cell_range.first; cell < cell_range.second;
+           ++cell)
+        {
+          velocity.reinit(cell);
+          pressure.reinit(cell);
+
+          pressure.gather_evaluate(src, EvaluationFlags::gradients);
+          velocity.gather_evaluate(src, EvaluationFlags::gradients);
+
+          do_cell_integral_strong(pressure, velocity);
+
+          for (unsigned int q = 0; q < pressure.n_q_points; ++q)
+            {
+              pressure.submit_value(rho * c * c * velocity.get_divergence(q),
+                                    q);
+              velocity.submit_value(1.0 / rho * pressure.get_gradient(q), q);
+            }
+
+          pressure.integrate_scatter(EvaluationFlags::values, dst);
+          velocity.integrate_scatter(EvaluationFlags::values, dst);
+        }
     }
-
-    pressure.integrate_scatter(EvaluationFlags::values, dst);
-    velocity.integrate_scatter(EvaluationFlags::values, dst);
-
-  }
-}
 
     void
-face_loop(MatrixFree<dim, Number,VectorizedArrayType> const & matrix_free,
-                                         VectorType &              dst,
-                                         VectorType const &                 src,
-                                         std::pair<unsigned int, unsigned int> const &  face_range) const
-{
-  FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType>pressure_m(matrix_free, true,0,0,0);
-  FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType>pressure_p(matrix_free, false,0,0,0);
-  FEFaceEvaluation<dim, -1, 0, dim, Number, VectorizedArrayType>velocity_m(matrix_free,true,0,0,1);
-  FEFaceEvaluation<dim, -1, 0, dim, Number, VectorizedArrayType>velocity_p(matrix_free,false,0,0,1);
-
-    for(unsigned int face = face_range.first; face < face_range.second; face++)
+    face_loop(const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+              VectorType                                         &dst,
+              const VectorType                                   &src,
+              const std::pair<unsigned int, unsigned int> &face_range) const
     {
-      velocity_m.reinit(face);
-      velocity_p.reinit(face);
+      FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> pressure_m(
+        matrix_free, true, 0, 0, 0);
+      FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> pressure_p(
+        matrix_free, false, 0, 0, 0);
+      FEFaceEvaluation<dim, -1, 0, dim, Number, VectorizedArrayType> velocity_m(
+        matrix_free, true, 0, 0, 1);
+      FEFaceEvaluation<dim, -1, 0, dim, Number, VectorizedArrayType> velocity_p(
+        matrix_free, false, 0, 0, 1);
 
-      pressure_m.reinit(face);
-      pressure_p.reinit(face);
+      for (unsigned int face = face_range.first; face < face_range.second;
+           face++)
+        {
+          velocity_m.reinit(face);
+          velocity_p.reinit(face);
 
-      pressure_m.gather_evaluate(src, EvaluationFlags::values);
-      pressure_p.gather_evaluate(src, EvaluationFlags::values);
+          pressure_m.reinit(face);
+          pressure_p.reinit(face);
 
-        for(unsigned int q : pressure_m.quadrature_point_indices())
-  {
-  const auto& n  = pressure_m.normal_vector(q);
-  const auto& pm = pressure_m.get_value(q);
-  const auto& um = velocity_m.get_value(q);
-  
-  //homogenous boundary conditions
-  const auto&pp = pressure_p.get_value(q);
-   const auto& up = velocity_p.get_value(q);
+          pressure_m.gather_evaluate(src, EvaluationFlags::values);
+          pressure_p.gather_evaluate(src, EvaluationFlags::values);
 
-  const auto & flux_momentum = 0.5 * (pm + pp) + 0.5*tau*(um-up)*n;
-      velocity_m.submit_value(1.0/rho * (flux_momentum - pm) * n, q);
-      velocity_p.submit_value(1.0/rho * (flux_momentum - pp) * (-n), q);
-  
-  const auto & flux_mass = 0.5 * (um + up) + 0.5*gamma*(pm - pp)*n;
-      pressure_m.submit_value(rho*c*c * (flux_mass - um) * n, q);
-      pressure_p.submit_value(rho*c*c * (flux_mass - up) * (-n), q);
-  }
+          for (unsigned int q : pressure_m.quadrature_point_indices())
+            {
+              const auto &n  = pressure_m.normal_vector(q);
+              const auto &pm = pressure_m.get_value(q);
+              const auto &um = velocity_m.get_value(q);
+
+              // homogenous boundary conditions
+              const auto &pp = pressure_p.get_value(q);
+              const auto &up = velocity_p.get_value(q);
+
+              const auto &flux_momentum =
+                0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
+              velocity_m.submit_value(1.0 / rho * (flux_momentum - pm) * n, q);
+              velocity_p.submit_value(1.0 / rho * (flux_momentum - pp) * (-n),
+                                      q);
+
+              const auto &flux_mass =
+                0.5 * (um + up) + 0.5 * gamma * (pm - pp) * n;
+              pressure_m.submit_value(rho * c * c * (flux_mass - um) * n, q);
+              pressure_p.submit_value(rho * c * c * (flux_mass - up) * (-n), q);
+            }
 
 
-            velocity_m.integrate_scatter(EvaluationFlags::values, dst);
-      velocity_p.integrate_scatter(EvaluationFlags::values, dst);
+          velocity_m.integrate_scatter(EvaluationFlags::values, dst);
+          velocity_p.integrate_scatter(EvaluationFlags::values, dst);
+        }
     }
-}
 
-    void
-boundary_face_loop(MatrixFree<dim, Number,VectorizedArrayType> const & matrix_free,
-                                         VectorType &              dst,
-                                         VectorType const &                 src,
-                                         std::pair<unsigned int, unsigned int> const &  face_range) const
-{
-  FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType>pressure_m(matrix_free, true,0,0,0);
-  FEFaceEvaluation<dim, -1, 0, dim, Number, VectorizedArrayType>velocity_m(matrix_free,true,0,0,1);
-
-    for(unsigned int face = face_range.first; face < face_range.second; face++)
+    void boundary_face_loop(
+      const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+      VectorType                                         &dst,
+      const VectorType                                   &src,
+      const std::pair<unsigned int, unsigned int>        &face_range) const
     {
-      velocity_m.reinit(face);
+      FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> pressure_m(
+        matrix_free, true, 0, 0, 0);
+      FEFaceEvaluation<dim, -1, 0, dim, Number, VectorizedArrayType> velocity_m(
+        matrix_free, true, 0, 0, 1);
 
-      pressure_m.reinit(face);
-      
-            pressure_m.gather_evaluate(src, EvaluationFlags::values);
-            velocity_m.integrate_scatter(EvaluationFlags::values, dst);
+      for (unsigned int face = face_range.first; face < face_range.second;
+           face++)
+        {
+          velocity_m.reinit(face);
 
-            for(unsigned int q : pressure_m.quadrature_point_indices())
-  {
-  const auto& n  = pressure_m.normal_vector(q);
-  const auto& pm = pressure_m.get_value(q);
-  const auto& um = velocity_m.get_value(q);
+          pressure_m.reinit(face);
 
-  //homogenous boundary conditions
-  const auto& pp = -pm;
-  const auto& up = up;
+          pressure_m.gather_evaluate(src, EvaluationFlags::values);
+          velocity_m.integrate_scatter(EvaluationFlags::values, dst);
 
-  const auto & flux_momentum = 0.5 * (pm + pp) + 0.5*tau*(um-up)*n;
-      velocity_m.submit_value(1.0/rho * (flux_momentum - pm) * n, q);
-      velocity_p.submit_value(1.0/rho * (flux_momentum - pp) * (-n), q);
-  
-  const auto & flux_mass = 0.5 * (um + up) + 0.5*gamma*(pm - pp)*n;
-      pressure_m.submit_value(rho*c*c * (flux_mass - um) * n, q);
-      pressure_p.submit_value(rho*c*c * (flux_mass - up) * (-n), q);
-  }
-        
+          for (unsigned int q : pressure_m.quadrature_point_indices())
+            {
+              const auto &n  = pressure_m.normal_vector(q);
+              const auto &pm = pressure_m.get_value(q);
+              const auto &um = velocity_m.get_value(q);
 
+              // homogenous boundary conditions
+              const auto &pp = -pm;
+              const auto &up = up;
+
+              const auto &flux_momentum =
+                0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
+              velocity_m.submit_value(1.0 / rho * (flux_momentum - pm) * n, q);
+              velocity_p.submit_value(1.0 / rho * (flux_momentum - pp) * (-n),
+                                      q);
+
+              const auto &flux_mass =
+                0.5 * (um + up) + 0.5 * gamma * (pm - pp) * n;
+              pressure_m.submit_value(rho * c * c * (flux_mass - um) * n, q);
+              pressure_p.submit_value(rho * c * c * (flux_mass - up) * (-n), q);
+            }
+        }
     }
-}
-
-    
   };
 
 
@@ -254,10 +269,6 @@ boundary_face_loop(MatrixFree<dim, Number,VectorizedArrayType> const & matrix_fr
     ConditionalOStream pcout(std::cout,
                              Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) ==
                                0);
-
-
-
-
   }
 
 
@@ -265,16 +276,15 @@ boundary_face_loop(MatrixFree<dim, Number,VectorizedArrayType> const & matrix_fr
   //
   // Description
   void nitsche_type_mortaring()
-  {
+  {}
 
-  }
-  
-} // namespace Step87
+} // namespace Step89
 
 
 // @sect3{Driver}
 //
-// Finally, the driver executes the different versions of handling non-matching interfaces.
+// Finally, the driver executes the different versions of handling non-matching
+// interfaces.
 
 int main(int argc, char *argv[])
 {
@@ -284,6 +294,6 @@ int main(int argc, char *argv[])
   Step89::point_to_point_interpolation();
   Step89::nitsche_type_mortaring();
   Step89::inhomogenous_material();
-  
+
   return 0;
 }

@@ -4,8 +4,8 @@
 This program was contributed by Johannes Heinz and Peter Munch.
 Many ideas presented here are the result of common code development with
 Maximilian Bergbauer, Marco Feder, Niklas Fehn, Luca Heltai, Martin Kronbichler,
-Nils Much, Judith Pauen and Magdalena Schreter-Fleischhacker. 
-<b> //TODO: @Peter correct people mentioned? </b> 
+Nils Much, Judith Pauen and Magdalena Schreter-Fleischhacker.
+<b> //TODO: @Peter correct people mentioned? </b>
 
 This tutorial is loosely based on the puplication
 "High-order non-conforming discontinuous Galerkin methods for the acoustic conservation equations"
@@ -28,7 +28,7 @@ artificial modes observed for the acoustic conservation equations @cite heinz202
 
 <h3>%Acoustic conservation equations</h3>
 
-Acoustic conservation equations are used to describe linear wave propagation. 
+Acoustic conservation equations are used to describe linear wave propagation.
 The set of equations consists of the conservation of mass and momentum
 @f[
   \frac{\partial \, p}{\partial \, t} + \rho c^2 \nabla\cdot \mathbf{u} = 0,\\
@@ -75,7 +75,7 @@ $\average{a}=\frac{a^- + a^+}{2}$ denots the averaging operator.
 
 <h3>%FERemoteEvaluation</h3>
 
-FERemoteEvaluation is a wrapper class which provides a similar interface to, e.g., FEEvaluation to access values over non-matching interfaces in matrix-free loops. 
+FERemoteEvaluation is a wrapper class which provides a similar interface to, e.g., FEEvaluation to access values over non-matching interfaces in matrix-free loops.
 A detailed description on how to setup the class and how to use it in actual code is given below on hands-on examples.
 Within this tutorial we only show the usage for non-matching discretizations.
 Note however that FERemoteEvaluation can also be used in other settings such as volume coupling.
