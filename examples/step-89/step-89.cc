@@ -44,10 +44,148 @@
 
 // We pack everything that is specific for this program into a namespace
 // of its own.
-
 namespace Step89
 {
   using namespace dealii;
+
+  template<int dim, typename Number, typename VectorizedArrayType>
+  class AcousticConservationEquation
+  {
+
+    using VectorType  = dealii::LinearAlgebra::distributed::Vector<Number>;
+  using This = AcousticConservationEquation<dim, Number>;
+
+  public:
+    void
+  evaluate(MatrixFree<dim, Number> const &   matrix_free,VectorType & dst, VectorType const & src) const
+    {
+      matrix_free.loop(&This::cell_loop,
+                    &This::face_loop,
+                    &This::boundary_face_loop,
+                    this,
+                    dst,
+                    src,
+                    true,
+                    dealii::MatrixFree<dim, Number>::DataAccessOnFaces::values,
+                    dealii::MatrixFree<dim, Number>::DataAccessOnFaces::values);
+    }
+
+  private:
+void
+cell_loop(dealii::MatrixFree<dim, Number,VectorizedArrayType> const & matrix_free,
+                                         VectorType &              dst,
+                                         VectorType const &                 src,
+                                         std::pair<unsigned int, unsigned int> const &  cell_range) const
+{
+  FEEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType>pressure(matrix_free, 0,0,0);
+  FEEvaluation<dim, -1, 0, dim, Number, VectorizedArrayType>velocity(matrix_free,0,0,1);
+
+  for(unsigned int cell = cell_range.first; cell < cell_range.second; ++cell)
+  {
+    velocity.reinit(cell);
+    pressure.reinit(cell);
+
+    pressure.gather_evaluate(src.block(0), dealii::EvaluationFlags::gradients);
+    velocity.gather_evaluate(src.block(1), dealii::EvaluationFlags::gradients);
+
+    do_cell_integral_strong(pressure, velocity);
+
+    for(unsigned int q = 0; q < pressure.n_q_points; ++q)
+    {
+      pressure.submit_value(rho*c*c * velocity.get_divergence(q), q);
+      velocity.submit_value(1.0/rho * pressure.get_gradient(q), q);
+    }
+
+    pressure.integrate_scatter(dealii::EvaluationFlags::values, dst);
+    velocity.integrate_scatter(dealii::EvaluationFlags::values, dst);
+
+  }
+}
+
+    void
+face_loop(dealii::MatrixFree<dim, Number,VectorizedArrayType> const & matrix_free,
+                                         VectorType &              dst,
+                                         VectorType const &                 src,
+                                         std::pair<unsigned int, unsigned int> const &  face_range) const
+{
+  FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType>pressure_m(matrix_free, true,0,0,0);
+  FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType>pressure_p(matrix_free, false,0,0,0);
+  FEFaceEvaluation<dim, -1, 0, dim, Number, VectorizedArrayType>velocity_m(matrix_free,true,0,0,1);
+  FEFaceEvaluation<dim, -1, 0, dim, Number, VectorizedArrayType>velocity_p(matrix_free,false,0,0,1);
+
+    for(unsigned int face = face_range.first; face < face_range.second; face++)
+    {
+      velocity_m.reinit(face);
+      velocity_p.reinit(face);
+
+      pressure_m.reinit(face);
+      pressure_p.reinit(face);
+
+        for(unsigned int q : pressure_m.quadrature_point_indices())
+  {
+   const auto& pm = pressure_m.get_value(q);
+   const auto&pp = pressure_p.get_value(q);
+  const auto& um = velocity_m.get_value(q);
+   const auto& up = velocity_p.get_value(q);
+  const auto& n  = pressure_m.normal_vector(q);
+
+  const auto & flux_momentum = 0.5 * (pm + pp) + 0.5*tau*(um-up)*n;
+      velocity_m.submit_value(1.0/rho * (flux_momentum - pm) * n, q);
+      velocity_p.submit_value(1.0/rho * (flux_momentum - pp) * (-n), q);
+  
+  const auto & flux_mass = 0.5 * (um + up) + 0.5*gamma*(pm - pp)*n;
+      pressure_m.submit_value(rho*c*c * (flux_mass - um) * n, q);
+      pressure_p.submit_value(rho*c*c * (flux_mass - up) * (-n), q);
+  }
+
+            pressure_m.gather_evaluate(src.block(0), dealii::EvaluationFlags::values);
+      pressure_p.gather_evaluate(src.block(0), dealii::EvaluationFlags::values);
+
+            velocity_m.integrate_scatter(dealii::EvaluationFlags::values, dst);
+      velocity_p.integrate_scatter(dealii::EvaluationFlags::values, dst);
+    }
+}
+
+    void
+boundary_face_loop(dealii::MatrixFree<dim, Number,VectorizedArrayType> const & matrix_free,
+                                         VectorType &              dst,
+                                         VectorType const &                 src,
+                                         std::pair<unsigned int, unsigned int> const &  face_range) const
+{
+  FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType>pressure_m(matrix_free, true,0,0,0);
+  FEFaceEvaluation<dim, -1, 0, dim, Number, VectorizedArrayType>velocity_m(matrix_free,true,0,0,1);
+
+    for(unsigned int face = face_range.first; face < face_range.second; face++)
+    {
+      velocity_m.reinit(face);
+
+      pressure_m.reinit(face);
+
+        for(unsigned int q : pressure_m.quadrature_point_indices())
+  {
+   const auto& pm = pressure_m.get_value(q);
+   const auto&pp = -pm;//homogenous boundary conditions
+  const auto& um = velocity_m.get_value(q);
+   const auto& up = up;
+  const auto& n  = pressure_m.normal_vector(q);
+
+  const auto & flux_momentum = 0.5 * (pm + pp) + 0.5*tau*(um-up)*n;
+      velocity_m.submit_value(1.0/rho * (flux_momentum - pm) * n, q);
+      velocity_p.submit_value(1.0/rho * (flux_momentum - pp) * (-n), q);
+  
+  const auto & flux_mass = 0.5 * (um + up) + 0.5*gamma*(pm - pp)*n;
+      pressure_m.submit_value(rho*c*c * (flux_mass - um) * n, q);
+      pressure_p.submit_value(rho*c*c * (flux_mass - up) * (-n), q);
+  }
+        
+            pressure_m.gather_evaluate(src.block(0), dealii::EvaluationFlags::values);
+            velocity_m.integrate_scatter(dealii::EvaluationFlags::values, dst);
+    }
+}
+
+    
+  };
+
 
   // @sect3{Point-to-point interpolation}
   //
@@ -85,6 +223,7 @@ int main(int argc, char *argv[])
 
   Step87::point_to_point_interpolation();
   Step87::nitsche_type_mortaring();
-    
+  Step87::inhomogenous_material();
+  
   return 0;
 }
