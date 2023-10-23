@@ -51,8 +51,8 @@ The discretized equations read
 where $\mathbf{w}_h$ and $q_h$ are test functions. The numerical fluxes are
 defined as follows @cite hochbruck2014efficient
 @f[
-  p_h^*=p_h-\frac{\tau^-}{\tau^-+\tau^+}[p_h]+\frac{\tau^-\tau^+}{\tau^-+\tau^+}{\mathbf{u}_h},\\
-  \mathbf{u}_h^*=\mathbf{u}_h-\frac{\gamma^-}{\gamma^-+\gamma^+}[\mathbf{u}_h]+\frac{\gamma^-\gamma^+}{\gamma^-+\gamma^+}{p_h},
+  p_h^*=p_h-\frac{\tau^-}{\tau^-+\tau^+}[p_h]+\frac{\tau^-\tau^+}{\tau^-+\tau^+}\jump{\mathbf{u}_h},\\
+  \mathbf{u}_h^*=\mathbf{u}_h-\frac{\gamma^-}{\gamma^-+\gamma^+}[\mathbf{u}_h]+\frac{\gamma^-\gamma^+}{\gamma^-+\gamma^+}\jump{p_h},
 @f]
 with the penalty parameters $\tau=\frac{\rho c}{2}$ and $\gamma=\frac{1}{2\rho c}$.
 $[a] = a^- - a^+ $ denotes the jump of an arbitrary quantity $a$
