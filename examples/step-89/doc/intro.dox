@@ -140,10 +140,10 @@ mapping between quadrature point index and correspoding values/gradients. The up
 <h3>Overview</h3>
 
 In the following, point-to-point interpolation and Nitsche-type mortaring is implemented.
-At first we are considering the testcase of a vibrating membrane, for which the analytical
+At first we are considering the test case of a vibrating membrane, for which the analytical
 solution is known. For the point-to-point interpolation we observe instabilities which can
 be resolved using Nitsche-type mortaring.
-In a more realistic example we effectvely apply the implementations to a realsitic test-case
+In a more realistic example we effectvely apply the implementations to a realsitic test case
 in which a wave is propagating from one fluid into another fluid. I.e., due to the different speeds
 of sound of the fluid different element sizes are required to resolve the wave in both fluids.
 
