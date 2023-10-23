@@ -194,13 +194,13 @@ namespace Step89
               const auto &pp = pressure_p.get_value(q);
               const auto &up = velocity_p.get_value(q);
 
-              const auto &flux_momentum =
+              const auto flux_momentum =
                 0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
               velocity_m.submit_value(1.0 / rho * (flux_momentum - pm) * n, q);
               velocity_p.submit_value(1.0 / rho * (flux_momentum - pp) * (-n),
                                       q);
 
-              const auto &flux_mass =
+              const auto flux_mass =
                 0.5 * (um + up) + 0.5 * gamma * (pm - pp) * n;
               pressure_m.submit_value(rho * c * c * (flux_mass - um) * n, q);
               pressure_p.submit_value(rho * c * c * (flux_mass - up) * (-n), q);
