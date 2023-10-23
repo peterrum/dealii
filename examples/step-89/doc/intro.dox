@@ -4,28 +4,28 @@
 This program was contributed by Johannes Heinz and Peter Munch.
 Many ideas presented here are the result of common code development with
 Maximilian Bergbauer, Marco Feder, Niklas Fehn, Luca Heltai, Martin Kronbichler,
-Nils Much, Judith Pauen and Magdalena Schreter-Fleischhacker. //TODO: @Peter everyone mentioned?
+Nils Much, Judith Pauen and Magdalena Schreter-Fleischhacker. 
+<b> //TODO: @Peter correct people mentioned? </b> 
 
 This tutorial is loosely based on the puplication
-<a href="https://doi.org/10.1002/nme.7199">
 "High-order non-conforming discontinuous Galerkin methods for the acoustic conservation equations"
-</a>
-by Johannes Heinz, Peter Munch, and Manfred Kaltenbacher.
+by Johannes Heinz, Peter Munch and Manfred Kaltenbacher @cite heinz2023high.
 
-J.~Heinz was supported by the European Union’s Framework Programme for Research
-and Innovation Horizon 2020 (2014-2020) under the Marie Sk\l{}odowska--Curie Grant
+Johannes Heinz was supported by the European Union’s Framework Programme for Research
+and Innovation Horizon 2020 (2014-2020) under the Marie Skłodowská--Curie Grant
 Agreement No. [812719].
 </i>
 
-@dealiiTutorialDOI{TODO...10.5281/zenodo.8411345...TODO,https://zenodo.org/badge/DOI/10.5281/zenodo.8411345.svg}  //TODO: Create DOI!
+<!-- @dealiiTutorialDOI{10.5281/zenodo.8411345,https://zenodo.org/badge/DOI/10.5281/zenodo.8411345.svg} -->
+<b>TODO: Create DOI!</b>
 
 <h1>Introduction</h1>
 
 This tutorial presents one way how to apply non-matching and/or Chimera methods
 within matirx-free loops in deal.II. We are following @cite heinz2023high
 to show that in some cases a simple point-to-point interpolation is not
-sufficient. To suppress artificial modes Nitsche-type mortaring is used
-in @cite heinz2023high as well as in this tutorial.
+sufficient. Therefore, Nitsche-type mortaring is used to suppress artificial
+modes @cite heinz2023high.
 
 <h3>%Merge multiple meshes to global non-matching mesh</h3>
 

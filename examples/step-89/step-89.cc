@@ -48,11 +48,60 @@ namespace Step89
 {
   using namespace dealii;
 
+  class //timestepping as in step 76
+  RungeKuttaTimeStepping
+  {
+    RungeKuttaTimeStepping(const TimeStepping::runge_kutta_method lsrk=TimeStepping::LOW_STORAGE_RK_STAGE3_ORDER3)
+    {
+      TimeStepping::LowStorageRungeKutta<
+        LinearAlgebra::distributed::Vector<Number>>
+                          rk_integrator(lsrk);
+      rk_integrator.get_coefficients(ai, bi, {});
+    }
+    
+
+   template <typename VectorType, typename Operator>
+    void perform_time_step(const Operator &pde_operator,
+                           const double    current_time,
+                           const double    time_step,
+                           VectorType     &solution,
+                           VectorType     &vec_ri,
+                           VectorType     &vec_ki) const
+    {
+      AssertDimension(ai.size() + 1, bi.size());
+
+      vec_ki.swap(solution);
+
+      double sum_previous_bi = 0;
+      for (unsigned int stage = 0; stage < bi.size(); ++stage)
+        {
+          const double c_i = stage == 0 ? 0 : sum_previous_bi + ai[stage - 1];
+
+          pde_operator.perform_stage(stage,
+                                     current_time + c_i * time_step,
+                                     bi[stage] * time_step,
+                                     (stage == bi.size() - 1 ?
+                                        0 :
+                                        ai[stage] * time_step),
+                                     (stage % 2 == 0 ? vec_ki : vec_ri),
+                                     (stage % 2 == 0 ? vec_ri : vec_ki),
+                                     solution);
+
+          if (stage > 0)
+            sum_previous_bi += bi[stage - 1];
+        }
+    }
+
+     private:
+    std::vector<double> bi;
+    std::vector<double> ai; 
+  };
+  
   template<int dim, typename Number, typename VectorizedArrayType>
   class AcousticConservationEquation
   {
 
-    using VectorType  = dealii::LinearAlgebra::distributed::Vector<Number>;
+    using VectorType  = LinearAlgebra::distributed::Vector<Number>;
   using This = AcousticConservationEquation<dim, Number>;
 
   public:
@@ -66,13 +115,13 @@ namespace Step89
                     dst,
                     src,
                     true,
-                    dealii::MatrixFree<dim, Number>::DataAccessOnFaces::values,
-                    dealii::MatrixFree<dim, Number>::DataAccessOnFaces::values);
+                    MatrixFree<dim, Number>::DataAccessOnFaces::values,
+                    MatrixFree<dim, Number>::DataAccessOnFaces::values);
     }
 
   private:
 void
-cell_loop(dealii::MatrixFree<dim, Number,VectorizedArrayType> const & matrix_free,
+cell_loop(MatrixFree<dim, Number,VectorizedArrayType> const & matrix_free,
                                          VectorType &              dst,
                                          VectorType const &                 src,
                                          std::pair<unsigned int, unsigned int> const &  cell_range) const
@@ -85,8 +134,8 @@ cell_loop(dealii::MatrixFree<dim, Number,VectorizedArrayType> const & matrix_fre
     velocity.reinit(cell);
     pressure.reinit(cell);
 
-    pressure.gather_evaluate(src.block(0), dealii::EvaluationFlags::gradients);
-    velocity.gather_evaluate(src.block(1), dealii::EvaluationFlags::gradients);
+    pressure.gather_evaluate(src, EvaluationFlags::gradients);
+    velocity.gather_evaluate(src, EvaluationFlags::gradients);
 
     do_cell_integral_strong(pressure, velocity);
 
@@ -96,14 +145,14 @@ cell_loop(dealii::MatrixFree<dim, Number,VectorizedArrayType> const & matrix_fre
       velocity.submit_value(1.0/rho * pressure.get_gradient(q), q);
     }
 
-    pressure.integrate_scatter(dealii::EvaluationFlags::values, dst);
-    velocity.integrate_scatter(dealii::EvaluationFlags::values, dst);
+    pressure.integrate_scatter(EvaluationFlags::values, dst);
+    velocity.integrate_scatter(EvaluationFlags::values, dst);
 
   }
 }
 
     void
-face_loop(dealii::MatrixFree<dim, Number,VectorizedArrayType> const & matrix_free,
+face_loop(MatrixFree<dim, Number,VectorizedArrayType> const & matrix_free,
                                          VectorType &              dst,
                                          VectorType const &                 src,
                                          std::pair<unsigned int, unsigned int> const &  face_range) const
@@ -121,13 +170,18 @@ face_loop(dealii::MatrixFree<dim, Number,VectorizedArrayType> const & matrix_fre
       pressure_m.reinit(face);
       pressure_p.reinit(face);
 
+      pressure_m.gather_evaluate(src, EvaluationFlags::values);
+      pressure_p.gather_evaluate(src, EvaluationFlags::values);
+
         for(unsigned int q : pressure_m.quadrature_point_indices())
   {
-   const auto& pm = pressure_m.get_value(q);
-   const auto&pp = pressure_p.get_value(q);
-  const auto& um = velocity_m.get_value(q);
-   const auto& up = velocity_p.get_value(q);
   const auto& n  = pressure_m.normal_vector(q);
+  const auto& pm = pressure_m.get_value(q);
+  const auto& um = velocity_m.get_value(q);
+  
+  //homogenous boundary conditions
+  const auto&pp = pressure_p.get_value(q);
+   const auto& up = velocity_p.get_value(q);
 
   const auto & flux_momentum = 0.5 * (pm + pp) + 0.5*tau*(um-up)*n;
       velocity_m.submit_value(1.0/rho * (flux_momentum - pm) * n, q);
@@ -138,16 +192,14 @@ face_loop(dealii::MatrixFree<dim, Number,VectorizedArrayType> const & matrix_fre
       pressure_p.submit_value(rho*c*c * (flux_mass - up) * (-n), q);
   }
 
-            pressure_m.gather_evaluate(src.block(0), dealii::EvaluationFlags::values);
-      pressure_p.gather_evaluate(src.block(0), dealii::EvaluationFlags::values);
 
-            velocity_m.integrate_scatter(dealii::EvaluationFlags::values, dst);
-      velocity_p.integrate_scatter(dealii::EvaluationFlags::values, dst);
+            velocity_m.integrate_scatter(EvaluationFlags::values, dst);
+      velocity_p.integrate_scatter(EvaluationFlags::values, dst);
     }
 }
 
     void
-boundary_face_loop(dealii::MatrixFree<dim, Number,VectorizedArrayType> const & matrix_free,
+boundary_face_loop(MatrixFree<dim, Number,VectorizedArrayType> const & matrix_free,
                                          VectorType &              dst,
                                          VectorType const &                 src,
                                          std::pair<unsigned int, unsigned int> const &  face_range) const
@@ -160,14 +212,19 @@ boundary_face_loop(dealii::MatrixFree<dim, Number,VectorizedArrayType> const & m
       velocity_m.reinit(face);
 
       pressure_m.reinit(face);
+      
+            pressure_m.gather_evaluate(src, EvaluationFlags::values);
+            velocity_m.integrate_scatter(EvaluationFlags::values, dst);
 
-        for(unsigned int q : pressure_m.quadrature_point_indices())
+            for(unsigned int q : pressure_m.quadrature_point_indices())
   {
-   const auto& pm = pressure_m.get_value(q);
-   const auto&pp = -pm;//homogenous boundary conditions
-  const auto& um = velocity_m.get_value(q);
-   const auto& up = up;
   const auto& n  = pressure_m.normal_vector(q);
+  const auto& pm = pressure_m.get_value(q);
+  const auto& um = velocity_m.get_value(q);
+
+  //homogenous boundary conditions
+  const auto& pp = -pm;
+  const auto& up = up;
 
   const auto & flux_momentum = 0.5 * (pm + pp) + 0.5*tau*(um-up)*n;
       velocity_m.submit_value(1.0/rho * (flux_momentum - pm) * n, q);
@@ -178,8 +235,7 @@ boundary_face_loop(dealii::MatrixFree<dim, Number,VectorizedArrayType> const & m
       pressure_p.submit_value(rho*c*c * (flux_mass - up) * (-n), q);
   }
         
-            pressure_m.gather_evaluate(src.block(0), dealii::EvaluationFlags::values);
-            velocity_m.integrate_scatter(dealii::EvaluationFlags::values, dst);
+
     }
 }
 
@@ -198,6 +254,10 @@ boundary_face_loop(dealii::MatrixFree<dim, Number,VectorizedArrayType> const & m
     ConditionalOStream pcout(std::cout,
                              Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) ==
                                0);
+
+
+
+
   }
 
 
@@ -221,9 +281,9 @@ int main(int argc, char *argv[])
   dealii::Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
   std::cout.precision(5);
 
-  Step87::point_to_point_interpolation();
-  Step87::nitsche_type_mortaring();
-  Step87::inhomogenous_material();
+  Step89::point_to_point_interpolation();
+  Step89::nitsche_type_mortaring();
+  Step89::inhomogenous_material();
   
   return 0;
 }
