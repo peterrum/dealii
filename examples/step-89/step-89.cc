@@ -15,6 +15,7 @@
  *
  *
  * Authors: Johannes Heinz, TU Wien, 2023
+ *          Marco Feder, SISSA, 2023
  *          Peter Munch, University of Augsburg, 2023
  */
 
