@@ -16,26 +16,72 @@ and Innovation Horizon 2020 (2014-2020) under the Marie Skłodowská--Curie Gran
 Agreement No. [812719].
 </i>
 
-<!-- @dealiiTutorialDOI{10.5281/zenodo.8411345,https://zenodo.org/badge/DOI/10.5281/zenodo.8411345.svg} -->
-<b>TODO: Create DOI!</b>
+@dealiiTutorialDOI{10.5281/zenodo.10033975,https://zenodo.org/badge/DOI/10.5281/zenodo.10033975.svg}
 
 <h1>Introduction</h1>
 
 This tutorial presents one way how to apply non-matching and/or Chimera methods
-within matirx-free loops in deal.II. We are following @cite heinz2023high
-to show that in some cases a simple point-to-point interpolation is not
-sufficient. Therefore, Nitsche-type mortaring is used to suppress artificial
-modes @cite heinz2023high.
+within matirx-free loops in deal.II.
+We are following @cite heinz2023high to show that in some cases a simple point-to-point
+interpolation is not sufficient. Therefore, Nitsche-type mortaring is used to suppress
+artificial modes observed for the acoustic conservation equations @cite heinz2023high.
 
-<h3>%Merge multiple meshes to global non-matching mesh</h3>
+<h3>%Acoustic conservation equations</h3>
+
+Acoustic conservation equations are used to describe linear wave propagation. 
+The set of equations consists of the conservation of mass and momentum
+@f[
+  \frac{\partial \, p}{\partial \, t} + \rho c^2 \nabla\cdot \mathbf{u} = 0,\\
+  \frac{\partial \, \mathbf{u}}{\partial \, t} + \frac{1}{\rho}\nabla p = \mathbf{0}.
+@f]
+Here, $p$ is the acoustic pressure, $\mathbf{u}$ the acoustic particle velocity, $c$ the
+speed of sound, and $\rho$ the density of the fluid in which waves are propagating.
+Within this tutorial we are exclusively using homogenous pressure boundary conditions.
+For the discretization we make use of discontinuous Galerkin (DG) methods. DG methods are
+especially attractive for the acoustic conservation equations due to their low numerical
+dispersion errors. More importantly for this tutorial, DG methods natively extend to non-matching Nitsche-type
+methods @cite arnold2002unified. I.e., numerical fluxes are not only used on inner element faces but also as
+non-matching coupling conditions.
+
+The discretized equations read
+@f[
+  \int_{\Omega} q_h\frac{\partial \, p_h}{\partial \, t} +\int_{\Omega} q_h \rho c^2 \nabla\cdot\mathbf{u}_h \int_{\partial\Omega} q_h\mathbf{n}\cdot\rho c^2(\mathbf{u}^*_h-\mathbf{u}_h)=0,\\
+  \int_{\Omega} \mathbf{w}_h\frac{\partial \,\mathbf{u}_h}{\partial \, t} +\int_{\Omega} \mathbf{w}_h \frac{1}{\rho} \nabla p_h \int_{\partial\Omega} \mathbf{w}_h \cdot\mathbf{n} \frac{1}{\rho}(p^*_h-p_h)=\mathbf{0},
+@f]
+where $\mathbf{w}_h$ and $q_h$ are test functions. The numerical fluxes are
+defined as follows @cite hochbruck2014efficient
+@f[
+  p_h^*=p_h-\frac{\tau^-}{\tau^-+\tau^+}[p_h]+\frac{\tau^-\tau^+}{\tau^-+\tau^+}{\mathbf{u}_h},\\
+  \mathbf{u}_h^*=\mathbf{u}_h-\frac{\gamma^-}{\gamma^-+\gamma^+}[\mathbf{u}_h]+\frac{\gamma^-\gamma^+}{\gamma^-+\gamma^+}{p_h},
+@f]
+with the penalty parameters $\tau=\frac{\rho c}{2}$ and $\gamma=\frac{1}{2\rho c}$.
+$[a] = a^- - a^+ $ denotes the jump of an arbitrary quantity $a$
+over element faces and $\jump{a} = a^- \mathbf{n}^- + a^+ \mathbf{n}^+$.
+These fluxes reduce to standard Lax--Friedrichs fluxes for homogenous materials
+($\gamma^-=\gamma^+$ and $\tau^-=\tau^+$)
+@f[
+  p_h^*=\average{p_h}+\tau\jump{\mathbf{u}_h},\\
+  \mathbf{u}_h^*=\average{\mathbf{u}_h}+\gamma\jump{p_h}.
+@f]
+$\average{a}=\frac{a^- + a^+}{2}$ denots the averaging operator.
+
+<h3>%Point-to-point interpolation</h3>
+
+<b>TODO: Describe p2p</b>
+
+<h3>%Nitsche-type mortaring</h3>
+
+<b>TODO: Describe mortaring</b>
 
 <h3>%FERemoteEvaluation</h3>
 
 FERemoteEvaluation is a wrapper class which provides a similar interface to, e.g., FEEvaluation to access values over non-matching interfaces in matrix-free loops. 
 A detailed description on how to setup the class and how to use it in actual code is given below on hands-on examples.
+Within this tutorial we only show the usage for non-matching discretizations.
+Note however that FERemoteEvaluation can also be used in other settings such as volume coupling.
 Under the hood, Utilities::MPI::RemotePointEvaluation is used to query the solution or gradients in these points.
 A detailled description how this is done can be found in step-87.
-The main difference in the usage of FERemoteEvaluation compared to FEEvaluation is that values are cached <i>before</i> each loop.
+The main difference in the usage of FERemoteEvaluation compared to FEEvaluation is that values/gradients are cached <i>before</i> each loop and only accessed inside the loop.
 I.e., the code differs as follows: First the standard code to evaluate fluxes via FEEvaluation
 @code
     const auto face_function =
@@ -61,11 +107,13 @@ I.e., the code differs as follows: First the standard code to evaluate fluxes vi
 
 matrix_free.template loop<VectorType, VectorType>({}, face_function, {}, dst, src);
 @endcode
-Second the code to evaluate fluxes over non-matching faces. Lets assume all boundary faces are somehow connected non-conformingly to be able to focus on the call of phi_r.gather_evaluate(src,EvaluationFlags::values) <i>before</i> the loop.
+Second the code to evaluate fluxes over non-matching faces. Lets assume all boundary faces are somehow connected non-conformingly to be able to focus
+on the relevant differences.
 @code
     const auto boundary_function =
       [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
         FEFaceIntegrator phi_m(data, true);
+        FERemoteEvaluation<dim,Number> phi_p(remote_communicator);// remote_communicator is assumed to be known at this place
 
         for (unsigned int f = face_range.first; f < face_range.second;
              ++f)
@@ -81,18 +129,22 @@ Second the code to evaluate fluxes over non-matching faces. Lets assume all boun
           }
       };
 
-mutable FERemoteEvaluation<dim,Number> phi_r(remote_communicator);
-phi_r.gather_evaluate(src,EvaluationFlags::values); //cache all remote values
+remote_communicator.update_ghost_values(src,EvaluationFlags::values);// remote_communicator is assumed to be known at this place
 matrix_free.template loop<VectorType, VectorType>({}, {}, boundary_function, dst, src);
 @endcode
-TODO: descirbe what communicator does
-TODO: describe why mutable
-
-
-<h3>%Point-to-point interpolation</h3>
-
-<h3>%Nitsche-type mortaring</h3>
+@c remote_communicator is of type FERemoteCommunicator and assumed to be correctly initialized in above code snippet.
+FERemoteCommunicator internally manages the update of ghost values over non-matching interfaces and keeps track of the
+mapping between quadrature point index and correspoding values/gradients. The update of the values/gradients happens
+<i>before</i> the actual matrix-free loop.
 
 <h3>Overview</h3>
 
-In the following, we present two use cases of FERemoteEvaluation.
+In the following, point-to-point interpolation and Nitsche-type mortaring is implemented.
+At first we are considering the testcase of a vibrating membrane, for which the analytical
+solution is known. For the point-to-point interpolation we observe instabilities which can
+be resolved using Nitsche-type mortaring.
+In a more realistic example we effectvely apply the implementations to a realsitic test-case
+in which a wave is propagating from one fluid into another fluid. I.e., due to the different speeds
+of sound of the fluid different element sizes are required to resolve the wave in both fluids.
+
+<b>TODO: FROM HERE ON ONLY A SCRATCH OF THE REST OF THE TUTORIAL IS GIVEN. IN PARTICULAR NO RESULT SECTION IS AVAILABLE AND THE CODE IS WIP. </b>
