@@ -56,7 +56,7 @@ defined as follows @cite hochbruck2014efficient
 @f]
 with the penalty parameters $\tau=\frac{\rho c}{2}$ and $\gamma=\frac{1}{2\rho c}$.
 $[a] = a^- - a^+ $ denotes the jump of an arbitrary quantity $a$
-over element faces and $\jump{a} = a^- \mathbf{n}^- + a^+ \mathbf{n}^+$.
+over element faces (face between elements $K^-$ and $K^+$) and $\jump{a} = a^- \mathbf{n}^- + a^+ \mathbf{n}^+$.
 These fluxes reduce to standard Lax--Friedrichs fluxes for homogenous materials
 ($\gamma^-=\gamma^+$ and $\tau^-=\tau^+$)
 @f[
@@ -67,11 +67,24 @@ $\average{a}=\frac{a^- + a^+}{2}$ denots the averaging operator.
 
 <h3>%Point-to-point interpolation</h3>
 
-<b>TODO: Describe p2p</b>
+@image html step-89-p2p.svg "" width=15%
+
+Point-to-point interpolation is a naive approach. The points in which values/gradients are
+queried in the coupling terms are defined by the quadrature points on the element face of
+element $K^-$. As it can be seen from the picture this approach might be subject to aliasing
+in some cases. In the picture, information from one element is completely neglected.
 
 <h3>%Nitsche-type mortaring</h3>
 
-<b>TODO: Describe mortaring</b>
+@image html step-89-mortar.svg "" width=15%
+
+Mortaring is the process of computing intersections and is not related to the Mortar method which
+enforces the coupling via Lagrange multipliers. Obtained intersections are also referred to as
+mortars. On each mortar a new integration rule is defined. The integral of the face of element
+$K^-$ is computed on the intersections. This way, the numerical integration is exact as long
+as enough integration points are used.
+
+<h3>%TODO: filling distributing intersected quadrature points!</h3>
 
 <h3>%FERemoteEvaluation</h3>
 
