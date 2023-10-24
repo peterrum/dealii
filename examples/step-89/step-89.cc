@@ -35,6 +35,11 @@
 #include <deal.II/grid/grid_tools.h>
 
 #include <deal.II/numerics/data_out.h>
+#include <deal.II/numerics/vector_tools.h>
+
+#include <deal.II/matrix_free/matrix_free.h>
+#include <deal.II/matrix_free/fe_evaluation.h>
+
 
 #include <iostream>
 #include <fstream>
@@ -42,7 +47,7 @@
 // The following header file provides the class FERemoteEvaluation, which allows
 // to access values and/or gradients at remote triangulations similar to
 // FEEvaluation.
-#include <deal.II/matrix_free/fe_remote_evaluation.h>
+// #include <deal.II/matrix_free/fe_remote_evaluation.h>
 
 // We pack everything that is specific for this program into a namespace
 // of its own.
@@ -50,79 +55,41 @@ namespace Step89
 {
   using namespace dealii;
 
-  class // timestepping as in step 76
-    RungeKuttaTimeStepping
-  {
-    RungeKuttaTimeStepping(const TimeStepping::runge_kutta_method lsrk =
-                             TimeStepping::LOW_STORAGE_RK_STAGE3_ORDER3)
-    {
-      TimeStepping::LowStorageRungeKutta<
-        LinearAlgebra::distributed::Vector<Number>>
-        rk_integrator(lsrk);
-      rk_integrator.get_coefficients(ai, bi, {});
-    }
-
-
-    template <typename VectorType, typename Operator>
-    void perform_time_step(const Operator &pde_operator,
-                           const double    current_time,
-                           const double    time_step,
-                           VectorType     &solution,
-                           VectorType     &vec_ri,
-                           VectorType     &vec_ki) const
-    {
-      AssertDimension(ai.size() + 1, bi.size());
-
-      vec_ki.swap(solution);
-
-      double sum_previous_bi = 0;
-      for (unsigned int stage = 0; stage < bi.size(); ++stage)
-        {
-          const double c_i = stage == 0 ? 0 : sum_previous_bi + ai[stage - 1];
-
-          pde_operator.perform_stage(stage,
-                                     current_time + c_i * time_step,
-                                     bi[stage] * time_step,
-                                     (stage == bi.size() - 1 ?
-                                        0 :
-                                        ai[stage] * time_step),
-                                     (stage % 2 == 0 ? vec_ki : vec_ri),
-                                     (stage % 2 == 0 ? vec_ri : vec_ki),
-                                     solution);
-
-          if (stage > 0)
-            sum_previous_bi += bi[stage - 1];
-        }
-    }
-
-  private:
-    std::vector<double> bi;
-    std::vector<double> ai;
-  };
-
   template <int dim, typename Number, typename VectorizedArrayType>
   class AcousticConservationEquation
   {
-    using VectorType = LinearAlgebra::distributed::Vector<Number>;
-    using This       = AcousticConservationEquation<dim, Number>;
+    using This = AcousticConservationEquation<dim, Number, VectorizedArrayType>;
 
   public:
-    void evaluate(const MatrixFree<dim, Number> &matrix_free,
-                  VectorType                    &dst,
-                  const VectorType              &src) const
+    AcousticConservationEquation(
+      const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+      const double                                        density,
+      const double                                        speed_of_sound)
+      : mf(matrix_free)
+      , rho(density)
+      , c(speed_of_sound)
+      , tau(0.5 * rho * c)
+      , gamma(0.5 / (rho * c))
+    {}
+
+    template <typename VectorType>
+    void evaluate(VectorType &dst, const VectorType &src) const
     {
-      matrix_free.loop(&This::cell_loop,
-                       &This::face_loop,
-                       &This::boundary_face_loop,
-                       this,
-                       dst,
-                       src,
-                       true,
-                       MatrixFree<dim, Number>::DataAccessOnFaces::values,
-                       MatrixFree<dim, Number>::DataAccessOnFaces::values);
+      mf.loop(
+        &This::cell_loop,
+        &This::face_loop,
+        &This::boundary_face_loop,
+        this,
+        dst,
+        src,
+        true,
+        MatrixFree<dim, Number, VectorizedArrayType>::DataAccessOnFaces::values,
+        MatrixFree<dim, Number, VectorizedArrayType>::DataAccessOnFaces::
+          values);
     }
 
   private:
+    template <typename VectorType>
     void
     cell_loop(const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
               VectorType                                         &dst,
@@ -143,8 +110,6 @@ namespace Step89
           pressure.gather_evaluate(src, EvaluationFlags::gradients);
           velocity.gather_evaluate(src, EvaluationFlags::gradients);
 
-          do_cell_integral_strong(pressure, velocity);
-
           for (unsigned int q = 0; q < pressure.n_q_points; ++q)
             {
               pressure.submit_value(rho * c * c * velocity.get_divergence(q),
@@ -157,6 +122,7 @@ namespace Step89
         }
     }
 
+    template <typename VectorType>
     void
     face_loop(const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
               VectorType                                         &dst,
@@ -184,6 +150,9 @@ namespace Step89
           pressure_m.gather_evaluate(src, EvaluationFlags::values);
           pressure_p.gather_evaluate(src, EvaluationFlags::values);
 
+          velocity_m.gather_evaluate(src, EvaluationFlags::values);
+          velocity_p.gather_evaluate(src, EvaluationFlags::values);
+
           for (unsigned int q : pressure_m.quadrature_point_indices())
             {
               const auto &n  = pressure_m.normal_vector(q);
@@ -207,11 +176,14 @@ namespace Step89
             }
 
 
+          pressure_m.integrate_scatter(EvaluationFlags::values, dst);
+          pressure_p.integrate_scatter(EvaluationFlags::values, dst);
           velocity_m.integrate_scatter(EvaluationFlags::values, dst);
           velocity_p.integrate_scatter(EvaluationFlags::values, dst);
         }
     }
 
+    template <typename VectorType>
     void boundary_face_loop(
       const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
       VectorType                                         &dst,
@@ -227,11 +199,10 @@ namespace Step89
            face++)
         {
           velocity_m.reinit(face);
-
           pressure_m.reinit(face);
 
           pressure_m.gather_evaluate(src, EvaluationFlags::values);
-          velocity_m.integrate_scatter(EvaluationFlags::values, dst);
+          velocity_m.gather_evaluate(src, EvaluationFlags::values);
 
           for (unsigned int q : pressure_m.quadrature_point_indices())
             {
@@ -241,43 +212,196 @@ namespace Step89
 
               // homogenous boundary conditions
               const auto &pp = -pm;
-              const auto &up = up;
+              const auto &up = um;
 
               const auto &flux_momentum =
                 0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
               velocity_m.submit_value(1.0 / rho * (flux_momentum - pm) * n, q);
-              velocity_p.submit_value(1.0 / rho * (flux_momentum - pp) * (-n),
-                                      q);
 
               const auto &flux_mass =
                 0.5 * (um + up) + 0.5 * gamma * (pm - pp) * n;
               pressure_m.submit_value(rho * c * c * (flux_mass - um) * n, q);
-              pressure_p.submit_value(rho * c * c * (flux_mass - up) * (-n), q);
             }
+
+          pressure_m.integrate_scatter(EvaluationFlags::values, dst);
+          velocity_m.integrate_scatter(EvaluationFlags::values, dst);
         }
+    }
+
+    const MatrixFree<dim, Number, VectorizedArrayType> &mf;
+    const double                                        rho;
+    const double                                        c;
+    const double                                        tau;
+    const double                                        gamma;
+  };
+
+  struct RungeKutta2
+  {
+    template <typename VectorType, typename Operator>
+    static void perform_time_step(const Operator   &pde_operator,
+                                  const double      dt,
+                                  VectorType       &dst,
+                                  const VectorType &src)
+    {
+      VectorType k1 = src;
+
+      // stage 1
+      pde_operator.evaluate(k1, src);
+
+      // stage 2
+      k1.sadd(-0.5 * dt, 1.0, src);
+      pde_operator.evaluate(dst, k1);
+      dst.sadd(-dt, 1.0, src);
     }
   };
 
+  template <int dim,
+            typename Number,
+            typename VectorizedArrayType,
+            typename VectorType>
+  void set_initial_condition_vibrating_membrane(
+    MatrixFree<dim, Number, VectorizedArrayType> matrix_free,
+    const double                                 modes,
+    VectorType                                  &dst)
+  {
+    class InitialSolution : public Function<dim>
+    {
+    public:
+      InitialSolution(const double modes)
+        : Function<dim>(dim + 1, 0.0)
+        , M(modes)
+      {
+        static_assert(dim == 2, "Only implemented for dim==2");
+      }
+
+      double value(const Point<dim> &p, const unsigned int comp) const final
+      {
+        if (comp == 0)
+          return std::sin(M * numbers::PI * p[0]) *
+                 std::sin(M * numbers::PI * p[1]);
+        else
+          return 0.0;
+      }
+
+    private:
+      const double M;
+    };
+
+    VectorTools::interpolate(*matrix_free.get_mapping_info().mapping,
+                             matrix_free.get_dof_handler(),
+                             InitialSolution(modes),
+                             dst);
+  }
+
+  double
+  compute_dt_cfl(const double hmin, const unsigned int degree, const double c)
+  {
+    return hmin / (std::pow(degree, 1.5) * c);
+  }
 
   // @sect3{Point-to-point interpolation}
   //
   // Description
-  void point_to_point_interpolation()
+  void point_to_point_interpolation(const unsigned int refinements,
+                                    const unsigned int degree)
   {
-    constexpr unsigned int dim       = 2;
-    constexpr unsigned int fe_degree = 3;
+    using Number              = double;
+    using VectorType          = LinearAlgebra::distributed::Vector<Number>;
+    using VectorizedArrayType = VectorizedArray<Number>;
+    constexpr int dim         = 2;
+
+    const double density        = 1.0;
+    const double speed_of_sound = 1.0;
+    const double modes          = 120.0;
+    const double length         = 0.1;
 
     ConditionalOStream pcout(std::cout,
                              Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) ==
                                0);
+
+    parallel::distributed::Triangulation<dim> tria(MPI_COMM_WORLD);
+    GridGenerator::hyper_cube(tria, 0.0, length);
+    tria.refine_global(refinements);
+
+    const MappingQ1<dim> mapping;
+    const FESystem<dim>  fe_dgq(FE_DGQ<dim>(degree), dim + 1);
+    const QGauss<dim>    quad(degree + 1);
+
+    DoFHandler<dim> dof_handler(tria);
+    dof_handler.distribute_dofs(fe_dgq);
+
+    AffineConstraints<Number> constraints;
+    constraints.close();
+
+    MatrixFree<dim, Number, VectorizedArrayType> matrix_free;
+
+    typename MatrixFree<dim, Number, VectorizedArrayType>::AdditionalData data;
+    data.mapping_update_flags             = update_gradients | update_values;
+    data.mapping_update_flags_inner_faces = update_values;
+    data.mapping_update_flags_boundary_faces =
+      data.mapping_update_flags_inner_faces;
+
+    matrix_free.reinit(mapping, dof_handler, constraints, quad, data);
+
+
+    double dt =
+      0.1 *
+      compute_dt_cfl(length / std::pow(2, refinements), degree, speed_of_sound);
+
+    VectorType solution;
+    matrix_free.initialize_dof_vector(solution);
+    set_initial_condition_vibrating_membrane(matrix_free, modes, solution);
+
+    VectorType solution_temp;
+    matrix_free.initialize_dof_vector(solution_temp);
+
+    AcousticConservationEquation<dim, Number, VectorizedArrayType>
+      acoustic_operator(matrix_free, density, speed_of_sound);
+
+    const double end_time = 0.4;
+    double       time     = 0.0;
+    unsigned int timestep = 0;
+
+    while (time < end_time)
+      {
+        pcout << time << std::endl;
+        std::swap(solution, solution_temp);
+        time += dt;
+        timestep++;
+        RungeKutta2::perform_time_step(acoustic_operator,
+                                       dt,
+                                       solution,
+                                       solution_temp);
+        DataOut<dim>          data_out;
+        DataOutBase::VtkFlags flags;
+        flags.write_higher_order_cells = true;
+        data_out.set_flags(flags);
+
+        std::vector<DataComponentInterpretation::DataComponentInterpretation>
+          interpretation(
+            dim + 1, DataComponentInterpretation::component_is_part_of_vector);
+        std::vector<std::string> names(dim + 1, "U");
+
+        interpretation[0] = DataComponentInterpretation::component_is_scalar;
+        names[0]          = "P";
+
+        data_out.add_data_vector(dof_handler, solution, names, interpretation);
+
+        data_out.build_patches(mapping,
+                               degree,
+                               DataOut<dim>::curved_inner_cells);
+        data_out.write_vtu_in_parallel("example_1" + std::to_string(timestep) +
+                                         ".vtu",
+                                       MPI_COMM_WORLD);
+      }
   }
 
 
-  // @sect3{Nitsche-type mortaring}
-  //
-  // Description
-  void nitsche_type_mortaring()
-  {}
+  // // @sect3{Nitsche-type mortaring}
+  // //
+  // // Description
+  // void nitsche_type_mortaring()
+  // {}
 
 } // namespace Step89
 
@@ -292,9 +416,9 @@ int main(int argc, char *argv[])
   dealii::Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
   std::cout.precision(5);
 
-  Step89::point_to_point_interpolation();
-  Step89::nitsche_type_mortaring();
-  Step89::inhomogenous_material();
+  Step89::point_to_point_interpolation(2, 3);
+  // Step89::nitsche_type_mortaring();
+  // Step89::inhomogenous_material();
 
   return 0;
 }

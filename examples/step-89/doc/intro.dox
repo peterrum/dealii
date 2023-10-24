@@ -84,7 +84,7 @@ mortars. On each mortar a new integration rule is defined. The integral of the f
 $K^-$ is computed on the intersections. This way, the numerical integration is exact as long
 as enough integration points are used.
 
-<h3>%TODO: filling distributing intersected quadrature points!</h3>
+<h3>%TODO: filling distributing intersected quadrature points with cgal!</h3>
 
 <h3>%FERemoteEvaluation</h3>
 
