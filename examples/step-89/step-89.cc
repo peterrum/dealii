@@ -39,7 +39,7 @@
 
 #include <deal.II/matrix_free/matrix_free.h>
 #include <deal.II/matrix_free/fe_evaluation.h>
-
+#include <deal.II/matrix_free/operators.h>
 
 #include <iostream>
 #include <fstream>
@@ -55,51 +55,43 @@ namespace Step89
 {
   using namespace dealii;
 
-  template <int dim, typename Number, typename VectorizedArrayType>
   class AcousticConservationEquation
   {
-    using This = AcousticConservationEquation<dim, Number, VectorizedArrayType>;
-
   public:
-    AcousticConservationEquation(
-      const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
-      const double                                        density,
-      const double                                        speed_of_sound)
-      : mf(matrix_free)
-      , rho(density)
+    AcousticConservationEquation(const double density,
+                                 const double speed_of_sound)
+      : rho(density)
       , c(speed_of_sound)
       , tau(0.5 * rho * c)
       , gamma(0.5 / (rho * c))
     {}
 
-    template <typename VectorType>
-    void evaluate(VectorType &dst, const VectorType &src) const
+    template <int dim, typename Number, typename VectorType>
+    void evaluate(const MatrixFree<dim, Number> &matrix_free,
+                  VectorType                    &dst,
+                  const VectorType              &src) const
     {
-      mf.loop(
-        &This::cell_loop,
-        &This::face_loop,
-        &This::boundary_face_loop,
-        this,
-        dst,
-        src,
-        true,
-        MatrixFree<dim, Number, VectorizedArrayType>::DataAccessOnFaces::values,
-        MatrixFree<dim, Number, VectorizedArrayType>::DataAccessOnFaces::
-          values);
+      matrix_free.loop(&AcousticConservationEquation::cell_loop,
+                       &AcousticConservationEquation::face_loop,
+                       &AcousticConservationEquation::boundary_face_loop,
+                       this,
+                       dst,
+                       src,
+                       true,
+                       MatrixFree<dim, Number>::DataAccessOnFaces::values,
+                       MatrixFree<dim, Number>::DataAccessOnFaces::values);
     }
 
   private:
-    template <typename VectorType>
+    template <int dim, typename Number, typename VectorType>
     void
-    cell_loop(const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
-              VectorType                                         &dst,
-              const VectorType                                   &src,
+    cell_loop(const MatrixFree<dim, Number>               &matrix_free,
+              VectorType                                  &dst,
+              const VectorType                            &src,
               const std::pair<unsigned int, unsigned int> &cell_range) const
     {
-      FEEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> pressure(
-        matrix_free, 0, 0, 0);
-      FEEvaluation<dim, -1, 0, dim, Number, VectorizedArrayType> velocity(
-        matrix_free, 0, 0, 1);
+      FEEvaluation<dim, -1, 0, 1, Number>   pressure(matrix_free, 0, 0, 0);
+      FEEvaluation<dim, -1, 0, dim, Number> velocity(matrix_free, 0, 0, 1);
 
       for (unsigned int cell = cell_range.first; cell < cell_range.second;
            ++cell)
@@ -122,20 +114,20 @@ namespace Step89
         }
     }
 
-    template <typename VectorType>
+    template <int dim, typename Number, typename VectorType>
     void
-    face_loop(const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
-              VectorType                                         &dst,
-              const VectorType                                   &src,
+    face_loop(const MatrixFree<dim, Number>               &matrix_free,
+              VectorType                                  &dst,
+              const VectorType                            &src,
               const std::pair<unsigned int, unsigned int> &face_range) const
     {
-      FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> pressure_m(
+      FEFaceEvaluation<dim, -1, 0, 1, Number> pressure_m(
         matrix_free, true, 0, 0, 0);
-      FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> pressure_p(
+      FEFaceEvaluation<dim, -1, 0, 1, Number> pressure_p(
         matrix_free, false, 0, 0, 0);
-      FEFaceEvaluation<dim, -1, 0, dim, Number, VectorizedArrayType> velocity_m(
+      FEFaceEvaluation<dim, -1, 0, dim, Number> velocity_m(
         matrix_free, true, 0, 0, 1);
-      FEFaceEvaluation<dim, -1, 0, dim, Number, VectorizedArrayType> velocity_p(
+      FEFaceEvaluation<dim, -1, 0, dim, Number> velocity_p(
         matrix_free, false, 0, 0, 1);
 
       for (unsigned int face = face_range.first; face < face_range.second;
@@ -158,8 +150,6 @@ namespace Step89
               const auto &n  = pressure_m.normal_vector(q);
               const auto &pm = pressure_m.get_value(q);
               const auto &um = velocity_m.get_value(q);
-
-              // homogenous boundary conditions
               const auto &pp = pressure_p.get_value(q);
               const auto &up = velocity_p.get_value(q);
 
@@ -183,16 +173,16 @@ namespace Step89
         }
     }
 
-    template <typename VectorType>
+    template <int dim, typename Number, typename VectorType>
     void boundary_face_loop(
-      const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
-      VectorType                                         &dst,
-      const VectorType                                   &src,
-      const std::pair<unsigned int, unsigned int>        &face_range) const
+      const MatrixFree<dim, Number>               &matrix_free,
+      VectorType                                  &dst,
+      const VectorType                            &src,
+      const std::pair<unsigned int, unsigned int> &face_range) const
     {
-      FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> pressure_m(
+      FEFaceEvaluation<dim, -1, 0, 1, Number> pressure_m(
         matrix_free, true, 0, 0, 0);
-      FEFaceEvaluation<dim, -1, 0, dim, Number, VectorizedArrayType> velocity_m(
+      FEFaceEvaluation<dim, -1, 0, dim, Number> velocity_m(
         matrix_free, true, 0, 0, 1);
 
       for (unsigned int face = face_range.first; face < face_range.second;
@@ -228,11 +218,73 @@ namespace Step89
         }
     }
 
-    const MatrixFree<dim, Number, VectorizedArrayType> &mf;
-    const double                                        rho;
-    const double                                        c;
-    const double                                        tau;
-    const double                                        gamma;
+    const double rho;
+    const double c;
+    const double tau;
+    const double gamma;
+  };
+
+
+
+  class InverseMassOperator
+  {
+  public:
+    template <int dim, typename Number, typename VectorType>
+    void apply(const dealii::MatrixFree<dim, Number> &matrix_free,
+               VectorType                            &dst,
+               const VectorType                      &src) const
+    {
+      dst.zero_out_ghost_values();
+      matrix_free.cell_loop(&InverseMassOperator::cell_loop, this, dst, src);
+    }
+
+  private:
+    template <int dim, typename Number, typename VectorType>
+    void
+    cell_loop(const dealii::MatrixFree<dim, Number>       &matrix_free,
+              VectorType                                  &dst,
+              const VectorType                            &src,
+              const std::pair<unsigned int, unsigned int> &cell_range) const
+    {
+      FEEvaluation<dim, -1, 0, dim + 1, Number> phi(matrix_free);
+      MatrixFreeOperators::CellwiseInverseMassMatrix<dim, -1, dim + 1, Number>
+        minv(phi);
+
+      for (unsigned int cell = cell_range.first; cell < cell_range.second;
+           ++cell)
+        {
+          phi.reinit(cell);
+          phi.read_dof_values(src);
+          minv.apply(phi.begin_dof_values(), phi.begin_dof_values());
+          phi.set_dof_values(dst);
+        }
+    }
+  };
+
+  template <int dim, typename Number>
+  class SpatialOperator
+  {
+  public:
+    SpatialOperator(const MatrixFree<dim, Number> &matrix_free_in,
+                    const double                   density,
+                    const double                   speed_of_sound)
+      : matrix_free(matrix_free_in)
+      , rho(Number{density})
+      , c(Number{speed_of_sound})
+    {}
+
+    template <typename VectorType>
+    void evaluate(VectorType &dst, const VectorType &src) const
+    {
+      AcousticConservationEquation(rho, c).evaluate(matrix_free, dst, src);
+      dst *= Number{-1.0};
+      InverseMassOperator().apply(matrix_free, dst, dst);
+    }
+
+  private:
+    const MatrixFree<dim, Number> &matrix_free;
+    const Number                   rho;
+    const Number                   c;
   };
 
   struct RungeKutta2
@@ -249,20 +301,20 @@ namespace Step89
       pde_operator.evaluate(k1, src);
 
       // stage 2
-      k1.sadd(-0.5 * dt, 1.0, src);
+      k1.sadd(0.5 * dt, 1.0, src);
       pde_operator.evaluate(dst, k1);
-      dst.sadd(-dt, 1.0, src);
+      dst.sadd(dt, 1.0, src);
     }
   };
 
   template <int dim,
             typename Number,
-            typename VectorizedArrayType,
+
             typename VectorType>
-  void set_initial_condition_vibrating_membrane(
-    MatrixFree<dim, Number, VectorizedArrayType> matrix_free,
-    const double                                 modes,
-    VectorType                                  &dst)
+  void
+  set_initial_condition_vibrating_membrane(MatrixFree<dim, Number> matrix_free,
+                                           const double            modes,
+                                           VectorType             &dst)
   {
     class InitialSolution : public Function<dim>
     {
@@ -305,15 +357,14 @@ namespace Step89
   void point_to_point_interpolation(const unsigned int refinements,
                                     const unsigned int degree)
   {
-    using Number              = double;
-    using VectorType          = LinearAlgebra::distributed::Vector<Number>;
-    using VectorizedArrayType = VectorizedArray<Number>;
-    constexpr int dim         = 2;
+    using Number      = double;
+    using VectorType  = LinearAlgebra::distributed::Vector<Number>;
+    constexpr int dim = 2;
 
     const double density        = 1.0;
     const double speed_of_sound = 1.0;
-    const double modes          = 120.0;
-    const double length         = 0.1;
+    const double modes          = 1.0; // 120
+    const double length         = 1.0; // 0.1
 
     ConditionalOStream pcout(std::cout,
                              Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) ==
@@ -333,11 +384,12 @@ namespace Step89
     AffineConstraints<Number> constraints;
     constraints.close();
 
-    MatrixFree<dim, Number, VectorizedArrayType> matrix_free;
+    MatrixFree<dim, Number> matrix_free;
 
-    typename MatrixFree<dim, Number, VectorizedArrayType>::AdditionalData data;
-    data.mapping_update_flags             = update_gradients | update_values;
-    data.mapping_update_flags_inner_faces = update_values;
+    typename MatrixFree<dim, Number>::AdditionalData data;
+    data.mapping_update_flags = update_gradients | update_values;
+    data.mapping_update_flags_inner_faces =
+      update_quadrature_points | update_values;
     data.mapping_update_flags_boundary_faces =
       data.mapping_update_flags_inner_faces;
 
@@ -355,10 +407,11 @@ namespace Step89
     VectorType solution_temp;
     matrix_free.initialize_dof_vector(solution_temp);
 
-    AcousticConservationEquation<dim, Number, VectorizedArrayType>
-      acoustic_operator(matrix_free, density, speed_of_sound);
+    SpatialOperator<dim, Number> acoustic_operator(matrix_free,
+                                                   density,
+                                                   speed_of_sound);
 
-    const double end_time = 0.4;
+    const double end_time = 2.0 / (modes * std::sqrt(dim) * speed_of_sound);
     double       time     = 0.0;
     unsigned int timestep = 0;
 
@@ -372,27 +425,37 @@ namespace Step89
                                        dt,
                                        solution,
                                        solution_temp);
-        DataOut<dim>          data_out;
-        DataOutBase::VtkFlags flags;
-        flags.write_higher_order_cells = true;
-        data_out.set_flags(flags);
 
-        std::vector<DataComponentInterpretation::DataComponentInterpretation>
-          interpretation(
-            dim + 1, DataComponentInterpretation::component_is_part_of_vector);
-        std::vector<std::string> names(dim + 1, "U");
+        if (timestep % 10 == 0)
+          {
+            DataOut<dim>          data_out;
+            DataOutBase::VtkFlags flags;
+            flags.write_higher_order_cells = true;
+            data_out.set_flags(flags);
 
-        interpretation[0] = DataComponentInterpretation::component_is_scalar;
-        names[0]          = "P";
+            std::vector<
+              DataComponentInterpretation::DataComponentInterpretation>
+              interpretation(
+                dim + 1,
+                DataComponentInterpretation::component_is_part_of_vector);
+            std::vector<std::string> names(dim + 1, "U");
 
-        data_out.add_data_vector(dof_handler, solution, names, interpretation);
+            interpretation[0] =
+              DataComponentInterpretation::component_is_scalar;
+            names[0] = "P";
 
-        data_out.build_patches(mapping,
-                               degree,
-                               DataOut<dim>::curved_inner_cells);
-        data_out.write_vtu_in_parallel("example_1" + std::to_string(timestep) +
-                                         ".vtu",
-                                       MPI_COMM_WORLD);
+            data_out.add_data_vector(dof_handler,
+                                     solution,
+                                     names,
+                                     interpretation);
+
+            data_out.build_patches(mapping,
+                                   degree,
+                                   DataOut<dim>::curved_inner_cells);
+            data_out.write_vtu_in_parallel("example_1" +
+                                             std::to_string(timestep) + ".vtu",
+                                           MPI_COMM_WORLD);
+          }
       }
   }
 
@@ -416,7 +479,7 @@ int main(int argc, char *argv[])
   dealii::Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
   std::cout.precision(5);
 
-  Step89::point_to_point_interpolation(2, 3);
+  Step89::point_to_point_interpolation(4, 5);
   // Step89::nitsche_type_mortaring();
   // Step89::inhomogenous_material();
 
