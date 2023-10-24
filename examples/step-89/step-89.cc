@@ -363,8 +363,8 @@ namespace Step89
 
     const double density        = 1.0;
     const double speed_of_sound = 1.0;
-    const double modes          = 1.0; // 120
-    const double length         = 1.0; // 0.1
+    const double modes          = 120.0;
+    const double length         = 0.1;
 
     ConditionalOStream pcout(std::cout,
                              Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) ==
