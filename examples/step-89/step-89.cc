@@ -40,14 +40,13 @@
 #include <deal.II/matrix_free/matrix_free.h>
 #include <deal.II/matrix_free/fe_evaluation.h>
 #include <deal.II/matrix_free/operators.h>
-
-#include <iostream>
-#include <fstream>
-
 // The following header file provides the class FERemoteEvaluation, which allows
 // to access values and/or gradients at remote triangulations similar to
 // FEEvaluation.
 // #include <deal.II/matrix_free/fe_remote_evaluation.h>
+#include "fe_remote_evaluation.h"
+
+#include <iostream>
 
 // We pack everything that is specific for this program into a namespace
 // of its own.
@@ -55,12 +54,16 @@ namespace Step89
 {
   using namespace dealii;
 
+  template <typename FERemoteEvaluationCommunicatorType>
   class AcousticConservationEquation
   {
   public:
-    AcousticConservationEquation(const double density,
-                                 const double speed_of_sound)
-      : rho(density)
+    AcousticConservationEquation(
+      const FERemoteEvaluationCommunicatorType &remote_comm,
+      const double                              density,
+      const double                              speed_of_sound)
+      : remote_communicator(remote_comm)
+      , rho(density)
       , c(speed_of_sound)
       , tau(0.5 * rho * c)
       , gamma(0.5 / (rho * c))
@@ -180,6 +183,24 @@ namespace Step89
       const VectorType                            &src,
       const std::pair<unsigned int, unsigned int> &face_range) const
     {
+      // @PETER/@MARCO: Doing it here is problematic if a lot of remote values are used sind memory is allocated every
+      // time this function is
+      // called. On the other hand this way we can get rid of defineing FERemoteEvaluation mutable
+      FERemoteEvaluation<FERemoteEvaluationCommunicatorType, 1> pressure_r(
+        remote_communicator,
+        matrix_free.get_dof_handler(),
+        VectorTools::EvaluationFlags::avg,
+        0 /*first selected comp*/);
+      FERemoteEvaluation<FERemoteEvaluationCommunicatorType, dim> velocity_r(
+        remote_communicator,
+        matrix_free.get_dof_handler(),
+        VectorTools::EvaluationFlags::avg,
+        1 /*first selected comp*/);
+
+      // @PETER/@MARCO: having the call here is nice in my opinion
+      pressure_r.gather_evaluate(src, EvaluationFlags::values);
+      velocity_r.gather_evaluate(src, EvaluationFlags::values);
+
       FEFaceEvaluation<dim, -1, 0, 1, Number> pressure_m(
         matrix_free, true, 0, 0, 0);
       FEFaceEvaluation<dim, -1, 0, dim, Number> velocity_m(
@@ -194,23 +215,54 @@ namespace Step89
           pressure_m.gather_evaluate(src, EvaluationFlags::values);
           velocity_m.gather_evaluate(src, EvaluationFlags::values);
 
-          for (unsigned int q : pressure_m.quadrature_point_indices())
+          // TOOD: 90 should not be hard coded
+          if (matrix_free.get_boundary_id(face) > 90) 
             {
-              const auto &n  = pressure_m.normal_vector(q);
-              const auto &pm = pressure_m.get_value(q);
-              const auto &um = velocity_m.get_value(q);
+              for (unsigned int q : pressure_m.quadrature_point_indices())
+                {
+                  const auto &n  = pressure_m.normal_vector(q);
+                  const auto &pm = pressure_m.get_value(q);
+                  const auto &um = velocity_m.get_value(q);
 
-              // homogenous boundary conditions
-              const auto &pp = -pm;
-              const auto &up = um;
+                  // @PETER/@MARCO: this interface should definitely stay like this
+                  velocity_r.reinit(face);
+                  pressure_r.reinit(face);
+                  const auto &pp = pressure_r.get_value(q);
+                  const auto &up = velocity_r.get_value(q);
 
-              const auto &flux_momentum =
-                0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
-              velocity_m.submit_value(1.0 / rho * (flux_momentum - pm) * n, q);
+                  const auto &flux_momentum =
+                    0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
+                  velocity_m.submit_value(1.0 / rho * (flux_momentum - pm) * n,
+                                          q);
 
-              const auto &flux_mass =
-                0.5 * (um + up) + 0.5 * gamma * (pm - pp) * n;
-              pressure_m.submit_value(rho * c * c * (flux_mass - um) * n, q);
+                  const auto &flux_mass =
+                    0.5 * (um + up) + 0.5 * gamma * (pm - pp) * n;
+                  pressure_m.submit_value(rho * c * c * (flux_mass - um) * n,
+                                          q);
+                }
+            }
+          else
+            {
+              for (unsigned int q : pressure_m.quadrature_point_indices())
+                {
+                  const auto &n  = pressure_m.normal_vector(q);
+                  const auto &pm = pressure_m.get_value(q);
+                  const auto &um = velocity_m.get_value(q);
+
+                  // homogenous boundary conditions
+                  const auto &pp = -pm;
+                  const auto &up = um;
+
+                  const auto &flux_momentum =
+                    0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
+                  velocity_m.submit_value(1.0 / rho * (flux_momentum - pm) * n,
+                                          q);
+
+                  const auto &flux_mass =
+                    0.5 * (um + up) + 0.5 * gamma * (pm - pp) * n;
+                  pressure_m.submit_value(rho * c * c * (flux_mass - um) * n,
+                                          q);
+                }
             }
 
           pressure_m.integrate_scatter(EvaluationFlags::values, dst);
@@ -218,10 +270,11 @@ namespace Step89
         }
     }
 
-    const double rho;
-    const double c;
-    const double tau;
-    const double gamma;
+    const FERemoteEvaluationCommunicatorType &remote_communicator;
+    const double                              rho;
+    const double                              c;
+    const double                              tau;
+    const double                              gamma;
   };
 
 
@@ -261,14 +314,18 @@ namespace Step89
     }
   };
 
-  template <int dim, typename Number>
+  template <int dim,
+            typename Number,
+            typename FERemoteEvaluationCommunicatorType>
   class SpatialOperator
   {
   public:
-    SpatialOperator(const MatrixFree<dim, Number> &matrix_free_in,
-                    const double                   density,
-                    const double                   speed_of_sound)
+    SpatialOperator(const MatrixFree<dim, Number>            &matrix_free_in,
+                    const FERemoteEvaluationCommunicatorType &remote_comm,
+                    const double                              density,
+                    const double                              speed_of_sound)
       : matrix_free(matrix_free_in)
+      , remote_communicator(remote_comm)
       , rho(Number{density})
       , c(Number{speed_of_sound})
     {}
@@ -276,15 +333,17 @@ namespace Step89
     template <typename VectorType>
     void evaluate(VectorType &dst, const VectorType &src) const
     {
-      AcousticConservationEquation(rho, c).evaluate(matrix_free, dst, src);
+      AcousticConservationEquation(remote_communicator, rho, c)
+        .evaluate(matrix_free, dst, src);
       dst *= Number{-1.0};
       InverseMassOperator().apply(matrix_free, dst, dst);
     }
 
   private:
-    const MatrixFree<dim, Number> &matrix_free;
-    const Number                   rho;
-    const Number                   c;
+    const MatrixFree<dim, Number>            &matrix_free;
+    const FERemoteEvaluationCommunicatorType &remote_communicator;
+    const Number                              rho;
+    const Number                              c;
   };
 
   struct RungeKutta2
@@ -366,12 +425,42 @@ namespace Step89
     const double modes          = 120.0;
     const double length         = 0.1;
 
+    const unsigned int subdiv_left  = 1;
+    const unsigned int subdiv_right = 3;
+
     ConditionalOStream pcout(std::cout,
                              Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) ==
                                0);
 
     parallel::distributed::Triangulation<dim> tria(MPI_COMM_WORLD);
-    GridGenerator::hyper_cube(tria, 0.0, length);
+    Triangulation<dim>                        tria_left;
+    Triangulation<dim>                        tria_right;
+    GridGenerator::subdivided_hyper_rectangle(tria_left,
+                                              {subdiv_left, 2 * subdiv_left},
+                                              {0.0, 0.0},
+                                              {0.5 * length, length});
+    for (const auto &face : tria_left.active_face_iterators())
+      if (face->at_boundary())
+        {
+          face->set_boundary_id(0);
+          if (face->center()[0] > 0.5 * length - 1e-6)
+            face->set_boundary_id(99);
+        }
+    
+    GridGenerator::subdivided_hyper_rectangle(tria_right,
+                                              {subdiv_right, 2 * subdiv_right},
+                                              {0.5 * length, 0.0},
+                                              {length, length});
+    for (const auto &face : tria_right.active_face_iterators())
+      if (face->at_boundary())
+        {
+          face->set_boundary_id(0);
+          if (face->center()[0] < 0.5 * length + 1e-6)
+            face->set_boundary_id(98);
+        }
+    
+    GridGenerator::merge_triangulations(
+      tria_left, tria_right, tria, 0., false, true);
     tria.refine_global(refinements);
 
     const MappingQ1<dim> mapping;
@@ -397,8 +486,11 @@ namespace Step89
 
 
     double dt =
-      0.1 *
-      compute_dt_cfl(length / std::pow(2, refinements), degree, speed_of_sound);
+      0.1 * compute_dt_cfl(0.5 * length /
+                             ((double)std::max(subdiv_left, subdiv_right)) /
+                             std::pow(2, refinements),
+                           degree,
+                           speed_of_sound);
 
     VectorType solution;
     matrix_free.initialize_dof_vector(solution);
@@ -407,9 +499,26 @@ namespace Step89
     VectorType solution_temp;
     matrix_free.initialize_dof_vector(solution_temp);
 
-    SpatialOperator<dim, Number> acoustic_operator(matrix_free,
-                                                   density,
-                                                   speed_of_sound);
+    FEFaceEvaluation<dim, -1, 0> fe_eval(matrix_free);
+    FERemoteEvaluationCommunicator<FEFaceEvaluation<dim, -1, 0>, true>
+                                                       remote_communicator;
+
+    // @PETER and @MARCO: As discussed on Github it migh be better to leave the
+    // intialization up to the user: the code of initialize_face_pairs would
+    // end up here and the classes can be used in a more cutomizable way
+    std::vector<std::pair<unsigned int, unsigned int>> face_pairs;
+    face_pairs.push_back(std::make_pair(99, 98));
+    face_pairs.push_back(std::make_pair(98, 99));
+    remote_communicator.initialize_face_pairs(face_pairs, fe_eval);
+
+    SpatialOperator<
+      dim,
+      Number,
+      FERemoteEvaluationCommunicator<FEFaceEvaluation<dim, -1, 0>, true>>
+      acoustic_operator(matrix_free,
+                        remote_communicator,
+                        density,
+                        speed_of_sound);
 
     const double end_time = 2.0 / (modes * std::sqrt(dim) * speed_of_sound);
     double       time     = 0.0;
