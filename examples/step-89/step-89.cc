@@ -183,9 +183,13 @@ namespace Step89
       const VectorType                            &src,
       const std::pair<unsigned int, unsigned int> &face_range) const
     {
-      // @PETER/@MARCO: Doing it here is problematic if a lot of remote values are used sind memory is allocated every
-      // time this function is
-      // called. On the other hand this way we can get rid of defineing FERemoteEvaluation mutable
+      // @PETER/@MARCO: Doing it here is problematic if a lot of remote values
+      // are used sind memory is allocated every time this function is
+      // called. On the other hand this way we can get rid of defineing FERemoteEvaluation
+      // mutable. Handing in a cache during construction of FERemoteEvaluation objects would
+      // still require the cache to be mutable :/. This is similar to FEPointEval but, but here
+      // much less memory has to be allocated
+      
       FERemoteEvaluation<FERemoteEvaluationCommunicatorType, 1> pressure_r(
         remote_communicator,
         matrix_free.get_dof_handler(),
@@ -503,9 +507,9 @@ namespace Step89
     FERemoteEvaluationCommunicator<FEFaceEvaluation<dim, -1, 0>, true>
                                                        remote_communicator;
 
-    // @PETER and @MARCO: As discussed on Github it migh be better to leave the
+    // @PETER and @MARCO: As discussedit migh be better to leave the
     // intialization up to the user: the code of initialize_face_pairs would
-    // end up here and the classes can be used in a more cutomizable way
+    // end up here and the classes can be used in a more cutomizable way. What do you think?
     std::vector<std::pair<unsigned int, unsigned int>> face_pairs;
     face_pairs.push_back(std::make_pair(99, 98));
     face_pairs.push_back(std::make_pair(98, 99));

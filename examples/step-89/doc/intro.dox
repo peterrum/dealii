@@ -121,6 +121,13 @@ matrix_free.template loop<VectorType, VectorType>({}, face_function, {}, dst, sr
 @endcode
 Second the code to evaluate fluxes over non-matching faces. Lets assume all boundary faces are somehow connected non-conformingly to be able to focus
 on the relevant differences.
+
+
+@PETER/@MARCO: This interface is up to discussion, as indicated in the code below.
+defining FERemoteEvaluation in the boundary function scope leads to continuous
+memory allocation and deallocation. A way to avoid this would be to
+hand the data to FERemoteEvaluation via the constructor. What do you think?
+
 @code
 const auto boundary_function =
   [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
