@@ -46,23 +46,26 @@
 // #include <deal.II/matrix_free/fe_remote_evaluation.h>
 #include "fe_remote_evaluation.h"
 
-#include <iostream>
-
 // We pack everything that is specific for this program into a namespace
 // of its own.
 namespace Step89
 {
   using namespace dealii;
 
-  template <typename FERemoteEvaluationCommunicatorType>
+  // TODO: do not hard code dim
+  using FERemoteEvaluationCommunicatorType =
+    FERemoteEvaluationCommunicator<FEFaceEvaluation<2, -1, 0>, true>;
+
   class AcousticConservationEquation
   {
   public:
     AcousticConservationEquation(
       const FERemoteEvaluationCommunicatorType &remote_comm,
+      const std::set<types::boundary_id>       &non_matching_face_ids,
       const double                              density,
       const double                              speed_of_sound)
       : remote_communicator(remote_comm)
+      , remote_face_ids(non_matching_face_ids)
       , rho(density)
       , c(speed_of_sound)
       , tau(0.5 * rho * c)
@@ -185,20 +188,19 @@ namespace Step89
     {
       // @PETER/@MARCO: Doing it here is problematic if a lot of remote values
       // are used sind memory is allocated every time this function is
-      // called. On the other hand this way we can get rid of defineing FERemoteEvaluation
-      // mutable. Handing in a cache during construction of FERemoteEvaluation objects would
-      // still require the cache to be mutable :/. This is similar to FEPointEval but, but here
-      // much less memory has to be allocated
-      
+      // called. On the other hand this way we can get rid of defineing
+      // FERemoteEvaluation mutable. Handing in a cache during construction of
+      // FERemoteEvaluation objects would still require the cache to be mutable
+      // :/. This is similar to FEPointEval but, but here much less memory has
+      // to be allocated
+
       FERemoteEvaluation<FERemoteEvaluationCommunicatorType, 1> pressure_r(
         remote_communicator,
         matrix_free.get_dof_handler(),
-        VectorTools::EvaluationFlags::avg,
         0 /*first selected comp*/);
       FERemoteEvaluation<FERemoteEvaluationCommunicatorType, dim> velocity_r(
         remote_communicator,
         matrix_free.get_dof_handler(),
-        VectorTools::EvaluationFlags::avg,
         1 /*first selected comp*/);
 
       // @PETER/@MARCO: having the call here is nice in my opinion
@@ -219,8 +221,7 @@ namespace Step89
           pressure_m.gather_evaluate(src, EvaluationFlags::values);
           velocity_m.gather_evaluate(src, EvaluationFlags::values);
 
-          // TOOD: 90 should not be hard coded
-          if (matrix_free.get_boundary_id(face) > 90) 
+          if (is_non_matching_face(matrix_free.get_boundary_id(face)))
             {
               for (unsigned int q : pressure_m.quadrature_point_indices())
                 {
@@ -228,7 +229,8 @@ namespace Step89
                   const auto &pm = pressure_m.get_value(q);
                   const auto &um = velocity_m.get_value(q);
 
-                  // @PETER/@MARCO: this interface should definitely stay like this
+                  // @PETER/@MARCO: this interface should definitely stay like
+                  // this
                   velocity_r.reinit(face);
                   pressure_r.reinit(face);
                   const auto &pp = pressure_r.get_value(q);
@@ -274,7 +276,13 @@ namespace Step89
         }
     }
 
+    bool is_non_matching_face(const types::boundary_id face_id) const
+    {
+      return remote_face_ids.find(face_id) != remote_face_ids.end();
+    }
+
     const FERemoteEvaluationCommunicatorType &remote_communicator;
+    const std::set<types::boundary_id>        remote_face_ids;
     const double                              rho;
     const double                              c;
     const double                              tau;
@@ -318,18 +326,18 @@ namespace Step89
     }
   };
 
-  template <int dim,
-            typename Number,
-            typename FERemoteEvaluationCommunicatorType>
+  template <int dim, typename Number>
   class SpatialOperator
   {
   public:
     SpatialOperator(const MatrixFree<dim, Number>            &matrix_free_in,
                     const FERemoteEvaluationCommunicatorType &remote_comm,
-                    const double                              density,
-                    const double                              speed_of_sound)
+                    const std::set<types::boundary_id> &non_matching_face_ids,
+                    const double                        density,
+                    const double                        speed_of_sound)
       : matrix_free(matrix_free_in)
       , remote_communicator(remote_comm)
+      , remote_face_ids(non_matching_face_ids)
       , rho(Number{density})
       , c(Number{speed_of_sound})
     {}
@@ -337,7 +345,7 @@ namespace Step89
     template <typename VectorType>
     void evaluate(VectorType &dst, const VectorType &src) const
     {
-      AcousticConservationEquation(remote_communicator, rho, c)
+      AcousticConservationEquation(remote_communicator, remote_face_ids, rho, c)
         .evaluate(matrix_free, dst, src);
       dst *= Number{-1.0};
       InverseMassOperator().apply(matrix_free, dst, dst);
@@ -346,6 +354,7 @@ namespace Step89
   private:
     const MatrixFree<dim, Number>            &matrix_free;
     const FERemoteEvaluationCommunicatorType &remote_communicator;
+    const std::set<types::boundary_id>       &remote_face_ids;
     const Number                              rho;
     const Number                              c;
   };
@@ -436,6 +445,11 @@ namespace Step89
                              Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) ==
                                0);
 
+    // store non-matching face pair
+    std::pair<types::boundary_id, types::boundary_id> non_matching_face_pair =
+      std::make_pair(98, 99);
+
+
     parallel::distributed::Triangulation<dim> tria(MPI_COMM_WORLD);
     Triangulation<dim>                        tria_left;
     Triangulation<dim>                        tria_right;
@@ -448,9 +462,9 @@ namespace Step89
         {
           face->set_boundary_id(0);
           if (face->center()[0] > 0.5 * length - 1e-6)
-            face->set_boundary_id(99);
+            face->set_boundary_id(non_matching_face_pair.first);
         }
-    
+
     GridGenerator::subdivided_hyper_rectangle(tria_right,
                                               {subdiv_right, 2 * subdiv_right},
                                               {0.5 * length, 0.0},
@@ -460,9 +474,10 @@ namespace Step89
         {
           face->set_boundary_id(0);
           if (face->center()[0] < 0.5 * length + 1e-6)
-            face->set_boundary_id(98);
+            face->set_boundary_id(non_matching_face_pair.second);
         }
-    
+
+
     GridGenerator::merge_triangulations(
       tria_left, tria_right, tria, 0., false, true);
     tria.refine_global(refinements);
@@ -504,25 +519,17 @@ namespace Step89
     matrix_free.initialize_dof_vector(solution_temp);
 
     FEFaceEvaluation<dim, -1, 0> fe_eval(matrix_free);
-    FERemoteEvaluationCommunicator<FEFaceEvaluation<dim, -1, 0>, true>
-                                                       remote_communicator;
 
-    // @PETER and @MARCO: As discussedit migh be better to leave the
-    // intialization up to the user: the code of initialize_face_pairs would
-    // end up here and the classes can be used in a more cutomizable way. What do you think?
-    std::vector<std::pair<unsigned int, unsigned int>> face_pairs;
-    face_pairs.push_back(std::make_pair(99, 98));
-    face_pairs.push_back(std::make_pair(98, 99));
-    remote_communicator.initialize_face_pairs(face_pairs, fe_eval);
+    FERemoteEvaluationCommunicatorType remote_communicator;
 
-    SpatialOperator<
-      dim,
-      Number,
-      FERemoteEvaluationCommunicator<FEFaceEvaluation<dim, -1, 0>, true>>
-      acoustic_operator(matrix_free,
-                        remote_communicator,
-                        density,
-                        speed_of_sound);
+    // TODO: setup communicator from outside
+
+    SpatialOperator<dim, Number> acoustic_operator(
+      matrix_free,
+      remote_communicator,
+      {non_matching_face_pair.first, non_matching_face_pair.second},
+      density,
+      speed_of_sound);
 
     const double end_time = 2.0 / (modes * std::sqrt(dim) * speed_of_sound);
     double       time     = 0.0;
