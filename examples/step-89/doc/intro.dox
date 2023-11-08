@@ -35,13 +35,13 @@ The set of equations consists of the conservation of mass and momentum
   \frac{\partial \, \mathbf{u}}{\partial \, t} + \frac{1}{\rho}\nabla p = \mathbf{0}.
 @f]
 Here, $p$ is the acoustic pressure, $\mathbf{u}$ the acoustic particle velocity, $c$ the
-speed of sound, and $\rho$ the density of the fluid in which waves are propagating.
+speed of sound, and $\rho$ the medium density of the fluid in which waves are propagating.
 Within this tutorial we are exclusively using homogenous pressure boundary conditions.
 For the discretization we make use of discontinuous Galerkin (DG) methods. DG methods are
 especially attractive for the acoustic conservation equations due to their low numerical
-dispersion errors. More importantly for this tutorial, DG methods natively extend to non-matching Nitsche-type
-methods @cite arnold2002unified. I.e., numerical fluxes are not only used on inner element faces but also as
-non-matching coupling conditions.
+dispersion errors. More importantly for this tutorial, DG methods natively extend to non-matching
+Nitsche-type methods @cite arnold2002unified. I.e., numerical fluxes are not only used on inner
+element faces but also as non-matching coupling conditions.
 
 The discretized equations read
 @f[
@@ -56,8 +56,9 @@ defined as follows @cite hochbruck2014efficient
 @f]
 with the penalty parameters $\tau=\frac{\rho c}{2}$ and $\gamma=\frac{1}{2\rho c}$.
 $[a] = a^- - a^+ $ denotes the jump of an arbitrary quantity $a$
-over element faces (face between elements $K^-$ and $K^+$) and $\jump{a} = a^- \mathbf{n}^- + a^+ \mathbf{n}^+$.
-These fluxes reduce to standard Lax--Friedrichs fluxes for homogenous materials
+over element faces (face between elements $K^-$ and $K^+$) and
+$\jump{a} = a^- \mathbf{n}^- + a^+ \mathbf{n}^+$.
+For homogenous materials, the fluxes reduce to standard Lax--Friedrichs fluxes 
 ($\gamma^-=\gamma^+$ and $\tau^-=\tau^+$)
 @f[
   p_h^*=\average{p_h}+\tau\jump{\mathbf{u}_h},\\
@@ -72,7 +73,7 @@ $\average{a}=\frac{a^- + a^+}{2}$ denots the averaging operator.
 Point-to-point interpolation is a naive approach. The points in which values/gradients are
 queried in the coupling terms are defined by the quadrature points on the element face of
 element $K^-$. As it can be seen from the picture this approach might be subject to aliasing
-in some cases. In the picture, information from one element is completely neglected.
+in some cases. In the picture, information from element $K_1^+$ is completely neglected.
 
 <h3>%Nitsche-type mortaring</h3>
 
@@ -82,8 +83,9 @@ Mortaring is the process of computing intersections and is not related to the Mo
 enforces the coupling via Lagrange multipliers. Obtained intersections are also referred to as
 mortars. On each mortar a new integration rule is defined. The integral of the face of element
 $K^-$ is computed on the intersections. This way, the numerical integration is exact as long
-as enough integration points are used.
+as a sufficient number of integration points is used.
 
+TODO_BEGIN
 <h3>%TODO: filling distributing intersected quadrature points with cgal!</h3>
 
 <h3>%FERemoteEvaluation</h3>
@@ -122,18 +124,14 @@ matrix_free.template loop<VectorType, VectorType>({}, face_function, {}, dst, sr
 Second the code to evaluate fluxes over non-matching faces. Lets assume all boundary faces are somehow connected non-conformingly to be able to focus
 on the relevant differences.
 
-
-@PETER/@MARCO: This interface is up to discussion, as indicated in the code below.
-defining FERemoteEvaluation in the boundary function scope leads to continuous
-memory allocation and deallocation. A way to avoid this would be to
-hand the data to FERemoteEvaluation via the constructor. What do you think?
-
 @code
 const auto boundary_function =
   [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
 
     FEFaceIntegrator phi_m(data, true);
+    // remote_communicator is assumed to be initialized at this place
     FERemoteEvaluation<dim,Number> phi_p(remote_communicator);
+    phi_p.gather_evaluate(src, EvaluationFlags::values);
 
     for (unsigned int f = face_range.first; f < face_range.second; ++f)
     {
@@ -147,15 +145,13 @@ const auto boundary_function =
     }
   };
 
-// remote_communicator is assumed to be initialized at this place
-remote_communicator.update_ghost_values(src, EvaluationFlags::values); //compute values on all non-matching faces
-
 matrix_free.template loop<VectorType, VectorType>({}, {}, boundary_function, dst, src);
 @endcode
 @c remote_communicator is of type FERemoteCommunicator and assumed to be correctly initialized in above code snippet.
 FERemoteCommunicator internally manages the update of ghost values over non-matching interfaces and keeps track of the
 mapping between quadrature point index and correspoding values/gradients. The update of the values/gradients happens
 <i>before</i> the actual matrix-free loop.
+TODO_END
 
 <h3>Overview</h3>
 
@@ -163,8 +159,8 @@ In the following, point-to-point interpolation and Nitsche-type mortaring is imp
 At first we are considering the test case of a vibrating membrane, for which the analytical
 solution is known. For the point-to-point interpolation we observe instabilities which can
 be resolved using Nitsche-type mortaring.
-In a more realistic example we effectvely apply the implementations to a realsitic test case
-in which a wave is propagating from one fluid into another fluid. I.e., due to the different speeds
-of sound of the fluid different element sizes are required to resolve the wave in both fluids.
+In a more realistic example we effectvely apply the implementations to a test case in which a wave
+is propagating from one fluid into another fluid. I.e., the wave length is directly proportional to the
+speed of sound and therefore, different element sizes are required to resolve waves up to the same
+frequency in both fluids.
 
-<b>TODO: FROM HERE ON ONLY A SCRATCH OF THE REST OF THE TUTORIAL IS GIVEN. IN PARTICULAR NO RESULT SECTION IS AVAILABLE AND THE CODE IS WIP. </b>
