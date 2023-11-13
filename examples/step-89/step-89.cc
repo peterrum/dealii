@@ -30,12 +30,17 @@
 #include <deal.II/fe/fe_dgq.h>
 #include <deal.II/fe/fe_system.h>
 #include <deal.II/fe/mapping_q1.h>
+#include <deal.II/fe/fe_values.h>
 
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/grid_tools.h>
+#include <deal.II/grid/grid_tools_cache.h>
+
 
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
+
+#include <deal.II/non_matching/mapping_info.h>
 
 #include <deal.II/matrix_free/matrix_free.h>
 #include <deal.II/matrix_free/fe_evaluation.h>
@@ -46,25 +51,87 @@
 // #include <deal.II/matrix_free/fe_remote_evaluation.h>
 #include "fe_remote_evaluation.h"
 
+
+
 // We pack everything that is specific for this program into a namespace
 // of its own.
 namespace Step89
 {
   using namespace dealii;
-
-  // TODO: do not hard code dim
+  // TODO:
   using FERemoteEvaluationCommunicatorType =
-    FERemoteEvaluationCommunicator<FEFaceEvaluation<2, -1, 0>, true>;
+    FERemoteEvaluationCommunicator<2, true, true>;
+  using FERemoteEvaluationCommunicatorTypeMortar =
+    FERemoteEvaluationCommunicator<2, true, false>;
+  enum class CouplingType
+  {
+    P2P,
+    Mortaring
+  };
+  CouplingType coupling_type = CouplingType::Mortaring;
 
+
+  namespace NonMatchingHelpers
+  {
+    bool is_non_matching_face(
+      const std::set<types::boundary_id> &non_matching_face_ids,
+      const types::boundary_id            face_id)
+    {
+      return non_matching_face_ids.find(face_id) != non_matching_face_ids.end();
+    }
+  } // namespace NonMatchingHelpers
+
+  template <int dim, typename Number>
   class AcousticConservationEquation
   {
+    class HomogenousBCEvalP
+    {
+    public:
+      HomogenousBCEvalP(
+        const FEFaceEvaluation<dim, -1, 0, 1, Number> &pressure_m)
+        : pressure_m(pressure_m)
+      {}
+
+      typename FEFaceEvaluation<dim, -1, 0, 1, Number>::value_type
+      get_value(const unsigned int q) const
+      {
+        return pressure_m.get_value(q);
+      }
+
+    private:
+      const FEFaceEvaluation<dim, -1, 0, 1, Number> &pressure_m;
+    };
+
+    class HomogenousBCEvalU
+    {
+    public:
+      HomogenousBCEvalU(
+        const FEFaceEvaluation<dim, -1, 0, dim, Number> &velocity_m)
+        : velocity_m(velocity_m)
+      {}
+
+      typename FEFaceEvaluation<dim, -1, 0, dim, Number>::value_type
+      get_value(const unsigned int q) const
+      {
+        return -velocity_m.get_value(q);
+      }
+
+    private:
+      const FEFaceEvaluation<dim, -1, 0, dim, Number> &velocity_m;
+    };
+
+
   public:
     AcousticConservationEquation(
-      const FERemoteEvaluationCommunicatorType &remote_comm,
-      const std::set<types::boundary_id>       &non_matching_face_ids,
-      const double                              density,
-      const double                              speed_of_sound)
+      const FERemoteEvaluationCommunicatorType       &remote_comm,
+      const FERemoteEvaluationCommunicatorTypeMortar &remote_comm_mortar,
+      NonMatching::MappingInfo<dim, dim, Number>     &nm_info,
+      const std::set<types::boundary_id>             &non_matching_face_ids,
+      const double                                    density,
+      const double                                    speed_of_sound)
       : remote_communicator(remote_comm)
+      , remote_communicator_mortar(remote_comm_mortar)
+      , nm_mapping_info(nm_info)
       , remote_face_ids(non_matching_face_ids)
       , rho(density)
       , c(speed_of_sound)
@@ -72,7 +139,7 @@ namespace Step89
       , gamma(0.5 / (rho * c))
     {}
 
-    template <int dim, typename Number, typename VectorType>
+    template <typename VectorType>
     void evaluate(const MatrixFree<dim, Number> &matrix_free,
                   VectorType                    &dst,
                   const VectorType              &src) const
@@ -89,7 +156,7 @@ namespace Step89
     }
 
   private:
-    template <int dim, typename Number, typename VectorType>
+    template <typename VectorType>
     void
     cell_loop(const MatrixFree<dim, Number>               &matrix_free,
               VectorType                                  &dst,
@@ -120,7 +187,7 @@ namespace Step89
         }
     }
 
-    template <int dim, typename Number, typename VectorType>
+    template <typename VectorType>
     void
     face_loop(const MatrixFree<dim, Number>               &matrix_free,
               VectorType                                  &dst,
@@ -179,114 +246,167 @@ namespace Step89
         }
     }
 
-    template <int dim, typename Number, typename VectorType>
+
+    template <typename InternalFaceIntegratorPressure,
+              typename InternalFaceIntegratorVelocity,
+              typename ExternalFaceIntegratorPressure,
+              typename ExternalFaceIntegratorVelocity>
+    void
+    perform_face_int(InternalFaceIntegratorPressure       &pressure_m,
+                     InternalFaceIntegratorVelocity       &velocity_m,
+                     const ExternalFaceIntegratorPressure &pressure_p,
+                     const ExternalFaceIntegratorVelocity &velocity_p) const
+    {
+      for (unsigned int q : pressure_m.quadrature_point_indices())
+        {
+          const auto &n  = pressure_m.normal_vector(q);
+          const auto &pm = pressure_m.get_value(q);
+          const auto &um = velocity_m.get_value(q);
+
+          const auto &pp = pressure_p.get_value(q);
+          const auto &up = velocity_p.get_value(q);
+
+          const auto &flux_momentum =
+            0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
+          velocity_m.submit_value(1.0 / rho * (flux_momentum - pm) * n, q);
+
+          const auto &flux_mass = 0.5 * (um + up) + 0.5 * gamma * (pm - pp) * n;
+          pressure_m.submit_value(rho * c * c * (flux_mass - um) * n, q);
+        }
+    }
+
+    template <typename VectorType>
     void boundary_face_loop(
       const MatrixFree<dim, Number>               &matrix_free,
       VectorType                                  &dst,
       const VectorType                            &src,
       const std::pair<unsigned int, unsigned int> &face_range) const
     {
-      // @PETER/@MARCO: Doing it here is problematic if a lot of remote values
-      // are used sind memory is allocated every time this function is
-      // called. On the other hand this way we can get rid of defineing
-      // FERemoteEvaluation mutable. Handing in a cache during construction of
-      // FERemoteEvaluation objects would still require the cache to be mutable
-      // :/. This is similar to FEPointEval but, but here much less memory has
-      // to be allocated
-
-      FERemoteEvaluation<FERemoteEvaluationCommunicatorType, 1> pressure_r(
-        remote_communicator,
-        matrix_free.get_dof_handler(),
-        0 /*first selected comp*/);
-      FERemoteEvaluation<FERemoteEvaluationCommunicatorType, dim> velocity_r(
-        remote_communicator,
-        matrix_free.get_dof_handler(),
-        1 /*first selected comp*/);
+      const auto &dh = matrix_free.get_dof_handler();
+      const auto &fe = dh.get_fe();
+      // remote evalutators
+      FERemoteEvaluation<dim, 1, Number, VectorizedArray<Number>, true, true>
+        pressure_r(remote_communicator, dh, 0);
+      FERemoteEvaluation<dim, dim, Number, VectorizedArray<Number>, true, true>
+        velocity_r(remote_communicator, dh, 1);
 
       // @PETER/@MARCO: having the call here is nice in my opinion
+      std::cout << "update ghosts..." << std::endl;
       pressure_r.gather_evaluate(src, EvaluationFlags::values);
       velocity_r.gather_evaluate(src, EvaluationFlags::values);
 
+      // standard face evaluators
       FEFaceEvaluation<dim, -1, 0, 1, Number> pressure_m(
         matrix_free, true, 0, 0, 0);
       FEFaceEvaluation<dim, -1, 0, dim, Number> velocity_m(
         matrix_free, true, 0, 0, 1);
 
+      // classes which return the correct bc values
+      HomogenousBCEvalP pressure_hbc(pressure_m);
+      HomogenousBCEvalU velocity_hbc(velocity_m);
+
+      // mortaring
+      FEPointEvaluation<1, dim, dim, Number> pressure_m_mortar(nm_mapping_info,
+                                                               fe,
+                                                               0);
+      FEPointEvaluation<dim, dim, dim, Number> velocity_m_mortar(
+        nm_mapping_info, fe, 1);
+
+      FERemoteEvaluation<dim, 1, Number, VectorizedArray<Number>, true, false>
+        pressure_r_mortar(remote_communicator_mortar, dh, 0);
+      FERemoteEvaluation<dim, dim, Number, VectorizedArray<Number>, true, false>
+        velocity_r_mortar(remote_communicator_mortar, dh, 1);
+      pressure_r_mortar.gather_evaluate(src, EvaluationFlags::values);
+      velocity_r_mortar.gather_evaluate(src, EvaluationFlags::values);
+      std::vector<Number> point_values(fe.dofs_per_cell);
+
       for (unsigned int face = face_range.first; face < face_range.second;
            face++)
         {
-          velocity_m.reinit(face);
-          pressure_m.reinit(face);
-
-          pressure_m.gather_evaluate(src, EvaluationFlags::values);
-          velocity_m.gather_evaluate(src, EvaluationFlags::values);
-
-          if (is_non_matching_face(matrix_free.get_boundary_id(face)))
+          if (NonMatchingHelpers::is_non_matching_face(
+                remote_face_ids, matrix_free.get_boundary_id(face)))
             {
-              for (unsigned int q : pressure_m.quadrature_point_indices())
+              if (coupling_type == CouplingType::Mortaring)
                 {
-                  const auto &n  = pressure_m.normal_vector(q);
-                  const auto &pm = pressure_m.get_value(q);
-                  const auto &um = velocity_m.get_value(q);
+                  for (unsigned int v = 0;
+                       v < matrix_free.n_active_entries_per_face_batch(face);
+                       ++v)
+                    {
+                      const auto [cell, f] =
+                        matrix_free.get_face_iterator(face, v, true);
 
-                  // @PETER/@MARCO: this interface should definitely stay like
-                  // this
+                      velocity_m_mortar.reinit(cell->active_cell_index(), f);
+                      pressure_m_mortar.reinit(cell->active_cell_index(), f);
+                      cell->get_dof_values(src,
+                                           point_values.begin(),
+                                           point_values.end());
+                      velocity_m_mortar.evaluate(
+                        point_values, dealii::EvaluationFlags::values);
+                      pressure_m_mortar.evaluate(
+                        point_values, dealii::EvaluationFlags::values);
+
+                      velocity_r_mortar.reinit(cell->active_cell_index(), f);
+                      pressure_r_mortar.reinit(cell->active_cell_index(), f);
+                      perform_face_int(pressure_m_mortar,
+                                       velocity_m_mortar,
+                                       pressure_r_mortar,
+                                       velocity_r_mortar);
+
+                      velocity_m_mortar.integrate(
+                        point_values, dealii::EvaluationFlags::values);
+                      pressure_m_mortar.integrate(
+                        point_values, dealii::EvaluationFlags::values);
+                      cell->distribute_local_to_global(point_values.begin(),
+                                                       point_values.end(),
+                                                       dst);
+                    }
+                }
+              else
+                {
+                  velocity_m.reinit(face);
+                  pressure_m.reinit(face);
+
+                  pressure_m.gather_evaluate(src, EvaluationFlags::values);
+                  velocity_m.gather_evaluate(src, EvaluationFlags::values);
+
                   velocity_r.reinit(face);
                   pressure_r.reinit(face);
-                  const auto &pp = pressure_r.get_value(q);
-                  const auto &up = velocity_r.get_value(q);
 
-                  const auto &flux_momentum =
-                    0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
-                  velocity_m.submit_value(1.0 / rho * (flux_momentum - pm) * n,
-                                          q);
-
-                  const auto &flux_mass =
-                    0.5 * (um + up) + 0.5 * gamma * (pm - pp) * n;
-                  pressure_m.submit_value(rho * c * c * (flux_mass - um) * n,
-                                          q);
+                  perform_face_int(pressure_m,
+                                   velocity_m,
+                                   pressure_r,
+                                   velocity_r);
+                  pressure_m.integrate_scatter(EvaluationFlags::values, dst);
+                  velocity_m.integrate_scatter(EvaluationFlags::values, dst);
                 }
             }
           else
             {
-              for (unsigned int q : pressure_m.quadrature_point_indices())
-                {
-                  const auto &n  = pressure_m.normal_vector(q);
-                  const auto &pm = pressure_m.get_value(q);
-                  const auto &um = velocity_m.get_value(q);
+              velocity_m.reinit(face);
+              pressure_m.reinit(face);
 
-                  // homogenous boundary conditions
-                  const auto &pp = -pm;
-                  const auto &up = um;
-
-                  const auto &flux_momentum =
-                    0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
-                  velocity_m.submit_value(1.0 / rho * (flux_momentum - pm) * n,
-                                          q);
-
-                  const auto &flux_mass =
-                    0.5 * (um + up) + 0.5 * gamma * (pm - pp) * n;
-                  pressure_m.submit_value(rho * c * c * (flux_mass - um) * n,
-                                          q);
-                }
+              pressure_m.gather_evaluate(src, EvaluationFlags::values);
+              velocity_m.gather_evaluate(src, EvaluationFlags::values);
+              perform_face_int(pressure_m,
+                               velocity_m,
+                               pressure_hbc,
+                               velocity_hbc);
+              pressure_m.integrate_scatter(EvaluationFlags::values, dst);
+              velocity_m.integrate_scatter(EvaluationFlags::values, dst);
             }
-
-          pressure_m.integrate_scatter(EvaluationFlags::values, dst);
-          velocity_m.integrate_scatter(EvaluationFlags::values, dst);
         }
     }
 
-    bool is_non_matching_face(const types::boundary_id face_id) const
-    {
-      return remote_face_ids.find(face_id) != remote_face_ids.end();
-    }
 
-    const FERemoteEvaluationCommunicatorType &remote_communicator;
-    const std::set<types::boundary_id>        remote_face_ids;
-    const double                              rho;
-    const double                              c;
-    const double                              tau;
-    const double                              gamma;
+    const FERemoteEvaluationCommunicatorType       &remote_communicator;
+    const FERemoteEvaluationCommunicatorTypeMortar &remote_communicator_mortar;
+    NonMatching::MappingInfo<dim, dim, Number>     &nm_mapping_info;
+
+    const std::set<types::boundary_id> remote_face_ids;
+    const double                       rho;
+    const double                       c;
+    const double                       tau;
+    const double                       gamma;
   };
 
 
@@ -330,13 +450,18 @@ namespace Step89
   class SpatialOperator
   {
   public:
-    SpatialOperator(const MatrixFree<dim, Number>            &matrix_free_in,
-                    const FERemoteEvaluationCommunicatorType &remote_comm,
-                    const std::set<types::boundary_id> &non_matching_face_ids,
-                    const double                        density,
-                    const double                        speed_of_sound)
+    SpatialOperator(
+      const MatrixFree<dim, Number>                  &matrix_free_in,
+      const FERemoteEvaluationCommunicatorType       &remote_comm,
+      const FERemoteEvaluationCommunicatorTypeMortar &remote_comm_mortar,
+      NonMatching::MappingInfo<dim, dim, Number>     &nm_info,
+      const std::set<types::boundary_id>             &non_matching_face_ids,
+      const double                                    density,
+      const double                                    speed_of_sound)
       : matrix_free(matrix_free_in)
       , remote_communicator(remote_comm)
+      , remote_communicator_mortar(remote_comm_mortar)
+      , nm_mapping_info(nm_info)
       , remote_face_ids(non_matching_face_ids)
       , rho(Number{density})
       , c(Number{speed_of_sound})
@@ -345,18 +470,26 @@ namespace Step89
     template <typename VectorType>
     void evaluate(VectorType &dst, const VectorType &src) const
     {
-      AcousticConservationEquation(remote_communicator, remote_face_ids, rho, c)
+      AcousticConservationEquation<dim, Number>(remote_communicator,
+                                                remote_communicator_mortar,
+                                                nm_mapping_info,
+                                                remote_face_ids,
+                                                rho,
+                                                c)
         .evaluate(matrix_free, dst, src);
       dst *= Number{-1.0};
       InverseMassOperator().apply(matrix_free, dst, dst);
     }
 
   private:
-    const MatrixFree<dim, Number>            &matrix_free;
-    const FERemoteEvaluationCommunicatorType &remote_communicator;
-    const std::set<types::boundary_id>       &remote_face_ids;
-    const Number                              rho;
-    const Number                              c;
+    const MatrixFree<dim, Number>                  &matrix_free;
+    const FERemoteEvaluationCommunicatorType       &remote_communicator;
+    const FERemoteEvaluationCommunicatorTypeMortar &remote_communicator_mortar;
+    NonMatching::MappingInfo<dim, dim, Number>     &nm_mapping_info;
+
+    const std::set<types::boundary_id> &remote_face_ids;
+    const Number                        rho;
+    const Number                        c;
   };
 
   struct RungeKutta2
@@ -435,7 +568,7 @@ namespace Step89
 
     const double density        = 1.0;
     const double speed_of_sound = 1.0;
-    const double modes          = 120.0;
+    const double modes          = 10.0;
     const double length         = 0.1;
 
     const unsigned int subdiv_left  = 1;
@@ -482,9 +615,11 @@ namespace Step89
       tria_left, tria_right, tria, 0., false, true);
     tria.refine_global(refinements);
 
-    const MappingQ1<dim> mapping;
-    const FESystem<dim>  fe_dgq(FE_DGQ<dim>(degree), dim + 1);
-    const QGauss<dim>    quad(degree + 1);
+    const MappingQ1<dim>  mapping;
+    const FESystem<dim>   fe_dgq(FE_DGQ<dim>(degree), dim + 1);
+    const unsigned int    n_quadrature_pnts = degree + 1;
+    const QGauss<dim>     quad(n_quadrature_pnts);
+    const QGauss<dim - 1> face_quad(degree + 1);
 
     DoFHandler<dim> dof_handler(tria);
     dof_handler.distribute_dofs(fe_dgq);
@@ -518,18 +653,196 @@ namespace Step89
     VectorType solution_temp;
     matrix_free.initialize_dof_vector(solution_temp);
 
-    FEFaceEvaluation<dim, -1, 0> fe_eval(matrix_free);
 
-    FERemoteEvaluationCommunicatorType remote_communicator;
+    std::set<types::boundary_id> non_matching_faces = {
+      non_matching_face_pair.first}; //, non_matching_face_pair.second};
 
     // TODO: setup communicator from outside
+    FERemoteEvaluationCommunicatorType       remote_communicator;
+    FERemoteEvaluationCommunicatorTypeMortar remote_communicator_mortar;
+    typename dealii::NonMatching::MappingInfo<dim, dim, Number>::AdditionalData
+      additional_data;
+    additional_data.use_global_weights = true;
+    NonMatching::MappingInfo<dim, dim, Number> nm_mapping_info(
+      mapping,
+      dealii::update_values | dealii::update_JxW_values |
+        dealii::update_normal_vectors | dealii::update_quadrature_points,
 
-    SpatialOperator<dim, Number> acoustic_operator(
-      matrix_free,
-      remote_communicator,
-      {non_matching_face_pair.first, non_matching_face_pair.second},
-      density,
-      speed_of_sound);
+      additional_data);
+
+    if (coupling_type == CouplingType::P2P)
+      {
+        for (const auto &nm_face : non_matching_faces)
+          {
+            FEFaceValues<dim> phi(mapping,
+                                  fe_dgq,
+                                  face_quad,
+                                  dealii::update_quadrature_points);
+
+            std::vector<
+              std::pair<typename dealii::Triangulation<dim>::cell_iterator,
+                        unsigned int>>
+                                    cell_face_pairs;
+            std::vector<Point<dim>> points;
+            // get number of quadrature points per face
+            std::vector<unsigned int> n_q_points;
+            for (const auto &cell : tria.active_cell_iterators())
+              {
+                std::vector<Quadrature<dim>> face_quads(cell->n_faces());
+
+                for (unsigned int f = 0; f < cell->n_faces(); ++f)
+                  if (cell->face(f)->at_boundary() &&
+                      cell->face(f)->boundary_id() == nm_face)
+                    {
+                      phi.reinit(cell, f);
+                      cell_face_pairs.push_back(std::make_pair(cell, f));
+                      n_q_points.push_back(phi.n_quadrature_points);
+                      for (unsigned int q = 0; q < phi.n_quadrature_points; ++q)
+                        {
+                          points.push_back(phi.quadrature_point(q));
+                        }
+                    }
+              }
+
+            auto rpe =
+              std::make_shared<Utilities::MPI::RemotePointEvaluation<dim>>(
+                1.0e-9, false, 0, [&]() {
+                  // only search points at cells that are not connected to
+                  // nm_face
+                  std::vector<bool> mask(tria.n_vertices(), false);
+
+                  for (const auto &face : tria.active_face_iterators())
+                    if (face->at_boundary() && face->boundary_id() != nm_face)
+                      for (const auto v : face->vertex_indices())
+                        mask[face->vertex_index(v)] = true;
+
+                  return mask;
+                });
+
+            rpe->reinit(points, tria, mapping);
+            Assert(rpe->all_points_found(),
+                   ExcMessage("Not all remote points found."));
+
+
+            remote_communicator.add_faces(matrix_free,
+                                          rpe,
+                                          cell_face_pairs,
+                                          n_q_points);
+          }
+      }
+    else if (coupling_type == CouplingType::Mortaring)
+      {
+        for (const auto &nm_face : non_matching_faces)
+          {
+            // create bounding boxes to search in
+            std::vector<dealii::BoundingBox<dim>> local_boxes;
+            for (const auto &cell : tria.active_cell_iterators())
+              if (cell->is_locally_owned())
+                local_boxes.emplace_back(mapping.get_bounding_box(cell));
+
+            // create r-tree of bounding boxes
+            const auto local_tree = pack_rtree(local_boxes);
+
+            // compress r-tree to a minimal set of bounding boxes
+            std::vector<std::vector<BoundingBox<dim>>> global_bboxes(1);
+            global_bboxes[0] = extract_rtree_level(local_tree, 0);
+
+            const GridTools::Cache<dim, dim> cache(tria, mapping);
+
+            // build intersection requests. Intersection requests
+            // correspond to vertices at faces.
+            std::vector<
+              std::pair<typename dealii::Triangulation<dim>::cell_iterator,
+                        unsigned int>>
+                                                         cell_face_pairs;
+            std::vector<std::vector<dealii::Point<dim>>> intersection_requests;
+            for (const auto &cell : tria.active_cell_iterators())
+              if (cell->is_locally_owned())
+                for (unsigned int f = 0; f < cell->n_faces(); ++f)
+                  if (cell->face(f)->at_boundary() &&
+                      cell->face(f)->boundary_id() == nm_face)
+                    {
+                      const unsigned int n_vertices =
+                        cell->face(f)->n_vertices();
+                      std::vector<Point<dim>> vertices(n_vertices);
+                      std::copy_n(mapping.get_vertices(cell, f).begin(),
+                                  n_vertices,
+                                  vertices.begin());
+                      intersection_requests.emplace_back(vertices);
+                      cell_face_pairs.push_back(std::make_pair(cell, f));
+                    }
+
+            // compute intersection data
+            auto intersection_data =
+              GridTools::internal::distributed_compute_intersection_locations<
+                dim - 1>(
+                cache,
+                intersection_requests,
+                global_bboxes,
+                [&]() {
+                  std::vector<bool> mask(tria.n_vertices(), false);
+
+                  for (const auto &face : tria.active_face_iterators())
+                    if (face->at_boundary() && face->boundary_id() != nm_face)
+                      for (const auto v : face->vertex_indices())
+                        mask[face->vertex_index(v)] = true;
+
+                  return mask;
+                }(),
+                1.0e-9);
+
+            // get number of quadrature points per face
+            std::vector<unsigned int> n_q_points;
+
+            uint n_pnts = 0;
+            for (unsigned int i = 0; i < intersection_requests.size(); ++i)
+              {
+                const unsigned int begin = intersection_data.recv_ptrs[i];
+                const unsigned int end   = intersection_data.recv_ptrs[i + 1];
+                std::vector<typename GridTools::internal::
+                              DistributedComputeIntersectionLocationsInternal<
+                                dim - 1,
+                                dim>::IntersectionType>
+                             found_intersections(end - begin);
+                unsigned int c = 0;
+                for (unsigned int ptr = begin; ptr < end; ++ptr, ++c)
+                  found_intersections[c] =
+                    std::get<2>(intersection_data.recv_components[ptr]);
+
+                const auto quad =
+                  dealii::QGaussSimplex<dim - 1>(n_quadrature_pnts)
+                    .mapped_quadrature(found_intersections);
+
+                n_q_points.push_back(quad.size());
+                n_pnts += n_q_points.back();
+              }
+
+            // convert to rpe
+            auto rpe = std::make_shared<
+              dealii::Utilities::MPI::RemotePointEvaluation<dim>>();
+            rpe->reinit(
+              intersection_data
+                .template convert_to_distributed_compute_point_locations_internal<
+                  dim>(n_quadrature_pnts, tria, mapping),
+              tria,
+              mapping);
+
+            remote_communicator_mortar.add_faces(rpe,
+                                                 cell_face_pairs,
+                                                 n_q_points);
+          }
+      }
+    else
+      AssertThrow(false, ExcMessage("CouplingType not implemented"));
+
+    std::cout << "setup..." << std::endl;
+    SpatialOperator<dim, Number> acoustic_operator(matrix_free,
+                                                   remote_communicator,
+                                                   remote_communicator_mortar,
+                                                   nm_mapping_info,
+                                                   non_matching_faces,
+                                                   density,
+                                                   speed_of_sound);
 
     const double end_time = 2.0 / (modes * std::sqrt(dim) * speed_of_sound);
     double       time     = 0.0;
@@ -537,7 +850,6 @@ namespace Step89
 
     while (time < end_time)
       {
-        pcout << time << std::endl;
         std::swap(solution, solution_temp);
         time += dt;
         timestep++;
@@ -546,35 +858,36 @@ namespace Step89
                                        solution,
                                        solution_temp);
 
-        if (timestep % 10 == 0)
+        if (timestep % 1000 == 0)
           {
-            DataOut<dim>          data_out;
-            DataOutBase::VtkFlags flags;
-            flags.write_higher_order_cells = true;
-            data_out.set_flags(flags);
+            // DataOut<dim>          data_out;
+            // DataOutBase::VtkFlags flags;
+            // flags.write_higher_order_cells = true;
+            // data_out.set_flags(flags);
 
-            std::vector<
-              DataComponentInterpretation::DataComponentInterpretation>
-              interpretation(
-                dim + 1,
-                DataComponentInterpretation::component_is_part_of_vector);
-            std::vector<std::string> names(dim + 1, "U");
+            // std::vector<
+            //   DataComponentInterpretation::DataComponentInterpretation>
+            //   interpretation(
+            //     dim + 1,
+            //     DataComponentInterpretation::component_is_part_of_vector);
+            // std::vector<std::string> names(dim + 1, "U");
 
-            interpretation[0] =
-              DataComponentInterpretation::component_is_scalar;
-            names[0] = "P";
+            // interpretation[0] =
+            //   DataComponentInterpretation::component_is_scalar;
+            // names[0] = "P";
 
-            data_out.add_data_vector(dof_handler,
-                                     solution,
-                                     names,
-                                     interpretation);
+            // data_out.add_data_vector(dof_handler,
+            //                          solution,
+            //                          names,
+            //                          interpretation);
 
-            data_out.build_patches(mapping,
-                                   degree,
-                                   DataOut<dim>::curved_inner_cells);
-            data_out.write_vtu_in_parallel("example_1" +
-                                             std::to_string(timestep) + ".vtu",
-                                           MPI_COMM_WORLD);
+            // data_out.build_patches(mapping,
+            //                        degree,
+            //                        DataOut<dim>::curved_inner_cells);
+            // data_out.write_vtu_in_parallel("example_1" +
+            //                                  std::to_string(timestep) +
+            //                                  ".vtu",
+            //                                MPI_COMM_WORLD);
           }
       }
   }
@@ -599,7 +912,7 @@ int main(int argc, char *argv[])
   dealii::Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
   std::cout.precision(5);
 
-  Step89::point_to_point_interpolation(4, 5);
+  Step89::point_to_point_interpolation(2, 3);
   // Step89::nitsche_type_mortaring();
   // Step89::inhomogenous_material();
 

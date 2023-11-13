@@ -58,7 +58,7 @@ with the penalty parameters $\tau=\frac{\rho c}{2}$ and $\gamma=\frac{1}{2\rho c
 $[a] = a^- - a^+ $ denotes the jump of an arbitrary quantity $a$
 over element faces (face between elements $K^-$ and $K^+$) and
 $\jump{a} = a^- \mathbf{n}^- + a^+ \mathbf{n}^+$.
-For homogenous materials, the fluxes reduce to standard Lax--Friedrichs fluxes 
+For homogenous materials, the fluxes reduce to standard Lax--Friedrichs fluxes
 ($\gamma^-=\gamma^+$ and $\tau^-=\tau^+$)
 @f[
   p_h^*=\average{p_h}+\tau\jump{\mathbf{u}_h},\\
@@ -163,4 +163,3 @@ In a more realistic example we effectvely apply the implementations to a test ca
 is propagating from one fluid into another fluid. I.e., the wave length is directly proportional to the
 speed of sound and therefore, different element sizes are required to resolve waves up to the same
 frequency in both fluids.
-
