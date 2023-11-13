@@ -655,7 +655,7 @@ namespace Step89
 
 
     std::set<types::boundary_id> non_matching_faces = {
-      non_matching_face_pair.first}; //, non_matching_face_pair.second};
+      non_matching_face_pair.first, non_matching_face_pair.second};
 
     // TODO: setup communicator from outside
     FERemoteEvaluationCommunicatorType       remote_communicator;
@@ -830,6 +830,8 @@ namespace Step89
             remote_communicator_mortar.add_faces(rpe,
                                                  cell_face_pairs,
                                                  n_q_points);
+
+            //TODO: setup nm_mapping_info
           }
       }
     else
