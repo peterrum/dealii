@@ -732,8 +732,33 @@ namespace Step89
       }
     else if (coupling_type == CouplingType::Mortaring)
       {
+        std::vector<std::vector<dealii::Quadrature<dim - 1>>>
+          global_quadrature_vector;
+        for (const auto &cell : tria.active_cell_iterators())
+          global_quadrature_vector.emplace_back(
+            std::vector<dealii::Quadrature<dim - 1>>(cell->n_faces()));
+
+        std::vector<std::pair<
+          std::shared_ptr<Utilities::MPI::RemotePointEvaluation<dim>>,
+          std::vector<std::pair<typename Triangulation<dim>::cell_iterator,
+                                unsigned int>>>>
+          comm_objects;
+
         for (const auto &nm_face : non_matching_faces)
           {
+            // 1) compute cell face pairs
+            std::vector<std::pair<typename Triangulation<dim>::cell_iterator,
+                                  unsigned int>>
+              cell_face_pairs;
+
+            for (const auto &cell : tria.active_cell_iterators())
+              if (cell->is_locally_owned())
+                for (unsigned int f = 0; f < cell->n_faces(); ++f)
+                  if (cell->face(f)->at_boundary() &&
+                      cell->face(f)->boundary_id() == nm_face)
+                    cell_face_pairs.emplace_back(std::make_pair(cell, f));
+
+            // 2) create RPE
             // create bounding boxes to search in
             std::vector<dealii::BoundingBox<dim>> local_boxes;
             for (const auto &cell : tria.active_cell_iterators())
@@ -751,26 +776,15 @@ namespace Step89
 
             // build intersection requests. Intersection requests
             // correspond to vertices at faces.
-            std::vector<
-              std::pair<typename dealii::Triangulation<dim>::cell_iterator,
-                        unsigned int>>
-                                                         cell_face_pairs;
             std::vector<std::vector<dealii::Point<dim>>> intersection_requests;
-            for (const auto &cell : tria.active_cell_iterators())
-              if (cell->is_locally_owned())
-                for (unsigned int f = 0; f < cell->n_faces(); ++f)
-                  if (cell->face(f)->at_boundary() &&
-                      cell->face(f)->boundary_id() == nm_face)
-                    {
-                      const unsigned int n_vertices =
-                        cell->face(f)->n_vertices();
-                      std::vector<Point<dim>> vertices(n_vertices);
-                      std::copy_n(mapping.get_vertices(cell, f).begin(),
-                                  n_vertices,
-                                  vertices.begin());
-                      intersection_requests.emplace_back(vertices);
-                      cell_face_pairs.push_back(std::make_pair(cell, f));
-                    }
+            for (const auto &[cell, f] : cell_face_pairs)
+              {
+                std::vector<Point<dim>> vertices(cell->face(f)->n_vertices());
+                std::copy_n(mapping.get_vertices(cell, f).begin(),
+                            cell->face(f)->n_vertices(),
+                            vertices.begin());
+                intersection_requests.emplace_back(vertices);
+              }
 
             // compute intersection data
             auto intersection_data =
@@ -791,32 +805,6 @@ namespace Step89
                 }(),
                 1.0e-9);
 
-            // get number of quadrature points per face
-            std::vector<unsigned int> n_q_points;
-
-            uint n_pnts = 0;
-            for (unsigned int i = 0; i < intersection_requests.size(); ++i)
-              {
-                const unsigned int begin = intersection_data.recv_ptrs[i];
-                const unsigned int end   = intersection_data.recv_ptrs[i + 1];
-                std::vector<typename GridTools::internal::
-                              DistributedComputeIntersectionLocationsInternal<
-                                dim - 1,
-                                dim>::IntersectionType>
-                             found_intersections(end - begin);
-                unsigned int c = 0;
-                for (unsigned int ptr = begin; ptr < end; ++ptr, ++c)
-                  found_intersections[c] =
-                    std::get<2>(intersection_data.recv_components[ptr]);
-
-                const auto quad =
-                  dealii::QGaussSimplex<dim - 1>(n_quadrature_pnts)
-                    .mapped_quadrature(found_intersections);
-
-                n_q_points.push_back(quad.size());
-                n_pnts += n_q_points.back();
-              }
-
             // convert to rpe
             auto rpe = std::make_shared<
               dealii::Utilities::MPI::RemotePointEvaluation<dim>>();
@@ -827,12 +815,60 @@ namespace Step89
               tria,
               mapping);
 
-            remote_communicator_mortar.add_faces(rpe,
-                                                 cell_face_pairs,
-                                                 n_q_points);
+            // 3) fill quadrature vector.//TODO: this is work that is currently
+            // done twice
+            for (unsigned int i = 0; i < intersection_requests.size(); ++i)
+              {
+                const auto &[cell, f] = cell_face_pairs[i];
 
-            //TODO: setup nm_mapping_info
+                const unsigned int begin = intersection_data.recv_ptrs[i];
+                const unsigned int end   = intersection_data.recv_ptrs[i + 1];
+
+                std::vector<typename GridTools::internal::
+                              DistributedComputeIntersectionLocationsInternal<
+                                dim - 1,
+                                dim>::IntersectionType>
+                  found_intersections(end - begin);
+
+                unsigned int c = 0;
+                for (unsigned int ptr = begin; ptr < end; ++ptr, ++c)
+                  found_intersections[c] =
+                    std::get<2>(intersection_data.recv_components[ptr]);
+
+                const auto quad =
+                  dealii::QGaussSimplex<dim - 1>(n_quadrature_pnts)
+                    .mapped_quadrature(found_intersections);
+
+                std::vector<dealii::Point<dim - 1>> face_points(quad.size());
+                for (uint q = 0; q < quad.size(); ++q)
+                  {
+                    face_points[q] =
+                      mapping.project_real_point_to_unit_point_on_face(
+                        cell, f, quad.point(q));
+                  }
+
+                Assert(global_quadrature_vector[cell->active_cell_index()][f]
+                           .size() == 0,
+                       dealii::ExcMessage(
+                         "Quadrature for given face already provided."));
+
+                global_quadrature_vector[cell->active_cell_index()][f] =
+                  dealii::Quadrature<dim - 1>(face_points, quad.get_weights());
+              }
+
+            comm_objects.push_back(std::make_pair(rpe, cell_face_pairs));
           }
+
+        remote_communicator_mortar.reinit_faces(comm_objects,
+                                                matrix_free.get_dof_handler()
+                                                  .get_triangulation()
+                                                  .active_cell_iterators(),
+                                                global_quadrature_vector);
+
+        nm_mapping_info.reinit_faces(matrix_free.get_dof_handler()
+                                       .get_triangulation()
+                                       .active_cell_iterators(),
+                                     global_quadrature_vector);
       }
     else
       AssertThrow(false, ExcMessage("CouplingType not implemented"));
@@ -860,37 +896,34 @@ namespace Step89
                                        solution,
                                        solution_temp);
 
-        if (timestep % 1000 == 0)
-          {
-            // DataOut<dim>          data_out;
-            // DataOutBase::VtkFlags flags;
-            // flags.write_higher_order_cells = true;
-            // data_out.set_flags(flags);
+        // if (timestep % 1000 == 0)
+        {
+          DataOut<dim>          data_out;
+          DataOutBase::VtkFlags flags;
+          flags.write_higher_order_cells = true;
+          data_out.set_flags(flags);
 
-            // std::vector<
-            //   DataComponentInterpretation::DataComponentInterpretation>
-            //   interpretation(
-            //     dim + 1,
-            //     DataComponentInterpretation::component_is_part_of_vector);
-            // std::vector<std::string> names(dim + 1, "U");
+          std::vector<DataComponentInterpretation::DataComponentInterpretation>
+            interpretation(
+              dim + 1,
+              DataComponentInterpretation::component_is_part_of_vector);
+          std::vector<std::string> names(dim + 1, "U");
 
-            // interpretation[0] =
-            //   DataComponentInterpretation::component_is_scalar;
-            // names[0] = "P";
+          interpretation[0] = DataComponentInterpretation::component_is_scalar;
+          names[0]          = "P";
 
-            // data_out.add_data_vector(dof_handler,
-            //                          solution,
-            //                          names,
-            //                          interpretation);
+          data_out.add_data_vector(dof_handler,
+                                   solution,
+                                   names,
+                                   interpretation);
 
-            // data_out.build_patches(mapping,
-            //                        degree,
-            //                        DataOut<dim>::curved_inner_cells);
-            // data_out.write_vtu_in_parallel("example_1" +
-            //                                  std::to_string(timestep) +
-            //                                  ".vtu",
-            //                                MPI_COMM_WORLD);
-          }
+          data_out.build_patches(mapping,
+                                 degree,
+                                 DataOut<dim>::curved_inner_cells);
+          data_out.write_vtu_in_parallel("Aexample_1" +
+                                           std::to_string(timestep) + ".vtu",
+                                         MPI_COMM_WORLD);
+        }
       }
   }
 

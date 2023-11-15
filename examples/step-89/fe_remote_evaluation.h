@@ -339,84 +339,61 @@ public:
             typename VectorizedArrayType,
             bool F = is_face,
             bool B = use_matrix_free_batches>
-  typename std::enable_if<true == (F && B), void>::type
-  add_faces(const MatrixFree<dim, Number, VectorizedArrayType>         &mf,
-            std::shared_ptr<Utilities::MPI::RemotePointEvaluation<dim>> rpe,
-            const std::vector<
-              std::pair<typename dealii::Triangulation<dim>::cell_iterator,
-                        unsigned int>> &cell_face_pairs,
-            std::vector<unsigned int>   n_q_points)
+  typename std::enable_if<true == (F && B), void>::type add_faces(
+    const MatrixFree<dim, Number, VectorizedArrayType>         &mf,
+    std::shared_ptr<Utilities::MPI::RemotePointEvaluation<dim>> rpe,
+    const std::vector<std::pair<typename Triangulation<dim>::cell_iterator,
+                                unsigned int>>                 &cell_face_pairs,
+    std::vector<unsigned int>                                   n_q_points)
   {
     // fetch points and update communication patterns
   }
 
-  template <bool F = is_face, bool B = use_matrix_free_batches>
-  typename std::enable_if<true == (F && !B), void>::type
-  add_faces(std::shared_ptr<Utilities::MPI::RemotePointEvaluation<dim>> rpe,
-            const std::vector<
-              std::pair<typename dealii::Triangulation<dim>::cell_iterator,
-                        unsigned int>> &cell_face_pairs,
-            std::vector<unsigned int>   n_q_points)
+  template <typename Iterator,
+            bool F = is_face,
+            bool B = use_matrix_free_batches>
+  typename std::enable_if<true == (F && !B), void>::type reinit_faces(
+    std::vector<std::pair<
+      std::shared_ptr<Utilities::MPI::RemotePointEvaluation<dim>>,
+      std::vector<std::pair<typename Triangulation<dim>::cell_iterator,
+                            unsigned int>>>>             comm_objects,
+    const IteratorRange<Iterator>                       &cell_iterator_range,
+    const std::vector<std::vector<Quadrature<dim - 1>>> &quadrature_vector,
+    const unsigned int n_unfiltered_cells = numbers::invalid_unsigned_int)
   {
-    communication_objects.push_back(std::make_pair(rpe, cell_face_pairs));
+    communication_objects = comm_objects;
 
-    const auto &tria = rpe->get_triangulation();
+    const unsigned int n_cells = quadrature_vector.size();
+    AssertDimension(n_cells,
+                    std::distance(cell_iterator_range.begin(),
+                                  cell_iterator_range.end()));
 
     // construct view:
-    if (communication_objects.size() == 1)
+    view.cell_start = 0;
+    view.cell_ptrs.resize(n_cells);
+    unsigned int n_faces    = 0;
+    unsigned int cell_index = 0;
+    for (const auto &cell : cell_iterator_range)
       {
-        view.cell_start = 0;
-
-        view.cell_ptrs.resize(tria.n_active_cells());
-        unsigned int n_faces = 0;
-        for (const auto &cell : tria.active_cell_iterators())
-          {
-            view.cell_ptrs[cell->active_cell_index()] = n_faces;
-            n_faces += cell->n_faces();
-          }
-
-
-        view.face_ptrs.resize(n_faces + 1);
-        view.face_ptrs[0] = 0;
-      }
-    else
-      {
-        AssertThrow(&rpe->get_triangulation() ==
-                      &communication_objects[0].first->get_triangulation(),
-                    ExcMessage("..."));
+        view.cell_ptrs[cell_index] = n_faces;
+        n_faces += cell->n_faces();
+        ++cell_index;
       }
 
-    // count quadrature points on faces
-    // add present quadrature points per face
-    std::vector<unsigned int> q_points_on_face(view.face_ptrs.size() - 1, 0);
-    if (communication_objects.size() > 1)
-      {
-        for (unsigned int f = 0; f < view.face_ptrs.size() - 1; ++f)
-          q_points_on_face[f] = view.face_ptrs[f + 1] - view.face_ptrs[f];
-      }
-
-    // add new quadrature points per face
-    AssertDimension(cell_face_pairs.size(), n_q_points.size());
-    for (unsigned int i = 0; i < cell_face_pairs.size(); ++i)
-      {
-        const auto &[cell, f] = cell_face_pairs[i];
-        const unsigned int face_index =
-          view.cell_ptrs[cell->active_cell_index()] + f;
-        Assert(q_points_on_face[face_index] == 0,
-               ExcMessage("Each cell face pair can only be added once."));
-        q_points_on_face[face_index] = n_q_points[i];
-      }
-
-    // update face_ptrs
-    for (const auto &cell : tria.active_cell_iterators())
+    view.face_ptrs.resize(n_faces + 1);
+    view.face_ptrs[0] = 0;
+    cell_index        = 0;
+    for (const auto &cell : cell_iterator_range)
       {
         for (const auto &f : cell->face_indices())
           {
-            const unsigned int face_index =
-              view.cell_ptrs[cell->active_cell_index()] + f;
+            const unsigned int face_index = view.cell_ptrs[cell_index] + f;
+
             view.face_ptrs[face_index + 1] =
-              view.face_ptrs[face_index] + q_points_on_face[face_index];
+              view.face_ptrs[face_index] +
+              quadrature_vector[cell_index][f].size();
           }
+        ++cell_index;
       }
   }
 
