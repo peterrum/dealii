@@ -713,14 +713,15 @@ namespace Step89
                 const unsigned int face = face_batch_range.first + bface;
                 if (matrix_free.get_boundary_id(face) == nm_face)
                   {
+                    const unsigned int n_lanes=matrix_free.n_active_entries_per_face_batch(face);
+                    face_lane.push_back(std::make_pair(face, n_lanes));
                     for (unsigned int v = 0;
-                         v < matrix_free.n_active_entries_per_face_batch(face);
+                         v <n_lanes;
                          ++v)
                       {
                         const auto [cell, f] =
                           matrix_free.get_face_iterator(face, v, true);
                         phi.reinit(cell, f);
-                        face_lane.push_back(std::make_pair(face, v));
                         for (unsigned int q = 0; q < phi.n_quadrature_points;
                              ++q)
                           {

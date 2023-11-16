@@ -352,7 +352,7 @@ public:
     // construct view:
     view.start = face_batch_range.first;
 
-    view.ptrs.resize(n_cells);
+    view.ptrs.resize(n_cells+1);
 
     view.ptrs[0] = 0;
     for (unsigned int face = 0; face < n_cells; ++face)
@@ -493,10 +493,6 @@ private:
   {
     dst.resize(view.size());
 
-    if (data_ptrs.size() == 0)
-      return;
-
-
     unsigned int c = 0;
     for (const auto &data_ptr : data_ptrs)
       {
@@ -523,9 +519,6 @@ private:
                                 unsigned int>> &data_ptrs) const
   {
     dst.resize(view.size());
-
-    if (data_ptrs.size() == 0)
-      return;
 
     unsigned int c = 0;
     for (const auto &data_ptr : data_ptrs)
