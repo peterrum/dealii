@@ -371,7 +371,7 @@ public:
     // construct view:
     view.cell_start = 0;
     view.cell_ptrs.resize(n_cells);
-    unsigned int n_faces    = 0;
+    unsigned int n_faces = 0;
     for (const auto &cell : cell_iterator_range)
       {
         view.cell_ptrs[cell->active_cell_index()] = n_faces;
@@ -384,7 +384,8 @@ public:
       {
         for (const auto &f : cell->face_indices())
           {
-            const unsigned int face_index = view.cell_ptrs[cell->active_cell_index()] + f;
+            const unsigned int face_index =
+              view.cell_ptrs[cell->active_cell_index()] + f;
 
             view.face_ptrs[face_index + 1] =
               view.face_ptrs[face_index] +

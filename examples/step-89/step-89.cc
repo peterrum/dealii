@@ -95,7 +95,7 @@ namespace Step89
       typename FEFaceEvaluation<dim, -1, 0, 1, Number>::value_type
       get_value(const unsigned int q) const
       {
-        return pressure_m.get_value(q);
+        return pressure_m.get_value(q) * 0.0;
       }
 
     private:
@@ -319,8 +319,16 @@ namespace Step89
         remote_communicator_mortar, dh, 0);
       FEFaceRemotePointEvaluation<dim, dim, Number> velocity_r_mortar(
         remote_communicator_mortar, dh, 1);
+
+
+
       if (coupling_type == CouplingType::Mortaring)
         {
+          // TODO: Gather evaluate makes problem with MPI. There has to be a
+          // memory leak or overlap somewhere. Doesnt make sense otherwise?!
+          AssertThrow(Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) == 1,
+                      ExcMessage("Problem with MPI?!"));
+
           pressure_r_mortar.gather_evaluate(src, EvaluationFlags::values);
           velocity_r_mortar.gather_evaluate(src, EvaluationFlags::values);
         }
@@ -373,7 +381,7 @@ namespace Step89
                                                        dst);
                     }
                 }
-              else
+              else if (coupling_type == CouplingType::P2P)
                 {
                   velocity_m.reinit(face);
                   pressure_m.reinit(face);
@@ -547,7 +555,7 @@ namespace Step89
       {
         if (comp == 0)
           return std::sin(M * numbers::PI * p[0]) *
-            std::sin(M * numbers::PI * p[1]);
+                 std::sin(M * numbers::PI * p[1]);
 
         return 0.0;
       }
@@ -658,18 +666,9 @@ namespace Step89
                            degree,
                            speed_of_sound);
 
-    VectorType solution;
-    matrix_free.initialize_dof_vector(solution);
-    set_initial_condition_vibrating_membrane(matrix_free, modes, solution);
-
-    VectorType solution_temp;
-    matrix_free.initialize_dof_vector(solution_temp);
-
-
     std::set<types::boundary_id> non_matching_faces = {
       non_matching_face_pair.first, non_matching_face_pair.second};
 
-    // TODO: Whats the problem with MPI
     // TODO: P2P Version
     FERemoteEvaluationCommunicatorType       remote_communicator;
     FERemoteEvaluationCommunicatorTypeMortar remote_communicator_mortar;
@@ -887,8 +886,6 @@ namespace Step89
                                        .active_cell_iterators(),
                                      global_quadrature_vector);
       }
-    else
-      AssertThrow(false, ExcMessage("CouplingType not implemented"));
 
     pcout << "setup..." << std::endl;
     SpatialOperator<dim, Number> acoustic_operator(matrix_free,
@@ -903,18 +900,18 @@ namespace Step89
     double       time     = 0.0;
     unsigned int timestep = 0;
 
+    VectorType solution;
+    matrix_free.initialize_dof_vector(solution);
+    set_initial_condition_vibrating_membrane(matrix_free, modes, solution);
+
+    VectorType solution_temp;
+    matrix_free.initialize_dof_vector(solution_temp);
+    set_initial_condition_vibrating_membrane(matrix_free, modes, solution_temp);
+
+
     while (time < end_time)
       {
-        pcout << "time" << time << std::endl;
-        std::swap(solution, solution_temp);
-        time += dt;
-        timestep++;
-        RungeKutta2::perform_time_step(acoustic_operator,
-                                       dt,
-                                       solution,
-                                       solution_temp);
-
-        // if (timestep % 1000 == 0)
+        // write data
         {
           DataOut<dim>          data_out;
           DataOutBase::VtkFlags flags;
@@ -942,6 +939,15 @@ namespace Step89
                                            std::to_string(timestep) + ".vtu",
                                          MPI_COMM_WORLD);
         }
+
+        // perform timestep
+        std::swap(solution, solution_temp);
+        time += dt;
+        timestep++;
+        RungeKutta2::perform_time_step(acoustic_operator,
+                                       dt,
+                                       solution,
+                                       solution_temp);
       }
   }
 
