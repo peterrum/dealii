@@ -312,6 +312,7 @@ namespace Step89
                                                                0);
       FEPointEvaluation<dim, dim, dim, Number> velocity_m_mortar(
         nm_mapping_info, fe, 1);
+      std::vector<Number> point_values(fe.dofs_per_cell);
 
       FEFaceRemotePointEvaluation<dim, 1, Number> pressure_r_mortar(
         remote_communicator_mortar, dh, 0);
@@ -319,7 +320,12 @@ namespace Step89
         remote_communicator_mortar, dh, 1);
       pressure_r_mortar.gather_evaluate(src, EvaluationFlags::values);
       velocity_r_mortar.gather_evaluate(src, EvaluationFlags::values);
-      std::vector<Number> point_values(fe.dofs_per_cell);
+
+      FEFaceRemotePointEvaluation<dim, dim + 1, Number> test_r(
+        remote_communicator_mortar, dh);
+      test_r.gather_evaluate(src, EvaluationFlags::values);
+      FEPointEvaluation<dim + 1, dim, dim, Number> test_m(nm_mapping_info, fe);
+
 
       for (unsigned int face = face_range.first; face < face_range.second;
            face++)
@@ -336,32 +342,92 @@ namespace Step89
                       const auto [cell, f] =
                         matrix_free.get_face_iterator(face, v, true);
 
-                      velocity_m_mortar.reinit(cell->active_cell_index(), f);
-                      pressure_m_mortar.reinit(cell->active_cell_index(), f);
+                      //TODO: whats the problem with the second version and MPI
+                      bool manually_manage_components = true;
+                      if (manually_manage_components)
+                        {
+                          test_r.reinit(cell->active_cell_index(), f);
+                          test_m.reinit(cell->active_cell_index(), f);
 
-                      cell->get_dof_values(src,
-                                           point_values.begin(),
-                                           point_values.end());
-                      velocity_m_mortar.evaluate(point_values,
-                                                 EvaluationFlags::values);
-                      pressure_m_mortar.evaluate(point_values,
-                                                 EvaluationFlags::values);
+                          cell->get_dof_values(src,
+                                               point_values.begin(),
+                                               point_values.end());
+                          test_m.evaluate(point_values,
+                                          EvaluationFlags::values);
 
-                      velocity_r_mortar.reinit(cell->active_cell_index(), f);
-                      pressure_r_mortar.reinit(cell->active_cell_index(), f);
+                          for (unsigned int q :
+                               test_m.quadrature_point_indices())
+                            {
+                              using all    = dealii::Tensor<1, dim + 1, Number>;
+                              using vector = dealii::Tensor<1, dim, Number>;
+                              using scalar = Number;
 
-                      perform_face_int(pressure_m_mortar,
-                                       velocity_m_mortar,
-                                       pressure_r_mortar,
-                                       velocity_r_mortar);
+                              vector n  = test_m.normal_vector(q);
+                              scalar pm = test_m.get_value(q)[0];
+                              vector um;
+                              um[0] = test_m.get_value(q)[1];
+                              um[1] = test_m.get_value(q)[2];
 
-                      velocity_m_mortar.integrate(point_values,
-                                                  EvaluationFlags::values);
-                      pressure_m_mortar.integrate(point_values,
-                                                  EvaluationFlags::values);
-                      cell->distribute_local_to_global(point_values.begin(),
-                                                       point_values.end(),
-                                                       dst);
+                              scalar pp = test_r.get_value(q)[0];
+                              vector up;
+                              up[0] = test_r.get_value(q)[1];
+                              up[1] = test_r.get_value(q)[2];
+
+                              const auto &flux_momentum =
+                                0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
+                              const auto uval =
+                                1.0 / rho * (flux_momentum - pm) * n;
+                              all value;
+                              value[1] = uval[0];
+                              value[2] = uval[1];
+
+                              const auto &flux_mass =
+                                0.5 * (um + up) + 0.5 * gamma * (pm - pp) * n;
+                              const auto pval =
+                                rho * c * c * (flux_mass - um) * n;
+                              value[0] = pval;
+
+                              test_m.submit_value(value, q);
+                            }
+                          test_m.integrate(point_values,
+                                           EvaluationFlags::values);
+                          cell->distribute_local_to_global(point_values.begin(),
+                                                           point_values.end(),
+                                                           dst);
+                        }
+                      else
+                        {
+                          velocity_m_mortar.reinit(cell->active_cell_index(),
+                                                   f);
+                          pressure_m_mortar.reinit(cell->active_cell_index(),
+                                                   f);
+
+                          cell->get_dof_values(src,
+                                               point_values.begin(),
+                                               point_values.end());
+                          velocity_m_mortar.evaluate(point_values,
+                                                     EvaluationFlags::values);
+                          pressure_m_mortar.evaluate(point_values,
+                                                     EvaluationFlags::values);
+
+                          velocity_r_mortar.reinit(cell->active_cell_index(),
+                                                   f);
+                          pressure_r_mortar.reinit(cell->active_cell_index(),
+                                                   f);
+
+                          perform_face_int(pressure_m_mortar,
+                                           velocity_m_mortar,
+                                           pressure_r_mortar,
+                                           velocity_r_mortar);
+
+                          velocity_m_mortar.integrate(point_values,
+                                                      EvaluationFlags::values);
+                          pressure_m_mortar.integrate(point_values,
+                                                      EvaluationFlags::values);
+                          cell->distribute_local_to_global(point_values.begin(),
+                                                           point_values.end(),
+                                                           dst);
+                        }
                     }
                 }
               else
@@ -785,6 +851,10 @@ namespace Step89
                             cell->face(f)->n_vertices(),
                             vertices.begin());
                 intersection_requests.emplace_back(vertices);
+
+                for (auto v : vertices)
+                  std::cout << v << std::endl;
+                std::cout << "--V" << std::endl;
               }
 
             // compute intersection data
@@ -816,9 +886,9 @@ namespace Step89
               tria,
               mapping);
 
-            // 3) fill quadrature vector.//TODO: this is work that is currently
-            // done twice and we should adapt the conersion to rpe to do it only
-            // once
+            // 3) fill quadrature vector.//TODO: this is work that is
+            // currently done twice and we should adapt the conersion to rpe
+            // to do it only once
             for (unsigned int i = 0; i < intersection_requests.size(); ++i)
               {
                 const auto &[cell, f] = cell_face_pairs[i];
@@ -840,13 +910,20 @@ namespace Step89
                 const auto quad = QGaussSimplex<dim - 1>(n_quadrature_pnts)
                                     .mapped_quadrature(found_intersections);
 
+                std::cout << "check intersection " << i << std::endl;
+                std::cout << "size " << found_intersections.size() << std::endl;
+
+
                 std::vector<Point<dim - 1>> face_points(quad.size());
                 for (uint q = 0; q < quad.size(); ++q)
                   {
                     face_points[q] =
                       mapping.project_real_point_to_unit_point_on_face(
                         cell, f, quad.point(q));
+
+                    std::cout << face_points[q] << std::endl;
                   }
+                std::cout << "---" << std::endl;
 
                 Assert(global_quadrature_vector[cell->active_cell_index()][f]
                            .size() == 0,
@@ -856,9 +933,10 @@ namespace Step89
                 global_quadrature_vector[cell->active_cell_index()][f] =
                   Quadrature<dim - 1>(face_points, quad.get_weights());
               }
-
             comm_objects.push_back(std::make_pair(rpe, cell_face_pairs));
           }
+        std::cout << "-------------------------------------------------"
+                  << std::endl;
 
         remote_communicator_mortar.reinit_faces(comm_objects,
                                                 matrix_free.get_dof_handler()
@@ -948,7 +1026,7 @@ int main(int argc, char *argv[])
   dealii::Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
   std::cout.precision(5);
 
-  Step89::point_to_point_interpolation(2, 3);
+  Step89::point_to_point_interpolation(2, 1);
   // Step89::nitsche_type_mortaring();
   // Step89::inhomogenous_material();
 
