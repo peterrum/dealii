@@ -372,28 +372,24 @@ public:
     view.cell_start = 0;
     view.cell_ptrs.resize(n_cells);
     unsigned int n_faces    = 0;
-    unsigned int cell_index = 0;
     for (const auto &cell : cell_iterator_range)
       {
-        view.cell_ptrs[cell_index] = n_faces;
+        view.cell_ptrs[cell->active_cell_index()] = n_faces;
         n_faces += cell->n_faces();
-        ++cell_index;
       }
 
     view.face_ptrs.resize(n_faces + 1);
     view.face_ptrs[0] = 0;
-    cell_index        = 0;
     for (const auto &cell : cell_iterator_range)
       {
         for (const auto &f : cell->face_indices())
           {
-            const unsigned int face_index = view.cell_ptrs[cell_index] + f;
+            const unsigned int face_index = view.cell_ptrs[cell->active_cell_index()] + f;
 
             view.face_ptrs[face_index + 1] =
               view.face_ptrs[face_index] +
-              quadrature_vector[cell_index][f].size();
+              quadrature_vector[cell->active_cell_index()][f].size();
           }
-        ++cell_index;
       }
   }
 
