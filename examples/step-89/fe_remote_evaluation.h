@@ -352,7 +352,7 @@ public:
     // construct view:
     view.start = face_batch_range.first;
 
-    view.ptrs.resize(n_cells+1);
+    view.ptrs.resize(n_cells + 1);
 
     view.ptrs[0] = 0;
     for (unsigned int face = 0; face < n_cells; ++face)
