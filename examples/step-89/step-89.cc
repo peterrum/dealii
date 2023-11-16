@@ -339,8 +339,6 @@ namespace Step89
                       const auto [cell, f] =
                         matrix_free.get_face_iterator(face, v, true);
 
-                      // TODO: whats the problem with MPI
-
                       velocity_m_mortar.reinit(cell->active_cell_index(), f);
                       pressure_m_mortar.reinit(cell->active_cell_index(), f);
 
@@ -670,7 +668,8 @@ namespace Step89
     std::set<types::boundary_id> non_matching_faces = {
       non_matching_face_pair.first, non_matching_face_pair.second};
 
-    // TODO: setup communicator from outside
+    // TODO: Whats the problem with MPI
+    // TODO: P2P Version
     FERemoteEvaluationCommunicatorType       remote_communicator;
     FERemoteEvaluationCommunicatorTypeMortar remote_communicator_mortar;
     typename NonMatching::MappingInfo<dim, dim, Number>::AdditionalData
@@ -680,7 +679,6 @@ namespace Step89
       mapping,
       update_values | update_JxW_values | update_normal_vectors |
         update_quadrature_points,
-
       additional_data);
 
     if (coupling_type == CouplingType::P2P)
@@ -795,10 +793,6 @@ namespace Step89
                             cell->face(f)->n_vertices(),
                             vertices.begin());
                 intersection_requests.emplace_back(vertices);
-
-                for (auto v : vertices)
-                  std::cout << v << std::endl;
-                std::cout << "--V" << std::endl;
               }
 
             // compute intersection data
@@ -854,20 +848,13 @@ namespace Step89
                 const auto quad = QGaussSimplex<dim - 1>(n_quadrature_pnts)
                                     .mapped_quadrature(found_intersections);
 
-                std::cout << "check intersection " << i << std::endl;
-                std::cout << "size " << found_intersections.size() << std::endl;
-
-
                 std::vector<Point<dim - 1>> face_points(quad.size());
                 for (uint q = 0; q < quad.size(); ++q)
                   {
                     face_points[q] =
                       mapping.project_real_point_to_unit_point_on_face(
                         cell, f, quad.point(q));
-
-                    std::cout << face_points[q] << std::endl;
                   }
-                std::cout << "---" << std::endl;
 
                 Assert(global_quadrature_vector[cell->active_cell_index()][f]
                            .size() == 0,
@@ -879,8 +866,6 @@ namespace Step89
               }
             comm_objects.push_back(std::make_pair(rpe, cell_face_pairs));
           }
-        std::cout << "-------------------------------------------------"
-                  << std::endl;
 
         remote_communicator_mortar.reinit_faces(comm_objects,
                                                 matrix_free.get_dof_handler()
