@@ -58,7 +58,7 @@
 namespace Step89
 {
   using namespace dealii;
-  // TODO:
+  // TODO: dont declare it here
   using FERemoteEvaluationCommunicatorType =
     FERemoteEvaluationCommunicator<2, true, true>;
   using FERemoteEvaluationCommunicatorTypeMortar =
@@ -220,11 +220,11 @@ namespace Step89
 
           for (unsigned int q : pressure_m.quadrature_point_indices())
             {
-              const auto &n  = pressure_m.normal_vector(q);
-              const auto &pm = pressure_m.get_value(q);
-              const auto &um = velocity_m.get_value(q);
-              const auto &pp = pressure_p.get_value(q);
-              const auto &up = velocity_p.get_value(q);
+              const auto n  = pressure_m.normal_vector(q);
+              const auto pm = pressure_m.get_value(q);
+              const auto um = velocity_m.get_value(q);
+              const auto pp = pressure_p.get_value(q);
+              const auto up = velocity_p.get_value(q);
 
               const auto flux_momentum =
                 0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
@@ -259,18 +259,18 @@ namespace Step89
     {
       for (unsigned int q : pressure_m.quadrature_point_indices())
         {
-          const auto &n  = pressure_m.normal_vector(q);
-          const auto &pm = pressure_m.get_value(q);
-          const auto &um = velocity_m.get_value(q);
+          const auto n  = pressure_m.normal_vector(q);
+          const auto pm = pressure_m.get_value(q);
+          const auto um = velocity_m.get_value(q);
 
-          const auto &pp = pressure_p.get_value(q);
-          const auto &up = velocity_p.get_value(q);
+          const auto pp = pressure_p.get_value(q);
+          const auto up = velocity_p.get_value(q);
 
-          const auto &flux_momentum =
+          const auto flux_momentum =
             0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
           velocity_m.submit_value(1.0 / rho * (flux_momentum - pm) * n, q);
 
-          const auto &flux_mass = 0.5 * (um + up) + 0.5 * gamma * (pm - pp) * n;
+          const auto flux_mass = 0.5 * (um + up) + 0.5 * gamma * (pm - pp) * n;
           pressure_m.submit_value(rho * c * c * (flux_mass - um) * n, q);
         }
     }
@@ -547,9 +547,9 @@ namespace Step89
       {
         if (comp == 0)
           return std::sin(M * numbers::PI * p[0]) *
-                 std::sin(M * numbers::PI * p[1]);
-        else
-          return 0.0;
+            std::sin(M * numbers::PI * p[1]);
+
+        return 0.0;
       }
 
     private:
