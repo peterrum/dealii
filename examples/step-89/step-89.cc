@@ -824,9 +824,16 @@ namespace Step89
               tria,
               mapping);
 
-            // 3) fill quadrature vector.//TODO: this is work that is
-            // currently done twice and we should adapt the conersion to rpe
-            // to do it only once
+            //TODO: Most of the following is currently done twice in
+            // convert_to_distributed_compute_point_locations_internal.
+            // We have to adapt convert_to_distributed_compute_point_locations_internal
+            // to be able to retrieve relevant information.
+
+            //TODO: NonMatchingMappingInfo should be able to work with
+            // Quadrature<dim> instead <dim-1>. Currently we are constructing
+            // dim-1 from dim and inside MappingInfo it is converted back.
+            
+            // 3) fill quadrature vector.
             for (unsigned int i = 0; i < intersection_requests.size(); ++i)
               {
                 const auto &[cell, f] = cell_face_pairs[i];
