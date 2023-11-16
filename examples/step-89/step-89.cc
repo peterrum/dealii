@@ -292,10 +292,11 @@ namespace Step89
                                                           dh,
                                                           1);
 
-      // @PETER/@MARCO: having the call here is nice in my opinion
-      pressure_r.gather_evaluate(src, EvaluationFlags::values);
-      velocity_r.gather_evaluate(src, EvaluationFlags::values);
-
+      if (coupling_type == CouplingType::P2P)
+        {
+          pressure_r.gather_evaluate(src, EvaluationFlags::values);
+          velocity_r.gather_evaluate(src, EvaluationFlags::values);
+        }
       // standard face evaluators
       FEFaceEvaluation<dim, -1, 0, 1, Number> pressure_m(
         matrix_free, true, 0, 0, 0);
@@ -318,11 +319,11 @@ namespace Step89
         remote_communicator_mortar, dh, 0);
       FEFaceRemotePointEvaluation<dim, dim, Number> velocity_r_mortar(
         remote_communicator_mortar, dh, 1);
-      pressure_r_mortar.gather_evaluate(src, EvaluationFlags::values);
-      velocity_r_mortar.gather_evaluate(src, EvaluationFlags::values);
-
-      FEPointEvaluation<dim + 1, dim, dim, Number> test_m(nm_mapping_info, fe);
-
+      if (coupling_type == CouplingType::Mortaring)
+        {
+          pressure_r_mortar.gather_evaluate(src, EvaluationFlags::values);
+          velocity_r_mortar.gather_evaluate(src, EvaluationFlags::values);
+        }
 
       for (unsigned int face = face_range.first; face < face_range.second;
            face++)
@@ -824,15 +825,16 @@ namespace Step89
               tria,
               mapping);
 
-            //TODO: Most of the following is currently done twice in
-            // convert_to_distributed_compute_point_locations_internal.
-            // We have to adapt convert_to_distributed_compute_point_locations_internal
-            // to be able to retrieve relevant information.
+            // TODO: Most of the following is currently done twice in
+            //  convert_to_distributed_compute_point_locations_internal.
+            //  We have to adapt
+            //  convert_to_distributed_compute_point_locations_internal to be
+            //  able to retrieve relevant information.
 
-            //TODO: NonMatchingMappingInfo should be able to work with
-            // Quadrature<dim> instead <dim-1>. Currently we are constructing
-            // dim-1 from dim and inside MappingInfo it is converted back.
-            
+            // TODO: NonMatchingMappingInfo should be able to work with
+            //  Quadrature<dim> instead <dim-1>. Currently we are constructing
+            //  dim-1 from dim and inside MappingInfo it is converted back.
+
             // 3) fill quadrature vector.
             for (unsigned int i = 0; i < intersection_requests.size(); ++i)
               {
@@ -888,7 +890,7 @@ namespace Step89
     else
       AssertThrow(false, ExcMessage("CouplingType not implemented"));
 
-    std::cout << "setup..." << std::endl;
+    pcout << "setup..." << std::endl;
     SpatialOperator<dim, Number> acoustic_operator(matrix_free,
                                                    remote_communicator,
                                                    remote_communicator_mortar,
@@ -903,6 +905,7 @@ namespace Step89
 
     while (time < end_time)
       {
+        pcout << "time" << time << std::endl;
         std::swap(solution, solution_temp);
         time += dt;
         timestep++;
