@@ -285,13 +285,14 @@ namespace Step89
       const auto &dh = matrix_free.get_dof_handler();
       const auto &fe = dh.get_fe();
       // remote evalutators
-      FERemoteEvaluation<dim, 1, Number, VectorizedArray<Number>, true, true>
-        pressure_r(remote_communicator, dh, 0);
-      FERemoteEvaluation<dim, dim, Number, VectorizedArray<Number>, true, true>
-        velocity_r(remote_communicator, dh, 1);
+      FEFaceRemoteEvaluation<dim, 1, Number>   pressure_r(remote_communicator,
+                                                        dh,
+                                                        0);
+      FEFaceRemoteEvaluation<dim, dim, Number> velocity_r(remote_communicator,
+                                                          dh,
+                                                          1);
 
       // @PETER/@MARCO: having the call here is nice in my opinion
-      std::cout << "update ghosts..." << std::endl;
       pressure_r.gather_evaluate(src, EvaluationFlags::values);
       velocity_r.gather_evaluate(src, EvaluationFlags::values);
 
@@ -312,10 +313,10 @@ namespace Step89
       FEPointEvaluation<dim, dim, dim, Number> velocity_m_mortar(
         nm_mapping_info, fe, 1);
 
-      FERemoteEvaluation<dim, 1, Number, VectorizedArray<Number>, true, false>
-        pressure_r_mortar(remote_communicator_mortar, dh, 0);
-      FERemoteEvaluation<dim, dim, Number, VectorizedArray<Number>, true, false>
-        velocity_r_mortar(remote_communicator_mortar, dh, 1);
+      FEFaceRemotePointEvaluation<dim, 1, Number> pressure_r_mortar(
+        remote_communicator_mortar, dh, 0);
+      FEFaceRemotePointEvaluation<dim, dim, Number> velocity_r_mortar(
+        remote_communicator_mortar, dh, 1);
       pressure_r_mortar.gather_evaluate(src, EvaluationFlags::values);
       velocity_r_mortar.gather_evaluate(src, EvaluationFlags::values);
       std::vector<Number> point_values(fe.dofs_per_cell);
@@ -337,25 +338,27 @@ namespace Step89
 
                       velocity_m_mortar.reinit(cell->active_cell_index(), f);
                       pressure_m_mortar.reinit(cell->active_cell_index(), f);
+
                       cell->get_dof_values(src,
                                            point_values.begin(),
                                            point_values.end());
-                      velocity_m_mortar.evaluate(
-                        point_values, dealii::EvaluationFlags::values);
-                      pressure_m_mortar.evaluate(
-                        point_values, dealii::EvaluationFlags::values);
+                      velocity_m_mortar.evaluate(point_values,
+                                                 EvaluationFlags::values);
+                      pressure_m_mortar.evaluate(point_values,
+                                                 EvaluationFlags::values);
 
                       velocity_r_mortar.reinit(cell->active_cell_index(), f);
                       pressure_r_mortar.reinit(cell->active_cell_index(), f);
+
                       perform_face_int(pressure_m_mortar,
                                        velocity_m_mortar,
                                        pressure_r_mortar,
                                        velocity_r_mortar);
 
-                      velocity_m_mortar.integrate(
-                        point_values, dealii::EvaluationFlags::values);
-                      pressure_m_mortar.integrate(
-                        point_values, dealii::EvaluationFlags::values);
+                      velocity_m_mortar.integrate(point_values,
+                                                  EvaluationFlags::values);
+                      pressure_m_mortar.integrate(point_values,
+                                                  EvaluationFlags::values);
                       cell->distribute_local_to_global(point_values.begin(),
                                                        point_values.end(),
                                                        dst);
@@ -415,9 +418,9 @@ namespace Step89
   {
   public:
     template <int dim, typename Number, typename VectorType>
-    void apply(const dealii::MatrixFree<dim, Number> &matrix_free,
-               VectorType                            &dst,
-               const VectorType                      &src) const
+    void apply(const MatrixFree<dim, Number> &matrix_free,
+               VectorType                    &dst,
+               const VectorType              &src) const
     {
       dst.zero_out_ghost_values();
       matrix_free.cell_loop(&InverseMassOperator::cell_loop, this, dst, src);
@@ -426,7 +429,7 @@ namespace Step89
   private:
     template <int dim, typename Number, typename VectorType>
     void
-    cell_loop(const dealii::MatrixFree<dim, Number>       &matrix_free,
+    cell_loop(const MatrixFree<dim, Number>               &matrix_free,
               VectorType                                  &dst,
               const VectorType                            &src,
               const std::pair<unsigned int, unsigned int> &cell_range) const
@@ -660,13 +663,13 @@ namespace Step89
     // TODO: setup communicator from outside
     FERemoteEvaluationCommunicatorType       remote_communicator;
     FERemoteEvaluationCommunicatorTypeMortar remote_communicator_mortar;
-    typename dealii::NonMatching::MappingInfo<dim, dim, Number>::AdditionalData
+    typename NonMatching::MappingInfo<dim, dim, Number>::AdditionalData
       additional_data;
     additional_data.use_global_weights = true;
     NonMatching::MappingInfo<dim, dim, Number> nm_mapping_info(
       mapping,
-      dealii::update_values | dealii::update_JxW_values |
-        dealii::update_normal_vectors | dealii::update_quadrature_points,
+      update_values | update_JxW_values | update_normal_vectors |
+        update_quadrature_points,
 
       additional_data);
 
@@ -677,11 +680,10 @@ namespace Step89
             FEFaceValues<dim> phi(mapping,
                                   fe_dgq,
                                   face_quad,
-                                  dealii::update_quadrature_points);
+                                  update_quadrature_points);
 
-            std::vector<
-              std::pair<typename dealii::Triangulation<dim>::cell_iterator,
-                        unsigned int>>
+            std::vector<std::pair<typename Triangulation<dim>::cell_iterator,
+                                  unsigned int>>
                                     cell_face_pairs;
             std::vector<Point<dim>> points;
             // get number of quadrature points per face
@@ -732,11 +734,10 @@ namespace Step89
       }
     else if (coupling_type == CouplingType::Mortaring)
       {
-        std::vector<std::vector<dealii::Quadrature<dim - 1>>>
-          global_quadrature_vector;
+        std::vector<std::vector<Quadrature<dim - 1>>> global_quadrature_vector;
         for (const auto &cell : tria.active_cell_iterators())
           global_quadrature_vector.emplace_back(
-            std::vector<dealii::Quadrature<dim - 1>>(cell->n_faces()));
+            std::vector<Quadrature<dim - 1>>(cell->n_faces()));
 
         std::vector<std::pair<
           std::shared_ptr<Utilities::MPI::RemotePointEvaluation<dim>>,
@@ -760,7 +761,7 @@ namespace Step89
 
             // 2) create RPE
             // create bounding boxes to search in
-            std::vector<dealii::BoundingBox<dim>> local_boxes;
+            std::vector<BoundingBox<dim>> local_boxes;
             for (const auto &cell : tria.active_cell_iterators())
               if (cell->is_locally_owned())
                 local_boxes.emplace_back(mapping.get_bounding_box(cell));
@@ -776,7 +777,7 @@ namespace Step89
 
             // build intersection requests. Intersection requests
             // correspond to vertices at faces.
-            std::vector<std::vector<dealii::Point<dim>>> intersection_requests;
+            std::vector<std::vector<Point<dim>>> intersection_requests;
             for (const auto &[cell, f] : cell_face_pairs)
               {
                 std::vector<Point<dim>> vertices(cell->face(f)->n_vertices());
@@ -806,8 +807,8 @@ namespace Step89
                 1.0e-9);
 
             // convert to rpe
-            auto rpe = std::make_shared<
-              dealii::Utilities::MPI::RemotePointEvaluation<dim>>();
+            auto rpe =
+              std::make_shared<Utilities::MPI::RemotePointEvaluation<dim>>();
             rpe->reinit(
               intersection_data
                 .template convert_to_distributed_compute_point_locations_internal<
@@ -816,7 +817,8 @@ namespace Step89
               mapping);
 
             // 3) fill quadrature vector.//TODO: this is work that is currently
-            // done twice
+            // done twice and we should adapt the conersion to rpe to do it only
+            // once
             for (unsigned int i = 0; i < intersection_requests.size(); ++i)
               {
                 const auto &[cell, f] = cell_face_pairs[i];
@@ -835,11 +837,10 @@ namespace Step89
                   found_intersections[c] =
                     std::get<2>(intersection_data.recv_components[ptr]);
 
-                const auto quad =
-                  dealii::QGaussSimplex<dim - 1>(n_quadrature_pnts)
-                    .mapped_quadrature(found_intersections);
+                const auto quad = QGaussSimplex<dim - 1>(n_quadrature_pnts)
+                                    .mapped_quadrature(found_intersections);
 
-                std::vector<dealii::Point<dim - 1>> face_points(quad.size());
+                std::vector<Point<dim - 1>> face_points(quad.size());
                 for (uint q = 0; q < quad.size(); ++q)
                   {
                     face_points[q] =
@@ -849,11 +850,11 @@ namespace Step89
 
                 Assert(global_quadrature_vector[cell->active_cell_index()][f]
                            .size() == 0,
-                       dealii::ExcMessage(
+                       ExcMessage(
                          "Quadrature for given face already provided."));
 
                 global_quadrature_vector[cell->active_cell_index()][f] =
-                  dealii::Quadrature<dim - 1>(face_points, quad.get_weights());
+                  Quadrature<dim - 1>(face_points, quad.get_weights());
               }
 
             comm_objects.push_back(std::make_pair(rpe, cell_face_pairs));
