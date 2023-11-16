@@ -321,9 +321,6 @@ namespace Step89
       pressure_r_mortar.gather_evaluate(src, EvaluationFlags::values);
       velocity_r_mortar.gather_evaluate(src, EvaluationFlags::values);
 
-      FEFaceRemotePointEvaluation<dim, dim + 1, Number> test_r(
-        remote_communicator_mortar, dh);
-      test_r.gather_evaluate(src, EvaluationFlags::values);
       FEPointEvaluation<dim + 1, dim, dim, Number> test_m(nm_mapping_info, fe);
 
 
@@ -342,92 +339,39 @@ namespace Step89
                       const auto [cell, f] =
                         matrix_free.get_face_iterator(face, v, true);
 
-                      //TODO: whats the problem with the second version and MPI
-                      bool manually_manage_components = true;
-                      if (manually_manage_components)
-                        {
-                          test_r.reinit(cell->active_cell_index(), f);
-                          test_m.reinit(cell->active_cell_index(), f);
+                      // TODO: whats the problem with MPI
 
-                          cell->get_dof_values(src,
-                                               point_values.begin(),
-                                               point_values.end());
-                          test_m.evaluate(point_values,
-                                          EvaluationFlags::values);
+                      velocity_m_mortar.reinit(cell->active_cell_index(), f);
+                      pressure_m_mortar.reinit(cell->active_cell_index(), f);
 
-                          for (unsigned int q :
-                               test_m.quadrature_point_indices())
-                            {
-                              using all    = dealii::Tensor<1, dim + 1, Number>;
-                              using vector = dealii::Tensor<1, dim, Number>;
-                              using scalar = Number;
+                      cell->get_dof_values(src,
+                                           point_values.begin(),
+                                           point_values.end());
+                      velocity_m_mortar.evaluate(point_values,
+                                                 EvaluationFlags::values);
+                      pressure_m_mortar.evaluate(point_values,
+                                                 EvaluationFlags::values);
 
-                              vector n  = test_m.normal_vector(q);
-                              scalar pm = test_m.get_value(q)[0];
-                              vector um;
-                              um[0] = test_m.get_value(q)[1];
-                              um[1] = test_m.get_value(q)[2];
+                      velocity_r_mortar.reinit(cell->active_cell_index(), f);
+                      pressure_r_mortar.reinit(cell->active_cell_index(), f);
 
-                              scalar pp = test_r.get_value(q)[0];
-                              vector up;
-                              up[0] = test_r.get_value(q)[1];
-                              up[1] = test_r.get_value(q)[2];
+                      perform_face_int(pressure_m_mortar,
+                                       velocity_m_mortar,
+                                       pressure_r_mortar,
+                                       velocity_r_mortar);
 
-                              const auto &flux_momentum =
-                                0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
-                              const auto uval =
-                                1.0 / rho * (flux_momentum - pm) * n;
-                              all value;
-                              value[1] = uval[0];
-                              value[2] = uval[1];
+                      // First zero out buffer via sum_into_values
+                      velocity_m_mortar.integrate(point_values,
+                                                  EvaluationFlags::values,
+                                                  /*sum_into_values=*/false);
+                      // Don't zero out values again to keep integrated values
+                      pressure_m_mortar.integrate(point_values,
+                                                  EvaluationFlags::values,
+                                                  /*sum_into_values=*/true);
 
-                              const auto &flux_mass =
-                                0.5 * (um + up) + 0.5 * gamma * (pm - pp) * n;
-                              const auto pval =
-                                rho * c * c * (flux_mass - um) * n;
-                              value[0] = pval;
-
-                              test_m.submit_value(value, q);
-                            }
-                          test_m.integrate(point_values,
-                                           EvaluationFlags::values);
-                          cell->distribute_local_to_global(point_values.begin(),
-                                                           point_values.end(),
-                                                           dst);
-                        }
-                      else
-                        {
-                          velocity_m_mortar.reinit(cell->active_cell_index(),
-                                                   f);
-                          pressure_m_mortar.reinit(cell->active_cell_index(),
-                                                   f);
-
-                          cell->get_dof_values(src,
-                                               point_values.begin(),
-                                               point_values.end());
-                          velocity_m_mortar.evaluate(point_values,
-                                                     EvaluationFlags::values);
-                          pressure_m_mortar.evaluate(point_values,
-                                                     EvaluationFlags::values);
-
-                          velocity_r_mortar.reinit(cell->active_cell_index(),
-                                                   f);
-                          pressure_r_mortar.reinit(cell->active_cell_index(),
-                                                   f);
-
-                          perform_face_int(pressure_m_mortar,
-                                           velocity_m_mortar,
-                                           pressure_r_mortar,
-                                           velocity_r_mortar);
-
-                          velocity_m_mortar.integrate(point_values,
-                                                      EvaluationFlags::values);
-                          pressure_m_mortar.integrate(point_values,
-                                                      EvaluationFlags::values);
-                          cell->distribute_local_to_global(point_values.begin(),
-                                                           point_values.end(),
-                                                           dst);
-                        }
+                      cell->distribute_local_to_global(point_values.begin(),
+                                                       point_values.end(),
+                                                       dst);
                     }
                 }
               else
