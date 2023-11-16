@@ -335,18 +335,30 @@ class FERemoteEvaluationCommunicator : public Subscriptor
     typename FERETT::template CommunicationObjectType<dim>;
 
 public:
-  template <typename Number,
-            typename VectorizedArrayType,
-            bool F = is_face,
-            bool B = use_matrix_free_batches>
-  typename std::enable_if<true == (F && B), void>::type add_faces(
-    const MatrixFree<dim, Number, VectorizedArrayType>         &mf,
-    std::shared_ptr<Utilities::MPI::RemotePointEvaluation<dim>> rpe,
-    const std::vector<std::pair<typename Triangulation<dim>::cell_iterator,
-                                unsigned int>>                 &cell_face_pairs,
-    std::vector<unsigned int>                                   n_q_points)
+  template <bool F = is_face, bool B = use_matrix_free_batches>
+  typename std::enable_if<true == (F && B), void>::type reinit_faces(
+    std::vector<std::pair<
+      std::shared_ptr<Utilities::MPI::RemotePointEvaluation<dim>>,
+      std::vector<std::pair<unsigned int, unsigned int>>>> comm_objects,
+    const std::pair<unsigned int, unsigned int>           &face_batch_range,
+    const std::vector<Quadrature<dim>>                    &quadrature_vector)
   {
+    communication_objects = comm_objects;
     // fetch points and update communication patterns
+
+    const unsigned int n_cells = quadrature_vector.size();
+    AssertDimension(n_cells, face_batch_range.second - face_batch_range.first);
+
+    // construct view:
+    view.start = face_batch_range.first;
+
+    view.ptrs.resize(n_cells);
+
+    view.ptrs[0] = 0;
+    for (unsigned int face = 0; face < n_cells; ++face)
+      {
+        view.ptrs[face + 1] = view.ptrs[face] + quadrature_vector[face].size();
+      }
   }
 
   template <typename Iterator,
@@ -358,8 +370,7 @@ public:
       std::vector<std::pair<typename Triangulation<dim>::cell_iterator,
                             unsigned int>>>>             comm_objects,
     const IteratorRange<Iterator>                       &cell_iterator_range,
-    const std::vector<std::vector<Quadrature<dim - 1>>> &quadrature_vector,
-    const unsigned int n_unfiltered_cells = numbers::invalid_unsigned_int)
+    const std::vector<std::vector<Quadrature<dim - 1>>> &quadrature_vector)
   {
     communication_objects = comm_objects;
 

@@ -68,7 +68,7 @@ namespace Step89
     P2P,
     Mortaring
   };
-  CouplingType coupling_type = CouplingType::Mortaring;
+  CouplingType coupling_type = CouplingType::P2P;
 
 
   namespace NonMatchingHelpers
@@ -669,7 +669,6 @@ namespace Step89
     std::set<types::boundary_id> non_matching_faces = {
       non_matching_face_pair.first, non_matching_face_pair.second};
 
-    // TODO: P2P Version
     FERemoteEvaluationCommunicatorType       remote_communicator;
     FERemoteEvaluationCommunicatorTypeMortar remote_communicator_mortar;
     typename NonMatching::MappingInfo<dim, dim, Number>::AdditionalData
@@ -683,6 +682,19 @@ namespace Step89
 
     if (coupling_type == CouplingType::P2P)
       {
+        std::vector<
+          std::pair<std::shared_ptr<Utilities::MPI::RemotePointEvaluation<dim>>,
+                    std::vector<std::pair<unsigned int, unsigned int>>>>
+          comm_objects;
+
+        const auto face_batch_range =
+          std::make_pair(matrix_free.n_inner_face_batches(),
+                         matrix_free.n_inner_face_batches() +
+                           matrix_free.n_boundary_face_batches());
+
+        std::vector<Quadrature<dim>> global_quadrature_vector(
+          face_batch_range.second - face_batch_range.first);
+
         for (const auto &nm_face : non_matching_faces)
           {
             FEFaceValues<dim> phi(mapping,
@@ -690,28 +702,39 @@ namespace Step89
                                   face_quad,
                                   update_quadrature_points);
 
-            std::vector<std::pair<typename Triangulation<dim>::cell_iterator,
-                                  unsigned int>>
-                                    cell_face_pairs;
-            std::vector<Point<dim>> points;
-            // get number of quadrature points per face
-            std::vector<unsigned int> n_q_points;
-            for (const auto &cell : tria.active_cell_iterators())
-              {
-                std::vector<Quadrature<dim>> face_quads(cell->n_faces());
+            std::vector<std::pair<unsigned int, unsigned int>> face_lane;
+            std::vector<Point<dim>>                            points;
 
-                for (unsigned int f = 0; f < cell->n_faces(); ++f)
-                  if (cell->face(f)->at_boundary() &&
-                      cell->face(f)->boundary_id() == nm_face)
-                    {
-                      phi.reinit(cell, f);
-                      cell_face_pairs.push_back(std::make_pair(cell, f));
-                      n_q_points.push_back(phi.n_quadrature_points);
-                      for (unsigned int q = 0; q < phi.n_quadrature_points; ++q)
-                        {
-                          points.push_back(phi.quadrature_point(q));
-                        }
-                    }
+
+            for (unsigned int bface = 0;
+                 bface < face_batch_range.second - face_batch_range.first;
+                 ++bface)
+              {
+                const unsigned int face = face_batch_range.first + bface;
+                if (matrix_free.get_boundary_id(face) == nm_face)
+                  {
+                    for (unsigned int v = 0;
+                         v < matrix_free.n_active_entries_per_face_batch(face);
+                         ++v)
+                      {
+                        const auto [cell, f] =
+                          matrix_free.get_face_iterator(face, v, true);
+                        phi.reinit(cell, f);
+                        face_lane.push_back(std::make_pair(face, v));
+                        for (unsigned int q = 0; q < phi.n_quadrature_points;
+                             ++q)
+                          {
+                            points.push_back(phi.quadrature_point(q));
+                          }
+                      }
+
+                    Assert(global_quadrature_vector[bface].size() == 0,
+                           ExcMessage(
+                             "Quadrature for given face already provided."));
+
+                    global_quadrature_vector[bface] =
+                      Quadrature<dim>(phi.get_quadrature_points());
+                  }
               }
 
             auto rpe =
@@ -733,12 +756,12 @@ namespace Step89
             Assert(rpe->all_points_found(),
                    ExcMessage("Not all remote points found."));
 
-
-            remote_communicator.add_faces(matrix_free,
-                                          rpe,
-                                          cell_face_pairs,
-                                          n_q_points);
+            comm_objects.push_back(std::make_pair(rpe, face_lane));
           }
+
+        remote_communicator.reinit_faces(comm_objects,
+                                         face_batch_range,
+                                         global_quadrature_vector);
       }
     else if (coupling_type == CouplingType::Mortaring)
       {
