@@ -95,7 +95,7 @@ namespace Step89
       typename FEFaceEvaluation<dim, -1, 0, 1, Number>::value_type
       get_value(const unsigned int q) const
       {
-        return pressure_m.get_value(q) * 0.0;
+        return -pressure_m.get_value(q)/*+2*g*/;
       }
 
     private:
@@ -113,7 +113,7 @@ namespace Step89
       typename FEFaceEvaluation<dim, -1, 0, dim, Number>::value_type
       get_value(const unsigned int q) const
       {
-        return -velocity_m.get_value(q);
+        return velocity_m.get_value(q);
       }
 
     private:
@@ -589,7 +589,7 @@ namespace Step89
     const double density        = 1.0;
     const double speed_of_sound = 1.0;
     const double modes          = 10.0;
-    const double length         = 0.1;
+    const double length         = 1.0;
 
     const unsigned int subdiv_left  = 1;
     const unsigned int subdiv_right = 3;
@@ -994,7 +994,7 @@ int main(int argc, char *argv[])
   dealii::Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
   std::cout.precision(5);
 
-  Step89::point_to_point_interpolation(2, 1);
+  Step89::point_to_point_interpolation(2, 3);
   // Step89::nitsche_type_mortaring();
   // Step89::inhomogenous_material();
 
