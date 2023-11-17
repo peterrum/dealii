@@ -73,8 +73,8 @@ namespace Step89
   };
   CouplingType coupling_type = CouplingType::P2P;
 
-  // Utility functions that are used in the tutorial.
-  namespace NonMatchingHelpers
+  // Free helper functions that are used in the tutorial.
+  namespace HelperFunctions
   {
     // Helper function to check if a boundary ID is related to a non-matching
     // face. A @c std::set that contains all non-matching boundary IDs is
@@ -87,7 +87,80 @@ namespace Step89
     {
       return non_matching_face_ids.find(face_id) != non_matching_face_ids.end();
     }
-  } // namespace NonMatchingHelpers
+
+    // Helper function to set the initial conditions for the vibrating membrane
+    //  test case.
+    template <int dim,
+              typename Number,
+
+              typename VectorType>
+    void set_initial_condition_vibrating_membrane(
+      MatrixFree<dim, Number> matrix_free,
+      const double            modes,
+      VectorType             &dst)
+    {
+      class InitialSolution : public Function<dim>
+      {
+      public:
+        InitialSolution(const double modes)
+          : Function<dim>(dim + 1, 0.0)
+          , M(modes)
+        {
+          static_assert(dim == 2, "Only implemented for dim==2");
+        }
+
+        double value(const Point<dim> &p, const unsigned int comp) const final
+        {
+          if (comp == 0)
+            return std::sin(M * numbers::PI * p[0]) *
+                   std::sin(M * numbers::PI * p[1]);
+
+          return 0.0;
+        }
+
+      private:
+        const double M;
+      };
+
+      VectorTools::interpolate(*matrix_free.get_mapping_info().mapping,
+                               matrix_free.get_dof_handler(),
+                               InitialSolution(modes),
+                               dst);
+    }
+
+    // Helper function to compute the time step size according to the CFL
+    // condition.
+    double
+    compute_dt_cfl(const double hmin, const unsigned int degree, const double c)
+    {
+      return hmin / (std::pow(degree, 1.5) * c);
+    }
+
+    template <typename VectorType, int dim>
+    void write_vtu(const VectorType      &solution,
+                   const DoFHandler<dim> &dof_handler,
+                   const Mapping<dim>    &mapping,
+                   const std::string     &name_prefix)
+    {
+      DataOut<dim>          data_out;
+      DataOutBase::VtkFlags flags;
+      flags.write_higher_order_cells = true;
+      data_out.set_flags(flags);
+
+      std::vector<DataComponentInterpretation::DataComponentInterpretation>
+        interpretation(
+          dim + 1, DataComponentInterpretation::component_is_part_of_vector);
+      std::vector<std::string> names(dim + 1, "U");
+
+      interpretation[0] = DataComponentInterpretation::component_is_scalar;
+      names[0]          = "P";
+
+      data_out.add_data_vector(dof_handler, solution, names, interpretation);
+
+      data_out.build_patches(mapping, degree, DataOut<dim>::curved_inner_cells);
+      data_out.write_vtu_in_parallel(name_prefix + ".vtu", MPI_COMM_WORLD);
+    }
+  } // namespace HelperFunctions
 
 
   // Class that defines the acoustic operator.
@@ -98,11 +171,10 @@ namespace Step89
     //  a class that returns the needed values at boundaries. In this tutorial
     //  homogenous pressure Dirichlet boundary conditions are applied via
     //  the mirror priciple, i.e. $p_h^+=-p_h^- + 2*g$ with $g=0$.
-    class HomogenousBCEvalP
+    class BCEvalP
     {
     public:
-      HomogenousBCEvalP(
-        const FEFaceEvaluation<dim, -1, 0, 1, Number> &pressure_m)
+      BCEvalP(const FEFaceEvaluation<dim, -1, 0, 1, Number> &pressure_m)
         : pressure_m(pressure_m)
       {}
 
@@ -118,11 +190,10 @@ namespace Step89
 
     // Similar as above. In this tutorial velocity Neumann boundary conditions
     // are applied.
-    class HomogenousBCEvalU
+    class BCEvalU
     {
     public:
-      HomogenousBCEvalU(
-        const FEFaceEvaluation<dim, -1, 0, dim, Number> &velocity_m)
+      BCEvalU(const FEFaceEvaluation<dim, -1, 0, dim, Number> &velocity_m)
         : velocity_m(velocity_m)
       {}
 
@@ -304,8 +375,6 @@ namespace Step89
     }
 
 
-    // TODO: comment from here on
-
     // This function evaluates the boundary face integrals
     // and the non-matching face integrals.
     template <typename VectorType>
@@ -317,17 +386,22 @@ namespace Step89
     {
       const auto &fe = matrix_free.get_dof_handler().get_fe();
 
-      // standard face evaluators
+      // Standard face evaluators.
       FEFaceEvaluation<dim, -1, 0, 1, Number> pressure_m(
         matrix_free, true, 0, 0, 0);
       FEFaceEvaluation<dim, -1, 0, dim, Number> velocity_m(
         matrix_free, true, 0, 0, 1);
 
-      // classes which return the correct bc values
-      HomogenousBCEvalP pressure_hbc(pressure_m);
-      HomogenousBCEvalU velocity_hbc(velocity_m);
+      // Classes which return the correct BC values.
+      BCEvalP pressure_bc(pressure_m);
+      BCEvalU velocity_bc(velocity_m);
 
-      // mortaring
+      // For Nitsche-type mortaring we are evaluating the integrals over
+      // intersections. This is why, quadrature points are arbitrarely
+      // distributed on every face. Thus, we can not make use of face batches
+      // and FEFaceEvaluation but have to consider each face individually and
+      // make use of @c FEPointEvaluation to evaluate the integrals in the
+      // arbitrarely distributed quadrature points.
       FEPointEvaluation<1, dim, dim, Number> pressure_m_mortar(nm_mapping_info,
                                                                fe,
                                                                0);
@@ -335,14 +409,67 @@ namespace Step89
         nm_mapping_info, fe, 1);
       std::vector<Number> point_values(fe.dofs_per_cell);
 
-
-
       for (unsigned int face = face_range.first; face < face_range.second;
            face++)
         {
-          if (NonMatchingHelpers::is_non_matching_face(
+          // If face is a standard boundary face, evaluate the integral as usual
+          // in the matrix free context. To be able to use the same kernel as
+          // for inner faces we pass the boundary condition objects to the
+          // function that evaluates the kernel. As mentioned above, there is no
+          // neighbor to consider in the kernel.
+          if (!HelperFunctions::is_non_matching_face(
                 remote_face_ids, matrix_free.get_boundary_id(face)))
             {
+              velocity_m.reinit(face);
+              pressure_m.reinit(face);
+
+              pressure_m.gather_evaluate(src, EvaluationFlags::values);
+              velocity_m.gather_evaluate(src, EvaluationFlags::values);
+
+              evaluate_face_kernel<false>(pressure_m,
+                                          velocity_m,
+                                          pressure_bc,
+                                          velocity_bc);
+
+              pressure_m.integrate_scatter(EvaluationFlags::values, dst);
+              velocity_m.integrate_scatter(EvaluationFlags::values, dst);
+            }
+          // If face is nonmatching we have to query values via the
+          // RemoteEvaluaton objects. This is done by passing the corresponding
+          // RemoteEvaluaton objects to the function that evaluates the kernel.
+          // As mentioned above, each side of the non-matching interface is
+          // iterated seperately and we do not have to consider the neighbor in
+          // the kernel. Note, that the values in the RemoteEvaluaton objects
+          // are already updated at this point.
+          else
+            {
+              // For point-to-point interpolation we simply use the
+              // corresponding RemoteEvaluaton objects in combination with the
+              // standard FEFaceEvaluation objects.
+              if (coupling_type == CouplingType::P2P)
+                {
+                  velocity_m.reinit(face);
+                  pressure_m.reinit(face);
+
+                  pressure_m.gather_evaluate(src, EvaluationFlags::values);
+                  velocity_m.gather_evaluate(src, EvaluationFlags::values);
+
+                  velocity_r->reinit(face);
+                  pressure_r->reinit(face);
+
+                  evaluate_face_kernel<false>(pressure_m,
+                                              velocity_m,
+                                              *pressure_r,
+                                              *velocity_r);
+
+                  pressure_m.integrate_scatter(EvaluationFlags::values, dst);
+                  velocity_m.integrate_scatter(EvaluationFlags::values, dst);
+                }
+
+              // For mortaring we have to cosider every face from the face
+              // batches seperately and have to use the FEPointEvaluation
+              // objects to be able to evaluate the integrals with the
+              // arbitrarily distributed quadrature points.
               if (coupling_type == CouplingType::Mortaring)
                 {
                   for (unsigned int v = 0;
@@ -386,45 +513,11 @@ namespace Step89
                                                        dst);
                     }
                 }
-              else if (coupling_type == CouplingType::P2P)
-                {
-                  velocity_m.reinit(face);
-                  pressure_m.reinit(face);
-
-                  pressure_m.gather_evaluate(src, EvaluationFlags::values);
-                  velocity_m.gather_evaluate(src, EvaluationFlags::values);
-
-                  velocity_r->reinit(face);
-                  pressure_r->reinit(face);
-
-                  evaluate_face_kernel<false>(pressure_m,
-                                              velocity_m,
-                                              *pressure_r,
-                                              *velocity_r);
-
-                  pressure_m.integrate_scatter(EvaluationFlags::values, dst);
-                  velocity_m.integrate_scatter(EvaluationFlags::values, dst);
-                }
-            }
-          else
-            {
-              velocity_m.reinit(face);
-              pressure_m.reinit(face);
-
-              pressure_m.gather_evaluate(src, EvaluationFlags::values);
-              velocity_m.gather_evaluate(src, EvaluationFlags::values);
-
-              evaluate_face_kernel<false>(pressure_m,
-                                          velocity_m,
-                                          pressure_hbc,
-                                          velocity_hbc);
-
-              pressure_m.integrate_scatter(EvaluationFlags::values, dst);
-              velocity_m.integrate_scatter(EvaluationFlags::values, dst);
             }
         }
     }
 
+    // Members, needed to evaluate the acoustic operator.
     const MatrixFree<dim, Number>                  &matrix_free;
     const FERemoteEvaluationCommunicatorType       &remote_communicator;
     const FERemoteEvaluationCommunicatorTypeMortar &remote_communicator_mortar;
@@ -436,6 +529,9 @@ namespace Step89
     const double                       tau;
     const double                       gamma;
 
+    // FERemoteEvaluation objects are strored as shared pointers. This way, they
+    // can also be used for other operators without caching the values multiple
+    // times.
     const std::shared_ptr<FEFaceRemoteEvaluation<dim, 1, Number>>   pressure_r;
     const std::shared_ptr<FEFaceRemoteEvaluation<dim, dim, Number>> velocity_r;
     const std::shared_ptr<FEFaceRemotePointEvaluation<dim, 1, Number>>
@@ -444,16 +540,17 @@ namespace Step89
       velocity_r_mortar;
   };
 
-
+  // Class to apply the inverse mass operator.
   template <int dim, typename Number>
   class InverseMassOperator
   {
   public:
+    // Constructor.
     InverseMassOperator(const MatrixFree<dim, Number> &matrix_free)
       : matrix_free(matrix_free)
     {}
 
-
+    // Function to apply the inverse mass operator.
     template <typename VectorType>
     void apply(VectorType &dst, const VectorType &src) const
     {
@@ -462,6 +559,7 @@ namespace Step89
     }
 
   private:
+    // Apply the inverse mass operator onto every cell batch.
     template <typename VectorType>
     void
     cell_loop(const MatrixFree<dim, Number>               &mf,
@@ -486,10 +584,15 @@ namespace Step89
     const MatrixFree<dim, Number> &matrix_free;
   };
 
+  // This class implements a Runge-Kutta scheme of order 2 for a constant time
+  // step size.
+  //  The operators together with the RemoteEvaluation objects are stored in
+  //  this class for convenience, but could be stored also somewhere else.
   template <int dim, typename Number>
   class RungeKutta2
   {
   public:
+    // Constructor.
     RungeKutta2(
       const MatrixFree<dim, Number>                  &matrix_free,
       const FERemoteEvaluationCommunicatorType       &remote_comm,
@@ -532,6 +635,7 @@ namespace Step89
       , dt(dt)
     {}
 
+    // Perform one Runge-Kutta 2 time step.
     template <typename VectorType>
     void perform_time_step(VectorType &dst, const VectorType &src)
     {
@@ -547,9 +651,15 @@ namespace Step89
     }
 
   private:
+    // Evaluate a single Runge-Kutta stage.
     template <typename VectorType>
     void evaluate_stage(VectorType &dst, const VectorType &src)
     {
+      // Update the cached values in the RemoteEvaluation objects, such
+      // that they are up to date during @c acoustic_operator.evaluate(dst,
+      // src).
+
+      // TODO: remove the notion of P2P and Mortaring!!
       if (coupling_type == CouplingType::P2P)
         {
           pressure_r->gather_evaluate(src, EvaluationFlags::values);
@@ -562,13 +672,19 @@ namespace Step89
           velocity_r_mortar->gather_evaluate(src, EvaluationFlags::values);
         }
 
+      // Evaluate the stage
       acoustic_operator.evaluate(dst, src);
       dst *= -1.0;
       inverse_mass_operator.apply(dst, dst);
     }
 
-    // stored outside of different operators to be able to access remote values
-    //  in different operators without calling gathe_evaluate() more than once
+    // FERemoteEvaluation objects are stored outside of the operators.
+    // The motivation is that the objects could be used in multiple operators
+    // and that caching the correct remote values inside the objects only has
+    // to be once before the evaluation of all dependent operators. In general
+    // this should be done this way, even though in this particular case we
+    // could also do it in a different way since we only have one depedent
+    // operator.
     std::shared_ptr<FEFaceRemoteEvaluation<dim, 1, Number>>   pressure_r;
     std::shared_ptr<FEFaceRemoteEvaluation<dim, dim, Number>> velocity_r;
     std::shared_ptr<FEFaceRemotePointEvaluation<dim, 1, Number>>
@@ -576,55 +692,15 @@ namespace Step89
     std::shared_ptr<FEFaceRemotePointEvaluation<dim, dim, Number>>
       velocity_r_mortar;
 
+    // Needed operators.
     const InverseMassOperator<dim, Number> inverse_mass_operator;
     const AcousticOperator<dim, Number>    acoustic_operator;
 
+    // Constant time step size.
     double dt;
   };
 
-  template <int dim,
-            typename Number,
 
-            typename VectorType>
-  void
-  set_initial_condition_vibrating_membrane(MatrixFree<dim, Number> matrix_free,
-                                           const double            modes,
-                                           VectorType             &dst)
-  {
-    class InitialSolution : public Function<dim>
-    {
-    public:
-      InitialSolution(const double modes)
-        : Function<dim>(dim + 1, 0.0)
-        , M(modes)
-      {
-        static_assert(dim == 2, "Only implemented for dim==2");
-      }
-
-      double value(const Point<dim> &p, const unsigned int comp) const final
-      {
-        if (comp == 0)
-          return std::sin(M * numbers::PI * p[0]) *
-                 std::sin(M * numbers::PI * p[1]);
-
-        return 0.0;
-      }
-
-    private:
-      const double M;
-    };
-
-    VectorTools::interpolate(*matrix_free.get_mapping_info().mapping,
-                             matrix_free.get_dof_handler(),
-                             InitialSolution(modes),
-                             dst);
-  }
-
-  double
-  compute_dt_cfl(const double hmin, const unsigned int degree, const double c)
-  {
-    return hmin / (std::pow(degree, 1.5) * c);
-  }
 
   // @sect3{Point-to-point interpolation}
   //
@@ -708,13 +784,6 @@ namespace Step89
 
     matrix_free.reinit(mapping, dof_handler, constraints, quad, data);
 
-
-    double dt =
-      0.1 * compute_dt_cfl(0.5 * length /
-                             ((double)std::max(subdiv_left, subdiv_right)) /
-                             std::pow(2, refinements),
-                           degree,
-                           speed_of_sound);
 
     std::set<types::boundary_id> non_matching_faces = {
       non_matching_face_pair.first, non_matching_face_pair.second};
@@ -963,8 +1032,28 @@ namespace Step89
                                      global_quadrature_vector);
       }
 
-    pcout << "setup..." << std::endl;
+    // Initialize needed Vectors...
+    VectorType solution;
+    VectorType solution_temp;
+    matrix_free.initialize_dof_vector(solution);
+    matrix_free.initialize_dof_vector(solution_temp);
+    // and set the initial condition.
+    HelperFunctions::set_initial_condition_vibrating_membrane(matrix_free,
+                                                              modes,
+                                                              solution);
 
+    // Compute constant time step size via the CFL consition with a Courant
+    // number of
+    //  0.1.
+    const double cr = 0.1;
+    const double dt =
+      cr * HelperFunctions::compute_dt_cfl(
+             0.5 * length / ((double)std::max(subdiv_left, subdiv_right)) /
+               std::pow(2, refinements),
+             degree,
+             speed_of_sound);
+
+    // Setup time integrator.
     RungeKutta2 time_integrator(matrix_free,
                                 remote_communicator,
                                 remote_communicator_mortar,
@@ -974,48 +1063,21 @@ namespace Step89
                                 density,
                                 speed_of_sound);
 
+    // Compute end time for exactly one period duration.
     const double end_time = 2.0 / (modes * std::sqrt(dim) * speed_of_sound);
+
+    // Perform time integration loop.
     double       time     = 0.0;
     unsigned int timestep = 0;
-
-    VectorType solution;
-    matrix_free.initialize_dof_vector(solution);
-    set_initial_condition_vibrating_membrane(matrix_free, modes, solution);
-
-    VectorType solution_temp = solution;
-
     while (time < end_time)
       {
-        // write data
-        {
-          DataOut<dim>          data_out;
-          DataOutBase::VtkFlags flags;
-          flags.write_higher_order_cells = true;
-          data_out.set_flags(flags);
+        // Write ouput.
+        HelperFunctions::write_vtu(solution,
+                                   dof_handler,
+                                   mapping,
+                                   "step_89-" + std::to_string(timestep));
 
-          std::vector<DataComponentInterpretation::DataComponentInterpretation>
-            interpretation(
-              dim + 1,
-              DataComponentInterpretation::component_is_part_of_vector);
-          std::vector<std::string> names(dim + 1, "U");
-
-          interpretation[0] = DataComponentInterpretation::component_is_scalar;
-          names[0]          = "P";
-
-          data_out.add_data_vector(dof_handler,
-                                   solution,
-                                   names,
-                                   interpretation);
-
-          data_out.build_patches(mapping,
-                                 degree,
-                                 DataOut<dim>::curved_inner_cells);
-          data_out.write_vtu_in_parallel("Aexample_1" +
-                                           std::to_string(timestep) + ".vtu",
-                                         MPI_COMM_WORLD);
-        }
-
-        // perform timestep
+        // Perform a single time step.
         std::swap(solution, solution_temp);
         time += dt;
         timestep++;
