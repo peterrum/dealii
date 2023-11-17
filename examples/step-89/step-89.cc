@@ -214,8 +214,6 @@ namespace Step89
     // Constructor with all the needed ingredients for the operator.
     AcousticOperator(
       const MatrixFree<dim, Number>                  &matrix_free_in,
-      const FERemoteEvaluationCommunicatorType       &remote_comm,
-      const FERemoteEvaluationCommunicatorTypeMortar &remote_comm_mortar,
       NonMatching::MappingInfo<dim, dim, Number>     &nm_info,
       const std::set<types::boundary_id>             &non_matching_face_ids,
       const double                                    density,
@@ -231,8 +229,6 @@ namespace Step89
       std::shared_ptr<FEFaceRemotePointEvaluation<dim, dim, Number>>
         velocity_r_mortar)
       : matrix_free(matrix_free_in)
-      , remote_communicator(remote_comm)
-      , remote_communicator_mortar(remote_comm_mortar)
       , nm_mapping_info(nm_info)
       , remote_face_ids(non_matching_face_ids)
       , rho(density)
@@ -246,20 +242,34 @@ namespace Step89
       , velocity_r_mortar(velocity_r_mortar)
     {}
 
-    // Function to evaluate the acoustic operator.
+    // Function to evaluate the acoustic operator with Nitsche-type mortaring
+    // at non-matching faces.
     template <typename VectorType>
-    void evaluate(VectorType &dst, const VectorType &src) const
+    void evaluate(VectorType       &dst,
+                  const VectorType &src,
+                  const bool        use_mortaring) const
     {
-      matrix_free.loop(&AcousticOperator::cell_loop,
+      if(use_mortaring )
+        { matrix_free.loop(&AcousticOperator::cell_loop,
                        &AcousticOperator::face_loop,
-                       &AcousticOperator::boundary_face_loop,
+                           &AcousticOperator::boundary_face_loop_mortaring,
                        this,
                        dst,
                        src,
                        true,
                        MatrixFree<dim, Number>::DataAccessOnFaces::values,
                        MatrixFree<dim, Number>::DataAccessOnFaces::values);
-    }
+    }      else
+        { matrix_free.loop(&AcousticOperator::cell_loop,
+                       &AcousticOperator::face_loop,
+                         &AcousticOperator::boundary_face_loop_point_to_point,
+                       this,
+                       dst,
+                       src,
+                       true,
+                       MatrixFree<dim, Number>::DataAccessOnFaces::values,
+                       MatrixFree<dim, Number>::DataAccessOnFaces::values);
+    }         }
 
   private:
     // This function evaluates the volume integrals.
@@ -377,17 +387,16 @@ namespace Step89
     }
 
 
-    // This function evaluates the boundary face integrals
-    // and the non-matching face integrals.
+    // This function evaluates the boundary face integrals and the 
+    // non-matching face integrals using point-to-point interpolation.
     template <typename VectorType>
-    void boundary_face_loop(
-      const MatrixFree<dim, Number>               &matrix_free,
+    void 
+    boundary_face_loop_point_to_point(
+          const MatrixFree<dim, Number>               &matrix_free,
       VectorType                                  &dst,
       const VectorType                            &src,
       const std::pair<unsigned int, unsigned int> &face_range) const
     {
-      const auto &fe = matrix_free.get_dof_handler().get_fe();
-
       // Standard face evaluators.
       FEFaceEvaluation<dim, -1, 0, 1, Number> pressure_m(
         matrix_free, true, 0, 0, 0);
@@ -398,30 +407,18 @@ namespace Step89
       BCEvalP pressure_bc(pressure_m);
       BCEvalU velocity_bc(velocity_m);
 
-      // For Nitsche-type mortaring we are evaluating the integrals over
-      // intersections. This is why, quadrature points are arbitrarely
-      // distributed on every face. Thus, we can not make use of face batches
-      // and FEFaceEvaluation but have to consider each face individually and
-      // make use of @c FEPointEvaluation to evaluate the integrals in the
-      // arbitrarely distributed quadrature points.
-      FEPointEvaluation<1, dim, dim, Number> pressure_m_mortar(nm_mapping_info,
-                                                               fe,
-                                                               0);
-      FEPointEvaluation<dim, dim, dim, Number> velocity_m_mortar(
-        nm_mapping_info, fe, 1);
-      std::vector<Number> buffer(fe.dofs_per_cell);
-
       for (unsigned int face = face_range.first; face < face_range.second;
            face++)
         {
-          // If @c face is a standard boundary face, evaluate the integral as
+
+          if (!HelperFunctions::is_non_matching_face(
+                remote_face_ids, matrix_free.get_boundary_id(face)))
+            {
+           // If @c face is a standard boundary face, evaluate the integral as
           // usual in the matrix free context. To be able to use the same kernel
           // as for inner faces we pass the boundary condition objects to the
           // function that evaluates the kernel. As mentioned above, there is no
           // neighbor to consider in the kernel.
-          if (!HelperFunctions::is_non_matching_face(
-                remote_face_ids, matrix_free.get_boundary_id(face)))
-            {
               velocity_m.reinit(face);
               pressure_m.reinit(face);
 
@@ -450,8 +447,6 @@ namespace Step89
               // For point-to-point interpolation we simply use the
               // corresponding RemoteEvaluaton objects in combination with the
               // standard FEFaceEvaluation objects.
-              if (coupling_type == CouplingType::P2P)
-                {
                   velocity_m.reinit(face);
                   pressure_m.reinit(face);
 
@@ -468,14 +463,70 @@ namespace Step89
 
                   pressure_m.integrate_scatter(EvaluationFlags::values, dst);
                   velocity_m.integrate_scatter(EvaluationFlags::values, dst);
-                }
+            }
+        }
+    }
 
+    // This function evaluates the boundary face integrals and the 
+    // non-matching face integrals using Nitsche-type mortaring.
+    template <typename VectorType>
+    void boundary_face_loop_mortaring(
+      const MatrixFree<dim, Number>               &matrix_free,
+      VectorType                                  &dst,
+      const VectorType                            &src,
+      const std::pair<unsigned int, unsigned int> &face_range) const
+    {
+      // Standard face evaluators for BCs.
+      FEFaceEvaluation<dim, -1, 0, 1, Number> pressure_m(
+        matrix_free, true, 0, 0, 0);
+      FEFaceEvaluation<dim, -1, 0, dim, Number> velocity_m(
+        matrix_free, true, 0, 0, 1);
+
+      // Classes which return the correct BC values.
+      BCEvalP pressure_bc(pressure_m);
+      BCEvalU velocity_bc(velocity_m);
+
+      // For Nitsche-type mortaring we are evaluating the integrals over
+      // intersections. This is why, quadrature points are arbitrarely
+      // distributed on every face. Thus, we can not make use of face batches
+      // and FEFaceEvaluation but have to consider each face individually and
+      // make use of @c FEPointEvaluation to evaluate the integrals in the
+      // arbitrarely distributed quadrature points.
+      FEPointEvaluation<1, dim, dim, Number> pressure_m_mortar(
+        nm_mapping_info, matrix_free.get_dof_handler().get_fe(), 0);
+      FEPointEvaluation<dim, dim, dim, Number> velocity_m_mortar(
+        nm_mapping_info, matrix_free.get_dof_handler().get_fe(), 1);
+
+      // Buffer on which FEPointEvaluation is working on.
+      std::vector<Number> buffer(matrix_free.get_dof_handler().get_fe().dofs_per_cell);
+
+      for (unsigned int face = face_range.first; face < face_range.second;
+           face++)
+        {
+          if (!HelperFunctions::is_non_matching_face(
+                remote_face_ids, matrix_free.get_boundary_id(face)))
+            {
+          // Same as in @c boundary_face_loop_point_to_point().
+              velocity_m.reinit(face);
+              pressure_m.reinit(face);
+
+              pressure_m.gather_evaluate(src, EvaluationFlags::values);
+              velocity_m.gather_evaluate(src, EvaluationFlags::values);
+
+              evaluate_face_kernel<false>(pressure_m,
+                                          velocity_m,
+                                          pressure_bc,
+                                          velocity_bc);
+
+              pressure_m.integrate_scatter(EvaluationFlags::values, dst);
+              velocity_m.integrate_scatter(EvaluationFlags::values, dst);
+            }
+          else
+            {
               // For mortaring we have to cosider every face from the face
               // batches seperately and have to use the FEPointEvaluation
               // objects to be able to evaluate the integrals with the
               // arbitrarily distributed quadrature points.
-              if (coupling_type == CouplingType::Mortaring)
-                {
                   for (unsigned int v = 0;
                        v < matrix_free.n_active_entries_per_face_batch(face);
                        ++v)
@@ -514,15 +565,12 @@ namespace Step89
                                                        buffer.end(),
                                                        dst);
                     }
-                }
             }
         }
     }
 
     // Members, needed to evaluate the acoustic operator.
     const MatrixFree<dim, Number>                  &matrix_free;
-    const FERemoteEvaluationCommunicatorType       &remote_communicator;
-    const FERemoteEvaluationCommunicatorTypeMortar &remote_communicator_mortar;
     NonMatching::MappingInfo<dim, dim, Number>     &nm_mapping_info;
 
     const std::set<types::boundary_id> remote_face_ids;
@@ -623,8 +671,6 @@ namespace Step89
             1))
       , inverse_mass_operator(matrix_free)
       , acoustic_operator(matrix_free,
-                          remote_comm,
-                          remote_comm_mortar,
                           nm_info,
                           non_matching_face_ids,
                           density,
@@ -707,16 +753,16 @@ namespace Step89
       VectorType k1 = src;
 
       // stage 1
-      evaluate_stage(k1, src);
+      evaluate_stage(k1, src,coupling_type ==CouplingType::Mortaring);
 
       // stage 2
       k1.sadd(0.5 * dt, 1.0, src);
-      evaluate_stage(dst, k1);
+      evaluate_stage(dst, k1,coupling_type ==CouplingType::Mortaring);
       dst.sadd(dt, 1.0, src);
     }
 
     // Evaluate a single Runge-Kutta stage.
-    void evaluate_stage(VectorType &dst, const VectorType &src)
+    void evaluate_stage(VectorType &dst, const VectorType &src, const bool use_mortaring)
     {
       // Update the cached values in the RemoteEvaluation objects, such
       // that they are up to date during @c acoustic_operator.evaluate(dst,
@@ -736,7 +782,7 @@ namespace Step89
         }
 
       // Evaluate the stage
-      acoustic_operator.evaluate(dst, src);
+      acoustic_operator.evaluate(dst, src,use_mortaring);
       dst *= -1.0;
       inverse_mass_operator.apply(dst, dst);
     }
@@ -946,7 +992,6 @@ namespace Step89
     const auto &dof_handler       = matrix_free.get_dof_handler();
     const auto &tria              = dof_handler.get_triangulation();
     const auto &mapping           = *matrix_free.get_mapping_info().mapping;
-    const auto  degree            = dof_handler.get_fe().degree;
     const auto  n_quadrature_pnts = matrix_free.get_quadrature().size();
 
     std::vector<std::vector<Quadrature<dim - 1>>> global_quadrature_vector;
@@ -1179,8 +1224,9 @@ int main(int argc, char *argv[])
   Step89::nitsche_type_mortaring(
     matrix_free, non_matching_faces, speed_of_sound, density, modes);
 
-  // Run simple testcase with in-homogenous material:
-  // Step89::inhomogenous_material();
+  // TODO:
+  //  Run simple testcase with in-homogenous material:
+  //  Step89::inhomogenous_material();
 
   return 0;
 }
