@@ -48,11 +48,12 @@
 // The following header file provides the class FERemoteEvaluation, which allows
 // to access values and/or gradients at remote triangulations similar to
 // FEEvaluation.
-// #include <deal.II/matrix_free/fe_remote_evaluation.h>
 #include "fe_remote_evaluation.h"
+// TODO: this file is not yet in deal.ii and will end up in
+//  #include <deal.II/matrix_free/fe_remote_evaluation.h>
 
-//TODO: clean up!!!
-//TODO: inhomegenous!!!
+// TODO: clean up!!!
+// TODO: inhomegenous!!!
 
 
 // We pack everything that is specific for this program into a namespace
@@ -72,9 +73,14 @@ namespace Step89
   };
   CouplingType coupling_type = CouplingType::P2P;
 
-
+  // Utility functions that are used in the tutorial.
   namespace NonMatchingHelpers
   {
+    // Helper function to check if a boundary ID is related to a non-matching
+    // face. A @c std::set that contains all non-matching boundary IDs is
+    // handed over additionaly to the face ID under question. This function
+    // could certainly also be defined inline but this way the code is more easy
+    // to read.
     bool is_non_matching_face(
       const std::set<types::boundary_id> &non_matching_face_ids,
       const types::boundary_id            face_id)
@@ -83,9 +89,15 @@ namespace Step89
     }
   } // namespace NonMatchingHelpers
 
+
+  // Class that defines the acoustic operator.
   template <int dim, typename Number>
-  class AcousticConservationEquation
+  class AcousticOperator
   {
+    // To be able to use the same kernel, for all face integrals we define
+    //  a class that returns the needed values at boundaries. In this tutorial
+    //  homogenous pressure Dirichlet boundary conditions are applied via
+    //  the mirror priciple, i.e. $p_h^+=-p_h^- + 2*g$ with $g=0$.
     class HomogenousBCEvalP
     {
     public:
@@ -97,13 +109,15 @@ namespace Step89
       typename FEFaceEvaluation<dim, -1, 0, 1, Number>::value_type
       get_value(const unsigned int q) const
       {
-        return -pressure_m.get_value(q) /*+2*g*/;
+        return -pressure_m.get_value(q);
       }
 
     private:
       const FEFaceEvaluation<dim, -1, 0, 1, Number> &pressure_m;
     };
 
+    // Similar as above. In this tutorial velocity Neumann boundary conditions
+    // are applied.
     class HomogenousBCEvalU
     {
     public:
@@ -124,7 +138,12 @@ namespace Step89
 
 
   public:
-    AcousticConservationEquation(
+    // Constructor with all the needed ingredients for the operator.
+    // Remote evaluators are handed in via shared pointers. This is
+    // because the values that are queried from the remote evaluator
+    // can be potentially used in different operators and are thus
+    // filled outside.
+    AcousticOperator(
       const MatrixFree<dim, Number>                  &matrix_free_in,
       const FERemoteEvaluationCommunicatorType       &remote_comm,
       const FERemoteEvaluationCommunicatorTypeMortar &remote_comm_mortar,
@@ -137,9 +156,7 @@ namespace Step89
       std::shared_ptr<FEFaceRemotePointEvaluation<dim, 1, Number>>
         pressure_r_mortar,
       std::shared_ptr<FEFaceRemotePointEvaluation<dim, dim, Number>>
-        velocity_r_mortar
-
-      )
+        velocity_r_mortar)
       : matrix_free(matrix_free_in)
       , remote_communicator(remote_comm)
       , remote_communicator_mortar(remote_comm_mortar)
@@ -156,12 +173,13 @@ namespace Step89
       , velocity_r_mortar(velocity_r_mortar)
     {}
 
+    // Function to evaluate the acoustic operator.
     template <typename VectorType>
     void evaluate(VectorType &dst, const VectorType &src) const
     {
-      matrix_free.loop(&AcousticConservationEquation::cell_loop,
-                       &AcousticConservationEquation::face_loop,
-                       &AcousticConservationEquation::boundary_face_loop,
+      matrix_free.loop(&AcousticOperator::cell_loop,
+                       &AcousticOperator::face_loop,
+                       &AcousticOperator::boundary_face_loop,
                        this,
                        dst,
                        src,
@@ -171,6 +189,7 @@ namespace Step89
     }
 
   private:
+    // This function evaluates the volume integrals.
     template <typename VectorType>
     void
     cell_loop(const MatrixFree<dim, Number>               &matrix_free,
@@ -202,6 +221,45 @@ namespace Step89
         }
     }
 
+    // This function evaluates the fluxes at faces. If boundary faces are under
+    // consideration fluxes into neighboring faces do not have to be considered
+    // (there are none). For non-matching faces the fluxes into neighboring
+    // faces are not considered as well. This is because we iterate over each
+    // side of the non-matching face seperately (similar to a cell centric
+    // loop).
+    template <bool weight_neighbor,
+              typename InternalFaceIntegratorPressure,
+              typename InternalFaceIntegratorVelocity,
+              typename ExternalFaceIntegratorPressure,
+              typename ExternalFaceIntegratorVelocity>
+    void evaluate_face_kernel(InternalFaceIntegratorPressure &pressure_m,
+                              InternalFaceIntegratorVelocity &velocity_m,
+                              ExternalFaceIntegratorPressure &pressure_p,
+                              ExternalFaceIntegratorVelocity &velocity_p) const
+    {
+      for (unsigned int q : pressure_m.quadrature_point_indices())
+        {
+          const auto n  = pressure_m.normal_vector(q);
+          const auto pm = pressure_m.get_value(q);
+          const auto um = velocity_m.get_value(q);
+
+          const auto pp = pressure_p.get_value(q);
+          const auto up = velocity_p.get_value(q);
+
+          const auto flux_momentum =
+            0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
+          velocity_m.submit_value(1.0 / rho * (flux_momentum - pm) * n, q);
+          if constexpr (weight_neighbor)
+            velocity_p.submit_value(1.0 / rho * (flux_momentum - pp) * (-n), q);
+
+          const auto flux_mass = 0.5 * (um + up) + 0.5 * gamma * (pm - pp) * n;
+          pressure_m.submit_value(rho * c * c * (flux_mass - um) * n, q);
+          if constexpr (weight_neighbor)
+            pressure_p.submit_value(rho * c * c * (flux_mass - up) * (-n), q);
+        }
+    }
+
+    //  This function evaluates the inner face integrals.
     template <typename VectorType>
     void
     face_loop(const MatrixFree<dim, Number>               &matrix_free,
@@ -233,26 +291,10 @@ namespace Step89
           velocity_m.gather_evaluate(src, EvaluationFlags::values);
           velocity_p.gather_evaluate(src, EvaluationFlags::values);
 
-          for (unsigned int q : pressure_m.quadrature_point_indices())
-            {
-              const auto n  = pressure_m.normal_vector(q);
-              const auto pm = pressure_m.get_value(q);
-              const auto um = velocity_m.get_value(q);
-              const auto pp = pressure_p.get_value(q);
-              const auto up = velocity_p.get_value(q);
-
-              const auto flux_momentum =
-                0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
-              velocity_m.submit_value(1.0 / rho * (flux_momentum - pm) * n, q);
-              velocity_p.submit_value(1.0 / rho * (flux_momentum - pp) * (-n),
-                                      q);
-
-              const auto flux_mass =
-                0.5 * (um + up) + 0.5 * gamma * (pm - pp) * n;
-              pressure_m.submit_value(rho * c * c * (flux_mass - um) * n, q);
-              pressure_p.submit_value(rho * c * c * (flux_mass - up) * (-n), q);
-            }
-
+          evaluate_face_kernel<true>(pressure_m,
+                                     velocity_m,
+                                     pressure_p,
+                                     velocity_p);
 
           pressure_m.integrate_scatter(EvaluationFlags::values, dst);
           pressure_p.integrate_scatter(EvaluationFlags::values, dst);
@@ -262,34 +304,10 @@ namespace Step89
     }
 
 
-    template <typename InternalFaceIntegratorPressure,
-              typename InternalFaceIntegratorVelocity,
-              typename ExternalFaceIntegratorPressure,
-              typename ExternalFaceIntegratorVelocity>
-    void
-    perform_face_int(InternalFaceIntegratorPressure       &pressure_m,
-                     InternalFaceIntegratorVelocity       &velocity_m,
-                     const ExternalFaceIntegratorPressure &pressure_p,
-                     const ExternalFaceIntegratorVelocity &velocity_p) const
-    {
-      for (unsigned int q : pressure_m.quadrature_point_indices())
-        {
-          const auto n  = pressure_m.normal_vector(q);
-          const auto pm = pressure_m.get_value(q);
-          const auto um = velocity_m.get_value(q);
+    // TODO: comment from here on
 
-          const auto pp = pressure_p.get_value(q);
-          const auto up = velocity_p.get_value(q);
-
-          const auto flux_momentum =
-            0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
-          velocity_m.submit_value(1.0 / rho * (flux_momentum - pm) * n, q);
-
-          const auto flux_mass = 0.5 * (um + up) + 0.5 * gamma * (pm - pp) * n;
-          pressure_m.submit_value(rho * c * c * (flux_mass - um) * n, q);
-        }
-    }
-
+    // This function evaluates the boundary face integrals
+    // and the non-matching face integrals.
     template <typename VectorType>
     void boundary_face_loop(
       const MatrixFree<dim, Number>               &matrix_free,
@@ -348,16 +366,17 @@ namespace Step89
                       velocity_r_mortar->reinit(cell->active_cell_index(), f);
                       pressure_r_mortar->reinit(cell->active_cell_index(), f);
 
-                      perform_face_int(pressure_m_mortar,
-                                       velocity_m_mortar,
-                                       *pressure_r_mortar,
-                                       *velocity_r_mortar);
+                      evaluate_face_kernel<false>(pressure_m_mortar,
+                                                  velocity_m_mortar,
+                                                  *pressure_r_mortar,
+                                                  *velocity_r_mortar);
 
-                      // First zero out buffer via sum_into_values
+                      // First zero out buffer via sum_into_values=false
                       velocity_m_mortar.integrate(point_values,
                                                   EvaluationFlags::values,
                                                   /*sum_into_values=*/false);
-                      // Don't zero out values again to keep integrated values
+                      // Don't zero out values again to keep already integrated
+                      // values
                       pressure_m_mortar.integrate(point_values,
                                                   EvaluationFlags::values,
                                                   /*sum_into_values=*/true);
@@ -378,10 +397,11 @@ namespace Step89
                   velocity_r->reinit(face);
                   pressure_r->reinit(face);
 
-                  perform_face_int(pressure_m,
-                                   velocity_m,
-                                   *pressure_r,
-                                   *velocity_r);
+                  evaluate_face_kernel<false>(pressure_m,
+                                              velocity_m,
+                                              *pressure_r,
+                                              *velocity_r);
+
                   pressure_m.integrate_scatter(EvaluationFlags::values, dst);
                   velocity_m.integrate_scatter(EvaluationFlags::values, dst);
                 }
@@ -393,10 +413,12 @@ namespace Step89
 
               pressure_m.gather_evaluate(src, EvaluationFlags::values);
               velocity_m.gather_evaluate(src, EvaluationFlags::values);
-              perform_face_int(pressure_m,
-                               velocity_m,
-                               pressure_hbc,
-                               velocity_hbc);
+
+              evaluate_face_kernel<false>(pressure_m,
+                                          velocity_m,
+                                          pressure_hbc,
+                                          velocity_hbc);
+
               pressure_m.integrate_scatter(EvaluationFlags::values, dst);
               velocity_m.integrate_scatter(EvaluationFlags::values, dst);
             }
@@ -554,8 +576,8 @@ namespace Step89
     std::shared_ptr<FEFaceRemotePointEvaluation<dim, dim, Number>>
       velocity_r_mortar;
 
-    const InverseMassOperator<dim, Number>          inverse_mass_operator;
-    const AcousticConservationEquation<dim, Number> acoustic_operator;
+    const InverseMassOperator<dim, Number> inverse_mass_operator;
+    const AcousticOperator<dim, Number>    acoustic_operator;
 
     double dt;
   };
