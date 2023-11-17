@@ -170,7 +170,7 @@ namespace Step89
     // To be able to use the same kernel, for all face integrals we define
     //  a class that returns the needed values at boundaries. In this tutorial
     //  homogenous pressure Dirichlet boundary conditions are applied via
-    //  the mirror priciple, i.e. $p_h^+=-p_h^- + 2*g$ with $g=0$.
+    //  the mirror priciple, i.e. $p_h^+=-p_h^- + 2g$ with $g=0$.
     class BCEvalP
     {
     public:
@@ -210,10 +210,6 @@ namespace Step89
 
   public:
     // Constructor with all the needed ingredients for the operator.
-    // Remote evaluators are handed in via shared pointers. This is
-    // because the values that are queried from the remote evaluator
-    // can be potentially used in different operators and are thus
-    // filled outside.
     AcousticOperator(
       const MatrixFree<dim, Number>                  &matrix_free_in,
       const FERemoteEvaluationCommunicatorType       &remote_comm,
@@ -222,6 +218,10 @@ namespace Step89
       const std::set<types::boundary_id>             &non_matching_face_ids,
       const double                                    density,
       const double                                    speed_of_sound,
+      // Remote evaluators are handed in via shared pointers. This is
+      // because the values that are queried from the remote evaluator
+      // can be potentially used in different operators and are thus
+      // filled outside.
       std::shared_ptr<FEFaceRemoteEvaluation<dim, 1, Number>>   pressure_r,
       std::shared_ptr<FEFaceRemoteEvaluation<dim, dim, Number>> velocity_r,
       std::shared_ptr<FEFaceRemotePointEvaluation<dim, 1, Number>>
@@ -237,7 +237,7 @@ namespace Step89
       , c(speed_of_sound)
       , tau(0.5 * rho * c)
       , gamma(0.5 / (rho * c))
-      // remote evalutators
+
       , pressure_r(pressure_r)
       , velocity_r(velocity_r)
       , pressure_r_mortar(pressure_r_mortar)
@@ -412,9 +412,9 @@ namespace Step89
       for (unsigned int face = face_range.first; face < face_range.second;
            face++)
         {
-          // If face is a standard boundary face, evaluate the integral as usual
-          // in the matrix free context. To be able to use the same kernel as
-          // for inner faces we pass the boundary condition objects to the
+          // If @c face is a standard boundary face, evaluate the integral as
+          // usual in the matrix free context. To be able to use the same kernel
+          // as for inner faces we pass the boundary condition objects to the
           // function that evaluates the kernel. As mentioned above, there is no
           // neighbor to consider in the kernel.
           if (!HelperFunctions::is_non_matching_face(
@@ -434,15 +434,17 @@ namespace Step89
               pressure_m.integrate_scatter(EvaluationFlags::values, dst);
               velocity_m.integrate_scatter(EvaluationFlags::values, dst);
             }
-          // If face is nonmatching we have to query values via the
-          // RemoteEvaluaton objects. This is done by passing the corresponding
-          // RemoteEvaluaton objects to the function that evaluates the kernel.
-          // As mentioned above, each side of the non-matching interface is
-          // iterated seperately and we do not have to consider the neighbor in
-          // the kernel. Note, that the values in the RemoteEvaluaton objects
-          // are already updated at this point.
           else
             {
+              // If @c face is nonmatching we have to query values via the
+              // RemoteEvaluaton objects. This is done by passing the
+              // corresponding RemoteEvaluaton objects to the function that
+              // evaluates the kernel. As mentioned above, each side of the
+              // non-matching interface is iterated seperately and we do not
+              // have to consider the neighbor in the kernel. Note, that the
+              // values in the RemoteEvaluaton objects are already updated at
+              // this point.
+
               // For point-to-point interpolation we simply use the
               // corresponding RemoteEvaluaton objects in combination with the
               // standard FEFaceEvaluation objects.
@@ -701,7 +703,7 @@ namespace Step89
   };
 
 
-  //TODO: commet from here!
+  // TODO: commet from here!
   // @sect3{Point-to-point interpolation}
   //
   // Description
@@ -1085,7 +1087,7 @@ namespace Step89
       }
   }
 
-  //TODO: clean up
+  // TODO: clean up
   // // @sect3{Nitsche-type mortaring}
   // //
   // // Description

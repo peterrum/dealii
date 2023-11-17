@@ -86,6 +86,10 @@ $K^-$ is computed on the intersections. This way, the numerical integration is e
 as a sufficient number of integration points is used.
 
 TODO_BEGIN
+BCS
+CFL
+VIBRATING MEMBRANE TESTCASE
+
 <h3>%TODO: filling distributing intersected quadrature points with cgal!</h3>
 
 <h3>%FERemoteEvaluation</h3>
