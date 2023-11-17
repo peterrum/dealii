@@ -95,7 +95,7 @@ namespace Step89
       typename FEFaceEvaluation<dim, -1, 0, 1, Number>::value_type
       get_value(const unsigned int q) const
       {
-        return -pressure_m.get_value(q)/*+2*g*/;
+        return -pressure_m.get_value(q) /*+2*g*/;
       }
 
     private:
@@ -123,13 +123,23 @@ namespace Step89
 
   public:
     AcousticConservationEquation(
+      const MatrixFree<dim, Number>                  &matrix_free_in,
       const FERemoteEvaluationCommunicatorType       &remote_comm,
       const FERemoteEvaluationCommunicatorTypeMortar &remote_comm_mortar,
       NonMatching::MappingInfo<dim, dim, Number>     &nm_info,
       const std::set<types::boundary_id>             &non_matching_face_ids,
       const double                                    density,
-      const double                                    speed_of_sound)
-      : remote_communicator(remote_comm)
+      const double                                    speed_of_sound,
+      std::shared_ptr<FEFaceRemoteEvaluation<dim, 1, Number>>   pressure_r,
+      std::shared_ptr<FEFaceRemoteEvaluation<dim, dim, Number>> velocity_r,
+      std::shared_ptr<FEFaceRemotePointEvaluation<dim, 1, Number>>
+        pressure_r_mortar,
+      std::shared_ptr<FEFaceRemotePointEvaluation<dim, dim, Number>>
+        velocity_r_mortar
+
+      )
+      : matrix_free(matrix_free_in)
+      , remote_communicator(remote_comm)
       , remote_communicator_mortar(remote_comm_mortar)
       , nm_mapping_info(nm_info)
       , remote_face_ids(non_matching_face_ids)
@@ -137,12 +147,15 @@ namespace Step89
       , c(speed_of_sound)
       , tau(0.5 * rho * c)
       , gamma(0.5 / (rho * c))
+      // remote evalutators
+      , pressure_r(pressure_r)
+      , velocity_r(velocity_r)
+      , pressure_r_mortar(pressure_r_mortar)
+      , velocity_r_mortar(velocity_r_mortar)
     {}
 
     template <typename VectorType>
-    void evaluate(const MatrixFree<dim, Number> &matrix_free,
-                  VectorType                    &dst,
-                  const VectorType              &src) const
+    void evaluate(VectorType &dst, const VectorType &src) const
     {
       matrix_free.loop(&AcousticConservationEquation::cell_loop,
                        &AcousticConservationEquation::face_loop,
@@ -282,21 +295,8 @@ namespace Step89
       const VectorType                            &src,
       const std::pair<unsigned int, unsigned int> &face_range) const
     {
-      const auto &dh = matrix_free.get_dof_handler();
-      const auto &fe = dh.get_fe();
-      // remote evalutators
-      FEFaceRemoteEvaluation<dim, 1, Number>   pressure_r(remote_communicator,
-                                                        dh,
-                                                        0);
-      FEFaceRemoteEvaluation<dim, dim, Number> velocity_r(remote_communicator,
-                                                          dh,
-                                                          1);
+      const auto &fe = matrix_free.get_dof_handler().get_fe();
 
-      if (coupling_type == CouplingType::P2P)
-        {
-          pressure_r.gather_evaluate(src, EvaluationFlags::values);
-          velocity_r.gather_evaluate(src, EvaluationFlags::values);
-        }
       // standard face evaluators
       FEFaceEvaluation<dim, -1, 0, 1, Number> pressure_m(
         matrix_free, true, 0, 0, 0);
@@ -315,23 +315,7 @@ namespace Step89
         nm_mapping_info, fe, 1);
       std::vector<Number> point_values(fe.dofs_per_cell);
 
-      FEFaceRemotePointEvaluation<dim, 1, Number> pressure_r_mortar(
-        remote_communicator_mortar, dh, 0);
-      FEFaceRemotePointEvaluation<dim, dim, Number> velocity_r_mortar(
-        remote_communicator_mortar, dh, 1);
 
-
-
-      if (coupling_type == CouplingType::Mortaring)
-        {
-          // TODO: Gather evaluate makes problem with MPI. There has to be a
-          // memory leak or overlap somewhere. Doesnt make sense otherwise?!
-          AssertThrow(Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD) == 1,
-                      ExcMessage("Problem with MPI?!"));
-
-          pressure_r_mortar.gather_evaluate(src, EvaluationFlags::values);
-          velocity_r_mortar.gather_evaluate(src, EvaluationFlags::values);
-        }
 
       for (unsigned int face = face_range.first; face < face_range.second;
            face++)
@@ -359,13 +343,13 @@ namespace Step89
                       pressure_m_mortar.evaluate(point_values,
                                                  EvaluationFlags::values);
 
-                      velocity_r_mortar.reinit(cell->active_cell_index(), f);
-                      pressure_r_mortar.reinit(cell->active_cell_index(), f);
+                      velocity_r_mortar->reinit(cell->active_cell_index(), f);
+                      pressure_r_mortar->reinit(cell->active_cell_index(), f);
 
                       perform_face_int(pressure_m_mortar,
                                        velocity_m_mortar,
-                                       pressure_r_mortar,
-                                       velocity_r_mortar);
+                                       *pressure_r_mortar,
+                                       *velocity_r_mortar);
 
                       // First zero out buffer via sum_into_values
                       velocity_m_mortar.integrate(point_values,
@@ -389,13 +373,13 @@ namespace Step89
                   pressure_m.gather_evaluate(src, EvaluationFlags::values);
                   velocity_m.gather_evaluate(src, EvaluationFlags::values);
 
-                  velocity_r.reinit(face);
-                  pressure_r.reinit(face);
+                  velocity_r->reinit(face);
+                  pressure_r->reinit(face);
 
                   perform_face_int(pressure_m,
                                    velocity_m,
-                                   pressure_r,
-                                   velocity_r);
+                                   *pressure_r,
+                                   *velocity_r);
                   pressure_m.integrate_scatter(EvaluationFlags::values, dst);
                   velocity_m.integrate_scatter(EvaluationFlags::values, dst);
                 }
@@ -417,7 +401,7 @@ namespace Step89
         }
     }
 
-
+    const MatrixFree<dim, Number>                  &matrix_free;
     const FERemoteEvaluationCommunicatorType       &remote_communicator;
     const FERemoteEvaluationCommunicatorTypeMortar &remote_communicator_mortar;
     NonMatching::MappingInfo<dim, dim, Number>     &nm_mapping_info;
@@ -427,31 +411,41 @@ namespace Step89
     const double                       c;
     const double                       tau;
     const double                       gamma;
+
+    const std::shared_ptr<FEFaceRemoteEvaluation<dim, 1, Number>>   pressure_r;
+    const std::shared_ptr<FEFaceRemoteEvaluation<dim, dim, Number>> velocity_r;
+    const std::shared_ptr<FEFaceRemotePointEvaluation<dim, 1, Number>>
+      pressure_r_mortar;
+    const std::shared_ptr<FEFaceRemotePointEvaluation<dim, dim, Number>>
+      velocity_r_mortar;
   };
 
 
-
+  template <int dim, typename Number>
   class InverseMassOperator
   {
   public:
-    template <int dim, typename Number, typename VectorType>
-    void apply(const MatrixFree<dim, Number> &matrix_free,
-               VectorType                    &dst,
-               const VectorType              &src) const
+    InverseMassOperator(const MatrixFree<dim, Number> &matrix_free)
+      : matrix_free(matrix_free)
+    {}
+
+
+    template <typename VectorType>
+    void apply(VectorType &dst, const VectorType &src) const
     {
       dst.zero_out_ghost_values();
       matrix_free.cell_loop(&InverseMassOperator::cell_loop, this, dst, src);
     }
 
   private:
-    template <int dim, typename Number, typename VectorType>
+    template <typename VectorType>
     void
-    cell_loop(const MatrixFree<dim, Number>               &matrix_free,
+    cell_loop(const MatrixFree<dim, Number>               &mf,
               VectorType                                  &dst,
               const VectorType                            &src,
               const std::pair<unsigned int, unsigned int> &cell_range) const
     {
-      FEEvaluation<dim, -1, 0, dim + 1, Number> phi(matrix_free);
+      FEEvaluation<dim, -1, 0, dim + 1, Number> phi(mf);
       MatrixFreeOperators::CellwiseInverseMassMatrix<dim, -1, dim + 1, Number>
         minv(phi);
 
@@ -464,72 +458,104 @@ namespace Step89
           phi.set_dof_values(dst);
         }
     }
+
+    const MatrixFree<dim, Number> &matrix_free;
   };
 
   template <int dim, typename Number>
-  class SpatialOperator
+  class RungeKutta2
   {
   public:
-    SpatialOperator(
-      const MatrixFree<dim, Number>                  &matrix_free_in,
+    RungeKutta2(
+      const MatrixFree<dim, Number>                  &matrix_free,
       const FERemoteEvaluationCommunicatorType       &remote_comm,
       const FERemoteEvaluationCommunicatorTypeMortar &remote_comm_mortar,
       NonMatching::MappingInfo<dim, dim, Number>     &nm_info,
       const std::set<types::boundary_id>             &non_matching_face_ids,
+      const double                                    dt,
       const double                                    density,
       const double                                    speed_of_sound)
-      : matrix_free(matrix_free_in)
-      , remote_communicator(remote_comm)
-      , remote_communicator_mortar(remote_comm_mortar)
-      , nm_mapping_info(nm_info)
-      , remote_face_ids(non_matching_face_ids)
-      , rho(Number{density})
-      , c(Number{speed_of_sound})
+      : pressure_r(std::make_shared<FEFaceRemoteEvaluation<dim, 1, Number>>(
+          remote_comm,
+          matrix_free.get_dof_handler(),
+          0))
+      , velocity_r(std::make_shared<FEFaceRemoteEvaluation<dim, dim, Number>>(
+          remote_comm,
+          matrix_free.get_dof_handler(),
+          1))
+      , pressure_r_mortar(
+          std::make_shared<FEFaceRemotePointEvaluation<dim, 1, Number>>(
+            remote_comm_mortar,
+            matrix_free.get_dof_handler(),
+            0))
+      , velocity_r_mortar(
+          std::make_shared<FEFaceRemotePointEvaluation<dim, dim, Number>>(
+            remote_comm_mortar,
+            matrix_free.get_dof_handler(),
+            1))
+      , inverse_mass_operator(matrix_free)
+      , acoustic_operator(matrix_free,
+                          remote_comm,
+                          remote_comm_mortar,
+                          nm_info,
+                          non_matching_face_ids,
+                          density,
+                          speed_of_sound,
+                          pressure_r,
+                          velocity_r,
+                          pressure_r_mortar,
+                          velocity_r_mortar)
+      , dt(dt)
     {}
 
     template <typename VectorType>
-    void evaluate(VectorType &dst, const VectorType &src) const
-    {
-      AcousticConservationEquation<dim, Number>(remote_communicator,
-                                                remote_communicator_mortar,
-                                                nm_mapping_info,
-                                                remote_face_ids,
-                                                rho,
-                                                c)
-        .evaluate(matrix_free, dst, src);
-      dst *= Number{-1.0};
-      InverseMassOperator().apply(matrix_free, dst, dst);
-    }
-
-  private:
-    const MatrixFree<dim, Number>                  &matrix_free;
-    const FERemoteEvaluationCommunicatorType       &remote_communicator;
-    const FERemoteEvaluationCommunicatorTypeMortar &remote_communicator_mortar;
-    NonMatching::MappingInfo<dim, dim, Number>     &nm_mapping_info;
-
-    const std::set<types::boundary_id> &remote_face_ids;
-    const Number                        rho;
-    const Number                        c;
-  };
-
-  struct RungeKutta2
-  {
-    template <typename VectorType, typename Operator>
-    static void perform_time_step(const Operator   &pde_operator,
-                                  const double      dt,
-                                  VectorType       &dst,
-                                  const VectorType &src)
+    void perform_time_step(VectorType &dst, const VectorType &src)
     {
       VectorType k1 = src;
 
       // stage 1
-      pde_operator.evaluate(k1, src);
+      evaluate_stage(k1, src);
 
       // stage 2
       k1.sadd(0.5 * dt, 1.0, src);
-      pde_operator.evaluate(dst, k1);
+      evaluate_stage(dst, k1);
       dst.sadd(dt, 1.0, src);
     }
+
+  private:
+    template <typename VectorType>
+    void evaluate_stage(VectorType &dst, const VectorType &src)
+    {
+      if (coupling_type == CouplingType::P2P)
+        {
+          pressure_r->gather_evaluate(src, EvaluationFlags::values);
+          velocity_r->gather_evaluate(src, EvaluationFlags::values);
+        }
+
+      if (coupling_type == CouplingType::Mortaring)
+        {
+          pressure_r_mortar->gather_evaluate(src, EvaluationFlags::values);
+          velocity_r_mortar->gather_evaluate(src, EvaluationFlags::values);
+        }
+
+      acoustic_operator.evaluate(dst, src);
+      dst *= -1.0;
+      inverse_mass_operator.apply(dst, dst);
+    }
+
+    // stored outside of different operators to be able to access remote values
+    //  in different operators without calling gathe_evaluate() more than once
+    std::shared_ptr<FEFaceRemoteEvaluation<dim, 1, Number>>   pressure_r;
+    std::shared_ptr<FEFaceRemoteEvaluation<dim, dim, Number>> velocity_r;
+    std::shared_ptr<FEFaceRemotePointEvaluation<dim, 1, Number>>
+      pressure_r_mortar;
+    std::shared_ptr<FEFaceRemotePointEvaluation<dim, dim, Number>>
+      velocity_r_mortar;
+
+    const InverseMassOperator<dim, Number>          inverse_mass_operator;
+    const AcousticConservationEquation<dim, Number> acoustic_operator;
+
+    double dt;
   };
 
   template <int dim,
@@ -682,6 +708,9 @@ namespace Step89
 
     if (coupling_type == CouplingType::P2P)
       {
+        // TODO: check if everything is correct(that means if the instable
+        // result is expected in this configuration)!
+
         std::vector<
           std::pair<std::shared_ptr<Utilities::MPI::RemotePointEvaluation<dim>>,
                     std::vector<std::pair<unsigned int, unsigned int>>>>
@@ -911,13 +940,15 @@ namespace Step89
       }
 
     pcout << "setup..." << std::endl;
-    SpatialOperator<dim, Number> acoustic_operator(matrix_free,
-                                                   remote_communicator,
-                                                   remote_communicator_mortar,
-                                                   nm_mapping_info,
-                                                   non_matching_faces,
-                                                   density,
-                                                   speed_of_sound);
+
+    RungeKutta2 time_integrator(matrix_free,
+                                remote_communicator,
+                                remote_communicator_mortar,
+                                nm_mapping_info,
+                                non_matching_faces,
+                                dt,
+                                density,
+                                speed_of_sound);
 
     const double end_time = 2.0 / (modes * std::sqrt(dim) * speed_of_sound);
     double       time     = 0.0;
@@ -927,10 +958,7 @@ namespace Step89
     matrix_free.initialize_dof_vector(solution);
     set_initial_condition_vibrating_membrane(matrix_free, modes, solution);
 
-    VectorType solution_temp;
-    matrix_free.initialize_dof_vector(solution_temp);
-    set_initial_condition_vibrating_membrane(matrix_free, modes, solution_temp);
-
+    VectorType solution_temp = solution;
 
     while (time < end_time)
       {
@@ -967,10 +995,7 @@ namespace Step89
         std::swap(solution, solution_temp);
         time += dt;
         timestep++;
-        RungeKutta2::perform_time_step(acoustic_operator,
-                                       dt,
-                                       solution,
-                                       solution_temp);
+        time_integrator.perform_time_step(solution, solution_temp);
       }
   }
 
