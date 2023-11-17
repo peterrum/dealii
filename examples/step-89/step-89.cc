@@ -61,17 +61,6 @@
 namespace Step89
 {
   using namespace dealii;
-  // TODO: dont declare it here
-  using FERemoteEvaluationCommunicatorType =
-    FERemoteEvaluationCommunicator<2, true, true>;
-  using FERemoteEvaluationCommunicatorTypeMortar =
-    FERemoteEvaluationCommunicator<2, true, false>;
-  enum class CouplingType
-  {
-    P2P,
-    Mortaring
-  };
-  CouplingType coupling_type = CouplingType::P2P;
 
   // Free helper functions that are used in the tutorial.
   namespace HelperFunctions
@@ -213,63 +202,91 @@ namespace Step89
   public:
     // Constructor with all the needed ingredients for the operator.
     AcousticOperator(
-      const MatrixFree<dim, Number>                  &matrix_free_in,
-      NonMatching::MappingInfo<dim, dim, Number>     &nm_info,
-      const std::set<types::boundary_id>             &non_matching_face_ids,
-      const double                                    density,
-      const double                                    speed_of_sound,
-      // Remote evaluators are handed in via shared pointers. This is
-      // because the values that are queried from the remote evaluator
-      // can be potentially used in different operators and are thus
-      // filled outside.
+      const MatrixFree<dim, Number>      &matrix_free_in,
+      const std::set<types::boundary_id> &non_matching_face_ids,
+      const double                        density,
+      const double                        speed_of_sound,
       std::shared_ptr<FEFaceRemoteEvaluation<dim, 1, Number>>   pressure_r,
-      std::shared_ptr<FEFaceRemoteEvaluation<dim, dim, Number>> velocity_r,
-      std::shared_ptr<FEFaceRemotePointEvaluation<dim, 1, Number>>
-        pressure_r_mortar,
-      std::shared_ptr<FEFaceRemotePointEvaluation<dim, dim, Number>>
-        velocity_r_mortar)
-      : matrix_free(matrix_free_in)
-      , nm_mapping_info(nm_info)
+      std::shared_ptr<FEFaceRemoteEvaluation<dim, dim, Number>> velocity_r)
+      : use_mortaring(false)
+      , matrix_free(matrix_free_in)
       , remote_face_ids(non_matching_face_ids)
       , rho(density)
       , c(speed_of_sound)
       , tau(0.5 * rho * c)
       , gamma(0.5 / (rho * c))
-
       , pressure_r(pressure_r)
       , velocity_r(velocity_r)
-      , pressure_r_mortar(pressure_r_mortar)
-      , velocity_r_mortar(velocity_r_mortar)
+      , nm_mapping_info(nullptr)
+      , pressure_r_mortar(nullptr)
+      , velocity_r_mortar(nullptr)
+    {}
+
+    // Constructor with all the needed ingredients for the operator.
+    AcousticOperator(
+      const MatrixFree<dim, Number>      &matrix_free_in,
+      const std::set<types::boundary_id> &non_matching_face_ids,
+      const double                        density,
+      const double                        speed_of_sound,
+      std::shared_ptr<NonMatching::MappingInfo<dim, dim, Number>>    nm_info,
+      std::shared_ptr<FEFaceRemotePointEvaluation<dim, 1, Number>>   pressure_r,
+      std::shared_ptr<FEFaceRemotePointEvaluation<dim, dim, Number>> velocity_r)
+      : use_mortaring(true)
+      , matrix_free(matrix_free_in)
+      , remote_face_ids(non_matching_face_ids)
+      , rho(density)
+      , c(speed_of_sound)
+      , tau(0.5 * rho * c)
+      , gamma(0.5 / (rho * c))
+      , pressure_r(nullptr)
+      , velocity_r(nullptr)
+      , nm_mapping_info(nm_info)
+      , pressure_r_mortar(pressure_r)
+      , velocity_r_mortar(velocity_r)
     {}
 
     // Function to evaluate the acoustic operator with Nitsche-type mortaring
     // at non-matching faces.
     template <typename VectorType>
-    void evaluate(VectorType       &dst,
-                  const VectorType &src,
-                  const bool        use_mortaring) const
+    void evaluate(VectorType &dst, const VectorType &src) const
     {
-      if(use_mortaring )
-        { matrix_free.loop(&AcousticOperator::cell_loop,
-                       &AcousticOperator::face_loop,
+      if (use_mortaring)
+        {
+          // Update the cached values in corresponding the RemoteEvaluation
+          // objects.
+          pressure_r_mortar->gather_evaluate(src, EvaluationFlags::values);
+          velocity_r_mortar->gather_evaluate(src, EvaluationFlags::values);
+
+          // Perform matrix free loop.
+          matrix_free.loop(&AcousticOperator::cell_loop,
+                           &AcousticOperator::face_loop,
                            &AcousticOperator::boundary_face_loop_mortaring,
-                       this,
-                       dst,
-                       src,
-                       true,
-                       MatrixFree<dim, Number>::DataAccessOnFaces::values,
-                       MatrixFree<dim, Number>::DataAccessOnFaces::values);
-    }      else
-        { matrix_free.loop(&AcousticOperator::cell_loop,
-                       &AcousticOperator::face_loop,
-                         &AcousticOperator::boundary_face_loop_point_to_point,
-                       this,
-                       dst,
-                       src,
-                       true,
-                       MatrixFree<dim, Number>::DataAccessOnFaces::values,
-                       MatrixFree<dim, Number>::DataAccessOnFaces::values);
-    }         }
+                           this,
+                           dst,
+                           src,
+                           true,
+                           MatrixFree<dim, Number>::DataAccessOnFaces::values,
+                           MatrixFree<dim, Number>::DataAccessOnFaces::values);
+        }
+      else
+        {
+          // Update the cached values in corresponding the RemoteEvaluation
+          // objects.
+          pressure_r->gather_evaluate(src, EvaluationFlags::values);
+          velocity_r->gather_evaluate(src, EvaluationFlags::values);
+
+          // Perform matrix free loop.
+          matrix_free.loop(&AcousticOperator::cell_loop,
+                           &AcousticOperator::face_loop,
+                           &AcousticOperator::boundary_face_loop_point_to_point,
+                           this,
+                           dst,
+                           src,
+                           true,
+                           MatrixFree<dim, Number>::DataAccessOnFaces::values,
+                           MatrixFree<dim, Number>::DataAccessOnFaces::values);
+        }
+    }
 
   private:
     // This function evaluates the volume integrals.
@@ -387,12 +404,11 @@ namespace Step89
     }
 
 
-    // This function evaluates the boundary face integrals and the 
+    // This function evaluates the boundary face integrals and the
     // non-matching face integrals using point-to-point interpolation.
     template <typename VectorType>
-    void 
-    boundary_face_loop_point_to_point(
-          const MatrixFree<dim, Number>               &matrix_free,
+    void boundary_face_loop_point_to_point(
+      const MatrixFree<dim, Number>               &matrix_free,
       VectorType                                  &dst,
       const VectorType                            &src,
       const std::pair<unsigned int, unsigned int> &face_range) const
@@ -410,28 +426,25 @@ namespace Step89
       for (unsigned int face = face_range.first; face < face_range.second;
            face++)
         {
+          velocity_m.reinit(face);
+          pressure_m.reinit(face);
+
+          pressure_m.gather_evaluate(src, EvaluationFlags::values);
+          velocity_m.gather_evaluate(src, EvaluationFlags::values);
 
           if (!HelperFunctions::is_non_matching_face(
                 remote_face_ids, matrix_free.get_boundary_id(face)))
             {
-           // If @c face is a standard boundary face, evaluate the integral as
-          // usual in the matrix free context. To be able to use the same kernel
-          // as for inner faces we pass the boundary condition objects to the
-          // function that evaluates the kernel. As mentioned above, there is no
-          // neighbor to consider in the kernel.
-              velocity_m.reinit(face);
-              pressure_m.reinit(face);
-
-              pressure_m.gather_evaluate(src, EvaluationFlags::values);
-              velocity_m.gather_evaluate(src, EvaluationFlags::values);
-
+              // If @c face is a standard boundary face, evaluate the integral
+              // as
+              // usual in the matrix free context. To be able to use the same
+              // kernel as for inner faces we pass the boundary condition
+              // objects to the function that evaluates the kernel. As mentioned
+              // above, there is no neighbor to consider in the kernel.
               evaluate_face_kernel<false>(pressure_m,
                                           velocity_m,
                                           pressure_bc,
                                           velocity_bc);
-
-              pressure_m.integrate_scatter(EvaluationFlags::values, dst);
-              velocity_m.integrate_scatter(EvaluationFlags::values, dst);
             }
           else
             {
@@ -447,27 +460,21 @@ namespace Step89
               // For point-to-point interpolation we simply use the
               // corresponding RemoteEvaluaton objects in combination with the
               // standard FEFaceEvaluation objects.
-                  velocity_m.reinit(face);
-                  pressure_m.reinit(face);
+              velocity_r->reinit(face);
+              pressure_r->reinit(face);
 
-                  pressure_m.gather_evaluate(src, EvaluationFlags::values);
-                  velocity_m.gather_evaluate(src, EvaluationFlags::values);
-
-                  velocity_r->reinit(face);
-                  pressure_r->reinit(face);
-
-                  evaluate_face_kernel<false>(pressure_m,
-                                              velocity_m,
-                                              *pressure_r,
-                                              *velocity_r);
-
-                  pressure_m.integrate_scatter(EvaluationFlags::values, dst);
-                  velocity_m.integrate_scatter(EvaluationFlags::values, dst);
+              evaluate_face_kernel<false>(pressure_m,
+                                          velocity_m,
+                                          *pressure_r,
+                                          *velocity_r);
             }
+
+          pressure_m.integrate_scatter(EvaluationFlags::values, dst);
+          velocity_m.integrate_scatter(EvaluationFlags::values, dst);
         }
     }
 
-    // This function evaluates the boundary face integrals and the 
+    // This function evaluates the boundary face integrals and the
     // non-matching face integrals using Nitsche-type mortaring.
     template <typename VectorType>
     void boundary_face_loop_mortaring(
@@ -493,12 +500,13 @@ namespace Step89
       // make use of @c FEPointEvaluation to evaluate the integrals in the
       // arbitrarely distributed quadrature points.
       FEPointEvaluation<1, dim, dim, Number> pressure_m_mortar(
-        nm_mapping_info, matrix_free.get_dof_handler().get_fe(), 0);
+        *nm_mapping_info, matrix_free.get_dof_handler().get_fe(), 0);
       FEPointEvaluation<dim, dim, dim, Number> velocity_m_mortar(
-        nm_mapping_info, matrix_free.get_dof_handler().get_fe(), 1);
+        *nm_mapping_info, matrix_free.get_dof_handler().get_fe(), 1);
 
       // Buffer on which FEPointEvaluation is working on.
-      std::vector<Number> buffer(matrix_free.get_dof_handler().get_fe().dofs_per_cell);
+      std::vector<Number> buffer(
+        matrix_free.get_dof_handler().get_fe().dofs_per_cell);
 
       for (unsigned int face = face_range.first; face < face_range.second;
            face++)
@@ -506,7 +514,7 @@ namespace Step89
           if (!HelperFunctions::is_non_matching_face(
                 remote_face_ids, matrix_free.get_boundary_id(face)))
             {
-          // Same as in @c boundary_face_loop_point_to_point().
+              // Same as in @c boundary_face_loop_point_to_point().
               velocity_m.reinit(face);
               pressure_m.reinit(face);
 
@@ -527,63 +535,63 @@ namespace Step89
               // batches seperately and have to use the FEPointEvaluation
               // objects to be able to evaluate the integrals with the
               // arbitrarily distributed quadrature points.
-                  for (unsigned int v = 0;
-                       v < matrix_free.n_active_entries_per_face_batch(face);
-                       ++v)
-                    {
-                      const auto [cell, f] =
-                        matrix_free.get_face_iterator(face, v, true);
+              for (unsigned int v = 0;
+                   v < matrix_free.n_active_entries_per_face_batch(face);
+                   ++v)
+                {
+                  const auto [cell, f] =
+                    matrix_free.get_face_iterator(face, v, true);
 
-                      velocity_m_mortar.reinit(cell->active_cell_index(), f);
-                      pressure_m_mortar.reinit(cell->active_cell_index(), f);
+                  velocity_m_mortar.reinit(cell->active_cell_index(), f);
+                  pressure_m_mortar.reinit(cell->active_cell_index(), f);
 
-                      cell->get_dof_values(src, buffer.begin(), buffer.end());
-                      velocity_m_mortar.evaluate(buffer,
-                                                 EvaluationFlags::values);
-                      pressure_m_mortar.evaluate(buffer,
-                                                 EvaluationFlags::values);
+                  cell->get_dof_values(src, buffer.begin(), buffer.end());
+                  velocity_m_mortar.evaluate(buffer, EvaluationFlags::values);
+                  pressure_m_mortar.evaluate(buffer, EvaluationFlags::values);
 
-                      velocity_r_mortar->reinit(cell->active_cell_index(), f);
-                      pressure_r_mortar->reinit(cell->active_cell_index(), f);
+                  velocity_r_mortar->reinit(cell->active_cell_index(), f);
+                  pressure_r_mortar->reinit(cell->active_cell_index(), f);
 
-                      evaluate_face_kernel<false>(pressure_m_mortar,
-                                                  velocity_m_mortar,
-                                                  *pressure_r_mortar,
-                                                  *velocity_r_mortar);
+                  evaluate_face_kernel<false>(pressure_m_mortar,
+                                              velocity_m_mortar,
+                                              *pressure_r_mortar,
+                                              *velocity_r_mortar);
 
-                      // First zero out buffer via sum_into_values=false
-                      velocity_m_mortar.integrate(buffer,
-                                                  EvaluationFlags::values,
-                                                  /*sum_into_values=*/false);
-                      // Don't zero out values again to keep already integrated
-                      // values
-                      pressure_m_mortar.integrate(buffer,
-                                                  EvaluationFlags::values,
-                                                  /*sum_into_values=*/true);
+                  // First zero out buffer via sum_into_values=false
+                  velocity_m_mortar.integrate(buffer,
+                                              EvaluationFlags::values,
+                                              /*sum_into_values=*/false);
+                  // Don't zero out values again to keep already integrated
+                  // values
+                  pressure_m_mortar.integrate(buffer,
+                                              EvaluationFlags::values,
+                                              /*sum_into_values=*/true);
 
-                      cell->distribute_local_to_global(buffer.begin(),
-                                                       buffer.end(),
-                                                       dst);
-                    }
+                  cell->distribute_local_to_global(buffer.begin(),
+                                                   buffer.end(),
+                                                   dst);
+                }
             }
         }
     }
 
     // Members, needed to evaluate the acoustic operator.
-    const MatrixFree<dim, Number>                  &matrix_free;
-    NonMatching::MappingInfo<dim, dim, Number>     &nm_mapping_info;
+    const bool use_mortaring;
 
+    const MatrixFree<dim, Number> &matrix_free;
+    const double                   rho;
+    const double                   c;
+    const double                   tau;
+    const double                   gamma;
+
+    // FERemoteEvaluation objects are strored as shared pointers. This way,
+    // they can also be used for other operators without caching the values
+    // multiple times.
     const std::set<types::boundary_id> remote_face_ids;
-    const double                       rho;
-    const double                       c;
-    const double                       tau;
-    const double                       gamma;
-
-    // FERemoteEvaluation objects are strored as shared pointers. This way, they
-    // can also be used for other operators without caching the values multiple
-    // times.
     const std::shared_ptr<FEFaceRemoteEvaluation<dim, 1, Number>>   pressure_r;
     const std::shared_ptr<FEFaceRemoteEvaluation<dim, dim, Number>> velocity_r;
+    const std::shared_ptr<NonMatching::MappingInfo<dim, dim, Number>>
+      nm_mapping_info;
     const std::shared_ptr<FEFaceRemotePointEvaluation<dim, 1, Number>>
       pressure_r_mortar;
     const std::shared_ptr<FEFaceRemotePointEvaluation<dim, dim, Number>>
@@ -643,42 +651,11 @@ namespace Step89
   public:
     // Constructor.
     RungeKutta2(
-      const MatrixFree<dim, Number>                  &matrix_free,
-      const FERemoteEvaluationCommunicatorType       &remote_comm,
-      const FERemoteEvaluationCommunicatorTypeMortar &remote_comm_mortar,
-      NonMatching::MappingInfo<dim, dim, Number>     &nm_info,
-      const std::set<types::boundary_id>             &non_matching_face_ids,
-      const double                                    density,
-      const double                                    speed_of_sound)
-      : // Initialization of the FERemoteEval objects
-      pressure_r(std::make_shared<FEFaceRemoteEvaluation<dim, 1, Number>>(
-        remote_comm,
-        matrix_free.get_dof_handler(),
-        0))
-      , velocity_r(std::make_shared<FEFaceRemoteEvaluation<dim, dim, Number>>(
-          remote_comm,
-          matrix_free.get_dof_handler(),
-          1))
-      , pressure_r_mortar(
-          std::make_shared<FEFaceRemotePointEvaluation<dim, 1, Number>>(
-            remote_comm_mortar,
-            matrix_free.get_dof_handler(),
-            0))
-      , velocity_r_mortar(
-          std::make_shared<FEFaceRemotePointEvaluation<dim, dim, Number>>(
-            remote_comm_mortar,
-            matrix_free.get_dof_handler(),
-            1))
-      , inverse_mass_operator(matrix_free)
-      , acoustic_operator(matrix_free,
-                          nm_info,
-                          non_matching_face_ids,
-                          density,
-                          speed_of_sound,
-                          pressure_r,
-                          velocity_r,
-                          pressure_r_mortar,
-                          velocity_r_mortar)
+      const std::shared_ptr<InverseMassOperator<dim, Number>>
+        inverse_mass_operator,
+      const std::shared_ptr<AcousticOperator<dim, Number>> acoustic_operator)
+      : inverse_mass_operator(inverse_mass_operator)
+      , acoustic_operator(acoustic_operator)
     {}
 
 
@@ -707,8 +684,8 @@ namespace Step89
 
       // Compute time step size:
 
-      // Compute minimum element edge length. We assume non-distorted elements,
-      // therefore we only compute the distance between two vertices
+      // Compute minimum element edge length. We assume non-distorted
+      // elements, therefore we only compute the distance between two vertices
       double h_local_min = std::numeric_limits<double>::max();
       for (const auto &cell : dof_handler.active_cell_iterators())
         h_local_min =
@@ -753,57 +730,27 @@ namespace Step89
       VectorType k1 = src;
 
       // stage 1
-      evaluate_stage(k1, src,coupling_type ==CouplingType::Mortaring);
+      evaluate_stage(k1, src);
 
       // stage 2
       k1.sadd(0.5 * dt, 1.0, src);
-      evaluate_stage(dst, k1,coupling_type ==CouplingType::Mortaring);
+      evaluate_stage(dst, k1);
       dst.sadd(dt, 1.0, src);
     }
 
     // Evaluate a single Runge-Kutta stage.
-    void evaluate_stage(VectorType &dst, const VectorType &src, const bool use_mortaring)
+    void evaluate_stage(VectorType &dst, const VectorType &src)
     {
-      // Update the cached values in the RemoteEvaluation objects, such
-      // that they are up to date during @c acoustic_operator.evaluate(dst,
-      // src).
-
-      // TODO: remove the notion of P2P and Mortaring!!
-      if (coupling_type == CouplingType::P2P)
-        {
-          pressure_r->gather_evaluate(src, EvaluationFlags::values);
-          velocity_r->gather_evaluate(src, EvaluationFlags::values);
-        }
-
-      if (coupling_type == CouplingType::Mortaring)
-        {
-          pressure_r_mortar->gather_evaluate(src, EvaluationFlags::values);
-          velocity_r_mortar->gather_evaluate(src, EvaluationFlags::values);
-        }
-
       // Evaluate the stage
-      acoustic_operator.evaluate(dst, src,use_mortaring);
+      acoustic_operator->evaluate(dst, src);
       dst *= -1.0;
-      inverse_mass_operator.apply(dst, dst);
+      inverse_mass_operator->apply(dst, dst);
     }
 
-    // FERemoteEvaluation objects are stored outside of the operators.
-    // The motivation is that the objects could be used in multiple operators
-    // and that caching the correct remote values inside the objects only has
-    // to be once before the evaluation of all dependent operators. In general
-    // this should be done this way, even though in this particular case we
-    // could also do it in a different way since we only have one depedent
-    // operator.
-    std::shared_ptr<FEFaceRemoteEvaluation<dim, 1, Number>>   pressure_r;
-    std::shared_ptr<FEFaceRemoteEvaluation<dim, dim, Number>> velocity_r;
-    std::shared_ptr<FEFaceRemotePointEvaluation<dim, 1, Number>>
-      pressure_r_mortar;
-    std::shared_ptr<FEFaceRemotePointEvaluation<dim, dim, Number>>
-      velocity_r_mortar;
-
     // Needed operators.
-    const InverseMassOperator<dim, Number> inverse_mass_operator;
-    const AcousticOperator<dim, Number>    acoustic_operator;
+    const std::shared_ptr<InverseMassOperator<dim, Number>>
+                                                         inverse_mass_operator;
+    const std::shared_ptr<AcousticOperator<dim, Number>> acoustic_operator;
   };
 
 
@@ -954,26 +901,29 @@ namespace Step89
         comm_objects.push_back(std::make_pair(rpe, face_lane));
       }
 
-    FERemoteEvaluationCommunicatorType remote_communicator;
+    FERemoteEvaluationCommunicator<dim, true, true> remote_communicator;
     remote_communicator.reinit_faces(comm_objects,
                                      face_batch_range,
                                      global_quadrature_vector);
 
+    const auto pressure_r =
+      std::make_shared<FEFaceRemoteEvaluation<dim, 1, Number>>(
+        remote_communicator, dof_handler, 0);
+    const auto velocity_r =
+      std::make_shared<FEFaceRemoteEvaluation<dim, dim, Number>>(
+        remote_communicator, dof_handler, 1);
 
-    // Setup time integrator and run simulation.
-    FERemoteEvaluationCommunicatorTypeMortar   todo;
-    NonMatching::MappingInfo<dim, dim, Number> todo_2(mapping, update_values);
+    const auto inverse_mass_operator =
+      std::make_shared<InverseMassOperator<dim, Number>>(matrix_free);
+    const auto acoustic_operator =
+      std::make_shared<AcousticOperator<dim, Number>>(matrix_free,
+                                                      non_matching_faces,
+                                                      density,
+                                                      speed_of_sound,
+                                                      pressure_r,
+                                                      velocity_r);
 
-    RungeKutta2 time_integrator(matrix_free,
-                                remote_communicator,
-                                // TODO: get rid of these lines
-                                todo,
-                                todo_2,
-
-                                non_matching_faces,
-                                density,
-                                speed_of_sound);
-
+    RungeKutta2 time_integrator(inverse_mass_operator, acoustic_operator);
     time_integrator.run(matrix_free, 0.1, speed_of_sound, modes);
   }
 
@@ -1126,7 +1076,7 @@ namespace Step89
         comm_objects.push_back(std::make_pair(rpe, cell_face_pairs));
       }
 
-    FERemoteEvaluationCommunicatorTypeMortar remote_communicator;
+    FERemoteEvaluationCommunicator<dim, true, false> remote_communicator;
     remote_communicator.reinit_faces(
       comm_objects,
       matrix_free.get_dof_handler().get_triangulation().active_cell_iterators(),
@@ -1135,26 +1085,37 @@ namespace Step89
     typename NonMatching::MappingInfo<dim, dim, Number>::AdditionalData
       additional_data;
     additional_data.use_global_weights = true;
-    NonMatching::MappingInfo<dim, dim, Number> nm_mapping_info(
-      mapping,
-      update_values | update_JxW_values | update_normal_vectors |
-        update_quadrature_points,
-      additional_data);
-    nm_mapping_info.reinit_faces(
+    auto nm_mapping_info =
+      std::make_shared<NonMatching::MappingInfo<dim, dim, Number>>(
+        mapping,
+        update_values | update_JxW_values | update_normal_vectors |
+          update_quadrature_points,
+        additional_data);
+    nm_mapping_info->reinit_faces(
       matrix_free.get_dof_handler().get_triangulation().active_cell_iterators(),
       global_quadrature_vector);
 
-    FERemoteEvaluationCommunicatorType todo;
 
-    // Setup time integrator and run simulation.
-    RungeKutta2 time_integrator(matrix_free,
-                                todo, // TODO: remove this
-                                remote_communicator,
-                                nm_mapping_info,
-                                non_matching_faces,
-                                density,
-                                speed_of_sound);
 
+    const auto pressure_r =
+      std::make_shared<FEFaceRemotePointEvaluation<dim, 1, Number>>(
+        remote_communicator, dof_handler, 0);
+    const auto velocity_r =
+      std::make_shared<FEFaceRemotePointEvaluation<dim, dim, Number>>(
+        remote_communicator, dof_handler, 1);
+
+    const auto inverse_mass_operator =
+      std::make_shared<InverseMassOperator<dim, Number>>(matrix_free);
+    const auto acoustic_operator =
+      std::make_shared<AcousticOperator<dim, Number>>(matrix_free,
+                                                      non_matching_faces,
+                                                      density,
+                                                      speed_of_sound,
+                                                      nm_mapping_info,
+                                                      pressure_r,
+                                                      velocity_r);
+
+    RungeKutta2 time_integrator(inverse_mass_operator, acoustic_operator);
     time_integrator.run(matrix_free, 0.1, speed_of_sound, modes);
   }
 
@@ -1216,11 +1177,9 @@ int main(int argc, char *argv[])
 
 
   // Run vibrating membrane testcase using point-to-point interpolation:
-  Step89::coupling_type = Step89::CouplingType::P2P;
   Step89::point_to_point_interpolation(
     matrix_free, non_matching_faces, speed_of_sound, density, modes);
   // Run vibrating membrane testcase using Nitsche-type mortaring:
-  Step89::coupling_type = Step89::CouplingType::Mortaring;
   Step89::nitsche_type_mortaring(
     matrix_free, non_matching_faces, speed_of_sound, density, modes);
 
