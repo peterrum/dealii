@@ -99,8 +99,8 @@ namespace Step89
     double value(const Point<dim> &p, const unsigned int comp) const final
     {
       if (comp == 0)
-        return std::exp(-100.0 * ((std::pow(p[0] - 0.25, 2)) +
-                                  (std::pow(p[1] - 0.5, 2))));
+        return std::exp(
+          -100.0 * ((std::pow(p[0] - 0.25, 2)) + (std::pow(p[1] - 0.5, 2))));
 
       return 0.0;
     }
@@ -270,9 +270,29 @@ namespace Step89
   class RemoteMaterialHandler
   {
   public:
-    RemoteMaterialHandler(/*TODO*/)
+    RemoteMaterialHandler(
+      const FERemoteEvaluationCommunicator<dim, true, !mortaring>
+                               &remote_communicator,
+      const Triangulation<dim> &tria,
+      const std::map<types::material_id, std::pair<double, double>>
+        &material_id_map)
+      : phi_c(remote_communicator, tria)
+      , phi_rho(remote_communicator, tria)
     {
-      // fill arrays that can be read by read_cell_data()
+      Vector<Number> c(tria.n_active_cells());
+      Vector<Number> rho(tria.n_active_cells());
+
+      for (const auto &cell : tria.active_cell_iterators())
+        {
+          c[cell->active_cell_index()] =
+            material_id_map.at(cell->material_id()).first;
+          rho[cell->active_cell_index()] =
+            material_id_map.at(cell->material_id()).second;
+        }
+
+
+      phi_c.gather_evaluate(c, EvaluationFlags::values);
+      phi_rho.gather_evaluate(rho, EvaluationFlags::values);
     }
 
     template <bool M = mortaring>
@@ -1191,14 +1211,22 @@ namespace Step89
     const auto material_handler =
       std::make_shared<MaterialHandler<dim, Number>>(matrix_free, materials);
 
+    std::shared_ptr<RemoteMaterialHandler<dim, Number, false>>
+      material_handler_r = nullptr;
+    if (!material_handler->is_homogenous())
+      {
+        material_handler_r =
+          std::make_shared<RemoteMaterialHandler<dim, Number, false>>(
+            remote_communicator, tria, materials);
+      }
+
     const auto acoustic_operator =
-      std::make_shared<AcousticOperator<dim, Number>>(
-        matrix_free,
-        non_matching_faces,
-        pressure_r,
-        velocity_r,
-        material_handler,
-        nullptr); // TODO:remotematerialhandler
+      std::make_shared<AcousticOperator<dim, Number>>(matrix_free,
+                                                      non_matching_faces,
+                                                      pressure_r,
+                                                      velocity_r,
+                                                      material_handler,
+                                                      material_handler_r);
 
     RungeKutta2<dim, Number> time_integrator(inverse_mass_operator,
                                              acoustic_operator);
@@ -1387,15 +1415,23 @@ namespace Step89
     const auto material_handler =
       std::make_shared<MaterialHandler<dim, Number>>(matrix_free, materials);
 
+    std::shared_ptr<RemoteMaterialHandler<dim, Number, true>>
+      material_handler_r = nullptr;
+    if (!material_handler->is_homogenous())
+      {
+        material_handler_r =
+          std::make_shared<RemoteMaterialHandler<dim, Number, true>>(
+            remote_communicator, tria, materials);
+      }
+
     const auto acoustic_operator =
-      std::make_shared<AcousticOperator<dim, Number>>(
-        matrix_free,
-        non_matching_faces,
-        nm_mapping_info,
-        pressure_r,
-        velocity_r,
-        material_handler,
-        nullptr); // TODO:remotematerialhandler
+      std::make_shared<AcousticOperator<dim, Number>>(matrix_free,
+                                                      non_matching_faces,
+                                                      nm_mapping_info,
+                                                      pressure_r,
+                                                      velocity_r,
+                                                      material_handler,
+                                                      material_handler_r);
 
     RungeKutta2<dim, Number> time_integrator(inverse_mass_operator,
                                              acoustic_operator);
@@ -1465,7 +1501,7 @@ int main(int argc, char *argv[])
     non_matching_faces,
     homogenous_material,
     Step89::InitialSolutionVibratingMembrane<dim>(modes));
-  
+
   // Run vibrating membrane testcase using Nitsche-type mortaring:
   Step89::nitsche_type_mortaring(matrix_free,
                                  non_matching_faces,
@@ -1474,14 +1510,13 @@ int main(int argc, char *argv[])
                                    modes));
 
   //  Run simple testcase with in-homogenous material:
-    std::map<types::material_id, std::pair<double, double>> inhomogenous_material;
-    inhomogenous_material[0] = std::make_pair(1.0, 1.0);
-    inhomogenous_material[1] = std::make_pair(3.0, 1.0);
+  std::map<types::material_id, std::pair<double, double>> inhomogenous_material;
+  inhomogenous_material[0] = std::make_pair(1.0, 1.0);
+  inhomogenous_material[1] = std::make_pair(3.0, 1.0);
   Step89::nitsche_type_mortaring(matrix_free,
                                  non_matching_faces,
                                  inhomogenous_material,
-                                 Step89::InitialSolutionInHomogenous<dim>(
-                                   ));
+                                 Step89::InitialSolutionInHomogenous<dim>());
 
 
   return 0;
