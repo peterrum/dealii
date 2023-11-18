@@ -100,8 +100,8 @@ I.e., the code differs as follows: First the standard code to evaluate fluxes vi
 const auto face_function =
   [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
 
-    FEFaceIntegrator phi_m(data, true);
-    FEFaceIntegrator phi_p(data, false);
+    FEFaceEvaluation phi_m(data, true);
+    FEFaceEvaluation phi_p(data, false);
 
     for (unsigned int f = face_range.first; f < face_range.second; ++f)
     {
@@ -111,7 +111,7 @@ const auto face_function =
       phi_p.gather_evaluate(src, EvaluationFlags::values); //compute values on face f
 
       for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
-        phi_m.submit_value(phi_p.get_value(q), q); //access values
+        phi_m.submit_value(phi_p.get_value(q), q); //access values with phi_p
 
       phi_m.integrate_scatter(EvaluationFlags::values, dst);
      }
@@ -123,11 +123,10 @@ Second the code to evaluate fluxes over non-matching faces. Lets assume all boun
 on the relevant differences.
 
 @code
-// Initialize FERemoteEvaluation.
+// Initialize FERemoteEvaluation:
 // Note, that FERemoteEvaluation internally manages the memory to store cached values.
 // Therefore, FERemoteEvaluation should be initialized only once to avoid continuous
-// memory allocation/deallocation.
-// At this point, remote_communicator is assumed to be initialized at this place.
+// memory allocation/deallocation. At this point, remote_communicator is assumed to be initialized.
 FERemoteEvaluation<dim,Number> phi_p(remote_communicator);
 
 // Cache needed values before the actual matrix-free loop.
@@ -136,7 +135,7 @@ phi_p.gather_evaluate(src, EvaluationFlags::values);
 const auto boundary_function =
   [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
 
-    FEFaceIntegrator phi_m(data, true);
+    FEFaceEvaluation phi_m(data, true);
 
     for (unsigned int f = face_range.first; f < face_range.second; ++f)
     {
@@ -144,7 +143,7 @@ const auto boundary_function =
       phi_p.reinit(f);
 
       for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
-        phi_m.submit_value(phi_r.get_value(q), q); //access values
+        phi_m.submit_value(phi_p.get_value(q), q); //access values with phi_p
 
       phi_m.integrate_scatter(EvaluationFlags::values, dst);
     }
