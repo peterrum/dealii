@@ -90,16 +90,16 @@ TODO_BEGIN
 BCS
 CFL
 VIBRATING MEMBRANE TESTCASE
-
-<h3>%TODO: filling distributing intersected quadrature points with cgal!</h3>
+<b>%FERemoteEvaluation comes in different flavors, the behavior is steered via template parameters</b>
+TODO_END
 
 <h3>%FERemoteEvaluation</h3>
 
 FERemoteEvaluation is a wrapper class which provides a similar interface to, e.g., FEEvaluation to access values over non-matching interfaces in matrix-free loops.
 A detailed description on how to setup the class and how to use it in actual code is given below on hands-on examples.
 Within this tutorial we only show the usage for non-matching discretizations.
-Note however that FERemoteEvaluation can also be used in other settings such as volume coupling.
-Under the hood, Utilities::MPI::RemotePointEvaluation is used to query the solution or gradients in these points.
+Note however, that FERemoteEvaluation can also be used in other settings such as volume coupling.
+Under the hood, Utilities::MPI::RemotePointEvaluation is used to query the solution or gradients in quadrature points.
 A detailled description how this is done can be found in step-87.
 The main difference in the usage of FERemoteEvaluation compared to FEEvaluation is that values/gradients are cached <i>before</i> each loop and only accessed inside the loop.
 I.e., the code differs as follows: First the standard code to evaluate fluxes via FEEvaluation
@@ -130,18 +130,25 @@ Second the code to evaluate fluxes over non-matching faces. Lets assume all boun
 on the relevant differences.
 
 @code
+// Initialize FERemoteEvaluation.
+// Note, that FERemoteEvaluation internally manages the memory to store cached values.
+// Therefore, FERemoteEvaluation should be initialized only once to avoid continuous
+// memory allocation/deallocation.
+// At this point, remote_communicator is assumed to be initialized at this place.
+FERemoteEvaluation<dim,Number> phi_p(remote_communicator);
+
+// Cache needed values before the actual matrix-free loop.
+phi_p.gather_evaluate(src, EvaluationFlags::values);
+
 const auto boundary_function =
   [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
 
     FEFaceIntegrator phi_m(data, true);
-    // remote_communicator is assumed to be initialized at this place
-    FERemoteEvaluation<dim,Number> phi_p(remote_communicator);
-    phi_p.gather_evaluate(src, EvaluationFlags::values);
 
     for (unsigned int f = face_range.first; f < face_range.second; ++f)
     {
       phi_m.reinit(f);
-      phi_r.reinit(f);
+      phi_p.reinit(f);
 
       for (unsigned int q = 0; q < phi_m.n_q_points; ++q)
         phi_m.submit_value(phi_r.get_value(q), q); //access values
@@ -153,10 +160,7 @@ const auto boundary_function =
 matrix_free.template loop<VectorType, VectorType>({}, {}, boundary_function, dst, src);
 @endcode
 @c remote_communicator is of type FERemoteCommunicator and assumed to be correctly initialized in above code snippet.
-FERemoteCommunicator internally manages the update of ghost values over non-matching interfaces and keeps track of the
-mapping between quadrature point index and correspoding values/gradients. The update of the values/gradients happens
-<i>before</i> the actual matrix-free loop.
-TODO_END
+FERemoteCommunicator internally manages the update of ghost values over non-matching interfaces and keeps track of the mapping between quadrature point index and correspoding values/gradients. The update of the values/gradients happens <i>before</i> the actual matrix-free loop. FERemoteCommunicator, as well as FERemoteEvaluation behaves differently for different template parameters. Most of the template parameters are standard and do not have to be explained. @c is_face is used to determine if FERemoteEvaluation works on faces or cells. Within this tutorial we are only considering surface coupling and thus @is_face=true. @c use_matrix_free_batches is used to ensure, the class can be used in combination with FEPointEvaluation, where @c use_matrix_free_batches=false, as well as FEEvaluation and FEFaceEvaluation, where @c use_matrix_free_batches=true.
 
 <h3>Overview</h3>
 
