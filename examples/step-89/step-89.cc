@@ -62,6 +62,50 @@ namespace Step89
 {
   using namespace dealii;
 
+  template <int dim>
+  class InitialSolutionVibratingMembrane : public Function<dim>
+  {
+  public:
+    InitialSolutionVibratingMembrane(const double modes)
+      : Function<dim>(dim + 1, 0.0)
+      , M(modes)
+    {
+      static_assert(dim == 2, "Only implemented for dim==2");
+    }
+
+    double value(const Point<dim> &p, const unsigned int comp) const final
+    {
+      if (comp == 0)
+        return std::sin(M * numbers::PI * p[0]) *
+               std::sin(M * numbers::PI * p[1]);
+
+      return 0.0;
+    }
+
+  private:
+    const double M;
+  };
+
+  template <int dim>
+  class InitialSolutionInHomogenous : public Function<dim>
+  {
+  public:
+    InitialSolutionInHomogenous()
+      : Function<dim>(dim + 1, 0.0)
+    {
+      static_assert(dim == 2, "Only implemented for dim==2");
+    }
+
+    double value(const Point<dim> &p, const unsigned int comp) const final
+    {
+      if (comp == 0)
+        return std::exp(-100.0 * (std::pow(p[0] + 0.5, 2)) +
+                        (std::pow(p[1] + 0, 2)));
+
+      return 0.0;
+    }
+  };
+
   // Free helper functions that are used in the tutorial.
   namespace HelperFunctions
   {
@@ -83,37 +127,13 @@ namespace Step89
               typename Number,
 
               typename VectorType>
-    void set_initial_condition_vibrating_membrane(
-      MatrixFree<dim, Number> matrix_free,
-      const double            modes,
-      VectorType             &dst)
+    void set_initial_condition(MatrixFree<dim, Number> matrix_free,
+                               const Function<dim>    &initial_solution,
+                               VectorType             &dst)
     {
-      class InitialSolution : public Function<dim>
-      {
-      public:
-        InitialSolution(const double modes)
-          : Function<dim>(dim + 1, 0.0)
-          , M(modes)
-        {
-          static_assert(dim == 2, "Only implemented for dim==2");
-        }
-
-        double value(const Point<dim> &p, const unsigned int comp) const final
-        {
-          if (comp == 0)
-            return std::sin(M * numbers::PI * p[0]) *
-                   std::sin(M * numbers::PI * p[1]);
-
-          return 0.0;
-        }
-
-      private:
-        const double M;
-      };
-
       VectorTools::interpolate(*matrix_free.get_mapping_info().mapping,
                                matrix_free.get_dof_handler(),
-                               InitialSolution(modes),
+                               initial_solution,
                                dst);
     }
 
@@ -152,6 +172,146 @@ namespace Step89
                                      dof_handler.get_communicator());
     }
   } // namespace HelperFunctions
+
+
+  template <int dim, typename Number>
+  class MaterialHandler
+  {
+    using scalar = typename FEEvaluation<dim, -1, 0, 1, Number>::value_type;
+
+  public:
+    MaterialHandler(
+      const MatrixFree<dim, Number, VectorizedArray<Number>> &matrix_free,
+      const std::map<types::material_id, std::pair<double, double>>
+        &material_id_map)
+      : homogenous(material_id_map.size() == 1)
+      , phi(matrix_free)
+      , phi_face(matrix_free, true)
+    {
+      if (homogenous)
+        {
+          speed_of_sound = material_id_map.begin()->second.first;
+          density        = material_id_map.begin()->second.second;
+        }
+      else
+        {
+          const auto n_cell_batches =
+            matrix_free.n_cell_batches() + matrix_free.n_ghost_cell_batches();
+
+          rho.resize(n_cell_batches);
+          c.resize(n_cell_batches);
+
+          for (unsigned int cell = 0; cell < n_cell_batches; ++cell)
+            {
+              c[cell]   = 1.;
+              rho[cell] = 1.;
+              for (unsigned int v = 0;
+                   v < matrix_free.n_active_entries_per_cell_batch(cell);
+                   ++v)
+                {
+                  const auto material_id =
+                    matrix_free.get_cell_iterator(cell, v)->material_id();
+
+                  c[cell][v]   = material_id_map.at(material_id).first;
+                  rho[cell][v] = material_id_map.at(material_id).second;
+                }
+            }
+        }
+    }
+
+    bool is_homogenous() const
+    {
+      return homogenous;
+    }
+
+    void reinit_cell(const unsigned int cell)
+    {
+      if (!homogenous)
+        {
+          phi.reinit(cell);
+          speed_of_sound = phi.read_cell_data(c);
+          density        = phi.read_cell_data(rho);
+        }
+    }
+
+    void reinit_face(const unsigned int face)
+    {
+      if (!homogenous)
+        {
+          phi_face.reinit(face);
+          speed_of_sound = phi.read_cell_data(c);
+          density        = phi.read_cell_data(rho);
+        }
+    }
+
+    std::pair<scalar, scalar> get_materials() const
+    {
+      return std::make_pair(speed_of_sound, density);
+    }
+
+    std::pair<Number, Number> get_materials(const unsigned int lane) const
+    {
+      return std::make_pair(speed_of_sound[lane], density[lane]);
+    }
+
+
+  private:
+    const bool                              homogenous;
+    FEEvaluation<dim, -1, 0, 1, Number>     phi;
+    FEFaceEvaluation<dim, -1, 0, 1, Number> phi_face;
+    AlignedVector<VectorizedArray<Number>>  c;
+    AlignedVector<VectorizedArray<Number>>  rho;
+
+    scalar speed_of_sound;
+    scalar density;
+  };
+
+  template <int dim, typename Number, bool mortaring>
+  class RemoteMaterialHandler
+  {
+  public:
+    RemoteMaterialHandler(/*TODO*/)
+    {
+      // fill arrays that can be read by read_cell_data()
+    }
+
+    template <bool M = mortaring>
+    typename std::enable_if_t<false == M, void>
+    reinit_face(const unsigned int face)
+    {
+      phi_c.reinit(face);
+      phi_rho.reinit(face);
+    }
+
+    template <bool M = mortaring>
+    typename std::enable_if_t<true == M, void>
+    reinit_face(const unsigned int cell, const unsigned int face)
+    {
+      phi_c.reinit(cell, face);
+      phi_rho.reinit(cell, face);
+    }
+
+    auto get_materials(unsigned int q) const
+    {
+      return std::make_pair(phi_c.get_value(q), phi_rho.get_value(q));
+    }
+
+  private:
+    FERemoteEvaluationBase<dim,
+                           1,
+                           Number,
+                           VectorizedArray<Number>,
+                           true,
+                           !mortaring>
+      phi_c;
+    FERemoteEvaluationBase<dim,
+                           1,
+                           Number,
+                           VectorizedArray<Number>,
+                           true,
+                           !mortaring>
+      phi_rho;
+  };
 
 
   // Class that defines the acoustic operator.
@@ -204,45 +364,45 @@ namespace Step89
     AcousticOperator(
       const MatrixFree<dim, Number>      &matrix_free_in,
       const std::set<types::boundary_id> &non_matching_face_ids,
-      const double                        density,
-      const double                        speed_of_sound,
       std::shared_ptr<FEFaceRemoteEvaluation<dim, 1, Number>>   pressure_r,
-      std::shared_ptr<FEFaceRemoteEvaluation<dim, dim, Number>> velocity_r)
+      std::shared_ptr<FEFaceRemoteEvaluation<dim, dim, Number>> velocity_r,
+      std::shared_ptr<MaterialHandler<dim, Number>> material_handler,
+      std::shared_ptr<RemoteMaterialHandler<dim, Number, false>>
+        material_handler_remote)
       : use_mortaring(false)
       , matrix_free(matrix_free_in)
       , remote_face_ids(non_matching_face_ids)
-      , rho(density)
-      , c(speed_of_sound)
-      , tau(0.5 * rho * c)
-      , gamma(0.5 / (rho * c))
       , pressure_r(pressure_r)
       , velocity_r(velocity_r)
       , nm_mapping_info(nullptr)
       , pressure_r_mortar(nullptr)
       , velocity_r_mortar(nullptr)
+      , material_handler(material_handler)
+      , material_handler_r(material_handler_remote)
+      , material_handler_r_mortar(nullptr)
     {}
 
     // Constructor with all the needed ingredients for the operator.
     AcousticOperator(
       const MatrixFree<dim, Number>      &matrix_free_in,
       const std::set<types::boundary_id> &non_matching_face_ids,
-      const double                        density,
-      const double                        speed_of_sound,
       std::shared_ptr<NonMatching::MappingInfo<dim, dim, Number>>    nm_info,
       std::shared_ptr<FEFaceRemotePointEvaluation<dim, 1, Number>>   pressure_r,
-      std::shared_ptr<FEFaceRemotePointEvaluation<dim, dim, Number>> velocity_r)
+      std::shared_ptr<FEFaceRemotePointEvaluation<dim, dim, Number>> velocity_r,
+      std::shared_ptr<MaterialHandler<dim, Number>> material_handler,
+      std::shared_ptr<RemoteMaterialHandler<dim, Number, true>>
+        material_handler_remote)
       : use_mortaring(true)
       , matrix_free(matrix_free_in)
       , remote_face_ids(non_matching_face_ids)
-      , rho(density)
-      , c(speed_of_sound)
-      , tau(0.5 * rho * c)
-      , gamma(0.5 / (rho * c))
       , pressure_r(nullptr)
       , velocity_r(nullptr)
       , nm_mapping_info(nm_info)
       , pressure_r_mortar(pressure_r)
       , velocity_r_mortar(velocity_r)
+      , material_handler(material_handler)
+      , material_handler_r(nullptr)
+      , material_handler_r_mortar(material_handler_remote)
     {}
 
     // Function to evaluate the acoustic operator with Nitsche-type mortaring
@@ -309,6 +469,9 @@ namespace Step89
           pressure.gather_evaluate(src, EvaluationFlags::gradients);
           velocity.gather_evaluate(src, EvaluationFlags::gradients);
 
+          material_handler->reinit_cell(cell);
+          const auto [c, rho] = material_handler->get_materials();
+
           for (unsigned int q = 0; q < pressure.n_q_points; ++q)
             {
               pressure.submit_value(rho * c * c * velocity.get_divergence(q),
@@ -332,11 +495,19 @@ namespace Step89
               typename InternalFaceIntegratorVelocity,
               typename ExternalFaceIntegratorPressure,
               typename ExternalFaceIntegratorVelocity>
-    void evaluate_face_kernel(InternalFaceIntegratorPressure &pressure_m,
-                              InternalFaceIntegratorVelocity &velocity_m,
-                              ExternalFaceIntegratorPressure &pressure_p,
-                              ExternalFaceIntegratorVelocity &velocity_p) const
+    void evaluate_face_kernel(
+      InternalFaceIntegratorPressure &pressure_m,
+      InternalFaceIntegratorVelocity &velocity_m,
+      ExternalFaceIntegratorPressure &pressure_p,
+      ExternalFaceIntegratorVelocity &velocity_p,
+      const std::pair<typename InternalFaceIntegratorPressure::value_type,
+                      typename InternalFaceIntegratorPressure::value_type>
+        &materials) const
     {
+      const auto [c, rho] = materials;
+      const auto tau      = 0.5 * rho * c;
+      const auto gamma    = 0.5 / (rho * c);
+
       for (unsigned int q : pressure_m.quadrature_point_indices())
         {
           const auto n  = pressure_m.normal_vector(q);
@@ -345,6 +516,7 @@ namespace Step89
 
           const auto pp = pressure_p.get_value(q);
           const auto up = velocity_p.get_value(q);
+
 
           const auto flux_momentum =
             0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
@@ -356,6 +528,56 @@ namespace Step89
           pressure_m.submit_value(rho * c * c * (flux_mass - um) * n, q);
           if constexpr (weight_neighbor)
             pressure_p.submit_value(rho * c * c * (flux_mass - up) * (-n), q);
+        }
+    }
+
+    template <bool mortaring,
+              typename InternalFaceIntegratorPressure,
+              typename InternalFaceIntegratorVelocity,
+              typename ExternalFaceIntegratorPressure,
+              typename ExternalFaceIntegratorVelocity>
+    void evaluate_face_kernel(
+      InternalFaceIntegratorPressure &pressure_m,
+      InternalFaceIntegratorVelocity &velocity_m,
+      ExternalFaceIntegratorPressure &pressure_p,
+      ExternalFaceIntegratorVelocity &velocity_p,
+      const std::pair<typename InternalFaceIntegratorPressure::value_type,
+                      typename InternalFaceIntegratorPressure::value_type>
+                                                          &materials,
+      const RemoteMaterialHandler<dim, Number, mortaring> &material_handler_r)
+      const
+    {
+      const auto [c, rho] = materials;
+      const auto tau_m    = 0.5 * rho * c;
+      const auto gamma_m  = 0.5 / (rho * c);
+
+      for (unsigned int q : pressure_m.quadrature_point_indices())
+        {
+          const auto [c_p, rho_p]  = material_handler_r.get_materials(q);
+          const auto tau_p         = 0.5 * rho_p * c_p;
+          const auto gamma_p       = 0.5 / (rho_p * c_p);
+          const auto tau_sum_inv   = 1.0 / (tau_m + tau_p);
+          const auto gamma_sum_inv = 1.0 / (gamma_m + gamma_p);
+
+
+          const auto n  = pressure_m.normal_vector(q);
+          const auto pm = pressure_m.get_value(q);
+          const auto um = velocity_m.get_value(q);
+
+          const auto pp = pressure_p.get_value(q);
+          const auto up = velocity_p.get_value(q);
+
+          const auto flux_momentum =
+            pm - tau_m * tau_sum_inv * (pm - pp) +
+            tau_m * tau_p * tau_sum_inv * (um - up) * n;
+          velocity_m.submit_value(1.0 / rho * (flux_momentum - pm) * n, q);
+
+
+          const auto flux_mass =
+            um - gamma_m * gamma_sum_inv * (um - up) +
+            gamma_m * gamma_p * gamma_sum_inv * (pm - pp) * n;
+
+          pressure_m.submit_value(rho * c * c * (flux_mass - um) * n, q);
         }
     }
 
@@ -391,10 +613,12 @@ namespace Step89
           velocity_m.gather_evaluate(src, EvaluationFlags::values);
           velocity_p.gather_evaluate(src, EvaluationFlags::values);
 
+          material_handler->reinit_face(face);
           evaluate_face_kernel<true>(pressure_m,
                                      velocity_m,
                                      pressure_p,
-                                     velocity_p);
+                                     velocity_p,
+                                     material_handler->get_materials());
 
           pressure_m.integrate_scatter(EvaluationFlags::values, dst);
           pressure_p.integrate_scatter(EvaluationFlags::values, dst);
@@ -441,10 +665,12 @@ namespace Step89
               // kernel as for inner faces we pass the boundary condition
               // objects to the function that evaluates the kernel. As mentioned
               // above, there is no neighbor to consider in the kernel.
+              material_handler->reinit_face(face);
               evaluate_face_kernel<false>(pressure_m,
                                           velocity_m,
                                           pressure_bc,
-                                          velocity_bc);
+                                          velocity_bc,
+                                          material_handler->get_materials());
             }
           else
             {
@@ -463,10 +689,27 @@ namespace Step89
               velocity_r->reinit(face);
               pressure_r->reinit(face);
 
-              evaluate_face_kernel<false>(pressure_m,
-                                          velocity_m,
-                                          *pressure_r,
-                                          *velocity_r);
+              material_handler->reinit_face(face);
+
+              if (material_handler->is_homogenous())
+                {
+                  evaluate_face_kernel<false>(
+                    pressure_m,
+                    velocity_m,
+                    *pressure_r,
+                    *velocity_r,
+                    material_handler->get_materials());
+                }
+              else
+                {
+                  material_handler_r->reinit_face(face);
+                  evaluate_face_kernel<false>(pressure_m,
+                                              velocity_m,
+                                              *pressure_r,
+                                              *velocity_r,
+                                              material_handler->get_materials(),
+                                              *material_handler_r);
+                }
             }
 
           pressure_m.integrate_scatter(EvaluationFlags::values, dst);
@@ -521,10 +764,12 @@ namespace Step89
               pressure_m.gather_evaluate(src, EvaluationFlags::values);
               velocity_m.gather_evaluate(src, EvaluationFlags::values);
 
+              material_handler->reinit_face(face);
               evaluate_face_kernel<false>(pressure_m,
                                           velocity_m,
                                           pressure_bc,
-                                          velocity_bc);
+                                          velocity_bc,
+                                          material_handler->get_materials());
 
               pressure_m.integrate_scatter(EvaluationFlags::values, dst);
               velocity_m.integrate_scatter(EvaluationFlags::values, dst);
@@ -552,10 +797,29 @@ namespace Step89
                   velocity_r_mortar->reinit(cell->active_cell_index(), f);
                   pressure_r_mortar->reinit(cell->active_cell_index(), f);
 
-                  evaluate_face_kernel<false>(pressure_m_mortar,
-                                              velocity_m_mortar,
-                                              *pressure_r_mortar,
-                                              *velocity_r_mortar);
+                  material_handler->reinit_face(face);
+
+                  if (material_handler->is_homogenous())
+                    {
+                      evaluate_face_kernel<false>(
+                        pressure_m_mortar,
+                        velocity_m_mortar,
+                        *pressure_r_mortar,
+                        *velocity_r_mortar,
+                        material_handler->get_materials(v));
+                    }
+                  else
+                    {
+                      material_handler_r_mortar->reinit_face(
+                        cell->active_cell_index(), f);
+                      evaluate_face_kernel<true>(
+                        pressure_m_mortar,
+                        velocity_m_mortar,
+                        *pressure_r_mortar,
+                        *velocity_r_mortar,
+                        material_handler->get_materials(v),
+                        *material_handler_r_mortar);
+                    }
 
                   // First zero out buffer via sum_into_values=false
                   velocity_m_mortar.integrate(buffer,
@@ -579,10 +843,6 @@ namespace Step89
     const bool use_mortaring;
 
     const MatrixFree<dim, Number> &matrix_free;
-    const double                   rho;
-    const double                   c;
-    const double                   tau;
-    const double                   gamma;
 
     // FERemoteEvaluation objects are strored as shared pointers. This way,
     // they can also be used for other operators without caching the values
@@ -596,6 +856,12 @@ namespace Step89
       pressure_r_mortar;
     const std::shared_ptr<FEFaceRemotePointEvaluation<dim, dim, Number>>
       velocity_r_mortar;
+
+    const std::shared_ptr<MaterialHandler<dim, Number>> material_handler;
+    const std::shared_ptr<RemoteMaterialHandler<dim, Number, false>>
+      material_handler_r;
+    const std::shared_ptr<RemoteMaterialHandler<dim, Number, true>>
+      material_handler_r_mortar;
   };
 
   // Class to apply the inverse mass operator.
@@ -663,8 +929,7 @@ namespace Step89
     // Setup and run time loop.
     void run(const MatrixFree<dim, Number> &matrix_free,
              const double                   cr,
-             const double                   speed_of_sound,
-             const double                   modes)
+             const Function<dim>           &initial_condition)
     {
       // Get needed members of matrix free.
       const auto &dof_handler = matrix_free.get_dof_handler();
@@ -678,9 +943,9 @@ namespace Step89
       matrix_free.initialize_dof_vector(solution_temp);
 
       // and set the initial condition.
-      HelperFunctions::set_initial_condition_vibrating_membrane(matrix_free,
-                                                                modes,
-                                                                solution);
+      HelperFunctions::set_initial_condition(matrix_free,
+                                             initial_condition,
+                                             solution);
 
       // Compute time step size:
 
@@ -697,10 +962,11 @@ namespace Step89
 
       // Compute constant time step size via the CFL consition.
       const double dt =
-        cr * HelperFunctions::compute_dt_cfl(h_min, degree, speed_of_sound);
+        cr * HelperFunctions::compute_dt_cfl(h_min, degree, 1.0 /*TODO*/);
 
       // Compute end time for exactly one period duration.
-      const double end_time = 2.0 / (modes * std::sqrt(dim) * speed_of_sound);
+      const double end_time =
+        2.0 / (10.0 /*TODO*/ * std::sqrt(dim) * 1.0 /*TODO*/);
 
       // Perform time integration loop.
       double       time     = 0.0;
@@ -777,6 +1043,9 @@ namespace Step89
                                               {0.0, 0.0},
                                               {0.5 * length, length});
 
+    for (const auto &cell : tria_left.active_cell_iterators())
+      cell->set_material_id(0);
+
     for (const auto &face : tria_left.active_face_iterators())
       if (face->at_boundary())
         {
@@ -792,6 +1061,10 @@ namespace Step89
                                               {subdiv_right, 2 * subdiv_right},
                                               {0.5 * length, 0.0},
                                               {length, length});
+
+    for (const auto &cell : tria_left.active_cell_iterators())
+      cell->set_material_id(1);
+
     for (const auto &face : tria_right.active_face_iterators())
       if (face->at_boundary())
         {
@@ -812,9 +1085,8 @@ namespace Step89
   void point_to_point_interpolation(
     const MatrixFree<dim, Number>      &matrix_free,
     const std::set<types::boundary_id> &non_matching_faces,
-    const double                        speed_of_sound,
-    const double                        density,
-    const double                        modes)
+    const std::map<types::material_id, std::pair<double, double>> &materials,
+    const Function<dim> &initial_condition)
   {
     const auto &dof_handler = matrix_free.get_dof_handler();
     const auto &tria        = dof_handler.get_triangulation();
@@ -915,16 +1187,22 @@ namespace Step89
 
     const auto inverse_mass_operator =
       std::make_shared<InverseMassOperator<dim, Number>>(matrix_free);
-    const auto acoustic_operator =
-      std::make_shared<AcousticOperator<dim, Number>>(matrix_free,
-                                                      non_matching_faces,
-                                                      density,
-                                                      speed_of_sound,
-                                                      pressure_r,
-                                                      velocity_r);
 
-    RungeKutta2 time_integrator(inverse_mass_operator, acoustic_operator);
-    time_integrator.run(matrix_free, 0.1, speed_of_sound, modes);
+    const auto material_handler =
+      std::make_shared<MaterialHandler<dim, Number>>(matrix_free, materials);
+
+    const auto acoustic_operator =
+      std::make_shared<AcousticOperator<dim, Number>>(
+        matrix_free,
+        non_matching_faces,
+        pressure_r,
+        velocity_r,
+        material_handler,
+        nullptr); // TODO:remotematerialhandler
+
+    RungeKutta2<dim, Number> time_integrator(inverse_mass_operator,
+                                             acoustic_operator);
+    time_integrator.run(matrix_free, 0.1, initial_condition);
   }
 
   // TODO: clean up
@@ -932,12 +1210,11 @@ namespace Step89
   // //
   // // Description
   template <int dim, typename Number>
-  void
-  nitsche_type_mortaring(const MatrixFree<dim, Number>      &matrix_free,
-                         const std::set<types::boundary_id> &non_matching_faces,
-                         const double                        speed_of_sound,
-                         const double                        density,
-                         const double                        modes)
+  void nitsche_type_mortaring(
+    const MatrixFree<dim, Number>      &matrix_free,
+    const std::set<types::boundary_id> &non_matching_faces,
+    const std::map<types::material_id, std::pair<double, double>> &materials,
+    const Function<dim> &initial_condition)
   {
     const auto &dof_handler       = matrix_free.get_dof_handler();
     const auto &tria              = dof_handler.get_triangulation();
@@ -1106,17 +1383,23 @@ namespace Step89
 
     const auto inverse_mass_operator =
       std::make_shared<InverseMassOperator<dim, Number>>(matrix_free);
-    const auto acoustic_operator =
-      std::make_shared<AcousticOperator<dim, Number>>(matrix_free,
-                                                      non_matching_faces,
-                                                      density,
-                                                      speed_of_sound,
-                                                      nm_mapping_info,
-                                                      pressure_r,
-                                                      velocity_r);
 
-    RungeKutta2 time_integrator(inverse_mass_operator, acoustic_operator);
-    time_integrator.run(matrix_free, 0.1, speed_of_sound, modes);
+    const auto material_handler =
+      std::make_shared<MaterialHandler<dim, Number>>(matrix_free, materials);
+
+    const auto acoustic_operator =
+      std::make_shared<AcousticOperator<dim, Number>>(
+        matrix_free,
+        non_matching_faces,
+        nm_mapping_info,
+        pressure_r,
+        velocity_r,
+        material_handler,
+        nullptr); // TODO:remotematerialhandler
+
+    RungeKutta2<dim, Number> time_integrator(inverse_mass_operator,
+                                             acoustic_operator);
+    time_integrator.run(matrix_free, 0.1, initial_condition);
   }
 
 
@@ -1142,9 +1425,9 @@ int main(int argc, char *argv[])
 
   // Homogenous pressure DBCs are applied for simplicity. Therefore,
   // modes can not be chosen arbitrarily.
-  const double modes          = 10.0;
-  const double speed_of_sound = 1.0;
-  const double density        = 1.0;
+  const double                                            modes = 10.0;
+  std::map<types::material_id, std::pair<double, double>> homogenous_material;
+  homogenous_material[numbers::invalid_material_id] = std::make_pair(1.0, 1.0);
 
   const unsigned int refinements = 2;
   const unsigned int degree      = 3;
@@ -1178,10 +1461,17 @@ int main(int argc, char *argv[])
 
   // Run vibrating membrane testcase using point-to-point interpolation:
   Step89::point_to_point_interpolation(
-    matrix_free, non_matching_faces, speed_of_sound, density, modes);
+    matrix_free,
+    non_matching_faces,
+    homogenous_material,
+    Step89::InitialSolutionVibratingMembrane<dim>(modes));
+  
   // Run vibrating membrane testcase using Nitsche-type mortaring:
-  Step89::nitsche_type_mortaring(
-    matrix_free, non_matching_faces, speed_of_sound, density, modes);
+  Step89::nitsche_type_mortaring(matrix_free,
+                                 non_matching_faces,
+                                 homogenous_material,
+                                 Step89::InitialSolutionVibratingMembrane<dim>(
+                                   modes));
 
   // TODO:
   //  Run simple testcase with in-homogenous material:
