@@ -86,13 +86,6 @@ mortars. On each mortar a new integration rule is defined. The integral of the f
 $K^-$ is computed on the intersections. This way, the numerical integration is exact as long
 as a sufficient number of integration points is used.
 
-TODO_BEGIN
-BCS
-CFL
-VIBRATING MEMBRANE TESTCASE
-<b>%FERemoteEvaluation comes in different flavors, the behavior is steered via template parameters</b>
-TODO_END
-
 <h3>%FERemoteEvaluation</h3>
 
 FERemoteEvaluation is a wrapper class which provides a similar interface to, e.g., FEEvaluation to access values over non-matching interfaces in matrix-free loops.

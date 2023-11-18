@@ -119,8 +119,8 @@ namespace Step89
     double value(const Point<dim> &p, const unsigned int comp) const final
     {
       if (comp == 0)
-        return std::exp(-100.0 * ((std::pow(p[0] - shift_x, 2)) +
-                                  (std::pow(p[1] - shift_y, 2))));
+        return std::exp(-1000.0 * ((std::pow(p[0] - shift_x, 2)) +
+                                   (std::pow(p[1] - shift_y, 2))));
 
       return 0.0;
     }
@@ -1051,7 +1051,8 @@ namespace Step89
              const double                   cr,
              const double                   end_time,
              const double                   speed_of_sound,
-             const Function<dim>           &initial_condition)
+             const Function<dim>           &initial_condition,
+             const std::string             &vtk_postfix)
     {
       // Get needed members of matrix free.
       const auto &dof_handler = matrix_free.get_dof_handler();
@@ -1096,7 +1097,8 @@ namespace Step89
                                      matrix_free.get_dof_handler(),
                                      mapping,
                                      degree,
-                                     "step_89-" + std::to_string(timestep));
+                                     "step_89-" + vtk_postfix +
+                                       std::to_string(timestep));
 
           // Perform a single time step.
           std::swap(solution, solution_temp);
@@ -1228,7 +1230,8 @@ namespace Step89
     const std::set<types::boundary_id> &non_matching_faces,
     const std::map<types::material_id, std::pair<double, double>> &materials,
     const double                                                   end_time,
-    const Function<dim> &initial_condition)
+    const Function<dim> &initial_condition,
+    const std::string   &vtk_postfix)
   {
     const auto &dof_handler = matrix_free.get_dof_handler();
     const auto &tria        = dof_handler.get_triangulation();
@@ -1416,8 +1419,12 @@ namespace Step89
     RungeKutta2<dim, Number> time_integrator(inverse_mass_operator,
                                              acoustic_operator);
     // Run time loop with Courant number 0.1.
-    time_integrator.run(
-      matrix_free, /*Cr*/ 0.1, end_time, speed_of_sound_max, initial_condition);
+    time_integrator.run(matrix_free,
+                        /*Cr*/ 0.1,
+                        end_time,
+                        speed_of_sound_max,
+                        initial_condition,
+                        vtk_postfix);
   }
 
   // @sect3{Nitsche-type mortaring}
@@ -1431,7 +1438,8 @@ namespace Step89
     const std::set<types::boundary_id> &non_matching_faces,
     const std::map<types::material_id, std::pair<double, double>> &materials,
     const double                                                   end_time,
-    const Function<dim> &initial_condition)
+    const Function<dim> &initial_condition,
+    const std::string   &vtk_postfix)
   {
     const auto &dof_handler       = matrix_free.get_dof_handler();
     const auto &tria              = dof_handler.get_triangulation();
@@ -1682,8 +1690,12 @@ namespace Step89
                                              acoustic_operator);
 
     // Run time loop with Courant number 0.1.
-    time_integrator.run(
-      matrix_free, /*Cr*/ 0.1, end_time, speed_of_sound_max, initial_condition);
+    time_integrator.run(matrix_free,
+                        /*Cr*/ 0.1,
+                        end_time,
+                        speed_of_sound_max,
+                        initial_condition,
+                        vtk_postfix);
   }
 } // namespace Step89
 
@@ -1701,8 +1713,8 @@ int main(int argc, char *argv[])
   Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
   std::cout.precision(5);
 
-  const unsigned int refinements = 2;
-  const unsigned int degree      = 3;
+  const unsigned int refinements = 3;
+  const unsigned int degree      = 4;
 
   // Construct non-matching triangulation and fill non-matching boundary IDs.
   parallel::distributed::Triangulation<dim> tria(MPI_COMM_WORLD);
@@ -1748,7 +1760,8 @@ int main(int argc, char *argv[])
     homogenous_material,
     initial_solution_membrane.get_period_duration(
       homogenous_material.begin()->second.first),
-    initial_solution_membrane);
+    initial_solution_membrane,
+    "vm-p2p");
 
   // Run vibrating membrane testcase using Nitsche-type mortaring:
   Step89::nitsche_type_mortaring(matrix_free,
@@ -1756,7 +1769,8 @@ int main(int argc, char *argv[])
                                  homogenous_material,
                                  initial_solution_membrane.get_period_duration(
                                    homogenous_material.begin()->second.first),
-                                 initial_solution_membrane);
+                                 initial_solution_membrane,
+                                 "vm-nitsche");
 
   // In-homogenous material testcase:
   //
@@ -1764,14 +1778,12 @@ int main(int argc, char *argv[])
   std::map<types::material_id, std::pair<double, double>> inhomogenous_material;
   inhomogenous_material[0] = std::make_pair(1.0, 1.0);
   inhomogenous_material[1] = std::make_pair(3.0, 1.0);
-  Step89::nitsche_type_mortaring(
-    matrix_free,
-    non_matching_faces,
-    inhomogenous_material,
-    /*TODO: compute in other way*/ 3.0 *
-      initial_solution_membrane.get_period_duration(
-        homogenous_material.begin()->second.first),
-    Step89::GaussPulse<dim>(0.25, 0.5));
+  Step89::nitsche_type_mortaring(matrix_free,
+                                 non_matching_faces,
+                                 inhomogenous_material,
+                                 /*runtime*/ 0.3,
+                                 Step89::GaussPulse<dim>(0.3, 0.5),
+                                 "inhomogenous");
 
 
   return 0;
