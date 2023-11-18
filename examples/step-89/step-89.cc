@@ -52,10 +52,6 @@
 // TODO: this file is not yet in deal.ii and will end up in
 //  #include <deal.II/matrix_free/fe_remote_evaluation.h>
 
-// TODO: clean up!!!
-// TODO: inhomegenous!!!
-
-
 // We pack everything that is specific for this program into a namespace
 // of its own.
 namespace Step89
@@ -80,6 +76,11 @@ namespace Step89
                std::sin(M * numbers::PI * p[1]);
 
       return 0.0;
+    }
+
+    double get_period_duration(const double speed_of_sound) const
+    {
+      return 2.0 / (M * std::sqrt(dim) * speed_of_sound);
     }
 
   private:
@@ -949,6 +950,8 @@ namespace Step89
     // Setup and run time loop.
     void run(const MatrixFree<dim, Number> &matrix_free,
              const double                   cr,
+             const double                   end_time,
+             const double                   speed_of_sound,
              const Function<dim>           &initial_condition)
     {
       // Get needed members of matrix free.
@@ -982,11 +985,7 @@ namespace Step89
 
       // Compute constant time step size via the CFL consition.
       const double dt =
-        cr * HelperFunctions::compute_dt_cfl(h_min, degree, 1.0 /*TODO*/);
-
-      // Compute end time for exactly one period duration.
-      const double end_time =
-        2.0 / (10.0 /*TODO*/ * std::sqrt(dim) * 1.0 /*TODO*/);
+        cr * HelperFunctions::compute_dt_cfl(h_min, degree, speed_of_sound);
 
       // Perform time integration loop.
       double       time     = 0.0;
@@ -1106,6 +1105,7 @@ namespace Step89
     const MatrixFree<dim, Number>      &matrix_free,
     const std::set<types::boundary_id> &non_matching_faces,
     const std::map<types::material_id, std::pair<double, double>> &materials,
+    const double                                                   end_time,
     const Function<dim> &initial_condition)
   {
     const auto &dof_handler = matrix_free.get_dof_handler();
@@ -1213,6 +1213,7 @@ namespace Step89
 
     std::shared_ptr<RemoteMaterialHandler<dim, Number, false>>
       material_handler_r = nullptr;
+
     if (!material_handler->is_homogenous())
       {
         material_handler_r =
@@ -1228,12 +1229,16 @@ namespace Step89
                                                       material_handler,
                                                       material_handler_r);
 
+    double speed_of_sound_max = 0.0;
+    for (const auto &mat : materials)
+      speed_of_sound_max = std::max(speed_of_sound_max, mat.second.first);
+
     RungeKutta2<dim, Number> time_integrator(inverse_mass_operator,
                                              acoustic_operator);
-    time_integrator.run(matrix_free, 0.1, initial_condition);
+    time_integrator.run(
+      matrix_free, 0.1, end_time, speed_of_sound_max, initial_condition);
   }
 
-  // TODO: clean up
   // // @sect3{Nitsche-type mortaring}
   // //
   // // Description
@@ -1242,6 +1247,7 @@ namespace Step89
     const MatrixFree<dim, Number>      &matrix_free,
     const std::set<types::boundary_id> &non_matching_faces,
     const std::map<types::material_id, std::pair<double, double>> &materials,
+    const double                                                   end_time,
     const Function<dim> &initial_condition)
   {
     const auto &dof_handler       = matrix_free.get_dof_handler();
@@ -1433,9 +1439,15 @@ namespace Step89
                                                       material_handler,
                                                       material_handler_r);
 
+
+    double speed_of_sound_max = 0.0;
+    for (const auto &mat : materials)
+      speed_of_sound_max = std::max(speed_of_sound_max, mat.second.first);
+
     RungeKutta2<dim, Number> time_integrator(inverse_mass_operator,
                                              acoustic_operator);
-    time_integrator.run(matrix_free, 0.1, initial_condition);
+    time_integrator.run(
+      matrix_free, 0.1, end_time, speed_of_sound_max, initial_condition);
   }
 
 
@@ -1494,29 +1506,38 @@ int main(int argc, char *argv[])
   matrix_free.reinit(
     MappingQ1<dim>(), dof_handler, constraints, QGauss<dim>(degree + 1), data);
 
+  const auto initial_solution_membrane =
+    Step89::InitialSolutionVibratingMembrane<dim>(modes);
 
   // Run vibrating membrane testcase using point-to-point interpolation:
   Step89::point_to_point_interpolation(
     matrix_free,
     non_matching_faces,
     homogenous_material,
-    Step89::InitialSolutionVibratingMembrane<dim>(modes));
+    initial_solution_membrane.get_period_duration(
+      homogenous_material.begin()->second.first),
+    initial_solution_membrane);
 
   // Run vibrating membrane testcase using Nitsche-type mortaring:
   Step89::nitsche_type_mortaring(matrix_free,
                                  non_matching_faces,
                                  homogenous_material,
-                                 Step89::InitialSolutionVibratingMembrane<dim>(
-                                   modes));
+                                 initial_solution_membrane.get_period_duration(
+                                   homogenous_material.begin()->second.first),
+                                 initial_solution_membrane);
 
   //  Run simple testcase with in-homogenous material:
   std::map<types::material_id, std::pair<double, double>> inhomogenous_material;
   inhomogenous_material[0] = std::make_pair(1.0, 1.0);
   inhomogenous_material[1] = std::make_pair(3.0, 1.0);
-  Step89::nitsche_type_mortaring(matrix_free,
-                                 non_matching_faces,
-                                 inhomogenous_material,
-                                 Step89::InitialSolutionInHomogenous<dim>());
+  Step89::nitsche_type_mortaring(
+    matrix_free,
+    non_matching_faces,
+    inhomogenous_material,
+    /*TODO: compute in other way*/ 3.0 *
+      initial_solution_membrane.get_period_duration(
+        homogenous_material.begin()->second.first),
+    Step89::InitialSolutionInHomogenous<dim>());
 
 
   return 0;
