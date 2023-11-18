@@ -58,6 +58,8 @@ namespace Step89
 {
   using namespace dealii;
 
+  // @sect3{Set alias for FERemoteEvaluation}
+  //
   // Define an alias for FERemoteEvaluation to be able to skip typing
   // template parameters that do not change within this tutorial.
   template <int n_components,
@@ -72,6 +74,8 @@ namespace Step89
                                           true,
                                           use_matrix_free_face_batches>;
 
+  // @sect3{Initial conditions for vibrating membrane}
+  //
   // Function that provides the initial condition for the vibrating membrane
   // testcase.
   template <int dim>
@@ -103,6 +107,8 @@ namespace Step89
     const double M;
   };
 
+  // @sect3{Gauss pulse}
+  //
   // Function that provides the values of a pressure Gauss pulse.
   template <int dim>
   class GaussPulse : public Function<dim>
@@ -130,6 +136,8 @@ namespace Step89
     const double shift_y;
   };
 
+  // @sect3{Helper functions}
+  //
   // Free helper functions that are used in the tutorial.
   namespace HelperFunctions
   {
@@ -198,6 +206,8 @@ namespace Step89
     }
   } // namespace HelperFunctions
 
+  //@sect3{Material handlers}
+  //  
   // We are considering homogenous and inhomogenous fluids. Therefore,
   // we need the infromation which material is defined at which cell.
   // This class helps to access the correct values. In case of homogenous
@@ -394,6 +404,9 @@ namespace Step89
     FERemoteEval<1, dim, Number, !mortaring> phi_rho;
   };
 
+
+  //@sect3{Boundary conditions}
+  //  
   // To be able to use the same kernel, for all face integrals we define
   // a class that returns the needed values at boundaries. In this tutorial
   // homogenous pressure Dirichlet boundary conditions are applied via
@@ -436,7 +449,8 @@ namespace Step89
     const FEFaceEvaluation<dim, -1, 0, dim, Number> &velocity_m;
   };
 
-
+  //@sect3{Acoustic operator}
+  //  
   // Class that defines the acoustic operator.
   template <int dim, typename Number>
   class AcousticOperator
@@ -729,6 +743,8 @@ namespace Step89
     }
 
 
+    //@sect4{Matrix-free boundary function for point-to-point interpolation}
+    //  
     // This function evaluates the boundary face integrals and the
     // non-matching face integrals using point-to-point interpolation.
     template <typename VectorType>
@@ -824,6 +840,8 @@ namespace Step89
         }
     }
 
+    //@sect4{Matrix-free boundary function for Nitsche-type mortaring}
+    //  
     // This function evaluates the boundary face integrals and the
     // non-matching face integrals using Nitsche-type mortaring.
     template <typename VectorType>
@@ -986,6 +1004,8 @@ namespace Step89
       material_handler_r_mortar;
   };
 
+  //@sect3{Inverse mass operator}
+  //  
   // Class to apply the inverse mass operator.
   template <int dim, typename Number>
   class InverseMassOperator
@@ -1030,6 +1050,8 @@ namespace Step89
     const MatrixFree<dim, Number> &matrix_free;
   };
 
+  //@sect3{Runge-Kutta timestepping}
+  //  
   // This class implements a Runge-Kutta scheme of order 2.
   template <int dim, typename Number>
   class RungeKutta2
@@ -1141,6 +1163,7 @@ namespace Step89
 
 
   // @sect3{Construction of non-matching triangulations}
+  //
   template <int dim>
   void build_non_matching_triangulation(
     parallel::distributed::Triangulation<dim> &tria,
