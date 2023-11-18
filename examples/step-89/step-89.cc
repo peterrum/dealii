@@ -1082,7 +1082,7 @@ namespace Step89
                                               {0.5 * length, 0.0},
                                               {length, length});
 
-    for (const auto &cell : tria_left.active_cell_iterators())
+    for (const auto &cell : tria_right.active_cell_iterators())
       cell->set_material_id(1);
 
     for (const auto &face : tria_right.active_face_iterators())
