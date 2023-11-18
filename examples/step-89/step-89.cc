@@ -99,8 +99,8 @@ namespace Step89
     double value(const Point<dim> &p, const unsigned int comp) const final
     {
       if (comp == 0)
-        return std::exp(-100.0 * (std::pow(p[0] + 0.5, 2)) +
-                        (std::pow(p[1] + 0, 2)));
+        return std::exp(-100.0 * ((std::pow(p[0] - 0.25, 2)) +
+                                  (std::pow(p[1] - 0.5, 2))));
 
       return 0.0;
     }
@@ -1473,9 +1473,16 @@ int main(int argc, char *argv[])
                                  Step89::InitialSolutionVibratingMembrane<dim>(
                                    modes));
 
-  // TODO:
   //  Run simple testcase with in-homogenous material:
-  //  Step89::inhomogenous_material();
+    std::map<types::material_id, std::pair<double, double>> inhomogenous_material;
+    inhomogenous_material[0] = std::make_pair(1.0, 1.0);
+    inhomogenous_material[1] = std::make_pair(3.0, 1.0);
+  Step89::nitsche_type_mortaring(matrix_free,
+                                 non_matching_faces,
+                                 inhomogenous_material,
+                                 Step89::InitialSolutionInHomogenous<dim>(
+                                   ));
+
 
   return 0;
 }
