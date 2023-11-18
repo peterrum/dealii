@@ -661,7 +661,7 @@ template <int dim,
           typename VectorizedArrayType,
           bool is_face,
           bool use_matrix_free_batches>
-class FERemoteEvaluationBase
+class FERemoteEvaluation
 {
   using FERemoteEvaluationCommunicatorType =
     FERemoteEvaluationCommunicator<dim, is_face, use_matrix_free_batches>;
@@ -695,11 +695,11 @@ public:
    * DoFHandlers with multiple components.
    */
   template <typename MeshType>
-  FERemoteEvaluationBase(const FERemoteEvaluationCommunicatorType &comm,
-                         const MeshType                           &mesh,
-                         const unsigned int first_selected_component = 0,
-                         const VectorTools::EvaluationFlags::EvaluationFlags
-                           vt_flags = VectorTools::EvaluationFlags::avg)
+  FERemoteEvaluation(const FERemoteEvaluationCommunicatorType &comm,
+                     const MeshType                           &mesh,
+                     const unsigned int first_selected_component = 0,
+                     const VectorTools::EvaluationFlags::EvaluationFlags
+                       vt_flags = VectorTools::EvaluationFlags::avg)
     : comm(&comm)
     , first_selected_component(first_selected_component)
     , vt_flags(vt_flags)
@@ -838,40 +838,6 @@ private:
    */
   unsigned int data_offset;
 };
-
-// TODO: instead of using we could actually derive from the base class
-// TODO: switch n_comp and dim
-template <int dim,
-          int n_components,
-          typename Number,
-          typename VectorizedArrayType = VectorizedArray<Number>>
-using FERemoteEvaluation = FERemoteEvaluationBase<dim,
-                                                  n_components,
-                                                  Number,
-                                                  VectorizedArrayType,
-                                                  false,
-                                                  true>;
-
-template <int dim,
-          int n_components,
-          typename Number,
-          typename VectorizedArrayType = VectorizedArray<Number>>
-using FEFaceRemoteEvaluation = FERemoteEvaluationBase<dim,
-                                                      n_components,
-                                                      Number,
-                                                      VectorizedArrayType,
-                                                      true,
-                                                      true>;
-
-template <int dim, int n_components, typename Number>
-using FERemotePointEvaluation =
-  FERemoteEvaluationBase<dim, n_components, Number, Number, false, false>;
-
-template <int dim, int n_components, typename Number>
-using FEFaceRemotePointEvaluation =
-  FERemoteEvaluationBase<dim, n_components, Number, Number, true, false>;
-
-
 
 DEAL_II_NAMESPACE_CLOSE
 

@@ -58,6 +58,20 @@ namespace Step89
 {
   using namespace dealii;
 
+  // Define an alias for FERemoteEvaluation to be able to skip typing
+  // template parameters that do not change within this tutorial.
+  template <int n_components,
+            int dim,
+            typename Number,
+            bool use_matrix_free_face_batches,
+            typename VectorizedArrayType = VectorizedArray<Number>>
+  using FERemoteEval = FERemoteEvaluation<dim,
+                                          n_components,
+                                          Number,
+                                          VectorizedArrayType,
+                                          true,
+                                          use_matrix_free_face_batches>;
+
   // Function that provides the initial condition for the vibrating membrane
   // testcase.
   template <int dim>
@@ -132,7 +146,7 @@ namespace Step89
     }
 
     // Helper function to set the initial conditions for the vibrating membrane
-    //  test case.
+    // test case.
     template <int dim,
               typename Number,
 
@@ -155,6 +169,7 @@ namespace Step89
       return hmin / (std::pow(degree, 1.5) * c);
     }
 
+    // Helper function that writes vtu output.
     template <typename VectorType, int dim>
     void write_vtu(const VectorType      &solution,
                    const DoFHandler<dim> &dof_handler,
@@ -367,7 +382,7 @@ namespace Step89
     // Return the materials in the current quadrature point. The
     // return type chagnes dependent on the use of mortaring or
     // point-to-point interpolation. We simply use auto to automatically
-    //  choose the correct return type.
+    // choose the correct return type.
     auto get_materials(unsigned int q) const
     {
       return std::make_pair(phi_c.get_value(q), phi_rho.get_value(q));
@@ -375,28 +390,14 @@ namespace Step89
 
   private:
     // FERemoteEvaluation objects with cached values.
-    // TODO: The types might be confusing and we can discuss to change
-    // this?!(MARCO/PETER)
-    FERemoteEvaluationBase<dim,
-                           1,
-                           Number,
-                           VectorizedArray<Number>,
-                           true,
-                           !mortaring>
-      phi_c;
-    FERemoteEvaluationBase<dim,
-                           1,
-                           Number,
-                           VectorizedArray<Number>,
-                           true,
-                           !mortaring>
-      phi_rho;
+    FERemoteEval<1, dim, Number, !mortaring> phi_c;
+    FERemoteEval<1, dim, Number, !mortaring> phi_rho;
   };
 
   // To be able to use the same kernel, for all face integrals we define
-  //  a class that returns the needed values at boundaries. In this tutorial
-  //  homogenous pressure Dirichlet boundary conditions are applied via
-  //  the mirror priciple, i.e. $p_h^+=-p_h^- + 2g$ with $g=0$.
+  // a class that returns the needed values at boundaries. In this tutorial
+  // homogenous pressure Dirichlet boundary conditions are applied via
+  // the mirror priciple, i.e. $p_h^+=-p_h^- + 2g$ with $g=0$.
   template <int dim, typename Number>
   class BCEvalP
   {
@@ -445,11 +446,11 @@ namespace Step89
     // constructor is used, the operator is setup for point-to-point
     // interpolation.
     AcousticOperator(
-      const MatrixFree<dim, Number>      &matrix_free_in,
-      const std::set<types::boundary_id> &non_matching_face_ids,
-      std::shared_ptr<FEFaceRemoteEvaluation<dim, 1, Number>>   pressure_r,
-      std::shared_ptr<FEFaceRemoteEvaluation<dim, dim, Number>> velocity_r,
-      std::shared_ptr<MaterialHandler<dim, Number>> material_handler,
+      const MatrixFree<dim, Number>                      &matrix_free_in,
+      const std::set<types::boundary_id>                 &non_matching_face_ids,
+      std::shared_ptr<FERemoteEval<1, dim, Number, true>> pressure_r,
+      std::shared_ptr<FERemoteEval<dim, dim, Number, true>> velocity_r,
+      std::shared_ptr<MaterialHandler<dim, Number>>         material_handler,
       std::shared_ptr<RemoteMaterialHandler<dim, Number, false>>
         material_handler_remote)
       : use_mortaring(false)
@@ -470,9 +471,9 @@ namespace Step89
     AcousticOperator(
       const MatrixFree<dim, Number>      &matrix_free_in,
       const std::set<types::boundary_id> &non_matching_face_ids,
-      std::shared_ptr<NonMatching::MappingInfo<dim, dim, Number>>    nm_info,
-      std::shared_ptr<FEFaceRemotePointEvaluation<dim, 1, Number>>   pressure_r,
-      std::shared_ptr<FEFaceRemotePointEvaluation<dim, dim, Number>> velocity_r,
+      std::shared_ptr<NonMatching::MappingInfo<dim, dim, Number>> nm_info,
+      std::shared_ptr<FERemoteEval<1, dim, Number, false>>        pressure_r,
+      std::shared_ptr<FERemoteEval<dim, dim, Number, false>>      velocity_r,
       std::shared_ptr<MaterialHandler<dim, Number>> material_handler,
       std::shared_ptr<RemoteMaterialHandler<dim, Number, true>>
         material_handler_remote)
@@ -495,7 +496,7 @@ namespace Step89
     {
       if (use_mortaring)
         {
-          // Update the cached values in corresponding the RemoteEvaluation
+          // Update the cached values in corresponding the FERemoteEvaluation
           // objects.
           pressure_r_mortar->gather_evaluate(src, EvaluationFlags::values);
           velocity_r_mortar->gather_evaluate(src, EvaluationFlags::values);
@@ -514,7 +515,7 @@ namespace Step89
         }
       else
         {
-          // Update the cached values in corresponding the RemoteEvaluation
+          // Update the cached values in corresponding the FERemoteEvaluation
           // objects.
           pressure_r->gather_evaluate(src, EvaluationFlags::values);
           velocity_r->gather_evaluate(src, EvaluationFlags::values);
@@ -609,7 +610,7 @@ namespace Step89
 
           // Compute homogenous local Lax-Friedrichs fluxes and submit the
           // corrsponding
-          //  values to the integrators.
+          // values to the integrators.
           const auto flux_momentum =
             0.5 * (pm + pp) + 0.5 * tau * (um - up) * n;
           velocity_m.submit_value(1.0 / rho * (flux_momentum - pm) * n, q);
@@ -666,7 +667,7 @@ namespace Step89
 
 
           // Compute in-homogenous fluxes and submit the corrsponding values
-          //  to the integrators.
+          // to the integrators.
           const auto flux_momentum =
             pm - tau_m * tau_sum_inv * (pm - pp) +
             tau_m * tau_p * tau_sum_inv * (um - up) * n;
@@ -681,7 +682,7 @@ namespace Step89
         }
     }
 
-    //  This function evaluates the inner face integrals.
+    // This function evaluates the inner face integrals.
     template <typename VectorType>
     void
     face_loop(const MatrixFree<dim, Number>               &matrix_free,
@@ -775,16 +776,16 @@ namespace Step89
           else
             {
               // If @c face is nonmatching we have to query values via the
-              // RemoteEvaluaton objects. This is done by passing the
-              // corresponding RemoteEvaluaton objects to the function that
+              // FERemoteEvaluaton objects. This is done by passing the
+              // corresponding FERemoteEvaluaton objects to the function that
               // evaluates the kernel. As mentioned above, each side of the
               // non-matching interface is iterated seperately and we do not
               // have to consider the neighbor in the kernel. Note, that the
-              // values in the RemoteEvaluaton objects are already updated at
+              // values in the FERemoteEvaluaton objects are already updated at
               // this point.
 
               // For point-to-point interpolation we simply use the
-              // corresponding RemoteEvaluaton objects in combination with the
+              // corresponding FERemoteEvaluaton objects in combination with the
               // standard FEFaceEvaluation objects.
               velocity_r->reinit(face);
               pressure_r->reinit(face);
@@ -966,14 +967,14 @@ namespace Step89
     // FERemoteEvaluation objects are strored as shared pointers. This way,
     // they can also be used for other operators without caching the values
     // multiple times.
-    const std::set<types::boundary_id> remote_face_ids;
-    const std::shared_ptr<FEFaceRemoteEvaluation<dim, 1, Number>>   pressure_r;
-    const std::shared_ptr<FEFaceRemoteEvaluation<dim, dim, Number>> velocity_r;
+    const std::set<types::boundary_id>                          remote_face_ids;
+    const std::shared_ptr<FERemoteEval<1, dim, Number, true>>   pressure_r;
+    const std::shared_ptr<FERemoteEval<dim, dim, Number, true>> velocity_r;
     const std::shared_ptr<NonMatching::MappingInfo<dim, dim, Number>>
       nm_mapping_info;
-    const std::shared_ptr<FEFaceRemotePointEvaluation<dim, 1, Number>>
+    const std::shared_ptr<FERemoteEval<1, dim, Number, false>>
       pressure_r_mortar;
-    const std::shared_ptr<FEFaceRemotePointEvaluation<dim, dim, Number>>
+    const std::shared_ptr<FERemoteEval<dim, dim, Number, false>>
       velocity_r_mortar;
 
     // Material handers are stored as shared pointers with the same
@@ -1300,7 +1301,7 @@ namespace Step89
         std::vector<Point<dim>> points;
 
         // Temporarily setup FEFaceValues to access the quadrature points at
-        //  the faces on the non-matching interface.
+        // the faces on the non-matching interface.
         FEFaceValues<dim> phi(mapping,
                               dof_handler.get_fe(),
                               QGauss<dim - 1>(
@@ -1367,13 +1368,13 @@ namespace Step89
     // Setup FERemoteEvaluation object that accesses the pressure
     // at remote faces.
     const auto pressure_r =
-      std::make_shared<FEFaceRemoteEvaluation<dim, 1, Number>>(
+      std::make_shared<FERemoteEval<1, dim, Number, true>>(
         remote_communicator, dof_handler, /*first_selected_component*/ 0);
 
     // Setup FERemoteEvaluation object that accesses the velocity
-    //  at remote faces.
+    // at remote faces.
     const auto velocity_r =
-      std::make_shared<FEFaceRemoteEvaluation<dim, dim, Number>>(
+      std::make_shared<FERemoteEval<dim, dim, Number, true>>(
         remote_communicator, dof_handler, /*first_selected_component*/ 1);
 
     // Setup material handler.
@@ -1631,13 +1632,13 @@ namespace Step89
     // Setup FERemoteEvaluation object that accesses the pressure
     // at remote faces.
     const auto pressure_r =
-      std::make_shared<FEFaceRemotePointEvaluation<dim, 1, Number>>(
+      std::make_shared<FERemoteEval<1, dim, Number, false>>(
         remote_communicator, dof_handler, /*first_selected_component*/ 0);
 
     // Setup FERemoteEvaluation object that accesses the velocity
-    //  at remote faces.
+    // at remote faces.
     const auto velocity_r =
-      std::make_shared<FEFaceRemotePointEvaluation<dim, dim, Number>>(
+      std::make_shared<FERemoteEval<dim, dim, Number, false>>(
         remote_communicator, dof_handler, /*first_selected_component*/ 1);
 
     // Setup material handler.
@@ -1660,7 +1661,7 @@ namespace Step89
       std::make_shared<InverseMassOperator<dim, Number>>(matrix_free);
 
     // Setup the acoustic operator. Using this constructor makes the
-    //  operator use Nitsche-type mortaring.
+    // operator use Nitsche-type mortaring.
     const auto acoustic_operator =
       std::make_shared<AcousticOperator<dim, Number>>(matrix_free,
                                                       non_matching_faces,
@@ -1732,8 +1733,8 @@ int main(int argc, char *argv[])
 
   // Vibrating membrane testcase:
   //
-  //  Homogenous pressure DBCs are applied for simplicity. Therefore,
-  //  modes can not be chosen arbitrarily.
+  // Homogenous pressure DBCs are applied for simplicity. Therefore,
+  // modes can not be chosen arbitrarily.
   const double                                            modes = 10.0;
   std::map<types::material_id, std::pair<double, double>> homogenous_material;
   homogenous_material[numbers::invalid_material_id] = std::make_pair(1.0, 1.0);
@@ -1759,7 +1760,7 @@ int main(int argc, char *argv[])
 
   // In-homogenous material testcase:
   //
-  //  Run simple testcase with in-homogenous material:
+  // Run simple testcase with in-homogenous material:
   std::map<types::material_id, std::pair<double, double>> inhomogenous_material;
   inhomogenous_material[0] = std::make_pair(1.0, 1.0);
   inhomogenous_material[1] = std::make_pair(3.0, 1.0);
