@@ -296,8 +296,8 @@ namespace Step89
         {
           // Reinit the FEFaceEvaluation object and set the cell data.
           phi_face.reinit(face);
-          speed_of_sound = phi.read_cell_data(c);
-          density        = phi.read_cell_data(rho);
+          speed_of_sound = phi_face.read_cell_data(c);
+          density        = phi_face.read_cell_data(rho);
         }
     }
 
@@ -349,6 +349,8 @@ namespace Step89
     {
       Assert(material_id_map.size() > 0,
              ExcMessage("No materials given to MaterialHandler"));
+
+      // PM: no homogeneous path?
 
       // Initialize and fill DoF vectors that contain the materials.
       Vector<Number> c(tria.n_active_cells());
@@ -508,6 +510,8 @@ namespace Step89
     template <typename VectorType>
     void evaluate(VectorType &dst, const VectorType &src) const
     {
+      // PM: we should consider to merge pressure_r_mortar and pressure_r
+
       if (use_mortaring)
         {
           // Update the cached values in corresponding the FERemoteEvaluation
@@ -517,7 +521,7 @@ namespace Step89
 
           // Perform matrix free loop and choose correct boundary face loop
           // to use Nitsche-type mortaring.
-          matrix_free.loop(&AcousticOperator::cell_loop,
+          matrix_free.loop(&AcousticOperator::cell_loop, // PM: local_apply_cell
                            &AcousticOperator::face_loop,
                            &AcousticOperator::boundary_face_loop_mortaring,
                            this,
@@ -594,12 +598,12 @@ namespace Step89
     // as well. This is because we iterate over each side of the non-matching
     // face seperately (similar to a cell
     // centric loop).
-    template <bool weight_neighbor,
+    template <bool weight_neighbor, // PM: I would make this an argument
               typename InternalFaceIntegratorPressure,
               typename InternalFaceIntegratorVelocity,
               typename ExternalFaceIntegratorPressure,
               typename ExternalFaceIntegratorVelocity>
-    void evaluate_face_kernel(
+    void evaluate_face_kernel( // PM: inline function
       InternalFaceIntegratorPressure &pressure_m,
       InternalFaceIntegratorVelocity &velocity_m,
       ExternalFaceIntegratorPressure &pressure_p,
@@ -640,13 +644,14 @@ namespace Step89
 
     // This function evaluates the fluxes at faces between cells with differnet
     // materials. This can only happen over non-matching interfaces. Therefore,
-    // it is clear that weight_neighbor=false.
+    // it is clear that weight_neighbor=false. PM: to make this function symmetrical, 
+    // I would make weight_neighbor an argument and assert that the value is false.
     template <typename InternalFaceIntegratorPressure,
               typename InternalFaceIntegratorVelocity,
               typename ExternalFaceIntegratorPressure,
               typename ExternalFaceIntegratorVelocity,
-              bool mortaring>
-    void evaluate_face_kernel(
+              bool mortaring> // PM: I would remove this template argument (also from RemoteMaterialHandler)
+    void evaluate_face_kernel( // PM: let's this give a unique name -> evaluate_face_kernel_inhomogeneous
       InternalFaceIntegratorPressure &pressure_m,
       InternalFaceIntegratorVelocity &velocity_m,
       ExternalFaceIntegratorPressure &pressure_p,
@@ -728,7 +733,9 @@ namespace Step89
           velocity_m.gather_evaluate(src, EvaluationFlags::values);
           velocity_p.gather_evaluate(src, EvaluationFlags::values);
 
-          material_handler->reinit_face(face);
+          material_handler->reinit_face(face); // PM: currently this is not thread-safe. We might need
+          // to split up material_handler: 1) vectors of
+          // materials vs. 2) current state of each tread.
           evaluate_face_kernel<true>(pressure_m,
                                      velocity_m,
                                      pressure_p,
@@ -773,12 +780,13 @@ namespace Step89
           pressure_m.gather_evaluate(src, EvaluationFlags::values);
           velocity_m.gather_evaluate(src, EvaluationFlags::values);
 
+          // PM: could we flip the logic so that we don't have
+          // double negation?
           if (!HelperFunctions::is_non_matching_face(
                 remote_face_ids, matrix_free.get_boundary_id(face)))
             {
               // If @c face is a standard boundary face, evaluate the integral
-              // as
-              // usual in the matrix free context. To be able to use the same
+              // as usual in the matrix free context. To be able to use the same
               // kernel as for inner faces we pass the boundary condition
               // objects to the function that evaluates the kernel. As mentioned
               // above, there is no neighbor to consider in the kernel.
@@ -803,7 +811,7 @@ namespace Step89
               // For point-to-point interpolation we simply use the
               // corresponding FERemoteEvaluaton objects in combination with the
               // standard FEFaceEvaluation objects.
-              velocity_r->reinit(face);
+              velocity_r->reinit(face); // PM: this is also not thread-safe right now
               pressure_r->reinit(face);
 
               material_handler->reinit_face(face);
@@ -867,17 +875,21 @@ namespace Step89
       // and FEFaceEvaluation but have to consider each face individually and
       // make use of @c FEPointEvaluation to evaluate the integrals in the
       // arbitrarely distributed quadrature points.
+      // PM: we might want to consider to make these to class variables
+      // using ThreadLocalStorage. The setup of FEPointEvaluation is more
+      // expensive than that of FEEvaluation (since MatrixFree stores
+      // all the precomputed data).
       FEPointEvaluation<1, dim, dim, Number> pressure_m_mortar(
         *nm_mapping_info, matrix_free.get_dof_handler().get_fe(), 0);
       FEPointEvaluation<dim, dim, dim, Number> velocity_m_mortar(
         *nm_mapping_info, matrix_free.get_dof_handler().get_fe(), 1);
 
       // Buffer on which FEPointEvaluation is working on.
-      std::vector<Number> buffer(
+      AlignedVector<Number> buffer(
         matrix_free.get_dof_handler().get_fe().dofs_per_cell);
 
       for (unsigned int face = face_range.first; face < face_range.second;
-           face++)
+           face++) // PM: preincrement
         {
           if (!HelperFunctions::is_non_matching_face(
                 remote_face_ids, matrix_free.get_boundary_id(face)))
@@ -901,10 +913,17 @@ namespace Step89
             }
           else
             {
-              // For mortaring we have to cosider every face from the face
+              // For mortaring, we have to cosider every face from the face
               // batches seperately and have to use the FEPointEvaluation
               // objects to be able to evaluate the integrals with the
               // arbitrarily distributed quadrature points.
+              // 
+              // PM: I guess it is not guaranteed that all faces in the
+              // batch are non-matching? We might want to consider:
+              // 1) let FEEvaluation read the dof-values and do the evaluation
+              // if one lane is non-nonmatching, and 2) the lanes related
+              // to nonmatching faces are overriden. We could use a biset
+              // as in https://www.dealii.org/developer/doxygen/deal.II/classFEEvaluationBase.html#aff4ac5c0f5afb445a2a5cf9a0715a2fe.
               for (unsigned int v = 0;
                    v < matrix_free.n_active_entries_per_face_batch(face);
                    ++v)
@@ -912,6 +931,8 @@ namespace Step89
                   const auto [cell, f] =
                     matrix_free.get_face_iterator(face, v, true);
 
+                  // PM: we will be able to simplify this once there is
+                  // FEFacePointEvaluation
                   velocity_m_mortar.reinit(cell->active_cell_index(), f);
                   pressure_m_mortar.reinit(cell->active_cell_index(), f);
 
@@ -964,7 +985,7 @@ namespace Step89
                                               EvaluationFlags::values,
                                               /*sum_into_values=*/false);
                   // Don't zero out values again to keep already integrated
-                  // values
+                  // values PM: what do you mean? Where have you integrated before?
                   pressure_m_mortar.integrate(buffer,
                                               EvaluationFlags::values,
                                               /*sum_into_values=*/true);
@@ -1074,7 +1095,7 @@ namespace Step89
              const double                   end_time,
              const double                   speed_of_sound,
              const Function<dim>           &initial_condition,
-             const std::string             &vtk_postfix)
+             const std::string             &vtk_postfix) // PM: prefix?
     {
       // Get needed members of matrix free.
       const auto &dof_handler = matrix_free.get_dof_handler();
@@ -1163,6 +1184,7 @@ namespace Step89
 
 
   // @sect3{Construction of non-matching triangulations}
+  // PM: describe the mesh on a high level
   //
   template <int dim>
   void build_non_matching_triangulation(
@@ -1172,8 +1194,8 @@ namespace Step89
   {
     const double length = 1.0;
 
-    // At non-matching interfaces we provide different boundary
-    // IDs. These boundary IDs have to differ, because lateron
+    // At non-matching interfaces, we provide different boundary
+    // IDs. These boundary IDs have to differ because later on
     // RemotePointEvaluation has to search for remote points for
     // each face, that are defined in the same mesh (since we merge
     // the mesh) but not on the same side of the non-matching interface.
@@ -1247,6 +1269,13 @@ namespace Step89
   //
   // TODO: check if everything is correct(that means if the instable
   // result is expected in this configuration)!
+  //
+  // PM: the function is misleading; what about:
+  // run_with_point_to_point_interpolation() 
+  //
+  // PM: I guess this function does more than only setting up the communication;
+  // is also calles the time integrator. So that the function description seems
+  // to be out of date!?
   template <int dim, typename Number>
   void point_to_point_interpolation(
     const MatrixFree<dim, Number>      &matrix_free,
@@ -1270,7 +1299,7 @@ namespace Step89
     // a vector of pairs with face batch Ids and the number of faces in the
     // batch is needed. The information is filled outside of the actual class
     // since in some cases the information is available from some heuristic and
-    // it is possible to skip some expensive operations . This is for example
+    // it is possible to skip some expensive operations. This is for example
     // the case for sliding rotating interfaces with equally spaced elements on
     // both sides of the non-matching interface @cite duerrwaechter2021an.
     using CommunicationObjet =
@@ -1282,8 +1311,8 @@ namespace Step89
     std::vector<CommunicationObjet> comm_objects;
 
     // Additionally to the communicaton objects we need a vector
-    // That stores quadrature rules for every face batch.
-    // The Quadrature can be empty in case of non non-matching faces,
+    // that stores quadrature rules for every face batch.
+    // The quadrature can be empty in case of non non-matching faces,
     // i.e. boundary faces. Internally this information is needed to correctly
     // access values over multiple communication objects.
     // TODO: This interface is motivated by the initialization of
@@ -1323,7 +1352,7 @@ namespace Step89
         std::vector<std::pair<unsigned int, unsigned int>>
           face_batch_id_n_faces;
 
-        // Points that are searched from rpe.
+        // Points that are searched by rpe.
         std::vector<Point<dim>> points;
 
         // Temporarily setup FEFaceValues to access the quadrature points at
@@ -1371,7 +1400,7 @@ namespace Step89
 
                 // TODO: Only the information of the quadrature size is needed
                 // (MARCO/PETER)
-                global_quadrature_vector[bface] =
+                global_quadrature_vector[bface] = // PM: this is odd!? Why do wee need empty quadratures?
                   Quadrature<dim>(phi.get_quadrature_points().size());
               }
           }
@@ -1391,19 +1420,19 @@ namespace Step89
                                      face_batch_range,
                                      global_quadrature_vector);
 
-    // Setup FERemoteEvaluation object that accesses the pressure
+    // Set up FERemoteEvaluation object that accesses the pressure
     // at remote faces.
     const auto pressure_r =
       std::make_shared<FERemoteEval<1, dim, Number, true>>(
         remote_communicator, dof_handler, /*first_selected_component*/ 0);
 
-    // Setup FERemoteEvaluation object that accesses the velocity
+    // Set up FERemoteEvaluation object that accesses the velocity
     // at remote faces.
     const auto velocity_r =
       std::make_shared<FERemoteEval<dim, dim, Number, true>>(
         remote_communicator, dof_handler, /*first_selected_component*/ 1);
 
-    // Setup material handler.
+    // Set up material handler.
     const auto material_handler =
       std::make_shared<MaterialHandler<dim, Number>>(matrix_free, materials);
 
@@ -1434,11 +1463,11 @@ namespace Step89
 
     // Compute the the maximum speed of sound, needed for the computation of
     // the time-step size.
-    double speed_of_sound_max = 0.0;
+    double speed_of_sound_max = 0.0; // PM: don't we need to communicate this value?
     for (const auto &mat : materials)
       speed_of_sound_max = std::max(speed_of_sound_max, mat.second.first);
 
-    // Setup time integrator.
+    // Set up time integrator.
     RungeKutta2<dim, Number> time_integrator(inverse_mass_operator,
                                              acoustic_operator);
     // Run time loop with Courant number 0.1.
@@ -1487,6 +1516,7 @@ namespace Step89
     // some expensive operations. This is for example the case for sliding
     // rotating interfaces with equally spaced elements on both sides of the
     // non-matching interface @cite duerrwaechter2021an.
+    // PM: same text as above; if yes, let's remove it!
     using CommunicationObjet = std::pair<
       std::shared_ptr<Utilities::MPI::RemotePointEvaluation<dim>>,
       std::vector<
@@ -1579,11 +1609,14 @@ namespace Step89
         //  convert_to_distributed_compute_point_locations_internal.
         //  We have to adapt
         //  convert_to_distributed_compute_point_locations_internal to be
-        //  able to retrieve relevant information.
+        //  able to retrieve relevant information. PM: agree.
 
         // TODO: NonMatchingMappingInfo should be able to work with
         //  Quadrature<dim> instead <dim-1>. Currently we are constructing
         //  dim-1 from dim and inside MappingInfo it is converted back.
+        // PM: There will be something like this; see
+        // commit https://github.com/bergbauer/dealii/commit/accc2c71dc1b986d400b5f562ec92af50c637517
+        // in https://github.com/bergbauer/dealii/commits/mapping_info_fcl.
 
         // 3) Fill global quadrature vector.
         for (unsigned int i = 0; i < intersection_requests.size(); ++i)
@@ -1616,7 +1649,7 @@ namespace Step89
               }
 
             Assert(global_quadrature_vector[cell->active_cell_index()][f]
-                       .size() == 0,
+                       .sfromize() == 0,
                    ExcMessage("Quadrature for given face already provided."));
 
             global_quadrature_vector[cell->active_cell_index()][f] =
@@ -1638,7 +1671,7 @@ namespace Step89
     // face. Therefore, we have to make use of FEPointEvaluation.
     // FEPointEvaluation needs NonMatching::MappingInfo to work at the correct
     // quadrature points that are in sync with used FERemoteEvaluation object.
-    // In the case of mortaring we have to use the weights provided by the
+    // In the case of mortaring, we have to use the weights provided by the
     // quadrature rules that are used to setup NonMatching::MappingInfo.
     // Therefore we have to set the flag use_global_weights.
     typename NonMatching::MappingInfo<dim, dim, Number>::AdditionalData
@@ -1797,7 +1830,7 @@ int main(int argc, char *argv[])
 
   // In-homogenous material testcase:
   //
-  // Run simple testcase with in-homogenous material:
+  // Run simple testcase with in-homogenous material and Nitsche-type mortaring:
   std::map<types::material_id, std::pair<double, double>> inhomogenous_material;
   inhomogenous_material[0] = std::make_pair(1.0, 1.0);
   inhomogenous_material[1] = std::make_pair(3.0, 1.0);

@@ -1,11 +1,10 @@
 <br>
 
 <i>
-This program was contributed by Johannes Heinz, Marco Feder and Peter Munch.
+This program was contributed by Johannes Heinz, Marco Feder, and Peter Munch.
 Many ideas presented here are the result of common code development with
 Maximilian Bergbauer, Niklas Fehn, Luca Heltai, Martin Kronbichler,
 Nils Much, Judith Pauen and Magdalena Schreter-Fleischhacker.
-<b> //TODO: @Peter correct people mentioned? </b>
 
 This tutorial is loosely based on the puplication
 "High-order non-conforming discontinuous Galerkin methods for the acoustic conservation equations"
@@ -14,7 +13,6 @@ by Johannes Heinz, Peter Munch and Manfred Kaltenbacher @cite heinz2023high.
 Johannes Heinz was supported by the European Union’s Framework Programme for Research
 and Innovation Horizon 2020 (2014-2020) under the Marie Skłodowská--Curie Grant
 Agreement No. [812719].
-<b> //TODO: @Peter Add fundings</b>
 </i>
 
 @dealiiTutorialDOI{10.5281/zenodo.10033975,https://zenodo.org/badge/DOI/10.5281/zenodo.10033975.svg}
@@ -24,7 +22,7 @@ Agreement No. [812719].
 This tutorial presents one way how to apply non-matching and/or Chimera methods
 within matirx-free loops in deal.II.
 We are following @cite heinz2023high to show that in some cases a simple point-to-point
-interpolation is not sufficient. Therefore, Nitsche-type mortaring is used to suppress
+interpolation is not sufficient. As a remedy, Nitsche-type mortaring is used to suppress
 artificial modes observed for the acoustic conservation equations @cite heinz2023high.
 
 <h3>%Acoustic conservation equations</h3>
@@ -95,7 +93,7 @@ Note however, that FERemoteEvaluation can also be used in other settings such as
 Under the hood, Utilities::MPI::RemotePointEvaluation is used to query the solution or gradients in quadrature points.
 A detailled description how this is done can be found in step-87.
 The main difference in the usage of FERemoteEvaluation compared to FEEvaluation is that values/gradients are cached <i>before</i> each loop and only accessed inside the loop.
-I.e., the code differs as follows: First the standard code to evaluate fluxes via FEEvaluation
+I.e., the code differs as follows: On the one hand, the standard code to evaluate fluxes via FEEvaluation
 @code
 const auto face_function =
   [&](const auto &data, auto &dst, const auto &src, const auto face_range) {
@@ -119,7 +117,7 @@ const auto face_function =
 
 matrix_free.template loop<VectorType, VectorType>({}, face_function, {}, dst, src);
 @endcode
-Second the code to evaluate fluxes over non-matching faces. Lets assume all boundary faces are somehow connected non-conformingly to be able to focus
+On the other hand, the code to evaluate fluxes over non-matching faces. Lets assume all boundary faces are somehow connected non-conformingly to be able to focus
 on the relevant differences.
 
 @code
@@ -151,16 +149,16 @@ const auto boundary_function =
 
 matrix_free.template loop<VectorType, VectorType>({}, {}, boundary_function, dst, src);
 @endcode
-@c remote_communicator is of type FERemoteCommunicator and assumed to be correctly initialized in above code snippet.
-FERemoteCommunicator internally manages the update of ghost values over non-matching interfaces and keeps track of the mapping between quadrature point index and correspoding values/gradients. The update of the values/gradients happens <i>before</i> the actual matrix-free loop. FERemoteCommunicator, as well as FERemoteEvaluation behaves differently for different template parameters. Most of the template parameters are standard and do not have to be explained. @c is_face is used to determine if FERemoteEvaluation works on faces or cells. Within this tutorial we are only considering surface coupling and thus @is_face=true. @c use_matrix_free_batches is used to ensure, the class can be used in combination with FEPointEvaluation, where @c use_matrix_free_batches=false, as well as FEEvaluation and FEFaceEvaluation, where @c use_matrix_free_batches=true.
+PM: wrap line! @c remote_communicator is of type FERemoteCommunicator and assumed to be correctly initialized in above code snippet.
+FERemoteCommunicator internally manages the update of ghost values over non-matching interfaces and keeps track of the mapping between quadrature point index and correspoding values/gradients. The update of the values/gradients happens <i>before</i> the actual matrix-free loop. FERemoteCommunicator, as well as FERemoteEvaluation behaves differently for different template parameters. Most of the template parameters are standard and do not have to be explained. @c is_face is used to determine if FERemoteEvaluation works on faces or cells. Within this tutorial we are only considering surface coupling and thus @c is_face=true. @c use_matrix_free_batches is used to ensure, the class can be used in combination with FEPointEvaluation, where @c use_matrix_free_batches=false, as well as FEEvaluation and FEFaceEvaluation, where @c use_matrix_free_batches=true.
 
 <h3>Overview</h3>
 
 In the following, point-to-point interpolation and Nitsche-type mortaring is implemented.
-At first we are considering the test case of a vibrating membrane, for which the analytical
+At first we are considering the test case of a vibrating membrane (PM: add some description/equations?), for which the analytical
 solution is known. For the point-to-point interpolation we observe instabilities which can
 be resolved using Nitsche-type mortaring.
-In a more realistic example we effectvely apply the implementations to a test case in which a wave
+In a more realistic example, we effectvely apply the implementations to a test case in which a wave
 is propagating from one fluid into another fluid. I.e., the wave length is directly proportional to the
 speed of sound and therefore, different element sizes are required to resolve waves up to the same
 frequency in both fluids.
