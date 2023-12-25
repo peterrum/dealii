@@ -13,7 +13,7 @@
  *
  * ---------------------------------------------------------------------
  *
- * Author: Marco Feder, ..., 2023
+ * Author: Marco Feder, SISSA, 2023
  *         Peter Munch, University of Augsburg, 2023
  */
 
@@ -51,13 +51,16 @@
 #include <deal.II/multigrid/mg_matrix.h>
 #include <deal.II/multigrid/mg_smoother.h>
 #include <deal.II/multigrid/mg_tools.h>
-#include <deal.II/multigrid/mg_transfer_global_coarsening.h>
 #include <deal.II/multigrid/multigrid.h>
 
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 
 #include <fstream>
+
+// The file most relevant for this tutorial is the one that
+// contain the class MGTwoLevelTransferNonNested.
+#include <deal.II/multigrid/mg_transfer_global_coarsening.h>
 
 namespace Step88
 {
