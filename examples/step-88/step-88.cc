@@ -13,8 +13,8 @@
  *
  * ---------------------------------------------------------------------
  *
- * Author: Marco Feder, SISSA, 2023
- *         Peter Munch, University of Augsburg, 2023
+ * Authors: Marco Feder, SISSA, 2023
+ *          Peter Munch, University of Augsburg/Uppsala University, 2023
  */
 
 // @sect3{Include files}
@@ -127,6 +127,9 @@ namespace Step88
     // Parse a file.
     void parse(const std::string file_name);
 
+    // Print parameters to the screen.
+    void print();
+
     // Get name of the mesh on the given level.
     std::string get_mesh_file_name(const unsigned int level) const;
 
@@ -162,6 +165,15 @@ namespace Step88
     std::ifstream file;
     file.open(file_name);
     prm.parse_input_from_json(file, true);
+  }
+
+
+  void Parameters::print()
+  {
+    dealii::ParameterHandler prm;
+    add_parameters(prm);
+    prm.print_parameters(std::cout,
+                         dealii::ParameterHandler::OutputStyle::ShortJSON);
   }
 
 
@@ -763,6 +775,11 @@ int main(int argc, char *argv[])
       Parameters prm;
       if (argc > 1)
         prm.parse(std::string(argv[1]));
+      else
+        {
+          prm.print();
+          return 0;
+        }
 
       if (prm.dim == 2)
         {
