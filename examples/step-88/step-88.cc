@@ -70,32 +70,68 @@ namespace Step88
   using namespace dealii;
 
   // @sect3{Parameters}
-
+  // This class contains relevant parameters.
   struct Parameters
   {
-    std::string  mesh_type;
+    // This parameter specifies the mesh type. Options are:
+    // "hyper_cube" for creating a mesh with
+    // GridGenerator::hyper_cube(), "hyper_cube_with_simplices",
+    // for creating a mesh with
+    // GridGenerator::subdivided_hyper_cube_with_simplices() with a single
+    // subdivision, "mesh_file" for reading a sequence of external meshes.
+    std::string mesh_type;
+
+    // In the case of "mesh_file", this parameter specifies
+    // the name of the mesh file on each level.
+    std::string mesh_file_format;
+
+    // Number of dimensions.
     unsigned int dim;
+
+    // Number of global refinements. In the case of
+    // "hyper_cube" and "hyper_cube_with_simplices", the mesh
+    // is refined the specified amount. In the case of "mesh_file",
+    // only the first external files are read.
     unsigned int n_global_refinements;
+
+    // Polynomial degree.
     unsigned int fe_degree;
 
+    // Maximal number of iterations of the solver.
     unsigned int solver_max_iterations;
-    double       solver_abs_tolerance;
-    double       solver_rel_tolerance;
 
+    // Absolute tolerance of the solver.
+    double solver_abs_tolerance;
+
+    // Relative tolerance of the solver.
+    double solver_rel_tolerance;
+
+    // Smoothing gange of the smoothers of the multigrid algorithm.
     unsigned int mg_smoothing_range;
-    unsigned int mg_smoother_degree;
-    unsigned int mg_smoother_eig_cg_n_iterations;
-    bool         mg_non_nested;
 
+    // Smoothing degree of the smoothers of the multigrid algorithm.
+    unsigned int mg_smoother_degree;
+
+    // Number of iterations to determine the eigenvalues on the levels,
+    // needed for setting up the smoothers of the multigrid algorithm.
+    unsigned int mg_smoother_eig_cg_n_iterations;
+
+    // Specify whether the nested or non-nested global-coarsening algorithm
+    // should be used. Note: in the case of "mesh_file", only
+    // a non-nested algorithm can be selected.
+    bool mg_non_nested;
+
+    // Constructor, which sets the default values of the parameters.
     Parameters();
 
+    // Parse a file.
     void parse(const std::string file_name);
 
+    // Get name of the mesh on the given level.
     std::string get_mesh_file_name(const unsigned int level) const;
 
   private:
-    std::string mesh_file_format;
-
+    // Add parameters used for parse() and print().
     void add_parameters(ParameterHandler &prm);
   };
 
@@ -103,6 +139,7 @@ namespace Step88
 
   Parameters::Parameters()
     : mesh_type("hyper_cube")
+    , mesh_file_format("")
     , dim(2)
     , n_global_refinements(3)
     , fe_degree(2)
@@ -113,7 +150,6 @@ namespace Step88
     , mg_smoother_degree(5)
     , mg_smoother_eig_cg_n_iterations(20)
     , mg_non_nested(true)
-    , mesh_file_format("")
   {}
 
 
@@ -168,7 +204,8 @@ namespace Step88
 
 
   // @sect3{Laplace operator}
-
+  // A basic matrix-free implementation of the Laplace operator. For
+  // more details, see step-75.
   template <int dim, typename number>
   class LaplaceOperator : public Subscriptor
   {
