@@ -62,9 +62,14 @@
 // contain the class MGTwoLevelTransferNonNested.
 #include <deal.II/multigrid/mg_transfer_global_coarsening.h>
 
+// We pack everything that is specific for this program into a namespace
+// of its own.
+
 namespace Step88
 {
   using namespace dealii;
+
+  // @sect3{Parameters}
 
   struct Parameters
   {
@@ -129,7 +134,7 @@ namespace Step88
     }
   };
 
-
+  // @sect3{Laplace operator}
 
   template <int dim, typename number>
   class LaplaceOperator : public Subscriptor
@@ -344,7 +349,7 @@ namespace Step88
     integrator.integrate_scatter(EvaluationFlags::gradients, dst);
   }
 
-
+  // @sect3{Laplace problem}
 
   template <int dim>
   class LaplaceProblem
@@ -672,8 +677,10 @@ namespace Step88
 
 } // namespace Step88
 
-
-
+// @sect3{Driver}
+//
+// Finally, the driver of the program reads the parameters
+// and solves the Laplace problem.
 int main(int argc, char *argv[])
 {
   try
