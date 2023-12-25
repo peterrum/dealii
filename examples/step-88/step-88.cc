@@ -73,66 +73,99 @@ namespace Step88
 
   struct Parameters
   {
-    std::string  mesh_type            = "hyper_cube_with_simplices";
-    unsigned int dim                  = 2;
-    unsigned int n_global_refinements = 3;
-    unsigned int fe_degree            = 2;
+    std::string  mesh_type;
+    unsigned int dim;
+    unsigned int n_global_refinements;
+    unsigned int fe_degree;
 
-    unsigned int solver_max_iterations = 100;
-    double       solver_abs_tolerance  = 1e-20;
-    double       solver_rel_tolerance  = 1e-4;
+    unsigned int solver_max_iterations;
+    double       solver_abs_tolerance;
+    double       solver_rel_tolerance;
 
-    unsigned int mg_smoothing_range              = 20;
-    unsigned int mg_smoother_degree              = 5;
-    unsigned int mg_smoother_eig_cg_n_iterations = 20;
-    bool         mg_non_nested                   = true;
+    unsigned int mg_smoothing_range;
+    unsigned int mg_smoother_degree;
+    unsigned int mg_smoother_eig_cg_n_iterations;
+    bool         mg_non_nested;
 
-    void parse(const std::string file_name)
-    {
-      dealii::ParameterHandler prm;
-      add_parameters(prm);
+    Parameters();
 
-      std::ifstream file;
-      file.open(file_name);
-      prm.parse_input_from_json(file, true);
-    }
+    void parse(const std::string file_name);
 
-    std::string get_mesh_file_name(const unsigned int level) const
-    {
-      char buffer[100];
-
-      std::snprintf(buffer, 100, (mesh_file_format + "%d").c_str(), level);
-
-      return {buffer};
-    }
+    std::string get_mesh_file_name(const unsigned int level) const;
 
   private:
-    std::string mesh_file_format = "";
+    std::string mesh_file_format;
 
-    void add_parameters(ParameterHandler &prm)
-    {
-      prm.add_parameter(
-        "MeshType",
-        mesh_type,
-        "",
-        Patterns::Selection(
-          "hyper_cube|hyper_cube_with_simplices|mesh_file|gmesh_journal"));
-      prm.add_parameter("MeshFileFormat", mesh_file_format);
-      prm.add_parameter("Dimension", dim);
-      prm.add_parameter("NGlobalRefinements", n_global_refinements);
-      prm.add_parameter("Degree", fe_degree);
-
-      prm.add_parameter("SolverMaxIterations", solver_max_iterations);
-      prm.add_parameter("SolverAbsTolerance", solver_abs_tolerance);
-      prm.add_parameter("SolverRelTolerance", solver_rel_tolerance);
-
-      prm.add_parameter("MGSmoothingScheme", mg_smoothing_range);
-      prm.add_parameter("MGSmootherDegree", mg_smoother_degree);
-      prm.add_parameter("MGSmootherEigNIterations",
-                        mg_smoother_eig_cg_n_iterations);
-      prm.add_parameter("MGNonNested", mg_non_nested);
-    }
+    void add_parameters(ParameterHandler &prm);
   };
+
+
+
+  Parameters::Parameters()
+    : mesh_type("hyper_cube")
+    , dim(2)
+    , n_global_refinements(3)
+    , fe_degree(2)
+    , solver_max_iterations(100)
+    , solver_abs_tolerance(1e-20)
+    , solver_rel_tolerance(1e-4)
+    , mg_smoothing_range(20)
+    , mg_smoother_degree(5)
+    , mg_smoother_eig_cg_n_iterations(20)
+    , mg_non_nested(true)
+    , mesh_file_format("")
+  {}
+
+
+
+  void Parameters::parse(const std::string file_name)
+  {
+    dealii::ParameterHandler prm;
+    add_parameters(prm);
+
+    std::ifstream file;
+    file.open(file_name);
+    prm.parse_input_from_json(file, true);
+  }
+
+
+
+  std::string Parameters::get_mesh_file_name(const unsigned int level) const
+  {
+    char buffer[100];
+
+    std::snprintf(buffer, 100, (mesh_file_format + "%d").c_str(), level);
+
+    return {buffer};
+  }
+
+
+
+  void Parameters::add_parameters(ParameterHandler &prm)
+  {
+    prm.add_parameter(
+      "MeshType",
+      mesh_type,
+      "",
+      Patterns::Selection(
+        "hyper_cube|hyper_cube_with_simplices|mesh_file|gmesh_journal"));
+    prm.add_parameter("MeshFileFormat", mesh_file_format);
+    prm.add_parameter("Dimension", dim);
+    prm.add_parameter("NGlobalRefinements", n_global_refinements);
+    prm.add_parameter("Degree", fe_degree);
+
+    prm.add_parameter("SolverMaxIterations", solver_max_iterations);
+    prm.add_parameter("SolverAbsTolerance", solver_abs_tolerance);
+    prm.add_parameter("SolverRelTolerance", solver_rel_tolerance);
+
+    prm.add_parameter("MGSmoothingScheme", mg_smoothing_range);
+    prm.add_parameter("MGSmootherDegree", mg_smoother_degree);
+    prm.add_parameter("MGSmootherEigNIterations",
+                      mg_smoother_eig_cg_n_iterations);
+    prm.add_parameter("MGNonNested", mg_non_nested);
+  }
+
+
 
   // @sect3{Laplace operator}
 
