@@ -1,6 +1,40 @@
 <h1>Results</h1>
 
+We first generate an input file:
+@code
+./step-88 | input.json
+@endcode
+
+and run the program with
+@code
+./step-88 input.json
+@endcode
+
+The output to ther terminal is as follows:
+@code
+TODO
+@endcode
+
+
+The output to Paraview is as follows:
 
 
 
 <h3>Possibilities for extensions</h3>
+
+This program highlights some of the main capabilities
+of the non-nested-multigrid routines in deal.II. However, there are many
+related topics worth mentioning:
+- Compare the results with MGTwoLevelTransferNonNested with the ones
+  of MGTwoLevelTransfer. For this purpose, set `mg_non_nested = false` and
+  `mesh_type = "hyper_cube"` or `mesh_type = "hyper_cube_with_simplices"`.
+- It is possible to run the program with other, user-generated meshes by
+  adjusting the parameter "mesh_file_format". Feel free to experiments with
+  meshes with curvature. Here, it is critical that all points of the fine
+  mesh are found on the coarse meshe. For this purpose, one might need
+  to adjust the parameters in MGTwoLevelTransferNonNested::AdditionalData.
+- The tutorial could be extend so that it works for mixed meshes.
+- In this tutorial, we read external meshes to create a sequence of
+  meshes. However, there are other means to create such a mesh sequence.
+  For instance, one could use the GMESH API (see GridIn::read_msh())
+  to generate meshes with different mesh sizes.

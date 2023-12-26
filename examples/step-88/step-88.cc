@@ -192,12 +192,11 @@ namespace Step88
   // Add parameters used for parse() and print().
   void Parameters::add_parameters(ParameterHandler &prm)
   {
-    prm.add_parameter(
-      "MeshType",
-      mesh_type,
-      "",
-      Patterns::Selection(
-        "hyper_cube|hyper_cube_with_simplices|mesh_file|gmesh_journal"));
+    prm.add_parameter("MeshType",
+                      mesh_type,
+                      "",
+                      Patterns::Selection(
+                        "hyper_cube|hyper_cube_with_simplices|mesh_file"));
     prm.add_parameter("MeshFileFormat", mesh_file_format);
     prm.add_parameter("Dimension", dim);
     prm.add_parameter("NGlobalRefinements", n_global_refinements);

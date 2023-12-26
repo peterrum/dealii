@@ -45,3 +45,19 @@ The class MGTwoLevelTransferNonNested.
 
 
 <h3>%Simplex meshes</h3>
+
+This tutorial works for hyper-cube and simplex meshes. In the case
+of simplex meshes, different mapping, fe, and quadrature classes
+need to be selected:
+
+@code
+#include <deal.II/fe/fe_simplex_p.h>
+#include <deal.II/fe/mapping_fe.h>
+
+const MappingFE<2>     mapping(FE_SimplexP<2>(mapping_degree));
+const FE_SimplexP<2>   fe(fe_degree);
+const QGaussSimplex<2> quadrature_formula(fe_degree + 1);
+@endcode
+
+For more details on working on simplex and mixed meshes, see
+@ref simplex "simplex documentation module".
