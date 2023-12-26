@@ -182,7 +182,7 @@ namespace Step88
   {
     char buffer[100];
 
-    std::snprintf(buffer, 100, (mesh_file_format + "%d").c_str(), level);
+    std::snprintf(buffer, 100, mesh_file_format.c_str(), level);
 
     return {buffer};
   }
@@ -508,9 +508,13 @@ namespace Step88
   template <int dim>
   bool LaplaceProblem<dim>::create_grids()
   {
+    pcout << "Create mesh: " << std::endl;
+
     // create hyper-cube mesh sequence
     if (params.mesh_type == "hyper_cube")
       {
+        pcout << " - hyper_cube" << std::endl;
+
         for (unsigned int l = min_level; l <= max_level; ++l)
           {
             auto triangulation =
@@ -526,6 +530,8 @@ namespace Step88
       // create hyper-cube mesh sequence with simplices
       if (params.mesh_type == "hyper_cube_with_simplices")
         {
+          pcout << " - hyper_cube_with_simplices" << std::endl;
+
           Triangulation<dim> dummy;
           GridGenerator::hyper_cube(dummy);
 
@@ -552,10 +558,15 @@ namespace Step88
                     comm);
 
                 GridIn<dim> grid_in(*triangulation);
-                grid_in.read(params.get_mesh_file_name(l), GridIn<dim>::abaqus);
+
+                const auto mesh_file_name = params.get_mesh_file_name(l);
+                pcout << " - read " << mesh_file_name << std::endl;
+                grid_in.read(mesh_file_name, GridIn<dim>::abaqus);
 
                 triangulations.push_back(triangulation);
               }
+
+            pcout << std::endl;
 
             return false; // non-nested mesh
           }
