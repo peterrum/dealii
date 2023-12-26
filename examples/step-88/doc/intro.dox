@@ -2,8 +2,46 @@
 
 <i>
 This program was contributed by
-Marco Feder (...)
-and Peter Munch (University of Augsburg).
+Marco Feder (SISSA)
+and Peter Munch (University of Augsburg/Uppsala University).
+
+This tutorial is loosely based on the publication
+"A matrix-free implementation of the non-nested multigrid method"
+by Marco Feder, Luca Heltai, Martin Kronbichler, and Peter Munch @cite feder2024high.
 </i>
 
+@dealiiTutorialDOI{10.5281/zenodo.8411345,https://zenodo.org/badge/DOI/10.5281/zenodo.8411345.svg}
+
 <h1>Introduction</h1>
+
+This tutorial presents the non-nested multigrid capabilities of
+deal.II. In previous tutorials, we presented its geometric-multigrid (),
+polynomial-multigrid (step-75), and algebraic-multigrid capabilities (short AMG; ).
+The motivation for non-nested multigrid is similar to that of AMG:
+given a very fine unstructured mesh and low-order FE, it is
+difficult to construct multigrid levels explicitly by using refinement
+levels or by reducing the polynomial degree. While AMG generally creates
+levels algebraicly via (smoothed) aggregation, non-nested multigrid uses
+explicitly coarser mesh instances on the coarser levels, which might be
+non-nested. Such a mesh sequence can be created, e.g., by an external
+mesh-generation tool.
+
+<h3>%Non-nested multigrid</h3>
+
+Let's assume that we have nodal continuous finite elements and
+the following mesh sequence:
+
+The prolongation operation (for interpolation from coarse grid to fine
+grid) is given by the evaluation of finite element solutions at support points
+of the fine mesh within a coarse mesh. How this can be accomplished with
+Utilities::MPI::RemotePointEvaluation and VectorTools::point_values() is
+shown in step-87. The restriction operation is naturually given by the
+transposed of the prolongation operation.
+
+The class MGTwoLevelTransferNonNested.
+
+
+<h3>%Mesh sequence</h3>
+
+
+<h3>%Simplex meshes</h3>
