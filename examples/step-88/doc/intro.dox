@@ -31,6 +31,37 @@ mesh-generation tool.
 Let's assume that we have nodal continuous finite elements and
 the following mesh sequence:
 
+<table align="center" class="doxtable">
+  <tr>
+    <td>
+        @image html piston_0.png
+    </td>
+    <td>
+        @image html piston_1.png
+    </td>
+    <td>
+        @image html piston_2.png
+    </td>
+    <td>
+        @image html piston_3.png
+    </td>
+  </tr>
+  <tr>
+    <td>
+        @image html piston_4.png
+    </td>
+    <td>
+        @image html piston_5.png
+    </td>
+    <td>
+        @image html piston_6.png
+    </td>
+    <td>
+        @image html piston_7.png
+    </td>
+  </tr>
+</table>
+
 The prolongation operation (for interpolation from coarse grid to fine
 grid) is given by the evaluation of finite element solutions at support points
 of the fine mesh within a coarse mesh. How this can be accomplished with

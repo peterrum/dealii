@@ -2,7 +2,7 @@
 
 We first generate an input file:
 @code
-./step-88 | input.json
+./step-88 > input.json
 @endcode
 
 and run the program with
@@ -12,13 +12,31 @@ and run the program with
 
 The output to ther terminal is as follows:
 @code
-TODO
+Create mesh:
+ - read piston_0.inp
+ - read piston_1.inp
+ - read piston_2.inp
+ - read piston_3.inp
+
+10257
+26611
+62635
+237389
+Solved in 3 steps.
 @endcode
 
 
 The output to Paraview is as follows:
 
 
+
+<table align="center" class="doxtable">
+  <tr>
+    <td>
+        @image html piston_contour.png
+    </td>
+  </tr>
+</table>
 
 <h3>Possibilities for extensions</h3>
 
