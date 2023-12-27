@@ -22,7 +22,8 @@ The motivation for non-nested multigrid is similar to that of AMG:
 given a very fine unstructured mesh and low-order FE, it is
 difficult to construct multigrid levels explicitly by using the refinement
 levels or by reducing the polynomial degree. While AMG generally creates
-levels algebraicly via (smoothed) aggregation, non-nested multigrid uses
+levels algebraicly via (smoothed) aggregation, non-nested multigrid
+@cite bramble1990parallel @cite bittencourt2001nonnested uses
 explicitly coarser mesh instances on the coarser levels, which might be
 non-nested. Such a mesh sequence can be created, e.g., by an external
 mesh-generation tool.
