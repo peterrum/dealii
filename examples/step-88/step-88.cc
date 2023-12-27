@@ -583,6 +583,8 @@ namespace Step88
   template <int dim>
   void LaplaceProblem<dim>::setup_system()
   {
+    pcout << "Set up system:" << std::endl;
+
     // Create finite element, mapping, and quadrature depending on
     // the mesh type. In the case of hyper-cube meshes, FE_Q,
     // MappingQ, and QGauss are used; in the case of simplex meshes,
@@ -613,7 +615,7 @@ namespace Step88
         dof_handlers[l].reinit(*triangulations[l]);
         dof_handlers[l].distribute_dofs(*fe);
 
-        pcout << dof_handlers[l].n_dofs() << std::endl;
+        pcout << " - number of DoFs: " << dof_handlers[l].n_dofs() << std::endl;
 
         constraints[l].reinit(
           DoFTools::extract_locally_relevant_dofs(dof_handlers[l]));
@@ -637,6 +639,8 @@ namespace Step88
                                         Functions::ConstantFunction<dim>(1.0),
                                         rhs,
                                         constraints.back());
+
+    pcout << std::endl;
   }
 
 
