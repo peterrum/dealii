@@ -18,10 +18,12 @@ Create mesh:
  - read piston_2.inp
  - read piston_3.inp
 
-10257
-26611
-62635
-237389
+Set up system:
+ - number of DoFs: 10257
+ - number of DoFs: 26611
+ - number of DoFs: 62635
+ - number of DoFs: 237389
+
 Solved in 3 steps.
 @endcode
 

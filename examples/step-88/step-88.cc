@@ -82,7 +82,8 @@ namespace Step88
     std::string mesh_type;
 
     // In the case of "mesh_file", this parameter specifies
-    // the name of the mesh file on each level.
+    // the name of the mesh file on each level. The format needs to be
+    // "file_name_%d.inp". Note: currently only Abaqus files are supported.
     std::string mesh_file_format;
 
     // Number of dimensions.
@@ -137,9 +138,9 @@ namespace Step88
 
 
   Parameters::Parameters()
-    : mesh_type("hyper_cube")
-    , mesh_file_format("")
-    , dim(2)
+    : mesh_type("mesh_file")
+    , mesh_file_format("piston_%d.inp")
+    , dim(3)
     , n_global_refinements(3)
     , fe_degree(2)
     , solver_max_iterations(100)
@@ -153,7 +154,7 @@ namespace Step88
 
 
 
-  // Parse a file.
+  // Parse a json file with the name @p file_name.
   void Parameters::parse(const std::string file_name)
   {
     dealii::ParameterHandler prm;
@@ -177,7 +178,8 @@ namespace Step88
 
 
 
-  // Get name of the mesh on the given level.
+  // Get name of the mesh on the given level. The function replaces "%d"
+  // in the mesh-name format.
   std::string Parameters::get_mesh_file_name(const unsigned int level) const
   {
     char buffer[100];
@@ -189,7 +191,7 @@ namespace Step88
 
 
 
-  // Add parameters used for parse() and print().
+  // Add parameters used in parse() and print().
   void Parameters::add_parameters(ParameterHandler &prm)
   {
     prm.add_parameter("MeshType",
@@ -475,6 +477,7 @@ namespace Step88
 
 
 
+  // Constructor.
   template <int dim>
   LaplaceProblem<dim>::LaplaceProblem(const Parameters &params)
     : comm(MPI_COMM_WORLD)
@@ -486,7 +489,7 @@ namespace Step88
 
 
 
-  // This function that creates the grid on each level, sets up
+  // This function creates the grid on each level, sets up
   // the system, solves the resulting problem, and finally outputs
   // the result.
   template <int dim>
