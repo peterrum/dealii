@@ -1717,6 +1717,8 @@ namespace parallel
       , parallel_forest(nullptr)
     {
       parallel_ghost = nullptr;
+
+      this->data_serializer.invalid_cell_has_data = true;
     }
 
 

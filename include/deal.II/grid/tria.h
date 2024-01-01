@@ -497,6 +497,11 @@ namespace internal
     clear();
 
     /**
+     * TODO
+     */
+    bool invalid_cell_has_data = false;
+
+    /**
      * Flag that denotes if variable size data has been packed.
      */
     bool variable_size_data_stored;

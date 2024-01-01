@@ -659,8 +659,6 @@ namespace internal
               break;
           }
 
-        const bool invalid_cell_has_data = false; // TODO
-
         if (cell_rel_it != cell_relations.end() - 1)
           if (invalid_cell_has_data || cell_status != CellStatus::cell_invalid)
             dest_data_it += data_increment;
