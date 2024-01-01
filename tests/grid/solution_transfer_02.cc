@@ -51,10 +51,14 @@ public:
   }
 };
 
-template <int dim, typename TriangulationType>
+template <int dim>
 void
-test(TriangulationType &triangulation)
+test(const unsigned int type)
 {
+  Triangulation<dim> triangulation;
+  GridGenerator::hyper_cube(triangulation);
+  triangulation.refine_global(3);
+
   const FE_Q<dim> fe(2);
 
   DoFHandler<dim> dof_handler(triangulation);
@@ -72,7 +76,25 @@ test(TriangulationType &triangulation)
   triangulation.prepare_coarsening_and_refinement();
   solution_transfer.prepare_for_coarsening_and_refinement(vector);
 
-  triangulation.refine_global(1);
+  if (type == 0)
+    {
+      triangulation.refine_global(1);
+    }
+  else if (type == 1)
+    {
+      for (const auto &cell : triangulation.active_cell_iterators())
+        if (cell->center()[0] < 0.5)
+          cell->set_refine_flag();
+      triangulation.execute_coarsening_and_refinement();
+    }
+  else if (type == 2)
+    {
+      for (const auto &cell : triangulation.active_cell_iterators())
+        if (cell->center()[0] < 0.5)
+          cell->set_coarsen_flag();
+      triangulation.execute_coarsening_and_refinement();
+    }
+
   dof_handler.distribute_dofs(fe);
 
   vector.reinit(dof_handler.n_dofs());
@@ -98,11 +120,9 @@ main(int argc, char **argv)
   {
     constexpr int dim = 2;
 
-    Triangulation<dim> triangulation;
-    GridGenerator::hyper_cube(triangulation);
-    triangulation.refine_global(3);
-
-    test<dim>(triangulation);
+    test<dim>(0);
+    test<dim>(1);
+    // test<dim>(2);
   }
   deallog.pop();
 
@@ -110,11 +130,9 @@ main(int argc, char **argv)
   {
     constexpr int dim = 3;
 
-    Triangulation<dim> triangulation;
-    GridGenerator::hyper_cube(triangulation);
-    triangulation.refine_global(3);
-
-    test<dim>(triangulation);
+    test<dim>(0);
+    test<dim>(1);
+    // test<dim>(2);
   }
   deallog.pop();
 }
