@@ -15706,24 +15706,8 @@ const typename std::map<
 
 template <int dim, int spacedim>
 DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
-void Triangulation<dim, spacedim>::execute_coarsening_and_refinement()
+void Triangulation<dim, spacedim>::pack_data_serial_pre()
 {
-  // Call our version of prepare_coarsening_and_refinement() even if a derived
-  // class like parallel::distributed::Triangulation overrides it. Their
-  // function will be called in their execute_coarsening_and_refinement()
-  // function. Even in a distributed computation our job here is to reconstruct
-  // the local part of the mesh and as such checking our flags is enough.
-  Triangulation<dim, spacedim>::prepare_coarsening_and_refinement();
-
-  // verify a case with which we have had
-  // some difficulty in the past (see the
-  // deal.II/coarsening_* tests)
-  if (smooth_grid & limit_level_difference_at_vertices)
-    Assert(satisfies_level1_at_vertex_rule(*this) == true, ExcInternalError());
-
-  // Inform all listeners about beginning of refinement.
-  signals.pre_refinement();
-
   // pack data before triangulation gets updated
   if (this->cell_attached_data.n_attached_data_sets > 0)
     {
@@ -15745,17 +15729,51 @@ void Triangulation<dim, spacedim>::execute_coarsening_and_refinement()
       this->data_serializer.dest_data_fixed =
         this->data_serializer.src_data_fixed;
     }
+}
 
-  execute_coarsening();
 
-  const DistortedCellList cells_with_distorted_children = execute_refinement();
 
+template <int dim, int spacedim>
+DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
+void Triangulation<dim, spacedim>::pack_data_serial_post()
+{
   // transfer data after triangulation got updated
   if (this->cell_attached_data.n_attached_data_sets > 0)
     {
       // cell status has been set during update_cell_relations_serial()
       active_cell_old.clear();
     }
+}
+
+
+
+template <int dim, int spacedim>
+DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
+void Triangulation<dim, spacedim>::execute_coarsening_and_refinement()
+{
+  // Call our version of prepare_coarsening_and_refinement() even if a derived
+  // class like parallel::distributed::Triangulation overrides it. Their
+  // function will be called in their execute_coarsening_and_refinement()
+  // function. Even in a distributed computation our job here is to reconstruct
+  // the local part of the mesh and as such checking our flags is enough.
+  Triangulation<dim, spacedim>::prepare_coarsening_and_refinement();
+
+  // verify a case with which we have had
+  // some difficulty in the past (see the
+  // deal.II/coarsening_* tests)
+  if (smooth_grid & limit_level_difference_at_vertices)
+    Assert(satisfies_level1_at_vertex_rule(*this) == true, ExcInternalError());
+
+  // Inform all listeners about beginning of refinement.
+  signals.pre_refinement();
+
+  pack_data_serial_pre();
+
+  execute_coarsening();
+
+  const DistortedCellList cells_with_distorted_children = execute_refinement();
+
+  pack_data_serial_post();
 
   reset_cell_vertex_indices_cache();
 

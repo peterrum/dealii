@@ -3916,6 +3916,12 @@ protected:
   virtual void
   update_cell_relations_serial();
 
+  virtual void
+  pack_data_serial_pre();
+
+  virtual void
+  pack_data_serial_post();
+
   /**
    * Vector of pairs, each containing a deal.II cell iterator and its
    * respective CellStatus. To update its contents, use the

@@ -391,6 +391,12 @@ namespace parallel
     virtual void
     update_cell_relations_serial() override;
 
+    virtual void
+    pack_data_serial_pre() override;
+
+    virtual void
+    pack_data_serial_post() override;
+
     void
     update_reference_cells() override;
 
