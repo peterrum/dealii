@@ -388,6 +388,9 @@ namespace parallel
     virtual void
     update_number_cache();
 
+    virtual void
+    update_cell_relations_serial() override;
+
     void
     update_reference_cells() override;
 

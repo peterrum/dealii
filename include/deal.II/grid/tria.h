@@ -3914,12 +3914,12 @@ protected:
    * member function register_data_attach().
    */
   virtual void
-  update_cell_relations();
+  update_cell_relations_serial();
 
   /**
    * Vector of pairs, each containing a deal.II cell iterator and its
    * respective CellStatus. To update its contents, use the
-   * update_cell_relations() member function.
+   * update_cell_relations_serial() member function.
    */
   std::vector<typename internal::CellAttachedDataSerializer<dim, spacedim>::
                 cell_relation_t>

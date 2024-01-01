@@ -12792,7 +12792,7 @@ void Triangulation<dim, spacedim>::create_triangulation(
       clear_user_flags();
     }
 
-  this->update_cell_relations();
+  this->update_cell_relations_serial();
 
   // inform all listeners that the triangulation has been created
   signals.create();
@@ -13844,7 +13844,7 @@ void Triangulation<dim, spacedim>::load(const std::string &filename)
                            attached_count_fixed,
                            attached_count_variable);
 
-  this->update_cell_relations();
+  this->update_cell_relations_serial();
 }
 
 #endif
@@ -15753,7 +15753,7 @@ void Triangulation<dim, spacedim>::execute_coarsening_and_refinement()
   // transfer data after triangulation got updated
   if (this->cell_attached_data.n_attached_data_sets > 0)
     {
-      // cell status has been set during update_cell_relations()
+      // cell status has been set during update_cell_relations_serial()
       active_cell_old.clear();
     }
 
@@ -16233,7 +16233,7 @@ void Triangulation<dim, spacedim>::load_attached_data(
 
 template <int dim, int spacedim>
 DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
-void Triangulation<dim, spacedim>::update_cell_relations()
+void Triangulation<dim, spacedim>::update_cell_relations_serial()
 {
   // Reorganize memory for local_cell_relations.
   this->local_cell_relations.clear();
@@ -16359,7 +16359,7 @@ typename Triangulation<dim, spacedim>::DistortedCellList
   internal::TriangulationImplementation::Implementation::compute_number_cache(
     *this, levels.size(), number_cache);
 
-  this->update_cell_relations();
+  this->update_cell_relations_serial();
 
 #  ifdef DEBUG
   for (const auto &level : levels)
@@ -16459,7 +16459,7 @@ void Triangulation<dim, spacedim>::execute_coarsening()
   internal::TriangulationImplementation::Implementation::compute_number_cache(
     *this, levels.size(), number_cache);
 
-  this->update_cell_relations();
+  this->update_cell_relations_serial();
 }
 
 

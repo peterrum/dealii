@@ -312,6 +312,13 @@ namespace parallel
 
   template <int dim, int spacedim>
   DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
+  void TriangulationBase<dim, spacedim>::update_cell_relations_serial()
+  {
+    // nothing to do, since parallel mesh
+  }
+
+  template <int dim, int spacedim>
+  DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
   void TriangulationBase<dim, spacedim>::update_reference_cells()
   {
     // run algorithm for locally-owned cells
