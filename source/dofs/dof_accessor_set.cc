@@ -146,6 +146,14 @@ namespace internal
 
         for (unsigned int i = 0; i < cell.get_fe().n_dofs_per_cell(); ++i)
           {
+            std::cout << local_values[i] << " " << local_values_old[i]
+                      << std::endl;
+          }
+
+        std::cout << std::endl;
+
+        for (unsigned int i = 0; i < cell.get_fe().n_dofs_per_cell(); ++i)
+          {
             // a check consistent with the one in
             // Utilities::MPI::Partitioner::import_from_ghosted_array_finish()
             Assert(local_values_old[i] == number() ||

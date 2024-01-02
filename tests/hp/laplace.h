@@ -464,7 +464,7 @@ Laplace<dim>::refine_grid(const unsigned int cycle)
   setup_system();
 
   // 3.7. Solution Transfer finish
-  soltrans.interpolate(solution_coarse, solution);
+  soltrans.interpolate(solution);
 }
 
 

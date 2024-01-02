@@ -133,7 +133,7 @@ main()
   dof_handler.distribute_dofs(fe_collection);
 
   Vector<double> new_solution(dof_handler.n_dofs());
-  solution_trans.interpolate(solution, new_solution);
+  solution_trans.interpolate(new_solution);
 
   FE_Type.reinit(triangulation.n_active_cells());
   cnt_cells = 0;
@@ -183,7 +183,7 @@ main()
   dof_handler.distribute_dofs(fe_collection);
 
   Vector<double> new_solution2(dof_handler.n_dofs());
-  solution_trans2.interpolate(solution, new_solution2);
+  solution_trans2.interpolate(new_solution2);
 
   FE_Type.reinit(triangulation.n_active_cells());
   cnt_cells = 0;

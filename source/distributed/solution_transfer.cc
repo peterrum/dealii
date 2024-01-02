@@ -18,6 +18,7 @@
 
 #ifdef DEAL_II_WITH_P4EST
 
+#  include <deal.II/distributed/shared_tria.h>
 #  include <deal.II/distributed/solution_transfer.h>
 #  include <deal.II/distributed/tria.h>
 
@@ -129,6 +130,10 @@ namespace parallel
       prepare_for_coarsening_and_refinement(
         const std::vector<const VectorType *> &all_in)
     {
+      const dealii::internal::parallel::shared::
+        TemporarilyRestoreSubdomainIds<dim, spacedim>
+          subdomain_modifier(dof_handler->get_triangulation());
+
       for (unsigned int i = 0; i < all_in.size(); ++i)
         Assert(all_in[i]->size() == dof_handler->n_dofs(),
                ExcDimensionMismatch(all_in[i]->size(), dof_handler->n_dofs()));
@@ -224,6 +229,10 @@ namespace parallel
     SolutionTransfer<dim, VectorType, spacedim>::interpolate(
       std::vector<VectorType *> &all_out)
     {
+      const dealii::internal::parallel::shared::
+        TemporarilyRestoreSubdomainIds<dim, spacedim>
+          subdomain_modifier(dof_handler->get_triangulation());
+
       Assert(input_vectors.size() == all_out.size(),
              ExcDimensionMismatch(input_vectors.size(), all_out.size()));
       for (unsigned int i = 0; i < all_out.size(); ++i)
@@ -417,13 +426,15 @@ namespace parallel
       if (dofs_per_cell == 0)
         return; // nothing to do for FE_Nothing
 
+      std::cout << dofs_per_cell << std::endl;
+
       const std::vector<::dealii::Vector<typename VectorType::value_type>>
         dof_values =
           unpack_dof_values<typename VectorType::value_type>(data_range,
                                                              dofs_per_cell);
 
       // check if sizes match
-      Assert(dof_values.size() == all_out.size(), ExcInternalError());
+      AssertDimension(dof_values.size(), all_out.size());
 
       // check if we have enough dofs provided by the FE object
       // to interpolate the transferred data correctly

@@ -388,23 +388,14 @@ namespace parallel
     virtual void
     update_number_cache();
 
-    virtual void
-    update_cell_relations_serial() override;
-
-    virtual void
-    pack_data_serial_pre() override;
-
-    virtual void
-    pack_data_serial_post() override;
-
-    void
-    update_reference_cells() override;
-
     /**
      * Reset global active cell indices and global level cell indices.
      */
     void
     reset_global_cell_indices();
+
+    void
+    update_reference_cells() override;
   };
 
 
@@ -527,6 +518,16 @@ namespace parallel
     DEAL_II_DEPRECATED
     virtual void
     load(const std::string &filename, const bool autopartition) = 0;
+
+  protected:
+    virtual void
+    update_cell_relations_serial() override;
+
+    virtual void
+    pack_data_serial_pre() override;
+
+    virtual void
+    pack_data_serial_post() override;
   };
 
 } // namespace parallel

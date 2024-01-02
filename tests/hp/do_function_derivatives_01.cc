@@ -81,13 +81,14 @@ main()
 
 
   SolutionTransfer<2, Vector<double>> solultion_trans(dof_handler);
+
   solultion_trans.prepare_for_coarsening_and_refinement(solution);
 
   triangulation.execute_coarsening_and_refinement();
   dof_handler.distribute_dofs(fe_collection);
 
   Vector<double> new_solution(dof_handler.n_dofs());
-  solultion_trans.interpolate(solution, new_solution);
+  solultion_trans.interpolate(new_solution);
 
   hp::QCollection<2> q;
   q.push_back(QMidpoint<2>());

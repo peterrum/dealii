@@ -212,9 +212,7 @@ namespace internal
                 // can only tolerate one level of coarsening at a time, so
                 // check that the children are all active
                 Assert(dealii_cell->is_active() == false, ExcInternalError());
-                for (unsigned int c = 0;
-                     c < GeometryInfo<dim>::max_children_per_cell;
-                     ++c)
+                for (unsigned int c = 0; c < dealii_cell->n_children(); ++c)
                   Assert(dealii_cell->child(c)->is_active(),
                          ExcInternalError());
                 break;
@@ -15740,6 +15738,10 @@ void Triangulation<dim, spacedim>::pack_data_serial_pre()
       // dummy copy of data (TODO: fill invalid cells)
       this->data_serializer.dest_data_fixed =
         this->data_serializer.src_data_fixed;
+      this->data_serializer.dest_data_variable =
+        this->data_serializer.src_data_variable;
+      this->data_serializer.dest_sizes_variable =
+        this->data_serializer.src_sizes_variable;
     }
 }
 
@@ -15760,6 +15762,9 @@ void Triangulation<dim, spacedim>::pack_data_serial_post()
         {
           if (cell.first->has_children())
             {
+              Assert(cell.second == ::dealii::CellStatus::cell_will_be_refined,
+                     ExcInternalError());
+
               temp.emplace_back(cell.first->child(0),
                                 CellStatus::cell_will_be_refined);
             }
@@ -15767,7 +15772,7 @@ void Triangulation<dim, spacedim>::pack_data_serial_post()
             temp.push_back(cell);
         }
 
-      temp = this->local_cell_relations;
+      this->local_cell_relations = temp;
 
       // cell status has been set during update_cell_relations_serial()
       active_cell_old.clear();
@@ -16319,7 +16324,9 @@ void Triangulation<dim, spacedim>::update_cell_relations_serial()
                                         cell->id()));
 
               ::dealii::CellStatus status =
-                ::dealii::CellStatus::cell_will_persist;
+                cell->refine_flag_set() ?
+                  ::dealii::CellStatus::cell_will_be_refined :
+                  ::dealii::CellStatus::cell_will_persist;
 
               local_cell_relations_tmp.emplace_back(
                 index,

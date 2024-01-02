@@ -312,21 +312,22 @@ namespace parallel
 
   template <int dim, int spacedim>
   DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
-  void TriangulationBase<dim, spacedim>::update_cell_relations_serial()
+  void DistributedTriangulationBase<dim,
+                                    spacedim>::update_cell_relations_serial()
   {
     // nothing to do, since parallel mesh
   }
 
   template <int dim, int spacedim>
   DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
-  void TriangulationBase<dim, spacedim>::pack_data_serial_pre()
+  void DistributedTriangulationBase<dim, spacedim>::pack_data_serial_pre()
   {
     // nothing to do, since parallel mesh
   }
 
   template <int dim, int spacedim>
   DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
-  void TriangulationBase<dim, spacedim>::pack_data_serial_post()
+  void DistributedTriangulationBase<dim, spacedim>::pack_data_serial_post()
   {
     // nothing to do, since parallel mesh
   }
