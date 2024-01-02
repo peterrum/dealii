@@ -25,6 +25,9 @@ for (deal_II_dimension : DIMENSIONS; deal_II_space_dimension : SPACE_DIMENSIONS)
         template class SolutionTransfer<deal_II_dimension,
                                         ::dealii::Vector<double>,
                                         deal_II_space_dimension>;
+        template class SolutionTransfer<deal_II_dimension,
+                                        ::dealii::BlockVector<double>,
+                                        deal_II_space_dimension>;
         template class SolutionTransfer<
           deal_II_dimension,
           ::dealii::LinearAlgebra::distributed::Vector<double>,
