@@ -499,7 +499,7 @@ namespace internal
     /**
      * TODO
      */
-    bool invalid_cell_has_data = false;
+    bool invalid_cell_has_data = true;
 
     /**
      * Flag that denotes if variable size data has been packed.

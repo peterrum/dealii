@@ -15711,10 +15711,24 @@ void Triangulation<dim, spacedim>::pack_data_serial_pre()
     {
       // store old active cells to determine cell status after
       // coarsening/refinement
+      active_cell_old.clear();
       active_cell_old.reserve(this->n_active_cells());
 
       for (const auto &cell : this->active_cell_iterators())
-        active_cell_old.emplace_back(cell->id());
+        {
+          const bool children_will_be_coarsened =
+            (cell->level() > 0) && (cell->coarsen_flag_set());
+
+          if (children_will_be_coarsened == false)
+            this->active_cell_old.emplace_back(cell->id());
+          else
+            {
+              if (cell->parent()->child(0) == cell)
+                this->active_cell_old.emplace_back(cell->parent()->id());
+            }
+        }
+
+      this->update_cell_relations_serial();
 
       // pack data
       this->data_serializer.pack_data(
@@ -15738,6 +15752,23 @@ void Triangulation<dim, spacedim>::pack_data_serial_post()
   // transfer data after triangulation got updated
   if (this->cell_attached_data.n_attached_data_sets > 0)
     {
+      std::vector<typename internal::CellAttachedDataSerializer<dim, spacedim>::
+                    cell_relation_t>
+        temp;
+
+      for (const auto &cell : local_cell_relations)
+        {
+          if (cell.first->has_children())
+            {
+              temp.emplace_back(cell.first->child(0),
+                                CellStatus::cell_will_be_refined);
+            }
+          else
+            temp.push_back(cell);
+        }
+
+      temp = this->local_cell_relations;
+
       // cell status has been set during update_cell_relations_serial()
       active_cell_old.clear();
     }
@@ -15765,13 +15796,13 @@ void Triangulation<dim, spacedim>::execute_coarsening_and_refinement()
   // Inform all listeners about beginning of refinement.
   signals.pre_refinement();
 
-  pack_data_serial_pre();
+  this->pack_data_serial_pre();
 
   execute_coarsening();
 
   const DistortedCellList cells_with_distorted_children = execute_refinement();
 
-  pack_data_serial_post();
+  this->pack_data_serial_post();
 
   reset_cell_vertex_indices_cache();
 
@@ -15795,6 +15826,9 @@ void Triangulation<dim, spacedim>::execute_coarsening_and_refinement()
               cells_with_distorted_children);
 
   update_periodic_face_map();
+
+  if (this->cell_attached_data.n_attached_data_sets == 0)
+    this->update_cell_relations_serial();
 
 #  ifdef DEBUG
 
@@ -16251,6 +16285,8 @@ template <int dim, int spacedim>
 DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
 void Triangulation<dim, spacedim>::update_cell_relations_serial()
 {
+  const bool is_pre = true;
+
   // Reorganize memory for local_cell_relations.
   this->local_cell_relations.clear();
 
@@ -16272,47 +16308,59 @@ void Triangulation<dim, spacedim>::update_cell_relations_serial()
 
       for (const auto &cell : this->active_cell_iterators())
         {
-          unsigned int         index  = numbers::invalid_unsigned_int;
-          ::dealii::CellStatus status = ::dealii::CellStatus::cell_invalid;
-
           if (std::find(active_cell_old.begin(),
                         active_cell_old.end(),
                         cell->id()) != active_cell_old.end())
             {
-              index  = std::distance(active_cell_old.begin(),
-                                    std::find(active_cell_old.begin(),
-                                              active_cell_old.end(),
-                                              cell->id()));
-              status = ::dealii::CellStatus::cell_will_persist;
+              const unsigned int index =
+                std::distance(active_cell_old.begin(),
+                              std::find(active_cell_old.begin(),
+                                        active_cell_old.end(),
+                                        cell->id()));
+
+              ::dealii::CellStatus status =
+                ::dealii::CellStatus::cell_will_persist;
+
+              local_cell_relations_tmp.emplace_back(
+                index,
+                typename internal::CellAttachedDataSerializer<dim, spacedim>::
+                  cell_relation_t{cell, status});
             }
           else if (cell->level() > 0 &&
                    std::find(active_cell_old.begin(),
                              active_cell_old.end(),
                              cell->parent()->id()) != active_cell_old.end())
             {
-              index = std::distance(active_cell_old.begin(),
-                                    std::find(active_cell_old.begin(),
-                                              active_cell_old.end(),
-                                              cell->parent()->id()));
+              const unsigned int index =
+                std::distance(active_cell_old.begin(),
+                              std::find(active_cell_old.begin(),
+                                        active_cell_old.end(),
+                                        cell->parent()->id()));
+
+              ::dealii::CellStatus status;
 
               if (cell->parent()->child_iterator_to_index(cell) == 0)
-                status = ::dealii::CellStatus::cell_will_be_refined;
+                status = is_pre ?
+                           ::dealii::CellStatus::children_will_be_coarsened :
+                           ::dealii::CellStatus::cell_will_be_refined;
               else
                 status = ::dealii::CellStatus::cell_invalid;
+
+              if (is_pre)
+                local_cell_relations_tmp.emplace_back(
+                  index,
+                  typename internal::CellAttachedDataSerializer<dim, spacedim>::
+                    cell_relation_t{cell->parent(), status});
+              else
+                local_cell_relations_tmp.emplace_back(
+                  index,
+                  typename internal::CellAttachedDataSerializer<dim, spacedim>::
+                    cell_relation_t{cell, status});
             }
           else
             {
-              for (index = 0; index < active_cell_old.size(); ++index)
-                if (cell->id().is_parent_of(active_cell_old[index]))
-                  break;
-
-              status = ::dealii::CellStatus::children_will_be_coarsened;
+              AssertThrow(false, ExcNotImplemented());
             }
-
-          local_cell_relations_tmp.emplace_back(
-            index,
-            typename internal::CellAttachedDataSerializer<dim, spacedim>::
-              cell_relation_t{cell, status});
         }
 
       std::stable_sort(local_cell_relations_tmp.begin(),
@@ -16374,8 +16422,6 @@ typename Triangulation<dim, spacedim>::DistortedCellList
   // re-compute number of lines
   internal::TriangulationImplementation::Implementation::compute_number_cache(
     *this, levels.size(), number_cache);
-
-  this->update_cell_relations_serial();
 
 #  ifdef DEBUG
   for (const auto &level : levels)
@@ -16474,8 +16520,6 @@ void Triangulation<dim, spacedim>::execute_coarsening()
   // re-compute number of lines and quads
   internal::TriangulationImplementation::Implementation::compute_number_cache(
     *this, levels.size(), number_cache);
-
-  this->update_cell_relations_serial();
 }
 
 

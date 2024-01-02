@@ -98,9 +98,8 @@ test(const unsigned int type)
   dof_handler.distribute_dofs(fe);
 
   vector.reinit(dof_handler.n_dofs());
-  solution_transfer.interpolate(vector);
 
-  vector.print(std::cout);
+  solution_transfer.interpolate(vector);
 
   VectorType error(dof_handler.n_dofs());
   VectorTools::interpolate(dof_handler, InterpolationFunction<dim>(), error);
@@ -122,7 +121,7 @@ main(int argc, char **argv)
 
     test<dim>(0);
     test<dim>(1);
-    // test<dim>(2);
+    test<dim>(2);
   }
   deallog.pop();
 
@@ -132,7 +131,7 @@ main(int argc, char **argv)
 
     test<dim>(0);
     test<dim>(1);
-    // test<dim>(2);
+    test<dim>(2);
   }
   deallog.pop();
 }
