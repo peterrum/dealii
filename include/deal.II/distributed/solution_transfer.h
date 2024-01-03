@@ -255,17 +255,12 @@ namespace parallel
       prepare_for_coarsening_and_refinement(
         const std::vector<const VectorType *> &all_in);
 
+      /**
+       * Same as above but without pointers.
+       */
       void
       prepare_for_coarsening_and_refinement(
-        const std::vector<VectorType> &all_in)
-      {
-        std::vector<const VectorType *> temp;
-
-        for (const auto &entry : all_in)
-          temp.emplace_back(&entry);
-
-        this->prepare_for_coarsening_and_refinement(temp);
-      }
+        const std::vector<VectorType> &all_in);
 
       /**
        * Same as the previous function but for only one discrete function to be
@@ -284,16 +279,11 @@ namespace parallel
       void
       interpolate(std::vector<VectorType *> &all_out);
 
+      /**
+       * Same as above but without pointers.
+       */
       void
-      interpolate(std::vector<VectorType> &all_out)
-      {
-        std::vector<VectorType *> temp;
-
-        for (auto &entry : all_out)
-          temp.emplace_back(&entry);
-
-        this->interpolate(temp);
-      }
+      interpolate(std::vector<VectorType> &all_out);
 
       /**
        * Same as the previous function. It interpolates only one function. It
@@ -338,11 +328,12 @@ namespace parallel
       void
       deserialize(std::vector<VectorType *> &all_in);
 
+      /**
+       * Reinit this class to the state that it has directly after calling the
+       * constructor.
+       */
       void
-      clear()
-      {
-        // TODO
-      }
+      clear();
 
     private:
       /**

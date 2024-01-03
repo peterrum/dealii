@@ -146,6 +146,22 @@ namespace parallel
 
     template <int dim, typename VectorType, int spacedim>
     void
+    SolutionTransfer<dim, VectorType, spacedim>::
+      prepare_for_coarsening_and_refinement(
+        const std::vector<VectorType> &all_in)
+    {
+      std::vector<const VectorType *> temp;
+
+      for (const auto &entry : all_in)
+        temp.emplace_back(&entry);
+
+      this->prepare_for_coarsening_and_refinement(temp);
+    }
+
+
+
+    template <int dim, typename VectorType, int spacedim>
+    void
     SolutionTransfer<dim, VectorType, spacedim>::register_data_attach()
     {
       // TODO: casting away constness is bad
@@ -290,6 +306,20 @@ namespace parallel
 
       input_vectors.clear();
       handle = numbers::invalid_unsigned_int;
+    }
+
+
+    template <int dim, typename VectorType, int spacedim>
+    void
+    SolutionTransfer<dim, VectorType, spacedim>::interpolate(
+      std::vector<VectorType> &all_out)
+    {
+      std::vector<VectorType *> temp;
+
+      for (auto &entry : all_out)
+        temp.emplace_back(&entry);
+
+      this->interpolate(temp);
     }
 
 
@@ -471,6 +501,16 @@ namespace parallel
                                                             fe_index);
         }
     }
+
+
+
+    template <int dim, typename VectorType, int spacedim>
+    void
+    SolutionTransfer<dim, VectorType, spacedim>::clear()
+    {
+      // nothing to do
+    }
+
   } // namespace distributed
 } // namespace parallel
 
