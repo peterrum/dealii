@@ -22,6 +22,8 @@
 #include <deal.II/base/thread_management.h>
 #include <deal.II/base/utilities.h>
 
+#include <deal.II/distributed/tria_base.h>
+
 #include <deal.II/grid/connectivity.h>
 #include <deal.II/grid/grid_tools.h>
 #include <deal.II/grid/magic_numbers.h>
@@ -15698,11 +15700,32 @@ const typename std::map<
 }
 
 
+template <int dim, int spacedim>
+DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
+void Triangulation<dim, spacedim>::update_cell_relations_serial()
+{
+  if (dynamic_cast<parallel::DistributedTriangulationBase<dim, spacedim> *>(
+        this))
+    return;
+
+  this->local_cell_relations.clear();
+  this->local_cell_relations.reserve(this->n_global_active_cells());
+
+  for (const auto &cell : this->active_cell_iterators())
+    this->local_cell_relations.emplace_back(
+      cell, ::dealii::CellStatus::cell_will_persist);
+}
+
+
 
 template <int dim, int spacedim>
 DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
 void Triangulation<dim, spacedim>::pack_data_serial_pre()
 {
+  if (dynamic_cast<parallel::DistributedTriangulationBase<dim, spacedim> *>(
+        this))
+    return;
+
   // pack data before triangulation gets updated
   if (this->cell_attached_data.n_attached_data_sets > 0)
     {
@@ -15818,6 +15841,10 @@ template <int dim, int spacedim>
 DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
 void Triangulation<dim, spacedim>::pack_data_serial_post()
 {
+  if (dynamic_cast<parallel::DistributedTriangulationBase<dim, spacedim> *>(
+        this))
+    return;
+
   // transfer data after triangulation got updated
   if (this->cell_attached_data.n_attached_data_sets > 0)
     {
@@ -16350,19 +16377,6 @@ void Triangulation<dim, spacedim>::load_attached_data(
                  ExcInternalError());
         }
     }
-}
-
-
-template <int dim, int spacedim>
-DEAL_II_CXX20_REQUIRES((concepts::is_valid_dim_spacedim<dim, spacedim>))
-void Triangulation<dim, spacedim>::update_cell_relations_serial()
-{
-  this->local_cell_relations.clear();
-  this->local_cell_relations.reserve(this->n_global_active_cells());
-
-  for (const auto &cell : this->active_cell_iterators())
-    this->local_cell_relations.emplace_back(
-      cell, ::dealii::CellStatus::cell_will_persist);
 }
 
 

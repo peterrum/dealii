@@ -3913,13 +3913,13 @@ protected:
    * an extensive description of CellStatus, see the documentation for the
    * member function register_data_attach().
    */
-  virtual void
+  void
   update_cell_relations_serial();
 
-  virtual void
+  void
   pack_data_serial_pre();
 
-  virtual void
+  void
   pack_data_serial_post();
 
   /**
