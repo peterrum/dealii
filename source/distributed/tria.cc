@@ -1717,8 +1717,6 @@ namespace parallel
       , parallel_forest(nullptr)
     {
       parallel_ghost = nullptr;
-
-      this->data_serializer.invalid_cell_has_data = true;
     }
 
 
@@ -2028,6 +2026,15 @@ namespace parallel
             << this->cell_attached_data.pack_callbacks_fixed.size() << " "
             << this->cell_attached_data.pack_callbacks_variable.size() << " "
             << this->n_cells(0) << std::endl;
+        }
+
+      // each cell should have been flagged `CellStatus::cell_will_persist`
+      for (const auto &cell_rel : this->local_cell_relations)
+        {
+          (void)cell_rel;
+          Assert((cell_rel.second == // cell_status
+                  CellStatus::cell_will_persist),
+                 ExcInternalError());
         }
 
       // Save cell attached data.

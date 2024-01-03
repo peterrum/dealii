@@ -65,8 +65,6 @@ test(const bool allow_artificial_cells)
   Vector<double> sol_new(dh.n_dofs());
   soltrans.interpolate(sol_new);
 
-  sol_new.print(std::cout);
-
   for (unsigned int i = 0; i < sol_new.size(); ++i)
     AssertThrow(sol_new[i] == 1., ExcInternalError());
 
