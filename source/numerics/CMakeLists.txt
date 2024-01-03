@@ -47,6 +47,10 @@ set(_separate_src
   matrix_creator_inst3.cc
   point_value_history.cc
   smoothness_estimator.cc
+  solution_transfer.cc
+  solution_transfer_inst2.cc
+  solution_transfer_inst3.cc
+  solution_transfer_inst4.cc
   vector_tools_integrate_difference.cc
   vector_tools_interpolate.cc
   vector_tools_point_value.cc
@@ -85,6 +89,7 @@ set(_inst
   matrix_tools.inst.in
   point_value_history.inst.in
   smoothness_estimator.inst.in
+  solution_transfer.inst.in
   time_dependent.inst.in
   vector_tools_boundary.inst.in
   vector_tools_constraints.inst.in
