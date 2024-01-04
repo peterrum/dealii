@@ -702,7 +702,7 @@ namespace Legacy
    * @ingroup numerics
    */
   template <int dim, typename VectorType = Vector<double>, int spacedim = dim>
-  class DEAL_II_DEPRECATED SolutionTransfer
+  class SolutionTransfer
   {
   public:
     /**
