@@ -223,7 +223,7 @@ namespace Utilities
         std::vector<T> &output,
         std::vector<T> &buffer,
         const std::function<void(const ArrayView<T> &, const CellData &)>
-          &                evaluation_function,
+                          &evaluation_function,
         const unsigned int n_components = 1) const;
 
       /**
@@ -234,7 +234,8 @@ namespace Utilities
       std::vector<T>
       evaluate_and_process(
         const std::function<void(const ArrayView<T> &, const CellData &)>
-          &evaluation_function) const;
+                          &evaluation_function,
+        const unsigned int n_components = 1) const;
 
       /**
        * This method is the inverse of the method evaluate_and_process(). It
@@ -250,7 +251,8 @@ namespace Utilities
         const std::vector<T> &input,
         std::vector<T>       &buffer,
         const std::function<void(const ArrayView<const T> &, const CellData &)>
-          &evaluation_function) const;
+                          &evaluation_function,
+        const unsigned int n_components = 1) const;
 
       /**
        * Same as above but without external allocation of a user-provided
@@ -261,7 +263,7 @@ namespace Utilities
       process_and_evaluate(
         const std::vector<T> &input,
         const std::function<void(const ArrayView<const T> &, const CellData &)>
-          &                evaluation_function,
+                          &evaluation_function,
         const unsigned int n_components = 1) const;
 
       /**
@@ -422,12 +424,12 @@ namespace Utilities
        */
       template <typename T>
       std::enable_if_t<Utilities::MPI::is_mpi_type<T> == false, void>
-      pack_and_isend(const ArrayView<const T> &      data,
+      pack_and_isend(const ArrayView<const T>       &data,
                      const unsigned int              rank,
                      const unsigned int              tag,
                      const MPI_Comm                  comm,
                      std::vector<std::vector<char>> &buffers,
-                     std::vector<MPI_Request> &      requests)
+                     std::vector<MPI_Request>       &requests)
       {
         requests.emplace_back(MPI_Request());
 
@@ -452,12 +454,12 @@ namespace Utilities
        */
       template <typename T>
       std::enable_if_t<Utilities::MPI::is_mpi_type<T> == true, void>
-      pack_and_isend(const ArrayView<const T> &      data,
+      pack_and_isend(const ArrayView<const T>       &data,
                      const unsigned int              rank,
                      const unsigned int              tag,
                      const MPI_Comm                  comm,
                      std::vector<std::vector<char>> &buffers,
-                     std::vector<MPI_Request> &      requests)
+                     std::vector<MPI_Request>       &requests)
       {
         (void)buffers;
 
@@ -485,8 +487,8 @@ namespace Utilities
                      const unsigned int                            rank,
                      const unsigned int                            tag,
                      const MPI_Comm                                comm,
-                     std::vector<std::vector<char>> &              buffers,
-                     std::vector<MPI_Request> &                    requests)
+                     std::vector<std::vector<char>>               &buffers,
+                     std::vector<MPI_Request>                     &requests)
       {
         ArrayView<const T> data_(reinterpret_cast<const T *>(data.data()),
                                  data.size() * Utilities::pow(dim, rank_));
@@ -502,8 +504,8 @@ namespace Utilities
       std::enable_if_t<Utilities::MPI::is_mpi_type<T> == false, void>
       recv_and_upack(const ArrayView<T> &data,
                      const MPI_Comm      comm,
-                     const MPI_Status &  status,
-                     std::vector<char> & buffer)
+                     const MPI_Status   &status,
+                     std::vector<char>  &buffer)
       {
         int message_length;
         int ierr = MPI_Get_count(&status, MPI_CHAR, &message_length);
@@ -537,8 +539,8 @@ namespace Utilities
       std::enable_if_t<Utilities::MPI::is_mpi_type<T> == true, void>
       recv_and_upack(const ArrayView<T> &data,
                      const MPI_Comm      comm,
-                     const MPI_Status &  status,
-                     std::vector<char> & buffer)
+                     const MPI_Status   &status,
+                     std::vector<char>  &buffer)
       {
         (void)buffer;
 
@@ -562,8 +564,8 @@ namespace Utilities
       std::enable_if_t<Utilities::MPI::is_mpi_type<T> == true, void>
       recv_and_upack(const ArrayView<Tensor<rank_, dim, T>> &data,
                      const MPI_Comm                          comm,
-                     const MPI_Status &                      status,
-                     std::vector<char> &                     buffer)
+                     const MPI_Status                       &status,
+                     std::vector<char>                      &buffer)
       {
         const ArrayView<T> data_(reinterpret_cast<T *>(data.data()),
                                  data.size() * Utilities::pow(dim, rank_));
@@ -596,7 +598,7 @@ namespace Utilities
       std::vector<T> &output,
       std::vector<T> &buffer,
       const std::function<void(const ArrayView<T> &, const CellData &)>
-        &                evaluation_function,
+                        &evaluation_function,
       const unsigned int n_components) const
     {
       (void)n_components;
@@ -762,12 +764,16 @@ namespace Utilities
     std::vector<T>
     RemotePointEvaluation<dim, spacedim>::evaluate_and_process(
       const std::function<void(const ArrayView<T> &, const CellData &)>
-        &evaluation_function) const
+                        &evaluation_function,
+      const unsigned int n_components) const
     {
       std::vector<T> output;
       std::vector<T> buffer;
 
-      this->evaluate_and_process(output, buffer, evaluation_function);
+      this->evaluate_and_process(output,
+                                 buffer,
+                                 evaluation_function,
+                                 n_components);
 
       return output;
     }
@@ -781,7 +787,7 @@ namespace Utilities
       const std::vector<T> &input,
       std::vector<T>       &buffer,
       const std::function<void(const ArrayView<const T> &, const CellData &)>
-        &                evaluation_function,
+                        &evaluation_function,
       const unsigned int n_components) const
     {
 #ifndef DEAL_II_WITH_MPI
@@ -963,10 +969,14 @@ namespace Utilities
     RemotePointEvaluation<dim, spacedim>::process_and_evaluate(
       const std::vector<T> &input,
       const std::function<void(const ArrayView<const T> &, const CellData &)>
-        &evaluation_function) const
+                        &evaluation_function,
+      const unsigned int n_components) const
     {
       std::vector<T> buffer;
-      this->process_and_evaluate(input, buffer, evaluation_function);
+      this->process_and_evaluate(input,
+                                 buffer,
+                                 evaluation_function,
+                                 n_components);
     }
 
   } // end of namespace MPI
