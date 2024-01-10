@@ -15,7 +15,7 @@
 
 
 
-// check ParameterHandler::parse_input_from_xml
+// check ParameterHandler::parse_input_from_json
 
 #include <deal.II/base/parameter_handler.h>
 

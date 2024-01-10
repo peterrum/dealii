@@ -612,8 +612,13 @@ namespace
     const char                         path_separator,
     const std::vector<std::unique_ptr<const Patterns::PatternBase>> &patterns,
     const bool        skip_undefined,
+    const bool        do_demangle,
     ParameterHandler &prm)
   {
+    const auto my_demangle = [&](const auto &label) {
+      return do_demangle ? demangle(label) : label;
+    };
+
     for (const auto &p : source)
       {
         // a sub-tree must either be a parameter node or a subsection
@@ -624,7 +629,7 @@ namespace
               {
                 try
                   {
-                    prm.set(demangle(p.first), p.second.data());
+                    prm.set(my_demangle(p.first), p.second.data());
                   }
                 catch (const ParameterHandler::ExcEntryUndeclared &)
                   {
@@ -632,7 +637,7 @@ namespace
                   }
               }
             else
-              prm.set(demangle(p.first), p.second.data());
+              prm.set(my_demangle(p.first), p.second.data());
           }
         else if (p.second.get_optional<std::string>("value"))
           {
@@ -641,7 +646,7 @@ namespace
               {
                 try
                   {
-                    prm.set(demangle(p.first),
+                    prm.set(my_demangle(p.first),
                             p.second.get<std::string>("value"));
                   }
                 catch (const ParameterHandler::ExcEntryUndeclared &)
@@ -650,7 +655,7 @@ namespace
                   }
               }
             else
-              prm.set(demangle(p.first), p.second.get<std::string>("value"));
+              prm.set(my_demangle(p.first), p.second.get<std::string>("value"));
 
             // this node might have sub-nodes in addition to "value", such as
             // "default_value", "documentation", etc. we might at some point
@@ -666,7 +671,7 @@ namespace
         else
           {
             // it must be a subsection
-            prm.enter_subsection(demangle(p.first));
+            prm.enter_subsection(my_demangle(p.first));
             read_xml_recursively(p.second,
                                  (current_path.empty() ?
                                     p.first :
@@ -674,6 +679,7 @@ namespace
                                  path_separator,
                                  patterns,
                                  skip_undefined,
+                                 do_demangle,
                                  prm);
             prm.leave_subsection();
           }
@@ -780,7 +786,7 @@ ParameterHandler::parse_input_from_xml(std::istream &in,
     single_node_tree.get_child("ParameterHandler");
 
   read_xml_recursively(
-    my_entries, "", path_separator, patterns, skip_undefined, *this);
+    my_entries, "", path_separator, patterns, skip_undefined, true, *this);
 }
 
 
@@ -810,7 +816,7 @@ ParameterHandler::parse_input_from_json(std::istream &in,
   // The xml function is reused to read in the xml into the parameter file.
   // This means that only mangled files can be read.
   read_xml_recursively(
-    node_tree, "", path_separator, patterns, skip_undefined, *this);
+    node_tree, "", path_separator, patterns, skip_undefined, false, *this);
 }
 
 
