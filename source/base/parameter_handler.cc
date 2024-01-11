@@ -332,15 +332,16 @@ namespace
   }
 
   /**
-   * Demangle all parameters recursively and attach them to @p tree_out.
+   * Mangle or demangle all parameters recursively and attach them to @p tree_out.
    * @p is_parameter_or_alias_node indicates, whether a given node
    * @p tree_in is a parameter node or an alias node (as opposed to being
    * a subsection).
    */
   void
-  recursively_demangle(const boost::property_tree::ptree &tree_in,
-                       boost::property_tree::ptree       &tree_out,
-                       const bool is_parameter_or_alias_node = false)
+  recursively_mangle_or_demangle(const boost::property_tree::ptree &tree_in,
+                                 boost::property_tree::ptree       &tree_out,
+                                 const bool                         do_mangle,
+                                 const bool is_parameter_or_alias_node = false)
   {
     for (const auto &p : tree_in)
       {
@@ -355,10 +356,11 @@ namespace
             if (const auto val = p.second.get_value_optional<std::string>())
               temp.put_value<std::string>(*val);
 
-            recursively_demangle(p.second,
-                                 temp,
-                                 is_parameter_node(p.second) ||
-                                   is_alias_node(p.second));
+            recursively_mangle_or_demangle(p.second,
+                                           temp,
+                                           do_mangle,
+                                           is_parameter_node(p.second) ||
+                                             is_alias_node(p.second));
             tree_out.put_child(demangle(p.first), temp);
           }
       }
@@ -809,8 +811,10 @@ ParameterHandler::parse_input_from_json(std::istream &in,
 
   // The xml function is reused to read in the xml into the parameter file.
   // This means that only mangled files can be read.
+  boost::property_tree::ptree node_tree_mangled;
+  recursively_mangle_or_demangle(node_tree, node_tree_mangled, true);
   read_xml_recursively(
-    node_tree, "", path_separator, patterns, skip_undefined, *this);
+    node_tree_mangled, "", path_separator, patterns, skip_undefined, *this);
 }
 
 
@@ -1343,7 +1347,9 @@ ParameterHandler::print_parameters(std::ostream     &out,
   if ((style & JSON) != 0)
     {
       boost::property_tree::ptree current_entries_damangled;
-      recursively_demangle(current_entries, current_entries_damangled);
+      recursively_mangle_or_demangle(current_entries,
+                                     current_entries_damangled,
+                                     false);
       write_json(out, current_entries_damangled);
       return out;
     }
