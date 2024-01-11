@@ -142,17 +142,17 @@ namespace LinearAlgebra
         if (operation == VectorOperation::add)
           for (size_type i = 0; i < stored.n_elements(); ++i)
             rw_vector.local_element(i) +=
-              tmp_vector(stored.nth_index_in_set(i));
+              static_cast<Number>(tmp_vector(stored.nth_index_in_set(i)));
         else if (operation == VectorOperation::min)
           for (size_type i = 0; i < stored.n_elements(); ++i)
-            rw_vector.local_element(i) =
-              get_min(tmp_vector(stored.nth_index_in_set(i)),
-                      rw_vector.local_element(i));
+            rw_vector.local_element(i) = get_min(static_cast<Number>(tmp_vector(
+                                                   stored.nth_index_in_set(i))),
+                                                 rw_vector.local_element(i));
         else if (operation == VectorOperation::max)
           for (size_type i = 0; i < stored.n_elements(); ++i)
-            rw_vector.local_element(i) =
-              get_max(tmp_vector(stored.nth_index_in_set(i)),
-                      rw_vector.local_element(i));
+            rw_vector.local_element(i) = get_max(static_cast<Number>(tmp_vector(
+                                                   stored.nth_index_in_set(i))),
+                                                 rw_vector.local_element(i));
         else
           for (size_type i = 0; i < stored.n_elements(); ++i)
             rw_vector.local_element(i) = tmp_vector(stored.nth_index_in_set(i));
@@ -191,17 +191,17 @@ namespace LinearAlgebra
         if (operation == VectorOperation::add)
           for (size_type i = 0; i < stored.n_elements(); ++i)
             rw_vector.local_element(i) +=
-              tmp_vector(stored.nth_index_in_set(i));
+              static_cast<Number>(tmp_vector(stored.nth_index_in_set(i)));
         else if (operation == VectorOperation::min)
           for (size_type i = 0; i < stored.n_elements(); ++i)
-            rw_vector.local_element(i) =
-              get_min(tmp_vector(stored.nth_index_in_set(i)),
-                      rw_vector.local_element(i));
+            rw_vector.local_element(i) = get_min(static_cast<Number>(tmp_vector(
+                                                   stored.nth_index_in_set(i))),
+                                                 rw_vector.local_element(i));
         else if (operation == VectorOperation::max)
           for (size_type i = 0; i < stored.n_elements(); ++i)
-            rw_vector.local_element(i) =
-              get_max(tmp_vector(stored.nth_index_in_set(i)),
-                      rw_vector.local_element(i));
+            rw_vector.local_element(i) = get_max(static_cast<Number>(tmp_vector(
+                                                   stored.nth_index_in_set(i))),
+                                                 rw_vector.local_element(i));
         else
           for (size_type i = 0; i < stored.n_elements(); ++i)
             rw_vector.local_element(i) = tmp_vector(stored.nth_index_in_set(i));
@@ -431,12 +431,12 @@ namespace LinearAlgebra
       else if (operation == VectorOperation::min)
         for (size_type i = 0; i < stored.n_elements(); ++i)
           rw_vector.local_element(i) =
-            get_min(values(stored.nth_index_in_set(i)),
+            get_min(static_cast<Number>(values(stored.nth_index_in_set(i))),
                     rw_vector.local_element(i));
       else if (operation == VectorOperation::max)
         for (size_type i = 0; i < stored.n_elements(); ++i)
           rw_vector.local_element(i) =
-            get_max(values(stored.nth_index_in_set(i)),
+            get_max(static_cast<Number>(values(stored.nth_index_in_set(i))),
                     rw_vector.local_element(i));
       else
         for (size_type i = 0; i < stored.n_elements(); ++i)

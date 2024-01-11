@@ -1306,7 +1306,8 @@ namespace LinearAlgebra
             {
               for (size_type i = 0; i < v_n_elements; ++i)
                 tmp_vector(v_stored.nth_index_in_set(i)) =
-                  internal::get_min(tmp_vector(v_stored.nth_index_in_set(i)),
+                  internal::get_min(static_cast<Number>(
+                                      tmp_vector(v_stored.nth_index_in_set(i))),
                                     V.local_element(i));
 
               break;
@@ -1315,7 +1316,8 @@ namespace LinearAlgebra
             {
               for (size_type i = 0; i < v_n_elements; ++i)
                 tmp_vector(v_stored.nth_index_in_set(i)) =
-                  internal::get_max(tmp_vector(v_stored.nth_index_in_set(i)),
+                  internal::get_max(static_cast<Number>(
+                                      tmp_vector(v_stored.nth_index_in_set(i))),
                                     V.local_element(i));
 
               break;

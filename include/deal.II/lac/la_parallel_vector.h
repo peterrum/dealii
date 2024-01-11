@@ -78,6 +78,117 @@ namespace LinearAlgebra
 {
   namespace distributed
   {
+    namespace internal
+    {
+
+      template <typename Number, typename MemorySpaceType>
+      class VectorReference
+      {
+      private:
+        using size_type = types::global_dof_index;
+
+        VectorReference(
+          LinearAlgebra::distributed::Vector<Number, MemorySpaceType> &vector,
+          const size_type                                              index)
+          : vector(vector)
+          , global_index(index)
+        {}
+
+      public:
+        VectorReference(const VectorReference &) = default;
+
+        const VectorReference &
+        operator=(const VectorReference &r) const
+        {
+          const auto &partitioner = vector.get_partitioner();
+          vector.begin()[partitioner->global_to_local(global_index)] =
+            static_cast<Number>(r);
+
+          return *this;
+        }
+
+        VectorReference &
+        operator=(const VectorReference &r)
+        {
+          const auto &partitioner = vector.get_partitioner();
+          vector.begin()[partitioner->global_to_local(global_index)] =
+            static_cast<Number>(r);
+
+          return *this;
+        }
+
+        template <typename Number2>
+        const VectorReference &
+        operator=(const Number2 &s) const
+        {
+          const auto &partitioner = vector.get_partitioner();
+          vector.begin()[partitioner->global_to_local(global_index)] = s;
+
+          return *this;
+        }
+
+        template <typename Number2>
+        const VectorReference &
+        operator+=(const Number2 &s) const
+        {
+          const auto &partitioner = vector.get_partitioner();
+          vector.begin()[partitioner->global_to_local(global_index)] += s;
+
+          return *this;
+        }
+
+        template <typename Number2>
+        const VectorReference &
+        operator-=(const Number2 &s) const
+        {
+          const auto &partitioner = vector.get_partitioner();
+          vector.begin()[partitioner->global_to_local(global_index)] -= s;
+
+          return *this;
+        }
+
+        template <typename Number2>
+        const VectorReference &
+        operator*=(const Number2 &s) const
+        {
+          const auto &partitioner = vector.get_partitioner();
+          vector.begin()[partitioner->global_to_local(global_index)] *= s;
+
+          return *this;
+        }
+
+        template <typename Number2>
+        const VectorReference &
+        operator/=(const Number2 &s) const
+        {
+          const auto &partitioner = vector.get_partitioner();
+          vector.begin()[partitioner->global_to_local(global_index)] /= s;
+
+          return *this;
+        }
+
+        operator Number &()
+        {
+          const auto &partitioner = vector.get_partitioner();
+          return vector.begin()[partitioner->global_to_local(global_index)];
+        }
+
+        operator Number() const
+        {
+          const auto &partitioner = vector.get_partitioner();
+          return vector.begin()[partitioner->global_to_local(global_index)];
+        }
+
+      private:
+        LinearAlgebra::distributed::Vector<Number, MemorySpaceType> &vector;
+
+        const size_type global_index;
+
+        friend class LinearAlgebra::distributed::Vector<Number,
+                                                        MemorySpaceType>;
+      };
+    } // namespace internal
+
     /**
      * @addtogroup Vectors
      * @{
@@ -250,16 +361,17 @@ namespace LinearAlgebra
     class Vector : public ::dealii::ReadVector<Number>, public Subscriptor
     {
     public:
-      using memory_space    = MemorySpace;
-      using value_type      = Number;
-      using pointer         = value_type *;
-      using const_pointer   = const value_type *;
-      using iterator        = value_type *;
-      using const_iterator  = const value_type *;
-      using reference       = value_type &;
-      using const_reference = const value_type &;
-      using size_type       = types::global_dof_index;
-      using real_type       = typename numbers::NumberTraits<Number>::real_type;
+      using memory_space   = MemorySpace;
+      using value_type     = Number;
+      using pointer        = value_type *;
+      using const_pointer  = const value_type *;
+      using iterator       = value_type *;
+      using const_iterator = const value_type *;
+      using reference      = internal::VectorReference<Number, MemorySpace>;
+      using const_reference =
+        const internal::VectorReference<Number, MemorySpace>;
+      using size_type = types::global_dof_index;
+      using real_type = typename numbers::NumberTraits<Number>::real_type;
 
       static_assert(
         std::is_same_v<MemorySpace, ::dealii::MemorySpace::Host> ||
@@ -1037,7 +1149,7 @@ namespace LinearAlgebra
        * a contiguous range and <tt>O(log(n<sub>ranges</sub>))</tt> for ghost
        * elements (quite fast, but slower than local_element()).
        */
-      Number &
+      internal::VectorReference<Number, MemorySpace>
       operator()(const size_type global_index);
 
       /**
@@ -1049,6 +1161,7 @@ namespace LinearAlgebra
        */
       Number
       operator[](const size_type global_index) const;
+
       /**
        * Read and write access to the data in the position corresponding to @p
        * global_index. The index must be either in the local range of the
@@ -1056,7 +1169,7 @@ namespace LinearAlgebra
        *
        * This function does the same thing as operator().
        */
-      Number &
+      internal::VectorReference<Number, MemorySpace>
       operator[](const size_type global_index);
 
       /**
@@ -1572,7 +1685,7 @@ namespace LinearAlgebra
 
 
     template <typename Number, typename MemorySpace>
-    inline Number &
+    inline internal::VectorReference<Number, MemorySpace>
     Vector<Number, MemorySpace>::operator()(const size_type global_index)
     {
       Assert((std::is_same_v<MemorySpace, ::dealii::MemorySpace::Host>),
@@ -1593,7 +1706,9 @@ namespace LinearAlgebra
       // (then, the compiler picks this method according to the C++ rule book
       // even if a human would pick the const method when this subsequent use
       // is just a read)
-      return data.values[partitioner->global_to_local(global_index)];
+      // return data.values[partitioner->global_to_local(global_index)];
+
+      return {*this, global_index};
     }
 
 
@@ -1608,7 +1723,7 @@ namespace LinearAlgebra
 
 
     template <typename Number, typename MemorySpace>
-    inline Number &
+    inline internal::VectorReference<Number, MemorySpace>
     Vector<Number, MemorySpace>::operator[](const size_type global_index)
     {
       return operator()(global_index);
