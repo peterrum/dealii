@@ -361,7 +361,8 @@ namespace
                                            do_mangle,
                                            is_parameter_node(p.second) ||
                                              is_alias_node(p.second));
-            tree_out.put_child(demangle(p.first), temp);
+            tree_out.put_child(do_mangle ? mangle(p.first) : demangle(p.first),
+                               temp);
           }
       }
   }
