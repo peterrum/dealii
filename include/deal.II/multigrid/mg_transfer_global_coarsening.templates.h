@@ -869,6 +869,8 @@ namespace internal
             if (i.first == my_rank)
               continue;
 
+            AssertThrow(i.second.begin() != i.second.end(), ExcInternalError());
+
             indices_to_be_sent[i.first] = {};
             std::vector<types::global_dof_index> &buffer =
               indices_to_be_sent[i.first];

@@ -632,6 +632,8 @@ namespace Utilities
                       send_data[i].push_back(j.second.size());
                       for (const auto &interval : j.second)
                         {
+                          AssertThrow(interval.first != interval.second,
+                                      ExcInternalError());
                           send_data[i].push_back(interval.first);
                           send_data[i].push_back(interval.second);
                         }
@@ -692,11 +694,21 @@ namespace Utilities
                                    buffer.size());
 
                   IndexSet my_index_set(owned_indices.size());
+
+                  AssertThrow((offset + 1) !=
+                                (offset + buffer[offset].second + 1),
+                              ExcInternalError());
+
                   for (unsigned int i = offset + 1;
                        i < offset + buffer[offset].second + 1;
                        ++i)
-                    my_index_set.add_range(index_offset + buffer[i].first,
-                                           index_offset + buffer[i].second);
+                    {
+                      AssertThrow((index_offset + buffer[i].first) !=
+                                    (index_offset + buffer[i].second),
+                                  ExcInternalError());
+                      my_index_set.add_range(index_offset + buffer[i].first,
+                                             index_offset + buffer[i].second);
+                    }
 
                   // the underlying index set is able to merge ranges coming
                   // from different ranks due to the partitioning in the
