@@ -98,6 +98,7 @@ namespace MatrixFreeTools
     const unsigned int first_selected_component = 0);
 
 
+
   /**
    * Compute the matrix representation of a linear operator (@p matrix), given
    * @p matrix_free and the local cell integral operation @p local_vmult.
@@ -128,6 +129,8 @@ namespace MatrixFreeTools
     const unsigned int                                              quad_no = 0,
     const unsigned int first_selected_component = 0);
 
+
+
   /**
    * Same as above but with a class and a function pointer.
    */
@@ -150,6 +153,108 @@ namespace MatrixFreeTools
                                                n_components,
                                                Number,
                                                VectorizedArrayType> &) const,
+    const CLASS       *owning_class,
+    const unsigned int dof_no                   = 0,
+    const unsigned int quad_no                  = 0,
+    const unsigned int first_selected_component = 0);
+
+
+
+  /**
+   * Compute the matrix representation of a linear operator (@p matrix), given
+   * @p matrix_free and the local cell integral operation @p local_vmult.
+   * Constrained entries on the diagonal are set to one.
+   *
+   * The parameters @p dof_no, @p quad_no, and @p first_selected_component are
+   * passed to the constructor of the FEEvaluation that is internally set up.
+   */
+  template <int dim,
+            int fe_degree,
+            int n_q_points_1d,
+            int n_components,
+            typename Number,
+            typename VectorizedArrayType,
+            typename MatrixType>
+  void
+  compute_matrix(
+    const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+    const AffineConstraints<Number>                    &constraints,
+    MatrixType                                         &matrix,
+    const std::function<void(FEEvaluation<dim,
+                                          fe_degree,
+                                          n_q_points_1d,
+                                          n_components,
+                                          Number,
+                                          VectorizedArrayType> &)>
+      &cell_integral,
+    const std::function<void(FEFaceEvaluation<dim,
+                                              fe_degree,
+                                              n_q_points_1d,
+                                              n_components,
+                                              Number,
+                                              VectorizedArrayType> &,
+                             FEFaceEvaluation<dim,
+                                              fe_degree,
+                                              n_q_points_1d,
+                                              n_components,
+                                              Number,
+                                              VectorizedArrayType> &)>
+      &face_integral,
+    const std::function<void(FEFaceEvaluation<dim,
+                                              fe_degree,
+                                              n_q_points_1d,
+                                              n_components,
+                                              Number,
+                                              VectorizedArrayType> &)>
+                      &boundary_integral,
+    const unsigned int dof_no                   = 0,
+    const unsigned int quad_no                  = 0,
+    const unsigned int first_selected_component = 0);
+
+
+
+  /**
+   * Same as above but with a class and a function pointer.
+   */
+  template <typename CLASS,
+            int dim,
+            int fe_degree,
+            int n_q_points_1d,
+            int n_components,
+            typename Number,
+            typename VectorizedArrayType,
+            typename MatrixType>
+  void
+  compute_matrix(
+    const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+    const AffineConstraints<Number>                    &constraints,
+    MatrixType                                         &matrix,
+    void (CLASS::*cell_operation)(FEEvaluation<dim,
+                                               fe_degree,
+                                               n_q_points_1d,
+                                               n_components,
+                                               Number,
+                                               VectorizedArrayType> &) const,
+    void (CLASS::*face_operation)(FEFaceEvaluation<dim,
+                                                   fe_degree,
+                                                   n_q_points_1d,
+                                                   n_components,
+                                                   Number,
+                                                   VectorizedArrayType> &,
+                                  FEFaceEvaluation<dim,
+                                                   fe_degree,
+                                                   n_q_points_1d,
+                                                   n_components,
+                                                   Number,
+                                                   VectorizedArrayType> &)
+      const,
+    void (CLASS::*boundary_operation)(FEFaceEvaluation<dim,
+                                                       fe_degree,
+                                                       n_q_points_1d,
+                                                       n_components,
+                                                       Number,
+                                                       VectorizedArrayType> &)
+      const,
     const CLASS       *owning_class,
     const unsigned int dof_no                   = 0,
     const unsigned int quad_no                  = 0,
@@ -1175,6 +1280,105 @@ namespace MatrixFreeTools
     const unsigned int                                              quad_no,
     const unsigned int first_selected_component)
   {
+    compute_matrix<dim,
+                   fe_degree,
+                   n_q_points_1d,
+                   n_components,
+                   Number,
+                   VectorizedArrayType,
+                   MatrixType>(matrix_free,
+                               constraints_in,
+                               matrix,
+                               local_vmult,
+                               {},
+                               {},
+                               dof_no,
+                               quad_no);
+  }
+
+  template <typename CLASS,
+            int dim,
+            int fe_degree,
+            int n_q_points_1d,
+            int n_components,
+            typename Number,
+            typename VectorizedArrayType,
+            typename MatrixType>
+  void
+  compute_matrix(
+    const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+    const AffineConstraints<Number>                    &constraints,
+    MatrixType                                         &matrix,
+    void (CLASS::*cell_operation)(FEEvaluation<dim,
+                                               fe_degree,
+                                               n_q_points_1d,
+                                               n_components,
+                                               Number,
+                                               VectorizedArrayType> &) const,
+    const CLASS       *owning_class,
+    const unsigned int dof_no,
+    const unsigned int quad_no,
+    const unsigned int first_selected_component)
+  {
+    compute_matrix<dim,
+                   fe_degree,
+                   n_q_points_1d,
+                   n_components,
+                   Number,
+                   VectorizedArrayType,
+                   MatrixType>(
+      matrix_free,
+      constraints,
+      matrix,
+      [&](auto &feeval) { (owning_class->*cell_operation)(feeval); },
+      dof_no,
+      quad_no,
+      first_selected_component);
+  }
+
+  template <int dim,
+            int fe_degree,
+            int n_q_points_1d,
+            int n_components,
+            typename Number,
+            typename VectorizedArrayType,
+            typename MatrixType>
+  void
+  compute_matrix(
+    const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+    const AffineConstraints<Number>                    &constraints_in,
+    MatrixType                                         &matrix,
+    const std::function<void(FEEvaluation<dim,
+                                          fe_degree,
+                                          n_q_points_1d,
+                                          n_components,
+                                          Number,
+                                          VectorizedArrayType> &)>
+      &cell_operation,
+    const std::function<void(FEFaceEvaluation<dim,
+                                              fe_degree,
+                                              n_q_points_1d,
+                                              n_components,
+                                              Number,
+                                              VectorizedArrayType> &,
+                             FEFaceEvaluation<dim,
+                                              fe_degree,
+                                              n_q_points_1d,
+                                              n_components,
+                                              Number,
+                                              VectorizedArrayType> &)>
+      &face_operation,
+    const std::function<void(FEFaceEvaluation<dim,
+                                              fe_degree,
+                                              n_q_points_1d,
+                                              n_components,
+                                              Number,
+                                              VectorizedArrayType> &)>
+                      &boundary_operation,
+    const unsigned int dof_no,
+    const unsigned int quad_no,
+    const unsigned int first_selected_component)
+  {
     std::unique_ptr<AffineConstraints<typename MatrixType::value_type>>
       constraints_for_matrix;
     const AffineConstraints<typename MatrixType::value_type> &constraints =
@@ -1182,8 +1386,11 @@ namespace MatrixFreeTools
                                                         constraints_in,
                                                         constraints_for_matrix);
 
-    matrix_free.template cell_loop<MatrixType, MatrixType>(
-      [&](const auto &, auto &dst, const auto &, const auto range) {
+    const auto cell_operation_wrapped =
+      [&](const auto &matrix_free, auto &dst, const auto &, const auto range) {
+        if (!cell_operation)
+          return; // nothing to do
+
         FEEvaluation<dim,
                      fe_degree,
                      n_q_points_1d,
@@ -1232,7 +1439,7 @@ namespace MatrixFreeTools
                   integrator.begin_dof_values()[i] =
                     static_cast<Number>(i == j);
 
-                local_vmult(integrator);
+                cell_operation(integrator);
 
                 for (unsigned int i = 0; i < dofs_per_cell; ++i)
                   for (unsigned int v = 0; v < n_filled_lanes; ++v)
@@ -1257,9 +1464,114 @@ namespace MatrixFreeTools
                                                        dst);
               }
           }
-      },
-      matrix,
-      matrix);
+      };
+
+    const auto face_operation_wrapped =
+      [&](const auto &matrix_free, auto &dst, const auto &, const auto range) {
+        (void)matrix_free;
+        (void)dst;
+        (void)range;
+      };
+
+    const auto boundary_operation_wrapped = [&](const auto &matrix_free,
+                                                auto       &dst,
+                                                const auto &,
+                                                const auto range) {
+      if (!boundary_operation)
+        return; // nothing to do
+
+      FEFaceEvaluation<dim,
+                       fe_degree,
+                       n_q_points_1d,
+                       n_components,
+                       Number,
+                       VectorizedArrayType>
+        integrator(
+          matrix_free, range, true, dof_no, quad_no, first_selected_component);
+
+      const unsigned int dofs_per_cell = integrator.dofs_per_cell;
+
+      std::vector<types::global_dof_index> dof_indices(dofs_per_cell);
+      std::vector<types::global_dof_index> dof_indices_mf(dofs_per_cell);
+
+      std::array<FullMatrix<typename MatrixType::value_type>,
+                 VectorizedArrayType::size()>
+        matrices;
+
+      std::fill_n(matrices.begin(),
+                  VectorizedArrayType::size(),
+                  FullMatrix<typename MatrixType::value_type>(dofs_per_cell,
+                                                              dofs_per_cell));
+
+      const auto lexicographic_numbering =
+        matrix_free
+          .get_shape_info(dof_no,
+                          quad_no,
+                          first_selected_component,
+                          integrator.get_active_fe_index(),
+                          integrator.get_active_quadrature_index())
+          .lexicographic_numbering;
+
+      for (auto face = range.first; face < range.second; ++face)
+        {
+          integrator.reinit(face);
+
+          const unsigned int n_filled_lanes =
+            matrix_free.n_active_entries_per_face_batch(face);
+
+          for (unsigned int v = 0; v < n_filled_lanes; ++v)
+            matrices[v] = 0.0;
+
+          for (unsigned int j = 0; j < dofs_per_cell; ++j)
+            {
+              for (unsigned int i = 0; i < dofs_per_cell; ++i)
+                integrator.begin_dof_values()[i] = static_cast<Number>(i == j);
+
+              boundary_operation(integrator);
+
+              for (unsigned int i = 0; i < dofs_per_cell; ++i)
+                for (unsigned int v = 0; v < n_filled_lanes; ++v)
+                  matrices[v](i, j) = integrator.begin_dof_values()[i][v];
+            }
+
+          for (unsigned int v = 0; v < n_filled_lanes; ++v)
+            {
+              unsigned int const cell =
+                matrix_free.get_face_info(face).cells_interior[v];
+
+              const auto cell_v =
+                matrix_free.get_cell_iterator(cell /
+                                                VectorizedArrayType::size(),
+                                              v % VectorizedArrayType::size(),
+                                              dof_no);
+
+              if (matrix_free.get_mg_level() != numbers::invalid_unsigned_int)
+                cell_v->get_mg_dof_indices(dof_indices);
+              else
+                cell_v->get_dof_indices(dof_indices);
+
+              for (unsigned int j = 0; j < dof_indices.size(); ++j)
+                dof_indices_mf[j] = dof_indices[lexicographic_numbering[j]];
+
+              constraints.distribute_local_to_global(matrices[v],
+                                                     dof_indices_mf,
+                                                     dst);
+            }
+        }
+    };
+
+    if (face_operation || boundary_operation)
+      {
+        matrix_free.template loop<MatrixType, MatrixType>(
+          cell_operation_wrapped,
+          face_operation_wrapped,
+          boundary_operation_wrapped,
+          matrix,
+          matrix);
+      }
+    else
+      matrix_free.template cell_loop<MatrixType, MatrixType>(
+        cell_operation_wrapped, matrix, matrix);
 
     matrix.compress(VectorOperation::add);
   }
@@ -1283,6 +1595,26 @@ namespace MatrixFreeTools
                                                n_components,
                                                Number,
                                                VectorizedArrayType> &) const,
+    void (CLASS::*face_operation)(FEFaceEvaluation<dim,
+                                                   fe_degree,
+                                                   n_q_points_1d,
+                                                   n_components,
+                                                   Number,
+                                                   VectorizedArrayType> &,
+                                  FEFaceEvaluation<dim,
+                                                   fe_degree,
+                                                   n_q_points_1d,
+                                                   n_components,
+                                                   Number,
+                                                   VectorizedArrayType> &)
+      const,
+    void (CLASS::*boundary_operation)(FEFaceEvaluation<dim,
+                                                       fe_degree,
+                                                       n_q_points_1d,
+                                                       n_components,
+                                                       Number,
+                                                       VectorizedArrayType> &)
+      const,
     const CLASS       *owning_class,
     const unsigned int dof_no,
     const unsigned int quad_no,
@@ -1299,6 +1631,10 @@ namespace MatrixFreeTools
       constraints,
       matrix,
       [&](auto &feeval) { (owning_class->*cell_operation)(feeval); },
+      [&](auto &feeval_in, auto &feeval_out) {
+        (owning_class->*face_operation)(feeval_in, feeval_out);
+      },
+      [&](auto &feeval) { (owning_class->*boundary_operation)(feeval); },
       dof_no,
       quad_no,
       first_selected_component);
