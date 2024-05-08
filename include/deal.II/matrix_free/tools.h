@@ -787,6 +787,36 @@ namespace MatrixFreeTools
             c_pools[v].row_lid_to_gid.size() *
               (n_fe_components == 1 ? n_components : 1),
             Number(0.0));
+
+        // check if fast path can be taken via FEEvaluation
+        bool use_fast_path = true;
+
+        for (unsigned int v = 0; v < n_lanes_filled; ++v)
+          {
+            auto &c_pool = c_pools[v];
+
+            for (unsigned int i = 0; i < c_pool.row.size() - 1; ++i)
+              {
+                if ((c_pool.row[i + 1] - c_pool.row[i]) > 1)
+                  {
+                    use_fast_path = false;
+                    break;
+                  }
+              }
+
+            if (use_fast_path == false)
+              break;
+          }
+
+        if (use_fast_path)
+          {
+            temp_values.resize(phi->dofs_per_cell);
+            return;
+          }
+        else
+          {
+            temp_values.resize(0);
+          }
       }
 
       void
@@ -869,6 +899,12 @@ namespace MatrixFreeTools
       void
       submit()
       {
+        if (!temp_values.empty())
+          {
+            temp_values[i] = phi->begin_dof_values()[i];
+            return;
+          }
+
         // if we have a block vector with components with the same DoFHandler,
         // we need to figure out which component and which DoF within the
         // component are we currently considering
@@ -913,6 +949,21 @@ namespace MatrixFreeTools
       distribute_local_to_global(
         std::array<VectorType *, n_components> &diagonal_global)
       {
+        if (!temp_values.empty())
+          {
+            for (unsigned int j = 0; j < temp_values.size(); ++j)
+              phi->begin_dof_values()[j] = temp_values[j];
+
+            std::vector<VectorType *> diagonal_global_temp;
+
+            for (const auto i : diagonal_global)
+              diagonal_global_temp.emplace_back(i);
+
+            phi->distribute_local_to_global(diagonal_global_temp);
+
+            return;
+          }
+
         // STEP 4: assembly results: add into global vector
         const unsigned int n_fe_components =
           phi->get_dof_info().start_components.back();
@@ -962,6 +1013,7 @@ namespace MatrixFreeTools
         locally_relevant_constraints_hn_map;
 
       // scratch array
+      AlignedVector<VectorizedArrayType> temp_values;
       AlignedVector<VectorizedArrayType> values_dofs;
     };
 
