@@ -1190,6 +1190,12 @@ namespace MatrixFreeTools
                   [v][j + comp * c_pools[v].row_lid_to_gid.size()]);
       }
 
+      bool
+      use_fast_path() const
+      {
+        return !temp_values.empty();
+      }
+
     private:
       FEEvaluationType *phi;
 
@@ -1377,7 +1383,17 @@ namespace MatrixFreeTools
                                                    Number,
                                                    VectorizedArrayType>>;
 
-    Threads::ThreadLocalStorage<Helper> scratch_data;
+    using HelperFace =
+      internal::ComputeDiagonalHelper<FEFaceEvaluation<dim,
+                                                       fe_degree,
+                                                       n_q_points_1d,
+                                                       n_components,
+                                                       Number,
+                                                       VectorizedArrayType>>;
+
+    Threads::ThreadLocalStorage<Helper>     scratch_data;
+    Threads::ThreadLocalStorage<HelperFace> scratch_data_m;
+    Threads::ThreadLocalStorage<HelperFace> scratch_data_p;
 
     const auto cell_operation_wrapped =
       [&](const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
@@ -1413,13 +1429,124 @@ namespace MatrixFreeTools
           }
       };
 
-    (void)face_operation;
-    (void)boundary_operation;
+    const auto face_operation_wrapped =
+      [&](const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+          VectorType &,
+          const int &,
+          const std::pair<unsigned int, unsigned int> &range) mutable {
+        if (!face_operation)
+          return;
 
-    matrix_free.template cell_loop<VectorType, int>(cell_operation_wrapped,
-                                                    diagonal_global,
-                                                    dummy,
-                                                    false);
+        HelperFace &helper_m = scratch_data_m.get();
+        HelperFace &helper_p = scratch_data_p.get();
+
+        FEFaceEvaluation<dim,
+                         fe_degree,
+                         n_q_points_1d,
+                         n_components,
+                         Number,
+                         VectorizedArrayType>
+          phi_m(matrix_free,
+                range,
+                true,
+                dof_no,
+                quad_no,
+                first_selected_component);
+        FEFaceEvaluation<dim,
+                         fe_degree,
+                         n_q_points_1d,
+                         n_components,
+                         Number,
+                         VectorizedArrayType>
+          phi_p(matrix_free,
+                range,
+                false,
+                dof_no,
+                quad_no,
+                first_selected_component);
+
+        helper_m.initialize(phi_m);
+        helper_p.initialize(phi_p);
+
+        for (unsigned int cell = range.first; cell < range.second; ++cell)
+          {
+            helper_m.reinit(cell);
+            helper_p.reinit(cell);
+
+            Assert(helper_m.use_fast_path() && helper_p.use_fast_path(),
+                   ExcNotImplemented());
+
+            for (unsigned int i = 0; i < phi_m.dofs_per_cell; ++i)
+              {
+                helper_m.prepare_basis_vector(i);
+                face_operation(phi_m, phi_p);
+                helper_m.submit();
+              }
+
+            helper_m.distribute_local_to_global(diagonal_global_components);
+
+            for (unsigned int i = 0; i < phi_p.dofs_per_cell; ++i)
+              {
+                helper_p.prepare_basis_vector(i);
+                face_operation(phi_m, phi_p);
+                helper_p.submit();
+              }
+
+            helper_p.distribute_local_to_global(diagonal_global_components);
+          }
+      };
+
+    const auto boundary_operation_wrapped =
+      [&](const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+          VectorType &,
+          const int &,
+          const std::pair<unsigned int, unsigned int> &range) mutable {
+        if (!cell_operation)
+          return;
+
+        HelperFace &helper = scratch_data_m.get();
+
+        FEFaceEvaluation<dim,
+                         fe_degree,
+                         n_q_points_1d,
+                         n_components,
+                         Number,
+                         VectorizedArrayType>
+          phi(matrix_free,
+              range,
+              true,
+              dof_no,
+              quad_no,
+              first_selected_component);
+        helper.initialize(phi);
+
+        for (unsigned int face = range.first; face < range.second; ++face)
+          {
+            helper.reinit(face);
+
+            for (unsigned int i = 0; i < phi.dofs_per_cell; ++i)
+              {
+                helper.prepare_basis_vector(i);
+                boundary_operation(phi);
+                helper.submit();
+              }
+
+            helper.distribute_local_to_global(diagonal_global_components);
+          }
+      };
+
+    if (face_operation || boundary_operation)
+      matrix_free.template loop<VectorType, int>(cell_operation_wrapped,
+                                                 face_operation_wrapped,
+                                                 boundary_operation_wrapped,
+                                                 diagonal_global,
+                                                 dummy,
+                                                 false);
+    else
+      matrix_free.template cell_loop<VectorType, int>(cell_operation_wrapped,
+                                                      diagonal_global,
+                                                      dummy,
+                                                      false);
   }
 
   template <typename CLASS,
