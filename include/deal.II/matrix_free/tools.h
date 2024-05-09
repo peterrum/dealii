@@ -42,6 +42,8 @@ namespace MatrixFreeTools
   categorize_by_boundary_ids(const Triangulation<dim> &tria,
                              AdditionalData           &additional_data);
 
+
+
   /**
    * Compute the diagonal of a linear operator (@p diagonal_global), given
    * @p matrix_free and the local cell integral operation @p cell_operation. The
@@ -72,6 +74,8 @@ namespace MatrixFreeTools
     const unsigned int quad_no                  = 0,
     const unsigned int first_selected_component = 0);
 
+
+
   /**
    * Same as above but with a class and a function pointer.
    */
@@ -93,6 +97,101 @@ namespace MatrixFreeTools
                                                n_components,
                                                Number,
                                                VectorizedArrayType> &) const,
+    const CLASS       *owning_class,
+    const unsigned int dof_no                   = 0,
+    const unsigned int quad_no                  = 0,
+    const unsigned int first_selected_component = 0);
+
+
+
+  /**
+   * TODO.
+   */
+  template <int dim,
+            int fe_degree,
+            int n_q_points_1d,
+            int n_components,
+            typename Number,
+            typename VectorizedArrayType,
+            typename VectorType>
+  void
+  compute_diagonal(
+    const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+    VectorType                                         &diagonal_global,
+    const std::function<void(FEEvaluation<dim,
+                                          fe_degree,
+                                          n_q_points_1d,
+                                          n_components,
+                                          Number,
+                                          VectorizedArrayType> &)>
+      &cell_operation,
+    const std::function<void(FEFaceEvaluation<dim,
+                                              fe_degree,
+                                              n_q_points_1d,
+                                              n_components,
+                                              Number,
+                                              VectorizedArrayType> &,
+                             FEFaceEvaluation<dim,
+                                              fe_degree,
+                                              n_q_points_1d,
+                                              n_components,
+                                              Number,
+                                              VectorizedArrayType> &)>
+      &face_operation,
+    const std::function<void(FEFaceEvaluation<dim,
+                                              fe_degree,
+                                              n_q_points_1d,
+                                              n_components,
+                                              Number,
+                                              VectorizedArrayType> &)>
+                      &boundary_operation,
+    const unsigned int dof_no                   = 0,
+    const unsigned int quad_no                  = 0,
+    const unsigned int first_selected_component = 0);
+
+
+
+  /**
+   * Same as above but with a class and a function pointer.
+   */
+  template <typename CLASS,
+            int dim,
+            int fe_degree,
+            int n_q_points_1d,
+            int n_components,
+            typename Number,
+            typename VectorizedArrayType,
+            typename VectorType>
+  void
+  compute_diagonal(
+    const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+    VectorType                                         &diagonal_global,
+    void (CLASS::*cell_operation)(FEEvaluation<dim,
+                                               fe_degree,
+                                               n_q_points_1d,
+                                               n_components,
+                                               Number,
+                                               VectorizedArrayType> &) const,
+    void (CLASS::*face_operation)(FEFaceEvaluation<dim,
+                                                   fe_degree,
+                                                   n_q_points_1d,
+                                                   n_components,
+                                                   Number,
+                                                   VectorizedArrayType> &,
+                                  FEFaceEvaluation<dim,
+                                                   fe_degree,
+                                                   n_q_points_1d,
+                                                   n_components,
+                                                   Number,
+                                                   VectorizedArrayType> &)
+      const,
+    void (CLASS::*boundary_operation)(FEFaceEvaluation<dim,
+                                                       fe_degree,
+                                                       n_q_points_1d,
+                                                       n_components,
+                                                       Number,
+                                                       VectorizedArrayType> &)
+      const,
     const CLASS       *owning_class,
     const unsigned int dof_no                   = 0,
     const unsigned int quad_no                  = 0,
@@ -1139,6 +1238,102 @@ namespace MatrixFreeTools
     const unsigned int quad_no,
     const unsigned int first_selected_component)
   {
+    compute_diagonal<dim,
+                     fe_degree,
+                     n_q_points_1d,
+                     n_components,
+                     Number,
+                     VectorizedArrayType,
+                     VectorType>(matrix_free,
+                                 diagonal_global,
+                                 cell_operation,
+                                 {},
+                                 {},
+                                 dof_no,
+                                 quad_no,
+                                 first_selected_component);
+  }
+
+  template <typename CLASS,
+            int dim,
+            int fe_degree,
+            int n_q_points_1d,
+            int n_components,
+            typename Number,
+            typename VectorizedArrayType,
+            typename VectorType>
+  void
+  compute_diagonal(
+    const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+    VectorType                                         &diagonal_global,
+    void (CLASS::*cell_operation)(FEEvaluation<dim,
+                                               fe_degree,
+                                               n_q_points_1d,
+                                               n_components,
+                                               Number,
+                                               VectorizedArrayType> &) const,
+    const CLASS       *owning_class,
+    const unsigned int dof_no,
+    const unsigned int quad_no,
+    const unsigned int first_selected_component)
+  {
+    compute_diagonal<dim,
+                     fe_degree,
+                     n_q_points_1d,
+                     n_components,
+                     Number,
+                     VectorizedArrayType,
+                     VectorType>(
+      matrix_free,
+      diagonal_global,
+      [&](auto &feeval) { (owning_class->*cell_operation)(feeval); },
+      dof_no,
+      quad_no,
+      first_selected_component);
+  }
+
+  template <int dim,
+            int fe_degree,
+            int n_q_points_1d,
+            int n_components,
+            typename Number,
+            typename VectorizedArrayType,
+            typename VectorType>
+  void
+  compute_diagonal(
+    const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+    VectorType                                         &diagonal_global,
+    const std::function<void(FEEvaluation<dim,
+                                          fe_degree,
+                                          n_q_points_1d,
+                                          n_components,
+                                          Number,
+                                          VectorizedArrayType> &)>
+      &cell_operation,
+    const std::function<void(FEFaceEvaluation<dim,
+                                              fe_degree,
+                                              n_q_points_1d,
+                                              n_components,
+                                              Number,
+                                              VectorizedArrayType> &,
+                             FEFaceEvaluation<dim,
+                                              fe_degree,
+                                              n_q_points_1d,
+                                              n_components,
+                                              Number,
+                                              VectorizedArrayType> &)>
+      &face_operation,
+    const std::function<void(FEFaceEvaluation<dim,
+                                              fe_degree,
+                                              n_q_points_1d,
+                                              n_components,
+                                              Number,
+                                              VectorizedArrayType> &)>
+                      &boundary_operation,
+    const unsigned int dof_no,
+    const unsigned int quad_no,
+    const unsigned int first_selected_component)
+  {
     int dummy = 0;
 
     std::array<typename dealii::internal::BlockVectorSelector<
@@ -1183,11 +1378,15 @@ namespace MatrixFreeTools
                                                    VectorizedArrayType>>;
 
     Threads::ThreadLocalStorage<Helper> scratch_data;
-    matrix_free.template cell_loop<VectorType, int>(
+
+    const auto cell_operation_wrapped =
       [&](const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
           VectorType &,
           const int &,
           const std::pair<unsigned int, unsigned int> &range) mutable {
+        if (!cell_operation)
+          return;
+
         Helper &helper = scratch_data.get();
 
         FEEvaluation<dim,
@@ -1212,10 +1411,15 @@ namespace MatrixFreeTools
 
             helper.distribute_local_to_global(diagonal_global_components);
           }
-      },
-      diagonal_global,
-      dummy,
-      false);
+      };
+
+    (void)face_operation;
+    (void)boundary_operation;
+
+    matrix_free.template cell_loop<VectorType, int>(cell_operation_wrapped,
+                                                    diagonal_global,
+                                                    dummy,
+                                                    false);
   }
 
   template <typename CLASS,
@@ -1236,6 +1440,26 @@ namespace MatrixFreeTools
                                                n_components,
                                                Number,
                                                VectorizedArrayType> &) const,
+    void (CLASS::*face_operation)(FEFaceEvaluation<dim,
+                                                   fe_degree,
+                                                   n_q_points_1d,
+                                                   n_components,
+                                                   Number,
+                                                   VectorizedArrayType> &,
+                                  FEFaceEvaluation<dim,
+                                                   fe_degree,
+                                                   n_q_points_1d,
+                                                   n_components,
+                                                   Number,
+                                                   VectorizedArrayType> &)
+      const,
+    void (CLASS::*boundary_operation)(FEFaceEvaluation<dim,
+                                                       fe_degree,
+                                                       n_q_points_1d,
+                                                       n_components,
+                                                       Number,
+                                                       VectorizedArrayType> &)
+      const,
     const CLASS       *owning_class,
     const unsigned int dof_no,
     const unsigned int quad_no,
@@ -1251,6 +1475,10 @@ namespace MatrixFreeTools
       matrix_free,
       diagonal_global,
       [&](auto &feeval) { (owning_class->*cell_operation)(feeval); },
+      [&](auto &feevalm, auto &feevalp) {
+        (owning_class->*face_operation)(feevalm, feevalp);
+      },
+      [&](auto &feeval) { (owning_class->*boundary_operation)(feeval); },
       dof_no,
       quad_no,
       first_selected_component);
