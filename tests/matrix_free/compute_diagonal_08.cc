@@ -14,11 +14,17 @@
 
 
 
-// Similar to compute_diagonal_02 but testing block vectors.
+// Compute diagonal and matrix for SIP with MatrixFreeTools.
 
-#include <deal.II/lac/la_parallel_block_vector.h>
+#include <deal.II/fe/fe_dgq.h>
 
-#include "compute_diagonal_util.h"
+#include <deal.II/grid/grid_generator.h>
+
+#include <deal.II/matrix_free/fe_evaluation.h>
+#include <deal.II/matrix_free/matrix_free.h>
+#include <deal.II/matrix_free/tools.h>
+
+#include "../tests.h"
 
 using namespace dealii;
 
