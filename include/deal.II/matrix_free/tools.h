@@ -295,7 +295,7 @@ namespace MatrixFreeTools
                                           n_components,
                                           Number,
                                           VectorizedArrayType> &)>
-      &cell_integral,
+      &cell_operation,
     const std::function<void(FEFaceEvaluation<dim,
                                               fe_degree,
                                               n_q_points_1d,
@@ -308,14 +308,14 @@ namespace MatrixFreeTools
                                               n_components,
                                               Number,
                                               VectorizedArrayType> &)>
-      &face_integral,
+      &face_operation,
     const std::function<void(FEFaceEvaluation<dim,
                                               fe_degree,
                                               n_q_points_1d,
                                               n_components,
                                               Number,
                                               VectorizedArrayType> &)>
-                      &boundary_integral,
+                      &boundary_operation,
     const unsigned int dof_no                   = 0,
     const unsigned int quad_no                  = 0,
     const unsigned int first_selected_component = 0);
@@ -1310,7 +1310,7 @@ namespace MatrixFreeTools
                      VectorType>(
       matrix_free,
       diagonal_global,
-      [&](auto &feeval) { (owning_class->*cell_operation)(feeval); },
+      [&](auto &phi) { (owning_class->*cell_operation)(phi); },
       dof_no,
       quad_no,
       first_selected_component);
@@ -1623,11 +1623,11 @@ namespace MatrixFreeTools
                      VectorType>(
       matrix_free,
       diagonal_global,
-      [&](auto &feeval) { (owning_class->*cell_operation)(feeval); },
-      [&](auto &feevalm, auto &feevalp) {
-        (owning_class->*face_operation)(feevalm, feevalp);
+      [&](auto &phi) { (owning_class->*cell_operation)(phi); },
+      [&](auto &phi_m, auto &phi_p) {
+        (owning_class->*face_operation)(phi_m, phi_p);
       },
-      [&](auto &feeval) { (owning_class->*boundary_operation)(feeval); },
+      [&](auto &phi) { (owning_class->*boundary_operation)(phi); },
       dof_no,
       quad_no,
       first_selected_component);
@@ -1755,7 +1755,7 @@ namespace MatrixFreeTools
       matrix_free,
       constraints,
       matrix,
-      [&](auto &feeval) { (owning_class->*cell_operation)(feeval); },
+      [&](auto &phi) { (owning_class->*cell_operation)(phi); },
       dof_no,
       quad_no,
       first_selected_component);
@@ -1822,10 +1822,9 @@ namespace MatrixFreeTools
                      n_components,
                      Number,
                      VectorizedArrayType>
-          integrator(
-            matrix_free, range, dof_no, quad_no, first_selected_component);
+          phi(matrix_free, range, dof_no, quad_no, first_selected_component);
 
-        const unsigned int dofs_per_cell = integrator.dofs_per_cell;
+        const unsigned int dofs_per_cell = phi.dofs_per_cell;
 
         std::vector<types::global_dof_index> dof_indices(dofs_per_cell);
         std::vector<types::global_dof_index> dof_indices_mf(dofs_per_cell);
@@ -1844,13 +1843,13 @@ namespace MatrixFreeTools
             .get_shape_info(dof_no,
                             quad_no,
                             first_selected_component,
-                            integrator.get_active_fe_index(),
-                            integrator.get_active_quadrature_index())
+                            phi.get_active_fe_index(),
+                            phi.get_active_quadrature_index())
             .lexicographic_numbering;
 
         for (auto cell = range.first; cell < range.second; ++cell)
           {
-            integrator.reinit(cell);
+            phi.reinit(cell);
 
             const unsigned int n_filled_lanes =
               matrix_free.n_active_entries_per_cell_batch(cell);
@@ -1861,14 +1860,13 @@ namespace MatrixFreeTools
             for (unsigned int j = 0; j < dofs_per_cell; ++j)
               {
                 for (unsigned int i = 0; i < dofs_per_cell; ++i)
-                  integrator.begin_dof_values()[i] =
-                    static_cast<Number>(i == j);
+                  phi.begin_dof_values()[i] = static_cast<Number>(i == j);
 
-                cell_operation(integrator);
+                cell_operation(phi);
 
                 for (unsigned int i = 0; i < dofs_per_cell; ++i)
                   for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                    matrices[v](i, j) = integrator.begin_dof_values()[i][v];
+                    matrices[v](i, j) = phi.begin_dof_values()[i][v];
               }
 
             for (unsigned int v = 0; v < n_filled_lanes; ++v)
@@ -1904,7 +1902,7 @@ namespace MatrixFreeTools
                        n_components,
                        Number,
                        VectorizedArrayType>
-        integrator_m(
+        phi_m(
           matrix_free, range, true, dof_no, quad_no, first_selected_component);
 
       FEFaceEvaluation<dim,
@@ -1913,11 +1911,11 @@ namespace MatrixFreeTools
                        n_components,
                        Number,
                        VectorizedArrayType>
-        integrator_p(
+        phi_p(
           matrix_free, range, false, dof_no, quad_no, first_selected_component);
 
-      const unsigned int dofs_per_cell_m = integrator_m.dofs_per_cell;
-      const unsigned int dofs_per_cell_p = integrator_p.dofs_per_cell;
+      const unsigned int dofs_per_cell_m = phi_m.dofs_per_cell;
+      const unsigned int dofs_per_cell_p = phi_p.dofs_per_cell;
 
       std::vector<types::global_dof_index> dof_indices_m(dofs_per_cell_m);
       std::vector<types::global_dof_index> dof_indices_mf_m(dofs_per_cell_m);
@@ -1961,22 +1959,22 @@ namespace MatrixFreeTools
           .get_shape_info(dof_no,
                           quad_no,
                           first_selected_component,
-                          integrator_m.get_active_fe_index(),
-                          integrator_m.get_active_quadrature_index())
+                          phi_m.get_active_fe_index(),
+                          phi_m.get_active_quadrature_index())
           .lexicographic_numbering;
       const auto lexicographic_numbering_p =
         matrix_free
           .get_shape_info(dof_no,
                           quad_no,
                           first_selected_component,
-                          integrator_p.get_active_fe_index(),
-                          integrator_p.get_active_quadrature_index())
+                          phi_p.get_active_fe_index(),
+                          phi_p.get_active_quadrature_index())
           .lexicographic_numbering;
 
       for (auto face = range.first; face < range.second; ++face)
         {
-          integrator_m.reinit(face);
-          integrator_p.reinit(face);
+          phi_m.reinit(face);
+          phi_p.reinit(face);
 
           const unsigned int n_filled_lanes =
             matrix_free.n_active_entries_per_face_batch(face);
@@ -1997,22 +1995,20 @@ namespace MatrixFreeTools
                    ++j)
                 {
                   for (unsigned int i = 0; i < dofs_per_cell_m; ++i)
-                    integrator_m.begin_dof_values()[i] =
+                    phi_m.begin_dof_values()[i] =
                       (b == 0) ? static_cast<Number>(i == j) : 0.0;
                   for (unsigned int i = 0; i < dofs_per_cell_p; ++i)
-                    integrator_p.begin_dof_values()[i] =
+                    phi_p.begin_dof_values()[i] =
                       (b == 1) ? static_cast<Number>(i == j) : 0.0;
 
-                  face_operation(integrator_m, integrator_p);
+                  face_operation(phi_m, phi_p);
 
                   for (unsigned int i = 0; i < dofs_per_cell_m; ++i)
                     for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                      matrices_m[v](i, j) =
-                        integrator_m.begin_dof_values()[i][v];
+                      matrices_m[v](i, j) = phi_m.begin_dof_values()[i][v];
                   for (unsigned int i = 0; i < dofs_per_cell_p; ++i)
                     for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                      matrices_p[v](i, j) =
-                        integrator_p.begin_dof_values()[i][v];
+                      matrices_p[v](i, j) = phi_p.begin_dof_values()[i][v];
                 }
 
               for (unsigned int v = 0; v < n_filled_lanes; ++v)
@@ -2080,10 +2076,10 @@ namespace MatrixFreeTools
                        n_components,
                        Number,
                        VectorizedArrayType>
-        integrator(
+        phi(
           matrix_free, range, true, dof_no, quad_no, first_selected_component);
 
-      const unsigned int dofs_per_cell = integrator.dofs_per_cell;
+      const unsigned int dofs_per_cell = phi.dofs_per_cell;
 
       std::vector<types::global_dof_index> dof_indices(dofs_per_cell);
       std::vector<types::global_dof_index> dof_indices_mf(dofs_per_cell);
@@ -2102,13 +2098,13 @@ namespace MatrixFreeTools
           .get_shape_info(dof_no,
                           quad_no,
                           first_selected_component,
-                          integrator.get_active_fe_index(),
-                          integrator.get_active_quadrature_index())
+                          phi.get_active_fe_index(),
+                          phi.get_active_quadrature_index())
           .lexicographic_numbering;
 
       for (auto face = range.first; face < range.second; ++face)
         {
-          integrator.reinit(face);
+          phi.reinit(face);
 
           const unsigned int n_filled_lanes =
             matrix_free.n_active_entries_per_face_batch(face);
@@ -2119,13 +2115,13 @@ namespace MatrixFreeTools
           for (unsigned int j = 0; j < dofs_per_cell; ++j)
             {
               for (unsigned int i = 0; i < dofs_per_cell; ++i)
-                integrator.begin_dof_values()[i] = static_cast<Number>(i == j);
+                phi.begin_dof_values()[i] = static_cast<Number>(i == j);
 
-              boundary_operation(integrator);
+              boundary_operation(phi);
 
               for (unsigned int i = 0; i < dofs_per_cell; ++i)
                 for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                  matrices[v](i, j) = integrator.begin_dof_values()[i][v];
+                  matrices[v](i, j) = phi.begin_dof_values()[i][v];
             }
 
           for (unsigned int v = 0; v < n_filled_lanes; ++v)
@@ -2223,11 +2219,11 @@ namespace MatrixFreeTools
       matrix_free,
       constraints,
       matrix,
-      [&](auto &feeval) { (owning_class->*cell_operation)(feeval); },
-      [&](auto &feeval_in, auto &feeval_out) {
-        (owning_class->*face_operation)(feeval_in, feeval_out);
+      [&](auto &phi) { (owning_class->*cell_operation)(phi); },
+      [&](auto &phi_m, auto &phi_p) {
+        (owning_class->*face_operation)(phi_m, phi_p);
       },
-      [&](auto &feeval) { (owning_class->*boundary_operation)(feeval); },
+      [&](auto &phi) { (owning_class->*boundary_operation)(phi); },
       dof_no,
       quad_no,
       first_selected_component);
