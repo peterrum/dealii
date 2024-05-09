@@ -44,7 +44,7 @@ namespace MatrixFreeTools
 
   /**
    * Compute the diagonal of a linear operator (@p diagonal_global), given
-   * @p matrix_free and the local cell integral operation @p local_vmult. The
+   * @p matrix_free and the local cell integral operation @p cell_operation. The
    * vector is initialized to the right size in the function.
    *
    * The parameters @p dof_no, @p quad_no, and @p first_selected_component are
@@ -66,9 +66,10 @@ namespace MatrixFreeTools
                                           n_q_points_1d,
                                           n_components,
                                           Number,
-                                          VectorizedArrayType> &)> &local_vmult,
-    const unsigned int                                              dof_no  = 0,
-    const unsigned int                                              quad_no = 0,
+                                          VectorizedArrayType> &)>
+                      &cell_operation,
+    const unsigned int dof_no                   = 0,
+    const unsigned int quad_no                  = 0,
     const unsigned int first_selected_component = 0);
 
   /**
@@ -101,7 +102,7 @@ namespace MatrixFreeTools
 
   /**
    * Compute the matrix representation of a linear operator (@p matrix), given
-   * @p matrix_free and the local cell integral operation @p local_vmult.
+   * @p matrix_free and the local cell integral operation @p cell_operation.
    * Constrained entries on the diagonal are set to one.
    *
    * The parameters @p dof_no, @p quad_no, and @p first_selected_component are
@@ -116,17 +117,18 @@ namespace MatrixFreeTools
             typename MatrixType>
   void
   compute_matrix(
-    const MatrixFree<dim, Number, VectorizedArrayType>             &matrix_free,
-    const AffineConstraints<Number>                                &constraints,
-    MatrixType                                                     &matrix,
+    const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+    const AffineConstraints<Number>                    &constraints,
+    MatrixType                                         &matrix,
     const std::function<void(FEEvaluation<dim,
                                           fe_degree,
                                           n_q_points_1d,
                                           n_components,
                                           Number,
-                                          VectorizedArrayType> &)> &local_vmult,
-    const unsigned int                                              dof_no  = 0,
-    const unsigned int                                              quad_no = 0,
+                                          VectorizedArrayType> &)>
+                      &cell_operation,
+    const unsigned int dof_no                   = 0,
+    const unsigned int quad_no                  = 0,
     const unsigned int first_selected_component = 0);
 
 
@@ -161,12 +163,7 @@ namespace MatrixFreeTools
 
 
   /**
-   * Compute the matrix representation of a linear operator (@p matrix), given
-   * @p matrix_free and the local cell integral operation @p local_vmult.
-   * Constrained entries on the diagonal are set to one.
-   *
-   * The parameters @p dof_no, @p quad_no, and @p first_selected_component are
-   * passed to the constructor of the FEEvaluation that is internally set up.
+   * TODO
    */
   template <int dim,
             int fe_degree,
@@ -1136,9 +1133,10 @@ namespace MatrixFreeTools
                                           n_q_points_1d,
                                           n_components,
                                           Number,
-                                          VectorizedArrayType> &)> &local_vmult,
-    const unsigned int                                              dof_no,
-    const unsigned int                                              quad_no,
+                                          VectorizedArrayType> &)>
+                      &cell_operation,
+    const unsigned int dof_no,
+    const unsigned int quad_no,
     const unsigned int first_selected_component)
   {
     int dummy = 0;
@@ -1208,7 +1206,7 @@ namespace MatrixFreeTools
             for (unsigned int i = 0; i < phi.dofs_per_cell; ++i)
               {
                 helper.prepare_basis_vector(i);
-                local_vmult(phi);
+                cell_operation(phi);
                 helper.submit();
               }
 
@@ -1324,9 +1322,10 @@ namespace MatrixFreeTools
                                           n_q_points_1d,
                                           n_components,
                                           Number,
-                                          VectorizedArrayType> &)> &local_vmult,
-    const unsigned int                                              dof_no,
-    const unsigned int                                              quad_no,
+                                          VectorizedArrayType> &)>
+                      &cell_operation,
+    const unsigned int dof_no,
+    const unsigned int quad_no,
     const unsigned int first_selected_component)
   {
     compute_matrix<dim,
@@ -1338,7 +1337,7 @@ namespace MatrixFreeTools
                    MatrixType>(matrix_free,
                                constraints_in,
                                matrix,
-                               local_vmult,
+                               cell_operation,
                                {},
                                {},
                                dof_no,
