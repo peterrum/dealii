@@ -1518,12 +1518,181 @@ namespace MatrixFreeTools
           }
       };
 
-    const auto face_operation_wrapped =
-      [&](const auto &matrix_free, auto &dst, const auto &, const auto range) {
-        (void)matrix_free;
-        (void)dst;
-        (void)range;
-      };
+    const auto face_operation_wrapped = [&](const auto &matrix_free,
+                                            auto       &dst,
+                                            const auto &,
+                                            const auto range) {
+      if (!face_operation)
+        return; // nothing to do
+
+      FEFaceEvaluation<dim,
+                       fe_degree,
+                       n_q_points_1d,
+                       n_components,
+                       Number,
+                       VectorizedArrayType>
+        integrator_m(
+          matrix_free, range, true, dof_no, quad_no, first_selected_component);
+
+      FEFaceEvaluation<dim,
+                       fe_degree,
+                       n_q_points_1d,
+                       n_components,
+                       Number,
+                       VectorizedArrayType>
+        integrator_p(
+          matrix_free, range, false, dof_no, quad_no, first_selected_component);
+
+      const unsigned int dofs_per_cell_m = integrator_m.dofs_per_cell;
+      const unsigned int dofs_per_cell_p = integrator_p.dofs_per_cell;
+
+      std::vector<types::global_dof_index> dof_indices_m(dofs_per_cell_m);
+      std::vector<types::global_dof_index> dof_indices_mf_m(dofs_per_cell_m);
+      std::vector<types::global_dof_index> dof_indices_p(dofs_per_cell_p);
+      std::vector<types::global_dof_index> dof_indices_mf_p(dofs_per_cell_p);
+
+      std::array<FullMatrix<typename MatrixType::value_type>,
+                 VectorizedArrayType::size()>
+        matrices_mm;
+      std::fill_n(matrices_mm.begin(),
+                  VectorizedArrayType::size(),
+                  FullMatrix<typename MatrixType::value_type>(dofs_per_cell_m,
+                                                              dofs_per_cell_m));
+
+      std::array<FullMatrix<typename MatrixType::value_type>,
+                 VectorizedArrayType::size()>
+        matrices_pm;
+      std::fill_n(matrices_pm.begin(),
+                  VectorizedArrayType::size(),
+                  FullMatrix<typename MatrixType::value_type>(dofs_per_cell_p,
+                                                              dofs_per_cell_m));
+
+      std::array<FullMatrix<typename MatrixType::value_type>,
+                 VectorizedArrayType::size()>
+        matrices_mp;
+      std::fill_n(matrices_mp.begin(),
+                  VectorizedArrayType::size(),
+                  FullMatrix<typename MatrixType::value_type>(dofs_per_cell_m,
+                                                              dofs_per_cell_p));
+
+      std::array<FullMatrix<typename MatrixType::value_type>,
+                 VectorizedArrayType::size()>
+        matrices_pp;
+      std::fill_n(matrices_pp.begin(),
+                  VectorizedArrayType::size(),
+                  FullMatrix<typename MatrixType::value_type>(dofs_per_cell_p,
+                                                              dofs_per_cell_p));
+
+      const auto lexicographic_numbering_m =
+        matrix_free
+          .get_shape_info(dof_no,
+                          quad_no,
+                          first_selected_component,
+                          integrator_m.get_active_fe_index(),
+                          integrator_m.get_active_quadrature_index())
+          .lexicographic_numbering;
+      const auto lexicographic_numbering_p =
+        matrix_free
+          .get_shape_info(dof_no,
+                          quad_no,
+                          first_selected_component,
+                          integrator_p.get_active_fe_index(),
+                          integrator_p.get_active_quadrature_index())
+          .lexicographic_numbering;
+
+      for (auto face = range.first; face < range.second; ++face)
+        {
+          integrator_m.reinit(face);
+          integrator_p.reinit(face);
+
+          const unsigned int n_filled_lanes =
+            matrix_free.n_active_entries_per_face_batch(face);
+
+          for (unsigned int b = 0; b < 2; ++b)
+            {
+              auto &matrices_m = (b == 0) ? matrices_mm : matrices_mp;
+              auto &matrices_p = (b == 0) ? matrices_pm : matrices_pp;
+
+              for (unsigned int v = 0; v < n_filled_lanes; ++v)
+                {
+                  matrices_m[v] = 0.0;
+                  matrices_p[v] = 0.0;
+                }
+
+              for (unsigned int j = 0;
+                   j < ((b == 0) ? dofs_per_cell_m : dofs_per_cell_p);
+                   ++j)
+                {
+                  for (unsigned int i = 0; i < dofs_per_cell_m; ++i)
+                    integrator_m.begin_dof_values()[i] =
+                      (b == 0) ? static_cast<Number>(i == j) : 0.0;
+                  for (unsigned int i = 0; i < dofs_per_cell_p; ++i)
+                    integrator_p.begin_dof_values()[i] =
+                      (b == 1) ? static_cast<Number>(i == j) : 0.0;
+
+                  face_operation(integrator_m, integrator_p);
+
+                  for (unsigned int i = 0; i < dofs_per_cell_m; ++i)
+                    for (unsigned int v = 0; v < n_filled_lanes; ++v)
+                      matrices_m[v](i, j) =
+                        integrator_m.begin_dof_values()[i][v];
+                  for (unsigned int i = 0; i < dofs_per_cell_p; ++i)
+                    for (unsigned int v = 0; v < n_filled_lanes; ++v)
+                      matrices_p[v](i, j) =
+                        integrator_p.begin_dof_values()[i][v];
+                }
+
+              for (unsigned int v = 0; v < n_filled_lanes; ++v)
+                {
+                  unsigned int const cell_m =
+                    matrix_free.get_face_info(face).cells_interior[v];
+                  unsigned int const cell_p =
+                    matrix_free.get_face_info(face).cells_exterior[v];
+
+                  const auto cell_m_v = matrix_free.get_cell_iterator(
+                    cell_m / VectorizedArrayType::size(),
+                    cell_m % VectorizedArrayType::size(),
+                    dof_no);
+                  const auto cell_p_v = matrix_free.get_cell_iterator(
+                    cell_p / VectorizedArrayType::size(),
+                    cell_p % VectorizedArrayType::size(),
+                    dof_no);
+
+                  if (matrix_free.get_mg_level() !=
+                      numbers::invalid_unsigned_int)
+                    {
+                      cell_m_v->get_mg_dof_indices(dof_indices_m);
+                      cell_p_v->get_mg_dof_indices(dof_indices_p);
+                    }
+                  else
+                    {
+                      cell_m_v->get_dof_indices(dof_indices_m);
+                      cell_p_v->get_dof_indices(dof_indices_p);
+                    }
+
+                  for (unsigned int j = 0; j < dof_indices_m.size(); ++j)
+                    dof_indices_mf_m[j] =
+                      dof_indices_m[lexicographic_numbering_m[j]];
+                  for (unsigned int j = 0; j < dof_indices_p.size(); ++j)
+                    dof_indices_mf_p[j] =
+                      dof_indices_p[lexicographic_numbering_p[j]];
+
+                  constraints.distribute_local_to_global(matrices_m[v],
+                                                         dof_indices_mf_m,
+                                                         (b == 0) ?
+                                                           dof_indices_mf_m :
+                                                           dof_indices_mf_p,
+                                                         dst);
+                  constraints.distribute_local_to_global(matrices_p[v],
+                                                         dof_indices_mf_p,
+                                                         (b == 0) ?
+                                                           dof_indices_mf_m :
+                                                           dof_indices_mf_p,
+                                                         dst);
+                }
+            }
+        }
+    };
 
     const auto boundary_operation_wrapped = [&](const auto &matrix_free,
                                                 auto       &dst,
@@ -1591,11 +1760,10 @@ namespace MatrixFreeTools
               unsigned int const cell =
                 matrix_free.get_face_info(face).cells_interior[v];
 
-              const auto cell_v =
-                matrix_free.get_cell_iterator(cell /
-                                                VectorizedArrayType::size(),
-                                              v % VectorizedArrayType::size(),
-                                              dof_no);
+              const auto cell_v = matrix_free.get_cell_iterator(
+                cell / VectorizedArrayType::size(),
+                cell % VectorizedArrayType::size(),
+                dof_no);
 
               if (matrix_free.get_mg_level() != numbers::invalid_unsigned_int)
                 cell_v->get_mg_dof_indices(dof_indices);
