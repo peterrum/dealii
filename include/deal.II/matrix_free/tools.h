@@ -1175,12 +1175,7 @@ namespace MatrixFreeTools
             for (unsigned int j = 0; j < temp_values.size(); ++j)
               phi->begin_dof_values()[j] = temp_values[j];
 
-            std::vector<VectorType *> diagonal_global_temp;
-
-            for (const auto i : diagonal_global)
-              diagonal_global_temp.emplace_back(i);
-
-            phi->distribute_local_to_global(diagonal_global_temp);
+            phi->distribute_local_to_global(diagonal_global);
 
             return;
           }
