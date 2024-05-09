@@ -605,13 +605,19 @@ namespace MatrixFreeTools
         std::vector<unsigned int>  constraint_position;
         std::vector<unsigned char> is_constrained_hn;
 
+        const std::array<unsigned int, n_lanes> &cells =
+          this->phi->get_cell_ids();
+
         for (unsigned int v = 0; v < n_lanes_filled; ++v)
           {
+            Assert(cells[v] != numbers::invalid_unsigned_int,
+                   ExcInternalError());
+
             const unsigned int *dof_indices;
             unsigned int        index_indicators, next_index_indicators;
 
             const unsigned int start =
-              (cell * n_lanes + v) * n_fe_components + first_selected_component;
+              cells[v] * n_fe_components + first_selected_component;
             dof_indices =
               dof_info.dof_indices.data() + dof_info.row_starts[start].first;
             index_indicators      = dof_info.row_starts[start].second;
@@ -730,7 +736,7 @@ namespace MatrixFreeTools
                   [phi->get_active_fe_index()][first_selected_component])
               {
                 const auto mask =
-                  dof_info.hanging_node_constraint_masks[cell * n_lanes + v];
+                  dof_info.hanging_node_constraint_masks[cells[v]];
 
                 // cell has hanging nodes
                 if (mask != dealii::internal::MatrixFreeFunctions::
