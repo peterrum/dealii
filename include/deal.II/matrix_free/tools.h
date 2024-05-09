@@ -535,16 +535,16 @@ namespace MatrixFreeTools
       std::vector<std::pair<unsigned int, unsigned int>> inverse_lookup_origins;
     };
 
-    template <int dim,
-              int fe_degree,
-              int n_q_points_1d,
-              int n_components,
-              typename Number,
-              typename VectorizedArrayType>
+    template <typename FEEvaluationType>
     class ComputeDiagonalHelper
     {
     public:
-      static const unsigned int n_lanes = VectorizedArrayType::size();
+      using Number              = typename FEEvaluationType::number_type;
+      using VectorizedArrayType = typename FEEvaluationType::NumberType;
+
+      static const unsigned int dim          = FEEvaluationType::dimension;
+      static const unsigned int n_components = FEEvaluationType::n_components;
+      static const unsigned int n_lanes      = VectorizedArrayType::size();
 
       ComputeDiagonalHelper()
         : phi(nullptr)
@@ -557,12 +557,7 @@ namespace MatrixFreeTools
       {}
 
       void
-      initialize(FEEvaluation<dim,
-                              fe_degree,
-                              n_q_points_1d,
-                              n_components,
-                              Number,
-                              VectorizedArrayType> &phi)
+      initialize(FEEvaluationType &phi)
       {
         // if we are in hp mode and the number of unknowns changed, we must
         // clear the map of entries
@@ -1100,12 +1095,7 @@ namespace MatrixFreeTools
       }
 
     private:
-      FEEvaluation<dim,
-                   fe_degree,
-                   n_q_points_1d,
-                   n_components,
-                   Number,
-                   VectorizedArrayType> *phi;
+      FEEvaluationType *phi;
 
       unsigned int dofs_per_component;
 
@@ -1186,12 +1176,13 @@ namespace MatrixFreeTools
           *diagonal_global_components[0], matrix_free, dof_info);
       }
 
-    using Helper = internal::ComputeDiagonalHelper<dim,
+    using Helper =
+      internal::ComputeDiagonalHelper<FEEvaluation<dim,
                                                    fe_degree,
                                                    n_q_points_1d,
                                                    n_components,
                                                    Number,
-                                                   VectorizedArrayType>;
+                                                   VectorizedArrayType>>;
 
     Threads::ThreadLocalStorage<Helper> scratch_data;
     matrix_free.template cell_loop<VectorType, int>(
