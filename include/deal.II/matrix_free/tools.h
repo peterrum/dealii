@@ -631,7 +631,7 @@ namespace MatrixFreeTools
       std::vector<std::pair<unsigned int, unsigned int>> inverse_lookup_origins;
     };
 
-    template <typename FEEvaluationType>
+    template <typename FEEvaluationType, bool is_face>
     class ComputeDiagonalHelper
     {
     public:
@@ -682,8 +682,9 @@ namespace MatrixFreeTools
         const unsigned int first_selected_component =
           n_fe_components == 1 ? 0 : phi->get_first_selected_component();
 
-        const unsigned int n_lanes_filled =
-          matrix_free.n_active_entries_per_cell_batch(cell);
+        this->n_lanes_filled =
+          is_face ? matrix_free.n_active_entries_per_face_batch(cell) :
+                    matrix_free.n_active_entries_per_cell_batch(cell);
 
         // STEP 2: setup CSR storage of transposed locally-relevant
         //   constraint matrix
@@ -1099,6 +1100,14 @@ namespace MatrixFreeTools
       }
 
       void
+      zero_basis_vector()
+      {
+        VectorizedArrayType *dof_values = phi->begin_dof_values();
+        for (const unsigned int j : phi->dof_indices())
+          dof_values[j] = VectorizedArrayType();
+      }
+
+      void
       submit()
       {
         if (!temp_values.empty())
@@ -1119,10 +1128,7 @@ namespace MatrixFreeTools
 
         // apply local constraint matrix from left and from right:
         // loop over all rows of transposed constrained matrix
-        for (unsigned int v = 0;
-             v < phi->get_matrix_free().n_active_entries_per_cell_batch(
-                   phi->get_current_cell_index());
-             ++v)
+        for (unsigned int v = 0; v < n_lanes_filled; ++v)
           {
             const auto &c_pool = c_pools[v];
 
@@ -1170,10 +1176,7 @@ namespace MatrixFreeTools
         const unsigned int n_fe_components =
           phi->get_dof_info().start_components.back();
 
-        for (unsigned int v = 0;
-             v < phi->get_matrix_free().n_active_entries_per_cell_batch(
-                   phi->get_current_cell_index());
-             ++v)
+        for (unsigned int v = 0; v < n_lanes_filled; ++v)
           // if we have a block vector with components with the same
           // DoFHandler, we need to loop over all components manually and
           // need to apply the correct shift
@@ -1202,6 +1205,8 @@ namespace MatrixFreeTools
       unsigned int dofs_per_component;
 
       unsigned int i;
+
+      unsigned int n_lanes_filled;
 
       std::array<internal::LocalCSR<Number>, n_lanes> c_pools;
 
@@ -1381,7 +1386,8 @@ namespace MatrixFreeTools
                                                    n_q_points_1d,
                                                    n_components,
                                                    Number,
-                                                   VectorizedArrayType>>;
+                                                   VectorizedArrayType>,
+                                      false>;
 
     using HelperFace =
       internal::ComputeDiagonalHelper<FEFaceEvaluation<dim,
@@ -1389,7 +1395,8 @@ namespace MatrixFreeTools
                                                        n_q_points_1d,
                                                        n_components,
                                                        Number,
-                                                       VectorizedArrayType>>;
+                                                       VectorizedArrayType>,
+                                      true>;
 
     Threads::ThreadLocalStorage<Helper>     scratch_data;
     Threads::ThreadLocalStorage<HelperFace> scratch_data_m;
@@ -1479,6 +1486,7 @@ namespace MatrixFreeTools
             for (unsigned int i = 0; i < phi_m.dofs_per_cell; ++i)
               {
                 helper_m.prepare_basis_vector(i);
+                helper_p.zero_basis_vector();
                 face_operation(phi_m, phi_p);
                 helper_m.submit();
               }
@@ -1487,6 +1495,7 @@ namespace MatrixFreeTools
 
             for (unsigned int i = 0; i < phi_p.dofs_per_cell; ++i)
               {
+                helper_m.zero_basis_vector();
                 helper_p.prepare_basis_vector(i);
                 face_operation(phi_m, phi_p);
                 helper_p.submit();
@@ -1501,7 +1510,7 @@ namespace MatrixFreeTools
           VectorType &,
           const int &,
           const std::pair<unsigned int, unsigned int> &range) mutable {
-        if (!cell_operation)
+        if (!boundary_operation)
           return;
 
         HelperFace &helper = scratch_data_m.get();
