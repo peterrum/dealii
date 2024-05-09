@@ -105,7 +105,14 @@ namespace MatrixFreeTools
 
 
   /**
-   * TODO.
+   * Compute the diagonal of a linear operator (@p diagonal_global), given
+   * @p matrix_free and the local cell integral operation @p cell_operation,
+   * interior face integral operation @p face_operation, and bound face
+   * operation @p boundary_operation. The
+   * vector is initialized to the right size in the function.
+   *
+   * The parameters @p dof_no, @p quad_no, and @p first_selected_component are
+   * passed to the constructor of the FEEvaluation that is internally set up.
    */
   template <int dim,
             int fe_degree,
@@ -262,7 +269,13 @@ namespace MatrixFreeTools
 
 
   /**
-   * TODO
+   * Compute the matrix representation of a linear operator (@p matrix), given
+   * @p matrix_free and the local cell integral operation @p cell_operation,
+   * interior face integral operation @p face_operation, and bound face
+   * operation @p boundary_operation.
+   *
+   * The parameters @p dof_no, @p quad_no, and @p first_selected_component are
+   * passed to the constructor of the FEEvaluation that is internally set up.
    */
   template <int dim,
             int fe_degree,
