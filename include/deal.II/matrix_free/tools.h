@@ -1945,12 +1945,8 @@ namespace MatrixFreeTools
                                         Number,
                                         VectorizedArrayType>;
 
-        internal::ComputeMatrixScratchData<FEEvaluation<dim,
-                                                        fe_degree,
-                                                        n_q_points_1d,
-                                                        n_components,
-                                                        Number,
-                                                        VectorizedArrayType>>
+        internal::ComputeMatrixScratchData<
+          FEEvaluationData<dim, VectorizedArrayType, false>>
           data;
 
         data.range = range;
@@ -1989,12 +1985,8 @@ namespace MatrixFreeTools
                                           Number,
                                           VectorizedArrayType>;
 
-      internal::ComputeMatrixScratchData<FEFaceEvaluation<dim,
-                                                          fe_degree,
-                                                          n_q_points_1d,
-                                                          n_components,
-                                                          Number,
-                                                          VectorizedArrayType>>
+      internal::ComputeMatrixScratchData<
+        FEEvaluationData<dim, VectorizedArrayType, true>>
         data;
 
       data.range = range;
@@ -2024,49 +2016,43 @@ namespace MatrixFreeTools
       batch_operation(data);
     };
 
-    const auto boundary_operation_wrapped = [&](const auto &matrix_free,
-                                                auto       &dst,
-                                                const auto &,
-                                                const auto range) {
-      if (!boundary_operation)
-        return; // nothing to do
+    const auto boundary_operation_wrapped =
+      [&](const auto &matrix_free, auto &dst, const auto &, const auto range) {
+        if (!boundary_operation)
+          return; // nothing to do
 
-      using FEEvalType = FEFaceEvaluation<dim,
-                                          fe_degree,
-                                          n_q_points_1d,
-                                          n_components,
-                                          Number,
-                                          VectorizedArrayType>;
+        using FEEvalType = FEFaceEvaluation<dim,
+                                            fe_degree,
+                                            n_q_points_1d,
+                                            n_components,
+                                            Number,
+                                            VectorizedArrayType>;
 
-      internal::ComputeMatrixScratchData<FEFaceEvaluation<dim,
-                                                          fe_degree,
-                                                          n_q_points_1d,
-                                                          n_components,
-                                                          Number,
-                                                          VectorizedArrayType>>
-        data;
+        internal::ComputeMatrixScratchData<
+          FEEvaluationData<dim, VectorizedArrayType, true>>
+          data;
 
-      data.range = range;
+        data.range = range;
 
-      data.phi.emplace_back(std::make_unique<FEEvalType>(
-        matrix_free, range, true, dof_no, quad_no, first_selected_component));
+        data.phi.emplace_back(std::make_unique<FEEvalType>(
+          matrix_free, range, true, dof_no, quad_no, first_selected_component));
 
-      data.dof_numbers               = {dof_no};
-      data.quad_numbers              = {dof_no};
-      data.first_selected_components = {first_selected_component};
-      data.batch_type                = {1};
-      data.is_face                   = true;
+        data.dof_numbers               = {dof_no};
+        data.quad_numbers              = {dof_no};
+        data.first_selected_components = {first_selected_component};
+        data.batch_type                = {1};
+        data.is_face                   = true;
 
-      data.op_reinit = [](auto &phi, const unsigned batch) {
-        static_cast<FEEvalType &>(*phi[0]).reinit(batch);
+        data.op_reinit = [](auto &phi, const unsigned batch) {
+          static_cast<FEEvalType &>(*phi[0]).reinit(batch);
+        };
+
+        data.op_compute = [&](auto &phi) {
+          boundary_operation(static_cast<FEEvalType &>(*phi[0]));
+        };
+
+        batch_operation(data);
       };
-
-      data.op_compute = [&](auto &phi) {
-        boundary_operation(static_cast<FEEvalType &>(*phi[0]));
-      };
-
-      batch_operation(data);
-    };
 
     if (face_operation || boundary_operation)
       {
