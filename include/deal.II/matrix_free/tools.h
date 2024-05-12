@@ -1918,6 +1918,16 @@ namespace MatrixFreeTools
 
       const bool is_face = true;
 
+      const auto op_reinit = [](auto &phi, const unsigned batch) {
+        static_cast<FEEvalType &>(*phi[0]).reinit(batch);
+        static_cast<FEEvalType &>(*phi[1]).reinit(batch);
+      };
+
+      const auto op_compute = [&](auto &phi) {
+        face_operation(static_cast<FEEvalType &>(*phi[0]),
+                       static_cast<FEEvalType &>(*phi[1]));
+      };
+
       const unsigned int n_blocks = phi.size();
 
       Table<1, unsigned int> dofs_per_cell(n_blocks);
@@ -1958,24 +1968,23 @@ namespace MatrixFreeTools
                       FullMatrix<typename MatrixType::value_type>(
                         dofs_per_cell[bi], dofs_per_cell[bj]));
 
-      for (auto face = range.first; face < range.second; ++face)
+      for (auto batch = range.first; batch < range.second; ++batch)
         {
-          static_cast<FEEvalType &>(*phi[0]).reinit(face);
-          static_cast<FEEvalType &>(*phi[1]).reinit(face);
+          op_reinit(phi, batch);
 
           const unsigned int n_filled_lanes =
-            is_face ? matrix_free.n_active_entries_per_face_batch(face) :
-                      matrix_free.n_active_entries_per_cell_batch(face);
+            is_face ? matrix_free.n_active_entries_per_face_batch(batch) :
+                      matrix_free.n_active_entries_per_cell_batch(batch);
 
           for (unsigned int v = 0; v < n_filled_lanes; ++v)
             for (unsigned int b = 0; b < n_blocks; ++b)
               {
                 unsigned int const cell_index =
                   (batch_type[b] == 0) ?
-                    (face * VectorizedArrayType::size() + v) :
+                    (batch * VectorizedArrayType::size() + v) :
                     ((batch_type[b] == 1) ?
-                       matrix_free.get_face_info(face).cells_interior[v] :
-                       matrix_free.get_face_info(face).cells_exterior[v]);
+                       matrix_free.get_face_info(batch).cells_interior[v] :
+                       matrix_free.get_face_info(batch).cells_exterior[v]);
 
                 const auto cell_iterator = matrix_free.get_cell_iterator(
                   cell_index / VectorizedArrayType::size(),
@@ -2001,8 +2010,7 @@ namespace MatrixFreeTools
                       phi[bi]->begin_dof_values()[i] =
                         (bj == bi) ? static_cast<Number>(i == j) : 0.0;
 
-                  face_operation(static_cast<FEEvalType &>(*phi[0]),
-                                 static_cast<FEEvalType &>(*phi[1]));
+                  op_compute(phi);
 
                   for (unsigned int bi = 0; bi < n_blocks; ++bi)
                     for (unsigned int i = 0; i < dofs_per_cell[bi]; ++i)
