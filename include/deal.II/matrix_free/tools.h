@@ -1806,6 +1806,117 @@ namespace MatrixFreeTools
                                                         constraints_in,
                                                         constraints_for_matrix);
 
+    const auto batch_operation = [&matrix_free, &constraints, &matrix](
+                                   auto       &phi,
+                                   const auto &dof_numbers,
+                                   const auto &quad_numbers,
+                                   const auto &first_selected_components,
+                                   const auto &batch_type,
+                                   const auto &is_face,
+                                   const auto &op_reinit,
+                                   const auto &op_compute,
+                                   const auto &range) {
+      const unsigned int n_blocks = phi.size();
+
+      Table<1, unsigned int> dofs_per_cell(n_blocks);
+
+      Table<1, std::vector<types::global_dof_index>> dof_indices(n_blocks);
+      Table<2, std::vector<types::global_dof_index>> dof_indices_mf(
+        n_blocks, VectorizedArrayType::size());
+      Table<1, std::vector<unsigned int>> lexicographic_numbering(n_blocks);
+      Table<2,
+            std::array<FullMatrix<typename MatrixType::value_type>,
+                       VectorizedArrayType::size()>>
+        matrices(n_blocks, n_blocks);
+
+      for (unsigned int b = 0; b < n_blocks; ++b)
+        {
+          const auto &shape_info =
+            matrix_free.get_shape_info(dof_numbers[b],
+                                       quad_numbers[b],
+                                       first_selected_components[b],
+                                       phi[b]->get_active_fe_index(),
+                                       phi[b]->get_active_quadrature_index());
+
+          dofs_per_cell[b] =
+            shape_info.dofs_per_component_on_cell * shape_info.n_components;
+
+          dof_indices[b].resize(dofs_per_cell[b]);
+
+          for (unsigned int v = 0; v < VectorizedArrayType::size(); ++v)
+            dof_indices_mf[b][v].resize(dofs_per_cell[b]);
+
+          lexicographic_numbering[b] = shape_info.lexicographic_numbering;
+        }
+
+      for (unsigned int bj = 0; bj < n_blocks; ++bj)
+        for (unsigned int bi = 0; bi < n_blocks; ++bi)
+          std::fill_n(matrices[bi][bj].begin(),
+                      VectorizedArrayType::size(),
+                      FullMatrix<typename MatrixType::value_type>(
+                        dofs_per_cell[bi], dofs_per_cell[bj]));
+
+      for (auto batch = range.first; batch < range.second; ++batch)
+        {
+          op_reinit(phi, batch);
+
+          const unsigned int n_filled_lanes =
+            is_face ? matrix_free.n_active_entries_per_face_batch(batch) :
+                      matrix_free.n_active_entries_per_cell_batch(batch);
+
+          for (unsigned int v = 0; v < n_filled_lanes; ++v)
+            for (unsigned int b = 0; b < n_blocks; ++b)
+              {
+                unsigned int const cell_index =
+                  (batch_type[b] == 0) ?
+                    (batch * VectorizedArrayType::size() + v) :
+                    ((batch_type[b] == 1) ?
+                       matrix_free.get_face_info(batch).cells_interior[v] :
+                       matrix_free.get_face_info(batch).cells_exterior[v]);
+
+                const auto cell_iterator = matrix_free.get_cell_iterator(
+                  cell_index / VectorizedArrayType::size(),
+                  cell_index % VectorizedArrayType::size(),
+                  dof_numbers[b]);
+
+                if (matrix_free.get_mg_level() != numbers::invalid_unsigned_int)
+                  cell_iterator->get_mg_dof_indices(dof_indices[b]);
+                else
+                  cell_iterator->get_dof_indices(dof_indices[b]);
+
+                for (unsigned int j = 0; j < dof_indices[b].size(); ++j)
+                  dof_indices_mf[b][v][j] =
+                    dof_indices[b][lexicographic_numbering[b][j]];
+              }
+
+          for (unsigned int bj = 0; bj < n_blocks; ++bj)
+            {
+              for (unsigned int j = 0; j < dofs_per_cell[bj]; ++j)
+                {
+                  for (unsigned int bi = 0; bi < n_blocks; ++bi)
+                    for (unsigned int i = 0; i < dofs_per_cell[bi]; ++i)
+                      phi[bi]->begin_dof_values()[i] =
+                        (bj == bi) ? static_cast<Number>(i == j) : 0.0;
+
+                  op_compute(phi);
+
+                  for (unsigned int bi = 0; bi < n_blocks; ++bi)
+                    for (unsigned int i = 0; i < dofs_per_cell[bi]; ++i)
+                      for (unsigned int v = 0; v < n_filled_lanes; ++v)
+                        matrices[bi][bj][v](i, j) =
+                          phi[bi]->begin_dof_values()[i][v];
+                }
+
+              for (unsigned int v = 0; v < n_filled_lanes; ++v)
+                for (unsigned int bi = 0; bi < n_blocks; ++bi)
+                  constraints.distribute_local_to_global(matrices[bi][bj][v],
+                                                         dof_indices_mf[bi][v],
+                                                         dof_indices_mf[bj][v],
+                                                         matrix);
+            }
+        }
+    };
+
     const auto cell_operation_wrapped =
       [&](const auto &matrix_free, auto &dst, const auto &, const auto range) {
         if (!cell_operation)
@@ -1928,105 +2039,15 @@ namespace MatrixFreeTools
                        static_cast<FEEvalType &>(*phi[1]));
       };
 
-      const unsigned int n_blocks = phi.size();
-
-      Table<1, unsigned int> dofs_per_cell(n_blocks);
-
-      Table<1, std::vector<types::global_dof_index>> dof_indices(n_blocks);
-      Table<2, std::vector<types::global_dof_index>> dof_indices_mf(
-        n_blocks, VectorizedArrayType::size());
-      Table<1, std::vector<unsigned int>> lexicographic_numbering(n_blocks);
-      Table<2,
-            std::array<FullMatrix<typename MatrixType::value_type>,
-                       VectorizedArrayType::size()>>
-        matrices(n_blocks, n_blocks);
-
-      for (unsigned int b = 0; b < n_blocks; ++b)
-        {
-          const auto &shape_info =
-            matrix_free.get_shape_info(dof_numbers[b],
-                                       quad_numbers[b],
-                                       first_selected_components[b],
-                                       phi[b]->get_active_fe_index(),
-                                       phi[b]->get_active_quadrature_index());
-
-          dofs_per_cell[b] =
-            shape_info.dofs_per_component_on_cell * shape_info.n_components;
-
-          dof_indices[b].resize(dofs_per_cell[b]);
-
-          for (unsigned int v = 0; v < VectorizedArrayType::size(); ++v)
-            dof_indices_mf[b][v].resize(dofs_per_cell[b]);
-
-          lexicographic_numbering[b] = shape_info.lexicographic_numbering;
-        }
-
-      for (unsigned int bj = 0; bj < n_blocks; ++bj)
-        for (unsigned int bi = 0; bi < n_blocks; ++bi)
-          std::fill_n(matrices[bi][bj].begin(),
-                      VectorizedArrayType::size(),
-                      FullMatrix<typename MatrixType::value_type>(
-                        dofs_per_cell[bi], dofs_per_cell[bj]));
-
-      for (auto batch = range.first; batch < range.second; ++batch)
-        {
-          op_reinit(phi, batch);
-
-          const unsigned int n_filled_lanes =
-            is_face ? matrix_free.n_active_entries_per_face_batch(batch) :
-                      matrix_free.n_active_entries_per_cell_batch(batch);
-
-          for (unsigned int v = 0; v < n_filled_lanes; ++v)
-            for (unsigned int b = 0; b < n_blocks; ++b)
-              {
-                unsigned int const cell_index =
-                  (batch_type[b] == 0) ?
-                    (batch * VectorizedArrayType::size() + v) :
-                    ((batch_type[b] == 1) ?
-                       matrix_free.get_face_info(batch).cells_interior[v] :
-                       matrix_free.get_face_info(batch).cells_exterior[v]);
-
-                const auto cell_iterator = matrix_free.get_cell_iterator(
-                  cell_index / VectorizedArrayType::size(),
-                  cell_index % VectorizedArrayType::size(),
-                  dof_numbers[b]);
-
-                if (matrix_free.get_mg_level() != numbers::invalid_unsigned_int)
-                  cell_iterator->get_mg_dof_indices(dof_indices[b]);
-                else
-                  cell_iterator->get_dof_indices(dof_indices[b]);
-
-                for (unsigned int j = 0; j < dof_indices[b].size(); ++j)
-                  dof_indices_mf[b][v][j] =
-                    dof_indices[b][lexicographic_numbering[b][j]];
-              }
-
-          for (unsigned int bj = 0; bj < n_blocks; ++bj)
-            {
-              for (unsigned int j = 0; j < dofs_per_cell[bj]; ++j)
-                {
-                  for (unsigned int bi = 0; bi < n_blocks; ++bi)
-                    for (unsigned int i = 0; i < dofs_per_cell[bi]; ++i)
-                      phi[bi]->begin_dof_values()[i] =
-                        (bj == bi) ? static_cast<Number>(i == j) : 0.0;
-
-                  op_compute(phi);
-
-                  for (unsigned int bi = 0; bi < n_blocks; ++bi)
-                    for (unsigned int i = 0; i < dofs_per_cell[bi]; ++i)
-                      for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                        matrices[bi][bj][v](i, j) =
-                          phi[bi]->begin_dof_values()[i][v];
-                }
-
-              for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                for (unsigned int bi = 0; bi < n_blocks; ++bi)
-                  constraints.distribute_local_to_global(matrices[bi][bj][v],
-                                                         dof_indices_mf[bi][v],
-                                                         dof_indices_mf[bj][v],
-                                                         dst);
-            }
-        }
+      batch_operation(phi,
+                      dof_numbers,
+                      quad_numbers,
+                      first_selected_components,
+                      batch_type,
+                      is_face,
+                      op_reinit,
+                      op_compute,
+                      range);
     };
 
     const auto boundary_operation_wrapped = [&](const auto &matrix_free,
