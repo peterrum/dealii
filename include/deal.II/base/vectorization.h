@@ -80,6 +80,11 @@
 
 DEAL_II_NAMESPACE_OPEN
 
+static bool fma_flag = false;
+
+static std::uint64_t counter_0 = 0;
+static std::uint64_t counter_1 = 0;
+
 
 // Enable the EnableIfScalar type trait for VectorizedArray<Number> such
 // that it can be used as a Number type in Tensor<rank,dim,Number>, etc.
@@ -561,6 +566,11 @@ public:
   VectorizedArray &
   operator*=(const VectorizedArray &vec)
   {
+    if (fma_flag)
+      counter_0++;
+    else
+      counter_1++;
+
     data *= vec.data;
     return *this;
   }
