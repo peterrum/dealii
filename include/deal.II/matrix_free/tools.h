@@ -1891,26 +1891,53 @@ namespace MatrixFreeTools
       if (!face_operation)
         return; // nothing to do
 
-      FEFaceEvaluation<dim,
-                       fe_degree,
-                       n_q_points_1d,
-                       n_components,
-                       Number,
-                       VectorizedArrayType>
-        phi_m(
-          matrix_free, range, true, dof_no, quad_no, first_selected_component);
+      using FEEvalType = FEFaceEvaluation<dim,
+                                          fe_degree,
+                                          n_q_points_1d,
+                                          n_components,
+                                          Number,
+                                          VectorizedArrayType>;
 
-      FEFaceEvaluation<dim,
-                       fe_degree,
-                       n_q_points_1d,
-                       n_components,
-                       Number,
-                       VectorizedArrayType>
-        phi_p(
-          matrix_free, range, false, dof_no, quad_no, first_selected_component);
+      std::vector<
+        std::unique_ptr<FEEvaluationData<dim, VectorizedArrayType, true>>>
+        phi;
 
-      const unsigned int dofs_per_cell_m = phi_m.dofs_per_cell;
-      const unsigned int dofs_per_cell_p = phi_p.dofs_per_cell;
+      phi.emplace_back(std::make_unique<FEEvalType>(
+        matrix_free, range, true, dof_no, quad_no, first_selected_component));
+      phi.emplace_back(std::make_unique<FEEvalType>(
+        matrix_free, range, false, dof_no, quad_no, first_selected_component));
+
+      const unsigned int dofs_per_cell_m =
+        matrix_free
+          .get_shape_info(dof_no,
+                          quad_no,
+                          first_selected_component,
+                          phi[0]->get_active_fe_index(),
+                          phi[0]->get_active_quadrature_index())
+          .dofs_per_component_on_cell *
+        matrix_free
+          .get_shape_info(dof_no,
+                          quad_no,
+                          first_selected_component,
+                          phi[0]->get_active_fe_index(),
+                          phi[0]->get_active_quadrature_index())
+          .n_components;
+
+      const unsigned int dofs_per_cell_p =
+        matrix_free
+          .get_shape_info(dof_no,
+                          quad_no,
+                          first_selected_component,
+                          phi[1]->get_active_fe_index(),
+                          phi[1]->get_active_quadrature_index())
+          .dofs_per_component_on_cell *
+        matrix_free
+          .get_shape_info(dof_no,
+                          quad_no,
+                          first_selected_component,
+                          phi[1]->get_active_fe_index(),
+                          phi[1]->get_active_quadrature_index())
+          .n_components;
 
       std::vector<types::global_dof_index> dof_indices_m(dofs_per_cell_m);
       std::vector<types::global_dof_index> dof_indices_mf_m(dofs_per_cell_m);
@@ -1954,22 +1981,22 @@ namespace MatrixFreeTools
           .get_shape_info(dof_no,
                           quad_no,
                           first_selected_component,
-                          phi_m.get_active_fe_index(),
-                          phi_m.get_active_quadrature_index())
+                          phi[0]->get_active_fe_index(),
+                          phi[0]->get_active_quadrature_index())
           .lexicographic_numbering;
       const auto lexicographic_numbering_p =
         matrix_free
           .get_shape_info(dof_no,
                           quad_no,
                           first_selected_component,
-                          phi_p.get_active_fe_index(),
-                          phi_p.get_active_quadrature_index())
+                          phi[1]->get_active_fe_index(),
+                          phi[0]->get_active_quadrature_index())
           .lexicographic_numbering;
 
       for (auto face = range.first; face < range.second; ++face)
         {
-          phi_m.reinit(face);
-          phi_p.reinit(face);
+          static_cast<FEEvalType &>(*phi[0]).reinit(face);
+          static_cast<FEEvalType &>(*phi[1]).reinit(face);
 
           const unsigned int n_filled_lanes =
             matrix_free.n_active_entries_per_face_batch(face);
@@ -1990,20 +2017,21 @@ namespace MatrixFreeTools
                    ++j)
                 {
                   for (unsigned int i = 0; i < dofs_per_cell_m; ++i)
-                    phi_m.begin_dof_values()[i] =
+                    phi[0]->begin_dof_values()[i] =
                       (b == 0) ? static_cast<Number>(i == j) : 0.0;
                   for (unsigned int i = 0; i < dofs_per_cell_p; ++i)
-                    phi_p.begin_dof_values()[i] =
+                    phi[1]->begin_dof_values()[i] =
                       (b == 1) ? static_cast<Number>(i == j) : 0.0;
 
-                  face_operation(phi_m, phi_p);
+                  face_operation(static_cast<FEEvalType &>(*phi[0]),
+                                 static_cast<FEEvalType &>(*phi[1]));
 
                   for (unsigned int i = 0; i < dofs_per_cell_m; ++i)
                     for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                      matrices_m[v](i, j) = phi_m.begin_dof_values()[i][v];
+                      matrices_m[v](i, j) = phi[0]->begin_dof_values()[i][v];
                   for (unsigned int i = 0; i < dofs_per_cell_p; ++i)
                     for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                      matrices_p[v](i, j) = phi_p.begin_dof_values()[i][v];
+                      matrices_p[v](i, j) = phi[1]->begin_dof_values()[i][v];
                 }
 
               for (unsigned int v = 0; v < n_filled_lanes; ++v)
