@@ -1952,7 +1952,7 @@ namespace MatrixFreeTools
           const unsigned int n_filled_lanes =
             matrix_free.n_active_entries_per_face_batch(face);
 
-          for (unsigned int bj = 0; bj < 2; ++bj)
+          for (unsigned int bj = 0; bj < n_blocks; ++bj)
             {
               for (unsigned int v = 0; v < n_filled_lanes; ++v)
                 {
@@ -1960,28 +1960,21 @@ namespace MatrixFreeTools
                   matrices[1][bj][v] = 0.0;
                 }
 
-              for (unsigned int j = 0;
-                   j < ((bj == 0) ? dofs_per_cell[0] : dofs_per_cell[1]);
-                   ++j)
+              for (unsigned int j = 0; j < dofs_per_cell[bj]; ++j)
                 {
-                  for (unsigned int i = 0; i < dofs_per_cell[0]; ++i)
-                    phi[0]->begin_dof_values()[i] =
-                      (bj == 0) ? static_cast<Number>(i == j) : 0.0;
-                  for (unsigned int i = 0; i < dofs_per_cell[1]; ++i)
-                    phi[1]->begin_dof_values()[i] =
-                      (bj == 1) ? static_cast<Number>(i == j) : 0.0;
+                  for (unsigned int bi = 0; bi < n_blocks; ++bi)
+                    for (unsigned int i = 0; i < dofs_per_cell[0]; ++i)
+                      phi[bi]->begin_dof_values()[i] =
+                        (bj == bi) ? static_cast<Number>(i == j) : 0.0;
 
                   face_operation(static_cast<FEEvalType &>(*phi[0]),
                                  static_cast<FEEvalType &>(*phi[1]));
 
-                  for (unsigned int i = 0; i < dofs_per_cell[0]; ++i)
-                    for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                      matrices[0][bj][v](i, j) =
-                        phi[0]->begin_dof_values()[i][v];
-                  for (unsigned int i = 0; i < dofs_per_cell[1]; ++i)
-                    for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                      matrices[1][bj][v](i, j) =
-                        phi[1]->begin_dof_values()[i][v];
+                  for (unsigned int bi = 0; bi < n_blocks; ++bi)
+                    for (unsigned int i = 0; i < dofs_per_cell[bi]; ++i)
+                      for (unsigned int v = 0; v < n_filled_lanes; ++v)
+                        matrices[bi][bj][v](i, j) =
+                          phi[bi]->begin_dof_values()[i][v];
                 }
 
               for (unsigned int v = 0; v < n_filled_lanes; ++v)
@@ -2021,15 +2014,11 @@ namespace MatrixFreeTools
 
                   constraints.distribute_local_to_global(matrices[0][bj][v],
                                                          dof_indices_mf[0],
-                                                         (bj == 0) ?
-                                                           dof_indices_mf[0] :
-                                                           dof_indices_mf[1],
+                                                         dof_indices_mf[bj],
                                                          dst);
                   constraints.distribute_local_to_global(matrices[1][bj][v],
                                                          dof_indices_mf[1],
-                                                         (bj == 0) ?
-                                                           dof_indices_mf[0] :
-                                                           dof_indices_mf[1],
+                                                         dof_indices_mf[bj],
                                                          dst);
                 }
             }
