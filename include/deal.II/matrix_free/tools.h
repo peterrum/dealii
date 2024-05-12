@@ -1952,35 +1952,35 @@ namespace MatrixFreeTools
           const unsigned int n_filled_lanes =
             matrix_free.n_active_entries_per_face_batch(face);
 
-          for (unsigned int b = 0; b < 2; ++b)
+          for (unsigned int bj = 0; bj < 2; ++bj)
             {
               for (unsigned int v = 0; v < n_filled_lanes; ++v)
                 {
-                  matrices[0][b][v] = 0.0;
-                  matrices[1][b][v] = 0.0;
+                  matrices[0][bj][v] = 0.0;
+                  matrices[1][bj][v] = 0.0;
                 }
 
               for (unsigned int j = 0;
-                   j < ((b == 0) ? dofs_per_cell[0] : dofs_per_cell[1]);
+                   j < ((bj == 0) ? dofs_per_cell[0] : dofs_per_cell[1]);
                    ++j)
                 {
                   for (unsigned int i = 0; i < dofs_per_cell[0]; ++i)
                     phi[0]->begin_dof_values()[i] =
-                      (b == 0) ? static_cast<Number>(i == j) : 0.0;
+                      (bj == 0) ? static_cast<Number>(i == j) : 0.0;
                   for (unsigned int i = 0; i < dofs_per_cell[1]; ++i)
                     phi[1]->begin_dof_values()[i] =
-                      (b == 1) ? static_cast<Number>(i == j) : 0.0;
+                      (bj == 1) ? static_cast<Number>(i == j) : 0.0;
 
                   face_operation(static_cast<FEEvalType &>(*phi[0]),
                                  static_cast<FEEvalType &>(*phi[1]));
 
                   for (unsigned int i = 0; i < dofs_per_cell[0]; ++i)
                     for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                      matrices[0][b][v](i, j) =
+                      matrices[0][bj][v](i, j) =
                         phi[0]->begin_dof_values()[i][v];
                   for (unsigned int i = 0; i < dofs_per_cell[1]; ++i)
                     for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                      matrices[1][b][v](i, j) =
+                      matrices[1][bj][v](i, j) =
                         phi[1]->begin_dof_values()[i][v];
                 }
 
@@ -2019,15 +2019,15 @@ namespace MatrixFreeTools
                     dof_indices_mf[1][j] =
                       dof_indices[1][lexicographic_numbering[1][j]];
 
-                  constraints.distribute_local_to_global(matrices[0][b][v],
+                  constraints.distribute_local_to_global(matrices[0][bj][v],
                                                          dof_indices_mf[0],
-                                                         (b == 0) ?
+                                                         (bj == 0) ?
                                                            dof_indices_mf[0] :
                                                            dof_indices_mf[1],
                                                          dst);
-                  constraints.distribute_local_to_global(matrices[1][b][v],
+                  constraints.distribute_local_to_global(matrices[1][bj][v],
                                                          dof_indices_mf[1],
-                                                         (b == 0) ?
+                                                         (bj == 0) ?
                                                            dof_indices_mf[0] :
                                                            dof_indices_mf[1],
                                                          dst);
