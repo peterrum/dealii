@@ -1913,77 +1913,36 @@ namespace MatrixFreeTools
 
       Table<1, std::vector<types::global_dof_index>> dof_indices(n_blocks);
       Table<1, std::vector<types::global_dof_index>> dof_indices_mf(n_blocks);
+      Table<1, std::vector<unsigned int>> lexicographic_numbering(n_blocks);
+      Table<2,
+            std::array<FullMatrix<typename MatrixType::value_type>,
+                       VectorizedArrayType::size()>>
+        matrices(n_blocks, n_blocks);
 
       for (unsigned int b = 0; b < n_blocks; ++b)
         {
+          const auto &shape_info =
+            matrix_free.get_shape_info(dof_no,
+                                       quad_no,
+                                       first_selected_component,
+                                       phi[b]->get_active_fe_index(),
+                                       phi[b]->get_active_quadrature_index());
+
           dofs_per_cell[b] =
-            matrix_free
-              .get_shape_info(dof_no,
-                              quad_no,
-                              first_selected_component,
-                              phi[b]->get_active_fe_index(),
-                              phi[b]->get_active_quadrature_index())
-              .dofs_per_component_on_cell *
-            matrix_free
-              .get_shape_info(dof_no,
-                              quad_no,
-                              first_selected_component,
-                              phi[b]->get_active_fe_index(),
-                              phi[b]->get_active_quadrature_index())
-              .n_components;
+            shape_info.dofs_per_component_on_cell * shape_info.n_components;
 
           dof_indices[b].resize(dofs_per_cell[b]);
           dof_indices_mf[b].resize(dofs_per_cell[b]);
+
+          lexicographic_numbering[b] = shape_info.lexicographic_numbering;
         }
 
-      std::array<FullMatrix<typename MatrixType::value_type>,
-                 VectorizedArrayType::size()>
-        matrices_mm;
-      std::fill_n(matrices_mm.begin(),
-                  VectorizedArrayType::size(),
-                  FullMatrix<typename MatrixType::value_type>(
-                    dofs_per_cell[0], dofs_per_cell[0]));
-
-      std::array<FullMatrix<typename MatrixType::value_type>,
-                 VectorizedArrayType::size()>
-        matrices_pm;
-      std::fill_n(matrices_pm.begin(),
-                  VectorizedArrayType::size(),
-                  FullMatrix<typename MatrixType::value_type>(
-                    dofs_per_cell[1], dofs_per_cell[0]));
-
-      std::array<FullMatrix<typename MatrixType::value_type>,
-                 VectorizedArrayType::size()>
-        matrices_mp;
-      std::fill_n(matrices_mp.begin(),
-                  VectorizedArrayType::size(),
-                  FullMatrix<typename MatrixType::value_type>(
-                    dofs_per_cell[0], dofs_per_cell[1]));
-
-      std::array<FullMatrix<typename MatrixType::value_type>,
-                 VectorizedArrayType::size()>
-        matrices_pp;
-      std::fill_n(matrices_pp.begin(),
-                  VectorizedArrayType::size(),
-                  FullMatrix<typename MatrixType::value_type>(
-                    dofs_per_cell[1], dofs_per_cell[1]));
-
-      const auto lexicographic_numbering_m =
-        matrix_free
-          .get_shape_info(dof_no,
-                          quad_no,
-                          first_selected_component,
-                          phi[0]->get_active_fe_index(),
-                          phi[0]->get_active_quadrature_index())
-          .lexicographic_numbering;
-      const auto lexicographic_numbering_p =
-        matrix_free
-          .get_shape_info(dof_no,
-                          quad_no,
-                          first_selected_component,
-                          phi[1]->get_active_fe_index(),
-                          phi[1]->get_active_quadrature_index())
-          .lexicographic_numbering;
+      for (unsigned int bj = 0; bj < n_blocks; ++bj)
+        for (unsigned int bi = 0; bi < n_blocks; ++bi)
+          std::fill_n(matrices[bi][bj].begin(),
+                      VectorizedArrayType::size(),
+                      FullMatrix<typename MatrixType::value_type>(
+                        dofs_per_cell[bi], dofs_per_cell[bj]));
 
       for (auto face = range.first; face < range.second; ++face)
         {
@@ -1995,13 +1954,10 @@ namespace MatrixFreeTools
 
           for (unsigned int b = 0; b < 2; ++b)
             {
-              auto &matrices_m = (b == 0) ? matrices_mm : matrices_mp;
-              auto &matrices_p = (b == 0) ? matrices_pm : matrices_pp;
-
               for (unsigned int v = 0; v < n_filled_lanes; ++v)
                 {
-                  matrices_m[v] = 0.0;
-                  matrices_p[v] = 0.0;
+                  matrices[0][b][v] = 0.0;
+                  matrices[1][b][v] = 0.0;
                 }
 
               for (unsigned int j = 0;
@@ -2020,10 +1976,12 @@ namespace MatrixFreeTools
 
                   for (unsigned int i = 0; i < dofs_per_cell[0]; ++i)
                     for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                      matrices_m[v](i, j) = phi[0]->begin_dof_values()[i][v];
+                      matrices[0][b][v](i, j) =
+                        phi[0]->begin_dof_values()[i][v];
                   for (unsigned int i = 0; i < dofs_per_cell[1]; ++i)
                     for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                      matrices_p[v](i, j) = phi[1]->begin_dof_values()[i][v];
+                      matrices[1][b][v](i, j) =
+                        phi[1]->begin_dof_values()[i][v];
                 }
 
               for (unsigned int v = 0; v < n_filled_lanes; ++v)
@@ -2056,18 +2014,18 @@ namespace MatrixFreeTools
 
                   for (unsigned int j = 0; j < dof_indices[0].size(); ++j)
                     dof_indices_mf[0][j] =
-                      dof_indices[0][lexicographic_numbering_m[j]];
+                      dof_indices[0][lexicographic_numbering[0][j]];
                   for (unsigned int j = 0; j < dof_indices[1].size(); ++j)
                     dof_indices_mf[1][j] =
-                      dof_indices[1][lexicographic_numbering_p[j]];
+                      dof_indices[1][lexicographic_numbering[1][j]];
 
-                  constraints.distribute_local_to_global(matrices_m[v],
+                  constraints.distribute_local_to_global(matrices[0][b][v],
                                                          dof_indices_mf[0],
                                                          (b == 0) ?
                                                            dof_indices_mf[0] :
                                                            dof_indices_mf[1],
                                                          dst);
-                  constraints.distribute_local_to_global(matrices_p[v],
+                  constraints.distribute_local_to_global(matrices[1][b][v],
                                                          dof_indices_mf[1],
                                                          (b == 0) ?
                                                            dof_indices_mf[0] :
