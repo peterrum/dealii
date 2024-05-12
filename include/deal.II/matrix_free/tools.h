@@ -1955,15 +1955,13 @@ namespace MatrixFreeTools
           for (unsigned int bj = 0; bj < n_blocks; ++bj)
             {
               for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                {
-                  matrices[0][bj][v] = 0.0;
-                  matrices[1][bj][v] = 0.0;
-                }
+                for (unsigned int bi = 0; bi < n_blocks; ++bi)
+                  matrices[bi][bj][v] = 0.0;
 
               for (unsigned int j = 0; j < dofs_per_cell[bj]; ++j)
                 {
                   for (unsigned int bi = 0; bi < n_blocks; ++bi)
-                    for (unsigned int i = 0; i < dofs_per_cell[0]; ++i)
+                    for (unsigned int i = 0; i < dofs_per_cell[bi]; ++i)
                       phi[bi]->begin_dof_values()[i] =
                         (bj == bi) ? static_cast<Number>(i == j) : 0.0;
 
@@ -1979,47 +1977,35 @@ namespace MatrixFreeTools
 
               for (unsigned int v = 0; v < n_filled_lanes; ++v)
                 {
-                  unsigned int const cell_m =
-                    matrix_free.get_face_info(face).cells_interior[v];
-                  unsigned int const cell_p =
-                    matrix_free.get_face_info(face).cells_exterior[v];
-
-                  const auto cell_m_v = matrix_free.get_cell_iterator(
-                    cell_m / VectorizedArrayType::size(),
-                    cell_m % VectorizedArrayType::size(),
-                    dof_no);
-                  const auto cell_p_v = matrix_free.get_cell_iterator(
-                    cell_p / VectorizedArrayType::size(),
-                    cell_p % VectorizedArrayType::size(),
-                    dof_no);
-
-                  if (matrix_free.get_mg_level() !=
-                      numbers::invalid_unsigned_int)
+                  // todo: precomute once
+                  for (unsigned int b = 0; b < n_blocks; ++b)
                     {
-                      cell_m_v->get_mg_dof_indices(dof_indices[0]);
-                      cell_p_v->get_mg_dof_indices(dof_indices[1]);
-                    }
-                  else
-                    {
-                      cell_m_v->get_dof_indices(dof_indices[0]);
-                      cell_p_v->get_dof_indices(dof_indices[1]);
+                      unsigned int const cell_index =
+                        (b == 0) ?
+                          matrix_free.get_face_info(face).cells_interior[v] :
+                          matrix_free.get_face_info(face).cells_exterior[v];
+
+                      const auto cell_iterator = matrix_free.get_cell_iterator(
+                        cell_index / VectorizedArrayType::size(),
+                        cell_index % VectorizedArrayType::size(),
+                        dof_no);
+
+                      if (matrix_free.get_mg_level() !=
+                          numbers::invalid_unsigned_int)
+                        cell_iterator->get_mg_dof_indices(dof_indices[b]);
+                      else
+                        cell_iterator->get_dof_indices(dof_indices[b]);
+
+                      for (unsigned int j = 0; j < dof_indices[b].size(); ++j)
+                        dof_indices_mf[b][j] =
+                          dof_indices[b][lexicographic_numbering[b][j]];
                     }
 
-                  for (unsigned int j = 0; j < dof_indices[0].size(); ++j)
-                    dof_indices_mf[0][j] =
-                      dof_indices[0][lexicographic_numbering[0][j]];
-                  for (unsigned int j = 0; j < dof_indices[1].size(); ++j)
-                    dof_indices_mf[1][j] =
-                      dof_indices[1][lexicographic_numbering[1][j]];
-
-                  constraints.distribute_local_to_global(matrices[0][bj][v],
-                                                         dof_indices_mf[0],
-                                                         dof_indices_mf[bj],
-                                                         dst);
-                  constraints.distribute_local_to_global(matrices[1][bj][v],
-                                                         dof_indices_mf[1],
-                                                         dof_indices_mf[bj],
-                                                         dst);
+                  for (unsigned int bi = 0; bi < n_blocks; ++bi)
+                    constraints.distribute_local_to_global(matrices[bi][bj][v],
+                                                           dof_indices_mf[bi],
+                                                           dof_indices_mf[bj],
+                                                           dst);
                 }
             }
         }
