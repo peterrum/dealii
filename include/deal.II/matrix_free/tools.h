@@ -1778,6 +1778,12 @@ namespace MatrixFreeTools
         op_reinit;
       std::function<void(std::vector<std::unique_ptr<FEEvalType>> &)>
         op_compute;
+
+      bool
+      is_active() const
+      {
+        return op_compute != nullptr;
+      }
     };
   } // namespace internal
 
@@ -1835,6 +1841,9 @@ namespace MatrixFreeTools
                                    auto &data,
                                    const std::pair<unsigned int, unsigned int>
                                      &range) {
+      if (!data.is_active())
+        return; // nothing to do
+
       auto phi = data.op_create(range);
 
       const unsigned int n_blocks = phi.size();
@@ -1976,9 +1985,10 @@ namespace MatrixFreeTools
       static_cast<FEEvalType &>(*phi[0]).reinit(batch);
     };
 
-    data_cell.op_compute = [&](auto &phi) {
-      cell_operation(static_cast<FEEvalType &>(*phi[0]));
-    };
+    if (cell_operation)
+      data_cell.op_compute = [&](auto &phi) {
+        cell_operation(static_cast<FEEvalType &>(*phi[0]));
+      };
 
     internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
       data_face;
@@ -2008,10 +2018,11 @@ namespace MatrixFreeTools
       static_cast<FEFaceEvalType &>(*phi[1]).reinit(batch);
     };
 
-    data_face.op_compute = [&](auto &phi) {
-      face_operation(static_cast<FEFaceEvalType &>(*phi[0]),
-                     static_cast<FEFaceEvalType &>(*phi[1]));
-    };
+    if (face_operation)
+      data_face.op_compute = [&](auto &phi) {
+        face_operation(static_cast<FEFaceEvalType &>(*phi[0]),
+                       static_cast<FEFaceEvalType &>(*phi[1]));
+      };
 
     internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
       data_boundary;
@@ -2037,35 +2048,27 @@ namespace MatrixFreeTools
       static_cast<FEFaceEvalType &>(*phi[0]).reinit(batch);
     };
 
-    data_boundary.op_compute = [&](auto &phi) {
-      boundary_operation(static_cast<FEFaceEvalType &>(*phi[0]));
-    };
+    if (boundary_operation)
+      data_boundary.op_compute = [&](auto &phi) {
+        boundary_operation(static_cast<FEFaceEvalType &>(*phi[0]));
+      };
 
     const auto cell_operation_wrapped =
       [&](const auto &matrix_free, auto &dst, const auto &, const auto range) {
-        if (!cell_operation)
-          return; // nothing to do
-
         batch_operation(data_cell, range);
       };
 
     const auto face_operation_wrapped =
       [&](const auto &matrix_free, auto &dst, const auto &, const auto range) {
-        if (!face_operation)
-          return; // nothing to do
-
         batch_operation(data_face, range);
       };
 
     const auto boundary_operation_wrapped =
       [&](const auto &matrix_free, auto &dst, const auto &, const auto range) {
-        if (!boundary_operation)
-          return; // nothing to do
-
         batch_operation(data_boundary, range);
       };
 
-    if (face_operation || boundary_operation)
+    if (data_face.is_active() || data_boundary.is_active())
       {
         matrix_free.template loop<MatrixType, MatrixType>(
           cell_operation_wrapped,
