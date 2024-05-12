@@ -278,6 +278,33 @@ namespace MatrixFreeTools
    * passed to the constructor of the FEEvaluation that is internally set up.
    */
   template <int dim,
+            typename Number,
+            typename VectorizedArrayType,
+            typename CellOperationType,
+            typename FaceOperationType,
+            typename BoundaryOperationType,
+            typename MatrixType>
+  void
+  compute_matrix(
+    const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+    const AffineConstraints<Number>                    &constraints,
+    const CellOperationType                            &cell_operation,
+    const FaceOperationType                            &face_operation,
+    const BoundaryOperationType                        &boundary_operation,
+    MatrixType                                         &matrix);
+
+
+
+  /**
+   * Compute the matrix representation of a linear operator (@p matrix), given
+   * @p matrix_free and the local cell integral operation @p cell_operation,
+   * interior face integral operation @p face_operation, and bound face
+   * operation @p boundary_operation.
+   *
+   * The parameters @p dof_no, @p quad_no, and @p first_selected_component are
+   * passed to the constructor of the FEEvaluation that is internally set up.
+   */
+  template <int dim,
             int fe_degree,
             int n_q_points_1d,
             int n_components,
@@ -1936,8 +1963,28 @@ namespace MatrixFreeTools
         boundary_operation(static_cast<FEFaceEvalType &>(*phi[0]));
       };
 
+    compute_matrix(
+      matrix_free, constraints_in, data_cell, data_face, data_boundary, matrix);
+  }
 
 
+
+  template <int dim,
+            typename Number,
+            typename VectorizedArrayType,
+            typename CellOperationType,
+            typename FaceOperationType,
+            typename BoundaryOperationType,
+            typename MatrixType>
+  void
+  compute_matrix(
+    const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+    const AffineConstraints<Number>                    &constraints_in,
+    const CellOperationType                            &data_cell,
+    const FaceOperationType                            &data_face,
+    const BoundaryOperationType                        &data_boundary,
+    MatrixType                                         &matrix)
+  {
     std::unique_ptr<AffineConstraints<typename MatrixType::value_type>>
       constraints_for_matrix;
     const AffineConstraints<typename MatrixType::value_type> &constraints =
