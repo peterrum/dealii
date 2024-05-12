@@ -1922,77 +1922,47 @@ namespace MatrixFreeTools
         if (!cell_operation)
           return; // nothing to do
 
-        FEEvaluation<dim,
-                     fe_degree,
-                     n_q_points_1d,
-                     n_components,
-                     Number,
-                     VectorizedArrayType>
-          phi(matrix_free, range, dof_no, quad_no, first_selected_component);
+        using FEEvalType = FEEvaluation<dim,
+                                        fe_degree,
+                                        n_q_points_1d,
+                                        n_components,
+                                        Number,
+                                        VectorizedArrayType>;
 
-        const unsigned int dofs_per_cell = phi.dofs_per_cell;
+        std::vector<
+          std::unique_ptr<FEEvaluationData<dim, VectorizedArrayType, false>>>
+          phi;
 
-        std::vector<types::global_dof_index> dof_indices(dofs_per_cell);
-        std::vector<types::global_dof_index> dof_indices_mf(dofs_per_cell);
+        phi.emplace_back(std::make_unique<FEEvalType>(
+          matrix_free, range, dof_no, quad_no, first_selected_component));
 
-        std::array<FullMatrix<typename MatrixType::value_type>,
-                   VectorizedArrayType::size()>
-          matrices;
+        std::vector<unsigned int> dof_numbers(1, dof_no);
+        std::vector<unsigned int> quad_numbers(1, quad_no);
+        std::vector<unsigned int> first_selected_components(
+          1, first_selected_component);
 
-        std::fill_n(matrices.begin(),
-                    VectorizedArrayType::size(),
-                    FullMatrix<typename MatrixType::value_type>(dofs_per_cell,
-                                                                dofs_per_cell));
+        std::vector<unsigned int> batch_type;
+        batch_type.emplace_back(0);
 
-        const auto lexicographic_numbering =
-          matrix_free
-            .get_shape_info(dof_no,
-                            quad_no,
-                            first_selected_component,
-                            phi.get_active_fe_index(),
-                            phi.get_active_quadrature_index())
-            .lexicographic_numbering;
+        const bool is_face = false;
 
-        for (auto cell = range.first; cell < range.second; ++cell)
-          {
-            phi.reinit(cell);
+        const auto op_reinit = [](auto &phi, const unsigned batch) {
+          static_cast<FEEvalType &>(*phi[0]).reinit(batch);
+        };
 
-            const unsigned int n_filled_lanes =
-              matrix_free.n_active_entries_per_cell_batch(cell);
+        const auto op_compute = [&](auto &phi) {
+          cell_operation(static_cast<FEEvalType &>(*phi[0]));
+        };
 
-            for (unsigned int v = 0; v < n_filled_lanes; ++v)
-              matrices[v] = 0.0;
-
-            for (unsigned int j = 0; j < dofs_per_cell; ++j)
-              {
-                for (unsigned int i = 0; i < dofs_per_cell; ++i)
-                  phi.begin_dof_values()[i] = static_cast<Number>(i == j);
-
-                cell_operation(phi);
-
-                for (unsigned int i = 0; i < dofs_per_cell; ++i)
-                  for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                    matrices[v](i, j) = phi.begin_dof_values()[i][v];
-              }
-
-            for (unsigned int v = 0; v < n_filled_lanes; ++v)
-              {
-                const auto cell_v =
-                  matrix_free.get_cell_iterator(cell, v, dof_no);
-
-                if (matrix_free.get_mg_level() != numbers::invalid_unsigned_int)
-                  cell_v->get_mg_dof_indices(dof_indices);
-                else
-                  cell_v->get_dof_indices(dof_indices);
-
-                for (unsigned int j = 0; j < dof_indices.size(); ++j)
-                  dof_indices_mf[j] = dof_indices[lexicographic_numbering[j]];
-
-                constraints.distribute_local_to_global(matrices[v],
-                                                       dof_indices_mf,
-                                                       dst);
-              }
-          }
+        batch_operation(phi,
+                        dof_numbers,
+                        quad_numbers,
+                        first_selected_components,
+                        batch_type,
+                        is_face,
+                        op_reinit,
+                        op_compute,
+                        range);
       };
 
     const auto face_operation_wrapped = [&](const auto &matrix_free,
@@ -2050,91 +2020,53 @@ namespace MatrixFreeTools
                       range);
     };
 
-    const auto boundary_operation_wrapped = [&](const auto &matrix_free,
-                                                auto       &dst,
-                                                const auto &,
-                                                const auto range) {
-      if (!boundary_operation)
-        return; // nothing to do
+    const auto boundary_operation_wrapped =
+      [&](const auto &matrix_free, auto &dst, const auto &, const auto range) {
+        if (!boundary_operation)
+          return; // nothing to do
 
-      FEFaceEvaluation<dim,
-                       fe_degree,
-                       n_q_points_1d,
-                       n_components,
-                       Number,
-                       VectorizedArrayType>
-        phi(
-          matrix_free, range, true, dof_no, quad_no, first_selected_component);
+        using FEEvalType = FEFaceEvaluation<dim,
+                                            fe_degree,
+                                            n_q_points_1d,
+                                            n_components,
+                                            Number,
+                                            VectorizedArrayType>;
 
-      const unsigned int dofs_per_cell = phi.dofs_per_cell;
+        std::vector<
+          std::unique_ptr<FEEvaluationData<dim, VectorizedArrayType, true>>>
+          phi;
 
-      std::vector<types::global_dof_index> dof_indices(dofs_per_cell);
-      std::vector<types::global_dof_index> dof_indices_mf(dofs_per_cell);
+        phi.emplace_back(std::make_unique<FEEvalType>(
+          matrix_free, range, true, dof_no, quad_no, first_selected_component));
 
-      std::array<FullMatrix<typename MatrixType::value_type>,
-                 VectorizedArrayType::size()>
-        matrices;
+        std::vector<unsigned int> dof_numbers(1, dof_no);
+        std::vector<unsigned int> quad_numbers(1, quad_no);
+        std::vector<unsigned int> first_selected_components(
+          1, first_selected_component);
 
-      std::fill_n(matrices.begin(),
-                  VectorizedArrayType::size(),
-                  FullMatrix<typename MatrixType::value_type>(dofs_per_cell,
-                                                              dofs_per_cell));
+        std::vector<unsigned int> batch_type;
+        batch_type.emplace_back(1);
 
-      const auto lexicographic_numbering =
-        matrix_free
-          .get_shape_info(dof_no,
-                          quad_no,
-                          first_selected_component,
-                          phi.get_active_fe_index(),
-                          phi.get_active_quadrature_index())
-          .lexicographic_numbering;
+        const bool is_face = true;
 
-      for (auto face = range.first; face < range.second; ++face)
-        {
-          phi.reinit(face);
+        const auto op_reinit = [](auto &phi, const unsigned batch) {
+          static_cast<FEEvalType &>(*phi[0]).reinit(batch);
+        };
 
-          const unsigned int n_filled_lanes =
-            matrix_free.n_active_entries_per_face_batch(face);
+        const auto op_compute = [&](auto &phi) {
+          boundary_operation(static_cast<FEEvalType &>(*phi[0]));
+        };
 
-          for (unsigned int v = 0; v < n_filled_lanes; ++v)
-            matrices[v] = 0.0;
-
-          for (unsigned int j = 0; j < dofs_per_cell; ++j)
-            {
-              for (unsigned int i = 0; i < dofs_per_cell; ++i)
-                phi.begin_dof_values()[i] = static_cast<Number>(i == j);
-
-              boundary_operation(phi);
-
-              for (unsigned int i = 0; i < dofs_per_cell; ++i)
-                for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                  matrices[v](i, j) = phi.begin_dof_values()[i][v];
-            }
-
-          for (unsigned int v = 0; v < n_filled_lanes; ++v)
-            {
-              unsigned int const cell =
-                matrix_free.get_face_info(face).cells_interior[v];
-
-              const auto cell_v = matrix_free.get_cell_iterator(
-                cell / VectorizedArrayType::size(),
-                cell % VectorizedArrayType::size(),
-                dof_no);
-
-              if (matrix_free.get_mg_level() != numbers::invalid_unsigned_int)
-                cell_v->get_mg_dof_indices(dof_indices);
-              else
-                cell_v->get_dof_indices(dof_indices);
-
-              for (unsigned int j = 0; j < dof_indices.size(); ++j)
-                dof_indices_mf[j] = dof_indices[lexicographic_numbering[j]];
-
-              constraints.distribute_local_to_global(matrices[v],
-                                                     dof_indices_mf,
-                                                     dst);
-            }
-        }
-    };
+        batch_operation(phi,
+                        dof_numbers,
+                        quad_numbers,
+                        first_selected_components,
+                        batch_type,
+                        is_face,
+                        op_reinit,
+                        op_compute,
+                        range);
+      };
 
     if (face_operation || boundary_operation)
       {
