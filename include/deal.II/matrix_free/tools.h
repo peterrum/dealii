@@ -1907,74 +1907,65 @@ namespace MatrixFreeTools
       phi.emplace_back(std::make_unique<FEEvalType>(
         matrix_free, range, false, dof_no, quad_no, first_selected_component));
 
-      const unsigned int dofs_per_cell_m =
-        matrix_free
-          .get_shape_info(dof_no,
-                          quad_no,
-                          first_selected_component,
-                          phi[0]->get_active_fe_index(),
-                          phi[0]->get_active_quadrature_index())
-          .dofs_per_component_on_cell *
-        matrix_free
-          .get_shape_info(dof_no,
-                          quad_no,
-                          first_selected_component,
-                          phi[0]->get_active_fe_index(),
-                          phi[0]->get_active_quadrature_index())
-          .n_components;
+      const unsigned int n_blocks = phi.size();
 
-      const unsigned int dofs_per_cell_p =
-        matrix_free
-          .get_shape_info(dof_no,
-                          quad_no,
-                          first_selected_component,
-                          phi[1]->get_active_fe_index(),
-                          phi[1]->get_active_quadrature_index())
-          .dofs_per_component_on_cell *
-        matrix_free
-          .get_shape_info(dof_no,
-                          quad_no,
-                          first_selected_component,
-                          phi[1]->get_active_fe_index(),
-                          phi[1]->get_active_quadrature_index())
-          .n_components;
+      Table<1, unsigned int> dofs_per_cell(n_blocks);
 
-      std::vector<types::global_dof_index> dof_indices_m(dofs_per_cell_m);
-      std::vector<types::global_dof_index> dof_indices_mf_m(dofs_per_cell_m);
-      std::vector<types::global_dof_index> dof_indices_p(dofs_per_cell_p);
-      std::vector<types::global_dof_index> dof_indices_mf_p(dofs_per_cell_p);
+      for (unsigned int b = 0; b < n_blocks; ++b)
+        {
+          dofs_per_cell[b] =
+            matrix_free
+              .get_shape_info(dof_no,
+                              quad_no,
+                              first_selected_component,
+                              phi[b]->get_active_fe_index(),
+                              phi[b]->get_active_quadrature_index())
+              .dofs_per_component_on_cell *
+            matrix_free
+              .get_shape_info(dof_no,
+                              quad_no,
+                              first_selected_component,
+                              phi[b]->get_active_fe_index(),
+                              phi[b]->get_active_quadrature_index())
+              .n_components;
+        }
+
+      std::vector<types::global_dof_index> dof_indices_m(dofs_per_cell[0]);
+      std::vector<types::global_dof_index> dof_indices_mf_m(dofs_per_cell[0]);
+      std::vector<types::global_dof_index> dof_indices_p(dofs_per_cell[1]);
+      std::vector<types::global_dof_index> dof_indices_mf_p(dofs_per_cell[1]);
 
       std::array<FullMatrix<typename MatrixType::value_type>,
                  VectorizedArrayType::size()>
         matrices_mm;
       std::fill_n(matrices_mm.begin(),
                   VectorizedArrayType::size(),
-                  FullMatrix<typename MatrixType::value_type>(dofs_per_cell_m,
-                                                              dofs_per_cell_m));
+                  FullMatrix<typename MatrixType::value_type>(
+                    dofs_per_cell[0], dofs_per_cell[0]));
 
       std::array<FullMatrix<typename MatrixType::value_type>,
                  VectorizedArrayType::size()>
         matrices_pm;
       std::fill_n(matrices_pm.begin(),
                   VectorizedArrayType::size(),
-                  FullMatrix<typename MatrixType::value_type>(dofs_per_cell_p,
-                                                              dofs_per_cell_m));
+                  FullMatrix<typename MatrixType::value_type>(
+                    dofs_per_cell[1], dofs_per_cell[0]));
 
       std::array<FullMatrix<typename MatrixType::value_type>,
                  VectorizedArrayType::size()>
         matrices_mp;
       std::fill_n(matrices_mp.begin(),
                   VectorizedArrayType::size(),
-                  FullMatrix<typename MatrixType::value_type>(dofs_per_cell_m,
-                                                              dofs_per_cell_p));
+                  FullMatrix<typename MatrixType::value_type>(
+                    dofs_per_cell[0], dofs_per_cell[1]));
 
       std::array<FullMatrix<typename MatrixType::value_type>,
                  VectorizedArrayType::size()>
         matrices_pp;
       std::fill_n(matrices_pp.begin(),
                   VectorizedArrayType::size(),
-                  FullMatrix<typename MatrixType::value_type>(dofs_per_cell_p,
-                                                              dofs_per_cell_p));
+                  FullMatrix<typename MatrixType::value_type>(
+                    dofs_per_cell[1], dofs_per_cell[1]));
 
       const auto lexicographic_numbering_m =
         matrix_free
@@ -2013,23 +2004,23 @@ namespace MatrixFreeTools
                 }
 
               for (unsigned int j = 0;
-                   j < ((b == 0) ? dofs_per_cell_m : dofs_per_cell_p);
+                   j < ((b == 0) ? dofs_per_cell[0] : dofs_per_cell[1]);
                    ++j)
                 {
-                  for (unsigned int i = 0; i < dofs_per_cell_m; ++i)
+                  for (unsigned int i = 0; i < dofs_per_cell[0]; ++i)
                     phi[0]->begin_dof_values()[i] =
                       (b == 0) ? static_cast<Number>(i == j) : 0.0;
-                  for (unsigned int i = 0; i < dofs_per_cell_p; ++i)
+                  for (unsigned int i = 0; i < dofs_per_cell[1]; ++i)
                     phi[1]->begin_dof_values()[i] =
                       (b == 1) ? static_cast<Number>(i == j) : 0.0;
 
                   face_operation(static_cast<FEEvalType &>(*phi[0]),
                                  static_cast<FEEvalType &>(*phi[1]));
 
-                  for (unsigned int i = 0; i < dofs_per_cell_m; ++i)
+                  for (unsigned int i = 0; i < dofs_per_cell[0]; ++i)
                     for (unsigned int v = 0; v < n_filled_lanes; ++v)
                       matrices_m[v](i, j) = phi[0]->begin_dof_values()[i][v];
-                  for (unsigned int i = 0; i < dofs_per_cell_p; ++i)
+                  for (unsigned int i = 0; i < dofs_per_cell[1]; ++i)
                     for (unsigned int v = 0; v < n_filled_lanes; ++v)
                       matrices_p[v](i, j) = phi[1]->begin_dof_values()[i][v];
                 }
