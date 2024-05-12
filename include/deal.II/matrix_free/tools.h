@@ -1907,6 +1907,17 @@ namespace MatrixFreeTools
       phi.emplace_back(std::make_unique<FEEvalType>(
         matrix_free, range, false, dof_no, quad_no, first_selected_component));
 
+      std::vector<unsigned int> dof_numbers(2, dof_no);
+      std::vector<unsigned int> quad_numbers(2, quad_no);
+      std::vector<unsigned int> first_selected_components(
+        2, first_selected_component);
+
+      std::vector<unsigned int> batch_type;
+      batch_type.emplace_back(1);
+      batch_type.emplace_back(2);
+
+      const bool is_face = true;
+
       const unsigned int n_blocks = phi.size();
 
       Table<1, unsigned int> dofs_per_cell(n_blocks);
@@ -1923,9 +1934,9 @@ namespace MatrixFreeTools
       for (unsigned int b = 0; b < n_blocks; ++b)
         {
           const auto &shape_info =
-            matrix_free.get_shape_info(dof_no,
-                                       quad_no,
-                                       first_selected_component,
+            matrix_free.get_shape_info(dof_numbers[b],
+                                       quad_numbers[b],
+                                       first_selected_components[b],
                                        phi[b]->get_active_fe_index(),
                                        phi[b]->get_active_quadrature_index());
 
@@ -1953,19 +1964,23 @@ namespace MatrixFreeTools
           static_cast<FEEvalType &>(*phi[1]).reinit(face);
 
           const unsigned int n_filled_lanes =
-            matrix_free.n_active_entries_per_face_batch(face);
+            is_face ? matrix_free.n_active_entries_per_face_batch(face) :
+                      matrix_free.n_active_entries_per_cell_batch(face);
 
           for (unsigned int v = 0; v < n_filled_lanes; ++v)
             for (unsigned int b = 0; b < n_blocks; ++b)
               {
                 unsigned int const cell_index =
-                  (b == 0) ? matrix_free.get_face_info(face).cells_interior[v] :
-                             matrix_free.get_face_info(face).cells_exterior[v];
+                  (batch_type[b] == 0) ?
+                    (face * VectorizedArrayType::size() + v) :
+                    ((batch_type[b] == 1) ?
+                       matrix_free.get_face_info(face).cells_interior[v] :
+                       matrix_free.get_face_info(face).cells_exterior[v]);
 
                 const auto cell_iterator = matrix_free.get_cell_iterator(
                   cell_index / VectorizedArrayType::size(),
                   cell_index % VectorizedArrayType::size(),
-                  dof_no);
+                  dof_numbers[b]);
 
                 if (matrix_free.get_mg_level() != numbers::invalid_unsigned_int)
                   cell_iterator->get_mg_dof_indices(dof_indices[b]);
