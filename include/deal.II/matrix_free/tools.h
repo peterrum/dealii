@@ -1764,16 +1764,15 @@ namespace MatrixFreeTools
     public:
       using FEEvalType = FEEvaluationData<dim, Number, is_face_>;
 
-      std::pair<unsigned int, unsigned int> range;
-
-      std::vector<std::unique_ptr<FEEvalType>> phi;
-
       std::vector<unsigned int> dof_numbers;
       std::vector<unsigned int> quad_numbers;
       std::vector<unsigned int> first_selected_components;
       std::vector<unsigned int> batch_type;
       static const bool         is_face = is_face_;
 
+      std::function<std::vector<std::unique_ptr<FEEvalType>>(
+        const std::pair<unsigned int, unsigned int> &)>
+        op_create;
       std::function<void(std::vector<std::unique_ptr<FEEvalType>> &,
                          const unsigned int)>
         op_reinit;
@@ -1833,8 +1832,12 @@ namespace MatrixFreeTools
                                                         constraints_for_matrix);
 
     const auto batch_operation = [&matrix_free, &constraints, &matrix](
-                                   auto &data) {
-      const unsigned int n_blocks = data.phi.size();
+                                   auto &data,
+                                   const std::pair<unsigned int, unsigned int>
+                                     &range) {
+      auto phi = data.op_create(range);
+
+      const unsigned int n_blocks = phi.size();
 
       Table<1, unsigned int> dofs_per_cell(n_blocks);
 
@@ -1849,12 +1852,12 @@ namespace MatrixFreeTools
 
       for (unsigned int b = 0; b < n_blocks; ++b)
         {
-          const auto &shape_info = matrix_free.get_shape_info(
-            data.dof_numbers[b],
-            data.quad_numbers[b],
-            data.first_selected_components[b],
-            data.phi[b]->get_active_fe_index(),
-            data.phi[b]->get_active_quadrature_index());
+          const auto &shape_info =
+            matrix_free.get_shape_info(data.dof_numbers[b],
+                                       data.quad_numbers[b],
+                                       data.first_selected_components[b],
+                                       phi[b]->get_active_fe_index(),
+                                       phi[b]->get_active_quadrature_index());
 
           dofs_per_cell[b] =
             shape_info.dofs_per_component_on_cell * shape_info.n_components;
@@ -1874,9 +1877,9 @@ namespace MatrixFreeTools
                       FullMatrix<typename MatrixType::value_type>(
                         dofs_per_cell[bi], dofs_per_cell[bj]));
 
-      for (auto batch = data.range.first; batch < data.range.second; ++batch)
+      for (auto batch = range.first; batch < range.second; ++batch)
         {
-          data.op_reinit(data.phi, batch);
+          data.op_reinit(phi, batch);
 
           const unsigned int n_filled_lanes =
             data.is_face ? matrix_free.n_active_entries_per_face_batch(batch) :
@@ -1913,16 +1916,16 @@ namespace MatrixFreeTools
                 {
                   for (unsigned int bi = 0; bi < n_blocks; ++bi)
                     for (unsigned int i = 0; i < dofs_per_cell[bi]; ++i)
-                      data.phi[bi]->begin_dof_values()[i] =
+                      phi[bi]->begin_dof_values()[i] =
                         (bj == bi) ? static_cast<Number>(i == j) : 0.0;
 
-                  data.op_compute(data.phi);
+                  data.op_compute(phi);
 
                   for (unsigned int bi = 0; bi < n_blocks; ++bi)
                     for (unsigned int i = 0; i < dofs_per_cell[bi]; ++i)
                       for (unsigned int v = 0; v < n_filled_lanes; ++v)
                         matrices[bi][bj][v](i, j) =
-                          data.phi[bi]->begin_dof_values()[i][v];
+                          phi[bi]->begin_dof_values()[i][v];
                 }
 
               for (unsigned int v = 0; v < n_filled_lanes; ++v)
@@ -1951,15 +1954,21 @@ namespace MatrixFreeTools
 
       internal::ComputeMatrixScratchData<dim, VectorizedArrayType, false> data;
 
-      data.range = range;
-
-      data.phi.emplace_back(std::make_unique<FEEvalType>(
-        matrix_free, range, dof_no, quad_no, first_selected_component));
-
       data.dof_numbers               = {dof_no};
       data.quad_numbers              = {dof_no};
       data.first_selected_components = {first_selected_component};
       data.batch_type                = {0};
+
+      data.op_create = [&](const std::pair<unsigned int, unsigned int> &range) {
+        std::vector<
+          std::unique_ptr<FEEvaluationData<dim, VectorizedArrayType, false>>>
+          phi;
+
+        phi.emplace_back(std::make_unique<FEEvalType>(
+          matrix_free, range, dof_no, quad_no, first_selected_component));
+
+        return phi;
+      };
 
       data.op_reinit = [](auto &phi, const unsigned batch) {
         static_cast<FEEvalType &>(*phi[0]).reinit(batch);
@@ -1969,7 +1978,7 @@ namespace MatrixFreeTools
         cell_operation(static_cast<FEEvalType &>(*phi[0]));
       };
 
-      batch_operation(data);
+      batch_operation(data, range);
     };
 
     const auto face_operation_wrapped = [&](const auto &matrix_free,
@@ -1988,18 +1997,29 @@ namespace MatrixFreeTools
 
       internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true> data;
 
-      data.range = range;
-
-      data.phi.emplace_back(std::make_unique<FEEvalType>(
-        matrix_free, range, true, dof_no, quad_no, first_selected_component));
-      data.phi.emplace_back(std::make_unique<FEEvalType>(
-        matrix_free, range, false, dof_no, quad_no, first_selected_component));
-
       data.dof_numbers               = {dof_no, dof_no};
       data.quad_numbers              = {dof_no, quad_no};
       data.first_selected_components = {first_selected_component,
                                         first_selected_component};
       data.batch_type                = {1, 2};
+
+      data.op_create = [&](const std::pair<unsigned int, unsigned int> &range) {
+        std::vector<
+          std::unique_ptr<FEEvaluationData<dim, VectorizedArrayType, true>>>
+          phi;
+
+        phi.emplace_back(std::make_unique<FEEvalType>(
+          matrix_free, range, true, dof_no, quad_no, first_selected_component));
+        phi.emplace_back(
+          std::make_unique<FEEvalType>(matrix_free,
+                                       range,
+                                       false,
+                                       dof_no,
+                                       quad_no,
+                                       first_selected_component));
+
+        return phi;
+      };
 
       data.op_reinit = [](auto &phi, const unsigned batch) {
         static_cast<FEEvalType &>(*phi[0]).reinit(batch);
@@ -2011,43 +2031,51 @@ namespace MatrixFreeTools
                        static_cast<FEEvalType &>(*phi[1]));
       };
 
-      batch_operation(data);
+      batch_operation(data, range);
     };
 
-    const auto boundary_operation_wrapped =
-      [&](const auto &matrix_free, auto &dst, const auto &, const auto range) {
-        if (!boundary_operation)
-          return; // nothing to do
+    const auto boundary_operation_wrapped = [&](const auto &matrix_free,
+                                                auto       &dst,
+                                                const auto &,
+                                                const auto range) {
+      if (!boundary_operation)
+        return; // nothing to do
 
-        using FEEvalType = FEFaceEvaluation<dim,
-                                            fe_degree,
-                                            n_q_points_1d,
-                                            n_components,
-                                            Number,
-                                            VectorizedArrayType>;
+      using FEEvalType = FEFaceEvaluation<dim,
+                                          fe_degree,
+                                          n_q_points_1d,
+                                          n_components,
+                                          Number,
+                                          VectorizedArrayType>;
 
-        internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true> data;
+      internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true> data;
 
-        data.range = range;
+      data.dof_numbers               = {dof_no};
+      data.quad_numbers              = {dof_no};
+      data.first_selected_components = {first_selected_component};
+      data.batch_type                = {1};
 
-        data.phi.emplace_back(std::make_unique<FEEvalType>(
+      data.op_create = [&](const std::pair<unsigned int, unsigned int> &range) {
+        std::vector<
+          std::unique_ptr<FEEvaluationData<dim, VectorizedArrayType, true>>>
+          phi;
+
+        phi.emplace_back(std::make_unique<FEEvalType>(
           matrix_free, range, true, dof_no, quad_no, first_selected_component));
 
-        data.dof_numbers               = {dof_no};
-        data.quad_numbers              = {dof_no};
-        data.first_selected_components = {first_selected_component};
-        data.batch_type                = {1};
-
-        data.op_reinit = [](auto &phi, const unsigned batch) {
-          static_cast<FEEvalType &>(*phi[0]).reinit(batch);
-        };
-
-        data.op_compute = [&](auto &phi) {
-          boundary_operation(static_cast<FEEvalType &>(*phi[0]));
-        };
-
-        batch_operation(data);
+        return phi;
       };
+
+      data.op_reinit = [](auto &phi, const unsigned batch) {
+        static_cast<FEEvalType &>(*phi[0]).reinit(batch);
+      };
+
+      data.op_compute = [&](auto &phi) {
+        boundary_operation(static_cast<FEEvalType &>(*phi[0]));
+      };
+
+      batch_operation(data, range);
+    };
 
     if (face_operation || boundary_operation)
       {
