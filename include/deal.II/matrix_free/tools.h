@@ -1911,6 +1911,9 @@ namespace MatrixFreeTools
 
       Table<1, unsigned int> dofs_per_cell(n_blocks);
 
+      Table<1, std::vector<types::global_dof_index>> dof_indices(n_blocks);
+      Table<1, std::vector<types::global_dof_index>> dof_indices_mf(n_blocks);
+
       for (unsigned int b = 0; b < n_blocks; ++b)
         {
           dofs_per_cell[b] =
@@ -1928,12 +1931,10 @@ namespace MatrixFreeTools
                               phi[b]->get_active_fe_index(),
                               phi[b]->get_active_quadrature_index())
               .n_components;
-        }
 
-      std::vector<types::global_dof_index> dof_indices_m(dofs_per_cell[0]);
-      std::vector<types::global_dof_index> dof_indices_mf_m(dofs_per_cell[0]);
-      std::vector<types::global_dof_index> dof_indices_p(dofs_per_cell[1]);
-      std::vector<types::global_dof_index> dof_indices_mf_p(dofs_per_cell[1]);
+          dof_indices[b].resize(dofs_per_cell[b]);
+          dof_indices_mf[b].resize(dofs_per_cell[b]);
+        }
 
       std::array<FullMatrix<typename MatrixType::value_type>,
                  VectorizedArrayType::size()>
@@ -1981,7 +1982,7 @@ namespace MatrixFreeTools
                           quad_no,
                           first_selected_component,
                           phi[1]->get_active_fe_index(),
-                          phi[0]->get_active_quadrature_index())
+                          phi[1]->get_active_quadrature_index())
           .lexicographic_numbering;
 
       for (auto face = range.first; face < range.second; ++face)
@@ -2044,33 +2045,33 @@ namespace MatrixFreeTools
                   if (matrix_free.get_mg_level() !=
                       numbers::invalid_unsigned_int)
                     {
-                      cell_m_v->get_mg_dof_indices(dof_indices_m);
-                      cell_p_v->get_mg_dof_indices(dof_indices_p);
+                      cell_m_v->get_mg_dof_indices(dof_indices[0]);
+                      cell_p_v->get_mg_dof_indices(dof_indices[1]);
                     }
                   else
                     {
-                      cell_m_v->get_dof_indices(dof_indices_m);
-                      cell_p_v->get_dof_indices(dof_indices_p);
+                      cell_m_v->get_dof_indices(dof_indices[0]);
+                      cell_p_v->get_dof_indices(dof_indices[1]);
                     }
 
-                  for (unsigned int j = 0; j < dof_indices_m.size(); ++j)
-                    dof_indices_mf_m[j] =
-                      dof_indices_m[lexicographic_numbering_m[j]];
-                  for (unsigned int j = 0; j < dof_indices_p.size(); ++j)
-                    dof_indices_mf_p[j] =
-                      dof_indices_p[lexicographic_numbering_p[j]];
+                  for (unsigned int j = 0; j < dof_indices[0].size(); ++j)
+                    dof_indices_mf[0][j] =
+                      dof_indices[0][lexicographic_numbering_m[j]];
+                  for (unsigned int j = 0; j < dof_indices[1].size(); ++j)
+                    dof_indices_mf[1][j] =
+                      dof_indices[1][lexicographic_numbering_p[j]];
 
                   constraints.distribute_local_to_global(matrices_m[v],
-                                                         dof_indices_mf_m,
+                                                         dof_indices_mf[0],
                                                          (b == 0) ?
-                                                           dof_indices_mf_m :
-                                                           dof_indices_mf_p,
+                                                           dof_indices_mf[0] :
+                                                           dof_indices_mf[1],
                                                          dst);
                   constraints.distribute_local_to_global(matrices_p[v],
-                                                         dof_indices_mf_p,
+                                                         dof_indices_mf[1],
                                                          (b == 0) ?
-                                                           dof_indices_mf_m :
-                                                           dof_indices_mf_p,
+                                                           dof_indices_mf[0] :
+                                                           dof_indices_mf[1],
                                                          dst);
                 }
             }
