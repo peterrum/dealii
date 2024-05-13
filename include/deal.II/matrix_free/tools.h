@@ -32,6 +32,31 @@ DEAL_II_NAMESPACE_OPEN
  */
 namespace MatrixFreeTools
 {
+  namespace internal
+  {
+    template <int dim, typename Number, bool is_face_>
+    class ComputeMatrixScratchData
+    {
+    public:
+      using FEEvalType = FEEvaluationData<dim, Number, is_face_>;
+
+      std::vector<unsigned int> dof_numbers;
+      std::vector<unsigned int> quad_numbers;
+      std::vector<unsigned int> first_selected_components;
+      std::vector<unsigned int> batch_type;
+      static const bool         is_face = is_face_;
+
+      std::function<std::vector<std::unique_ptr<FEEvalType>>(
+        const std::pair<unsigned int, unsigned int> &)>
+        op_create;
+      std::function<void(std::vector<std::unique_ptr<FEEvalType>> &,
+                         const unsigned int)>
+        op_reinit;
+      std::function<void(std::vector<std::unique_ptr<FEEvalType>> &)>
+        op_compute;
+    };
+  } // namespace internal
+
   /**
    * Modify @p additional_data so that cells are categorized
    * according to their boundary IDs, making face integrals in the case of
@@ -280,18 +305,18 @@ namespace MatrixFreeTools
   template <int dim,
             typename Number,
             typename VectorizedArrayType,
-            typename CellOperationType,
-            typename FaceOperationType,
-            typename BoundaryOperationType,
             typename MatrixType>
   void
   compute_matrix(
     const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
     const AffineConstraints<Number>                    &constraints,
-    const CellOperationType                            &cell_operation,
-    const FaceOperationType                            &face_operation,
-    const BoundaryOperationType                        &boundary_operation,
-    MatrixType                                         &matrix);
+    const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, false>
+      &cell_operation,
+    const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
+      &face_operation,
+    const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
+               &boundary_operation,
+    MatrixType &matrix);
 
 
 
@@ -1783,37 +1808,6 @@ namespace MatrixFreeTools
       first_selected_component);
   }
 
-  namespace internal
-  {
-    template <int dim, typename Number, bool is_face_>
-    class ComputeMatrixScratchData
-    {
-    public:
-      using FEEvalType = FEEvaluationData<dim, Number, is_face_>;
-
-      std::vector<unsigned int> dof_numbers;
-      std::vector<unsigned int> quad_numbers;
-      std::vector<unsigned int> first_selected_components;
-      std::vector<unsigned int> batch_type;
-      static const bool         is_face = is_face_;
-
-      std::function<std::vector<std::unique_ptr<FEEvalType>>(
-        const std::pair<unsigned int, unsigned int> &)>
-        op_create;
-      std::function<void(std::vector<std::unique_ptr<FEEvalType>> &,
-                         const unsigned int)>
-        op_reinit;
-      std::function<void(std::vector<std::unique_ptr<FEEvalType>> &)>
-        op_compute;
-
-      bool
-      is_active() const
-      {
-        return op_compute != nullptr;
-      }
-    };
-  } // namespace internal
-
   template <int dim,
             int fe_degree,
             int n_q_points_1d,
@@ -1972,18 +1966,18 @@ namespace MatrixFreeTools
   template <int dim,
             typename Number,
             typename VectorizedArrayType,
-            typename CellOperationType,
-            typename FaceOperationType,
-            typename BoundaryOperationType,
             typename MatrixType>
   void
   compute_matrix(
     const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
     const AffineConstraints<Number>                    &constraints_in,
-    const CellOperationType                            &data_cell,
-    const FaceOperationType                            &data_face,
-    const BoundaryOperationType                        &data_boundary,
-    MatrixType                                         &matrix)
+    const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, false>
+      &data_cell,
+    const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
+      &data_face,
+    const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
+               &data_boundary,
+    MatrixType &matrix)
   {
     std::unique_ptr<AffineConstraints<typename MatrixType::value_type>>
       constraints_for_matrix;
@@ -1996,7 +1990,7 @@ namespace MatrixFreeTools
                                    auto &data,
                                    const std::pair<unsigned int, unsigned int>
                                      &range) {
-      if (!data.is_active())
+      if (!data.op_compute)
         return; // nothing to do
 
       auto phi = data.op_create(range);
@@ -2117,7 +2111,7 @@ namespace MatrixFreeTools
         batch_operation(data_boundary, range);
       };
 
-    if (data_face.is_active() || data_boundary.is_active())
+    if (data_face.op_compute || data_boundary.op_compute)
       {
         matrix_free.template loop<MatrixType, MatrixType>(
           cell_operation_wrapped,
