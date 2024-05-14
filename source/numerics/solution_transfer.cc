@@ -449,8 +449,6 @@ SolutionTransfer<dim, VectorType, spacedim>::unpack_callback(
   if (dofs_per_cell == 0)
     return; // nothing to do for FE_Nothing
 
-  std::cout << dofs_per_cell << std::endl;
-
   const std::vector<::dealii::Vector<typename VectorType::value_type>>
     dof_values =
       unpack_dof_values<typename VectorType::value_type>(data_range,
