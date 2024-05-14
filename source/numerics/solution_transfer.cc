@@ -148,10 +148,10 @@ void
 SolutionTransfer<dim, VectorType, spacedim>::
   prepare_for_coarsening_and_refinement(const std::vector<VectorType> &all_in)
 {
-  std::vector<const VectorType *> temp;
+  std::vector<const VectorType *> temp(all_in.size());
 
-  for (const auto &entry : all_in)
-    temp.emplace_back(&entry);
+  for (std::size_t i = 0; i < temp.size(); ++i)
+    temp[i] = &(all_in[i]);
 
   this->prepare_for_coarsening_and_refinement(temp);
 }
@@ -311,10 +311,10 @@ void
 SolutionTransfer<dim, VectorType, spacedim>::interpolate(
   std::vector<VectorType> &all_out)
 {
-  std::vector<VectorType *> temp;
+  std::vector<VectorType *> temp(all_out.size());
 
-  for (auto &entry : all_out)
-    temp.emplace_back(&entry);
+  for (std::size_t i = 0; i < temp.size(); ++i)
+    temp[i] = &(all_out[i]);
 
   this->interpolate(temp);
 }
