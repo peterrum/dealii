@@ -1285,6 +1285,48 @@ namespace MatrixFreeTools
       AlignedVector<VectorizedArrayType> values_dofs;
     };
 
+    template <bool is_face,
+              int  dim,
+              typename Number,
+              typename VectorizedArrayType>
+    bool
+    is_fe_nothing(
+      const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+      const std::pair<unsigned int, unsigned int>        &range,
+      const unsigned int                                  dof_no,
+      const unsigned int                                  quad_no,
+      const unsigned int first_selected_component,
+      const unsigned int fe_degree,
+      const unsigned int n_q_points_1d,
+      const bool         is_interior_face = true)
+    {
+      const unsigned int static_n_q_points =
+        is_face ? Utilities::pow(n_q_points_1d, dim - 1) :
+                  Utilities::pow(n_q_points_1d, dim);
+
+      unsigned int active_fe_index = 0;
+      if (!is_face)
+        active_fe_index = matrix_free.get_cell_active_fe_index(range);
+      else if (is_interior_face)
+        active_fe_index = matrix_free.get_face_range_category(range).first;
+      else
+        active_fe_index = matrix_free.get_face_range_category(range).second;
+
+      const auto init_data = dealii::internal::
+        extract_initialization_data<is_face, dim, Number, VectorizedArrayType>(
+          matrix_free,
+          dof_no,
+          first_selected_component,
+          quad_no,
+          fe_degree,
+          static_n_q_points,
+          active_fe_index,
+          numbers::invalid_unsigned_int /*active_quad_index*/,
+          numbers::invalid_unsigned_int /*face_type*/);
+
+      return init_data.shape_info->dofs_per_component_on_cell == 0;
+    }
+
   } // namespace internal
 
   template <int dim,
@@ -1462,9 +1504,6 @@ namespace MatrixFreeTools
     Threads::ThreadLocalStorage<HelperFace> scratch_data_m;
     Threads::ThreadLocalStorage<HelperFace> scratch_data_p;
 
-    static constexpr unsigned int static_n_q_points =
-      Utilities::pow(n_q_points_1d, dim);
-
     const auto cell_operation_wrapped =
       [&](const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
           VectorType &,
@@ -1474,22 +1513,13 @@ namespace MatrixFreeTools
           return;
 
         // shortcut for faces containing purely FE_Nothing
-        const auto init_data =
-          dealii::internal::extract_initialization_data<false /*is_face*/,
-                                                        dim,
-                                                        Number,
-                                                        VectorizedArrayType>(
-            matrix_free,
-            dof_no,
-            first_selected_component,
-            quad_no,
-            fe_degree,
-            static_n_q_points,
-            matrix_free.get_cell_active_fe_index(range),
-            numbers::invalid_unsigned_int /*active_quad_index*/,
-            numbers::invalid_unsigned_int /*face_type*/);
-
-        if (init_data.shape_info->dofs_per_component_on_cell == 0)
+        if (internal::is_fe_nothing<false>(matrix_free,
+                                           range,
+                                           dof_no,
+                                           quad_no,
+                                           first_selected_component,
+                                           fe_degree,
+                                           n_q_points_1d))
           return;
 
         Helper &helper = scratch_data.get();
@@ -1527,44 +1557,23 @@ namespace MatrixFreeTools
           return;
 
         // shortcut for faces containing purely FE_Nothing
-        const auto active_fe_index = matrix_free.get_face_range_category(range);
-        const auto init_data_m =
-          dealii::internal::extract_initialization_data<true /*is_face*/,
-                                                        dim,
-                                                        Number,
-                                                        VectorizedArrayType>(
-            matrix_free,
-            dof_no,
-            first_selected_component,
-            quad_no,
-            fe_degree,
-            static_n_q_points,
-            active_fe_index.first,
-            numbers::invalid_unsigned_int /*active_quad_index*/,
-            numbers::invalid_unsigned_int /*face_type*/);
-        const auto init_data_p =
-          dealii::internal::extract_initialization_data<true /*is_face*/,
-                                                        dim,
-                                                        Number,
-                                                        VectorizedArrayType>(
-            matrix_free,
-            dof_no,
-            first_selected_component,
-            quad_no,
-            fe_degree,
-            static_n_q_points,
-            active_fe_index.second,
-            numbers::invalid_unsigned_int /*active_quad_index*/,
-            numbers::invalid_unsigned_int /*face_type*/);
-
-        if (init_data_m.shape_info->dofs_per_component_on_cell == 0 &&
-            init_data_p.shape_info->dofs_per_component_on_cell == 0)
+        if (internal::is_fe_nothing<true>(matrix_free,
+                                          range,
+                                          dof_no,
+                                          quad_no,
+                                          first_selected_component,
+                                          fe_degree,
+                                          n_q_points_1d,
+                                          true) ||
+            internal::is_fe_nothing<true>(matrix_free,
+                                          range,
+                                          dof_no,
+                                          quad_no,
+                                          first_selected_component,
+                                          fe_degree,
+                                          n_q_points_1d,
+                                          false))
           return;
-
-        bool do_process_m =
-          init_data_m.shape_info->dofs_per_component_on_cell > 0;
-        bool do_process_p =
-          init_data_p.shape_info->dofs_per_component_on_cell > 0;
 
         HelperFace &helper_m = scratch_data_m.get();
         HelperFace &helper_p = scratch_data_p.get();
@@ -1603,35 +1612,28 @@ namespace MatrixFreeTools
             helper_p.reinit(face);
 
             // make check only if both adjacent cells have DoFs
-            if (do_process_m && do_process_p)
-              Assert(helper_m.use_fast_path() && helper_p.use_fast_path(),
-                     ExcNotImplemented());
+            Assert(helper_m.use_fast_path() && helper_p.use_fast_path(),
+                   ExcNotImplemented());
 
-            if (do_process_m)
+            for (unsigned int i = 0; i < phi_m.dofs_per_cell; ++i)
               {
-                for (unsigned int i = 0; i < phi_m.dofs_per_cell; ++i)
-                  {
-                    helper_m.prepare_basis_vector(i);
-                    helper_p.zero_basis_vector();
-                    face_operation(phi_m, phi_p);
-                    helper_m.submit();
-                  }
-
-                helper_m.distribute_local_to_global(diagonal_global_components);
+                helper_m.prepare_basis_vector(i);
+                helper_p.zero_basis_vector();
+                face_operation(phi_m, phi_p);
+                helper_m.submit();
               }
 
-            if (do_process_p)
-              {
-                for (unsigned int i = 0; i < phi_p.dofs_per_cell; ++i)
-                  {
-                    helper_m.zero_basis_vector();
-                    helper_p.prepare_basis_vector(i);
-                    face_operation(phi_m, phi_p);
-                    helper_p.submit();
-                  }
+            helper_m.distribute_local_to_global(diagonal_global_components);
 
-                helper_p.distribute_local_to_global(diagonal_global_components);
+            for (unsigned int i = 0; i < phi_p.dofs_per_cell; ++i)
+              {
+                helper_m.zero_basis_vector();
+                helper_p.prepare_basis_vector(i);
+                face_operation(phi_m, phi_p);
+                helper_p.submit();
               }
+
+            helper_p.distribute_local_to_global(diagonal_global_components);
           }
       };
 
@@ -1644,21 +1646,14 @@ namespace MatrixFreeTools
           return;
 
         // shortcut for faces containing purely FE_Nothing
-        const auto init_data_m =
-          dealii::internal::extract_initialization_data<true /*is_face*/,
-                                                        dim,
-                                                        Number,
-                                                        VectorizedArrayType>(
-            matrix_free,
-            dof_no,
-            first_selected_component,
-            quad_no,
-            fe_degree,
-            static_n_q_points,
-            matrix_free.get_face_active_fe_index(range),
-            numbers::invalid_unsigned_int /*active_quad_index*/,
-            numbers::invalid_unsigned_int /*face_type*/);
-        if (init_data_m.shape_info->dofs_per_component_on_cell == 0)
+        if (internal::is_fe_nothing<true>(matrix_free,
+                                          range,
+                                          dof_no,
+                                          quad_no,
+                                          first_selected_component,
+                                          fe_degree,
+                                          n_q_points_1d,
+                                          true))
           return;
 
         HelperFace &helper = scratch_data_m.get();
