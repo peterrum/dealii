@@ -1962,8 +1962,15 @@ namespace MatrixFreeTools
           std::unique_ptr<FEEvaluationData<dim, VectorizedArrayType, false>>>
           phi;
 
-        phi.emplace_back(std::make_unique<FEEvalType>(
-          matrix_free, range, dof_no, quad_no, first_selected_component));
+        if (!internal::is_fe_nothing<false>(matrix_free,
+                                            range,
+                                            dof_no,
+                                            quad_no,
+                                            first_selected_component,
+                                            fe_degree,
+                                            n_q_points_1d))
+          phi.emplace_back(std::make_unique<FEEvalType>(
+            matrix_free, range, dof_no, quad_no, first_selected_component));
 
         return phi;
       };
@@ -1986,19 +1993,47 @@ namespace MatrixFreeTools
                                            first_selected_component};
     data_face.batch_type                = {1, 2};
 
-    data_face
-      .op_create = [&](const std::pair<unsigned int, unsigned int> &range) {
-      std::vector<
-        std::unique_ptr<FEEvaluationData<dim, VectorizedArrayType, true>>>
-        phi;
+    data_face.op_create =
+      [&](const std::pair<unsigned int, unsigned int> &range) {
+        std::vector<
+          std::unique_ptr<FEEvaluationData<dim, VectorizedArrayType, true>>>
+          phi;
 
-      phi.emplace_back(std::make_unique<FEFaceEvalType>(
-        matrix_free, range, true, dof_no, quad_no, first_selected_component));
-      phi.emplace_back(std::make_unique<FEFaceEvalType>(
-        matrix_free, range, false, dof_no, quad_no, first_selected_component));
+        if (!internal::is_fe_nothing<true>(matrix_free,
+                                           range,
+                                           dof_no,
+                                           quad_no,
+                                           first_selected_component,
+                                           fe_degree,
+                                           n_q_points_1d,
+                                           true) &&
+            !internal::is_fe_nothing<true>(matrix_free,
+                                           range,
+                                           dof_no,
+                                           quad_no,
+                                           first_selected_component,
+                                           fe_degree,
+                                           n_q_points_1d,
+                                           false))
+          {
+            phi.emplace_back(
+              std::make_unique<FEFaceEvalType>(matrix_free,
+                                               range,
+                                               true,
+                                               dof_no,
+                                               quad_no,
+                                               first_selected_component));
+            phi.emplace_back(
+              std::make_unique<FEFaceEvalType>(matrix_free,
+                                               range,
+                                               false,
+                                               dof_no,
+                                               quad_no,
+                                               first_selected_component));
+          }
 
-      return phi;
-    };
+        return phi;
+      };
 
     data_face.op_reinit = [](auto &phi, const unsigned batch) {
       static_cast<FEFaceEvalType &>(*phi[0]).reinit(batch);
@@ -2019,17 +2054,25 @@ namespace MatrixFreeTools
     data_boundary.first_selected_components = {first_selected_component};
     data_boundary.batch_type                = {1};
 
-    data_boundary.op_create =
-      [&](const std::pair<unsigned int, unsigned int> &range) {
-        std::vector<
-          std::unique_ptr<FEEvaluationData<dim, VectorizedArrayType, true>>>
-          phi;
+    data_boundary
+      .op_create = [&](const std::pair<unsigned int, unsigned int> &range) {
+      std::vector<
+        std::unique_ptr<FEEvaluationData<dim, VectorizedArrayType, true>>>
+        phi;
 
+      if (!internal::is_fe_nothing<true>(matrix_free,
+                                         range,
+                                         dof_no,
+                                         quad_no,
+                                         first_selected_component,
+                                         fe_degree,
+                                         n_q_points_1d,
+                                         true))
         phi.emplace_back(std::make_unique<FEFaceEvalType>(
           matrix_free, range, true, dof_no, quad_no, first_selected_component));
 
-        return phi;
-      };
+      return phi;
+    };
 
     data_boundary.op_reinit = [](auto &phi, const unsigned batch) {
       static_cast<FEFaceEvalType &>(*phi[0]).reinit(batch);
@@ -2079,6 +2122,9 @@ namespace MatrixFreeTools
       auto phi = data.op_create(range);
 
       const unsigned int n_blocks = phi.size();
+
+      if (n_blocks == 0)
+        return;
 
       Table<1, unsigned int> dofs_per_cell(n_blocks);
 
