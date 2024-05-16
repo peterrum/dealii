@@ -292,31 +292,28 @@ namespace MatrixFreeTools
     const unsigned int first_selected_component = 0);
 
 
-
-  /**
-   * Compute the matrix representation of a linear operator (@p matrix), given
-   * @p matrix_free and the local cell integral operation @p cell_operation,
-   * interior face integral operation @p face_operation, and bound face
-   * operation @p boundary_operation.
-   *
-   * The parameters @p dof_no, @p quad_no, and @p first_selected_component are
-   * passed to the constructor of the FEEvaluation that is internally set up.
-   */
-  template <int dim,
-            typename Number,
-            typename VectorizedArrayType,
-            typename MatrixType>
-  void
-  compute_matrix(
-    const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
-    const AffineConstraints<Number>                    &constraints,
-    const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, false>
-      &cell_operation,
-    const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
-      &face_operation,
-    const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
-               &boundary_operation,
-    MatrixType &matrix);
+  namespace internal
+  {
+    /**
+     * Compute the matrix representation of a linear operator (@p matrix), given
+     * @p matrix_free and the local cell, face and boundary integral operation.
+     */
+    template <int dim,
+              typename Number,
+              typename VectorizedArrayType,
+              typename MatrixType>
+    void
+    compute_matrix(
+      const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+      const AffineConstraints<Number>                    &constraints,
+      const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, false>
+        &cell_operation,
+      const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
+        &face_operation,
+      const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
+                 &boundary_operation,
+      MatrixType &matrix);
+  } // namespace internal
 
 
 
@@ -2083,178 +2080,186 @@ namespace MatrixFreeTools
         boundary_operation(static_cast<FEFaceEvalType &>(*phi[0]));
       };
 
-    compute_matrix(
+    internal::compute_matrix(
       matrix_free, constraints_in, data_cell, data_face, data_boundary, matrix);
   }
 
-
-
-  template <int dim,
-            typename Number,
-            typename VectorizedArrayType,
-            typename MatrixType>
-  void
-  compute_matrix(
-    const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
-    const AffineConstraints<Number>                    &constraints_in,
-    const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, false>
-      &data_cell,
-    const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
-      &data_face,
-    const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
-               &data_boundary,
-    MatrixType &matrix)
+  namespace internal
   {
-    std::unique_ptr<AffineConstraints<typename MatrixType::value_type>>
-      constraints_for_matrix;
-    const AffineConstraints<typename MatrixType::value_type> &constraints =
-      internal::create_new_affine_constraints_if_needed(matrix,
-                                                        constraints_in,
-                                                        constraints_for_matrix);
+    template <int dim,
+              typename Number,
+              typename VectorizedArrayType,
+              typename MatrixType>
+    void
+    compute_matrix(
+      const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+      const AffineConstraints<Number>                    &constraints_in,
+      const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, false>
+        &data_cell,
+      const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
+        &data_face,
+      const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
+                 &data_boundary,
+      MatrixType &matrix)
+    {
+      std::unique_ptr<AffineConstraints<typename MatrixType::value_type>>
+        constraints_for_matrix;
+      const AffineConstraints<typename MatrixType::value_type> &constraints =
+        internal::create_new_affine_constraints_if_needed(
+          matrix, constraints_in, constraints_for_matrix);
 
-    const auto batch_operation = [&matrix_free, &constraints, &matrix](
-                                   auto &data,
-                                   const std::pair<unsigned int, unsigned int>
-                                     &range) {
-      if (!data.op_compute)
-        return; // nothing to do
+      const auto batch_operation =
+        [&matrix_free, &constraints, &matrix](
+          auto &data, const std::pair<unsigned int, unsigned int> &range) {
+          if (!data.op_compute)
+            return; // nothing to do
 
-      auto phi = data.op_create(range);
+          auto phi = data.op_create(range);
 
-      const unsigned int n_blocks = phi.size();
+          const unsigned int n_blocks = phi.size();
 
-      if (n_blocks == 0)
-        return;
+          if (n_blocks == 0)
+            return;
 
-      Table<1, unsigned int> dofs_per_cell(n_blocks);
+          Table<1, unsigned int> dofs_per_cell(n_blocks);
 
-      Table<1, std::vector<types::global_dof_index>> dof_indices(n_blocks);
-      Table<2, std::vector<types::global_dof_index>> dof_indices_mf(
-        n_blocks, VectorizedArrayType::size());
-      Table<1, std::vector<unsigned int>> lexicographic_numbering(n_blocks);
-      Table<2,
-            std::array<FullMatrix<typename MatrixType::value_type>,
-                       VectorizedArrayType::size()>>
-        matrices(n_blocks, n_blocks);
+          Table<1, std::vector<types::global_dof_index>> dof_indices(n_blocks);
+          Table<2, std::vector<types::global_dof_index>> dof_indices_mf(
+            n_blocks, VectorizedArrayType::size());
+          Table<1, std::vector<unsigned int>> lexicographic_numbering(n_blocks);
+          Table<2,
+                std::array<FullMatrix<typename MatrixType::value_type>,
+                           VectorizedArrayType::size()>>
+            matrices(n_blocks, n_blocks);
 
-      for (unsigned int b = 0; b < n_blocks; ++b)
-        {
-          const auto &shape_info =
-            matrix_free.get_shape_info(data.dof_numbers[b],
-                                       data.quad_numbers[b],
-                                       data.first_selected_components[b],
-                                       phi[b]->get_active_fe_index(),
-                                       phi[b]->get_active_quadrature_index());
+          for (unsigned int b = 0; b < n_blocks; ++b)
+            {
+              const auto &shape_info = matrix_free.get_shape_info(
+                data.dof_numbers[b],
+                data.quad_numbers[b],
+                data.first_selected_components[b],
+                phi[b]->get_active_fe_index(),
+                phi[b]->get_active_quadrature_index());
 
-          dofs_per_cell[b] =
-            shape_info.dofs_per_component_on_cell * shape_info.n_components;
+              dofs_per_cell[b] =
+                shape_info.dofs_per_component_on_cell * shape_info.n_components;
 
-          dof_indices[b].resize(dofs_per_cell[b]);
+              dof_indices[b].resize(dofs_per_cell[b]);
 
-          for (unsigned int v = 0; v < VectorizedArrayType::size(); ++v)
-            dof_indices_mf[b][v].resize(dofs_per_cell[b]);
+              for (unsigned int v = 0; v < VectorizedArrayType::size(); ++v)
+                dof_indices_mf[b][v].resize(dofs_per_cell[b]);
 
-          lexicographic_numbering[b] = shape_info.lexicographic_numbering;
-        }
-
-      for (unsigned int bj = 0; bj < n_blocks; ++bj)
-        for (unsigned int bi = 0; bi < n_blocks; ++bi)
-          std::fill_n(matrices[bi][bj].begin(),
-                      VectorizedArrayType::size(),
-                      FullMatrix<typename MatrixType::value_type>(
-                        dofs_per_cell[bi], dofs_per_cell[bj]));
-
-      for (auto batch = range.first; batch < range.second; ++batch)
-        {
-          data.op_reinit(phi, batch);
-
-          const unsigned int n_filled_lanes =
-            data.is_face ? matrix_free.n_active_entries_per_face_batch(batch) :
-                           matrix_free.n_active_entries_per_cell_batch(batch);
-
-          for (unsigned int v = 0; v < n_filled_lanes; ++v)
-            for (unsigned int b = 0; b < n_blocks; ++b)
-              {
-                unsigned int const cell_index =
-                  (data.batch_type[b] == 0) ?
-                    (batch * VectorizedArrayType::size() + v) :
-                    ((data.batch_type[b] == 1) ?
-                       matrix_free.get_face_info(batch).cells_interior[v] :
-                       matrix_free.get_face_info(batch).cells_exterior[v]);
-
-                const auto cell_iterator = matrix_free.get_cell_iterator(
-                  cell_index / VectorizedArrayType::size(),
-                  cell_index % VectorizedArrayType::size(),
-                  data.dof_numbers[b]);
-
-                if (matrix_free.get_mg_level() != numbers::invalid_unsigned_int)
-                  cell_iterator->get_mg_dof_indices(dof_indices[b]);
-                else
-                  cell_iterator->get_dof_indices(dof_indices[b]);
-
-                for (unsigned int j = 0; j < dof_indices[b].size(); ++j)
-                  dof_indices_mf[b][v][j] =
-                    dof_indices[b][lexicographic_numbering[b][j]];
-              }
+              lexicographic_numbering[b] = shape_info.lexicographic_numbering;
+            }
 
           for (unsigned int bj = 0; bj < n_blocks; ++bj)
+            for (unsigned int bi = 0; bi < n_blocks; ++bi)
+              std::fill_n(matrices[bi][bj].begin(),
+                          VectorizedArrayType::size(),
+                          FullMatrix<typename MatrixType::value_type>(
+                            dofs_per_cell[bi], dofs_per_cell[bj]));
+
+          for (auto batch = range.first; batch < range.second; ++batch)
             {
-              for (unsigned int j = 0; j < dofs_per_cell[bj]; ++j)
-                {
-                  for (unsigned int bi = 0; bi < n_blocks; ++bi)
-                    for (unsigned int i = 0; i < dofs_per_cell[bi]; ++i)
-                      phi[bi]->begin_dof_values()[i] =
-                        (bj == bi) ? static_cast<Number>(i == j) : 0.0;
+              data.op_reinit(phi, batch);
 
-                  data.op_compute(phi);
-
-                  for (unsigned int bi = 0; bi < n_blocks; ++bi)
-                    for (unsigned int i = 0; i < dofs_per_cell[bi]; ++i)
-                      for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                        matrices[bi][bj][v](i, j) =
-                          phi[bi]->begin_dof_values()[i][v];
-                }
+              const unsigned int n_filled_lanes =
+                data.is_face ?
+                  matrix_free.n_active_entries_per_face_batch(batch) :
+                  matrix_free.n_active_entries_per_cell_batch(batch);
 
               for (unsigned int v = 0; v < n_filled_lanes; ++v)
-                for (unsigned int bi = 0; bi < n_blocks; ++bi)
-                  constraints.distribute_local_to_global(matrices[bi][bj][v],
-                                                         dof_indices_mf[bi][v],
-                                                         dof_indices_mf[bj][v],
-                                                         matrix);
-            }
-        }
-    };
+                for (unsigned int b = 0; b < n_blocks; ++b)
+                  {
+                    unsigned int const cell_index =
+                      (data.batch_type[b] == 0) ?
+                        (batch * VectorizedArrayType::size() + v) :
+                        ((data.batch_type[b] == 1) ?
+                           matrix_free.get_face_info(batch).cells_interior[v] :
+                           matrix_free.get_face_info(batch).cells_exterior[v]);
 
-    const auto cell_operation_wrapped =
-      [&](const auto &matrix_free, auto &dst, const auto &, const auto range) {
+                    const auto cell_iterator = matrix_free.get_cell_iterator(
+                      cell_index / VectorizedArrayType::size(),
+                      cell_index % VectorizedArrayType::size(),
+                      data.dof_numbers[b]);
+
+                    if (matrix_free.get_mg_level() !=
+                        numbers::invalid_unsigned_int)
+                      cell_iterator->get_mg_dof_indices(dof_indices[b]);
+                    else
+                      cell_iterator->get_dof_indices(dof_indices[b]);
+
+                    for (unsigned int j = 0; j < dof_indices[b].size(); ++j)
+                      dof_indices_mf[b][v][j] =
+                        dof_indices[b][lexicographic_numbering[b][j]];
+                  }
+
+              for (unsigned int bj = 0; bj < n_blocks; ++bj)
+                {
+                  for (unsigned int j = 0; j < dofs_per_cell[bj]; ++j)
+                    {
+                      for (unsigned int bi = 0; bi < n_blocks; ++bi)
+                        for (unsigned int i = 0; i < dofs_per_cell[bi]; ++i)
+                          phi[bi]->begin_dof_values()[i] =
+                            (bj == bi) ? static_cast<Number>(i == j) : 0.0;
+
+                      data.op_compute(phi);
+
+                      for (unsigned int bi = 0; bi < n_blocks; ++bi)
+                        for (unsigned int i = 0; i < dofs_per_cell[bi]; ++i)
+                          for (unsigned int v = 0; v < n_filled_lanes; ++v)
+                            matrices[bi][bj][v](i, j) =
+                              phi[bi]->begin_dof_values()[i][v];
+                    }
+
+                  for (unsigned int v = 0; v < n_filled_lanes; ++v)
+                    for (unsigned int bi = 0; bi < n_blocks; ++bi)
+                      constraints.distribute_local_to_global(
+                        matrices[bi][bj][v],
+                        dof_indices_mf[bi][v],
+                        dof_indices_mf[bj][v],
+                        matrix);
+                }
+            }
+        };
+
+      const auto cell_operation_wrapped = [&](const auto &matrix_free,
+                                              auto       &dst,
+                                              const auto &,
+                                              const auto range) {
         batch_operation(data_cell, range);
       };
 
-    const auto face_operation_wrapped =
-      [&](const auto &matrix_free, auto &dst, const auto &, const auto range) {
+      const auto face_operation_wrapped = [&](const auto &matrix_free,
+                                              auto       &dst,
+                                              const auto &,
+                                              const auto range) {
         batch_operation(data_face, range);
       };
 
-    const auto boundary_operation_wrapped =
-      [&](const auto &matrix_free, auto &dst, const auto &, const auto range) {
+      const auto boundary_operation_wrapped = [&](const auto &matrix_free,
+                                                  auto       &dst,
+                                                  const auto &,
+                                                  const auto range) {
         batch_operation(data_boundary, range);
       };
 
-    if (data_face.op_compute || data_boundary.op_compute)
-      {
-        matrix_free.template loop<MatrixType, MatrixType>(
-          cell_operation_wrapped,
-          face_operation_wrapped,
-          boundary_operation_wrapped,
-          matrix,
-          matrix);
-      }
-    else
-      matrix_free.template cell_loop<MatrixType, MatrixType>(
-        cell_operation_wrapped, matrix, matrix);
+      if (data_face.op_compute || data_boundary.op_compute)
+        {
+          matrix_free.template loop<MatrixType, MatrixType>(
+            cell_operation_wrapped,
+            face_operation_wrapped,
+            boundary_operation_wrapped,
+            matrix,
+            matrix);
+        }
+      else
+        matrix_free.template cell_loop<MatrixType, MatrixType>(
+          cell_operation_wrapped, matrix, matrix);
 
-    matrix.compress(VectorOperation::add);
-  }
+      matrix.compress(VectorOperation::add);
+    }
+  } // namespace internal
 
   template <typename CLASS,
             int dim,
