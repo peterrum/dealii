@@ -13,8 +13,8 @@
  *
  * ---------------------------------------------------------------------
  *
- * Author: Marco Feder, (SISSA), 2023
- *         Peter Munch, University of Augsburg, 2023
+ * Authors: Marco Feder, (SISSA), 2023
+ *          Peter Munch, University of Augsburg/Uppsala University, 2023
  */
 
 // @sect3{Include files}
@@ -357,10 +357,9 @@ namespace Step88
 
 
 
-  // The following class only implements the evaluation of the Laplace operator.
-  // We refer to step-37 for an extended discussion on how this is done.
-  // Alternatively, one could also use directly the
-  // MatrixFreeOperators::LaplaceOperator class.
+  // @sect3{Laplace operator}
+  // A basic matrix-free implementation of the Laplace operator. For
+  // more details, see step-75.
   template <int dim, typename number>
   class LaplaceOperator : public Subscriptor
   {
@@ -817,15 +816,14 @@ namespace Step88
     using MGTransferType             = MGTransferMF<dim, Number>;
     using PreconditionerType = PreconditionMG<dim, VectorType, MGTransferType>;
 
-    // We store a vector of pointers to two-level transfer operators.
-    // Since we only know at runtime the actual type of transfer (depending on
-    // the nested or non-nested nature of the hierarchy), we use the base
-    // class MGTwoLevelTransferBase. In order to setup the transfer operator
-    // from one level to the next, it is sufficient to call the
-    // MGTwoLevelTransferNonNested::reinit() (or
-    // MGTwoLevelTransfer::reinit_geometric_transfer() in case levels are
-    // nested). The only difference between the two interfaces is that the
-    // latter does not take Mapping arguments.
+    // Initialize multigrid transfer operator. For this purpose, we initialize
+    // two-level transfer operators between each neighboring level. In
+    // the non-nested case, we use MGTwoLevelTransferNonNested and, in the
+    // case of the nested case, we use MGTwoLevelTransfer. Both classes
+    // inherit from the class MGTwoLevelTransferBase. The only difference
+    // between the two interfaces is that the latter does not take Mapping
+    // arguments.
+
     MGLevelObject<std::shared_ptr<const MGTwoLevelTransferBase<VectorType>>>
       transfers(min_level, max_level);
 
