@@ -13,8 +13,8 @@
  *
  * ---------------------------------------------------------------------
  *
- * Authors: Marco Feder, (SISSA), 2023
- *          Peter Munch, University of Augsburg/Uppsala University, 2023
+ * Authors: Marco Feder, (SISSA), 2024
+ *          Peter Munch, University of Augsburg/Uppsala University, 2024
  */
 
 // @sect3{Include files}
