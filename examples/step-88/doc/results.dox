@@ -24,10 +24,11 @@ section. Its default values are listed as follows:
 
 Running the program via
 @code
-  mpirun -np 32 ./step-17
+  mpirun -np 4 ./step-88 parameters.json
 @endcode
 will produce the following output to your terminal:
 @code
+Running with 4 MPI ranks.
 Creating hierarchy of grids: 
  - read ./grids/piston_0.inp
  - read ./grids/piston_1.inp
