@@ -975,7 +975,7 @@ int main(int argc, char *argv[])
         std::cout, dealii::Utilities::MPI::this_mpi_process(comm) == 0);
 
       pcout << "Running with " << Utilities::MPI::n_mpi_processes(comm)
-            << "MPI ranks." << std::endl;
+            << " MPI ranks." << std::endl;
 
 
       Parameters prm;

@@ -1,36 +1,51 @@
 <h1>Results</h1>
 
-We first generate an input file:
+The directory in which this program is run contains a sample parameter file
+that you can use to reproduce the results presented in this
+section. Its default values are listed as follows: 
+
 @code
-./step-88 > input.json
+{
+  "MeshType": "mesh_file",
+  "MeshFileFormat": "./grids/piston_%d.inp",
+  "Dimension": 3,
+  "NGlobalRefinements": 3,
+  "Degree": 2,
+  "SolverMaxIterations": 100,
+  "SolverAbsTolerance": 1e-20,
+  "SolverRelTolerance": 1e-4,
+  "MGSmoothingScheme": 20,
+  "MGSmootherDegree": 5,
+  "MGSmootherEigNIterations": 20,
+  "MGNonNested": true
+}
 @endcode
 
-and run the program with
+
+Running the program via
 @code
-./step-88 input.json
+  mpirun -np 32 ./step-17
 @endcode
-
-The output to ther terminal is as follows:
+will produce the following output to your terminal:
 @code
-Create mesh:
- - read piston_0.inp
- - read piston_1.inp
- - read piston_2.inp
- - read piston_3.inp
+Creating hierarchy of grids: 
+ - read ./grids/piston_0.inp
+ - read ./grids/piston_1.inp
+ - read ./grids/piston_2.inp
+ - read ./grids/piston_3.inp
 
-Set up system:
+Define operators on levels: 
  - number of DoFs: 10257
  - number of DoFs: 26611
  - number of DoFs: 62635
  - number of DoFs: 237389
 
-Solved in 3 steps.
+Built transfer operators between levels.
+Solved in 3 iterations.
 @endcode
 
 
 The output to Paraview is as follows:
-
-
 
 <table align="center" class="doxtable">
   <tr>
@@ -51,7 +66,7 @@ related topics worth mentioning:
 - It is possible to run the program with other, user-generated meshes by
   adjusting the parameter "mesh_file_format". Feel free to experiments with
   meshes with curvature. Here, it is critical that all points of the fine
-  mesh are found on the coarse meshe. For this purpose, one might need
+  mesh are found on the coarse mesh. For this purpose, one might need
   to adjust the parameters in MGTwoLevelTransferNonNested::AdditionalData.
 - The tutorial could be extend so that it works for mixed meshes.
 - In this tutorial, we read external meshes to create a sequence of
