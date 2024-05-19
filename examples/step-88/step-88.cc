@@ -228,9 +228,6 @@ namespace Step88
     // "file_name_%d.inp". Note: currently only Abaqus files are supported.
     std::string mesh_file_format;
 
-    // Number of dimensions.
-    unsigned int dim;
-
     // Number of global refinements. In the case of
     // "hyper_cube" and "hyper_cube_with_simplices", the mesh
     // is refined the specified amount. In the case of "mesh_file",
@@ -282,7 +279,6 @@ namespace Step88
   Parameters::Parameters()
     : mesh_type("mesh_file")
     , mesh_file_format("piston_%d.inp")
-    , dim(3)
     , n_global_refinements(3)
     , fe_degree(2)
     , solver_max_iterations(100)
@@ -855,7 +851,7 @@ namespace Step88
           transfers[l + 1] = transfer;
         }
 
-    pcout << "Built transfer operators between levels: " << std::endl;
+    pcout << "Built transfer operators between levels." << std::endl;
 
     // After the setup of transfer operators, we can initialize multigrid
     // operators, smoothers and related data structures:
@@ -974,12 +970,18 @@ int main(int argc, char *argv[])
       using namespace Step88;
 
       Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
+      const MPI_Comm                   comm = MPI_COMM_WORLD;
+      dealii::ConditionalOStream       pcout(
+        std::cout, dealii::Utilities::MPI::this_mpi_process(comm) == 0);
+
+      pcout << "Running with " << Utilities::MPI::n_mpi_processes(comm)
+            << "MPI ranks." << std::endl;
+
 
       Parameters prm;
       if (argc > 1)
         prm.parse(std::string(argv[1]));
 
-      AssertThrow(prm.dim == 3, ExcNotImplemented());
       LaplaceProblem<3> laplace_problem(prm);
       laplace_problem.run();
     }
