@@ -27,7 +27,7 @@
 #include <deal.II/base/mpi.h>
 #include <deal.II/base/parameter_handler.h>
 
-#include <deal.II/distributed/fully_distributed_tria.h>
+#include <deal.II/distributed/shared_tria.h>
 
 #include <deal.II/dofs/dof_tools.h>
 
@@ -540,8 +540,7 @@ namespace Step88
         for (unsigned int l = min_level; l <= max_level; ++l)
           {
             auto triangulation =
-              std::make_shared<parallel::fullydistributed::Triangulation<dim>>(
-                comm);
+              std::make_shared<parallel::shared::Triangulation<dim>>(comm);
             GridGenerator::convert_hypercube_to_simplex_mesh(dummy,
                                                              *triangulation);
             triangulation->refine_global(l);
