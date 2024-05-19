@@ -26,8 +26,6 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-
-
 namespace internal
 {
   /**
@@ -155,7 +153,7 @@ namespace internal
                               mji.real() * x[i].imag());
                   }
                 else
-                  res0 += mji * x[i];
+                  my_fma(res0, mji, x[i]);
               }
           }
         else
@@ -173,7 +171,7 @@ namespace internal
                               mij.real() * x[i].imag());
                   }
                 else
-                  res0 += mij * x[i];
+                  my_fma(res0, mij, x[i]);
               }
           }
         if (add)
@@ -233,7 +231,8 @@ namespace internal
         const Number   x0 = in[0], x1 = in[stride_in];
         for (int col = 0; col < nn; ++col)
           {
-            const Number result = matrix[col] * x0 + matrix_1[col] * x1;
+            Number result = matrix[col] * x0;
+            my_fma(result, matrix_1[col], x1);
             if (add)
               out[stride_out * col] += result;
             else
@@ -242,6 +241,8 @@ namespace internal
       }
     else if (transpose_matrix && n_rows == 3)
       {
+        AssertThrow(false, ExcNotImplemented());
+
         const Number2 *matrix_1 = matrix + n_columns;
         const Number2 *matrix_2 = matrix_1 + n_columns;
         const Number   x0 = in[0], x1 = in[stride_in], x2 = in[2 * stride_in];
@@ -257,6 +258,8 @@ namespace internal
       }
     else if (std::abs(in - out) < std::min(stride_out * nn, stride_in * mm))
       {
+        AssertThrow(false, ExcNotImplemented());
+
         Assert(mm <= 128,
                ExcNotImplemented("For large sizes, arrays may not overlap"));
         std::array<Number, 129> x;
@@ -300,10 +303,10 @@ namespace internal
                 matrix_ptr += n_columns;
                 for (int i = 1; i < mm; ++i, matrix_ptr += n_columns)
                   {
-                    res0 += matrix_ptr[0] * in[stride_in * i];
-                    res1 += matrix_ptr[1] * in[stride_in * i];
-                    res2 += matrix_ptr[2] * in[stride_in * i];
-                    res3 += matrix_ptr[3] * in[stride_in * i];
+                    my_fma(res0, matrix_ptr[0], in[stride_in * i]);
+                    my_fma(res1, matrix_ptr[1], in[stride_in * i]);
+                    my_fma(res2, matrix_ptr[2], in[stride_in * i]);
+                    my_fma(res3, matrix_ptr[3], in[stride_in * i]);
                   }
               }
             else
@@ -319,10 +322,10 @@ namespace internal
                 res3 = matrix_3[0] * in[0];
                 for (int i = 1; i < mm; ++i)
                   {
-                    res0 += matrix_0[i] * in[stride_in * i];
-                    res1 += matrix_1[i] * in[stride_in * i];
-                    res2 += matrix_2[i] * in[stride_in * i];
-                    res3 += matrix_3[i] * in[stride_in * i];
+                    my_fma(res0, matrix_0[i], in[stride_in * i]);
+                    my_fma(res1, matrix_1[i], in[stride_in * i]);
+                    my_fma(res2, matrix_2[i], in[stride_in * i]);
+                    my_fma(res3, matrix_3[i], in[stride_in * i]);
                   }
               }
             if (add)
@@ -353,9 +356,9 @@ namespace internal
                 matrix_ptr += n_columns;
                 for (int i = 1; i < mm; ++i, matrix_ptr += n_columns)
                   {
-                    res0 += matrix_ptr[0] * in[stride_in * i];
-                    res1 += matrix_ptr[1] * in[stride_in * i];
-                    res2 += matrix_ptr[2] * in[stride_in * i];
+                    my_fma(res0, matrix_ptr[0], in[stride_in * i]);
+                    my_fma(res1, matrix_ptr[1], in[stride_in * i]);
+                    my_fma(res2, matrix_ptr[2], in[stride_in * i]);
                   }
               }
             else
@@ -369,9 +372,9 @@ namespace internal
                 res2 = matrix_2[0] * in[0];
                 for (int i = 1; i < mm; ++i)
                   {
-                    res0 += matrix_0[i] * in[stride_in * i];
-                    res1 += matrix_1[i] * in[stride_in * i];
-                    res2 += matrix_2[i] * in[stride_in * i];
+                    my_fma(res0, matrix_0[i], in[stride_in * i]);
+                    my_fma(res1, matrix_1[i], in[stride_in * i]);
+                    my_fma(res2, matrix_2[i], in[stride_in * i]);
                   }
               }
             if (add)
@@ -398,8 +401,8 @@ namespace internal
                 matrix_ptr += n_columns;
                 for (int i = 1; i < mm; ++i, matrix_ptr += n_columns)
                   {
-                    res0 += matrix_ptr[0] * in[stride_in * i];
-                    res1 += matrix_ptr[1] * in[stride_in * i];
+                    my_fma(res0, matrix_ptr[0], in[stride_in * i]);
+                    my_fma(res1, matrix_ptr[1], in[stride_in * i]);
                   }
               }
             else
@@ -411,8 +414,8 @@ namespace internal
                 res1 = matrix_1[0] * in[0];
                 for (int i = 1; i < mm; ++i)
                   {
-                    res0 += matrix_0[i] * in[stride_in * i];
-                    res1 += matrix_1[i] * in[stride_in * i];
+                    my_fma(res0, matrix_0[i], in[stride_in * i]);
+                    my_fma(res1, matrix_1[i], in[stride_in * i]);
                   }
               }
             if (add)
@@ -435,14 +438,14 @@ namespace internal
                 res0                      = matrix_ptr[0] * in[0];
                 matrix_ptr += n_columns;
                 for (int i = 1; i < mm; ++i, matrix_ptr += n_columns)
-                  res0 += matrix_ptr[0] * in[stride_in * i];
+                  my_fma(res0, matrix_ptr[0], in[stride_in * i]);
               }
             else
               {
                 const Number2 *matrix_ptr = matrix + nn_regular * n_columns;
                 res0                      = matrix_ptr[0] * in[0];
                 for (int i = 1; i < mm; ++i)
-                  res0 += matrix_ptr[i] * in[stride_in * i];
+                  my_fma(res0, matrix_ptr[i], in[stride_in * i]);
               }
             if (add)
               out[0] += res0;
@@ -475,6 +478,8 @@ namespace internal
                               const Number  *in,
                               Number        *out)
   {
+    AssertThrow(false, ExcNotImplemented());
+
     // We can only statically assert that one argument is non-zero because
     // face evaluation might instantiate some functions, so we need to use the
     // run-time assert to verify that we do not end up involuntarily.
@@ -882,6 +887,8 @@ namespace internal
                                 int stride_in_runtime  = 0,
                                 int stride_out_runtime = 0)
   {
+    AssertThrow(false, ExcNotImplemented());
+
     static_assert(n_rows_static >= 0 && n_columns_static >= 0,
                   "Negative loop ranges are not allowed!");
 

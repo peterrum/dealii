@@ -80,10 +80,31 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-static bool fma_flag = false;
+bool
+set_state(const bool);
 
-static std::uint64_t counter_0 = 0;
-static std::uint64_t counter_1 = 0;
+std::uint64_t
+get_n_fma(const bool flag);
+
+void
+inc_fma();
+
+std::uint64_t
+get_n_mul(const bool flag);
+
+void
+inc_mul();
+
+
+template <typename Number1, typename Number2, typename Number3>
+inline void
+my_fma(Number1 &a, const Number2 &b, const Number3 &c)
+{
+  inc_fma();
+
+  a += b * c;
+}
+
 
 
 // Enable the EnableIfScalar type trait for VectorizedArray<Number> such
@@ -566,10 +587,7 @@ public:
   VectorizedArray &
   operator*=(const VectorizedArray &vec)
   {
-    if (fma_flag)
-      counter_0++;
-    else
-      counter_1++;
+    inc_mul();
 
     data *= vec.data;
     return *this;
