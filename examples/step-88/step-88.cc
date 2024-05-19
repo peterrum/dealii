@@ -66,144 +66,6 @@
 #include <fstream>
 
 
-// As we want to use as coarse grid solver the Trilinos implementation of AMG,
-// the following class is just a wrapper that transforms a given preconditioner
-// into a coarse grid solver.
-namespace dealii
-{
-  template <class VectorType, class PreconditionerType>
-  class MGCoarseGridApplyPreconditioner : public MGCoarseGridBase<VectorType>
-  {
-  public:
-    /**
-     * Default constructor.
-     */
-    MGCoarseGridApplyPreconditioner();
-
-    /**
-     * Constructor. Store a pointer to the preconditioner for later use.
-     */
-    MGCoarseGridApplyPreconditioner(const PreconditionerType &precondition);
-
-    /**
-     * Clear the pointer.
-     */
-    void clear();
-
-    /**
-     * Initialize new data.
-     */
-    void initialize(const PreconditionerType &precondition);
-
-    /**
-     * Implementation of the abstract function.
-     */
-    virtual void operator()(const unsigned int level,
-                            VectorType        &dst,
-                            const VectorType  &src) const override;
-
-  private:
-    /**
-     * Reference to the preconditioner.
-     */
-    SmartPointer<
-      const PreconditionerType,
-      MGCoarseGridApplyPreconditioner<VectorType, PreconditionerType>>
-      preconditioner;
-  };
-
-
-
-  template <class VectorType, class PreconditionerType>
-  MGCoarseGridApplyPreconditioner<VectorType, PreconditionerType>::
-    MGCoarseGridApplyPreconditioner()
-    : preconditioner(0, typeid(*this).name())
-  {}
-
-
-
-  template <class VectorType, class PreconditionerType>
-  MGCoarseGridApplyPreconditioner<VectorType, PreconditionerType>::
-    MGCoarseGridApplyPreconditioner(const PreconditionerType &preconditioner)
-    : preconditioner(&preconditioner, typeid(*this).name())
-  {}
-
-
-
-  template <class VectorType, class PreconditionerType>
-  void
-  MGCoarseGridApplyPreconditioner<VectorType, PreconditionerType>::initialize(
-    const PreconditionerType &preconditioner_)
-  {
-    preconditioner = &preconditioner_;
-  }
-
-
-
-  template <class VectorType, class PreconditionerType>
-  void MGCoarseGridApplyPreconditioner<VectorType, PreconditionerType>::clear()
-  {
-    preconditioner = 0;
-  }
-
-
-  namespace internal
-  {
-    namespace MGCoarseGridApplyPreconditioner
-    {
-      template <class VectorType,
-                class PreconditionerType,
-                typename std::enable_if<
-                  std::is_same<typename VectorType::value_type, double>::value,
-                  VectorType>::type * = nullptr>
-      void solve(const PreconditionerType preconditioner,
-                 VectorType              &dst,
-                 const VectorType        &src)
-      {
-        // to allow the case that the preconditioner was only set up on a
-        // subset of processes
-        if (preconditioner != nullptr)
-          preconditioner->vmult(dst, src);
-      }
-
-      template <class VectorType,
-                class PreconditionerType,
-                typename std::enable_if<
-                  !std::is_same<typename VectorType::value_type, double>::value,
-                  VectorType>::type * = nullptr>
-      void solve(const PreconditionerType preconditioner,
-                 VectorType              &dst,
-                 const VectorType        &src)
-      {
-        LinearAlgebra::distributed::Vector<double> src_;
-        LinearAlgebra::distributed::Vector<double> dst_;
-
-        src_ = src;
-        dst_ = dst;
-
-        // to allow the case that the preconditioner was only set up on a
-        // subset of processes
-        if (preconditioner != nullptr)
-          preconditioner->vmult(dst_, src_);
-
-        dst = dst_;
-      }
-    } // namespace MGCoarseGridApplyPreconditioner
-  }   // namespace internal
-
-
-  template <class VectorType, class PreconditionerType>
-  void
-  MGCoarseGridApplyPreconditioner<VectorType, PreconditionerType>::operator()(
-    const unsigned int /*level*/,
-    VectorType       &dst,
-    const VectorType &src) const
-  {
-    internal::MGCoarseGridApplyPreconditioner::solve(preconditioner, dst, src);
-  }
-} // namespace dealii
-
-
 // We pack everything that is specific for this program into a namespace
 // of its own.
 
@@ -889,14 +751,24 @@ namespace Step88
       mg_smoother;
     mg_smoother.initialize(operators, smoother_data);
 
-    // As coarse-grid solver we use the algebraic multigrid (AMG)
-    // preconditioner based on the Trilinos ML implementation.
+    // As coarse-grid solver we use conjugate gradient preconditioned by
+    // the algebraic multigrid (AMG) preconditioner based on the Trilinos ML
+    // implementation.
+    ReductionControl coarse_grid_solver_control(params.solver_max_iterations,
+                                                params.solver_abs_tolerance,
+                                                params.solver_rel_tolerance,
+                                                false,
+                                                false);
+    SolverCG<VectorType> coarse_solver_cg(coarse_grid_solver_control);
+
     TrilinosWrappers::PreconditionAMG precondition_amg;
     precondition_amg.initialize(operators[min_level].get_system_matrix());
 
-    MGCoarseGridApplyPreconditioner<VectorType,
-                                    TrilinosWrappers::PreconditionAMG>
-      mg_coarse(precondition_amg);
+    MGCoarseGridIterativeSolver<VectorType,
+                                SolverCG<VectorType>,
+                                LevelMatrixType,
+                                decltype(precondition_amg)>
+      mg_coarse(coarse_solver_cg, operators[min_level], precondition_amg);
 
     // Finally, we can initialize the Multigrid object and use it to
     // precondition our conjugate-gradient solver. Parameters related to the
