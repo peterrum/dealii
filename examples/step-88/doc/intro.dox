@@ -95,7 +95,7 @@ Dirichlet boundary conditions:
   \\
   u &= u_D       \qquad && \text{on }\, \Gamma = \partial \Omega,
 @f}
-on a given domain $/Omega$.
+on a given domain $\Omega$.
 
 
 <h3>%Mesh sequence</h3>

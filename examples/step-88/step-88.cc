@@ -1,6 +1,6 @@
 /* ---------------------------------------------------------------------
  *
- * Copyright (C) 2023 by the deal.II authors
+ * Copyright (C) 2024 by the deal.II authors
  *
  * This file is part of the deal.II library.
  *
@@ -21,8 +21,8 @@
 
 // The first include files have all been treated in previous examples. We
 // include headers related to the FiniteElement space we want to work with, to
-// the TrilinosWrappers for the coarse grid solver, MatrixFree tools for
-// operator evaluation and Multigrid infrastructure.
+// the TrilinosWrappers for the coarse grid solver, to MatrixFree tools for
+// operator evaluation and to Multigrid infrastructure.
 #include <deal.II/base/conditional_ostream.h>
 #include <deal.II/base/mpi.h>
 #include <deal.II/base/parameter_handler.h>
@@ -55,16 +55,14 @@
 #include <deal.II/multigrid/mg_tools.h>
 #include <deal.II/multigrid/multigrid.h>
 
-// The file most relevant for this tutorial is the one that
-// contain the class MGTwoLevelTransferNonNested.
-#include <deal.II/multigrid/mg_transfer_global_coarsening.h>
-
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 
-// This is just C+:
 #include <fstream>
 
+// The file most relevant for this tutorial is the one that
+// contain the class MGTwoLevelTransferNonNested.
+#include <deal.II/multigrid/mg_transfer_global_coarsening.h>
 
 // We pack everything that is specific for this program into a namespace
 // of its own.
@@ -506,7 +504,7 @@ namespace Step88
   // Next, we fill the hierarchy of levels for the multigrid method. Depending
   // on the selected type of mesh, we loop through the levels and for each one
   // we create (or import) a different Triangulation that discretizes the same
-  // geoemtry. This member function returns true if the grid is created with the
+  // geometry. This member function returns true if the grid is created with the
   // GridGenerator namespace, false otherwise.
   template <int dim>
   bool LaplaceProblem<dim>::create_grids()
@@ -714,8 +712,8 @@ namespace Step88
 
     pcout << "Built transfer operators between levels." << std::endl;
 
-    // After the setup of transfer operators, we can initialize multigrid
-    // operators, smoothers and related data structures:
+    // After the setup of the two-level transfer operators, we can initialize
+    // the actual multigrid transfer operator:
     std::vector<std::shared_ptr<const Utilities::MPI::Partitioner>>
       partitioners;
 
