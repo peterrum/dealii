@@ -13702,9 +13702,9 @@ void Triangulation<dim, spacedim>::save(const std::string &filename) const
     ifs
       << "version nproc n_attached_fixed_size_objs n_attached_variable_size_objs n_active_cells"
       << std::endl
-      << 5 << " " << 1 << " "
-      << this->cell_attached_data.pack_callbacks_fixed.size() << " "
-      << this->cell_attached_data.pack_callbacks_variable.size() << " "
+      << internal::CellAttachedDataSerializer<dim, spacedim>::version_number
+      << " " << 1 << " " << this->cell_attached_data.pack_callbacks_fixed.size()
+      << " " << this->cell_attached_data.pack_callbacks_variable.size() << " "
       << this->n_global_active_cells() << std::endl;
   }
 
@@ -13727,14 +13727,18 @@ void Triangulation<dim, spacedim>::load(const std::string &filename)
     std::ifstream ifs(std::string(filename) + ".info");
     AssertThrow(ifs.fail() == false, ExcIO());
     std::string firstline;
-    getline(ifs, firstline); // skip first line
+    getline(ifs, firstline);
     ifs >> version >> numcpus >> attached_count_fixed >>
       attached_count_variable >> n_global_active_cells;
   }
 
   AssertThrow(numcpus == 1,
               ExcMessage("Incompatible number of CPUs found in .info file."));
-  AssertThrow(version == 5,
+
+  const auto expected_version =
+    ::dealii::internal::CellAttachedDataSerializer<dim,
+                                                   spacedim>::version_number;
+  AssertThrow(version == expected_version,
               ExcMessage("Incompatible version found in .info file."));
   Assert(this->n_global_active_cells() == n_global_active_cells,
          ExcMessage("Number of global active cells differ!"));
