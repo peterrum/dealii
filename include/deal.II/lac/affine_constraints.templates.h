@@ -600,7 +600,7 @@ template <typename number>
 void
 AffineConstraints<number>::make_consistent_in_parallel(
   const IndexSet &locally_owned_dofs,
-  const IndexSet &locally_relevant_dofs,
+  const IndexSet &locally_relevant_dofs_in,
   const MPI_Comm  mpi_communicator)
 {
   if (Utilities::MPI::n_mpi_processes(mpi_communicator) == 1)
@@ -608,20 +608,91 @@ AffineConstraints<number>::make_consistent_in_parallel(
 
   Assert(sorted == false, ExcMatrixIsClosed());
 
-  // 1) get all locally relevant constraints ("temporal constraint matrix")
-  const auto temporal_constraint_matrix =
-    internal::compute_locally_relevant_constraints(*this,
-                                                   locally_owned_dofs,
-                                                   locally_relevant_dofs,
-                                                   mpi_communicator);
+  auto locally_relevant_dofs = locally_relevant_dofs_in;
 
-  // 2) clear the content of this constraint matrix
-  lines.clear();
-  lines_cache.clear();
+  AffineConstraints<number> affine_constraints_temp;
+  affine_constraints_temp.copy_from(*this);
 
-  // 3) refill this constraint matrix
-  for (const auto &line : temporal_constraint_matrix)
-    this->add_constraint(line.index, line.entries, line.inhomogeneity);
+  while (true)
+    {
+      // 1) get all locally relevant constraints ("temporal constraint matrix")
+      const auto temporal_constraint_matrix =
+        internal::compute_locally_relevant_constraints(affine_constraints_temp,
+                                                       locally_owned_dofs,
+                                                       locally_relevant_dofs,
+                                                       mpi_communicator);
+
+
+      // 2) clear the content of this constraint matrix
+      // affine_constraints_temp.sorted = false;
+      // affine_constraints_temp.lines.clear();
+      // affine_constraints_temp.lines_cache.clear();
+      affine_constraints_temp.clear();
+
+      IndexSet locally_relevant_dofs_temp = locally_relevant_dofs_in;
+
+      for (const auto &line : temporal_constraint_matrix)
+        {
+          locally_relevant_dofs_temp.add_index(line.index);
+
+          for (const auto &i : line.entries)
+            locally_relevant_dofs_temp.add_index(i.first);
+        }
+
+      affine_constraints_temp.reinit(locally_relevant_dofs_temp);
+
+      // 3) refill this constraint matrix
+      for (const auto &line : temporal_constraint_matrix)
+        affine_constraints_temp.add_constraint(line.index,
+                                               line.entries,
+                                               line.inhomogeneity);
+      affine_constraints_temp.close();
+
+      std::vector<types::global_dof_index> indices;
+
+      for (unsigned int index : locally_owned_dofs)
+        {
+          indices.emplace_back(index);
+          if (const auto constraints =
+                affine_constraints_temp.get_constraint_entries(index))
+            for (const auto &i : *constraints)
+              indices.push_back(i.first);
+        }
+
+      for (const auto &line : temporal_constraint_matrix)
+        {
+          indices.push_back(line.index);
+          for (const auto &i : line.entries)
+            indices.push_back(i.first);
+        }
+
+      std::sort(indices.begin(), indices.end());
+      indices.erase(std::unique(indices.begin(), indices.end()), indices.end());
+
+      IndexSet locally_relevant_dofs_new(locally_relevant_dofs.size());
+      locally_relevant_dofs_new.add_indices(indices.begin(), indices.end());
+
+      if (Utilities::MPI::min(static_cast<unsigned int>(
+                                locally_relevant_dofs_new ==
+                                locally_relevant_dofs),
+                              mpi_communicator))
+        {
+          // 2) clear the content of this constraint matrix
+          this->clear();
+          this->reinit(locally_relevant_dofs_new);
+
+          // 3) refill this constraint matrix
+          for (const auto &line : temporal_constraint_matrix)
+            this->add_constraint(line.index, line.entries, line.inhomogeneity);
+
+          locally_relevant_dofs = locally_relevant_dofs_new;
+
+          break;
+        }
+
+
+      locally_relevant_dofs = locally_relevant_dofs_new;
+    }
 
 #ifdef DEBUG
   Assert(this->is_consistent_in_parallel(
