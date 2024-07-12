@@ -714,8 +714,8 @@ namespace Step83
   void CathodeRaySimulator<dim>::serialize(Archive &ar,
                                            const unsigned int /* version */)
   {
-    ar &triangulation;
-    ar &solution;
+    // ar &triangulation;
+    // ar &solution;
     ar &particle_handler;
     ar &next_unused_particle_id;
     ar &n_recently_lost_particles;
@@ -747,6 +747,9 @@ namespace Step83
   void CathodeRaySimulator<dim>::checkpoint()
   {
     std::cout << "--- Writing checkpoint... ---" << std::endl << std::endl;
+
+    particle_handler.prepare_for_serialization();
+    triangulation.save("abba");
 
     {
       std::ofstream checkpoint_file("checkpoint.tmp");
@@ -794,12 +797,16 @@ namespace Step83
   template <int dim>
   void CathodeRaySimulator<dim>::restart()
   {
+    triangulation.load("abba");
+
     std::ifstream checkpoint_file("checkpoint");
     AssertThrow(checkpoint_file,
                 ExcMessage("Could not read from the <checkpoint> file."));
 
     boost::archive::text_iarchive archive(checkpoint_file);
     archive >> *this;
+
+    particle_handler.deserialize();
 
     std::cout << "--- Restarting at t=" << time.get_current_time()
               << ", dt=" << time.get_next_step_size() << std::endl
