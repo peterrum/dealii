@@ -626,6 +626,14 @@ namespace TrilinosWrappers
           const dealii::LinearAlgebra::distributed::Vector<double> &b);
 
     /**
+     * TODO.
+     */
+    void
+    solve(const Epetra_Operator    &A,
+          Epetra_MultiVector       &x,
+          const Epetra_MultiVector &b);
+
+    /**
      * Access to object that controls convergence.
      */
     SolverControl &
@@ -754,9 +762,9 @@ namespace TrilinosWrappers
           const PreconditionerType &p);
 
   private:
-    SolverControl                              &solver_control;
-    const AdditionalData                        additional_data;
-    const Teuchos::RCP<Teuchos::ParameterList> &belos_parameters;
+    SolverControl                             &solver_control;
+    const AdditionalData                       additional_data;
+    const Teuchos::RCP<Teuchos::ParameterList> belos_parameters;
   };
 #  endif
 
@@ -1308,82 +1316,159 @@ namespace TrilinosWrappers
                                       const VectorType         &b_dealii,
                                       const PreconditionerType &P_dealii)
   {
-    using value_type = typename VectorType::value_type;
+    if constexpr (std::is_same_v<VectorType, Epetra_MultiVector> &&
+                  std::is_same_v<OperatorType, Epetra_Operator> &&
+                  std::is_same_v<PreconditionerType, Epetra_Operator>)
+      {
+        using value_type = double;
 
-    using MV = Belos::MultiVec<value_type>;
-    using OP = Belos::Operator<value_type>;
+        using MV = Epetra_MultiVector;
+        using OP = Epetra_Operator;
 
-    Teuchos::RCP<OP> A = Teuchos::rcp(
-      new internal::OperatorWrapper<OperatorType, VectorType>(A_dealii));
-    Teuchos::RCP<OP> P = Teuchos::rcp(
-      new internal::OperatorWrapper<PreconditionerType, VectorType>(P_dealii));
-    Teuchos::RCP<MV> X =
-      Teuchos::rcp(new internal::MultiVecWrapper<VectorType>(x_dealii));
-    Teuchos::RCP<MV> B =
-      Teuchos::rcp(new internal::MultiVecWrapper<VectorType>(b_dealii));
+        Teuchos::RCP<OP> A =
+          Teuchos::rcp(const_cast<OperatorType *>(&A_dealii), false);
+        Teuchos::RCP<OP> P =
+          Teuchos::rcp(const_cast<OperatorType *>(&P_dealii), false);
+        Teuchos::RCP<MV> X = Teuchos::rcp(&x_dealii, false);
+        Teuchos::RCP<MV> B =
+          Teuchos::rcp(const_cast<VectorType *>(&b_dealii), false);
 
-    Teuchos::RCP<Belos::LinearProblem<value_type, MV, OP>> problem =
-      Teuchos::rcp(new Belos::LinearProblem<value_type, MV, OP>(A, X, B));
+        Teuchos::RCP<Belos::LinearProblem<value_type, MV, OP>> problem =
+          Teuchos::rcp(new Belos::LinearProblem<value_type, MV, OP>(A, X, B));
 
-    if (additional_data.right_preconditioning == false)
-      problem->setLeftPrec(P);
+        if (additional_data.right_preconditioning == false)
+          problem->setLeftPrec(P);
+        else
+          problem->setRightPrec(P);
+
+        const bool problem_set = problem->setProblem();
+        AssertThrow(problem_set, ExcInternalError());
+
+        AssertThrow(solver_control.tolerance() == 0.0, ExcNotImplemented());
+
+        double             relative_tolerance_to_be_achieved = 0.0;
+        const unsigned int max_steps = solver_control.max_steps();
+
+        if (const auto *reduction_control =
+              dynamic_cast<ReductionControl *>(&solver_control))
+          relative_tolerance_to_be_achieved = reduction_control->reduction();
+
+        Teuchos::RCP<Teuchos::ParameterList> belos_parameters_copy;
+
+        if (belos_parameters)
+          belos_parameters_copy =
+            Teuchos::rcp(new Teuchos::ParameterList(*belos_parameters));
+        else
+          belos_parameters_copy = Teuchos::rcp(new Teuchos::ParameterList());
+
+        belos_parameters_copy->set("Convergence Tolerance",
+                                   relative_tolerance_to_be_achieved);
+        belos_parameters_copy->set("Maximum Iterations",
+                                   static_cast<int>(max_steps));
+
+        Teuchos::RCP<Belos::SolverManager<value_type, MV, OP>> solver;
+
+        if (additional_data.solver_name == SolverName::cg)
+          solver = Teuchos::rcp(new Belos::BlockCGSolMgr<value_type, MV, OP>(
+            problem, belos_parameters_copy));
+        else if (additional_data.solver_name == SolverName::gmres)
+          solver = Teuchos::rcp(new Belos::BlockGmresSolMgr<value_type, MV, OP>(
+            problem, belos_parameters_copy));
+        else
+          AssertThrow(false, ExcNotImplemented());
+
+        const auto flag = solver->solve();
+
+        std::cout << solver->getNumIters() << std::endl;
+
+        solver_control.check(solver->getNumIters(), 0.0 /*TODO*/);
+
+        AssertThrow(flag == Belos::ReturnType::Converged ||
+                      ((dynamic_cast<IterationNumberControl *>(
+                          &solver_control) != nullptr) &&
+                       (solver_control.last_step() == max_steps)),
+                    SolverControl::NoConvergence(solver_control.last_step(),
+                                                 solver_control.last_value()));
+      }
     else
-      problem->setRightPrec(P);
+      {
+        using value_type = typename VectorType::value_type;
 
-    const bool problem_set = problem->setProblem();
-    AssertThrow(problem_set, ExcInternalError());
+        using MV = Belos::MultiVec<value_type>;
+        using OP = Belos::Operator<value_type>;
 
-    // compute initial residal
-    VectorType r;
-    r.reinit(x_dealii, true);
-    A_dealii.vmult(r, x_dealii);
-    r.sadd(-1., 1., b_dealii);
-    const auto norm_0 = r.l2_norm();
+        Teuchos::RCP<OP> A = Teuchos::rcp(
+          new internal::OperatorWrapper<OperatorType, VectorType>(A_dealii));
+        Teuchos::RCP<OP> P = Teuchos::rcp(
+          new internal::OperatorWrapper<PreconditionerType, VectorType>(
+            P_dealii));
+        Teuchos::RCP<MV> X =
+          Teuchos::rcp(new internal::MultiVecWrapper<VectorType>(x_dealii));
+        Teuchos::RCP<MV> B =
+          Teuchos::rcp(new internal::MultiVecWrapper<VectorType>(b_dealii));
 
-    if (solver_control.check(0, norm_0) != SolverControl::iterate)
-      return;
+        Teuchos::RCP<Belos::LinearProblem<value_type, MV, OP>> problem =
+          Teuchos::rcp(new Belos::LinearProblem<value_type, MV, OP>(A, X, B));
 
-    double relative_tolerance_to_be_achieved =
-      solver_control.tolerance() / norm_0;
-    const unsigned int max_steps = solver_control.max_steps();
+        if (additional_data.right_preconditioning == false)
+          problem->setLeftPrec(P);
+        else
+          problem->setRightPrec(P);
 
-    if (const auto *reduction_control =
-          dynamic_cast<ReductionControl *>(&solver_control))
-      relative_tolerance_to_be_achieved =
-        std::max(relative_tolerance_to_be_achieved,
-                 reduction_control->reduction());
+        const bool problem_set = problem->setProblem();
+        AssertThrow(problem_set, ExcInternalError());
 
-    Teuchos::RCP<Teuchos::ParameterList> belos_parameters_copy(
-      Teuchos::rcp(new Teuchos::ParameterList(*belos_parameters)));
+        // compute initial residal
+        VectorType r;
+        r.reinit(x_dealii, true);
+        A_dealii.vmult(r, x_dealii);
+        r.sadd(-1., 1., b_dealii);
+        const auto norm_0 = r.l2_norm();
 
-    belos_parameters_copy->set("Convergence Tolerance",
-                               relative_tolerance_to_be_achieved);
-    belos_parameters_copy->set("Maximum Iterations",
-                               static_cast<int>(max_steps));
+        if (solver_control.check(0, norm_0) != SolverControl::iterate)
+          return;
 
-    Teuchos::RCP<Belos::SolverManager<value_type, MV, OP>> solver;
+        double relative_tolerance_to_be_achieved =
+          solver_control.tolerance() / norm_0;
+        const unsigned int max_steps = solver_control.max_steps();
 
-    if (additional_data.solver_name == SolverName::cg)
-      solver = Teuchos::rcp(
-        new Belos::BlockCGSolMgr<value_type, MV, OP>(problem,
-                                                     belos_parameters_copy));
-    else if (additional_data.solver_name == SolverName::gmres)
-      solver = Teuchos::rcp(
-        new Belos::BlockGmresSolMgr<value_type, MV, OP>(problem,
-                                                        belos_parameters_copy));
-    else
-      AssertThrow(false, ExcNotImplemented());
+        if (const auto *reduction_control =
+              dynamic_cast<ReductionControl *>(&solver_control))
+          relative_tolerance_to_be_achieved =
+            std::max(relative_tolerance_to_be_achieved,
+                     reduction_control->reduction());
 
-    const auto flag = solver->solve();
+        Teuchos::RCP<Teuchos::ParameterList> belos_parameters_copy(
+          Teuchos::rcp(new Teuchos::ParameterList(*belos_parameters)));
 
-    solver_control.check(solver->getNumIters(), solver->achievedTol() * norm_0);
+        belos_parameters_copy->set("Convergence Tolerance",
+                                   relative_tolerance_to_be_achieved);
+        belos_parameters_copy->set("Maximum Iterations",
+                                   static_cast<int>(max_steps));
 
-    AssertThrow(flag == Belos::ReturnType::Converged ||
-                  ((dynamic_cast<IterationNumberControl *>(&solver_control) !=
-                    nullptr) &&
-                   (solver_control.last_step() == max_steps)),
-                SolverControl::NoConvergence(solver_control.last_step(),
-                                             solver_control.last_value()));
+        Teuchos::RCP<Belos::SolverManager<value_type, MV, OP>> solver;
+
+        if (additional_data.solver_name == SolverName::cg)
+          solver = Teuchos::rcp(new Belos::BlockCGSolMgr<value_type, MV, OP>(
+            problem, belos_parameters_copy));
+        else if (additional_data.solver_name == SolverName::gmres)
+          solver = Teuchos::rcp(new Belos::BlockGmresSolMgr<value_type, MV, OP>(
+            problem, belos_parameters_copy));
+        else
+          AssertThrow(false, ExcNotImplemented());
+
+        const auto flag = solver->solve();
+
+        solver_control.check(solver->getNumIters(),
+                             solver->achievedTol() * norm_0);
+
+        AssertThrow(flag == Belos::ReturnType::Converged ||
+                      ((dynamic_cast<IterationNumberControl *>(
+                          &solver_control) != nullptr) &&
+                       (solver_control.last_step() == max_steps)),
+                    SolverControl::NoConvergence(solver_control.last_step(),
+                                                 solver_control.last_value()));
+      }
   }
 
 } // namespace TrilinosWrappers
