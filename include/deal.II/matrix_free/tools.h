@@ -1576,7 +1576,9 @@ namespace MatrixFreeTools
 
 
     const auto batch_operation =
-      [&](auto &data, const std::pair<unsigned int, unsigned int> &range) {
+      [&](auto                                        &data,
+          auto                                        &scratch_data,
+          const std::pair<unsigned int, unsigned int> &range) {
         if (!data.op_compute)
           return; // nothing to do
 
@@ -1584,7 +1586,7 @@ namespace MatrixFreeTools
 
         const unsigned int n_blocks = phi.size();
 
-        auto &helpers = scratch_data_internal.get();
+        auto &helpers = scratch_data.get();
         helpers.resize(n_blocks);
 
         for (unsigned int b = 0; b < n_blocks; ++b)
@@ -1678,7 +1680,7 @@ namespace MatrixFreeTools
 
     const auto face_operation_wrapped =
       [&](const auto &, auto &, const auto &, const auto range) {
-        batch_operation(data_face, range);
+        batch_operation(data_face, scratch_data_internal, range);
       };
 
     const auto boundary_operation_wrapped =
