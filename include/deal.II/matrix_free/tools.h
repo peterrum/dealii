@@ -1568,41 +1568,40 @@ namespace MatrixFreeTools
                                           false))
           return;
 
+        std::vector<std::unique_ptr<FEFaceEvaluation<dim,
+                                                     fe_degree,
+                                                     n_q_points_1d,
+                                                     n_components,
+                                                     Number,
+                                                     VectorizedArrayType>>>
+          phi(2);
+
+        phi[0] = std::make_unique<FEFaceEvaluation<dim,
+                                                   fe_degree,
+                                                   n_q_points_1d,
+                                                   n_components,
+                                                   Number,
+                                                   VectorizedArrayType>>(
+          matrix_free, range, true, dof_no, quad_no, first_selected_component);
+
+        phi[1] = std::make_unique<FEFaceEvaluation<dim,
+                                                   fe_degree,
+                                                   n_q_points_1d,
+                                                   n_components,
+                                                   Number,
+                                                   VectorizedArrayType>>(
+          matrix_free, range, false, dof_no, quad_no, first_selected_component);
+
         auto &helpers = scratch_data_internal.get();
-        helpers.resize(2);
+        helpers.resize(phi.size());
 
-        FEFaceEvaluation<dim,
-                         fe_degree,
-                         n_q_points_1d,
-                         n_components,
-                         Number,
-                         VectorizedArrayType>
-          phi_m(matrix_free,
-                range,
-                true,
-                dof_no,
-                quad_no,
-                first_selected_component);
-        FEFaceEvaluation<dim,
-                         fe_degree,
-                         n_q_points_1d,
-                         n_components,
-                         Number,
-                         VectorizedArrayType>
-          phi_p(matrix_free,
-                range,
-                false,
-                dof_no,
-                quad_no,
-                first_selected_component);
-
-        helpers[0].initialize(phi_m, matrix_free, n_components);
-        helpers[1].initialize(phi_p, matrix_free, n_components);
+        helpers[0].initialize(*phi[0], matrix_free, n_components);
+        helpers[1].initialize(*phi[1], matrix_free, n_components);
 
         for (unsigned int face = range.first; face < range.second; ++face)
           {
-            phi_m.reinit(face);
-            phi_p.reinit(face);
+            phi[0]->reinit(face);
+            phi[1]->reinit(face);
 
             helpers[0].reinit(face);
             helpers[1].reinit(face);
@@ -1612,21 +1611,21 @@ namespace MatrixFreeTools
                      helpers[1].has_simple_constraints(),
                    ExcNotImplemented());
 
-            for (unsigned int i = 0; i < phi_m.dofs_per_cell; ++i)
+            for (unsigned int i = 0; i < phi[0]->dofs_per_cell; ++i)
               {
                 helpers[0].prepare_basis_vector(i);
                 helpers[1].zero_basis_vector();
-                face_operation(phi_m, phi_p);
+                face_operation(*phi[0], *phi[1]);
                 helpers[0].submit();
               }
 
             helpers[0].distribute_local_to_global(diagonal_global_components);
 
-            for (unsigned int i = 0; i < phi_p.dofs_per_cell; ++i)
+            for (unsigned int i = 0; i < phi[1]->dofs_per_cell; ++i)
               {
                 helpers[0].zero_basis_vector();
                 helpers[1].prepare_basis_vector(i);
-                face_operation(phi_m, phi_p);
+                face_operation(*phi[0], *phi[1]);
                 helpers[1].submit();
               }
 
