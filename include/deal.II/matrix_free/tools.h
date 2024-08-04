@@ -701,7 +701,7 @@ namespace MatrixFreeTools
       std::vector<std::pair<unsigned int, unsigned int>> inverse_lookup_origins;
     };
 
-    template <typename FEEvaluationType, bool is_face>
+    template <typename FEEvaluationType>
     class ComputeDiagonalHelper
     {
     public:
@@ -715,15 +715,17 @@ namespace MatrixFreeTools
       ComputeDiagonalHelper()
         : phi(nullptr)
         , dofs_per_component(0)
+        , is_face(false)
       {}
 
       ComputeDiagonalHelper(const ComputeDiagonalHelper &)
         : phi(nullptr)
         , dofs_per_component(0)
+        , is_face(false)
       {}
 
       void
-      initialize(FEEvaluationType &phi)
+      initialize(FEEvaluationType &phi, const bool is_face)
       {
         // if we are in hp mode and the number of unknowns changed, we must
         // clear the map of entries
@@ -732,7 +734,8 @@ namespace MatrixFreeTools
             locally_relevant_constraints_hn_map.clear();
             dofs_per_component = phi.dofs_per_component;
           }
-        this->phi = &phi;
+        this->is_face = is_face;
+        this->phi     = &phi;
       }
 
       void
@@ -1087,15 +1090,7 @@ namespace MatrixFreeTools
               break;
           }
 
-        if (use_fast_path)
-          {
-            temp_values.resize(phi->dofs_per_cell);
-            return;
-          }
-        else
-          {
-            temp_values.clear();
-          }
+        this->has_simple_constraints_ = use_fast_path;
       }
 
       void
@@ -1186,12 +1181,6 @@ namespace MatrixFreeTools
       void
       submit()
       {
-        if (!temp_values.empty())
-          {
-            temp_values[i] = phi->begin_dof_values()[i];
-            return;
-          }
-
         // if we have a block vector with components with the same DoFHandler,
         // we need to figure out which component and which DoF within the
         // component are we currently considering
@@ -1233,16 +1222,6 @@ namespace MatrixFreeTools
       distribute_local_to_global(
         std::array<VectorType *, n_components> &diagonal_global)
       {
-        if (!temp_values.empty())
-          {
-            for (unsigned int j = 0; j < temp_values.size(); ++j)
-              phi->begin_dof_values()[j] = temp_values[j];
-
-            phi->distribute_local_to_global(diagonal_global);
-
-            return;
-          }
-
         // STEP 4: assembly results: add into global vector
         const unsigned int n_fe_components =
           phi->get_dof_info().start_components.back();
@@ -1265,15 +1244,17 @@ namespace MatrixFreeTools
       }
 
       bool
-      use_fast_path() const
+      has_simple_constraints() const
       {
-        return !temp_values.empty();
+        return has_simple_constraints_;
       }
 
     private:
       FEEvaluationType *phi;
 
       unsigned int dofs_per_component;
+
+      bool is_face;
 
       unsigned int i;
 
@@ -1292,8 +1273,9 @@ namespace MatrixFreeTools
         locally_relevant_constraints_hn_map;
 
       // scratch array
-      AlignedVector<VectorizedArrayType> temp_values;
       AlignedVector<VectorizedArrayType> values_dofs;
+
+      bool has_simple_constraints_;
     };
 
     template <bool is_face,
@@ -1504,8 +1486,7 @@ namespace MatrixFreeTools
                                                    n_q_points_1d,
                                                    n_components,
                                                    Number,
-                                                   VectorizedArrayType>,
-                                      false>;
+                                                   VectorizedArrayType>>;
 
     using HelperFace =
       internal::ComputeDiagonalHelper<FEFaceEvaluation<dim,
@@ -1513,8 +1494,7 @@ namespace MatrixFreeTools
                                                        n_q_points_1d,
                                                        n_components,
                                                        Number,
-                                                       VectorizedArrayType>,
-                                      true>;
+                                                       VectorizedArrayType>>;
 
     Threads::ThreadLocalStorage<Helper>     scratch_data;
     Threads::ThreadLocalStorage<HelperFace> scratch_data_m;
@@ -1547,7 +1527,7 @@ namespace MatrixFreeTools
                      Number,
                      VectorizedArrayType>
           phi(matrix_free, range, dof_no, quad_no, first_selected_component);
-        helper.initialize(phi);
+        helper.initialize(phi, false);
 
         for (unsigned int cell = range.first; cell < range.second; ++cell)
           {
@@ -1619,8 +1599,8 @@ namespace MatrixFreeTools
                 quad_no,
                 first_selected_component);
 
-        helper_m.initialize(phi_m);
-        helper_p.initialize(phi_p);
+        helper_m.initialize(phi_m, true);
+        helper_p.initialize(phi_p, true);
 
         for (unsigned int face = range.first; face < range.second; ++face)
           {
@@ -1628,7 +1608,8 @@ namespace MatrixFreeTools
             helper_p.reinit(face);
 
             // make check only if both adjacent cells have DoFs
-            Assert(helper_m.use_fast_path() && helper_p.use_fast_path(),
+            Assert(helper_m.has_simple_constraints() &&
+                     helper_p.has_simple_constraints(),
                    ExcNotImplemented());
 
             for (unsigned int i = 0; i < phi_m.dofs_per_cell; ++i)
@@ -1686,7 +1667,7 @@ namespace MatrixFreeTools
               dof_no,
               quad_no,
               first_selected_component);
-        helper.initialize(phi);
+        helper.initialize(phi, true);
 
         for (unsigned int face = range.first; face < range.second; ++face)
           {
