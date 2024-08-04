@@ -1495,6 +1495,7 @@ namespace MatrixFreeTools
     Threads::ThreadLocalStorage<Helper>     scratch_data;
     Threads::ThreadLocalStorage<HelperFace> scratch_data_m;
     Threads::ThreadLocalStorage<HelperFace> scratch_data_p;
+    Threads::ThreadLocalStorage<HelperFace> scratch_data_bc;
 
     const auto cell_operation_wrapped =
       [&](const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
@@ -1653,7 +1654,7 @@ namespace MatrixFreeTools
                                           true))
           return;
 
-        HelperFace &helper = scratch_data_m.get();
+        HelperFace &helper = scratch_data_bc.get();
 
         FEFaceEvaluation<dim,
                          fe_degree,
