@@ -705,8 +705,8 @@ namespace MatrixFreeTools
     class ComputeDiagonalHelper
     {
     public:
-      using Number              = typename FEEvaluationType::number_type;
       using VectorizedArrayType = typename FEEvaluationType::NumberType;
+      using Number              = typename VectorizedArrayType::value_type;
 
       static const unsigned int dim          = FEEvaluationType::dimension;
       static const unsigned int n_components = FEEvaluationType::n_components;
@@ -1480,6 +1480,7 @@ namespace MatrixFreeTools
           *diagonal_global_components[0], matrix_free, dof_info);
       }
 
+#  if true
     using Helper =
       internal::ComputeDiagonalHelper<FEEvaluation<dim,
                                                    fe_degree,
@@ -1495,6 +1496,14 @@ namespace MatrixFreeTools
                                                        n_components,
                                                        Number,
                                                        VectorizedArrayType>>;
+
+#  else
+    using Helper = internal::ComputeDiagonalHelper<
+      FEEvaluationData<dim, VectorizedArrayType, false>>;
+
+    using HelperFace = internal::ComputeDiagonalHelper<
+      FEEvaluationData<dim, VectorizedArrayType, true>>;
+#  endif
 
     Threads::ThreadLocalStorage<Helper>     scratch_data;
     Threads::ThreadLocalStorage<HelperFace> scratch_data_m;
