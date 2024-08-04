@@ -1491,30 +1491,11 @@ namespace MatrixFreeTools
           *diagonal_global_components[0], matrix_free, dof_info);
       }
 
-#  if true
-    using Helper =
-      internal::ComputeDiagonalHelper<FEEvaluation<dim,
-                                                   fe_degree,
-                                                   n_q_points_1d,
-                                                   n_components,
-                                                   Number,
-                                                   VectorizedArrayType>>;
-
-    using HelperFace =
-      internal::ComputeDiagonalHelper<FEFaceEvaluation<dim,
-                                                       fe_degree,
-                                                       n_q_points_1d,
-                                                       n_components,
-                                                       Number,
-                                                       VectorizedArrayType>>;
-
-#  else
     using Helper = internal::ComputeDiagonalHelper<
       FEEvaluationData<dim, VectorizedArrayType, false>>;
 
     using HelperFace = internal::ComputeDiagonalHelper<
       FEEvaluationData<dim, VectorizedArrayType, true>>;
-#  endif
 
     Threads::ThreadLocalStorage<Helper>     scratch_data;
     Threads::ThreadLocalStorage<HelperFace> scratch_data_m;
