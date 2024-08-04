@@ -701,21 +701,20 @@ namespace MatrixFreeTools
       std::vector<std::pair<unsigned int, unsigned int>> inverse_lookup_origins;
     };
 
-    template <typename FEEvaluationType>
+    template <int dim, typename VectorizedArrayType, bool is_face>
     class ComputeDiagonalHelper
     {
     public:
-      using VectorizedArrayType = typename FEEvaluationType::NumberType;
-      using Number              = typename VectorizedArrayType::value_type;
+      using FEEvaluationType =
+        FEEvaluationData<dim, VectorizedArrayType, is_face>;
 
-      static const unsigned int dim     = FEEvaluationType::dimension;
+      using Number = typename VectorizedArrayType::value_type;
       static const unsigned int n_lanes = VectorizedArrayType::size();
 
       ComputeDiagonalHelper()
         : phi(nullptr)
         , matrix_free(nullptr)
         , dofs_per_component(0)
-        , is_face(false)
         , n_components(0)
       {}
 
@@ -723,7 +722,6 @@ namespace MatrixFreeTools
         : phi(nullptr)
         , matrix_free(nullptr)
         , dofs_per_component(0)
-        , is_face(false)
         , n_components(0)
       {}
 
@@ -731,7 +729,6 @@ namespace MatrixFreeTools
       initialize(
         FEEvaluationType                                   &phi,
         const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
-        const bool                                          is_face,
         const unsigned int                                  n_components)
       {
         // if we are in hp mode and the number of unknowns changed, we must
@@ -743,7 +740,6 @@ namespace MatrixFreeTools
             dofs_per_component =
               phi.get_shape_info().dofs_per_component_on_cell;
           }
-        this->is_face       = is_face;
         this->n_components  = n_components;
         this->dofs_per_cell = n_components * dofs_per_component;
         this->phi           = &phi;
@@ -1265,7 +1261,6 @@ namespace MatrixFreeTools
 
       unsigned int dofs_per_component;
       unsigned int dofs_per_cell;
-      bool         is_face;
       unsigned int n_components;
 
       unsigned int i;
@@ -1491,11 +1486,11 @@ namespace MatrixFreeTools
           *diagonal_global_components[0], matrix_free, dof_info);
       }
 
-    using Helper = internal::ComputeDiagonalHelper<
-      FEEvaluationData<dim, VectorizedArrayType, false>>;
+    using Helper =
+      internal::ComputeDiagonalHelper<dim, VectorizedArrayType, false>;
 
-    using HelperFace = internal::ComputeDiagonalHelper<
-      FEEvaluationData<dim, VectorizedArrayType, true>>;
+    using HelperFace =
+      internal::ComputeDiagonalHelper<dim, VectorizedArrayType, true>;
 
     Threads::ThreadLocalStorage<Helper>     scratch_data;
     Threads::ThreadLocalStorage<HelperFace> scratch_data_m;
@@ -1528,7 +1523,7 @@ namespace MatrixFreeTools
                      Number,
                      VectorizedArrayType>
           phi(matrix_free, range, dof_no, quad_no, first_selected_component);
-        helper.initialize(phi, matrix_free, false, n_components);
+        helper.initialize(phi, matrix_free, n_components);
 
         for (unsigned int cell = range.first; cell < range.second; ++cell)
           {
@@ -1601,8 +1596,8 @@ namespace MatrixFreeTools
                 quad_no,
                 first_selected_component);
 
-        helper_m.initialize(phi_m, matrix_free, true, n_components);
-        helper_p.initialize(phi_p, matrix_free, true, n_components);
+        helper_m.initialize(phi_m, matrix_free, n_components);
+        helper_p.initialize(phi_p, matrix_free, n_components);
 
         for (unsigned int face = range.first; face < range.second; ++face)
           {
@@ -1672,7 +1667,7 @@ namespace MatrixFreeTools
               dof_no,
               quad_no,
               first_selected_component);
-        helper.initialize(phi, matrix_free, true, n_components);
+        helper.initialize(phi, matrix_free, n_components);
 
         for (unsigned int face = range.first; face < range.second; ++face)
           {
