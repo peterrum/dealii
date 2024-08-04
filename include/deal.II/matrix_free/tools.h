@@ -736,15 +736,18 @@ namespace MatrixFreeTools
       {
         // if we are in hp mode and the number of unknowns changed, we must
         // clear the map of entries
-        if (dofs_per_component != phi.dofs_per_component)
+        if (dofs_per_component !=
+            phi.get_shape_info().dofs_per_component_on_cell)
           {
             locally_relevant_constraints_hn_map.clear();
-            dofs_per_component = phi.dofs_per_component;
+            dofs_per_component =
+              phi.get_shape_info().dofs_per_component_on_cell;
           }
-        this->is_face      = is_face;
-        this->n_components = n_components;
-        this->phi          = &phi;
-        this->matrix_free  = &matrix_free;
+        this->is_face       = is_face;
+        this->n_components  = n_components;
+        this->dofs_per_cell = n_components * dofs_per_component;
+        this->phi           = &phi;
+        this->matrix_free   = &matrix_free;
       }
 
       void
@@ -773,7 +776,7 @@ namespace MatrixFreeTools
         // constraints, weight)
         std::vector<std::tuple<unsigned int, unsigned int, Number>>
           locally_relevant_constraints, locally_relevant_constraints_tmp;
-        locally_relevant_constraints.reserve(phi->dofs_per_cell);
+        locally_relevant_constraints.reserve(dofs_per_cell);
         std::vector<unsigned int>  constraint_position;
         std::vector<unsigned char> is_constrained_hn;
 
@@ -933,7 +936,7 @@ namespace MatrixFreeTools
                     // combine with other constraints: to avoid binary
                     // searches, we first build a list of where constraints
                     // are pointing to, and then merge the two lists
-                    constraint_position.assign(phi->dofs_per_cell,
+                    constraint_position.assign(dofs_per_cell,
                                                numbers::invalid_unsigned_int);
                     for (auto &a : locally_relevant_constraints)
                       if (constraint_position[std::get<0>(a)] ==
@@ -941,7 +944,7 @@ namespace MatrixFreeTools
                         constraint_position[std::get<0>(a)] =
                           std::distance(locally_relevant_constraints.data(),
                                         &a);
-                    is_constrained_hn.assign(phi->dofs_per_cell, false);
+                    is_constrained_hn.assign(dofs_per_cell, false);
                     for (auto &hn : locally_relevant_constraints_hn)
                       is_constrained_hn[std::get<0>(hn)] = 1;
 
@@ -1014,7 +1017,7 @@ namespace MatrixFreeTools
                 c_pool.row.push_back(c_pool.val.size());
 
               c_pool.inverse_lookup_rows.clear();
-              c_pool.inverse_lookup_rows.resize(1 + phi->dofs_per_cell);
+              c_pool.inverse_lookup_rows.resize(1 + dofs_per_cell);
               for (const unsigned int i : c_pool.col)
                 c_pool.inverse_lookup_rows[1 + i]++;
               // transform to offsets
@@ -1025,8 +1028,7 @@ namespace MatrixFreeTools
                               c_pool.col.size());
 
               c_pool.inverse_lookup_origins.resize(c_pool.col.size());
-              std::vector<unsigned int> inverse_lookup_count(
-                phi->dofs_per_cell);
+              std::vector<unsigned int> inverse_lookup_count(dofs_per_cell);
               for (unsigned int row = 0; row < c_pool.row.size() - 1; ++row)
                 for (unsigned int col = c_pool.row[row];
                      col < c_pool.row[row + 1];
@@ -1172,7 +1174,7 @@ namespace MatrixFreeTools
         // this could be simply performed as done at the moment with
         // matrix-free operator evaluation applied to a ith-basis vector
         VectorizedArrayType *dof_values = phi->begin_dof_values();
-        for (unsigned int j = 0; j < phi->dofs_per_cell; ++j)
+        for (unsigned int j = 0; j < dofs_per_cell; ++j)
           dof_values[j] = VectorizedArrayType();
         dof_values[i] = Number(1);
       }
@@ -1181,7 +1183,7 @@ namespace MatrixFreeTools
       zero_basis_vector()
       {
         VectorizedArrayType *dof_values = phi->begin_dof_values();
-        for (unsigned int j = 0; j < phi->dofs_per_cell; ++j)
+        for (unsigned int j = 0; j < dofs_per_cell; ++j)
           dof_values[j] = VectorizedArrayType();
       }
 
@@ -1262,6 +1264,7 @@ namespace MatrixFreeTools
       const MatrixFree<dim, Number, VectorizedArrayType> *matrix_free;
 
       unsigned int dofs_per_component;
+      unsigned int dofs_per_cell;
       bool         is_face;
       unsigned int n_components;
 
