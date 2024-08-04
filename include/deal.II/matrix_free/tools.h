@@ -1492,10 +1492,9 @@ namespace MatrixFreeTools
     using HelperFace =
       internal::ComputeDiagonalHelper<dim, VectorizedArrayType, true>;
 
-    Threads::ThreadLocalStorage<Helper>     scratch_data;
-    Threads::ThreadLocalStorage<HelperFace> scratch_data_m;
-    Threads::ThreadLocalStorage<HelperFace> scratch_data_p;
-    Threads::ThreadLocalStorage<HelperFace> scratch_data_bc;
+    Threads::ThreadLocalStorage<Helper>                  scratch_data;
+    Threads::ThreadLocalStorage<std::vector<HelperFace>> scratch_data_internal;
+    Threads::ThreadLocalStorage<HelperFace>              scratch_data_bc;
 
     const auto cell_operation_wrapped =
       [&](const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
@@ -1569,8 +1568,8 @@ namespace MatrixFreeTools
                                           false))
           return;
 
-        HelperFace &helper_m = scratch_data_m.get();
-        HelperFace &helper_p = scratch_data_p.get();
+        auto &helpers = scratch_data_internal.get();
+        helpers.resize(2);
 
         FEFaceEvaluation<dim,
                          fe_degree,
@@ -1597,41 +1596,41 @@ namespace MatrixFreeTools
                 quad_no,
                 first_selected_component);
 
-        helper_m.initialize(phi_m, matrix_free, n_components);
-        helper_p.initialize(phi_p, matrix_free, n_components);
+        helpers[0].initialize(phi_m, matrix_free, n_components);
+        helpers[1].initialize(phi_p, matrix_free, n_components);
 
         for (unsigned int face = range.first; face < range.second; ++face)
           {
             phi_m.reinit(face);
             phi_p.reinit(face);
 
-            helper_m.reinit(face);
-            helper_p.reinit(face);
+            helpers[0].reinit(face);
+            helpers[1].reinit(face);
 
             // make check only if both adjacent cells have DoFs
-            Assert(helper_m.has_simple_constraints() &&
-                     helper_p.has_simple_constraints(),
+            Assert(helpers[0].has_simple_constraints() &&
+                     helpers[1].has_simple_constraints(),
                    ExcNotImplemented());
 
             for (unsigned int i = 0; i < phi_m.dofs_per_cell; ++i)
               {
-                helper_m.prepare_basis_vector(i);
-                helper_p.zero_basis_vector();
+                helpers[0].prepare_basis_vector(i);
+                helpers[1].zero_basis_vector();
                 face_operation(phi_m, phi_p);
-                helper_m.submit();
+                helpers[0].submit();
               }
 
-            helper_m.distribute_local_to_global(diagonal_global_components);
+            helpers[0].distribute_local_to_global(diagonal_global_components);
 
             for (unsigned int i = 0; i < phi_p.dofs_per_cell; ++i)
               {
-                helper_m.zero_basis_vector();
-                helper_p.prepare_basis_vector(i);
+                helpers[0].zero_basis_vector();
+                helpers[1].prepare_basis_vector(i);
                 face_operation(phi_m, phi_p);
-                helper_p.submit();
+                helpers[1].submit();
               }
 
-            helper_p.distribute_local_to_global(diagonal_global_components);
+            helpers[1].distribute_local_to_global(diagonal_global_components);
           }
       };
 
