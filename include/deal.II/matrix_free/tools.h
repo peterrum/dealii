@@ -745,8 +745,6 @@ namespace MatrixFreeTools
       void
       reinit(const unsigned int cell)
       {
-        this->phi->reinit(cell);
-
         // STEP 1: get relevant information from FEEvaluation
         const auto        &dof_info        = phi->get_dof_info();
         const unsigned int n_fe_components = dof_info.start_components.back();
@@ -1544,6 +1542,7 @@ namespace MatrixFreeTools
 
         for (unsigned int cell = range.first; cell < range.second; ++cell)
           {
+            phi.reinit(cell);
             helper.reinit(cell);
 
             for (unsigned int i = 0; i < phi.dofs_per_cell; ++i)
@@ -1617,6 +1616,9 @@ namespace MatrixFreeTools
 
         for (unsigned int face = range.first; face < range.second; ++face)
           {
+            phi_m.reinit(face);
+            phi_p.reinit(face);
+
             helper_m.reinit(face);
             helper_p.reinit(face);
 
@@ -1684,6 +1686,7 @@ namespace MatrixFreeTools
 
         for (unsigned int face = range.first; face < range.second; ++face)
           {
+            phi.reinit(face);
             helper.reinit(face);
 
             for (unsigned int i = 0; i < phi.dofs_per_cell; ++i)
