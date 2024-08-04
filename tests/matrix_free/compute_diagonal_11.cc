@@ -192,8 +192,11 @@ test_1()
   const unsigned int n_dofs = dof_handler.n_dofs();
   Vector<double>     vector(n_dofs);
 
-  // MatrixFreeTools::internal::compute_diagonal(
-  //   matrix_free, data_cell, {}, {}, vector);
+  std::vector<Vector<double> *> vector_ptr(1); // TODO
+  vector_ptr[0] = &vector;                     //
+
+  MatrixFreeTools::internal::compute_diagonal(
+    matrix_free, data_cell, {}, {}, vector, vector_ptr);
 
   vector.print(deallog.get_file_stream());
   deallog << std::endl;

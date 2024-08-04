@@ -303,6 +303,27 @@ namespace MatrixFreeTools
   namespace internal
   {
     /**
+     * Compute the diagonl of a linear operator (@p diagonal_global), given
+     * @p matrix_free and the local cell, face and boundary integral operation.
+     */
+    template <int dim,
+              typename Number,
+              typename VectorizedArrayType,
+              typename VectorType,
+              typename VectorType2>
+    void
+    compute_diagonal(
+      const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+      const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, false>
+        &data_cell,
+      const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
+        &data_face,
+      const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
+                                 &data_boundary,
+      VectorType                 &diagonal_global,
+      std::vector<VectorType2 *> &diagonal_global_components);
+
+    /**
      * Compute the matrix representation of a linear operator (@p matrix), given
      * @p matrix_free and the local cell, face and boundary integral operation.
      */
@@ -1226,11 +1247,12 @@ namespace MatrixFreeTools
       inline void
       distribute_local_to_global(std::vector<VectorType *> &diagonal_global)
       {
-        AssertDimension(diagonal_global.size(), n_components);
-
         // STEP 4: assembly results: add into global vector
         const unsigned int n_fe_components =
           phi->get_dof_info().start_components.back();
+
+        if (n_fe_components == 1)
+          AssertDimension(diagonal_global.size(), n_components);
 
         for (unsigned int v = 0; v < n_lanes_filled; ++v)
           // if we have a block vector with components with the same
@@ -1452,8 +1474,6 @@ namespace MatrixFreeTools
     const unsigned int first_selected_component,
     const unsigned int first_vector_component)
   {
-    int dummy = 0;
-
     std::vector<typename dealii::internal::BlockVectorSelector<
       VectorType,
       IsBlockVector<VectorType>::value>::BaseVectorType *>
@@ -1499,16 +1519,6 @@ namespace MatrixFreeTools
                                             n_components,
                                             Number,
                                             VectorizedArrayType>;
-
-    using Helper =
-      internal::ComputeDiagonalHelper<dim, VectorizedArrayType, false>;
-
-    using HelperFace =
-      internal::ComputeDiagonalHelper<dim, VectorizedArrayType, true>;
-
-    Threads::ThreadLocalStorage<std::vector<Helper>>     scratch_data;
-    Threads::ThreadLocalStorage<std::vector<HelperFace>> scratch_data_internal;
-    Threads::ThreadLocalStorage<std::vector<HelperFace>> scratch_data_bc;
 
     internal::ComputeMatrixScratchData<dim, VectorizedArrayType, false>
       data_cell;
@@ -1648,92 +1658,134 @@ namespace MatrixFreeTools
         boundary_operation(static_cast<FEFaceEvalType &>(*phi[0]));
       };
 
-
-    const auto batch_operation =
-      [&](auto                                        &data,
-          auto                                        &scratch_data,
-          const std::pair<unsigned int, unsigned int> &range) {
-        if (!data.op_compute)
-          return; // nothing to do
-
-        auto phi = data.op_create(range);
-
-        const unsigned int n_blocks = phi.size();
-
-        auto &helpers = scratch_data.get();
-        helpers.resize(n_blocks);
-
-        for (unsigned int b = 0; b < n_blocks; ++b)
-          helpers[b].initialize(*phi[b], matrix_free, n_components);
-
-        for (unsigned int batch = range.first; batch < range.second; ++batch)
-          {
-            data.op_reinit(phi, batch);
-
-            for (unsigned int b = 0; b < n_blocks; ++b)
-              helpers[b].reinit(batch);
-
-            if (n_blocks > 1)
-              {
-                Assert(std::all_of(helpers.begin(),
-                                   helpers.end(),
-                                   [](const auto &helper) {
-                                     return helper.has_simple_constraints();
-                                   }),
-                       ExcNotImplemented());
-              }
-
-            for (unsigned int b = 0; b < n_blocks; ++b)
-              {
-                for (unsigned int i = 0;
-                     i < phi[b]->get_shape_info().dofs_per_component_on_cell *
-                           data.n_components[b];
-                     ++i)
-                  {
-                    for (unsigned int bb = 0; bb < n_blocks; ++bb)
-                      if (b == bb)
-                        helpers[bb].prepare_basis_vector(i);
-                      else
-                        helpers[bb].zero_basis_vector();
-
-                    data.op_compute(phi);
-                    helpers[b].submit();
-                  }
-
-                helpers[b].distribute_local_to_global(
-                  diagonal_global_components);
-              }
-          }
-      };
-
-    const auto cell_operation_wrapped =
-      [&](const auto &, auto &, const auto &, const auto range) {
-        batch_operation(data_cell, scratch_data, range);
-      };
-
-    const auto face_operation_wrapped =
-      [&](const auto &, auto &, const auto &, const auto range) {
-        batch_operation(data_face, scratch_data_internal, range);
-      };
-
-    const auto boundary_operation_wrapped =
-      [&](const auto &, auto &, const auto &, const auto range) {
-        batch_operation(data_boundary, scratch_data_bc, range);
-      };
-
-    if (face_operation || boundary_operation)
-      matrix_free.template loop<VectorType, int>(cell_operation_wrapped,
-                                                 face_operation_wrapped,
-                                                 boundary_operation_wrapped,
-                                                 diagonal_global,
-                                                 dummy,
-                                                 false);
-    else
-      matrix_free.template cell_loop<VectorType, int>(cell_operation_wrapped,
-                                                      diagonal_global,
-                                                      dummy,
-                                                      false);
+    internal::compute_diagonal(matrix_free,
+                               data_cell,
+                               data_face,
+                               data_boundary,
+                               diagonal_global,
+                               diagonal_global_components);
   }
+
+  namespace internal
+  {
+    template <int dim,
+              typename Number,
+              typename VectorizedArrayType,
+              typename VectorType,
+              typename VectorType2>
+    void
+    compute_diagonal(
+      const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+      const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, false>
+        &data_cell,
+      const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
+        &data_face,
+      const internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
+                                 &data_boundary,
+      VectorType                 &diagonal_global,
+      std::vector<VectorType2 *> &diagonal_global_components)
+    {
+      // TODO: can we remove diagonal_global_components as argument?
+
+      int dummy = 0;
+
+      using Helper =
+        internal::ComputeDiagonalHelper<dim, VectorizedArrayType, false>;
+
+      using HelperFace =
+        internal::ComputeDiagonalHelper<dim, VectorizedArrayType, true>;
+
+      Threads::ThreadLocalStorage<std::vector<Helper>> scratch_data;
+      Threads::ThreadLocalStorage<std::vector<HelperFace>>
+        scratch_data_internal;
+      Threads::ThreadLocalStorage<std::vector<HelperFace>> scratch_data_bc;
+
+      const auto batch_operation =
+        [&](auto                                        &data,
+            auto                                        &scratch_data,
+            const std::pair<unsigned int, unsigned int> &range) {
+          if (!data.op_compute)
+            return; // nothing to do
+
+          auto phi = data.op_create(range);
+
+          const unsigned int n_blocks = phi.size();
+
+          auto &helpers = scratch_data.get();
+          helpers.resize(n_blocks);
+
+          for (unsigned int b = 0; b < n_blocks; ++b)
+            helpers[b].initialize(*phi[b], matrix_free, data.n_components[b]);
+
+          for (unsigned int batch = range.first; batch < range.second; ++batch)
+            {
+              data.op_reinit(phi, batch);
+
+              for (unsigned int b = 0; b < n_blocks; ++b)
+                helpers[b].reinit(batch);
+
+              if (n_blocks > 1)
+                {
+                  Assert(std::all_of(helpers.begin(),
+                                     helpers.end(),
+                                     [](const auto &helper) {
+                                       return helper.has_simple_constraints();
+                                     }),
+                         ExcNotImplemented());
+                }
+
+              for (unsigned int b = 0; b < n_blocks; ++b)
+                {
+                  for (unsigned int i = 0;
+                       i < phi[b]->get_shape_info().dofs_per_component_on_cell *
+                             data.n_components[b];
+                       ++i)
+                    {
+                      for (unsigned int bb = 0; bb < n_blocks; ++bb)
+                        if (b == bb)
+                          helpers[bb].prepare_basis_vector(i);
+                        else
+                          helpers[bb].zero_basis_vector();
+
+                      data.op_compute(phi);
+                      helpers[b].submit();
+                    }
+
+                  helpers[b].distribute_local_to_global(
+                    diagonal_global_components);
+                }
+            }
+        };
+
+      const auto cell_operation_wrapped =
+        [&](const auto &, auto &, const auto &, const auto range) {
+          batch_operation(data_cell, scratch_data, range);
+        };
+
+      const auto face_operation_wrapped =
+        [&](const auto &, auto &, const auto &, const auto range) {
+          batch_operation(data_face, scratch_data_internal, range);
+        };
+
+      const auto boundary_operation_wrapped =
+        [&](const auto &, auto &, const auto &, const auto range) {
+          batch_operation(data_boundary, scratch_data_bc, range);
+        };
+
+      if (data_face.op_compute || data_boundary.op_compute)
+        matrix_free.template loop<VectorType, int>(cell_operation_wrapped,
+                                                   face_operation_wrapped,
+                                                   boundary_operation_wrapped,
+                                                   diagonal_global,
+                                                   dummy,
+                                                   false);
+      else
+        matrix_free.template cell_loop<VectorType, int>(cell_operation_wrapped,
+                                                        diagonal_global,
+                                                        dummy,
+                                                        false);
+    }
+  } // namespace internal
 
   template <typename CLASS,
             int dim,
