@@ -1592,44 +1592,49 @@ namespace MatrixFreeTools
                                                    VectorizedArrayType>>(
           matrix_free, range, false, dof_no, quad_no, first_selected_component);
 
-        auto &helpers = scratch_data_internal.get();
-        helpers.resize(phi.size());
+        const unsigned int n_blocks = phi.size();
 
-        helpers[0].initialize(*phi[0], matrix_free, n_components);
-        helpers[1].initialize(*phi[1], matrix_free, n_components);
+        auto &helpers = scratch_data_internal.get();
+        helpers.resize(n_blocks);
+
+        for (unsigned int b = 0; b < n_blocks; ++b)
+          helpers[b].initialize(*phi[b], matrix_free, n_components);
 
         for (unsigned int face = range.first; face < range.second; ++face)
           {
-            phi[0]->reinit(face);
-            phi[1]->reinit(face);
+            for (unsigned int b = 0; b < n_blocks; ++b)
+              phi[b]->reinit(face);
 
-            helpers[0].reinit(face);
-            helpers[1].reinit(face);
+            for (unsigned int b = 0; b < n_blocks; ++b)
+              helpers[b].reinit(face);
 
-            // make check only if both adjacent cells have DoFs
-            Assert(helpers[0].has_simple_constraints() &&
-                     helpers[1].has_simple_constraints(),
-                   ExcNotImplemented());
-
-            for (unsigned int i = 0; i < phi[0]->dofs_per_cell; ++i)
+            if (n_blocks > 1)
               {
-                helpers[0].prepare_basis_vector(i);
-                helpers[1].zero_basis_vector();
-                face_operation(*phi[0], *phi[1]);
-                helpers[0].submit();
+                Assert(std::all_of(helpers.begin(),
+                                   helpers.end(),
+                                   [](const auto &helper) {
+                                     return helper.has_simple_constraints();
+                                   }),
+                       ExcNotImplemented());
               }
 
-            helpers[0].distribute_local_to_global(diagonal_global_components);
-
-            for (unsigned int i = 0; i < phi[1]->dofs_per_cell; ++i)
+            for (unsigned int b = 0; b < n_blocks; ++b)
               {
-                helpers[0].zero_basis_vector();
-                helpers[1].prepare_basis_vector(i);
-                face_operation(*phi[0], *phi[1]);
-                helpers[1].submit();
-              }
+                for (unsigned int i = 0; i < phi[0]->dofs_per_cell; ++i)
+                  {
+                    for (unsigned int bb = 0; bb < n_blocks; ++bb)
+                      if (b == bb)
+                        helpers[bb].prepare_basis_vector(i);
+                      else
+                        helpers[bb].zero_basis_vector();
 
-            helpers[1].distribute_local_to_global(diagonal_global_components);
+                    face_operation(*phi[0], *phi[1]);
+                    helpers[b].submit();
+                  }
+
+                helpers[b].distribute_local_to_global(
+                  diagonal_global_components);
+              }
           }
       };
 
