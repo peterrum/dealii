@@ -713,6 +713,7 @@ namespace MatrixFreeTools
 
       ComputeDiagonalHelper()
         : phi(nullptr)
+        , matrix_free(nullptr)
         , dofs_per_component(0)
         , is_face(false)
         , n_components(0)
@@ -720,15 +721,18 @@ namespace MatrixFreeTools
 
       ComputeDiagonalHelper(const ComputeDiagonalHelper &)
         : phi(nullptr)
+        , matrix_free(nullptr)
         , dofs_per_component(0)
         , is_face(false)
         , n_components(0)
       {}
 
       void
-      initialize(FEEvaluationType  &phi,
-                 const bool         is_face,
-                 const unsigned int n_components)
+      initialize(
+        FEEvaluationType                                   &phi,
+        const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
+        const bool                                          is_face,
+        const unsigned int                                  n_components)
       {
         // if we are in hp mode and the number of unknowns changed, we must
         // clear the map of entries
@@ -740,15 +744,16 @@ namespace MatrixFreeTools
         this->is_face      = is_face;
         this->n_components = n_components;
         this->phi          = &phi;
+        this->matrix_free  = &matrix_free;
       }
 
       void
       reinit(const unsigned int cell)
       {
         // STEP 1: get relevant information from FEEvaluation
+        const auto        &matrix_free     = *this->matrix_free;
         const auto        &dof_info        = phi->get_dof_info();
         const unsigned int n_fe_components = dof_info.start_components.back();
-        const auto        &matrix_free     = phi->get_matrix_free();
 
         // if we have a block vector with components with the same DoFHandler,
         // each component is described with same set of constraints and
@@ -1167,7 +1172,7 @@ namespace MatrixFreeTools
         // this could be simply performed as done at the moment with
         // matrix-free operator evaluation applied to a ith-basis vector
         VectorizedArrayType *dof_values = phi->begin_dof_values();
-        for (const unsigned int j : phi->dof_indices())
+        for (unsigned int j = 0; j < phi->dofs_per_cell; ++j)
           dof_values[j] = VectorizedArrayType();
         dof_values[i] = Number(1);
       }
@@ -1176,7 +1181,7 @@ namespace MatrixFreeTools
       zero_basis_vector()
       {
         VectorizedArrayType *dof_values = phi->begin_dof_values();
-        for (const unsigned int j : phi->dof_indices())
+        for (unsigned int j = 0; j < phi->dofs_per_cell; ++j)
           dof_values[j] = VectorizedArrayType();
       }
 
@@ -1253,7 +1258,8 @@ namespace MatrixFreeTools
       }
 
     private:
-      FEEvaluationType *phi;
+      FEEvaluationType                                   *phi;
+      const MatrixFree<dim, Number, VectorizedArrayType> *matrix_free;
 
       unsigned int dofs_per_component;
       bool         is_face;
@@ -1538,7 +1544,7 @@ namespace MatrixFreeTools
                      Number,
                      VectorizedArrayType>
           phi(matrix_free, range, dof_no, quad_no, first_selected_component);
-        helper.initialize(phi, false, n_components);
+        helper.initialize(phi, matrix_free, false, n_components);
 
         for (unsigned int cell = range.first; cell < range.second; ++cell)
           {
@@ -1611,8 +1617,8 @@ namespace MatrixFreeTools
                 quad_no,
                 first_selected_component);
 
-        helper_m.initialize(phi_m, true, n_components);
-        helper_p.initialize(phi_p, true, n_components);
+        helper_m.initialize(phi_m, matrix_free, true, n_components);
+        helper_p.initialize(phi_p, matrix_free, true, n_components);
 
         for (unsigned int face = range.first; face < range.second; ++face)
           {
@@ -1682,7 +1688,7 @@ namespace MatrixFreeTools
               dof_no,
               quad_no,
               first_selected_component);
-        helper.initialize(phi, true, n_components);
+        helper.initialize(phi, matrix_free, true, n_components);
 
         for (unsigned int face = range.first; face < range.second; ++face)
           {
