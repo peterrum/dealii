@@ -708,24 +708,27 @@ namespace MatrixFreeTools
       using VectorizedArrayType = typename FEEvaluationType::NumberType;
       using Number              = typename VectorizedArrayType::value_type;
 
-      static const unsigned int dim          = FEEvaluationType::dimension;
-      static const unsigned int n_components = FEEvaluationType::n_components;
-      static const unsigned int n_lanes      = VectorizedArrayType::size();
+      static const unsigned int dim     = FEEvaluationType::dimension;
+      static const unsigned int n_lanes = VectorizedArrayType::size();
 
       ComputeDiagonalHelper()
         : phi(nullptr)
         , dofs_per_component(0)
         , is_face(false)
+        , n_components(0)
       {}
 
       ComputeDiagonalHelper(const ComputeDiagonalHelper &)
         : phi(nullptr)
         , dofs_per_component(0)
         , is_face(false)
+        , n_components(0)
       {}
 
       void
-      initialize(FEEvaluationType &phi, const bool is_face)
+      initialize(FEEvaluationType  &phi,
+                 const bool         is_face,
+                 const unsigned int n_components)
       {
         // if we are in hp mode and the number of unknowns changed, we must
         // clear the map of entries
@@ -734,8 +737,9 @@ namespace MatrixFreeTools
             locally_relevant_constraints_hn_map.clear();
             dofs_per_component = phi.dofs_per_component;
           }
-        this->is_face = is_face;
-        this->phi     = &phi;
+        this->is_face      = is_face;
+        this->n_components = n_components;
+        this->phi          = &phi;
       }
 
       void
@@ -1219,9 +1223,10 @@ namespace MatrixFreeTools
 
       template <typename VectorType>
       inline void
-      distribute_local_to_global(
-        std::array<VectorType *, n_components> &diagonal_global)
+      distribute_local_to_global(std::vector<VectorType *> &diagonal_global)
       {
+        AssertDimension(diagonal_global.size(), n_components);
+
         // STEP 4: assembly results: add into global vector
         const unsigned int n_fe_components =
           phi->get_dof_info().start_components.back();
@@ -1253,8 +1258,8 @@ namespace MatrixFreeTools
       FEEvaluationType *phi;
 
       unsigned int dofs_per_component;
-
-      bool is_face;
+      bool         is_face;
+      unsigned int n_components;
 
       unsigned int i;
 
@@ -1447,11 +1452,10 @@ namespace MatrixFreeTools
   {
     int dummy = 0;
 
-    std::array<typename dealii::internal::BlockVectorSelector<
-                 VectorType,
-                 IsBlockVector<VectorType>::value>::BaseVectorType *,
-               n_components>
-      diagonal_global_components;
+    std::vector<typename dealii::internal::BlockVectorSelector<
+      VectorType,
+      IsBlockVector<VectorType>::value>::BaseVectorType *>
+      diagonal_global_components(n_components);
 
     for (unsigned int d = 0; d < n_components; ++d)
       diagonal_global_components[d] = dealii::internal::
@@ -1536,7 +1540,7 @@ namespace MatrixFreeTools
                      Number,
                      VectorizedArrayType>
           phi(matrix_free, range, dof_no, quad_no, first_selected_component);
-        helper.initialize(phi, false);
+        helper.initialize(phi, false, n_components);
 
         for (unsigned int cell = range.first; cell < range.second; ++cell)
           {
@@ -1608,8 +1612,8 @@ namespace MatrixFreeTools
                 quad_no,
                 first_selected_component);
 
-        helper_m.initialize(phi_m, true);
-        helper_p.initialize(phi_p, true);
+        helper_m.initialize(phi_m, true, n_components);
+        helper_p.initialize(phi_p, true, n_components);
 
         for (unsigned int face = range.first; face < range.second; ++face)
           {
@@ -1676,7 +1680,7 @@ namespace MatrixFreeTools
               dof_no,
               quad_no,
               first_selected_component);
-        helper.initialize(phi, true);
+        helper.initialize(phi, true, n_components);
 
         for (unsigned int face = range.first; face < range.second; ++face)
           {
