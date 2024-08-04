@@ -1486,6 +1486,20 @@ namespace MatrixFreeTools
           *diagonal_global_components[0], matrix_free, dof_info);
       }
 
+    using FEEvalType = FEEvaluation<dim,
+                                    fe_degree,
+                                    n_q_points_1d,
+                                    n_components,
+                                    Number,
+                                    VectorizedArrayType>;
+
+    using FEFaceEvalType = FEFaceEvaluation<dim,
+                                            fe_degree,
+                                            n_q_points_1d,
+                                            n_components,
+                                            Number,
+                                            VectorizedArrayType>;
+
     using Helper =
       internal::ComputeDiagonalHelper<dim, VectorizedArrayType, false>;
 
@@ -1495,6 +1509,126 @@ namespace MatrixFreeTools
     Threads::ThreadLocalStorage<Helper>                  scratch_data;
     Threads::ThreadLocalStorage<std::vector<HelperFace>> scratch_data_internal;
     Threads::ThreadLocalStorage<HelperFace>              scratch_data_bc;
+
+
+    internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
+      data_face;
+
+    data_face.dof_numbers               = {dof_no, dof_no};
+    data_face.quad_numbers              = {quad_no, quad_no};
+    data_face.n_components              = {n_components, n_components};
+    data_face.first_selected_components = {first_selected_component,
+                                           first_selected_component};
+    data_face.batch_type                = {1, 2};
+
+    data_face.op_create =
+      [&](const std::pair<unsigned int, unsigned int> &range) {
+        std::vector<
+          std::unique_ptr<FEEvaluationData<dim, VectorizedArrayType, true>>>
+          phi;
+
+        if (!internal::is_fe_nothing<true>(matrix_free,
+                                           range,
+                                           dof_no,
+                                           quad_no,
+                                           first_selected_component,
+                                           fe_degree,
+                                           n_q_points_1d,
+                                           true) &&
+            !internal::is_fe_nothing<true>(matrix_free,
+                                           range,
+                                           dof_no,
+                                           quad_no,
+                                           first_selected_component,
+                                           fe_degree,
+                                           n_q_points_1d,
+                                           false))
+          {
+            phi.emplace_back(
+              std::make_unique<FEFaceEvalType>(matrix_free,
+                                               range,
+                                               true,
+                                               dof_no,
+                                               quad_no,
+                                               first_selected_component));
+            phi.emplace_back(
+              std::make_unique<FEFaceEvalType>(matrix_free,
+                                               range,
+                                               false,
+                                               dof_no,
+                                               quad_no,
+                                               first_selected_component));
+          }
+
+        return phi;
+      };
+
+    data_face.op_reinit = [](auto &phi, const unsigned batch) {
+      static_cast<FEFaceEvalType &>(*phi[0]).reinit(batch);
+      static_cast<FEFaceEvalType &>(*phi[1]).reinit(batch);
+    };
+
+    if (face_operation)
+      data_face.op_compute = [&](auto &phi) {
+        face_operation(static_cast<FEFaceEvalType &>(*phi[0]),
+                       static_cast<FEFaceEvalType &>(*phi[1]));
+      };
+
+
+    const auto batch_operation =
+      [&](auto &data, const std::pair<unsigned int, unsigned int> &range) {
+        if (!data.op_compute)
+          return; // nothing to do
+
+        auto phi = data.op_create(range);
+
+        const unsigned int n_blocks = phi.size();
+
+        auto &helpers = scratch_data_internal.get();
+        helpers.resize(n_blocks);
+
+        for (unsigned int b = 0; b < n_blocks; ++b)
+          helpers[b].initialize(*phi[b], matrix_free, n_components);
+
+        for (unsigned int batch = range.first; batch < range.second; ++batch)
+          {
+            data.op_reinit(phi, batch);
+
+            for (unsigned int b = 0; b < n_blocks; ++b)
+              helpers[b].reinit(batch);
+
+            if (n_blocks > 1)
+              {
+                Assert(std::all_of(helpers.begin(),
+                                   helpers.end(),
+                                   [](const auto &helper) {
+                                     return helper.has_simple_constraints();
+                                   }),
+                       ExcNotImplemented());
+              }
+
+            for (unsigned int b = 0; b < n_blocks; ++b)
+              {
+                for (unsigned int i = 0;
+                     i < phi[b]->get_shape_info().dofs_per_component_on_cell *
+                           data.n_components[b];
+                     ++i)
+                  {
+                    for (unsigned int bb = 0; bb < n_blocks; ++bb)
+                      if (b == bb)
+                        helpers[bb].prepare_basis_vector(i);
+                      else
+                        helpers[bb].zero_basis_vector();
+
+                    data.op_compute(phi);
+                    helpers[b].submit();
+                  }
+
+                helpers[b].distribute_local_to_global(
+                  diagonal_global_components);
+              }
+          }
+      };
 
     const auto cell_operation_wrapped =
       [&](const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
@@ -1541,101 +1675,10 @@ namespace MatrixFreeTools
           }
       };
 
+
     const auto face_operation_wrapped =
-      [&](const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
-          VectorType &,
-          const int &,
-          const std::pair<unsigned int, unsigned int> &range) {
-        if (!face_operation)
-          return;
-
-        // shortcut for faces containing purely FE_Nothing
-        if (internal::is_fe_nothing<true>(matrix_free,
-                                          range,
-                                          dof_no,
-                                          quad_no,
-                                          first_selected_component,
-                                          fe_degree,
-                                          n_q_points_1d,
-                                          true) ||
-            internal::is_fe_nothing<true>(matrix_free,
-                                          range,
-                                          dof_no,
-                                          quad_no,
-                                          first_selected_component,
-                                          fe_degree,
-                                          n_q_points_1d,
-                                          false))
-          return;
-
-        std::vector<std::unique_ptr<FEFaceEvaluation<dim,
-                                                     fe_degree,
-                                                     n_q_points_1d,
-                                                     n_components,
-                                                     Number,
-                                                     VectorizedArrayType>>>
-          phi(2);
-
-        phi[0] = std::make_unique<FEFaceEvaluation<dim,
-                                                   fe_degree,
-                                                   n_q_points_1d,
-                                                   n_components,
-                                                   Number,
-                                                   VectorizedArrayType>>(
-          matrix_free, range, true, dof_no, quad_no, first_selected_component);
-
-        phi[1] = std::make_unique<FEFaceEvaluation<dim,
-                                                   fe_degree,
-                                                   n_q_points_1d,
-                                                   n_components,
-                                                   Number,
-                                                   VectorizedArrayType>>(
-          matrix_free, range, false, dof_no, quad_no, first_selected_component);
-
-        const unsigned int n_blocks = phi.size();
-
-        auto &helpers = scratch_data_internal.get();
-        helpers.resize(n_blocks);
-
-        for (unsigned int b = 0; b < n_blocks; ++b)
-          helpers[b].initialize(*phi[b], matrix_free, n_components);
-
-        for (unsigned int face = range.first; face < range.second; ++face)
-          {
-            for (unsigned int b = 0; b < n_blocks; ++b)
-              phi[b]->reinit(face);
-
-            for (unsigned int b = 0; b < n_blocks; ++b)
-              helpers[b].reinit(face);
-
-            if (n_blocks > 1)
-              {
-                Assert(std::all_of(helpers.begin(),
-                                   helpers.end(),
-                                   [](const auto &helper) {
-                                     return helper.has_simple_constraints();
-                                   }),
-                       ExcNotImplemented());
-              }
-
-            for (unsigned int b = 0; b < n_blocks; ++b)
-              {
-                for (unsigned int i = 0; i < phi[0]->dofs_per_cell; ++i)
-                  {
-                    for (unsigned int bb = 0; bb < n_blocks; ++bb)
-                      if (b == bb)
-                        helpers[bb].prepare_basis_vector(i);
-                      else
-                        helpers[bb].zero_basis_vector();
-
-                    face_operation(*phi[0], *phi[1]);
-                    helpers[b].submit();
-                  }
-
-                helpers[b].distribute_local_to_global(
-                  diagonal_global_components);
-              }
-          }
+      [&](const auto &, auto &, const auto &, const auto range) {
+        batch_operation(data_face, range);
       };
 
     const auto boundary_operation_wrapped =
