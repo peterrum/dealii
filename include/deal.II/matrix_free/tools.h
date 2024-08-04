@@ -1506,10 +1506,46 @@ namespace MatrixFreeTools
     using HelperFace =
       internal::ComputeDiagonalHelper<dim, VectorizedArrayType, true>;
 
-    Threads::ThreadLocalStorage<Helper>                  scratch_data;
+    Threads::ThreadLocalStorage<std::vector<Helper>>     scratch_data;
     Threads::ThreadLocalStorage<std::vector<HelperFace>> scratch_data_internal;
-    Threads::ThreadLocalStorage<HelperFace>              scratch_data_bc;
+    Threads::ThreadLocalStorage<std::vector<HelperFace>> scratch_data_bc;
 
+    internal::ComputeMatrixScratchData<dim, VectorizedArrayType, false>
+      data_cell;
+
+    data_cell.dof_numbers               = {dof_no};
+    data_cell.quad_numbers              = {quad_no};
+    data_cell.n_components              = {n_components};
+    data_cell.first_selected_components = {first_selected_component};
+    data_cell.batch_type                = {0};
+
+    data_cell.op_create =
+      [&](const std::pair<unsigned int, unsigned int> &range) {
+        std::vector<
+          std::unique_ptr<FEEvaluationData<dim, VectorizedArrayType, false>>>
+          phi;
+
+        if (!internal::is_fe_nothing<false>(matrix_free,
+                                            range,
+                                            dof_no,
+                                            quad_no,
+                                            first_selected_component,
+                                            fe_degree,
+                                            n_q_points_1d))
+          phi.emplace_back(std::make_unique<FEEvalType>(
+            matrix_free, range, dof_no, quad_no, first_selected_component));
+
+        return phi;
+      };
+
+    data_cell.op_reinit = [](auto &phi, const unsigned batch) {
+      static_cast<FEEvalType &>(*phi[0]).reinit(batch);
+    };
+
+    if (cell_operation)
+      data_cell.op_compute = [&](auto &phi) {
+        cell_operation(static_cast<FEEvalType &>(*phi[0]));
+      };
 
     internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
       data_face;
@@ -1574,6 +1610,44 @@ namespace MatrixFreeTools
                        static_cast<FEFaceEvalType &>(*phi[1]));
       };
 
+    internal::ComputeMatrixScratchData<dim, VectorizedArrayType, true>
+      data_boundary;
+
+    data_boundary.dof_numbers               = {dof_no};
+    data_boundary.quad_numbers              = {quad_no};
+    data_boundary.n_components              = {n_components};
+    data_boundary.first_selected_components = {first_selected_component};
+    data_boundary.batch_type                = {1};
+
+    data_boundary
+      .op_create = [&](const std::pair<unsigned int, unsigned int> &range) {
+      std::vector<
+        std::unique_ptr<FEEvaluationData<dim, VectorizedArrayType, true>>>
+        phi;
+
+      if (!internal::is_fe_nothing<true>(matrix_free,
+                                         range,
+                                         dof_no,
+                                         quad_no,
+                                         first_selected_component,
+                                         fe_degree,
+                                         n_q_points_1d,
+                                         true))
+        phi.emplace_back(std::make_unique<FEFaceEvalType>(
+          matrix_free, range, true, dof_no, quad_no, first_selected_component));
+
+      return phi;
+    };
+
+    data_boundary.op_reinit = [](auto &phi, const unsigned batch) {
+      static_cast<FEFaceEvalType &>(*phi[0]).reinit(batch);
+    };
+
+    if (boundary_operation)
+      data_boundary.op_compute = [&](auto &phi) {
+        boundary_operation(static_cast<FEFaceEvalType &>(*phi[0]));
+      };
+
 
     const auto batch_operation =
       [&](auto                                        &data,
@@ -1633,50 +1707,9 @@ namespace MatrixFreeTools
       };
 
     const auto cell_operation_wrapped =
-      [&](const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
-          VectorType &,
-          const int &,
-          const std::pair<unsigned int, unsigned int> &range) {
-        if (!cell_operation)
-          return;
-
-        // shortcut for FE_Nothing cells
-        if (internal::is_fe_nothing<false>(matrix_free,
-                                           range,
-                                           dof_no,
-                                           quad_no,
-                                           first_selected_component,
-                                           fe_degree,
-                                           n_q_points_1d))
-          return;
-
-        Helper &helper = scratch_data.get();
-
-        FEEvaluation<dim,
-                     fe_degree,
-                     n_q_points_1d,
-                     n_components,
-                     Number,
-                     VectorizedArrayType>
-          phi(matrix_free, range, dof_no, quad_no, first_selected_component);
-        helper.initialize(phi, matrix_free, n_components);
-
-        for (unsigned int cell = range.first; cell < range.second; ++cell)
-          {
-            phi.reinit(cell);
-            helper.reinit(cell);
-
-            for (unsigned int i = 0; i < phi.dofs_per_cell; ++i)
-              {
-                helper.prepare_basis_vector(i);
-                cell_operation(phi);
-                helper.submit();
-              }
-
-            helper.distribute_local_to_global(diagonal_global_components);
-          }
+      [&](const auto &, auto &, const auto &, const auto range) {
+        batch_operation(data_cell, scratch_data, range);
       };
-
 
     const auto face_operation_wrapped =
       [&](const auto &, auto &, const auto &, const auto range) {
@@ -1684,54 +1717,8 @@ namespace MatrixFreeTools
       };
 
     const auto boundary_operation_wrapped =
-      [&](const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
-          VectorType &,
-          const int &,
-          const std::pair<unsigned int, unsigned int> &range) {
-        if (!boundary_operation)
-          return;
-
-        // shortcut for faces containing purely FE_Nothing
-        if (internal::is_fe_nothing<true>(matrix_free,
-                                          range,
-                                          dof_no,
-                                          quad_no,
-                                          first_selected_component,
-                                          fe_degree,
-                                          n_q_points_1d,
-                                          true))
-          return;
-
-        HelperFace &helper = scratch_data_bc.get();
-
-        FEFaceEvaluation<dim,
-                         fe_degree,
-                         n_q_points_1d,
-                         n_components,
-                         Number,
-                         VectorizedArrayType>
-          phi(matrix_free,
-              range,
-              true,
-              dof_no,
-              quad_no,
-              first_selected_component);
-        helper.initialize(phi, matrix_free, n_components);
-
-        for (unsigned int face = range.first; face < range.second; ++face)
-          {
-            phi.reinit(face);
-            helper.reinit(face);
-
-            for (unsigned int i = 0; i < phi.dofs_per_cell; ++i)
-              {
-                helper.prepare_basis_vector(i);
-                boundary_operation(phi);
-                helper.submit();
-              }
-
-            helper.distribute_local_to_global(diagonal_global_components);
-          }
+      [&](const auto &, auto &, const auto &, const auto range) {
+        batch_operation(data_boundary, scratch_data_bc, range);
       };
 
     if (face_operation || boundary_operation)
