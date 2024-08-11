@@ -292,12 +292,24 @@ namespace internal
             AssertDimension(fe_index,
                             (DoFHandler<dim, spacedim>::default_fe_index));
 
-            process(
-              dof_handler.object_dof_indices
-                [obj_level][structdim]
-                [dof_handler.object_dof_ptr[obj_level][structdim][obj_index] +
-                 local_index],
-              global_index);
+            types::global_dof_index dummy = numbers::invalid_dof_index;
+
+            if (dof_handler
+                  .object_dof_indices[obj_level][structdim]
+                                     [dof_handler.object_dof_ptr
+                                        [obj_level][structdim][obj_index]] ==
+                dof_handler
+                  .object_dof_indices[obj_level][structdim]
+                                     [dof_handler.object_dof_ptr
+                                        [obj_level][structdim][obj_index + 1]])
+              process(dummy, global_index);
+            else
+              process(
+                dof_handler.object_dof_indices
+                  [obj_level][structdim]
+                  [dof_handler.object_dof_ptr[obj_level][structdim][obj_index] +
+                   local_index],
+                global_index);
 
             return;
           }
