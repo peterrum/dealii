@@ -390,8 +390,11 @@ namespace Portable
       size_t
       team_shmem_size(int /*team_size*/) const
       {
-        return SharedView1D::shmem_size(Functor::n_local_dofs) +
-               SharedView2D::shmem_size(Functor::n_local_dofs);
+        return SharedView1D::shmem_size(Functor::n_local_dofs,
+                                        gpu_data.n_components) +
+               SharedView2D::shmem_size(Functor::n_local_dofs,
+                                        dim,
+                                        gpu_data.n_components);
       }
 
 
