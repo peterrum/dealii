@@ -404,12 +404,12 @@ namespace Portable
       {
         // Get the scratch memory
         SharedView1D values(team_member.team_shmem(),
-                            gpu_data.n_components,
-                            Functor::n_local_dofs);
+                            Functor::n_local_dofs,
+                            gpu_data.n_components);
         SharedView2D gradients(team_member.team_shmem(),
-                               gpu_data.n_components,
+                               Functor::n_local_dofs,
                                dim,
-                               Functor::n_local_dofs);
+                               gpu_data.n_components);
 
         SharedData<dim, Number> shared_data(team_member, values, gradients);
         func(team_member.league_rank(), &gpu_data, &shared_data, src, dst);

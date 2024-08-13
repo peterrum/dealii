@@ -271,7 +271,7 @@ namespace Portable
                                                  n_q_points),
                          [&](const int &i) {
                            // TODO
-                           shared_data->values(0, i) =
+                           shared_data->values(i, 0) =
                              src[data->local_to_global(cell_id, i)];
                          });
     shared_data->team_member.team_barrier();
@@ -312,7 +312,7 @@ namespace Portable
                                                      n_q_points),
                              [&](const int &i) {
                                dst[data->local_to_global(cell_id, i)] +=
-                                 shared_data->values(0, i);
+                                 shared_data->values(i, 0);
                              });
       }
     else
@@ -321,7 +321,7 @@ namespace Portable
           Kokkos::TeamThreadRange(shared_data->team_member, n_q_points),
           [&](const int &i) {
             Kokkos::atomic_add(&dst[data->local_to_global(cell_id, i)],
-                               shared_data->values(0, i));
+                               shared_data->values(i, 0));
           });
       }
   }
@@ -477,7 +477,7 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::get_value(
     int q_point) const
   {
-    return shared_data->values(0, q_point);
+    return shared_data->values(q_point, 0);
   }
 
 
@@ -495,7 +495,7 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::
     get_dof_value(int q_point) const
   {
-    return shared_data->values(0, q_point);
+    return shared_data->values(q_point, 0);
   }
 
 
@@ -523,7 +523,7 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::
     submit_dof_value(const value_type &val_in, int q_point)
   {
-    shared_data->values(0, q_point) = val_in;
+    shared_data->values(q_point, 0) = val_in;
   }
 
 
@@ -547,7 +547,7 @@ namespace Portable
         Number tmp = 0.;
         for (unsigned int d_2 = 0; d_2 < dim; ++d_2)
           tmp += data->inv_jacobian(cell_id, q_point, d_2, d_1) *
-                 shared_data->gradients(0, q_point, d_2);
+                 shared_data->gradients(q_point, d_2, 0);
         grad[d_1] = tmp;
       }
 
@@ -570,7 +570,7 @@ namespace Portable
         Number tmp = 0.;
         for (unsigned int d_2 = 0; d_2 < dim; ++d_2)
           tmp += data->inv_jacobian(cell_id, q_point, d_1, d_2) * grad_in[d_2];
-        shared_data->gradients(0, q_point, d_1) =
+        shared_data->gradients(q_point, d_1, 0) =
           tmp * data->JxW(cell_id, q_point);
       }
   }
