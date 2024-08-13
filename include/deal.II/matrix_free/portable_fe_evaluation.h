@@ -509,7 +509,7 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::
     submit_value(const value_type &val_in, int q_point)
   {
-    shared_data->values(0, q_point) = val_in * data->JxW(cell_id, q_point);
+    shared_data->values(q_point, 0) = val_in * data->JxW(cell_id, q_point);
   }
 
 
