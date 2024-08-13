@@ -218,6 +218,11 @@ namespace Portable
       unsigned int n_cells;
 
       /**
+       * TODO
+       */
+      unsigned int n_components;
+
+      /**
        * Length of the padding.
        */
       unsigned int padding_length;
@@ -505,6 +510,16 @@ namespace Portable
     unsigned int fe_degree;
 
     /**
+     * Number of components.
+     */
+    unsigned int n_components;
+
+    /**
+     * Number of scalar degrees of freedom per cell.
+     */
+    unsigned int scalar_dofs_per_cell;
+
+    /**
      * Number of degrees of freedom per cell.
      */
     unsigned int dofs_per_cell;
@@ -635,11 +650,11 @@ namespace Portable
       MemorySpace::Default::kokkos_space::execution_space>::member_type;
 
     using SharedView1D = Kokkos::View<
-      Number *,
+      Number **,
       MemorySpace::Default::kokkos_space::execution_space::scratch_memory_space,
       Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
     using SharedView2D = Kokkos::View<
-      Number *[dim],
+      Number ***,
       MemorySpace::Default::kokkos_space::execution_space::scratch_memory_space,
       Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 
