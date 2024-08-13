@@ -276,14 +276,15 @@ namespace Portable
                          });
     shared_data->team_member.team_barrier();
 
-    for (unsigned int c = 0; c < n_components_; ++c)
-      {
-        internal::resolve_hanging_nodes<dim, fe_degree, false, Number>(
-          shared_data->team_member,
-          data->constraint_weights,
-          data->constraint_mask(cell_id),
-          Kokkos::subview(shared_data->values, Kokkos::ALL, c));
-      }
+    if (false)
+      for (unsigned int c = 0; c < n_components_; ++c)
+        {
+          internal::resolve_hanging_nodes<dim, fe_degree, false, Number>(
+            shared_data->team_member,
+            data->constraint_weights,
+            data->constraint_mask(cell_id),
+            Kokkos::subview(shared_data->values, Kokkos::ALL, c));
+        }
   }
 
 
@@ -297,14 +298,15 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::
     distribute_local_to_global(Number *dst) const
   {
-    for (unsigned int c = 0; c < n_components_; ++c)
-      {
-        internal::resolve_hanging_nodes<dim, fe_degree, true, Number>(
-          shared_data->team_member,
-          data->constraint_weights,
-          data->constraint_mask(cell_id),
-          Kokkos::subview(shared_data->values, Kokkos::ALL, c));
-      }
+    if (false)
+      for (unsigned int c = 0; c < n_components_; ++c)
+        {
+          internal::resolve_hanging_nodes<dim, fe_degree, true, Number>(
+            shared_data->team_member,
+            data->constraint_weights,
+            data->constraint_mask(cell_id),
+            Kokkos::subview(shared_data->values, Kokkos::ALL, c));
+        }
 
     if (data->use_coloring)
       {
@@ -477,6 +479,8 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::get_value(
     int q_point) const
   {
+    AssertDimension(n_components_, 1);
+
     return shared_data->values(q_point, 0);
   }
 
@@ -495,6 +499,8 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::
     get_dof_value(int q_point) const
   {
+    AssertDimension(n_components_, 1);
+
     return shared_data->values(q_point, 0);
   }
 
@@ -509,6 +515,8 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::
     submit_value(const value_type &val_in, int q_point)
   {
+    AssertDimension(n_components_, 1);
+
     shared_data->values(q_point, 0) = val_in * data->JxW(cell_id, q_point);
   }
 
@@ -523,6 +531,8 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::
     submit_dof_value(const value_type &val_in, int q_point)
   {
+    AssertDimension(n_components_, 1);
+
     shared_data->values(q_point, 0) = val_in;
   }
 
@@ -541,6 +551,8 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::
     get_gradient(int q_point) const
   {
+    AssertDimension(n_components_, 1);
+
     gradient_type grad;
     for (unsigned int d_1 = 0; d_1 < dim; ++d_1)
       {
@@ -565,6 +577,8 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::
     submit_gradient(const gradient_type &grad_in, int q_point)
   {
+    AssertDimension(n_components_, 1);
+
     for (unsigned int d_1 = 0; d_1 < dim; ++d_1)
       {
         Number tmp = 0.;
