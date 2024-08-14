@@ -218,7 +218,7 @@ namespace Portable
       unsigned int n_cells;
 
       /**
-       * TODO
+       * Number of components.
        */
       unsigned int n_components;
 
