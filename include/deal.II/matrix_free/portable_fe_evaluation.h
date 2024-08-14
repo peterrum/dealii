@@ -283,15 +283,14 @@ namespace Portable
       });
     shared_data->team_member.team_barrier();
 
-    if (false)
-      for (unsigned int c = 0; c < n_components_; ++c)
-        {
-          internal::resolve_hanging_nodes<dim, fe_degree, false, Number>(
-            shared_data->team_member,
-            data->constraint_weights,
-            data->constraint_mask(cell_id),
-            Kokkos::subview(shared_data->values, Kokkos::ALL, c));
-        }
+    for (unsigned int c = 0; c < n_components_; ++c)
+      {
+        internal::resolve_hanging_nodes<dim, fe_degree, false, Number>(
+          shared_data->team_member,
+          data->constraint_weights,
+          data->constraint_mask(cell_id),
+          Kokkos::subview(shared_data->values, Kokkos::ALL, c));
+      }
   }
 
 
@@ -305,15 +304,14 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::
     distribute_local_to_global(Number *dst) const
   {
-    if (false)
-      for (unsigned int c = 0; c < n_components_; ++c)
-        {
-          internal::resolve_hanging_nodes<dim, fe_degree, true, Number>(
-            shared_data->team_member,
-            data->constraint_weights,
-            data->constraint_mask(cell_id),
-            Kokkos::subview(shared_data->values, Kokkos::ALL, c));
-        }
+    for (unsigned int c = 0; c < n_components_; ++c)
+      {
+        internal::resolve_hanging_nodes<dim, fe_degree, true, Number>(
+          shared_data->team_member,
+          data->constraint_weights,
+          data->constraint_mask(cell_id),
+          Kokkos::subview(shared_data->values, Kokkos::ALL, c));
+      }
 
     if (data->use_coloring)
       {
