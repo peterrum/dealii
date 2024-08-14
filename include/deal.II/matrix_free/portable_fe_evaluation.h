@@ -72,7 +72,10 @@ namespace Portable
     /**
      * An alias for scalar quantities.
      */
-    using value_type = Number;
+    using value_type =
+      typename std::conditional<(n_components_ == 1),
+                                Number,
+                                Tensor<1, n_components_, Number>>::type;
 
     /**
      * An alias for vectorial quantities.
@@ -267,13 +270,13 @@ namespace Portable
     read_dof_values(const Number *src)
   {
     // Populate the scratch memory
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(shared_data->team_member,
-                                                 n_q_points),
-                         [&](const int &i) {
-                           // TODO
-                           shared_data->values(i, 0) =
-                             src[data->local_to_global(cell_id, i)];
-                         });
+    Kokkos::parallel_for(
+      Kokkos::TeamThreadRange(shared_data->team_member, n_q_points),
+      [&](const int &i) {
+        for (unsigned int c = 0; c < n_components_; ++c)
+          shared_data->values(i, c) =
+            src[data->local_to_global(cell_id, i + tensor_dofs_per_cell * c)];
+      });
     shared_data->team_member.team_barrier();
 
     if (false)
@@ -310,20 +313,24 @@ namespace Portable
 
     if (data->use_coloring)
       {
-        Kokkos::parallel_for(Kokkos::TeamThreadRange(shared_data->team_member,
-                                                     n_q_points),
-                             [&](const int &i) {
-                               dst[data->local_to_global(cell_id, i)] +=
-                                 shared_data->values(i, 0);
-                             });
+        Kokkos::parallel_for(
+          Kokkos::TeamThreadRange(shared_data->team_member, n_q_points),
+          [&](const int &i) {
+            for (unsigned int c = 0; c < n_components_; ++c)
+              dst[data->local_to_global(cell_id,
+                                        i + tensor_dofs_per_cell * c)] =
+                shared_data->values(i, c);
+          });
       }
     else
       {
         Kokkos::parallel_for(
           Kokkos::TeamThreadRange(shared_data->team_member, n_q_points),
           [&](const int &i) {
-            Kokkos::atomic_add(&dst[data->local_to_global(cell_id, i)],
-                               shared_data->values(i, 0));
+            for (unsigned int c = 0; c < n_components_; ++c)
+              Kokkos::atomic_add(&dst[data->local_to_global(
+                                   cell_id, i + tensor_dofs_per_cell * c)],
+                                 shared_data->values(i, c));
           });
       }
   }
@@ -479,9 +486,17 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::get_value(
     int q_point) const
   {
-    AssertDimension(n_components_, 1);
-
-    return shared_data->values(q_point, 0);
+    if constexpr (n_components_ == 1)
+      {
+        return shared_data->values(q_point, 0);
+      }
+    else
+      {
+        value_type result;
+        for (unsigned int c = 0; c < n_components; ++c)
+          result[c] = shared_data->values(q_point, c);
+        return result;
+      }
   }
 
 
@@ -499,9 +514,17 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::
     get_dof_value(int q_point) const
   {
-    AssertDimension(n_components_, 1);
-
-    return shared_data->values(q_point, 0);
+    if constexpr (n_components_ == 1)
+      {
+        return shared_data->values(q_point, 0);
+      }
+    else
+      {
+        value_type result;
+        for (unsigned int c = 0; c < n_components; ++c)
+          result[c] = shared_data->values(q_point, c);
+        return result;
+      }
   }
 
 
@@ -515,9 +538,16 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::
     submit_value(const value_type &val_in, int q_point)
   {
-    AssertDimension(n_components_, 1);
-
-    shared_data->values(q_point, 0) = val_in * data->JxW(cell_id, q_point);
+    if constexpr (n_components_ == 1)
+      {
+        shared_data->values(q_point, 0) = val_in * data->JxW(cell_id, q_point);
+      }
+    else
+      {
+        for (unsigned int c = 0; c < n_components; ++c)
+          shared_data->values(q_point, c) =
+            val_in[c] * data->JxW(cell_id, q_point);
+      }
   }
 
 
