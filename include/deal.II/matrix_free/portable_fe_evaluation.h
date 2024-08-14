@@ -72,15 +72,19 @@ namespace Portable
     /**
      * An alias for scalar quantities.
      */
-    using value_type =
-      typename std::conditional<(n_components_ == 1),
-                                Number,
-                                Tensor<1, n_components_, Number>>::type;
+    using value_type = std::conditional_t<(n_components_ == 1),
+                                          Number,
+                                          Tensor<1, n_components_, Number>>;
 
     /**
      * An alias for vectorial quantities.
      */
-    using gradient_type = Tensor<1, dim, Number>;
+    using gradient_type = std::conditional_t<
+      n_components_ == 1,
+      Tensor<1, dim, Number>,
+      std::conditional_t<n_components_ == dim,
+                         Tensor<2, dim, Number>,
+                         Tensor<1, n_components_, Tensor<1, dim, Number>>>>;
 
     /**
      * An alias to kernel specific information.
@@ -561,9 +565,15 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::
     submit_dof_value(const value_type &val_in, int q_point)
   {
-    AssertDimension(n_components_, 1);
-
-    shared_data->values(q_point, 0) = val_in;
+    if constexpr (n_components_ == 1)
+      {
+        shared_data->values(q_point, 0) = val_in;
+      }
+    else
+      {
+        for (unsigned int c = 0; c < n_components; ++c)
+          shared_data->values(q_point, c) = val_in[c];
+      }
   }
 
 
@@ -581,16 +591,30 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::
     get_gradient(int q_point) const
   {
-    AssertDimension(n_components_, 1);
-
     gradient_type grad;
-    for (unsigned int d_1 = 0; d_1 < dim; ++d_1)
+
+    if constexpr (n_components_ == 1)
       {
-        Number tmp = 0.;
-        for (unsigned int d_2 = 0; d_2 < dim; ++d_2)
-          tmp += data->inv_jacobian(cell_id, q_point, d_2, d_1) *
-                 shared_data->gradients(q_point, d_2, 0);
-        grad[d_1] = tmp;
+        for (unsigned int d_1 = 0; d_1 < dim; ++d_1)
+          {
+            Number tmp = 0.;
+            for (unsigned int d_2 = 0; d_2 < dim; ++d_2)
+              tmp += data->inv_jacobian(cell_id, q_point, d_2, d_1) *
+                     shared_data->gradients(q_point, d_2, 0);
+            grad[d_1] = tmp;
+          }
+      }
+    else
+      {
+        for (unsigned int c = 0; c < n_components; ++c)
+          for (unsigned int d_1 = 0; d_1 < dim; ++d_1)
+            {
+              Number tmp = 0.;
+              for (unsigned int d_2 = 0; d_2 < dim; ++d_2)
+                tmp += data->inv_jacobian(cell_id, q_point, d_2, d_1) *
+                       shared_data->gradients(q_point, d_2, c);
+              grad[c][d_1] = tmp;
+            }
       }
 
     return grad;
@@ -607,15 +631,30 @@ namespace Portable
   FEEvaluation<dim, fe_degree, n_q_points_1d, n_components_, Number>::
     submit_gradient(const gradient_type &grad_in, int q_point)
   {
-    AssertDimension(n_components_, 1);
-
-    for (unsigned int d_1 = 0; d_1 < dim; ++d_1)
+    if constexpr (n_components_ == 1)
       {
-        Number tmp = 0.;
-        for (unsigned int d_2 = 0; d_2 < dim; ++d_2)
-          tmp += data->inv_jacobian(cell_id, q_point, d_1, d_2) * grad_in[d_2];
-        shared_data->gradients(q_point, d_1, 0) =
-          tmp * data->JxW(cell_id, q_point);
+        for (unsigned int d_1 = 0; d_1 < dim; ++d_1)
+          {
+            Number tmp = 0.;
+            for (unsigned int d_2 = 0; d_2 < dim; ++d_2)
+              tmp +=
+                data->inv_jacobian(cell_id, q_point, d_1, d_2) * grad_in[d_2];
+            shared_data->gradients(q_point, d_1, 0) =
+              tmp * data->JxW(cell_id, q_point);
+          }
+      }
+    else
+      {
+        for (unsigned int c = 0; c < n_components; ++c)
+          for (unsigned int d_1 = 0; d_1 < dim; ++d_1)
+            {
+              Number tmp = 0.;
+              for (unsigned int d_2 = 0; d_2 < dim; ++d_2)
+                tmp += data->inv_jacobian(cell_id, q_point, d_1, d_2) *
+                       grad_in[c][d_2];
+              shared_data->gradients(q_point, d_1, c) =
+                tmp * data->JxW(cell_id, q_point);
+            }
       }
   }
 
