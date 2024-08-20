@@ -233,9 +233,11 @@ namespace Utilities
       auto deleter = [](MPI_Datatype *p) {
         if (p != nullptr)
           {
-            [[maybe_unused]] const int ierr = MPI_Type_free(p);
+#  ifdef DEBUG
+            const int ierr = MPI_Type_free(p);
 
             AssertNothrow(ierr == MPI_SUCCESS, ExcMPI(ierr));
+#  endif
 
             delete p;
           }
@@ -255,9 +257,12 @@ namespace Utilities
       const unsigned int myid    = Utilities::MPI::this_mpi_process(mpi_comm);
       const unsigned int n_procs = Utilities::MPI::n_mpi_processes(mpi_comm);
 
+
 #  ifdef DEBUG
       for (const unsigned int destination : destinations)
-        AssertIndexRange(destination, n_procs);
+        {
+          AssertIndexRange(destination, n_procs);
+        }
 #  endif
 
       // Have a little function that checks if destinations provided
