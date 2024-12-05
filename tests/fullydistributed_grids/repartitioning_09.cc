@@ -86,12 +86,12 @@ public:
               for (const auto &p : quadrature.get_points())
                 {
                   points.push_back(
-                    mapping.transform_unit_to_real_cell(cell, p));
+                    mapping_immersed.transform_unit_to_real_cell(cell, p));
                 }
             }
 
         Utilities::MPI::RemotePointEvaluation<dim, spacedim> rpe;
-        rpe.reinit(points, *tria_background, mapping);
+        rpe.reinit(points, *tria_background, mapping_background);
 
         const auto evaluate_function = [&](const ArrayView<double> &values,
                                            const auto              &cell_data) {
@@ -145,7 +145,8 @@ public:
                   for (const auto &p : quadrature.get_points())
                     {
                       points.push_back(
-                        mapping.transform_unit_to_real_cell(cell, p));
+                        mapping_background.transform_unit_to_real_cell(cell,
+                                                                       p));
                     }
                 }
           }
@@ -153,11 +154,13 @@ public:
           {
             std::tie(points, std::ignore, std::ignore) =
               internal::collect_unconstrained_unique_support_points(
-                *dof_handler_background, mapping, AffineConstraints<double>());
+                *dof_handler_background,
+                mapping_background,
+                AffineConstraints<double>());
           }
 
         Utilities::MPI::RemotePointEvaluation<dim, spacedim> rpe;
-        rpe.reinit(points, tria_immersed, mapping);
+        rpe.reinit(points, tria_immersed, mapping_immersed);
 
         std::vector<double> integration_values(
           points.size(),
@@ -228,7 +231,7 @@ public:
         {
           AssertThrow(false, ExcNotImplemented());
 
-          return 0; // TODO
+          return 0;
         }
     };
 
@@ -245,7 +248,10 @@ public:
 private:
   const ObserverPointer<const Triangulation<dim, spacedim>> tria_background;
   const ObserverPointer<const DoFHandler<dim, spacedim>> dof_handler_background;
-  const MappingQ1<dim, spacedim>                         mapping; // TODO
+
+  const MappingQ1<dim, spacedim> mapping_background; // TODO
+  const MappingQ1<dim, spacedim> mapping_immersed;   // TODO
+
   const bool immersed_identification;
 };
 
