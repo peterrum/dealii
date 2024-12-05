@@ -45,75 +45,124 @@ template <int dim, int spacedim = dim>
 class MyPolicy : public RepartitioningPolicyTools::Base<dim, spacedim>
 {
 public:
-  MyPolicy(const Triangulation<dim, spacedim> &tria_background)
+  MyPolicy(const Triangulation<dim, spacedim> &tria_background,
+           const bool                          immersed_identification)
     : tria_background(tria_background)
+    , immersed_identification(immersed_identification)
   {}
 
   virtual LinearAlgebra::distributed::Vector<double>
   partition(const Triangulation<dim, spacedim> &tria_immersed) const override
   {
-    const unsigned int n_q_points = 2;
-
-    // 1) collect centers of immeresed mesh
-    std::vector<Point<spacedim>> points;
-
-    Quadrature<dim> quadrature;
-
-    if (n_q_points == 1)
-      quadrature = QGauss<dim>(1);
-    else
-      quadrature = QGaussLobatto<dim>(2);
-
-    for (const auto &cell : tria_immersed.active_cell_iterators())
-      if (cell->is_locally_owned())
-        {
-          for (const auto &p : quadrature.get_points())
-            {
-              points.push_back(mapping.transform_unit_to_real_cell(cell, p));
-            }
-        }
-
-    // 2) determine owner on background mesh
-    Utilities::MPI::RemotePointEvaluation<dim, spacedim> rpe;
-    rpe.reinit(points, tria_background, mapping);
-
-    const auto evaluate_function = [&](const ArrayView<double> &values,
-                                       const auto              &cell_data) {
-      for (const auto cell : cell_data.cell_indices())
-        {
-          const auto unit_points = cell_data.get_unit_points(cell);
-          const auto local_value = cell_data.get_data_view(cell, values);
-
-          for (unsigned int q = 0; q < unit_points.size(); ++q)
-            local_value[q] = Utilities::MPI::this_mpi_process(
-              tria_background.get_communicator());
-        }
-    };
-
-    const std::vector<double> point_ranks =
-      rpe.template evaluate_and_process<double>(evaluate_function);
+    const unsigned int fe_degree = 2;
 
     std::vector<std::vector<unsigned int>> cell_ranks(
       tria_immersed.n_active_cells());
 
-    unsigned int counter = 0;
-    for (const auto &cell : tria_immersed.active_cell_iterators())
-      if (cell->is_locally_owned())
-        {
-          unsigned int rank = numbers::invalid_unsigned_int;
+    if (immersed_identification)
+      {
+        // 1) collect centers of immeresed mesh
+        std::vector<Point<spacedim>> points;
 
-          unsigned int start =
-            rpe.get_point_ptrs()[counter * quadrature.size()];
-          unsigned int end =
-            rpe.get_point_ptrs()[(counter + 1) * quadrature.size()];
+        Quadrature<dim> quadrature;
 
-          for (unsigned int i = start; i < end; ++i)
-            cell_ranks[cell->active_cell_index()].push_back(point_ranks[i]);
+        if (fe_degree == 0)
+          quadrature = QGauss<dim>(1);
+        else
+          quadrature = QGaussLobatto<dim>(fe_degree + 1);
 
-          counter++;
-        }
+        for (const auto &cell : tria_immersed.active_cell_iterators())
+          if (cell->is_locally_owned())
+            {
+              for (const auto &p : quadrature.get_points())
+                {
+                  points.push_back(
+                    mapping.transform_unit_to_real_cell(cell, p));
+                }
+            }
 
+        // 2) determine owner on background mesh
+        Utilities::MPI::RemotePointEvaluation<dim, spacedim> rpe;
+        rpe.reinit(points, tria_background, mapping);
 
+        const auto evaluate_function = [&](const ArrayView<double> &values,
+                                           const auto              &cell_data) {
+          for (const auto cell : cell_data.cell_indices())
+            {
+              const auto unit_points = cell_data.get_unit_points(cell);
+              const auto local_value = cell_data.get_data_view(cell, values);
+
+              for (unsigned int q = 0; q < unit_points.size(); ++q)
+                local_value[q] = Utilities::MPI::this_mpi_process(
+                  tria_background.get_communicator());
+            }
+        };
+
+        const std::vector<double> point_ranks =
+          rpe.template evaluate_and_process<double>(evaluate_function);
+
+        unsigned int counter = 0;
+        for (const auto &cell : tria_immersed.active_cell_iterators())
+          if (cell->is_locally_owned())
+            {
+              unsigned int rank = numbers::invalid_unsigned_int;
+
+              unsigned int start =
+                rpe.get_point_ptrs()[counter * quadrature.size()];
+              unsigned int end =
+                rpe.get_point_ptrs()[(counter + 1) * quadrature.size()];
+
+              for (unsigned int i = start; i < end; ++i)
+                cell_ranks[cell->active_cell_index()].push_back(point_ranks[i]);
+
+              counter++;
+            }
+      }
+    else
+      {
+        std::vector<Point<spacedim>> points;
+
+        Quadrature<dim> quadrature;
+
+        if (fe_degree == 0)
+          quadrature = QGauss<dim>(1);
+        else
+          quadrature = QGaussLobatto<dim>(fe_degree + 1);
+
+        for (const auto &cell : tria_background.active_cell_iterators())
+          if (cell->is_locally_owned())
+            {
+              for (const auto &p : quadrature.get_points())
+                {
+                  points.push_back(
+                    mapping.transform_unit_to_real_cell(cell, p));
+                }
+            }
+
+        Utilities::MPI::RemotePointEvaluation<dim, spacedim> rpe;
+        rpe.reinit(points, tria_immersed, mapping);
+
+        std::vector<double> integration_values(
+          points.size(),
+          Utilities::MPI::this_mpi_process(tria_background.get_communicator()));
+
+        const auto integration_function = [&](const auto &values,
+                                              const auto &cell_data) {
+          for (const auto cell : cell_data.cell_indices())
+            {
+              const auto unit_points = cell_data.get_unit_points(cell);
+              const auto local_value = cell_data.get_data_view(cell, values);
+
+              for (unsigned int q = 0; q < unit_points.size(); ++q)
+                cell_ranks[cell_data.get_active_cell_iterator(cell)
+                             ->active_cell_index()]
+                  .push_back(local_value[q]);
+            }
+        };
+
+        rpe.template process_and_evaluate<double>(integration_values,
+                                                  integration_function);
+      }
 
     const auto tria =
       dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
@@ -134,8 +183,6 @@ public:
             rank = std::min<unsigned int>(rank, rank_i);
 
           partition[cell->global_active_cell_index()] = rank;
-
-          counter++;
         }
 
     partition.update_ghost_values();
@@ -146,6 +193,7 @@ public:
 private:
   const Triangulation<dim, spacedim> &tria_background;
   const MappingQ1<dim, spacedim>      mapping; // TODO
+  const bool                          immersed_identification;
 };
 
 
@@ -192,7 +240,7 @@ test(const unsigned int v)
 
   // create immersed mesh with partitioning as in the case of the
   // background mesh
-  MyPolicy<dim> policy_0(tria_background);
+  MyPolicy<dim> policy_0(tria_background, v == 0);
   const auto    partition_0 = policy_0.partition(tria_immersed_old);
 
   const auto construction_data =
