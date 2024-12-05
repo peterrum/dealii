@@ -93,15 +93,8 @@ public:
     const std::vector<double> point_ranks =
       rpe.template evaluate_and_process<double>(evaluate_function);
 
-    const auto tria =
-      dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
-        &tria_immersed);
-
-    Assert(tria, ExcNotImplemented());
-
-    // 3) set partitioning
-    LinearAlgebra::distributed::Vector<double> partition(
-      tria->global_active_cell_index_partitioner().lock());
+    std::vector<std::vector<unsigned int>> cell_ranks(
+      tria_immersed.n_active_cells());
 
     unsigned int counter = 0;
     for (const auto &cell : tria_immersed.active_cell_iterators())
@@ -115,7 +108,30 @@ public:
             rpe.get_point_ptrs()[(counter + 1) * quadrature.size()];
 
           for (unsigned int i = start; i < end; ++i)
-            rank = std::min<unsigned int>(rank, point_ranks[i]);
+            cell_ranks[cell->active_cell_index()].push_back(point_ranks[i]);
+
+          counter++;
+        }
+
+
+
+    const auto tria =
+      dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
+        &tria_immersed);
+
+    Assert(tria, ExcNotImplemented());
+
+    // 3) set partitioning
+    LinearAlgebra::distributed::Vector<double> partition(
+      tria->global_active_cell_index_partitioner().lock());
+
+    for (const auto &cell : tria_immersed.active_cell_iterators())
+      if (cell->is_locally_owned())
+        {
+          unsigned int rank = numbers::invalid_unsigned_int;
+
+          for (const auto rank_i : cell_ranks[cell->active_cell_index()])
+            rank = std::min<unsigned int>(rank, rank_i);
 
           partition[cell->global_active_cell_index()] = rank;
 
