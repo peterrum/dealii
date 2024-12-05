@@ -109,16 +109,18 @@ public:
         {
           unsigned int rank = numbers::invalid_unsigned_int;
 
-          for (unsigned int i = 0; i < quadrature.size(); ++i, ++counter)
-            for (unsigned int j = rpe.get_point_ptrs()[counter];
-                 j < rpe.get_point_ptrs()[counter + 1];
-                 ++j)
-              rank = std::min<unsigned int>(rank, point_ranks[j]);
+          unsigned int start =
+            rpe.get_point_ptrs()[counter * quadrature.size()];
+          unsigned int end =
+            rpe.get_point_ptrs()[(counter + 1) * quadrature.size()];
+
+          for (unsigned int i = start; i < end; ++i)
+            rank = std::min<unsigned int>(rank, point_ranks[i]);
 
           partition[cell->global_active_cell_index()] = rank;
-        }
 
-    AssertDimension(counter, points.size());
+          counter++;
+        }
 
     partition.update_ghost_values();
 
