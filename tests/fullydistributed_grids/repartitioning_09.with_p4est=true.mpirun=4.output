@@ -1,27 +1,47 @@
 
 DEAL:0::n_levels:                  6
-DEAL:0::n_cells:                   762
-DEAL:0::n_active_cells:            572
+DEAL:0::n_cells:                   806
+DEAL:0::n_active_cells:            605
+DEAL:0::has_hanging_nodes:         false
+DEAL:0::
+DEAL:0::n_levels:                  4
+DEAL:0::n_cells:                   102
+DEAL:0::n_active_cells:            77
 DEAL:0::has_hanging_nodes:         false
 DEAL:0::
 
 DEAL:1::n_levels:                  6
-DEAL:1::n_cells:                   1222
-DEAL:1::n_active_cells:            917
+DEAL:1::n_cells:                   1250
+DEAL:1::n_active_cells:            938
+DEAL:1::has_hanging_nodes:         false
+DEAL:1::
+DEAL:1::n_levels:                  4
+DEAL:1::n_cells:                   126
+DEAL:1::n_active_cells:            95
 DEAL:1::has_hanging_nodes:         false
 DEAL:1::
 
 
 DEAL:2::n_levels:                  6
-DEAL:2::n_cells:                   2300
-DEAL:2::n_active_cells:            1726
+DEAL:2::n_cells:                   2420
+DEAL:2::n_active_cells:            1816
+DEAL:2::has_hanging_nodes:         false
+DEAL:2::
+DEAL:2::n_levels:                  4
+DEAL:2::n_cells:                   220
+DEAL:2::n_active_cells:            166
 DEAL:2::has_hanging_nodes:         false
 DEAL:2::
 
 
 DEAL:3::n_levels:                  6
-DEAL:3::n_cells:                   3976
-DEAL:3::n_active_cells:            2983
+DEAL:3::n_cells:                   3924
+DEAL:3::n_active_cells:            2944
+DEAL:3::has_hanging_nodes:         false
+DEAL:3::
+DEAL:3::n_levels:                  4
+DEAL:3::n_cells:                   284
+DEAL:3::n_active_cells:            214
 DEAL:3::has_hanging_nodes:         false
 DEAL:3::
 

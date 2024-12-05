@@ -19,6 +19,7 @@
 // mesh).
 
 #include <deal.II/base/mpi_consensus_algorithms.h>
+#include <deal.II/base/quadrature_lib.h>
 
 #include <deal.II/distributed/fully_distributed_tria.h>
 #include <deal.II/distributed/repartitioning_policy_tools.h>
@@ -51,12 +52,26 @@ public:
   virtual LinearAlgebra::distributed::Vector<double>
   partition(const Triangulation<dim, spacedim> &tria_immersed) const override
   {
+    const unsigned int n_q_points = 2;
+
     // 1) collect centers of immeresed mesh
     std::vector<Point<spacedim>> points;
 
+    Quadrature<dim> quadrature;
+
+    if (n_q_points == 1)
+      quadrature = QGauss<dim>(1);
+    else
+      quadrature = QGaussLobatto<dim>(2);
+
     for (const auto &cell : tria_immersed.active_cell_iterators())
       if (cell->is_locally_owned())
-        points.push_back(cell->center());
+        {
+          for (const auto &p : quadrature.get_points())
+            {
+              points.push_back(mapping.transform_unit_to_real_cell(cell, p));
+            }
+        }
 
     // 2) determine owner on background mesh
     Utilities::MPI::RemotePointEvaluation<dim, spacedim> rpe;
@@ -85,7 +100,16 @@ public:
     unsigned int counter = 0;
     for (const auto &cell : tria_immersed.active_cell_iterators())
       if (cell->is_locally_owned())
-        partition[cell->global_active_cell_index()] = point_ranks[counter++];
+        {
+          unsigned int rank = numbers::invalid_unsigned_int;
+
+          for (unsigned int i = 0; i < quadrature.size(); ++i, ++counter)
+            rank = std::min<unsigned int>(rank, point_ranks[counter]);
+
+          partition[cell->global_active_cell_index()] = rank;
+        }
+
+    AssertDimension(counter, points.size());
 
     partition.update_ghost_values();
 
@@ -116,19 +140,28 @@ output_mesh(const Triangulation<dim> &tria_background, const std::string label)
 
 template <int dim>
 void
-test()
+test(const unsigned int v)
 {
   const MPI_Comm comm = MPI_COMM_WORLD;
 
   // create background mesh
   parallel::distributed::Triangulation<dim> tria_background(comm);
   GridGenerator::hyper_cube(tria_background, -1, +1);
-  tria_background.refine_global(5);
+
+  if (v == 0)
+    tria_background.refine_global(5);
+  else
+    tria_background.refine_global(6);
+
 
   // create immersed mesh (default partitioning)
   parallel::distributed::Triangulation<dim> tria_immersed_old(comm);
   GridGenerator::hyper_ball(tria_immersed_old, Point<dim>(0.1, 0.2), 0.5);
-  tria_immersed_old.refine_global(5);
+
+  if (v == 0)
+    tria_immersed_old.refine_global(5);
+  else
+    tria_immersed_old.refine_global(3);
 
   // create immersed mesh with partitioning as in the case of the
   // background mesh
@@ -163,5 +196,6 @@ main(int argc, char **argv)
   Utilities::MPI::MPI_InitFinalize mpi(argc, argv, 1);
   MPILogInitAll                    all;
 
-  test<2>();
+  test<2>(0);
+  test<2>(1);
 }
