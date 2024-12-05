@@ -48,24 +48,24 @@ class MyPolicy : public RepartitioningPolicyTools::Base<dim, spacedim>
 {
 public:
   MyPolicy(const Triangulation<dim, spacedim> &tria_background,
-           const bool                          immersed_identification)
+           const bool                          immersed_identification,
+           const unsigned int                  n_samples)
     : tria_background(&tria_background)
     , dof_handler_background(nullptr)
     , immersed_identification(immersed_identification)
+    , n_samples(n_samples)
   {}
 
-  MyPolicy(const DoFHandler<dim, spacedim> &dof_handler_background,
-           const bool                       immersed_identification)
+  MyPolicy(const DoFHandler<dim, spacedim> &dof_handler_background)
     : tria_background(&dof_handler_background.get_triangulation())
     , dof_handler_background(&dof_handler_background)
-    , immersed_identification(immersed_identification)
+    , immersed_identification(false)
+    , n_samples(numbers::invalid_unsigned_int)
   {}
 
   virtual LinearAlgebra::distributed::Vector<double>
   partition(const Triangulation<dim, spacedim> &tria_immersed) const override
   {
-    const unsigned int fe_degree = 2;
-
     std::vector<std::vector<unsigned int>> cell_ranks(
       tria_immersed.n_active_cells());
 
@@ -75,20 +75,16 @@ public:
 
         Quadrature<dim> quadrature;
 
-        if (fe_degree == 0)
+        if (n_samples == 1)
           quadrature = QGauss<dim>(1);
         else
-          quadrature = QGaussLobatto<dim>(fe_degree + 1);
+          quadrature = QGaussLobatto<dim>(n_samples);
 
         for (const auto &cell : tria_immersed.active_cell_iterators())
           if (cell->is_locally_owned())
-            {
-              for (const auto &p : quadrature.get_points())
-                {
-                  points.push_back(
-                    mapping_immersed.transform_unit_to_real_cell(cell, p));
-                }
-            }
+            for (const auto &p : quadrature.get_points())
+              points.push_back(
+                mapping_immersed.transform_unit_to_real_cell(cell, p));
 
         Utilities::MPI::RemotePointEvaluation<dim, spacedim> rpe;
         rpe.reinit(points, *tria_background, mapping_background);
@@ -128,27 +124,22 @@ public:
       }
     else
       {
-        std::vector<Point<spacedim>> points; // TODO: eliminate duplicate points
+        std::vector<Point<spacedim>> points;
 
         if (dof_handler_background == nullptr)
           {
             Quadrature<dim> quadrature;
 
-            if (fe_degree == 0)
+            if (n_samples == 1)
               quadrature = QGauss<dim>(1);
             else
-              quadrature = QGaussLobatto<dim>(fe_degree + 1);
+              quadrature = QGaussLobatto<dim>(n_samples);
 
             for (const auto &cell : tria_background->active_cell_iterators())
               if (cell->is_locally_owned())
-                {
-                  for (const auto &p : quadrature.get_points())
-                    {
-                      points.push_back(
-                        mapping_background.transform_unit_to_real_cell(cell,
-                                                                       p));
-                    }
-                }
+                for (const auto &p : quadrature.get_points())
+                  points.push_back(
+                    mapping_background.transform_unit_to_real_cell(cell, p));
           }
         else
           {
@@ -197,6 +188,8 @@ public:
 
 
     const auto reduce = [](const auto &data) -> unsigned int {
+      AssertThrow(!data.empty(), ExcInternalError());
+
       if (false /*smallest rank*/)
         {
           unsigned int rank = numbers::invalid_unsigned_int;
@@ -225,6 +218,8 @@ public:
                                return p1.first > p2.first; // stable search
                              });
 
+          AssertThrow(pr != rank_counter.end(), ExcInternalError());
+
           return pr->first;
         }
       else
@@ -252,7 +247,8 @@ private:
   const MappingQ1<dim, spacedim> mapping_background; // TODO
   const MappingQ1<dim, spacedim> mapping_immersed;   // TODO
 
-  const bool immersed_identification;
+  const bool         immersed_identification;
+  const unsigned int n_samples;
 };
 
 
@@ -304,9 +300,9 @@ test(const unsigned int v)
   std::shared_ptr<MyPolicy<dim>> policy_0;
 
   if (v == 0 || v == 1)
-    policy_0 = std::make_shared<MyPolicy<dim>>(tria_background, v == 0);
+    policy_0 = std::make_shared<MyPolicy<dim>>(tria_background, v == 0, 3);
   else
-    policy_0 = std::make_shared<MyPolicy<dim>>(dof_handler_background, v == 0);
+    policy_0 = std::make_shared<MyPolicy<dim>>(dof_handler_background);
 
   const auto partition_0 = policy_0->partition(tria_immersed_old);
 
