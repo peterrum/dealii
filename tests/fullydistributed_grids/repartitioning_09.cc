@@ -34,6 +34,8 @@
 
 #include <deal.II/lac/la_parallel_vector.h>
 
+#include <deal.II/multigrid/mg_transfer_global_coarsening.templates.h>
+
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 
@@ -47,7 +49,15 @@ class MyPolicy : public RepartitioningPolicyTools::Base<dim, spacedim>
 public:
   MyPolicy(const Triangulation<dim, spacedim> &tria_background,
            const bool                          immersed_identification)
-    : tria_background(tria_background)
+    : tria_background(&tria_background)
+    , dof_handler_background(nullptr)
+    , immersed_identification(immersed_identification)
+  {}
+
+  MyPolicy(const DoFHandler<dim, spacedim> &dof_handler_background,
+           const bool                       immersed_identification)
+    : tria_background(&dof_handler_background.get_triangulation())
+    , dof_handler_background(&dof_handler_background)
     , immersed_identification(immersed_identification)
   {}
 
@@ -81,7 +91,7 @@ public:
             }
 
         Utilities::MPI::RemotePointEvaluation<dim, spacedim> rpe;
-        rpe.reinit(points, tria_background, mapping);
+        rpe.reinit(points, *tria_background, mapping);
 
         const auto evaluate_function = [&](const ArrayView<double> &values,
                                            const auto              &cell_data) {
@@ -92,7 +102,7 @@ public:
 
               for (unsigned int q = 0; q < unit_points.size(); ++q)
                 local_value[q] = Utilities::MPI::this_mpi_process(
-                  tria_background.get_communicator());
+                  tria_background->get_communicator());
             }
         };
 
@@ -120,29 +130,39 @@ public:
       {
         std::vector<Point<spacedim>> points; // TODO: eliminate duplicate points
 
-        Quadrature<dim> quadrature;
+        if (dof_handler_background == nullptr)
+          {
+            Quadrature<dim> quadrature;
 
-        if (fe_degree == 0)
-          quadrature = QGauss<dim>(1);
-        else
-          quadrature = QGaussLobatto<dim>(fe_degree + 1);
+            if (fe_degree == 0)
+              quadrature = QGauss<dim>(1);
+            else
+              quadrature = QGaussLobatto<dim>(fe_degree + 1);
 
-        for (const auto &cell : tria_background.active_cell_iterators())
-          if (cell->is_locally_owned())
-            {
-              for (const auto &p : quadrature.get_points())
+            for (const auto &cell : tria_background->active_cell_iterators())
+              if (cell->is_locally_owned())
                 {
-                  points.push_back(
-                    mapping.transform_unit_to_real_cell(cell, p));
+                  for (const auto &p : quadrature.get_points())
+                    {
+                      points.push_back(
+                        mapping.transform_unit_to_real_cell(cell, p));
+                    }
                 }
-            }
+          }
+        else
+          {
+            std::tie(points, std::ignore, std::ignore) =
+              internal::collect_unconstrained_unique_support_points(
+                *dof_handler_background, mapping, AffineConstraints<double>());
+          }
 
         Utilities::MPI::RemotePointEvaluation<dim, spacedim> rpe;
         rpe.reinit(points, tria_immersed, mapping);
 
         std::vector<double> integration_values(
           points.size(),
-          Utilities::MPI::this_mpi_process(tria_background.get_communicator()));
+          Utilities::MPI::this_mpi_process(
+            tria_background->get_communicator()));
 
         const auto integration_function = [&](const auto &values,
                                               const auto &cell_data) {
@@ -223,9 +243,10 @@ public:
   }
 
 private:
-  const Triangulation<dim, spacedim> &tria_background;
-  const MappingQ1<dim, spacedim>      mapping; // TODO
-  const bool                          immersed_identification;
+  const ObserverPointer<const Triangulation<dim, spacedim>> tria_background;
+  const ObserverPointer<const DoFHandler<dim, spacedim>> dof_handler_background;
+  const MappingQ1<dim, spacedim>                         mapping; // TODO
+  const bool immersed_identification;
 };
 
 
