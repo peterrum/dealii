@@ -281,6 +281,8 @@ test(const unsigned int v)
   else
     tria_background.refine_global(6);
 
+  DoFHandler<dim> dof_handler_background(tria_background);
+  dof_handler_background.distribute_dofs(FE_Q<dim>(2));
 
   // create immersed mesh (default partitioning)
   parallel::distributed::Triangulation<dim> tria_immersed_old(comm);
@@ -293,8 +295,14 @@ test(const unsigned int v)
 
   // create immersed mesh with partitioning as in the case of the
   // background mesh
-  MyPolicy<dim> policy_0(tria_background, v == 0);
-  const auto    partition_0 = policy_0.partition(tria_immersed_old);
+  std::shared_ptr<MyPolicy<dim>> policy_0;
+
+  if (v == 0 || v == 1)
+    policy_0 = std::make_shared<MyPolicy<dim>>(tria_background, v == 0);
+  else
+    policy_0 = std::make_shared<MyPolicy<dim>>(dof_handler_background, v == 0);
+
+  const auto partition_0 = policy_0->partition(tria_immersed_old);
 
   const auto construction_data =
     TriangulationDescription::Utilities::create_description_from_triangulation(
@@ -326,4 +334,5 @@ main(int argc, char **argv)
 
   test<2>(0);
   test<2>(1);
+  test<2>(2);
 }
