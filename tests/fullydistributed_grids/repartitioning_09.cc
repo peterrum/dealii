@@ -75,17 +75,23 @@ public:
 
     // 2) determine owner on background mesh
     Utilities::MPI::RemotePointEvaluation<dim, spacedim> rpe;
-    Vector<double> ranks(tria_background.n_active_cells());
-    ranks =
-      Utilities::MPI::this_mpi_process(tria_background.get_communicator());
+    rpe.reinit(points, tria_background, mapping);
 
-    const auto point_ranks =
-      VectorTools::point_values<1>(mapping,
-                                   tria_background,
-                                   ranks,
-                                   points,
-                                   rpe,
-                                   VectorTools::EvaluationFlags::min);
+    const auto evaluate_function = [&](const ArrayView<double> &values,
+                                       const auto              &cell_data) {
+      for (const auto cell : cell_data.cell_indices())
+        {
+          const auto unit_points = cell_data.get_unit_points(cell);
+          const auto local_value = cell_data.get_data_view(cell, values);
+
+          for (unsigned int q = 0; q < unit_points.size(); ++q)
+            local_value[q] = Utilities::MPI::this_mpi_process(
+              tria_background.get_communicator());
+        }
+    };
+
+    const std::vector<double> point_ranks =
+      rpe.template evaluate_and_process<double>(evaluate_function);
 
     const auto tria =
       dynamic_cast<const parallel::TriangulationBase<dim, spacedim> *>(
@@ -104,7 +110,10 @@ public:
           unsigned int rank = numbers::invalid_unsigned_int;
 
           for (unsigned int i = 0; i < quadrature.size(); ++i, ++counter)
-            rank = std::min<unsigned int>(rank, point_ranks[counter]);
+            for (unsigned int j = rpe.get_point_ptrs()[counter];
+                 j < rpe.get_point_ptrs()[counter + 1];
+                 ++j)
+              rank = std::min<unsigned int>(rank, point_ranks[j]);
 
           partition[cell->global_active_cell_index()] = rank;
         }
