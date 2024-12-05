@@ -61,7 +61,6 @@ public:
 
     if (immersed_identification)
       {
-        // 1) collect centers of immeresed mesh
         std::vector<Point<spacedim>> points;
 
         Quadrature<dim> quadrature;
@@ -81,7 +80,6 @@ public:
                 }
             }
 
-        // 2) determine owner on background mesh
         Utilities::MPI::RemotePointEvaluation<dim, spacedim> rpe;
         rpe.reinit(points, tria_background, mapping);
 
@@ -120,7 +118,7 @@ public:
       }
     else
       {
-        std::vector<Point<spacedim>> points;
+        std::vector<Point<spacedim>> points; // TODO: eliminate duplicate points
 
         Quadrature<dim> quadrature;
 
@@ -174,16 +172,50 @@ public:
     LinearAlgebra::distributed::Vector<double> partition(
       tria->global_active_cell_index_partitioner().lock());
 
-    for (const auto &cell : tria_immersed.active_cell_iterators())
-      if (cell->is_locally_owned())
+
+    const auto reduce = [](const auto &data) -> unsigned int {
+      if (false /*smallest rank*/)
         {
           unsigned int rank = numbers::invalid_unsigned_int;
 
-          for (const auto rank_i : cell_ranks[cell->active_cell_index()])
+          for (const auto rank_i : data)
             rank = std::min<unsigned int>(rank, rank_i);
 
-          partition[cell->global_active_cell_index()] = rank;
+          return rank;
         }
+      else if (true /*smallest rank with most hits*/)
+        {
+          std::map<unsigned int, unsigned int> rank_counter;
+
+          for (const auto rank_i : data)
+            rank_counter[rank_i] = 0;
+          for (const auto rank_i : data)
+            rank_counter[rank_i]++;
+
+          const auto pr =
+            std::max_element(rank_counter.begin(),
+                             rank_counter.end(),
+                             [](const auto &p1, const auto &p2) {
+                               if (p1.second != p2.second)
+                                 return p1.second < p2.second;
+
+                               return p1.first > p2.first; // stable search
+                             });
+
+          return pr->first;
+        }
+      else
+        {
+          AssertThrow(false, ExcNotImplemented());
+
+          return 0; // TODO
+        }
+    };
+
+    for (const auto &cell : tria_immersed.active_cell_iterators())
+      if (cell->is_locally_owned())
+        partition[cell->global_active_cell_index()] =
+          reduce(cell_ranks[cell->active_cell_index()]);
 
     partition.update_ghost_values();
 
