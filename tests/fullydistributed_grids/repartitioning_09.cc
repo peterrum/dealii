@@ -47,6 +47,12 @@ template <int dim, int spacedim = dim>
 class MyPolicy : public RepartitioningPolicyTools::Base<dim, spacedim>
 {
 public:
+  enum class ReductionType
+  {
+    smallest_rank,
+    highest_count
+  };
+
   MyPolicy(const Triangulation<dim, spacedim> &tria_background,
            const bool                          immersed_identification,
            const unsigned int                  n_samples)
@@ -54,6 +60,7 @@ public:
     , dof_handler_background(nullptr)
     , immersed_identification(immersed_identification)
     , n_samples(n_samples)
+    , reduction_type(ReductionType::highest_count)
   {}
 
   MyPolicy(const DoFHandler<dim, spacedim> &dof_handler_background)
@@ -61,6 +68,7 @@ public:
     , dof_handler_background(&dof_handler_background)
     , immersed_identification(false)
     , n_samples(numbers::invalid_unsigned_int)
+    , reduction_type(ReductionType::highest_count)
   {}
 
   virtual LinearAlgebra::distributed::Vector<double>
@@ -187,10 +195,10 @@ public:
       tria->global_active_cell_index_partitioner().lock());
 
 
-    const auto reduce = [](const auto &data) -> unsigned int {
+    const auto reduce = [this](const auto &data) -> unsigned int {
       AssertThrow(!data.empty(), ExcInternalError());
 
-      if (false /*smallest rank*/)
+      if (reduction_type == ReductionType::smallest_rank)
         {
           unsigned int rank = numbers::invalid_unsigned_int;
 
@@ -199,7 +207,7 @@ public:
 
           return rank;
         }
-      else if (true /*smallest rank with most hits*/)
+      else if (reduction_type == ReductionType::highest_count)
         {
           std::map<unsigned int, unsigned int> rank_counter;
 
@@ -247,8 +255,10 @@ private:
   const MappingQ1<dim, spacedim> mapping_background; // TODO
   const MappingQ1<dim, spacedim> mapping_immersed;   // TODO
 
-  const bool         immersed_identification;
-  const unsigned int n_samples;
+  // settings
+  const bool          immersed_identification;
+  const unsigned int  n_samples;
+  const ReductionType reduction_type;
 };
 
 
