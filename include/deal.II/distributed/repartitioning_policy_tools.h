@@ -180,26 +180,66 @@ namespace RepartitioningPolicyTools
   };
 
 
+  /**
+   * A policy that partitions an immersed grids based on a background
+   * triangulation. This policy is in particular useful in a non-matching case,
+   * e.g., non-nested multigrid.
+   *
+   * @note At the moment, only working for meshes only consisting
+   * of hypercubes.
+   */
   template <int dim, int spacedim = dim>
   class ImmersedMeshPolicy : public Base<dim, spacedim>
   {
   public:
+    /**
+     * This enum specifies if cell multiple possible owners have
+     * been identified.
+     */
     enum class ReductionType
     {
+      /**
+       * Use smallest rank.
+       */
       smallest_rank,
+
+      /**
+       * Use smallest rank with most counts.
+       */
       highest_count
     };
 
     struct AdditionalData
     {
-      bool          immersed_identification = true;
-      unsigned int  n_samples               = 0;
-      ReductionType reduction_type          = ReductionType::highest_count;
+      /**
+       * Type of reduction.
+       */
+      ReductionType reduction_type = ReductionType::highest_count;
+
+      /**
+       * Generate sample point on immersed mesh.
+       *
+       * @note Ignored when the constructor taking the DoFHandler is used.
+       */
+      bool immersed_identification = true;
+
+      /**
+       * Number of sample points (in each direction).
+       *
+       * @note Ignored when the constructor taking the DoFHandler is used.
+       */
+      unsigned int n_samples = 0;
     };
 
+    /**
+     * Constructor takint a background Triangulation.
+     */
     ImmersedMeshPolicy(const Triangulation<dim, spacedim> &tria_background,
                        const AdditionalData               &data = {});
 
+    /**
+     * Constructor takint a background DoFHandler.
+     */
     ImmersedMeshPolicy(const DoFHandler<dim, spacedim> &dof_handler_background,
                        const AdditionalData            &data = {});
 
@@ -207,10 +247,20 @@ namespace RepartitioningPolicyTools
     partition(const Triangulation<dim, spacedim> &tria_immersed) const override;
 
   private:
+    /**
+     * Background Triangulation.
+     */
     const ObserverPointer<const Triangulation<dim, spacedim>> tria_background;
+
+    /**
+     * Background DoFHandler.
+     */
     const ObserverPointer<const DoFHandler<dim, spacedim>>
       dof_handler_background;
 
+    /**
+     * Settings.
+     */
     const AdditionalData data;
 
     const MappingQ1<dim, spacedim> mapping_background; // TODO
