@@ -15,7 +15,7 @@
 #ifndef dealii_distributed_repartitioning_policy_tools_h
 #define dealii_distributed_repartitioning_policy_tools_h
 
-#include <deal.II/fe/mapping_q1.h>
+#include <deal.II/fe/mapping.h>
 
 #include <deal.II/grid/tria.h>
 
@@ -212,23 +212,28 @@ namespace RepartitioningPolicyTools
     struct AdditionalData
     {
       /**
+       * Detault constructor.
+       */
+      AdditionalData();
+
+      /**
        * Type of reduction.
        */
-      ReductionType reduction_type = ReductionType::highest_count;
+      ReductionType reduction_type;
 
       /**
        * Generate sample point on immersed mesh.
        *
        * @note Ignored when the constructor taking the DoFHandler is used.
        */
-      bool immersed_identification = true;
+      bool immersed_identification;
 
       /**
        * Number of sample points (in each direction).
        *
        * @note Ignored when the constructor taking the DoFHandler is used.
        */
-      unsigned int n_samples = 0;
+      unsigned int n_samples;
 
       /**
        * Mapping of the background mesh. If not set, MappingQ1 is used.
@@ -263,7 +268,8 @@ namespace RepartitioningPolicyTools
     const ObserverPointer<const Triangulation<dim, spacedim>> tria_background;
 
     /**
-     * Background DoFHandler.
+     * Background DoFHandler. The support points of the background mesh are
+     * used for sampling.
      */
     const ObserverPointer<const DoFHandler<dim, spacedim>>
       dof_handler_background;

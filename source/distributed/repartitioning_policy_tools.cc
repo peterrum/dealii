@@ -18,6 +18,8 @@
 #include <deal.II/distributed/repartitioning_policy_tools.h>
 #include <deal.II/distributed/tria_base.h>
 
+#include <deal.II/fe/mapping_q1.h>
+
 #include <deal.II/grid/cell_id_translator.h>
 #include <deal.II/grid/filtered_iterator.h>
 
@@ -310,6 +312,14 @@ namespace RepartitioningPolicyTools
     return partition;
 #endif
   }
+
+
+  template <int dim, int spacedim>
+  ImmersedMeshPolicy<dim, spacedim>::AdditionalData::AdditionalData()
+    : reduction_type(ReductionType::highest_count)
+    , immersed_identification(true)
+    , n_samples(1)
+  {}
 
 
 
