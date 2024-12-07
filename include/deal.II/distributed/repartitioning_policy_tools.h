@@ -15,6 +15,8 @@
 #ifndef dealii_distributed_repartitioning_policy_tools_h
 #define dealii_distributed_repartitioning_policy_tools_h
 
+#include <deal.II/fe/mapping_q1.h>
+
 #include <deal.II/grid/tria.h>
 
 #include <deal.II/lac/la_parallel_vector.h>
@@ -175,6 +177,40 @@ namespace RepartitioningPolicyTools
       unsigned int(const typename Triangulation<dim, spacedim>::cell_iterator &,
                    const CellStatus)>
       weighting_function;
+  };
+
+
+  template <int dim, int spacedim = dim>
+  class ImmersedMeshPolicy : public Base<dim, spacedim>
+  {
+  public:
+    enum class ReductionType
+    {
+      smallest_rank,
+      highest_count
+    };
+
+    ImmersedMeshPolicy(const Triangulation<dim, spacedim> &tria_background,
+                       const bool         immersed_identification,
+                       const unsigned int n_samples);
+
+    ImmersedMeshPolicy(const DoFHandler<dim, spacedim> &dof_handler_background);
+
+    virtual LinearAlgebra::distributed::Vector<double>
+    partition(const Triangulation<dim, spacedim> &tria_immersed) const override;
+
+  private:
+    const ObserverPointer<const Triangulation<dim, spacedim>> tria_background;
+    const ObserverPointer<const DoFHandler<dim, spacedim>>
+      dof_handler_background;
+
+    const MappingQ1<dim, spacedim> mapping_background; // TODO
+    const MappingQ1<dim, spacedim> mapping_immersed;   // TODO
+
+    // settings
+    const bool          immersed_identification;
+    const unsigned int  n_samples;
+    const ReductionType reduction_type;
   };
 
 } // namespace RepartitioningPolicyTools
