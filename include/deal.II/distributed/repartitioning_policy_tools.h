@@ -190,11 +190,18 @@ namespace RepartitioningPolicyTools
       highest_count
     };
 
-    ImmersedMeshPolicy(const Triangulation<dim, spacedim> &tria_background,
-                       const bool         immersed_identification,
-                       const unsigned int n_samples);
+    struct AdditionalData
+    {
+      bool          immersed_identification = true;
+      unsigned int  n_samples               = 0;
+      ReductionType reduction_type          = ReductionType::highest_count;
+    };
 
-    ImmersedMeshPolicy(const DoFHandler<dim, spacedim> &dof_handler_background);
+    ImmersedMeshPolicy(const Triangulation<dim, spacedim> &tria_background,
+                       const AdditionalData               &data = {});
+
+    ImmersedMeshPolicy(const DoFHandler<dim, spacedim> &dof_handler_background,
+                       const AdditionalData            &data = {});
 
     virtual LinearAlgebra::distributed::Vector<double>
     partition(const Triangulation<dim, spacedim> &tria_immersed) const override;
@@ -204,13 +211,10 @@ namespace RepartitioningPolicyTools
     const ObserverPointer<const DoFHandler<dim, spacedim>>
       dof_handler_background;
 
+    const AdditionalData data;
+
     const MappingQ1<dim, spacedim> mapping_background; // TODO
     const MappingQ1<dim, spacedim> mapping_immersed;   // TODO
-
-    // settings
-    const bool          immersed_identification;
-    const unsigned int  n_samples;
-    const ReductionType reduction_type;
   };
 
 } // namespace RepartitioningPolicyTools

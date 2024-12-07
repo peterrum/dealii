@@ -89,10 +89,15 @@ test(const unsigned int v)
   // background mesh
   std::shared_ptr<RepartitioningPolicyTools::ImmersedMeshPolicy<dim>> policy_0;
 
+  typename RepartitioningPolicyTools::ImmersedMeshPolicy<dim>::AdditionalData
+    ad;
+  ad.immersed_identification = v == 0;
+  ad.n_samples               = 3;
+
   if (v == 0 || v == 1)
     policy_0 =
       std::make_shared<RepartitioningPolicyTools::ImmersedMeshPolicy<dim>>(
-        tria_background, v == 0, 3);
+        tria_background, ad);
   else
     policy_0 =
       std::make_shared<RepartitioningPolicyTools::ImmersedMeshPolicy<dim>>(

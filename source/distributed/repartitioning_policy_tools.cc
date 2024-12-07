@@ -316,25 +316,21 @@ namespace RepartitioningPolicyTools
   template <int dim, int spacedim>
   ImmersedMeshPolicy<dim, spacedim>::ImmersedMeshPolicy(
     const Triangulation<dim, spacedim> &tria_background,
-    const bool                          immersed_identification,
-    const unsigned int                  n_samples)
+    const AdditionalData               &data)
     : tria_background(&tria_background)
     , dof_handler_background(nullptr)
-    , immersed_identification(immersed_identification)
-    , n_samples(n_samples)
-    , reduction_type(ReductionType::highest_count)
+    , data(data)
   {}
 
 
 
   template <int dim, int spacedim>
   ImmersedMeshPolicy<dim, spacedim>::ImmersedMeshPolicy(
-    const DoFHandler<dim, spacedim> &dof_handler_background)
+    const DoFHandler<dim, spacedim> &dof_handler_background,
+    const AdditionalData            &data)
     : tria_background(&dof_handler_background.get_triangulation())
     , dof_handler_background(&dof_handler_background)
-    , immersed_identification(false)
-    , n_samples(numbers::invalid_unsigned_int)
-    , reduction_type(ReductionType::highest_count)
+    , data(data)
   {}
 
 
@@ -347,16 +343,16 @@ namespace RepartitioningPolicyTools
     std::vector<std::vector<unsigned int>> cell_ranks(
       tria_immersed.n_active_cells());
 
-    if (immersed_identification)
+    if ((dof_handler_background == nullptr) && data.immersed_identification)
       {
         std::vector<Point<spacedim>> points;
 
         Quadrature<dim> quadrature;
 
-        if (n_samples == 1)
+        if (data.n_samples == 1)
           quadrature = QGauss<dim>(1);
         else
-          quadrature = QGaussLobatto<dim>(n_samples);
+          quadrature = QGaussLobatto<dim>(data.n_samples);
 
         for (const auto &cell : tria_immersed.active_cell_iterators())
           if (cell->is_locally_owned())
@@ -406,10 +402,10 @@ namespace RepartitioningPolicyTools
           {
             Quadrature<dim> quadrature;
 
-            if (n_samples == 1)
+            if (data.n_samples == 1)
               quadrature = QGauss<dim>(1);
             else
-              quadrature = QGaussLobatto<dim>(n_samples);
+              quadrature = QGaussLobatto<dim>(data.n_samples);
 
             for (const auto &cell : tria_background->active_cell_iterators())
               if (cell->is_locally_owned())
@@ -463,25 +459,25 @@ namespace RepartitioningPolicyTools
       tria->global_active_cell_index_partitioner().lock());
 
 
-    const auto reduce = [this](const auto &data) -> unsigned int {
-      AssertThrow(!data.empty(), ExcInternalError());
+    const auto reduce = [this](const auto &vector) -> unsigned int {
+      AssertThrow(!vector.empty(), ExcInternalError());
 
-      if (reduction_type == ReductionType::smallest_rank)
+      if (data.reduction_type == ReductionType::smallest_rank)
         {
           unsigned int rank = numbers::invalid_unsigned_int;
 
-          for (const auto rank_i : data)
+          for (const auto rank_i : vector)
             rank = std::min<unsigned int>(rank, rank_i);
 
           return rank;
         }
-      else if (reduction_type == ReductionType::highest_count)
+      else if (data.reduction_type == ReductionType::highest_count)
         {
           std::map<unsigned int, unsigned int> rank_counter;
 
-          for (const auto rank_i : data)
+          for (const auto rank_i : vector)
             rank_counter[rank_i] = 0;
-          for (const auto rank_i : data)
+          for (const auto rank_i : vector)
             rank_counter[rank_i]++;
 
           const auto pr =
