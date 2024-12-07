@@ -343,6 +343,13 @@ namespace RepartitioningPolicyTools
     std::vector<std::vector<unsigned int>> cell_ranks(
       tria_immersed.n_active_cells());
 
+    MappingQ1<dim, spacedim> mapping_default;
+
+    const Mapping<dim, spacedim> &mapping_background =
+      data.mapping_background ? *data.mapping_background : mapping_default;
+    const Mapping<dim, spacedim> &mapping_immersed =
+      data.mapping_immersed ? *data.mapping_immersed : mapping_default;
+
     if ((dof_handler_background == nullptr) && data.immersed_identification)
       {
         std::vector<Point<spacedim>> points;

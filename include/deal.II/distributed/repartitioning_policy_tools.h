@@ -229,6 +229,16 @@ namespace RepartitioningPolicyTools
        * @note Ignored when the constructor taking the DoFHandler is used.
        */
       unsigned int n_samples = 0;
+
+      /**
+       * Mapping of the background mesh. If not set, MappingQ1 is used.
+       */
+      ObserverPointer<const Mapping<dim, spacedim>> mapping_background;
+
+      /**
+       * Mapping of the immersed mesh. If not set, MappingQ1 is used.
+       */
+      ObserverPointer<const Mapping<dim, spacedim>> mapping_immersed;
     };
 
     /**
@@ -262,9 +272,6 @@ namespace RepartitioningPolicyTools
      * Settings.
      */
     const AdditionalData data;
-
-    const MappingQ1<dim, spacedim> mapping_background; // TODO
-    const MappingQ1<dim, spacedim> mapping_immersed;   // TODO
   };
 
 } // namespace RepartitioningPolicyTools
