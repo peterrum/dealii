@@ -75,7 +75,8 @@ namespace Step88
   using namespace dealii;
 
   // @sect3{Parameters}
-  // This class contains relevant parameters.
+  // This class contains relevant parameters needed for the setup of the problem
+  // (such as mesh files and polynomial degrees) and the multigrid ingredients.
   struct Parameters
   {
     // This parameter specifies the mesh type. Options are:
@@ -103,6 +104,20 @@ namespace Step88
 
     // Relative tolerance of the solver.
     double solver_rel_tolerance;
+
+    // The next three positive integers are related to the smoother at hand.
+    // More details can be found on the documentation of the
+    // PreconditionChebyshev class.
+
+    //  The range to be smoothed out by the smoother.
+    unsigned int smoothing_range;
+
+    // Degree of the smoother.
+    unsigned int smoother_degree;
+
+    // Maximum number of CG iterations performed for finding the maximum
+    // eigenvalue.
+    unsigned int eig_cg_n_iterations;
 
     // Specify whether the nested or non-nested global-coarsening algorithm
     // should be used. Note: in the case of "mesh_file", only
@@ -142,7 +157,7 @@ namespace Step88
 
 
   // Parse a json file with the name @p file_name.
-  void Parameters::parse(const std::string file_name)
+  void Parameters::parse(const std::string &file_name)
   {
     dealii::ParameterHandler prm;
 
@@ -158,6 +173,10 @@ namespace Step88
     prm.add_parameter("SolverMaxIterations", solver_max_iterations);
     prm.add_parameter("SolverAbsTolerance", solver_abs_tolerance);
     prm.add_parameter("SolverRelTolerance", solver_rel_tolerance);
+
+    prm.add_parameter("MGSmoothingRange", smoothing_range);
+    prm.add_parameter("MGSmootherDegree", smoother_degree);
+    prm.add_parameter("MGSmootherEigNIterations", eig_cg_n_iterations);
 
     prm.add_parameter("MGNonNested", mg_non_nested);
 
@@ -519,7 +538,12 @@ namespace Step88
 
     // By default we will import each level separately by reading it from
     // externally generated grids. In a second step, we reparition the meshes
-    // so that coarser ones are partitioned as the finer ones.
+    // so that coarser ones are partitioned as the finer ones. This is done
+    // through the ImmersedMeshPolicy class. Despite the fact that
+    // our meshes are not coming from classical "immersed" methods, this class
+    // does conceptually the same operation that one needs to do in order to
+    // match the partitioning of two distributed and overlapped grids.
+
     else if (params.mesh_type == "mesh_file")
       {
         for (unsigned int l = min_level; l <= max_level; ++l)
@@ -587,14 +611,15 @@ namespace Step88
 
   // @sect4{Step88::setup_system}
   // After generating all levels, we can define on each one of them a suitable
-  // FiniteElement space and distribute the DoFs.
+  // FiniteElement space and distribute the DoFs. In particular, in this
+  // tutorial we will consider classical Lagrangian finite element spaces.
   template <int dim>
   void LaplaceProblem<dim>::setup_system()
   {
-    // Create finite element, mapping, and quadrature depending on
-    // the mesh type. In the case of hyper-cube meshes, FE_Q,
-    // MappingQ, and QGauss are used; in the case of simplex meshes,
-    // FE_SimplexP, MappingFE, and QGaussSimplex are used.
+    // Next, we create finite element, mappings, and quadrature rules depending
+    // on the mesh type. In the case of hyper-cube meshes, FE_Q, MappingQ, and
+    // QGauss are used; in the case of simplex meshes, FE_SimplexP, MappingFE,
+    // and QGaussSimplex are used.
     if (triangulations.back()->all_reference_cells_are_hyper_cube())
       fe = std::make_unique<FE_Q<dim>>(params.fe_degree);
     else if (triangulations.back()->all_reference_cells_are_simplex())
@@ -615,7 +640,8 @@ namespace Step88
     constraints.resize(min_level, max_level);
     operators.resize(min_level, max_level);
 
-    // Next, we start looping over all levels:
+    // Then, we loop over all levels of the hierarchy and define on each one of
+    // them the associated operator.
     pcout << "Define operators on levels: " << std::endl;
     for (unsigned int l = min_level; l <= max_level; ++l)
       {
@@ -661,7 +687,7 @@ namespace Step88
 
   // @sect4{Step88::solve}
   // We are now ready to initialize the intergrid transfer operators,
-  // smoothers and preconditioner.
+  // smoothers and preconditioner needed by the Multigrid infrastructure.
   template <int dim>
   void LaplaceProblem<dim>::solve()
   {
@@ -741,9 +767,9 @@ namespace Step88
           std::make_shared<SmootherPreconditionerType>();
         operators[l].compute_inverse_diagonal(
           smoother_data[l].preconditioner->get_vector());
-        smoother_data[l].smoothing_range     = 20;
-        smoother_data[l].degree              = 5;
-        smoother_data[l].eig_cg_n_iterations = 20;
+        smoother_data[l].smoothing_range     = params.smoothing_range;
+        smoother_data[l].degree              = params.smoother_degree;
+        smoother_data[l].eig_cg_n_iterations = params.eig_cg_n_iterations;
       }
 
     MGSmootherPrecondition<LevelMatrixType, SmootherType, VectorType>
@@ -794,7 +820,10 @@ namespace Step88
 
 
 
-  // Furthermore, we output the mesh on each level.
+  // Furthermore, we output the mesh on each level, storing the MPI rank
+  // associated to each partition. From the visulization of the resulting grids,
+  // it is possible to appreciate how one mesh does not stem from the refinement
+  // process of the previous one.
   template <int dim>
   void LaplaceProblem<dim>::output_grids() const
   {

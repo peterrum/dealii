@@ -6,7 +6,7 @@ Marco Feder (SISSA)
 and Peter Munch (University of Augsburg/Uppsala University).
 
 This tutorial is loosely based on the publication
-"A matrix-free implementation of the non-nested multigrid method"
+"Matrix-free implementation of the non-nested multigrid method"
 by Marco Feder, Luca Heltai, Martin Kronbichler, and Peter Munch @cite feder2024high.
 </i>
 

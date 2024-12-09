@@ -7,7 +7,7 @@
   "SolverMaxIterations": 100,
   "SolverAbsTolerance": 1e-20,
   "SolverRelTolerance": 1e-4,
-  "MGSmoothingScheme": 20,
+  "MGSmoothingRange": 20,
   "MGSmootherDegree": 5,
   "MGSmootherEigNIterations": 20,
   "MGNonNested": true
