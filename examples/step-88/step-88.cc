@@ -105,20 +105,6 @@ namespace Step88
     // Relative tolerance of the solver.
     double solver_rel_tolerance;
 
-    // The next three positive integers are related to the smoother at hand.
-    // More details can be found on the documentation of the
-    // PreconditionChebyshev class.
-
-    //  The range to be smoothed out by the smoother.
-    unsigned int smoothing_range;
-
-    // Degree of the smoother.
-    unsigned int smoother_degree;
-
-    // Maximum number of CG iterations performed for finding the maximum
-    // eigenvalue.
-    unsigned int eig_cg_n_iterations;
-
     // Specify whether the nested or non-nested global-coarsening algorithm
     // should be used. Note: in the case of "mesh_file", only
     // a non-nested algorithm can be selected.
@@ -173,10 +159,6 @@ namespace Step88
     prm.add_parameter("SolverMaxIterations", solver_max_iterations);
     prm.add_parameter("SolverAbsTolerance", solver_abs_tolerance);
     prm.add_parameter("SolverRelTolerance", solver_rel_tolerance);
-
-    prm.add_parameter("MGSmoothingRange", smoothing_range);
-    prm.add_parameter("MGSmootherDegree", smoother_degree);
-    prm.add_parameter("MGSmootherEigNIterations", eig_cg_n_iterations);
 
     prm.add_parameter("MGNonNested", mg_non_nested);
 
@@ -767,9 +749,9 @@ namespace Step88
           std::make_shared<SmootherPreconditionerType>();
         operators[l].compute_inverse_diagonal(
           smoother_data[l].preconditioner->get_vector());
-        smoother_data[l].smoothing_range     = params.smoothing_range;
-        smoother_data[l].degree              = params.smoother_degree;
-        smoother_data[l].eig_cg_n_iterations = params.eig_cg_n_iterations;
+        smoother_data[l].smoothing_range     = 20;
+        smoother_data[l].degree              = 5;
+        smoother_data[l].eig_cg_n_iterations = 20;
       }
 
     MGSmootherPrecondition<LevelMatrixType, SmootherType, VectorType>
