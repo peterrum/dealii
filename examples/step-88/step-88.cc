@@ -27,6 +27,8 @@
 #include <deal.II/base/mpi.h>
 #include <deal.II/base/parameter_handler.h>
 
+#include <deal.II/distributed/fully_distributed_tria.h>
+#include <deal.II/distributed/repartitioning_policy_tools.h>
 #include <deal.II/distributed/shared_tria.h>
 
 #include <deal.II/dofs/dof_tools.h>
@@ -36,6 +38,7 @@
 
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/grid_in.h>
+#include <deal.II/grid/grid_tools.h>
 
 #include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/lac/precondition.h>
@@ -83,11 +86,6 @@ namespace Step88
     // subdivision, "mesh_file" for reading a sequence of external meshes.
     std::string mesh_type;
 
-    // In the case of "mesh_file", this parameter specifies
-    // the name of the mesh file on each level. The format needs to be
-    // "file_name_%d.inp". Note: currently only Abaqus files are supported.
-    std::string mesh_file_format;
-
     // Number of global refinements. In the case of
     // "hyper_cube" and "hyper_cube_with_simplices", the mesh
     // is refined the specified amount. In the case of "mesh_file",
@@ -106,16 +104,6 @@ namespace Step88
     // Relative tolerance of the solver.
     double solver_rel_tolerance;
 
-    // Smoothing gange of the smoothers of the multigrid algorithm.
-    unsigned int mg_smoothing_range;
-
-    // Smoothing degree of the smoothers of the multigrid algorithm.
-    unsigned int mg_smoother_degree;
-
-    // Number of iterations to determine the eigenvalues on the levels,
-    // needed for setting up the smoothers of the multigrid algorithm.
-    unsigned int mg_smoother_eig_cg_n_iterations;
-
     // Specify whether the nested or non-nested global-coarsening algorithm
     // should be used. Note: in the case of "mesh_file", only
     // a non-nested algorithm can be selected.
@@ -124,30 +112,31 @@ namespace Step88
     // Constructor, which sets the default values of the parameters.
     Parameters();
 
+    // Parse input file.
     void parse(const std::string file_name);
 
-    void print();
-
+    // In the case of "mesh_file", return the name of the mesh file on
+    // given level.
     std::string get_mesh_file_name(const unsigned int level) const;
 
   private:
-    void add_parameters(ParameterHandler &prm);
+    // In the case of "mesh_file", this parameter specifies
+    // the name of the mesh file on each level. The format needs to be
+    // "file_name_%d.inp". Note: currently only Abaqus files are supported.
+    std::string mesh_file_format;
   };
 
 
 
   Parameters::Parameters()
     : mesh_type("mesh_file")
-    , mesh_file_format("piston_%d.inp")
     , n_global_refinements(3)
     , fe_degree(2)
     , solver_max_iterations(100)
     , solver_abs_tolerance(1e-20)
     , solver_rel_tolerance(1e-4)
-    , mg_smoothing_range(20)
-    , mg_smoother_degree(5)
-    , mg_smoother_eig_cg_n_iterations(20)
     , mg_non_nested(true)
+    , mesh_file_format("grids/piston_%d.inp")
   {}
 
 
@@ -156,41 +145,7 @@ namespace Step88
   void Parameters::parse(const std::string file_name)
   {
     dealii::ParameterHandler prm;
-    add_parameters(prm);
 
-    std::ifstream file;
-    file.open(file_name);
-    prm.parse_input_from_json(file, true);
-  }
-
-
-
-  // Print parameters to the screen.
-  void Parameters::print()
-  {
-    dealii::ParameterHandler prm;
-    add_parameters(prm);
-    prm.print_parameters(std::cout,
-                         dealii::ParameterHandler::OutputStyle::ShortJSON);
-  }
-
-
-  // Get name of the mesh on the given level. The function replaces "%d"
-  // in the mesh-name format.
-  std::string Parameters::get_mesh_file_name(const unsigned int level) const
-  {
-    char buffer[100];
-
-    std::snprintf(buffer, 100, mesh_file_format.c_str(), level);
-
-    return {buffer};
-  }
-
-
-
-  // Add parameters used in parse() and print().
-  void Parameters::add_parameters(ParameterHandler &prm)
-  {
     prm.add_parameter("MeshType",
                       mesh_type,
                       "",
@@ -204,11 +159,23 @@ namespace Step88
     prm.add_parameter("SolverAbsTolerance", solver_abs_tolerance);
     prm.add_parameter("SolverRelTolerance", solver_rel_tolerance);
 
-    prm.add_parameter("MGSmoothingScheme", mg_smoothing_range);
-    prm.add_parameter("MGSmootherDegree", mg_smoother_degree);
-    prm.add_parameter("MGSmootherEigNIterations",
-                      mg_smoother_eig_cg_n_iterations);
     prm.add_parameter("MGNonNested", mg_non_nested);
+
+    std::ifstream file;
+    file.open(file_name);
+    prm.parse_input_from_json(file, true);
+  }
+
+
+  // Get name of the mesh on the given level. The function replaces "%d"
+  // in the mesh-name format.
+  std::string Parameters::get_mesh_file_name(const unsigned int level) const
+  {
+    char buffer[100];
+
+    std::snprintf(buffer, 100, mesh_file_format.c_str(), level);
+
+    return {buffer};
   }
 
 
@@ -435,7 +402,7 @@ namespace Step88
 
   // The main class has the same structure as in all other tutorial
   // programs, with the obvious exception that no matrix needs to be assembled
-  // in this case. Notice that the create_grids() function return a boolean that
+  // in this case. Notice that the create_grids() function return a Boolean that
   // is used to switch at runtime to a nested multigrid scheme if levels are
   // nested.
   template <int dim>
@@ -453,7 +420,9 @@ namespace Step88
 
     void solve();
 
-    void output_results();
+    void output_results() const;
+
+    void output_grids() const;
 
     using Number     = double;
     using VectorType = LinearAlgebra::distributed::Vector<Number>;
@@ -488,7 +457,7 @@ namespace Step88
 
 
   // @sect4{Step88::LaplaceProblem}
-  // This constructor is pretty straightforward: all it does it to initialize
+  // This constructor is pretty straightforward: all it does is to initialize
   // some parameters, the number of levels and parallel output stream.
   template <int dim>
   LaplaceProblem<dim>::LaplaceProblem(const Parameters &params)
@@ -509,7 +478,7 @@ namespace Step88
   template <int dim>
   bool LaplaceProblem<dim>::create_grids()
   {
-    // If the geometry is a simple one such a <code>hyper_cube</code>, we can
+    // If the geometry is a simple one such as a <code>hyper_cube</code>, we can
     // just use the GridGenerator namespace. Since the present infrastructure
     // also support simplex meshes, we allow their usage by using
     // GridGenerator::convert_hypercube_to_simplex_mesh.
@@ -549,22 +518,56 @@ namespace Step88
       }
 
     // By default we will import each level separately by reading it from
-    // externally generated grids. Notice that each triangulation here is
-    // a parallel::distributed::Triangulation independently partitioned.
+    // externally generated grids. In a second step, we reparition the meshes
+    // so that coarser ones are partitioned as the finer ones.
     else if (params.mesh_type == "mesh_file")
       {
         for (unsigned int l = min_level; l <= max_level; ++l)
           {
-            auto triangulation =
-              std::make_shared<parallel::distributed::Triangulation<dim>>(comm);
-
-            GridIn<dim> grid_in(*triangulation);
-
             const auto mesh_file_name = params.get_mesh_file_name(l);
             pcout << " - read " << mesh_file_name << std::endl;
-            grid_in.read(mesh_file_name, GridIn<dim>::abaqus);
 
+            const TriangulationDescription::Description<dim> description =
+              TriangulationDescription::Utilities::
+                create_description_from_triangulation_in_groups<dim, dim>(
+                  [mesh_file_name](Triangulation<dim> &tria_base) {
+                    GridIn<dim> grid_in;
+                    grid_in.attach_triangulation(tria_base);
+                    grid_in.read(mesh_file_name, GridIn<dim>::abaqus);
+                  },
+                  [](Triangulation<dim> &tria_base,
+                     const auto          comm,
+                     const auto) {
+                    GridTools::partition_triangulation(
+                      Utilities::MPI::n_mpi_processes(comm), tria_base);
+                  },
+                  comm,
+                  Utilities::MPI::n_mpi_processes(comm));
+
+            auto triangulation =
+              std::make_shared<parallel::fullydistributed::Triangulation<dim>>(
+                comm);
+            triangulation->create_triangulation(description);
             triangulations.push_back(triangulation);
+          }
+
+        for (unsigned int l = max_level; l != 0; --l)
+          {
+            const RepartitioningPolicyTools::ImmersedMeshPolicy<dim>
+              repartitioning_policy(*triangulations[l]);
+
+            const auto partition_vector =
+              repartitioning_policy.partition(*triangulations[l - 1]);
+
+            const auto description = TriangulationDescription::Utilities::
+              create_description_from_triangulation(*triangulations[l - 1],
+                                                    partition_vector);
+
+            auto triangulation =
+              std::make_shared<parallel::fullydistributed::Triangulation<dim>>(
+                comm);
+            triangulation->create_triangulation(description);
+            triangulations[l - 1] = triangulation;
           }
 
         pcout << std::endl;
@@ -573,7 +576,7 @@ namespace Step88
       }
     else if (params.mesh_type == "gmesh_journal")
       {
-        AssertThrow(false, ExcNotImplemented());
+        AssertThrow(false, ExcNotImplemented()); // TODO: ?
         return false;
       }
 
@@ -738,34 +741,21 @@ namespace Step88
           std::make_shared<SmootherPreconditionerType>();
         operators[l].compute_inverse_diagonal(
           smoother_data[l].preconditioner->get_vector());
-        smoother_data[l].smoothing_range = params.mg_smoothing_range;
-        smoother_data[l].degree          = params.mg_smoother_degree;
-        smoother_data[l].eig_cg_n_iterations =
-          params.mg_smoother_eig_cg_n_iterations;
+        smoother_data[l].smoothing_range     = 20;
+        smoother_data[l].degree              = 5;
+        smoother_data[l].eig_cg_n_iterations = 20;
       }
 
     MGSmootherPrecondition<LevelMatrixType, SmootherType, VectorType>
       mg_smoother;
     mg_smoother.initialize(operators, smoother_data);
 
-    // As coarse-grid solver we use conjugate gradient preconditioned by
-    // the algebraic multigrid (AMG) preconditioner based on the Trilinos ML
-    // implementation.
-    ReductionControl coarse_grid_solver_control(params.solver_max_iterations,
-                                                params.solver_abs_tolerance,
-                                                params.solver_rel_tolerance,
-                                                false,
-                                                false);
-    SolverCG<VectorType> coarse_solver_cg(coarse_grid_solver_control);
-
+    // As coarse-grid solver, we use a single v-cycle of AMG.
     TrilinosWrappers::PreconditionAMG precondition_amg;
     precondition_amg.initialize(operators[min_level].get_system_matrix());
 
-    MGCoarseGridIterativeSolver<VectorType,
-                                SolverCG<VectorType>,
-                                LevelMatrixType,
-                                decltype(precondition_amg)>
-      mg_coarse(coarse_solver_cg, operators[min_level], precondition_amg);
+    MGCoarseGridApplyOperator<VectorType, TrilinosWrappers::PreconditionAMG>
+      mg_coarse(precondition_amg);
 
     // Finally, we can initialize the Multigrid object and use it to
     // precondition our conjugate-gradient solver. Parameters related to the
@@ -792,7 +782,7 @@ namespace Step88
   // Here, we output the solution on the finest mesh. This is fairly standard
   // and done in many tutorial programs, so we will not comment this.
   template <int dim>
-  void LaplaceProblem<dim>::output_results()
+  void LaplaceProblem<dim>::output_results() const
   {
     DataOut<dim> data_out;
     data_out.attach_dof_handler(dof_handlers.back());
@@ -800,13 +790,24 @@ namespace Step88
     data_out.build_patches(*mapping);
 
     data_out.write_vtu_in_parallel("solution.vtu", comm);
+  }
 
+
+
+  // Furthermore, we output the mesh on each level.
+  template <int dim>
+  void LaplaceProblem<dim>::output_grids() const
+  {
     for (unsigned int l = 0; l < triangulations.size(); ++l)
       {
         DataOut<dim> data_out;
         data_out.attach_triangulation(*triangulations[l]);
-        data_out.build_patches();
 
+        Vector<float> ranks(triangulations[l]->n_active_cells());
+        ranks = Utilities::MPI::this_mpi_process(comm);
+        data_out.add_data_vector(ranks, "ranks");
+
+        data_out.build_patches();
         data_out.write_vtu_in_parallel("grid_" + std::to_string(l) + ".vtu",
                                        comm);
       }
@@ -821,6 +822,7 @@ namespace Step88
   {
     const bool nested_mesh = create_grids();
     AssertThrow(nested_mesh || params.mg_non_nested, ExcNotImplemented());
+    output_grids();
 
     setup_system();
     solve();
