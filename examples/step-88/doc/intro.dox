@@ -3,7 +3,10 @@
 <i>
 This program was contributed by
 Marco Feder (SISSA)
-and Peter Munch (University of Augsburg/Uppsala University).
+and Peter Munch (Technical University of Berlin). Many ideas presented
+here are the result of common code development with  Maximilian Bergbauer,
+Niklas Fehn, Magdalena Schreter-Fleischhacker, Johannes Heinz, Luca Heltai,
+and Martin Kronbichler.
 
 This tutorial is loosely based on the publication
 "Matrix-free implementation of the non-nested multigrid method"
