@@ -128,7 +128,7 @@ namespace Step88
     Parameters();
 
     // Parse input file.
-    void parse(const std::string file_name);
+    void parse(const std::string &file_name);
 
     // In the case of "mesh_file", return the name of the mesh file on
     // given level.
