@@ -1,0 +1,12 @@
+<i>
+This program was contributed by Camilla Belponer
+and Peter Munch. Many ideas presented here are the result of common code
+development with Jose C. Garay and Daniel Peterseim.
+
+This tutorial is loosely based on "Super-Localized Orthogonal Decomposition Method for Heterogeneous
+Linear Elasticity" by Camilla Belponer, Jose C. Garay Daniel Peterseim, and Peter Munch.
+</i>
+
+<h1>Introduction</h1>
+
+SLOD is great. LOD is less great!
