@@ -49,7 +49,7 @@ public:
 
 template <int dim,
           typename Number              = double,
-          typename VectorizedArrayType = VectorizedArray<Number>>
+          typename VectorizedArrayType = VectorizedArray<Number, 1>>
 void
 test(const unsigned int geometry,
      const int          fe_degree,
@@ -73,27 +73,6 @@ test(const unsigned int geometry,
 
   tria.reset_all_manifolds();
 
-  if (false)
-    {
-      std::vector<dealii::GridTools::PeriodicFacePair<
-        typename dealii::Triangulation<dim>::cell_iterator>>
-        periodic_faces;
-
-      if (dim >= 1)
-        dealii::GridTools::collect_periodic_faces(
-          tria, 0, 1, 0, periodic_faces);
-
-      if (dim >= 2)
-        dealii::GridTools::collect_periodic_faces(
-          tria, 2, 3, 1, periodic_faces);
-
-      if (dim >= 3)
-        dealii::GridTools::collect_periodic_faces(
-          tria, 4, 5, 2, periodic_faces);
-
-      tria.add_periodicity(periodic_faces);
-    }
-
   tria.refine_global(n_refinements);
 
   FE_DGQ<dim>     fe(fe_degree);
@@ -115,11 +94,14 @@ test(const unsigned int geometry,
     update_values | update_gradients;
   additional_data.tasks_parallel_scheme =
     MF::AdditionalData::TasksParallelScheme::none;
-  // additional_data.mapping_update_flags_faces_by_cells = update_values;
-  // additional_data.hold_all_faces_to_owned_cells       = true;
+  additional_data.hold_all_faces_to_owned_cells        = true;
+  additional_data.cell_vectorization_categories_strict = true;
+  additional_data.mapping_update_flags_faces_by_cells =
+    additional_data.mapping_update_flags_inner_faces |
+    additional_data.mapping_update_flags_boundary_faces;
   additional_data.communicator_sm = comm;
 
-  MatrixFreeTools::categorize_by_boundary_ids(tria, additional_data);
+  // MatrixFreeTools::categorize_by_boundary_ids(tria, additional_data);
 
   MF matrix_free;
   matrix_free.reinit(mapping, dof_handler, constraint, quad, additional_data);
@@ -139,7 +121,8 @@ test(const unsigned int geometry,
    */
   matrix_free.template loop<VectorType, VectorType>(
     [&](const auto &, auto &dst, const auto &src, const auto range) {
-      FEEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi(matrix_free);
+      FEEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi(matrix_free,
+                                                                   range);
       for (unsigned int cell = range.first; cell < range.second; ++cell)
         {
           phi.reinit(cell);
@@ -153,9 +136,9 @@ test(const unsigned int geometry,
     },
     [&](const auto &, auto &dst, const auto &src, const auto range) {
       FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_m(
-        matrix_free, true);
+        matrix_free, range, true);
       FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_p(
-        matrix_free, false);
+        matrix_free, range, false);
 
       for (unsigned int face = range.first; face < range.second; ++face)
         {
@@ -238,11 +221,16 @@ test(const unsigned int geometry,
    */
   matrix_free.template loop_cell_centric<VectorType, VectorType>(
     [&](const auto &, auto &dst, const auto &src, const auto range) {
-      FEEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi(matrix_free);
+      FEEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi(matrix_free,
+                                                                   range);
+
+      const unsigned int active_fe_index_m = 0;
+      const unsigned int active_fe_index_p = 0;
+
       FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_m(
-        matrix_free, true);
+        matrix_free, true, 0, 0, 0, active_fe_index_m, 0);
       FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_p(
-        matrix_free, false);
+        matrix_free, false, 0, 0, 0, active_fe_index_p, 0);
 
       for (unsigned int cell = range.first; cell < range.second; ++cell)
         {
@@ -345,7 +333,7 @@ main(int argc, char **argv)
   Utilities::MPI::MPI_InitFinalize mpi_init(argc, argv, 1);
 
   mpi_initlog();
-  test<2, double, VectorizedArray<double>>(0, 2, 3);
-  test<2, double, VectorizedArray<double>>(1, 2, 3);
-  test<2, double, VectorizedArray<double>>(2, 2, 3);
+  test<2, double>(0, 2, 3);
+  test<2, double>(1, 2, 3);
+  test<2, double>(2, 2, 3);
 }
