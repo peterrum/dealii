@@ -48,12 +48,12 @@ public:
 };
 
 template <int dim,
-          int fe_degree,
-          int n_points                 = fe_degree + 1,
           typename Number              = double,
           typename VectorizedArrayType = VectorizedArray<Number>>
 void
-test(const unsigned int geometry      = 0,
+test(const unsigned int geometry,
+     const int          fe_degree,
+     const int          n_points,
      const unsigned int n_refinements = 1,
      const bool         print_vector  = true,
      const MPI_Comm     comm          = MPI_COMM_SELF)
@@ -139,8 +139,7 @@ test(const unsigned int geometry      = 0,
    */
   matrix_free.template loop<VectorType, VectorType>(
     [&](const auto &, auto &dst, const auto &src, const auto range) {
-      FEEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType>
-        phi(matrix_free);
+      FEEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi(matrix_free);
       for (unsigned int cell = range.first; cell < range.second; ++cell)
         {
           phi.reinit(cell);
@@ -153,10 +152,10 @@ test(const unsigned int geometry      = 0,
         }
     },
     [&](const auto &, auto &dst, const auto &src, const auto range) {
-      FEFaceEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType>
-        phi_m(matrix_free, true);
-      FEFaceEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType>
-        phi_p(matrix_free, false);
+      FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_m(
+        matrix_free, true);
+      FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_p(
+        matrix_free, false);
 
       for (unsigned int face = range.first; face < range.second; ++face)
         {
@@ -194,8 +193,8 @@ test(const unsigned int geometry      = 0,
         }
     },
     [&](const auto &, auto &dst, const auto &src, const auto face_range) {
-      FEFaceEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType>
-        phi_m(matrix_free, true);
+      FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_m(
+        matrix_free, true);
       for (unsigned int face = face_range.first; face < face_range.second;
            face++)
         {
@@ -239,12 +238,11 @@ test(const unsigned int geometry      = 0,
    */
   matrix_free.template loop_cell_centric<VectorType, VectorType>(
     [&](const auto &, auto &dst, const auto &src, const auto range) {
-      FEEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType>
-        phi(matrix_free);
-      FEFaceEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType>
-        phi_m(matrix_free, true);
-      FEFaceEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType>
-        phi_p(matrix_free, false);
+      FEEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi(matrix_free);
+      FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_m(
+        matrix_free, true);
+      FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_p(
+        matrix_free, false);
 
       for (unsigned int cell = range.first; cell < range.second; ++cell)
         {
@@ -347,7 +345,7 @@ main(int argc, char **argv)
   Utilities::MPI::MPI_InitFinalize mpi_init(argc, argv, 1);
 
   mpi_initlog();
-  test<2, 2, 3, double, VectorizedArray<double>>(0);
-  test<2, 2, 3, double, VectorizedArray<double>>(1);
-  test<2, 2, 3, double, VectorizedArray<double>>(2);
+  test<2, double, VectorizedArray<double>>(0, 2, 3);
+  test<2, double, VectorizedArray<double>>(1, 2, 3);
+  test<2, double, VectorizedArray<double>>(2, 2, 3);
 }
