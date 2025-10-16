@@ -91,8 +91,10 @@ test(const unsigned int geometry,
 
   dof_handler.distribute_dofs(fe);
 
-  MappingQ<dim> mapping(1);
-  QGauss<1>     quad(fe_degree + 2);
+  MappingQ<dim>      mapping(1);
+  hp::QCollection<1> quad;
+  quad.push_back(QGauss<1>(fe_degree + 2));
+  quad.push_back(QGauss<1>(fe_degree + 2));
 
   AffineConstraints<Number> constraint;
 
@@ -156,11 +158,13 @@ test(const unsigned int geometry,
       const unsigned int active_fe_index_p =
         matrix_free.get_face_iterator(range.first, 0, false)
           .first->active_fe_index();
+      const unsigned int active_q_index =
+        std::max(active_fe_index_m, active_fe_index_p);
 
       FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_m(
-        matrix_free, true, 0, 0, 0, active_fe_index_m, 0);
+        matrix_free, true, 0, 0, 0, active_fe_index_m, active_q_index);
       FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_p(
-        matrix_free, false, 0, 0, 0, active_fe_index_p, 0);
+        matrix_free, false, 0, 0, 0, active_fe_index_p, active_q_index);
 
       for (unsigned int face = range.first; face < range.second; ++face)
         {
@@ -202,7 +206,7 @@ test(const unsigned int geometry,
         matrix_free.get_face_iterator(range.first, 0, true)
           .first->active_fe_index();
       FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_m(
-        matrix_free, true, 0, 0, 0, active_fe_index_m, 0);
+        matrix_free, true, 0, 0, 0, active_fe_index_m, active_fe_index_m);
       for (unsigned int face = range.first; face < range.second; face++)
         {
           phi_m.reinit(face);
@@ -245,26 +249,37 @@ test(const unsigned int geometry,
    */
   matrix_free.template loop_cell_centric<VectorType, VectorType>(
     [&](const auto &, auto &dst, const auto &src, const auto range) {
-      FEEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi(matrix_free,
-                                                                   range);
-
       const unsigned int active_fe_index_m =
         matrix_free.get_cell_iterator(range.first, 0)->active_fe_index();
 
-      FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_m(
-        matrix_free, true, 0, 0, 0, active_fe_index_m, 0);
+      FEEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi(
+        matrix_free, 0, 0, 0, active_fe_index_m, active_fe_index_m);
 
-      std::vector<std::shared_ptr<
-        FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType>>>
-        phi_ps;
+      Table<2,
+            std::shared_ptr<
+              FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType>>>
+        phi_ms(2, 2);
 
-      for (unsigned int i = 0;
-           i < matrix_free.get_dof_handler().get_fe_collection().size();
-           ++i)
-        phi_ps.emplace_back(
-          std::make_shared<
+      for (unsigned int q = 0; q < quad.size(); ++q)
+        for (unsigned int i = 0;
+             i < matrix_free.get_dof_handler().get_fe_collection().size();
+             ++i)
+          phi_ms[i][q] = std::make_shared<
             FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType>>(
-            matrix_free, false, 0, 0, 0, i, 0));
+            matrix_free, true, 0, 0, 0, i, q);
+
+      Table<2,
+            std::shared_ptr<
+              FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType>>>
+        phi_ps(2, 2);
+
+      for (unsigned int q = 0; q < quad.size(); ++q)
+        for (unsigned int i = 0;
+             i < matrix_free.get_dof_handler().get_fe_collection().size();
+             ++i)
+          phi_ps[i][q] = std::make_shared<
+            FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType>>(
+            matrix_free, false, 0, 0, 0, i, q);
 
       for (unsigned int cell = range.first; cell < range.second; ++cell)
         {
@@ -283,6 +298,8 @@ test(const unsigned int geometry,
 
               if (bids[0] != numbers::internal_face_boundary_id)
                 {
+                  auto &phi_m = *phi_ms[active_fe_index_m][active_fe_index_m];
+
                   phi_m.reinit(cell, face);
                   phi_m.read_dof_values(src);
                   phi_m.evaluate(EvaluationFlags::values |
@@ -314,8 +331,11 @@ test(const unsigned int geometry,
                     matrix_free.get_cell_iterator(cell, 0)
                       ->neighbor(face)
                       ->active_fe_index();
+                  const unsigned int active_q_index =
+                    std::max(active_fe_index_m, active_fe_index_p);
 
-                  auto &phi_p = *phi_ps[active_fe_index_p];
+                  auto &phi_m = *phi_ms[active_fe_index_m][active_q_index];
+                  auto &phi_p = *phi_ps[active_fe_index_p][active_q_index];
 
                   phi_m.reinit(cell, face);
                   phi_p.reinit(cell, face);
