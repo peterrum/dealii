@@ -80,14 +80,14 @@ test(const unsigned int geometry,
 
 
   DoFHandler<dim> dof_handler(tria);
-  // for (const auto &cell : dof_handler.active_cell_iterators())
-  //   if (cell->is_locally_owned())
-  //     {
-  //       if (cell->center()[0] < 0.5)
-  //         cell->set_active_fe_index(0);
-  //       else
-  //         cell->set_active_fe_index(1);
-  //     }
+  for (const auto &cell : dof_handler.active_cell_iterators())
+    if (cell->is_locally_owned())
+      {
+        if (cell->center()[0] < 0.5)
+          cell->set_active_fe_index(0);
+        else
+          cell->set_active_fe_index(1);
+      }
 
   dof_handler.distribute_dofs(fe);
 
@@ -133,8 +133,11 @@ test(const unsigned int geometry,
    */
   matrix_free.template loop<VectorType, VectorType>(
     [&](const auto &, auto &dst, const auto &src, const auto range) {
-      FEEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi(matrix_free,
-                                                                   range);
+      const unsigned int active_fe_index =
+        matrix_free.get_cell_iterator(range.first, 0)->active_fe_index();
+
+      FEEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi(
+        matrix_free, 0, 0, 0, active_fe_index, 0);
       for (unsigned int cell = range.first; cell < range.second; ++cell)
         {
           phi.reinit(cell);
@@ -147,10 +150,17 @@ test(const unsigned int geometry,
         }
     },
     [&](const auto &, auto &dst, const auto &src, const auto range) {
+      const unsigned int active_fe_index_m =
+        matrix_free.get_face_iterator(range.first, 0, true)
+          .first->active_fe_index();
+      const unsigned int active_fe_index_p =
+        matrix_free.get_face_iterator(range.first, 0, false)
+          .first->active_fe_index();
+
       FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_m(
-        matrix_free, range, true);
+        matrix_free, true, 0, 0, 0, active_fe_index_m, 0);
       FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_p(
-        matrix_free, range, false);
+        matrix_free, false, 0, 0, 0, active_fe_index_p, 0);
 
       for (unsigned int face = range.first; face < range.second; ++face)
         {
@@ -187,11 +197,13 @@ test(const unsigned int geometry,
           phi_p.distribute_local_to_global(dst);
         }
     },
-    [&](const auto &, auto &dst, const auto &src, const auto face_range) {
+    [&](const auto &, auto &dst, const auto &src, const auto range) {
+      const unsigned int active_fe_index_m =
+        matrix_free.get_face_iterator(range.first, 0, true)
+          .first->active_fe_index();
       FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_m(
-        matrix_free, true);
-      for (unsigned int face = face_range.first; face < face_range.second;
-           face++)
+        matrix_free, true, 0, 0, 0, active_fe_index_m, 0);
+      for (unsigned int face = range.first; face < range.second; face++)
         {
           phi_m.reinit(face);
           phi_m.read_dof_values(src);
