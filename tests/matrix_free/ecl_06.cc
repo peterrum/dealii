@@ -53,7 +53,6 @@ template <int dim,
 void
 test(const unsigned int geometry,
      const int          fe_degree,
-     const int          n_points,
      const unsigned int n_refinements = 1,
      const bool         print_vector  = true,
      const MPI_Comm     comm          = MPI_COMM_SELF)
@@ -79,11 +78,21 @@ test(const unsigned int geometry,
   FE_DGQ<dim>           fe2(fe_degree + 1);
   hp::FECollection<dim> fe(fe1, fe2);
 
+
   DoFHandler<dim> dof_handler(tria);
+  // for (const auto &cell : dof_handler.active_cell_iterators())
+  //   if (cell->is_locally_owned())
+  //     {
+  //       if (cell->center()[0] < 0.5)
+  //         cell->set_active_fe_index(0);
+  //       else
+  //         cell->set_active_fe_index(1);
+  //     }
+
   dof_handler.distribute_dofs(fe);
 
   MappingQ<dim> mapping(1);
-  QGauss<1>     quad(n_points);
+  QGauss<1>     quad(fe_degree + 2);
 
   AffineConstraints<Number> constraint;
 
@@ -353,7 +362,7 @@ main(int argc, char **argv)
   Utilities::MPI::MPI_InitFinalize mpi_init(argc, argv, 1);
 
   mpi_initlog();
-  test<2, double>(0, 2, 3);
-  test<2, double>(1, 2, 3);
-  test<2, double>(2, 2, 3);
+  test<2, double>(0, 2);
+  test<2, double>(1, 2);
+  test<2, double>(2, 2);
 }
