@@ -75,7 +75,10 @@ test(const unsigned int geometry,
 
   tria.refine_global(n_refinements);
 
-  FE_DGQ<dim>     fe(fe_degree);
+  FE_DGQ<dim>           fe1(fe_degree);
+  FE_DGQ<dim>           fe2(fe_degree + 1);
+  hp::FECollection<dim> fe(fe1, fe2);
+
   DoFHandler<dim> dof_handler(tria);
   dof_handler.distribute_dofs(fe);
 
@@ -224,13 +227,23 @@ test(const unsigned int geometry,
       FEEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi(matrix_free,
                                                                    range);
 
-      const unsigned int active_fe_index_m = 0;
-      const unsigned int active_fe_index_p = 0;
+      const unsigned int active_fe_index_m =
+        matrix_free.get_cell_iterator(range.first, 0)->active_fe_index();
 
       FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_m(
         matrix_free, true, 0, 0, 0, active_fe_index_m, 0);
-      FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi_p(
-        matrix_free, false, 0, 0, 0, active_fe_index_p, 0);
+
+      std::vector<std::shared_ptr<
+        FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType>>>
+        phi_ps;
+
+      for (unsigned int i = 0;
+           i < matrix_free.get_dof_handler().get_fe_collection().size();
+           ++i)
+        phi_ps.emplace_back(
+          std::make_shared<
+            FEFaceEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType>>(
+            matrix_free, false, 0, 0, 0, i, 0));
 
       for (unsigned int cell = range.first; cell < range.second; ++cell)
         {
@@ -276,6 +289,13 @@ test(const unsigned int geometry,
                 }
               else
                 {
+                  const unsigned int active_fe_index_p =
+                    matrix_free.get_cell_iterator(cell, 0)
+                      ->neighbor(face)
+                      ->active_fe_index();
+
+                  auto &phi_p = *phi_ps[active_fe_index_p];
+
                   phi_m.reinit(cell, face);
                   phi_p.reinit(cell, face);
 
