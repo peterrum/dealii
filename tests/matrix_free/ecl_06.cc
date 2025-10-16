@@ -129,14 +129,6 @@ test(const unsigned int geometry      = 0,
   matrix_free.initialize_dof_vector(src);
   matrix_free.initialize_dof_vector(dst);
 
-  FEEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType> phi(
-    matrix_free);
-  FEFaceEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType>
-    phi_m(matrix_free, true);
-  FEFaceEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType>
-    phi_p(matrix_free, false);
-
-
   CosineFunction<dim, Number> function;
   VectorTools::interpolate(dof_handler, function, src);
 
@@ -147,6 +139,8 @@ test(const unsigned int geometry      = 0,
    */
   matrix_free.template loop<VectorType, VectorType>(
     [&](const auto &, auto &dst, const auto &src, const auto range) {
+      FEEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType>
+        phi(matrix_free);
       for (unsigned int cell = range.first; cell < range.second; ++cell)
         {
           phi.reinit(cell);
@@ -159,6 +153,11 @@ test(const unsigned int geometry      = 0,
         }
     },
     [&](const auto &, auto &dst, const auto &src, const auto range) {
+      FEFaceEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType>
+        phi_m(matrix_free, true);
+      FEFaceEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType>
+        phi_p(matrix_free, false);
+
       for (unsigned int face = range.first; face < range.second; ++face)
         {
           phi_m.reinit(face);
@@ -195,6 +194,8 @@ test(const unsigned int geometry      = 0,
         }
     },
     [&](const auto &, auto &dst, const auto &src, const auto face_range) {
+      FEFaceEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType>
+        phi_m(matrix_free, true);
       for (unsigned int face = face_range.first; face < face_range.second;
            face++)
         {
@@ -238,6 +239,13 @@ test(const unsigned int geometry      = 0,
    */
   matrix_free.template loop_cell_centric<VectorType, VectorType>(
     [&](const auto &, auto &dst, const auto &src, const auto range) {
+      FEEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType>
+        phi(matrix_free);
+      FEFaceEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType>
+        phi_m(matrix_free, true);
+      FEFaceEvaluation<dim, fe_degree, n_points, 1, Number, VectorizedArrayType>
+        phi_p(matrix_free, false);
+
       for (unsigned int cell = range.first; cell < range.second; ++cell)
         {
           phi.reinit(cell);
