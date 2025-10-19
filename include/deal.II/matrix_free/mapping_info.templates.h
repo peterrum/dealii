@@ -1768,6 +1768,9 @@ namespace internal
                           n_q_points = fe_face_values.n_quadrature_points;
                           face_data.resize(n_q_points);
                         }
+                      else
+                        AssertDimension(fe_face_values.n_quadrature_points,
+                                        n_q_points);
 
                       for (unsigned int q = 0; q < n_q_points; ++q)
                         {
@@ -1907,14 +1910,14 @@ namespace internal
                                   .size() == 1 ?
                               0 :
                               faces[face].exterior_face_no;
+                          const auto &quadrature =
+                            mapping_info.face_data[my_q]
+                              .q_collection[hp_quad_index][hp_quad_face_no];
 
                           const unsigned int hp_mapping_index =
                             mapping_in.size() == 1 ? 0 : fe_index;
 
                           const auto &mapping = mapping_in[hp_mapping_index];
-                          const auto &quadrature =
-                            mapping_info.face_data[my_q]
-                              .q_collection[hp_quad_index][hp_quad_face_no];
 
                           if (fe_face_values_container[my_q][fe_index]
                                                       [hp_quad_index]
