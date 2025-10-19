@@ -1651,20 +1651,23 @@ namespace internal
             *std::max_element(active_fe_index.begin(), active_fe_index.end()) :
             0;
 
-        Table<3, std::shared_ptr<FEFaceValues<dim>>> fe_face_values_container(
+        Table<4, std::shared_ptr<FEFaceValues<dim>>> fe_face_values_container(
           mapping_info.face_data.size(),
           max_active_fe_index + 1,
-          max_active_fe_index + 1);
+          max_active_fe_index + 1,
+          GeometryInfo<dim>::faces_per_cell);
 
-        Table<3, std::shared_ptr<FEFaceValues<dim>>>
+        Table<4, std::shared_ptr<FEFaceValues<dim>>>
           fe_boundary_face_values_container(mapping_info.face_data.size(),
                                             max_active_fe_index + 1,
-                                            max_active_fe_index + 1);
+                                            max_active_fe_index + 1,
+                                            GeometryInfo<dim>::faces_per_cell);
 
-        Table<3, std::shared_ptr<FESubfaceValues<dim>>>
+        Table<4, std::shared_ptr<FESubfaceValues<dim>>>
           fe_subface_values_container(mapping_info.face_data.size(),
                                       max_active_fe_index + 1,
-                                      max_active_fe_index + 1);
+                                      max_active_fe_index + 1,
+                                      GeometryInfo<dim>::faces_per_cell);
 
         ExtractCellHelper::LocalData<dim, Number, VectorizedArrayType>
           face_data(ExtractCellHelper::get_jacobian_size(tria));
@@ -1684,43 +1687,60 @@ namespace internal
                   active_fe_index[faces[face].cells_interior[0] /
                                   VectorizedArrayType::size()] :
                   0;
+
+              // select quadrature
               const unsigned int hp_quad_index =
                 mapping_info.cell_data[my_q].descriptor.size() == 1 ? 0 :
                                                                       fe_index;
+              const unsigned int hp_quad_face_no =
+                mapping_info.face_data[my_q]
+                      .q_collection[hp_quad_index]
+                      .size() == 1 ?
+                  0 :
+                  faces[face].interior_face_no;
+
+              const auto &quadrature =
+                mapping_info.face_data[my_q]
+                  .q_collection[hp_quad_index][hp_quad_face_no];
+
+              // select mapping
               const unsigned int hp_mapping_index =
                 mapping_in.size() == 1 ? 0 : fe_index;
 
               const auto &mapping = mapping_in[hp_mapping_index];
-              const auto &quadrature =
-                mapping_info.face_data[my_q].q_collection[hp_quad_index];
 
               const bool is_boundary_face =
                 faces[face].cells_exterior[0] == numbers::invalid_unsigned_int;
 
               if (is_boundary_face &&
                   fe_boundary_face_values_container[my_q][fe_index]
-                                                   [hp_quad_index] == nullptr)
+                                                   [hp_quad_index]
+                                                   [hp_quad_face_no] == nullptr)
                 fe_boundary_face_values_container
-                  [my_q][fe_index][hp_quad_index] =
+                  [my_q][fe_index][hp_quad_index][hp_quad_face_no] =
                     std::make_shared<FEFaceValues<dim>>(
                       mapping,
                       *dummy_fe[my_q][hp_quad_index],
                       quadrature,
                       mapping_info.update_flags_boundary_faces);
-              else if (fe_face_values_container[my_q][fe_index]
-                                               [hp_quad_index] == nullptr)
-                fe_face_values_container[my_q][fe_index][hp_quad_index] =
-                  std::make_shared<FEFaceValues<dim>>(
-                    mapping,
-                    *dummy_fe[my_q][hp_quad_index],
-                    quadrature,
-                    mapping_info.update_flags_inner_faces);
+              else if (fe_face_values_container[my_q][fe_index][hp_quad_index]
+                                               [hp_quad_face_no] == nullptr)
+                fe_face_values_container[my_q][fe_index][hp_quad_index]
+                                        [hp_quad_face_no] =
+                                          std::make_shared<FEFaceValues<dim>>(
+                                            mapping,
+                                            *dummy_fe[my_q][hp_quad_index],
+                                            quadrature,
+                                            mapping_info
+                                              .update_flags_inner_faces);
 
               FEFaceValues<dim> &fe_face_values =
                 is_boundary_face ?
                   *fe_boundary_face_values_container[my_q][fe_index]
-                                                    [hp_quad_index] :
-                  *fe_face_values_container[my_q][fe_index][hp_quad_index];
+                                                    [hp_quad_index]
+                                                    [hp_quad_face_no] :
+                  *fe_face_values_container[my_q][fe_index][hp_quad_index]
+                                           [hp_quad_face_no];
 
               unsigned int n_q_points = 0; // will be override once FEFaceValues
                                            // is set up
@@ -1875,24 +1895,33 @@ namespace internal
                               active_fe_index[faces[face].cells_exterior[0] /
                                               VectorizedArrayType::size()] :
                               0;
+
                           const unsigned int hp_quad_index =
                             mapping_info.cell_data[my_q].descriptor.size() ==
                                 1 ?
                               0 :
                               fe_index;
+                          const unsigned int hp_quad_face_no =
+                            mapping_info.face_data[my_q]
+                                  .q_collection[hp_quad_index]
+                                  .size() == 1 ?
+                              0 :
+                              faces[face].exterior_face_no;
+
                           const unsigned int hp_mapping_index =
                             mapping_in.size() == 1 ? 0 : fe_index;
 
                           const auto &mapping = mapping_in[hp_mapping_index];
                           const auto &quadrature =
                             mapping_info.face_data[my_q]
-                              .q_collection[hp_quad_index];
+                              .q_collection[hp_quad_index][hp_quad_face_no];
 
                           if (fe_face_values_container[my_q][fe_index]
-                                                      [hp_quad_index] ==
+                                                      [hp_quad_index]
+                                                      [hp_quad_face_no] ==
                               nullptr)
                             fe_face_values_container
-                              [my_q][fe_index][hp_quad_index] =
+                              [my_q][fe_index][hp_quad_index][hp_quad_face_no] =
                                 std::make_shared<FEFaceValues<dim>>(
                                   mapping,
                                   *dummy_fe[my_q][hp_quad_index],
@@ -1900,33 +1929,37 @@ namespace internal
                                   mapping_info.update_flags_boundary_faces);
 
                           fe_face_values_container
-                            [my_q][fe_index][hp_quad_index]
+                            [my_q][fe_index][hp_quad_index][hp_quad_face_no]
                               ->reinit(cell_it, faces[face].exterior_face_no);
 
                           actual_fe_face_values =
                             fe_face_values_container[my_q][fe_index]
                                                     [hp_quad_index]
+                                                    [hp_quad_face_no]
                                                       .get();
                         }
                       else
                         {
                           if (fe_subface_values_container[my_q][0]
-                                                         [hp_quad_index] ==
+                                                         [hp_quad_index]
+                                                         [hp_quad_face_no] ==
                               nullptr)
                             fe_subface_values_container
-                              [my_q][0][hp_quad_index] =
+                              [my_q][0][hp_quad_index][hp_quad_face_no] =
                                 std::make_shared<FESubfaceValues<dim>>(
                                   mapping,
                                   *dummy_fe[my_q][hp_quad_index],
                                   quadrature,
                                   mapping_info.update_flags_inner_faces);
-                          fe_subface_values_container[my_q][0][hp_quad_index]
-                            ->reinit(cell_it,
-                                     faces[face].exterior_face_no,
-                                     faces[face].subface_index);
+                          fe_subface_values_container
+                            [my_q][0][hp_quad_index][hp_quad_face_no]
+                              ->reinit(cell_it,
+                                       faces[face].exterior_face_no,
+                                       faces[face].subface_index);
                           actual_fe_face_values =
                             fe_subface_values_container[my_q][0][hp_quad_index]
-                              .get();
+                                                       [hp_quad_face_no]
+                                                         .get();
                         }
                       for (unsigned int q = 0; q < n_q_points; ++q)
                         {
