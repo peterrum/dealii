@@ -1651,25 +1651,16 @@ namespace internal
             *std::max_element(active_fe_index.begin(), active_fe_index.end()) :
             0;
 
-        std::vector<std::vector<std::shared_ptr<FEFaceValues<dim>>>>
-          fe_face_values_container(mapping_info.face_data.size());
-        for (unsigned int my_q = 0; my_q < mapping_info.face_data.size();
-             ++my_q)
-          fe_face_values_container[my_q].resize(max_active_fe_index + 1);
+        Table<2, std::shared_ptr<FEFaceValues<dim>>> fe_face_values_container(
+          mapping_info.face_data.size(), max_active_fe_index + 1);
 
-        std::vector<std::vector<std::shared_ptr<FEFaceValues<dim>>>>
-          fe_boundary_face_values_container(mapping_info.face_data.size());
-        for (unsigned int my_q = 0; my_q < mapping_info.face_data.size();
-             ++my_q)
-          fe_boundary_face_values_container[my_q].resize(max_active_fe_index +
-                                                         1);
+        Table<2, std::shared_ptr<FEFaceValues<dim>>>
+          fe_boundary_face_values_container(mapping_info.face_data.size(),
+                                            max_active_fe_index + 1);
 
-        std::vector<std::vector<std::shared_ptr<FESubfaceValues<dim>>>>
-          fe_subface_values_container(mapping_info.face_data.size());
-        for (unsigned int my_q = 0; my_q < mapping_info.face_data.size();
-             ++my_q)
-          fe_subface_values_container[my_q].resize(
-            mapping_info.face_data[my_q].descriptor.size());
+        Table<2, std::shared_ptr<FESubfaceValues<dim>>>
+          fe_subface_values_container(mapping_info.face_data.size(),
+                                      max_active_fe_index + 1);
 
         ExtractCellHelper::LocalData<dim, Number, VectorizedArrayType>
           face_data(ExtractCellHelper::get_jacobian_size(tria));
