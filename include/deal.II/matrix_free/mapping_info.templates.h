@@ -1689,9 +1689,35 @@ namespace internal
                   active_fe_index[faces[face].cells_interior[0] /
                                   VectorizedArrayType::size()] :
                   0;
-              const unsigned int hp_quad_index =
-                mapping_info.cell_data[my_q].descriptor.size() == 1 ? 0 :
-                                                                      fe_index;
+
+              const bool is_boundary_face =
+                faces[face].cells_exterior[0] == numbers::invalid_unsigned_int;
+
+              unsigned int hp_quad_index = 0;
+
+              if (mapping_info.cell_data[my_q].descriptor.size() != 1)
+                {
+                  if (is_boundary_face)
+                    hp_quad_index = fe_index;
+                  else
+                    {
+                      const unsigned int fe_index_neighbor =
+                        active_fe_index.size() > 0 ?
+                          active_fe_index[faces[face].cells_exterior[0] /
+                                          VectorizedArrayType::size()] :
+                          0;
+
+                      if (mapping_info.face_data[my_q]
+                            .q_collection[fe_index_neighbor][0]
+                            .size() > mapping_info.face_data[my_q]
+                                        .q_collection[fe_index][0]
+                                        .size())
+                        hp_quad_index = fe_index_neighbor;
+                      else
+                        hp_quad_index = fe_index;
+                    }
+                }
+
               const unsigned int hp_mapping_index =
                 mapping_in.size() == 1 ? 0 : fe_index;
 
@@ -1699,8 +1725,7 @@ namespace internal
               const auto &quadrature =
                 mapping_info.face_data[my_q].q_collection[hp_quad_index];
 
-              const bool is_boundary_face =
-                faces[face].cells_exterior[0] == numbers::invalid_unsigned_int;
+              std::cout << "A" << quadrature[0].size() << std::endl;
 
               if (is_boundary_face &&
                   fe_boundary_face_values_container[my_q][fe_index] == nullptr)
@@ -1729,6 +1754,9 @@ namespace internal
               bool normal_is_similar = true;
               bool JxW_is_similar    = true;
               bool cell_is_cartesian = true;
+
+              std::cout << "V" << VectorizedArrayType::size() << std::endl;
+
               for (unsigned int v = 0; v < VectorizedArrayType::size(); ++v)
                 {
                   Tensor<2, dim> jacobian_0;
@@ -1748,6 +1776,11 @@ namespace internal
                         {
                           n_q_points = fe_face_values.n_quadrature_points;
                           face_data.resize(n_q_points);
+                        }
+                      else
+                        {
+                          AssertDimension(n_q_points,
+                                          fe_face_values.n_quadrature_points);
                         }
 
                       for (unsigned int q = 0; q < n_q_points; ++q)
@@ -1876,11 +1909,7 @@ namespace internal
                               active_fe_index[faces[face].cells_exterior[0] /
                                               VectorizedArrayType::size()] :
                               0;
-                          const unsigned int hp_quad_index =
-                            mapping_info.cell_data[my_q].descriptor.size() ==
-                                1 ?
-                              0 :
-                              fe_index;
+
                           const unsigned int hp_mapping_index =
                             mapping_in.size() == 1 ? 0 : fe_index;
 
@@ -1903,9 +1932,13 @@ namespace internal
 
                           actual_fe_face_values =
                             fe_face_values_container[my_q][fe_index].get();
+
+                          std::cout << "B" << quadrature[0].size() << std::endl;
                         }
                       else
                         {
+                          AssertThrow(false, ExcNotImplemented());
+
                           if (fe_subface_values_container[my_q][0] == nullptr)
                             fe_subface_values_container[my_q][0] =
                               std::make_shared<FESubfaceValues<dim>>(
@@ -1920,6 +1953,10 @@ namespace internal
                           actual_fe_face_values =
                             fe_subface_values_container[my_q][0].get();
                         }
+
+                      AssertDimension(
+                        n_q_points, actual_fe_face_values->n_quadrature_points);
+
                       for (unsigned int q = 0; q < n_q_points; ++q)
                         {
                           DerivativeForm<1, dim, dim> inv_jac =

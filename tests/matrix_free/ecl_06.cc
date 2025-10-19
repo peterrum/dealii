@@ -93,7 +93,7 @@ test(const unsigned int geometry,
 
   MappingQ<dim>      mapping(1);
   hp::QCollection<1> quad;
-  quad.push_back(QGauss<1>(fe_degree + 2));
+  quad.push_back(QGauss<1>(fe_degree + 1));
   quad.push_back(QGauss<1>(fe_degree + 2));
 
   AffineConstraints<Number> constraint;
