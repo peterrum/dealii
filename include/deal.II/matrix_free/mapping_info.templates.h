@@ -1896,18 +1896,6 @@ namespace internal
                                               VectorizedArrayType::size()] :
                               0;
 
-                          const unsigned int hp_quad_index =
-                            mapping_info.cell_data[my_q].descriptor.size() ==
-                                1 ?
-                              0 :
-                              fe_index;
-                          const unsigned int hp_quad_face_no =
-                            mapping_info.face_data[my_q]
-                                  .q_collection[hp_quad_index]
-                                  .size() == 1 ?
-                              0 :
-                              faces[face].exterior_face_no;
-
                           const unsigned int hp_mapping_index =
                             mapping_in.size() == 1 ? 0 : fe_index;
 
