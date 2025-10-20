@@ -3250,19 +3250,21 @@ namespace internal
                                 (compute_neighbor_index(cell, face, 0) ==
                                  numbers::invalid_unsigned_int));
 
-              const unsigned int fe_index = 0;
+              const unsigned int fe_index =
+                active_fe_index.size() > 0 ? active_fe_index[cell] : 0;
 
               // select quadrature
-              unsigned int hp_quad_index   = 0;
-              unsigned int hp_quad_face_no = 0;
+              unsigned int hp_quad_index =
+                cell_data[my_q].descriptor.size() == 1 ? 0 : fe_index;
+              unsigned int hp_quad_face_no =
+                face_data[my_q].q_collection[hp_quad_index].size() == 1 ? 0 :
+                                                                          face;
 
 
               if (!is_boundary_face)
                 {
                   // TODO
                 }
-
-
 
               // select mapping
               const unsigned int hp_mapping_index =
