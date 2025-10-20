@@ -1678,6 +1678,9 @@ namespace internal
           for (unsigned int my_q = 0; my_q < mapping_info.face_data.size();
                ++my_q)
             {
+              const bool is_boundary_face =
+                faces[face].cells_exterior[0] == numbers::invalid_unsigned_int;
+
               // We assume that we have the faces sorted by the active FE
               // indices so that the active FE index of the interior side of the
               // face batch is the same as the FE index of the interior side of
@@ -1689,15 +1692,45 @@ namespace internal
                   0;
 
               // select quadrature
-              const unsigned int hp_quad_index =
+              unsigned int hp_quad_index =
                 mapping_info.cell_data[my_q].descriptor.size() == 1 ? 0 :
                                                                       fe_index;
-              const unsigned int hp_quad_face_no =
-                mapping_info.face_data[my_q]
-                      .q_collection[hp_quad_index]
-                      .size() == 1 ?
-                  0 :
-                  faces[face].interior_face_no;
+              unsigned int hp_quad_face_no = mapping_info.face_data[my_q]
+                                                   .q_collection[hp_quad_index]
+                                                   .size() == 1 ?
+                                               0 :
+                                               faces[face].interior_face_no;
+
+              if (!is_boundary_face)
+                {
+                  const unsigned int ext_fe_index =
+                    active_fe_index.size() > 0 ?
+                      active_fe_index[faces[face].cells_exterior[0] /
+                                      VectorizedArrayType::size()] :
+                      0;
+
+                  const unsigned int ext_hp_quad_index =
+                    mapping_info.cell_data[my_q].descriptor.size() == 1 ?
+                      0 :
+                      ext_fe_index;
+                  const unsigned int ext_hp_quad_face_no =
+                    mapping_info.face_data[my_q]
+                          .q_collection[ext_hp_quad_index]
+                          .size() == 1 ?
+                      0 :
+                      faces[face].exterior_face_no;
+
+                  if (mapping_info.face_data[my_q]
+                        .q_collection[ext_hp_quad_index][ext_hp_quad_face_no]
+                        .size() >
+                      mapping_info.face_data[my_q]
+                        .q_collection[hp_quad_index][hp_quad_face_no]
+                        .size())
+                    {
+                      hp_quad_index   = ext_hp_quad_index;
+                      hp_quad_face_no = ext_hp_quad_face_no;
+                    }
+                }
 
               const auto &quadrature =
                 mapping_info.face_data[my_q]
@@ -1708,9 +1741,6 @@ namespace internal
                 mapping_in.size() == 1 ? 0 : fe_index;
 
               const auto &mapping = mapping_in[hp_mapping_index];
-
-              const bool is_boundary_face =
-                faces[face].cells_exterior[0] == numbers::invalid_unsigned_int;
 
               if (is_boundary_face &&
                   fe_boundary_face_values_container[my_q][fe_index]
@@ -1898,21 +1928,6 @@ namespace internal
                               active_fe_index[faces[face].cells_exterior[0] /
                                               VectorizedArrayType::size()] :
                               0;
-
-                          const unsigned int hp_quad_index =
-                            mapping_info.cell_data[my_q].descriptor.size() ==
-                                1 ?
-                              0 :
-                              fe_index;
-                          const unsigned int hp_quad_face_no =
-                            mapping_info.face_data[my_q]
-                                  .q_collection[hp_quad_index]
-                                  .size() == 1 ?
-                              0 :
-                              faces[face].exterior_face_no;
-                          const auto &quadrature =
-                            mapping_info.face_data[my_q]
-                              .q_collection[hp_quad_index][hp_quad_face_no];
 
                           const unsigned int hp_mapping_index =
                             mapping_in.size() == 1 ? 0 : fe_index;
