@@ -139,7 +139,7 @@ test(const unsigned int geometry,
         matrix_free.get_cell_iterator(range.first, 0)->active_fe_index();
 
       FEEvaluation<dim, -1, 0, 1, Number, VectorizedArrayType> phi(
-        matrix_free, 0, 0, 0, active_fe_index, 0);
+        matrix_free, 0, 0, 0, active_fe_index, active_fe_index);
       for (unsigned int cell = range.first; cell < range.second; ++cell)
         {
           phi.reinit(cell);
