@@ -2149,15 +2149,58 @@ namespace internal
         const std::vector<GeometryType> &face_type,
         const std::vector<FaceToCellTopology<VectorizedArrayType::size()>>
                                                               &faces,
+        const std::vector<unsigned int>                       &active_fe_index,
         MappingInfoStorage<dim - 1, dim, VectorizedArrayType> &data_faces)
       {
         for (unsigned int face = first_face; face < last_face; ++face)
           {
             const bool is_boundary_face =
               faces[face].cells_exterior[0] == numbers::invalid_unsigned_int;
+
+
+            const unsigned int fe_index =
+              active_fe_index.size() > 0 ?
+                active_fe_index[faces[face].cells_interior[0] /
+                                VectorizedArrayType::size()] :
+                0;
+
+            unsigned int hp_quad_index =
+              data_faces.descriptor.size() == 1 ? 0 : fe_index;
+            unsigned int hp_quad_face_no =
+              data_faces.q_collection[hp_quad_index].size() == 1 ?
+                0 :
+                faces[face].interior_face_no;
+
+            if (!is_boundary_face)
+              {
+                const unsigned int ext_fe_index =
+                  active_fe_index.size() > 0 ?
+                    active_fe_index[faces[face].cells_exterior[0] /
+                                    VectorizedArrayType::size()] :
+                    0;
+
+                const unsigned int ext_hp_quad_index =
+                  data_faces.descriptor.size() == 1 ? 0 : ext_fe_index;
+                const unsigned int ext_hp_quad_face_no =
+                  data_faces.q_collection[ext_hp_quad_index].size() == 1 ?
+                    0 :
+                    faces[face].exterior_face_no;
+
+                if (data_faces
+                      .q_collection[ext_hp_quad_index][ext_hp_quad_face_no]
+                      .size() >
+                    data_faces.q_collection[hp_quad_index][hp_quad_face_no]
+                      .size())
+                  {
+                    hp_quad_index   = ext_hp_quad_index;
+                    hp_quad_face_no = ext_hp_quad_face_no;
+                  }
+              }
+
             const unsigned int n_q_points_work =
-              face_type[face] > affine ? data_faces.descriptor[0].n_q_points :
-                                         1;
+              face_type[face] > affine ?
+                data_faces.q_collection[hp_quad_index][hp_quad_face_no].size() :
+                1;
             const unsigned int offset = data_faces.data_index_offsets[face];
 
             for (unsigned int q = 0; q < n_q_points_work; ++q)
@@ -2718,6 +2761,7 @@ namespace internal
               std::min<unsigned int>(work_per_chunk * (i + 1), faces.size()),
               face_type,
               faces,
+              active_fe_index,
               face_data[my_q]);
           tasks.join_all();
         }
