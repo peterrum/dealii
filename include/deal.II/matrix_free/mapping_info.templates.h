@@ -3168,6 +3168,52 @@ namespace internal
           for (unsigned int i = 0; i < cell_type.size(); ++i)
             for (const unsigned int face : GeometryInfo<dim>::face_indices())
               {
+                unsigned int n_q_points =
+                  face_data_by_cells[my_q].descriptor[0].n_q_points;
+
+                if (face_data[my_q].q_collection.size() > 1)
+                  {
+                    const unsigned int fe_index =
+                      active_fe_index.size() > 0 ? active_fe_index[i] : 0;
+
+                    // select quadrature
+                    unsigned int hp_quad_index =
+                      cell_data[my_q].descriptor.size() == 1 ? 0 : fe_index;
+
+                    for (unsigned int v = 0; v < n_lanes; ++v)
+                      {
+                        const auto cell_neighbor =
+                          compute_neighbor_index(i, face, v);
+
+                        if (cell_neighbor != numbers::invalid_unsigned_int)
+                          {
+                            const unsigned int ext_fe_index =
+                              active_fe_index.size() > 0 ?
+                                active_fe_index[cell_neighbor /
+                                                VectorizedArrayType::size()] :
+                                0;
+
+                            unsigned int ext_hp_quad_index =
+                              cell_data[my_q].descriptor.size() == 1 ?
+                                0 :
+                                ext_fe_index;
+
+                            if (face_data[my_q]
+                                  .q_collection[ext_hp_quad_index]
+                                               [0 /*ext_hp_quad_face_no*/]
+                                  .size() >
+                                face_data[my_q]
+                                  .q_collection[hp_quad_index]
+                                               [0 /*hp_quad_face_no*/]
+                                  .size())
+                              hp_quad_index = ext_hp_quad_index;
+                          }
+                      }
+
+                    n_q_points =
+                      face_data[my_q].q_collection[hp_quad_index][0].size();
+                  }
+
                 if (faces_by_cells_type[i][face] <= affine)
                   {
                     face_data_by_cells[my_q].data_index_offsets
@@ -3180,16 +3226,14 @@ namespace internal
                     face_data_by_cells[my_q].data_index_offsets
                       [i * ReferenceCells::max_n_faces<dim>() + face] =
                       storage_length;
-                    storage_length +=
-                      face_data_by_cells[my_q].descriptor[0].n_q_points;
+                    storage_length += n_q_points;
                   }
                 if (update_flags & update_quadrature_points)
                   {
                     face_data_by_cells[my_q].quadrature_point_offsets
                       [i * ReferenceCells::max_n_faces<dim>() + face] =
                       storage_length_q;
-                    storage_length_q +=
-                      face_data_by_cells[my_q].descriptor[0].n_q_points;
+                    storage_length_q += n_q_points;
                   }
               }
           face_data_by_cells[my_q].JxW_values.resize_fast(storage_length);

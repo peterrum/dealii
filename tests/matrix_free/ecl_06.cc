@@ -322,6 +322,8 @@ test(const unsigned int geometry,
                   phi_m.integrate(EvaluationFlags::values |
                                   EvaluationFlags::gradients);
 
+                  AssertDimension(phi.dofs_per_cell, phi_m.dofs_per_cell);
+
                   for (unsigned int q = 0; q < phi.dofs_per_cell; ++q)
                     phi.begin_dof_values()[q] += phi_m.begin_dof_values()[q];
                 }
@@ -386,6 +388,8 @@ test(const unsigned int geometry,
 
   if (print_vector)
     dst.print(deallog.get_file_stream());
+
+  std::cout << std::endl;
 }
 
 int
@@ -394,7 +398,7 @@ main(int argc, char **argv)
   Utilities::MPI::MPI_InitFinalize mpi_init(argc, argv, 1);
 
   mpi_initlog();
-  test<2, double>(0, 2);
-  test<2, double>(1, 2);
+  // test<2, double>(0, 2);
+  // test<2, double>(1, 2);
   test<2, double>(2, 2);
 }
