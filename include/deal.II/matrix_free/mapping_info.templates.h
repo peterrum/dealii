@@ -3258,15 +3258,6 @@ namespace internal
                     face_data[my_q].q_collection[fe_index],
                     update_flags);
 
-              if (!is_boundary_face &&
-                  fe_face_values_neigh[my_q][fe_index].get() == nullptr)
-                fe_face_values_neigh[my_q][fe_index] =
-                  std::make_shared<FEFaceValues<dim>>(
-                    mapping_in[hp_mapping_index],
-                    dummy_fe,
-                    face_data[my_q].q_collection[fe_index],
-                    update_flags);
-
               FEFaceValues<dim> &fe_val = *fe_face_values[my_q][fe_index];
               std::shared_ptr<FEFaceValues<dim>> fe_val_neigh;
               const unsigned int                 offset =
@@ -3286,9 +3277,16 @@ namespace internal
                   const auto cell_neighbor =
                     compute_neighbor_index(cell, face, v);
 
-                  if (!is_boundary_face &&
-                      cell_neighbor != numbers::invalid_unsigned_int)
+                  if (cell_neighbor != numbers::invalid_unsigned_int)
                     {
+                      if (fe_face_values_neigh[my_q][fe_index].get() == nullptr)
+                        fe_face_values_neigh[my_q][fe_index] =
+                          std::make_shared<FEFaceValues<dim>>(
+                            mapping_in[hp_mapping_index],
+                            dummy_fe,
+                            face_data[my_q].q_collection[fe_index],
+                            update_flags);
+
                       fe_val_neigh = fe_face_values_neigh[my_q][fe_index];
 
                       typename Triangulation<dim>::cell_iterator cell_it_neigh(
@@ -3324,7 +3322,8 @@ namespace internal
                                   inv_jac[d][ee];
                               }
                         }
-                      if (fe_val_neigh && (update_flags & update_jacobians))
+                      if (cell_neighbor != numbers::invalid_unsigned_int &&
+                          (update_flags & update_jacobians))
                         for (unsigned int q = 0; q < fe_val.n_quadrature_points;
                              ++q)
                           {
@@ -3376,7 +3375,8 @@ namespace internal
                                     inv_jac[d][ee];
                                 }
                           }
-                      if (fe_val_neigh && (update_flags & update_jacobians))
+                      if (cell_neighbor != numbers::invalid_unsigned_int &&
+                          (update_flags & update_jacobians))
                         for (unsigned int q = 0; q < fe_val.n_quadrature_points;
                              ++q)
                           {
