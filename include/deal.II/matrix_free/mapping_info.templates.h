@@ -3318,7 +3318,8 @@ namespace internal
                     }
                 }
               const auto &quadrature =
-                face_data[my_q].q_collection[hp_quad_index][0];
+                face_data[my_q]
+                  .q_collection[hp_quad_index][0 /*hp_quad_face_no*/];
 
               // select mapping
               const unsigned int hp_mapping_index =

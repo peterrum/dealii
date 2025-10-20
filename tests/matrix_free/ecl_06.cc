@@ -398,7 +398,7 @@ main(int argc, char **argv)
   Utilities::MPI::MPI_InitFinalize mpi_init(argc, argv, 1);
 
   mpi_initlog();
-  // test<2, double>(0, 2);
-  // test<2, double>(1, 2);
+  test<2, double>(0, 2);
+  test<2, double>(1, 2);
   test<2, double>(2, 2);
 }
