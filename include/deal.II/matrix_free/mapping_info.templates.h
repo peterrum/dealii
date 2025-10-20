@@ -3296,6 +3296,15 @@ namespace internal
 
                   if (cell_neighbor != numbers::invalid_unsigned_int)
                     {
+                      const unsigned int fe_index =
+                        active_fe_index.size() > 0 ?
+                          active_fe_index[cell_neighbor /
+                                          VectorizedArrayType::size()] :
+                          0;
+
+                      const unsigned int hp_mapping_index =
+                        mapping_in.size() == 1 ? 0 : fe_index;
+
                       if (fe_face_values_neigh[my_q][fe_index][hp_quad_index]
                             .get() == nullptr)
                         fe_face_values_neigh[my_q][fe_index][hp_quad_index] =
