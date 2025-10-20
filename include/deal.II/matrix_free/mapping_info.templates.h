@@ -3109,10 +3109,6 @@ namespace internal
       if (update_flags_faces_by_cells == update_default)
         return;
 
-
-      AssertDimension(mapping_in.size(), 1);
-      const auto &mapping = mapping_in[0];
-
       const unsigned int     n_quads = face_data_by_cells.size();
       constexpr unsigned int n_lanes = VectorizedArrayType::size();
       UpdateFlags            update_flags =
@@ -3230,9 +3226,9 @@ namespace internal
           *std::max_element(active_fe_index.begin(), active_fe_index.end()) :
           0;
 
-      Table<2, std::shared_ptr<dealii::FEFaceValues<dim>>> fe_face_values(
+      Table<2, std::shared_ptr<FEFaceValues<dim>>> fe_face_values(
         face_data_by_cells.size(), max_active_fe_index + 1);
-      Table<2, std::shared_ptr<dealii::FEFaceValues<dim>>> fe_face_values_neigh(
+      Table<2, std::shared_ptr<FEFaceValues<dim>>> fe_face_values_neigh(
         face_data_by_cells.size(), max_active_fe_index + 1);
 
       for (unsigned int cell = 0; cell < cell_type.size(); ++cell)
@@ -3241,25 +3237,39 @@ namespace internal
             {
               const unsigned int fe_index = 0;
 
+              const bool is_boundary_face =
+                compute_neighbor_index(cell, face, 0) ==
+                numbers::invalid_unsigned_int;
+
+              for (unsigned int v = 0; v < n_lanes; ++v)
+                AssertDimension(is_boundary_face,
+                                (compute_neighbor_index(cell, face, 0) ==
+                                 numbers::invalid_unsigned_int));
+
+              // select mapping
+              const unsigned int hp_mapping_index =
+                mapping_in.size() == 1 ? 0 : fe_index;
+
               if (fe_face_values[my_q][fe_index].get() == nullptr)
                 fe_face_values[my_q][fe_index] =
-                  std::make_shared<dealii::FEFaceValues<dim>>(
-                    mapping,
+                  std::make_shared<FEFaceValues<dim>>(
+                    mapping_in[hp_mapping_index],
                     dummy_fe,
                     face_data[my_q].q_collection[fe_index],
                     update_flags);
-              if (fe_face_values_neigh[my_q][fe_index].get() == nullptr)
+
+              if (!is_boundary_face &&
+                  fe_face_values_neigh[my_q][fe_index].get() == nullptr)
                 fe_face_values_neigh[my_q][fe_index] =
-                  std::make_shared<dealii::FEFaceValues<dim>>(
-                    mapping,
+                  std::make_shared<FEFaceValues<dim>>(
+                    mapping_in[hp_mapping_index],
                     dummy_fe,
                     face_data[my_q].q_collection[fe_index],
                     update_flags);
-              dealii::FEFaceValues<dim> &fe_val =
-                *fe_face_values[my_q][fe_index];
-              dealii::FEFaceValues<dim> &fe_val_neigh =
-                *fe_face_values_neigh[my_q][fe_index];
-              const unsigned int offset =
+
+              FEFaceValues<dim> &fe_val = *fe_face_values[my_q][fe_index];
+              std::shared_ptr<FEFaceValues<dim>> fe_val_neigh;
+              const unsigned int                 offset =
                 face_data_by_cells[my_q].data_index_offsets
                   [cell * ReferenceCells::max_n_faces<dim>() + face];
 
@@ -3267,27 +3277,32 @@ namespace internal
 
               for (unsigned int v = 0; v < n_lanes; ++v)
                 {
-                  typename dealii::Triangulation<dim>::cell_iterator cell_it(
+                  typename Triangulation<dim>::cell_iterator cell_it(
                     &tria,
                     cells[cell * n_lanes + v].first,
                     cells[cell * n_lanes + v].second);
                   fe_val.reinit(cell_it, face);
 
-                  const unsigned int cell_neighbor =
+                  const auto cell_neighbor =
                     compute_neighbor_index(cell, face, v);
 
-                  if (cell_neighbor != numbers::invalid_unsigned_int)
+                  if (!is_boundary_face &&
+                      cell_neighbor != numbers::invalid_unsigned_int)
                     {
-                      typename dealii::Triangulation<dim>::cell_iterator
-                        cell_it_neigh(&tria,
-                                      cells[cell_neighbor].first,
-                                      cells[cell_neighbor].second);
-                      fe_val_neigh.reinit(cell_it_neigh,
-                                          cell_it->at_boundary(face) ?
-                                            cell_it->periodic_neighbor_face_no(
-                                              face) :
-                                            cell_it->neighbor_face_no(face));
+                      fe_val_neigh = fe_face_values_neigh[my_q][fe_index];
+
+                      typename Triangulation<dim>::cell_iterator cell_it_neigh(
+                        &tria,
+                        cells[cell_neighbor].first,
+                        cells[cell_neighbor].second);
+                      fe_val_neigh->reinit(cell_it_neigh,
+                                           cell_it->at_boundary(face) ?
+                                             cell_it->periodic_neighbor_face_no(
+                                               face) :
+                                             cell_it->neighbor_face_no(face));
                     }
+                  else
+                    fe_val_neigh = {};
 
                   // copy data for affine data type
                   if (my_cell_type <= affine)
@@ -3309,19 +3324,18 @@ namespace internal
                                   inv_jac[d][ee];
                               }
                         }
-                      if (cell_neighbor != numbers::invalid_unsigned_int &&
-                          (update_flags & update_jacobians))
+                      if (fe_val_neigh && (update_flags & update_jacobians))
                         for (unsigned int q = 0; q < fe_val.n_quadrature_points;
                              ++q)
                           {
                             DerivativeForm<1, dim, dim> inv_jac =
-                              fe_val_neigh.jacobian(q).covariant_form();
+                              fe_val_neigh->jacobian(q).covariant_form();
                             for (unsigned int d = 0; d < dim; ++d)
                               for (unsigned int e = 0; e < dim; ++e)
                                 {
                                   const unsigned int ee = ExtractFaceHelper::
                                     reorder_face_derivative_indices<dim>(
-                                      fe_val_neigh.get_face_number(), e);
+                                      fe_val_neigh->get_face_number(), e);
                                   face_data_by_cells[my_q]
                                     .jacobians[1][offset][d][e][v] =
                                     inv_jac[d][ee];
@@ -3362,19 +3376,18 @@ namespace internal
                                     inv_jac[d][ee];
                                 }
                           }
-                      if (cell_neighbor != numbers::invalid_unsigned_int &&
-                          (update_flags & update_jacobians))
+                      if (fe_val_neigh && (update_flags & update_jacobians))
                         for (unsigned int q = 0; q < fe_val.n_quadrature_points;
                              ++q)
                           {
                             DerivativeForm<1, dim, dim> inv_jac =
-                              fe_val_neigh.jacobian(q).covariant_form();
+                              fe_val_neigh->jacobian(q).covariant_form();
                             for (unsigned int d = 0; d < dim; ++d)
                               for (unsigned int e = 0; e < dim; ++e)
                                 {
                                   const unsigned int ee = ExtractFaceHelper::
                                     reorder_face_derivative_indices<dim>(
-                                      fe_val_neigh.get_face_number(), e);
+                                      fe_val_neigh->get_face_number(), e);
                                   face_data_by_cells[my_q]
                                     .jacobians[1][offset + q][d][e][v] =
                                     inv_jac[d][ee];
