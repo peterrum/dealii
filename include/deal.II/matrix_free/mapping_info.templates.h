@@ -3166,7 +3166,8 @@ namespace internal
           if (update_flags & update_quadrature_points)
             face_data_by_cells[my_q].quadrature_point_offsets.resize(
               cell_type.size() * ReferenceCells::max_n_faces<dim>());
-          std::size_t storage_length = 0;
+          std::size_t storage_length   = 0;
+          std::size_t storage_length_q = 0;
           for (unsigned int i = 0; i < cell_type.size(); ++i)
             for (const unsigned int face : GeometryInfo<dim>::face_indices())
               {
@@ -3186,10 +3187,13 @@ namespace internal
                       face_data_by_cells[my_q].descriptor[0].n_q_points;
                   }
                 if (update_flags & update_quadrature_points)
-                  face_data_by_cells[my_q].quadrature_point_offsets
-                    [i * ReferenceCells::max_n_faces<dim>() + face] =
-                    (i * ReferenceCells::max_n_faces<dim>() + face) *
-                    face_data_by_cells[my_q].descriptor[0].n_q_points;
+                  {
+                    face_data_by_cells[my_q].quadrature_point_offsets
+                      [i * ReferenceCells::max_n_faces<dim>() + face] =
+                      storage_length_q;
+                    storage_length_q +=
+                      face_data_by_cells[my_q].descriptor[0].n_q_points;
+                  }
               }
           face_data_by_cells[my_q].JxW_values.resize_fast(
             storage_length * ReferenceCells::max_n_faces<dim>());
@@ -3220,8 +3224,7 @@ namespace internal
 
           if (update_flags & update_quadrature_points)
             face_data_by_cells[my_q].quadrature_points.resize_fast(
-              cell_type.size() * ReferenceCells::max_n_faces<dim>() *
-              face_data_by_cells[my_q].descriptor[0].n_q_points);
+              storage_length_q * ReferenceCells::max_n_faces<dim>());
         }
 
       FE_Nothing<dim> dummy_fe;
