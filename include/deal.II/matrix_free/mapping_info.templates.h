@@ -195,7 +195,8 @@ namespace internal
           initialize_cells(tria, cells, active_fe_index, *mapping);
           initialize_faces(
             tria, cells, face_info.faces, active_fe_index, *mapping);
-          initialize_faces_by_cells(tria, cells, face_info, *mapping);
+          initialize_faces_by_cells(
+            tria, cells, active_fe_index, face_info, *mapping);
         }
     }
 
@@ -233,7 +234,8 @@ namespace internal
           initialize_cells(tria, cells, active_fe_index, *mapping);
           initialize_faces(
             tria, cells, face_info.faces, active_fe_index, *mapping);
-          initialize_faces_by_cells(tria, cells, face_info, *mapping);
+          initialize_faces_by_cells(
+            tria, cells, active_fe_index, face_info, *mapping);
         }
     }
 
@@ -3089,10 +3091,8 @@ namespace internal
       // transitioned to extracting the information from cell quadrature
       // points but we need to figure out the correct indices of neighbors
       // within the list of arrays still
-      initialize_faces_by_cells(tria,
-                                cell_array,
-                                face_info,
-                                *this->mapping_collection);
+      initialize_faces_by_cells(
+        tria, cell_array, {}, face_info, *this->mapping_collection);
     }
 
 
@@ -3102,6 +3102,7 @@ namespace internal
     MappingInfo<dim, Number, VectorizedArrayType>::initialize_faces_by_cells(
       const dealii::Triangulation<dim>                         &tria,
       const std::vector<std::pair<unsigned int, unsigned int>> &cells,
+      const std::vector<unsigned int>                          &active_fe_index,
       const FaceInfo<VectorizedArrayType::size()>              &face_info,
       const dealii::hp::MappingCollection<dim>                 &mapping_in)
     {
@@ -3223,8 +3224,14 @@ namespace internal
         }
 
       FE_Nothing<dim> dummy_fe;
-      // currently no hp-indices implemented
-      const unsigned int fe_index = 0;
+
+      const unsigned int max_active_fe_index =
+        active_fe_index.size() > 0 ?
+          *std::max_element(active_fe_index.begin(), active_fe_index.end()) :
+          0;
+
+      (void)max_active_fe_index;
+
       std::vector<std::vector<std::shared_ptr<dealii::FEFaceValues<dim>>>>
         fe_face_values(face_data_by_cells.size());
       for (unsigned int i = 0; i < fe_face_values.size(); ++i)
@@ -3237,6 +3244,8 @@ namespace internal
         for (unsigned int my_q = 0; my_q < face_data_by_cells.size(); ++my_q)
           for (const unsigned int face : GeometryInfo<dim>::face_indices())
             {
+              const unsigned int fe_index = 0;
+
               if (fe_face_values[my_q][fe_index].get() == nullptr)
                 fe_face_values[my_q][fe_index] =
                   std::make_shared<dealii::FEFaceValues<dim>>(
