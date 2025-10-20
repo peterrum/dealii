@@ -3239,15 +3239,6 @@ namespace internal
         for (unsigned int my_q = 0; my_q < face_data_by_cells.size(); ++my_q)
           for (const unsigned int face : GeometryInfo<dim>::face_indices())
             {
-              const bool is_boundary_face =
-                compute_neighbor_index(cell, face, 0) ==
-                numbers::invalid_unsigned_int;
-
-              for (unsigned int v = 0; v < n_lanes; ++v)
-                AssertDimension(is_boundary_face,
-                                (compute_neighbor_index(cell, face, 0) ==
-                                 numbers::invalid_unsigned_int));
-
               const unsigned int fe_index =
                 active_fe_index.size() > 0 ? active_fe_index[cell] : 0;
 
@@ -3255,11 +3246,35 @@ namespace internal
               unsigned int hp_quad_index =
                 cell_data[my_q].descriptor.size() == 1 ? 0 : fe_index;
 
-
-              if (!is_boundary_face)
+              for (unsigned int v = 0; v < n_lanes; ++v)
                 {
-                  // TODO
+                  const auto cell_neighbor =
+                    compute_neighbor_index(cell, face, v);
+
+                  if (cell_neighbor != numbers::invalid_unsigned_int)
+                    {
+                      const unsigned int ext_fe_index =
+                        active_fe_index.size() > 0 ?
+                          active_fe_index[cell_neighbor /
+                                          VectorizedArrayType::size()] :
+                          0;
+
+                      unsigned int ext_hp_quad_index =
+                        cell_data[my_q].descriptor.size() == 1 ? 0 :
+                                                                 ext_fe_index;
+
+                      if (face_data[my_q]
+                            .q_collection[ext_hp_quad_index]
+                                         [0 /*ext_hp_quad_face_no*/]
+                            .size() >
+                          face_data[my_q]
+                            .q_collection[hp_quad_index][0 /*hp_quad_face_no*/]
+                            .size())
+                        hp_quad_index = ext_hp_quad_index;
+                    }
                 }
+              const auto &quadrature =
+                face_data[my_q].q_collection[hp_quad_index][0];
 
               // select mapping
               const unsigned int hp_mapping_index =
@@ -3271,7 +3286,7 @@ namespace internal
                   std::make_shared<FEFaceValues<dim>>(
                     mapping_in[hp_mapping_index],
                     dummy_fe,
-                    face_data[my_q].q_collection[fe_index],
+                    quadrature,
                     update_flags);
 
               FEFaceValues<dim> &fe_val =
@@ -3311,7 +3326,7 @@ namespace internal
                           std::make_shared<FEFaceValues<dim>>(
                             mapping_in[hp_mapping_index],
                             dummy_fe,
-                            face_data[my_q].q_collection[fe_index],
+                            quadrature,
                             update_flags);
 
                       fe_val_neigh =
