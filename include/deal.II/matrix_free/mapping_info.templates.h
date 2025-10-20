@@ -3230,16 +3230,11 @@ namespace internal
           *std::max_element(active_fe_index.begin(), active_fe_index.end()) :
           0;
 
-      (void)max_active_fe_index;
+      Table<2, std::shared_ptr<dealii::FEFaceValues<dim>>> fe_face_values(
+        face_data_by_cells.size(), max_active_fe_index + 1);
+      Table<2, std::shared_ptr<dealii::FEFaceValues<dim>>> fe_face_values_neigh(
+        face_data_by_cells.size(), max_active_fe_index + 1);
 
-      std::vector<std::vector<std::shared_ptr<dealii::FEFaceValues<dim>>>>
-        fe_face_values(face_data_by_cells.size());
-      for (unsigned int i = 0; i < fe_face_values.size(); ++i)
-        fe_face_values[i].resize(face_data_by_cells[i].descriptor.size());
-      std::vector<std::vector<std::shared_ptr<dealii::FEFaceValues<dim>>>>
-        fe_face_values_neigh(face_data_by_cells.size());
-      for (unsigned int i = 0; i < fe_face_values_neigh.size(); ++i)
-        fe_face_values_neigh[i].resize(face_data_by_cells[i].descriptor.size());
       for (unsigned int cell = 0; cell < cell_type.size(); ++cell)
         for (unsigned int my_q = 0; my_q < face_data_by_cells.size(); ++my_q)
           for (const unsigned int face : GeometryInfo<dim>::face_indices())
