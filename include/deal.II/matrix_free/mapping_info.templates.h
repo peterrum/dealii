@@ -3195,36 +3195,31 @@ namespace internal
                       face_data_by_cells[my_q].descriptor[0].n_q_points;
                   }
               }
-          face_data_by_cells[my_q].JxW_values.resize_fast(
-            storage_length * ReferenceCells::max_n_faces<dim>());
-          face_data_by_cells[my_q].jacobians[0].resize_fast(
-            storage_length * ReferenceCells::max_n_faces<dim>());
-          face_data_by_cells[my_q].jacobians[1].resize_fast(
-            storage_length * ReferenceCells::max_n_faces<dim>());
+          face_data_by_cells[my_q].JxW_values.resize_fast(storage_length);
+          face_data_by_cells[my_q].jacobians[0].resize_fast(storage_length);
+          face_data_by_cells[my_q].jacobians[1].resize_fast(storage_length);
           if (update_flags & update_normal_vectors)
-            face_data_by_cells[my_q].normal_vectors.resize_fast(
-              storage_length * ReferenceCells::max_n_faces<dim>());
+            face_data_by_cells[my_q].normal_vectors.resize_fast(storage_length);
           if (update_flags & update_normal_vectors &&
               update_flags & update_jacobians)
             face_data_by_cells[my_q].normals_times_jacobians[0].resize_fast(
-              storage_length * ReferenceCells::max_n_faces<dim>());
+              storage_length);
           if (update_flags & update_normal_vectors &&
               update_flags & update_jacobians)
             face_data_by_cells[my_q].normals_times_jacobians[1].resize_fast(
-              storage_length * ReferenceCells::max_n_faces<dim>());
+              storage_length);
           if (update_flags & update_jacobian_grads)
             {
               face_data_by_cells[my_q].jacobian_gradients[0].resize_fast(
-                storage_length * ReferenceCells::max_n_faces<dim>());
+                storage_length);
               face_data_by_cells[my_q]
                 .jacobian_gradients_non_inverse[0]
-                .resize_fast(storage_length *
-                             ReferenceCells::max_n_faces<dim>());
+                .resize_fast(storage_length);
             }
 
           if (update_flags & update_quadrature_points)
             face_data_by_cells[my_q].quadrature_points.resize_fast(
-              storage_length_q * ReferenceCells::max_n_faces<dim>());
+              storage_length_q);
         }
 
       FE_Nothing<dim> dummy_fe;
