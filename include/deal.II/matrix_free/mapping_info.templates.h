@@ -3226,17 +3226,21 @@ namespace internal
           *std::max_element(active_fe_index.begin(), active_fe_index.end()) :
           0;
 
-      Table<2, std::shared_ptr<FEFaceValues<dim>>> fe_face_values(
-        face_data_by_cells.size(), max_active_fe_index + 1);
-      Table<2, std::shared_ptr<FEFaceValues<dim>>> fe_face_values_neigh(
-        face_data_by_cells.size(), max_active_fe_index + 1);
+      Table<4, std::shared_ptr<FEFaceValues<dim>>> fe_face_values(
+        face_data_by_cells.size(),
+        max_active_fe_index + 1,
+        max_active_fe_index + 1,
+        GeometryInfo<dim>::faces_per_cell);
+      Table<4, std::shared_ptr<FEFaceValues<dim>>> fe_face_values_neigh(
+        face_data_by_cells.size(),
+        max_active_fe_index + 1,
+        max_active_fe_index + 1,
+        GeometryInfo<dim>::faces_per_cell);
 
       for (unsigned int cell = 0; cell < cell_type.size(); ++cell)
         for (unsigned int my_q = 0; my_q < face_data_by_cells.size(); ++my_q)
           for (const unsigned int face : GeometryInfo<dim>::face_indices())
             {
-              const unsigned int fe_index = 0;
-
               const bool is_boundary_face =
                 compute_neighbor_index(cell, face, 0) ==
                 numbers::invalid_unsigned_int;
@@ -3246,19 +3250,35 @@ namespace internal
                                 (compute_neighbor_index(cell, face, 0) ==
                                  numbers::invalid_unsigned_int));
 
+              const unsigned int fe_index = 0;
+
+              // select quadrature
+              unsigned int hp_quad_index   = 0;
+              unsigned int hp_quad_face_no = 0;
+
+
+              if (!is_boundary_face)
+                {
+                  // TODO
+                }
+
+
+
               // select mapping
               const unsigned int hp_mapping_index =
                 mapping_in.size() == 1 ? 0 : fe_index;
 
-              if (fe_face_values[my_q][fe_index].get() == nullptr)
-                fe_face_values[my_q][fe_index] =
+              if (fe_face_values[my_q][fe_index][hp_quad_index][hp_quad_face_no]
+                    .get() == nullptr)
+                fe_face_values[my_q][fe_index][hp_quad_index][hp_quad_face_no] =
                   std::make_shared<FEFaceValues<dim>>(
                     mapping_in[hp_mapping_index],
                     dummy_fe,
                     face_data[my_q].q_collection[fe_index],
                     update_flags);
 
-              FEFaceValues<dim> &fe_val = *fe_face_values[my_q][fe_index];
+              FEFaceValues<dim> &fe_val =
+                *fe_face_values[my_q][fe_index][hp_quad_index][hp_quad_face_no];
               std::shared_ptr<FEFaceValues<dim>> fe_val_neigh;
               const unsigned int                 offset =
                 face_data_by_cells[my_q].data_index_offsets
@@ -3279,15 +3299,20 @@ namespace internal
 
                   if (cell_neighbor != numbers::invalid_unsigned_int)
                     {
-                      if (fe_face_values_neigh[my_q][fe_index].get() == nullptr)
-                        fe_face_values_neigh[my_q][fe_index] =
-                          std::make_shared<FEFaceValues<dim>>(
-                            mapping_in[hp_mapping_index],
-                            dummy_fe,
-                            face_data[my_q].q_collection[fe_index],
-                            update_flags);
+                      if (fe_face_values_neigh[my_q][fe_index][hp_quad_index]
+                                              [hp_quad_face_no]
+                                                .get() == nullptr)
+                        fe_face_values_neigh
+                          [my_q][fe_index][hp_quad_index][hp_quad_face_no] =
+                            std::make_shared<FEFaceValues<dim>>(
+                              mapping_in[hp_mapping_index],
+                              dummy_fe,
+                              face_data[my_q].q_collection[fe_index],
+                              update_flags);
 
-                      fe_val_neigh = fe_face_values_neigh[my_q][fe_index];
+                      fe_val_neigh =
+                        fe_face_values_neigh[my_q][fe_index][hp_quad_index]
+                                            [hp_quad_face_no];
 
                       typename Triangulation<dim>::cell_iterator cell_it_neigh(
                         &tria,
