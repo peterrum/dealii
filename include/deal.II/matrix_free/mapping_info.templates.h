@@ -2165,7 +2165,7 @@ namespace internal
                 0;
 
             unsigned int hp_quad_index =
-              data_faces.descriptor.size() == 1 ? 0 : fe_index;
+              data_faces.q_collection.size() == 1 ? 0 : fe_index;
             unsigned int hp_quad_face_no =
               data_faces.q_collection[hp_quad_index].size() == 1 ?
                 0 :
