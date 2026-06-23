@@ -1746,13 +1746,23 @@ namespace internal
 
               dealii::hp::QCollection<dim - 1> quadrature_collection;
 
-              for (const auto f : dummy_fe[my_q][hp_quad_index]
-                                    ->reference_cell()
-                                    .face_indices())
-                if (f == faces[face].interior_face_no)
+              if (dummy_fe[my_q][hp_quad_index]
+                    ->reference_cell()
+                    .is_hyper_cube() ||
+                  dummy_fe[my_q][hp_quad_index]->reference_cell().is_simplex())
+                {
                   quadrature_collection.push_back(quadrature);
-                else
-                  quadrature_collection.push_back(Quadrature<dim - 1>());
+                }
+              else
+                {
+                  for (const auto f : dummy_fe[my_q][hp_quad_index]
+                                        ->reference_cell()
+                                        .face_indices())
+                    if (f == faces[face].interior_face_no)
+                      quadrature_collection.push_back(quadrature);
+                    else
+                      quadrature_collection.push_back(Quadrature<dim - 1>());
+                }
 
               const auto &mapping = mapping_in[hp_mapping_index];
 
@@ -1769,9 +1779,9 @@ namespace internal
                     mapping_info.update_flags_boundary_faces);
               else if (fe_face_values_container[my_q][fe_index][hp_quad_index]
                                                [faces[face].interior_face_no]
-                                               [1] == nullptr)
+                                               [0] == nullptr)
                 fe_face_values_container[my_q][fe_index][hp_quad_index]
-                                        [faces[face].interior_face_no][1] =
+                                        [faces[face].interior_face_no][0] =
                                           std::make_shared<FEFaceValues<dim>>(
                                             mapping,
                                             *dummy_fe[my_q][hp_quad_index],
@@ -1961,14 +1971,29 @@ namespace internal
                               dealii::hp::QCollection<dim - 1>
                                 quadrature_collection;
 
-                              for (const auto f : dummy_fe[my_q][hp_quad_index]
-                                                    ->reference_cell()
-                                                    .face_indices())
-                                if (f == faces[face].exterior_face_no)
+
+                              if (dummy_fe[my_q][hp_quad_index]
+                                    ->reference_cell()
+                                    .is_hyper_cube() ||
+                                  dummy_fe[my_q][hp_quad_index]
+                                    ->reference_cell()
+                                    .is_simplex())
+                                {
                                   quadrature_collection.push_back(quadrature);
-                                else
-                                  quadrature_collection.push_back(
-                                    Quadrature<dim - 1>());
+                                }
+                              else
+                                {
+                                  for (const auto f :
+                                       dummy_fe[my_q][hp_quad_index]
+                                         ->reference_cell()
+                                         .face_indices())
+                                    if (f == faces[face].exterior_face_no)
+                                      quadrature_collection.push_back(
+                                        quadrature);
+                                    else
+                                      quadrature_collection.push_back(
+                                        Quadrature<dim - 1>());
+                                }
 
                               fe_face_values_container
                                 [my_q][fe_index][hp_quad_index]
@@ -2001,14 +2026,28 @@ namespace internal
                               dealii::hp::QCollection<dim - 1>
                                 quadrature_collection;
 
-                              for (const auto f : dummy_fe[my_q][hp_quad_index]
-                                                    ->reference_cell()
-                                                    .face_indices())
-                                if (f == faces[face].exterior_face_no)
+                              if (dummy_fe[my_q][hp_quad_index]
+                                    ->reference_cell()
+                                    .is_hyper_cube() ||
+                                  dummy_fe[my_q][hp_quad_index]
+                                    ->reference_cell()
+                                    .is_simplex())
+                                {
                                   quadrature_collection.push_back(quadrature);
-                                else
-                                  quadrature_collection.push_back(
-                                    Quadrature<dim - 1>());
+                                }
+                              else
+                                {
+                                  for (const auto f :
+                                       dummy_fe[my_q][hp_quad_index]
+                                         ->reference_cell()
+                                         .face_indices())
+                                    if (f == faces[face].exterior_face_no)
+                                      quadrature_collection.push_back(
+                                        quadrature);
+                                    else
+                                      quadrature_collection.push_back(
+                                        Quadrature<dim - 1>());
+                                }
 
                               fe_subface_values_container
                                 [my_q][0][hp_quad_index][hp_quad_face_no][1] =
