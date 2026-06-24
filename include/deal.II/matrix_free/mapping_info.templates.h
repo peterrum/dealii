@@ -1742,26 +1742,37 @@ namespace internal
               const unsigned int hp_mapping_index =
                 mapping_in.size() == 1 ? 0 : fe_index;
 
+              const auto generate_quadrature_collection =
+                [&](const unsigned int face_no) {
+                  dealii::hp::QCollection<dim - 1> quadrature_collection;
 
-              dealii::hp::QCollection<dim - 1> quadrature_collection;
-
-              if (dummy_fe[my_q][hp_quad_index]
-                    ->reference_cell()
-                    .is_hyper_cube() ||
-                  dummy_fe[my_q][hp_quad_index]->reference_cell().is_simplex())
-                {
-                  quadrature_collection.push_back(quadrature);
-                }
-              else
-                {
-                  for (const auto f : dummy_fe[my_q][hp_quad_index]
-                                        ->reference_cell()
-                                        .face_indices())
-                    if (f == faces[face].interior_face_no)
+                  if (dummy_fe[my_q][hp_quad_index]
+                        ->reference_cell()
+                        .is_hyper_cube() ||
+                      dummy_fe[my_q][hp_quad_index]
+                        ->reference_cell()
+                        .is_simplex())
+                    {
                       quadrature_collection.push_back(quadrature);
-                    else
-                      quadrature_collection.push_back(Quadrature<dim - 1>());
-                }
+                    }
+                  else
+                    {
+                      for (const auto f : dummy_fe[my_q][hp_quad_index]
+                                            ->reference_cell()
+                                            .face_indices())
+                        if (f == face_no)
+                          quadrature_collection.push_back(quadrature);
+                        else
+                          quadrature_collection.push_back(
+                            Quadrature<dim - 1>());
+                    }
+
+                  return quadrature_collection;
+                };
+
+
+              const auto quadrature_collection =
+                generate_quadrature_collection(faces[face].interior_face_no);
 
               const auto &mapping = mapping_in[hp_mapping_index];
 
@@ -1962,32 +1973,9 @@ namespace internal
                                 [my_q][fe_index][hp_quad_index][hp_quad_face_no]
                                 [faces[face].exterior_face_no] == nullptr)
                             {
-                              dealii::hp::QCollection<dim - 1>
-                                quadrature_collection;
-
-
-                              if (dummy_fe[my_q][hp_quad_index]
-                                    ->reference_cell()
-                                    .is_hyper_cube() ||
-                                  dummy_fe[my_q][hp_quad_index]
-                                    ->reference_cell()
-                                    .is_simplex())
-                                {
-                                  quadrature_collection.push_back(quadrature);
-                                }
-                              else
-                                {
-                                  for (const auto f :
-                                       dummy_fe[my_q][hp_quad_index]
-                                         ->reference_cell()
-                                         .face_indices())
-                                    if (f == faces[face].exterior_face_no)
-                                      quadrature_collection.push_back(
-                                        quadrature);
-                                    else
-                                      quadrature_collection.push_back(
-                                        Quadrature<dim - 1>());
-                                }
+                              const auto quadrature_collection =
+                                generate_quadrature_collection(
+                                  faces[face].exterior_face_no);
 
                               fe_face_values_container
                                 [my_q][fe_index][hp_quad_index][hp_quad_face_no]
@@ -2016,31 +2004,9 @@ namespace internal
                                 [my_q][0][hp_quad_index][hp_quad_face_no]
                                 [faces[face].exterior_face_no] == nullptr)
                             {
-                              dealii::hp::QCollection<dim - 1>
-                                quadrature_collection;
-
-                              if (dummy_fe[my_q][hp_quad_index]
-                                    ->reference_cell()
-                                    .is_hyper_cube() ||
-                                  dummy_fe[my_q][hp_quad_index]
-                                    ->reference_cell()
-                                    .is_simplex())
-                                {
-                                  quadrature_collection.push_back(quadrature);
-                                }
-                              else
-                                {
-                                  for (const auto f :
-                                       dummy_fe[my_q][hp_quad_index]
-                                         ->reference_cell()
-                                         .face_indices())
-                                    if (f == faces[face].exterior_face_no)
-                                      quadrature_collection.push_back(
-                                        quadrature);
-                                    else
-                                      quadrature_collection.push_back(
-                                        Quadrature<dim - 1>());
-                                }
+                              const auto quadrature_collection =
+                                generate_quadrature_collection(
+                                  faces[face].exterior_face_no);
 
                               fe_subface_values_container
                                 [my_q][0][hp_quad_index][hp_quad_face_no]
